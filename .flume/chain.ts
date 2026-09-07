@@ -165,13 +165,51 @@ const scopedDelta = (ctx: TickContext): string => {
  * afterMerge, on the trunk, after the cherry-pick: an operator note committed
  * to main after plan's worktree branched is invisible to the tick's own tree
  * but real on the trunk, and the tick that yields to build over it must be
- * reverted, not merged. `after-build` is as quiet a claim as `no` (both hand
- * the baton away asserting the inputs are clear), so both are held to it.
+ * reverted, not merged — when the tick's own tree held that input and the
+ * tick left it. An input only the trunk holds landed after the tick
+ * branched: fresh, not ignored. The gate passes it and plan's handoff
+ * routes to plan over it, so the tick's work lands and the input is drained
+ * next (two reconciliation ticks were reverted on 2026-09-07 for notes filed
+ * minutes after they branched). `after-build` is as quiet a claim as `no`
+ * (both hand the baton away asserting the inputs are clear), so both are
+ * held to it.
  * A drain is also held to conservation: every note removed is accounted for
  * on an `Inbox routed:` line in the commit body, each destination resolving
  * to a pending tag, a keyed fork, or a named debt/amendment — a note that
  * leaves the inbox and lands nowhere is the silent loss this gate exists for.
  */
+// The plan tick's own worktree (`<FLUME_WORKTREES_DIR>/plan`, alive through
+// afterMerge and handoff — the dispatcher removes it in tick cleanup). Its
+// HEAD is the tick's tree: what the tick saw and left. A trunk input absent
+// from it landed after the tick branched — fresh, never the tick's
+// dishonesty — and is a handoff's to route, not a gate's to revert.
+const PLAN_WORKTREE = resolve(process.env.FLUME_WORKTREES_DIR ?? resolve(CHAIN_DIR, "worktrees"), "plan");
+const gitOut = (args: string[], cwd: string): string | null => {
+  try {
+    return execFileSync("git", args, { cwd, encoding: "utf8" });
+  } catch {
+    return null;
+  }
+};
+const inboxNotes = (text: string | null): number =>
+  (text ?? "").replace(/<!--[\s\S]*?-->/g, "").split("\n").filter((l) => /^## /.test(l)).length;
+const specsPastCursor = (cursor: string, cwd: string): number => {
+  const out = gitOut(["log", "--format=%h", `${cursor}..HEAD`, "--", "specs/"], cwd)?.trim() ?? "";
+  return out.length === 0 ? 0 : out.split("\n").length;
+};
+/** Trunk inputs a quiet marker must not hand the baton away over. */
+const liveTrunkInputs = (repoRoot: string, stateText: string): string[] => {
+  const live: string[] = [];
+  const notes = inboxNotes(gitOut(["show", "HEAD:.flume/inbox.md"], repoRoot));
+  if (notes > 0) live.push(`${notes} undrained inbox note(s)`);
+  const cursor = /^- Spec derived through:\s*([0-9a-f]{6,40})\b/im.exec(stateText)?.[1];
+  if (cursor) {
+    const n = specsPastCursor(cursor, repoRoot);
+    if (n > 0) live.push(`${n} specs/ commit(s) past the spec cursor ${cursor}`);
+  }
+  return live;
+};
+
 const planHonestyGate: Gate = {
   name: "continuation marker is honest",
   when: "afterMerge",
@@ -299,7 +337,13 @@ const planHonestyGate: Gate = {
         }
       }
     }
-    // Marker says quiet. Live input 1: an undrained inbox.
+    // Marker says quiet. Live input 1: an undrained inbox. Notes the tick's
+    // own tree also holds were seen and left — dishonest, reverted. Notes only
+    // the trunk holds landed after the tick branched — fresh; plan's handoff
+    // routes them, and reverting would throw away a tick that never saw them.
+    // An unreadable tick tree fails open the same way: plan runs again either
+    // way, and the loss on a genuine lie is one landed commit, not the notes.
+    const fresh: string[] = [];
     {
       let inbox = fromCommit(".flume/inbox.md");
       if (inbox === null) {
@@ -309,12 +353,15 @@ const planHonestyGate: Gate = {
           inbox = null; // no inbox file — nothing undrained
         }
       }
-      const stripped = inbox?.replace(/<!--[\s\S]*?-->/g, "").trim() ?? "";
-      if (stripped.length > 0) {
-        return {
-          ok: false,
-          message: "state.md says `Plan continues: no` but .flume/inbox.md is undrained",
-        };
+      if (inboxNotes(inbox) > 0) {
+        const tickView = gitOut(["show", "HEAD:.flume/inbox.md"], PLAN_WORKTREE);
+        if (tickView !== null && inboxNotes(tickView) > 0) {
+          return {
+            ok: false,
+            message: "state.md says `Plan continues: no` but .flume/inbox.md is undrained",
+          };
+        }
+        fresh.push(`${inboxNotes(inbox)} inbox note(s) newer than the tick`);
       }
     }
     // Live input 2: undrained refactor captures (plan-drained, unlike friction).
@@ -344,24 +391,29 @@ const planHonestyGate: Gate = {
     // Live input 3: specs/ commits past the recorded spec cursor.
     const cursor = /^- Spec derived through:\s*([0-9a-f]{6,40})\b/im.exec(stateText)?.[1];
     if (cursor) {
-      try {
-        const out = execFileSync(
-          "git",
-          ["log", "--format=%h", `${cursor}..HEAD`, "--", "specs/"],
-          { cwd: ctx.repoRoot, encoding: "utf8" },
-        ).trim();
-        if (out.length > 0) {
+      const onTrunk = specsPastCursor(cursor, ctx.repoRoot);
+      if (onTrunk > 0) {
+        // Same split as the inbox: a specs/ commit the tick's tree holds past
+        // the cursor was ignored; one only the trunk holds is fresh.
+        const inTick = gitOut(["rev-parse", "--verify", "HEAD"], PLAN_WORKTREE) === null
+          ? 0
+          : specsPastCursor(cursor, PLAN_WORKTREE);
+        if (inTick > 0) {
           return {
             ok: false,
-            message: `state.md says \`Plan continues: no\` but ${out.split("\n").length} specs/ commit(s) sit past the spec cursor ${cursor}`,
-            details: out,
+            message: `state.md says \`Plan continues: no\` but ${inTick} specs/ commit(s) sit past the spec cursor ${cursor}`,
           };
         }
-      } catch {
-        // bad sha or git unavailable — fail open
+        fresh.push(`${onTrunk} specs/ commit(s) newer than the tick`);
       }
     }
-    return { ok: true, message: "quiet marker verified against inbox + spec cursor" };
+    return {
+      ok: true,
+      message:
+        fresh.length > 0
+          ? `quiet marker honest for the tick's inputs; fresh on the trunk: ${fresh.join("; ")} — handoff routes to plan`
+          : "quiet marker verified against inbox + spec cursor",
+    };
   },
 };
 
@@ -741,8 +793,21 @@ const factory: ChainFactory = (flume) => {
         // state.md missing — treat as stable.
       }
       const hasPickable = result.pendingAfter.some((e) => e.gate.kind === "open");
-      if (marker === "after-build") return hasPickable ? ["build"] : ["plan"];
       if (marker === "yes") return ["plan"];
+      // A quiet marker is honest for the tick's inputs (the gate above held
+      // it there); the trunk may still carry inputs that landed after the
+      // tick branched. They are plan's, now — before any build wave picks
+      // an entry a fresh note may have just amended, and before a `no`
+      // hibernates over them.
+      let stateText = "";
+      try {
+        stateText = readFileSync(resolve(CHAIN_DIR, "plan", "state.md"), "utf8");
+      } catch {
+        // state.md missing — no cursor to check
+      }
+      const live = liveTrunkInputs(resolve(CHAIN_DIR, ".."), stateText);
+      if (live.length > 0) return ["plan"];
+      if (marker === "after-build") return hasPickable ? ["build"] : ["plan"];
       return hasPickable ? ["build"] : [];
     },
   };
