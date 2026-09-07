@@ -1,10 +1,10 @@
 # Plan state
 
 - Spec derived through: cadabd8e — unchanged, copied forward.
-- Audited through: b46a306e — unchanged, copied forward.
-- Residue swept through: b46a306e — unchanged, copied forward.
+- Audited through: 1f79d12a.
+- Residue swept through: 1f79d12a.
 - Posture swept through: tests/tap.rs next — unchanged, copied forward.
-- This tick: inbox (job 1) — both refactor captures verified at HEAD and drained: one into EMIT-PROJECTION-NOTE's fence, one into the new MEMBER-ADDRESS-GRAMMAR-ONE-HOME; the two gate-revert bills re-confirmed already discharged; the queue re-serialized to zero collisions.
-- Queue: 19 pending — 2 open, 10 blockedBy, 4 parked, 3 deferred. Pickable: 2. Open forks: 11. Friction: 2. Amendments: 0. Refactor: 0. Inbox: 0.
+- This tick: post-ship reconciliation b46a306e..HEAD — audit de-staled five entries against the three build commits (NESTED-MEMBER's plumbing parent shipped, so it shrank to the judgment alone); sweep filed SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME, the TS half of the consolidation ab500f80 gave the Rust half.
+- Queue: 20 pending — 2 open, 11 blockedBy, 4 parked, 3 deferred. Pickable: 2. Open forks: 11. Friction: 2. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — post-ship reconciliation over b46a306e..HEAD (259a6035, ab500f80, c60ddd3f all touched src/ and tests/) is live and outranks the open posture rotation.
+Plan continues: after-build — the only remaining live job is the posture rotation (tests/tap.rs next) and two entries are pickable; ready work ships first.

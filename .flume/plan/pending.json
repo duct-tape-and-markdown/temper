@@ -13,7 +13,7 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "manifest_write_findings (954-1003) reads `input.get(\"content\")` (960: `let content = input.get(\"content\").and_then(JsonValue::as_str)?;`) and returns `None` — no manifest verdict at all — whenever the field is absent, which is every `Edit`/`MultiEdit` payload (those carry `old_string`/`new_string`, or an `edits` array, never whole-file `content`). Now that GH #40 lists a co-owned manifest like `.claude/settings.json` as emit-owned, that `None` falls through in `main.rs` to the blanket `.claude/ is projected` denial for ANY Edit to the manifest, even one touching only unmodeled residue (`autoMemoryEnabled`, `permissions.allow`) — legitimate under the co-owned posture and allowed pre-GH-#40. Add an Edit/MultiEdit path: when `content` is absent but `old_string`/`new_string` (or `edits`) are present, read `root.join(file_path)` off disk, apply the edit(s) in sequence, and run the resulting text through the same manifest-parse-and-validate path `manifest_write_findings` already runs for `content`. When the on-disk file is unreadable, or an `old_string` does not match (so the edit cannot be honestly applied), fall back to a manifest-specific denial naming the governed members and pointing the author at `Write` for a full-manifest change — never the wholesale `.claude/ is projected` message, and never a silent allow."
+          "description": "manifest_write_findings (945-1003) reads `input.get(\"content\")` (953: `let content = input.get(\"content\").and_then(JsonValue::as_str)?;`) and returns `None` — no manifest verdict at all — whenever the field is absent, which is every `Edit`/`MultiEdit` payload (those carry `old_string`/`new_string`, or an `edits` array, never whole-file `content`). Now that GH #40 lists a co-owned manifest like `.claude/settings.json` as emit-owned, that `None` falls through at main.rs:359 to the blanket `.claude/ is projected` denial for ANY Edit to the manifest, even one touching only unmodeled residue (`autoMemoryEnabled`, `permissions.allow`) — legitimate under the co-owned posture and allowed pre-GH-#40. Add an Edit/MultiEdit path: when `content` is absent but `old_string`/`new_string` (or `edits`) are present, read `root.join(file_path)` off disk, apply the edit(s) in sequence, and run the resulting text through the same manifest-parse-and-validate path `manifest_write_findings` already runs for `content`. When the on-disk file is unreadable, or an `old_string` does not match (so the edit cannot be honestly applied), fall back to a manifest-specific denial naming the governed members and pointing the author at `Write` for a full-manifest change — never the wholesale `.claude/ is projected` message, and never a silent allow. The whole fix lands inside this function: main.rs:359 already treats a `Some` verdict as authoritative and needs no edit."
         },
         {
           "path": "tests/install.rs",
@@ -34,7 +34,7 @@
       }
     ],
     "acceptance": "Edit and Write share one rule for a represented manifest: a write (of either shape) touching only opaque residue or conforming members passes; one that drops a lock-declared member or cannot be reconstructed denies with a message naming the governed members and pointing at Write, never the blanket .claude/-projected wording GH #40 now emits for every manifest Edit.",
-    "notes": "observed at 97399cc1 (cascade-integrations, live run of the origin build's GH #40 fixes against a real block-mode harness) — the co-owned-manifest regression GH #40's own two fixes created together, verified live in the same run (both #40 fixes bind correctly under guard . otherwise). Serialized behind GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT: both edit src/install.rs and tests/install.rs. scoped at cadabd8e"
+    "notes": "observed at 97399cc1 (cascade-integrations, live run of the origin build's GH #40 fixes against a real block-mode harness) — the co-owned-manifest regression GH #40's own two fixes created together. Post-ship reconciliation 09-07: GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT shipped (259a6035), which is why the gate now serializes behind EMIT-PROJECTION-NOTE instead (shared src/install.rs + tests/install.rs); line refs re-read at HEAD after that commit moved them. scoped at 1f79d12a"
   },
   {
     "tag": "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL",
@@ -51,7 +51,7 @@
         },
         {
           "path": "src/install.rs",
-          "description": "Narrow project_note (~1969-1994) to the converge_banner_wording contract the banner already follows: None when no note line is present, converge-only when one is — the same narrowing bccf42c0 did for the banner. Move NOTE_COMMENT (currently src/install.rs:205) to src/placement.rs beside BANNER (placement.rs:23), its one home; install and emit then read one constant rather than emit reaching into install's private module."
+          "description": "Narrow project_note (:1953-1968) to the converge_banner_wording contract the banner already follows: None when no note line is present, converge-only when one is — the same narrowing bccf42c0 did for the banner. Move NOTE_COMMENT (still src/install.rs:205) to src/placement.rs beside BANNER (placement.rs:23), its one home; install and emit then read one constant rather than emit reaching into install's private module."
         },
         {
           "path": "tests/emit.rs",
@@ -59,15 +59,15 @@
         },
         {
           "path": "src/placement.rs",
-          "description": "Home for NOTE_COMMENT, relocated from src/install.rs:205 beside BANNER (:23) and BANNER_MARKER (:16) — the frontmatter note and the markdown banner are one placement family with one owner, so emit's writer and install's converger read the same constant (engineering.md, 'One job, one home'). Its unit test block (~102) gains the note's own placement_lines case."
+          "description": "Home for NOTE_COMMENT, relocated from src/install.rs:205 beside BANNER (:23) and BANNER_MARKER (:16) — the frontmatter note and the markdown banner are one placement family with one owner, so emit's writer and install's converger read the same constant (engineering.md, 'One job, one home'). Its unit test block (`mod tests`, :99) gains the note's own placement_lines case."
         },
         {
           "path": "tests/install.rs",
-          "description": "Two existing tests assert the OLD ownership split and must invert with this entry, not after it (build's own fence capture at 1e663552). (a) emit_never_stamps_the_managed_by_note (:1757) asserts the exact negation of this entry's acceptance — re-cut to assert emit DOES stamp the note and still never stamps the yaml-language-server modeline, which stays install's. (b) gate_installed_names_drifted_un_noted_files (:1097) hand-deletes the note line from an emit-owned SKILL.md and expects a missing-placement finding; under the narrowed project_note that hand-edit is drift by hash, exactly as this test's own sibling comment already says of the banner — re-cut to a stale-WORDING drift (splice a retired note wording in), which is what project_note still converges."
+          "description": "Two existing tests assert the OLD ownership split and must invert with this entry, not after it (build's own fence capture at 1e663552). (a) emit_never_stamps_the_managed_by_note (:1818) asserts the exact negation of this entry's acceptance — re-cut to assert emit DOES stamp the note and still never stamps the yaml-language-server modeline, which stays install's. (b) gate_installed_names_drifted_un_noted_files (:1097) hand-deletes the note line from an emit-owned SKILL.md and expects a missing-placement finding; under the narrowed project_note that hand-edit is drift by hash, exactly as this test's own sibling comment already says of the banner — re-cut to a stale-WORDING drift (splice a retired note wording in), which is what project_note still converges."
         },
         {
           "path": "tests/json_document_format.rs",
-          "description": "the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_as_they_were (~469) pins .claude/rules/rust.md byte-exact as `---\\npaths: [...]\\n---\\n{RULE_BODY}`; the frontmatter member now carries the note line, so this expectation gains it — the same edit tests/emit.rs takes in-fence."
+          "description": "the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_as_they_were (:439) pins .claude/rules/rust.md byte-exact as `---\\npaths: [...]\\n---\\n{RULE_BODY}`; the frontmatter member now carries the note line, so this expectation gains it — the same edit tests/emit.rs takes in-fence."
         },
         {
           "path": "tests/gauntlet.rs",
@@ -79,7 +79,7 @@
         },
         {
           "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
-          "description": "Line 6 pins the `install.gate-installed` warning verbatim, its parenthetical carrying `managed-by note: <HARNESS>/.claude/rules/authoring.md` and `managed-by note: <HARNESS>/.claude/rules/conventions.md`. Those two clauses are exactly what this entry's acceptance removes: `gate_installed` (src/install.rs:561) tallies a note placement only while its outcome is missing/drifted, and renders the clause at :631 — once emit places the note, the placement is `Unchanged` and both clauses vanish. So this snapshot is the acceptance rendered, and moves WITH the entry, not after it. Accept it in the same `INSTA_UPDATE=always cargo test --test gauntlet` run as the projection tree, and read both diffs: each must be the note line and its consequences and nothing else."
+          "description": "Line 6 pins the `install.gate-installed` warning verbatim, its parenthetical carrying `managed-by note: <HARNESS>/.claude/rules/authoring.md` and `managed-by note: <HARNESS>/.claude/rules/conventions.md`. Those two clauses are exactly what this entry's acceptance removes: `gate_installed` (src/install.rs:561) tallies a note placement only while its outcome is missing/drifted, and renders the clause at :629-633 — once emit places the note, the placement is `Unchanged` and both clauses vanish. So this snapshot is the acceptance rendered, and moves WITH the entry, not after it. Accept it in the same `INSTA_UPDATE=always cargo test --test gauntlet` run as the projection tree, and read both diffs: each must be the note line and its consequences and nothing else."
         }
       ],
       "retire": []
@@ -96,7 +96,7 @@
       }
     ],
     "acceptance": "A markdown projection with frontmatter, freshly emitted with no prior install run, carries both its managed-projection banner (where applicable) and its frontmatter note; check's gate_installed reports no finding for it. `cargo test --no-fail-fast` is green, including the four re-cut assertions that pinned the old ownership split.",
-    "notes": "observed at bf4b4168 (GH #57); widened at a13f6bf2, and at e6c551cc with tests/snapshots/gauntlet__check_diagnostics.snap — the second half of build's own fence capture (2a6e649d), re-verified on disk. bccf42c0 moved banner placement from install to emit and left the note behind — the part-authored/part-emitted gap invariant 7 forbids. Suggested shape: one predicate renders_frontmatter(format, fields) that project_bytes renders by and emit_one picks the marker form by. scoped at e6c551cc"
+    "notes": "observed at bf4b4168 (GH #57); widened at a13f6bf2 and e6c551cc. bccf42c0 moved banner placement from install to emit and left the note behind — the part-authored/part-emitted gap invariant 7 forbids. Suggested shape: one predicate renders_frontmatter(format, fields) that project_bytes renders by and emit_one picks the marker form by. Post-ship reconciliation 09-07: every install.rs and tests/install.rs line ref re-read after 259a6035 moved them. scoped at 1f79d12a"
   },
   {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
@@ -290,7 +290,7 @@
         },
         {
           "path": "src/graph.rs",
-          "description": "resolves (~1627) is a boolean `.any()` over `by_kind`'s pooled Vec (compose::embedded_features_by_kind, ~1138, pushes every host's rows into one shared per-kind Vec) — a duplicate (kind, key) across hosts today resolves to whichever matches first, silently. When a BARE (unqualified) target or explain name matches more than one nested member of a kind across different hosts, refuse at resolution (a new graph.route finding) naming every colliding host — the full host-qualified address always resolves unambiguously. The host is reachable here by the time this entry runs: 77682915 shipped host-qualified parsing and EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED puts the host on a carrier every consumer can read, so this entry adds the ambiguity judgment rather than the plumbing."
+          "description": "`member_named` (:1650) is the ONE membership lookup `resolves` (:1632), `edge_resolves` and `member_at` all read since ab500f80 consolidated them, and its own doc comment already names this entry's ruling as owed: a bare key `also names an embedded member, taking whichever member of the kind carries it first ... which of several same-keyed members it means is an open ambiguity, and refusing it is a policy decision owned elsewhere`. Decide it here. Because ab500f80 also made an embedded member's identity ITS ADDRESS (`compose::embedded_member_features`), the host is now read straight off `features.id` via `parse_nested_address` — no plumbing, no carrier to thread. When a BARE (unqualified) key matches more than one nested member of a kind across different hosts, refuse at resolution (a new graph.route finding) naming every colliding host; the full host-qualified address always resolves unambiguously. `by_kind`'s pooled per-kind Vec (compose::embedded_features_by_kind, :1139) is what pools the candidates a bare key sees."
         },
         {
           "path": "src/read.rs",
@@ -298,7 +298,7 @@
         },
         {
           "path": "src/gate.rs",
-          "description": "embedded_hosts_by_source (~572) is the source-side twin of target_identity and the third partial implementation of \"which host owns this nested member\": it builds a `(kind, key) -> host` BTreeMap off nested_member rows with a plain `.insert()`, so a cross-host duplicate silently keeps whichever row inserts last, feeding mention_reachable's citation scoping. Fold it onto the one host carrier EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED establishes and give it the same ambiguity judgment, rather than a third lookup with a third failure mode (engineering.md, \"One job, one home\")."
+          "description": "embedded_hosts_by_source (:572) is the last partial implementation of \"which host owns this nested member\": it builds a `(kind, key) -> host` BTreeMap off nested_member rows with a plain `.insert()` (:578), so a cross-host duplicate silently keeps whichever row inserts last, feeding mention_reachable's citation scoping. It also hand-parses the host address a fourth time (`row.host.split_once(':')`, :577) where `graph::parse_nested_address` owns that grammar. Read the host off the member's own address — ab500f80 put it there — and give this the same ambiguity judgment, rather than a third lookup with a third failure mode (engineering.md, \"One job, one home\")."
         },
         {
           "path": "tests/nested_member.rs",
@@ -318,8 +318,8 @@
         "asserts": "same-host duplicate (kind, key) refuses at admissibility; cross-host duplicate (kind, key) refuses only a bare/unqualified reference, at resolution, naming both hosts, across every bare-key consumer (graph::resolves, explain's why_impl, embedded_hosts_by_source)"
       }
     ],
-    "acceptance": "A host repeating its own (kind, key) nested member refuses loud at admissibility. Two different hosts sharing a (kind, key) are legal (distinct addresses per 0049); a bare or explain-name reference ambiguous between them refuses at resolution naming every host, while the full host-qualified address to either always resolves. Per 0049's amendment, the ambiguity bar fires at every consumer of a bare key, not only graph::resolves: explain's why_impl and embedded_hosts_by_source (gate.rs) each name every candidate host too, matching the SDK member table's bare lookup (SDK-MEMBER-TABLE-NESTED-EDGE-TARGET). The regression pins non-vacuity: each case asserts at least one real colliding pair is judged, not an empty read short-circuiting to 'no ambiguity' (0048's conservation bar).",
-    "notes": "observed at ad10e8cb (GH #51 half); corrected at bf4b4168 (refusing every cross-host duplicate hard-codes the alternative 0049 rejects). Widened at cadabd8e: embedded_hosts_by_source is a third bare-key consumer, plus the vacuity-pin bar. Post-ship reconciliation 09-07: GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS shipped (77682915), so \"embedded_member_features drops row.host\" is stale — it smuggles it through the fields map; the plumbing is now this entry's new parent. scoped at b46a306e"
+    "acceptance": "A host repeating its own (kind, key) nested member refuses loud at admissibility. Two different hosts sharing a (kind, key) are legal (distinct addresses per 0049); a bare or explain-name reference ambiguous between them refuses at resolution naming every host, while the full host-qualified address to either always resolves. The refusal matches the SDK's, which SHIPPED this same bar at c60ddd3f (sdk/src/emit.ts:337-347: names every carrier host and points at the whole `<host-address>/<kind>/<key>` spelling) — one verdict at both ends of the seam, not two wordings. The bar fires at every consumer of a bare key, not only graph::member_named: explain's why_impl and embedded_hosts_by_source (gate.rs) each name every candidate host too. The regression pins non-vacuity: each case asserts at least one real colliding pair is judged, not an empty read short-circuiting to 'no ambiguity' (0048's conservation bar).",
+    "notes": "observed at ad10e8cb (GH #51 half); corrected at bf4b4168 (refusing every cross-host duplicate hard-codes the alternative 0049 rejects). Post-ship reconciliation 09-07, second pass: EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED shipped (ab500f80) — the fields-map smuggling this entry was to fold is GONE, identity IS the address, and the three lookups are one `member_named`. Strictly smaller now: the plumbing is done and only the judgment is left. scoped at 1f79d12a"
   },
   {
     "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
@@ -498,7 +498,7 @@
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
     "gate": {
       "kind": "deferred",
-      "reason": "An idea, not a defect (the raw note's own framing) — a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path) can't already express cleanly."
+      "reason": "An idea, not a defect (the raw note's own framing) — a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path, repo-rooted path) can't already express cleanly."
     },
     "dependsOnForks": [],
     "files": {
@@ -691,7 +691,7 @@
     "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
     "gate": {
       "kind": "deferred",
-      "reason": "project_modeline (src/install.rs:1615) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+      "reason": "project_modeline (src/install.rs:1922) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
     },
     "dependsOnForks": [],
     "files": {
@@ -791,5 +791,59 @@
     ],
     "acceptance": "`rg 'fn host_address|fn nested_address|fn parse_nested_address|fn parse_leaf_address' src/` returns hits in src/member_address.rs and nowhere else; every caller reads the one module. A host-qualified leaf address resolves through the same parser that reads the nested address it is a tail of, and the bare short forms both parsers accept today keep resolving. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` are green, and so is `cargo doc --no-deps --document-private-items` — the moved symbols carry intra-doc links from four files and that gate is denied crate-wide. Known prose cite left stale on purpose: sdk/src/declarations.ts:503 points at `src/read.rs`'s parse_leaf_address; a TS comment no gate reads, so it rides the next entry that opens declarations.ts (SECTION-CONTAINS-LABEL-MARKER-COLLISION or KINDS-IN-PLAY-NAME-COLLISION-REFUSAL) per the standing prose-cite rule, rather than pulling a twice-contended file into this fence.",
     "notes": "observed at 86aa0e94 (build refactor capture, drained this tick); all three homes re-verified on disk at e6c551cc — extract.rs:742, graph.rs:1665/1678/1695, read.rs:835/845 — and the disagreement confirmed live: resolve_leaf (read.rs:872) matches ParsedLeaf.member against features.id, a bare id, where parse_nested_address demands `<kind>:<name>` of the same segment. Short-form tolerance follows member_named's shipped precedent (graph.rs:1650), not a new ruling. scoped at e6c551cc"
+  },
+  {
+    "tag": "SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/src/member-address.ts",
+          "description": "The SDK's one home for the member-address grammar `specs/model/representation.md` (\"member\") spells — `<kind>:<name>`, `<host-address>/<kind>/<key>`, and `/<leaf>` beneath it — a writer per spelling plus the parser the writers round-trip against, mirroring the Rust module MEMBER-ADDRESS-GRAMMAR-ONE-HOME lands (`graph::nested_address` and `parse_nested_address` are the shape to match, so the two ends of the seam cannot disagree about what an address is). Internal: not re-exported from sdk/src/index.ts, which is the curated authoring API and gains no consumer here (engineering.md, \"An export earns its consumer\")."
+        },
+        {
+          "path": "sdk/test/member-address.test.ts",
+          "description": "The test that would have caught this: every writer's output parses back through the one parser, and the qualified spelling built for the member table equals the one built for `declaredAddresses` and for `EdgeTargetFacts.address` given the same host and value — the agreement twenty inline literals can only assert by inspection."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Nine address-producing sites read the new module: the member table's top-level keys (:771, :775), the nested table's qualified and bare spellings (:798, :799-800), `resolvedTargetFacts`'s returned address (:353), and the placement keys (:515, :555). The three diagnostic-prose spellings (:181, :208, :341) render an address into a message and take the same writer, so a refusal quotes the spelling the resolver actually looked up."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Six sites: the host address at :454, :476, :544, :699 and :843, the qualified nested address at :847, and the leaf address at :508 — whose own doc comment already points at `src/read.rs`'s `parse_leaf_address` as the grammar it must match, the cross-seam cite that goes stale the moment either side moves. That cite is re-pointed at the new module here, discharging the stale-prose exception MEMBER-ADDRESS-GRAMMAR-ONE-HOME's acceptance parks on this file."
+        },
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "`mentionOf` (:29) spells `${member.kind}:${member.name}` — its doc comment calls it \"the convention every corpus repeats to cite a member from prose, captured once here\", which is true of this function and false of the module: it is one of eleven. Read the writer."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The member-address grammar is spelled by twenty inline template literals across three SDK modules, with no writer and no parser — the TS half of a consolidation the Rust half already has.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/member-address.test.ts",
+        "asserts": "each address writer round-trips through the one parser, and the qualified nested spelling the member table, declaredAddresses and EdgeTargetFacts each produce for one host+value are byte-identical"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "unchanged and green — the extraction is behaviour-preserving, so the existing edge-resolution and member-table suites are the non-vacuity pin"
+      }
+    ],
+    "acceptance": "`rg '\\}:\\$\\{|\\}/\\$\\{' sdk/src/*.ts` returns hits in sdk/src/member-address.ts and nowhere else; every producer reads the one module. `pnpm --dir sdk test` (strict tsc + node --test) is green with no behavioural diff, and `cargo test` stays green — the payload and lock rows the SDK emits are byte-identical, which is what makes this an extraction rather than a change.",
+    "notes": "Post-ship reconciliation sweep 09-07, b46a306e..HEAD: ab500f80 gave the Rust side one writer (`graph::nested_address`) and one parser, and c60ddd3f then shipped a bug that was exactly this class — the SDK member table indexed `kind:name` while the grammar spelled three segments, so an embedded edge target resolved nowhere. The seam gate (tests/seam_bindings_current.rs) compares row TYPES, not the grammar, so nothing catches the two ends drifting. scoped at 1f79d12a"
   }
 ]
