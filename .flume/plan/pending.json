@@ -76,6 +76,10 @@
         {
           "path": "tests/snapshots/gauntlet__projection_tree.snap",
           "description": "The snapshot carries every gauntlet projection's bytes, so each frontmatter-bearing one gains the note line. cargo-insta is NOT installed in this environment (`cargo insta` errors 'no such command') — accept with `INSTA_UPDATE=always cargo test --test gauntlet`, which the insta crate itself honours, then re-run plain `cargo test` to confirm green. Read the accepted diff: it must be the note line and nothing else."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
+          "description": "Line 6 pins the `install.gate-installed` warning verbatim, its parenthetical carrying `managed-by note: <HARNESS>/.claude/rules/authoring.md` and `managed-by note: <HARNESS>/.claude/rules/conventions.md`. Those two clauses are exactly what this entry's acceptance removes: `gate_installed` (src/install.rs:561) tallies a note placement only while its outcome is missing/drifted, and renders the clause at :631 — once emit places the note, the placement is `Unchanged` and both clauses vanish. So this snapshot is the acceptance rendered, and moves WITH the entry, not after it. Accept it in the same `INSTA_UPDATE=always cargo test --test gauntlet` run as the projection tree, and read both diffs: each must be the note line and its consequences and nothing else."
         }
       ],
       "retire": []
@@ -92,7 +96,7 @@
       }
     ],
     "acceptance": "A markdown projection with frontmatter, freshly emitted with no prior install run, carries both its managed-projection banner (where applicable) and its frontmatter note; check's gate_installed reports no finding for it. `cargo test --no-fail-fast` is green, including the four re-cut assertions that pinned the old ownership split.",
-    "notes": "observed at bf4b4168 (GH #57); widened at a13f6bf2 from build's own fence capture (1e663552, verified on disk this tick: all four sites still present). bccf42c0 moved banner placement from install to emit and left the note behind — the part-authored/part-emitted gap invariant 7 forbids. Suggested shape: one predicate renders_frontmatter(format, fields) that both project_bytes renders by and emit_one picks the marker form by, so writer and marker-placer cannot disagree. scoped at a13f6bf2"
+    "notes": "observed at bf4b4168 (GH #57); widened at a13f6bf2, and at e6c551cc with tests/snapshots/gauntlet__check_diagnostics.snap — the second half of build's own fence capture (2a6e649d), re-verified on disk. bccf42c0 moved banner placement from install to emit and left the note behind — the part-authored/part-emitted gap invariant 7 forbids. Suggested shape: one predicate renders_frontmatter(format, fields) that project_bytes renders by and emit_one picks the marker form by. scoped at e6c551cc"
   },
   {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
@@ -363,7 +367,10 @@
   {
     "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tags": [
+        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL"
+      ]
     },
     "dependsOnForks": [
       "layout-own-span-leaf"
@@ -398,7 +405,7 @@
       }
     ],
     "acceptance": "A layout collection member's own paragraph (not just its sub-headings) reaches a leaf, addressable and visible to leaf predicates, leaf addresses, and explain, matching the composed half's full-leaves behavior. Per 0048's conservation bar, the regression pins non-vacuity: it asserts the captured own-span text is non-empty before checking it resolves as a leaf.",
-    "notes": "observed at ad10e8cb (F11, GH #43 leaves gap); corrected at bf4b4168: 'the composed half already names it prose' is false — no reserved own-span leaf name exists anywhere in the corpus today. Reserving one is a Decision, tracked by fork `layout-own-span-leaf`; this entry waits on it. Chained behind LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (shares src/layout.rs + tests/layout_kind.rs). Vacuity-pin bar added per cadabd8e. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb (F11, GH #43 leaves gap); corrected at bf4b4168: 'the composed half already names it prose' is false — no reserved own-span leaf name exists anywhere in the corpus today. Reserving one is a Decision, tracked by fork `layout-own-span-leaf`; this entry waits on it. Re-chained at e6c551cc behind KINDS-IN-PLAY-NAME-COLLISION-REFUSAL: its old parent shipped, leaving tests/layout_kind.rs + sdk/src/kind.ts contended with three live entries. scoped at e6c551cc"
   },
   {
     "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
@@ -450,7 +457,8 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "BUILTIN-KIND-RELOCATION-EDGE-FIELDS"
+        "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
+        "SECTION-CONTAINS-LABEL-MARKER-COLLISION"
       ]
     },
     "dependsOnForks": [],
@@ -484,7 +492,7 @@
       }
     ],
     "acceptance": "Declaring a corpus kind that reuses a built-in's name at a different root refuses loud, naming both loci, unless authored through the sanctioned relocation form. Per 0048's conservation bar, the regression pins non-vacuity: it asserts both colliding KindFacts values are actually compared (non-empty divergence) before checking the refusal fires.",
-    "notes": "observed at ad10e8cb (cascade F13(c), GH #53); corrected at bf4b4168, item h: the engine already refuses a diverging same-name row once it reaches the lock — the gap is kindsInPlay's SDK-side first-wins discarding the second kind first. `admit` is a closure inside kindsInPlay, not a standalone export. Blocked on BUILTIN-KIND-RELOCATION-EDGE-FIELDS defining the relocation marker this refusal must recognize. Vacuity-pin bar added per cadabd8e inbox note. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb (cascade F13(c), GH #53); corrected at bf4b4168, item h: the engine already refuses a diverging same-name row once it reaches the lock — the gap is kindsInPlay's SDK-side first-wins discarding the second kind first. `admit` is a closure inside kindsInPlay, not a standalone export. Blocked on BUILTIN-KIND-RELOCATION-EDGE-FIELDS for the relocation marker, and at e6c551cc also on SECTION-CONTAINS (both edit sdk/src/declarations.ts). scoped at e6c551cc"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
@@ -704,5 +712,84 @@
     "tests": [],
     "acceptance": "A JSON- or TOML-document kind (settings-local, plugin-manifest, marketplace, dial, or a declared kind sharing one of those formats) gets keystroke schema validation wired by `install`, once a modeline-equivalent mechanism is designed for its format.",
     "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. scoped at 162e1cce."
+  },
+  {
+    "tag": "MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
+        "BUILTIN-KIND-RELOCATION-EDGE-FIELDS"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "src/member_address.rs",
+          "description": "The one home for the member-address grammar `specs/model/representation.md` (\"member\") spells — `<kind>:<name>`, `<host-address>/<kind>/<key>`, and `/<leaf>` beneath it — with a writer and a parser per spelling and the leaf address parsed as a TAIL of the nested one rather than a second, differently-shaped parse. Distinct from `src/address.rs`, which is field addressing (a clause's `field` path), not member addressing; a new flat top-level module is what `specs/process/architecture.md` (\"The tree stays flat\") calls for."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Declare `pub mod member_address;` in the alphabetical run (~63-64, between `layout` and `path`)."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Move `host_address` (:742) and its unit test `host_address_is_kind_colon_id` (:1166) into the new module. Its doc comment already names the two other writers of the same `${kind}:${name}` form (drift::NestedMemberRow::host, sdk/src/declarations.ts's nestedMemberRows) — that comment moves with it."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Move `NestedAddress` (:1665), `nested_address` (:1678) and `parse_nested_address` (:1695) into the new module (`parse_nested_address` becomes `pub`). Re-point the three call sites — `edge_host` (:332), `target_identity` (:1617), `member_named` (:1653) — and the four intra-doc links that name them (:329, :1606, :1675, :1690); the broken-intra-doc-links gate is `-D`-denied crate-wide, so a stale link fails afterMerge."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Move `ParsedLeaf` (:835) and `parse_leaf_address` (:845) into the new module and re-cut the parse as the nested address's `/<leaf>` tail: the first segment is a `<kind>:<name>` host address, not the bare member id it reads today. That bare read is the divergence — `resolve_leaf` (:866) compares `ParsedLeaf.member` to `features.id`, so a host-qualified leaf address resolves nowhere while `parse_nested_address` demands exactly that spelling of the same segment. Keep the bare short form resolving alongside the canonical one, exactly as `member_named` (graph.rs:1650) already keeps a bare key resolving: a short form the corpus already writes is not retired here, and which of several same-keyed members it means stays NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY's ruling, never one this entry invents. Callers at :904 (`impact_leaf`) and :1084 take the moved import."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Import-path only: `extract::host_address` (:743, :1052), `graph::nested_address` (:1214), and the two intra-doc links naming it (:1199, :1212)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Import-path only: `use crate::extract::host_address` (:29) and its five call sites (:1284, :1897, :1960, :2129, :2359)."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Import-path only: the `extract::host_address` call site (:678)."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "The two embedded-leaf mention fixtures spell the leaf address bare — `note/requirement/my-req/chosen` (:1939) and `note/requirement/my-req/rejected` (:1973). Add the canonical host-qualified spelling beside them so both forms are pinned: the canonical one resolves, and a bogus key under it still fires `graph.route`."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage (:239) drives `explain` at the bare spelling `20-surface/decision/surface-authority/chosen` (:257). Extend it to the canonical `spec:20-surface/...` spelling, asserting the same leaf-grain narration."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "an_address_with_a_leaf_tail_names_no_member (:903) asserts `service:beta/domain/common/purpose` names no MEMBER — that must stay true under the unified parser (the leaf tail is a different grain, `parse_nested_address`'s own doc comment rules it out at :1685-1693). Re-verify it, and where the file's `resolve` helper reaches it, pin the twin: the same address DOES name a leaf."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "One member-address grammar is written and parsed in three unrelated modules, and its nested and leaf parsers disagree on whether the first segment is `<kind>:<name>` or a bare id.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "explain at the canonical host-qualified leaf address `<kind>:<name>/<kind>/<key>/<leaf>` narrates at leaf grain, and the bare-member short form still does"
+      },
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a mention targeting a host-qualified embedded-leaf address route-resolves at check, and a bogus key under the same spelling still fires graph.route"
+      }
+    ],
+    "acceptance": "`rg 'fn host_address|fn nested_address|fn parse_nested_address|fn parse_leaf_address' src/` returns hits in src/member_address.rs and nowhere else; every caller reads the one module. A host-qualified leaf address resolves through the same parser that reads the nested address it is a tail of, and the bare short forms both parsers accept today keep resolving. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` are green, and so is `cargo doc --no-deps --document-private-items` — the moved symbols carry intra-doc links from four files and that gate is denied crate-wide. Known prose cite left stale on purpose: sdk/src/declarations.ts:503 points at `src/read.rs`'s parse_leaf_address; a TS comment no gate reads, so it rides the next entry that opens declarations.ts (SECTION-CONTAINS-LABEL-MARKER-COLLISION or KINDS-IN-PLAY-NAME-COLLISION-REFUSAL) per the standing prose-cite rule, rather than pulling a twice-contended file into this fence.",
+    "notes": "observed at 86aa0e94 (build refactor capture, drained this tick); all three homes re-verified on disk at e6c551cc — extract.rs:742, graph.rs:1665/1678/1695, read.rs:835/845 — and the disagreement confirmed live: resolve_leaf (read.rs:872) matches ParsedLeaf.member against features.id, a bare id, where parse_nested_address demands `<kind>:<name>` of the same segment. Short-form tolerance follows member_named's shipped precedent (graph.rs:1650), not a new ruling. scoped at e6c551cc"
   }
 ]
