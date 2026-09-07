@@ -814,6 +814,7 @@ pub enum GuardVerdict {
 pub fn guard(
     payload: &str,
     mode: EnforcementMode,
+    root: &Path,
     targets: Option<&[drift::EmitOwnedEntry]>,
 ) -> GuardVerdict {
     let Some(file_path) = extract_file_path(payload) else {
@@ -822,7 +823,7 @@ pub fn guard(
 
     // When targets are declared, check the file_path against them.
     if let Some(targets) = targets {
-        if !matches_projection(&file_path, targets) {
+        if !matches_projection(&file_path, root, targets) {
             return GuardVerdict::Allow;
         }
     } else {
@@ -860,31 +861,44 @@ fn is_claude_path(file_path: &str) -> bool {
     file_path.contains(&format!("{}/", builtin_kind::CLAUDE_ROOT))
 }
 
-/// Normalize backslashes and check whether `file_path` matches any candidate by
+/// Normalize backslashes and check whether a relative `file_path` matches any candidate by
 /// suffix compare — a straight suffix check against `/`-normalized paths
-/// (`PATH-SEP-NORMALIZE`), tolerant of `file_path` arriving absolute against
-/// workspace-relative candidates. The match must land on a path-segment boundary:
+/// (`PATH-SEP-NORMALIZE`). The match must land on a path-segment boundary:
 /// the byte before the matched suffix, if any, must be `/`. For single-segment
 /// candidates (no `/`), the prefix up to the match must also be single-segment
 /// to ensure unrelated deeper paths don't falsely match.
-fn path_matches<'a>(file_path: &str, mut candidates: impl Iterator<Item = &'a Path>) -> bool {
-    let file_path = file_path.replace('\\', "/");
+///
+/// When called with an absolute `file_path`, relativize it against `root` first.
+fn path_matches<'a>(
+    file_path: &str,
+    root: &Path,
+    mut candidates: impl Iterator<Item = &'a Path>,
+) -> bool {
+    let file_path_to_check =
+        if let Some(rel_path) = crate::path::relativize_against_root(file_path, root) {
+            rel_path
+        } else {
+            // If relativization fails (path not under root), allow the write.
+            return false;
+        };
+
+    let file_path_normalized = file_path_to_check.replace('\\', "/");
     candidates.any(|candidate| {
         let candidate_str = candidate.to_string_lossy().replace('\\', "/");
-        if file_path.ends_with(candidate_str.as_str()) {
-            let match_start = file_path.len() - candidate_str.len();
+        if file_path_normalized.ends_with(candidate_str.as_str()) {
+            let match_start = file_path_normalized.len() - candidate_str.len();
             if match_start == 0 {
                 return true;
             }
             // Match must be preceded by a path separator.
-            if file_path.as_bytes().get(match_start - 1) != Some(&b'/') {
+            if file_path_normalized.as_bytes().get(match_start - 1) != Some(&b'/') {
                 return false;
             }
             // For single-segment candidates (no `/` in them), ensure the prefix
             // has no `/` — so `.claude/CLAUDE.md` matches `CLAUDE.md`,
             // but `.temper/memory/CLAUDE.md` does not.
             if !candidate_str.contains('/') {
-                let prefix = &file_path[..match_start - 1];
+                let prefix = &file_path_normalized[..match_start - 1];
                 !prefix.contains('/')
             } else {
                 true
@@ -898,8 +912,8 @@ fn path_matches<'a>(file_path: &str, mut candidates: impl Iterator<Item = &'a Pa
 /// Whether `file_path` names one of `targets` — a straight suffix compare against each
 /// row's `/`-normalized `source_path` (`PATH-SEP-NORMALIZE`), tolerant of `file_path`
 /// arriving absolute (Claude Code's own convention) against a workspace-relative lock row.
-fn matches_projection(file_path: &str, targets: &[drift::EmitOwnedEntry]) -> bool {
-    path_matches(file_path, targets.iter().map(|t| t.path.as_path()))
+fn matches_projection(file_path: &str, root: &Path, targets: &[drift::EmitOwnedEntry]) -> bool {
+    path_matches(file_path, root, targets.iter().map(|t| t.path.as_path()))
 }
 
 /// One represented manifest the `PreToolUse` guard checks a pending write against — its
@@ -935,6 +949,7 @@ pub struct GuardedManifest {
 #[must_use]
 pub fn manifest_write_findings(
     payload: &str,
+    root: &Path,
     manifests: &[GuardedManifest],
 ) -> Option<Vec<Diagnostic>> {
     let value: JsonValue = serde_json::from_str(payload).ok()?;
@@ -945,7 +960,7 @@ pub fn manifest_write_findings(
     let mut matched = false;
     let mut findings = Vec::new();
     for manifest in manifests {
-        if !path_matches(file_path, std::iter::once(manifest.path.as_path())) {
+        if !path_matches(file_path, root, std::iter::once(manifest.path.as_path())) {
             continue;
         }
         matched = true;

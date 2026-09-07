@@ -1328,8 +1328,9 @@ fn guard_binds_settings_json_when_registration_members_compose() {
 
 /// Regression test for the suffix-path-boundary bug: a file_path ending in
 /// a projected file's bare name but living at an unrelated, deeper path
-/// should resolve Allow, not Block. Example: `.temper/memory/CLAUDE.md`
-/// should not match a projection at root `CLAUDE.md`.
+/// should resolve Allow, not Block. Example: an absolute path to
+/// `.temper/memory/CLAUDE.md` should not match a projection at root `CLAUDE.md`.
+/// Uses absolute paths as Claude Code actually sends them.
 #[test]
 fn guard_suffix_path_boundary_rejects_unrelated_deeper_paths() {
     let root = common::tmpdir("guard-suffix-boundary");
@@ -1344,43 +1345,52 @@ fn guard_suffix_path_boundary_rejects_unrelated_deeper_paths() {
     )
     .unwrap();
 
-    // A write to the actual root CLAUDE.md projection should be blocked
-    let (code, stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"CLAUDE.md\"}}",
-    );
+    // A write to the actual root CLAUDE.md projection (absolute path) should be blocked
+    let abs_root_claude = root.join("CLAUDE.md");
+    let payload_root = serde_json::json!({
+        "tool_name": "Write",
+        "tool_input": { "file_path": abs_root_claude.to_string_lossy().as_ref() }
+    })
+    .to_string();
+    let (code, stderr) = common::run_guard(&root, &payload_root);
     assert_eq!(
         code,
         Some(2),
-        "the actual CLAUDE.md projection should be blocked"
+        "the actual CLAUDE.md projection (absolute path) should be blocked"
     );
     assert!(stderr.contains("temper-managed projection"));
 
-    // A write to `.temper/memory/CLAUDE.md` (an unrelated file with the same
+    // A write to `.temper/memory/CLAUDE.md` (absolute path, an unrelated file with the same
     // filename living deeper in the tree) should be allowed. This was the bug:
-    // naive suffix matching would block it because `.temper/memory/CLAUDE.md`
-    // ends with `CLAUDE.md`, even though it's not the declared projection.
-    let (code, stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".temper/memory/CLAUDE.md\"}}",
-    );
+    // naive suffix matching would block it because the absolute path ends with `CLAUDE.md`,
+    // even though it's not the declared projection.
+    let abs_deep_claude = root.join(".temper/memory/CLAUDE.md");
+    let payload_deep = serde_json::json!({
+        "tool_name": "Write",
+        "tool_input": { "file_path": abs_deep_claude.to_string_lossy().as_ref() }
+    })
+    .to_string();
+    let (code, stderr) = common::run_guard(&root, &payload_deep);
     assert_eq!(
         code,
         Some(0),
-        "an unrelated path ending in the projection's filename but deeper in the tree should be allowed"
+        "an unrelated path ending in the projection's filename but deeper in the tree (absolute path) should be allowed"
     );
     assert!(stderr.is_empty());
 
-    // A write to `.claude/CLAUDE.md` (if the projection lived here) should also be blocked,
+    // A write to `.claude/CLAUDE.md` (absolute path) should also be blocked,
     // showing that one-level nesting is still bound by the guard.
-    let (code, stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/CLAUDE.md\"}}",
-    );
+    let abs_nested_claude = root.join(".claude/CLAUDE.md");
+    let payload_nested = serde_json::json!({
+        "tool_name": "Write",
+        "tool_input": { "file_path": abs_nested_claude.to_string_lossy().as_ref() }
+    })
+    .to_string();
+    let (code, stderr) = common::run_guard(&root, &payload_nested);
     assert_eq!(
         code,
         Some(2),
-        "a nested version of the single-segment projection path should still be blocked"
+        "a nested version of the single-segment projection path (absolute path) should still be blocked"
     );
     assert!(stderr.contains("temper-managed projection"));
 }

@@ -22,6 +22,28 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     out.into_iter().collect()
 }
 
+/// Relativize a file path against a harness root. If the path is absolute, strip the root
+/// prefix and return the relative path. If the path is already relative, return it as-is.
+/// All backslashes are normalized to forward slashes.
+/// Returns `None` if an absolute path is not under the root.
+#[must_use]
+pub fn relativize_against_root(file_path: &str, root: &Path) -> Option<String> {
+    let file_path_normalized = file_path.replace('\\', "/");
+    let file_path_buf = PathBuf::from(&file_path_normalized);
+
+    // If the path is not absolute, it's already relative — return as-is.
+    if !file_path_buf.is_absolute() {
+        return Some(file_path_normalized);
+    }
+
+    let root_normalized = normalize_path(root);
+
+    file_path_buf
+        .strip_prefix(&root_normalized)
+        .ok()
+        .map(|rel_path| rel_path.to_string_lossy().replace('\\', "/").to_string())
+}
+
 /// A harness-relative path: the lock's own vocabulary for source paths. Always
 /// `/`-separated, no leading `./`, normalized. This is the canonical form that's
 /// committed to lock.toml and shared across Projection, RollupEntry, RawLockRow,

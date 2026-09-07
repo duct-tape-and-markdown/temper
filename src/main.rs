@@ -353,7 +353,7 @@ fn main() -> miette::Result<ExitCode> {
             // blanket projection-drift the `.claude/` binding runs. It is consulted first:
             // when the write targets a manifest, its verdict is authoritative; otherwise the
             // projection binding decides. Both act at the one enforcement mode the lock declares.
-            if let Some(findings) = install::manifest_write_findings(&payload, &manifests) {
+            if let Some(findings) = install::manifest_write_findings(&payload, &path, &manifests) {
                 if findings.is_empty() {
                     return Ok(ExitCode::SUCCESS);
                 }
@@ -372,7 +372,12 @@ fn main() -> miette::Result<ExitCode> {
             }
 
             Ok(
-                match install::guard(&payload, mode, lock_present.then_some(targets.as_slice())) {
+                match install::guard(
+                    &payload,
+                    mode,
+                    &path,
+                    lock_present.then_some(targets.as_slice()),
+                ) {
                     install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
                     install::GuardVerdict::Warn => {
                         eprintln!("{}", install::GUARD_MESSAGE);
