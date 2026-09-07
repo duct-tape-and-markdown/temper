@@ -1129,6 +1129,111 @@ mod embedded_edge_targets {
             run.output
         );
     }
+
+    #[test]
+    fn a_nested_member_resolves_via_host_qualified_address() {
+        let root = common::scaffold("embedded-edge-host-qualified");
+        // Write two services that both host `domain` members
+        fs::write(
+            root.join("specs/service.md"),
+            "# Purpose\nFirst service.\n\n# Serves\n- service:other/domain/common\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("specs/other.md"),
+            "# Purpose\nOther service.\n\n# Serves\n- service:service/domain/common\n",
+        )
+        .unwrap();
+
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&["domain"])],
+                assembly: vec![edge("service", "serves", "domain")],
+                nested_members: vec![
+                    NestedMemberRow {
+                        host: "service:service".to_string(),
+                        kind: "domain".to_string(),
+                        key: "common".to_string(),
+                        leaves: BTreeMap::new(),
+                        collections: Vec::new(),
+                        placed_edges: None,
+                        rendered_lines: None,
+                        rendered_chars: None,
+                    },
+                    NestedMemberRow {
+                        host: "service:other".to_string(),
+                        kind: "domain".to_string(),
+                        key: "common".to_string(),
+                        leaves: BTreeMap::new(),
+                        collections: Vec::new(),
+                        placed_edges: None,
+                        rendered_lines: None,
+                        rendered_chars: None,
+                    },
+                ],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            run.ok,
+            "edges targeting different nested members with the same key via host-qualified addresses must resolve correctly, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn a_bare_nested_member_address_matches_first_same_key() {
+        let root = common::scaffold("embedded-edge-bare-ambiguous");
+        // Write two services, both with a `common` domain member.
+        // An edge using bare `common` should match the first one (ambiguous but deterministic).
+        fs::write(
+            root.join("specs/service.md"),
+            "# Purpose\nFirst service.\n\n# Serves\n- common\n",
+        )
+        .unwrap();
+        fs::write(root.join("specs/other.md"), "# Purpose\nOther service.\n\n").unwrap();
+
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&["domain"])],
+                assembly: vec![edge("service", "serves", "domain")],
+                nested_members: vec![
+                    NestedMemberRow {
+                        host: "service:service".to_string(),
+                        kind: "domain".to_string(),
+                        key: "common".to_string(),
+                        leaves: BTreeMap::new(),
+                        collections: Vec::new(),
+                        placed_edges: None,
+                        rendered_lines: None,
+                        rendered_chars: None,
+                    },
+                    NestedMemberRow {
+                        host: "service:other".to_string(),
+                        kind: "domain".to_string(),
+                        key: "common".to_string(),
+                        leaves: BTreeMap::new(),
+                        collections: Vec::new(),
+                        placed_edges: None,
+                        rendered_lines: None,
+                        rendered_chars: None,
+                    },
+                ],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            run.ok,
+            "bare nested member addresses should resolve to the first match, got:\n{}",
+            run.output
+        );
+    }
 }
 
 /// End-to-end proof of the **source** side of the same grain: an embedded member's own

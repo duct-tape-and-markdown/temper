@@ -1598,6 +1598,23 @@ fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'
             .unwrap_or(target);
         return Some((only.as_str(), identity));
     }
+
+    // Check for nested member address format: <host-address>/<kind>/<key>
+    // e.g., "skill:use-when-x/hook/on-enter"
+    if let Some(first_slash) = target.find('/')
+        && let host_part = &target[..first_slash]
+        && host_part.contains(':')
+    {
+        let rest = &target[first_slash + 1..];
+        if let Some(second_slash) = rest.find('/') {
+            let nested_kind = &rest[..second_slash];
+            if to.iter().any(|declared| declared.as_str() == nested_kind) {
+                return Some((nested_kind, target));
+            }
+        }
+    }
+
+    // Fall back to bare address format: kind:name
     let (kind, identity) = target.split_once(':')?;
     to.iter()
         .find(|declared| declared.as_str() == kind)
@@ -1607,12 +1624,32 @@ fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'
 /// Whether `identity` names a real member of `kind` in the corpus — the one membership
 /// test route resolution runs, over the same map [`check`] and [`resolved_edges`] read.
 fn resolves(by_kind: &BTreeMap<&str, &[Features]>, kind: &str, identity: &str) -> bool {
-    by_kind
-        .get(kind)
-        .copied()
-        .unwrap_or(&[])
-        .iter()
-        .any(|features| features.id == identity)
+    let members = by_kind.get(kind).copied().unwrap_or(&[]);
+
+    // Check for nested member address: host-address/kind/key
+    // e.g., "skill:use-when-x/hook/on-enter"
+    if let Some(first_slash) = identity.find('/')
+        && let host_part = &identity[..first_slash]
+        && host_part.contains(':')
+    {
+        let rest = &identity[first_slash + 1..];
+        if let Some(second_slash) = rest.find('/') {
+            let nested_key = &rest[second_slash + 1..];
+            // For host-qualified nested members, match both the key and the host.
+            return members.iter().any(|features| {
+                features.id == nested_key
+                    && features
+                        .fields
+                        .get("__nested_member_host__")
+                        .and_then(|v| v.as_str())
+                        .map(|host| host == host_part)
+                        .unwrap_or(false)
+            });
+        }
+    }
+
+    // Bare address lookup
+    members.iter().any(|features| features.id == identity)
 }
 
 /// An edge's declared target set, rendered for a diagnostic: one kind reads as its own

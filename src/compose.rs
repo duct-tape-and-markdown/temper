@@ -1195,11 +1195,17 @@ fn embedded_member_features(
     row: &drift::NestedMemberRow,
     edge_fields: &BTreeSet<String>,
 ) -> extract::Features {
-    let fields = row
+    let mut fields: BTreeMap<String, serde_json::Value> = row
         .leaves
         .iter()
         .map(|(name, text)| (name.clone(), serde_json::Value::String(text.clone())))
         .collect();
+    // Store the host address for nested member host-qualified resolution.
+    // This enables distinction between same-keyed members under different hosts.
+    fields.insert(
+        "__nested_member_host__".to_string(),
+        serde_json::Value::String(row.host.clone()),
+    );
     extract::Features {
         id: row.key.clone(),
         fields,
