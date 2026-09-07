@@ -36,6 +36,10 @@
 !`node .flume/ripple.mjs 2>/dev/null || echo "(ripple unavailable)"`
 </files-ripple>
 
+<sizing>
+!`node .flume/sizing.mjs 2>/dev/null || echo "(sizing unavailable)"`
+</sizing>
+
 <src-tree>
 !`{ find src tests -name '*.rs'; find sdk/src sdk/test -name '*.ts'; } 2>/dev/null | sort`
 </src-tree>
@@ -128,8 +132,9 @@ rule on a digest line.
    two motions over the same window:
    - **Audit:** verify on disk what shipped (read the files, never the log
      alone), drop pending entries whose work is done, glance the window's
-     ticks' `invocations[]` in `.flume/tick-verdicts.jsonl` (the sizing discipline is the
-     `pending-entry` rule's smart-zone bullet), and re-test every
+     ticks in `<sizing>` — one line per recent tick, matched to the window
+     by trunk sha (the sizing discipline is the `pending-entry` rule's
+     smart-zone bullet) — and re-test every
      stale gate: a `parked` reason, a `blockedBy`, an open-question's
      "rides X" routing each name a condition — verify the condition NOW; if
      the blocker shipped, the work behind it is derivable this tick.
