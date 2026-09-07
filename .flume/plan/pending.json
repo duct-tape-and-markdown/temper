@@ -50,6 +50,52 @@
     "notes": "observed at 7c64c1af, reproduced on this harness. GH #39's shipped fix (de4d5498) left the queue at 7320468f; reopened under the same tag — the live-run shows it inert under `guard .`, its own test only ever exercised an absolute-tempdir root. Serialized behind two entries sharing src/install.rs/tests/install.rs/tests/common/mod.rs. scoped at cadabd8e"
   },
   {
+    "tag": "EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "embedded_member_features (~1194) inserts a synthetic `__nested_member_host__` key into the lifted member's `fields` map (~1206, shipped 77682915) to carry row.host to graph resolution. `Features::fields` is the author's typed fields (extract.rs:294 doc: \"Frontmatter fields by name\"), and every clause reads it, so the host must reach resolution some other way. OUT OF SCOPE, ruled here on measurement rather than left for build to discover: adding a `host` field to `extract::Features` — 23 files hold full `Features { .. }` struct literals with no `..Default`, so it collides with most of the queue. Tractable shapes that stay inside this files[]: carry the host on the member's identity (`Features::id` already exists and representation.md spells a nested identity as `<host-address>/<kind>/<key>`), or return a host index from embedded_features_by_kind (~1138) beside the map it already returns."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Two hand-rolled parses of the same `<host-address>/<kind>/<key>` grammar, added by the same commit and already diverging: target_identity (~1593) splits on the first `/` and checks the segment after it against the declared kind list; resolves (~1627) re-splits the identical string and additionally reads `__nested_member_host__` off the member's fields. Unify onto one parser used by both, reading the host from whatever compose.rs carries it on. Decide and encode the grammar's leaf tail explicitly: representation.md spells `/<leaf>` beneath a nested address, and today `resolves` takes everything after the second `/` as the key, so `<host>/<kind>/<key>/<leaf>` silently resolves nowhere. Whichever way it is ruled, it is stated at the parser rather than falling out of a substring index."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "Regression: an edge target spelled as a full host-qualified address still resolves, and two same-keyed nested members under different hosts still resolve to their own host — the behaviour 77682915 shipped, re-pinned so the smuggle's removal is proven not to regress it. Plus a case pinning the parser's ruled treatment of the `/<leaf>` tail."
+        },
+        {
+          "path": "tests/closed_keys.rs",
+          "description": "The gap that let this ship: an_embedded_member_is_no_less_decidable_than_a_document_one (:238) asserts only admissibility, and the file's `member()` helper (:20) hand-builds Features, so no test judges an embedded member the real writer produced. Add a regression that runs a `closed-keys` contract over members built through compose::embedded_features_by_kind — per engineering.md, \"A seam gate reads what the real writer wrote\"."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A synthetic `__nested_member_host__` key rides every embedded member's typed-field map, so a closed-keys clause on an embedded kind indicts a field no author wrote.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "member"
+    },
+    "tests": [
+      {
+        "path": "tests/closed_keys.rs",
+        "asserts": "a `closed-keys` contract judged over embedded members built by compose::embedded_features_by_kind reports no finding for a key the host never authored"
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "host-qualified and bare nested edge targets resolve exactly as they do at HEAD once the synthetic field is gone, and the `/<leaf>` tail is judged as ruled"
+      }
+    ],
+    "acceptance": "No member reaching clause judgment carries a field its author did not write: `__nested_member_host__` is gone from `Features::fields`, and the host reaches graph resolution as identity or as its own index. A `closed-keys` clause bound to an embedded kind (a pairing engine::admissibility already admits, tests/closed_keys.rs:238) reports no finding for it — the latent false positive today, latent only because the one shipped closedKeys() is on plugin-manifest, a file kind. The `<host-address>/<kind>/<key>` grammar is parsed in exactly one place that both graph.rs call sites use. Non-vacuity: the closed-keys regression asserts a real embedded member set was judged, not an empty corpus short-circuiting to silence.",
+    "notes": "Post-ship reconciliation 727cceb2..b46a306e. 77682915 shipped host-qualified resolution and carried the host through the typed-field map; SDK-MEMBER-TABLE and NESTED-MEMBER-DUPLICATE-KEY both scoped that work as \"embedded_member_features is host-blind\", now false. Mechanism half only: the ambiguity-refusal policy and the third partial host lookup (gate::embedded_hosts_by_source, last-write-wins) stay NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY's, which is now gated on this. scoped at b46a306e"
+  },
+  {
     "tag": "GUARD-MANIFEST-EDIT-CONTENTLESS-FALLTHROUGH",
     "gate": {
       "kind": "blockedBy",
@@ -327,7 +373,8 @@
       "kind": "blockedBy",
       "tags": [
         "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
-        "EXPLAIN-KIND-ADOPTER-ENTRY-POINT"
+        "EXPLAIN-KIND-ADOPTER-ENTRY-POINT",
+        "EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED"
       ]
     },
     "dependsOnForks": [],
@@ -340,7 +387,7 @@
         },
         {
           "path": "src/graph.rs",
-          "description": "resolves (~1609) is a boolean `.any()` over `by_kind`'s pooled Vec (compose::embedded_features_by_kind, ~1138, pushes every host's rows into one shared per-kind Vec with no host on the Features) — a duplicate (kind, key) across hosts today resolves to whichever matches first, silently. When a BARE (unqualified) target or explain name matches more than one nested member of a kind across different hosts, refuse at resolution (a new graph.route finding) naming every colliding host — the full host-qualified address (GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS's grammar) always resolves unambiguously. Requires threading `host` onto Features/the graph Node — compose::embedded_member_features (~1194) currently drops `row.host` when lifting `id: row.key.clone()` (~1204)."
+          "description": "resolves (~1627) is a boolean `.any()` over `by_kind`'s pooled Vec (compose::embedded_features_by_kind, ~1138, pushes every host's rows into one shared per-kind Vec) — a duplicate (kind, key) across hosts today resolves to whichever matches first, silently. When a BARE (unqualified) target or explain name matches more than one nested member of a kind across different hosts, refuse at resolution (a new graph.route finding) naming every colliding host — the full host-qualified address always resolves unambiguously. The host is reachable here by the time this entry runs: 77682915 shipped host-qualified parsing and EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED puts the host on a carrier every consumer can read, so this entry adds the ambiguity judgment rather than the plumbing."
         },
         {
           "path": "src/read.rs",
@@ -348,7 +395,7 @@
         },
         {
           "path": "src/gate.rs",
-          "description": "embedded_hosts_by_source (~572) is the source-side twin of target_identity: it builds a `(kind, key) -> host` BTreeMap off nested_member rows with a plain `.insert()`, so a cross-host (kind, key) duplicate silently keeps whichever row inserts last — the same bare-key collapse as `resolves`, feeding `mention_reachable`'s citation scoping. Give it the same ambiguity judgment (refuse/report every colliding host for a bare key) rather than last-write-wins."
+          "description": "embedded_hosts_by_source (~572) is the source-side twin of target_identity and the third partial implementation of \"which host owns this nested member\": it builds a `(kind, key) -> host` BTreeMap off nested_member rows with a plain `.insert()`, so a cross-host duplicate silently keeps whichever row inserts last, feeding mention_reachable's citation scoping. Fold it onto the one host carrier EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED establishes and give it the same ambiguity judgment, rather than a third lookup with a third failure mode (engineering.md, \"One job, one home\")."
         },
         {
           "path": "tests/nested_member.rs",
@@ -369,7 +416,7 @@
       }
     ],
     "acceptance": "A host repeating its own (kind, key) nested member refuses loud at admissibility. Two different hosts sharing a (kind, key) are legal (distinct addresses per 0049); a bare or explain-name reference ambiguous between them refuses at resolution naming every host, while the full host-qualified address to either always resolves. Per 0049's amendment, the ambiguity bar fires at every consumer of a bare key, not only graph::resolves: explain's why_impl and embedded_hosts_by_source (gate.rs) each name every candidate host too, matching the SDK member table's bare lookup (SDK-MEMBER-TABLE-NESTED-EDGE-TARGET). The regression pins non-vacuity: each case asserts at least one real colliding pair is judged, not an empty read short-circuiting to 'no ambiguity' (0048's conservation bar).",
-    "notes": "observed at ad10e8cb (GH #51 half); corrected at bf4b4168: refusing every cross-host duplicate hard-codes the alternative Decision 0049 rejects. Neighbor misnamed (satisfies_label_admissibility); resolves is host-blind .any(). Widened at cadabd8e: embedded_hosts_by_source (gate.rs) is a third bare-key consumer, plus the vacuity-pin bar. Chained on GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS, LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb (GH #51 half); corrected at bf4b4168 (refusing every cross-host duplicate hard-codes the alternative 0049 rejects). Widened at cadabd8e: embedded_hosts_by_source is a third bare-key consumer, plus the vacuity-pin bar. Post-ship reconciliation 09-07: GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS shipped (77682915), so \"embedded_member_features drops row.host\" is stale — it smuggles it through the fields map; the plumbing is now this entry's new parent. scoped at b46a306e"
   },
   {
     "tag": "SDK-MEMBER-TABLE-NESTED-EDGE-TARGET",
@@ -415,8 +462,8 @@
         "asserts": "an edge field on an embedded value naming a nested (non-top-level) target resolves and renders, by both bare-unique key and full host-qualified address"
       }
     ],
-    "acceptance": "A render hook on an embedded value whose edge field targets another host's embedded value resolves that target's engine-derived facts (name, address, kind, projection path) and renders, instead of emit refusing outright. Scoped to the SDK's own rendering path for bare-unique keys and the host-qualified spelling end-to-end at emit; full nested-address resolution at `check` (graph::target_identity has no `/` grammar; embedded_member_features is host-blind) stays out of scope, tracked by GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS / NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY. Per 0049's amendment, this entry's bare-key index is one of the ambiguity bar's named consumers: a duplicate bare `kind:key` across hosts must refuse via uniqueMap (not silently pick one), matching graph::resolves and explain's why_impl. The regression pins non-vacuity: it asserts a real resolved target/thrown refusal, not an empty index short-circuiting either way (0048's conservation bar).",
-    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168. Post-ship reconciliation 09-07: KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites corrected to kind.ts:471/318; emit.ts refs unaffected. The 2026-09-07 fence revert billed sdk/src/index.ts, now declared. The other files-ripple hits (declarations.ts, kind.ts, prose.ts) are EmbeddedMemberValue's definition and doc-comment sites, re-verified noise at 727cceb2. scoped at a13f6bf2"
+    "acceptance": "A render hook on an embedded value whose edge field targets another host's embedded value resolves that target's engine-derived facts (name, address, kind, projection path) and renders, instead of emit refusing outright. Scoped to the SDK's own rendering path for bare-unique keys and the host-qualified spelling end-to-end at emit; full nested-address resolution at `check` stays out of scope — GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS shipped it (77682915: graph::target_identity now parses the `/` grammar), and what remains there is EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED (the host's carrier) and NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY (the ambiguity refusal). This entry stays the SDK's own rendering path and must not wait on either. Per 0049's amendment, this entry's bare-key index is one of the ambiguity bar's named consumers: a duplicate bare `kind:key` across hosts must refuse via uniqueMap (not silently pick one), matching graph::resolves and explain's why_impl. The regression pins non-vacuity: it asserts a real resolved target/thrown refusal, not an empty index short-circuiting either way (0048's conservation bar).",
+    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168. KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites are kind.ts:471/318. The 2026-09-07 fence revert billed sdk/src/index.ts, now declared. Ripple hits declarations.ts/kind.ts/prose.ts re-verified noise (EmbeddedMemberValue's definition and doc-comment sites). 09-07: the Rust-side caveat in acceptance was stale, re-cut against disk. scoped at b46a306e"
   },
   {
     "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
