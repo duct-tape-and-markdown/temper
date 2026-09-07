@@ -147,6 +147,10 @@ hard.
   honesty gate moved to afterMerge on the trunk, holds `after-build` to
   the same bar as `no`, and requires an `Inbox routed:` body line
   accounting for every drained note (plan prompt carries the contract).
+  09-07: the gate splits fresh from ignored — an inbox note or specs/
+  commit the tick's worktree never held passes, and plan's handoff routes
+  to plan over it — so filing to main while a plan tick runs costs one
+  extra plan tick, never a reverted one (0377962d).
   **Trunk-commit window (flume 0.13 regression, confirmed by flume-main,
   fix in flume's inbox):** an afterMerge entry revert rewinds the trunk
   with `reset --keep` and no tip check, so an operator commit landing
