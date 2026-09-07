@@ -1509,6 +1509,68 @@ fn guard_follows_the_declared_mode_for_a_manifest_violation() {
     }
 }
 
+#[test]
+fn guard_flags_manifest_write_that_omits_lock_declared_member() {
+    // A manifest write that omits a member the lock declares is flagged at the declared
+    // enforcement mode. This regression test ensures the guard checks the lock's expected
+    // member roster, not just the members present in the pending write.
+    let root = common::tmpdir("guard-manifest-dropped-member-block");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+
+    // A lock with `block` mode declaring an MCP server and a hook member.
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+         [[declaration.registration]]\nkind = \"mcp-server\"\nkey = \"gmail\"\nmanifest = \".mcp.json\"\nkey_path = \"mcpServers.*\"\n\n\
+         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n"
+    )
+    .unwrap();
+
+    // A write to `.mcp.json` that omits the `gmail` server (empty mcpServers object)
+    // must be flagged, even though what's there parses correctly.
+    let (code, stderr) =
+        common::run_guard(&root, &write_payload(".mcp.json", r#"{"mcpServers":{}}"#));
+    assert_eq!(
+        code,
+        Some(2),
+        "a manifest write omitting a lock-declared member must be blocked in `block` mode"
+    );
+    assert!(
+        stderr.contains("lock declares member"),
+        "the finding must reference the lock declaration: {stderr}"
+    );
+    assert!(
+        stderr.contains("gmail"),
+        "the finding must name the missing member: {stderr}"
+    );
+
+    // Verify that under `warn` mode, the same write is allowed but surfaces the finding.
+    let warn_root = common::tmpdir("guard-manifest-dropped-member-warn");
+    let warn_temper_dir = warn_root.join(".temper");
+    fs::create_dir_all(&warn_temper_dir).unwrap();
+    fs::write(
+        warn_temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"warn\"\n\n\
+         [[declaration.registration]]\nkind = \"mcp-server\"\nkey = \"gmail\"\nmanifest = \".mcp.json\"\nkey_path = \"mcpServers.*\"\n"
+    )
+    .unwrap();
+
+    let (warn_code, warn_stderr) = common::run_guard(
+        &warn_root,
+        &write_payload(".mcp.json", r#"{"mcpServers":{}}"#),
+    );
+    assert_eq!(
+        warn_code,
+        Some(0),
+        "warn mode allows the write but surfaces the finding"
+    );
+    assert!(
+        warn_stderr.contains("lock declares member"),
+        "the warning must be in-band"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // emit's own note/modeline discipline — unrelated to install, still exercised
 // directly over a hand-built payload.

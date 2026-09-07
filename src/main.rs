@@ -22,7 +22,7 @@ use temper::compose;
 use temper::drift;
 use temper::gate;
 use temper::install;
-use temper::kind::{CustomKind, Format};
+use temper::kind::{CollectionAddress, CustomKind, Format};
 use temper::read;
 use temper::reporter;
 use temper::schema;
@@ -525,6 +525,21 @@ fn kind_contract(
     }
 }
 
+/// Extract the member keys declared in the lock for a given manifest kind and collection address.
+/// Filters registrations by the kind name, manifest name, and collection address.
+fn extract_expected_keys(
+    declarations: &drift::Declarations,
+    kind_name: &str,
+    address: &CollectionAddress,
+) -> Vec<String> {
+    declarations
+        .registrations
+        .iter()
+        .filter(|reg| reg.kind == kind_name && reg.manifest == address.manifest)
+        .map(|reg| reg.key.clone())
+        .collect()
+}
+
 /// Every represented manifest the `PreToolUse` guard checks a pending write against — one
 /// [`install::GuardedManifest`] per manifest kind, whether an embedded built-in
 /// ([`builtin_kind::definitions`]) or a lock-declared custom kind. A manifest kind is one
@@ -549,11 +564,13 @@ fn guarded_manifests(
         };
         let contract =
             compose::builtin_contract(&declarations.clauses, &declarations.kinds, &kind.name)?;
+        let expected_keys = extract_expected_keys(declarations, &kind.name, &address);
         manifests.push(install::GuardedManifest {
             path,
             kind,
             contract,
             address,
+            expected_keys,
         });
     }
 
@@ -569,11 +586,13 @@ fn guarded_manifests(
             &declarations.kinds,
             &row.name,
         )?;
+        let expected_keys = extract_expected_keys(declarations, &kind.name, &address);
         manifests.push(install::GuardedManifest {
             path,
             kind,
             contract,
             address,
+            expected_keys,
         });
     }
     Ok(manifests)

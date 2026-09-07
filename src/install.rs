@@ -932,6 +932,10 @@ pub struct GuardedManifest {
     /// The collection address the members key at (`mcpServers.*`, `hooks.<Event>`,
     /// `enabledPlugins.*`).
     pub address: CollectionAddress,
+    /// The member keys the lock declares at this collection address — expected to be
+    /// present in a write; a pending write omitting any of these is flagged at the
+    /// declared enforcement mode.
+    pub expected_keys: Vec<String>,
 }
 
 /// Check a pending `PreToolUse` write against every represented manifest's contract —
@@ -972,6 +976,24 @@ pub fn manifest_write_findings(
         else {
             continue;
         };
+
+        // Check that all lock-declared members are present in the pending write.
+        let present_keys: std::collections::BTreeSet<_> =
+            parsed.members.iter().map(|m| &m.key).collect();
+        for expected_key in &manifest.expected_keys {
+            if !present_keys.contains(expected_key) {
+                findings.push(Diagnostic::error(
+                    "guard.manifest-dropped-member",
+                    expected_key,
+                    format!(
+                        "lock declares member `{}` at `{}` but write omits it",
+                        expected_key,
+                        manifest.address.key_path.wire_label()
+                    ),
+                ));
+            }
+        }
+
         let features: Vec<_> = parsed
             .members
             .iter()
