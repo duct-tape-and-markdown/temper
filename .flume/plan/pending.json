@@ -1,66 +1,5 @@
 [
   {
-    "tag": "LAYOUT-LOUD-READ-SWALLOWED-REGION",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/layout.rs",
-          "description": "Layout::read (~137) binds regions to top-level headings purely positionally via next_heading's cursor advance, with no name/slug check against the slot — so ANY heading-count mismatch (a lone leading title the shallowest-heading read admits, or a missing middle section) shifts every later region's binding by one heading, silently. New `LayoutError` variant (beside the existing `MissingKey` at ~100 and `Unadmitted` at ~113) — an ERROR, not an advisory finding — firing when a field or collection region binds a heading with children while a later heading-bound region stays unbound: covers both the title-swallow shape and a missing-section shift, naming the heading that landed in the wrong slot, the region that consumed it, and the region left starved."
-        },
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "Two regressions against the `intent_layout` fixture (~46, which has no title/H1 case today): (1) a `prose, field(intent), collection(invariant)` layout over a `# Title` + `##` sections document fails the read with the new LayoutError naming the swallowed heading (GH #45(a)); (2) the same layout over a document missing its `intent` section fails the read naming the section that shifted into the wrong slot (GH #44/#41) — a hard read error in both directions, not an advisory finding."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A layout's purely positional heading binding silently misassigns every later region when any heading count mismatches expectation — a title swallow or a missing section alike.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "a heading-count mismatch (extra leading title, or a missing declared section) that shifts a later region's binding fails the read with an error naming the heading involved, in both directions"
-      }
-    ],
-    "acceptance": "A layout document whose heading count or order does not match the declared regions' positions — whether an extra leading heading (a title) or a missing section — fails the read with a `LayoutError` naming the mismatch, instead of the shifted region(s) reading silently empty or the wrong content landing in a slot.",
-    "notes": "observed at ad10e8cb, widened at bf4b4168; recut at bf4b4168 per Decision 0048 (accepted): a read dropping authored structure is an error, not an opinion — advisory was the wrong severity. Dropped compose.rs/builtin_lock.rs: derive_layout_rows lives in drift.rs, and a layout kind is always custom. Title admission stays the separate `layout-title-heading-admission` fork. scoped at bf4b4168",
-    "observedFiles": [
-      "src/builtin_kind.rs",
-      "src/compose.rs",
-      "src/coverage.rs",
-      "src/dial.rs",
-      "src/engine.rs",
-      "src/extract.rs",
-      "src/graph.rs",
-      "src/kind.rs",
-      "src/read.rs",
-      "src/roster.rs",
-      "tests/check_cost.rs",
-      "tests/closed_keys.rs",
-      "tests/contract_template.rs",
-      "tests/extent.rs",
-      "tests/field_addressing.rs",
-      "tests/graph.rs",
-      "tests/layout_edge_slot.rs",
-      "tests/layout_prose_import.rs",
-      "tests/prose_include.rs",
-      "tests/read_verbs.rs",
-      "tests/rule_contract.rs",
-      "tests/shape_predicate.rs",
-      "tests/snapshots/extract_equivalence__rule_features_collaboration.snap",
-      "tests/snapshots/extract_equivalence__rule_features_rust.snap",
-      "tests/snapshots/extract_equivalence__skill_features_coordinate.snap"
-    ]
-  },
-  {
     "tag": "KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE",
     "gate": {
       "kind": "open"
@@ -100,15 +39,19 @@
       }
     ],
     "acceptance": "sdk/src/kind.ts's KindFacts type rejects a non-empty registration under embedded or nested-file locus at tsc time; the existing registration_locus_admissibility runtime check stays as the backstop for a bypass.",
-    "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' — today only enforced at src/admissibility.rs:256's runtime check. Widened at fb89f675 (gate-revert 2 of 2: the SDK's tsc-first test script fails over emit.test.ts/mention.test.ts's existing embedded-registration fixtures) — files[] now states the ripple up front. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' — today only enforced at src/admissibility.rs:256's runtime check. Widened at fb89f675 (gate-revert 2 of 2: the SDK's tsc-first test script fails over emit.test.ts/mention.test.ts's existing embedded-registration fixtures) — files[] now states the ripple up front. scoped at bf4b4168",
+    "observedFiles": [
+      "sdk/src/index.ts",
+      "sdk/src/kind.ts",
+      "sdk/test/builtins.test.ts",
+      "sdk/test/emit.test.ts",
+      "sdk/test/mention.test.ts"
+    ]
   },
   {
     "tag": "LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LAYOUT-LOUD-READ-SWALLOWED-REGION"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -142,40 +85,6 @@
     ],
     "acceptance": "Declaring a layout with more than one verbatim prose region refuses loud at admissibility time, the same class as an existing vacuous-clause/unfillable-selection refusal.",
     "notes": "observed at ad10e8cb (cascade F10); corrected at bf4b4168: cite Decision 0048 (accepted), not 0019 — 0019 says nothing about prose region position, while 0048's Consequences names this exact refusal ('a second verbatim prose region... refuse'). Vacuous-clause checks live in engine.rs/roster.rs; admissibility.rs stays this check's home. Serialized behind LAYOUT-LOUD-READ-SWALLOWED-REGION (shared tests/layout_kind.rs; both are 0048 consequences). scoped at bf4b4168"
-  },
-  {
-    "tag": "GUARD-SETTINGS-EMIT-OWNED-REGISTRATION-WALK",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "emit_owned_targets (~3020) decides settings.json is emit-owned via has_registration_members, which calls walk_lock_rows (~2183) — walk_lock_rows_from_doc (~2153) iterates only the LOCK DOCUMENT'S OWN top-level `[[<kind>]]` array-of-tables. A real emitted lock writes hook/installed-plugin/known-marketplace rows nested under `[[declaration.registration]]` (RegistrationRow, Declarations::registrations at ~3113, read back by read_declarations at ~3861), never a top-level `[[hook]]` table — verified on disk against .temper/lock.toml. has_registration_members is therefore always false on a real lock. Derive settings.json's emit-ownership from `read_declarations(workspace_dir)?.registrations` (filtering kind in hook/installed-plugin/known-marketplace) instead of the broken top-level walk."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "guard_binds_settings_json_when_registration_members_compose (~1276) forges a top-level `[[hook]]` row emit never produces (source_path/emit_hash columns and all); recut its lock fixture to the real `[[declaration.registration]]` shape a lock actually carries (mirroring .temper/lock.toml's own rows) so the test fails before the fix and passes after."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "emit_owned_targets scans only top-level array-of-tables, so real hook/registration rows (nested under declaration.registration) never mark settings.json emit-owned — unguarded everywhere.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a lock carrying real declaration.registration hook rows (the shape emit actually writes) makes .claude/settings.json an emit-owned target the guard binds, for both Edit and Write payloads"
-      }
-    ],
-    "acceptance": "On a harness with a real emitted lock declaring hook/installed-plugin/known-marketplace members, `guard` binds .claude/settings.json at the declared mode; the regression's lock fixture matches the row shape emit_program actually writes, not a forged top-level table.",
-    "notes": "observed at e1b26728 (cascade GH #40, second half — reproduced on this harness in mode block: `guard .` exits 0 for an Edit or Write to .claude/settings.json). scoped at bf4b4168"
   },
   {
     "tag": "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT",
@@ -302,8 +211,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "INSTALL-GATE-INSTALLED-SUPERSEDED-FALSE-POSITIVE",
-        "GUARD-SETTINGS-EMIT-OWNED-REGISTRATION-WALK"
+        "INSTALL-GATE-INSTALLED-SUPERSEDED-FALSE-POSITIVE"
       ]
     },
     "dependsOnForks": [],
@@ -391,7 +299,16 @@
       }
     ],
     "acceptance": "`--deny-advisories` promotes only real advisory violations to blocking, never the coverage.checked disclosure note; a clean represented harness exits zero under it.",
-    "notes": "observed at e1b26728 (cascade GH #42). Intent invariant 5: a shipped coverage clause enters advisory so it is dialable, not so it blocks CI — coverage.checked is disclosure, never a violation. Widened at fb89f675 (gate-revert 1 of 2: a new Severity variant ripples to every renderer and the shared test helper) — files[] now states the ripple up front. scoped at bf4b4168"
+    "notes": "observed at e1b26728 (cascade GH #42). Intent invariant 5: a shipped coverage clause enters advisory so it is dialable, not so it blocks CI — coverage.checked is disclosure, never a violation. Widened at fb89f675 (gate-revert 1 of 2: a new Severity variant ripples to every renderer and the shared test helper) — files[] now states the ripple up front. scoped at bf4b4168",
+    "observedFiles": [
+      "src/check.rs",
+      "src/coverage_note.rs",
+      "src/main.rs",
+      "src/reporter.rs",
+      "tests/acceptance.rs",
+      "tests/common/mod.rs",
+      "tests/coverage_note.rs"
+    ]
   },
   {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
