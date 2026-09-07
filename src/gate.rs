@@ -357,6 +357,13 @@ pub fn gate(
     // carries it. Reject it at admissibility, before the corpus is trusted.
     diagnostics.extend(admissibility::nested_member_admissibility(&declarations));
 
+    // The same tier's coincidence judgment: one host declaring the same `(kind, key)`
+    // twice spells one address for two members — a malformed lock, refused before any
+    // reader has to pick between them. Two *different* hosts sharing a `(kind, key)` are
+    // distinct addresses and pass here; a bare reference between them is what refuses, at
+    // resolution (`graph`).
+    diagnostics.extend(admissibility::nested_member_coincidence(&declarations));
+
     // The by-kind corpus every set-scope and graph predicate ranges over,
     // assembled through the same helper the read arm uses.
     let embedded_features = compose::embedded_features_by_kind(&declarations);
@@ -512,7 +519,9 @@ pub fn gate(
         resolved_edges,
         &mention_edges,
         &by_kind,
-        &embedded_hosts_by_source(&declarations),
+        // The citation-scoping index, read off each embedded member's own address — the
+        // one grammar reader, which maps a `(kind, key)` two hosts carry to neither.
+        &graph::embedded_hosts_by_key(&by_kind),
     ));
 
     // The requirement-coverage tier: every `required`
@@ -610,26 +619,4 @@ fn kind_selections<'a>(
             })
         })
         .collect()
-}
-
-/// Each embedded member's source node keyed to its **host**'s node: `(embedded-kind,
-/// key) → (host-kind, host-id)`, read off the `nested_member` rows' `host` address. An
-/// embedded-carried edge keys its source to the embedded member, never the host, so
-/// `graph::mention_reachable` needs this map to judge a body-carried citation under its
-/// host's scope — the source-side twin of the target-side `target_identity` seam. A row
-/// whose `host` is not a `kind:name` address is skipped: it addresses no host
-/// node, so the edge it would map stays keyed to the embedded member alone.
-fn embedded_hosts_by_source(
-    declarations: &drift::Declarations,
-) -> BTreeMap<graph::Node, graph::Node> {
-    let mut hosts = BTreeMap::new();
-    for row in &declarations.nested_members {
-        if let Some((kind, name)) = row.host.split_once(':') {
-            hosts.insert(
-                (row.kind.clone(), row.key.clone()),
-                (kind.to_string(), name.to_string()),
-            );
-        }
-    }
-    hosts
 }

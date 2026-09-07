@@ -742,7 +742,7 @@ mod host_qualified_addresses {
     use temper::drift::{AssemblyFactRow, Declarations, KindFactRow, NestedMemberRow, TemplateRow};
     use temper::extract::Features;
     use temper::kind::{CustomKind, Extraction, Governs};
-    use temper::{builtin_kind, compose, drift, graph};
+    use temper::{admissibility, builtin_kind, compose, drift, graph, read};
 
     use crate::common;
 
@@ -850,6 +850,29 @@ mod host_qualified_addresses {
         (result.resolved, dangling)
     }
 
+    /// `explain <target>` over a by-kind corpus alone — every strand this module's reads
+    /// exercise resolves off it, so the remaining inputs (custom members, roster,
+    /// contracts, registrations, tap log) are the empty ones `main.rs` would thread.
+    fn explain(by_kind: &BTreeMap<&str, &[Features]>, target: &str) -> String {
+        read::explain(
+            &[],
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+            by_kind,
+            &[],
+            &[],
+            &BTreeMap::new(),
+            &[],
+            &[],
+            &[],
+            &[],
+            0,
+            target,
+            &BTreeMap::new(),
+        )
+    }
+
     #[test]
     fn a_host_qualified_target_resolves_to_the_member_under_that_host() {
         let (resolved, dangling) = resolve("service:beta/domain/common");
@@ -883,19 +906,160 @@ mod host_qualified_addresses {
     }
 
     #[test]
-    fn a_bare_key_still_names_an_embedded_member() {
+    fn a_bare_key_one_host_carries_still_names_that_embedded_member() {
         // The short form the corpus already writes: within a one-kind target set a bare
-        // key names a member of that kind. Which of several same-keyed members it means is
-        // an open ambiguity — this pins only that the short form still resolves.
-        let (resolved, dangling) = resolve("common");
+        // key names a member of that kind — and does so exactly when one host carries it.
+        // `billing` is `gamma`'s alone, so the short form resolves and the arc carries the
+        // identity its author spelled.
+        let (resolved, dangling) = resolve("billing");
         assert!(dangling.is_empty(), "the bare key resolves: {dangling:?}");
         assert_eq!(
             resolved
                 .iter()
                 .map(|edge| edge.to.clone())
                 .collect::<Vec<_>>(),
-            vec![("domain".to_string(), "common".to_string())],
+            vec![("domain".to_string(), "billing".to_string())],
             "the arc carries the identity its author spelled"
+        );
+    }
+
+    #[test]
+    fn a_bare_key_two_hosts_carry_refuses_naming_both() {
+        // The inversion of the prior policy (a bare key took whichever member of the kind
+        // carried it first, "ambiguous but deterministic"). `common` is `alpha`'s *and*
+        // `beta`'s: resolution is total, so an address naming two members names none, and
+        // the refusal names every carrier plus the spelling that tells them apart. The
+        // declaration stays legal — only this reference refuses.
+        let (resolved, dangling) = resolve("common");
+        assert!(
+            resolved.is_empty(),
+            "an ambiguous bare key resolves to nothing, got {} arcs",
+            resolved.len()
+        );
+        assert_eq!(dangling.len(), 1);
+        for carrier in ["`service:alpha`", "`service:beta`"] {
+            assert!(
+                dangling[0].contains(carrier),
+                "the refusal names every carrier host ({carrier}), got: {}",
+                dangling[0]
+            );
+        }
+        assert!(
+            dangling[0].contains("<host-address>/<kind>/<key>"),
+            "the refusal points at the spelling that resolves, got: {}",
+            dangling[0]
+        );
+        // Both host-qualified spellings still resolve — the long form is never ambiguous.
+        for host in ["alpha", "beta"] {
+            let (resolved, dangling) = resolve(&format!("service:{host}/domain/common"));
+            assert!(
+                dangling.is_empty(),
+                "`{host}`'s address resolves: {dangling:?}"
+            );
+            assert_eq!(resolved.len(), 1);
+        }
+    }
+
+    #[test]
+    fn one_host_declaring_a_key_twice_is_a_malformed_lock() {
+        // Coincidence is a *within-host* judgment: the same `(kind, key)` twice under one
+        // host spells one address for two members, refused at admissibility. The base
+        // corpus's cross-host pair is the non-vacuity twin — two rows sharing a
+        // `(kind, key)` that are *not* coincident, and are admitted.
+        assert!(
+            admissibility::nested_member_coincidence(&declarations()).is_empty(),
+            "two hosts sharing a `(kind, key)` are distinct addresses, not a coincidence"
+        );
+
+        let mut duplicated = declarations();
+        duplicated
+            .nested_members
+            .push(domain_row("service:alpha", "common"));
+        let findings = admissibility::nested_member_coincidence(&duplicated);
+        assert_eq!(
+            findings.len(),
+            1,
+            "one refusal for the one repeated address"
+        );
+        assert!(
+            findings[0].message.contains("service:alpha/domain/common"),
+            "the refusal names the coincident address, got: {}",
+            findings[0].message
+        );
+    }
+
+    #[test]
+    fn the_citation_scoping_index_maps_an_ambiguous_key_to_no_host() {
+        // The source side of the same judgment: `mention_reachable` scopes a body-carried
+        // citation through this `(kind, key) → host` index. A key two hosts carry maps to
+        // neither, rather than to whichever row was indexed last; a key one host carries
+        // still maps to it.
+        let declarations = declarations();
+        let embedded = compose::embedded_features_by_kind(&declarations);
+        let by_kind: BTreeMap<&str, &[Features]> = embedded
+            .iter()
+            .map(|(kind, members)| (kind.as_str(), members.as_slice()))
+            .collect();
+        let hosts = graph::embedded_hosts_by_key(&by_kind);
+
+        assert_eq!(
+            hosts.get(&("domain".to_string(), "billing".to_string())),
+            Some(&("service".to_string(), "gamma".to_string())),
+            "the unambiguous key scopes to its one host — the index is not empty"
+        );
+        assert_eq!(
+            hosts.get(&("domain".to_string(), "common".to_string())),
+            None,
+            "the key `alpha` and `beta` both carry scopes to neither"
+        );
+    }
+
+    #[test]
+    fn explain_refuses_a_bare_key_two_hosts_carry() {
+        // `explain` reads the same spelling the same way: a bare key one host carries
+        // names that member, a key two hosts carry names nothing and comes back with every
+        // full address to retry with — `explain` never guesses.
+        let declarations = declarations();
+        let embedded = compose::embedded_features_by_kind(&declarations);
+        let hosts = BTreeMap::from([(
+            "service".to_string(),
+            vec![alpha(&declarations.nested_members, "billing")],
+        )]);
+        let by_kind = compose::assemble_by_kind(&hosts, &[], &embedded);
+
+        let ambiguous = explain(&by_kind, "common");
+        assert!(
+            ambiguous.contains("names more than one thing"),
+            "the ambiguous key is refused, got: {ambiguous}"
+        );
+        for carrier in ["service:alpha/domain/common", "service:beta/domain/common"] {
+            assert!(
+                ambiguous.contains(carrier),
+                "the refusal lists `{carrier}` as a spelling to retry with, got: {ambiguous}"
+            );
+        }
+
+        // The spellings it hands back are real: each full address resolves to the one
+        // member under that host.
+        for carrier in ["service:alpha/domain/common", "service:beta/domain/common"] {
+            let qualified = explain(&by_kind, carrier);
+            assert!(
+                !qualified.contains("names more than one thing")
+                    && !qualified.contains("No member"),
+                "`{carrier}` — the spelling the refusal offered — resolves, got: {qualified}"
+            );
+        }
+
+        // Non-vacuity: the same read over the key only `gamma` carries resolves to that
+        // member rather than refusing.
+        let resolved = explain(&by_kind, "billing");
+        assert!(
+            !resolved.contains("names more than one thing"),
+            "a key one host carries is no ambiguity, got: {resolved}"
+        );
+        assert!(
+            resolved.contains("service:gamma/domain/billing"),
+            "the bare key resolves to the member under its one host, got: {resolved}"
         );
     }
 

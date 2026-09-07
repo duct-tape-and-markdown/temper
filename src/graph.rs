@@ -326,13 +326,11 @@ pub fn degree(
 
 /// The host member an edge's source belongs to, or `None` when the source is no embedded
 /// member: read off the source's **own address** when it carries its host
-/// ([`parse_nested_address`]), else off the caller's `(kind, key)` index — the spelling a
+/// ([`embedded_source_host`]), else off the caller's `(kind, key)` index — the spelling a
 /// declaration row uses when it names an embedded member by key alone.
 fn edge_host(from: &Node, embedded_hosts: &BTreeMap<Node, Node>) -> Option<Node> {
-    if let Some(nested) = parse_nested_address(&from.1)
-        && let Some((kind, name)) = nested.host.split_once(':')
-    {
-        return Some((kind.to_string(), name.to_string()));
+    if let Some((_, host)) = embedded_source_host(&from.1) {
+        return Some(host);
     }
     embedded_hosts.get(from).cloned()
 }
@@ -1275,15 +1273,26 @@ pub fn resolved_edges(
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
         for source in sources {
             for target in edge_targets(source, &edge.field) {
-                match target_identity(&target, &edge.to) {
-                    Some((kind, identity)) if resolves(by_kind, kind, identity) => {
+                let membership = target_identity(&target, &edge.to).map(|(kind, identity)| {
+                    (kind, identity, resolve_target(by_kind, kind, identity))
+                });
+                match membership {
+                    Some((kind, identity, Membership::One(_))) => {
                         resolved.push(ResolvedEdge {
                             from: (edge.from.clone(), source.id.clone()),
                             field: edge.field.clone(),
                             to: (kind.to_string(), identity.to_string()),
                         });
                     }
-                    _ => {
+                    Some((_, _, Membership::Ambiguous(hosts))) => {
+                        dangling_diagnostics.push(ambiguous_route(
+                            edge,
+                            source.id.as_str(),
+                            &target,
+                            &hosts,
+                        ));
+                    }
+                    Some((_, _, Membership::Missing)) | None => {
                         dangling_diagnostics.push(dangling(edge, source.id.as_str(), &target));
                     }
                 }
@@ -1371,30 +1380,49 @@ pub fn resolved_mention_edges(mentions: &[MentionDeclaration]) -> Vec<ResolvedEd
         .collect()
 }
 
-/// Whether a lifted reference edge resolves against the **discovered corpus**. Only a
-/// mention route-resolves at `check`: a member `kind:name` target resolves when the
-/// corpus carries a member of that kind and name; an embedded-leaf target resolves when
-/// the leaf exists in the corpus's embedded leaves; a bare requirement name resolves when
-/// the roster declares it. An import ([`IMPORT_FIELD`]) or any other lifted edge already
-/// resolved at emit and never dangles here, so it always resolves.
+/// The route finding a lifted reference edge earns against the **discovered corpus**, or
+/// `None` when it resolves. Only a mention route-resolves at `check`: a member
+/// `kind:name` target resolves when the corpus carries a member of that kind and name; an
+/// embedded-leaf target resolves when the leaf exists in the corpus's embedded leaves; a
+/// bare requirement name resolves when the roster declares it. An import
+/// ([`IMPORT_FIELD`]) or any other lifted edge already resolved at emit and never dangles
+/// here, so it always resolves.
+///
+/// The verdict and its wording live together so [`edge_resolves`] and [`route_mentions`]
+/// cannot come to disagree about *why* a mention failed to resolve: a bare key several
+/// hosts carry is refused as ambiguous, naming them, where a name no member bears dangles.
+fn mention_finding(
+    edge: &ResolvedEdge,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    requirements: &BTreeMap<String, Requirement>,
+) -> Option<Diagnostic> {
+    if edge.field != MENTION_FIELD {
+        return None;
+    }
+    let (kind, name) = &edge.to;
+    if kind == EMBEDDED_LEAF_KIND {
+        let resolved =
+            parse_leaf_address(name).is_some_and(|parsed| resolve_leaf(by_kind, &parsed).is_some());
+        return (!resolved).then(|| dangling_mention(edge));
+    }
+    if kind == REQUIREMENT_KIND {
+        return (!requirements.contains_key(name)).then(|| dangling_mention(edge));
+    }
+    match resolve_target(by_kind, kind, name) {
+        Membership::One(_) => None,
+        Membership::Ambiguous(hosts) => Some(ambiguous_mention(edge, &hosts)),
+        Membership::Missing => Some(dangling_mention(edge)),
+    }
+}
+
+/// Whether a lifted reference edge resolves against the discovered corpus — the boolean
+/// face of [`mention_finding`], which the read family's resolved/dangling split reads.
 fn edge_resolves(
     edge: &ResolvedEdge,
     by_kind: &BTreeMap<&str, &[Features]>,
     requirements: &BTreeMap<String, Requirement>,
 ) -> bool {
-    if edge.field != MENTION_FIELD {
-        return true;
-    }
-    let (kind, name) = &edge.to;
-    if kind == EMBEDDED_LEAF_KIND {
-        parse_leaf_address(name).is_some_and(|parsed| resolve_leaf(by_kind, &parsed).is_some())
-    } else if kind == REQUIREMENT_KIND {
-        requirements.contains_key(name)
-    } else {
-        by_kind
-            .get(kind.as_str())
-            .is_some_and(|members| member_named(members, name).is_some())
-    }
+    mention_finding(edge, by_kind, requirements).is_none()
 }
 
 /// Split the lifted mention/import edges into those that resolve against the discovered
@@ -1430,8 +1458,7 @@ pub fn route_mentions(
 ) -> Vec<Diagnostic> {
     mentions
         .iter()
-        .filter(|edge| !edge_resolves(edge, by_kind, requirements))
-        .map(dangling_mention)
+        .filter_map(|edge| mention_finding(edge, by_kind, requirements))
         .collect()
 }
 
@@ -1603,7 +1630,7 @@ fn edge_targets(source: &Features, field: &str) -> Vec<String> {
 /// - a **nested member's own address** — `<host-address>/<kind>/<key>` — names its kind
 ///   in its second segment, so a multi-element set takes it exactly as it takes a
 ///   `kind:name`: by the kind the address spells, with the whole address carried on as the
-///   identity [`resolves`] matches ([`parse_nested_address`] rules on the grammar, the
+///   identity [`resolve_target`] matches ([`parse_nested_address`] rules on the grammar, the
 ///   `/<leaf>` tail included).
 fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'a str)> {
     if let [only] = to {
@@ -1627,31 +1654,77 @@ fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'
         .map(|declared| (declared.as_str(), identity))
 }
 
-/// Whether `identity` names a real member of `kind` in the corpus — the one membership
-/// test route resolution runs, over the same map [`check`] and [`resolved_edges`] read.
-fn resolves(by_kind: &BTreeMap<&str, &[Features]>, kind: &str, identity: &str) -> bool {
-    by_kind
-        .get(kind)
-        .is_some_and(|members| member_named(members, identity).is_some())
+/// The verdict an authored name gets against the corpus's members of `kind` — the one
+/// membership test route resolution runs, over the same map [`check`] and
+/// [`resolved_edges`] read. A kind the corpus composes nothing of answers
+/// [`Membership::Missing`], exactly as a kind whose members none bear the name does.
+fn resolve_target<'f>(
+    by_kind: &BTreeMap<&str, &'f [Features]>,
+    kind: &str,
+    identity: &str,
+) -> Membership<'f> {
+    by_kind.get(kind).map_or(Membership::Missing, |members| {
+        member_lookup(members, identity)
+    })
+}
+
+/// What an authored name resolves to among one kind's members — the three-way verdict
+/// [`member_lookup`] returns, so a name no member can own is refused rather than
+/// collapsed onto whichever member the scan reached first.
+enum Membership<'f> {
+    /// Exactly one member answers the name.
+    One(&'f Features),
+    /// The name is a **bare key** these hosts each carry a member of the kind under —
+    /// listed by host address, sorted and deduplicated. It names no one member.
+    Ambiguous(Vec<&'f str>),
+    /// No member of the kind answers the name.
+    Missing,
 }
 
 /// The member of `members` an authored name addresses — the one membership lookup
-/// [`resolves`], [`edge_resolves`] and [`member_at`] all read, so route resolution and the
-/// target's own features can never disagree about which member a name meant.
+/// [`resolve_target`], [`mention_finding`] and [`member_at`] all read, so route resolution
+/// and the target's own features can never disagree about which member a name meant.
 ///
 /// A member's identity **is** its address, so a name resolves by equality — an embedded
 /// member's `<host-address>/<kind>/<key>` included, whose host segment is the whole of
 /// what tells two same-keyed members under different hosts apart.
 ///
-/// A **bare key** also names an embedded member, taking whichever member of the kind
-/// carries it first. That short form is what the corpus already writes; which of several
-/// same-keyed members it means is an open ambiguity, and refusing it is a policy decision
-/// owned elsewhere, never a verdict this lookup invents.
+/// A **bare key** also names an embedded member: the short form the corpus writes, which
+/// resolves when exactly one host carries it. Carried by *several* hosts it names nothing
+/// — `representation.md` ("member") makes resolution total, an address naming exactly one
+/// thing or the verb refusing — so the carriers come back as [`Membership::Ambiguous`]
+/// for the caller to refuse by, naming every one of them.
+fn member_lookup<'f>(members: &'f [Features], identity: &str) -> Membership<'f> {
+    if let Some(features) = members.iter().find(|features| features.id == identity) {
+        return Membership::One(features);
+    }
+    let carriers: Vec<(&'f str, &'f Features)> = members
+        .iter()
+        .filter_map(|features| {
+            let nested = parse_nested_address(&features.id)?;
+            (nested.key == identity).then_some((nested.host, features))
+        })
+        .collect();
+    let hosts: BTreeSet<&'f str> = carriers.iter().map(|(host, _)| *host).collect();
+    match (carriers.first(), hosts.len()) {
+        (None, _) | (Some(_), 0) => Membership::Missing,
+        // One host carrying the key twice is a malformed lock refused at admissibility
+        // (`crate::admissibility`'s `nested_member_coincidence`), not an ambiguity to
+        // re-decide here.
+        (Some((_, only)), 1) => Membership::One(only),
+        (Some(_), _) => Membership::Ambiguous(hosts.into_iter().collect()),
+    }
+}
+
+/// The member of `members` an authored name addresses, or `None` when the name resolves
+/// to no single member — the [`Option`] face of [`member_lookup`] for the readers that
+/// carry no diagnostic to raise. An ambiguous bare key answers `None`: it names no one
+/// member, and the refusal is raised where the route findings are built.
 fn member_named<'f>(members: &'f [Features], identity: &str) -> Option<&'f Features> {
-    members.iter().find(|features| {
-        features.id == identity
-            || parse_nested_address(&features.id).is_some_and(|nested| nested.key == identity)
-    })
+    match member_lookup(members, identity) {
+        Membership::One(features) => Some(features),
+        Membership::Ambiguous(_) | Membership::Missing => None,
+    }
 }
 
 /// One parsed **nested-member address** — `<host-address>/<kind>/<key>`
@@ -1665,6 +1738,10 @@ fn member_named<'f>(members: &'f [Features], identity: &str) -> Option<&'f Featu
 struct NestedAddress<'a> {
     /// The host member's own `<kind>:<name>` address — the segment before the first `/`.
     host: &'a str,
+    /// The host member's kind — the half of `host` before its `:`.
+    host_kind: &'a str,
+    /// The host member's name — the half of `host` after its `:`.
+    host_name: &'a str,
     /// The nested member's kind.
     kind: &'a str,
     /// The nested member's key among its host's members of that kind.
@@ -1704,7 +1781,76 @@ fn parse_nested_address(address: &str) -> Option<NestedAddress<'_>> {
     if host_kind.is_empty() || host_name.is_empty() {
         return None;
     }
-    Some(NestedAddress { host, kind, key })
+    Some(NestedAddress {
+        host,
+        host_kind,
+        host_name,
+        kind,
+        key,
+    })
+}
+
+/// The two nodes an embedded member's own address names: its `(kind, key)` — the short
+/// spelling a declaration row uses when it names an embedded member by key alone — and
+/// its **host**'s `(kind, name)`. `None` when `address` is no nested-member address.
+///
+/// The reader half of the grammar [`nested_address`] writes: every consumer that needs a
+/// nested member's host reads it here, off the member's own identity, rather than
+/// re-splitting the address on its own ([`edge_host`], the citation-scoping index
+/// [`embedded_hosts_by_key`] the gate hands `mention_reachable`).
+#[must_use]
+pub fn embedded_source_host(address: &str) -> Option<(Node, Node)> {
+    let nested = parse_nested_address(address)?;
+    Some((
+        (nested.kind.to_string(), nested.key.to_string()),
+        (nested.host_kind.to_string(), nested.host_name.to_string()),
+    ))
+}
+
+/// The **key** segment of a nested member's own address, or `None` when `address` is no
+/// nested-member address — the bare short form a reference may spell, read through the
+/// one parser rather than a fresh split at each reader (`crate::read`'s `explain`
+/// resolution is the other one).
+#[must_use]
+pub fn nested_key(address: &str) -> Option<&str> {
+    parse_nested_address(address).map(|nested| nested.key)
+}
+
+/// Each embedded member's `(kind, key)` node keyed to its **host**'s node — the index
+/// `mention_reachable` needs to judge a body-carried citation under its host's scope,
+/// since an embedded-carried edge keys its source to the embedded member, never the host
+/// (the source-side twin of the target-side `target_identity` seam).
+///
+/// Built off each member's own identity — an embedded member's `Features::id` **is** its
+/// `<host-address>/<kind>/<key>` address — so this index and the two membership lookups
+/// beside it read one grammar through one parser.
+///
+/// A `(kind, key)` **two different hosts carry** maps to no host: the short spelling is
+/// ambiguous between them, and an ambiguous address names nothing rather than whichever
+/// carrier happened to be indexed last. The edge it would have scoped stays keyed to the
+/// embedded member alone, exactly as a member whose address names no host does; the
+/// reference spelling that ambiguity is *authored* in refuses loud at resolution
+/// ([`resolved_edges`], [`route_mentions`]).
+#[must_use]
+pub fn embedded_hosts_by_key(by_kind: &BTreeMap<&str, &[Features]>) -> BTreeMap<Node, Node> {
+    let mut hosts: BTreeMap<Node, Option<Node>> = BTreeMap::new();
+    for features in by_kind.values().flat_map(|members| members.iter()) {
+        let Some((source, host)) = embedded_source_host(&features.id) else {
+            continue;
+        };
+        hosts
+            .entry(source)
+            .and_modify(|carrier| {
+                if carrier.as_ref() != Some(&host) {
+                    *carrier = None;
+                }
+            })
+            .or_insert(Some(host));
+    }
+    hosts
+        .into_iter()
+        .filter_map(|(source, host)| Some((source, host?)))
+        .collect()
 }
 
 /// An edge's declared target set, rendered for a diagnostic: one kind reads as its own
@@ -1738,6 +1884,40 @@ fn dangling(edge: &Edge, source: &str, target: &str) -> Diagnostic {
     )
 }
 
+/// The refusal a **bare key more than one host carries** reads as — the tail both route
+/// findings share, so one ambiguity has one wording wherever it is spelled.
+///
+/// It is the SDK's own, which ships this bar at the other end of the seam
+/// (`sdk/src/emit.ts`, `resolvedTargetFacts`): name every carrier host, and point at the
+/// whole `<host-address>/<kind>/<key>` spelling that tells them apart. Two hosts sharing a
+/// `(kind, key)` are legal — their addresses differ in the host segment — so the refusal
+/// is the *reference*'s, never the declaration's.
+fn ambiguous_bare_key(hosts: &[&str]) -> String {
+    let carriers: Vec<String> = hosts.iter().map(|host| format!("`{host}`")).collect();
+    format!(
+        "a bare key {} hosts carry ({}) — a nested member's address composes through its \
+         host, so spell the whole `<host-address>/<kind>/<key>` \
+         (specs/model/representation.md, \"member\")",
+        hosts.len(),
+        carriers.join(", "),
+    )
+}
+
+/// The finding for a declared reference whose target is a bare key several hosts carry —
+/// the [`dangling`] twin for a route that resolves to *too many* members rather than none
+/// ([`ambiguous_bare_key`]).
+fn ambiguous_route(edge: &Edge, source: &str, target: &str, hosts: &[&str]) -> Diagnostic {
+    Diagnostic::error(
+        GRAPH_ROUTE_RULE,
+        source,
+        format!(
+            "`{source}` `{}` routes to `{target}`, {}",
+            edge.field,
+            ambiguous_bare_key(hosts)
+        ),
+    )
+}
+
 /// Render a mention target [`Node`] as the author wrote it: a member as its `kind:name`
 /// address, a requirement as its bare name.
 fn render_target(node: &Node) -> String {
@@ -1765,6 +1945,22 @@ fn dangling_mention(edge: &ResolvedEdge) -> Diagnostic {
         format!("{from_kind}:{from_id}"),
         format!(
             "`{from_kind}:{from_id}` mentions `{target}`, which resolves to no {resolves_against} in the discovered corpus",
+        ),
+    )
+}
+
+/// The finding for a mention whose target is a bare key several hosts carry — the
+/// [`dangling_mention`] twin, in the same wording the declared-reference family refuses
+/// with ([`ambiguous_bare_key`]).
+fn ambiguous_mention(edge: &ResolvedEdge, hosts: &[&str]) -> Diagnostic {
+    let (from_kind, from_id) = &edge.from;
+    let target = render_target(&edge.to);
+    Diagnostic::error(
+        GRAPH_ROUTE_RULE,
+        format!("{from_kind}:{from_id}"),
+        format!(
+            "`{from_kind}:{from_id}` mentions `{target}`, {}",
+            ambiguous_bare_key(hosts)
         ),
     )
 }

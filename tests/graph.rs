@@ -1185,10 +1185,12 @@ mod embedded_edge_targets {
     }
 
     #[test]
-    fn a_bare_nested_member_address_matches_first_same_key() {
+    fn a_bare_nested_member_address_two_hosts_carry_refuses() {
         let root = common::scaffold("embedded-edge-bare-ambiguous");
-        // Write two services, both with a `common` domain member.
-        // An edge using bare `common` should match the first one (ambiguous but deterministic).
+        // Write two services, both with a `common` domain member. The bare `common` on an
+        // edge names both and therefore neither: resolution is total, so the run refuses
+        // naming every carrier host and pointing at the host-qualified spelling — where it
+        // once took the first match ("ambiguous but deterministic").
         fs::write(
             root.join("specs/service.md"),
             "# Purpose\nFirst service.\n\n# Serves\n- common\n",
@@ -1227,10 +1229,82 @@ mod embedded_edge_targets {
             },
         );
 
+        // The github reporter, so the refusal is scraped as one whole finding line.
+        let run = common::check_in(&root, &[], Some("github"));
+        assert!(
+            !run.ok,
+            "a bare key two hosts carry names no member, got:\n{}",
+            run.output
+        );
+        let findings = run.findings();
+        let route = common::findings_for(&findings, "graph.route");
+        assert_eq!(
+            route.len(),
+            1,
+            "one refusal for the one ambiguous edge, got:\n{}",
+            run.output
+        );
+        for carrier in ["`service:service`", "`service:other`"] {
+            assert!(
+                route[0].contains(carrier),
+                "the refusal names every carrier host ({carrier}), got: {}",
+                route[0]
+            );
+        }
+        assert!(
+            route[0].contains("<host-address>/<kind>/<key>"),
+            "the refusal points at the spelling that resolves, got: {}",
+            route[0]
+        );
+    }
+
+    #[test]
+    fn a_host_qualified_spelling_of_the_same_key_still_resolves() {
+        // The twin of the refusal above over the identical corpus: the long form names
+        // exactly one of the two same-keyed members, so the same edge resolves clean.
+        let root = common::scaffold("embedded-edge-bare-ambiguous-qualified");
+        fs::write(
+            root.join("specs/service.md"),
+            "# Purpose\nFirst service.\n\n# Serves\n- service:other/domain/common\n",
+        )
+        .unwrap();
+        fs::write(root.join("specs/other.md"), "# Purpose\nOther service.\n\n").unwrap();
+
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&["domain"])],
+                assembly: vec![edge("service", "serves", "domain")],
+                nested_members: vec![
+                    NestedMemberRow {
+                        host: "service:service".to_string(),
+                        kind: "domain".to_string(),
+                        key: "common".to_string(),
+                        leaves: BTreeMap::new(),
+                        collections: Vec::new(),
+                        placed_edges: None,
+                        rendered_lines: None,
+                        rendered_chars: None,
+                    },
+                    NestedMemberRow {
+                        host: "service:other".to_string(),
+                        kind: "domain".to_string(),
+                        key: "common".to_string(),
+                        leaves: BTreeMap::new(),
+                        collections: Vec::new(),
+                        placed_edges: None,
+                        rendered_lines: None,
+                        rendered_chars: None,
+                    },
+                ],
+                ..Declarations::default()
+            },
+        );
+
         let run = common::check_in(&root, &[], None);
         assert!(
             run.ok,
-            "bare nested member addresses should resolve to the first match, got:\n{}",
+            "the host-qualified spelling names one member, got:\n{}",
             run.output
         );
     }

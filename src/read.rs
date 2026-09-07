@@ -202,12 +202,14 @@ enum Species<'a> {
 /// existence, `contracts` (every kind's resolved default contract, built-in and
 /// custom/embedded alike) for kind existence. A bare name in both member and
 /// requirement is `Ambiguous`; a bare name in exactly one of the three resolves to it;
-/// a bare name in none, absent a `/`, is `NotFound`. The kind check runs only once
-/// member and requirement both miss — a bare name already meaning something in this
-/// corpus keeps meaning that, so adding the kind namespace can only claim a name that
-/// was `NotFound` before.
+/// a bare name in none, absent a `/`, is `NotFound`. A bare **nested-member key** is a
+/// fourth reading, matched through the address parser; it and the kind check run only
+/// once member and requirement both miss — a bare name already meaning something in this
+/// corpus keeps meaning that, so a later namespace can only claim a name that was
+/// `NotFound` before. A key more than one host carries names nothing and comes back
+/// `Ambiguous`, listing every carrier's full address.
 fn resolve<'a>(
-    by_kind: &BTreeMap<&str, &[Features]>,
+    by_kind: &BTreeMap<&str, &'a [Features]>,
     roster: &BTreeMap<String, Requirement>,
     contracts: &BTreeMap<String, Contract>,
     target: &'a str,
@@ -233,6 +235,20 @@ fn resolve<'a>(
     }
     if let Some(address) = target.strip_prefix("address:") {
         return Species::Leaf(address);
+    }
+
+    // A nested member's own `<host-address>/<kind>/<key>` address is its identity, so it
+    // resolves by equality against the composed corpus — read before the `<kind>:<name>`
+    // split below, whose first `:` would take the *host*'s kind for the member's and miss.
+    // A four-segment leaf address is no member address ([`graph::nested_key`] rules it
+    // out) and falls through to the leaf branch, its own grain.
+    if graph::nested_key(target).is_some()
+        && by_kind
+            .values()
+            .flat_map(|members| members.iter())
+            .any(|features| features.id == target)
+    {
+        return Species::Member(target);
     }
 
     if let Some((kind_str, name)) = target.split_once(':')
@@ -261,7 +277,31 @@ fn resolve<'a>(
         .collect();
     let is_requirement = roster.contains_key(target);
 
+    // A bare **key** also names a nested member. Since an embedded member's identity is
+    // its whole `<host-address>/<kind>/<key>` address, the short form matches through the
+    // address parser rather than by equality — the same reading an edge's bare identity
+    // gets (`crate::graph`), so `explain` and the gate resolve one spelling one way.
+    let nested: Vec<&'a str> = by_kind
+        .values()
+        .flat_map(|members| members.iter())
+        .filter(|features| graph::nested_key(&features.id) == Some(target))
+        .map(|features| features.id.as_str())
+        .collect();
+
     match (member_kinds.len(), is_requirement) {
+        // The nested namespace is consulted last among the member-grain ones and before
+        // the kind namespace, by the rule above it: a bare name already meaning a
+        // top-level member or a requirement keeps meaning that, so a key can only claim a
+        // name that was `NotFound`. Carried by more than one host it names nothing —
+        // `explain` never guesses, so every carrier's full address comes back as the
+        // spelling to retry with.
+        (0, false) if nested.len() > 1 => Species::Ambiguous(
+            nested
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
+        ),
+        (0, false) if !nested.is_empty() => Species::Member(nested[0]),
         (0, false) if contracts.contains_key(target) => Species::Kind(target),
         (0, false) => Species::NotFound(target),
         (0, true) => Species::Requirement(target),

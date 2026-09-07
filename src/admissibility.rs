@@ -13,6 +13,7 @@ use crate::contract::Contract;
 use crate::drift;
 use crate::engine;
 use crate::extract;
+use crate::graph;
 use crate::kind::CustomKind;
 
 /// The embedded kinds the lock declares: every child kind a host names, whether through
@@ -72,6 +73,44 @@ pub fn nested_member_admissibility(declarations: &drift::Declarations) -> Vec<ch
                      nested template — an orphaned lock row no kind's `templates` or member \
                      collection admits",
                     row.key, row.host, row.kind
+                ),
+            )
+        })
+        .collect()
+}
+
+/// Reject a host declaring the **same `(kind, key)` nested member twice** — two rows
+/// spelling one address. `representation.md` ("member") makes resolution total and
+/// coincident addresses a malformed lock: within one host a nested member's address *is*
+/// its `(kind, key)`, so the repeat names two members with one name and nothing
+/// downstream — the by-kind corpus, the host-address read, an edge target — can tell them
+/// apart. Refused here, the same malformed-lock class as an orphaned row
+/// ([`nested_member_admissibility`]), under the same rule id.
+///
+/// Two **different** hosts sharing a `(kind, key)` are not coincident — their addresses
+/// differ in the host segment (`spec:alpha/invariant/x` and `spec:beta/invariant/x` are
+/// distinct) — and are admissible. What is ambiguous there is a *bare* reference to the
+/// key, refused at resolution naming every carrier host (`crate::graph`), never at
+/// declaration.
+pub fn nested_member_coincidence(declarations: &drift::Declarations) -> Vec<check::Diagnostic> {
+    let mut counts: BTreeMap<(&str, &str, &str), usize> = BTreeMap::new();
+    for row in &declarations.nested_members {
+        *counts
+            .entry((row.host.as_str(), row.kind.as_str(), row.key.as_str()))
+            .or_default() += 1;
+    }
+    counts
+        .into_iter()
+        .filter(|(_, count)| *count > 1)
+        .map(|((host, kind, key), count)| {
+            check::Diagnostic::error(
+                NESTED_MEMBER_ADMISSIBILITY_RULE,
+                host,
+                format!(
+                    "`{host}` declares the nested member `{}` {count} times — one address \
+                     naming {count} members, a coincidence no reader can resolve; a host's \
+                     `(kind, key)` names exactly one of its nested members",
+                    graph::nested_address(host, kind, key),
                 ),
             )
         })
