@@ -1,85 +1,8 @@
 [
   {
-    "tag": "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/gate.rs",
-          "description": "`committed_layout_sites` (:54) collects discovered committed members of LAYOUT-content kinds only (the `Content::Layout` filter at :67, the `commitment != Local` exclusion at :68), so 676467cf's undeclared-member finding never sees a composed kind. Generalize it to one site walk over every discovered kind, tagging each site with its content class. ONE predicate, spelled once: `content == Content::File && governs.is_some() && commitment != Local`. Each conjunct is load-bearing — the `local` exclusion is already there, `governs == None` drops a nested-file child (it composes its path from its host and holds no rollup row), and the content class drops the four registration kinds. Those four (hook, installed-plugin, known-marketplace, mcp-server) fall out on the content test ALONE: each is `Content::Fields` carrying a `collection_address` (src/builtin_kind.rs:347, :378, :418, :462), its lock residue `[[declaration.registration]]` and never a provenance row, so joining them would forge false findings over the gauntlet and move the snapshot this entry forbids moving. Do NOT add a `collection_address.is_none()` exclusion beside the content test: the two are not the same predicate (a `Content::Fields` kind with no collection address passes one and fails the other), and a second spelling of one rule is the disease. If a `Content::File` kind carrying a `collection_address` proves admissible, keep it excluded and say why in the commit body rather than widening the predicate silently. Keep the layout branch's rule id and message byte-identical so tests/layout_kind.rs stays green untouched. Gate the whole check on lock presence — on an unrepresented harness every discovered member is undeclared and the finding must stay silent; the layout branch inherits that gate too (it is vacuously safe there today, since layout kinds exist only via lock rows, but it is genuinely load-bearing for file-locus built-ins). Unlike the guard (GUARD-UNDECLARED-LOCUS-WRITE excludes a `.`-rooted locus for want of an ignore reader), `check` KEEPS `.`-rooted loci — `memory` governs `.` with `**/CLAUDE.md` — on purpose: discovery already prunes by the repo's ignore rules (src/import.rs:321-335), so the walk judged is the walk made. Name that deliberate divergence in the commit body. Thread the undeclared set into `coverage_note::check` (:544) — which means MOVING the site walk above that call, from its current home at :563-570."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Beside `undeclared_layout_members_from_doc` (:2820): the composed-kind counterpart. A composed member's whole trace on the lock is its projection provenance row, not the five `MEMBER_ADDRESS_COLUMNS` (:2764) declaration families a layout host reaches through — so this one joins each discovered site's `source_path` against `read_prior_provenance_from_doc` (:2272), the same rows `emit_owned_targets` (:3268) and `config_stale` (:2713) already walk. Normalize BOTH sides through `normalize_lock_path` (:806) before comparing, exactly as the emit reap-diff does at :1417: the site's path is a `String` from `path::relativize_against_root` (gate.rs:74-77) while `ProvenanceRow.source_path` (:2240) is a `HarnessRelativePath`, and an older lock's `./x` spelling would otherwise forge a finding. A discovered document at a represented kind's locus that no provenance row names is reported `locus.undeclared-member` at `warn`, naming path and kind: `emit` will never maintain it (orphan classification iterates lock rows at :1416, so a disk file with no row is never classified and no orphan-drift is reported over it) and `guard` never bound it, yet Claude Code loads it. Remedy named first is declare the member and re-emit. The `local` remedy is offered only for a CUSTOM kind — a built-in's commitment still cannot be respelled. BUILTIN-KIND-RELOCATION-EDGE-FIELDS shipped (77581333) but did NOT unblock this: `relocate`'s delta is edge-fields-only and `KindRelocation` (sdk/src/kind.ts:484) rides the base's locus through unchanged, commitment included — so the custom-only remedy stands on its own facts, not on a pending tag. That the sibling layout message at :2832 offers `local` unconditionally is deliberate, not an inconsistency to fix here: no built-in kind carries `Content::Layout` (it arrives only from a lock row), so every layout kind is one whose commitment the author can respell. Say that in the commit body; tests/layout_kind.rs:715's `local` assertion does not move. RIDER (comment staleness, this file's next opener carries it): `ClauseRow::field`'s doc comment at :3562 still reads \"The field (or marker) the predicate constrains, when it names one\", which 767f4941 outgrew — `section_contains` and `require_sections` name no field and now carry a SYNTHESIZED `<heading>.<marker>` label from `clauseField` (sdk/src/declarations.ts:171). Reword it as the clause's compiled label, the term `specs/model/pipeline.md` (\"The lock\") uses."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "`check` (:57) renders `coverage.checked` (:28) from `member_counts` alone, so a stranger document at a governed locus inflates a kind's count with no mark — the observed 11 -> 13. Take the undeclared set gate.rs now computes and disclose declared and undeclared apart per kind, so the one line that says what was checked cannot silently absorb a member the program does not declare. Hard constraint: the line stays BYTE-IDENTICAL when a kind has zero undeclared members — `tests/snapshots/gauntlet__check_diagnostics.snap:7` pins the whole rendering and `tests/gate_fail_loud.rs:228` asserts the `skill (1)` substring (that fixture writes no lock, so the lock-presence gate keeps it green regardless), so the undeclared mark appends only where there is one."
-        },
-        {
-          "path": "tests/coverage_note.rs",
-          "description": "The fixtures here already build harness dirs with a committed lock and read findings back off the GitHub reporter's one-line-per-finding form (`write_skill`, `lock_widget_kind`, `check_harness`), which is exactly this entry's shape. Three new regressions per tests[], plus TWO existing arms that gain an undeclared mark because their own fixtures carry an undeclared document: `an_embedded_kind_with_nested_members_renders_a_nonzero_embedded_marked_count` (:378), whose `assert!(summary.contains(\"skill (1)\"))` at :410 fails once the summary gains the mark, and `a_locked_custom_kind_suppresses_the_surface_it_governs` (:335), which gains an advisory finding its existing assertions survive but which must be pinned rather than left implicit."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "`coverage_note::check` is called directly here at :388 with five arguments; threading the undeclared set through it is a compile error in this file until the call is updated. No behavioural claim of this suite changes — it pins cost, not findings."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
-          "description": "The gauntlet corpus's whole `coverage.checked` rendering is pinned here (:7). Its members are all declared, so the disclosure change must leave this snapshot unmoved — it is in the fence so a genuine, justified move can be accepted rather than reverting the tick on the fence, not as licence to reformat the line."
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "Two whole-stdout negative assertions stand in for “the clean member trips no `extent` finding” and break on THIS entry's intended behaviour: `check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract`'s `!output.contains(\"00-intent\")` (:358) and `check_reads_a_custom_kind_rooted_outside_specs`'s `!output.contains(\"0001-short\")` (:395). Their shared fixture `author_custom_kind_lock` (:286) writes a lock carrying one `[[declaration.kind]]` row and one `[[declaration.clause]]` row and NO member rows, then drops two documents at the declared locus — a represented harness whose every discovered member is undeclared, precisely the population this entry names, so `locus.undeclared-member` fires over both and the coarse assertion trips on the NEW rule rather than on an `extent` one. Narrow each assertion to the `extent` rule — the claim it actually makes — rather than to whole stdout, so a second rule naming the same artifact cannot forge a failure. Do NOT instead declare the fixture's members: the kind-declared/members-not shape is the commonest adoption shape and the point of the fixture. Both `assert!(ok, …)` arms stay as written — the new finding is `warn`, advisory without `--deny-advisories` — and the two `--deny-advisories` arms already expect `!ok`. One more narrowing in the same file, from the same sweep: both `--deny-advisories` arms (:362-368 and :399-405) assert `!ok` and then `contains(\"extent\")`. Once `locus.undeclared-member` is a `warn` over these very fixtures, `!ok` holds for a second, unrelated reason and the arm stops proving that the *extent* clause escalated. Pin each arm to the extent finding itself — the rule id at promoted severity — rather than to the exit code alone, so the assertion still fails if `extent` stops firing."
-        },
-        {
-          "path": "sdk/src/generated/ClauseRow.ts",
-          "description": "RIDER-only — touched if and only if the `src/drift.rs` `ClauseRow::field` doc reword rides this entry. `ts-rs` exports that doc comment verbatim into this committed binding, so rewording it makes the file stale and fails `tests/seam_bindings_current.rs::committed_bindings_byte_match_a_fresh_export`. Regenerate with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` and commit the result; never hand-edit it (the file's own header forbids it). Drop the rider and this path stays untouched — it is in the fence so the rider is shippable, not so it must ship."
-        },
-        {
-          "path": "tests/json_document_format.rs",
-          "description": "`the_declared_format_decides_which_adapter_reads_the_artifact` (:208) writes a lock carrying a `plugin-manifest` kind row and a `required` clause and NO member row, then drops `.claude-plugin/plugin.json` at the declared locus — a `Content::File` JSON-document kind, so squarely inside this entry's population and a site the new finding fires over. Its `!run.output.contains(\"description\")` (:238) stands in for “no finding over a field the document carries” and passes today only because the new message happens not to use that word. Narrow it to the `required` rule id in this same pass rather than leaving a tripwire one wording change away. Its `assert!(run.ok)` (:233) stays as written — `locus.undeclared-member` is `warn`, advisory without `--deny-advisories`."
-        },
-        {
-          "path": "tests/toml_document.rs",
-          "description": "The twin site: `the_declared_format_decides_which_adapter_reads_the_artifact` (:156) writes a `knob` kind row (`common::kind_facts`, carrying no `commitment = \"local\"`, so committed and inside the population) with no member row, over `.claude/local/knob.toml`. `!run.output.contains(\"mode\")` (:183) is the same coarse stand-in for the `required` claim — narrow it to the rule id. Neither this nor the JSON twin trips at HEAD; both are one wording change from a false failure, which is why they are narrowed with the rule they guard rather than left."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A document dropped at a represented kind's locus that the lock declares no member for is admitted, counted, and never named — the file-locus half of 676467cf.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "an undeclared `.claude/rules/*.md` in a represented harness yields one `locus.undeclared-member` warn naming its path and kind, and the `coverage.checked` disclosure counts it apart from the declared members of that kind"
-      },
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "the same harness with that document declared and emitted reports neither the finding nor an undeclared count — and asserts a non-zero declared count first, so the silence is not an empty read (0048's conservation bar)"
-      },
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "an unrepresented harness (no lock) checked under the built-in default contract reports no `locus.undeclared-member` at all, however many documents discovery finds"
-      }
-    ],
-    "acceptance": "Invariant 6's \"no read or lowering represents less than it was given\" holds for a discovered document with no declared member: `check` names it, the disclosure counts it apart, and neither fires on an unrepresented harness or on a declared-and-emitted one. 676467cf's `layout.undeclared-member` keeps its rule id and wording — tests/layout_kind.rs is untouched and green. The `coverage.checked` rendering is unchanged wherever no kind has an undeclared member — `tests/snapshots/gauntlet__check_diagnostics.snap` does not move, which the registration kinds' `Content::Fields` class is what buys. Stated consequence, not an accident: `locus.undeclared-member` is `warn`, and `--deny-advisories` (src/main.rs:256-259) promotes every `Warn` while exempting `Note`, so from this entry on CI fails for any represented harness carrying an undeclared document at a governed locus. That is the teeth; it is also what an adopter meets first. Blast radius is measured, not estimated: a full implementation run at 17137adc (build's own `--no-fail-fast`, captured at 6d4e68d6) found `tests/acceptance.rs` to be the entire remainder — `tests/layout_kind.rs` untouched and `tests/snapshots/gauntlet__check_diagnostics.snap` unmoved. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green. The gauntlet snapshot is this predicate's tripwire, not a stale file: the `Content::Fields` exclusion is exactly what keeps the gauntlet corpus's three `settings.json` hook members out of the finding, so a builder who loosens the predicate sees `tests/snapshots/gauntlet__check_diagnostics.snap` move. No re-bless there without re-deriving the predicate first.",
-    "notes": "Routed from inbox 09-07 (cascade, GH #58, observed at ab61fea4). Re-verified: gate.rs filters sites to `Content::Layout`, and orphan classification walks lock rows only, so a disk file with no row is invisible to `emit`. Worse than the layout case — the stranger is in what Claude Code loads. Guard half is GUARD-UNDECLARED-LOCUS-WRITE. Amended four times; latest: cascade's coarse-assertion sweep. scoped at 2e0de83a"
-  },
-  {
     "tag": "GUARD-UNDECLARED-LOCUS-WRITE",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -125,10 +48,7 @@
   {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -204,54 +124,9 @@
     "notes": "observed at ad10e8cb (F11, GH #43 leaves gap); corrected at bf4b4168: 'the composed half already names it prose' is false — no reserved own-span leaf name exists in the corpus today. Reserving one is a Decision, tracked by fork `layout-own-span-leaf`, which f07d4f84's `layout_prose` family has since given a third candidate; this entry waits on the ruling either way. Serialized behind KINDS-IN-PLAY and LAYOUT-UNDECLARED-FINDING for tests/layout_kind.rs. scoped at bf2e3eba"
   },
   {
-    "tag": "ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "`admissibility` (:155, doc at :141 \"Two decidable clauses\") gains clause (c): no two edges share a `(from, field)` slot. `contract.md` (\"edge\") gives a field ONE target set (\"The kind declares the field's target as a non-empty set of kinds\"), so two rows spelling one slot are a malformed lock — the assembly-fact sibling of `nested_member_coincidence` (src/admissibility.rs:95). `edge_id` (:1869) already renders exactly that slot as `{from}.{field}`, so group by it and report ONCE per coincident slot, not once per row, naming the count and each distinct `to` set. Key on `(from, field)` ALONE, regardless of `to`: two identical rows are equally malformed — they double every `ResolvedEdge`, inflating `degree`'s (:255) in/out counts with a phantom arc. The SKIP half is what makes this more than a second diagnostic and is load-bearing: `resolved_edges` (:1262) and `check` (:137) re-derive per-edge admissibility through `is_admissible` (:1589), whose `(&Edge, &BTreeMap)` signature cannot see a coincidence, so compute the coincident-slot set once over `edges` and skip both arms exactly as clauses (a)/(b) are skipped. Resolving either arm is a guess between two declarations, and without the skip the author gets the new refusal PLUS the false-dangling pile the coincidence causes — the reported symptom, where every pre-existing `cites` target \"resolves to no directive artifact\" while the new row's targets \"resolve to no skill artifact\". Message names the EDIT, not just the state (the bar REFUSAL-MESSAGE-NAMES-THE-EDIT audits): merge the rows into one `edge` fact whose `to` set lists every target kind, the spec's own spelling. Cost: the pre-pass is O(edges) over an already-loaded slice, never a new walk over members, so `resolved_edges_count()` (:39) — pinned at tests/check_cost.rs:467 — must not move; do not add a second `resolved_edges` invocation. Unit tests land in the inline `mod tests` (:1969) beside this clause family's two siblings, `an_edge_with_an_empty_reference_field_is_inadmissible` (:2122) and `an_edge_over_an_unmodeled_target_kind_is_inadmissible_and_skipped` (:2102), reusing `routes_to_edge` (:2008) and `node` (:1982). tests/graph.rs is deliberately NOT in this fence — the collision that kept it out is gone (BUILTIN-KIND-RELOCATION-EDGE-FIELDS shipped at 77581333), and the exclusion now stands on its own facts: this clause's two siblings are unit-tested in the inline `mod tests` and the end-to-end half belongs in tests/lock_declaration_rows.rs, so a tests/graph.rs case would only duplicate one of them. Likewise src/gate.rs — its call-site comment at :476-480 enumerates two admissibility clauses and goes stale with this change; under the standing prose-cite rule it rides that file's next opener (CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS already edits it), never this entry."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The end-to-end half, in the suite that already owns malformed-assembly-row behaviour: `edge_fact` (:2570), `common::write_lock`, `lock_text` (:2581) and `check_in` are all here, alongside the three existing `to`-column arms (:2586, :2627, :2665) — the last of which (`an_edge_facts_target_column_that_is_neither_string_nor_string_array_refuses_loud`) is the exact shape to copy. Add one arm writing two `edge_fact` rows for the same `from`/`field` with DIFFERENT `to` sets, plus a member whose reference field cites a real target of the first set, and assert the run fails naming the slot once and that the output carries no `graph.route` dangling for that member — the skip proved, not just the refusal. This is the reported fixture verbatim. Second arm for the identical-rows case (same `from`/`field`/`to` twice) so the `to`-blind keying is pinned rather than incidental."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Two `assembly` edge rows for one (from, field) slot are both accepted and both resolved, cross-wiring every existing reference into false dangling errors.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "edge"
-    },
-    "tests": [
-      {
-        "path": "src/graph.rs",
-        "asserts": "two edges sharing a `(from, field)` slot draw exactly one `graph.admissibility` error naming the slot and the merge edit, and neither arm reaches `resolved_edges` — no `graph.route` finding is forged from either `to` set"
-      },
-      {
-        "path": "src/graph.rs",
-        "asserts": "non-vacuity first (0048's bar): the same fixture with ONE edge row resolves its references to real targets and draws no finding, so the refusal is not an empty read"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a committed lock carrying two `fact = \"edge\"` rows for one `from`/`field` fails `check` naming the slot once, with no dangling-route noise; two byte-identical rows refuse the same way"
-      }
-    ],
-    "acceptance": "A hand-authored or SDK-written lock declaring one kind's reference field twice refuses at the assembly tier, once, naming the slot and the merge that fixes it — and neither declaration resolves, so the refusal arrives alone rather than buried under the false `graph.route` danglings the coincidence forges today. `to`-blind keying means identical rows refuse too, so no phantom arc inflates a `degree` bound. `resolved_edges_count()` is unmoved and tests/check_cost.rs stays green untouched; no snapshot moves (the gauntlet corpus declares no coincident slot). `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade probe of 67abe15f — a mis-staged fixture, not a defect claim). Re-verified at HEAD: `edges_from_declarations` (drift.rs:5217) pushes one Edge per row, unkeyed, and `resolved_edges` loops every one. SDK half narrowed at 77581333, not closed: `relocate` (kind.ts:512) throws on a duplicated `<from, field>` on ITS path only — `kind()` and `assemblyFactRows` (declarations.ts:461) still write one row per entry unchecked. scoped at c2415400"
-  },
-  {
     "tag": "NESTED-MEMBER-ADDRESS-READ-AS-A-MALFORMED-LEAF",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -424,7 +299,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
         "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL"
       ]
     },
@@ -693,7 +567,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
         "REFUSAL-MESSAGE-NAMES-THE-EDIT",
         "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
         "NESTED-MEMBER-ADDRESS-READ-AS-A-MALFORMED-LEAF"
@@ -782,7 +655,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL",
         "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
         "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
       ]
