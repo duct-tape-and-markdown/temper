@@ -1,5 +1,39 @@
 [
   {
+    "tag": "HOOK-COLLISION-FIXTURE-ROOTS-THE-RUN-AT-TMP",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/hook_kind.rs",
+          "description": "`two_kinds_at_the_same_collection_address_trip_collision_loud` (:243) writes its lock at `harness.join(\"lock.toml\")` (:266) — OUTSIDE `.temper/`. `resolve_harness_path` (src/main.rs:661) therefore answers `HarnessPath::Workspace { enclosing: <parent> }`, and `harness_diagnostics` (:708) gates that parent: `check --harness /tmp/collection-address-collision<rand>` discovers a corpus rooted at **/tmp**, walking every other suite's `.keep()`-persisted fixture tree. Move the lock to `harness/.temper/lock.toml` so the fixture resolves `HarnessPath::Root` and the run gates the fixture. Then make the root decidable: build the case as `parent = common::tmpdir(...)`, `harness = parent.join(\"collision\")`, plant a real `parent/.claude/rules/planted.md` beside it, and assert the run's `coverage.checked` note reports `rule (0)` — pre-fix it reports `rule (1)`, because the planted sibling sits at the root the run actually walked. The collision assertions (:272-290) are unchanged; the collision is a lock-declaration fact independent of the corpus, which is exactly why this rooting bug stayed invisible."
+        },
+        {
+          "path": "tests/common/mod.rs",
+          "description": "`tmpdir` (:31) persists every fixture with `.keep()` directly at /tmp's top level, so debris grows monotonically (9 GB / 37k entries swept by hand on 09-07) and any fixture that re-roots walks all of it. Give the suite ONE per-run parent under `tempfile` — a `Once`-initialized `/tmp/<fixed-prefix>-<rand>/` (`Once` is already imported at :16) that every `tmpdir` call nests under — so a sweep is one `rm -rf <prefix>-*` and a re-rooted run is bounded to that binary's own fixtures instead of the whole of /tmp. `.keep()` stays: the doc comment at :27 states the reason (callers hand paths across process boundaries that outlive the `TempDir` guard), so update that comment for the new parent rather than dropping it. The change is confined to this one function — all 323 `tmpdir(` call sites across tests/ take the returned `PathBuf` and none asserts on its path shape (verified by grep at scoping)."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The hook-collision fixture writes its lock outside `.temper/`, so the run resolves it as a workspace and gates /tmp — every other suite's fixtures — rather than the fixture.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "tests": [
+      {
+        "path": "tests/hook_kind.rs",
+        "asserts": "the collision case gates the fixture, not its parent: a rule planted in the parent directory is never discovered (`coverage.checked` reports `rule (0)`), while both collision findings still fire"
+      }
+    ],
+    "acceptance": "`cargo test --test hook_kind` green, with the collision case asserting `rule (0)` over a parent carrying a planted `.claude/rules/` tree — the pin fails on the pre-fix tree, where the run roots at the parent and reports `rule (1)`. Fixture debris lands under one sweepable per-run parent. `cargo test --no-fail-fast`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green.",
+    "notes": "Measured 09-07 (the fix for the reported 400s/spawn stall): 3 runs of `check --harness <fixture>` cost 0.38s under a 12.8k-entry parent with the lock at the fixture root vs 0.037s with it under `.temper/`. The reporter's framing — \"discovery's root must never be a parent derived from it\" — is NOT the verified gap: that derivation is deliberate (main.rs:640). The product face, that re-rooting is silent, is the `(re-rooted-harness-disclosure)` fork. scoped at 12bca4b3"
+  },
+  {
     "tag": "SESSION-START-LOAD-ERROR-BYPASSES-REPORTER",
     "gate": {
       "kind": "open"
@@ -31,6 +65,10 @@
         {
           "path": "tests/gate_fail_loud.rs",
           "description": "The one out-of-fence assertion the fix inverts. `a_lock_carrying_two_requirement_rows_with_the_same_name_refuses_loud` (:534) asserts `findings.is_empty()` with the comment \"a fatal duplicate key error produces no findings (the check exits before collecting them)\" — it PINS the bug this entry removes. Keep `assert!(!success, ...)`; replace the empty-findings assertion with exactly one `gate.load-fault` finding naming the colliding key `docs` (`common::findings_for(&findings, \"gate.load-fault\")`), and update the comment: the fatal error is no longer discarded, it is the run's single diagnostic, which is what lets the advisory placement speak it. The test's subject — refuse loud, never silently shadow one requirement with the other — is unchanged."
+        },
+        {
+          "path": "tests/toml_document.rs",
+          "description": "The SECOND out-of-fence assertion of the same class, found only under `cargo test --no-fail-fast` (a plain `cargo test` stops at tests/gate_fail_loud.rs, which sorts first). `a_malformed_document_fails_the_run_rather_than_gating_against_no_fields` (:253-257) asserts `run.findings().is_empty()` for \"the clause never judges a document that would not parse\" — an empty finding set standing in for \"the load error aborted the run\". Post-fix the set holds exactly one `gate.load-fault` finding, so the assertion inverts. The test's SUBJECT is unchanged and must stay: a malformed document is never gated against invented absent fields, so the `knob.mode` `required` clause still never fires. Replace the one assertion with a count: `findings.len() == 1` AND `common::findings_for(&findings, \"gate.load-fault\").len() == 1` — spelled by count, not by the `knob.mode` clause address, which this suite never spells (its sibling cases scrape `output.contains(\"mode\")`, which the lowering defeats because the TOML parse error text quotes the offending `mode =` line). The sibling assertion at :248 (`output.contains(\"temper::toml_document::malformed\")`) already passes: the lowering carries the report's miette code into the diagnostic message."
         }
       ],
       "retire": []
@@ -52,10 +90,14 @@
       {
         "path": "tests/gate_fail_loud.rs",
         "asserts": "a duplicate-identity-key lock still exits non-zero AND now yields exactly one `gate.load-fault` finding naming the colliding key, instead of an empty finding set"
+      },
+      {
+        "path": "tests/toml_document.rs",
+        "asserts": "a malformed TOML document yields exactly one finding and it is `gate.load-fault` — the `knob.mode` required clause still never fires over invented absent fields"
       }
     ],
     "acceptance": "`temper check . --reporter session-start` on a harness whose source cannot be loaded prints a well-formed SessionStart payload carrying the failure, rather than exiting with an empty stdout — the section's 'never silently passes' held for load errors, not only contract failures. The hard placements (terminal, GitHub, SARIF) still exit non-zero, and the duplicate-key load fault now reports one `gate.load-fault` finding rather than none. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Fence widened 09-07 from .flume/refactor/build-session-start-load-error-out-of-fence-test.md: the fix was worked out green on every suite but tests/gate_fail_loud.rs, which pins the pre-fix contract. Does NOT cover the hooks manifest — a session whose settings.json will not parse never invokes the SessionStart hook, so no reporter can reach it; that half is GUARD-UNPARSEABLE-MANIFEST-WRITE-REFUSAL. scoped at 1aae63b5"
+    "notes": "Fence widened 09-07 a second time, from .flume/refactor/build-session-start-load-error-second-out-of-fence-test.md: `cargo test --no-fail-fast` proved tests/toml_document.rs:253 is the LAST out-of-fence assertion, and the working fix was verified green on every gate with that one edit added. Does NOT cover the hooks manifest — a session whose settings.json will not parse never invokes the SessionStart hook; that half shipped as GUARD-UNPARSEABLE-MANIFEST-WRITE-REFUSAL. scoped at 12bca4b3"
   },
   {
     "tag": "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",

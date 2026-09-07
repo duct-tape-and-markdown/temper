@@ -249,6 +249,44 @@ tax.
   mode) with no common shippable core, and plan does not pick among them.
   No dependents.
 
+- `(re-rooted-harness-disclosure)` — OPEN, live driver (GH note observed at
+  a5101a9d, re-diagnosed on disk this tick). `check --harness <dir>` can gate
+  `<dir>/..` and say nothing about it. `resolve_harness_path`
+  (`main.rs:661`) answers `HarnessPath::Workspace { enclosing }` for any
+  directory holding a file named `lock.toml`, and `harness_diagnostics`
+  (`:708`) then discovers the corpus from the **parent** — deliberate, and
+  documented: rooting a workspace at itself would read the lock from
+  `<path>` while walking `<path>` for a corpus that lives beside it, so
+  every declared requirement false-fires `requirement.unfilled`. The defect
+  is not the derivation; it is that **nothing in the run names the root it
+  resolved**. Measured this tick: `check --harness <tmpdir-with-a-bare-lock>`
+  walked a 12.8k-entry `/tmp` and reported only `coverage.checked … harness:
+  checked 0 members`, no announcement — which is why the field's 400s-per-spawn
+  fanout stall (HOOK-COLLISION-FIXTURE-ROOTS-THE-RUN-AT-TMP) went undiagnosed.
+  `adoption.md` "Install" carries the intent — "The verbs target one project's
+  harness at an explicit path" — but `authoring.md` enumerates exactly what
+  `check` announces ("every active local member, every dialed clause, and
+  every joined lock"), and a re-rooted harness root is not on it, so the fix
+  is a corpus change, not an inference. Three candidates. (a) Narrow the
+  `Workspace` branch to a path literally named `.temper` — the `Root` branch
+  already requires that name, so the two branches disagree on what a
+  workspace is. **Rejected**: `emit --into <path>` (`main.rs:106`) takes an
+  arbitrary directory, so a relocated workspace is a spelling temper already
+  sanctions. (b) Disclose the re-root: when the resolved root differs from
+  the path argument, `check` says so, as a fourth clause on `authoring.md`'s
+  announcement enumeration — an input that judged the run beyond the path the
+  author named. (c) Make `--harness` refuse a workspace spelling exactly as
+  `install` already does (`main.rs:426` errors, naming the enclosing root).
+  **Rejected**: it breaks `resolve_harness_path`'s own stated invariant, that
+  a workspace and the harness root it governs always name the same harness,
+  by making one flag disagree with the positional. Session recommendation:
+  **(b)** — it changes no verdict and costs no capability, it is the only
+  candidate that survives both objections, and it is the one change that
+  would have turned this incident into a one-line answer. The objection (b)
+  must answer: on the common path the resolved root and the argument agree,
+  so the line must fire only on divergence or it is noise on every run. No
+  dependents — the fixture entry ships without it.
+
 - `(kind-declared-leaf-schema)` — OPEN, live driver (cascade-integrations
   assessment of EXPLAIN-KIND-ADOPTER-ENTRY-POINT, GH #47, 09-07). `explain
   kind:<x>` on a kind with **no member yet** — the adopter's actual moment —
