@@ -1,39 +1,5 @@
 [
   {
-    "tag": "GUARD-MANIFEST-EDIT-CONTENTLESS-FALLTHROUGH",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "manifest_write_findings (945-1003) reads `input.get(\"content\")` (953: `let content = input.get(\"content\").and_then(JsonValue::as_str)?;`) and returns `None` — no manifest verdict at all — whenever the field is absent, which is every `Edit`/`MultiEdit` payload (those carry `old_string`/`new_string`, or an `edits` array, never whole-file `content`). Now that GH #40 lists a co-owned manifest like `.claude/settings.json` as emit-owned, that `None` falls through at main.rs:359 to the blanket `.claude/ is projected` denial for ANY Edit to the manifest, even one touching only unmodeled residue (`autoMemoryEnabled`, `permissions.allow`) — legitimate under the co-owned posture and allowed pre-GH-#40. Add an Edit/MultiEdit path: when `content` is absent but `old_string`/`new_string` (or `edits`) are present, read `root.join(file_path)` off disk, apply the edit(s) in sequence, and run the resulting text through the same manifest-parse-and-validate path `manifest_write_findings` already runs for `content`. When the on-disk file is unreadable, or an `old_string` does not match (so the edit cannot be honestly applied), fall back to a manifest-specific denial naming the governed members and pointing the author at `Write` for a full-manifest change — never the wholesale `.claude/ is projected` message, and never a silent allow. The whole fix lands inside this function: main.rs:359 already treats a `Some` verdict as authoritative and needs no edit."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Add a regression: an `Edit` payload touching only an unmodeled/opaque key of a represented manifest (e.g. `.claude/settings.json`'s `autoMemoryEnabled`) passes `guard` (matching pre-GH-#40 behavior); a second asserting an `Edit` whose `old_string` cannot be found on disk denies with the manifest-specific message, not the blanket projection one."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A co-owned manifest (.claude/settings.json) refuses every Edit/MultiEdit wholesale, even one touching only unmodeled residue, because manifest_write_findings only understands whole-file Write content.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "an Edit to a represented manifest touching only opaque/unmodeled residue passes guard; an Edit that cannot be honestly applied (old_string not found) denies with a manifest-specific message, never the blanket .claude/-projected denial"
-      }
-    ],
-    "acceptance": "Edit and Write share one rule for a represented manifest: a write (of either shape) touching only opaque residue or conforming members passes; one that drops a lock-declared member or cannot be reconstructed denies with a message naming the governed members and pointing at Write, never the blanket .claude/-projected wording GH #40 now emits for every manifest Edit.",
-    "notes": "observed at 97399cc1 (cascade-integrations, live run of the origin build's GH #40 fixes against a real block-mode harness) — the co-owned-manifest regression GH #40's own two fixes created together. Post-ship reconciliation 09-07: GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT shipped (259a6035), which is why the gate now serializes behind EMIT-PROJECTION-NOTE instead (shared src/install.rs + tests/install.rs); line refs re-read at HEAD after that commit moved them. scoped at 1f79d12a"
-  },
-  {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
     "gate": {
       "kind": "blockedBy",
