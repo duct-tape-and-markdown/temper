@@ -1269,3 +1269,72 @@ fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id()
         "the InstructionsLoaded record names the nested member's placement-folded id and joins: {out}"
     );
 }
+
+#[test]
+fn a_kind_qualified_member_address_resolves_as_member() {
+    let custom = [CustomMember {
+        kind: "memory".to_string(),
+        id: "CLAUDE".to_string(),
+        satisfies: Vec::new(),
+    }];
+    let members = [feature("CLAUDE", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("memory", &members[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    let out = explain(&custom, &by_kind, &roster, "memory:CLAUDE");
+    assert!(
+        out.contains("everything that holds it in place"),
+        "a kind-qualified member address resolves as a member and narrates why: {out}"
+    );
+    assert!(
+        !out.contains("No member"),
+        "it does not fall through to bare-name resolution: {out}"
+    );
+}
+
+#[test]
+fn an_undeclared_kind_in_qualified_form_is_not_found() {
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    let out = explain(&[], &by_kind, &roster, "unknown:CLAUDE");
+    assert!(
+        out.contains("No member, requirement, kind, or leaf address named `unknown:CLAUDE`"),
+        "an undeclared kind in qualified form is NotFound: {out}"
+    );
+}
+
+#[test]
+fn a_bare_name_in_multiple_kinds_is_ambiguous() {
+    let custom = [
+        CustomMember {
+            kind: "skill".to_string(),
+            id: "shared".to_string(),
+            satisfies: Vec::new(),
+        },
+        CustomMember {
+            kind: "rule".to_string(),
+            id: "shared".to_string(),
+            satisfies: Vec::new(),
+        },
+    ];
+    let skills = [feature("shared", &[])];
+    let rules = [feature("shared", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> =
+        BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    let out = explain(&custom, &by_kind, &roster, "shared");
+    assert!(
+        out.contains("names more than one thing"),
+        "a bare name in multiple kinds is ambiguous: {out}"
+    );
+    assert!(
+        out.contains("`skill:shared`"),
+        "the ambiguity names the first qualified form: {out}"
+    );
+    assert!(
+        out.contains("`rule:shared`"),
+        "the ambiguity names the second qualified form: {out}"
+    );
+}

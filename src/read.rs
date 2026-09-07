@@ -224,25 +224,56 @@ fn resolve<'a>(
     if let Some(address) = target.strip_prefix("address:") {
         return Species::Leaf(address);
     }
+
+    if let Some((kind_str, name)) = target.split_once(':')
+        && by_kind.contains_key(kind_str)
+    {
+        let members = by_kind[kind_str];
+        if members.iter().any(|f| f.id == name) {
+            return Species::Member(name);
+        }
+        return Species::NotFound(target);
+    }
+
     if target.contains('/') {
         return Species::Leaf(target);
     }
 
-    let is_member = by_kind
-        .values()
-        .flat_map(|members| members.iter())
-        .any(|features| features.id == target);
+    let member_kinds: Vec<&str> = by_kind
+        .iter()
+        .filter_map(|(kind, members)| {
+            if members.iter().any(|f| f.id == target) {
+                Some(*kind)
+            } else {
+                None
+            }
+        })
+        .collect();
     let is_requirement = roster.contains_key(target);
 
-    match (is_member, is_requirement) {
-        (true, true) => Species::Ambiguous(vec![
+    match (member_kinds.len(), is_requirement) {
+        (0, false) if contracts.contains_key(target) => Species::Kind(target),
+        (0, false) => Species::NotFound(target),
+        (0, true) => Species::Requirement(target),
+        (1, false) => Species::Member(target),
+        (_, false) => Species::Ambiguous(
+            member_kinds
+                .into_iter()
+                .map(|kind| format!("{kind}:{target}"))
+                .collect(),
+        ),
+        (1, true) => Species::Ambiguous(vec![
             format!("member:{target}"),
             format!("requirement:{target}"),
         ]),
-        (true, false) => Species::Member(target),
-        (false, true) => Species::Requirement(target),
-        (false, false) if contracts.contains_key(target) => Species::Kind(target),
-        (false, false) => Species::NotFound(target),
+        (_, true) => {
+            let mut ambiguous = member_kinds
+                .into_iter()
+                .map(|kind| format!("{kind}:{target}"))
+                .collect::<Vec<_>>();
+            ambiguous.push(format!("requirement:{target}"));
+            Species::Ambiguous(ambiguous)
+        }
     }
 }
 
