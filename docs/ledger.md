@@ -132,7 +132,11 @@ hard.
   `.temper/lock.toml` — add when a wave serializes on it. Three seams +
   flume#19 sit in flume's inbox for its next line.
 - Launch loop detached (`setsid nohup … & disown`) with a Monitor on the
-  log; a tool-owned background task was killed mid-merge once. `pgrep`
+  log; a tool-owned background task was killed mid-merge once. The loop's
+  lifetime is the WSL VM's: WSL shut down 09-06 12:42 with a build wave
+  mid-flight (four dirty worktrees, no commits lost) and the loop died
+  with it; relaunched on the VM's return. Keep a WSL terminal open for
+  the run's duration, or run the loop under a service. `pgrep`
   for the loop must use a bracket pattern (`[c]li.js loop`) or it matches
   its own command line.
 
