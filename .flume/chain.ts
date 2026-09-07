@@ -867,7 +867,12 @@ const factory: ChainFactory = (flume) => {
    * phase runs the plan model.
    */
   const planAgent = makeAgent("claude-sonnet-5");
-  const buildAgent = makeAgent("claude-haiku-4-5-20251001");
+  // Routed to Sonnet for the 0048/0049 queue (SDK + engine seams in most
+  // entries; 2026-09-06 on the cheap tier: twelve fence reverts, a shipped
+  // fix that tested an invocation the product never runs, a bail on a false
+  // reading of the entry's own files[]). Return to Haiku when the queue is
+  // single-seam again.
+  const buildAgent = makeAgent("claude-sonnet-5");
   const routed: Agent = {
     name: "phase-router",
     invoke: (opts) =>
