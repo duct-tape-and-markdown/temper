@@ -39,7 +39,8 @@ breaking changes. Releases are small and frequent.
   longer force a rename. (GH #50, #51; decision 0049)
 - A built-in kind gains a sanctioned relocation form for added edge fields:
   `relocate(builtinKind, { edgeFields })` emits one `edge` fact row and no
-  kind-fact change. (GH #54)
+  kind-fact change, and `{ governs: { root, glob } }` moves the kind's
+  locus, the one fact the engine's relocation overlay applies. (GH #53, #54)
 - SDK: `embeddedMemberValue`'s leaves are typed against the kind's field
   schema, and `KindFacts.registration` is narrowed per locus, so an omitted
   leaf or a registration on an embedded kind fails `tsc` rather than
@@ -103,6 +104,9 @@ breaking changes. Releases are small and frequent.
 - A render hook or embedded value can cite a nested member as an edge
   target; the member table previously indexed top-level members only.
   (GH #50)
+- `explain` on a full nested-member address renders the member and stops;
+  it previously appended a "not a well-formed leaf address" refusal after
+  a successful resolution.
 
 ## [0.0.17] — 2026-09-04
 
