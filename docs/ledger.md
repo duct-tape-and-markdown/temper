@@ -277,5 +277,11 @@ tag.
   `(post-tool-use-placement)` (GH #42 (ii); session holds option (b):
   sanctioned Bash-write catch with a findings-only reporter, silent on
   pass). Release intent for a cut (cascade rehearses against a sha).
+- Friction drained 09-07: the hook_kind stall (product defect filed to the
+  inbox: `check --harness` walks outside its root; /tmp swept of 9 GB of
+  kept fixtures) and the pending-queue path contention (no gate — the
+  pending-entry rule's serialization is the mechanism; a queue-wide
+  refusal would be convention, per flume-main). The cargo-insta capture
+  became a rust-rule line (`INSTA_UPDATE=always cargo test --test <name>`).
 - Flume-side, pending John there: tip guard (landed upstream, unreleased),
   worktreesDir placement, bail records carry no reason.

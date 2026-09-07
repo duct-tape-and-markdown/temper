@@ -110,7 +110,10 @@ are flume gates, so a violation reverts the commit.
 ## Tests
 
 - Prefer `insta` snapshots for parse output and lint diagnostics — they make the
-  contract reviewable and catch incidental drift.
+  contract reviewable and catch incidental drift. A change that legitimately
+  moves a snapshot accepts it with `INSTA_UPDATE=always cargo test --test
+  <name>` — the crate reads the variable itself; `cargo insta` is not
+  installed here.
 - Fixtures of deliberately-broken artifacts (one per rule) live under
   `tests/fixtures/`; each rule has a test that proves it fires and that clean
   input does not trip it.
