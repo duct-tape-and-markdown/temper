@@ -1,125 +1,5 @@
 [
   {
-    "tag": "HOOK-COLLISION-FIXTURE-ROOTS-THE-RUN-AT-TMP",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/hook_kind.rs",
-          "description": "`two_kinds_at_the_same_collection_address_trip_collision_loud` (:243) writes its lock at `harness.join(\"lock.toml\")` (:266) — OUTSIDE `.temper/`. `resolve_harness_path` (src/main.rs:661) therefore answers `HarnessPath::Workspace { enclosing: <parent> }`, and `harness_diagnostics` (:708) gates that parent: `check --harness /tmp/collection-address-collision<rand>` discovers a corpus rooted at **/tmp**, walking every other suite's `.keep()`-persisted fixture tree. Move the lock to `harness/.temper/lock.toml` so the fixture resolves `HarnessPath::Root` and the run gates the fixture. Then make the root decidable: build the case as `parent = common::tmpdir(...)`, `harness = parent.join(\"collision\")`, plant a real `parent/.claude/rules/planted.md` beside it, and assert the run's `coverage.checked` note reports `rule (0)` — pre-fix it reports `rule (1)`, because the planted sibling sits at the root the run actually walked. The collision assertions (:272-290) are unchanged; the collision is a lock-declaration fact independent of the corpus, which is exactly why this rooting bug stayed invisible."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "`tmpdir` (:31) persists every fixture with `.keep()` directly at /tmp's top level, so debris grows monotonically (9 GB / 37k entries swept by hand on 09-07) and any fixture that re-roots walks all of it. Give the suite ONE per-run parent under `tempfile` — a `Once`-initialized `/tmp/<fixed-prefix>-<rand>/` (`Once` is already imported at :16) that every `tmpdir` call nests under — so a sweep is one `rm -rf <prefix>-*` and a re-rooted run is bounded to that binary's own fixtures instead of the whole of /tmp. `.keep()` stays: the doc comment at :27 states the reason (callers hand paths across process boundaries that outlive the `TempDir` guard), so update that comment for the new parent rather than dropping it. The change is confined to this one function — all 323 `tmpdir(` call sites across tests/ take the returned `PathBuf` and none asserts on its path shape (verified by grep at scoping)."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The hook-collision fixture writes its lock outside `.temper/`, so the run resolves it as a workspace and gates /tmp — every other suite's fixtures — rather than the fixture.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "tests": [
-      {
-        "path": "tests/hook_kind.rs",
-        "asserts": "the collision case gates the fixture, not its parent: a rule planted in the parent directory is never discovered (`coverage.checked` reports `rule (0)`), while both collision findings still fire"
-      }
-    ],
-    "acceptance": "`cargo test --test hook_kind` green, with the collision case asserting `rule (0)` over a parent carrying a planted `.claude/rules/` tree — the pin fails on the pre-fix tree, where the run roots at the parent and reports `rule (1)`. Fixture debris lands under one sweepable per-run parent. `cargo test --no-fail-fast`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green.",
-    "notes": "Measured 09-07 (the fix for the reported 400s/spawn stall): 3 runs of `check --harness <fixture>` cost 0.38s under a 12.8k-entry parent with the lock at the fixture root vs 0.037s with it under `.temper/`. The reporter's framing — \"discovery's root must never be a parent derived from it\" — is NOT the verified gap: that derivation is deliberate (main.rs:640). The product face, that re-rooting is silent, is the `(re-rooted-harness-disclosure)` fork. scoped at 12bca4b3"
-  },
-  {
-    "tag": "SESSION-START-LOAD-ERROR-BYPASSES-REPORTER",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`harness_diagnostics(&harness_path, &layers)?` (:240) aborts BEFORE the reporter match (:242-249), so a harness that fails to LOAD never reaches any reporter: miette renders the error to stderr and main exits non-zero with an empty stdout. For `--reporter session-start` that is the placement silently passing — Claude Code's SessionStart hook reads stdout JSON, so the session opens with no temper context and no verdict at all. Both `?` sites (`resolve_harness_path`, `gate::gate`) are inside `harness_diagnostics` (:704-713), so catching at this one call site covers every load fault. Catch the load error, lower it to one `error` Diagnostic, and run the SELECTED reporter over it. Terminal/GitHub/SARIF keep exiting non-zero (the exit rule is :261-262); session-start keeps its advisory exit 0 (the comment at :255 states why) but MUST print its payload."
-        },
-        {
-          "path": "src/check.rs",
-          "description": "The lowering helper's home — `Diagnostic` is defined here (:47), `Announcement` at :168 (it derives `Default`, so `Announcement::default()` is the constructor the reporter call needs). A `miette::Report` (the load failure) becomes one `error` Diagnostic. TWO mechanics the fix turns on, neither optional: (i) the `rule` is the report's own `miette::Diagnostic::code()` rendered to a string when it carries one, falling back to `gate.load-fault` when it does not — three existing tests assert the miette code deliberately (tests/toml_document.rs:249, tests/marketplace_kind.rs:195, tests/plugin_manifest_kind.rs:143), and `compose::IdentityMapError` declares no `#[diagnostic(code(...))]`, so the duplicate-key case lands on `gate.load-fault` exactly as this entry wants; (ii) the message renders the report's full `.chain()`, not bare `Display` — `TomlDocumentError::Io`/`NotUtf8` (src/toml_document.rs:104-123) carry their detail in a `#[source]` that `Display` alone drops, and seven modules use `#[source]`. Precedent to follow and to name in the commit body: `compose::frontmatter_fault_diagnostic` (:633-661) lowers three frontmatter faults to `member.load-fault` and re-raises the rest — say why the general helper lands here beside `Diagnostic` rather than beside that one. Do NOT assert a Claude Code hook-loading consequence in the message without a retrieved cite at the site (collaboration rule, external facts); the fact in `notes` is scoping rationale and must not migrate into shipped text."
-        },
-        {
-          "path": "src/reporter.rs",
-          "description": "VERIFY-ONLY — expect no diff here. `session_start` (:66) delegates to `context` (:94), which already renders every `Severity::Error` diagnostic into its Blocking findings block and already caps at `ADDITIONAL_CONTEXT_CAP` (:42) through `cap` (:172), on char boundaries. Confirm a single long miette message still caps cleanly; if it does, this file is untouched. It is inside the fence so the confirmation can be made, not because an edit is expected."
-        },
-        {
-          "path": "tests/session_start.rs",
-          "description": "Regression: a harness whose `.claude/settings.json` is not parseable JSON — `json_manifest::Manifest::read` (:364) → `Self::parse` (:370) → `parse_top_level_object` (:327) raises `JsonManifestError::Malformed` at :334, reaching the gate through `compose.rs:1324`'s `?` — still prints a well-formed SessionStart payload on stdout, exit 0, whose `additionalContext` names the offending file and states the gate did not run. Pin non-vacuity: the payload is not the clean-pass shape (0048's conservation bar). SECOND arm, and the only pin mechanic (ii) has anywhere: a `.claude/settings.json` that is not valid UTF-8 — `JsonManifestError::NotUtf8` (src/json_manifest.rs:253) carries its detail in a `#[source]` (:257) that bare `Display` drops — whose payload names the decode failure, so the chain rendering is asserted rather than assumed. The eight tripwires acceptance lists do NOT pin it (see there)."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "The terminal placement over the same broken harness stays hard: it still renders the failure and still exits non-zero. The SARIF arm is NOT here — its home is tests/reporters.rs, beside the template it copies; see that item. The fix must not soften a hard placement while it un-silences the advisory one."
-        },
-        {
-          "path": "tests/gate_fail_loud.rs",
-          "description": "The one out-of-fence assertion the fix inverts. `a_lock_carrying_two_requirement_rows_with_the_same_name_refuses_loud` (:534) asserts `findings.is_empty()` with the comment \"a fatal duplicate key error produces no findings (the check exits before collecting them)\" — it PINS the bug this entry removes. Keep `assert!(!success, ...)`; replace the empty-findings assertion with exactly one `gate.load-fault` finding naming the colliding key `docs` (`common::findings_for(&findings, \"gate.load-fault\")`), and update the comment: the fatal error is no longer discarded, it is the run's single diagnostic, which is what lets the advisory placement speak it. The test's subject — refuse loud, never silently shadow one requirement with the other — is unchanged."
-        },
-        {
-          "path": "tests/toml_document.rs",
-          "description": "The SECOND out-of-fence assertion of the same class, found only under `cargo test --no-fail-fast` (a plain `cargo test` stops at tests/gate_fail_loud.rs, which sorts first). `a_malformed_document_fails_the_run_rather_than_gating_against_no_fields` (:221) asserts `run.findings().is_empty()` at :254 for \"the clause never judges a document that would not parse\" — an empty finding set standing in for \"the load error aborted the run\". Post-fix the set holds exactly one finding, so :254 inverts unconditionally. The test's SUBJECT is unchanged and must stay: a malformed document is never gated against invented absent fields, so the `knob.mode` `required` clause still never fires. Replace the one assertion with a count of exactly one finding, spelled by count — not by the `knob.mode` clause address, which this suite never spells. Its sibling at :249 asserts the miette code `temper::toml_document::malformed` and survives ONLY under src/check.rs's code-derivation rule; if the rule id were fabricated it would go red, which is why that rule is not optional."
-        },
-        {
-          "path": "tests/marketplace_kind.rs",
-          "description": "VERIFY-ONLY under the code-derivation rule: :195 asserts the miette code `temper::json_manifest::no_identity_value` on an aborting run, with an explicit comment saying the code, not the prose, is what it matches. It stays green iff the lowered `rule` derives from `code()`. In the fence so a wording fix can land if the derivation forces one — not because an edit is expected."
-        },
-        {
-          "path": "tests/plugin_manifest_kind.rs",
-          "description": "VERIFY-ONLY, the twin of tests/marketplace_kind.rs: :143 asserts the same `temper::json_manifest::no_identity_value` code on an aborting run. Same condition, same expectation of no diff."
-        },
-        {
-          "path": "tests/reporters.rs",
-          "description": "The SARIF arm's home, named out loud rather than left to the builder to site. `check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surface` (:169) drives the BINARY through `common::check_in` (:177) — it is CLI-level, it simply never sees a load fault, which is exactly what makes it the template. Add its twin over an ABORTING harness: SARIF still exits non-zero and renders the lowered load fault as one result. (An earlier cut of this entry called :169 library-level; it is not.)"
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A harness that fails to load aborts before any reporter runs, so the session-start placement contributes no verdict at all — it silently passes.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "tests": [
-      {
-        "path": "tests/session_start.rs",
-        "asserts": "an unparseable .claude/settings.json still yields a SessionStart JSON payload on stdout naming the file and stating the gate did not run, never an empty stdout"
-      },
-      {
-        "path": "tests/cli.rs",
-        "asserts": "the terminal reporter over the same harness still exits non-zero with the failure rendered"
-      },
-      {
-        "path": "tests/gate_fail_loud.rs",
-        "asserts": "a duplicate-identity-key lock still exits non-zero AND now yields exactly one `gate.load-fault` finding naming the colliding key, instead of an empty finding set"
-      },
-      {
-        "path": "tests/toml_document.rs",
-        "asserts": "a malformed TOML document yields exactly one finding, asserted BY COUNT — its rule is the report's own miette code `temper::toml_document::malformed` (src/toml_document.rs:129) under check.rs's code-derivation rule, never `gate.load-fault`, which is the fallback for a report carrying no code — and the `knob.mode` required clause still never fires over invented absent fields"
-      },
-      {
-        "path": "tests/reporters.rs",
-        "asserts": "SARIF over the same aborting harness still exits non-zero and renders the load fault as a result — the hard placements are unchanged"
-      },
-      {
-        "path": "tests/session_start.rs",
-        "asserts": "a `.claude/settings.json` that is not valid UTF-8 yields a SessionStart payload naming the decode failure — the `#[source]` detail bare `Display` drops, which is the only pin on the full-chain rendering"
-      }
-    ],
-    "acceptance": "`temper check . --reporter session-start` on a harness whose source cannot be loaded prints a well-formed SessionStart payload carrying the failure, rather than exiting with an empty stdout — the section's 'never silently passes' held for load errors, not only contract failures. The hard placements (terminal, GitHub, SARIF) still exit non-zero, and the duplicate-key load fault now reports one `gate.load-fault` finding rather than none. Eight abort-path assertions elsewhere are verify-only tripwires — tests/acceptance.rs:273, tests/gate_fail_loud.rs:265, tests/lock_declaration_rows.rs:937 and :1738, tests/layer_join.rs:303, tests/layout_kind.rs:422, tests/local_locus.rs:283 and :590. Each asserts a substring of a top-level `#[error]`, which bare `Display` already carries, so they do NOT pin mechanic (ii): the chain is pinned only by the new non-UTF-8 arm in tests/session_start.rs. Run `cargo test --no-fail-fast` and read them rather than discovering them — and note seven of the eight (all but tests/gate_fail_loud.rs:265) sit OUTSIDE this fence, so one going red is a stop-and-capture, never an edit. (tests/lock_declaration_rows.rs:2688 asserts the two-letter substring `to` and is not load-bearing.) No snapshot is affected: only `gauntlet__check_diagnostics.snap` and `acceptance__rules_check_diagnostics.snap` render check output, and neither covers an aborting harness. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Fence widened twice 09-07. Amended from cascade's per-claim audit: the rule id derives from the report's miette `code()`, the message renders the full source chain. Re-amended from the diff-audit: the toml_document tests[] row named the wrong rule, the SARIF arm names its home (tests/reporters.rs, in fence), the chain gained its only pin. Claude Code settings fact = scoping rationale, never shipped text — code.claude.com/docs/en/settings (retrieved 2026-09-07). scoped at 6b9eacae"
-  },
-  {
     "tag": "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
     "gate": {
       "kind": "open"
@@ -243,8 +123,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
-        "SESSION-START-LOAD-ERROR-BYPASSES-REPORTER"
+        "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS"
       ]
     },
     "dependsOnForks": [],
@@ -424,8 +303,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
-        "HOOK-COLLISION-FIXTURE-ROOTS-THE-RUN-AT-TMP"
+        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
       ]
     },
     "dependsOnForks": [],
