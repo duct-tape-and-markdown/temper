@@ -47,7 +47,6 @@ fn render_diagnostics(diagnostics: &[Diagnostic]) -> String {
         let severity = match diagnostic.severity {
             Severity::Error => "error",
             Severity::Warn => "warn",
-            Severity::Note => "note",
         };
         out.push_str(&format!(
             "{severity} {}: {}\n",
@@ -402,25 +401,4 @@ fn check_reads_a_custom_kind_rooted_outside_specs() {
         "the over-length ADR must exit non-zero under --deny-advisories"
     );
     assert!(output.contains("extent") && output.contains("0002-long"));
-}
-
-/// A clean harness with only the coverage.checked disclosure note (no violations)
-/// exits zero under `--deny-advisories` — the coverage note is disclosure, never a
-/// blocking violation. This is the invariant checked discovery notes never block CI.
-#[test]
-fn a_clean_harness_exits_zero_with_deny_advisories_despite_coverage_note() {
-    let corpus = common::tmpdir("clean-harness");
-    common::write_skill(&corpus, "clean", &common::clean_skill("clean"));
-
-    let (ok, output) = check_from(&corpus, &corpus, &["--deny-advisories"]);
-    assert!(
-        ok,
-        "a clean harness with --deny-advisories must exit zero (coverage.checked \
-         is disclosure, never a violation), got:\n{output}"
-    );
-    // The coverage.checked summary is present but non-blocking.
-    assert!(
-        output.contains("coverage.checked"),
-        "coverage.checked disclosure note must still appear in output, got:\n{output}"
-    );
 }

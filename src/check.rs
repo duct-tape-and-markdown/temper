@@ -13,18 +13,14 @@ use std::fmt;
 use miette::GraphicalReportHandler;
 
 /// The severity of a [`Diagnostic`]. Only `error` raises the process exit code;
-/// `warn` is advisory. `Note` is a disclosure — what was checked, never a violation
-/// (the clauses never consider it). (The slice-1 rule table in the spec uses exactly
-/// `Error` and `Warn`; `Note` is a category outside that decision algebra.)
+/// `warn` is advisory. (The slice-1 rule table in the spec uses exactly these
+/// two levels.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     /// A correctness/contract violation. Any `Error` makes `check` exit non-zero.
     Error,
     /// A best-practice advisory that does not fail the run.
     Warn,
-    /// A disclosure note — what was checked, never a violation. Reports like
-    /// advisories (always printed) but never blocks, even under `--deny-advisories`.
-    Note,
 }
 
 /// A single lint finding: which rule fired, on which artifact, with what message.
@@ -88,15 +84,6 @@ impl Diagnostic {
         Self::new(Severity::Warn, rule, artifact, message)
     }
 
-    /// A `note`-severity disclosure — what was checked, never a violation.
-    pub fn note(
-        rule: impl Into<String>,
-        artifact: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
-        Self::new(Severity::Note, rule, artifact, message)
-    }
-
     /// A finding at an explicit [`Severity`].
     pub fn new(
         severity: Severity,
@@ -130,7 +117,6 @@ impl miette::Diagnostic for Diagnostic {
         Some(match self.severity {
             Severity::Error => miette::Severity::Error,
             Severity::Warn => miette::Severity::Warning,
-            Severity::Note => miette::Severity::Advice,
         })
     }
 
