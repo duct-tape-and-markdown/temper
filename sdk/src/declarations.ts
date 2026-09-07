@@ -103,7 +103,7 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
   return {
     kind,
     predicate: predicate.key,
-    field: predicate.field,
+    field: clauseField(predicate),
     severity: clause.severity,
     guidance: clause.guidance,
     cite: clause.cite,
@@ -153,6 +153,32 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
         ? [...predicate.sections]
         : undefined,
   };
+}
+
+/**
+ * The `field` column for one predicate: the field it names, or — for the two
+ * predicates that name a *section* rather than a field — an identity synthesized
+ * from the arguments the row already carries.
+ *
+ * `section_contains` and `require_sections` set no `field`, and the column is what
+ * emit stamps a clause's label from (`stamp_clause_label`, `src/drift.rs`), so
+ * reading `Predicate.field` folds every clause of either predicate on one kind
+ * into one label — two rows wearing one label, which admissibility refuses as a
+ * malformed lock. Synthesizing here keeps the whole fix at the lowering: the Rust
+ * reader reconstructs both predicates from the `section`/`sections` columns and
+ * never from this one, so nothing round-trips through the synthesized text.
+ */
+function clauseField(predicate: Predicate): string | undefined {
+  if (predicate.key === "section_contains") {
+    const { section } = predicate;
+    return section === undefined ? undefined : `${section.heading}.${section.marker}`;
+  }
+  if (predicate.key === "require_sections") {
+    // Joined with `+` rather than the label's own `.`, so the segment reads as the
+    // set it is and two different heading lists cannot fold to one label.
+    return predicate.sections?.join("+");
+  }
+  return predicate.field;
 }
 
 /** `min_len`/`max_len`/`extent`'s scalar bound off their shared `min`/`max`

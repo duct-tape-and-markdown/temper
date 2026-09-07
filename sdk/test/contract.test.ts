@@ -90,6 +90,26 @@ function skillClauseRow(predicate: Predicate): ClauseRow {
   return rows[0]!;
 }
 
+/**
+ * Compile several `expect` clauses of one predicate on `skill` and return their lock
+ * rows in authored order — [`skillClauseRow`]'s plural sibling, for the collision
+ * cases where the point is that one kind carries more than one row of a key.
+ */
+function skillClauseRowsFor(key: string, predicates: readonly Predicate[]): ClauseRow[] {
+  const h = harness({
+    members: [skill({ name: "gate", description: "Use when gating the run.", prose: text`# Gate` })],
+    expect: [
+      {
+        kind: skill,
+        clauses: predicates.map((predicate) => clause(predicate, { severity: "required" })),
+      },
+    ],
+  });
+  return compileDeclarations(h).clauses.filter(
+    (row) => row.kind === "skill" && row.predicate === key,
+  );
+}
+
 test("optional composes a schema-membership predicate landing its field column", () => {
   assert.deepEqual(optional("model"), { key: "optional", field: "model" });
   assert.equal(skillClauseRow(optional("model")).field, "model");
@@ -239,6 +259,40 @@ test("requireSections composes a heading-list predicate landing its sections col
   });
   const row = skillClauseRow(requireSections(["Installation", "Example"]));
   assert.deepEqual(row.sections, ["Installation", "Example"]);
+});
+
+// Both predicates address a *section* rather than a field, so neither factory sets
+// `Predicate.field` — and the `field` column is what emit stamps a clause's label
+// from. Reading the predicate's own (absent) field left every clause of one of these
+// predicates on one kind wearing the same label, which admissibility refuses as a
+// malformed lock: the author could declare only one of each per kind.
+test("two section_contains clauses on one kind land two distinct field columns", () => {
+  const rows = skillClauseRowsFor("section_contains", [
+    sectionContains("Invariant", "Test"),
+    sectionContains("Invariant", "Standard"),
+    sectionContains("Decision", "Rejected"),
+  ]);
+  assert.deepEqual(
+    rows.map((row) => row.field),
+    ["Invariant.Test", "Invariant.Standard", "Decision.Rejected"],
+  );
+  // The section column the Rust reader actually reconstructs the predicate from is
+  // untouched by the synthesized identity.
+  assert.deepEqual(rows[0]!.section, { heading: "Invariant", marker: "Test" });
+  assert.deepEqual(rows[1]!.section, { heading: "Invariant", marker: "Standard" });
+});
+
+test("two require_sections clauses on one kind land two distinct field columns", () => {
+  const rows = skillClauseRowsFor("require_sections", [
+    requireSections(["Usage", "Decision"]),
+    requireSections(["Installation", "Example"]),
+  ]);
+  assert.deepEqual(
+    rows.map((row) => row.field),
+    ["Usage+Decision", "Installation+Example"],
+  );
+  assert.deepEqual(rows[0]!.sections, ["Usage", "Decision"]);
+  assert.deepEqual(rows[1]!.sections, ["Installation", "Example"]);
 });
 
 test("when composes a guarded clause with a guard predicate and a body of clauses", () => {

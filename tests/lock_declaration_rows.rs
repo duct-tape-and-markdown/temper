@@ -2947,3 +2947,143 @@ fn a_lock_carrying_two_rows_under_one_label_fails_admissibility_loud() {
         "the refusal names the coherence rule and the colliding address, got:\n{output}"
     );
 }
+
+/// A fixture SDK program declaring two `section_contains` clauses and two
+/// `require_sections` clauses on one kind. Neither predicate names a field, and a
+/// clause's compiled label is stamped from the row's `field` column, so lowering the
+/// predicate's own (absent) field folded every clause of one of these predicates on
+/// one kind into a single label — a malformed lock the author could not get past
+/// admissibility. Each clause here is authored to decide differently from its
+/// sibling, so a run that gates them independently is visible in the findings.
+const SECTION_CLAUSE_LABEL_PROGRAM: &str = r#"
+import { clause, emit, harness, requireSections, sectionContains, text } from "@dtmd/temper";
+import { skill } from "@dtmd/temper/claude-code";
+
+const program = harness({
+  members: [
+    skill({
+      name: "coordinate",
+      description: "Use when coordinating agents across axes.",
+      prose: text`
+        # Coordinate
+
+        ## Invariant: the roster is bounded
+
+        Test: the gauntlet covers it.
+
+        ## Usage
+
+        Drive the team.
+      `,
+    }),
+ ],
+  expect: [
+    {
+      kind: skill,
+      clauses: [
+        clause(sectionContains("Invariant", "Test"), { severity: "required" }),
+        clause(sectionContains("Invariant", "Standard"), { severity: "required" }),
+        clause(requireSections(["Usage"]), { severity: "required" }),
+        clause(requireSections(["Usage", "Decision"]), { severity: "required" }),
+ ],
+    },
+ ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+/// Two clauses of one section-addressing predicate on one kind compile — through the
+/// real SDK, across the seam — to two distinct labels, round-trip their own arguments,
+/// and gate independently: the passing sibling stays silent while the failing one
+/// fires under its own address.
+#[test]
+fn two_section_clauses_of_one_predicate_carry_distinct_labels_and_gate_independently() {
+    let (root, into) =
+        common::wire_sdk_harness("section-clause-labels", SECTION_CLAUSE_LABEL_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let labels_of = |predicate: &str| -> Vec<String> {
+        let mut labels: Vec<String> = declarations
+            .clauses
+            .iter()
+            .filter(|row| row.kind.as_deref() == Some("skill") && row.predicate == predicate)
+            .map(|row| row.label.clone().expect("emit stamps every clause row"))
+            .collect();
+        labels.sort();
+        labels
+    };
+
+    // The heading and the marker both reach the address, so two clauses over one
+    // heading stay two rows.
+    assert_eq!(
+        labels_of("section_contains"),
+        vec![
+            "skill.section_contains.Invariant.Standard".to_string(),
+            "skill.section_contains.Invariant.Test".to_string(),
+        ],
+    );
+    // The whole heading list reaches the address, so a list and its own prefix stay
+    // two rows.
+    assert_eq!(
+        labels_of("require_sections"),
+        vec![
+            "skill.require_sections.Usage".to_string(),
+            "skill.require_sections.Usage+Decision".to_string(),
+        ],
+    );
+
+    // The synthesized address changes no argument: the reader reconstructs both
+    // predicates from the `section`/`sections` columns, never from the label's text.
+    let lifted = |predicate: &str| -> Vec<Predicate> {
+        declarations
+            .clauses
+            .iter()
+            .filter(|row| row.kind.as_deref() == Some("skill") && row.predicate == predicate)
+            .map(|row| contract::predicate_from_row(row).expect("the clause row lifts"))
+            .collect()
+    };
+    assert_eq!(
+        lifted("section_contains"),
+        vec![
+            Predicate::SectionContains {
+                heading: "Invariant".to_string(),
+                marker: "Test".to_string(),
+            },
+            Predicate::SectionContains {
+                heading: "Invariant".to_string(),
+                marker: "Standard".to_string(),
+            },
+        ],
+    );
+    assert_eq!(
+        lifted("require_sections"),
+        vec![
+            Predicate::RequireSections {
+                sections: vec!["Usage".to_string()],
+            },
+            Predicate::RequireSections {
+                sections: vec!["Usage".to_string(), "Decision".to_string()],
+            },
+        ],
+    );
+
+    // Both pairs gate independently: the member carries a `Test` marker and a `Usage`
+    // heading, so one clause of each pair holds and the other fires under its own
+    // address — never one folded verdict for the pair.
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "the unsatisfied sibling of each pair must fail the run, got:\n{output}"
+    );
+    assert!(
+        output.contains("skill.section_contains.Invariant.Standard")
+            && output.contains("skill.require_sections.Usage+Decision"),
+        "each failing clause reports under its own address, got:\n{output}"
+    );
+    assert!(
+        !output.contains("skill.section_contains.Invariant.Test"),
+        "the satisfied `section_contains` sibling stays silent, got:\n{output}"
+    );
+}
