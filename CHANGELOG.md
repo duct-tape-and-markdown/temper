@@ -61,6 +61,11 @@ breaking changes. Releases are small and frequent.
 - `--deny-advisories` no longer fails a clean harness: disclosure notes such
   as `coverage.checked` are reported at a `note` severity that never
   blocks, and only declared-clause violations escalate. (GH #42)
+- SDK: two kinds in play under one name are refused, naming the kind and
+  both loci, unless one is a relocation of the other (the relocation wins)
+  or the two are structurally equal. `kindsInPlay` previously kept the
+  first by authored order, which dropped a relocated kind's added edge
+  whenever the corpus had no member of it yet. (GH #53)
 - Admissibility refusals name the declaration to open, not only the
   collision that exists.
 - `emit` places the managed-by note for a frontmatter projection itself,
