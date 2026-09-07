@@ -971,9 +971,9 @@ export function declaredAddresses(harness: Harness): Set<string> {
 
 /**
  * Every discoverable (`at`-locus) kind the program declares — the deferral signal a
- * dangling mention is measured against (`prose.ts`'s `defersToGate`): a mention naming
- * one of these whose member is not a composed value defers to `check`, while a mention
- * naming no declared kind refuses at emit. Member kinds ∪ `expect` kinds; an embedded
+ * dangling mention is measured against (`prose.ts`'s `defersToGate`): a mention whose
+ * address is a host address of one of these and names no composed value defers to
+ * `check`, while a mention naming no declared kind refuses at emit. Member kinds ∪ `expect` kinds; an embedded
  * kind is excluded — its members are composed within a host, never discovered, so a
  * flat `kind:name` mention of one has no discovery locus to defer to.
  */

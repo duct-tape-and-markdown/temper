@@ -11,7 +11,7 @@
  */
 
 import type { EmbeddedMemberValue, Member } from "./kind.js";
-import { hostAddress } from "./member-address.js";
+import { hostAddress, parseHostAddress } from "./member-address.js";
 
 /** A declared value a mention may name — the target of the one-way citation edge. */
 export interface Mentionable {
@@ -68,16 +68,15 @@ export interface MentionScope {
 
 /**
  * Whether a mention's unresolved address **defers to the gate** rather than refusing at
- * emit: a top-level `kind:name` address whose kind is one the program declares at a
- * discovery locus (an `at`-locus kind) may name a member discovered on disk, so `check`
- * owns the verdict. An embedded leaf address (a `<host>/<kind>/<key>` form, carrying a
- * `/`), a bare requirement name (no `:`), or a kind the program does not declare has no
- * discovery locus and stays a dangling refusal.
+ * emit: a host address ({@link parseHostAddress}) whose kind is one the program declares
+ * at a discovery locus (an `at`-locus kind) may name a member discovered on disk, so
+ * `check` owns the verdict. Anything the grammar's reader answers `undefined` for — a
+ * segmented embedded address, a bare requirement name, a name-less `kind:` — names no
+ * discoverable member, and stays a dangling refusal however deferrable its head reads.
  */
 export function defersToGate(address: string, deferrableKinds: ReadonlySet<string>): boolean {
-  if (address.includes("/")) return false;
-  const colon = address.indexOf(":");
-  return colon > 0 && deferrableKinds.has(address.slice(0, colon));
+  const host = parseHostAddress(address);
+  return host !== undefined && deferrableKinds.has(host.kind);
 }
 
 /**

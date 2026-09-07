@@ -32,8 +32,9 @@ test("a host address round-trips through its own reader", () => {
   // The split is at the *first* colon, so a name carrying one stays whole.
   assert.deepEqual(parseHostAddress("rule:a:b"), { kind: "rule", name: "a:b" });
 
-  // A segment-shaped hole names nothing.
-  for (const address of ["collaboration", ":collaboration", "rule:"]) {
+  // A segment-shaped hole names nothing — and neither does a segmented spelling, whose
+  // `/` is this grammar's own separator and whose readers are the two below.
+  for (const address of ["collaboration", ":collaboration", "rule:", "skill:x/hook/on-enter"]) {
     assert.equal(parseHostAddress(address), undefined, `\`${address}\` is no host address`);
   }
 });

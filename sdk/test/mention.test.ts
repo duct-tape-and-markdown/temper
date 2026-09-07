@@ -113,6 +113,37 @@ test("a mention naming a declared at-locus kind with no composed member defers t
   assert.deepEqual(result.declarations.mentions, [{ member: "rule:citations", target: "source:main" }]);
 });
 
+test("a name-less `kind:` refuses at emit even when the kind is deferrable — it names no member to discover", () => {
+  // `source` is declared and deferrable, but `source:` names no member of it: a
+  // discovery locus is not itself a mention target, so there is nothing for `check`
+  // to resolve and the refusal is emit's.
+  const citer = rule({
+    name: "citations",
+    prose: text`It rests on ${{ address: "source:", display: "the sources" }}.`,
+  });
+  const h = harness({
+    members: [citer],
+    expect: [{ kind: sourceKind, clauses: [] }],
+  });
+
+  assert.throws(() => emit(h), /a mention cannot dangle/);
+});
+
+test("an unresolved nested-shaped address refuses at emit even under a deferrable head kind", () => {
+  // `source` is deferrable, but a `<host>/<kind>/<key>` address names an embedded member,
+  // which is composed in the program and never discovered on disk: nothing to defer to.
+  const citer = rule({
+    name: "citations",
+    prose: text`It rests on ${{ address: "source:main/hook/on-enter", display: "on-enter" }}.`,
+  });
+  const h = harness({
+    members: [citer],
+    expect: [{ kind: sourceKind, clauses: [] }],
+  });
+
+  assert.throws(() => emit(h), /a mention cannot dangle/);
+});
+
 test("a mention naming no declared kind still refuses at emit — no discovery locus to defer to", () => {
   // `source` is nowhere declared here (no member of it, no `expect` binding), so the
   // mention names an undeclared kind: dangling with no discovery locus, refused at emit.

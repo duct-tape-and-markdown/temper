@@ -96,8 +96,15 @@ export function edgeLookupKey(address: string, to: readonly string[]): string {
  * reader half of {@link hostAddress}. Both halves are non-empty: an address names exactly
  * one thing or it names nothing. Splits at the **first** colon, so a name carrying one
  * stays whole.
+ *
+ * A `/` anywhere is this grammar's own segment separator ({@link segment} splits on it),
+ * so an address carrying one is a segmented spelling with its own reader
+ * ({@link parseNestedAddress}, {@link parseLeafAddress}) and no host address at all. The
+ * refusal lives here rather than at each caller, so a reader that asks "is this a host
+ * address?" never has to re-spell the separator to get the answer right.
  */
 export function parseHostAddress(address: string): HostAddress | undefined {
+  if (address.includes("/")) return undefined;
   const colon = address.indexOf(":");
   if (colon <= 0 || colon === address.length - 1) return undefined;
   return { kind: address.slice(0, colon), name: address.slice(colon + 1) };
