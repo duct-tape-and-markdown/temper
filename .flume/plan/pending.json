@@ -259,58 +259,9 @@
     "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. scoped at 162e1cce."
   },
   {
-    "tag": "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "`local_document_rows` (:851) calls `read_layout_document`, which already returns the captured spans on `LayoutDocumentRows.prose` (src/drift.rs:1955), and then extends only `rows.nested` and `rows.satisfies` (:883-884) — the prose is read and dropped. Carry it: extend `rows.prose` too, and in `assemble_lock_family` (:1054-1055) collect the local kinds' prose rows into a new `local_layout_prose: Vec<drift::LayoutProseRow>` field on `LockFamily` (:405), beside `local_members` (:424) and for the same stated reason — the documents are uncommitted, so no consumer below can find them again short of a second walk that could disagree with this read. It does NOT go on `drift::Declarations` (:3331): that is the SDK→engine seam payload with a generated TS twin, and `layout_prose` is emit-derived output the seam has never carried."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "`gate_diagnostics` destructures `compose::LockFamily` exhaustively at :167-174 (no `..` arm), so the new `local_layout_prose` field refuses to compile until this site names it — bind it `..`-free like its siblings and leave it unread here (the gate has no prose consumer; `explain` is the reader). Ripple-reconciled: the only other destructure, src/read.rs:2065, already carries `..`."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`explain_target` destructures `LockFamily` at :2038 (taking `declarations` and `overlaid_builtin_kinds`) and its prose strand reads `drift::layout_prose_from_doc(&lock_doc)` at :2189 — the committed rows only. Take `local_layout_prose` off the same destructure and union it with the lock-document rows before `prose_strand` (:1989), so one narration covers both faces. Update the strand's sited comment above :2185, which today says the rows are 'a lock row keyed by the host's address' — true of the committed half only once local rows join it."
-        },
-        {
-          "path": "tests/local_locus.rs",
-          "description": "Regression: a local-locus layout kind whose document carries a preamble under a verbatim prose region — `explain <kind>:<id>` narrates the captured span, the same strand a committed layout member gets. Pins the read-time half of f07d4f84, which shipped the committed half and named this one as unwired."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "VERIFY-ONLY — expect no diff. Its `layout_prose` assertions read the committed emit-side rows, which this entry does not touch; in the fence only so a wave-mate's green base cannot be mistaken for coverage of the local face. The same holds for tests/layout_kind.rs, tests/check_cost.rs and tests/snapshots/gauntlet__projection_tree.snap, which the ripple names off the shared `layout_prose`/`overlaid_builtin_kinds`/`local_members` symbols: none reads `LockFamily`'s shape, so none moves."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A local-locus layout member's captured prose is read and dropped at read time, so `explain` narrates nothing where the committed half now narrates the span.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/local_locus.rs",
-        "asserts": "`explain` on a local-locus layout member narrates its captured prose region, matching the committed half's strand"
-      }
-    ],
-    "acceptance": "`cargo test` green with the local_locus regression. A local-locus layout member's verbatim prose region reaches a read-time row and `explain`'s prose strand, so no layout document's authored span is read and dropped on either face (invariant 6). Non-vacuity per 0048's bar: the regression asserts the narrated span carries the document's actual preamble text, never merely that a strand appeared.",
-    "notes": "Swept 09-07 from f07d4f84's own stated remainder ('the local read path is compose's to wire'). Verified on disk: `LayoutDocumentRows.prose` is already populated by `read_layout_document` and discarded by `local_document_rows` at src/compose.rs:883-884, so the fix is wiring, not derivation. Chained on EXPLAIN for src/read.rs. Ripple-reconciled at bb246cc2: src/gate.rs destructures LockFamily exhaustively. scoped at bf2e3eba"
-  },
-  {
     "tag": "FEATURES-FIXTURE-ONE-HOME(src)",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -459,8 +410,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "FEATURES-FIXTURE-ONE-HOME(src)",
-        "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW"
+        "FEATURES-FIXTURE-ONE-HOME(src)"
       ]
     },
     "dependsOnForks": [],
