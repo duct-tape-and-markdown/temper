@@ -564,7 +564,7 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
         return Vec::new();
     }
     let represented = temper_dir.join(HARNESS_ENTRY).is_file();
-    let Ok(entries) = (if represented {
+    let Ok(mut entries) = (if represented {
         evaluate_placements(root, &temper_dir, true)
     } else {
         place_settings_only(root, true)
@@ -572,13 +572,31 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
         return Vec::new();
     };
 
+    // For a represented harness, detect if any hook placements are superseded by
+    // authored hook members in the lock, just like install::run does.
+    if represented && let Ok(conflicted_events) = detect_hook_member_conflicts(&temper_dir) {
+        for entry in &mut entries {
+            let superseded = match entry.placement {
+                Placement::SessionStart => conflicted_events.contains("SessionStart"),
+                Placement::GuardHook => conflicted_events.contains("PreToolUse"),
+                Placement::PostToolUseHook => conflicted_events.contains("PostToolUse"),
+                _ => false,
+            };
+            if superseded && entry.outcome == ApplyOutcome::Applied {
+                entry.outcome = ApplyOutcome::SupersededByMember;
+            }
+        }
+    }
+
     // Tally the missing/drifted placements by kind. The hook and guard are single
     // placements; modelines and managed-by notes are one per modeled artifact, so
     // they're retained for detailed reporting.
     let (mut hook, mut guard, mut post_tool_use, mut modelines, mut notes) =
         (false, false, false, Vec::new(), Vec::new());
     for entry in &entries {
-        if entry.outcome == ApplyOutcome::Unchanged {
+        if entry.outcome == ApplyOutcome::Unchanged
+            || entry.outcome == ApplyOutcome::SupersededByMember
+        {
             continue;
         }
         match entry.placement {

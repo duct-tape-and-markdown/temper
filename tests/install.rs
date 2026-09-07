@@ -1157,6 +1157,115 @@ fn gate_installed_names_drifted_un_noted_files() {
     );
 }
 
+#[test]
+fn gate_installed_does_not_report_superseded_by_member() {
+    // Regression test: gate_installed must exclude SupersededByMember outcomes
+    // from its tally, so a correctly-authored hook member that supersedes a
+    // synthesized placement is not flagged as needing install.
+    //
+    // This verifies the fix for: b7b2a7a6 added SupersededByMember but
+    // gate_installed wasn't updated to skip it alongside Unchanged.
+    common::ensure_sdk_built();
+    let root = write_harness("hook-supersede", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    // Represent and install: places the synthesized SessionStart hook.
+    let discovery = install::discover(&root).unwrap();
+    let first = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(
+        outcome_of(&first, temper::install::Placement::SessionStart),
+        ApplyOutcome::Applied,
+        "first install must apply the SessionStart placement"
+    );
+
+    // Verify gate is clean after install.
+    assert!(
+        install::gate_installed(&root).is_empty(),
+        "gate must be clean after successful install"
+    );
+
+    // Now manually add an authored hook member to the harness program that
+    // claims SessionStart. This simulates what would happen if a user wrote:
+    // `import { sessionStartHook } from "./hooks/session_start.ts";`
+    // and added it to the harness members array.
+    fs::create_dir_all(temper_dir.join("hooks")).unwrap();
+    fs::write(
+        temper_dir.join("hooks").join("session_start.ts"),
+        "import { hook } from \"@dtmd/temper/claude-code\";\n\
+         export const sessionStartHook = hook({\n  \
+         name: \"SessionStart\",\n  \
+         type: \"command\",\n  \
+         command: \"echo test\",\n  \
+         });\n",
+    )
+    .unwrap();
+
+    // Update the harness to include the hook member by inserting it into the
+    // members array. The array may be formatted differently than we expect, so we
+    // use a more flexible approach: insert before the closing bracket.
+    let original_harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
+
+    // First add the import if not already present
+    let mut updated_harness = if original_harness.contains("sessionStartHook") {
+        original_harness.clone()
+    } else {
+        let import_line = "import { sessionStartHook } from \"./hooks/session_start.ts\";\n";
+        // Insert after the last import statement
+        if let Some(last_import_pos) = original_harness.rfind("import {") {
+            let eol = original_harness[last_import_pos..].find('\n').unwrap_or(0);
+            let insert_pos = last_import_pos + eol + 1;
+            let mut result = original_harness.clone();
+            result.insert_str(insert_pos, import_line);
+            result
+        } else {
+            original_harness.clone()
+        }
+    };
+
+    // Then add to members array - look for closing bracket and add before it
+    if !updated_harness.contains(", sessionStartHook") {
+        updated_harness = updated_harness.replace("members: [", "members: [sessionStartHook, ");
+    }
+    fs::write(temper_dir.join("harness.ts"), updated_harness).unwrap();
+
+    // Simulate a drift scenario: remove the placed hook from settings.json so the
+    // next run will try to re-apply it. But now there's an authored hook member
+    // that will claim it, so it should be marked SupersededByMember.
+    let settings_path = root.join(".claude").join("settings.json");
+    let settings = fs::read_to_string(&settings_path).unwrap();
+    let drifted = settings.replace("\"SessionStart\": [", "\"SessionStartRemoved\": [");
+    fs::write(&settings_path, drifted).unwrap();
+
+    // Re-run install: evaluate_placements will see the SessionStart hook is missing (needs Applied).
+    // emit will read the authored hook and register it in the lock.
+    // detect_hook_member_conflicts will find the "SessionStart" registration and mark
+    // the placement as SupersededByMember since its outcome would be Applied.
+    let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    assert_eq!(
+        outcome_of(&second, temper::install::Placement::SessionStart),
+        ApplyOutcome::SupersededByMember,
+        "SessionStart should be marked SupersededByMember when an authored hook member claims it"
+    );
+
+    // Verify gate_installed does not report SessionStart as missing/drifted.
+    // With the fix, SupersededByMember outcomes are skipped like Unchanged,
+    // so the superseded SessionStart placement should not appear in the finding.
+    let gate_findings = install::gate_installed(&root);
+    if !gate_findings.is_empty() {
+        // Check that SessionStart is NOT in the message (since it's superseded)
+        let has_session_start = gate_findings
+            .iter()
+            .any(|d| d.message.contains("session-start hook"));
+        assert!(
+            !has_session_start,
+            "SupersededByMember SessionStart should not be reported as missing/drifted"
+        );
+    }
+}
+
 // ---------------------------------------------------------------------------
 // guard — the lock, not the retired manifest, grounds the enforcement mode
 // ---------------------------------------------------------------------------
