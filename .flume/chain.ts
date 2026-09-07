@@ -859,20 +859,23 @@ const factory: ChainFactory = (flume) => {
   /**
    * Model routing: per-phase, keyed on the runtime's `<harness>` preamble
    * line `Phase: <name>` in the rendered prompt — the mechanism the 07-10
-   * note reserved. Plan crawls and plans on Sonnet; build chugs entries on
-   * Haiku with the cargo gates as the safety net (judgment where wrongness
-   * compounds, cheap where the gates catch it). Route build to Sonnet when
-   * the queue carries cross-seam feature entries — SDK + engine in one
-   * entry sits above the cheap tier's reliable ceiling. An unrecognized
-   * phase runs the plan model.
+   * note reserved. The tier is a queue-shape decision: judgment where
+   * wrongness compounds past what the gates can see, cheap where they catch
+   * it. A single-seam queue can chug on Haiku behind the cargo gates; a
+   * cross-seam queue (SDK + engine in one entry) sits above the cheap tier's
+   * reliable ceiling and the gates cannot tell a wrong green from a right
+   * one. An unrecognized phase runs the plan model.
    */
-  const planAgent = makeAgent("claude-sonnet-5");
-  // Routed to Sonnet for the 0048/0049 queue (SDK + engine seams in most
-  // entries; 2026-09-06 on the cheap tier: twelve fence reverts, a shipped
-  // fix that tested an invocation the product never runs, a bail on a false
-  // reading of the entry's own files[]). Return to Haiku when the queue is
-  // single-seam again.
-  const buildAgent = makeAgent("claude-sonnet-5");
+  // Both phases on Opus while the queue is cross-seam (0048/0049: SDK +
+  // engine + guard in most entries). The cheap tier's failures compound
+  // past the gates' reach — a green ship that tested an invocation install
+  // never wires, a fold that widened a signature through fourteen files, a
+  // bail on a misread of the entry's own files[] — and each cost a build, a
+  // plan widening, and an adopter's verification. Return build to a cheaper
+  // tier when the queue is single-seam again; plan's judgment decides what
+  // every build may touch, so it stays on the top tier.
+  const planAgent = makeAgent("claude-opus-5");
+  const buildAgent = makeAgent("claude-opus-5");
   const routed: Agent = {
     name: "phase-router",
     invoke: (opts) =>
