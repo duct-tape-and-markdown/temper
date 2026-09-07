@@ -2,10 +2,7 @@
   {
     "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [
       "layout-own-span-leaf"
@@ -87,52 +84,6 @@
     ],
     "acceptance": "On a surface carrying no member of the kind, `explain kind:<name>` prints where a member of it lands and how a reference to one is spelled, alongside the guidance, layout and hosted-kind strands 3dcc73f1 already renders — the read verb narrating a kind, not only a kind that already has members. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
     "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle. HOOK-COLLISION shipped (76e29dc1); the live chain is MEMBER-ADDRESS then EXPLAIN-CLI-RUNNER. scoped at ea3c0484"
-  },
-  {
-    "tag": "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`declared_member_addresses` (:2785) answers off `MEMBER_ADDRESS_COLUMNS` (:2764) — the five families a layout document's CONTENT lowers into — so a declared member whose document yields none of them reads exactly like one emit never saw, and `undeclared_layout_members_from_doc` (:2820) names it. Two shapes reach that state: a layout of `Field` regions only (`LayoutReading.fields`, src/layout.rs:55, lands in no family at all), and a collection region whose document carries no child heading with a prose region that captured nothing. Both are permanent — re-emitting produces the same empty trace, so neither remedy the message offers clears the finding. The bound is documented at :2814-2818; this entry removes it rather than restating it. The cause is that emit's layout branch (:1275-1290) `continue`s before any rollup row and books the source only in `layout_paths` (:1289), an emit-internal set consumed by the reap diff's `owned_paths` (:1396) and written to no committed row — so the lock keeps no record that emit read the document at all. Write one: a `[[declaration.layout_source]]` family, one row per committed layout member emit lowered, carrying the host's `kind:name` address and the harness-relative source path. Write it beside `write_layout_prose` (:3039) in the same `write_declarations` call run at :513-515, lift it with the same `family(...)` helper `layout_prose_row` (:3057) uses, and keep the empty-set-writes-nothing discipline so a layout-less program's lock stays byte-identical. `declared_member_addresses` then reads THAT family alone and `MEMBER_ADDRESS_COLUMNS` retires: presence is the question the oracle asks, never content. Name two rejected alternatives in the commit body — (i) giving the layout source the `[[<kind>]]` provenance row emit skips at :1275, which would read as an emit-owned projection to the reap diff (:1391-1420) and to `config_stale`; (ii) suppressing the finding for kinds whose layout declares no row-producing region, which needs no lock change and covers only the field-only shape, leaving the emptied-collection one live."
-        },
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "Two regressions beside `a_declared_layout_member_draws_no_undeclared_finding` (:696), both built the same way it is (scaffold, write the document, `drift::emit`, `common::check_in`): a declared member of a FIELD-REGIONS-ONLY layout kind draws no finding, and a declared member of a collection-bearing kind whose document holds the collection heading with no child heading and no preamble draws none either. Each pins non-vacuity first the way the siblings do at :665 and :711 — assert the coverage line reports the kind's discovered count before asserting the silence. `a_discovered_layout_document_the_lock_declares_no_member_for_surfaces_an_advisory` (:643) must stay green untouched: the undeclared case still fires, with the same rule id, message and both remedies."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The malformed-row refusal matrix (~:1640-1660, one case per declaration family) gains the new family: a `[[declaration.layout_source]]` row with a wrong-typed column refuses loud and names the family, the same shape the `satisfies` (:1653) and `mention` (:1655) cases take."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__projection_tree.snap",
-          "description": "The gauntlet's `spec` layout host (tests/gauntlet.rs:43-46) gains one `[[declaration.layout_source]]` row beside its existing `[[declaration.layout_prose]]` one (:227). Accept the moved snapshot; `gauntlet__check_diagnostics.snap` must NOT move — no diagnostic changes on the gauntlet corpus, whose layout member is declared and row-bearing."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A declared layout member whose document yields no declaration row draws `layout.undeclared-member` — a false positive neither remedy the message offers can clear.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "a declared layout member whose document lowers into no declaration row draws no `layout.undeclared-member`, in both the field-only and empty-collection shapes, while an undeclared document still does"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a malformed `layout_source` row refuses loud, naming the family"
-      }
-    ],
-    "acceptance": "`cargo test` green with both new tests/layout_kind.rs regressions, the existing undeclared case at :643 unchanged, and `gauntlet__check_diagnostics.snap` unmoved. `layout.undeclared-member` fires on the absence of the lock's record that emit read the source, never on whether the document had content to lower, so no correctly-declared member can draw it. Per 0048's conservation bar each regression pins non-vacuity: it asserts the run judged the member (a non-zero discovered count in the coverage disclosure) before asserting the silence.",
-    "notes": "Swept 09-07 from 676467cf's own stated bound (src/drift.rs:2814-2818). Re-verified on disk: emit's layout branch `continue`s before any rollup row (drift.rs:1275-1290), so the five content families are a layout member's whole trace, and a field-only layout is rowless by construction. No test pins the false positive today. Chained on CHECK (src/drift.rs) and KINDS-IN-PLAY (tests/layout_kind.rs). scoped at bf2e3eba"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
@@ -356,10 +307,7 @@
   {
     "tag": "MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -444,7 +392,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
         "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
       ]
     },
