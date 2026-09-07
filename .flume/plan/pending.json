@@ -4,7 +4,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
         "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER"
       ]
     },
@@ -90,50 +89,9 @@
     "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle. HOOK-COLLISION shipped (76e29dc1); the live chain is MEMBER-ADDRESS then EXPLAIN-CLI-RUNNER. scoped at ea3c0484"
   },
   {
-    "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`kindsInPlay`'s `admit` closure (:380-384) is first-wins by name — `if (byName.has(facts.name)) return;` — over `harness.members`, then `expect`, then `admit`, then embedded templates, so the second same-named kind is discarded before it ever reaches the engine's own kind.admissibility check (admissibility.rs:126, joined_kind_admissibility:484, which refuses a diverging same-name row but only once one reaches the lock). The drop is not cosmetic: `assemblyFactRows` (:461) derives one `edge` row per `edgeFields` entry from exactly these deduped facts, so discarding a relocated kind in favour of its base drops the added edge fact — the same silent drop 77581333's `as any` cast made and that commit shipped to end. Replace first-wins with a decision that is order-independent: when a second facts value arrives under a name already held, (a) if either carries `relocates` naming the other's name (`facts.relocates`, sdk/src/kind.ts:183), the RELOCATION wins whichever order they arrived in — the base's facts are a subset by construction; (b) if the two values are structurally equal, keep the first as today; (c) otherwise throw, naming the kind and BOTH loci, since two unrelated kinds cannot share one string name (`representation.md`: identity travels by import, never by string) and the lock is a string-keyed medium. Two diverging relocations of one base are case (c), not (a)."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "Regression via the harness compile path (`compileDeclarations`), the shape 77581333's relocation arms already use here. Order-independence is the load-bearing assertion: a harness whose members are relocated `rule`s AND whose `expect` binds the BASE `rule` compiles the relocated facts either way round, and its added edge reaches `assembly` as an `edge` row — the case that silently loses the edge today whenever the corpus has no member of the kind yet, since `expect` is admitted after `members`. Plus the refusal: two same-named kinds neither relocating the other throw at load naming both loci, and two diverging relocations of one base throw the same way."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A corpus kind reusing a built-in's name at a different root is silently discarded by kindsInPlay's first-wins-by-name, with no diagnostic anywhere.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "two distinct KindFacts values sharing one name refuse at load naming both loci, unless one relocates the other — in which case the relocation's facts win regardless of authored order"
-      },
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "non-vacuity (0048's bar): the relocated kind's added edge field is actually present in the compiled `assembly` edge rows, so the order-independence claim is proven on a fact the base's facts lack"
-      }
-    ],
-    "acceptance": "Declaring a corpus kind that reuses a built-in's name refuses loud, naming both loci, unless it was authored through the sanctioned relocation form — in which case the relocation's facts win regardless of authored order, so its added edge field reaches the lock instead of being dropped to the base by first-wins. Per 0048's conservation bar the regression pins non-vacuity: the two colliding values are actually compared (a real divergence) before the refusal is checked. `pnpm --dir sdk test` green; no Rust change.",
-    "notes": "observed at ad10e8cb (cascade F13(c), GH #53); corrected at bf4b4168, item h. Design settled on disk this tick: 77581333 landed the `facts.relocates` provenance marker, not a TS replication of the Rust structural test — so the old tests/layout_kind.rs directive is discharged and that path leaves the fence (the build ruled it untouched; the edge/route case lives in tests/graph.rs). Blocked on the locus delta: without it the marker cannot cover the different-root case. scoped at c2415400"
-  },
-  {
     "tag": "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -544,7 +502,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
         "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
       ]
     },
