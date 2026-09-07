@@ -17,7 +17,7 @@ const memoryDecision = kind<Record<never, never>>({
   name: "decision",
   locus: { kind: "embedded" },
   unitShape: "file",
-  registration: [{ via: "always" }],
+  registration: [],
 });
 
 /** The admission letting a `memory` host compose a `decision` — every `blocks()` harness below declares it. */

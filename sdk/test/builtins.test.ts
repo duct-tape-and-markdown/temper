@@ -742,3 +742,23 @@ test("embeddedMemberValue's leaves are typed against the passed KindDefinition's
     rationale: "This option provides the best trade-off.",
   });
 });
+
+test("an embedded-locus kind requires empty registration", () => {
+  const embeddedKind = kind<Record<never, never>>({
+    name: "embedded-example",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    registration: [],
+  });
+  assert.deepEqual(embeddedKind.facts.registration, []);
+});
+
+test("a nested-file-locus kind requires empty registration", () => {
+  const nestedKind = kind<Record<never, never>>({
+    name: "nested-example",
+    locus: { kind: "nested-file" },
+    unitShape: "file",
+    registration: [],
+  });
+  assert.deepEqual(nestedKind.facts.registration, []);
+});

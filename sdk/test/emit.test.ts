@@ -433,7 +433,7 @@ function embeddedKind<T extends object>(name: string) {
     name,
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [{ via: "always" }],
+    registration: [],
   });
 }
 
@@ -465,7 +465,7 @@ test("an embedded kind declaring guidance/cite takes a locus-absent kind-fact ro
     name: "decision-with-guidance",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [{ via: "always" }],
+    registration: [],
     guidance: "State the decision's rationale, not just its verdict.",
     cite: "https://example.com/decisions (retrieved 2026-07-24)",
   });
@@ -510,7 +510,7 @@ const supportingDoc = kind<Record<never, never>>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [{ via: "always" }],
+  registration: [],
 });
 
 /** A `guide` host declaring one file-child layer: `supporting-doc` units at `*.md`,
@@ -814,16 +814,11 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
 });
 
 test("a kind()'s render hook projects fence-free in place of the default TOML view; a kind() without one keeps its member fence byte-identical", () => {
-  const embeddedFacts = {
-    locus: { kind: "embedded" as const },
-    unitShape: "file" as const,
-    registration: [],
-  };
   const decisionWithRender = kind<object>(
-    { name: "decision", ...embeddedFacts },
+    { name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
     { render: (value) => `${value.key} chose: ${value.leaves.chosen}` },
   );
-  const decisionWithoutRender = kind<object>({ name: "decision", ...embeddedFacts });
+  const decisionWithoutRender = kind<object>({ name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] });
 
   const h = harness({
     members: [
@@ -859,13 +854,8 @@ test("a kind()'s render hook projects fence-free in place of the default TOML vi
 });
 
 test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, the same as the hook-less default TOML view", () => {
-  const embeddedFacts = {
-    locus: { kind: "embedded" as const },
-    unitShape: "file" as const,
-    registration: [],
-  };
   const decisionWithRender = kind<object>(
-    { name: "decision", ...embeddedFacts },
+    { name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
     { render: (value) => `${value.key} chose: ${value.leaves.chosen}` },
   );
 
@@ -889,13 +879,8 @@ test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, t
 });
 
 test("a kind()'s render hook receives a resolvable leaf mention already rendered to a plain string, not a Text object", () => {
-  const embeddedFacts = {
-    locus: { kind: "embedded" as const },
-    unitShape: "file" as const,
-    registration: [],
-  };
   const decisionWithRender = kind<object>(
-    { name: "decision", ...embeddedFacts },
+    { name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
     { render: (value) => `${value.key} chose: ${value.leaves.chosen}` },
   );
 

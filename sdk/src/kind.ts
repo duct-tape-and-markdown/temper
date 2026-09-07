@@ -165,54 +165,149 @@ export interface Template {
 }
 
 /** The seven facts of a kind's runtime residue. */
-export interface KindFacts {
-  /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
-  readonly name: string;
-  /** The declared provider authority, when the kind qualifies by one. */
-  readonly provider?: string;
-  /** Fact 2, locus — where members live, and for a file locus whether their documents
-   * are committed: a `local` commitment class declares the kind reviewed and its
-   * members' documents not. */
-  readonly locus: Locus;
-  /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
-  readonly format?: Format;
-  /** Fact 3b, projection — the on-disk unit shape. */
-  readonly unitShape: UnitShape;
-  /** Fact 4, registration — the declared channel set naming every documented way
-   * the world reaches a member (never rivals — a member is live if any one is). */
-  readonly registration: readonly Registration[];
- /**
-   * The frontmatter key the member's name writes under. For `unitShape:
-   * "named-field"` this is the id **source** — the declared field a member's
-   * identity is read from (an agent's `name`), never the filename or directory.
-   * For `"directory"` it is a projection-order detail only (a skill's `name`
-   * still writes into frontmatter, but identity is the directory name); absent
-   * when identity is the file stem and no field carries it (a rule), or the
-   * starred directory segment (`"starred-segment"`) — both path-derived, never a
-   * field.
- */
-  readonly identityField?: string;
-  /** Fact 5, edge fields — the kind's fields that are references to other members. */
-  readonly edgeFields?: readonly EdgeField[];
-  /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
-   * leaves the kind `file`-content (one verbatim prose body, the default). */
-  readonly content?: Layout;
-  /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
-   * leaves the kind body-bearing (`file` or a {@link Layout}). */
-  readonly shape?: Shape;
-  /** The registration member's {@link CollectionAddress} — which manifest and key path
-   * its registration surfaces at; absent for a kind that owns its own file locus. */
-  readonly collectionAddress?: CollectionAddress;
-  /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
-   * hosts; absent for a kind that nests nothing. */
-  readonly templates?: readonly Template[];
-  /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
-   * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
-  readonly guidance?: string;
-  /** External-fact source backing the guidance — a doc URL plus retrieved date,
-   * carried as data. */
-  readonly cite?: string;
-}
+export type KindFacts =
+  | {
+      /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
+      readonly name: string;
+      /** The declared provider authority, when the kind qualifies by one. */
+      readonly provider?: string;
+      /** Fact 2, locus — where members live, and for a file locus whether their documents
+       * are committed: a `local` commitment class declares the kind reviewed and its
+       * members' documents not. */
+      readonly locus: { readonly kind: "at"; readonly root: string; readonly glob: string; readonly commitment?: "local" };
+      /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
+      readonly format?: Format;
+      /** Fact 3b, projection — the on-disk unit shape. */
+      readonly unitShape: UnitShape;
+      /** Fact 4, registration — the declared channel set naming every documented way
+       * the world reaches a member (never rivals — a member is live if any one is). */
+      readonly registration: readonly Registration[];
+      /**
+       * The frontmatter key the member's name writes under. For `unitShape:
+       * "named-field"` this is the id **source** — the declared field a member's
+       * identity is read from (an agent's `name`), never the filename or directory.
+       * For `"directory"` it is a projection-order detail only (a skill's `name`
+       * still writes into frontmatter, but identity is the directory name); absent
+       * when identity is the file stem and no field carries it (a rule), or the
+       * starred directory segment (`"starred-segment"`) — both path-derived, never a
+       * field.
+       */
+      readonly identityField?: string;
+      /** Fact 5, edge fields — the kind's fields that are references to other members. */
+      readonly edgeFields?: readonly EdgeField[];
+      /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
+       * leaves the kind `file`-content (one verbatim prose body, the default). */
+      readonly content?: Layout;
+      /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
+       * leaves the kind body-bearing (`file` or a {@link Layout}). */
+      readonly shape?: Shape;
+      /** The registration member's {@link CollectionAddress} — which manifest and key path
+       * its registration surfaces at; absent for a kind that owns its own file locus. */
+      readonly collectionAddress?: CollectionAddress;
+      /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
+       * hosts; absent for a kind that nests nothing. */
+      readonly templates?: readonly Template[];
+      /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
+       * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
+      readonly guidance?: string;
+      /** External-fact source backing the guidance — a doc URL plus retrieved date,
+       * carried as data. */
+      readonly cite?: string;
+    }
+  | {
+      /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
+      readonly name: string;
+      /** The declared provider authority, when the kind qualifies by one. */
+      readonly provider?: string;
+      /** Fact 2, locus — where members live, and for a file locus whether their documents
+       * are committed: a `local` commitment class declares the kind reviewed and its
+       * members' documents not. */
+      readonly locus: { readonly kind: "embedded" };
+      /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
+      readonly format?: Format;
+      /** Fact 3b, projection — the on-disk unit shape. */
+      readonly unitShape: UnitShape;
+      /** Fact 4, registration — embedded members register nothing. */
+      readonly registration: readonly [];
+      /**
+       * The frontmatter key the member's name writes under. For `unitShape:
+       * "named-field"` this is the id **source** — the declared field a member's
+       * identity is read from (an agent's `name`), never the filename or directory.
+       * For `"directory"` it is a projection-order detail only (a skill's `name`
+       * still writes into frontmatter, but identity is the directory name); absent
+       * when identity is the file stem and no field carries it (a rule), or the
+       * starred directory segment (`"starred-segment"`) — both path-derived, never a
+       * field.
+       */
+      readonly identityField?: string;
+      /** Fact 5, edge fields — the kind's fields that are references to other members. */
+      readonly edgeFields?: readonly EdgeField[];
+      /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
+       * leaves the kind `file`-content (one verbatim prose body, the default). */
+      readonly content?: Layout;
+      /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
+       * leaves the kind body-bearing (`file` or a {@link Layout}). */
+      readonly shape?: Shape;
+      /** The registration member's {@link CollectionAddress} — which manifest and key path
+       * its registration surfaces at; absent for a kind that owns its own file locus. */
+      readonly collectionAddress?: CollectionAddress;
+      /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
+       * hosts; absent for a kind that nests nothing. */
+      readonly templates?: readonly Template[];
+      /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
+       * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
+      readonly guidance?: string;
+      /** External-fact source backing the guidance — a doc URL plus retrieved date,
+       * carried as data. */
+      readonly cite?: string;
+    }
+  | {
+      /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
+      readonly name: string;
+      /** The declared provider authority, when the kind qualifies by one. */
+      readonly provider?: string;
+      /** Fact 2, locus — where members live, and for a file locus whether their documents
+       * are committed: a `local` commitment class declares the kind reviewed and its
+       * members' documents not. */
+      readonly locus: { readonly kind: "nested-file" };
+      /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
+      readonly format?: Format;
+      /** Fact 3b, projection — the on-disk unit shape. */
+      readonly unitShape: UnitShape;
+      /** Fact 4, registration — nested-file members register nothing. */
+      readonly registration: readonly [];
+      /**
+       * The frontmatter key the member's name writes under. For `unitShape:
+       * "named-field"` this is the id **source** — the declared field a member's
+       * identity is read from (an agent's `name`), never the filename or directory.
+       * For `"directory"` it is a projection-order detail only (a skill's `name`
+       * still writes into frontmatter, but identity is the directory name); absent
+       * when identity is the file stem and no field carries it (a rule), or the
+       * starred directory segment (`"starred-segment"`) — both path-derived, never a
+       * field.
+       */
+      readonly identityField?: string;
+      /** Fact 5, edge fields — the kind's fields that are references to other members. */
+      readonly edgeFields?: readonly EdgeField[];
+      /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
+       * leaves the kind `file`-content (one verbatim prose body, the default). */
+      readonly content?: Layout;
+      /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
+       * leaves the kind body-bearing (`file` or a {@link Layout}). */
+      readonly shape?: Shape;
+      /** The registration member's {@link CollectionAddress} — which manifest and key path
+       * its registration surfaces at; absent for a kind that owns its own file locus. */
+      readonly collectionAddress?: CollectionAddress;
+      /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
+       * hosts; absent for a kind that nests nothing. */
+      readonly templates?: readonly Template[];
+      /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
+       * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
+      readonly guidance?: string;
+      /** External-fact source backing the guidance — a doc URL plus retrieved date,
+       * carried as data. */
+      readonly cite?: string;
+    };
 
 /**
  * One authored member — a typed value in the library. Kind identity travels by
