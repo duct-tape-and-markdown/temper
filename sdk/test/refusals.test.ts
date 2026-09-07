@@ -291,7 +291,9 @@ function citingHarness(citation: ReturnType<typeof citationKind>, address: strin
 
 test("emit refuses an edge field whose target the program does not resolve", () => {
   // `rule` is a declared at-locus kind, so a *mention* of `rule:ghost` would defer to
-  // check — an edge target cannot: the reference is written now.
+  // check — an edge target cannot: the reference is written now. The case is true
+  // absence: an embedded target the program *did* compose resolves off the member
+  // table's nested spellings (emit.test.ts, "either spelling"), never here.
   assert.throws(() => emit(citingHarness(citationKind(), "rule:ghost")), /resolves to no composed member/);
 });
 
@@ -309,7 +311,60 @@ test("emit refuses an edge field naming a target that owns no projection", () =>
     ],
     admit: [{ host: memory, admits: [citation] }],
   });
+  // A registration member owns no artifact of its own, so there is no path to point at.
+  // An *embedded* target is the resolvable case beside it: it owns no file either, yet
+  // its host does, and the rendered path is that host's projection.
   assert.throws(() => emit(h), /owns no projection to reference/);
+});
+
+test("emit refuses a bare nested key several hosts carry — an ambiguous address names nothing", () => {
+  const citation = kind<object>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: ["decision"] }],
+    },
+    { render: (value) => `See \`${value.targets.source.address}\`.` },
+  );
+  const decision = decisionKind();
+  const build = (source: string) =>
+    emit(
+      harness({
+        members: [
+          rule({
+            name: "rust",
+            paths: ["src/**/*.rs"],
+            prose: blocks(embeddedMemberValue({ kind: decision, key: "surface-authority", leaves: {} })),
+          }),
+          rule({
+            name: "sdk",
+            paths: ["sdk/**/*.ts"],
+            prose: blocks(embeddedMemberValue({ kind: decision, key: "surface-authority", leaves: {} })),
+          }),
+          memory({
+            name: "CLAUDE",
+            prose: blocks(embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source } })),
+          }),
+        ],
+        admit: [
+          { host: rule, admits: [decision] },
+          { host: memory, admits: [citation] },
+        ],
+      }),
+    );
+
+  // Uniqueness is the resolver's bar, not the corpus's (decision 0049): two hosts keying
+  // one nested member alike compose fine, and only the bare citation of them refuses —
+  // naming every carrier, never silently picking one.
+  assert.throws(() => build("surface-authority"), /a bare key 2 hosts carry \(`rule:rust`, `rule:sdk`\)/);
+  // The full spelling tells them apart, so the same harness emits when the leaf composes
+  // the address through its host.
+  assert.equal(
+    build("rule:sdk/decision/surface-authority").members.find((m) => m.name === "CLAUDE")!.body,
+    "See `rule:sdk/decision/surface-authority`.\n",
+  );
 });
 
 test("an unfilled edge field is no edge — it emits, deriving no target facts", () => {

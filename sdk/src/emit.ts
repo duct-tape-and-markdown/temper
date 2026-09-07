@@ -44,6 +44,28 @@ import type { PayloadMember } from "./generated/index.js";
 // error here, never a silent shape drift.
 export type { PayloadMember } from "./generated/index.js";
 
+/**
+ * One composed embedded value as an edge target, carried with the host member whose body
+ * it lives in: an embedded member owns no file, so every path fact about it is derived
+ * from its host's own projection.
+ */
+export interface EmbeddedTarget {
+  /** The member whose composed body carries the value — the projection it lives in. */
+  readonly host: Member;
+  /** The composed value itself. */
+  readonly value: EmbeddedMemberValue;
+}
+
+/**
+ * What one address in the member table names: a top-level composed member, or the
+ * embedded values one nested spelling reaches. The nested list carries one element for
+ * a full `<host-address>/<kind>/<key>` address, and one per host for a bare `kind:key` —
+ * a bare key names a nested member only when a single host carries it, and resolution
+ * refuses the rest as ambiguous rather than picking one: uniqueness is the resolver's
+ * bar, not the grammar's.
+ */
+export type EdgeTarget = Member | readonly EmbeddedTarget[];
+
 /** What a mention may resolve against at emit. */
 export interface ResolveOptions {
   /** The addresses a mention may name — resolution-checked; a mention cannot dangle. */
@@ -54,12 +76,14 @@ export interface ResolveOptions {
    */
   readonly deferrableKinds?: ReadonlySet<string>;
   /**
-   * The program's composed members by `kind:name` address — what an embedded value's
-   * edge field resolves against to derive its target facts. An edge target never defers
-   * to the gate the way a bare mention may: the facts are rendered into the projection
-   * now, so an unresolved one has nothing true to place.
+   * The program's composed members by address — what an embedded value's edge field
+   * resolves against to derive its target facts. Top-level members index at their
+   * `kind:name` address, and each composed embedded value at both of its own spellings:
+   * its full `<host-address>/<kind>/<key>` address and its bare `kind:key`.
+   * An edge target never defers to the gate the way a bare mention may: the facts are
+   * rendered into the projection now, so an unresolved one has nothing true to place.
    */
-  readonly members?: ReadonlyMap<string, Member>;
+  readonly members?: ReadonlyMap<string, EdgeTarget>;
 }
 
 /** The {@link MentionScope} a set of {@link ResolveOptions} names — its two sets, each defaulting to empty. */
@@ -248,9 +272,10 @@ function relativeProjection(from: string, to: string): string {
  * own field schema, which fails in the author's program at compose time.
  *
  * # Throws
- * If a filled leaf names no composed member, or names one that owns no projection to
- * point at. An edge target cannot defer to the gate the way a bare mention may: the
- * reference is written now, and there is nothing true to write.
+ * If a filled leaf names no composed member, names one that owns no projection to
+ * point at, or names a bare nested key several hosts carry
+ * ({@link resolvedTargetFacts}). An edge target cannot defer to the gate the way a bare
+ * mention may: the reference is written now, and there is nothing true to write.
  */
 function edgeTargetFacts(
   host: Member,
@@ -269,20 +294,42 @@ function edgeTargetFacts(
     // only a bare leaf is lifted to `${edge.to[0]}:${address}` for the lookup.
     const lookup = edge.to.length === 1 && !address.includes(":") ? `${edge.to[0]}:${address}` : address;
     const target = options.members?.get(lookup);
+    const reference = `${context}: edge field \`${edge.field}\` names \`${address}\``;
     if (target === undefined) {
       throw new Error(
-        `${context}: edge field \`${edge.field}\` names \`${address}\`, which resolves to no ` +
-          `composed member — an edge target's facts are derived, never fabricated ` +
-          `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
+        `${reference}, which resolves to no composed member — an edge target's facts are ` +
+          `derived, never fabricated (specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
       );
     }
-    if (!isProjected(target)) {
-      throw new Error(
-        `${context}: edge field \`${edge.field}\` names \`${address}\`, which owns no ` +
-          `projection to reference (specs/model/representation.md, "locus").`,
-      );
-    }
-    targets[edge.field] = {
+    targets[edge.field] = resolvedTargetFacts(host, target, lookup, reference);
+  }
+  return targets;
+}
+
+/** Whether an address named the nested index — the embedded values one spelling reaches. */
+function isNested(target: EdgeTarget): target is readonly EmbeddedTarget[] {
+  return Array.isArray(target);
+}
+
+/**
+ * The four derived facts one resolved edge target contributes, read off the target
+ * itself and never off the citing instance. A top-level member answers with its own
+ * identity and its own projection; an embedded value answers with its own kind and key,
+ * its canonical `<host-address>/<kind>/<key>` address (whichever spelling the leaf
+ * authored), and its *host's* projection — an embedded member owns no file, so the file
+ * its rendering lands in is the host's.
+ *
+ * # Throws
+ * If a bare `kind:key` is carried by more than one host — an ambiguous address names
+ * nothing, and the full spelling is what tells the carriers apart — or if the target,
+ * or the host carrying it, owns no projection to point at.
+ */
+function resolvedTargetFacts(host: Member, target: EdgeTarget, lookup: string, reference: string): EdgeTargetFacts {
+  const noProjection = (): Error =>
+    new Error(`${reference}, which owns no projection to reference (specs/model/representation.md, "locus").`);
+  if (!isNested(target)) {
+    if (!isProjected(target)) throw noProjection();
+    return {
       name: target.name,
       address: lookup,
       kind: target.kind,
@@ -290,7 +337,24 @@ function edgeTargetFacts(
       repoRootedPath: projectionPath(target),
     };
   }
-  return targets;
+  if (target.length > 1) {
+    const hosts = target.map((carrier) => `\`${carrier.host.kind}:${carrier.host.name}\``).join(", ");
+    throw new Error(
+      `${reference}, a bare key ${target.length} hosts carry (${hosts}) — a nested member's address ` +
+        `composes through its host, so spell the whole \`<host-address>/<kind>/<key>\` ` +
+        `(specs/model/representation.md, "member").`,
+    );
+  }
+  const { host: carrier, value } = target[0]!;
+  if (!isProjected(carrier)) throw noProjection();
+  const carrierPath = projectionPath(carrier);
+  return {
+    name: value.key,
+    address: `${carrier.kind}:${carrier.name}/${value.kind}/${value.key}`,
+    kind: value.kind,
+    path: relativeProjection(projectionPath(host), carrierPath),
+    repoRootedPath: carrierPath,
+  };
 }
 
 /**
@@ -685,9 +749,12 @@ function settingsResidue(harness: Harness): SettingsResidue[] {
 }
 
 /**
- * The harness's composed members by `kind:name` address — the table an embedded value's
- * edge field resolves its target against. Keyed the identical way {@link declaredAddresses}
- * spells a member address, so an edge field and a mention name a member the same way.
+ * The harness's composed members by address — the table an embedded value's edge field
+ * resolves its target against. A top-level member keys the identical way
+ * {@link declaredAddresses} spells a member address, so an edge field and a mention name
+ * a member the same way; a nested member keys under both of its own spellings
+ * ({@link nestedTargets}), so an embedded edge target resolves at emit as a top-level one
+ * does.
  *
  * A projected member's address is its file, so two at one address are a collision and
  * refuse loud. A registration member's address is its *group key* — a `hook` registers on
@@ -697,16 +764,44 @@ function settingsResidue(harness: Harness): SettingsResidue[] {
  * `(hook-member-identity)` in `.flume/plan/open-questions.md`). Refusing them broke
  * `emit` on every harness with two hooks on one event (0.0.16).
  */
-function memberTable(harness: Harness): Map<string, Member> {
-  const table = uniqueMap(
-    harness.members
+function memberTable(harness: Harness): Map<string, EdgeTarget> {
+  const table = uniqueMap([
+    ...harness.members
       .filter((member) => !isRegistration(member))
-      .map((member) => [`${member.kind}:${member.name}`, member] as [string, Member]),
-  );
+      .map((member) => [`${member.kind}:${member.name}`, member] as [string, EdgeTarget]),
+    ...nestedTargets(harness),
+  ]);
   for (const member of harness.members.filter(isRegistration)) {
     table.set(`${member.kind}:${member.name}`, member);
   }
   return table;
+}
+
+/**
+ * Every composed embedded value as member-table entries, under both of its spellings: the
+ * full `<host-address>/<kind>/<key>` address, whose one carrier is the host whose body
+ * composed it — two of those coincident are a malformed lock, refused by the shared
+ * {@link uniqueMap} the way two members at one address are — and the bare `kind:key`,
+ * whose entry carries *every* host that spells it. A bare key names a nested member only
+ * when a single host carries it; several is ambiguous, refused by name at resolution
+ * ({@link resolvedTargetFacts}) rather than here, since uniqueness is the resolver's bar
+ * and not the corpus's — one key two hosts carry and nothing cites still composes.
+ */
+function nestedTargets(harness: Harness): Array<[string, EdgeTarget]> {
+  const qualified: Array<[string, EdgeTarget]> = [];
+  const bare = new Map<string, EmbeddedTarget[]>();
+  for (const member of harness.members) {
+    if (member.prose?.kind !== "blocks") continue;
+    for (const value of member.prose.values) {
+      if (isTextSpan(value)) continue;
+      const target: EmbeddedTarget = { host: member, value };
+      qualified.push([`${member.kind}:${member.name}/${value.kind}/${value.key}`, [target]]);
+      const carriers = bare.get(`${value.kind}:${value.key}`);
+      if (carriers === undefined) bare.set(`${value.kind}:${value.key}`, [target]);
+      else carriers.push(target);
+    }
+  }
+  return [...qualified, ...bare];
 }
 
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */

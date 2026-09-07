@@ -1266,6 +1266,80 @@ test("a multi-element `to` set still demands the kind-qualified address — a ba
   assert.throws(() => build("rust"), /resolves to no composed member/);
 });
 
+/**
+ * An embedded kind whose `source` field is an edge to another *embedded* kind — the
+ * nested-to-nested case. Its render hook spells the reference off the derived facts
+ * alone, so what it renders is exactly what the resolver derived.
+ */
+function nestedCitationKind() {
+  return kind<object>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: ["invariant"] }],
+    },
+    {
+      render: (value) => {
+        const target = value.targets.source;
+        return `See [${target.name}](${target.path}) — the ${target.kind} at \`${target.address}\`.`;
+      },
+    },
+  );
+}
+
+/** The embedded kind the citation targets — a nested member with no file of its own. */
+function invariantKind() {
+  return kind<object>({
+    name: "invariant",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    registration: [],
+  });
+}
+
+test("an edge field resolves an embedded target by either spelling — the bare key and the full host-qualified address", () => {
+  // The target is nested in a `rule`, which owns the file its rendering lands in: an
+  // embedded member has no projection of its own, so every path fact is the host's.
+  const build = (source: string) => {
+    const citation = nestedCitationKind();
+    const invariant = invariantKind();
+    return emit(
+      harness({
+        members: [
+          rule({
+            name: "surface",
+            paths: ["src/**/*.rs"],
+            prose: blocks(embeddedMemberValue({ kind: invariant, key: "law-5", leaves: {} })),
+          }),
+          memory({
+            name: "CLAUDE",
+            prose: blocks(embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source } })),
+          }),
+        ],
+        admit: [
+          { host: rule, admits: [invariant] },
+          { host: memory, admits: [citation] },
+        ],
+      }),
+    ).members.find((m) => m.name === "CLAUDE")!.body;
+  };
+
+  // `law-5` is the bare key, lifted into `invariant:law-5` by the one-element `to` set;
+  // the full spelling composes through the host. Both name the one nested member, so both
+  // render the same reference — and the rendered address is the canonical nested one,
+  // whichever spelling the leaf authored (decision 0049).
+  const rendered = "See [law-5](.claude/rules/surface.md) — the invariant at `rule:surface/invariant/law-5`.\n";
+  assert.equal(build("law-5"), rendered);
+  assert.equal(build("rule:surface/invariant/law-5"), rendered);
+
+  // Non-vacuity: an unresolvable nested address still refuses, so the two above passed on
+  // a real resolution rather than an index that answers everything.
+  assert.throws(() => build("rule:surface/invariant/law-6"), /resolves to no composed member/);
+  assert.throws(() => build("rule:ghost/invariant/law-5"), /resolves to no composed member/);
+});
+
 test("an edge field's leaf still rides the nested_member row as the authored address, never the rendered reference", () => {
   const citation = citationKind();
   const h = harness({
