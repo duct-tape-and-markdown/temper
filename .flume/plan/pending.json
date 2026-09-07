@@ -54,7 +54,8 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT"
+        "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT",
+        "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL"
       ]
     },
     "dependsOnForks": [],
@@ -89,7 +90,10 @@
   {
     "tag": "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL",
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tags": [
+        "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT"
+      ]
     },
     "dependsOnForks": [],
     "files": {
@@ -101,11 +105,31 @@
         },
         {
           "path": "src/install.rs",
-          "description": "Narrow project_note's/evaluate_placements's role to converging drift on an already-emit-owned projection's existing note wording, rather than being the sole originator for a fresh one — the same narrowing bccf42c0 already did for the banner."
+          "description": "Narrow project_note (~1969-1994) to the converge_banner_wording contract the banner already follows: None when no note line is present, converge-only when one is — the same narrowing bccf42c0 did for the banner. Move NOTE_COMMENT (currently src/install.rs:205) to src/placement.rs beside BANNER (placement.rs:23), its one home; install and emit then read one constant rather than emit reaching into install's private module."
         },
         {
           "path": "tests/emit.rs",
           "description": "Regression: deleting a built-in skill's SKILL.md (or any frontmatter-bearing modeled projection) then running `emit` alone produces a projection carrying its note; `check`'s gate_installed (src/install.rs:561) reports no install.gate-installed finding without a separate `install` run."
+        },
+        {
+          "path": "src/placement.rs",
+          "description": "Home for NOTE_COMMENT, relocated from src/install.rs:205 beside BANNER (:23) and BANNER_MARKER (:16) — the frontmatter note and the markdown banner are one placement family with one owner, so emit's writer and install's converger read the same constant (engineering.md, 'One job, one home'). Its unit test block (~102) gains the note's own placement_lines case."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Two existing tests assert the OLD ownership split and must invert with this entry, not after it (build's own fence capture at 1e663552). (a) emit_never_stamps_the_managed_by_note (:1757) asserts the exact negation of this entry's acceptance — re-cut to assert emit DOES stamp the note and still never stamps the yaml-language-server modeline, which stays install's. (b) gate_installed_names_drifted_un_noted_files (:1097) hand-deletes the note line from an emit-owned SKILL.md and expects a missing-placement finding; under the narrowed project_note that hand-edit is drift by hash, exactly as this test's own sibling comment already says of the banner — re-cut to a stale-WORDING drift (splice a retired note wording in), which is what project_note still converges."
+        },
+        {
+          "path": "tests/json_document_format.rs",
+          "description": "the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_as_they_were (~469) pins .claude/rules/rust.md byte-exact as `---\\npaths: [...]\\n---\\n{RULE_BODY}`; the frontmatter member now carries the note line, so this expectation gains it — the same edit tests/emit.rs takes in-fence."
+        },
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "the_gauntlet_corpus_emits_and_checks_to_stable_snapshots drives the projection-tree snapshot below; any inline expectation naming a frontmatter projection's leading bytes moves with the note."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__projection_tree.snap",
+          "description": "The snapshot carries every gauntlet projection's bytes, so each frontmatter-bearing one gains the note line. cargo-insta is NOT installed in this environment (`cargo insta` errors 'no such command') — accept with `INSTA_UPDATE=always cargo test --test gauntlet`, which the insta crate itself honours, then re-run plain `cargo test` to confirm green. Read the accepted diff: it must be the note line and nothing else."
         }
       ],
       "retire": []
@@ -121,13 +145,16 @@
         "asserts": "a freshly emitted frontmatter-bearing projection carries its note without a separate install run, and check reports no missing-note finding for it"
       }
     ],
-    "acceptance": "A markdown projection with frontmatter, freshly emitted with no prior install run, carries both its managed-projection banner (where applicable) and its frontmatter note; check's gate_installed reports no finding for it.",
-    "notes": "observed at bf4b4168 (GH #57). bccf42c0 moved banner placement from install to emit but left the note behind — the part-authored/part-emitted gap invariant 7 forbids, for the note instead of the banner. Subtraction candidate rides along: once emit places both, install's note placement over emit-owned projections is a duplicate to retire — name it in the shipping commit body. Chained on drift.rs/install.rs collisions with the guard/install cluster. scoped at bf4b4168"
+    "acceptance": "A markdown projection with frontmatter, freshly emitted with no prior install run, carries both its managed-projection banner (where applicable) and its frontmatter note; check's gate_installed reports no finding for it. `cargo test --no-fail-fast` is green, including the four re-cut assertions that pinned the old ownership split.",
+    "notes": "observed at bf4b4168 (GH #57); widened at a13f6bf2 from build's own fence capture (1e663552, verified on disk this tick: all four sites still present). bccf42c0 moved banner placement from install to emit and left the note behind — the part-authored/part-emitted gap invariant 7 forbids. Suggested shape: one predicate renders_frontmatter(format, fields) that both project_bytes renders by and emit_one picks the marker form by, so writer and marker-placer cannot disagree. scoped at a13f6bf2"
   },
   {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tags": [
+        "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN"
+      ]
     },
     "dependsOnForks": [],
     "files": {
@@ -174,7 +201,10 @@
   {
     "tag": "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN",
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tags": [
+        "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL"
+      ]
     },
     "dependsOnForks": [],
     "files": {
@@ -194,7 +224,7 @@
         },
         {
           "path": "tests/snapshots/gauntlet__projection_tree.snap",
-          "description": "The gauntlet corpus mirrors real spec content through a layout kind (e.g. specs/model/representation.md's `invariant` sections); once a layout's prose region lowers to a row, this fixture gains a new `nested_member` (kind=\"prose\") row per prose-bearing member — update via `cargo insta review`, verifying the new rows' content matches the actual captured preamble rather than accepting a diff blind."
+          "description": "The gauntlet corpus mirrors real spec content through a layout kind (specs/model/representation.md's `invariant` sections), so this fixture gains a `nested_member` row with kind=\"prose\" per prose-bearing member — the exact diff the 2026-09-07 cargo-test gate-revert printed. cargo-insta is NOT installed here (`cargo insta` errors 'no such command'), which is why that attempt reverted with the snapshot unaccepted: accept with `INSTA_UPDATE=always cargo test --test gauntlet`, which the insta crate honours directly, then re-run plain `cargo test`. Read the accepted rows — their leaves must carry the actually-captured preamble text, never a blind accept."
         }
       ],
       "retire": []
@@ -215,7 +245,7 @@
       }
     ],
     "acceptance": "A layout document's verbatim prose region content reaches a row or projection explain can narrate, instead of being read by Layout::read and then dropped on the floor by every downstream consumer. Per 0048's conservation bar, the regression pins non-vacuity: it asserts the captured prose span is non-empty before checking it reaches the row/explain surface, so the test cannot pass over an empty read.",
-    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10 refinement, GH #43). Distinct from LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (refuses a second prose region at admissibility) and LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF (a collection member's own span) — this is the top-level prose region's own visibility gap. Vacuity-pin bar added per cadabd8e inbox note. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10 refinement, GH #43). Distinct from LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (shipped) and LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF (a collection member's own span) — this is the top-level prose region's own visibility gap. The prior attempt reverted on cargo test with only the gauntlet snapshot red; the fence was already right, the unrunnable `cargo insta review` instruction was not. scoped at a13f6bf2"
   },
   {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
@@ -257,7 +287,10 @@
   {
     "tag": "EXPLAIN-KIND-ADOPTER-ENTRY-POINT",
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tags": [
+        "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN"
+      ]
     },
     "dependsOnForks": [],
     "files": {
@@ -291,7 +324,11 @@
   {
     "tag": "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tags": [
+        "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
+        "EXPLAIN-KIND-ADOPTER-ENTRY-POINT"
+      ]
     },
     "dependsOnForks": [],
     "files": {
@@ -348,6 +385,10 @@
           "description": "memberTable (~700-709) indexes top-level composed members by `kind:key`, last-wins for registration rows (intentional, kept as-is per c054dbce — multiple matcher groups on one hook event legitimately share a key). edgeTargetFacts (~255-270), called unconditionally from resolveMemberLeaves (~307) for every embedded value with an edge field, throws when the target is an embedded value elsewhere: at ~270 any `:`-bearing leaf is treated as a whole lookup key, so a host-qualified address (which contains `/`) is never even attempted. Add a SECOND bare-key index for embedded/nested values keyed by `kind:key`, refusing a duplicate bare key across hosts via the same throwing mechanism `uniqueMap` (~233-241) already uses elsewhere — never memberTable's registration-row last-wins, which is a different, intentional case. Also index the full `<host-address>/<kind>/<key>` spelling; never treat a bare `kind:key` string as the whole key once it also contains `/` (0049 Rejected: no third address form). Before calling isProjected (~604-606, false for an embedded locus) or projectionPath (~206-213, throws on one), branch: an embedded target derives its path via `projectionPath(host)` instead. Widen the table's resolved-value type — a nested target is an `EmbeddedMemberValue` (kind.ts:471), not a `Member` (kind.ts:318)."
         },
         {
+          "path": "sdk/src/index.ts",
+          "description": "The root barrel's re-export line — the 2026-09-07 fence revert was this path alone. Widening memberTable's resolved-value type to EmbeddedMemberValue (kind.ts:471) surfaces that type at the public boundary, so its re-export belongs here; declared rather than left to the chain's blanket allowance so it also counts for the ship predicate."
+        },
+        {
           "path": "sdk/test/emit.test.ts",
           "description": "Regression: an embedded value's edge field naming another host's embedded value — by bare `kind:key` and by full host-qualified address — resolves target facts and renders, rather than throwing 'resolves to no composed member'."
         },
@@ -375,7 +416,7 @@
       }
     ],
     "acceptance": "A render hook on an embedded value whose edge field targets another host's embedded value resolves that target's engine-derived facts (name, address, kind, projection path) and renders, instead of emit refusing outright. Scoped to the SDK's own rendering path for bare-unique keys and the host-qualified spelling end-to-end at emit; full nested-address resolution at `check` (graph::target_identity has no `/` grammar; embedded_member_features is host-blind) stays out of scope, tracked by GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS / NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY. Per 0049's amendment, this entry's bare-key index is one of the ambiguity bar's named consumers: a duplicate bare `kind:key` across hosts must refuse via uniqueMap (not silently pick one), matching graph::resolves and explain's why_impl. The regression pins non-vacuity: it asserts a real resolved target/thrown refusal, not an empty index short-circuiting either way (0048's conservation bar).",
-    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168: items (5)-(7) — index both spellings via the refusing uniqueMap path (never memberTable's registration-row last-wins), fix isProjected/projectionPath order, widen the value type, scope check-side resolution out. Post-ship reconciliation 09-07: KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites corrected to kind.ts:471/318; emit.ts refs unaffected. scoped at 727cceb2"
+    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168. Post-ship reconciliation 09-07: KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites corrected to kind.ts:471/318; emit.ts refs unaffected. The 2026-09-07 fence revert billed sdk/src/index.ts, now declared. The other files-ripple hits (declarations.ts, kind.ts, prose.ts) are EmbeddedMemberValue's definition and doc-comment sites, re-verified noise at 727cceb2. scoped at a13f6bf2"
   },
   {
     "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
@@ -463,7 +504,10 @@
   {
     "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tags": [
+        "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT"
+      ]
     },
     "dependsOnForks": [],
     "files": {

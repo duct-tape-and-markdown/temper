@@ -184,6 +184,42 @@ tax.
   so the own span must be cut at the first child heading regardless of the
   name chosen. Dependents: LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF.
 
+- `(post-tool-use-placement)` — OPEN, live driver (GH #42 (ii),
+  cascade-integrations, confirmed on disk at a13f6bf2). `install.rs:173`'s
+  `POST_TOOL_USE_COMMAND` is byte-identical to `SESSION_START_COMMAND`
+  (`:96`) — both `temper check . --reporter session-start` — and its group
+  binds `BASH_MATCHER` (`:163`) under the same constituency test as the
+  `PreToolUse` guard, so `reporter::context`'s pass-time disclosure (the
+  `Checked:` block, `reporter.rs:158`, every `Severity::Note` plus the
+  announcement, ~960 bytes of `additionalContext`) replays on EVERY Bash
+  tool call rather than once at session open. The corpus owns no such
+  surface: `distribution.md` "The placements and their enforcement modes"
+  enumerates five — Keystroke, Session start, CI, the author's terminal, and
+  Per tool call (`PreToolUse` = `temper guard`, three enforcement modes) —
+  and `PostToolUse` appears **nowhere** in the evergreen corpus. It arrived
+  via `cf67f291` (09-03, a `build:` commit), a placement build minted with
+  no spec section owning it. Three candidate rulings, none derivable from
+  the corpus as it stands: (a) unsanctioned — install stops wiring it, and
+  Bash-mediated writes stay CI's, the backstop the guard's own message
+  already names verbatim to the author; (b) sanctioned, and
+  `distribution.md` gains a sixth bullet: PostToolUse is the Bash-write
+  drift check, its reporter carries **findings only** and is silent on pass
+  (a `--reporter post-tool-use`, or `--quiet-on-pass` on the session-start
+  one) — the never-silently-pass guarantee belongs to the *session-start*
+  bullet, scoped to session open, while "Per tool call"'s three modes route
+  findings, never disclosures; (c) sanctioned but folded into the existing
+  "Per tool call" bullet as the guard's Bash half, taking the author's
+  declared block/warn/note mode instead of a reporter. Session
+  recommendation: (b) — the hole is real, CI-only leaves a Bash-written
+  projection drifted for a whole session, and the fix is a reporter, not a
+  new concept; (c) is unavailable because `PostToolUse` cannot deny a call,
+  so it cannot honour the mode contract's `block` value. The objection (b)
+  must answer: a full `check` per Bash call is a tree-scale cost on every
+  command. No entry filed — the three rulings produce three incompatible
+  entries (delete the wiring / add a quiet reporter / rebind to the guard's
+  mode) with no common shippable core, and plan does not pick among them.
+  No dependents.
+
 - `(embedded-edge-dangling-judgment)` — OPEN, candidate not yet ruled
   (cascade-integrations, GH #52, 09-06). SDK-MEMBER-TABLE-NESTED-EDGE-TARGET
   fixes an embedded value's edge field resolving another host's embedded
