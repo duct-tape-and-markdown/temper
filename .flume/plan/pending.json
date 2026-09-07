@@ -1,54 +1,5 @@
 [
   {
-    "tag": "KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "KindFacts.registration (183) is typed as readonly Registration[] regardless of locus; narrow it so the embedded and nested-file Locus variants (91-99) type registration as the empty tuple, matching what registration_locus_admissibility (src/admissibility.rs:256) already refuses at runtime."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "Regression: a KindDefinition declared with a non-empty registration under an embedded or nested-file locus fails to typecheck."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Fix any existing fixture that declares a (now-illegal) non-empty registration on an embedded kind — the SDK's test script typechecks every test file first, so this file must stay green under the narrowed type even though it isn't the regression's home."
-        },
-        {
-          "path": "sdk/test/mention.test.ts",
-          "description": "Same tsc-fallout fix as emit.test.ts — this file also declares a registration on an embedded kind today."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      "sdk/src/index.ts",
-      "sdk/src/kind.ts",
-      "sdk/test/builtins.test.ts",
-      "sdk/test/emit.test.ts",
-      "sdk/test/mention.test.ts"
-    ],
-    "summary": "The SDK's kind type accepts a non-empty registration on an embedded/nested-file locus that the engine refuses at runtime — tsc should catch it first.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "locus"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "a non-empty registration under an embedded/nested-file locus is a compile error, not a runtime refusal"
-      }
-    ],
-    "acceptance": "sdk/src/kind.ts's KindFacts type rejects a non-empty registration under embedded or nested-file locus at tsc time; the existing registration_locus_admissibility runtime check stays as the backstop for a bypass.",
-    "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' — today only enforced at src/admissibility.rs:256's runtime check. Widened at fb89f675 (gate-revert 2 of 2: the SDK's tsc-first test script fails over emit.test.ts/mention.test.ts's existing embedded-registration fixtures) — files[] now states the ripple up front. scoped at bf4b4168"
-  },
-  {
     "tag": "INSTALL-GATE-INSTALLED-SUPERSEDED-FALSE-POSITIVE",
     "gate": {
       "kind": "open"
@@ -80,7 +31,12 @@
       }
     ],
     "acceptance": "A harness whose authored `hook` kind member supersedes a synthesized placement (SessionStart/guard/post-tool-use) reports no `install.gate-installed` finding, matching install's own SupersededByMember render; a regression exercises install::run with a real superseding hook member.",
-    "notes": "observed at bf4b4168 (cascade audit of INSTALL-HOOK-PLACEMENT-FALSE-APPLIED's amendments 3-4), re-verified after that entry shipped (b7b2a7a6/bd10edd1 on disk): gate_installed was not touched by the fix, and no regression test exists for the new outcome at all. scoped at bd10edd1"
+    "notes": "observed at bf4b4168 (cascade audit of INSTALL-HOOK-PLACEMENT-FALSE-APPLIED's amendments 3-4), re-verified after that entry shipped (b7b2a7a6/bd10edd1 on disk): gate_installed was not touched by the fix, and no regression test exists for the new outcome at all. scoped at bd10edd1",
+    "observedFiles": [
+      "src/install.rs",
+      "tests/install.rs",
+      "tests/snapshots/gauntlet__check_diagnostics.snap"
+    ]
   },
   {
     "tag": "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL",
@@ -170,7 +126,9 @@
       "src/reporter.rs",
       "tests/acceptance.rs",
       "tests/common/mod.rs",
-      "tests/coverage_note.rs"
+      "tests/coverage_note.rs",
+      "tests/gauntlet.rs",
+      "tests/snapshots/gauntlet__check_diagnostics.snap"
     ],
     "summary": "check --deny-advisories can never pass: the coverage.checked disclosure note is pushed at warn severity unconditionally, and --deny-advisories treats any warn as a blocking violation.",
     "per": {
@@ -210,6 +168,11 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      "src/drift.rs",
+      "src/gate.rs",
+      "tests/layout_kind.rs"
+    ],
     "summary": "A committed layout document discovery finds but the program never declares yields no declaration rows anywhere — coverage, explain, and leaf addresses all read silently empty, no finding names why.",
     "per": {
       "path": "specs/intent.md",
@@ -222,12 +185,7 @@
       }
     ],
     "acceptance": "check reports a discovered layout-kind member absent from the lock's declaration rows as a named advisory finding; the pipeline.md split (the gate reads declarations from the lock family and nowhere else, local locus excepted) stays intact — the fix is the finding, not new read-time derivation for committed sources.",
-    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10, GH #43 as retitled; drained by plan tick ab4a3ead with no entry — re-filed verbatim, now routed). scoped at bf4b4168",
-    "observedFiles": [
-      "src/drift.rs",
-      "src/gate.rs",
-      "tests/layout_kind.rs"
-    ]
+    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10, GH #43 as retitled; drained by plan tick ab4a3ead with no entry — re-filed verbatim, now routed). scoped at bf4b4168"
   },
   {
     "tag": "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN",
@@ -265,7 +223,11 @@
       }
     ],
     "acceptance": "A layout document's verbatim prose region content reaches a row or projection explain can narrate, instead of being read by Layout::read and then dropped on the floor by every downstream consumer.",
-    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10 refinement, GH #43). Distinct from LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (refuses a second prose region at admissibility) and LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF (a collection member's own span) — this is the top-level prose region's own visibility gap. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10 refinement, GH #43). Distinct from LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (refuses a second prose region at admissibility) and LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF (a collection member's own span) — this is the top-level prose region's own visibility gap. scoped at bf4b4168",
+    "observedFiles": [
+      "src/drift.rs",
+      "tests/layout_kind.rs"
+    ]
   },
   {
     "tag": "GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS",
@@ -434,10 +396,7 @@
   {
     "tag": "SDK-MEMBER-TABLE-NESTED-EDGE-TARGET",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -565,10 +524,7 @@
   {
     "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
