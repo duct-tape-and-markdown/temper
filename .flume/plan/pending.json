@@ -1,85 +1,5 @@
 [
   {
-    "tag": "GUARD-UNDECLARED-LOCUS-WRITE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`guard` (:840) allows outright any path not equal to a lock-declared emit-owned target (the `matches_projection` gate at :850-853) — so creating `.claude/rules/stray.md` in a REPRESENTED harness passes, while the no-lock fallback (:858, `is_claude_path` at :886) would have bound the very same write. Representation currently loosens the boundary. Bind a write whose path falls inside a represented committed kind's `governs` locus but matches no emit-owned target: the program declares no member there, `emit` will never maintain the file, and Claude Code loads it anyway. Judged through the existing `GuardVerdict`/enforcement-mode path, never escalated past the declared mode; the message names the kind whose locus it landed in and the declare-and-re-emit remedy CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS's finding names. The locus test is the kind's `root` joined to its `glob`, compiled through `glob::compile_glob` (src/glob.rs:19, `literal_separator(true)`) with `import::scan_locus`'s segment semantics (src/import.rs:341) — NOT `CustomKind::owns_source` (src/kind.rs:725), which matches the glob's leaf against a bare filename (`rule`'s `*.md` would match any markdown anywhere) and cannot serve as a locus test at all. Two loci are excluded by construction: a `local`-commitment one (its documents are the author's own by declaration — `settings-local` at `.claude/settings.local.json` and `dial` at `.temper/dial.toml`, per representation.md's \"a local member is read-side only ... never an emit input or target\"), and a `.`-rooted one (`memory` governs `.` with `**/CLAUDE.md`; the guard has no ignore reader where discovery prunes by the repo's ignore rules at src/import.rs:321-335, so binding it would judge every CLAUDE.md in the tree, vendored ones included, and disagree with `check`). Name the `memory` gap in the commit body rather than closing it with a walk the guard cannot afford."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`Command::Guard` (:332) already reads `declarations` (:346), `lock_present` (:348) and `emit_owned_targets` (:349) before the stdin read. Hand `install::guard` the represented committed kinds' loci — but source them the way `guarded_manifests` (:556-602) already sources the manifest set twelve lines below, NOT off `declarations.kinds`: a `[[declaration.kind]]` row exists only for a kind the program actually uses, so the gauntlet lock carries no `agent` row and cascade's carries none either, and sourcing from lock rows leaves `.claude/agents/stray.md` allowed — the entry would not close the issue it was cut from, and the guard would disagree with the check side, which walks `overlaid_builtin_kinds` and covers every built-in. So: `builtin_kind::definitions()` overlaid through `compose::overlay_builtin_kind`, plus `compose::partition_kind_rows`'s custom rows, filtered by `commitment != local`, `governs.is_some()`, `collection_address.is_none()` (the manifest kinds stay `manifest_write_findings`'s) and a non-`.` root. That is pure embedded data, no disk read and no walk — the guard runs on every tool call, so the cost bound is the existing one. State in the commit body that this reads loci from embedded kind data rather than lock rows, against distribution.md's \"Placements are lock-grounded, never assumed\": `guarded_manifests` already makes exactly that call, and the alternative silently under-binds every kind the program has no member of yet."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Regressions beside the existing guard cases, per tests[] — and ONE existing assertion this entry inverts: :1364 asserts \"an undeclared .claude/ path is allowed when targets exist\" for a write to `.claude/skills/x/SKILL.md`, which is precisely the hole being closed; rewrite it to the new verdict rather than leaving it to fail. Pin the arms that genuinely do not move: a write to a declared projection keeps its current verdict verbatim, `.claude/settings.json` keeps the manifest arm's verdict (it reaches `install::guard` whenever `manifest_write_findings` returns `None`, as it does for a `PendingManifest::Unrecognized` payload at :1165 — without the `collection_address` exclusion the new binding would catch it and change that verdict), a write to a `local`-commitment locus is never bound, and the no-lock `.claude/` fallback is untouched."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "The other guard-driving suite: `common::run_guard` cases at :500, :511, :531, :557, :573 and :588 cover the block/warn/note modes, the README.md-is-allowed arm, the unreadable-lock arms and the no-lock fallback. None should move — README.md sits in no governed locus, and `memory`'s `.`-rooted one is excluded — but this file is where a mis-scoped locus set shows up first, so run it and pin whatever the new binding touches rather than discovering it at the merge."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "In a represented harness the guard allows any write outside the lock's exact projection paths — including creating an undeclared document inside a governed locus.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "block mode denies (exit 2) a Write creating an undeclared `.claude/rules/*.md` in a represented harness, naming the `rule` kind whose locus it landed in; warn surfaces in-band and allows; note allows silently"
-      },
-      {
-        "path": "tests/install.rs",
-        "asserts": "a write to a lock-declared projection keeps its existing verdict, a write to a `local`-commitment locus is never bound BY THE NEW LOCUS BINDING, and an unrepresented harness keeps the `.claude/` fallback unchanged — which still binds `.claude/settings.local.json` at the declared mode, since `is_claude_path` (src/install.rs:886) is a substring match on `.claude/`; 'never bound' holds only under a lock"
-      }
-    ],
-    "acceptance": "The guard's binding no longer depends on a path being an exact lock row: a write into a represented committed kind's locus that declares no member there is judged at the author's declared enforcement mode, so a represented harness is at least as protected as an unrepresented one — including `.claude/agents/`, which a lock-row-sourced locus set would have missed. Exactly one existing arm inverts (tests/install.rs:1364) and it inverts deliberately; the declared-projection, represented-manifest, local-locus and no-lock-fallback arms each report the verdict they do today. SCOPE, stated because it is the largest behavior change the first adopter meets and it must not arrive as a surprise: the binding is every non-`.`-rooted governed locus of a represented committed kind, NOT `.claude/` — the entry's examples are `.claude/` only because this harness is. On cascade's own harness (block mode) that set includes specs/intent, specs/domain, specs/features and specs/surfaces, so a hand `Write` creating specs/intent/north-star.md exits 2 the day this lands. That is correct under cascade's own law — its specs are projections emitted through Bash, which the guard does not instrument — and it is the hole being closed, but it ships as a stated consequence. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade-integrations, GH #58, observed at ab61fea4), the guard half of CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS. Cascade's position — a partly represented harness opts a locus down explicitly, never by silence — is the acceptance here. The blockedBy on CHECK is TEXTUAL only: no code here calls what that entry adds, but the message must name the same remedy. Amended twice 09-07; the second added the cross-adopter scope statement. scoped at 6b9eacae"
-  },
-  {
-    "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/admissibility.rs",
-          "description": "Audit every admissibility diagnostic's message text — e.g. clause_collision_diagnostics (~167, message ~184-189 names only the shared label) — so each names the concrete edit (which two clauses/members collided and the argument that discriminates them) rather than restating lock/contract state alone."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "Audit diagnostic construction call sites for the same bar where messages are assembled rather than authored at the diagnostic definition."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Audit admissibility refusal messages so each names the concrete edit an author would make, never only the lock state.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/gate_fail_loud.rs",
-        "asserts": "admissibility refusal messages name the discriminating edit, not just the lock state"
-      }
-    ],
-    "acceptance": "Every admissibility refusal message names the edit an author would make — the colliding clauses/members and their discriminator — never the lock state alone.",
-    "notes": "observed at ad10e8cb (John, 09-05 redirect, entry 3 of 4); narrowed at bf4b4168, item d: the read.rs/narrate_kind half collapsed (narrate_kind prints guidance/cite only). Both parents its notes named have since shipped (f07d4f84, 9c5c7a71); the live chain is CHECK-UNDECLARED over src/gate.rs. 9c5c7a71's `nested_member_coincidence` is the bar's own exemplar — it names the address spelled twice, not the lock state — so the audit measures the rest against it. scoped at ea3c0484"
-  },
-  {
     "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
     "gate": {
       "kind": "blockedBy",
@@ -567,7 +487,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "REFUSAL-MESSAGE-NAMES-THE-EDIT",
         "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
         "NESTED-MEMBER-ADDRESS-READ-AS-A-MALFORMED-LEAF"
       ]
