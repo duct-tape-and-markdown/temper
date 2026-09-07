@@ -80,7 +80,7 @@ pub fn check(
         })
         .collect();
     let kind_count = all_kinds.len();
-    diagnostics.push(Diagnostic::warn(
+    diagnostics.push(Diagnostic::note(
         CHECKED_RULE,
         "harness",
         format!(
@@ -457,7 +457,7 @@ mod tests {
     }
 
     #[test]
-    fn the_checked_summary_reports_each_kind_count_and_is_warn() {
+    fn the_checked_summary_reports_each_kind_count_and_is_note() {
         let counts = BTreeMap::from([("skill".to_string(), 2usize), ("rule".to_string(), 3usize)]);
         let diagnostics = check(
             Path::new("/nonexistent-harness-root"),
@@ -471,7 +471,7 @@ mod tests {
             .iter()
             .find(|d| d.rule == CHECKED_RULE)
             .expect("a checked-summary diagnostic");
-        assert_eq!(summary.severity, Severity::Warn);
+        assert_eq!(summary.severity, Severity::Note);
         assert!(summary.message.contains("skill (2)"));
         assert!(summary.message.contains("rule (3)"));
         // The total pluralizes and names both kinds, with no "built-in" qualifier —
