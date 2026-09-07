@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 
 use temper::compose::Requirement;
-use temper::drift::{self, LayoutRegionRow, LayoutRow, TemplateRow};
+use temper::drift::{self, CollectionAddressRow, LayoutRegionRow, LayoutRow, TemplateRow};
 use temper::extract::{EmbeddedMember, Features};
 use temper::read::{self, CustomMember};
 use temper::tap::{self, TAP_RECORD_VERSION, TapEvent, TapRecord};
@@ -876,7 +876,7 @@ fn explain_kind(
 fn a_kind_qualified_name_no_kind_declares_is_not_found() {
     // The explicit `kind:` spelling is checked against the same kind set the bare name
     // resolves against: `kind:frobnicate` is a name nothing declares, and reading it as
-    // a kind with nothing to teach would say "no guidance declared" — the answer a
+    // a kind with nothing to teach would say "no guidance declared" — an answer only a
     // *declared* kind gives — for a kind that does not exist.
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
     let kinds = [common::kind_facts("decision", "decisions", "*.md")];
@@ -891,10 +891,16 @@ fn a_kind_qualified_name_no_kind_declares_is_not_found() {
         "it never reads as a declared kind with nothing to teach: {missing}"
     );
 
+    // The declared kind narrates under the same spelling: unguided, but its row still
+    // says where a member of it lands and how a reference to one is spelled.
     let declared = explain_kind(&kinds, &by_kind, "kind:decision");
     assert!(
-        declared.contains("No authoring guidance is declared"),
+        declared.contains("Kind `decision`") && declared.contains("`decision:<name>`"),
         "the declared-but-unguided kind still narrates under the same spelling: {declared}"
+    );
+    assert!(
+        !declared.contains("No member, requirement, kind, or leaf address named"),
+        "and is never the NotFound the undeclared name gets: {declared}"
     );
 }
 
@@ -1075,6 +1081,124 @@ fn a_composed_kind_narrates_the_embedded_kinds_it_admits_and_their_leaves() {
     assert!(
         out.contains("• `supporting-doc` — at `*.md`"),
         "a templated file child is narrated as a unit of its own, never an embedded kind: {out}"
+    );
+}
+
+#[test]
+fn a_registration_kinds_locus_and_address_form_render_with_no_member_of_it_present() {
+    // The adopter's actual moment: `hook` is declared, the surface carries no hook member
+    // anywhere, and the two things they need told are where a member of it lands and how a
+    // reference to one is spelled. Both read off the declaration alone — with `by_kind`
+    // empty, no line below can have come from a corpus read.
+    //
+    // The locus is not either/or: a registration kind carries a collection address *and* a
+    // `governs` pair, saying different things — where the member keys, and where the
+    // document carrying it is discovered.
+    let kinds = [drift::KindFactRow {
+        unit_shape: Some("file".to_string()),
+        registration: vec!["event(event)".to_string()],
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            entry_shape: None,
+        }),
+        ..common::kind_facts("hook", ".claude", "settings.json")
+    }];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+
+    let out = explain_kind(&kinds, &by_kind, "kind:hook");
+    assert!(
+        out.contains("`hooks.<Event>`") && out.contains("`settings.json` manifest"),
+        "the collection address names which manifest and which key path a member keys at: {out}"
+    );
+    assert!(
+        out.contains("`.claude/settings.json`"),
+        "the governs pair names the document a member of it is discovered in: {out}"
+    );
+    assert!(
+        out.contains("`event(event)`"),
+        "the declared registration channel is named in its wire spelling: {out}"
+    );
+    assert!(
+        out.contains("`hook:<name>`"),
+        "a kind with a locus of its own spells the top-level address form: {out}"
+    );
+    assert!(
+        !out.contains("/hook/<key>"),
+        "no kind hosts `hook`, so no host-qualified form is invented for it: {out}"
+    );
+}
+
+#[test]
+fn a_hosted_kind_spells_the_host_qualified_address_form_and_names_the_kinds_that_host_it() {
+    // Three arms over one member-less surface. A top-level kind takes `<kind>:<name>`; a
+    // kind only ever hosted takes `<host-address>/<kind>/<key>` and names its hosts — and
+    // `supporting-doc` is hosted as a *file* child, whose declaration row still carries a
+    // host-qualified address, so the host scan must read path-bearing templates too. A
+    // kind declaring nothing at all keeps the clean "nothing declared" line, address form
+    // included: the form rides the same guard rather than rendering off the kind name.
+    let kinds = [
+        common::rule_kind_facts(None, &["always"]),
+        drift::KindFactRow {
+            templates: vec![TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }],
+            ..common::kind_facts("skill", ".claude/skills", "*/SKILL.md")
+        },
+        // The nested-file locus: no `governs` pair of its own, its path fact living in the
+        // host's template.
+        drift::KindFactRow {
+            governs_root: None,
+            governs_glob: None,
+            unit_shape: Some("file".to_string()),
+            ..common::kind_facts("supporting-doc", "", "")
+        },
+        drift::KindFactRow {
+            governs_root: None,
+            governs_glob: None,
+            ..common::kind_facts("orphan", "", "")
+        },
+    ];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+
+    let top_level = explain_kind(&kinds, &by_kind, "kind:rule");
+    assert!(
+        top_level.contains("`.claude/rules/*.md`"),
+        "a file-locus kind names the document a member of it is discovered in: {top_level}"
+    );
+    assert!(
+        top_level.contains("`rule:<name>`"),
+        "and spells its top-level address form: {top_level}"
+    );
+    assert!(
+        !top_level.contains("Kinds that host it"),
+        "no kind hosts `rule`, so it grows no hosting strand: {top_level}"
+    );
+
+    let hosted = explain_kind(&kinds, &by_kind, "kind:supporting-doc");
+    assert!(
+        hosted.contains("`skill` — as a file child, at `*.md`"),
+        "a file child names the kind that hosts it and the path under the host's unit: {hosted}"
+    );
+    assert!(
+        hosted.contains("`<host-address>/supporting-doc/<key>`"),
+        "a kind only ever hosted takes the host-qualified address form: {hosted}"
+    );
+    assert!(
+        !hosted.contains("`supporting-doc:<name>`"),
+        "and never the top-level form, which no locus of its own would back: {hosted}"
+    );
+
+    let bare = explain_kind(&kinds, &by_kind, "kind:orphan");
+    assert!(
+        bare.contains("No authoring guidance is declared"),
+        "a kind declaring nothing at all still narrates cleanly: {bare}"
+    );
+    assert!(
+        !bare.contains("orphan:<name>") && !bare.contains("/orphan/<key>"),
+        "the address form rides the same guard rather than rendering off the kind name: {bare}"
     );
 }
 

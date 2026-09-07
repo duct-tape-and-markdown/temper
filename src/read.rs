@@ -570,11 +570,22 @@ fn narrate_governing_contract(
 /// time (`(clause)`, decision 0045) rather than at a member's own moment of failure,
 /// and readable with no member of `name` in the corpus yet.
 ///
-/// Three strands, each present only when the kind declares it:
+/// Six strands, each present only when the kind declares it:
 ///
 /// * **guidance and cite** — off `contracts` (the same map [`why`]'s governing-contract
 ///   narration reads) and off the kind's own fact row, which carries the `cite`
 ///   `Contract` has no column for.
+/// * **locus** — where a member of the kind lands ([`narrate_locus`]). Not either/or:
+///   a registration kind carries a collection address *and* a `governs` pair, and the
+///   two say different things — the address is where the member keys, the `governs`
+///   pair is where the document carrying it is discovered.
+/// * **hosting kinds** — the inverse of the hosted-kinds strand: which other kinds admit
+///   members of this one ([`hosting_kinds`]). The row cannot say it — a hosted kind's own
+///   row looks like any other — so the oracle is a scan over every other row's templates
+///   and layout collections.
+/// * **address form** — how a reference to a member of the kind is spelled, off
+///   [`crate::member_address`]'s grammar: a top-level address for a kind with a locus of
+///   its own, a nested address for one authored inside a host.
 /// * **layout** — a `content`-declaring kind's regions in declared document order, plus
 ///   a skeleton document that fits them ([`layout_skeleton`]). The regions are the whole
 ///   of what [`crate::layout::Layout::read`] admits, so an author who has never seen a
@@ -585,7 +596,11 @@ fn narrate_governing_contract(
 ///   **file** child (a `templates` entry carrying a `path`) owns its own unit and is
 ///   narrated with that path.
 ///
-/// A kind declaring none of the three narrates a clean "nothing declared" line rather
+/// Every strand but the last renders off the declarations alone, so the whole of it
+/// reaches an adopter carrying **no member of the kind at all** — the moment the
+/// narration exists for.
+///
+/// A kind declaring none of the six narrates a clean "nothing declared" line rather
 /// than silence, so an empty result still confirms the kind resolved and was read, not
 /// skipped.
 fn narrate_kind(
@@ -607,18 +622,23 @@ fn narrate_kind(
         .flat_map(|row| row.templates.iter())
         .filter(|template| template.path.is_some())
         .collect();
+    let locus = facts.filter(|row| declares_a_locus(row));
+    let hosts = hosting_kinds(name, kind_facts);
 
     if guidance.is_none()
         && cite.is_none()
         && layout.is_none()
         && embedded.is_empty()
         && file_children.is_empty()
+        && locus.is_none()
+        && hosts.is_empty()
     {
         let _ = writeln!(
             out,
             "No authoring guidance is declared for `{name}`, and it declares neither a \
-             body layout nor a kind it hosts — nothing to teach before a member of it \
-             exists.\n"
+             locus a member of it lands at nor a body layout, hosts no kind and is hosted \
+             by none — so nothing here can say where a member lands or how a reference to \
+             one is spelled.\n"
         );
         return out;
     }
@@ -631,11 +651,229 @@ fn narrate_kind(
     if guidance.is_some() || cite.is_some() {
         out.push('\n');
     }
+    if let Some(row) = locus {
+        narrate_locus(&mut out, name, row);
+    }
+    narrate_hosting_kinds(&mut out, name, &hosts);
+    narrate_address_form(&mut out, name, locus.is_some(), &hosts);
     if let Some(layout) = layout {
         narrate_layout(&mut out, layout);
     }
     narrate_hosted_kinds(&mut out, name, &embedded, &file_children, by_kind);
     out
+}
+
+/// Whether the row declares anything about **where a member of the kind lands** — the
+/// term [`narrate_kind`]'s "nothing declared" guard tests, so a kind whose whole
+/// declaration is its locus still narrates rather than falling to the empty line.
+///
+/// Wider than the `governs` pair alone: the collection address is the locus of a member
+/// that keys inside a host manifest, and the registration channels and commitment class
+/// are facts *about* that landing — how a member reaches the session, and whether the
+/// document it lands in is committed.
+fn declares_a_locus(row: &drift::KindFactRow) -> bool {
+    row.governs_root.is_some()
+        || row.governs_glob.is_some()
+        || row.collection_address.is_some()
+        || !row.registration.is_empty()
+        || row.commitment.is_some()
+}
+
+/// Narrate where a member of the kind lands — the strand an adopter with no member of it
+/// yet reads first, and the one no corpus read can answer.
+///
+/// The collection address and the `governs` pair are **not** alternatives: a registration
+/// kind (`hook`) carries both, and they answer different questions. The address says where
+/// the member keys — which manifest, under which key path. The `governs` pair says where
+/// the *document* carrying it is discovered, which for a registration kind is the host
+/// manifest and for a file-locus kind is the member's own unit. A file-locus kind
+/// therefore shows the `governs` line alone, and neither reading is invented from the
+/// other's absence.
+fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
+    let _ = writeln!(out, "Where a member of it lands:");
+    if let Some(address) = &row.collection_address {
+        let _ = writeln!(
+            out,
+            "  • keyed at `{}` inside a `{}` manifest — a member of `{name}` is one entry \
+             under that key, never a document of its own.",
+            address.key_path, address.manifest
+        );
+    }
+    // The pair is presence-coupled in every row a kind lift accepts; a half-declared one
+    // still names the half it carries rather than going silent on the whole locus.
+    let discovered = match (row.governs_root.as_deref(), row.governs_glob.as_deref()) {
+        (Some(root), Some(glob)) => Some(drift::join_locus(root, glob).display().to_string()),
+        (Some(root), None) => Some(format!("{root}/")),
+        (None, Some(glob)) => Some(glob.to_string()),
+        (None, None) => None,
+    };
+    if let Some(discovered) = discovered {
+        if row.collection_address.is_some() {
+            let _ = writeln!(
+                out,
+                "  • inside the host document discovered at `{discovered}` — the manifest \
+                 the entry above keys into."
+            );
+        } else {
+            let _ = writeln!(
+                out,
+                "  • in its own document, discovered at `{discovered}`."
+            );
+        }
+    }
+    if !row.registration.is_empty() {
+        let _ = writeln!(
+            out,
+            "  • reaching the session on {} — the declared registration channel{} a member \
+             of it is read through.",
+            row.registration
+                .iter()
+                .map(|channel| format!("`{channel}`"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            if row.registration.len() == 1 { "" } else { "s" }
+        );
+    }
+    match row.commitment.as_deref() {
+        None => {}
+        Some("local") => {
+            let _ = writeln!(
+                out,
+                "  • per-machine and uncommitted (`local`): the kind is declared and \
+                 reviewed, a member's document is not."
+            );
+        }
+        Some(other) => {
+            let _ = writeln!(out, "  • under the `{other}` commitment class.");
+        }
+    }
+    out.push('\n');
+}
+
+/// How a host admits members of the kind it hosts — the two loci a nesting template
+/// declares, kept apart because they land a member in different places.
+enum Hosting<'a> {
+    /// In the host's own body: a path-less `templates` entry, or a layout collection
+    /// region naming the kind.
+    Embedded,
+    /// As a file child at the declared path pattern, relative to the host's own unit.
+    File(&'a str),
+}
+
+/// One kind that hosts members of the kind being narrated, and how it admits them.
+struct HostingKind<'a> {
+    /// The hosting kind's name.
+    host: &'a str,
+    /// Where a member of the hosted kind lands inside it.
+    via: Hosting<'a>,
+}
+
+/// The kinds that host members of `name` — the **inverse** of [`admitted_embedded_kinds`],
+/// read off exactly the same two columns, in row order.
+///
+/// The scan takes path-**bearing** templates as well as path-less ones: a file child is
+/// still a hosted member, addressed under its host (`skill:test-skill/supporting-doc/…`)
+/// exactly as an embedded value is. Reading only the path-less entries would leave a
+/// file-child kind's hosts unnamed and [`narrate_address_form`] with nothing to spell.
+///
+/// A row naming itself is skipped: a self-hosting kind's members must still root
+/// somewhere, so it is no evidence about the top-level form.
+fn hosting_kinds<'a>(name: &str, kind_facts: &'a [drift::KindFactRow]) -> Vec<HostingKind<'a>> {
+    let mut hosts: Vec<HostingKind<'a>> = Vec::new();
+    for row in kind_facts.iter().filter(|row| row.name != name) {
+        let templated = row
+            .templates
+            .iter()
+            .find(|template| template.kind == name)
+            .map(|template| match template.path.as_deref() {
+                Some(path) => Hosting::File(path),
+                None => Hosting::Embedded,
+            });
+        let via = templated.or_else(|| {
+            row.content.as_ref().and_then(|content| {
+                content
+                    .regions
+                    .iter()
+                    .any(|region| region.member_kind.as_deref() == Some(name))
+                    .then_some(Hosting::Embedded)
+            })
+        });
+        if let Some(via) = via {
+            hosts.push(HostingKind {
+                host: &row.name,
+                via,
+            });
+        }
+    }
+    hosts
+}
+
+/// Narrate the kinds that host members of `name`. Silent when none do — a top-level kind
+/// has no host strand, not an empty heading.
+fn narrate_hosting_kinds(out: &mut String, name: &str, hosts: &[HostingKind<'_>]) {
+    if hosts.is_empty() {
+        return;
+    }
+    let _ = writeln!(
+        out,
+        "Kinds that host it — a member of `{name}` is authored inside a member of one of \
+         these:"
+    );
+    for host in hosts {
+        match host.via {
+            Hosting::Embedded => {
+                let _ = writeln!(
+                    out,
+                    "  • `{}` — embedded in the host's own body.",
+                    host.host
+                );
+            }
+            Hosting::File(path) => {
+                let _ = writeln!(
+                    out,
+                    "  • `{}` — as a file child, at `{path}` under the host's unit.",
+                    host.host
+                );
+            }
+        }
+    }
+    out.push('\n');
+}
+
+/// Narrate how a reference to a member of the kind is spelled — the second line an adopter
+/// with no member yet needs, and the one that decides whether an authored reference
+/// resolves at all.
+///
+/// Both forms come from [`crate::member_address`], the grammar's one home, rather than a
+/// second hand-spelling here: a top-level member takes its kind's own
+/// `<kind>:<name>` address, a hosted one the `<host-address>/<kind>/<key>` form —
+/// an embedded value and a nested-file child alike, since a file child's declaration row
+/// carries the same host-qualified address an embedded member's does.
+///
+/// A kind that is both (a locus of its own *and* a host) spells both, rather than the
+/// narration arbitrating between two true forms; a kind that is neither spells none,
+/// because nothing declared says what a reference to it would look like.
+fn narrate_address_form(out: &mut String, name: &str, has_locus: bool, hosts: &[HostingKind<'_>]) {
+    if !has_locus && hosts.is_empty() {
+        return;
+    }
+    let _ = writeln!(out, "How a reference to a member of it is spelled:");
+    if has_locus {
+        let _ = writeln!(
+            out,
+            "  • `{}` — its own top-level address: the kind, then the member's identity.",
+            member_address::host_address(name, "<name>")
+        );
+    }
+    if !hosts.is_empty() {
+        let _ = writeln!(
+            out,
+            "  • `{}` — under the host member's own `<kind>:<name>` address, then this \
+             kind and the member's key among its host's members of it.",
+            member_address::nested_address("<host-address>", name, "<key>")
+        );
+    }
+    out.push('\n');
 }
 
 /// The **embedded** child kinds `row` admits, in declaration order and deduplicated:
