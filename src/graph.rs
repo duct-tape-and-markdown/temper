@@ -143,12 +143,15 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
 /// *before* the graph judges the harness. Every finding is [`Diagnostic::error`] and
 /// names the edge.
 ///
-/// Two decidable clauses: **(a)** the reference `field` is
+/// Three decidable clauses: **(a)** the reference `field` is
 /// non-empty — an empty field names no reference syntax; **(b)** every kind the `to`
 /// set declares is one `temper` models — an unmodeled element has no artifacts, so the
 /// routes it would take can never resolve, making the fault the declaration's. The
 /// finding names the offending *element*, not the whole set, and [`check`] skips the
-/// edge.
+/// edge. **(c)** no two edges share a `(from, field)` slot: `contract.md` ("edge") gives
+/// a field ONE target set, so two rows spelling one slot are a malformed lock — reported
+/// once per slot ([`coincident_slots`]), naming the count and each distinct `to` set,
+/// and both arms skipped, since resolving either is a guess between two declarations.
 ///
 /// `by_kind` is the same corpus map [`check`] reads; admissibility uses only its keys.
 #[must_use]
@@ -183,7 +186,53 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
             }
         }
     }
+
+    // (c) One `(from, field)` slot is declared by one edge. Two rows spelling it name no
+    // single edge, so the fix is the merge, not a choice between them.
+    for rows in coincident_slots(edges).into_values() {
+        let Some(first) = rows.first() else { continue };
+        // Each distinct target set the coincident rows declare, in declaration order —
+        // identical rows collapse to one, which is exactly what the author needs to see.
+        let mut targets: Vec<String> = Vec::new();
+        for edge in &rows {
+            let rendered = render_target_kinds(&edge.to);
+            if !targets.contains(&rendered) {
+                targets.push(rendered);
+            }
+        }
+        let slot = edge_id(first);
+        let message = format!(
+            "`{slot}` is declared by {} `edge` facts, targeting {} — a field's target is one \
+             set of kinds, so two rows spelling one slot name no single edge; merge them into \
+             one `edge` fact whose `to` set lists every target kind",
+            rows.len(),
+            targets.join(" and "),
+        );
+        diagnostics.push(Diagnostic::error(GRAPH_ADMISSIBILITY_RULE, slot, message));
+    }
+
     diagnostics
+}
+
+/// The `(from, field)` **slots** more than one [`Edge`] spells, each with its declaring
+/// rows in declaration order — the coincidence [`admissibility`]'s clause (c) refuses and
+/// [`resolved_edges`] skips. `contract.md` ("edge") gives a field one target set, so a
+/// slot two rows spell names no single edge.
+///
+/// Keyed on the slot **alone**, whatever each row's `to` set says: two identical rows are
+/// equally malformed, doubling every [`ResolvedEdge`] the slot yields and inflating
+/// [`degree`]'s in/out counts with a phantom arc. One pass over an already-loaded slice —
+/// never a walk over members, so the resolution cost is unmoved.
+fn coincident_slots(edges: &[Edge]) -> BTreeMap<(&str, &str), Vec<&Edge>> {
+    let mut slots: BTreeMap<(&str, &str), Vec<&Edge>> = BTreeMap::new();
+    for edge in edges {
+        slots
+            .entry((edge.from.as_str(), edge.field.as_str()))
+            .or_default()
+            .push(edge);
+    }
+    slots.retain(|_, rows| rows.len() > 1);
+    slots
 }
 
 /// Check **acyclicity** over the harness reference graph: build the artifact-level
@@ -1266,8 +1315,16 @@ pub fn resolved_edges(
     RESOLVED_EDGES_COUNT.with(|c| c.set(c.get() + 1));
     let mut resolved = Vec::new();
     let mut dangling_diagnostics = Vec::new();
+    // The whole-set half of admissibility, computed once here because `is_admissible`'s
+    // per-edge signature cannot see a coincidence.
+    let coincident = coincident_slots(edges);
     for edge in edges {
-        if !is_admissible(edge, by_kind) {
+        // Skipped exactly as clauses (a)/(b) are: an inadmissible edge, and either arm of
+        // a coincident slot — resolving one of two declarations is a guess, and the guess
+        // forges a dangling finding for every reference the other arm's `to` set misses.
+        if !is_admissible(edge, by_kind)
+            || coincident.contains_key(&(edge.from.as_str(), edge.field.as_str()))
+        {
             continue;
         }
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
@@ -1586,6 +1643,10 @@ fn cycle_diagnostic(cycle: &[Node]) -> Diagnostic {
 /// every kind its target set declares is one `temper` models. The predicate [`check`]
 /// gates on to skip an unsound declaration, kept in lockstep with the clauses
 /// [`admissibility`] reports so the two never disagree.
+///
+/// Per-edge only: admissibility's clause (c) is a fact about the edge *set*, invisible
+/// from this signature, so [`resolved_edges`] carries that skip alongside this one off
+/// [`coincident_slots`].
 fn is_admissible(edge: &Edge, by_kind: &BTreeMap<&str, &[Features]>) -> bool {
     !edge.field.is_empty()
         && edge
@@ -2116,6 +2177,147 @@ mod tests {
 
         // `check` skips the inadmissible edge — no per-source route finding.
         assert!(check(std::slice::from_ref(&edge), &by_kind).is_empty());
+    }
+
+    /// A second `routes_to` edge off `rule`, spelling the SAME slot as
+    /// [`routes_to_edge`] with a different target set — the coincidence clause (c)
+    /// refuses.
+    fn routes_to_command_edge() -> Edge {
+        Edge {
+            field: "routes_to".to_string(),
+            from: "rule".to_string(),
+            to: vec!["command".to_string()],
+        }
+    }
+
+    /// The corpus every coincidence case reads: one routing rule, the skill its
+    /// `routes_to` really names, and an empty `command` kind — so both declared target
+    /// kinds are modeled and clause (b) stays silent.
+    fn coincidence_corpus() -> ([Features; 1], [Features; 1], [Features; 0]) {
+        (
+            [node("style", Some("standards"))],
+            [node("standards", None)],
+            [],
+        )
+    }
+
+    #[test]
+    fn one_edge_over_the_coincidence_corpus_resolves_and_is_silent() {
+        // Non-vacuity for the two cases below: with ONE row for the slot, the same
+        // fixture resolves `style` → `standards` and draws no finding at all. The
+        // refusal below is a real narrowing, never an empty read.
+        let (rules, skills, commands) = coincidence_corpus();
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([
+            ("rule", &rules[..]),
+            ("skill", &skills[..]),
+            ("command", &commands[..]),
+        ]);
+        let edges = [routes_to_edge()];
+
+        assert!(admissibility(&edges, &by_kind).is_empty());
+        assert!(check(&edges, &by_kind).is_empty());
+        assert_eq!(
+            resolved_edges(&edges, &by_kind).resolved.len(),
+            1,
+            "the one declared row resolves its reference to the real skill"
+        );
+    }
+
+    #[test]
+    fn two_edges_sharing_a_slot_are_inadmissible_once_and_both_skipped() {
+        // `rule.routes_to` declared twice with different target sets: one slot, two
+        // declarations. Admissibility reports the slot ONCE — naming the count, both
+        // target sets, and the merge that fixes it — and neither arm reaches
+        // `resolved_edges`, so the resolving arm forges no arc and the `command` arm
+        // forges no dangling finding.
+        let (rules, skills, commands) = coincidence_corpus();
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([
+            ("rule", &rules[..]),
+            ("skill", &skills[..]),
+            ("command", &commands[..]),
+        ]);
+        let edges = [routes_to_edge(), routes_to_command_edge()];
+
+        let admit = admissibility(&edges, &by_kind);
+        assert_eq!(
+            admit.len(),
+            1,
+            "one finding per coincident slot, not per row"
+        );
+        assert_eq!(admit[0].severity, Severity::Error);
+        assert_eq!(admit[0].rule, GRAPH_ADMISSIBILITY_RULE);
+        assert_eq!(admit[0].artifact, "rule.routes_to");
+        assert!(admit[0].message.contains("`rule.routes_to`"));
+        assert!(admit[0].message.contains("2 `edge` facts"));
+        assert!(admit[0].message.contains("`skill` and `command`"));
+        assert!(
+            admit[0].message.contains("merge"),
+            "the message names the edit, not just the state: {}",
+            admit[0].message
+        );
+
+        let resolution = resolved_edges(&edges, &by_kind);
+        assert!(
+            resolution.resolved.is_empty(),
+            "neither arm resolves — the refusal replaces the arcs, it does not join them"
+        );
+        assert!(
+            resolution.dangling_diagnostics.is_empty(),
+            "no route finding is forged from either `to` set"
+        );
+        assert!(check(&edges, &by_kind).is_empty());
+    }
+
+    #[test]
+    fn two_identical_edge_rows_are_the_same_coincidence() {
+        // The slot is keyed on `(from, field)` ALONE: two byte-identical rows are equally
+        // malformed, since resolving both doubles every arc and inflates `degree`'s
+        // counts with a phantom. One finding, naming the single target set once.
+        let (rules, skills, commands) = coincidence_corpus();
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([
+            ("rule", &rules[..]),
+            ("skill", &skills[..]),
+            ("command", &commands[..]),
+        ]);
+        let edges = [routes_to_edge(), routes_to_edge()];
+
+        let admit = admissibility(&edges, &by_kind);
+        assert_eq!(admit.len(), 1);
+        assert_eq!(admit[0].artifact, "rule.routes_to");
+        assert!(admit[0].message.contains("2 `edge` facts"));
+        assert!(
+            admit[0].message.contains("targeting `skill` —"),
+            "one distinct target set reads once, not twice: {}",
+            admit[0].message
+        );
+        assert!(resolved_edges(&edges, &by_kind).resolved.is_empty());
+        assert!(check(&edges, &by_kind).is_empty());
+    }
+
+    #[test]
+    fn two_edges_over_different_fields_of_one_kind_are_not_coincident() {
+        // The slot is `(from, field)`, not `from`: a kind declaring two DIFFERENT
+        // reference fields is the ordinary case, and both resolve.
+        let mut style = node("style", Some("standards"));
+        style.fields.insert(
+            "cites".to_string(),
+            JsonValue::String("standards".to_string()),
+        );
+        let rules = [style];
+        let skills = [node("standards", None)];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
+        let edges = [
+            routes_to_edge(),
+            Edge {
+                field: "cites".to_string(),
+                from: "rule".to_string(),
+                to: vec!["skill".to_string()],
+            },
+        ];
+
+        assert!(admissibility(&edges, &by_kind).is_empty());
+        assert_eq!(resolved_edges(&edges, &by_kind).resolved.len(), 2);
     }
 
     #[test]

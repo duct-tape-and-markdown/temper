@@ -2690,6 +2690,145 @@ fn an_edge_facts_target_column_that_is_neither_string_nor_string_array_refuses_l
     );
 }
 
+// ---- one `(from, field)` slot is declared by one `edge` fact -----------------
+//
+// contract.md, "edge": the kind declares a field's target as ONE non-empty set of
+// kinds. Two rows spelling one slot are therefore a malformed lock — refused once at
+// the assembly tier, naming the merge, with neither arm resolved (resolving one of two
+// declarations is a guess, and the guess buries the refusal under the dangling routes
+// the arm the author did not mean forges).
+
+/// A floor-clean rule carrying a `routes_to` reference field naming `target` —
+/// `routes_to` is not a floor-forbidden rule key, so the only finding a case below can
+/// produce is the graph one.
+fn routing_rule(target: &str) -> String {
+    format!(
+        "---\n\
+         routes_to: {target}\n\
+         ---\n\
+         # Style\n\
+         \n\
+         Prefer the standards skill.\n"
+    )
+}
+
+/// The corpus both coincidence cases read: the rule `style` routing to the skill
+/// `standards`, which really exists — so with ONE declared row the run is clean and the
+/// refusal below is never an empty read.
+fn write_routing_harness(root: &Path) {
+    common::write_rule_skill_harness(
+        root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+}
+
+/// How many times `needle` occurs in `haystack` — the "reported ONCE per slot, not once
+/// per row" assertion.
+fn occurrences(haystack: &str, needle: &str) -> usize {
+    haystack.matches(needle).count()
+}
+
+#[test]
+fn one_edge_row_per_slot_resolves_and_the_run_is_clean() {
+    // Non-vacuity: the same corpus and the same slot, declared once, resolves.
+    let root = common::tmpdir("edge-slot-single");
+    write_routing_harness(&root);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![edge_fact("rule", "routes_to", &["skill"])],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        ok,
+        "one row for the slot resolves `style` → `standards` ⇒ clean, got:\n{output}"
+    );
+}
+
+#[test]
+fn two_edge_rows_for_one_slot_refuse_once_with_no_dangling_route_noise() {
+    let root = common::tmpdir("edge-slot-coincident");
+    write_routing_harness(&root);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![
+                edge_fact("rule", "routes_to", &["skill"]),
+                edge_fact("rule", "routes_to", &["agent"]),
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "two `edge` rows for one slot are a malformed lock ⇒ non-zero, got:\n{output}"
+    );
+    assert_eq!(
+        occurrences(&output, "`edge` facts"),
+        1,
+        "the slot is reported once, not once per row, got:\n{output}"
+    );
+    assert!(
+        output.contains("rule.routes_to")
+            && output.contains("`skill` and `agent`")
+            && output.contains("merge"),
+        "the refusal names the slot, both declared target sets, and the merge that fixes \
+         it, got:\n{output}"
+    );
+    assert!(
+        !output.contains("resolves to no"),
+        "neither arm resolves, so the refusal arrives alone rather than buried under the \
+         dangling routes the coincidence forges, got:\n{output}"
+    );
+}
+
+#[test]
+fn two_byte_identical_edge_rows_refuse_the_same_way() {
+    // The slot is keyed on `(from, field)` alone: identical rows are equally malformed,
+    // since resolving both doubles every arc the slot yields.
+    let root = common::tmpdir("edge-slot-identical");
+    write_routing_harness(&root);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![
+                edge_fact("rule", "routes_to", &["skill"]),
+                edge_fact("rule", "routes_to", &["skill"]),
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    assert_eq!(
+        occurrences(&lock_text(&root), r#"field = "routes_to""#),
+        2,
+        "the fixture really carries both rows"
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "identical rows are a coincidence too ⇒ non-zero, got:\n{output}"
+    );
+    assert_eq!(
+        occurrences(&output, "`edge` facts"),
+        1,
+        "one finding for the slot, got:\n{output}"
+    );
+    assert!(
+        output.contains("rule.routes_to") && output.contains("targeting `skill` —"),
+        "the one distinct target set reads once, got:\n{output}"
+    );
+}
+
 // ---- CLAUSE-LABEL-IS-AN-ADDRESS: the clause's compiled address ---------------
 //
 // A clause's label is its identity. Emit writes it once, off the row's own
