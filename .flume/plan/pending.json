@@ -2,10 +2,7 @@
   {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -50,52 +47,6 @@
     "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10, GH #43 as retitled; drained by plan tick ab4a3ead with no entry — re-filed verbatim, now routed). Vacuity-pin bar added per cadabd8e inbox note. scoped at bf4b4168"
   },
   {
-    "tag": "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "read_layout_document (~1959, the one reader both emit's committed lowering and check's local-locus derivation share) lowers a Layout::read into LayoutDocumentRows carrying only `nested` and `satisfies` — the verbatim prose region's own span (LayoutReading::prose) and field-section spans are read but never become a row. A layout declaring `prose` after a `collection`/`field` region (a legal, non-first position for the one verbatim prose region) still has the document's leading preamble land there (preamble_taken in layout.rs ~146), with no row or explain surface ever naming which region actually captured it or what it captured."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "explain's per-member narration has nothing to read for a layout's prose region span; wire the new row (or feature) in so a layout member's prose content is addressable/visible the same way its fields and members already are."
-        },
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "Regression: a layout with a prose region declared after a collection region still binds the document's preamble to it (existing behavior, per 0019's preamble-or-import rule), and the captured span is now visible via a leaf/row `explain` and the lock can address, not silently dropped."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__projection_tree.snap",
-          "description": "The gauntlet corpus mirrors real spec content through a layout kind (specs/model/representation.md's `invariant` sections), so this fixture gains a `nested_member` row with kind=\"prose\" per prose-bearing member — the exact diff the 2026-09-07 cargo-test gate-revert printed. cargo-insta is NOT installed here (`cargo insta` errors 'no such command'), which is why that attempt reverted with the snapshot unaccepted: accept with `INSTA_UPDATE=always cargo test --test gauntlet`, which the insta crate honours directly, then re-run plain `cargo test`. Read the accepted rows — their leaves must carry the actually-captured preamble text, never a blind accept."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      "src/drift.rs",
-      "tests/layout_kind.rs"
-    ],
-    "summary": "A layout's verbatim prose region span is read but never becomes a lock row or reaches explain, so an author can't see which region captured the preamble or what it captured.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "a layout's verbatim prose region span reaches an addressable row/leaf, visible to explain, matching how field and collection regions already surface"
-      }
-    ],
-    "acceptance": "A layout document's verbatim prose region content reaches a row or projection explain can narrate, instead of being read by Layout::read and then dropped on the floor by every downstream consumer. Per 0048's conservation bar, the regression pins non-vacuity: it asserts the captured prose span is non-empty before checking it reaches the row/explain surface, so the test cannot pass over an empty read.",
-    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10 refinement, GH #43). Distinct from LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (shipped) and LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF (a collection member's own span) — this is the top-level prose region's own visibility gap. The prior attempt reverted on cargo test with only the gauntlet snapshot red; the fence was already right, the unrunnable `cargo insta review` instruction was not. scoped at a13f6bf2"
-  },
-  {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
     "gate": {
       "kind": "blockedBy",
@@ -135,10 +86,7 @@
   {
     "tag": "EXPLAIN-KIND-ADOPTER-ENTRY-POINT",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
