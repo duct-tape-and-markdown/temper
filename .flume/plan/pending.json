@@ -206,7 +206,7 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "`admissibility` (:155, doc at :141 \"Two decidable clauses\") gains clause (c): no two edges share a `(from, field)` slot. `contract.md` (\"edge\") gives a field ONE target set (\"The kind declares the field's target as a non-empty set of kinds\"), so two rows spelling one slot are a malformed lock — the assembly-fact sibling of `nested_member_coincidence` (src/admissibility.rs:95). `edge_id` (:1869) already renders exactly that slot as `{from}.{field}`, so group by it and report ONCE per coincident slot, not once per row, naming the count and each distinct `to` set. Key on `(from, field)` ALONE, regardless of `to`: two identical rows are equally malformed — they double every `ResolvedEdge`, inflating `degree`'s (:255) in/out counts with a phantom arc. The SKIP half is what makes this more than a second diagnostic and is load-bearing: `resolved_edges` (:1262) and `check` (:137) re-derive per-edge admissibility through `is_admissible` (:1589), whose `(&Edge, &BTreeMap)` signature cannot see a coincidence, so compute the coincident-slot set once over `edges` and skip both arms exactly as clauses (a)/(b) are skipped. Resolving either arm is a guess between two declarations, and without the skip the author gets the new refusal PLUS the false-dangling pile the coincidence causes — the reported symptom, where every pre-existing `cites` target \"resolves to no directive artifact\" while the new row's targets \"resolve to no skill artifact\". Message names the EDIT, not just the state (the bar REFUSAL-MESSAGE-NAMES-THE-EDIT audits): merge the rows into one `edge` fact whose `to` set lists every target kind, the spec's own spelling. Cost: the pre-pass is O(edges) over an already-loaded slice, never a new walk over members, so `resolved_edges_count()` (:39) — pinned at tests/check_cost.rs:467 — must not move; do not add a second `resolved_edges` invocation. Unit tests land in the inline `mod tests` (:1969) beside this clause family's two siblings, `an_edge_with_an_empty_reference_field_is_inadmissible` (:2122) and `an_edge_over_an_unmodeled_target_kind_is_inadmissible_and_skipped` (:2102), reusing `routes_to_edge` (:2008) and `node` (:1982). tests/graph.rs is deliberately NOT in this fence: it sits inside BUILTIN-KIND-RELOCATION-EDGE-FIELDS's, which is also `open`. Likewise src/gate.rs — its call-site comment at :476-480 enumerates two admissibility clauses and goes stale with this change; under the standing prose-cite rule it rides that file's next opener (CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS already edits it), never this entry."
+          "description": "`admissibility` (:155, doc at :141 \"Two decidable clauses\") gains clause (c): no two edges share a `(from, field)` slot. `contract.md` (\"edge\") gives a field ONE target set (\"The kind declares the field's target as a non-empty set of kinds\"), so two rows spelling one slot are a malformed lock — the assembly-fact sibling of `nested_member_coincidence` (src/admissibility.rs:95). `edge_id` (:1869) already renders exactly that slot as `{from}.{field}`, so group by it and report ONCE per coincident slot, not once per row, naming the count and each distinct `to` set. Key on `(from, field)` ALONE, regardless of `to`: two identical rows are equally malformed — they double every `ResolvedEdge`, inflating `degree`'s (:255) in/out counts with a phantom arc. The SKIP half is what makes this more than a second diagnostic and is load-bearing: `resolved_edges` (:1262) and `check` (:137) re-derive per-edge admissibility through `is_admissible` (:1589), whose `(&Edge, &BTreeMap)` signature cannot see a coincidence, so compute the coincident-slot set once over `edges` and skip both arms exactly as clauses (a)/(b) are skipped. Resolving either arm is a guess between two declarations, and without the skip the author gets the new refusal PLUS the false-dangling pile the coincidence causes — the reported symptom, where every pre-existing `cites` target \"resolves to no directive artifact\" while the new row's targets \"resolve to no skill artifact\". Message names the EDIT, not just the state (the bar REFUSAL-MESSAGE-NAMES-THE-EDIT audits): merge the rows into one `edge` fact whose `to` set lists every target kind, the spec's own spelling. Cost: the pre-pass is O(edges) over an already-loaded slice, never a new walk over members, so `resolved_edges_count()` (:39) — pinned at tests/check_cost.rs:467 — must not move; do not add a second `resolved_edges` invocation. Unit tests land in the inline `mod tests` (:1969) beside this clause family's two siblings, `an_edge_with_an_empty_reference_field_is_inadmissible` (:2122) and `an_edge_over_an_unmodeled_target_kind_is_inadmissible_and_skipped` (:2102), reusing `routes_to_edge` (:2008) and `node` (:1982). tests/graph.rs is deliberately NOT in this fence — the collision that kept it out is gone (BUILTIN-KIND-RELOCATION-EDGE-FIELDS shipped at 77581333), and the exclusion now stands on its own facts: this clause's two siblings are unit-tested in the inline `mod tests` and the end-to-end half belongs in tests/lock_declaration_rows.rs, so a tests/graph.rs case would only duplicate one of them. Likewise src/gate.rs — its call-site comment at :476-480 enumerates two admissibility clauses and goes stale with this change; under the standing prose-cite rule it rides that file's next opener (CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS already edits it), never this entry."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
@@ -235,7 +235,7 @@
       }
     ],
     "acceptance": "A hand-authored or SDK-written lock declaring one kind's reference field twice refuses at the assembly tier, once, naming the slot and the merge that fixes it — and neither declaration resolves, so the refusal arrives alone rather than buried under the false `graph.route` danglings the coincidence forges today. `to`-blind keying means identical rows refuse too, so no phantom arc inflates a `degree` bound. `resolved_edges_count()` is unmoved and tests/check_cost.rs stays green untouched; no snapshot moves (the gauntlet corpus declares no coincident slot). `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade probe of 67abe15f — a mis-staged fixture, not a defect claim). Re-verified at HEAD: `edges_from_declarations` (drift.rs:5217) pushes one Edge per row, unkeyed, and `resolved_edges` loops every one. Reachable from the SDK too: `assemblyFactRows` (sdk/src/declarations.ts:461) writes one row per `edgeFields` entry, unchecked. `layout_edge_fields` (drift.rs:1866) unions into a set — harmless. Read verbs out of scope per precedent. scoped at c5551f5d"
+    "notes": "Routed from inbox 09-07 (cascade probe of 67abe15f — a mis-staged fixture, not a defect claim). Re-verified at HEAD: `edges_from_declarations` (drift.rs:5217) pushes one Edge per row, unkeyed, and `resolved_edges` loops every one. SDK half narrowed at 77581333, not closed: `relocate` (kind.ts:512) throws on a duplicated `<from, field>` on ITS path only — `kind()` and `assemblyFactRows` (declarations.ts:461) still write one row per entry unchecked. scoped at c2415400"
   },
   {
     "tag": "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM",
@@ -284,7 +284,7 @@
     "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle. HOOK-COLLISION shipped (76e29dc1); the live chain is MEMBER-ADDRESS then EXPLAIN-CLI-RUNNER. scoped at ea3c0484"
   },
   {
-    "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
+    "tag": "RELOCATE-CANNOT-MOVE-A-BUILTINS-LOCUS",
     "gate": {
       "kind": "open"
     },
@@ -293,16 +293,53 @@
       "new": [],
       "edit": [
         {
-          "path": "sdk/src/declarations.ts",
-          "description": "kindsInPlay's `admit` closure (~351-355) is first-wins by name — `if (byName.has(facts.name)) return;` — walking harness.members in authored order, so a corpus kind reusing a built-in's name at a different root is silently discarded before it ever reaches the engine's own kind.admissibility check (admissibility.rs:126, joined_kind_admissibility:484 — which already refuses a diverging same-name row, but only once one reaches the lock). Change `admit` to compare the two KindFacts values and refuse a divergence, naming both loci — except when the second carries BUILTIN-KIND-RELOCATION-EDGE-FIELDS's relocation marker (`facts.relocates`), which this must recognize and allow."
+          "path": "sdk/src/kind.ts",
+          "description": "`KindRelocation<T>` (:484) carries `edgeFields` only, and `relocate` (:512) rides the base's locus through unchanged (its own doc says so at :481) — so the delta cannot spell the ONE fact the engine's overlay exists to apply. `overlay_builtin_kind` (src/compose.rs:453) carries a matched row's `governs` ALWAYS (\"a relocation may declare no other diverging fact at all\", the doc at :441), and `row_relocates_builtin` (:1105) compares format/unit_shape/registration and never governs, so a governs-diverging row is already admitted — the engine half needs nothing. Add `governs?: { root: string; glob: string }` to the delta and merge it into the base's `at`-locus branch. Root and glob ONLY, never `commitment`: the overlay writes `kind::Governs { root, glob }` (:445) and nothing else, so a `commitment` delta would author a fact the lock reader drops silently — a built-in's commitment stays unrespellable, the same rule CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS's remedy message already holds. Throw when the base's locus is not `at` (an embedded or nested-file kind governs no glob, so there is no locus to move and its row carries no governs columns at all), and throw when a delta declares neither face rather than minting a marker-bearing clone of the base."
         },
         {
           "path": "sdk/test/builtins.test.ts",
-          "description": "Regression via the harness's compile path (compileDeclarations): a harness declaring a corpus kind under a built-in's exact name at a different root refuses at load, naming both loci; the sanctioned relocation form still passes."
+          "description": "Regression through the compile path (`compileDeclarations`), beside the relocation arms 77581333 added here: a `rule` relocated to a `decisions/*.md` root emits a kind-fact row whose `governs_root`/`governs_glob` are the delta's — non-vacuity first (0048's bar): assert they DIFFER from the unrelocated base's row before asserting they are the delta's. In the same arm assert `format`, `unit_shape` and `registration` stay byte-equal to the base's row: those three are exactly what `row_relocates_builtin` (src/compose.rs:1105) compares, so this pins that an SDK-authored relocation is still admitted by the engine that today only ever reads the hand-written twin (tests/layout_kind.rs:347's `relocated_rule_with_layout`, tests/dial_kind.rs:351). Three more arms: the produced facts carry `relocates: \"rule\"`; a `governs` delta over a non-`at` base throws; an edge-field delta and a `governs` delta compose in one call, neither dropping the other."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The SDK's `relocate` cannot move a built-in's locus — the one fact the engine's overlay exists to apply — so a different-root redeclaration is still hand-built and unmarked.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "a built-in relocated to its own root emits that root's governs columns while format/unit_shape/registration stay byte-equal to the base's row — the three facts the engine's overlay test compares"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "a `governs` delta over a non-`at`-locus base throws, and a locus delta composes with an edge-field delta in one call"
+      }
+    ],
+    "acceptance": "A corpus moves a built-in to its own root through the sanctioned form — `relocate(rule, { governs: { root: \"decisions\", glob: \"*.md\" } })` — and the emitted kind-fact row both carries the new locus and still satisfies `row_relocates_builtin`'s three-fact overlay test, so the engine reads members there. The facts carry the `relocates` marker, so KINDS-IN-PLAY-NAME-COLLISION-REFUSAL can except the very case its own summary names. `pnpm --dir sdk test` green; no Rust change, no snapshot moves.",
+    "notes": "Post-ship audit of 77581333 (this tick): the relocation form shipped edge-fields-only, so the different-root redeclaration cascade reported (GH #53, F13(c)) — the case KINDS-IN-PLAY-NAME-COLLISION-REFUSAL's own summary names — is still hand-spread off `kind()`, minting no marker and refused by that entry. Ripple named, not widened: src/compose.rs, tests/layout_kind.rs, tests/dial_kind.rs are the engine's structural twin, read-only cites here. scoped at c2415400"
+  },
+  {
+    "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "RELOCATE-CANNOT-MOVE-A-BUILTINS-LOCUS"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`kindsInPlay`'s `admit` closure (:380-384) is first-wins by name — `if (byName.has(facts.name)) return;` — over `harness.members`, then `expect`, then `admit`, then embedded templates, so the second same-named kind is discarded before it ever reaches the engine's own kind.admissibility check (admissibility.rs:126, joined_kind_admissibility:484, which refuses a diverging same-name row but only once one reaches the lock). The drop is not cosmetic: `assemblyFactRows` (:461) derives one `edge` row per `edgeFields` entry from exactly these deduped facts, so discarding a relocated kind in favour of its base drops the added edge fact — the same silent drop 77581333's `as any` cast made and that commit shipped to end. Replace first-wins with a decision that is order-independent: when a second facts value arrives under a name already held, (a) if either carries `relocates` naming the other's name (`facts.relocates`, sdk/src/kind.ts:183), the RELOCATION wins whichever order they arrived in — the base's facts are a subset by construction; (b) if the two values are structurally equal, keep the first as today; (c) otherwise throw, naming the kind and BOTH loci, since two unrelated kinds cannot share one string name (`representation.md`: identity travels by import, never by string) and the lock is a string-keyed medium. Two diverging relocations of one base are case (c), not (a)."
         },
         {
-          "path": "tests/layout_kind.rs",
-          "description": "The Rust-side twin of this refusal already exists and is tested here: compose::partition_kind_rows/row_relocates_builtin judges a same-named lock row as a legitimate relocation or a collision purely structurally, with no marker field. If BUILTIN-KIND-RELOCATION-EDGE-FIELDS's `admit` comparison in kindsInPlay ends up replicating that same format/unit_shape/registration compatibility test in TS (rather than inventing a `facts.relocates` flag), an end-to-end fixture here proves the two layers agree; note which design landed."
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Regression via the harness compile path (`compileDeclarations`), the shape 77581333's relocation arms already use here. Order-independence is the load-bearing assertion: a harness whose members are relocated `rule`s AND whose `expect` binds the BASE `rule` compiles the relocated facts either way round, and its added edge reaches `assembly` as an `edge` row — the case that silently loses the edge today whenever the corpus has no member of the kind yet, since `expect` is admitted after `members`. Plus the refusal: two same-named kinds neither relocating the other throw at load naming both loci, and two diverging relocations of one base throw the same way."
         }
       ],
       "retire": []
@@ -315,11 +352,15 @@
     "tests": [
       {
         "path": "sdk/test/builtins.test.ts",
-        "asserts": "two distinct KindFacts values sharing one name refuse at load unless one is the sanctioned relocation of the other"
+        "asserts": "two distinct KindFacts values sharing one name refuse at load naming both loci, unless one relocates the other — in which case the relocation's facts win regardless of authored order"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "non-vacuity (0048's bar): the relocated kind's added edge field is actually present in the compiled `assembly` edge rows, so the order-independence claim is proven on a fact the base's facts lack"
       }
     ],
-    "acceptance": "Declaring a corpus kind that reuses a built-in's name at a different root refuses loud, naming both loci, unless authored through the sanctioned relocation form. Per 0048's conservation bar, the regression pins non-vacuity: it asserts both colliding KindFacts values are actually compared (non-empty divergence) before checking the refusal fires.",
-    "notes": "observed at ad10e8cb (cascade F13(c), GH #53); corrected at bf4b4168, item h: the engine already refuses a diverging same-name row once it reaches the lock — the gap is kindsInPlay's SDK-side first-wins discarding the second kind first. `admit` is a closure inside kindsInPlay, not a standalone export. Its second parent SECTION-CONTAINS shipped at 767f4941 (verified: sdk/src/declarations.ts carries `clauseField`), leaving BUILTIN-KIND-RELOCATION-EDGE-FIELDS alone. scoped at bf2e3eba"
+    "acceptance": "Declaring a corpus kind that reuses a built-in's name refuses loud, naming both loci, unless it was authored through the sanctioned relocation form — in which case the relocation's facts win regardless of authored order, so its added edge field reaches the lock instead of being dropped to the base by first-wins. Per 0048's conservation bar the regression pins non-vacuity: the two colliding values are actually compared (a real divergence) before the refusal is checked. `pnpm --dir sdk test` green; no Rust change.",
+    "notes": "observed at ad10e8cb (cascade F13(c), GH #53); corrected at bf4b4168, item h. Design settled on disk this tick: 77581333 landed the `facts.relocates` provenance marker, not a TS replication of the Rust structural test — so the old tests/layout_kind.rs directive is discharged and that path leaves the fence (the build ruled it untouched; the edge/route case lives in tests/graph.rs). Blocked on the locus delta: without it the marker cannot cover the different-root case. scoped at c2415400"
   },
   {
     "tag": "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",

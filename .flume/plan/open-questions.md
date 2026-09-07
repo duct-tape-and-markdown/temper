@@ -359,6 +359,37 @@ tax.
   would let a hook that reads `v.targets` render a fabricated reference
   (0048). No dependents yet — no entry currently needs this ruled.
 
+- `(builtin-relocation-unnamed)` — OPEN, live driver (post-ship audit of
+  77581333, this tick). The evergreen corpus never names **relocation** — a
+  corpus kind reusing a built-in's name under its own facts. `rg relocat
+  specs/` returns one hit, in `specs/decisions/0016`, outside the read path.
+  Three layers nevertheless judge the same-name case today, by three
+  different rules: `compose.rs`'s `row_relocates_builtin` (:1105) decides
+  *structurally* (format/unit_shape/registration agree) and its overlay
+  carries the row's `governs` **always** (:441), so relocation there MEANS a
+  locus change; `kind.ts`'s `relocate` (:512) decides by *provenance* (the
+  `facts.relocates` marker) and rides the locus through unchanged; and
+  `declarations.ts`'s `kindsInPlay.admit` (:380) decides by *string*,
+  first-wins, discarding the second silently. `builtins.md`'s opening reads
+  against the whole population — "Kind identity travels by import, never by
+  string: two providers are two modules, so collision is impossible and no
+  name-qualification scheme exists" — which is true of two providers and
+  silent on one corpus redeclaring one provider's name, the case all three
+  layers actually handle. What is missing is one corpus sentence: may an
+  adopting corpus redeclare a built-in's name under its own locus, and what
+  is that called. Session recommendation: sanction it in
+  `representation.md` "kind" beside "ownership, not privilege" — the ability
+  is already implied there (a kind is data; the author owns its facts) —
+  and let provenance be the single authoring answer while the structural
+  test stays the row-side one (`row_relocates_builtin`'s doc already
+  reconciles the two). The objection it must answer is builtins.md's own: if
+  one corpus may reuse a name, the lock is a string-keyed medium and the
+  qualification question returns the moment a second provider ships
+  (`(multi-harness-projection)`'s read face puts `provider` on kind rows).
+  No dependents — RELOCATE-CANNOT-MOVE-A-BUILTINS-LOCUS and
+  KINDS-IN-PLAY-NAME-COLLISION-REFUSAL both ship under the implied ability;
+  this fork asks the corpus to name it.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
