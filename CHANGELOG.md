@@ -100,7 +100,10 @@ breaking changes. Releases are small and frequent.
   members live under `[[declaration.registration]]`, which the ownership
   scan did not read, leaving the manifest unguarded.
 - A discovered layout document the lock declares no member for is named
-  (`layout.undeclared-member`) instead of reading as an empty host. (GH #43)
+  (`layout.undeclared-member`) instead of reading as an empty host. Emit
+  records every layout source it reads on the lock, so a declared layout
+  member whose document lowers into no content row (field regions only, or
+  an empty collection) is not reported as undeclared. (GH #43)
 - A layout's positional heading binding reports the mismatch when a leading
   title or a missing section shifts every later region. (GH #41, #45)
 - `install` reports a synthesized hook placement an authored hook member
