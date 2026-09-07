@@ -197,6 +197,48 @@ fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surfa
     );
 }
 
+#[test]
+fn check_reporter_sarif_renders_a_load_fault_as_a_result_and_still_exits_non_zero() {
+    // CI's reporter is a **hard** placement, and the lowering that lets the advisory
+    // session-start placement speak a load fault must leave it hard: a
+    // `.claude/settings.json` the manifest read refuses still exits non-zero, and now
+    // rides the SARIF results rather than only stderr — the same log a code-scanning
+    // ingest reads. The twin of the failing-surface case above, over a harness that
+    // never reaches a clause at all.
+    let harness = common::tmpdir("sarif-load-fault");
+    let settings = harness.join(".claude/settings.json");
+    std::fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    std::fs::write(&settings, "{ \"hooks\": ").unwrap();
+
+    let run = common::check_in(&harness, &["."], Some("sarif"));
+
+    let log: serde_json::Value = serde_json::from_str(run.stdout.trim())
+        .expect("a load fault must still print valid SARIF JSON");
+    let results = log["runs"][0]["results"]
+        .as_array()
+        .expect("results is an array");
+    assert_eq!(
+        results.len(),
+        1,
+        "a load fault is the run's single diagnostic, got:\n{}",
+        run.stdout
+    );
+    assert_eq!(results[0]["level"], "error");
+    assert!(
+        results[0]["message"]["text"]
+            .as_str()
+            .expect("a result carries message text")
+            .contains("settings.json"),
+        "the result names the file that could not be read, got:\n{}",
+        run.stdout
+    );
+
+    assert!(
+        !run.ok,
+        "a harness that cannot be loaded must still exit non-zero under SARIF"
+    );
+}
+
 // --- The announcement: which inputs judged this run ---------------------------
 
 /// A dial naming a clause the shipped `skill` contract really carries, so the entry

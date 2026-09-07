@@ -237,7 +237,24 @@ fn main() -> miette::Result<ExitCode> {
             // different place than it discovers the corpus from, nor from a different
             // place than the session-start reporter does.
             let harness_path = harness.or(root).unwrap_or_else(|| PathBuf::from("."));
-            let (diagnostics, announced) = harness_diagnostics(&harness_path, &layers)?;
+            // A harness that cannot be *loaded* is still a verdict, and it reaches the
+            // selected reporter like any other: propagating the report here would abort
+            // before the match below, so `--reporter session-start` would print an empty
+            // stdout — the shape a clean pass is read from — while the failure went to
+            // stderr, where the hook does not look. Both `?` sites inside
+            // `harness_diagnostics` are covered by catching at this one call site.
+            // `check::load_fault` lowers the report to one `error` diagnostic, so the
+            // exit rule below is unchanged: the hard placements still exit non-zero.
+            let (diagnostics, announced) = match harness_diagnostics(&harness_path, &layers) {
+                Ok(gated) => gated,
+                Err(report) => (
+                    vec![check::load_fault(
+                        &report,
+                        harness_path.display().to_string(),
+                    )],
+                    check::Announcement::default(),
+                ),
+            };
 
             match reporter {
                 Reporter::Terminal => print!("{}", check::render(&diagnostics, &announced)),

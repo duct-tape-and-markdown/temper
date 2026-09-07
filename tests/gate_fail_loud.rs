@@ -515,8 +515,10 @@ fn a_lock_carrying_two_requirement_rows_with_the_same_name_refuses_loud() {
     // A duplicate requirement name is an identity collision the lock carries —
     // either a hand-edited lock or malformed emit output. The gate must refuse
     // loud naming the colliding key, never silently shadow one requirement with
-    // the other. This produces a fatal error (not a finding), causing the check
-    // to exit non-zero while discovering nothing.
+    // the other. The load fault is fatal to the gate — nothing downstream of it is
+    // judged — but it is no longer discarded: it is lowered to the run's single
+    // diagnostic, which is what lets the advisory session-start placement speak it
+    // instead of printing an empty payload.
     let root = common::tmpdir("duplicate-requirement-name");
     let req1 = common::requirement("docs", true, None);
     let req2 = common::requirement("docs", false, None);
@@ -524,14 +526,21 @@ fn a_lock_carrying_two_requirement_rows_with_the_same_name_refuses_loud() {
 
     let (findings, success) = check_in(&root, &[]);
 
-    // The gate must exit non-zero when a duplicate is found, with no findings
-    // captured (the error is fatal and stops the gate early).
     assert!(
         !success,
         "a lock with duplicate requirement names must exit non-zero, got: {findings:#?}"
     );
+    // `compose::IdentityMapError` declares no miette `code`, so the lowered fault lands
+    // on the `gate.load-fault` fallback — and it names the colliding key, which is the
+    // whole point of refusing loud.
+    let load_faults = common::findings_for(&findings, "gate.load-fault");
+    assert_eq!(
+        load_faults.len(),
+        1,
+        "the fatal duplicate key is the run's one finding, got: {findings:#?}"
+    );
     assert!(
-        findings.is_empty(),
-        "a fatal duplicate key error produces no findings (the check exits before collecting them), got: {findings:#?}"
+        load_faults[0].contains("docs"),
+        "the refusal names the colliding key, got: {findings:#?}"
     );
 }

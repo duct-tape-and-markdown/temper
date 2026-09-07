@@ -120,6 +120,33 @@ fn check_exits_non_zero_when_an_error_rule_fires() {
 }
 
 #[test]
+fn check_still_exits_non_zero_and_renders_a_harness_that_cannot_be_loaded() {
+    // The author's terminal is a **hard** placement (specs/distribution.md, "The
+    // placements and their enforcement modes"), and lowering a load fault into the
+    // diagnostic set so the advisory placement can speak it must not soften it: a
+    // `.claude/settings.json` the manifest read refuses still fails the run, and the
+    // failure is still rendered rather than swallowed into the exit code.
+    let harness = common::tmpdir("terminal-load-fault");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    let settings = harness.join(".claude/settings.json");
+    fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    fs::write(&settings, "{ \"hooks\": ").unwrap();
+
+    let run = common::check_harness_in(&harness, None);
+
+    assert!(
+        !run.ok,
+        "a harness that cannot be loaded must still exit non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("settings.json") && run.output.contains("did not run"),
+        "the terminal reporter renders the load fault, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
 fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
     let harness = common::tmpdir("advisory-src");
     // The only clause this skill violates is the advisory `extent` budget.

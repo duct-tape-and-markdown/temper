@@ -361,3 +361,76 @@ fn the_reporter_caps_additional_context_at_10k() {
     // long finding list never drops it.
     assert!(context.contains("approval before continuing"));
 }
+
+/// A `.claude/settings.json` whose bytes are `body` — the manifest every harness's
+/// `hook` members are read out of, so a file the read refuses aborts the whole gate
+/// before a single clause is judged. Written as bytes so a non-UTF-8 arm can spell one.
+fn write_broken_settings(harness: &Path, body: &[u8]) {
+    let settings = harness.join(".claude/settings.json");
+    fs::create_dir_all(settings.parent().unwrap()).unwrap();
+    fs::write(&settings, body).unwrap();
+}
+
+#[test]
+fn a_harness_that_cannot_be_loaded_still_emits_the_verdict_and_exits_zero() {
+    // The advisory placement's one failure mode: the load fault aborted the run before
+    // any reporter, so stdout was empty — and an empty stdout is exactly the shape a
+    // session reads as "temper had nothing to say". The gate "never silently passes"
+    // (specs/distribution.md, "The placements and their enforcement modes") covers a
+    // harness that will not load, not only a contract that will not hold.
+    let harness = common::tmpdir("session-start-load-fault");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_broken_settings(&harness, b"{ \"hooks\": ");
+
+    let (ok, payload) = run_session_start(&harness);
+
+    // Still advisory: a load fault is a verdict to route through the human, not a block.
+    assert!(ok, "the session-start gate exits zero on a load fault too");
+    let hook = &payload["hookSpecificOutput"];
+    assert_eq!(hook["hookEventName"], "SessionStart");
+    let context = hook["additionalContext"]
+        .as_str()
+        .expect("a harness that cannot be loaded must carry additionalContext");
+    // Non-vacuity: this is the blocking shape, not the clean-pass one. Without this the
+    // test would pass on an advisory-only payload that never mentions the fault.
+    assert!(
+        context.contains("approval before continuing"),
+        "a load fault is a blocking verdict, not an advisory aside, got:\n{context}"
+    );
+    assert!(
+        context.contains("settings.json"),
+        "the verdict names the file that could not be read, got:\n{context}"
+    );
+    assert!(
+        context.contains("the contract gate did not run"),
+        "the verdict says the gate never judged the contract, got:\n{context}"
+    );
+    assert!(context.chars().count() <= ADDITIONAL_CONTEXT_CAP);
+}
+
+#[test]
+fn a_settings_file_that_is_not_utf8_names_the_decode_failure_in_the_verdict() {
+    // The pin on the *chain* render. `JsonManifestError::NotUtf8` displays as
+    // "<path> is not valid UTF-8" and puts every byte of detail in a `#[source]`, so a
+    // verdict built from bare `Display` would name the file and nothing else. Seven
+    // modules carry detail the same way; this is the one arm that would go red if the
+    // lowering dropped the source chain.
+    let harness = common::tmpdir("session-start-load-fault-not-utf8");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_broken_settings(&harness, b"{ \"hooks\": \"\xff\" }");
+
+    let (ok, payload) = run_session_start(&harness);
+
+    assert!(ok, "the session-start gate exits zero on a load fault too");
+    let context = payload["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .expect("an undecodable settings file must carry additionalContext");
+    assert!(
+        context.contains("is not valid UTF-8"),
+        "the verdict names the decode refusal, got:\n{context}"
+    );
+    assert!(
+        context.contains("invalid utf-8 sequence"),
+        "the verdict carries the `#[source]` detail bare `Display` drops, got:\n{context}"
+    );
+}

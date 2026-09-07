@@ -245,13 +245,22 @@ fn a_malformed_document_fails_the_run_rather_than_gating_against_no_fields() {
         "a malformed document fails the run: {}",
         run.output
     );
+    // The code, not the prose. It is the report's own miette code, carried onto the
+    // finding by the load-fault lowering rather than replaced by a second name — and
+    // the github reporter percent-encodes `:` inside a workflow-command property, so
+    // the escaped spelling is what the `title=` carries.
+    let malformed_code = "temper::toml_document::malformed".replace(':', "%3A");
     assert!(
-        run.output.contains("temper::toml_document::malformed"),
+        run.output.contains(&malformed_code),
         "the run names the parse failure: {}",
         run.output
     );
-    assert!(
-        run.findings().is_empty(),
+    // The parse refusal is the run's one finding: the `mode` `required` clause never
+    // fires, because the run never reaches it — the verdict is the load fault alone,
+    // never a judgement over fields the engine invented the absence of.
+    assert_eq!(
+        run.findings().len(),
+        1,
         "the clause never judges a document that would not parse: {}",
         run.output
     );

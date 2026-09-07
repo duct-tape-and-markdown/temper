@@ -134,6 +134,58 @@ impl Diagnostic {
     }
 }
 
+/// The rule a lowered load fault is addressed by when the failure it lowers carries no
+/// `miette` code of its own — every other one keeps the code it already has.
+const LOAD_FAULT_RULE: &str = "gate.load-fault";
+
+/// The sentence a lowered load fault leads with: what the run did *not* do, before the
+/// detail of why.
+const LOAD_FAULT_MESSAGE: &str =
+    "the harness could not be loaded, so the contract gate did not run";
+
+/// Lower a load failure — the [`miette::Report`] raised while resolving the harness root
+/// or gating it — to the single `error` [`Diagnostic`] the run reports instead of
+/// aborting on.
+///
+/// Aborting is harmless for a hard placement, which exits non-zero and renders the error
+/// either way. It is not harmless for the advisory session-start placement, whose stdout
+/// payload is the only thing the session ever sees: a run that never reaches a reporter
+/// prints nothing, and an empty payload is indistinguishable from a pass — the one
+/// outcome `specs/distribution.md` ("The placements and their enforcement modes") forbids
+/// it, the gate that "never silently passes". Lowered here, every reporter renders the
+/// fault, and the exit-code verdict is unchanged: one `error` diagnostic keeps
+/// [`any_error`] true.
+///
+/// Two mechanics, neither cosmetic:
+///
+/// - The **rule** is the report's own [`code`](miette::Diagnostic::code) when it carries
+///   one, so a load fault keeps the single name it is already addressed by
+///   (`temper::toml_document::malformed`) rather than growing a second one, and falls
+///   back to `gate.load-fault` only for a report that declares none.
+/// - The **message** renders the whole [`chain`](miette::Report::chain), not the bare
+///   `Display`. The crate's error vocabulary puts its detail in `#[source]` fields —
+///   `{path} is not valid UTF-8` names the file and nothing about the decode — and
+///   `Display` alone drops every one of them.
+///
+/// The peer of `compose::frontmatter_fault_diagnostic`, which lowers three *named*
+/// frontmatter faults to `member.load-fault` and re-raises the rest. That one is a
+/// read-site judgement about which faults a discovery walk absorbs, so it lives beside
+/// the read that raises them. This one absorbs whatever the run raises, from wherever it
+/// was raised, and its whole purpose is to have a reporter to hand it to — so it lives
+/// here, beside [`Diagnostic`] and the reporters that render it.
+#[must_use]
+pub fn load_fault(report: &miette::Report, artifact: impl Into<String>) -> Diagnostic {
+    let rule = report
+        .code()
+        .map_or_else(|| LOAD_FAULT_RULE.to_string(), |code| code.to_string());
+    let detail: Vec<String> = report.chain().map(ToString::to_string).collect();
+    Diagnostic::error(
+        rule,
+        artifact,
+        format!("{LOAD_FAULT_MESSAGE}: {}", detail.join(": ")),
+    )
+}
+
 impl miette::Diagnostic for Diagnostic {
     fn severity(&self) -> Option<miette::Severity> {
         Some(match self.severity {
