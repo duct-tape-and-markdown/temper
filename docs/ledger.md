@@ -261,3 +261,21 @@ Launch gate per `specs/distribution.md`: prebuilt binaries on three OSes,
 stranger-proof quickstart, regenerable demo, USPTO screen on John. Weigh
 every new thread against shipping this — the meta-freeze holds until the
 tag.
+
+## Handoff 2026-09-06 (end of day)
+
+- Loop PAUSED at a tick boundary: `.flume/stop` is in place (remove it to
+  relaunch). Relaunch: `export FLUME_WORKTREES_DIR=$HOME/.cache/flume-worktrees/temper`
+  then `setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`.
+  Chain runs Opus on both phases at `maxParallel: 2`; alternate with
+  flume's loop by convention (whichever is mid-wave holds the box).
+- Shipped today: 16 entries; last wave verified by the session in the
+  wired form (`guard .` blocks root CLAUDE.md, allows reference/CLAUDE.md).
+  19 pending. Cascade live-verifies every landing sha; send it the sha.
+- Waiting on John: four forks in open-questions — title heading admission,
+  nested-member rename identity, containment selection family, and
+  `(post-tool-use-placement)` (GH #42 (ii); session holds option (b):
+  sanctioned Bash-write catch with a findings-only reporter, silent on
+  pass). Release intent for a cut (cascade rehearses against a sha).
+- Flume-side, pending John there: tip guard (landed upstream, unreleased),
+  worktreesDir placement, bail records carry no reason.
