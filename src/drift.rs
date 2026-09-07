@@ -495,21 +495,24 @@ pub(crate) struct RollupEntry {
 /// document's members reach the lock as declaration rows without a projection of their
 /// own. `layout_imports` and `includes` are the layout sources' and composed prose's
 /// fingerprinted content dependencies, written into the same `[declaration]` table
-/// under their own families.
+/// under their own families; `layout_prose` is what those sources' *verbatim* prose
+/// regions captured, the span an import region has no equivalent of.
 pub(crate) fn write_rollup(
     into: &Path,
     rollups: &BTreeMap<String, Vec<RollupEntry>>,
     declarations: &Declarations,
     layout_imports: &[LayoutImportRow],
     includes: &[LayoutImportRow],
+    layout_prose: &[LayoutProseRow],
 ) -> Result<(), DriftError> {
     let mut doc = DocumentMut::new();
     for (kind, rows) in rollups {
         doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(rows));
     }
     declarations.write_into(&mut doc);
-    write_source_deps(&mut doc, "layout_import", layout_imports);
-    write_source_deps(&mut doc, "include", includes);
+    write_source_deps(&mut doc, LAYOUT_IMPORT_FAMILY, layout_imports);
+    write_source_deps(&mut doc, INCLUDE_FAMILY, includes);
+    write_layout_prose(&mut doc, layout_prose);
 
     let path = into.join(crate::LOCK_FILENAME);
     crate::fs_util::write_creating_parents(&path, doc.to_string().as_bytes())
@@ -1124,6 +1127,10 @@ pub fn emit(
     // The layout prose imports emit resolved this pass — each a content dependency the
     // lock fingerprints, refusing loud when the target is dangling (below).
     let mut layout_import_rows: Vec<LayoutImportRow> = Vec::new();
+    // What the layout documents' *verbatim* prose regions captured this pass — the span
+    // an import region never has, carried whole into its own lock family so the words a
+    // region took are addressable rather than read and dropped.
+    let mut layout_prose_rows: Vec<LayoutProseRow> = Vec::new();
     // The `satisfies` fill edges emit derived from layout edge slots this pass — merged
     // into the program's own `satisfies` family, so a layout host's fills reach the
     // roster/coverage/graph tiers exactly as a file-content member's do.
@@ -1277,6 +1284,7 @@ pub fn emit(
             )?;
             layout_rows.extend(derivation.nested);
             layout_import_rows.extend(derivation.imports);
+            layout_prose_rows.extend(derivation.prose);
             layout_satisfies.extend(derivation.satisfies);
             layout_paths.insert(to_lock_path(&source_path));
             continue;
@@ -1543,6 +1551,7 @@ pub fn emit(
             &declarations,
             &layout_import_rows,
             &include_rows,
+            &layout_prose_rows,
         )?;
     }
 
@@ -1823,7 +1832,8 @@ fn manifest_segment_reaps(
 
 /// What emit derives from one layout source in a single read: its member collections
 /// as `nested_member` declaration rows, its prose imports as content-dependency
-/// [`LayoutImportRow`]s the lock fingerprints, and its `satisfies` edge slot as
+/// [`LayoutImportRow`]s the lock fingerprints, what its verbatim prose regions captured
+/// as [`LayoutProseRow`]s, and its `satisfies` edge slot as
 /// [`SatisfiesRow`] fill edges. All fall out of the one document read, so they travel
 /// together rather than forcing a second pass over the same source.
 struct LayoutDerivation {
@@ -1831,6 +1841,8 @@ struct LayoutDerivation {
     nested: Vec<NestedMemberRow>,
     /// The prose imports, resolved and fingerprinted.
     imports: Vec<LayoutImportRow>,
+    /// What the verbatim prose regions captured, one row per region that took a span.
+    prose: Vec<LayoutProseRow>,
     /// The `satisfies` edge slot's entries, lowered into `satisfies` fill-edge rows —
     /// the layout host's own fill claims, keyed by its member name exactly as a
     /// file-content member's SDK-emitted rows are.
@@ -1915,6 +1927,7 @@ fn derive_layout_rows(
     Ok(LayoutDerivation {
         nested: document.nested,
         imports,
+        prose: document.prose,
         satisfies: document.satisfies,
     })
 }
@@ -1936,11 +1949,14 @@ pub struct LayoutDocumentRows {
     pub nested: Vec<NestedMemberRow>,
     /// The `satisfies` edge slot's entries, lowered into fill-edge rows.
     pub satisfies: Vec<SatisfiesRow>,
+    /// What each verbatim prose region captured, lowered into `layout_prose` rows — one
+    /// per region that took a span, none for a region that read empty.
+    pub prose: Vec<LayoutProseRow>,
 }
 
 /// Read the layout document at `disk_path` and lower it into the rows it declares — the
-/// member collections' embedded members and the `satisfies` edge slot's fill claims, each
-/// keyed by the host's `kind:name` address.
+/// member collections' embedded members, the `satisfies` edge slot's fill claims, and what
+/// each verbatim prose region captured, each keyed by the host's `kind:name` address.
 ///
 /// # Errors
 /// Returns a [`DriftError`] when the document cannot be read, or a `LayoutError` (as a
@@ -1974,6 +1990,27 @@ pub fn read_layout_document(
         })
         .collect();
 
+    // What the verbatim prose regions took. `Layout::read` pushes exactly one span per
+    // declared `Prose` region, in declared order, so zipping the declared regions with
+    // the read spans pairs each span with the region that captured it — the region's own
+    // position, the only identity a prose region has (it declares no slot and no key).
+    // A region that read empty — an `import` region, whose content rides the
+    // `layout_import` family instead, or a verbatim one the document gave no preamble —
+    // captured nothing, so it declares no row.
+    let prose = layout
+        .regions
+        .iter()
+        .enumerate()
+        .filter(|(_, region)| matches!(region, LayoutRegion::Prose { .. }))
+        .zip(&reading.prose)
+        .filter(|(_, span)| !span.is_empty())
+        .map(|((region_index, _), span)| LayoutProseRow {
+            member: host.clone(),
+            region_index,
+            prose: span.clone(),
+        })
+        .collect();
+
     let nested = reading
         .members
         .into_iter()
@@ -1991,7 +2028,11 @@ pub fn read_layout_document(
             rendered_chars: None,
         })
         .collect();
-    Ok(LayoutDocumentRows { nested, satisfies })
+    Ok(LayoutDocumentRows {
+        nested,
+        satisfies,
+        prose,
+    })
 }
 
 /// Resolve one prose reference — a layout region's `import` or a composed-prose
@@ -2741,6 +2782,16 @@ const LAYOUT_IMPORT_FAMILY: &str = "layout_import";
 /// The lock family key composed-prose includes fingerprint under.
 const INCLUDE_FAMILY: &str = "include";
 
+/// The lock document's `[declaration]` table, mutably — created when absent, so a lock
+/// carrying nothing but an emit-derived family still round-trips. `None` only when the
+/// key is already held by something that is not a table, which no lock writer produces.
+fn declaration_table_mut(doc: &mut DocumentMut) -> Option<&mut Table> {
+    doc.as_table_mut()
+        .entry("declaration")
+        .or_insert_with(|| Item::Table(Table::new()))
+        .as_table_mut()
+}
+
 /// Write a source-dependency `family` into a lock document's `[declaration]` table as
 /// `[[declaration.<family>]]` — one table per resolved reference, in emit order. Called
 /// after [`Declarations::write_into`] so the `[declaration]` table already exists for a
@@ -2752,11 +2803,7 @@ pub(crate) fn write_source_deps(doc: &mut DocumentMut, family: &str, rows: &[Lay
     if rows.is_empty() {
         return;
     }
-    let decl = doc
-        .as_table_mut()
-        .entry("declaration")
-        .or_insert_with(|| Item::Table(Table::new()));
-    let Some(table) = decl.as_table_mut() else {
+    let Some(table) = declaration_table_mut(doc) else {
         return;
     };
     let mut array = ArrayOfTables::new();
@@ -2868,6 +2915,89 @@ pub fn includes(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError
 /// Returns a [`DriftError::LockRow`] if a present row is malformed.
 pub fn includes_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutImportRow>, DriftError> {
     source_deps_from_doc(doc, INCLUDE_FAMILY)
+}
+
+// ---------------------------------------------------------------------------
+// layout prose regions — what a verbatim prose region captured
+// ---------------------------------------------------------------------------
+
+/// One **verbatim prose region**'s captured span, keyed by the layout host whose document
+/// it was read off — the row that keeps a prose region from being read and dropped
+/// (invariant 6: no lowering represents less than it was given).
+///
+/// A prose region is the one layout primitive with no authored identity of its own: it
+/// declares no `slot` and no `key`, so the region's position in the declared layout is
+/// what names it — and position is exactly what an author needs, because the document's
+/// preamble binds to the *first unimported* prose region wherever it is declared, a
+/// non-first position included. A region resolving from an `import` carries no span here:
+/// its content is the target file's, fingerprinted under the `layout_import` family.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayoutProseRow {
+    /// The layout host's own `kind:name` address — the document the span was read off.
+    pub member: String,
+    /// The capturing region's 0-based position among the layout's declared regions.
+    pub region_index: usize,
+    /// The span the region captured, verbatim as the reader trimmed it.
+    pub prose: String,
+}
+
+/// The lock family a layout document's captured prose regions ride under.
+const LAYOUT_PROSE_FAMILY: &str = "layout_prose";
+
+/// Write the captured prose regions into a lock document's `[declaration]` table as
+/// `[[declaration.layout_prose]]`, in emit order — the same discipline
+/// [`write_source_deps`] keeps, an empty set writing nothing so a layout-less program's
+/// lock stays byte-identical.
+fn write_layout_prose(doc: &mut DocumentMut, rows: &[LayoutProseRow]) {
+    if rows.is_empty() {
+        return;
+    }
+    let Some(table) = declaration_table_mut(doc) else {
+        return;
+    };
+    let mut array = ArrayOfTables::new();
+    for row in rows {
+        let mut entry = Table::new();
+        entry["member"] = value(row.member.clone());
+        entry["region_index"] = value(i64::try_from(row.region_index).unwrap_or(i64::MAX));
+        entry["prose"] = value(row.prose.clone());
+        array.push(entry);
+    }
+    table.insert(LAYOUT_PROSE_FAMILY, Item::ArrayOfTables(array));
+}
+
+/// Lift one captured-prose row off its `[[declaration.layout_prose]]` table — every
+/// column required, the row carrying no optional facet.
+fn layout_prose_row(row: &Table) -> Result<LayoutProseRow, RowError> {
+    Ok(LayoutProseRow {
+        member: req_str(row, "member")?,
+        region_index: req_usize(row, "region_index")?,
+        prose: req_str(row, "prose")?,
+    })
+}
+
+/// Every captured-prose row from an already-parsed lock document — what each layout
+/// document's verbatim prose regions took, for the read verbs that narrate them.
+///
+/// # Errors
+///
+/// Returns a [`DriftError::LockRow`] if a present row is malformed.
+pub fn layout_prose_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutProseRow>, DriftError> {
+    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+        return Ok(Vec::new());
+    };
+    Ok(family(table, LAYOUT_PROSE_FAMILY, layout_prose_row)?)
+}
+
+/// Every captured-prose row a lock at `workspace_dir` carries. A missing lock or an absent
+/// family yields none; a present malformed row is surfaced loud.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock exists but cannot be read or parsed, or if a
+/// present row is malformed.
+pub fn layout_prose(workspace_dir: &Path) -> miette::Result<Vec<LayoutProseRow>> {
+    Ok(layout_prose_from_doc(&read_lock_document(workspace_dir)?)?)
 }
 
 /// The drift findings for source dependencies under `family` from an already-parsed

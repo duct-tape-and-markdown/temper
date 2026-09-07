@@ -1682,6 +1682,41 @@ fn coverage_state(required: bool, satisfier_count: usize) -> String {
     }
 }
 
+/// `explain`'s **prose strand** — what a layout member's verbatim prose regions captured,
+/// off the lock's own [`LayoutProseRow`](crate::drift::LayoutProseRow)s, one line per
+/// capturing region named by its position among the layout's declared regions. A prose
+/// region declares no slot and no key, so position is the only handle an author has on
+/// *which* region took the document's preamble — the question a layout declaring its prose
+/// region after a collection makes real.
+///
+/// Empty for a member with no captured span (every non-layout member, and a layout one
+/// whose document carried no preamble), the same posture the field strand takes: a strand
+/// with nothing to narrate is absent rather than a heading over nothing.
+fn prose_strand(rows: &[drift::LayoutProseRow], member: &str) -> String {
+    let mine: Vec<&drift::LayoutProseRow> = rows
+        .iter()
+        .filter(|row| {
+            row.member
+                .split_once(':')
+                .map_or(row.member.as_str(), |(_, name)| name)
+                == member
+        })
+        .collect();
+    if mine.is_empty() {
+        return String::new();
+    }
+
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "Prose regions (the verbatim spans its declared layout captured):"
+    );
+    for row in mine {
+        let _ = writeln!(out, "  • region {} — \"{}\"", row.region_index, row.prose);
+    }
+    out
+}
+
 /// Assemble the corpus for the explain verb and dispatch to [`explain`] with the target:
 /// read the workspace, discover all features, build contracts, rosters, and edge sets
 /// exactly as `gate` does (READ-EDGE-UNIFY), so a read cannot disagree with the gate.
@@ -1843,7 +1878,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         .map(|entry| (entry.path.to_string_lossy().to_string(), entry.name))
         .collect();
 
-    Ok(explain(
+    let mut narration = explain(
         &custom_members,
         &roster,
         &contracts,
@@ -1859,7 +1894,19 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         readout.older_version,
         target,
         &path_to_id,
-    ))
+    );
+    // The prose strand joins here rather than inside `explain`: a captured prose region
+    // is a lock row keyed by the host's address, not a decidable feature of the member
+    // corpus every other strand ranges over, so it rides the lock document this read
+    // already parsed instead of widening the corpus `explain` and the gate share.
+    if let Species::Member(name) = resolve(&by_kind, &roster, &contracts, target) {
+        let strand = prose_strand(&drift::layout_prose_from_doc(&lock_doc)?, name);
+        if !strand.is_empty() {
+            narration.push('\n');
+            narration.push_str(&strand);
+        }
+    }
+    Ok(narration)
 }
 
 #[cfg(test)]

@@ -292,6 +292,14 @@ fn emit_derives_layout_members_into_the_lock_and_leaves_the_document_untouched()
         ids,
         vec!["loud-or-nothing", "the-projection-is-not-the-database"]
     );
+
+    // Its verbatim prose region's span reaches the lock too, under the region that took
+    // it — the leading position here, where `trailing_prose_payload` proves the other.
+    let prose = drift::layout_prose(&into).unwrap();
+    assert_eq!(prose.len(), 1, "one capturing region, one row: {prose:?}");
+    assert_eq!(prose[0].member, "intent:intent");
+    assert_eq!(prose[0].region_index, 0);
+    assert_eq!(prose[0].prose, "The product intent, authored in prose.");
 }
 
 #[test]
@@ -516,4 +524,118 @@ fn check_refuses_a_layout_declaring_two_verbatim_prose_regions() {
         "the refusal must name both prose regions (0 and 2), got:\n{}",
         run.output
     );
+}
+
+/// The preamble of [`TRAILING_PROSE_DOC`] — the span the trailing prose region captures,
+/// asserted non-empty before anything downstream is asked to carry it.
+const TRAILING_PROSE_PREAMBLE: &str = "The representation model, authored in prose.";
+
+/// A document for a layout whose prose region is declared last: a preamble, then the
+/// member collection. Nothing distinguishes it on disk from the leading-prose shape —
+/// the preamble binds to the one verbatim prose region wherever it is declared.
+const TRAILING_PROSE_DOC: &str = "The representation model, authored in prose.\n\
+\n\
+# Invariants\n\
+\n\
+## Loud or nothing\n\
+A gate never fabricates absence.\n";
+
+/// The `intent` kind with its verbatim prose region declared **after** the collection —
+/// a legal, non-first position for the one prose region a layout may declare.
+fn trailing_prose_kind_facts() -> KindFactRow {
+    KindFactRow {
+        content: Some(LayoutRow {
+            regions: vec![
+                LayoutRegionRow {
+                    region: "collection".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: Some("invariant".to_string()),
+                    key: None,
+                },
+                LayoutRegionRow {
+                    region: "prose".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: None,
+                    key: None,
+                },
+            ],
+        }),
+        ..common::kind_facts("intent", "specs", "intent.md")
+    }
+}
+
+/// The `intent` payload over [`trailing_prose_kind_facts`] — one layout member whose
+/// document is already on disk.
+fn trailing_prose_payload() -> Payload {
+    Payload {
+        declarations: Declarations {
+            kinds: vec![trailing_prose_kind_facts()],
+            ..Default::default()
+        },
+        ..intent_payload()
+    }
+}
+
+#[test]
+fn a_prose_region_declared_after_a_collection_captures_the_preamble_into_an_addressable_row() {
+    let harness = common::scaffold("layout-trailing-prose");
+    let into = harness.join(".temper");
+    let doc_path = harness.join("specs").join("intent.md");
+    fs::write(&doc_path, TRAILING_PROSE_DOC).unwrap();
+
+    // Non-vacuity first: the reader really does bind the preamble to the trailing prose
+    // region, so what the row must carry is a span with words in it.
+    let reading = Layout {
+        regions: vec![
+            LayoutRegion::Collection {
+                member_kind: "invariant".to_string(),
+                key: None,
+            },
+            LayoutRegion::Prose { import: None },
+        ],
+    }
+    .read(TRAILING_PROSE_DOC, &doc_path, &no_edges())
+    .unwrap();
+    assert_eq!(reading.prose, vec![TRAILING_PROSE_PREAMBLE.to_string()]);
+    assert!(
+        !reading.prose[0].is_empty(),
+        "the case is vacuous unless the region captured a span"
+    );
+
+    drift::emit(&trailing_prose_payload(), &into, EmitOptions::default()).unwrap();
+
+    // The captured span reaches the lock as its own row, keyed by the host's address and
+    // naming the region that took it — the second region, not the first.
+    let rows = drift::layout_prose(&into).unwrap();
+    assert_eq!(rows.len(), 1, "one capturing region, one row: {rows:?}");
+    assert_eq!(rows[0].member, "intent:intent");
+    assert_eq!(rows[0].region_index, 1);
+    assert_eq!(rows[0].prose, TRAILING_PROSE_PREAMBLE);
+
+    // And the read verb narrates it: an author asking about the member is told which
+    // region captured the preamble and what it captured.
+    let narration = explain_in(&harness, "intent");
+    assert!(
+        narration.contains("Prose regions") && narration.contains("region 1"),
+        "explain names the capturing region: {narration}"
+    );
+    assert!(
+        narration.contains(TRAILING_PROSE_PREAMBLE),
+        "explain carries the captured span: {narration}"
+    );
+}
+
+/// Run `temper explain <target>` from `root`, capturing stdout+stderr.
+fn explain_in(root: &std::path::Path, target: &str) -> String {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_temper"))
+        .current_dir(root)
+        .arg("explain")
+        .arg(target)
+        .output()
+        .unwrap();
+    let mut narration = String::from_utf8_lossy(&out.stdout).into_owned();
+    narration.push_str(&String::from_utf8_lossy(&out.stderr));
+    narration
 }
