@@ -1,106 +1,9 @@
 [
   {
-    "tag": "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/path.rs",
-          "description": "relativize_against_root (30-45) normalizes `root` via normalize_path (11-23) before stripping it as a prefix from an absolute `file_path`. normalize_path drops a lone `Component::CurDir` entirely (15: `Component::CurDir => {}`), so `normalize_path(\".\")` returns an empty PathBuf; `strip_prefix(\"\")` then succeeds trivially on any absolute path, leaving it completely unrelativized. Resolve `root` against the actual working directory first — `std::env::current_dir()?.join(root)` (or canonicalize, tolerating a non-existent root the way normalize_path already does) — before normalizing and stripping, so `guard .` run from the harness root relativizes exactly like `guard /abs/root` does."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "path_matches (872-914, the sole caller of relativize_against_root) falls back to a retained-suffix compare (895-914: a candidate matches if the normalized file_path ends with it, on a path-segment boundary) for the case relativization does not fully resolve. Once relativize_against_root always fully resolves an in-tree absolute path against the real root, this suffix heuristic is a pure false-positive source (de4d5498's own recut test asserts `<root>/reference/CLAUDE.md` — not a projection — gets blocked as one). Drop the suffix/nested-match fallback and compare the relativized file_path to each candidate by equality once relativization succeeds; the `None` (out-of-tree) case still returns false, unchanged."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "The de4d5498 regression test asserting the retained-suffix match (`<root>/reference/CLAUDE.md` blocked as if it were `<root>/CLAUDE.md`) encodes the wrong contract per the equality-only fix above — rewrite it to assert that path is allowed, not blocked."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "run_guard(root, payload) (263-276) always invokes `temper guard <root>` with an absolute tempdir path — no test exercises `guard .` from within the harness root, which is exactly the form `install.rs` writes into every settings.json's guard hook command. Add a variant (or a parameter) that spawns with `.current_dir(root)` and the literal argument `\".\"`, for the new regression below to use."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "EmitOwnedEntry::path's doc comment (~3011) states the guard matches it \"as a suffix of an absolute file_path\" — stale once path_matches drops the suffix fallback for an equality compare; reword to match."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "manifest_path's doc comment (~601-603) states the guard match is \"tolerant of the file_path arriving absolute... the same suffix compare the projection binding runs\" — stale for the same reason; reword to name the equality compare."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "temper guard . (the form install wires into every settings.json) still allows an Edit that temper guard /abs/root correctly blocks — the shipped GH #39 fix never bound under the real invocation shape.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "temper guard . run with the current directory set to the harness root blocks an Edit to the root CLAUDE.md in block mode, matching temper guard /abs/root; a path under a same-suffixed sibling directory (e.g. reference/CLAUDE.md) is never falsely blocked"
-      }
-    ],
-    "acceptance": "temper guard . (current_dir = harness root, argument \".\") reaches the identical verdict as temper guard <same root, absolute> for every existing guard test case — proven by a new regression that runs both invocation forms and asserts matching exit codes; the retained-suffix false-positive (a same-suffixed sibling path wrongly blocked) is gone.",
-    "notes": "observed at 7c64c1af, reproduced on this harness. GH #39's shipped fix (de4d5498) left the queue at 7320468f; reopened under the same tag — the live-run shows it inert under `guard .`, its own test only ever exercised an absolute-tempdir root. Serialized behind two entries sharing src/install.rs/tests/install.rs/tests/common/mod.rs. scoped at cadabd8e"
-  },
-  {
-    "tag": "EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "embedded_member_features (~1194) inserts a synthetic `__nested_member_host__` key into the lifted member's `fields` map (~1206, shipped 77682915) to carry row.host to graph resolution. `Features::fields` is the author's typed fields (extract.rs:294 doc: \"Frontmatter fields by name\"), and every clause reads it, so the host must reach resolution some other way. OUT OF SCOPE, ruled here on measurement rather than left for build to discover: adding a `host` field to `extract::Features` — 23 files hold full `Features { .. }` struct literals with no `..Default`, so it collides with most of the queue. Tractable shapes that stay inside this files[]: carry the host on the member's identity (`Features::id` already exists and representation.md spells a nested identity as `<host-address>/<kind>/<key>`), or return a host index from embedded_features_by_kind (~1138) beside the map it already returns."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Two hand-rolled parses of the same `<host-address>/<kind>/<key>` grammar, added by the same commit and already diverging: target_identity (~1593) splits on the first `/` and checks the segment after it against the declared kind list; resolves (~1627) re-splits the identical string and additionally reads `__nested_member_host__` off the member's fields. Unify onto one parser used by both, reading the host from whatever compose.rs carries it on. Decide and encode the grammar's leaf tail explicitly: representation.md spells `/<leaf>` beneath a nested address, and today `resolves` takes everything after the second `/` as the key, so `<host>/<kind>/<key>/<leaf>` silently resolves nowhere. Whichever way it is ruled, it is stated at the parser rather than falling out of a substring index."
-        },
-        {
-          "path": "tests/nested_member.rs",
-          "description": "Regression: an edge target spelled as a full host-qualified address still resolves, and two same-keyed nested members under different hosts still resolve to their own host — the behaviour 77682915 shipped, re-pinned so the smuggle's removal is proven not to regress it. Plus a case pinning the parser's ruled treatment of the `/<leaf>` tail."
-        },
-        {
-          "path": "tests/closed_keys.rs",
-          "description": "The gap that let this ship: an_embedded_member_is_no_less_decidable_than_a_document_one (:238) asserts only admissibility, and the file's `member()` helper (:20) hand-builds Features, so no test judges an embedded member the real writer produced. Add a regression that runs a `closed-keys` contract over members built through compose::embedded_features_by_kind — per engineering.md, \"A seam gate reads what the real writer wrote\"."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A synthetic `__nested_member_host__` key rides every embedded member's typed-field map, so a closed-keys clause on an embedded kind indicts a field no author wrote.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "member"
-    },
-    "tests": [
-      {
-        "path": "tests/closed_keys.rs",
-        "asserts": "a `closed-keys` contract judged over embedded members built by compose::embedded_features_by_kind reports no finding for a key the host never authored"
-      },
-      {
-        "path": "tests/nested_member.rs",
-        "asserts": "host-qualified and bare nested edge targets resolve exactly as they do at HEAD once the synthetic field is gone, and the `/<leaf>` tail is judged as ruled"
-      }
-    ],
-    "acceptance": "No member reaching clause judgment carries a field its author did not write: `__nested_member_host__` is gone from `Features::fields`, and the host reaches graph resolution as identity or as its own index. A `closed-keys` clause bound to an embedded kind (a pairing engine::admissibility already admits, tests/closed_keys.rs:238) reports no finding for it — the latent false positive today, latent only because the one shipped closedKeys() is on plugin-manifest, a file kind. The `<host-address>/<kind>/<key>` grammar is parsed in exactly one place that both graph.rs call sites use. Non-vacuity: the closed-keys regression asserts a real embedded member set was judged, not an empty corpus short-circuiting to silence.",
-    "notes": "Post-ship reconciliation 727cceb2..b46a306e. 77682915 shipped host-qualified resolution and carried the host through the typed-field map; SDK-MEMBER-TABLE and NESTED-MEMBER-DUPLICATE-KEY both scoped that work as \"embedded_member_features is host-blind\", now false. Mechanism half only: the ambiguity-refusal policy and the third partial host lookup (gate::embedded_hosts_by_source, last-write-wins) stay NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY's, which is now gated on this. scoped at b46a306e"
-  },
-  {
     "tag": "GUARD-MANIFEST-EDIT-CONTENTLESS-FALLTHROUGH",
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT",
         "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL"
       ]
     },
@@ -136,10 +39,7 @@
   {
     "tag": "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -373,8 +273,7 @@
       "kind": "blockedBy",
       "tags": [
         "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
-        "EXPLAIN-KIND-ADOPTER-ENTRY-POINT",
-        "EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED"
+        "EXPLAIN-KIND-ADOPTER-ENTRY-POINT"
       ]
     },
     "dependsOnForks": [],
