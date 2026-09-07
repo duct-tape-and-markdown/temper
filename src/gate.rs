@@ -280,12 +280,13 @@ pub fn gate(
     let mut custom_units_and_features: Vec<(CustomKind, compose::KindUnitsAndFeatures)> =
         Vec::new();
     let (custom_rows, collisions) = compose::partition_kind_rows(&declarations, &builtin_defs)?;
-    // The one site among the three dispatchers that can surface a diagnostic.
-    diagnostics.extend(
-        collisions
-            .iter()
-            .map(|row| admissibility::kind_collision_diagnostic(row)),
-    );
+    // The one site among the three dispatchers that can surface a diagnostic. The
+    // built-in definitions ride along so each finding can name the facts that diverge
+    // from the name's owner, never the bare fact of the collision.
+    diagnostics.extend(admissibility::kind_collision_diagnostics(
+        &collisions,
+        &builtin_defs,
+    )?);
     // Two distinct kinds resolving to one `governs` locus would double-route every
     // matching document into both member sets — a document's kind is its position
     // alone, never its content — so a shared locus refuses loud here.
