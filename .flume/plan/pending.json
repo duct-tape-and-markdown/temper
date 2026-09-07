@@ -27,6 +27,13 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      "sdk/src/index.ts",
+      "sdk/src/kind.ts",
+      "sdk/test/builtins.test.ts",
+      "sdk/test/emit.test.ts",
+      "sdk/test/mention.test.ts"
+    ],
     "summary": "The SDK's kind type accepts a non-empty registration on an embedded/nested-file locus that the engine refuses at runtime — tsc should catch it first.",
     "per": {
       "path": "specs/model/representation.md",
@@ -39,102 +46,12 @@
       }
     ],
     "acceptance": "sdk/src/kind.ts's KindFacts type rejects a non-empty registration under embedded or nested-file locus at tsc time; the existing registration_locus_admissibility runtime check stays as the backstop for a bypass.",
-    "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' — today only enforced at src/admissibility.rs:256's runtime check. Widened at fb89f675 (gate-revert 2 of 2: the SDK's tsc-first test script fails over emit.test.ts/mention.test.ts's existing embedded-registration fixtures) — files[] now states the ripple up front. scoped at bf4b4168",
-    "observedFiles": [
-      "sdk/src/index.ts",
-      "sdk/src/kind.ts",
-      "sdk/test/builtins.test.ts",
-      "sdk/test/emit.test.ts",
-      "sdk/test/mention.test.ts"
-    ]
-  },
-  {
-    "tag": "LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/admissibility.rs",
-          "description": "New well-formedness check beside the existing vacuous-clause/unfillable-selection admissibility checks: a layout kind declaring more than one verbatim (non-import) LayoutRegion::Prose region is refused at declaration — a second verbatim prose region can never carry a byte (Layout::read lands the preamble in the first one only, src/layout.rs). Range over `overlaid_builtin_kinds` (the BTreeMap<String, CustomKind> parameter already threaded into this module, not a function) the same way `governs_collision_diagnostics`/`governs_collision_diagnostic` (~353, ~395) already do — a relocated built-in can carry a layout too."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "Wire the new diagnostic beside the other admissibility calls."
-        },
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "Regression: a layout declaring two verbatim prose regions refuses loud at admissibility, naming both."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A layout declaring a second verbatim prose region is a permanent no-op today; refuse it loud at admissibility instead.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "well-formedness"
-    },
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "a layout with two verbatim prose regions is refused at admissibility, not silently accepted with the trailing region a permanent no-op"
-      }
-    ],
-    "acceptance": "Declaring a layout with more than one verbatim prose region refuses loud at admissibility time, the same class as an existing vacuous-clause/unfillable-selection refusal.",
-    "notes": "observed at ad10e8cb (cascade F10); corrected at bf4b4168: cite Decision 0048 (accepted), not 0019 — 0019 says nothing about prose region position, while 0048's Consequences names this exact refusal ('a second verbatim prose region... refuse'). Vacuous-clause checks live in engine.rs/roster.rs; admissibility.rs stays this check's home. Serialized behind LAYOUT-LOUD-READ-SWALLOWED-REGION (shared tests/layout_kind.rs; both are 0048 consequences). scoped at bf4b4168"
-  },
-  {
-    "tag": "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "path_matches (~835) is a `/`-normalized suffix compare with a single-segment rule: for a candidate with no `/` (e.g. the memory kind's root `source_path = \"CLAUDE.md\"`), the prefix before the match must also contain no `/`, meant to stop `.temper/memory/CLAUDE.md` matching `CLAUDE.md`. But Claude Code always sends an absolute `file_path`, so the prefix before a root match is the repo's own absolute directory, which always contains `/` — a single-segment candidate can therefore never match a real absolute file_path. Relativize `file_path` against the harness root before comparing (a real path compare, never a suffix heuristic) — `guard` (~779) and `manifest_write_findings`'s own path_matches call (~913) both need the root threaded in."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Command::Guard (~327-375) already holds `path` (the harness root); pass it into `install::guard` and `install::manifest_write_findings`/`guarded_manifests` so relativization has a root to compare against."
-        },
-        {
-          "path": "src/path.rs",
-          "description": "The one path module `path_matches` should route its relativize-against-root comparison through, rather than install.rs hand-rolling a second string-suffix heuristic beside `normalize_path`."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "guard_suffix_path_boundary_rejects_unrelated_deeper_paths (~1334) sends bare relative-looking file_path values (`\"CLAUDE.md\"`), never the absolute paths Claude Code actually sends, so it never exercised the real bug; rewrite its payloads to absolute paths under `root` and add the case this masked: an absolute write to the real root CLAUDE.md is blocked under mode:block."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "guard's path_matches rejects every absolute file_path against a single-segment projection candidate, so mode:block on the root CLAUDE.md placement is cosmetic — it never actually blocks.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a PreToolUse payload naming the root CLAUDE.md by its real absolute path is blocked/warned/noted per the declared mode, and the suffix-boundary regression exercises absolute paths, not relative ones"
-      }
-    ],
-    "acceptance": "A single-segment emit-owned target (the root CLAUDE.md) binds against the absolute file_path Claude Code actually sends, at every enforcement mode; the existing suffix-boundary test is re-cut to absolute paths so it can no longer pass while the real bug is present.",
-    "notes": "observed at e1b26728 (cascade GH #39). This is the ledger's parked string-path-compare posture rule made concrete — one glob engine / one path module discipline. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' — today only enforced at src/admissibility.rs:256's runtime check. Widened at fb89f675 (gate-revert 2 of 2: the SDK's tsc-first test script fails over emit.test.ts/mention.test.ts's existing embedded-registration fixtures) — files[] now states the ripple up front. scoped at bf4b4168"
   },
   {
     "tag": "GUARD-MANIFEST-WRITE-DROPPED-MEMBER-CONFORMS",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -287,6 +204,15 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      "src/check.rs",
+      "src/coverage_note.rs",
+      "src/main.rs",
+      "src/reporter.rs",
+      "tests/acceptance.rs",
+      "tests/common/mod.rs",
+      "tests/coverage_note.rs"
+    ],
     "summary": "check --deny-advisories can never pass: the coverage.checked disclosure note is pushed at warn severity unconditionally, and --deny-advisories treats any warn as a blocking violation.",
     "per": {
       "path": "specs/intent.md",
@@ -299,16 +225,7 @@
       }
     ],
     "acceptance": "`--deny-advisories` promotes only real advisory violations to blocking, never the coverage.checked disclosure note; a clean represented harness exits zero under it.",
-    "notes": "observed at e1b26728 (cascade GH #42). Intent invariant 5: a shipped coverage clause enters advisory so it is dialable, not so it blocks CI — coverage.checked is disclosure, never a violation. Widened at fb89f675 (gate-revert 1 of 2: a new Severity variant ripples to every renderer and the shared test helper) — files[] now states the ripple up front. scoped at bf4b4168",
-    "observedFiles": [
-      "src/check.rs",
-      "src/coverage_note.rs",
-      "src/main.rs",
-      "src/reporter.rs",
-      "tests/acceptance.rs",
-      "tests/common/mod.rs",
-      "tests/coverage_note.rs"
-    ]
+    "notes": "observed at e1b26728 (cascade GH #42). Intent invariant 5: a shipped coverage clause enters advisory so it is dialable, not so it blocks CI — coverage.checked is disclosure, never a violation. Widened at fb89f675 (gate-revert 1 of 2: a new Severity variant ripples to every renderer and the shared test helper) — files[] now states the ripple up front. scoped at bf4b4168"
   },
   {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
@@ -426,14 +343,19 @@
       }
     ],
     "acceptance": "target_identity parses the full nested address grammar per representation.md's member section, resolving both bare and host-qualified spellings; explain and findings print the resolved form; the duplicate-key admissibility refusal (NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY) stays the resolver's bar, not the address itself.",
-    "notes": "observed at f8344d20 (session, plan's 0049 spec-delta pass narrowing its own prior routing). 0049's Decision names every verb accepting one address grammar; its Rejected bullet turns down corpus-unique keys as the address itself. scoped at bf4b4168"
+    "notes": "observed at f8344d20 (session, plan's 0049 spec-delta pass narrowing its own prior routing). 0049's Decision names every verb accepting one address grammar; its Rejected bullet turns down corpus-unique keys as the address itself. scoped at bf4b4168",
+    "observedFiles": [
+      ".flume/refactor/mention-reachable-finding.md",
+      "src/compose.rs",
+      "src/graph.rs",
+      "tests/graph.rs"
+    ]
   },
   {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL",
         "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY"
       ]
     },
@@ -508,8 +430,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS",
-        "LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL"
+        "GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS"
       ]
     },
     "dependsOnForks": [],
@@ -660,7 +581,23 @@
       }
     ],
     "acceptance": "An author can declare 'every invariant carries a Test' and '... a Standard' as two independent section_contains clauses on one kind without them folding into one malformed-lock label; the same holds for two require_sections clauses.",
-    "notes": "observed at ad10e8cb (cascade probe, GH #48); corrected at bf4b4168 (session, verified by cascade-integrations): the entry as first filed claimed only the marker drops (heading kept) — wrong on both counts. `field` is undefined for section_contains AND require_sections rows alike (declarations.ts never sets it for either); `section` (heading+marker) IS present in the row but simply never read by clause_label/stamp_clause_label. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb (cascade probe, GH #48); corrected at bf4b4168 (session, verified by cascade-integrations): the entry as first filed claimed only the marker drops (heading kept) — wrong on both counts. `field` is undefined for section_contains AND require_sections rows alike (declarations.ts never sets it for either); `section` (heading+marker) IS present in the row but simply never read by clause_label/stamp_clause_label. scoped at bf4b4168",
+    "observedFiles": [
+      "src/compose.rs",
+      "src/contract.rs",
+      "src/drift.rs",
+      "src/engine.rs",
+      "src/graph.rs",
+      "src/roster.rs",
+      "src/schema.rs",
+      "tests/closed_keys.rs",
+      "tests/contract_template.rs",
+      "tests/extent.rs",
+      "tests/field_addressing.rs",
+      "tests/lock_declaration_rows.rs",
+      "tests/shape_predicate.rs",
+      "tests/type_predicate.rs"
+    ]
   },
   {
     "tag": "EMBEDDED-MEMBER-VALUE-TYPED-LEAVES",
@@ -699,10 +636,7 @@
   {
     "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [
       "layout-own-span-leaf"
