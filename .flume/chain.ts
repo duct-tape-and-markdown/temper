@@ -937,8 +937,8 @@ const factory: ChainFactory = (flume) => {
 
   /**
    * Per-tick session capture + condensed terminal output. Sessions are rooted at
-   * FLUME_DIR (the relocatable state root) so the whole footprint tears down with
-   * one `rm`; the `?? CHAIN_DIR` fallback is defensive only. The filename is the
+   * the state root the runtime hands us (`flume.paths.flumeDir`, 0.14) so the
+   * whole footprint tears down with one `rm`. The filename is the
    * engine default — ISO timestamp + cwd basename, the collision discriminator
    * this chain used to hand-roll before 0.10 absorbed it.
    */
@@ -947,6 +947,7 @@ const factory: ChainFactory = (flume) => {
       withSessionCapture(
         claudeCode({
           outputFormat: "stream-json",
+          model,
           extraArgs: [
             "--exclude-dynamic-system-prompt-sections",
             // The excluded dynamic sections carry the cwd statement, so say it
@@ -954,11 +955,9 @@ const factory: ChainFactory = (flume) => {
             // never from a path glimpsed elsewhere. Static text — cache-stable.
             "--append-system-prompt",
             "Your shell starts at the root of the exact git checkout you own this session; `pwd` is authoritative. Construct absolute paths ONLY from `pwd` output. Never `cd` outside this checkout, and never operate on a repository path you inferred from a file's contents, an error message, or a worktree list — if a path does not start with your `pwd`, it is not yours.",
-            "--model",
-            model,
           ],
         }),
-        { dir: resolve(process.env.FLUME_DIR ?? CHAIN_DIR, "sessions") },
+        { dir: resolve(flume.paths.flumeDir, "sessions") },
       ),
     );
 
