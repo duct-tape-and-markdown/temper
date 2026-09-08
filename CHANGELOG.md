@@ -9,6 +9,51 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.0.18] — 2026-09-08
+
+### Upgrading from 0.0.17
+
+Each line is what a 0.0.17 harness may see first, then what to do.
+
+- **A hand `Write` or `Edit` into a governed locus exits 2 in `block` mode**
+  — `specs/*` under a kind that governs it, or an undeclared path under
+  `.claude/` — with the locus named. Declare the member in the program and
+  `emit` it; the path was never temper's to leave open.
+- **An `Edit` to `.claude/settings.json` is judged by the file it would
+  land.** An edit touching only residue temper does not own (`permissions`,
+  `autoMemoryEnabled`) passes. An edit that drops a hook the lock declares
+  (`guard.manifest-dropped-member`) or leaves the file unparseable
+  (`guard.manifest-unparseable`) is refused; author the hook change in the
+  program instead.
+- **A stray document at a governed locus is a warn**
+  (`locus.undeclared-member`), and `coverage.checked` now splits declared
+  from undeclared per kind. Under `--deny-advisories` that stray fails the
+  run, while a clean harness with only `coverage.checked` no longer does.
+  Declare the document or move it out of the locus.
+- **A bare nested-member key that two hosts carry is refused**, naming both
+  hosts; the same key declared twice under one host is a malformed lock
+  (`nested-member.admissibility`). Spell the full
+  `<host-address>/<kind>/<key>`.
+- **SDK: two kinds in play under one name refuse**, naming the kind and both
+  loci, where 0.0.17 kept the first by authored order. `relocate(base,
+  delta)` is the sanctioned spelling for widening a built-in's edge fields
+  or moving its locus.
+- **SDK types narrowed.** `embeddedMemberValue` leaves are
+  `Record<keyof T, string | Text>` and `registration` is narrowed by locus,
+  so `tsc` may fail where 0.0.17 passed; each failure is a leaf the engine
+  would have refused at `check`.
+- **Two lock re-spells show as drift once, then hold**: one
+  `[[declaration.layout_source]]` row per layout document, and a label per
+  clause on `section_contains` and `require_sections` rows. Re-emit once;
+  both converge.
+- **`check --reporter session-start` prints a payload on a load fault** (the
+  fault's own rule id, `gate.load-fault` when the report carries none)
+  where 0.0.17 printed nothing. A session that opened clean over a broken
+  lock now opens with the fault in view; terminal, GitHub, and SARIF
+  reporters still exit non-zero.
+
 ### Added
 
 - `check` names a document at a governed locus the lock declares no member
