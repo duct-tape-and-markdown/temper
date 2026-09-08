@@ -8,289 +8,99 @@ decisions live in the corpus, session conduct lives in `.claude/rules/`,
 and all of those are forgotten here once homed. Target under ~60 lines,
 hard.
 
-## State of the era (2026-07-16)
+## State of the era
 
-- **External-yield probe done (07-22)**: `temper check` on 9 real external
-  harnesses. Core insight validated — caught freenet's Cursor `description`
-  key (headline value prop, real repo). But surfaced 4 temper bugs the
-  self-mirror can't: `check` hard-errors/aborts on missing-name + malformed
-  frontmatter (4/9 harnesses crashed, reported nothing), `command` kind
-  false-fails name/desc (CC makes them optional), skill-guidance on command
-  findings, gate-installed noise on foreign repos. Filed `.flume/inbox.md`
-  (5-8). **Redirect: robustness on foreign input outranks governing `.flume/`
-  — temper must stop crashing on real harnesses before any adoption story.**
 - **The center (0019)**: temper types the documents that program agents;
   the launch demo is this repo's spec corpus governing itself. Kernel
   corpus in `specs/model/`; decisions outside every read path.
-- **META-FREEZE struck (John, 07-18)**: the 07-09 freeze no longer
-  described a week of sanctioned harness work; its point — v0.1 ships
-  before gold-plating — lives in the goal section. Loop may propose
-  its own harness diffs via `.flume/amendments/` (0044,
-  propose-and-ratify only); session-open sweep now covers it.
-- **Distribution**: channel 2 live 07-11 — `npx @dtmd/temper` delivers
-  prebuilt linux/win32 engines (SDK 0.0.11 cut 07-21, smoke-green — 0.0.10 07-19; 0.0.8-0.0.9 deprecated — mismatched pins, enablement wire split; post-publish smoke gates every cut; release.yml,
-  NPM_TOKEN repo secret; the cut procedure is now encoded in the `release`
-  rule, not here). Darwin + plugin channel ride PACKAGING-CHANNELS-REMAINDER
-  (parked in pending.json); 0.1.0 is the tag's to stake.
-- **Consumer campaign closed 07-16**: posture-recursion ruled — 0025
-  (82c816e, amended cc5a9b33), prototype at
-  `docs/proposals/posture-recursion/`; the built-in adoption is flume's
-  as SKILL-NESTED-REFERENCE-DOCS. Open forks live in
-  `.flume/plan/open-questions.md` (four; none block the queue).
-- **centercode = the structural-half dogfood (07-20)**: the consumer
-  testbed exercises layout/requirements/graph/degree/count/nested-docs
-  hard (9 embedded kinds, one factory); the behavioral half — verifiers,
-  `when`/`dial`/`extent`, local commitment — is un-field-tested and is
-  the latent-bug surface (`read_dial` + `when`-guard both lived there).
-  Standing direction: validate it (dogfood + adversarial passes), never
-  cut valuable capability for want of a week-old consumer; lean cuts fat
-  (restatement, ceremony, over-claim), not capability-ahead-of-adoption.
+- **Distribution**: `npx @dtmd/temper` delivers prebuilt linux/win32
+  engines; 0.0.18 cut 2026-09-08 (tag c60c976a, smoke green). The cut
+  procedure is the `release` rule. Darwin + plugin channel ride
+  PACKAGING-CHANNELS-REMAINDER (parked); 0.1.0 is the launch tag's.
+- **First adopter**: cascade (John's). Its session live-verifies every
+  landing sha and audits entries claim-by-claim before build; send it the
+  sha, read its verdict, route its findings through `.flume/inbox.md`.
+  Reports at `~/.cache/cascade-integrations/audits/`.
+- **centercode = the structural-half dogfood**: the behavioral half
+  (verifiers, `when`/`dial`/`extent`, local commitment) is un-field-tested
+  and is the latent-bug surface. Validate it; never cut capability for
+  want of a consumer.
 
-## Next session's one focus (John + session, 09-05)
+## Next session's one focus (John + session, 09-08)
 
-- **Effective use.** The cascade adopter probe (09-05, GH #39–#54) showed
-  the failure shape: the model is right in `specs/` and silent at the CLI.
-  Seventeen entries (engine defects, the containment-selection language
-  gap, two SDK typing gaps) + the four-entry redirect (loud reads, types
-  that refuse, refusals in the author's vocabulary, `explain kind:<x>` as
-  entry point) sit in `.flume/inbox.md`, observed at ad10e8cb; plan routes
-  them ahead of the 09-04 forks. Loop relaunched 09-06 (plan awake; log at
-  `~/.cache/flume-logs/`). Probe series closed 09-05; GH #39–#54
-  cross-referenced both ways. Plan's drain (ab4a3ead) opened three forks
-  for John: `(layout-title-heading-admission)`,
-  `(nested-member-rename-identity)`, `(containment-selection-family)` —
-  the last needs a Decision before any entry. Plan dropped 3 of 18 notes
-  in that drain while reporting 15 routed; the undeclared-document note
-  is re-filed, and the positional-binding half of GH #44 rides it.
-  **Two chain gaps for a human commit** (chain.ts): (1) the plan honesty
-  gate reads the inbox from the tick's own commit or worktree, so a note
-  committed to main after plan's worktree branched is invisible — plan
-  handed to build 09-06 with 7 undrained notes and `after-build` keeps
-  picking until nothing is pickable; (2) that gate checks the inbox is
-  empty, not that every note became an entry or fork (3 of 18 dropped
-  in ab4a3ead). Loop stopped 09-06 after build batch 1 to force a plan
-  drain first; the audit corrections it drains amend 9 pending entries
-  (drained f350248e: 13 rewritten). (3) plan's own friction capture
-  (`.flume/friction/plan-pending-queue-file-contention.md`): a
-  `pending-gate` afterCommit check that two simultaneously-open entries
-  never share a declared path — today a manual audit per tick, and four
-  pre-existing collisions are live. Three build reverts in batch 1 were
-  all writable-paths (files[] omitting an enum/type change's consumers);
-  the shipped install fix left `gate_installed` unaware of its new
-  outcome, now its own entry.
-- **Parked ruling (John's):** 0019's occupant. Cascade moved its spec kind
-  to the composed half on the premise "agents write every byte"; temper's
-  own launch demo (this corpus governing itself) is layout-governed human
-  bytes, and `specs/intent.md` has the H1-title shape the reader mis-binds
-  (GH #45). Rule whether the demo stays layout before any spec kind is
-  declared here. The layout half is not dead on the probe's evidence — F7's
-  "nothing reaches inside" was the title bug.
-
-## Previous focus (John + session, 09-04) — still open
-
-- **Rule the two forks the 0.0.16 round parked, then the harness sweep.**
-  0.0.16 + 0.0.17 cut 09-04 (0.0.17 fixes 0.0.16's two-hooks emit
-  regression; 0.0.16 deprecated on npm; nine issues closed; NPM_TOKEN of
-  07-19 still worked — rotate at leisure). `(hook-member-identity)`
-  (GH #32; session recommends event + matcher) and `(external-commitment)`
-  (GH #29; Decision to draft) are the open rulings. Then the harness-side
-  captures the round left: a chain-side derivation check for insta
-  `.snap` companions, the path-compare posture rule, and the ledger's own
-  overrun (186 lines vs its 60 target — subtraction pass, human-read).
-  `.flume/stop` is set on purpose; remove it to relaunch the loop.
+- **Rule the forks that gate work.** Fifteen open in
+  `.flume/plan/open-questions.md`. With queued dependents:
+  `(layout-own-span-leaf)` (needs the leaf's name) and
+  `(hook-member-identity)` (GH #32). Gating cascade's contract work:
+  `(containment-selection-family)` — a Decision before any entry.
+  Carrying a live hole: `(committed-settings-kind)` — the guard-command
+  silent-disable residual, the one thing cascade still tracks open.
+  New 09-07: `(build-version-identity)` — a source build and the
+  published binary both print the crate version; `(re-rooted-harness-
+  disclosure)`; `(builtin-relocation-unnamed)`. Parked ruling: 0019's
+  occupant — does the launch demo stay layout-governed (GH #45).
+- After the rulings: relaunch the loop (recipe below). Ten pending, none
+  pickable; every one is blocked on a fork or parked.
 
 ## Parked (pointers only)
 
-- 0.0.16 regression class (09-04, two-hooks emit refusal): a consolidation
-  raised "identity key is unique" over every member map while the hook
-  kind's non-unique address was already the open fork `(hook-member-
-  identity)`; the entry never declared the dependency. Two corrections,
-  both harness-side (human commits): (1) `pending-entry` rule + plan
-  prompt — an entry generalizing an invariant over a member class is
-  `dependsOnForks` on any open question naming that class, derivable from
-  files[] ∩ the fork's named surfaces; (2) `release` rule — before the
-  tag, run `emit` + `check` over at least one external fixture harness
-  (the reporter's had three hooks on one event; ours had one per event
-  until 09-04). Both point at lifting GAUNTLET-EXTERNAL-HARNESS-FIXTURES'
-  park (John's license call) — second publish-escaping defect it would
-  have caught.
-- 09-03 round residue: `(external-commitment)` Decision for GH #29
-  (`commitment: "external"` locus — committed, never emitted, roster
-  member; session to draft). Gauntlet external-harness fixtures parked
-  on John's license call — cascade's harness (John's own, no license
-  question) is offered read-only as the release rule's emit+check
-  fixture; name the sha with the cut. Posture rule for string path compares outside
-  `src/path.rs` (class 3 of the defect review) is a harness commit, not
-  filed. Derivation gap seen four times this round: plan omits insta
-  `.snap` companions and constant-home files from `files[]`; a chain-side
-  derivation check (entry editing a file with an insta test lists its
-  snapshots) is chain territory, human commit.
-- Hand-landing rule (learned 09-03): when the interactive session lands a
-  build commit itself, run the chain's afterMerge list from `chain.ts`
-  (`cargo clippy`, `cargo test --no-fail-fast`, `cargo doc`, `sdk test`)
-  plus `cargo fmt --check` — never a remembered subset; `cargo doc` was
-  the one missed. Disclose the hand-merge in the ship commit body.
-- flume 0.13 adopted 09-04 (d3040d4c). Not yet: `partitionIgnore` for
-  `.temper/lock.toml` — add when a wave serializes on it. Three seams +
-  flume#19 sit in flume's inbox for its next line.
-- Launch loop detached (`setsid nohup … & disown`) with a Monitor on the
-  log; a tool-owned background task was killed mid-merge once. The loop's
-  lifetime is the WSL VM's: WSL shut down 09-06 12:42 with a build wave
-  mid-flight (four dirty worktrees, no commits lost) and the loop died
-  with it; relaunched on the VM's return. Keep a WSL terminal open for
-  the run's duration, or run the loop under a service (second death 09-06
-  20:00, mid-build tick, nothing lost). Relaunch with
-  `FLUME_WORKTREES_DIR` exported in the shell: the supervisor sweeps stale
-  worktrees BEFORE loading chain.ts, so the chain's `??=` is invisible to
-  the sweep (flume-main's root cause for the four branch-delete failures;
-  engine fix pending in flume's inbox). 09-06 harness commit: the plan
-  honesty gate moved to afterMerge on the trunk, holds `after-build` to
-  the same bar as `no`, and requires an `Inbox routed:` body line
-  accounting for every drained note (plan prompt carries the contract).
-  09-07: the gate splits fresh from ignored — an inbox note or specs/
-  commit the tick's worktree never held passes, and plan's handoff routes
-  to plan over it — so filing to main while a plan tick runs costs one
-  extra plan tick, never a reverted one (0377962d). One exception the
-  gate cannot cover: when the inbox was non-empty at the tick's start the
-  tick is a drain and edits inbox.md, and an append then collides at end
-  of file — the cherry-pick fails and the tick's work is lost. File
-  mid-tick only when the inbox was empty when the tick began; otherwise
-  hold the note until plan's cherry-pick lands.
-  **Trunk-commit window (flume 0.13 regression, confirmed by flume-main,
-  fix in flume's inbox):** an afterMerge entry revert rewinds the trunk
-  with `reset --keep` and no tip check, so an operator commit landing
-  between an entry's cherry-pick and its afterMerge verdict is discarded
-  (3da55a88 was; recovered by merge + revert 56bc6727). Until the fix:
-  never commit to main while the loop log shows a cherry-pick awaiting
-  its gates — check the last `[flume]` line first. Fixed on flume main
-  (384b0c9: tip check before the reset, revert-refused reporting when it
-  moved), unreleased — the window stays open here until temper's flume
-  pin moves to a cut carrying it. Same flume run has
-  `TickContext.priorAttempts` in flight: when it ships, the plan prompt's
-  `<gate-reverts>` script (`.flume/gate-reverts.mjs`) becomes a native
-  input and the script retires. `pgrep`
-  for the loop must use a bracket pattern (`[c]li.js loop`) or it matches
-  its own command line.
-
-- Sweep-dock blend (John, 07-20/22): settled model — two authored
-  surfaces, one product. Harness = standing law (invariants + conduct,
-  sweep-agnostic; `.temper/inbox.md` is its feedback intake — testbed
-  acf5919178, 52 green, tap wired). Runtime = flume-dock: briefs carry
-  effort procedure + injected data; friction.md = runtime feedback; the
-  loop writes the harness intake directly (`--intake`, operator-declared;
-  extraction pass-through; SPEC 17-19); rubric = Remedy ∧ covers.
-  Three-tier cascade ratified (07-22 research: Spec Kit/Kiro/BMAD/
-  Taskmaster/aider converge): big model dictates spec, mid model derives
-  atoms (entry = objective+files+acceptance+cite), cheap model executes;
-  two flume seams filed to flume's inbox (per-phase model; entry-scoped
-  write guard). Shakedown: sonnet wave A's 21 findings = answer key
-  (scratchpad); haiku coverage fabrication now gated. Temper inbox holds
-  4 engine findings (reporter mute w/ repro, managed-by placement,
-  version-skew, guard semantics). Toy validation GREEN (07-22, 4 cycles,
-  fixture standing at Repos/toy-sweep-target): v4 = full answer key,
-  mechanical settle, self-hibernation, zero routing reverts on haiku both
-  phases; fixes per cycle: one-job prohibition, routing gate + diff-step,
-  coverage-format gate, <remediable> lookup (judgment→data). flume seams
-  landed upstream same day and adopted (--plan-model/--build-model,
-  entryChannelPaths; flume-dock rides file:../flume @0.3.1+v0.4).
-  Residual candidates: tag-middle fidelity; settle could require audit
-  cursor ≥ last ship; undock flushes dirty channel files. Next: clean
-  twins over 9c8d78aa47..d0734c2643 (--plan-model sonnet-class,
-  --build-model haiku, --intake .temper/inbox.md, tap aggregation).
-  Mirror-push ruling still open before any remote-pushed wave.
-
-- flume 0.3.1 publish (John): three 07-18 runtime fixes are LIVE via a
-  patched installed dist in temper's node_modules (ephemeral — a
-  reinstall wipes it) and mirrored on flume branch
-  fix/worktree-escape-and-loop-lock (written against 0.2.0 source;
-  reconcile with wherever 0.3.0's source lives). Fix 1: worktrees
-  relocate outside the repo (FLUME_WORKTREES_DIR; temper's chain sets
-  ~/.cache/flume-worktrees/<repo>) — root cause of the stray writes
-  was models deriving the root checkout from the worktree path prefix.
-  Fix 2: loop pidfile lock refuses a second supervisor. Fix 3: a
-  merge-reverted entry's actual commit footprint persists as
-  entry.observedFiles and joins the partition, so retries never ride
-  with what they collided with. The wave-chaining auto-unblock rides
-  the same branch.
-
-- Guidance layer: 4 source-verified deltas awaiting curation —
-  claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
-- Verify queue: trailing-period @import (cascade CLAUDE.md:26, UNVERIFIED).
-- Docs-language candidates (when docs are written): the determinism
-  ladder — "push every check to the most deterministic layer that can
-  express it"; the harness pin (John, 07-18) — "our job in the harness
-  is to name the invariants, and let the loop settle".
-- Consumer-format constants' home (parked, John 07-20): `MAX_IMPORT_HOPS`
-  (src/graph.rs) is a target-format fact baked as an engine constant with
-  its cite in a comment — it drifted (5 vs the real 4, fixed 14719f2).
-  Considered declaring such caps on the cited kind (memory kind's
-  import-directive), engine reading them through the lock; deferred — a
-  lock-schema extension for a single one-format fact, and it only dedups
-  the low-harm internal axis (guidance prose is advisory; the engine
-  constant is the sole load-bearing home). **Trigger to revisit: a second
-  import-bearing format** makes per-format declared caps non-speculative.
-  Freshness (engine-vs-reality drift) is an inherent bound — temper is
-  offline/decidable-only, so only re-verification catches it; not encoded.
-- Multi-harness read-face spike (John agreed 07-23): declare a
-  `cursor-rule` custom kind in a testbed, point `check` at a real Cursor
-  repo — zero `src/` changes proves kinds-are-data; any engine change is
-  a pre-0.1.0 custom-kind gap. Cheap, post-launch-weighted; the split and
-  the write face's parking live in `(multi-harness-projection)`.
-- Base harness dogfood: primer `docs/base-harness-primer.md`; example at
-  `examples/base-harness/` (third cut shipped 549969f); built-in-kind doc
-  audit at `docs/market-formats.md`. Sequencing: stranger dry run next,
-  then channel 3.
-- On John:
-  **Rotate NPM_TOKEN** — pasted in chat (07-19, v0.0.8 rescue), treat as
-  exposed; owner accepted the risk 07-21 and it published 0.0.11, so rotate
-  at leisure, not urgently. New token → `gh secret set NPM_TOKEN` + `.env`.
-  Note the expiry cadence: the prior token died in ~14 days and cost a
-  release-day debug.
-  Apple Developer notarizing (decide at release); USPTO name screen.
+- `(external-commitment)` Decision for GH #29 — session to draft.
+- Gauntlet external-harness fixtures parked on John's license call;
+  cascade's checkout is the read-only stand-in. The `release` rule has no
+  external-fixture step; cascade's regression at the cut sha is the
+  evidence a cut carries — write it into the rule or keep relying on it.
+- Inbox as one file collides: an append during a plan drain tick fails
+  the cherry-pick at end of file. One-file-per-note (as `.flume/refactor/`
+  already is) removes the collision; ~1 in 8 filings hit it on 09-07.
+- Consumer-format constants' home (`MAX_IMPORT_HOPS`): revisit at a
+  second import-bearing format. Multi-harness read-face spike (declare a
+  `cursor-rule` kind, `check` a real Cursor repo) rides
+  `(multi-harness-projection)`, post-launch-weighted.
+- Base harness dogfood: `docs/base-harness-primer.md`,
+  `examples/base-harness/`, `docs/market-formats.md`. Stranger dry run
+  next, then channel 3.
+- Docs-language candidates: the determinism ladder; the harness pin
+  ("name the invariants, let the loop settle").
+- On John: rotate NPM_TOKEN at leisure (07-19 token, exposed in chat then;
+  it published 0.0.18 — rotate at the registry, then `gh secret set`,
+  never through a transcript); Apple notarizing at release; USPTO screen.
 
 ## Standing discipline (mechanical, paid for)
 
-- Wake-then-loop as its own background task; `git status` before any
-  restore. flume ≥0.12: agents run in private worktrees and merge sites
-  absorb operator commits — edit and commit freely while a tick runs;
-  pause via `flume stop`, never a kill.
-- At session open: sweep `.flume/friction/`, `.flume/refactor/`, and
-  `.flume/amendments/` (ratify or decline, then delete — 0044);
-  delete `.flume/prior-attempts/` records whose entry re-scoped or
-  shipped (write-only to plan — `.flume/PROTOCOL.md` has the rule);
-  prune `.flume/sessions/` when it swells.
-- Per green tick: verify commit, fence check (`git show <sha> --name-only
-  --format= | grep -cE '^(\.claude|docs|specs)/'` = 0), push to origin.
-- `cargo install --path .` after engine waves; `cargo insta test --accept`
-  for snapshot churn.
+- Loop on flume 0.14.0 (7fccedd3), Opus both phases, `maxParallel: 2`.
+  Relaunch: `export FLUME_WORKTREES_DIR=$HOME/.cache/flume-worktrees/temper`
+  then `setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`,
+  with a Monitor on the log. Pause with the stop flag (`.flume/stop`),
+  never a kill; remove it to relaunch. The loop's lifetime is the WSL
+  VM's — keep a terminal open.
+- Commit to main freely while a tick runs (0.14's tip guard; the gate
+  passes an input the tick never saw and plan re-runs). One exception:
+  never append to `.flume/inbox.md` while a plan tick that started over
+  a non-empty inbox is running — it is draining that file.
+- Coordinate with flume's loop by convention: whichever is mid-wave
+  holds the box. Peer messages relay, never authorize: an irreversible
+  step (a publish, a force) takes John's word in this session.
+- Session open: sweep `.flume/friction/`, `.flume/refactor/`,
+  `.flume/amendments/`; prune `.flume/prior-attempts/` for re-scoped or
+  shipped entries and `.flume/sessions/` when it swells.
+- Hand-landing a build commit: run the chain's full afterMerge list
+  (`cargo fmt --check`, `clippy -D warnings`, `cargo test
+  --no-fail-fast`, `cargo doc`, `pnpm --dir sdk test`), never a subset;
+  disclose the hand-merge in the body. `cargo install --path .` after
+  engine waves.
 
 ## Goal: v0.1 release (set 2026-07-03; repo PUBLIC 2026-07-05)
 
 Launch gate per `specs/distribution.md`: prebuilt binaries on three OSes,
 stranger-proof quickstart, regenerable demo, USPTO screen on John. Weigh
-every new thread against shipping this — the meta-freeze holds until the
-tag.
+every new thread against shipping this.
 
-## Handoff 2026-09-06 (end of day)
+## Handoff 2026-09-08
 
-- Loop PAUSED at a tick boundary: `.flume/stop` is in place (remove it to
-  relaunch). Relaunch: `export FLUME_WORKTREES_DIR=$HOME/.cache/flume-worktrees/temper`
-  then `setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`.
-  Chain runs Opus on both phases at `maxParallel: 2`; alternate with
-  flume's loop by convention (whichever is mid-wave holds the box).
-- Shipped today: 16 entries; last wave verified by the session in the
-  wired form (`guard .` blocks root CLAUDE.md, allows reference/CLAUDE.md).
-  19 pending. Cascade live-verifies every landing sha; send it the sha.
-- Waiting on John: four forks in open-questions — title heading admission,
-  nested-member rename identity, containment selection family, and
-  `(post-tool-use-placement)` (GH #42 (ii); session holds option (b):
-  sanctioned Bash-write catch with a findings-only reporter, silent on
-  pass). Release intent for a cut (cascade rehearses against a sha).
-- Friction drained 09-07: the hook_kind stall (product defect filed to the
-  inbox: `check --harness` walks outside its root; /tmp swept of 9 GB of
-  kept fixtures) and the pending-queue path contention (no gate — the
-  pending-entry rule's serialization is the mechanism; a queue-wide
-  refusal would be convention, per flume-main). The cargo-insta capture
-  became a rust-rule line (`INSTA_UPDATE=always cargo test --test <name>`).
-- Flume-side, pending John there: tip guard (landed upstream, unreleased),
-  worktreesDir placement, bail records carry no reason.
+- Loop STOPPED at a tick boundary after 38 ticks (`.flume/stop` in place).
+  09-07: 16 entries shipped, 0 build reverts, three cascade audit rounds
+  before build. 0.0.18 cut and published; SDK lock resynced (cd466131).
+- Waiting on John: the forks above; flume-side items via flume-main
+  (worktreesDir placement, bail reasons, `baseSha` on gate contexts —
+  derives on flume's next run, then the chain's worktree-path read
+  retires).
