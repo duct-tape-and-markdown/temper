@@ -28,18 +28,16 @@ hard.
 
 ## Next session's one focus (09-22)
 
-- 0050–0053 landed 09-22 (0050 re-ruled: settings.json is a whole
-  projection; 0052 amended: unfiltered `degree` skips containment). Loop
-  relaunched 09-22. Watch plan route the two graph defects in order
-  (acyclicity scope first, then 0052's field filter).
+- 0050–0056 landed and derived 09-22; the acyclicity fix shipped
+  (4be7fae7). Flume 0.17, and the harness migration is ruled (runner spike
+  under way: a nextest verdict script resolves all 979 passing tests to
+  files; pending the 979-vs-~1,020 gap and a capped measurement).
 - **0.0.19: cut once** (John, 09-22) when the platform consumer's chain has
   shipped: SDK-MEMBER-DECLARES-INPUTS, SDK-REACHED-FROM-CONSTRUCTOR,
   LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED (and everything under them). The
   publish itself still takes John's word at the cut (`release` rule).
 - Still open with dependents: `(hook-member-identity)` (GH #32). Parked
   ruling: 0019's occupant (GH #45).
-- Ratify or drop: `docs/proposals/drift-severity-is-a-clause.md` (ruled
-  in principle 09-22), then `(declared-input)` and `(field-reach)`.
 
 ## Parked (pointers only)
 
