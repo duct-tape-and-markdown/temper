@@ -1,86 +1,5 @@
 [
   {
-    "tag": "SDK-PROSE-SPAN-CONSTRUCTOR",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "sdk/test/prose.test.ts",
-          "description": "The constructor's home: a computed string lands as a `Text` with no mentions and no includes, dedents like `` text`…` ``, and composes inside `blocks()` beside embedded member values."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/src/prose.ts",
-          "description": "`` text`…` `` (:205) is a tagged template whose interpolations are references by design, so a *computed* prose line has no constructor — authors hand-build `{ kind: \"text\", template, mentions: [], includes: [] }`, the internal `Text` shape (:143). Add the plain-prose constructor beside `file`/`text`/`include`/`blocks`, sharing the same dedent, and say in the module doc which of the two an author reaches for."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "`:18` re-exports `blocks, file, include, mentionOf, renderText, text` — the new constructor joins them (`sdk/test/root_exports.test.ts` holds the face mechanically, no hand-list to update)."
-        },
-        {
-          "path": "examples/base-harness/.temper/kinds.ts",
-          "description": "`:29` hand-rolls exactly this as a local `span(words: string): Text` factory, doc-commented \"which the `` text`…` `` tag cannot take\". Delete it for the real constructor — the example is the second observed consumer, and an example reaching into an SDK internal is the surface this entry closes."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A computed prose line has no SDK constructor — `` text`…` `` takes only a template, so two consumers hand-build the internal `Text` shape.",
-    "per": {
-      "path": "specs/model/authoring.md",
-      "section": "The SDK"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/prose.test.ts",
-        "asserts": "a computed string composes as prose with zero references and emits byte-identical to the authored words"
-      }
-    ],
-    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`), and `rg -n 'kind: \"text\"' examples/ sdk/test/` returns no hand-built `Text` literal outside `sdk/src/prose.ts`.",
-    "notes": "Inbox, observed at d9a34e39: second occurrence — an external consumer on 0.0.18 hand-built the same shape. The corpus already carries the intent (\"types, constructors, one pipe to the engine\"; \"a narrative span is prose\"), so no `authoring.md` line is owed first; the note raised that as a question, and the section answers it. Naming follows the existing hand-roll (`span`) unless the SDK's own vocabulary reads better. scoped at 61e9e78d"
-  },
-  {
-    "tag": "ADMITTED-EMBEDDED-KINDS-ONE-HOME",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/admissibility.rs",
-          "description": "`declared_embedded_kinds` (:25) spells the nesting rule — a path-less `templates` entry's kind, plus every layout region's `member_kind` — inline over every row. Promote the per-row half beside it as `pub fn admitted_embedded_kinds(row: &drift::KindFactRow) -> Vec<&str>` (declaration order, deduped) and let `declared_embedded_kinds` fold it into its `BTreeSet<String>`; the `path.is_none()` comment that explains why a file child is no part of the embedded set moves with the rule. `nested_member_admissibility` (:61) and compose.rs:1172 keep calling the set function unchanged."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`admitted_embedded_kinds` (:885) is the same rule spelled a second time, and its own doc already names `admissibility::declared_embedded_kinds` as the gate it mirrors — two homes for one predicate, so 0052's containment work and KIND-ROW-LEAF-SET-COLUMN would each have to land in both. Retire the local copy for the promoted one; its caller (:619) and `hosting_kinds`'s doc cite (:771) re-point. `hosting_kinds` (:781) stays its own function: it is the inverse question and deliberately reads path-BEARING templates too."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The rule for which embedded kinds a kind row admits is spelled twice — once in `admissibility`, once in `read`'s narration — so the next nesting column lands in both.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "tests/nested_member.rs",
-        "asserts": "the `nested-member.admissibility` orphan diagnostic still fires on exactly the rows it did — the folded set is the union the gate judged before"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "`explain kind` narrates the hosted-kinds strand in the same declaration order, off the promoted per-row reader"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed. Oracle: `rg -n 'template.path.is_none' src/` hits one function, and `rg -n 'fn admitted_embedded_kinds' src/` hits src/admissibility.rs alone.",
-    "notes": "Post-ship sweep of dd1d4311..HEAD. The copy predates the window (3dcc73f1); d935b088 opened read.rs and added a third reader of the same two columns (`hosting_kinds`) without unifying, which is what makes it this window's. Considered and rejected: a `KindFactRow` method in drift.rs — it is the row type's home but adds a third file and splits the rule from the gate that means it. Extraction only, no assertion moves. scoped at ea7625e3"
-  },
-  {
     "tag": "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY",
     "gate": {
       "kind": "open"
@@ -534,8 +453,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "KIND-ROW-LEAF-SET-COLUMN",
-        "SDK-PROSE-SPAN-CONSTRUCTOR"
+        "KIND-ROW-LEAF-SET-COLUMN"
       ]
     },
     "dependsOnForks": [],
