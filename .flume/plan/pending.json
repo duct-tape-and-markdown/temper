@@ -1,5 +1,290 @@
 [
   {
+    "tag": "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/gate.rs",
+          "description": "`:548-556` hoists `graph::resolved_edges` and hands the whole declared-field arc set to `graph::acyclic`. Feed acyclicity the import relation instead: the member→member `@import` edges `graph::classify_directives` already returns and `:387` drops on the floor (only `.findings` is read today), plus the lifted layout-prose `import` edges already folded into `mention_edges` at `:197` (`drift::import_edges_from_doc`). `resolved_edges` stays hoisted — `check`, `degree`, and `mention_reachable` keep reading it."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`acyclic` (:241-270): its input becomes the import relation, not `&[ResolvedEdge]` of declared fields. The doc's rationale (\"a circular import that loads nothing\") is false as written — Claude Code recurses imports to a four-hop cap (cite in notes), so the true positive is the silently truncated tail; `cycle_diagnostic`'s message follows. The in-module cases at :2320-2420 (`a_self_loop_fires_an_acyclic_error`, `a_multi_node_cycle_fires_an_acyclic_error`, `an_inadmissible_edge_is_skipped_by_acyclic`) rebuild over import-relation arcs."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "`a_cyclic_reference_graph_fails_the_run` (:305) pins a `routes_to` rule↔skill *field* cycle as a failure — invert it: the field cycle passes, the run is clean. `an_acyclic_reference_graph_passes` (:278) stands. Add the relation the spec does name: two members whose `@import` directives point at each other fire one `graph.acyclic` error."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "`gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (:410-460) calls `graph::acyclic(resolved_edges)` as one of the shared consumers of the hoisted walk. Re-point it: acyclic leaves that consumer set, and the once-per-invocation claim is re-pinned over `check`/`degree`/`mention_reachable`."
+        },
+        {
+          "path": "tests/directive_classing.rs",
+          "description": "The `@import` classing's integration home. Its edges stop being dropped at the gate, so the classing's verdict split is asserted here: an unbacked pointer still warns, a member↔member ring now reaches `graph.acyclic`."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "`graph::acyclic` ranges over every declared field edge; contract.md scopes acyclicity to the import relation — narrow its input, and let a field-edge cycle pass.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "well-formedness"
+    },
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a `routes_to` rule↔skill field cycle passes `check` clean; a member↔member `@import` ring fires exactly one `graph.acyclic` error naming the chain"
+      },
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "the resolved-edge walk is still computed exactly once per `gate()` invocation with acyclic off its consumer list"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle (the inbox repro): a corpus of two custom kinds whose edge fields point at each other — members `one` ↔ `two` — gives `temper check .` exit 0 with no `graph.*` finding, where it exits 1 today; a `CLAUDE.md` → rule → `CLAUDE.md` `@import` ring fires one `graph.acyclic` error.",
+    "notes": "Inbox, observed at d9a34e39, repro'd on 0.0.18. Human-ruled 09-22: lands before the consumer's entry-path fix; 0056 names it a prerequisite, and 0052's containment family would fail on a host↔embedded ring. External fact for the doc rewrite: \"Imported files can recursively import other files, with a maximum depth of four hops\" (code.claude.com/docs/en/memory, retrieved 2026-09-22) — the docs are silent on a ring, so the premise is a truncated tail, never \"loads nothing\". scoped at 61e9e78d"
+  },
+  {
+    "tag": "LOCK-ROW-FIXTURE-ONE-HOME(src)",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/test_support.rs",
+          "description": "Two more bases beside the `Features` one FEATURES-FIXTURE-ONE-HOME(src) lands: `pub(crate) fn kind_fact_row(name: &str) -> drift::KindFactRow` (name set, the other thirteen columns absent — `provider`/`governs_root`/`governs_glob`/`commitment`/`format`/`unit_shape`/`content`/`shape`/`collection_address`/`guidance`/`cite` None, `registration`/`templates` empty) and `pub(crate) fn clause_row(predicate: &str, severity: &str) -> drift::ClauseRow` (the two named columns set, the other twenty-one absent). The integration home already proves both shapes — `tests/common/mod.rs`'s `kind_facts` (:653) and `clause` (:709) — so this is the same builder in the home a src module can reach, not a new design."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "The widest copy: `spec_row()` (:1498) plus ten inline `KindFactRow` literals in the lift tests (:1544, :1595, :1623, :1650, :1683, :1709, :1724, :1775, :1808, :1832), each spelling all fourteen columns to vary one or two. Each becomes `KindFactRow { <the columns this case lifts>, ..test_support::kind_fact_row(\"spec\") }`; `spec_row` itself either forwards or retires."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "`kind_row(name)` (:718) is the base verbatim; five inline literals (:853, :871, :888, :908, :931) vary one collision column each; `clause_row(kind, label, severity)` (:688) spells all twenty-three `ClauseRow` columns to set three. All seven route through the two bases. This file is FEATURES-FIXTURE-ONE-HOME(src)'s too, which is why that entry is a named parent."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "`clause_row(severity)` (:1420) spells the twenty-three columns to set `label`/`predicate`/`severity`; five more inline literals (:1454, :1482, :1535, :1549, :1563) do the same for the lift-failure cases. Its signature differs from admissibility.rs's twin — same job, two homes, two shapes — and both collapse onto the one base. The file is LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW's, hence the second parent."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Two `KindFactRow` literals in the round-trip tests (:5672, :5697), each spelling the tail to vary the columns the write/read pair asserts on."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "One inline `crate::drift::KindFactRow` literal (:609) inside a `Declarations` fixture."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Five in-src test mods spell `KindFactRow`'s fourteen columns and `ClauseRow`'s twenty-three by hand — including one fixture name living in two homes with two shapes.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "every lift test still judges the exact row it built — the varied columns stay explicit over the base and no assertion moves"
+      },
+      {
+        "path": "src/compose.rs",
+        "asserts": "the default-contract lift and its three refusal cases keep their clause rows byte-equivalent through the shared base"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed. Oracle: `rg -n 'collection_address: None' src/` hits only src/test_support.rs, and neither `spec_row`/`kind_row` nor the two divergent `clause_row` builders survives as a per-module copy of the tail.",
+    "notes": "Post-ship sweep of c2415400..HEAD, the lock-row half of the same class — feb0c21f named it in its own commit body (\"its ClauseRow/KindFactRow fixtures repeat what compose.rs keeps\"). Filed as its own entry, not folded into the `Features` one: together they would be twelve files and ~50 sites. Behind (src) for src/test_support.rs and src/admissibility.rs, behind LOCAL-LAYOUT for src/compose.rs. scoped at dd1d4311"
+  },
+  {
+    "tag": "SDK-RESERVED-LEAF-REFUSAL-UNTESTED",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/test/refusals.test.ts",
+          "description": "0051's reserved-`prose`-leaf refusal ships tested on the read half only (`src/layout.rs`'s `LayoutError::ReservedLeaf`, pinned by `tests/layout_kind.rs::a_sub_heading_slugging_to_the_reserved_leaf_refuses_loud`); the compose half — `refuseReservedLeaf` (`sdk/src/kind.ts:772`, called from `embeddedMemberValue` at :745 over the value's own leaves and at :748 over each collection entry's) — has no test. Two cases in the file that owns declare-side refusals: a top-level `leaves: { prose: … }` and a collection entry's, each asserting the throw names the reserved key. No `src/` or `sdk/src/` change."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The SDK's reserved-`prose`-leaf refusal ships with no test — an untested throw is a refusal nothing holds in place.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A fix ships the test that would have caught it"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "asserts": "`embeddedMemberValue` throws naming `prose` for a top-level reserved leaf and for a collection entry's, and does not throw for any other leaf key"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` green, and both new cases fail when `refuseReservedLeaf`'s two call sites in `sdk/src/kind.ts` are commented out.",
+    "notes": "Drained from `.flume/refactor/build-reserved-leaf-sdk-refusal-untested.md` (observed at acf68f12, re-verified on disk this tick: the guard is live at sdk/src/kind.ts:745/:748/:772 and `sdk/test/refusals.test.ts` names neither). LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF's fence listed `sdk/src/kind.ts` with no SDK test path, so its own build could not land the case. scoped at 61e9e78d"
+  },
+  {
+    "tag": "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "`narrate_hosted_kinds` composes an English article ahead of a backticked kind name it cannot know: `:1072` \"Kinds it hosts in its own body — a `{name}` member admits these…\" and `:1099` \"…each owns its own unit under a `{name}` member's\". Every vowel-initial kind name reads \"a `intent` member\", and no choice of article is right for both. Rephrase both strands article-free (the sibling at `:697` already spells \"a member of `{name}`\"); sweep the rest of the narration for the same shape while the file is open."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "The `explain` proofs home, which asserts neither hosted-kinds strand today. Pin the fix where it bites: a vowel-initial hosting kind narrates without an article before its name."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "`explain kind` renders \"a `intent` member\" — an English article composed ahead of a kind name it cannot know, wrong for every vowel-initial kind.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "Read verbs"
+    },
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "a vowel-initial kind that hosts embedded kinds and file children narrates both strands with no article before its backticked name"
+      }
+    ],
+    "acceptance": "`cargo test` green. Oracle: no English article precedes a `{name}` interpolation anywhere in `src/read.rs` — the two hosted-kinds strands are the whole population.",
+    "notes": "Inbox, observed at 4ce5ee72 (cascade-integrations' probe of d935b088), re-verified this tick: `git log 4ce5ee72..HEAD -- src/read.rs` moved neither line. The note calls the surface the address-form strand; on disk `narrate_address_form` (:856) composes no article and `narrate_hosted_kinds` (:1062) does — the two sites above are the whole gap. Cosmetic, filed rather than ridden because nothing tracks a ride. scoped at 61e9e78d"
+  },
+  {
+    "tag": "SDK-PROSE-SPAN-CONSTRUCTOR",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/test/prose.test.ts",
+          "description": "The constructor's home: a computed string lands as a `Text` with no mentions and no includes, dedents like `` text`…` ``, and composes inside `blocks()` beside embedded member values."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "`` text`…` `` (:205) is a tagged template whose interpolations are references by design, so a *computed* prose line has no constructor — authors hand-build `{ kind: \"text\", template, mentions: [], includes: [] }`, the internal `Text` shape (:143). Add the plain-prose constructor beside `file`/`text`/`include`/`blocks`, sharing the same dedent, and say in the module doc which of the two an author reaches for."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "`:18` re-exports `blocks, file, include, mentionOf, renderText, text` — the new constructor joins them (`sdk/test/root_exports.test.ts` holds the face mechanically, no hand-list to update)."
+        },
+        {
+          "path": "examples/base-harness/.temper/kinds.ts",
+          "description": "`:29` hand-rolls exactly this as a local `span(words: string): Text` factory, doc-commented \"which the `` text`…` `` tag cannot take\". Delete it for the real constructor — the example is the second observed consumer, and an example reaching into an SDK internal is the surface this entry closes."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A computed prose line has no SDK constructor — `` text`…` `` takes only a template, so two consumers hand-build the internal `Text` shape.",
+    "per": {
+      "path": "specs/model/authoring.md",
+      "section": "The SDK"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/prose.test.ts",
+        "asserts": "a computed string composes as prose with zero references and emits byte-identical to the authored words"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`), and `rg -n 'kind: \"text\"' examples/ sdk/test/` returns no hand-built `Text` literal outside `sdk/src/prose.ts`.",
+    "notes": "Inbox, observed at d9a34e39: second occurrence — an external consumer on 0.0.18 hand-built the same shape. The corpus already carries the intent (\"types, constructors, one pipe to the engine\"; \"a narrative span is prose\"), so no `authoring.md` line is owed first; the note raised that as a question, and the section answers it. Naming follows the existing hand-roll (`span`) unless the SDK's own vocabulary reads better. scoped at 61e9e78d"
+  },
+  {
+    "tag": "DEGREE-FIELD-SET-FILTER",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION",
+        "LOCK-ROW-FIXTURE-ONE-HOME(src)"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "`Predicate::Degree` (:328) carries `incoming`/`outgoing` only — add the field-set filter beside them. An unfiltered bound keeps today's meaning (every resolved edge at the member); `EdgeBound` is untouched."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Admissibility for `Degree` (:461) gains the vacuity case a filter can reach — a filter naming no field constrains nothing, exactly as a directionless bound does; the `Predicate::Degree { .. }` arms at :266/:321/:368/:646/:1223 ride the widened variant and the unit cases at :1736-1790 follow."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`degree` (:307-420) drops the field before counting: `resolved_arcs` collapses `(from, to)` across fields, so two fields between one pair count once. Filter per clause over `ResolvedEdge.field` (already carried) and dedupe arcs **per filtered set**, so an `a`-edge and a `b`-edge to one target count two. Mention/import edges keep joining the same adjacency and answer a filter naming their field."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`DegreeBoundRow` (:3942) gains the field set; `degree_bound_table` (:5016) and `degree_bound_from_table` (:5027) round-trip it, absent when unfiltered so no committed lock row moves."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "`:760` constructs `Predicate::Degree { incoming, outgoing }` for the requirement roster's shipped clause — a construction site the widened variant reaches; it stays unfiltered."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "`degree()` (:253) takes the field set into `args`, so the clause the lock encodes losslessly is the one the author wrote. Strict `tsc` against 0.0.18 rejects `degree({ incoming: { max: 1 }, field: \"writes\" })` with TS2353 today."
+        },
+        {
+          "path": "sdk/src/generated/DegreeBoundRow.ts",
+          "description": "Generated, never hand-edited: re-blessed with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` once the Rust row moves."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "The `degree` cases gain the two the filter owns: a bound filtered to one field ignores another field's arcs, and one member reaching one target through two fields counts two under a filter naming both."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "The degree row's declaration round-trip: a filtered bound survives write→read byte-identically, an unfiltered one emits no filter key."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "The constructor's args shape — the filtered spelling type-checks and lands in the clause's `args`."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "`contract.md`'s by-incidence selector filters by a field set; `Predicate::Degree` bounds direction only, so every field counts and two fields to one target count once.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "selection"
+    },
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a `degree` bound filtered to one field counts only that field's arcs, and arc dedupe is per filtered set — two fields to one target count two"
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "asserts": "`degree()` accepts the field set and carries it in the clause's args"
+      }
+    ],
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `pnpm --dir sdk test` green. Oracle (the inbox repro): a `channel` kind bounding incoming degree to [0,1] filtered to `writes` counts the two `path.writes` arcs and not the `effect.clobbers` one, where all three count today.",
+    "notes": "0052's Consequences name this entry verbatim (\"`Predicate::Degree` gains a field-set filter\"); the inbox note observed at d9a34e39 is its second driver, reproduced on 0.0.18. Containment's own half — an unfiltered bound excludes `contains:<kind>` — rides 0052's containment-family entry, which the spec-delta job has not derived yet. Serialized behind the two entries sharing `src/graph.rs` and `src/drift.rs`. scoped at 61e9e78d"
+  },
+  {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
     "gate": {
       "kind": "deferred",
@@ -24,6 +309,70 @@
     "tests": [],
     "acceptance": "A kind declaring `handle` lets a reference render hook spell a member of that kind without hand-rolling the branch on target.kind — provable once a real render hook wants one.",
     "notes": "observed at ad10e8cb (cascade, idea). Compatible with the closed-set rule as a fifth engine-derived fact read off the target kind's declaration; the raw note itself calls this lower priority and not a defect. scoped at e1b26728"
+  },
+  {
+    "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
+    "gate": {
+      "kind": "deferred",
+      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) — no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Anticipated: a `KindFactRow` column (or sibling row) carrying per-field guidance/cite, following the `to_table`/`from_table` pattern GUIDANCE-KIND-SDK-LOCK-FACT establishes for the kind-level pair."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "Anticipated: `emit()`'s per-property `description` (156-172) folds field-declaration guidance in alongside a clause's, the same 'join into one description' discipline `push_description` (316-329) already runs for several guided clauses on one field."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Anticipated: field-level narration extends `narrate_governing_contract` (374-402) or a sibling to print a field's declared guidance."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "0045 also frees guidance onto a field declaration, no predicate — deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [],
+    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
+    "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
+  },
+  {
+    "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
+    "gate": {
+      "kind": "deferred",
+      "reason": "project_modeline (src/install.rs:1922) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists — a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism — deferred out of the YAML-frontmatter widening.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "tests": [],
+    "acceptance": "A JSON- or TOML-document kind (settings-local, plugin-manifest, marketplace, dial, or a declared kind sharing one of those formats) gets keystroke schema validation wired by `install`, once a modeline-equivalent mechanism is designed for its format.",
+    "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. scoped at 162e1cce."
   },
   {
     "tag": "TAP-ISO8601-DATETIME-CRATE",
@@ -153,123 +502,5 @@
     ],
     "acceptance": "temper check/emit run clean (or with real, human-verified findings) over 2-3 vendored external harness .claude/ trees, snapshot-tested in tests/gauntlet.rs, so the July external-yield probe is a standing gate rather than a one-time manual run.",
     "notes": "observed at e77766c5, cross-cutting note — every defect in the 09-03 batch came from a foreign harness, none from the self-mirror; docs/ledger.md's 07-22 probe (9 real harnesses) is the candidate pool. Human picks 2-3 (licensing); test wiring is build's once chosen. scoped at 89d96cca."
-  },
-  {
-    "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
-    "gate": {
-      "kind": "deferred",
-      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) — no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Anticipated: a `KindFactRow` column (or sibling row) carrying per-field guidance/cite, following the `to_table`/`from_table` pattern GUIDANCE-KIND-SDK-LOCK-FACT establishes for the kind-level pair."
-        },
-        {
-          "path": "src/schema.rs",
-          "description": "Anticipated: `emit()`'s per-property `description` (156-172) folds field-declaration guidance in alongside a clause's, the same 'join into one description' discipline `push_description` (316-329) already runs for several guided clauses on one field."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Anticipated: field-level narration extends `narrate_governing_contract` (374-402) or a sibling to print a field's declared guidance."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "0045 also frees guidance onto a field declaration, no predicate — deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [],
-    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
-    "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
-  },
-  {
-    "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
-    "gate": {
-      "kind": "deferred",
-      "reason": "project_modeline (src/install.rs:1922) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists — a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism — deferred out of the YAML-frontmatter widening.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "tests": [],
-    "acceptance": "A JSON- or TOML-document kind (settings-local, plugin-manifest, marketplace, dial, or a declared kind sharing one of those formats) gets keystroke schema validation wired by `install`, once a modeline-equivalent mechanism is designed for its format.",
-    "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. scoped at 162e1cce."
-  },
-  {
-    "tag": "LOCK-ROW-FIXTURE-ONE-HOME(src)",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/test_support.rs",
-          "description": "Two more bases beside the `Features` one FEATURES-FIXTURE-ONE-HOME(src) lands: `pub(crate) fn kind_fact_row(name: &str) -> drift::KindFactRow` (name set, the other thirteen columns absent — `provider`/`governs_root`/`governs_glob`/`commitment`/`format`/`unit_shape`/`content`/`shape`/`collection_address`/`guidance`/`cite` None, `registration`/`templates` empty) and `pub(crate) fn clause_row(predicate: &str, severity: &str) -> drift::ClauseRow` (the two named columns set, the other twenty-one absent). The integration home already proves both shapes — `tests/common/mod.rs`'s `kind_facts` (:653) and `clause` (:709) — so this is the same builder in the home a src module can reach, not a new design."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "The widest copy: `spec_row()` (:1498) plus ten inline `KindFactRow` literals in the lift tests (:1544, :1595, :1623, :1650, :1683, :1709, :1724, :1775, :1808, :1832), each spelling all fourteen columns to vary one or two. Each becomes `KindFactRow { <the columns this case lifts>, ..test_support::kind_fact_row(\"spec\") }`; `spec_row` itself either forwards or retires."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "`kind_row(name)` (:718) is the base verbatim; five inline literals (:853, :871, :888, :908, :931) vary one collision column each; `clause_row(kind, label, severity)` (:688) spells all twenty-three `ClauseRow` columns to set three. All seven route through the two bases. This file is FEATURES-FIXTURE-ONE-HOME(src)'s too, which is why that entry is a named parent."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "`clause_row(severity)` (:1420) spells the twenty-three columns to set `label`/`predicate`/`severity`; five more inline literals (:1454, :1482, :1535, :1549, :1563) do the same for the lift-failure cases. Its signature differs from admissibility.rs's twin — same job, two homes, two shapes — and both collapse onto the one base. The file is LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW's, hence the second parent."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Two `KindFactRow` literals in the round-trip tests (:5672, :5697), each spelling the tail to vary the columns the write/read pair asserts on."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "One inline `crate::drift::KindFactRow` literal (:609) inside a `Declarations` fixture."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Five in-src test mods spell `KindFactRow`'s fourteen columns and `ClauseRow`'s twenty-three by hand — including one fixture name living in two homes with two shapes.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "every lift test still judges the exact row it built — the varied columns stay explicit over the base and no assertion moves"
-      },
-      {
-        "path": "src/compose.rs",
-        "asserts": "the default-contract lift and its three refusal cases keep their clause rows byte-equivalent through the shared base"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed. Oracle: `rg -n 'collection_address: None' src/` hits only src/test_support.rs, and neither `spec_row`/`kind_row` nor the two divergent `clause_row` builders survives as a per-module copy of the tail.",
-    "notes": "Post-ship sweep of c2415400..HEAD, the lock-row half of the same class — feb0c21f named it in its own commit body (\"its ClauseRow/KindFactRow fixtures repeat what compose.rs keeps\"). Filed as its own entry, not folded into the `Features` one: together they would be twelve files and ~50 sites. Behind (src) for src/test_support.rs and src/admissibility.rs, behind LOCAL-LAYOUT for src/compose.rs. scoped at dd1d4311"
   }
 ]
