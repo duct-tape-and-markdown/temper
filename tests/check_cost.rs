@@ -409,10 +409,15 @@ unit_shape = "file"
 
 #[test]
 fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
-    // Verify that the edge-resolution walk is computed exactly once per gate() invocation,
-    // shared across check, acyclic, degree, and mention_reachable. The cost doctrine
-    // (engineering.md, "Cost scale is hoisted, and pinned by count") requires whole-input
-    // work computes once per run and is shared, never recomputed per call site.
+    // Verify that the edge-resolution walk is computed exactly once per gate() invocation
+    // and shared across its consumers. The cost doctrine (engineering.md, "Cost scale is
+    // hoisted, and pinned by count") requires whole-input work computes once per run and
+    // is shared, never recomputed per call site.
+    //
+    // `acyclic` is off that consumer list: `contract.md` ("well-formedness") scopes it to
+    // the import relation, which is not this walk. `check` is the walk's own thin
+    // wrapper (it reads the dangling half of the same computation), so the consumers of
+    // the *pre-computed* slice are `degree` and `mention_reachable`.
     use std::collections::BTreeMap;
     use temper::compose;
     use temper::extract::Features;
@@ -450,8 +455,20 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
     let resolved_result = graph::resolved_edges(&edges, &by_kind);
     let resolved_edges = &resolved_result.resolved;
 
-    // Use the pre-computed resolved edges in each consumer.
-    let _ = graph::acyclic(resolved_edges);
+    // Use the pre-computed resolved edges in each consumer: neither re-walks.
+    let selections: [temper::engine::Selection; 0] = [];
+    let _ = graph::degree(&selections, resolved_edges, &[]);
+    let _ = graph::mention_reachable(
+        &selections,
+        resolved_edges,
+        &[],
+        &by_kind,
+        &graph::embedded_hosts_by_key(&by_kind),
+    );
+
+    // The narrowing itself, pinned at the cost seam: `acyclic` no longer takes this
+    // slice, so its input is the import relation — empty here, since no member imports.
+    assert!(graph::acyclic(&[]).is_empty());
 
     let count_after = graph::resolved_edges_count();
     let resolves_calls = count_after - count_before;
@@ -459,7 +476,7 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
     // The cost doctrine: the walk is computed exactly once per gate invocation.
     assert_eq!(
         resolves_calls, 1,
-        "gate() must compute resolved_edges exactly once, shared across consumers: {resolves_calls} calls (before {count_before}, after {count_after})",
+        "gate() must compute resolved_edges exactly once, shared across degree and mention_reachable: {resolves_calls} calls (before {count_before}, after {count_after})",
     );
 }
 

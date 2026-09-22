@@ -13,11 +13,19 @@
 //! resolve as authored. This drives the library classer over constructed members, the
 //! way `tests/graph.rs`'s `reachability` module drives `graph::reachable` — the check
 //! wiring (`src/main.rs`) reuses this exact function over the imported corpus.
+//!
+//! The classing's edges are no longer dropped at the gate: they are the **import
+//! relation** `graph::acyclic` is scoped to (`specs/model/contract.md`,
+//! "well-formedness"), so the verdict split is asserted across the whole process
+//! boundary at the bottom of this file — an unbacked pointer still warns without
+//! failing the run, a member↔member ring reaches `graph.acyclic` and does.
 
 use std::path::PathBuf;
 
 use temper::check::Severity;
 use temper::graph::{DirectiveMember, classify_directives};
+
+mod common;
 
 /// A member carrying a kind, an id, the provenance `source_path` the classing joins on,
 /// and its `at-import` target occurrences in document order.
@@ -243,5 +251,80 @@ fn a_backing_repo_file_is_found_with_absolute_harness_root() {
         classing.findings.is_empty(),
         "an absolute-root backed repo-file import is no finding, got: {:?}",
         classing.findings
+    );
+}
+
+/// Write a repo-root `CLAUDE.md` whose body carries `import_line` on its own line — a
+/// `memory` member, the one built-in kind composing the `at-import` directive
+/// primitive.
+fn write_memory(root: &std::path::Path, rel: &str, import_line: &str) {
+    let path = root.join(rel);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).expect("create memory dir");
+    }
+    std::fs::write(&path, format!("# Memory\n\nGuidance.\n\n{import_line}\n"))
+        .expect("write memory member");
+}
+
+#[test]
+fn an_unbacked_pointer_warns_without_failing_the_run() {
+    // The FLOOR-tier verdict is unchanged by the gate now reading the classing's edges:
+    // an unbacked `@import` is a pure fact about the importing member, extended as a
+    // non-gating advisory (WEDGE ruling 2026-07-03). It warns; the run still exits zero.
+    let root = common::tmpdir("directive-unbacked-warns");
+    common::write_skill(&root, "standards", &common::clean_skill("standards"));
+    write_memory(&root, "CLAUDE.md", "@./ghost.md");
+
+    let run = common::check_in(&root, &["."], Some("github"));
+    let findings = run.findings();
+    assert!(
+        run.ok,
+        "an unbacked pointer is advisory ⇒ zero, got:\n{}",
+        run.output
+    );
+    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    assert_eq!(
+        unbacked.len(),
+        1,
+        "exactly one unbacked-pointer warning, got: {findings:#?}"
+    );
+    assert!(
+        unbacked[0].starts_with("::warning"),
+        "the unbacked pointer is a warning, not an error, got: {}",
+        unbacked[0]
+    );
+}
+
+#[test]
+fn a_member_to_member_ring_reaches_the_acyclicity_gate() {
+    // The other half of the split: every occurrence in the ring resolves to a member, so
+    // no unbacked-pointer finding fires at all — the edges the classing yields carry the
+    // verdict instead, as the import relation `graph::acyclic` is founded on.
+    let root = common::tmpdir("directive-ring-gates");
+    common::write_skill(&root, "standards", &common::clean_skill("standards"));
+    write_memory(&root, "CLAUDE.md", "@docs/CLAUDE.md");
+    write_memory(&root, "docs/CLAUDE.md", "@../CLAUDE.md");
+
+    let run = common::check_in(&root, &["."], Some("github"));
+    let findings = run.findings();
+    assert!(
+        common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        "both imports resolve to members, so nothing is unbacked, got: {findings:#?}"
+    );
+    let acyclic = common::findings_for(&findings, "graph.acyclic");
+    assert_eq!(
+        acyclic.len(),
+        1,
+        "the ring fires exactly one acyclicity finding, got: {findings:#?}"
+    );
+    assert!(
+        acyclic[0].starts_with("::error"),
+        "acyclicity is well-formedness — an error, never a dialable advisory, got: {}",
+        acyclic[0]
+    );
+    assert!(
+        !run.ok,
+        "the ring fails the run ⇒ non-zero, got:\n{}",
+        run.output
     );
 }

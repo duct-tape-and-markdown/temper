@@ -6,11 +6,16 @@
 //! across every kind; edges are the [`Edge`] relationships declared on the surface.
 //! Five checks range over it: [`check`] (route resolution — a reference resolves to a
 //! real target), [`admissibility`] (each edge names its field and a modeled target
-//! kind, checked before the graph is trusted), [`acyclic`] (no circular import),
-//! [`degree`] (a satisfier node's in/out count lands in a requirement's bound), and
-//! [`reachable`]. The first four range over one resolved-edge enumeration ([`resolved_edges`]),
-//! computed once per `gate()` invocation and shared with `crate::read`'s narration
-//! so gate and read never disagree (READ-EDGE-UNIFY).
+//! kind, checked before the graph is trusted), [`acyclic`] (the **import relation** is
+//! well-founded), [`degree`] (a satisfier node's in/out count lands in a requirement's
+//! bound), and [`reachable`]. All but [`acyclic`] range over one resolved-edge
+//! enumeration ([`resolved_edges`]), computed once per `gate()` invocation and shared
+//! with `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
+//!
+//! [`acyclic`] is the one check scoped to a *sub*-relation: `contract.md`
+//! ("well-formedness") founds it on the imports the target format itself executes, so
+//! it takes the [`classify_directives`] arcs and the lock's lifted layout imports —
+//! never the declared reference fields, where a mutual pointer is ordinary.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -31,7 +36,7 @@ thread_local! {
     /// Per-thread count of resolved-edge computations. Incremented each time the
     /// edge-resolution walk is computed via [`resolved_edges`], pinning that
     /// whole-input work hoists per `gate()` invocation (computed once and shared
-    /// across check, acyclic, degree, and mention_reachable) rather than recomputing it
+    /// across check, degree, and mention_reachable) rather than recomputing it
     /// per check.
     static RESOLVED_EDGES_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
@@ -116,8 +121,7 @@ pub struct ResolvedEdge {
 /// The outcome of computing the resolved edges over declared references: the arcs
 /// that form real member→member relationships and the dangling-route diagnostics
 /// for references that resolve to no artifact. Computed once per `gate()` invocation
-/// to avoid recomputation across [`check`], [`acyclic`], [`degree`], and
-/// [`mention_reachable`].
+/// to avoid recomputation across [`check`], [`degree`], and [`mention_reachable`].
 #[derive(Clone)]
 pub struct ResolvedEdgesResult {
     /// The **resolved** references — each an arc from one member to another over a
@@ -238,21 +242,31 @@ fn coincident_slots(edges: &[Edge]) -> BTreeMap<(&str, &str), Vec<&Edge>> {
     slots
 }
 
-/// Check **acyclicity** over the harness reference graph: build the artifact-level
-/// graph from **resolved** arcs and return an error-severity [`Diagnostic`] naming
-/// a cycle if one exists. A cycle is a circular import that loads nothing — a true
-/// positive.
+/// Check **acyclicity** over the **import relation** — the edges the target format
+/// itself executes — and return an error-severity [`Diagnostic`] naming the cycle if
+/// one exists. `contract.md` ("well-formedness") scopes the check there and nowhere
+/// else: a declared reference *field* naming a member that names it back is an
+/// ordinary mutual reference, judged by whatever clauses range over it, never by this.
 ///
-/// Takes a pre-computed slice of resolved arcs (from [`ResolvedEdgesResult::resolved`])
-/// computed once per `gate()` invocation to avoid recomputation across multiple checks.
-/// Inadmissible edges and dangling references don't enter this slice, so neither forges
-/// nor masks a cycle (the dangling finding belongs to [`check`]). Nodes are keyed
-/// `(kind, id)`. At most one finding — a cycle is fatal, and naming one closed chain
-/// suffices; the chain is canonicalized (rotated to its least node) so the finding is
-/// stable regardless of the traversal's entry node.
+/// The true positive is a **silently truncated tail**, not a load that never happens:
+/// imports recurse to "a maximum depth of four hops"
+/// (code.claude.com/docs/en/memory, retrieved 2026-09-22 — [`MAX_IMPORT_HOPS`]), and
+/// the format documents no ring behaviour, so a ring loads its first hops and drops
+/// every one past the cap. What the member ends up carrying stops being a function of
+/// what it declares, which is the sense in which evaluation is ill-defined — and why
+/// this is well-formedness rather than a dialable clause.
+///
+/// Takes the already-resolved import arcs: the member→member `@import` occurrences
+/// [`classify_directives`] observed, plus the layout-prose imports the lock carries
+/// path-resolved from emit (`crate::drift::import_edges_from_doc`). An unbacked
+/// pointer yields no arc, so it neither forges nor masks a ring — its own finding
+/// belongs to the classing. Nodes are keyed `(kind, id)`. At most one finding — a
+/// cycle is fatal, and naming one closed chain suffices; the chain is canonicalized
+/// (rotated to its least node) so the finding is stable regardless of the traversal's
+/// entry node.
 #[must_use]
-pub fn acyclic(resolved: &[ResolvedEdge]) -> Vec<Diagnostic> {
-    let adjacency = resolved_arcs(resolved);
+pub fn acyclic(imports: &[ResolvedEdge]) -> Vec<Diagnostic> {
+    let adjacency = resolved_arcs(imports);
 
     // Three-color DFS: a back edge to a node still on the current path (`Gray`) closes
     // a cycle. Roots and neighbours iterate in sorted order (BTreeMap/BTreeSet), so the
@@ -294,7 +308,7 @@ fn any_clause_of(selections: &[Selection], matches: impl Fn(&Predicate) -> bool)
 /// pre-computed slice of resolved arcs (from [`ResolvedEdgesResult::resolved`])
 /// computed once per `gate()` invocation to avoid recomputation.
 ///
-/// Unlike route resolution and `acyclic`, `degree` is **opt-in** — selections declaring
+/// Unlike route resolution and [`acyclic`], `degree` is **opt-in** — selections declaring
 /// no `degree` clause do no graph work. A node is `(kind, id)`, so a selection whose
 /// members span kinds keys each by its *own* label. Selections, their clauses, and their
 /// members all arrive in the caller's order, which is stable across runs.
@@ -1302,12 +1316,12 @@ fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
 
 /// Enumerate every **resolved** reference edge and the **dangling** routes that
 /// resolve to no artifact: the single arc-resolution pass computed once per `gate()`
-/// invocation and shared across [`check`], [`acyclic`], [`degree`], and
-/// [`mention_reachable`], avoiding recomputation. For each admissible edge, each
+/// invocation and shared across [`check`], [`degree`], and [`mention_reachable`],
+/// avoiding recomputation. For each admissible edge, each
 /// source of its `from` kind, and each named target, yields either a [`ResolvedEdge`]
 /// (when the target resolves to a real artifact of its `to` kind) or a dangling
 /// diagnostic (when it resolves to nothing). The resolved half feeds [`resolved_arcs`]
-/// into adjacency for [`acyclic`]/[`degree`] and `crate::read` filters per node so
+/// into adjacency for [`degree`] and `crate::read` filters per node so
 /// gate and read narrate the same edges (READ-EDGE-UNIFY). Sources and targets iterate
 /// in name-sorted order for a stable enumeration; a target named twice yields two
 /// edges, deduped into one arc by [`resolved_arcs`].
@@ -1366,11 +1380,12 @@ pub fn resolved_edges(
     }
 }
 
-/// Build the artifact-level directed graph over **resolved** arcs — the shared
-/// foundation [`acyclic`] and [`degree`] range over — by folding pre-computed resolved
-/// arcs into `(kind, id)`-keyed adjacency. Arcs dedupe in the [`BTreeSet`], so a target
-/// named twice is one arc. Deriving it from the same [`resolved_edges`] the read family
-/// consumes keeps the gate's checks and `temper why` in lockstep.
+/// Build the artifact-level directed graph over **resolved** arcs — the one adjacency
+/// builder [`degree`] runs over the declared-field arcs and [`acyclic`] over the import
+/// arcs — by folding pre-computed resolved arcs into `(kind, id)`-keyed adjacency. Arcs
+/// dedupe in the [`BTreeSet`], so a target named twice is one arc. Deriving it from the
+/// same [`resolved_edges`] the read family consumes keeps the gate's checks and
+/// `temper why` in lockstep.
 fn resolved_arcs(resolved: &[ResolvedEdge]) -> BTreeMap<Node, BTreeSet<Node>> {
     let mut adjacency: BTreeMap<Node, BTreeSet<Node>> = BTreeMap::new();
     for ResolvedEdge { from, to, .. } in resolved {
@@ -1657,8 +1672,9 @@ fn canonical_cycle(cycle: &[Node]) -> Vec<Node> {
     rotated
 }
 
-/// The finding for a cyclic reference graph — naming the closed chain of `<kind>
-/// \`<id>\`` nodes so the author can see exactly which references form the circle.
+/// The finding for a cyclic import relation — naming the closed chain of `<kind>
+/// \`<id>\`` nodes so the author can see exactly which imports form the circle, and the
+/// truncation at the recursion cap that makes the ring a true positive.
 fn cycle_diagnostic(cycle: &[Node]) -> Diagnostic {
     let chain = cycle
         .iter()
@@ -1671,7 +1687,11 @@ fn cycle_diagnostic(cycle: &[Node]) -> Diagnostic {
     Diagnostic::error(
         GRAPH_ACYCLIC_RULE,
         artifact,
-        format!("the harness reference graph contains a cycle: {chain}"),
+        format!(
+            "the import relation contains a cycle: {chain} — imports recurse to a \
+             maximum depth of {MAX_IMPORT_HOPS} hops, so the ring's tail is silently \
+             dropped"
+        ),
     )
 }
 
@@ -2307,7 +2327,7 @@ mod tests {
     }
 
     /// A `routes_to` edge from `skill` back to `rule` — the return arc that closes a
-    /// `rule → skill → rule` cycle.
+    /// `rule → skill → rule` field cycle.
     fn skill_to_rule_edge() -> Edge {
         Edge {
             field: "routes_to".to_string(),
@@ -2316,109 +2336,133 @@ mod tests {
         }
     }
 
+    /// A member of the `memory` kind at `source_path`, importing each of `targets` —
+    /// the shape [`classify_directives`] classes into the import relation [`acyclic`]
+    /// ranges over.
+    fn importer(id: &str, source_path: &str, targets: &[&str]) -> DirectiveMember {
+        DirectiveMember {
+            kind: "memory".to_string(),
+            id: id.to_string(),
+            source_path: PathBuf::from(source_path),
+            directives: targets.iter().map(|t| (*t).to_string()).collect(),
+        }
+    }
+
+    /// The repo file-set the classing joins the backed class against.
+    fn backing(files: &[&str]) -> Vec<String> {
+        files.iter().map(|f| (*f).to_string()).collect()
+    }
+
     #[test]
-    fn an_acyclic_reference_graph_is_clean() {
-        // `rule style → skill standards`, with no return arc — a DAG, so `acyclic`
-        // has nothing to report.
-        let edges = [routes_to_edge()];
-        let rules = [node("style", Some("standards"))];
-        let skills = [node("standards", None)];
-        let by_kind: BTreeMap<&str, &[Features]> =
-            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
-        assert!(acyclic(&resolved).is_empty());
+    fn an_acyclic_import_relation_is_clean() {
+        // `memory root` imports `memory shared`, which imports nothing back — a DAG, so
+        // `acyclic` has nothing to report.
+        let members = [
+            importer("root", "CLAUDE.md", &["./shared.md"]),
+            importer("shared", "shared.md", &[]),
+        ];
+        let imports = classify_directives(&members, &backing(&["CLAUDE.md", "shared.md"])).edges;
+        assert_eq!(imports.len(), 1);
+        assert!(acyclic(&imports).is_empty());
     }
 
     #[test]
     fn a_self_loop_fires_an_acyclic_error() {
-        // A `rule → rule` edge whose source routes to itself: the shortest cycle. It
-        // fires an error naming the artifact under the `graph.acyclic` rule.
-        let edges = [Edge {
-            field: "routes_to".to_string(),
-            from: "rule".to_string(),
-            to: vec!["rule".to_string()],
-        }];
-        let rules = [node("style", Some("style"))];
-        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
-        let diags = acyclic(&resolved);
+        // A member importing its own file: the shortest ring. It fires an error naming
+        // the artifact under the `graph.acyclic` rule.
+        let members = [importer("root", "CLAUDE.md", &["./CLAUDE.md"])];
+        let imports = classify_directives(&members, &backing(&["CLAUDE.md"])).edges;
+        let diags = acyclic(&imports);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
-        assert_eq!(diags[0].artifact, "style");
+        assert_eq!(diags[0].artifact, "root");
         assert!(diags[0].message.contains("cycle"));
-        assert!(diags[0].message.contains("style"));
+        assert!(diags[0].message.contains("root"));
     }
 
     #[test]
     fn a_multi_node_cycle_fires_an_acyclic_error() {
-        // `rule style → skill standards → rule style`: two edges close a circle across
-        // two kinds. One finding naming the whole chain.
+        // `root → shared → root`: two imports close a circle. One finding naming the
+        // whole chain, and the truncation that makes the ring a true positive.
+        let members = [
+            importer("root", "CLAUDE.md", &["./shared.md"]),
+            importer("shared", "shared.md", &["./CLAUDE.md"]),
+        ];
+        let imports = classify_directives(&members, &backing(&["CLAUDE.md", "shared.md"])).edges;
+        let diags = acyclic(&imports);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
+        assert!(diags[0].message.contains("cycle"));
+        assert!(diags[0].message.contains("root"));
+        assert!(diags[0].message.contains("shared"));
+        assert!(
+            diags[0].message.contains(&MAX_IMPORT_HOPS.to_string()),
+            "the finding states the recursion cap the ring truncates at, got: {}",
+            diags[0].message
+        );
+    }
+
+    #[test]
+    fn an_unbacked_pointer_does_not_forge_a_cycle() {
+        // `root` imports `shared` (a member) and `ghost` (nothing). The unbacked pointer
+        // yields no arc, and the resolving import is acyclic — clean. (The classing owns
+        // the `ghost` finding, not `acyclic`.)
+        let members = [
+            importer("root", "CLAUDE.md", &["./shared.md", "./ghost.md"]),
+            importer("shared", "shared.md", &[]),
+        ];
+        let classing = classify_directives(&members, &backing(&["CLAUDE.md", "shared.md"]));
+        assert_eq!(classing.findings.len(), 1);
+        assert!(acyclic(&classing.edges).is_empty());
+    }
+
+    #[test]
+    fn an_unbacked_pointer_does_not_mask_a_real_cycle() {
+        // `root` imports `shared` (resolves) and `ghost` (unbacked), and `shared`
+        // imports `root` back — a real ring. The dead pointer must not suppress it.
+        let members = [
+            importer("root", "CLAUDE.md", &["./shared.md", "./ghost.md"]),
+            importer("shared", "shared.md", &["./CLAUDE.md"]),
+        ];
+        let classing = classify_directives(&members, &backing(&["CLAUDE.md", "shared.md"]));
+        let diags = acyclic(&classing.edges);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
+        assert!(diags[0].message.contains("root"));
+        assert!(diags[0].message.contains("shared"));
+    }
+
+    #[test]
+    fn a_declared_field_cycle_is_outside_the_import_relation() {
+        // The narrowing itself: `rule style → skill standards → rule style` over the
+        // `routes_to` *field* resolves to a real pair of arcs — and neither is an
+        // import, so the relation `acyclic` ranges over is empty and the ring passes.
+        // A field edge carries no obligation of its own (`contract.md`, "edge").
         let edges = [routes_to_edge(), skill_to_rule_edge()];
         let rules = [node("style", Some("standards"))];
         let skills = [node("standards", Some("style"))];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        let diags = acyclic(&resolved);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
-        assert!(diags[0].message.contains("cycle"));
-        assert!(diags[0].message.contains("style"));
-        assert!(diags[0].message.contains("standards"));
-    }
+        assert_eq!(resolved.len(), 2, "both field routes resolve");
 
-    #[test]
-    fn a_dangling_reference_does_not_forge_a_cycle() {
-        // `rule style` routes to two skills: `standards` resolves, `absent` dangles.
-        // The dangling arc loads nothing, and the resolving arc is acyclic — clean.
-        // (Route resolution owns the dangling `absent` finding, not `acyclic`.)
-        let mut style = node("style", None);
-        style
-            .fields
-            .insert("routes_to".to_string(), json!(["standards", "absent"]));
-        let edges = [routes_to_edge()];
-        let rules = [style];
-        let skills = [node("standards", None)];
-        let by_kind: BTreeMap<&str, &[Features]> =
-            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
-        assert!(acyclic(&resolved).is_empty());
-    }
-
-    #[test]
-    fn a_dangling_reference_does_not_mask_a_real_cycle() {
-        // `rule style` routes to `standards` (resolves) and `absent` (dangles), and
-        // `skill standards` routes back to `style` — a real `style → standards →
-        // style` cycle. The dangling arc must not suppress it.
-        let mut style = node("style", None);
-        style
-            .fields
-            .insert("routes_to".to_string(), json!(["standards", "absent"]));
-        let edges = [routes_to_edge(), skill_to_rule_edge()];
-        let rules = [style];
-        let skills = [node("standards", Some("style"))];
-        let by_kind: BTreeMap<&str, &[Features]> =
-            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
-        let diags = acyclic(&resolved);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
-        assert!(diags[0].message.contains("style"));
-        assert!(diags[0].message.contains("standards"));
-    }
-
-    #[test]
-    fn an_inadmissible_edge_is_skipped_by_acyclic() {
-        // The target kind `agent` is not modeled — the edge is inadmissible, so
-        // `acyclic` skips it exactly as `check` does. Even a self-naming source over
-        // it forges no cycle, because the arc never resolves.
-        let edges = [routes_to_agent_edge()];
-        let rules = [node("style", Some("style"))];
-        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
-        assert!(acyclic(&resolved).is_empty());
+        // The same two members author no `@import` at all.
+        let members = [
+            importer("style", ".claude/rules/style.md", &[]),
+            importer("standards", ".claude/skills/standards/SKILL.md", &[]),
+        ];
+        let imports = classify_directives(
+            &members,
+            &backing(&[
+                ".claude/rules/style.md",
+                ".claude/skills/standards/SKILL.md",
+            ]),
+        )
+        .edges;
+        assert!(imports.is_empty());
+        assert!(acyclic(&imports).is_empty());
     }
 
     /// A bare `gate` requirement, optionally typed to `kind`, declaring a required

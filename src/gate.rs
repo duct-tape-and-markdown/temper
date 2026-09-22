@@ -194,7 +194,11 @@ pub fn gate(
     // owns a deferred mention's dangling verdict) and layout prose imports (path-resolved
     // at emit), each lifted off the lock's own declaration family.
     let mut mention_edges = drift::mention_edges_from_declarations(&declarations);
-    mention_edges.extend(drift::import_edges_from_doc(&lock_doc)?);
+    // The layout-prose imports are kept in their own binding as well: they are half the
+    // **import relation** `acyclic` is scoped to (`contract.md`, "well-formedness"),
+    // which the mention family is not.
+    let layout_import_edges = drift::import_edges_from_doc(&lock_doc)?;
+    mention_edges.extend(layout_import_edges.iter().cloned());
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
     // label: each kind's members — resolved by
@@ -383,21 +387,22 @@ pub fn gate(
     // extend as a **non-gating advisory**: the fact is stated, the run never fails on it
     // alone. The graph-scope escalation stays assembly-gated (WEDGE ruling 2026-07-03: an
     // unbacked import is a pure fact, not a graph-scope opinion like reachability).
-    diagnostics.extend(
-        graph::classify_directives(
-            &compose::directive_members_from_resolved(
-                &builtin_units_and_features,
-                &custom_units_and_features,
-            ),
-            &repo_files,
-        )
-        .findings
-        .into_iter()
-        .map(|mut finding| {
-            finding.severity = Severity::Warn;
-            finding
-        }),
+    // `directive_arcs` is the other half of the import relation, carried down to
+    // `acyclic` at the graph tier; the findings are this tier's alone.
+    let graph::DirectiveClassing {
+        edges: directive_arcs,
+        findings: unbacked_pointers,
+    } = graph::classify_directives(
+        &compose::directive_members_from_resolved(
+            &builtin_units_and_features,
+            &custom_units_and_features,
+        ),
+        &repo_files,
     );
+    diagnostics.extend(unbacked_pointers.into_iter().map(|mut finding| {
+        finding.severity = Severity::Warn;
+        finding
+    }));
 
     // The harness-contract tier: the set predicates over the parsed roster, each
     // quantified over a requirement's opt-in selection.
@@ -545,20 +550,25 @@ pub fn gate(
         &assembly_requirements,
     ));
 
-    // Compute the resolved edges once, shared across acyclic, degree, and mention_reachable
+    // Compute the resolved edges once, shared across degree and mention_reachable
     // to avoid recomputation of the whole-input edge-resolution walk.
     let resolved_edges_result = graph::resolved_edges(&edges, &by_kind);
     let resolved_edges = &resolved_edges_result.resolved;
 
-    // `acyclic`: the resolved graph must contain no
-    // cycle — a circular import loads nothing, so every finding is a true
-    // positive. Always-on over the whole edge set, like route resolution above.
-    diagnostics.extend(graph::acyclic(resolved_edges));
+    // `acyclic`: the **import relation** must be well-founded — `contract.md`
+    // ("well-formedness") scopes acyclicity there and nowhere else, so the declared-field
+    // arcs above are NOT its input: two members whose reference fields point at each
+    // other are an ordinary mutual reference. The relation is the member→member
+    // `@import` edges the directive classing observed plus the layout-prose imports the
+    // lock carries pre-resolved. Always-on over that whole set, like route resolution.
+    let mut import_edges = directive_arcs;
+    import_edges.extend(layout_import_edges);
+    diagnostics.extend(graph::acyclic(&import_edges));
 
     // `degree`: the one set predicate whose judge needs the graph — a clause bounds
     // every selected member's in/out edge count, so it takes the same selections
     // `engine::judge` reads *and* the edges, reusing the arc resolution
-    // `acyclic`/`check` assemble, plus the already-resolved mention edges —
+    // `check` assembles, plus the already-resolved mention edges —
     // obligation-free by default, counted only when a `degree` clause opts in.
     diagnostics.extend(graph::degree(&selections, resolved_edges, &mention_edges));
 

@@ -303,11 +303,12 @@ fn an_acyclic_reference_graph_passes() {
 }
 
 #[test]
-fn a_cyclic_reference_graph_fails_the_run() {
+fn a_cyclic_field_reference_graph_passes() {
     let root = common::tmpdir("cyclic");
     // `rule style → skill standards → rule style`: the rule routes to the skill and
-    // the skill routes back to the rule. Both routes resolve, so the only finding is
-    // the cycle — which must fail the run.
+    // the skill routes back to the rule. Both routes resolve, and a `routes_to` field is
+    // not an import — `contract.md` ("well-formedness") founds acyclicity on the import
+    // relation alone, so a mutual *field* reference is ordinary and the run is clean.
     common::write_rule_skill_harness(
         &root,
         "style",
@@ -325,15 +326,54 @@ fn a_cyclic_reference_graph_fails_the_run() {
 
     let run = common::check_in(&root, &[], None);
     assert!(
+        run.ok,
+        "a field-edge cycle is outside the import relation ⇒ zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("graph.acyclic"),
+        "no acyclicity finding may fire over declared reference fields, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_cyclic_import_relation_fails_the_run() {
+    let root = common::tmpdir("import-ring");
+    // The relation `contract.md` does name: two `memory` members whose `@import`
+    // directives point at each other. Each import resolves to the other's file, so
+    // neither is an unbacked pointer — the sole finding is the ring, which fails the
+    // run. (Imports recurse to a bounded depth, so the ring's tail never loads.)
+    common::write_skill(&root, "standards", &common::clean_skill("standards"));
+    fs::write(
+        root.join("CLAUDE.md"),
+        "# Memory\n\nProject guidance.\n\n@docs/CLAUDE.md\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("docs/CLAUDE.md"),
+        "# Docs\n\nScoped guidance.\n\n@../CLAUDE.md\n",
+    )
+    .unwrap();
+
+    let run = common::check_in(&root, &["."], None);
+    assert!(
         !run.ok,
-        "a cycle in the reference graph must fail the run ⇒ non-zero, got:\n{}",
+        "a cycle in the import relation must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    let acyclic_findings = run.output.matches("graph.acyclic").count();
+    assert_eq!(
+        acyclic_findings, 1,
+        "exactly one acyclicity finding names the ring, got:\n{}",
         run.output
     );
     assert!(
         run.output.contains("cycle")
-            && run.output.contains("style")
-            && run.output.contains("standards"),
-        "the finding names the cycle and the artifacts forming it, got:\n{}",
+            && run.output.contains("CLAUDE")
+            && run.output.contains("docs-CLAUDE"),
+        "the finding names the cycle and the members forming it, got:\n{}",
         run.output
     );
 }
