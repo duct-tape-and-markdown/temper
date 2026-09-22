@@ -1,7 +1,7 @@
 /**
  * temper's authoring face — the six-noun core as a typed module library.
  * A harness author imports plain nouns — `harness()`, the generic `kind`
- * constructor, the clause and requirement constructors, `needs`, and the three
+ * constructor, the clause and requirement constructors, `needs`, and the four
  * prose constructors — and composes members as typed values. `emit` compiles the
  * whole into the declaration rows and the projected members' erased payload —
  * the JSON pipe printed to stdout; the engine is the sole compiler of every
@@ -13,9 +13,10 @@
  * the `./claude-code` subpath, never here.
  */
 
-// Prose — three constructors, one field type; references (mention · include) ride `text`.
+// Prose — four constructors, one field type; references (mention · include) ride `text`,
+// and `span()` is the same inline prose from a string the program computed.
 export type { Blocks, File, Include, Mention, Mentionable, Prose, Reference, Text } from "./prose.js";
-export { blocks, file, include, mentionOf, renderText, text } from "./prose.js";
+export { blocks, file, include, mentionOf, renderText, span, text } from "./prose.js";
 
 // Needs — the derived permission union's source.
 export type { Capability } from "./needs.js";

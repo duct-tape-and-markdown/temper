@@ -20,20 +20,6 @@ import { embeddedMemberValue, kind, mentionOf, text } from "@dtmd/temper";
 import type { EmbeddedMemberValue, KindDefinition, Member, Prose, Text } from "@dtmd/temper";
 
 /**
- * A narrative span of a composed body — plain words a `blocks()` child
- * carries as prose, interleaved with embedded members in authored order.
- * Built from a computed string (a derived participants line among them),
- * which the `` text`…` `` tag cannot take: its interpolations are
- * references, never words.
- */
-export const span = (words: string): Text => ({
-  kind: "text",
-  template: words,
-  mentions: [],
-  includes: [],
-});
-
-/**
  * `invariant` — one declared property of a system, addressable structure
  * rather than a heading convention. Rendered as its own section.
  */

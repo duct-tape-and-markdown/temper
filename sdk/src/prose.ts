@@ -1,9 +1,13 @@
 /**
- * Prose — three constructors, one field type. A member's words are data the
+ * Prose — four constructors, one field type. A member's words are data the
  * member declares: `file()` for a document that keeps its medium, `` text`…` ``
- * for short inline prose, `blocks()` for a composed body that interleaves verbatim
- * prose spans with embedded-member values in authored order. Whatever
- * the constructor, the words land byte-identical to their authored text.
+ * for short inline prose, `span()` for prose the program computes, `blocks()` for a
+ * composed body that interleaves verbatim prose spans with embedded-member values in
+ * authored order. Whatever the constructor, the words land byte-identical to their
+ * authored text. The two inline constructors build the same {@link Text} and differ
+ * only in where the words come from: reach for `` text`…` `` when they are literal, for
+ * `span()` when they are a string the program derived — the tag's interpolations are
+ * references, never words, so a computed string has no slot to ride in.
  * Interpolations in `` text`…` `` are references, two intents apart: a **mention**
  * (a {@link Mentionable}) is a declared one-way edge that moves no content, and an
  * **include** (an {@link Include}) pulls the target file's bytes into the host's emitted
@@ -165,8 +169,23 @@ export interface Blocks {
   readonly values: readonly (Text | EmbeddedMemberValue)[];
 }
 
-/** A member's prose — one of the three constructors, one field type. */
+/** A member's prose — one of the four constructors, one field type. */
 export type Prose = File | Text | Blocks;
+
+/**
+ * Refuse authored words carrying {@link MENTION_SLOT} or {@link INCLUDE_SLOT} — the
+ * markers are the tool's alone. A stray one would split into a chunk no reference
+ * claims, and {@link renderText} drops every chunk past the last mention, so the loud
+ * error is the only alternative to silently swallowing the words after it.
+ *
+ * # Throws
+ * If `words` carries either reserved marker.
+ */
+function refuseReservedMarkers(words: string): void {
+  if (words.includes(MENTION_SLOT) || words.includes(INCLUDE_SLOT)) {
+    throw new Error("authored prose contains a reserved reference marker (U+0000/U+0001); remove it.");
+  }
+}
 
 /** Strip the common leading indentation a template literal picks up from its module. */
 function dedent(text: string): string {
@@ -207,9 +226,7 @@ export function text(strings: TemplateStringsArray, ...targets: Reference[]): Te
   const mentions: Mention[] = [];
   const includes: Include[] = [];
   strings.forEach((chunk, i) => {
-    if (chunk.includes(MENTION_SLOT) || chunk.includes(INCLUDE_SLOT)) {
-      throw new Error("authored prose contains a reserved reference marker (U+0000/U+0001); remove it.");
- }
+    refuseReservedMarkers(chunk);
     if (i === 0) return;
     const target = targets[i - 1];
     if (isInclude(target)) {
@@ -221,6 +238,23 @@ export function text(strings: TemplateStringsArray, ...targets: Reference[]): Te
     }
   });
   return { kind: "text", template: dedent(template), mentions, includes };
+}
+
+/**
+ * The computed-prose constructor: the same inline prose as `` text`…` ``, from a string
+ * the program built rather than a template the author typed — a rolled-up participants
+ * line, a table derived from the members. An author reaches for the tag whenever the
+ * words are literal, since only the tag can carry a {@link Reference}; a computed string
+ * cannot, because the tag's interpolations *are* the references. So a span is prose with
+ * zero references by construction, dedented by the same rule, and composes wherever a
+ * `` text`…` `` span does — a member's whole body or a {@link blocks} child.
+ *
+ * # Throws
+ * If `words` carries {@link MENTION_SLOT} or {@link INCLUDE_SLOT} ({@link refuseReservedMarkers}).
+ */
+export function span(words: string): Text {
+  refuseReservedMarkers(words);
+  return { kind: "text", template: dedent(words), mentions: [], includes: [] };
 }
 
 /**
