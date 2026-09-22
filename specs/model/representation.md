@@ -113,12 +113,13 @@ lock one of two declared ways: carried from the composing program — a
 projection is never mined for them (`pipeline.md`, "Emit") — or read off a
 layout host's document, whose declared layout is the typed surface they are
 declared on. A prose **leaf** — one addressable authored string — is a
-nested member at the finest grain. An embedded member type declares no
-host: which types may compose a kind's body is the adopting corpus's
-**admission** — a contract declaration over the host kind — so one type
-means the same thing in every body that admits it, and a shipped kind's
-composed body admits corpus-declared types by the same declaration
-(`../builtins.md`).
+nested member at the finest grain; every nested member's own span is its
+reserved `prose` leaf, cut at the first child heading. An embedded member
+type declares no host: which types may compose a kind's body is the
+adopting corpus's **admission** — a contract declaration over the host
+kind — so one type means the same thing in every body that admits it, and
+a shipped kind's composed body admits corpus-declared types by the same
+declaration (`../builtins.md`).
 
 ## The root member
 

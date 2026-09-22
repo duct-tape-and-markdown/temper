@@ -216,31 +216,6 @@ tax.
   "selection" defines by-incidence as filtered by field and direction;
   every `ResolvedEdge` already carries `field`. No dependents.
 
-- `(layout-own-span-leaf)` — OPEN, live driver (cascade-integrations audit
-  of LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF, 09-06). A layout collection
-  member's own paragraph span (the text directly under its heading, before
-  any sub-heading) needs a leaf key to land under, but no reserved own-span
-  leaf name exists anywhere in the corpus today: composed leaves are
-  author-named (`NestedMemberRow.leaves` keyed by field name), and the
-  SDK's `FRAMEWORK_KEYS` (`kind.ts:245`) reserves `prose` only as a
-  member-level value, not a leaf key. Reserving one (`prose`, or another
-  name) is a Decision — it collides with any author who slugs a
-  sub-heading to that same name, and `node.body` includes sub-heading text
-  so the own span must be cut at the first child heading regardless of the
-  name chosen. **Third candidate, shipped 09-07** (f07d4f84, verified on
-  disk this tick): `layout_prose` gives content with no authored identity
-  its own emit-derived family, keyed by the host's address and the
-  region's *position* rather than by a name (`LayoutProseRow`,
-  `drift.rs:3023`). An own span could ride that shape — a row keyed by
-  (host, kind, key) — reserving no leaf name at all, so no author's
-  sub-heading can collide with one. Its cost is exactly what the leaf
-  spelling buys: leaf predicates, leaf addresses and `explain`'s leaf
-  narration would range over two sources where today every leaf is a
-  `NestedMemberRow.leaves` entry. Session recommendation: still the
-  reserved leaf key, with the sub-heading collision refused loud — one
-  home for leaves outweighs one reserved name — but the ruling is the
-  human's. Dependents: LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF.
-
 - `(post-tool-use-placement)` — OPEN, live driver (GH #42 (ii),
   cascade-integrations, confirmed on disk at a13f6bf2). `install.rs:173`'s
   `POST_TOOL_USE_COMMAND` is byte-identical to `SESSION_START_COMMAND`
