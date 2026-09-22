@@ -3,10 +3,8 @@
 //! formats use to load source files, with each format mapping the error to its own
 //! vocabulary, and to `canonicalize_eol`, which the drift engine applies before
 //! re-hashing so a CRLF-filtered checkout reads clean against an LF baseline.
-//! `source_hash` is the SHA-256 of an artifact's authored
-//! source bytes; the drift engine re-hashes on-disk bytes and compares against
-//! that anchor. Both compute the same lowercase hex here, over raw `&[u8]`, so
-//! the hash stays kind-agnostic — no artifact typing is lost by sharing it.
+//! Every caller computes the same lowercase hex here, over raw `&[u8]`, so the
+//! hash stays kind-agnostic — no artifact typing is lost by sharing it.
 
 use std::path::{Path, PathBuf};
 
@@ -67,16 +65,15 @@ pub(crate) enum ReadUtf8Error {
     },
 }
 
-/// Read a file and decode it as UTF-8, returning both the raw bytes and decoded string.
-/// Each format maps the error to its own error vocabulary at the call site.
-pub(crate) fn read_utf8(path: &Path) -> Result<(Vec<u8>, String), ReadUtf8Error> {
+/// Read a file and decode it as UTF-8. Each format maps the error to its own error
+/// vocabulary at the call site.
+pub(crate) fn read_utf8(path: &Path) -> Result<String, ReadUtf8Error> {
     let bytes = std::fs::read(path).map_err(|source| ReadUtf8Error::Io {
         path: path.to_path_buf(),
         source,
     })?;
-    let string = String::from_utf8(bytes.clone()).map_err(|source| ReadUtf8Error::NotUtf8 {
+    String::from_utf8(bytes).map_err(|source| ReadUtf8Error::NotUtf8 {
         path: path.to_path_buf(),
         source,
-    })?;
-    Ok((bytes, string))
+    })
 }

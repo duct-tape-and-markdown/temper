@@ -60,8 +60,8 @@ pub struct Manifest {
     /// collection address consumed, projected kind-preserving and kept as an opaque
     /// field, named as such. Sorted by key (`serde_json::Map` is a `BTreeMap`).
     pub opaque_fields: BTreeMap<String, FeatureValue>,
-    /// Where the manifest came from and the hash of its original bytes — the source-drift
-    /// anchor, exactly as a frontmatter member's [`Provenance`] carries.
+    /// Where the manifest came from, exactly as a frontmatter member's [`Provenance`]
+    /// carries.
     pub provenance: Provenance,
 }
 
@@ -138,8 +138,7 @@ pub struct DocumentMember {
     /// order, kept unprojected so the one shared read-time fold
     /// ([`crate::builtin_kind::features`]) types them exactly as a frontmatter member's.
     pub fields: BTreeMap<String, JsonValue>,
-    /// Where the document came from and the hash of its original bytes — the same
-    /// source-drift anchor a [`Manifest`] read carries.
+    /// Where the document came from — the same origin a [`Manifest`] read carries.
     pub provenance: Provenance,
 }
 
@@ -172,7 +171,7 @@ impl DocumentMember {
         source_file: &Path,
         raw: &str,
     ) -> Result<Self, JsonManifestError> {
-        let (source_hash, document) = parse_top_level_object(source_file, raw, "document")?;
+        let document = parse_top_level_object(source_file, raw, "document")?;
 
         // A named-field document reads its id from a declared top-level key (a manifest's
         // `name`); a `file`-shaped one is a singleton at a fixed path, so its identity is
@@ -207,7 +206,6 @@ impl DocumentMember {
             fields: document.into_iter().collect(),
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),
-                source_hash,
             },
         })
     }
@@ -317,19 +315,17 @@ impl From<crate::hash::ReadUtf8Error> for JsonManifestError {
 /// Read a file and decode it as UTF-8, mapping I/O and encoding errors to [`JsonManifestError`].
 /// Shared by [`Manifest::read`] and [`DocumentMember::read`].
 fn read_to_string(source_file: &Path) -> Result<String, JsonManifestError> {
-    let (_bytes, string) = crate::hash::read_utf8(source_file)?;
-    Ok(string)
+    crate::hash::read_utf8(source_file).map_err(Into::into)
 }
 
-/// Parse JSON bytes and require a top-level object, returning the source hash and the parsed
-/// object map. The noun parameter is used in error messages to distinguish the context
+/// Parse JSON bytes and require a top-level object, returning the parsed object map. The
+/// noun parameter is used in error messages to distinguish the context
 /// (e.g., "document" vs "manifest").
 fn parse_top_level_object(
     source_file: &Path,
     raw: &str,
     noun: &str,
-) -> Result<(String, serde_json::Map<String, JsonValue>), JsonManifestError> {
-    let source_hash = crate::hash::sha256_hex(raw.as_bytes());
+) -> Result<serde_json::Map<String, JsonValue>, JsonManifestError> {
     let value: JsonValue =
         serde_json::from_str(raw).map_err(|err| JsonManifestError::Malformed {
             path: source_file.to_path_buf(),
@@ -341,7 +337,7 @@ fn parse_top_level_object(
             detail: format!("{noun} top level is not a JSON object"),
         });
     };
-    Ok((source_hash, object))
+    Ok(object)
 }
 
 impl Manifest {
@@ -384,7 +380,7 @@ impl Manifest {
         raw: &str,
         addresses: &[&CollectionAddress],
     ) -> Result<Self, JsonManifestError> {
-        let (source_hash, manifest) = parse_top_level_object(source_file, raw, "manifest")?;
+        let manifest = parse_top_level_object(source_file, raw, "manifest")?;
 
         // Each declared address walks into its collection; the top-level keys it consumes
         // are tracked so the residue that stays opaque excludes them.
@@ -413,7 +409,6 @@ impl Manifest {
             opaque_fields,
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),
-                source_hash,
             },
         })
     }

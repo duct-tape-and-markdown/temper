@@ -30,7 +30,7 @@ use crate::kind::{CustomKind, UnitShape};
 /// [`TomlDocumentError::NoDeclaredIdentity`] if `kind` declares no identity field for its
 /// document to be named by.
 pub fn read(kind: &CustomKind, source_file: &Path) -> Result<DocumentMember, TomlDocumentError> {
-    let (_bytes, raw) = crate::hash::read_utf8(source_file)?;
+    let raw = crate::hash::read_utf8(source_file)?;
     parse(kind, source_file, &raw)
 }
 
@@ -58,7 +58,6 @@ fn parse(
         }
     };
 
-    let source_hash = crate::hash::sha256_hex(raw.as_bytes());
     let document: DocumentMut =
         raw.parse()
             .map_err(|err: toml_edit::TomlError| TomlDocumentError::Malformed {
@@ -89,7 +88,6 @@ fn parse(
         fields,
         provenance: Provenance {
             source_path: source_file.to_path_buf(),
-            source_hash,
         },
     })
 }

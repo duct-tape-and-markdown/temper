@@ -13,8 +13,7 @@
 //! companion are byte-faithful — never re-rendered. Only the structured header is
 //! written, via `toml_edit`. Unknown frontmatter keys are preserved verbatim; the
 //! declared fields lead in declaration order, then the unknown keys sorted, so the
-//! projection is deterministic and `import` idempotent. `source_hash` is the SHA-256
-//! of the authored source bytes, the source-drift anchor.
+//! projection is deterministic and `import` idempotent.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -29,7 +28,7 @@ use crate::kind::{CustomKind, UnitShape};
 /// A member projected through the generic frontmatter adapter: the declared and
 /// preserved frontmatter fields, a byte-faithful body, the companions that travel
 /// with a directory-shaped unit, the authored `satisfies` opt-ins, and the provenance
-/// lock that anchors drift. The type `import` produces from source and drift/check
+/// naming where it came from. The type `import` produces from source and drift/check
 /// consume — replacing the per-kind `Skill`/`Rule` IRs.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Member {
@@ -48,18 +47,16 @@ pub struct Member {
     /// The requirements this member opts into filling — authored on the surface, never imported,
     /// so a source parse leaves this empty.
     pub satisfies: Vec<Satisfies>,
-    /// Where the member came from and the hash of its original bytes.
+    /// Where the member came from.
     pub provenance: Provenance,
 }
 
-/// The import lock for a member: its origin path and a content hash of the original
-/// source bytes. `source_hash` drives source-drift detection.
+/// A member's origin: the source path it was read from. The one shape all three read
+/// adapters build, and the key the graph's provenance index joins resolved paths on.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Provenance {
     /// Absolute or workspace-relative path to the source file.
     pub source_path: PathBuf,
-    /// Lowercase hex SHA-256 of the authored source bytes.
-    pub source_hash: String,
 }
 
 /// Errors raised while reading or projecting a [`Member`]. Hard failures (missing
@@ -177,8 +174,7 @@ impl Member {
         source_file: &Path,
         base: &Path,
     ) -> Result<Self, FrontmatterError> {
-        let (bytes, raw) = crate::hash::read_utf8(source_file)?;
-        let source_hash = crate::hash::sha256_hex(&bytes);
+        let raw = crate::hash::read_utf8(source_file)?;
 
         let parsed = parse_frontmatter(&raw).map_err(|detail| FrontmatterError::Malformed {
             path: source_file.to_path_buf(),
@@ -233,7 +229,6 @@ impl Member {
             satisfies: Vec::new(),
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),
-                source_hash,
             },
         })
     }
