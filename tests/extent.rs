@@ -214,35 +214,17 @@ fn an_extent_row_naming_an_unknown_unit_refuses_at_load() {
 }
 
 /// A lock-shaped clause row for `predicate`, carrying an optional `unit` and `max` bound —
-/// the columns `extent`/`max_lines` ride. Every other column is empty, the shape a
-/// fieldless node-scope clause takes.
+/// the columns `extent`/`max_lines` ride. Lock-shaped, so it spells the `label` and `kind`
+/// the payload-shaped [`common::clause`] base leaves `None`.
 fn row(predicate: &str, unit: Option<&str>, max: Option<usize>) -> ClauseRow {
     ClauseRow {
         label: Some(format!("skill.{predicate}")),
         kind: Some("skill".to_string()),
-        predicate: predicate.to_string(),
-        field: None,
-        severity: "advisory".to_string(),
-        guidance: None,
-        cite: None,
-        count: None,
-        target: None,
-        degree: None,
-        gate: None,
-        value_type: None,
-        shape: None,
         bound: max.map(|max| BoundRow {
             min: None,
             max: Some(max),
         }),
         unit: unit.map(str::to_string),
-        charset: None,
-        keys: None,
-        values: None,
-        range: None,
-        section: None,
-        sections: None,
-        guard_predicate: None,
-        body: None,
+        ..common::clause(predicate, "advisory")
     }
 }
