@@ -32,6 +32,10 @@ hard.
   projection; 0052 amended: unfiltered `degree` skips containment). Loop
   relaunched 09-22. Watch plan route the two graph defects in order
   (acyclicity scope first, then 0052's field filter).
+- **0.0.19: cut once** (John, 09-22) when the platform consumer's chain has
+  shipped: SDK-MEMBER-DECLARES-INPUTS, SDK-REACHED-FROM-CONSTRUCTOR,
+  LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED (and everything under them). The
+  publish itself still takes John's word at the cut (`release` rule).
 - Still open with dependents: `(hook-member-identity)` (GH #32). Parked
   ruling: 0019's occupant (GH #45).
 - Ratify or drop: `docs/proposals/drift-severity-is-a-clause.md` (ruled
