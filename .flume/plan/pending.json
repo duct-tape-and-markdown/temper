@@ -9,6 +9,10 @@
       "new": [],
       "edit": [
         {
+          "path": "examples/base-harness/.temper/harness.ts",
+          "description": "The emit entry point, and the second dropped-symbol import: `:1` names `maxLines`, which 4bdb7960 retired into `extent(unit, bound)` while re-pointing the three shipped budgets and no example consumer. Node dies at *this* module's link error before any member module loads, so the entry's test fails identically without it. `:90` becomes `clause(extent(\"lines\", 120), …)` — the same 120-line budget under the predicate that subsumed it — and its `severity: \"advisory\"` guidance takes the render-side rewording 4bdb7960 gave the shipped three (`sdk/src/builtins.ts:1487`, `:1619`): the measure is the projected artifact's lines, not the source body."
+        },
+        {
           "path": "examples/base-harness/.temper/memory/CLAUDE.ts",
           "description": "`:2` imports `span` from `../kinds.ts`, which no longer exports it — 0c6a7ae0 deleted the local factory and re-pointed no consumer, so node's ESM linker refuses the module (`does not provide an export named 'span'`, reproduced on node v22.21). The import moves to `@dtmd/temper`, the shipped constructor that commit exists to give them. Call site `:14` unchanged: its template literal's content is flush-left, so `dedent` is identity over it."
         },
@@ -75,7 +79,7 @@
       ],
       "retire": []
     },
-    "summary": "Seven example modules import `span` from `kinds.ts`, whose factory 0c6a7ae0 deleted — the example's program dies at module link, and no gate runs it.",
+    "summary": "The example's program dies at module link: `harness.ts` imports a retired `maxLines`, seven modules import a `span` `kinds.ts` no longer exports — and no gate runs it.",
     "per": {
       "path": "specs/model/authoring.md",
       "section": "The SDK"
@@ -86,8 +90,8 @@
         "asserts": "a dry-run `emit_program` over `examples/base-harness/.temper` returns `Ok` and reports every projection `Unchanged` — the shipped example's program links through the real SDK, composes, and its committed lock and projections are byte-current; the same case fails on the pre-fix tree at node's missing-export link error"
       }
     ],
-    "acceptance": "`cargo test` green with the new example-seam case (it fails on the pre-fix tree), `cargo clippy --all-targets -- -D warnings` clean, `cargo fmt --all --check` clean. If the dry run reports any artifact `Emitted`, the same tick re-emits the example inside the fence and the commit body names what moved and why — dedent is the one behavioral difference between the deleted factory and the shipped `span`.",
-    "notes": "The break shipped unnoticed because `.flume/ripple.mjs` walks only src/tests/sdk, so an example consumer draws no ripple line — filed as friction this tick. Rejected: re-exporting `span` from `kinds.ts`, a local barrel for a shipped surface. The example is maintained, not a dead demo — SDK-KIND-LEAF-SET-LOWERING names its three embedded kinds as the leaf-set witness's first adopters. scoped at 20dc4f08"
+    "acceptance": "`cargo test` green with the new example-seam case (it fails on the pre-fix tree at node's link error, and fails on a `span`-only fix too), `cargo clippy --all-targets -- -D warnings` clean, `cargo fmt --all --check` clean. If the dry run reports any artifact `Emitted`, the same tick re-emits the example inside the fence and the commit body names what moved and why — dedent is the one behavioral difference between the deleted `span` factory and the shipped one.",
+    "notes": "Re-scoped from a86a5ee9's capture: `maxLines` went at 4bdb7960 (17 Jul), `span` at 0c6a7ae0 — one class, and `.flume/ripple.mjs` walks no example tree (filed as friction). Verified out of tree with both fixes: `node harness.ts` links and a dry-run emit reports 11 unchanged, 0 emitted, so the projection fence is the escape hatch, not the expectation. Rejected: re-exporting `span` from `kinds.ts`, a local barrel over a shipped surface. scoped at f23471e3"
   },
   {
     "tag": "SETTINGS-KIND-SHIPS(builtin)",
