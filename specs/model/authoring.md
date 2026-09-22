@@ -25,7 +25,9 @@ apart: a mention names a member and moves no content; an include pulls the
 target's content into the host's emitted bytes, a dependency the lock
 fingerprints. Both are declared edges (`contract.md`), a path reference
 resolves relative to the module that states it, never the workspace, and
-every other word is just a word.
+every other word is just a word. A member may also declare **inputs**:
+files its claims rest on, fingerprinted by the lock like an include's
+target and moved nowhere — no bytes reach the projection.
 
 ## Layers
 

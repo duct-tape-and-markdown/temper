@@ -79,7 +79,8 @@ input shape, two sources; there is no third.
 
 One comparison in one vocabulary: disk versus lock. Two freshness facts, one
 finding shape — an **authored source** differing from its provenance row (the
-source moved; re-emit) and a **committed projection** differing from its byte
+source moved; re-emit — for a declared input, re-verify the member's claims
+against it first) and a **committed projection** differing from its byte
 fingerprint (the projection was hand-touched; edit the owning source and
 re-emit). Each finding names the member that owns the bytes, the side that
 moved, and the remedy. The comparison is line-ending-blind — an EOL-only

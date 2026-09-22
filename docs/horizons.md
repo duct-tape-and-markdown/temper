@@ -209,8 +209,8 @@ that evidence, not preference, is the bite condition.
   modeling a legacy web app pinned code at file grain and kept line
   citations as plain data. It asked for range-anchored pins. A range is
   decidable only between tags in this entry's declared grammar, never by
-  line number, so sub-file grain lands here (see `(declared-input)` for the
-  file-grain half).
+  line number, so sub-file grain lands here (the file-grain half is
+  `authoring.md`'s inputs).
 
 - `(base-harness)` — **A standalone starter harness whose docs corpus is a
   temper program.** The external dogfood: a reference repo carrying doc/spec
@@ -310,69 +310,9 @@ that evidence, not preference, is the bite condition.
   defaults designed for another corpus are held back, so a non-harness
   first driver doesn't block it.
 
-- `(declared-input)` — *UNRATIFIED draft (2026-09-22), session-proposed from
-  a consumer field report; the human keeps or drops it.* **A member
-  declares a file it rests on, and the lock fingerprints it without
-  projecting it.** The only way today to get "the code under this claim
-  changed" is to `include()` the file into prose. That splices the bytes
-  into the projection (a consumer projected ~210KB of copies for five
-  files) just to buy the `import_hash` row that `prose.include-stale`
-  compares (`src/drift.rs` `source_dep_stale_from_doc`). The opportunity is
-  the same source-dependency row with no splice: a declared input of the
-  member. When its bytes move, the finding names the dependent member, the
-  file, and the remedy, as `pipeline.md` "Drift" already shapes an
-  authored-source freshness fact. *Rents:* `pipeline.md` "Drift" (fact one:
-  an authored source differing from its provenance row). The existing
-  include and layout-import source-dependency families. Invariant 8: the
-  finding routes the author back to re-verify, and the author, not temper,
-  judges whether the claim still holds. *Tensions:* (a) a re-emit refreshes
-  the hash with no visible diff. With `include()`, the projection diff at
-  least shows what changed. With this row, the lock line is the only
-  review surface. So a re-emit can bless a claim nobody re-checked, and the
-  finding's remedy text must not read as "re-emit and you're done". (b)
-  Severity. Source-dependency findings are fixed `warn`, and the dial
-  reaches clause labels only (`src/dial.rs:95`). An author who wants this
-  to gate can't declare it, which sits badly with the spine rule and
-  `pipeline.md`'s "how loudly … is the author's declared severity". That is
-  worth its own ruling whether or not this entry lands. (c) A
-  **range-anchored** pin. Hashing a line range false-fires on every edit
-  above the range (a gate that cries wolf, invariant 2). Locating the range
-  by matching content is mining (invariant 1). A range is decidable only
-  between declared tags, and that is `(code-seam-joins)`'s code kind, so
-  sub-file grain is parked there. (d) This is not `(external-commitment)`.
-  That fork (`.flume/plan/open-questions.md`, human-parked 09-03) gives the
-  *ground member itself* a committed, never-emitted file locus with a lock
-  row and a byte hash. That kernel change to `locus` is also what would
-  retire the per-file `locus.undeclared-member` notes a read-only ground
-  kind draws today. The fingerprint belongs on the dependent pin because
-  the finding must name whose claim is at risk. A hash on the ground member
-  names no dependent. *Leaning:* do the input declaration, a vocabulary and
-  pipeline addition with no kernel change. Leave the ground-member locus to
-  `(external-commitment)`, and cite this report there as field evidence
-  when that fork is next argued. *Parked:* a fingerprint on the ground
-  member (that is the fork above). Line-number ranges (fragile, and the
-  problem `(code-seam-joins)` was built to avoid). Promoting
-  `include-stale` to `error` as the fix (that bakes a severity rather than
-  letting the author declare one). *Bite condition:* (b) was ruled on
-  2026-09-22 (drift findings become dialable), and its mechanism is drafted
-  in `docs/proposals/drift-severity-is-a-clause.md`. That lands first. Then
-  the two graph defects in `.flume/inbox.md` (acyclicity scope, the
-  `degree` field filter), then ratification. Second-corpus scope doesn't
-  bind (ruled 2026-09-22, see `(field-reach)`). *Evidence status:* observed
-  at 0.0.18 in a copy of the consumer's prototype. The five pin projections
-  total 209,554 bytes and copy 208,622 bytes of code. `temper check .`
-  draws 8 `locus.undeclared-member` notes, 7 of them on the `source` ground
-  kind (coverage: "source (7: 0 declared, 7 undeclared)"), for example
-  "document `code/_init.html` sits at the `source` kind's governed locus
-  but the lock declares no member for it — `emit` will never maintain it
-  and `guard` never bound it, yet Claude Code loads it". Changing one byte
-  of `code/_init.html` and re-running `check` without `emit` adds only
-  "! prose include target `code/_init.html` (referenced by `pin:_init`) no
-  longer matches the lock's fingerprint — the target changed and `emit` has
-  not run; re-emit to reconcile". In a minimal repro with no other failing
-  clause, the same one-byte edit leaves `check` at exit 0. The remedy text
-  is "re-emit to reconcile", which is the reading tension (a) warns
-  against.
+- `(declared-input)` — RATIFIED 2026-09-22; current home
+  `specs/model/authoring.md`, "The SDK" (inputs), and `pipeline.md`,
+  "Drift". Its severity rides 0054's root contract.
 
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`
