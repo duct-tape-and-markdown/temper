@@ -1,100 +1,5 @@
 [
   {
-    "tag": "SETTINGS-KIND-SHIPS(sdk)",
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [
-        {
-          "path": "tests/settings_kind.rs",
-          "description": "The shipped kind's own suite, driving the SDK seam the way `tests/emit.rs` does: a program composing a `settings` member over a `.claude/settings.json` that also carries `hooks` entries. Asserts the container path already in the engine fires for it — `build.container` set (src/drift.rs:1279) so a rollup row with the file's byte fingerprint lands (src/drift.rs:1516), `emit_manifest` renders the file whole (declared collection segments in address order, then the member's fields as opaque residue, src/drift.rs:1667), a hand edit to any part of the file reports `config.stale`, and `coverage.unmodeled-surface` retires for `.claude/settings.json` once a kind governs it whole (src/coverage_note.rs:131, `whole`)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "New `Settings` type and `settings: KindDefinition<Settings>` beside `settingsLocal` (:1245) — locus `{ kind: \"at\", root: \".claude\", glob: \"settings.json\" }` at the **committed** class (no `commitment: \"local\"`), `format: \"json-document\"`, `unitShape: \"file\"` (singleton identity from the documented path), `registration: []`. Plus `settingsDefaultContract`: the documented keys typed, the unschematized residue left opaque and named, each clause carrying its own `cite` — `settingsLocalDefaultContract` (:1267) is the nearest model for the decidable-shape posture, and its `hooks` guidance (which routes a local hook to opaque residue) does not transfer, since the committed file's `hooks` IS the hook kind's collection address."
-        },
-        {
-          "path": "sdk/src/claude-code.ts",
-          "description": "Export the `Settings` type beside `SettingsLocal` (:23) and `settings` / `settingsDefaultContract` beside `settingsLocal` / `settingsLocalDefaultContract` (:48) — adoption is the import, so an unexported kind ships nowhere."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "The kind's facts asserted the way `settingsLocal`'s are (:566-:581): locus root/glob and the committed class, `json-document`, `file` unit shape, no identity field, no collection address, empty registration — plus the default contract's clause set, each clause carrying a `cite` (the per-clause citation bar the suite already holds for every other built-in)."
-        }
-      ]
-    },
-    "summary": "No kind governs the committed `.claude/settings.json` whole: its documented keys go untyped and no rollup row fingerprints the file, so a hand edit is invisible.",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "The shipped kinds"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "`settings` carries the documented locus at the committed class, json-document format, file unit shape and empty registration; its default contract types the documented keys and every clause cites its source."
-      },
-      {
-        "path": "tests/settings_kind.rs",
-        "asserts": "A program composing a `settings` member lands a container rollup row with the file's byte fingerprint, emit renders `.claude/settings.json` whole (segments then residue) and is idempotent, a hand edit to the residue reports `config.stale`, and `coverage.unmodeled-surface` no longer names the file."
-      }
-    ],
-    "acceptance": "`pnpm --dir sdk test` and `cargo test` green, with `tests/settings_kind.rs` proving the container rollup, the whole render, the stale-on-hand-edit verdict and the retired unmodeled-surface note.",
-    "notes": "0050 re-rules 0.0.18's co-ownership: the file is a whole projection, every key authored in the program. The engine's container machinery is already generic (src/drift.rs:1279/:1516/:1667, src/coverage_note.rs:131) — nothing here builds it, the tests pin it for the shipped kind. The embedded built-in default, the guard's residue allowance and install's hoist are the three entries behind this one. scoped at cb0f52c4"
-  },
-  {
-    "tag": "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/gate.rs",
-          "description": "`:548-556` hoists `graph::resolved_edges` and hands the whole declared-field arc set to `graph::acyclic`. Feed acyclicity the import relation instead: the member→member `@import` edges `graph::classify_directives` already returns and `:387` drops on the floor (only `.findings` is read today), plus the lifted layout-prose `import` edges already folded into `mention_edges` at `:197` (`drift::import_edges_from_doc`). `resolved_edges` stays hoisted — `check`, `degree`, and `mention_reachable` keep reading it."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "`acyclic` (:241-270): its input becomes the import relation, not `&[ResolvedEdge]` of declared fields. The doc's rationale (\"a circular import that loads nothing\") is false as written — Claude Code recurses imports to a four-hop cap (cite in notes), so the true positive is the silently truncated tail; `cycle_diagnostic`'s message follows. The in-module cases at :2320-2420 (`a_self_loop_fires_an_acyclic_error`, `a_multi_node_cycle_fires_an_acyclic_error`, `an_inadmissible_edge_is_skipped_by_acyclic`) rebuild over import-relation arcs."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "`a_cyclic_reference_graph_fails_the_run` (:305) pins a `routes_to` rule↔skill *field* cycle as a failure — invert it: the field cycle passes, the run is clean. `an_acyclic_reference_graph_passes` (:278) stands. Add the relation the spec does name: two members whose `@import` directives point at each other fire one `graph.acyclic` error."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "`gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (:410-460) calls `graph::acyclic(resolved_edges)` as one of the shared consumers of the hoisted walk. Re-point it: acyclic leaves that consumer set, and the once-per-invocation claim is re-pinned over `check`/`degree`/`mention_reachable`."
-        },
-        {
-          "path": "tests/directive_classing.rs",
-          "description": "The `@import` classing's integration home. Its edges stop being dropped at the gate, so the classing's verdict split is asserted here: an unbacked pointer still warns, a member↔member ring now reaches `graph.acyclic`."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "`graph::acyclic` ranges over every declared field edge; contract.md scopes acyclicity to the import relation — narrow its input, and let a field-edge cycle pass.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "well-formedness"
-    },
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a `routes_to` rule↔skill field cycle passes `check` clean; a member↔member `@import` ring fires exactly one `graph.acyclic` error naming the chain"
-      },
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "the resolved-edge walk is still computed exactly once per `gate()` invocation with acyclic off its consumer list"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle (the inbox repro): a corpus of two custom kinds whose edge fields point at each other — members `one` ↔ `two` — gives `temper check .` exit 0 with no `graph.*` finding, where it exits 1 today; a `CLAUDE.md` → rule → `CLAUDE.md` `@import` ring fires one `graph.acyclic` error.",
-    "notes": "Inbox, observed at d9a34e39, repro'd on 0.0.18. Human-ruled 09-22: lands before the consumer's entry-path fix; 0056 names it a prerequisite, and 0052's containment family would fail on a host↔embedded ring. External fact for the doc rewrite: \"Imported files can recursively import other files, with a maximum depth of four hops\" (code.claude.com/docs/en/memory, retrieved 2026-09-22) — the docs are silent on a ring, so the premise is a truncated tail, never \"loads nothing\". scoped at 61e9e78d"
-  },
-  {
     "tag": "LOCK-ROW-FIXTURE-ONE-HOME(src)",
     "gate": {
       "kind": "open"
@@ -305,6 +210,7 @@
         "LOCK-ROW-FIXTURE-ONE-HOME(src)"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -346,11 +252,12 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "SETTINGS-KIND-SHIPS(sdk)",
         "KIND-ROW-LEAF-SET-COLUMN"
       ]
     },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
         {
           "path": "src/builtin_kind.rs",
@@ -412,7 +319,8 @@
           "path": "tests/snapshots/gauntlet__projection_tree.snap",
           "description": "Re-accepted if the gauntlet fixture gains a `settings` member and its projection joins the tree."
         }
-      ]
+      ],
+      "retire": []
     },
     "summary": "The `settings` kind ships in the SDK but not in the embedded built-in lock, so a harness checked without a program — the stranger gate — still sees its settings file ungoverned.",
     "per": {
@@ -444,7 +352,9 @@
         "SETTINGS-KIND-SHIPS(builtin)"
       ]
     },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
         {
           "path": "src/install.rs",
@@ -458,7 +368,8 @@
           "path": "tests/install.rs",
           "description": "The guard suite: a residue-only write to a container-owned `.claude/settings.json` is refused with the projection wording at the declared enforcement mode, while a manifest with no container member (`.mcp.json`) keeps the co-owned verdict."
         }
-      ]
+      ],
+      "retire": []
     },
     "summary": "The guard passes a hand write to `.claude/settings.json` that touches only opaque residue — co-ownership 0050 reverses: with a container member the file is a whole projection.",
     "per": {
@@ -482,7 +393,9 @@
         "GUARD-SETTINGS-RESIDUE-ALLOWANCE-RETIRES"
       ]
     },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
         {
           "path": "src/install.rs",
@@ -492,7 +405,8 @@
           "path": "tests/install.rs",
           "description": "The lift suite: a project whose settings.json carries residue and hook groups is represented with a `settings` member carrying that residue, and the first emit round-trips the file's keys."
         }
-      ]
+      ],
+      "retire": []
     },
     "summary": "The lift scaffolds no `settings` member, so an adopter's existing `.claude/settings.json` keys reach the program nowhere and the first emit can shed them.",
     "per": {
@@ -513,7 +427,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION",
         "LOCK-ROW-FIXTURE-ONE-HOME(src)",
         "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY"
       ]
@@ -605,7 +518,6 @@
       "kind": "blockedBy",
       "tags": [
         "DEGREE-FIELD-SET-FILTER",
-        "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION",
         "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE"
       ]
     },
@@ -660,7 +572,6 @@
       "kind": "blockedBy",
       "tags": [
         "LOCK-ROW-FIXTURE-ONE-HOME(src)",
-        "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION",
         "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE",
         "DEGREE-FIELD-SET-FILTER",
         "CONTAINMENT-INCIDENCE-FAMILY"
@@ -802,6 +713,7 @@
         "SETTINGS-KIND-SHIPS(builtin)"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -893,6 +805,7 @@
         "INSTALL-LIFTS-SETTINGS-RESIDUE"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -985,8 +898,7 @@
         "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
         "KIND-ROW-LEAF-SET-COLUMN",
         "DEGREE-FIELD-SET-FILTER",
-        "CONTAINMENT-INCIDENCE-FAMILY",
-        "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION"
+        "CONTAINMENT-INCIDENCE-FAMILY"
       ]
     },
     "dependsOnForks": [],
@@ -1124,6 +1036,7 @@
         "ROOT-DEFAULT-CONTRACT-SHIPS"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -1240,6 +1153,7 @@
         "FRESH-CLAUSE-JUDGES-STALENESS"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -1365,6 +1279,7 @@
         "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -1430,6 +1345,7 @@
         "INPUT-SOURCE-DEPENDENCY-FAMILY"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
