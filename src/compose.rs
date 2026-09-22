@@ -1426,38 +1426,8 @@ mod tests {
     use super::*;
 
     use crate::contract::{Clause, Predicate, Severity};
+    use crate::test_support;
     use std::collections::BTreeMap;
-
-    /// A [`ClauseRow`] at `severity`, every other column defaulted — the base the
-    /// reject-loud cases struct-update, overriding only `kind`/`predicate` and any
-    /// argument column the case exercises.
-    fn clause_row(severity: &str) -> ClauseRow {
-        ClauseRow {
-            unit: None,
-            label: Some("fixture.clause".to_string()),
-            kind: None,
-            predicate: String::new(),
-            field: None,
-            severity: severity.to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: None,
-            gate: None,
-            value_type: None,
-            shape: None,
-            bound: None,
-            charset: None,
-            keys: None,
-            values: None,
-            range: None,
-            section: None,
-            sections: None,
-            guard_predicate: None,
-            body: None,
-        }
-    }
 
     #[test]
     fn default_contract_from_rows_builds_a_custom_kinds_whole_default_contract() {
@@ -1469,57 +1439,21 @@ mod tests {
                 unit: Some("lines".to_string()),
                 label: Some("spec.extent".to_string()),
                 kind: Some("spec".to_string()),
-                predicate: "extent".to_string(),
-                field: None,
-                severity: "advisory".to_string(),
-                guidance: None,
-                cite: None,
-                count: None,
-                target: None,
-                degree: None,
-                gate: None,
-                value_type: None,
-                shape: None,
                 bound: Some(crate::drift::BoundRow {
                     min: None,
                     max: Some(150),
                 }),
-                charset: None,
-                keys: None,
-                values: None,
-                range: None,
-                section: None,
-                sections: None,
-                guard_predicate: None,
-                body: None,
+                ..test_support::clause_row("extent", "advisory")
             },
             ClauseRow {
                 unit: Some("lines".to_string()),
                 label: Some("rule.extent".to_string()),
                 kind: Some("rule".to_string()),
-                predicate: "extent".to_string(),
-                field: None,
-                severity: "required".to_string(),
-                guidance: None,
-                cite: None,
-                count: None,
-                target: None,
-                degree: None,
-                gate: None,
-                value_type: None,
-                shape: None,
                 bound: Some(crate::drift::BoundRow {
                     min: None,
                     max: Some(10),
                 }),
-                charset: None,
-                keys: None,
-                values: None,
-                range: None,
-                section: None,
-                sections: None,
-                guard_predicate: None,
-                body: None,
+                ..test_support::clause_row("extent", "required")
             },
         ];
 
@@ -1547,11 +1481,8 @@ mod tests {
         // cannot admit is corruption rejected loud, never a clause silently dropped.
         // An unknown predicate names nothing in the vocabulary.
         let unknown = vec![ClauseRow {
-            unit: None,
-            label: None,
             kind: Some("spec".to_string()),
-            predicate: "not_a_predicate".to_string(),
-            ..clause_row("advisory")
+            ..test_support::clause_row("not_a_predicate", "advisory")
         }];
         assert!(matches!(
             default_contract_from_rows(&unknown, &[], "spec"),
@@ -1561,11 +1492,8 @@ mod tests {
         // A known predicate missing its required argument (`section_contains` with no
         // `section` column) cannot be built either — the same loud rejection.
         let missing_arg = vec![ClauseRow {
-            unit: None,
-            label: None,
             kind: Some("spec".to_string()),
-            predicate: "section_contains".to_string(),
-            ..clause_row("advisory")
+            ..test_support::clause_row("section_contains", "advisory")
         }];
         assert!(matches!(
             default_contract_from_rows(&missing_arg, &[], "spec"),
@@ -1576,14 +1504,12 @@ mod tests {
         // on the severity channel.
         let bad_severity = vec![ClauseRow {
             unit: Some("lines".to_string()),
-            label: None,
             kind: Some("spec".to_string()),
-            predicate: "extent".to_string(),
             bound: Some(crate::drift::BoundRow {
                 min: None,
                 max: Some(150),
             }),
-            ..clause_row("blocking")
+            ..test_support::clause_row("extent", "blocking")
         }];
         assert!(matches!(
             default_contract_from_rows(&bad_severity, &[], "spec"),

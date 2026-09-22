@@ -105,3 +105,63 @@ pub(crate) fn features(id: &str) -> crate::extract::Features {
         edge_placements: None,
     }
 }
+
+/// A [`KindFactRow`](crate::drift::KindFactRow) naming `name` and declaring nothing else
+/// — the other thirteen columns absent — so an in-src fixture spells only the facts its
+/// case exercises via struct update:
+/// `KindFactRow { unit_shape: Some("file".into()), ..test_support::kind_fact_row("skill") }`.
+///
+/// The in-src home of the shape `tests/common`'s `kind_facts` holds for the integration
+/// suites; a case declaring a `governs` locus overrides the two locus columns.
+pub(crate) fn kind_fact_row(name: &str) -> crate::drift::KindFactRow {
+    crate::drift::KindFactRow {
+        name: name.to_string(),
+        provider: None,
+        governs_root: None,
+        governs_glob: None,
+        commitment: None,
+        format: None,
+        unit_shape: None,
+        registration: Vec::new(),
+        templates: Vec::new(),
+        content: None,
+        shape: None,
+        collection_address: None,
+        guidance: None,
+        cite: None,
+    }
+}
+
+/// A [`ClauseRow`](crate::drift::ClauseRow) carrying `predicate` at `severity`, every
+/// other column at its default — the base an in-src fixture struct-updates with the one
+/// argument column its case exercises (`bound`/`section`/`count`/…).
+///
+/// Payload-shaped: `label` is `None`, the stamp emit itself writes. A case asserting
+/// about a *lock*-shaped row spells the label it judges.
+pub(crate) fn clause_row(predicate: &str, severity: &str) -> crate::drift::ClauseRow {
+    crate::drift::ClauseRow {
+        label: None,
+        kind: None,
+        predicate: predicate.to_string(),
+        field: None,
+        severity: severity.to_string(),
+        guidance: None,
+        cite: None,
+        count: None,
+        target: None,
+        degree: None,
+        gate: None,
+        value_type: None,
+        shape: None,
+        bound: None,
+        unit: None,
+        charset: None,
+        keys: None,
+        values: None,
+        range: None,
+        section: None,
+        sections: None,
+        guard_predicate: None,
+        body: None,
+    }
+}

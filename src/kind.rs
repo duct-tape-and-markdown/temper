@@ -1279,6 +1279,7 @@ impl Extraction {
 mod tests {
     use super::*;
     use crate::extract::{FeatureValue, ValueType};
+    use crate::test_support;
 
     #[test]
     fn enabled_plugins_splits_the_marketplace_half_off_its_composite_key() {
@@ -1497,20 +1498,9 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     /// `from_kind_fact_row` content tests override the one column they exercise onto.
     fn spec_row() -> KindFactRow {
         KindFactRow {
-            name: "spec".to_string(),
-            provider: None,
             governs_root: Some("specs".to_string()),
             governs_glob: Some("*.md".to_string()),
-            commitment: None,
-            format: None,
-            unit_shape: None,
-            registration: Vec::new(),
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..test_support::kind_fact_row("spec")
         }
     }
 
@@ -1542,20 +1532,10 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     #[test]
     fn from_kind_fact_row_lifts_every_declared_fact() {
         let row = KindFactRow {
-            name: "spec".to_string(),
-            provider: None,
-            governs_root: Some("specs".to_string()),
-            governs_glob: Some("*.md".to_string()),
-            commitment: None,
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: vec!["description-trigger(description)".to_string()],
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..spec_row()
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
 
@@ -1593,20 +1573,10 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // The lock is tool-written, so a label the closed vocabulary cannot admit is a
         // corrupt lock rejected loud at load, never a channel silently dropped.
         let row = KindFactRow {
-            name: "spec".to_string(),
-            provider: None,
-            governs_root: Some("specs".to_string()),
-            governs_glob: Some("*.md".to_string()),
-            commitment: None,
             format: Some("xml".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: vec!["bogus".to_string()],
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..spec_row()
         };
         let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
         assert!(
@@ -1621,20 +1591,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // A registration set carrying one unrecognized label is corruption — the whole
         // lift rejects loud rather than dropping the bad channel and keeping the rest.
         let row = KindFactRow {
-            name: "spec".to_string(),
-            provider: None,
-            governs_root: Some("specs".to_string()),
-            governs_glob: Some("*.md".to_string()),
-            commitment: None,
-            format: None,
-            unit_shape: None,
             registration: vec!["user-invoked".to_string(), "bogus".to_string()],
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..spec_row()
         };
         let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
         assert!(
@@ -1648,23 +1606,13 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     fn from_kind_fact_row_lifts_a_multi_channel_registration_set_in_order() {
         // `skill`'s own two-channel set — both labels lift, order preserved.
         let row = KindFactRow {
-            name: "skill".to_string(),
-            provider: None,
             governs_root: Some(".claude/skills".to_string()),
             governs_glob: Some("*/SKILL.md".to_string()),
-            commitment: None,
-            format: None,
-            unit_shape: None,
             registration: vec![
                 "user-invoked".to_string(),
                 "description-trigger(description)".to_string(),
             ],
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..test_support::kind_fact_row("skill")
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(
@@ -1681,20 +1629,9 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     #[test]
     fn from_kind_fact_row_with_no_optional_facts_yields_the_generic_defaults() {
         let row = KindFactRow {
-            name: "adr".to_string(),
-            provider: None,
             governs_root: Some("adr".to_string()),
             governs_glob: Some("*.md".to_string()),
-            commitment: None,
-            format: None,
-            unit_shape: None,
-            registration: Vec::new(),
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..test_support::kind_fact_row("adr")
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(kind.format, None);
@@ -1830,14 +1767,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // Each recorded template lifts into a `Template`: an embedded layer by its child
         // kind alone, a file layer carrying the path pattern its children sit at.
         let row = KindFactRow {
-            name: "spec".to_string(),
-            provider: None,
-            governs_root: Some("specs".to_string()),
-            governs_glob: Some("*.md".to_string()),
-            commitment: None,
-            format: None,
-            unit_shape: None,
-            registration: Vec::new(),
             templates: vec![
                 TemplateRow {
                     kind: "decision".to_string(),
@@ -1848,11 +1777,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
                     path: Some("notes/*.md".to_string()),
                 },
             ],
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..spec_row()
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(

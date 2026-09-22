@@ -607,20 +607,10 @@ mod tests {
             version: crate::drift::SEAM_VERSION,
             declarations: crate::drift::Declarations {
                 kinds: vec![crate::drift::KindFactRow {
-                    name: "widget".to_string(),
-                    provider: None,
                     governs_root: Some(".claude".to_string()),
                     governs_glob: Some("settings.json".to_string()),
-                    commitment: None,
-                    format: None,
                     unit_shape: Some("file".to_string()),
-                    registration: Vec::new(),
-                    templates: Vec::new(),
-                    content: None,
-                    shape: None,
-                    collection_address: None,
-                    guidance: None,
-                    cite: None,
+                    ..crate::test_support::kind_fact_row("widget")
                 }],
                 ..crate::drift::Declarations::default()
             },

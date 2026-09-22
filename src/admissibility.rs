@@ -685,53 +685,13 @@ mod tests {
     use crate::extract::Features;
     use crate::test_support;
 
-    /// A [`drift::ClauseRow`] at `label`, carrying only the columns a collision reads.
+    /// A lock-shaped [`drift::ClauseRow`] at `label`, carrying only the columns a
+    /// collision reads over [`test_support::clause_row`]'s defaults.
     fn clause_row(kind: Option<&str>, label: &str, severity: &str) -> drift::ClauseRow {
         drift::ClauseRow {
             label: Some(label.to_string()),
             kind: kind.map(str::to_string),
-            predicate: "required".to_string(),
-            field: None,
-            severity: severity.to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: None,
-            gate: None,
-            value_type: None,
-            shape: None,
-            bound: None,
-            unit: None,
-            charset: None,
-            keys: None,
-            values: None,
-            range: None,
-            section: None,
-            sections: None,
-            guard_predicate: None,
-            body: None,
-        }
-    }
-
-    /// A [`drift::KindFactRow`] naming `name` and declaring nothing else — the base each
-    /// locus case struct-updates with the one fact it exercises.
-    fn kind_row(name: &str) -> drift::KindFactRow {
-        drift::KindFactRow {
-            name: name.to_string(),
-            provider: None,
-            governs_root: None,
-            governs_glob: None,
-            commitment: None,
-            format: None,
-            unit_shape: None,
-            registration: Vec::new(),
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..test_support::clause_row("required", severity)
         }
     }
 
@@ -834,7 +794,7 @@ mod tests {
     fn a_kind_collision_names_the_fact_that_diverges_from_the_builtin() {
         let row = drift::KindFactRow {
             unit_shape: Some("file".to_string()),
-            ..kind_row("skill")
+            ..test_support::kind_fact_row("skill")
         };
         let findings = kind_collision_diagnostics(&[&row], &builtin_kind::definitions()).unwrap();
         let message = only_message(&findings).to_string();
@@ -852,7 +812,7 @@ mod tests {
     fn a_local_locus_fault_names_the_two_columns_that_resolve_it() {
         let row = drift::KindFactRow {
             commitment: Some("local".to_string()),
-            ..kind_row("scratch")
+            ..test_support::kind_fact_row("scratch")
         };
         let findings =
             local_locus_admissibility(&BTreeMap::new(), &[&row], &drift::Declarations::default())
@@ -869,7 +829,7 @@ mod tests {
     fn a_registration_locus_fault_names_the_two_columns_that_resolve_it() {
         let row = drift::KindFactRow {
             registration: vec!["always".to_string()],
-            ..kind_row("nested-note")
+            ..test_support::kind_fact_row("nested-note")
         };
         let findings = registration_locus_admissibility(
             &BTreeMap::new(),
@@ -890,7 +850,7 @@ mod tests {
         let row = drift::KindFactRow {
             governs_root: Some(".temper/notes".to_string()),
             governs_glob: Some("*.md".to_string()),
-            ..kind_row("note")
+            ..test_support::kind_fact_row("note")
         };
         let findings =
             at_locus_under_workspace_admissibility(&[&row], &drift::Declarations::default());
@@ -916,7 +876,7 @@ mod tests {
             content: Some(drift::LayoutRow {
                 regions: vec![prose(None), prose(Some("head.md")), prose(None)],
             }),
-            ..kind_row("spec")
+            ..test_support::kind_fact_row("spec")
         };
         let findings = layout_duplicate_prose_region_admissibility(
             &BTreeMap::new(),

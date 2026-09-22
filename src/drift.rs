@@ -5670,20 +5670,14 @@ mod tests {
     #[test]
     fn kind_fact_row_with_guidance_and_cite_round_trips_unchanged() {
         let row = KindFactRow {
-            name: "rule".to_string(),
-            provider: None,
             governs_root: Some(".claude/rules".to_string()),
             governs_glob: Some("*.md".to_string()),
-            commitment: None,
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("file".to_string()),
             registration: vec!["paths-match(paths)".to_string()],
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
             guidance: Some("Best practices for authoring rules.".to_string()),
             cite: Some("code.claude.com/docs/rules, retrieved 2026-07-20".to_string()),
+            ..crate::test_support::kind_fact_row("rule")
         };
 
         let round_tripped = row
@@ -5695,20 +5689,12 @@ mod tests {
     #[test]
     fn kind_fact_row_omits_absent_guidance_and_cite_columns() {
         let row = KindFactRow {
-            name: "rule".to_string(),
-            provider: None,
             governs_root: Some(".claude/rules".to_string()),
             governs_glob: Some("*.md".to_string()),
-            commitment: None,
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("file".to_string()),
             registration: vec!["paths-match(paths)".to_string()],
-            templates: Vec::new(),
-            content: None,
-            shape: None,
-            collection_address: None,
-            guidance: None,
-            cite: None,
+            ..crate::test_support::kind_fact_row("rule")
         };
 
         let table = row.to_table();
