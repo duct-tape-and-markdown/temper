@@ -1076,6 +1076,42 @@ fn a_composed_kind_narrates_the_embedded_kinds_it_admits_and_their_leaves() {
 }
 
 #[test]
+fn a_vowel_initial_hosting_kind_narrates_both_hosted_strands_with_no_article_before_its_name() {
+    // The narration cannot know how a kind name is pronounced, so it never composes an
+    // English article ahead of one: `a `intent` member` is wrong for every vowel-initial
+    // kind, and `an` would be wrong for every other. Both hosted-kinds strands spell the
+    // article-free form the locus strand already uses — `a member of `{name}``.
+    let kinds = [drift::KindFactRow {
+        templates: vec![
+            TemplateRow {
+                kind: "invariant".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            },
+        ],
+        ..common::kind_facts("intent", "specs", "intent.md")
+    }];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+
+    let out = explain_kind(&kinds, &by_kind, "kind:intent");
+    assert!(
+        out.contains("Kinds it hosts in its own body — a member of `intent` admits these"),
+        "the embedded strand names the kind without an article before it: {out}"
+    );
+    assert!(
+        out.contains("each owns its own unit, under that of a member of `intent`"),
+        "and so does the file-children strand: {out}"
+    );
+    assert!(
+        !out.contains("a `intent`") && !out.contains("an `intent`"),
+        "neither article is composed ahead of the kind name: {out}"
+    );
+}
+
+#[test]
 fn a_registration_kinds_locus_and_address_form_render_with_no_member_of_it_present() {
     // The adopter's actual moment: `hook` is declared, the surface carries no hook member
     // anywhere, and the two things they need told are where a member of it lands and how a

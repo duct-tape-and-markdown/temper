@@ -694,7 +694,7 @@ fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
     if let Some(address) = &row.collection_address {
         let _ = writeln!(
             out,
-            "  • keyed at `{}` inside a `{}` manifest — a member of `{name}` is one entry \
+            "  • keyed at `{}` inside the `{}` manifest — a member of `{name}` is one entry \
              under that key, never a document of its own.",
             address.key_path, address.manifest
         );
@@ -1069,7 +1069,8 @@ fn narrate_hosted_kinds(
     if !embedded.is_empty() {
         let _ = writeln!(
             out,
-            "Kinds it hosts in its own body — a `{name}` member admits these, and no other:"
+            "Kinds it hosts in its own body — a member of `{name}` admits these, and no \
+             other:"
         );
         for kind in embedded {
             let leaves = corpus_leaves(by_kind, kind);
@@ -1096,8 +1097,8 @@ fn narrate_hosted_kinds(
     if !file_children.is_empty() {
         let _ = writeln!(
             out,
-            "Kinds it hosts as file children — each owns its own unit under a `{name}` \
-             member's:"
+            "Kinds it hosts as file children — each owns its own unit, under that of a \
+             member of `{name}`:"
         );
         for template in file_children {
             let path = template.path.as_deref().unwrap_or("<no path declared>");
