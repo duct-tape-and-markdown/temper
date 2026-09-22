@@ -482,7 +482,7 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "`Predicate::Degree` (:328) carries `incoming`/`outgoing` only — add the field-set filter beside them. An unfiltered bound keeps today's meaning (every resolved edge at the member); `EdgeBound` is untouched."
+          "description": "`Predicate::Degree` (:328) carries `incoming`/`outgoing` only — add the field-set filter beside them, as the clause's own `fields` set rather than a property of either bound: 0056's `reached-from` via set is the same concept (`specs/process/engineering.md`, \"A shared concept is one type\"), so one shape serves both. An unfiltered bound keeps today's meaning (every resolved edge at the member); `EdgeBound` is untouched."
         },
         {
           "path": "src/engine.rs",
@@ -494,7 +494,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "`DegreeBoundRow` (:3942) gains the field set; `degree_bound_table` (:5016) and `degree_bound_from_table` (:5027) round-trip it, absent when unfiltered so no committed lock row moves."
+          "description": "A new shared `ClauseRow.fields: Option<Vec<String>>` column carries the filter — **not** a key inside `DegreeBoundRow` (:3942), which stays direction-only: the second consumer is 0056's `reached-from` via set, and a lock spelling one concept two ways is the residue class. `ClauseRow::to_table` (:4737) and `from_table` (:4803) round-trip it beside `target`/`degree`, absent when unfiltered so no committed lock row moves."
         },
         {
           "path": "src/roster.rs",
@@ -502,11 +502,7 @@
         },
         {
           "path": "sdk/src/contract.ts",
-          "description": "`degree()` (:253) takes the field set into `args`, so the clause the lock encodes losslessly is the one the author wrote. Strict `tsc` against 0.0.18 rejects `degree({ incoming: { max: 1 }, field: \"writes\" })` with TS2353 today."
-        },
-        {
-          "path": "sdk/src/generated/DegreeBoundRow.ts",
-          "description": "Generated, never hand-edited: re-blessed with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` once the Rust row moves."
+          "description": "`degree()` (:253) takes the field set, so the clause the lock encodes losslessly is the one the author wrote. Strict `tsc` against 0.0.18 rejects `degree({ incoming: { max: 1 }, field: \"writes\" })` with TS2353 today. The `Predicate` interface gains the `fields` slot the row column mirrors — the slot `reachedFrom` will reuse, never a `degree`-private one."
         },
         {
           "path": "tests/graph.rs",
@@ -523,6 +519,22 @@
         {
           "path": "tests/requirement_roster.rs",
           "description": "`:875` hand-spells a `DegreeBoundRow` literal for the roster's own degree clause — a widened row breaks the literal; it stays unfiltered."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`clauseRow`'s lowering (:105-:155) writes the new `fields` column for a `degree` predicate beside the `degree` bound it already writes (:116-:123) — the constructor's args reach the lock nowhere else, so the SDK half is unfinished without it."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "Generated, never hand-edited: re-blessed with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` once the Rust row gains the column."
+        },
+        {
+          "path": "src/test_support.rs",
+          "description": "`clause_row` — the src-side base LOCK-ROW-FIXTURE-ONE-HOME(src) lands — spells every `ClauseRow` column, so the new one is absent there once and nowhere else in `src/`."
+        },
+        {
+          "path": "tests/common/mod.rs",
+          "description": "`clause` (:709) spells all twenty-three columns to set two; it gains the new one at its default, which is what keeps every integration call site untouched."
         }
       ],
       "retire": []
@@ -542,8 +554,8 @@
         "asserts": "`degree()` accepts the field set and carries it in the clause's args"
       }
     ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `pnpm --dir sdk test` green. Oracle (the inbox repro): a `channel` kind bounding incoming degree to [0,1] filtered to `writes` counts the two `path.writes` arcs and not the `effect.clobbers` one, where all three count today.",
-    "notes": "0052's Consequences name this entry verbatim (\"`Predicate::Degree` gains a field-set filter\"); the inbox note observed at d9a34e39 is its second driver, reproduced on 0.0.18. Containment's own half — an unfiltered bound excludes `contains:<kind>` — rides 0052's containment-family entry, which the spec-delta job has not derived yet. Serialized behind the two entries sharing `src/graph.rs` and `src/drift.rs`. scoped at 61e9e78d"
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `pnpm --dir sdk test` green, with `src/builtin_lock.toml` byte-unchanged (no shipped clause is filtered). Oracle (the inbox repro): a `channel` kind bounding incoming degree to [0,1] filtered to `writes` counts the two `path.writes` arcs and not the `effect.clobbers` one, where all three count today.",
+    "notes": "0052's Consequences name this entry verbatim (\"`Predicate::Degree` gains a field-set filter\"); the inbox note observed at d9a34e39 is its second driver, repro'd on 0.0.18. Rewritten this tick: the filter lands on a shared `ClauseRow.fields` column, since 0056 declares `reached-from`'s via set to be the same field set. Containment's own half rides CONTAINMENT-INCIDENCE-FAMILY. Serialized behind the entries sharing `src/graph.rs`, `src/drift.rs`, and the fixture bases. scoped at 3643f835"
   },
   {
     "tag": "CONTAINMENT-INCIDENCE-FAMILY",
@@ -922,6 +934,145 @@
     ],
     "acceptance": "`pnpm --dir sdk test` and `cargo test` green (the frozen lane byte-matches the regenerated embedded lock), `cargo clippy --all-targets -- -D warnings` clean.",
     "notes": "The SDK and embedded halves are one entry because `tests/builtin_lock_frozen.rs` byte-compares a fresh SDK-derived lock against `src/builtin_lock.toml` — a default the SDK emits and the embedded lock lacks is a red gate in the same commit. `.temper/lock.toml` (the dogfood) is outside build's fence and re-emits on the next `chore(harness):` tick; until then the embedded root rows judge this repo under rows-or-default. scoped at 7b6dda62"
+  },
+  {
+    "tag": "REACHED-FROM-PREDICATE-AND-JUDGE",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
+        "KIND-ROW-LEAF-SET-COLUMN",
+        "DEGREE-FIELD-SET-FILTER",
+        "CONTAINMENT-INCIDENCE-FAMILY",
+        "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "`Predicate::ReachedFrom { roots, via }` joins the closed enum (:132). `roots` is a requirement name — the closure's roots are its satisfiers, named exactly as `Membership`'s `target` names its source set (:318), so it rides the `target` column and no second naming scheme appears. `via` is the field set DEGREE-FIELD-SET-FILTER lands on the shared `fields` column. `key()` (:634) answers `reached-from`; `ranges_over_selection` (:664) is true beside `degree`; `target()` (:694) and `documented_field()` (:750) are `None` (it names no one field — the `mention-reachable` precedent) and `declared_keys` (:800) skips it; `predicate_from_row` (:543) decodes the `target` + `fields` columns and never the `field` one, which carries only the synthesized label segment."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "The set-predicate arms the variant rides: `judge` (:611) leaves it to the graph exactly as `degree` is left (:646), and the per-member arms at :265/:320/:367/:520/:1222 list it with the other selection predicates. `admissibility` (:451) gains its two vacuity cases, both by standing precedent: an empty `roots` names no requirement to root from (`membership`'s rule verbatim), and an empty `via` follows no field — the closure would be the root set, so every non-root member fires, the false positive a directionless `degree` is already refused for."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "New `reached_from` beside `degree` (:307), taking the same `(&[Selection], &[ResolvedEdge], &[ResolvedEdge])`. Opt-in through `any_clause_of` (:276), so a corpus declaring no such clause does no closure work. Per clause: the roots are the members of the `Selector::OptIn(roots)` selection — read off the same `selections` slice `engine::out_of_set` reads for `membership`, not a second satisfier walk — then a forward BFS over the via-filtered adjacency, reusing the per-clause field filter DEGREE-FIELD-SET-FILTER factors out rather than re-filtering. A visited set makes the closure well-defined over cycles; a root holds trivially by construction. One diagnostic per selected member outside the closure, at the clause's own severity, naming the roots requirement and the via set."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "Wire `graph::reached_from` after the `degree` call (:563), reading the hoisted `resolved_edges` (:548) and `mention_edges` the two graph judges above it already share, plus the one `selections` list that holds both the opt-in and by-kind bindings (:497-:499) — the roots resolve off it, so no new corpus walk enters the gate."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow::target`'s doc (:3765) widens to two owners — `membership`'s allowed-set source and `reached-from`'s roots requirement — and `to_table` (:4737) / `from_table` (:4803) write and read it for either predicate. The via set needs no column of its own: it is the `fields` column DEGREE-FIELD-SET-FILTER adds."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "The keystroke-schema skip arm (:115-:128, where `mention-reachable` and `degree` already sit): a graph-scope predicate constrains no field of a document, so it contributes nothing to an emitted JSON Schema."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "Generated, never hand-edited: re-blessed with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` after the `target` column's doc widens."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "The judge's cases beside the `degree` ones: a member the roots reach transitively passes and an unlinked one fires; a root holds trivially; a cycle inside the closure terminates and changes no verdict; a via set naming one field ignores another field's arcs; a mention or import field counts only where the via set names it; and a selection with no `reached-from` clause produces no finding."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "The declaration round trip: a `reached-from` row survives write→read with its `target` and `fields` columns intact, and lifts back into the same predicate."
+        },
+        {
+          "path": "tests/manifest_schema_oracle.rs",
+          "description": "`covered_rule`'s exhaustive `Predicate` match (:165-:188) — a new variant is a compile error until it joins the schema-silent arm, which is the correct verdict: a graph-scope predicate measures no manifest rule."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "`gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (:411) enumerates the hoisted walk's consumers; `reached_from` joins that list, and the opt-in claim is pinned the way `degree`'s is — no closure runs when no clause declares one."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "No predicate answers \"is this member connected at all\": `degree` counts one hop, so the first orphan of a dead chain fires and none behind it.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a member outside the forward closure of a requirement's satisfiers over the via set fires one finding at the clause's severity; roots and transitively reached members pass; a cycle in the closure terminates and moves no verdict"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a `reached-from` row round-trips its roots requirement and via field set"
+      },
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "the closure runs once per gate invocation and not at all when no clause declares it"
+      }
+    ],
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green, with `src/builtin_lock.toml` byte-unchanged — 0056 ships the predicate in no default contract. Oracle: a corpus whose requirement `entrypoint` has one satisfier `a`, with `a` routing to `b` and `b` to `c` while `d` links to nothing — a `reached-from` clause over the kind, rooted at `entrypoint` via `routes_to`, fires on `d` alone, where a one-hop `degree` floor fires on `d` and `a` both; adding a `b`↔`c` cycle leaves that verdict unchanged.",
+    "notes": "0056's Consequences name three parts: the predicate, its judge beside `degree`, and the SDK constructor (SDK-REACHED-FROM-CONSTRUCTOR). Roots are named as `membership` names its target; `via` is 0052's field set, so DEGREE-FIELD-SET-FILTER is a real parent, as is acyclicity — a closure over a cyclic field graph must be legal to judge. ROOT-CONTRACT-SELECTION-AND-REACHABLE widens the same vocabulary seam and the same six files; it is serialized first, not duplicated. scoped at 3643f835"
+  },
+  {
+    "tag": "SDK-REACHED-FROM-CONSTRUCTOR",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "REACHED-FROM-PREDICATE-AND-JUDGE",
+        "ROOT-DEFAULT-CONTRACT-SHIPS"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "`reachedFrom(roots, via)` beside `membership` (:247) and `degree` (:253), lowering to `{ key: \"reached-from\", target: roots, fields: [...via] }` — reusing the `target` slot `membership` documents (:46) and the `fields` slot `degree()` gains, never a third naming scheme. Its doc states the grain (each over the selection, judged by the graph), that a root holds trivially, and that it belongs in no default contract: a clause demanding every member be reached is the declaration-density demand invariant 1 forbids unless the author declares it."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`clauseRow` writes `target` for `reached-from` as well as `membership` (:115) and the `fields` column for it as well as `degree`. `clauseField` (:160) synthesizes this predicate's label segment from the roots name — the `section_contains` precedent — so two `reached-from` clauses on one kind carry distinct addresses instead of folding into one label, which admissibility refuses as a malformed lock; the Rust reader reconstructs from `target` and never from the synthesized text."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export the constructor from the root beside the other clause constructors — adoption is the import, so an unexported predicate ships nowhere."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "The constructor's shape: the roots name lands in `target`, the via set in `fields` as a fresh array, and severity/guidance/cite ride the same four channels every clause takes."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The lowering: a `reached-from` clause on a kind's `expect` emits one row carrying `predicate`, `target`, `fields`, and a label whose trailing segment is the roots name — two such clauses on one kind emit two distinct labels."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "`reached-from` has no SDK constructor, so the predicate the engine judges is unspellable by the one authoring surface an adopter imports.",
+    "per": {
+      "path": "specs/model/authoring.md",
+      "section": "The SDK"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/contract.test.ts",
+        "asserts": "`reachedFrom()` composes a clause carrying the roots requirement and the via field set"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "the clause lowers to a `reached-from` row with `target`, `fields`, and a roots-suffixed label; two clauses on one kind do not collide on one label"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` (strict `tsc` + `node --test`) and `cargo test` green — the SDK-derived memberless lock still byte-matches `src/builtin_lock.toml`, since no default contract names the predicate. Oracle: a program declaring `reachedFrom(\"entrypoint\", [\"routes_to\"])` at advisory emits a row `temper check` decodes and judges, where 0.0.18 has no spelling for it at all.",
+    "notes": "0056's Consequences' third part. Split from the predicate entry because the SDK half is the authoring surface and the Rust half is the vocabulary — the lock has to decode the row before the constructor can write one. Serialized behind ROOT-DEFAULT-CONTRACT-SHIPS: same seam (the clause-constructor surface plus `clauseRow`'s lowering) and the same four files. scoped at 3643f835"
   },
   {
     "tag": "FRESH-CLAUSE-JUDGES-STALENESS",
