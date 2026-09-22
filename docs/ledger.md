@@ -26,21 +26,16 @@ hard.
   and is the latent-bug surface. Validate it; never cut capability for
   want of a consumer.
 
-## Next session's one focus (John + session, 09-08)
+## Next session's one focus (09-22)
 
-- **Rule the forks that gate work.** Fifteen open in
-  `.flume/plan/open-questions.md`. With queued dependents:
-  `(layout-own-span-leaf)` (needs the leaf's name) and
-  `(hook-member-identity)` (GH #32). Gating cascade's contract work:
-  `(containment-selection-family)` — a Decision before any entry.
-  Carrying a live hole: `(committed-settings-kind)` — the guard-command
-  silent-disable residual, the one thing cascade still tracks open.
-  New 09-07: `(build-version-identity)` — a source build and the
-  published binary both print the crate version; `(re-rooted-harness-
-  disclosure)`; `(builtin-relocation-unnamed)`. Parked ruling: 0019's
-  occupant — does the launch demo stay layout-governed (GH #45).
-- After the rulings: relaunch the loop (recipe below). Ten pending, none
-  pickable; every one is blocked on a fork or parked.
+- 0050–0053 landed 09-22 (0050 re-ruled: settings.json is a whole
+  projection; 0052 amended: unfiltered `degree` skips containment). Loop
+  relaunched 09-22. Watch plan route the two graph defects in order
+  (acyclicity scope first, then 0052's field filter).
+- Still open with dependents: `(hook-member-identity)` (GH #32). Parked
+  ruling: 0019's occupant (GH #45).
+- Ratify or drop: `docs/proposals/drift-severity-is-a-clause.md` (ruled
+  in principle 09-22), then `(declared-input)` and `(field-reach)`.
 
 ## Parked (pointers only)
 
