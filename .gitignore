@@ -10,6 +10,8 @@
 /.flume/sessions/
 /.flume/awake/
 /.flume/prior-attempts/
+/.flume/rendered-prompts/
+/.flume/merging/
 /.flume/tick-verdict.json
 /.flume/tick-verdicts.jsonl
 

@@ -35,17 +35,20 @@ import type {
 /** Absolute path to this chain.ts directory (.flume/), regardless of cwd. */
 const CHAIN_DIR = dirname(fileURLToPath(import.meta.url));
 
-// Ephemeral worktrees live OUTSIDE the repo (FLUME_WORKTREES_DIR, honored by
-// the runtime's createWorktree): a worktree at <root>/.flume/worktrees/<slug>
-// hands every build agent a pwd containing the root checkout's path as a
-// prefix, and models derive <root> from it and operate there — the 07-18
-// stray-write vector. Off-repo paths remove the derivation wholesale.
-process.env.FLUME_WORKTREES_DIR ??= resolve(
-  process.env.HOME ?? "/tmp",
-  ".cache",
-  "flume-worktrees",
-  basename(resolve(CHAIN_DIR, "..")) || "repo",
-);
+// Ephemeral worktrees live OUTSIDE the repo: a worktree at
+// <root>/.flume/worktrees/<slug> hands every build agent a pwd containing the
+// root checkout's path as a prefix, and models derive <root> from it and
+// operate there — the 07-18 stray-write vector. Off-repo paths remove the
+// derivation wholesale. One base feeds both `worktreesBase` (flume ≥0.16) and
+// the plan-worktree reads below; an operator's FLUME_WORKTREES_DIR outranks it.
+const WORKTREES_BASE =
+  process.env.FLUME_WORKTREES_DIR ??
+  resolve(
+    process.env.HOME ?? "/tmp",
+    ".cache",
+    "flume-worktrees",
+    basename(resolve(CHAIN_DIR, "..")) || "repo",
+  );
 
 // ---------- entry extension (flume ≥0.8) ----------
 
@@ -178,12 +181,12 @@ const scopedDelta = (ctx: TickContext): string => {
  * to a pending tag, a keyed fork, or a named debt/amendment — a note that
  * leaves the inbox and lands nowhere is the silent loss this gate exists for.
  */
-// The plan tick's own worktree (`<FLUME_WORKTREES_DIR>/plan`, alive through
+// The plan tick's own worktree (`<WORKTREES_BASE>/plan`, alive through
 // afterMerge and handoff — the dispatcher removes it in tick cleanup). Its
 // HEAD is the tick's tree: what the tick saw and left. A trunk input absent
 // from it landed after the tick branched — fresh, never the tick's
 // dishonesty — and is a handoff's to route, not a gate's to revert.
-const PLAN_WORKTREE = resolve(process.env.FLUME_WORKTREES_DIR ?? resolve(CHAIN_DIR, "worktrees"), "plan");
+const PLAN_WORKTREE = resolve(WORKTREES_BASE, "plan");
 const gitOut = (args: string[], cwd: string): string | null => {
   try {
     return execFileSync("git", args, { cwd, encoding: "utf8" });
@@ -908,7 +911,7 @@ const factory: ChainFactory = (flume) => {
       // wave forms with no plan interim. Plan reconciles at the drain — its
       // audit cursors span multi-wave windows by design. A true no-op wave
       // hibernates; `flume wake plan` forces it.
-      const quarantined = new Set(result.quarantinedTags ?? []);
+      const quarantined = new Set((result.quarantinedTags ?? []).map((q) => q.tag));
       if (
         result.pendingAfter.some(
           (e) => e.gate.kind === "open" && !quarantined.has(e.tag),
@@ -933,6 +936,7 @@ const factory: ChainFactory = (flume) => {
     // supervisor was memory-killed 2026-09-06). Two in flight while both
     // loops run; the supervisor reads this at launch only.
     supervisorPolicy: { maxParallel: 2 },
+    worktreesBase: () => WORKTREES_BASE,
   };
 
   /**

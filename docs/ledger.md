@@ -62,9 +62,9 @@ hard.
 
 ## Standing discipline (mechanical, paid for)
 
-- Loop on flume 0.14.0 (7fccedd3), Opus both phases, `maxParallel: 2`.
-  Relaunch: `export FLUME_WORKTREES_DIR=$HOME/.cache/flume-worktrees/temper`
-  then `setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`,
+- Loop on flume 0.17.0 (09-22), Opus both phases, `maxParallel: 2`;
+  worktrees off-repo via the chain's `worktreesBase`. Relaunch:
+  `setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`,
   with a Monitor on the log. Pause with the stop flag (`.flume/stop`),
   never a kill; remove it to relaunch. The loop's lifetime is the WSL
   VM's — keep a terminal open.
@@ -95,7 +95,6 @@ every new thread against shipping this.
 - Loop STOPPED at a tick boundary after 38 ticks (`.flume/stop` in place).
   09-07: 16 entries shipped, 0 build reverts, three cascade audit rounds
   before build. 0.0.18 cut and published; SDK lock resynced (cd466131).
-- Waiting on John: the forks above; flume-side items via flume-main
-  (worktreesDir placement, bail reasons, `baseSha` on gate contexts —
-  derives on flume's next run, then the chain's worktree-path read
-  retires).
+- flume 0.17 shipped worktree placement, bail messages, and `baseSha`;
+  the chain's plan-worktree reads (`PLAN_WORKTREE`) can move to
+  `ctx.baseSha` — not yet taken.

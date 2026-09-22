@@ -89,7 +89,7 @@ engine (fresh clone: `pnpm install`).
 
 ## Prior attempts are write-only to plan
 
-A voluntary bail persists to `.flume/prior-attempts/<entry>.json` and is read
+A clean exit persists to `.flume/prior-attempts/entry/<slug>.json` and is read
 by nothing but that entry's next build attempt — plan never sees it. An ask
 that needs plan (a fork, a rescope) must route through `.flume/inbox.md` or an
 open-questions record to move. Humans delete a record once its entry re-scopes
