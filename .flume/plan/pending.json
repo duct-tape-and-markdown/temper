@@ -344,6 +344,144 @@
     "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's \u2014 with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. The other two tags are file overlap. scoped at 6f4e39f4"
   },
   {
+    "tag": "KIND-ROW-LEAF-SET-COLUMN",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "LOCK-ROW-FIXTURE-ONE-HOME(src)",
+        "ACYCLIC-SCOPED-TO-THE-IMPORT-RELATION",
+        "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE",
+        "DEGREE-FIELD-SET-FILTER",
+        "CONTAINMENT-INCIDENCE-FAMILY"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`KindFactRow` (:3559) gains a new `leaves: Vec<String>` column spelled exactly as `registration` (:3597) \u2014 `#[serde(default)]` plus `#[ts(as = \"Option<Vec<String>>\", optional)]` \u2014 the kind's leaf set, empty for a kind whose declaration carries none. `to_table` (:4482) inserts it through `string_array` only when non-empty; `from_table` (:4530) reads `opt_str_array(table, \"leaves\")?.unwrap_or_default()`, so no committed lock re-spells (the tolerant round-trip every optional fact takes). The two round-trip cases at :5672/:5697 gain the column's own pair: a row carrying leaves round-trips unchanged, a row carrying none emits no key."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`narrate_hosted_kinds` (:1062) takes the `kind_facts` slice `narrate_kind` (:609) already holds and renders each hosted kind's declared leaf set \u2014 the strand 0053 names, where `corpus_leaves` (:1112) says \"no member of it is in this surface yet\" today. Precedence: a row's declared set wins wherever present (the type is the declaration), and the corpus union stays the fallback for a hosted kind whose row carries none. The hosted kind's *own* `narrate_kind` pass and its `declares_a_locus` guard (:674) are untouched \u2014 0053 names the hosted-kinds strand and nothing wider."
+        },
+        {
+          "path": "src/test_support.rs",
+          "description": "`kind_fact_row` \u2014 the shared base LOCK-ROW-FIXTURE-ONE-HOME(src) lands \u2014 gains `leaves: Vec::new()`. Once the in-src spellings collapse onto it, this one line is the whole in-src cost of the new column."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Expected no-op, fenced for safety: its twelve `KindFactRow` spellings (`spec_row` :1498 and the lift cases) collapse onto `test_support::kind_fact_row` under the named parent, whose oracle leaves `src/test_support.rs` the only exhaustive tail in `src/`. A surviving straggler is then a one-line `leaves: Vec::new()` fill rather than a fence revert."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "Same expected no-op: `kind_row` (:719) and the five collision literals collapse onto the shared base under the parent; fenced so a straggler is a one-line fill."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "Same expected no-op: the one inline `crate::drift::KindFactRow` literal (:609) inside a `Declarations` fixture collapses onto the shared base under the parent."
+        },
+        {
+          "path": "tests/common/mod.rs",
+          "description": "The three exhaustive builders \u2014 `skill_kind_facts` (:635), `rule_kind_facts` (:656), `kind_facts` (:680) \u2014 each gain `leaves: Vec::new()`. The struct-update call sites across `tests/` ride unchanged, which is why the integration ripple is three lines and not a hundred."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "Three exhaustive literals (:557, :835, :855) that do not route through `common::kind_facts` \u2014 each gains the empty column, or collapses onto the shared builder while the file is open."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "`relocated_rule` (:208), the file's one exhaustive literal."
+        },
+        {
+          "path": "tests/prose_include.rs",
+          "description": "`rule_kind` (:28), the file's one exhaustive literal."
+        },
+        {
+          "path": "tests/layout_prose_import.rs",
+          "description": "`skill_facts` (:118), the file's one exhaustive literal \u2014 `layout_kind` (:26) already spreads and rides unchanged."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "The kind row's declaration round-trip home: a row carrying a leaf set survives write\u2192read byte-identically, and a row carrying none emits no `leaves` key \u2014 the lock-side proof beside the existing kind-row cases."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "The `explain` proof: a host admitting an embedded kind whose row carries a leaf set narrates those leaves with zero members of that kind in the surface \u2014 the adopter's moment 0053 serves \u2014 and a hosted kind with members but no declared set still narrates the corpus union."
+        },
+        {
+          "path": "sdk/src/generated/KindFactRow.ts",
+          "description": "Generated, never hand-edited: re-blessed with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` once the Rust row moves."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The lock's kind row carries no leaf set, so `explain kind` can teach an adopter nothing about a hosted kind no member of which exists yet.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a kind row's leaf set survives write\u2192read byte-identically, and a row declaring none emits no `leaves` key"
+      },
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`explain kind:<host>` names a hosted kind's declared leaves where the surface holds no member of it, and falls back to the corpus union where the row declares none"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle: `explain kind:<host>` over a lock whose hosted kind's row carries `leaves` and whose corpus holds no member of that kind names the leaves in place of \"no member of it is in this surface yet\"; a row declaring no leaf set writes no `leaves` key, so a committed lock is untouched.",
+    "notes": "Decision 0053 (a0e3e2aa) names this entry's parts: the column on `KindFactRow` and the `explain` strand; the SDK's lowering is SDK-KIND-LEAF-SET-LOWERING. The declared-set-wins precedence is plan's reading of 0053's \"the type is the declaration\" \u2014 the decision speaks only to the empty-corpus branch. Five parents, each a shared file: drift.rs/test_support.rs, graph.rs/check_cost.rs, read.rs/read_verbs.rs, lock_declaration_rows.rs. scoped at 98e9e496"
+  },
+  {
+    "tag": "SDK-KIND-LEAF-SET-LOWERING",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "KIND-ROW-LEAF-SET-COLUMN"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`KindFacts` becomes generic over the kind's typed surface (new `KindFacts<T extends object = Record<string, unknown>>`) so a new optional leaf-set witness binds to `keyof T`, and `kind<T>` (:476) carries it to the row. 0053 rejects a free author-written leaf schema and rules the corpus supplies the key set *through its typed constructor*, so the witness is compiler-bound, never a loose list: an exhaustive record (`{ [K in keyof T]-?: true }`, where omitting a key is a type error) is the shape that makes a partial set impossible; `readonly (keyof T & string)[]` is the weaker one that admits a subset. `relocate` (:546) rides the base's witness unchanged \u2014 a relocation appends edge fields over the kind's own surface, never an embedded leaf \u2014 so `relocationInvariants` needs no new erasure."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`kindFactRow` (:345) lowers the witness into the row's `leaves` column, absent when the kind declares none. `kindFactKindsInPlay` (:504) admits an embedded kind only when it declares `guidance`/`cite` \u2014 widen it to a declared leaf set, or the column never reaches the lock for the very kinds it exists to teach. The module's erased `KindFacts` signatures (:215, :285, :323, :345, :370, :382, :400, :431, :469-472, :492, :504, :556) ride the generic's default, so no call site re-spells a type argument."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "`:69` re-exports the `KindFacts` type \u2014 it follows the generic."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The emitted-rows home (the `guidance` row precedent at :482): a kind declaring the witness emits its leaf set on the row in declaration order; a kind declaring none emits no `leaves` key, so `:201`'s exhaustive `deepEqual` over the built-in rows stands unchanged; and an embedded kind whose only declaration is a leaf set now takes a row where it takes none today."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "No SDK surface carries an embedded kind's leaf set, so the lock's `leaves` column is never written and only a hand-built row can teach what a child carries.",
+    "per": {
+      "path": "specs/model/authoring.md",
+      "section": "The SDK"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a kind declaring the leaf-set witness emits it on its kind row in declaration order, a kind declaring none emits no `leaves` key, and an embedded kind carrying only a leaf set takes a row"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`) and `cargo test` green. Oracle: a witness omitting one key of `T` fails `tsc`, and an embedded kind declaring a witness and nothing else lands a `leaves`-carrying row in the emitted declarations where it lands no row at all today.",
+    "notes": "0053 (a0e3e2aa) rules the set is lowered from `keyof T` at emit; TypeScript erases the type, so the ruling's own clarification \u2014 the corpus supplies the key set through its typed constructor \u2014 is the mechanism, and the compiler binding is what keeps it off the rejected-alternative list. `examples/base-harness`'s three embedded kinds (kinds.ts :43, :62, :107) are the first adopters, deliberately outside this fence: the witness is optional, so no committed lock moves. scoped at 98e9e496"
+  },
+  {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
     "gate": {
       "kind": "deferred",
