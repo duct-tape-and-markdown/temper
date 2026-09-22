@@ -36,6 +36,11 @@ hard.
   shipped: SDK-MEMBER-DECLARES-INPUTS, SDK-REACHED-FROM-CONSTRUCTOR,
   LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED (and everything under them). The
   publish itself still takes John's word at the cut (`release` rule).
+  Upgrade notes owed: `settings.json` hand edits now drift (0050); drift
+  rule ids become clause labels (0054); `when` labels carry the guard's
+  values (0049 fix); set predicates in a `when` body are refused, not
+  silently skipped. The platform consumer's guarded `degree`/`membership`
+  hit the last one, so tell them to move to kind partition.
   After the cut, unpark INTEGRATION-SUITE-ONE-TEST-TARGET before the harness
   migration: the judge resolves test ids that the fold renames.
 - Still open with dependents: `(hook-member-identity)` (GH #32). Parked
