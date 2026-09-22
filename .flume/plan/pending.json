@@ -1,71 +1,8 @@
 [
   {
-    "tag": "LOCK-ROW-FIXTURE-ONE-HOME(extent)",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/extent.rs",
-          "description": "`row` (:220) is a private per-file helper spelling all twenty-three `ClauseRow` columns itself, so it is the third exhaustive literal beside the two bases LOCK-ROW-FIXTURE-ONE-HOME established — `src/test_support.rs:141` `clause_row` (src side) and `tests/common/mod.rs:736` `clause` (tests side). It diverges from the tests-side base on exactly five columns — `label`, `kind`, `severity`, `bound`, `unit` — and severity is already `clause`'s own argument, so fold it onto `ClauseRow { label: Some(...), kind: Some(\"skill\".into()), bound: ..., unit: ..., ..common::clause(predicate, \"advisory\") }`. The file already carries `mod common;` (:17) and already struct-updates `common::features` (:22-28), so the idiom is the file's own. No case's behaviour moves: every column the helper set, it keeps setting."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A third exhaustive `ClauseRow` literal lives in `tests/extent.rs`, so the next lock column must land in three places rather than the two fixture bases.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "tests/extent.rs",
-        "asserts": "the suite's five extent properties are unchanged — the consolidation is behaviour-preserving, so every existing case stays green with no re-bless"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, with `tests/extent.rs` spelling only the columns its cases diverge on — `rg 'ClauseRow \\{' tests/extent.rs` names one struct-update, not an exhaustive literal.",
-    "notes": "Drained from `.flume/refactor/build-clause-row-third-fixture-home.md`, verified on disk at HEAD. It blocks DEGREE-FIELD-SET-FILTER: the capture patched the new `ClauseRow.fields` column locally and ran `cargo test --no-fail-fast` to completion — `tests/extent.rs` was the only out-of-fence file the widening needed. Landing the consolidation first finishes the tests-side home, so that column lands in two places. scoped at bf85c672"
-  },
-  {
-    "tag": "BUILTIN-KIND-SET-ONE-HOME",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_lock.rs",
-          "description": "`the_embedded_lock_parses_into_kind_facts_and_floor_clauses_only` (:40) hand-spells the fourteen kind names at :52-:69 — a second spelling of the enumeration `builtin_kind.rs`'s `definitions_enumerates_the_embedded_kind_set_by_bare_name` (:857) already owns, with nothing comparing them. Replace the literal with an assertion against `builtin_kind::definitions()` keys (already a `BTreeMap`, so already sorted — the same order this test sorts into), leaving one spelled home in `src/` and turning the agreement from a convention into a gate. The clause-kind match arm below it (:100-:117) is a **different** claim — the twelve kinds that carry floor clauses, not the fourteen that ship — and stays exactly as it is; so does the `provider.is_none()` assertion and the `supporting-doc`/`skill` template pair. Direction matters: the `--frozen` lane (`tests/builtin_lock_frozen.rs`) already pins SDK↔embedded-lock, so the leg this closes is the Rust population's — a kind added to `all_kinds()` (:604) without a lock regeneration passes every gate today."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The embedded built-in kind set is hand-spelled in two modules with nothing comparing them, so the Rust population can outrun the lock's silently.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "src/builtin_lock.rs",
-        "asserts": "the embedded lock's kind-row names equal `builtin_kind::definitions()`'s keys — the one enumeration, asserted rather than restated; the floor-clause kind arm and the severity/emptiness claims stay green unchanged"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, with `rg '\"installed-plugin\",' src/` naming one spelled enumeration instead of two. Oracle: adding a kind to `builtin_kind::all_kinds()` without regenerating `src/builtin_lock.toml` fails this test, where today every gate stays green.",
-    "notes": "Post-ship sweep of 34dfd8d0, which made the divergence load-bearing: `explain_target` now reads the built-in kind population twice in one function — `builtin_kind::definitions()` for contracts (src/read.rs:2307) and `builtin_lock::declarations().kinds` for narration (:2435) — under a doc comment promising a read cannot disagree with the gate about which kinds exist. Blocks SETTINGS-KIND-SHIPS(builtin), which lands a kind in both. scoped at e22c4835"
-  },
-  {
     "tag": "DEGREE-FIELD-SET-FILTER",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LOCK-ROW-FIXTURE-ONE-HOME(extent)"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -433,8 +370,7 @@
       "kind": "blockedBy",
       "tags": [
         "KIND-ROW-LEAF-SET-COLUMN",
-        "WHEN-LABEL-CARRIES-ITS-GUARD-VALUES",
-        "BUILTIN-KIND-SET-ONE-HOME"
+        "WHEN-LABEL-CARRIES-ITS-GUARD-VALUES"
       ]
     },
     "dependsOnForks": [],
