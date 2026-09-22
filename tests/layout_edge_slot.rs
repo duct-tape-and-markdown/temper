@@ -87,19 +87,8 @@ fn guide_fills(into: &std::path::Path) -> Vec<String> {
 /// the shape the coverage gate and the `why` read verb both range over.
 fn guide_features(fills: &[String]) -> Features {
     Features {
-        id: "guide".to_string(),
-        fields: BTreeMap::new(),
-        body_lines: 0,
-        rendered_lines: Some(0),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
         satisfies: fills.to_vec(),
-        edge_placements: None,
+        ..common::features("guide")
     }
 }
 

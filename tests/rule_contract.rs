@@ -174,24 +174,13 @@ fn the_rule_floor_glob_valid_clause_fires_on_an_unparseable_paths_glob() {
 /// `glob-valid` clause reads.
 fn rule_features(paths: &[&str]) -> temper::extract::Features {
     use std::collections::BTreeMap;
-    use temper::extract::Features;
 
     let mut fields = BTreeMap::new();
     fields.insert("paths".to_string(), serde_json::Value::from(paths.to_vec()));
-    Features {
-        id: "demo".to_string(),
+    temper::extract::Features {
         fields,
         body_lines: 1,
-        rendered_lines: Some(1),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
-        edge_placements: None,
+        ..common::features("demo")
     }
 }
 

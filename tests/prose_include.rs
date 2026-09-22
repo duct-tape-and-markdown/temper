@@ -192,19 +192,5 @@ fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
 
 /// A bare `Features` carrying only an id — the corpus entry `why` matches a member on.
 fn feature(id: &str) -> Features {
-    Features {
-        id: id.to_string(),
-        fields: BTreeMap::new(),
-        body_lines: 0,
-        rendered_lines: Some(0),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
-        edge_placements: None,
-    }
+    common::features(id)
 }

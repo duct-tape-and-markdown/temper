@@ -429,35 +429,14 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
     let mut skill_fields = BTreeMap::new();
     skill_fields.insert("routes_to".to_string(), serde_json::json!(["r"]));
     let skill = Features {
-        id: "s".to_string(),
         fields: skill_fields,
         body_lines: 1,
-        rendered_lines: Some(1),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
-        edge_placements: None,
+        ..common::features("s")
     };
 
     let rule = Features {
-        id: "r".to_string(),
-        fields: BTreeMap::new(),
         body_lines: 1,
-        rendered_lines: Some(1),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
-        edge_placements: None,
+        ..common::features("r")
     };
 
     let skills = [skill];

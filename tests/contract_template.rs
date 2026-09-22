@@ -14,12 +14,14 @@
 //! The clause *vocabulary* is pinned; the guidance/citation prose is product
 //! territory, so it is asserted present, not pinned verbatim.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use temper::check;
 use temper::contract::{Charset, Contract, ExtentUnit, Predicate, Severity, Shape};
 use temper::engine;
 use temper::extract::Features;
+
+mod common;
 
 /// The built-in skill contract, resolved from the embedded built-in lock the same
 /// way the shipped tool resolves it.
@@ -347,24 +349,13 @@ fn cited(placements: &[(&str, bool)]) -> Features {
 /// A member whose placement fact is `placements` — `None` when no format rendered it.
 fn formatted(placements: Option<&[(&str, bool)]>) -> Features {
     Features {
-        id: "the-standard".to_string(),
-        fields: BTreeMap::new(),
-        body_lines: 0,
-        rendered_lines: Some(0),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
         edge_placements: placements.map(|placements| {
             placements
                 .iter()
                 .map(|(field, placed)| ((*field).to_string(), *placed))
                 .collect()
         }),
+        ..common::features("the-standard")
     }
 }
 

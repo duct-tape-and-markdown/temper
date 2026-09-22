@@ -14,24 +14,17 @@ use temper::drift::{BoundRow, ClauseRow};
 use temper::engine::{self, Selection, Selector};
 use temper::extract::Features;
 
+mod common;
+
 /// A member whose render-side extent is `(lines, chars)` and whose source body count is
 /// `body_lines` — the three kept distinct on purpose so a test can drive the render/source
 /// divergence directly.
 fn member(id: &str, lines: usize, chars: usize, body_lines: usize) -> Features {
     Features {
-        id: id.to_string(),
-        fields: Default::default(),
         body_lines,
         rendered_lines: Some(lines),
         rendered_chars: Some(chars),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
-        edge_placements: None,
+        ..common::features(id)
     }
 }
 

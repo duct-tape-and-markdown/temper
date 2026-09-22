@@ -19,6 +19,7 @@ use temper::drift::{
     self, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EmitOptions, KindFactRow,
     MentionRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
 };
+use temper::extract::Features;
 use temper::frontmatter::Member;
 use temper::kind::Unit;
 
@@ -528,6 +529,32 @@ pub fn raw_unit(
         source_path: PathBuf::from(source_path),
         satisfies: Vec::new(),
         satisfies_clauses: Vec::new(),
+    }
+}
+
+/// An inert [`Features`] carrying nothing but `id` — the base every integration fixture
+/// starts from, so a test spells only the columns it varies via struct update:
+/// `Features { body_lines: 1, ..common::features(id) }`. The crate-side twin
+/// (`test_support::features`) is the same base for in-`src` fixtures; the two spell one
+/// shape, and a fourteenth column lands in two places rather than fourteen.
+///
+/// The rendered extents are `Some(0)`, not `None`: an `extent` clause reads the `Some`,
+/// and a fixture that wants the undecidable case says so by overriding.
+pub fn features(id: &str) -> Features {
+    Features {
+        id: id.to_string(),
+        fields: BTreeMap::new(),
+        body_lines: 0,
+        rendered_lines: Some(0),
+        rendered_chars: Some(0),
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+        edge_placements: None,
     }
 }
 

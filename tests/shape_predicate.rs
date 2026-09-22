@@ -19,24 +19,13 @@ mod common;
 /// shape clauses range over.
 fn skill(name: &str, description: &str) -> Features {
     Features {
-        id: name.to_string(),
         fields: [
             ("name".to_string(), name.into()),
             ("description".to_string(), description.into()),
         ]
         .into_iter()
         .collect(),
-        body_lines: 0,
-        rendered_lines: Some(0),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
-        edge_placements: None,
+        ..common::features(name)
     }
 }
 

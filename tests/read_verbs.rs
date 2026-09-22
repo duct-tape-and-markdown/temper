@@ -21,9 +21,8 @@ mod common;
 
 /// A member's [`Features`] as the read family reads them: its id, the requirements it
 /// opts into, and a `description` field (so `impact`'s reachability strand has a
-/// non-panicking registration input). Mirrors `read.rs`'s own `impact_tests::feature`
-/// helper — duplicated here since this file, being outside the crate, can only build
-/// `Features` through its public fields.
+/// non-panicking registration input). The inert tail comes from [`common::features`], the
+/// one home the integration fixtures share; only the columns this file varies are spelled.
 fn feature(id: &str, satisfies: &[&str]) -> Features {
     let mut fields = BTreeMap::new();
     fields.insert(
@@ -31,19 +30,11 @@ fn feature(id: &str, satisfies: &[&str]) -> Features {
         serde_json::Value::String("d".to_string()),
     );
     Features {
-        id: id.to_string(),
         fields,
         body_lines: 1,
-        rendered_lines: Some(1),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
         source_dir: Some(id.to_string()),
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
         satisfies: satisfies.iter().map(|s| (*s).to_string()).collect(),
-        edge_placements: None,
+        ..common::features(id)
     }
 }
 

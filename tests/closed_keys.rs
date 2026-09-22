@@ -24,19 +24,8 @@ fn member(fields: serde_json::Value) -> Features {
         unreachable!("the fixture is a JSON object")
     };
     Features {
-        id: "acme-tools".to_string(),
         fields: fields.into_iter().collect(),
-        body_lines: 0,
-        rendered_lines: Some(0),
-        rendered_chars: Some(0),
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
-        edge_placements: None,
+        ..common::features("acme-tools")
     }
 }
 
