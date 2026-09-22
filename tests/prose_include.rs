@@ -81,6 +81,57 @@ fn an_include_lands_byte_identical_and_is_fingerprinted() {
 }
 
 #[test]
+fn a_crlf_include_target_is_fresh_against_its_own_baseline() {
+    let harness = common::scaffold("prose-include-crlf");
+    let into = harness.join(".temper");
+    // A CRLF include target — the shape a checkout git-filtered to CRLF hands emit.
+    fs::write(
+        harness.join("fragment.md"),
+        "shared prose.\r\nsecond line.\r\n",
+    )
+    .unwrap();
+
+    let host_body = format!("Intro.\n{INCLUDE_SLOT}Outro.\n");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![rule_kind()],
+            includes: vec![IncludeRow {
+                member: "rule:host".to_string(),
+                source_path: harness.join("fragment.md").to_string_lossy().into_owned(),
+            }],
+            ..Default::default()
+        },
+        members: vec![common::rule_member("host", None, &host_body)],
+    };
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // The baseline speaks the comparator's EOL-blind vocabulary, so the target reads fresh
+    // immediately after emit — nothing on disk moved between the write and the read.
+    assert!(
+        drift::include_stale(&into).unwrap().is_empty(),
+        "a CRLF include target is fresh against the baseline emit just wrote"
+    );
+
+    // Only the fingerprint went EOL-blind: the splice still pulls the target's own bytes,
+    // so every meaning-carrying word lands verbatim. Line endings are layout, not content —
+    // the projection is written LF like any other, whatever the target's convention.
+    let projected = fs::read_to_string(harness.join(".claude/rules/host.md")).unwrap();
+    assert_eq!(
+        projected,
+        format!(
+            "{}\n\nIntro.\nshared prose.\nsecond line.\nOutro.\n",
+            temper::placement::BANNER
+        )
+    );
+
+    // Still a fingerprint, not a waiver: a non-EOL edit to the target is drift.
+    fs::write(harness.join("fragment.md"), "edited prose.\r\n").unwrap();
+    let stale = drift::include_stale(&into).unwrap();
+    assert_eq!(stale.len(), 1, "a moved include target is drift: {stale:?}");
+}
+
+#[test]
 fn a_dangling_include_refuses_before_any_byte_is_written() {
     let harness = common::scaffold("prose-include-dangling");
     let into = harness.join(".temper");

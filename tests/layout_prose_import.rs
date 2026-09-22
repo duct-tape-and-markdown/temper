@@ -108,6 +108,48 @@ fn an_import_region_resolves_to_its_target_and_is_fingerprinted_in_the_lock() {
 }
 
 #[test]
+fn a_crlf_import_target_is_fresh_against_its_own_baseline() {
+    let harness = common::scaffold("layout-import-crlf-at-emit");
+    let into = harness.join(".temper");
+    fs::write(
+        harness.join("specs/guide.md"),
+        "# Intent\ntemper makes a harness good.\n",
+    )
+    .unwrap();
+    // A CRLF import target — the shape a checkout git-filtered to CRLF hands emit.
+    fs::write(
+        harness.join("specs/included.md"),
+        "shared prose.\r\nsecond line.\r\n",
+    )
+    .unwrap();
+
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![layout_kind(
+                "guide",
+                vec![import_region("included.md"), field_region("intent")],
+            )],
+            ..Default::default()
+        },
+        members: vec![layout_member("guide")],
+    };
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // The baseline speaks the comparator's EOL-blind vocabulary, so the target reads fresh
+    // immediately after emit — nothing on disk moved between the write and the read.
+    assert!(
+        drift::layout_import_stale(&into).unwrap().is_empty(),
+        "a CRLF import target is fresh against the baseline emit just wrote"
+    );
+
+    // Still a fingerprint, not a waiver: a non-EOL edit to the target is drift.
+    fs::write(harness.join("specs/included.md"), "edited prose.\r\n").unwrap();
+    let stale = drift::layout_import_stale(&into).unwrap();
+    assert_eq!(stale.len(), 1, "a moved target is drift: {stale:?}");
+}
+
+#[test]
 fn a_dangling_import_refuses_before_any_byte_is_written() {
     let harness = common::scaffold("layout-import-dangling");
     let into = harness.join(".temper");

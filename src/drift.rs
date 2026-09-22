@@ -2061,8 +2061,11 @@ pub fn read_layout_document(
 /// A target absent from disk is a dangling reference, refused loud. When the resolved path
 /// is a member's own projection, the edge names that member; a plain repository file
 /// carries a content dependency but no member edge (an empty `target`). The returned bytes
-/// are the same read the fingerprint hashes, so a splicing caller pulls exactly the bytes
-/// it fingerprinted (one read, no time-of-check gap).
+/// are verbatim — the same single read the fingerprint is taken over, so a splicing caller
+/// pulls exactly the target's own bytes (one read, no time-of-check gap) — while the
+/// fingerprint itself is EOL-blind: it hashes [`canonicalize_eol`] of that read, the
+/// vocabulary [`source_dep_stale_from_doc`] compares in, so a CRLF target reads fresh
+/// against its own baseline instead of drifting forever.
 ///
 /// # Errors
 /// Returns [`DriftError::DanglingImport`] when the target does not exist, or
@@ -2096,7 +2099,7 @@ fn resolve_source_dependency(
         member: host.to_string(),
         target: member_index.get(&resolved).cloned().unwrap_or_default(),
         source_path: to_lock_path(&resolved),
-        import_hash: sha256_hex(&bytes),
+        import_hash: sha256_hex(&canonicalize_eol(&bytes)),
     };
     Ok((row, bytes))
 }
