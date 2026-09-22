@@ -2,13 +2,12 @@
 
 - Spec derived through: fcf719f4 — unchanged, copied forward; the spec delta
   is drained.
-- Audited through: 1bc830f2 — unchanged, copied forward; 1bc830f2..HEAD is
-  unreconciled (three build commits touched src/).
-- Residue swept through: 1bc830f2 — unchanged, copied forward.
+- Audited through: e22c4835 — 1bc830f2..HEAD reconciled, both motions.
+- Residue swept through: e22c4835 — swept with the audit; one entry filed.
 - Posture swept through: tests/tap.rs next — unchanged, copied forward.
-- This tick: drained the inbox note and the refactor capture — filed four
-  entries, serialized the three that share `src/engine.rs`/`src/contract.rs`.
-- Queue: 27 pending — 1 open, 18 blockedBy, 3 deferred, 5 parked. Pickable: 1.
+- This tick: reconciled 1bc830f2..HEAD — three builds verified on disk, every
+  gate re-tested, one residue filed (the kind set's second spelling).
+- Queue: 28 pending — 2 open, 18 blockedBy, 3 deferred, 5 parked. Pickable: 2.
   Open forks: 12. Friction: 0. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the 1bc830f2..HEAD post-ship window is unreconciled.
+Plan continues: after-build — the posture rotation resumes at tests/tap.rs.
