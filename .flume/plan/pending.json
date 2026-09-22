@@ -1,47 +1,5 @@
 [
   {
-    "tag": "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "The two sides of one comparison speak different vocabularies: `resolve_source_dependency` writes `import_hash: sha256_hex(&bytes)` over raw disk bytes (:2099) while `source_dep_stale_from_doc` compares `sha256_hex(&canonicalize_eol(&bytes))` (:3291), so a CRLF include or layout-import target mismatches its own baseline forever and re-emitting re-writes the same raw hash. The baseline joins the comparator's vocabulary — canonicalize before hashing at :2099 — while the returned bytes stay verbatim, so a splice still pulls the target's own bytes. The doc block at :2060-2065 states the one-read property; restate it as an EOL-blind fingerprint over verbatim bytes. `config_stale`/`classify_orphan` (:2314, :2752) already compare against a hash taken over emit's own desired LF string and are untouched."
-        },
-        {
-          "path": "tests/prose_include.rs",
-          "description": "The regression the fix ships: a CRLF include target emits, `include_stale` is empty with no edit (today it fires on every run), and the host projection carries the target's bytes verbatim. Sits beside `an_include_lands_byte_identical_and_is_fingerprinted` (:32), whose LF fixture must stay green — `canonicalize_eol` is identity on LF."
-        },
-        {
-          "path": "tests/layout_prose_import.rs",
-          "description": "The same case on the other family: a CRLF layout-import target reads clean under `layout_import_stale` (:104-:106 is the LF pair it mirrors)."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A source dependency's baseline hashes raw bytes while the comparator canonicalizes EOL, so a CRLF include or import target reads stale forever and re-emitting never clears it.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Drift"
-    },
-    "tests": [
-      {
-        "path": "tests/prose_include.rs",
-        "asserts": "a CRLF include target is fresh immediately after emit, and its bytes land in the projection verbatim"
-      },
-      {
-        "path": "tests/layout_prose_import.rs",
-        "asserts": "a CRLF layout-import target is fresh immediately after emit"
-      }
-    ],
-    "acceptance": "`cargo test` green with the two CRLF cases added (both fail before the fix), `cargo clippy --all-targets -- -D warnings` clean, and every existing LF fixture's recorded hash unchanged.",
-    "notes": "Found while deriving 0055: the declared-input family reads through this same pair, so the vocabulary is unified before a third family inherits the split. No committed lock's hashes move — `canonicalize_eol` is identity on LF bytes — and no emitted byte changes; only the fingerprint is taken EOL-blind. scoped at d6dfdebb"
-  },
-  {
     "tag": "EXAMPLE-PROGRAM-IMPORTS-A-DROPPED-SPAN",
     "gate": {
       "kind": "open"
@@ -309,10 +267,7 @@
   {
     "tag": "DEGREE-FIELD-SET-FILTER",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -1154,8 +1109,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "FRESH-CLAUSE-JUDGES-STALENESS",
-        "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY"
+        "FRESH-CLAUSE-JUDGES-STALENESS"
       ]
     },
     "dependsOnForks": [],
