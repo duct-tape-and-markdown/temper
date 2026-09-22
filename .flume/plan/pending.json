@@ -653,7 +653,8 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "KIND-ROW-LEAF-SET-COLUMN"
+        "KIND-ROW-LEAF-SET-COLUMN",
+        "SDK-PROSE-SPAN-CONSTRUCTOR"
       ]
     },
     "dependsOnForks": [],
@@ -692,6 +693,430 @@
     ],
     "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`) and `cargo test` green. Oracle: a witness omitting one key of `T` fails `tsc`, and an embedded kind declaring a witness and nothing else lands a `leaves`-carrying row in the emitted declarations where it lands no row at all today.",
     "notes": "0053 (a0e3e2aa) rules the set is lowered from `keyof T` at emit; TypeScript erases the type, so the ruling's own clarification — the corpus supplies the key set through its typed constructor — is the mechanism, and the compiler binding is what keeps it off the rejected-alternative list. `examples/base-harness`'s three embedded kinds (kinds.ts :43, :62, :107) are the first adopters, deliberately outside this fence: the witness is optional, so no committed lock moves. scoped at 98e9e496"
+  },
+  {
+    "tag": "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "KIND-ROW-LEAF-SET-COLUMN",
+        "SETTINGS-KIND-SHIPS(builtin)"
+      ]
+    },
+    "files": {
+      "new": [
+        {
+          "path": "tests/root_contract.rs",
+          "description": "The root scope's own suite. A hand-built lock whose top-level clause rows carry no `kind` column lifts into the root contract; the root selection ranges over every discovered member of every kind (the `all_features` set `src/gate.rs:474` already assembles); a root `reachable` clause at `advisory` reports a dead registration with `root.reachable` as the finding's rule id; a lock naming no root row falls back to the embedded lock's root rows (the rows-or-default rule `src/compose.rs:176-182` already states per kind); and the dial reaches the clause by that label through the existing `src/gate.rs:502-511` loop over selections."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "`Predicate::Reachable` joins the closed vocabulary (enum at :132, the parse arm beside `\"mention-reachable\"` at :538, the key arm at :638). It carries no field argument — like `closed-keys`, its argument is the graph. `clause_label` (:84) gains the root owner segment beside `requirement_owner` (:97): a root clause labels `root.<predicate>`, the same owner.predicate.field join a kind clause takes."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "`Selector::Root` joins the selector enum (:529) with its `label`/`noun` arms (:541, :552) — the whole governed forest as a finding's subject. `Predicate::Reachable` joins the graph-scope arms `MentionReachable` already rides (:268, :324, :371, :647, :1225) so `engine::judge`/`validate` leave it to its own judge rather than falling through, and the admissibility arm at :493 states what an argument-free graph predicate admits."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "New `root_contract_from_rows`, the sibling of `default_contract_from_rows` (:191) filtering `row.kind.is_none()` instead of `== Some(kind)`. The discriminator is safe on disk today: every one of `src/builtin_lock.toml`'s 91 top-level `[[declaration.clause]]` rows carries `kind`, and the 8 kind-less blocks are `[[declaration.clause.body]]` guard bodies nested under their guard, not top-level rows; a requirement's clauses likewise nest under `RequirementRow::clauses`."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "`root_contract()` beside `contract`/`contracts` (:20-:45), lifting the embedded lock's kind-less top-level rows through the new `compose::root_contract_from_rows` — the embedded half of rows-or-default, so a committed lock predating the root contract still gets the shipped default rather than silence."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "Compose the root selection into `selections` beside `kind_selections` (:699) and `roster::selections` (:497) so the dial loop at :502-:511 reaches a root clause by label with no second dial site. Wire `graph::reachable` after `degree` (:562) at the root clause's declared severity, opt-in exactly as `degree`/`mention-reachable` are: no root `reachable` clause, no closure walk. It reads the same `resolved_edges` hoist (:548) plus `classify_directives`' directive edges."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`reachable` (:900) keeps its signature — it already takes `severity` — but its doc (:895-:898) retires the claim that the severity is \"the **assembly's** declaration ... never a member's own clause\": 0054 makes it the root member's clause, dialable by label. `MAX_IMPORT_HOPS`/`live_members` are untouched."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "The keystroke-schema projection's skip arm (:119-:123, where `mention-reachable` already sits) gains `Reachable`: a graph-scope predicate constrains no field of a document, so it contributes nothing to an emitted JSON Schema."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow::kind`'s doc (:3740-ish, the column the seam type carries) widens: `None` inside a `RequirementRow` is the requirement's clause, and `None` at the top level is the **root member's**. Two homes for one absence, distinguished by nesting, not by a new column."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "Regenerated from the widened Rust doc (`BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current`), never hand-edited — `tests/seam_bindings_current.rs` is the byte-compare gate that fails if it is stale."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "The hoist pins: `reachable` joins the gate's graph consumers, so the once-per-invocation claim over the resolved-edge walk covers it, and the reachability closure (`graph::live_members`) runs once per gate rather than per member (`specs/process/engineering.md`, \"Cost scale is hoisted, and pinned by count\")."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "The `reachability` module (:1689-:1900) calls `graph::reachable` directly with a severity and stands; its module doc stops describing the severity as the assembly's and names the root clause, so the direct-call suite and the new gate-level suite agree on who declares it."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "The declaration-row round trip gains the root row: a clause row written with no `kind` column reads back as a root clause and lifts into the root contract, where a kind-named row does not."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "`graph::reachable` has had no caller since 207e701d — the root member carries no clause surface, so `check` cannot report a dead registration.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [
+      {
+        "path": "tests/root_contract.rs",
+        "asserts": "kind-less top-level clause rows lift into a root contract over the whole forest; a root `reachable` clause at advisory reports a dead registration under the `root.reachable` label; a lock with no root row falls back to the embedded default's rows"
+      },
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "the reachability closure runs once per gate invocation, and not at all when no root `reachable` clause binds"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a root clause row round-trips with its `kind` column absent"
+      }
+    ],
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green; `tests/root_contract.rs` fails when the gate's `graph::reachable` call is removed.",
+    "notes": "0054's scaffolding entry: the root selection plus the one predicate whose judge already exists, so the mechanism ships with a consumer. Nothing emits a root row yet — ROOT-DEFAULT-CONTRACT-SHIPS is that half; until it lands only the embedded lock and a hand-built one carry rows. Blocked behind the two chain tips it shares files with (gate/graph/drift/contract/engine/check_cost/lock_declaration_rows). scoped at 7b6dda62"
+  },
+  {
+    "tag": "ROOT-DEFAULT-CONTRACT-SHIPS",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
+        "SDK-KIND-LEAF-SET-LOWERING",
+        "INSTALL-LIFTS-SETTINGS-RESIDUE"
+      ]
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/assembly.ts",
+          "description": "`Harness` gains `contract: readonly Clause[]` beside `expect`/`require`/`mode` (:44-:62) and `harness()` (:71) defaults it to a new exported `rootDefaultContract` — `init.contract ?? rootDefaultContract`, the one place \"a shipped root default applies when the author declares none\" is spelled. `rootDefaultContract` homes here beside the root member's other fields (the `dialDefaultContract`-in-`dial.ts` precedent: a default contract lives with the surface it governs) and binds `reachable` at advisory, each clause carrying its own guidance and cite."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The `reachable()` clause constructor beside `mentionReachable` (:218): no field argument, severity and guidance/cite as every clause carries them. Its doc states the grain — each-grain over the root selection, judged by the graph, not by a member's fields."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`compileDeclarations`' clause lowering (:1006-:1014) gains a third source beside `expect`'s kind-keyed rows and a requirement's nested ones: `harness.contract` lowers to top-level rows with **no** `kind` column, the discriminator `compose::root_contract_from_rows` reads. Row order stays deterministic — root rows in declaration order, emitted at a fixed position relative to the kind-sorted `expect` rows."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export `rootDefaultContract` and the `reachable` constructor from the root — adoption is the import, so an unexported default ships nowhere."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "The `reachable()` constructor's shape and its lowered row (`predicate: \"reachable\"`, no `field`, no `kind`)."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The lowering: a `harness()` with no `contract` emits the root default's rows kind-less; an authored `contract` replaces them wholesale (override is composing the array, never a merge); a requirement's nested clauses stay nested and keep their own kind-less shape."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Regenerated, never hand-edited: the memberless emit now writes the root default's rows, so the embedded lock carries them and the stranger gate (a harness with no lock) gets the same root contract an emitted one does. The header's inventory paragraph (:10-:28) names the root default beside the thirteen kind defaults and `dial`."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "The byte-compare lane: `MEMBERLESS_BUILTIN_PROGRAM` (:28) needs no edit if `harness()` defaults the contract, which is exactly the claim to pin — add the assertion that the derived lock carries the root rows, and update the module doc (:1-:13) to say the memberless harness now contributes a root contract as well as kind facts and their defaults."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Emit-side row assertions over a payload's declaration family; the kind-less root rows now ride every emitted lock, so any whole-clause-set assertion (and the cwd-invariance case at :1558) accounts for them."
+        },
+        {
+          "path": "examples/base-harness/.temper/lock.toml",
+          "description": "The committed example lock, re-emitted so it carries the root rows — the example is an adopter's-eye artifact and a lock that predates the default would teach the wrong shape."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "The documented round trip: the root contract now rides every emitted lock, so the fixture corpora's check diagnostics can gain a `root.reachable` finding where a fixture member's registration is dead. Re-pin or fix the fixture, never silence the clause."
+        },
+        {
+          "path": "tests/snapshots/acceptance__rules_check_diagnostics.snap",
+          "description": "Accepted snapshot for whatever the root default adds over the `tests/fixtures/rules/*` tree."
+        },
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "The end-to-end fixture harness emits its own lock, so the root rows reach it and its check diagnostics may gain a root finding."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
+          "description": "Accepted snapshot for the gauntlet's diagnostics under the shipped root default."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Nothing emits a root clause row: `harness()` takes no contract and no shipped root default exists, so every emitted and embedded lock leaves the root selection empty.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "The root member"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a contract-less `harness()` lowers the root default's clauses as kind-less top-level rows; an authored `contract` replaces them"
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "asserts": "`reachable()` composes a clause with no field and lowers to a `predicate: \"reachable\"` row"
+      },
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "the SDK-derived memberless lock byte-matches `src/builtin_lock.toml`, root rows included"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` and `cargo test` green (the frozen lane byte-matches the regenerated embedded lock), `cargo clippy --all-targets -- -D warnings` clean.",
+    "notes": "The SDK and embedded halves are one entry because `tests/builtin_lock_frozen.rs` byte-compares a fresh SDK-derived lock against `src/builtin_lock.toml` — a default the SDK emits and the embedded lock lacks is a red gate in the same commit. `.temper/lock.toml` (the dogfood) is outside build's fence and re-emits on the next `chore(harness):` tick; until then the embedded root rows judge this repo under rows-or-default. scoped at 7b6dda62"
+  },
+  {
+    "tag": "FRESH-CLAUSE-JUDGES-STALENESS",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "ROOT-DEFAULT-CONTRACT-SHIPS"
+      ]
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "`Predicate::Fresh` joins the closed vocabulary (enum :132, parse arm :538, key arm :638) — argument-free like `reachable`: its subject is every lock row a member owns, projection fingerprint and each fingerprinted source dependency."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "`Fresh` joins the graph/whole-scope arms beside `Reachable` (:268, :324, :371, :493, :647, :1225) so the field judges leave it to `drift`'s."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "The keystroke-schema skip arm (:119-:123) gains `Fresh` — a lock-vs-disk predicate types no document field."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The three staleness judges stop baking severity and rule id: `config_stale_from_doc` (:2733), `layout_import_stale_from_doc` (:3348-:3378) and `include_stale_from_doc` (:3384-:3412) take the root `fresh` clause's severity and label, and the doc lines asserting \"**Advisory** (`warn`), the posture `config_stale` takes\" (:2810, :2897, :3275, :3317, :4296) retire in favour of the clause's declared severity. The finding's remedy text is unchanged."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "The three call sites (:650, :667-:679) pass the root contract's `fresh` clause, and are skipped when none binds — the same opt-in shape `degree`/`reachable` take. The comments at :646-:649 and :665-:668 stop asserting an advisory posture the clause now declares."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The `fresh()` clause constructor beside `reachable()`, with its guidance/cite channels."
+        },
+        {
+          "path": "sdk/src/assembly.ts",
+          "description": "`rootDefaultContract` gains `fresh` at advisory — today's posture, so no adopter turns red on the upgrade."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export `fresh` from the root beside `reachable`."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Regenerated: the embedded root contract gains the `fresh` row."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "The frozen lane's row inventory covers the added root row."
+        },
+        {
+          "path": "CHANGELOG.md",
+          "description": "The rule-id note 0054's Consequences names: `config.stale`, `prose.include-stale` and `layout.import-stale` now report under the `fresh` clause's label, so a dial entry or a CI filter keyed to the old ids is restated — the ids are a published surface, and a silent rename is the drift class temper exists to refuse."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "`fresh()`'s shape and lowered row."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The root default's lowered rows now number two."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "The dialed-clause case, in the suite that already drives the built binary with a dial and `--deny-advisories` (:14-:19): a `.temper/dial.toml` naming the `fresh` label at required turns a drifted projection into a blocking finding, and the same corpus undialed stays advisory. The existing fixture snapshots are unaffected — the case builds its own corpus."
+        },
+        {
+          "path": "tests/layout_prose_import.rs",
+          "description": "The two `layout.import-stale` assertions (:hits) move to the clause's label and read the declared severity."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "Fourteen call sites over the staleness judges — each now threads the clause; the cost pins over the walks stand, with the no-clause case doing no walk at all."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Seven `config_stale` sites in the install/guard suites — the guard's own enforcement mode is untouched, so these pin that the clause governs `check`'s finding and not the guard's verdict."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Three staleness-judge sites over emitted payloads."
+        },
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "The end-to-end diagnostics: any staleness finding the fixture produces now prints the clause label as its rule id."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
+          "description": "Accepted snapshot under the renamed rule ids."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The three staleness findings are fixed `warn` pushes, so no placement can make a drifted content pin fail CI — the field report on 0.0.18.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Drift"
+    },
+    "tests": [
+      {
+        "path": "tests/acceptance.rs",
+        "asserts": "a dial entry naming the `fresh` label at required turns a drifted projection, a moved include target and a moved layout-import target into blocking findings; undialed they stay advisory"
+      },
+      {
+        "path": "tests/install.rs",
+        "asserts": "the guard's enforcement mode still decides a guarded write; the clause governs `check`'s finding only"
+      },
+      {
+        "path": "tests/layout_prose_import.rs",
+        "asserts": "a moved import target reports under the `fresh` clause's label"
+      }
+    ],
+    "acceptance": "`cargo test` and `pnpm --dir sdk test` green with the regenerated embedded lock, `cargo clippy --all-targets -- -D warnings` clean, and a dial entry naming the `fresh` label demonstrably flips the run's exit code under `--deny-advisories`.",
+    "notes": "Three of 0054's five fixed pushes; the two undeclared-member pushes are LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED's. The severity move is the point of the field report: with the dial reaching clause labels only and enforcement mode acting at `guard`, no placement could make a drifted content pin fail CI. scoped at 7b6dda62"
+  },
+  {
+    "tag": "LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "FRESH-CLAUSE-JUDGES-STALENESS"
+      ]
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "`Predicate::LocusDeclared` joins the closed vocabulary (enum :132, parse arm :538 under the key `locus-declared`, key arm :638) — argument-free: its subject is every document discovery finds at a governed locus."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "`LocusDeclared` joins the arms `Reachable`/`Fresh` already ride (:268, :324, :371, :493, :647, :1225)."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "The keystroke-schema skip arm (:119-:123) gains `LocusDeclared`."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`undeclared_locus_members_from_doc` (:2879) and `undeclared_layout_members_from_doc` (:2801) take the clause's severity and label instead of the baked `warn` and the two rule ids; their docs' advisory-posture claims (:2810, :2897) retire. The `represented` guard — the question is the lock's presence, not its contents — is unchanged."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "The two call sites (:613-:625, :660-:672) pass the root `locus-declared` clause and are skipped when none binds; `undeclared_locus.counts` still feeds the coverage note either way, so the checked-members disclosure cannot silently absorb an undeclared member when the clause is dialed down."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "The note reads the undeclared counts (`src/gate.rs`'s `undeclared_locus.counts`); its doc states that the counts are a disclosure, not the clause's finding, so dialing `locus-declared` changes the finding's weight and never the count the note prints."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The `locusDeclared()` clause constructor beside `fresh()`/`reachable()`."
+        },
+        {
+          "path": "sdk/src/assembly.ts",
+          "description": "`rootDefaultContract` gains `locus-declared` at advisory — the third and last of 0054's clauses, completing today's drift posture."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export `locusDeclared` from the root."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Regenerated: the embedded root contract gains the third row."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "The frozen lane covers all three root rows."
+        },
+        {
+          "path": "CHANGELOG.md",
+          "description": "The rule-id note: `locus.undeclared-member` and `layout.undeclared-member` now report under the `locus-declared` clause's label, the second half of 0054's id move."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "`locusDeclared()`'s shape and lowered row."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The root default's lowered rows now number three."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "Four `locus.undeclared-member` sites — the note's counts stand; the finding's id and severity come from the clause."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "The documented round trip's one `locus.undeclared-member` assertion."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "The install suite's undeclared-member assertion — the guard's boundary half (`src/install.rs:188`) is untouched."
+        },
+        {
+          "path": "tests/json_document_format.rs",
+          "description": "One undeclared-member assertion over a JSON-document kind's locus."
+        },
+        {
+          "path": "tests/toml_document.rs",
+          "description": "One undeclared-member assertion over a TOML-document kind's locus."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Four `layout.undeclared-member` assertions."
+        },
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "End-to-end diagnostics under the renamed ids."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
+          "description": "Accepted snapshot."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The two undeclared-member findings are fixed `warn` pushes; `locus-declared` makes them a clause the author dials, kept apart from `fresh`'s stale pins.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Drift"
+    },
+    "tests": [
+      {
+        "path": "tests/acceptance.rs",
+        "asserts": "a dial entry naming the `locus-declared` label at required turns an undeclared document at a governed locus — file locus and layout alike — into a blocking finding, while `fresh` stays advisory"
+      },
+      {
+        "path": "tests/coverage_note.rs",
+        "asserts": "the coverage note's undeclared counts are unchanged by the clause's severity"
+      },
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "an undeclared layout document reports under the `locus-declared` label"
+      }
+    ],
+    "acceptance": "`cargo test` and `pnpm --dir sdk test` green with the regenerated embedded lock, `cargo clippy --all-targets -- -D warnings` clean, and hardening `locus-declared` alone leaves `fresh` advisory (0054's rejected one-predicate bundling, pinned).",
+    "notes": "The last two of 0054's five fixed pushes, and the predicate 0054 kept separate from `fresh` so hardening a stale pin does not also harden the undeclared-document notes a read-only ground kind draws (its first rejected alternative). The dial case rides `tests/acceptance.rs`, beside the `fresh` one. scoped at 7b6dda62"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
