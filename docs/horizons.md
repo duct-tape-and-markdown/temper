@@ -358,11 +358,21 @@ that evidence, not preference, is the bite condition.
   in `docs/proposals/drift-severity-is-a-clause.md`. That lands first. Then
   the two graph defects in `.flume/inbox.md` (acyclicity scope, the
   `degree` field filter), then ratification. Second-corpus scope doesn't
-  bind (ruled 2026-09-22, see `(field-reach)`). *Evidence status:* the file
-  grain, the ~210KB of copies, and the advisory-only `include-stale` were
-  confirmed by reading code (`src/drift.rs`, `src/dial.rs`,
-  `src/main.rs`). The consumer's run was not reproduced here because its
-  prototype was not reachable from this machine.
+  bind (ruled 2026-09-22, see `(field-reach)`). *Evidence status:* observed
+  at 0.0.18 in a copy of the consumer's prototype. The five pin projections
+  total 209,554 bytes and copy 208,622 bytes of code. `temper check .`
+  draws 8 `locus.undeclared-member` notes, 7 of them on the `source` ground
+  kind (coverage: "source (7: 0 declared, 7 undeclared)"), for example
+  "document `code/_init.html` sits at the `source` kind's governed locus
+  but the lock declares no member for it — `emit` will never maintain it
+  and `guard` never bound it, yet Claude Code loads it". Changing one byte
+  of `code/_init.html` and re-running `check` without `emit` adds only
+  "! prose include target `code/_init.html` (referenced by `pin:_init`) no
+  longer matches the lock's fingerprint — the target changed and `emit` has
+  not run; re-emit to reconcile". In a minimal repro with no other failing
+  clause, the same one-byte edit leaves `check` at exit 0. The remedy text
+  is "re-emit to reconcile", which is the reading tension (a) warns
+  against.
 
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`
