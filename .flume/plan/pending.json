@@ -1,89 +1,5 @@
 [
   {
-    "tag": "LOCK-ROW-FIXTURE-ONE-HOME(src)",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/test_support.rs",
-          "description": "Two more bases beside `features` (:91), the one FEATURES-FIXTURE-ONE-HOME(src) landed at 88c57fc4: `pub(crate) fn kind_fact_row(name: &str) -> drift::KindFactRow` (name set, the other thirteen columns absent — `provider`/`governs_root`/`governs_glob`/`commitment`/`format`/`unit_shape`/`content`/`shape`/`collection_address`/`guidance`/`cite` None, `registration`/`templates` empty) and `pub(crate) fn clause_row(predicate: &str, severity: &str) -> drift::ClauseRow` (the two named columns set, the other twenty-one absent). The integration home already proves both shapes — `tests/common/mod.rs`'s `kind_facts` (:680) and `clause` (:736) — so this is the same builder in the home a src module can reach, not a new design."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "The widest copy: `spec_row()` (:1498) plus ten inline `KindFactRow` literals in the lift tests (:1544, :1595, :1623, :1650, :1683, :1709, :1724, :1775, :1808, :1832), each spelling all fourteen columns to vary one or two. Each becomes `KindFactRow { <the columns this case lifts>, ..test_support::kind_fact_row(\"spec\") }`; `spec_row` itself either forwards or retires. `CustomKind::new` (:507) is production and stays."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "`kind_row(name)` (:719) is the base verbatim; five inline literals (:835, :853, :870, :890, :913) vary one collision column each; `clause_row(kind, label, severity)` (:689) spells all twenty-three `ClauseRow` columns to set three. All seven route through the two bases."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "`clause_row(severity)` (:1434) spells the twenty-three columns to set `label`/`predicate`/`severity`; five more inline literals (:1468, :1496, :1549, :1563, :1577) do the same for the lift-failure cases. Its signature differs from admissibility.rs's twin — same job, two homes, two shapes — and both collapse onto the one base. `qualify_layer_label` (:975) is production and stays."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Two `KindFactRow` literals in the round-trip tests (:5672, :5697), each spelling the tail to vary the columns the write/read pair asserts on."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "One inline `crate::drift::KindFactRow` literal (:609) inside a `Declarations` fixture."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Five in-src test mods spell `KindFactRow`'s fourteen columns and `ClauseRow`'s twenty-three by hand — including one fixture name living in two homes with two shapes.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "every lift test still judges the exact row it built — the varied columns stay explicit over the base and no assertion moves"
-      },
-      {
-        "path": "src/compose.rs",
-        "asserts": "the default-contract lift and its three refusal cases keep their clause rows byte-equivalent through the shared base"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed. Oracle: `rg -n 'collection_address: None' src/` hits src/test_support.rs plus kind.rs's production `CustomKind::new` (:507) and nothing else, and neither `spec_row`/`kind_row` nor the two divergent `clause_row` builders survives as a per-module copy of the tail.",
-    "notes": "The lock-row half of 302deb3a's sweep class; feb0c21f named it in its own body. Both parents shipped (88c57fc4, 1a59c9c9), so the gate is open and every admissibility.rs/compose.rs cite is re-derived at HEAD. The `(src)` slice is in-src `#[cfg(test)]` mods only — the integration `spec_row`/`kind_row` names in tests/emit.rs, tests/lock_declaration_rows.rs and tests/builtin_lock_frozen.rs are separate fixtures, already homed by tests/common. scoped at ea7625e3"
-  },
-  {
-    "tag": "SDK-RESERVED-LEAF-REFUSAL-UNTESTED",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/test/refusals.test.ts",
-          "description": "0051's reserved-`prose`-leaf refusal ships tested on the read half only (`src/layout.rs`'s `LayoutError::ReservedLeaf`, pinned by `tests/layout_kind.rs::a_sub_heading_slugging_to_the_reserved_leaf_refuses_loud`); the compose half — `refuseReservedLeaf` (`sdk/src/kind.ts:772`, called from `embeddedMemberValue` at :745 over the value's own leaves and at :748 over each collection entry's) — has no test. Two cases in the file that owns declare-side refusals: a top-level `leaves: { prose: … }` and a collection entry's, each asserting the throw names the reserved key. No `src/` or `sdk/src/` change."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The SDK's reserved-`prose`-leaf refusal ships with no test — an untested throw is a refusal nothing holds in place.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A fix ships the test that would have caught it"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/refusals.test.ts",
-        "asserts": "`embeddedMemberValue` throws naming `prose` for a top-level reserved leaf and for a collection entry's, and does not throw for any other leaf key"
-      }
-    ],
-    "acceptance": "`pnpm --dir sdk test` green, and both new cases fail when `refuseReservedLeaf`'s two call sites in `sdk/src/kind.ts` are commented out.",
-    "notes": "Drained from `.flume/refactor/build-reserved-leaf-sdk-refusal-untested.md` (observed at acf68f12, re-verified on disk this tick: the guard is live at sdk/src/kind.ts:745/:748/:772 and `sdk/test/refusals.test.ts` names neither). LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF's fence listed `sdk/src/kind.ts` with no SDK test path, so its own build could not land the case. scoped at 61e9e78d"
-  },
-  {
     "tag": "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE",
     "gate": {
       "kind": "open"
@@ -165,7 +81,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "LOCK-ROW-FIXTURE-ONE-HOME(src)",
         "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE"
       ]
     },
@@ -205,10 +120,7 @@
   {
     "tag": "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "LOCK-ROW-FIXTURE-ONE-HOME(src)"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -427,7 +339,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "LOCK-ROW-FIXTURE-ONE-HOME(src)",
         "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY"
       ]
     },
@@ -571,7 +482,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "LOCK-ROW-FIXTURE-ONE-HOME(src)",
         "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE",
         "DEGREE-FIELD-SET-FILTER",
         "CONTAINMENT-INCIDENCE-FAMILY"
