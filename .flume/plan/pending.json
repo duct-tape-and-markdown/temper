@@ -94,6 +94,40 @@
     "notes": "Re-scoped from a86a5ee9's capture: `maxLines` went at 4bdb7960 (17 Jul), `span` at 0c6a7ae0 — one class, and `.flume/ripple.mjs` walks no example tree (filed as friction). Verified out of tree with both fixes: `node harness.ts` links and a dry-run emit reports 11 unchanged, 0 emitted, so the projection fence is the escape hatch, not the expectation. Rejected: re-exporting `span` from `kinds.ts`, a local barrel over a shipped surface. scoped at f23471e3"
   },
   {
+    "tag": "EXPLAIN-KIND-READS-THE-BUILTIN-FACT-ROWS",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "`explain_target` (:2265) threads `&declarations.kinds` (:2415) — the committed lock's `kind` family alone — into `explain`, so a built-in kind this surface declares no row for reaches `narrate_kind` (:607) with no facts at all and falls to the \"nothing declared\" line. Layer the embedded built-in lock's own rows under the committed ones, name-keyed, committed winning wholesale: `builtin_lock::declarations().kinds` is already the `KindFactRow` shape (`src/builtin.rs` projects the floor contracts off the same document), so this is a merge, not a lowering. The assembly lands in `explain_target`, beside the corpus it already builds — `explain` (:376) stays a pure function of its inputs, so every `tests/read_verbs.rs` case driving it with hand-built rows is untouched. Two doc claims the widening changes restate with it: `explain`'s `kind_facts` paragraph (:353, \"the lock's own `kind` family\") and `narrate_kind`'s (:600, \"renders off the declarations alone, so the whole of it reaches an adopter carrying no member of the kind at all\") — the promise this entry makes true."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "The e2e proof, through `common::explain_in` (the one binary seam, already used at :1319): on a harness carrying no `agent` member, `explain kind:agent` names `.claude/agents`, `**/*.md`, its `description-trigger(description)` registration channel and the `agent:<name>` address form in place of the \"No authoring guidance is declared\" line. Precedence beside it: a harness whose lock declares a built-in kind's row narrates that row, never the embedded one. The direct-`explain` cases (:881, :1223, :1269) hand-build their `kind_facts` and ride unchanged — a kind declaring nothing still narrates cleanly, which is why the empty-line branch survives rather than being deleted."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "`explain kind:<builtin>` teaches nothing about a kind the harness has no member of — the fact rows come from the committed lock, which declares only the kinds in use.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "Read verbs"
+    },
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`explain kind:agent` over a harness carrying no agent names its locus, registration channel and address form; a committed lock row for a built-in kind wins over the embedded one"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle: in this repo — whose `.temper/lock.toml` declares kind rows for `hook`/`memory`/`rule`/`skill` only — `temper explain kind:agent` names the agent locus and the `agent:<name>` address form instead of the \"nothing declared\" line, while `temper explain kind:rule` is byte-unchanged.",
+    "notes": "Measured at f8bb2e07: `explain kind:` gives the \"nothing declared\" line for agent, command, mcp-server, settings-local, dial, known-marketplace and installed-plugin; supporting-doc gets its hosting strand only, off `skill`'s row. Guidance rides `contracts` and is unaffected. Serialized ahead of CONTAINMENT-INCIDENCE-FAMILY and KIND-ROW-LEAF-SET-COLUMN, which share read.rs/read_verbs.rs. scoped at f8bb2e07"
+  },
+  {
     "tag": "SETTINGS-KIND-SHIPS(builtin)",
     "gate": {
       "kind": "blockedBy",
@@ -359,7 +393,8 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "DEGREE-FIELD-SET-FILTER"
+        "DEGREE-FIELD-SET-FILTER",
+        "EXPLAIN-KIND-READS-THE-BUILTIN-FACT-ROWS"
       ]
     },
     "dependsOnForks": [],
@@ -405,7 +440,7 @@
       }
     ],
     "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle (the adopter's floor 0052 names): a `rule` admitting `directive` and `consult`, bounded outgoing ≥ 1 filtered to `contains:directive` ∪ `contains:consult`, fires on a rule whose body composes neither and is silent on one composing either — while the same bound unfiltered counts no containment arc, so a rule composing nothing and declaring one `routes_to` keeps today's verdict.",
-    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. The other two tags are file overlap. scoped at 6f4e39f4"
+    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. The second parent is read.rs/read_verbs.rs overlap. scoped at 6f4e39f4"
   },
   {
     "tag": "KIND-ROW-LEAF-SET-COLUMN",
@@ -413,7 +448,8 @@
       "kind": "blockedBy",
       "tags": [
         "DEGREE-FIELD-SET-FILTER",
-        "CONTAINMENT-INCIDENCE-FAMILY"
+        "CONTAINMENT-INCIDENCE-FAMILY",
+        "EXPLAIN-KIND-READS-THE-BUILTIN-FACT-ROWS"
       ]
     },
     "dependsOnForks": [],
@@ -495,7 +531,7 @@
       }
     ],
     "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle: `explain kind:<host>` over a lock whose hosted kind's row carries `leaves` and whose corpus holds no member of that kind names the leaves in place of \"no member of it is in this surface yet\"; a row declaring no leaf set writes no `leaves` key, so a committed lock is untouched.",
-    "notes": "Decision 0053 (a0e3e2aa) names this entry's parts: the column on `KindFactRow` and the `explain` strand; the SDK's lowering is SDK-KIND-LEAF-SET-LOWERING. The declared-set-wins precedence is plan's reading of 0053's \"the type is the declaration\" — the decision speaks only to the empty-corpus branch. Two parents now, both shared-file: drift.rs/test_support.rs/lock_declaration_rows.rs, read.rs/read_verbs.rs, graph.rs both; three of the five shipped. scoped at 98e9e496"
+    "notes": "Decision 0053 (a0e3e2aa) names this entry's parts: the column on `KindFactRow` and the `explain` strand; the SDK's lowering is SDK-KIND-LEAF-SET-LOWERING. The declared-set-wins precedence is plan's reading of 0053's \"the type is the declaration\" — the decision speaks only to the empty-corpus branch. Three parents, all shared-file: drift.rs/test_support.rs, read.rs/read_verbs.rs, graph.rs. scoped at 98e9e496"
   },
   {
     "tag": "SDK-KIND-LEAF-SET-LOWERING",

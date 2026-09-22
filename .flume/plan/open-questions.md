@@ -300,6 +300,45 @@ tax.
   to be wrong ("One job, one home"), and a script reads the short form. No
   dependents.
 
+- `(directive-relation-scope)` — OPEN, live driver (inbox note observed at
+  4b25d0f3, re-verified on disk this tick). `contract.md` "edge" states the
+  import-directive locus generically — "a reference the target format itself
+  executes (a memory file's `@path` import), resolved by path" — but the
+  engine binds it to one kind: `Primitive::Directives` is constructed at
+  exactly one site, `builtin_kind.rs:322` (`memory`), no `KindFactRow` path
+  spells it (compose's primitive lowering carries no `directives` case, the
+  SDK exports none), so an `@`-line in any other kind's body is extracted by
+  nobody. Claude Code: "CLAUDE.md files can import additional files using
+  `@path/to/import` syntax … Imported files can recursively import other
+  files, with a maximum depth of four hops"
+  (code.claude.com/docs/en/memory, retrieved 2026-09-22). The docs are
+  **silent** on an `@`-line in a rule loaded *as a rule*, and that asymmetry
+  is what makes this a model question rather than a bug: a file reached
+  *through* an import has its own `@`-lines expanded whatever its kind, so
+  `CLAUDE.md → @.claude/rules/r.md → @CLAUDE.md` is a ring the runtime walks
+  and temper cannot see. `graph::acyclic` is scoped to the import relation
+  (`graph.rs:245`) and shipped on the reachable memory ↔ memory half
+  (09ad535a); both it and `reachable` miss the middle hop. The question the
+  corpus must answer: is the directive relation **kind-scoped** (only a kind
+  declaring a directive primitive carries executed references) or
+  **target-scoped** (any file an import reaches carries them, whatever kind
+  governs it, to the documented four-hop cap)? Candidates: (a) keep it
+  kind-scoped and give the SDK a `directives` primitive an author may compose
+  onto any kind, so the ring above becomes expressible by declaring it on
+  `rule`; (b) follow the target — a directive edge's target is re-extracted
+  for `@`-lines whatever kind governs it, matching the runtime, but an import
+  target need not be a member at all, so the relation grows nodes outside the
+  roster; (c) rule the middle hop out of scope, since it is undocumented for
+  a rule loaded as a rule, and model only what the docs state. Session
+  recommendation: **(a)** — `representation.md` "kind" already says a kind is
+  data and its extractor is composed from that data, so kind-scoping is the
+  standing model and the gap is an SDK one, while (b) puts non-members in the
+  graph and (c) leaves a known ring unmodellable. The objection (a) must
+  answer: the runtime expands the middle hop whether or not the author
+  declared it, so a harness declaring nothing still carries a ring temper
+  reports green — the mechanism is right and the *default* is wrong. No
+  dependents; nothing is built on it until it is ruled.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
