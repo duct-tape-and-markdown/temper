@@ -46,6 +46,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
+use crate::admissibility;
 use crate::builtin_kind;
 use crate::compose::{self, Edge, Requirement};
 use crate::contract::Contract;
@@ -616,7 +617,9 @@ fn narrate_kind(
     let facts = kind_facts.iter().find(|row| row.name == name);
     let cite = facts.and_then(|row| row.cite.as_deref());
     let layout = facts.and_then(|row| row.content.as_ref());
-    let embedded = facts.map(admitted_embedded_kinds).unwrap_or_default();
+    let embedded = facts
+        .map(admissibility::admitted_embedded_kinds)
+        .unwrap_or_default();
     let file_children: Vec<&drift::TemplateRow> = facts
         .iter()
         .flat_map(|row| row.templates.iter())
@@ -768,7 +771,8 @@ struct HostingKind<'a> {
     via: Hosting<'a>,
 }
 
-/// The kinds that host members of `name` — the **inverse** of [`admitted_embedded_kinds`],
+/// The kinds that host members of `name` — the **inverse** of
+/// [`crate::admissibility::admitted_embedded_kinds`],
 /// read off exactly the same two columns, in row order.
 ///
 /// The scan takes path-**bearing** templates as well as path-less ones: a file child is
@@ -874,33 +878,6 @@ fn narrate_address_form(out: &mut String, name: &str, has_locus: bool, hosts: &[
         );
     }
     out.push('\n');
-}
-
-/// The **embedded** child kinds `row` admits, in declaration order and deduplicated:
-/// a path-less `templates` entry (a `path` templates a *file* child, which owns its own
-/// unit) and a layout collection region's `member_kind`. The set
-/// [`crate::admissibility::declared_embedded_kinds`] gates every `nested_member` row
-/// against, narrowed to this one host — so what `explain` tells an author a kind admits
-/// is what the lock's own rows are judged against.
-fn admitted_embedded_kinds(row: &drift::KindFactRow) -> Vec<&str> {
-    let mut kinds: Vec<&str> = Vec::new();
-    for template in &row.templates {
-        if template.path.is_none() && !kinds.contains(&template.kind.as_str()) {
-            kinds.push(&template.kind);
-        }
-    }
-    if let Some(content) = &row.content {
-        for member_kind in content
-            .regions
-            .iter()
-            .filter_map(|r| r.member_kind.as_deref())
-        {
-            if !kinds.contains(&member_kind) {
-                kinds.push(member_kind);
-            }
-        }
-    }
-    kinds
 }
 
 /// Narrate a `content`-declaring kind's layout: its regions in declared document order,

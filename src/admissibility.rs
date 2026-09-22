@@ -16,6 +16,37 @@ use crate::extract;
 use crate::kind::CustomKind;
 use crate::member_address;
 
+/// The **embedded** child kinds `row` admits, in declaration order and deduplicated: a
+/// path-less `templates` entry and a layout member collection region's `member_kind`.
+///
+/// A template carrying a `path` templates a *file* child — the child owns a unit at that
+/// pattern rather than a fence in the host's body — so its child kind is no part of the
+/// embedded set.
+///
+/// The per-host half of [`declared_embedded_kinds`], which folds it over every row into
+/// the set every `nested_member` row is gated against — so what `explain` tells an author
+/// a kind admits ([`crate::read`]) is what the lock's own rows are judged against.
+pub fn admitted_embedded_kinds(row: &drift::KindFactRow) -> Vec<&str> {
+    let mut kinds: Vec<&str> = Vec::new();
+    for template in &row.templates {
+        if template.path.is_none() && !kinds.contains(&template.kind.as_str()) {
+            kinds.push(&template.kind);
+        }
+    }
+    if let Some(content) = &row.content {
+        for member_kind in content
+            .regions
+            .iter()
+            .filter_map(|region| region.member_kind.as_deref())
+        {
+            if !kinds.contains(&member_kind) {
+                kinds.push(member_kind);
+            }
+        }
+    }
+    kinds
+}
+
 /// The embedded kinds the lock declares: every child kind a host names, whether through
 /// its `templates` column — a *path-less* entry, the embedded layer; a `path` templates a
 /// file child, which owns its own unit — or a layout member collection's `member_kind`. The set a
@@ -23,25 +54,11 @@ use crate::member_address;
 /// host templates ([`nested_member_admissibility`]) — and the keys
 /// [`embedded_features_by_kind`](crate::compose::embedded_features_by_kind) seeds its corpus with.
 pub fn declared_embedded_kinds(declarations: &drift::Declarations) -> BTreeSet<String> {
-    let mut kinds = BTreeSet::new();
-    for row in &declarations.kinds {
-        for template in &row.templates {
-            // A template carrying a `path` templates a *file* child — the child owns a
-            // unit at that pattern rather than a fence in the host's body — so its child
-            // kind is no part of the embedded set.
-            if template.path.is_none() {
-                kinds.insert(template.kind.clone());
-            }
-        }
-        if let Some(content) = &row.content {
-            for region in &content.regions {
-                if let Some(member_kind) = &region.member_kind {
-                    kinds.insert(member_kind.clone());
-                }
-            }
-        }
-    }
-    kinds
+    declarations
+        .kinds
+        .iter()
+        .flat_map(|row| admitted_embedded_kinds(row).into_iter().map(String::from))
+        .collect()
 }
 
 /// The diagnostic `rule` id an orphaned `nested_member` row reports under — a committed
