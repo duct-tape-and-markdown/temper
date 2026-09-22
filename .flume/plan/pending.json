@@ -105,19 +105,19 @@
       "edit": [
         {
           "path": "src/test_support.rs",
-          "description": "Two more bases beside the `Features` one FEATURES-FIXTURE-ONE-HOME(src) lands: `pub(crate) fn kind_fact_row(name: &str) -> drift::KindFactRow` (name set, the other thirteen columns absent — `provider`/`governs_root`/`governs_glob`/`commitment`/`format`/`unit_shape`/`content`/`shape`/`collection_address`/`guidance`/`cite` None, `registration`/`templates` empty) and `pub(crate) fn clause_row(predicate: &str, severity: &str) -> drift::ClauseRow` (the two named columns set, the other twenty-one absent). The integration home already proves both shapes — `tests/common/mod.rs`'s `kind_facts` (:653) and `clause` (:709) — so this is the same builder in the home a src module can reach, not a new design."
+          "description": "Two more bases beside `features` (:91), the one FEATURES-FIXTURE-ONE-HOME(src) landed at 88c57fc4: `pub(crate) fn kind_fact_row(name: &str) -> drift::KindFactRow` (name set, the other thirteen columns absent — `provider`/`governs_root`/`governs_glob`/`commitment`/`format`/`unit_shape`/`content`/`shape`/`collection_address`/`guidance`/`cite` None, `registration`/`templates` empty) and `pub(crate) fn clause_row(predicate: &str, severity: &str) -> drift::ClauseRow` (the two named columns set, the other twenty-one absent). The integration home already proves both shapes — `tests/common/mod.rs`'s `kind_facts` (:680) and `clause` (:736) — so this is the same builder in the home a src module can reach, not a new design."
         },
         {
           "path": "src/kind.rs",
-          "description": "The widest copy: `spec_row()` (:1498) plus ten inline `KindFactRow` literals in the lift tests (:1544, :1595, :1623, :1650, :1683, :1709, :1724, :1775, :1808, :1832), each spelling all fourteen columns to vary one or two. Each becomes `KindFactRow { <the columns this case lifts>, ..test_support::kind_fact_row(\"spec\") }`; `spec_row` itself either forwards or retires."
+          "description": "The widest copy: `spec_row()` (:1498) plus ten inline `KindFactRow` literals in the lift tests (:1544, :1595, :1623, :1650, :1683, :1709, :1724, :1775, :1808, :1832), each spelling all fourteen columns to vary one or two. Each becomes `KindFactRow { <the columns this case lifts>, ..test_support::kind_fact_row(\"spec\") }`; `spec_row` itself either forwards or retires. `CustomKind::new` (:507) is production and stays."
         },
         {
           "path": "src/admissibility.rs",
-          "description": "`kind_row(name)` (:718) is the base verbatim; five inline literals (:853, :871, :888, :908, :931) vary one collision column each; `clause_row(kind, label, severity)` (:688) spells all twenty-three `ClauseRow` columns to set three. All seven route through the two bases. This file is FEATURES-FIXTURE-ONE-HOME(src)'s too, which is why that entry is a named parent."
+          "description": "`kind_row(name)` (:719) is the base verbatim; five inline literals (:835, :853, :870, :890, :913) vary one collision column each; `clause_row(kind, label, severity)` (:689) spells all twenty-three `ClauseRow` columns to set three. All seven route through the two bases."
         },
         {
           "path": "src/compose.rs",
-          "description": "`clause_row(severity)` (:1420) spells the twenty-three columns to set `label`/`predicate`/`severity`; five more inline literals (:1454, :1482, :1535, :1549, :1563) do the same for the lift-failure cases. Its signature differs from admissibility.rs's twin — same job, two homes, two shapes — and both collapse onto the one base. The file is LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW's, hence the second parent."
+          "description": "`clause_row(severity)` (:1434) spells the twenty-three columns to set `label`/`predicate`/`severity`; five more inline literals (:1468, :1496, :1549, :1563, :1577) do the same for the lift-failure cases. Its signature differs from admissibility.rs's twin — same job, two homes, two shapes — and both collapse onto the one base. `qualify_layer_label` (:975) is production and stays."
         },
         {
           "path": "src/drift.rs",
@@ -145,8 +145,8 @@
         "asserts": "the default-contract lift and its three refusal cases keep their clause rows byte-equivalent through the shared base"
       }
     ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed. Oracle: `rg -n 'collection_address: None' src/` hits only src/test_support.rs, and neither `spec_row`/`kind_row` nor the two divergent `clause_row` builders survives as a per-module copy of the tail.",
-    "notes": "Post-ship sweep of c2415400..HEAD, the lock-row half of the same class — feb0c21f named it in its own commit body (\"its ClauseRow/KindFactRow fixtures repeat what compose.rs keeps\"). Filed as its own entry, not folded into the `Features` one: together they would be twelve files and ~50 sites. Behind (src) for src/test_support.rs and src/admissibility.rs, behind LOCAL-LAYOUT for src/compose.rs. scoped at dd1d4311"
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed. Oracle: `rg -n 'collection_address: None' src/` hits src/test_support.rs plus kind.rs's production `CustomKind::new` (:507) and nothing else, and neither `spec_row`/`kind_row` nor the two divergent `clause_row` builders survives as a per-module copy of the tail.",
+    "notes": "The lock-row half of 302deb3a's sweep class; feb0c21f named it in its own body. Both parents shipped (88c57fc4, 1a59c9c9), so the gate is open and every admissibility.rs/compose.rs cite is re-derived at HEAD. The `(src)` slice is in-src `#[cfg(test)]` mods only — the integration `spec_row`/`kind_row` names in tests/emit.rs, tests/lock_declaration_rows.rs and tests/builtin_lock_frozen.rs are separate fixtures, already homed by tests/common. scoped at ea7625e3"
   },
   {
     "tag": "SDK-RESERVED-LEAF-REFUSAL-UNTESTED",
@@ -254,6 +254,48 @@
     ],
     "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`), and `rg -n 'kind: \"text\"' examples/ sdk/test/` returns no hand-built `Text` literal outside `sdk/src/prose.ts`.",
     "notes": "Inbox, observed at d9a34e39: second occurrence — an external consumer on 0.0.18 hand-built the same shape. The corpus already carries the intent (\"types, constructors, one pipe to the engine\"; \"a narrative span is prose\"), so no `authoring.md` line is owed first; the note raised that as a question, and the section answers it. Naming follows the existing hand-roll (`span`) unless the SDK's own vocabulary reads better. scoped at 61e9e78d"
+  },
+  {
+    "tag": "ADMITTED-EMBEDDED-KINDS-ONE-HOME",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "LOCK-ROW-FIXTURE-ONE-HOME(src)",
+        "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/admissibility.rs",
+          "description": "`declared_embedded_kinds` (:25) spells the nesting rule — a path-less `templates` entry's kind, plus every layout region's `member_kind` — inline over every row. Promote the per-row half beside it as `pub fn admitted_embedded_kinds(row: &drift::KindFactRow) -> Vec<&str>` (declaration order, deduped) and let `declared_embedded_kinds` fold it into its `BTreeSet<String>`; the `path.is_none()` comment that explains why a file child is no part of the embedded set moves with the rule. `nested_member_admissibility` (:61) and compose.rs:1172 keep calling the set function unchanged."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`admitted_embedded_kinds` (:885) is the same rule spelled a second time, and its own doc already names `admissibility::declared_embedded_kinds` as the gate it mirrors — two homes for one predicate, so 0052's containment work and KIND-ROW-LEAF-SET-COLUMN would each have to land in both. Retire the local copy for the promoted one; its caller (:619) and `hosting_kinds`'s doc cite (:771) re-point. `hosting_kinds` (:781) stays its own function: it is the inverse question and deliberately reads path-BEARING templates too."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The rule for which embedded kinds a kind row admits is spelled twice — once in `admissibility`, once in `read`'s narration — so the next nesting column lands in both.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "the `nested-member.admissibility` orphan diagnostic still fires on exactly the rows it did — the folded set is the union the gate judged before"
+      },
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`explain kind` narrates the hosted-kinds strand in the same declaration order, off the promoted per-row reader"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed. Oracle: `rg -n 'template.path.is_none' src/` hits one function, and `rg -n 'fn admitted_embedded_kinds' src/` hits src/admissibility.rs alone.",
+    "notes": "Post-ship sweep of dd1d4311..HEAD. The copy predates the window (3dcc73f1); d935b088 opened read.rs and added a third reader of the same two columns (`hosting_kinds`) without unifying, which is what makes it this window's. Considered and rejected: a `KindFactRow` method in drift.rs — it is the row type's home but adds a third file and splits the rule from the gate that means it. Extraction only, no assertion moves. scoped at ea7625e3"
   },
   {
     "tag": "SOURCE-DEP-FINGERPRINT-EOL-VOCABULARY",
@@ -1496,7 +1538,7 @@
     "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
     "gate": {
       "kind": "deferred",
-      "reason": "project_modeline (src/install.rs:1922) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+      "reason": "project_modeline (src/install.rs:2258) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
     },
     "dependsOnForks": [],
     "files": {

@@ -268,12 +268,12 @@ tax.
   this fork asks the corpus to name it.
 
 - `(build-version-identity)` — OPEN, live driver (cascade-integrations,
-  observed at ae74bf49, re-verified on disk this tick). A source build and
+  observed at ae74bf49, cites re-derived at ea7625e3). A source build and
   the published binary are indistinguishable: `main.rs:46` declares
   `#[command(name = "temper", version, …)]`, so clap prints
-  `CARGO_PKG_VERSION` — `Cargo.toml:3`, `0.0.17` — for every build between
-  tags, and an adopter probing an unreleased engine under pnpm scripts reads
-  back the released string. The report's second half is **not** a defect:
+  `CARGO_PKG_VERSION` — `Cargo.toml:3`, `0.0.18` since the 0.0.18 release
+  (c60c976a) — for every build between tags, and an adopter probing an
+  unreleased engine under pnpm scripts reads back the released string. The report's second half is **not** a defect:
   `sdk/bin/temper.js` resolving the platform `optionalDependencies` package
   whatever PATH says is exactly `distribution.md` "What ships — three
   channels" channel 2 ("pinned by the SDK at an exact version"); identity
@@ -281,11 +281,11 @@ tax.
   corpus is silent on is what a build says about *itself*: `distribution.md`
   speaks to the pin and to CI's `emit --frozen` byte-compare, never to build
   provenance, and no other section does. The ruling is load-bearing because
-  the version is not display text — `src/lib.rs:18`'s `VERSION` is written
+  the version is not display text — `src/lib.rs:17`'s `VERSION` is written
   into two artifacts: the bundled plugin manifest's `version` field
   (`bundle.rs:248`, asserted at `:416`) and the SARIF driver version
   (`reporter.rs:268`). Three candidates. (a) a `build.rs` `git describe`
-  suffix (`0.0.17-dev+<sha>`) — the one an adopter reads back, but it makes
+  suffix (`0.0.18-dev+<sha>`) — the one an adopter reads back, but it makes
   the version a *build-environment* fact, so a tarball build and a git build
   of one tree disagree, and channel 3's bundle stops being reproducible from
   the tag. (b) the shim honours an explicit override (an env var naming a
