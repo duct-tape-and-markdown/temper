@@ -64,6 +64,15 @@ tax.
   read-side-only). Needs a Decision before any entry: this is 0032's
   unresolved sibling case, session-argued, not inferred here. No
   dependents.
+  **Field evidence 09-22** (a consumer's Classic ASP model on 0.0.18,
+  observed): a read-only `source` kind over a committed code snapshot
+  draws one `locus.undeclared-member` note per file (7 of 7). `local`
+  would be a lie (the snapshot is committed), and a content fingerprint is
+  reachable only by `include()`-ing the bytes into a projection
+  (~209KB for five files). That is this fork's shape exactly. The
+  fingerprint half may be better carried on the dependent pin
+  (`docs/horizons.md`, `(declared-input)`). The roster-member half stays
+  here.
 
 - `(hook-member-identity)` — OPEN, live driver (GH #32). The `hook` kind is
   fields-shape at `hooks.<Event>` with entry shape
