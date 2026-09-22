@@ -42,32 +42,27 @@ mod tests {
         let declarations = declarations();
 
         // Kind facts: the built-in kinds the memberless emit's `expect` bindings
-        // named — no `provider` column, since the SDK module exports none today.
+        // named — the one enumeration `builtin_kind::definitions()` already spells,
+        // asserted here rather than restated, so a kind added to the Rust population
+        // without a lock regeneration fails this test instead of shipping green.
+        // (`tests/builtin_lock_frozen.rs` pins the other leg, SDK↔embedded lock.)
         let mut names: Vec<&str> = declarations
             .kinds
             .iter()
             .map(|row| row.name.as_str())
             .collect();
         names.sort_unstable();
+        let population = crate::builtin_kind::definitions();
+        // Both sides are derived now, so the comparison needs its own vacuity pin:
+        // two empty sets would agree and prove nothing.
+        assert!(!names.is_empty());
+        // `definitions()` is a `BTreeMap` keyed by bare name — already in the order
+        // `names` was just sorted into.
         assert_eq!(
             names,
-            vec![
-                "agent",
-                "command",
-                "dial",
-                "hook",
-                "installed-plugin",
-                "known-marketplace",
-                "marketplace",
-                "mcp-server",
-                "memory",
-                "plugin-manifest",
-                "rule",
-                "settings-local",
-                "skill",
-                "supporting-doc"
-            ]
+            population.keys().map(String::as_str).collect::<Vec<_>>()
         );
+        // No `provider` column, since the SDK module exports none today.
         assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
 
         // `supporting-doc` alone rides the nested-file locus: its row carries no governs
