@@ -79,6 +79,12 @@ their own kind and makes `handled-by` an edge to it, which closes the cycle
 view → signal → entry path → state → view again, and today's `acyclic`
 refuses it. Land this first. The consumer keeps its name-in-its-own-field
 workaround until then, and its prototype is ready to test the fix.
+**Second ordering (0052, landed 75fc0c8b):** 0052 adds containment edges
+(host → each embedded member) to the resolved edge set. Under today's
+`acyclic` scope, one field edge from an embedded member back to its own
+host (an invariant citing its system) closes a cycle and fails the run.
+Land this fix before the containment family ships, or keep containment
+out of `acyclic`'s input.
 
 ## degree has no field filter; contract.md's by-incidence selector is spec'd and unbuilt — observed at d9a34e39
 
