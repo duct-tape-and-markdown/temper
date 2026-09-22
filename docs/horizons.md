@@ -205,6 +205,12 @@ that evidence, not preference, is the bite condition.
   authoring at scale; it is what the migration makes credible, never a gate on
   it. *Bite condition:* corpus migration shipped; then a design session for
   the tag grammar + the code kind's extraction shape.
+  *Field evidence (2026-09-22, unratified, consumer report):* a consumer
+  modeling a legacy web app pinned code at file grain and kept line
+  citations as plain data. It asked for range-anchored pins. A range is
+  decidable only between tags in this entry's declared grammar, never by
+  line number, so sub-file grain lands here (see `(declared-input)` for the
+  file-grain half).
 
 - `(base-harness)` — **A standalone starter harness whose docs corpus is a
   temper program.** The external dogfood: a reference repo carrying doc/spec
@@ -260,6 +266,103 @@ that evidence, not preference, is the bite condition.
   adopted harness's reporter), composed mentions unable to target
   discovered members (blocks the script-edge demo), and `emit --into`
   re-root reaping live projections.
+
+- `(field-reach)` — *UNRATIFIED draft (2026-09-22), session-proposed from a
+  consumer field report; the human keeps or drops it.* **Reachability over
+  declared field edges from declared roots.** Today's `graph.reachable` is
+  the runtime-load closure: world → a live registration channel, then
+  `@import` directives, capped at `MAX_IMPORT_HOPS` (`src/graph.rs`
+  `live_members`). A kind with no registration counts as always live
+  (`graph.rs:1006`). So in a user-declared corpus, a member reached only
+  through a dead member stays silent. Example: roots A → B → C, plus an
+  orphan D → C′. `degree(incoming ≥ 1)` catches D and never C′, because
+  one-hop degree can't express transitive closure. The opportunity is an
+  opt-in predicate: each selected member lies in the closure of a root
+  selection over a declared field set. It is decidable (a graph closure,
+  invariant 2) and well-defined over cycles. *Rents:* `contract.md`
+  "clause" ("some predicates need whole-graph context … a reachability
+  test"). The by-incidence field-set filter (0052), for the edge set the
+  closure walks. `membership`'s precedent of a predicate naming a second
+  selection (its target requirement) as a parameter, so roots are named
+  the same way and selectors stay atomic. *Tensions:* (a) it must never
+  merge into the default `reachable` clause. Folding field edges into the
+  runtime closure would silence a true dead-registration finding: a skill
+  whose trigger is dead but which a live rule `routes_to` still never
+  loads. That breaks invariant 6. It needs its own name and rule id
+  (`reached-from`, not `reachable`). (b) Invariant 1's density bound. A
+  clause demanding every member be field-reachable is fine when the
+  author declares it. Shipped in a default contract, it becomes the
+  declaration-density demand the invariant forbids, so it stays out of
+  every default contract. (c) Invariant 5. If a shipped package ever
+  carries it, it enters advisory. (d) It presupposes that field-edge cycles
+  are legal. Under today's `graph.acyclic` scope (inbox, "acyclicity fires
+  on declared field edges") the cyclic flows it most wants to judge are
+  refused before it runs. *Leaning:* do it as a vocabulary addition, not a
+  kernel change: one predicate taking `roots` (a requirement name, like
+  `membership`'s target) and `via` (a field set, like 0052's filter).
+  *Parked:* adding the closure to `degree` as a mode (it overloads a
+  local count with a global walk). Recommending the demote-to-plain-field
+  workaround (it loses the edge from `explain`'s enumeration). *Bite
+  condition:* the acyclicity defect is fixed. 0052's field-set filter has
+  shipped. Then ratification. Second-corpus scope is settled for this
+  entry (human-ruled 2026-09-22): opt-in, domain-neutral predicates built
+  from existing nouns meet `representation.md` "Reach". Only kinds or
+  defaults designed for another corpus are held back, so a non-harness
+  first driver doesn't block it.
+
+- `(declared-input)` — *UNRATIFIED draft (2026-09-22), session-proposed from
+  a consumer field report; the human keeps or drops it.* **A member
+  declares a file it rests on, and the lock fingerprints it without
+  projecting it.** The only way today to get "the code under this claim
+  changed" is to `include()` the file into prose. That splices the bytes
+  into the projection (a consumer projected ~210KB of copies for five
+  files) just to buy the `import_hash` row that `prose.include-stale`
+  compares (`src/drift.rs` `source_dep_stale_from_doc`). The opportunity is
+  the same source-dependency row with no splice: a declared input of the
+  member. When its bytes move, the finding names the dependent member, the
+  file, and the remedy, as `pipeline.md` "Drift" already shapes an
+  authored-source freshness fact. *Rents:* `pipeline.md` "Drift" (fact one:
+  an authored source differing from its provenance row). The existing
+  include and layout-import source-dependency families. Invariant 8: the
+  finding routes the author back to re-verify, and the author, not temper,
+  judges whether the claim still holds. *Tensions:* (a) a re-emit refreshes
+  the hash with no visible diff. With `include()`, the projection diff at
+  least shows what changed. With this row, the lock line is the only
+  review surface. So a re-emit can bless a claim nobody re-checked, and the
+  finding's remedy text must not read as "re-emit and you're done". (b)
+  Severity. Source-dependency findings are fixed `warn`, and the dial
+  reaches clause labels only (`src/dial.rs:95`). An author who wants this
+  to gate can't declare it, which sits badly with the spine rule and
+  `pipeline.md`'s "how loudly … is the author's declared severity". That is
+  worth its own ruling whether or not this entry lands. (c) A
+  **range-anchored** pin. Hashing a line range false-fires on every edit
+  above the range (a gate that cries wolf, invariant 2). Locating the range
+  by matching content is mining (invariant 1). A range is decidable only
+  between declared tags, and that is `(code-seam-joins)`'s code kind, so
+  sub-file grain is parked there. (d) This is not `(external-commitment)`.
+  That fork (`.flume/plan/open-questions.md`, human-parked 09-03) gives the
+  *ground member itself* a committed, never-emitted file locus with a lock
+  row and a byte hash. That kernel change to `locus` is also what would
+  retire the per-file `locus.undeclared-member` notes a read-only ground
+  kind draws today. The fingerprint belongs on the dependent pin because
+  the finding must name whose claim is at risk. A hash on the ground member
+  names no dependent. *Leaning:* do the input declaration, a vocabulary and
+  pipeline addition with no kernel change. Leave the ground-member locus to
+  `(external-commitment)`, and cite this report there as field evidence
+  when that fork is next argued. *Parked:* a fingerprint on the ground
+  member (that is the fork above). Line-number ranges (fragile, and the
+  problem `(code-seam-joins)` was built to avoid). Promoting
+  `include-stale` to `error` as the fix (that bakes a severity rather than
+  letting the author declare one). *Bite condition:* (b) was ruled on
+  2026-09-22 (drift findings become dialable), and its mechanism is drafted
+  in `docs/proposals/drift-severity-is-a-clause.md`. That lands first. Then
+  the two graph defects in `.flume/inbox.md` (acyclicity scope, the
+  `degree` field filter), then ratification. Second-corpus scope doesn't
+  bind (ruled 2026-09-22, see `(field-reach)`). *Evidence status:* the file
+  grain, the ~210KB of copies, and the advisory-only `include-stale` were
+  confirmed by reading code (`src/drift.rs`, `src/dial.rs`,
+  `src/main.rs`). The consumer's run was not reproduced here because its
+  prototype was not reachable from this machine.
 
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`
