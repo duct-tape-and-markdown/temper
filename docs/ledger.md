@@ -36,6 +36,8 @@ hard.
   shipped: SDK-MEMBER-DECLARES-INPUTS, SDK-REACHED-FROM-CONSTRUCTOR,
   LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED (and everything under them). The
   publish itself still takes John's word at the cut (`release` rule).
+  After the cut, unpark INTEGRATION-SUITE-ONE-TEST-TARGET before the harness
+  migration: the judge resolves test ids that the fold renames.
 - Still open with dependents: `(hook-member-identity)` (GH #32). Parked
   ruling: 0019's occupant (GH #45).
 
