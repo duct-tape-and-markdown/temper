@@ -2,15 +2,16 @@
 // omits but its named symbols reach. Information to plan, never a gate —
 // plan decides whether a hit is a real consumer (widen files[]) or noise.
 // Symbols are the backticked identifiers in files[].description, summary,
-// and acceptance; a hit is any src/, tests/, or sdk/ file containing the
-// identifier as a whole word that files[] does not already list.
+// and acceptance; a hit is any src/, tests/, sdk/, or examples/ file containing the
+// identifier as a whole word that files[] does not already list. examples/
+// is walked too: it holds live in-tree consumers of the SDK's authoring surface.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 const raw = JSON.parse(readFileSync(".flume/plan/pending.json", "utf8"));
 const entries = Array.isArray(raw) ? raw : Object.values(raw).find(Array.isArray) ?? [];
 const files = [];
 const walk = (d) => { for (const n of readdirSync(d)) { const p = join(d, n); const s = statSync(p); if (s.isDirectory()) { if (n !== "node_modules" && n !== "dist" && n !== "target") walk(p); } else if (/\.(rs|ts|toml|snap)$/.test(n)) files.push(p); } };
-for (const d of ["src", "tests", "sdk/src", "sdk/test"]) { try { walk(d); } catch {} }
+for (const d of ["src", "tests", "sdk/src", "sdk/test", "examples"]) { try { walk(d); } catch {} }
 const text = new Map(files.map((f) => [f, readFileSync(f, "utf8")]));
 const STOP = new Set(["src", "tests", "sdk", "true", "false", "None", "Some", "Ok", "Err", "String", "Vec", "Option", "Result", "self", "Self", "kind", "name", "path", "field", "key", "host", "check", "emit", "guard", "explain", "install", "temper", "rust", "tsc", "cargo", "insta"]);
 let out = "";
