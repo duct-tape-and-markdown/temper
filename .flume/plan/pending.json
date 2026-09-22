@@ -1,39 +1,5 @@
 [
   {
-    "tag": "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "`narrate_hosted_kinds` composes an English article ahead of a backticked kind name it cannot know: `:1072` \"Kinds it hosts in its own body — a `{name}` member admits these…\" and `:1099` \"…each owns its own unit under a `{name}` member's\". Every vowel-initial kind name reads \"a `intent` member\", and no choice of article is right for both. Rephrase both strands article-free (the sibling at `:697` already spells \"a member of `{name}`\"); sweep the rest of the narration for the same shape while the file is open."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "The `explain` proofs home, which asserts neither hosted-kinds strand today. Pin the fix where it bites: a vowel-initial hosting kind narrates without an article before its name."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "`explain kind` renders \"a `intent` member\" — an English article composed ahead of a kind name it cannot know, wrong for every vowel-initial kind.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "Read verbs"
-    },
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "a vowel-initial kind that hosts embedded kinds and file children narrates both strands with no article before its backticked name"
-      }
-    ],
-    "acceptance": "`cargo test` green. Oracle: no English article precedes a `{name}` interpolation anywhere in `src/read.rs` — the two hosted-kinds strands are the whole population.",
-    "notes": "Inbox, observed at 4ce5ee72 (cascade-integrations' probe of d935b088), re-verified this tick: `git log 4ce5ee72..HEAD -- src/read.rs` moved neither line. The note calls the surface the address-form strand; on disk `narrate_address_form` (:856) composes no article and `narrate_hosted_kinds` (:1062) does — the two sites above are the whole gap. Cosmetic, filed rather than ridden because nothing tracks a ride. scoped at 61e9e78d"
-  },
-  {
     "tag": "SDK-PROSE-SPAN-CONSTRUCTOR",
     "gate": {
       "kind": "open"
@@ -79,10 +45,7 @@
   {
     "tag": "ADMITTED-EMBEDDED-KINDS-ONE-HOME",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -428,8 +391,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "DEGREE-FIELD-SET-FILTER",
-        "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE"
+        "DEGREE-FIELD-SET-FILTER"
       ]
     },
     "dependsOnForks": [],
@@ -482,7 +444,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "EXPLAIN-KIND-NARRATION-DROPS-THE-ARTICLE",
         "DEGREE-FIELD-SET-FILTER",
         "CONTAINMENT-INCIDENCE-FAMILY"
       ]
