@@ -56,9 +56,23 @@ field cycle passes. If someone later wants a DAG over field edges, the
 spine rule makes that a clause (opt-in, dialable), never well-formedness.
 Plan should not invent that clause.
 
-**Evidence status: read, not observed.** Established from code, the pinned
-test, and the consumer's quoted finding text. The consumer's prototype
-was not reachable from this machine, so no local run reproduced it.
+**Evidence status: observed at 0.0.18** (`temper --version` →
+`temper 0.0.18`, in a copy of the consumer's prototype). Restoring
+`edgeFields: [{ field: "handled-by", to: ["path"] }]` on `signal` and
+running `temper emit && temper check .` adds exactly one finding over the
+as-is run: `graph.acyclic` "x the harness reference graph contains a cycle:
+path `p87-reset-password` → state `forgotpassword` → view `forgotpassword`
+→ signal `_resetpassword` → path `p87-reset-password`". The as-is run
+already exits 1 on required clauses, so a minimal repro isolates the exit
+code. Two custom kinds whose edge fields point at each other, with members
+`one` ↔ `two`, give `check` exit 1 and "x the harness reference graph
+contains a cycle: a `one` → b `two` → a `one`". Dropping one edge field
+gives exit 0. The same repro carries a memory ↔ rule `@import` cycle
+(`CLAUDE.md` imports `@.claude/rules/r.md`, which imports
+`@../../CLAUDE.md`). With the field cycle removed, `check` exits 0 with
+no `graph.*` finding and no unbacked-import finding. The import cycle
+resolves and goes unjudged, as the code reads. What Claude Code does at
+load time with that cycle stays UNVERIFIED.
 **Dependency (human-ruled 2026-09-22):** the fix for the consumer's
 `membership` workaround waits on this one. That fix splits entry paths into
 their own kind and makes `handled-by` an edge to it, which closes the cycle
@@ -85,9 +99,19 @@ than filing a second one. This is its second driver. Arc dedupe must be
 per filtered set, so a count over {a, b} counts an a-edge and a b-edge to
 one target as two.
 
-**Evidence status: read, not observed.** Established from code at every
-layer (engine, predicate, SDK). The consumer's prototype was not reachable
-from this machine, so no local run reproduced it.
+**Evidence status: observed at 0.0.18.** In the consumer's prototype as
+is, `temper check .` (exit 1) with `channel` bound to
+`degree({ incoming: { max: 1 } })` reports "kind `channel` bounds incoming
+degree to [0, 1], but `ierror` has 3". The 3 is two `path.writes` edges
+(`p16-lookup`, `p20-swap`) plus one `effect.clobbers` edge
+(`e7-password-reset`), so both fields are counted. Strict `tsc` against
+the published 0.0.18 types rejects
+`degree({ incoming: { max: 1 }, field: "writes" })` with TS2353
+"'field' does not exist in type '{ incoming?: …; outgoing?: … }'". The
+arc dedupe also reproduces. One member reaching one target through two
+fields (`to`, `also`) under `degree({ incoming: { max: 0 } })` gives
+`check` exit 1 with "kind `b` bounds incoming degree to [0, 0], but `two`
+has 1".
 
 ## text`` cannot take a computed string — observed at d9a34e39
 
