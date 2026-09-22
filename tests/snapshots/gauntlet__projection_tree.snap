@@ -200,11 +200,13 @@ rendered_chars = 34
 host = "spec:representation"
 kind = "invariant"
 key = "loud-or-nothing"
+leaves = { prose = "A gate never fabricates absence." }
 
 [[declaration.nested_member]]
 host = "spec:representation"
 kind = "invariant"
 key = "the-projection-is-not-the-database"
+leaves = { prose = "Facts are declared, never mined back." }
 
 [[declaration.registration]]
 kind = "hook"

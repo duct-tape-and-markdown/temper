@@ -369,6 +369,21 @@ export interface Member {
 /** The framework keys of a member init — everything else is a typed field (flat). */
 const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs"]);
 
+/**
+ * The **reserved leaf key** a nested member's own span lands under (0051) —
+ * `<host-address>/<kind>/<key>/prose`. On the read half a layout collection member's
+ * own paragraph, the text under its heading before the first child heading, lands here
+ * (`src/layout.rs`'s `OWN_SPAN_LEAF`); leaves stay one family, so leaf predicates, leaf
+ * addresses and `explain`'s narration range over one source.
+ *
+ * `prose` is already this word at member grain ({@link MemberInit.prose}), so it is a
+ * framework key for an init and a reserved name for a leaf — the same thing spelled once.
+ * The composed half authors no own span (its leaves are all author-named), so the
+ * reservation binds here as a refusal: a composed leaf of this name would address
+ * identically to a read member's own span and mean something else.
+ */
+const RESERVED_LEAF = "prose";
+
 /** The init a kind constructor takes — the framework keys plus the kind's typed fields `T`. */
 export type MemberInit<T> = {
   readonly name: string;
@@ -726,14 +741,42 @@ export function embeddedMemberValue(init: {
   collections?: EmbeddedMemberValue["collections"];
 }): EmbeddedMemberValue {
   const definition = typeof init.kind === "string" ? undefined : init.kind;
+  const kindKey = definition?.key ?? (init.kind as string);
+  refuseReservedLeaf(kindKey, init.key, init.leaves);
+  for (const [collection, entries] of Object.entries(init.collections ?? {})) {
+    for (const entry of entries) {
+      refuseReservedLeaf(kindKey, `${init.key}.${collection}.${entry.key}`, entry.leaves);
+    }
+  }
   const render = definition?.render;
   const edgeFields = definition?.facts.edgeFields;
   return {
-    kind: definition?.key ?? (init.kind as string),
+    kind: kindKey,
     key: init.key,
     leaves: init.leaves,
     collections: init.collections ?? {},
     ...(render !== undefined ? { render } : {}),
     ...(edgeFields !== undefined ? { edgeFields } : {}),
   };
+}
+
+/**
+ * Refuse a composed leaf named {@link RESERVED_LEAF} — the key a read member's own span
+ * owns, so a second meaning under it is a coincident leaf address, refused at compose
+ * rather than resolved by precedence (0051). Loud at the authoring seam, where the author
+ * can rename the field, not at emit over bytes already written.
+ *
+ * # Throws
+ * If `leaves` carries the reserved key.
+ */
+function refuseReservedLeaf(
+  kind: string,
+  key: string,
+  leaves: Readonly<Record<string, string | Text>>,
+): void {
+  if (!Object.hasOwn(leaves, RESERVED_LEAF)) return;
+  throw new Error(
+    `embedded member \`${kind}\` \`${key}\`: leaf \`${RESERVED_LEAF}\` is reserved for a ` +
+      `member's own span — rename the field, or author the words as the member's prose`,
+  );
 }

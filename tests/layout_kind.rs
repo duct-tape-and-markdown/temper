@@ -185,6 +185,133 @@ fn an_unfilled_region_reads_empty_not_loud() {
 }
 
 #[test]
+fn a_collection_members_own_span_lands_under_the_reserved_prose_leaf() {
+    // The shape a real spec member takes: a member heading, the member's own paragraph,
+    // and a `**Test.**` line — no sub-headings at all, so the sub-heading leaves are the
+    // empty set and the own span is every authored word the member carries.
+    let layout = Layout {
+        regions: vec![LayoutRegion::Collection {
+            member_kind: "invariant".to_string(),
+            key: None,
+        }],
+    };
+    let doc = "## Invariants\n\n\
+### Loud or nothing\n\
+A failure temper can detect is an error message at author-time.\n\
+\n\
+**Test.** `tests/gate_fail_loud.rs`\n";
+
+    let reading = layout
+        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
+        .unwrap();
+
+    let member = &reading.members[0];
+    assert_eq!(member.key, "loud-or-nothing");
+
+    // Non-vacuity first (0048's conservation bar): the span the reader captured carries
+    // the member's authored words — a green assertion over an empty capture would prove
+    // nothing.
+    let own_span = member
+        .leaves
+        .get(temper::layout::OWN_SPAN_LEAF)
+        .expect("the member's own span lands under the reserved leaf");
+    assert!(!own_span.is_empty(), "the captured own span is non-empty");
+    assert_eq!(
+        own_span,
+        "A failure temper can detect is an error message at author-time.\n\n\
+**Test.** `tests/gate_fail_loud.rs`"
+    );
+
+    // And it is the member's whole leaf set — a sub-headingless member used to
+    // materialize an empty map, its every authored word reaching no row at all.
+    assert_eq!(member.leaves.len(), 1, "leaves: {:?}", member.leaves);
+}
+
+#[test]
+fn a_collection_members_own_span_cuts_at_its_first_sub_heading() {
+    // `HeadingNode::body` runs to the member's end with its sub-headings included as
+    // text, so the own span has to be cut at the first child heading — else it would
+    // duplicate every sub-heading leaf's words back into `prose`.
+    let layout = Layout {
+        regions: vec![LayoutRegion::Collection {
+            member_kind: "invariant".to_string(),
+            key: None,
+        }],
+    };
+    let doc = "## Invariants\n\n\
+### Loud or nothing\n\
+the member's own words\n\
+\n\
+#### Rationale\n\
+a gate that cries wolf gets disabled\n\
+\n\
+##### Deeper\n\
+nested under the rationale\n";
+
+    let reading = layout
+        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
+        .unwrap();
+    let leaves = &reading.members[0].leaves;
+
+    assert_eq!(
+        leaves
+            .get(temper::layout::OWN_SPAN_LEAF)
+            .map(String::as_str),
+        Some("the member's own words")
+    );
+    // The sub-heading keeps its own leaf, deeper text included as text — untouched by
+    // the own span's arrival.
+    assert_eq!(
+        leaves.get("rationale").map(String::as_str),
+        Some("a gate that cries wolf gets disabled\n\n##### Deeper\nnested under the rationale")
+    );
+    assert_eq!(leaves.len(), 2, "leaves: {leaves:?}");
+
+    // A member that authored no own span declares no `prose` leaf — an absent span is
+    // nothing to conserve, not an empty string to store.
+    let spanless = layout
+        .read(
+            "## Invariants\n\n### Loud or nothing\n#### Rationale\nonly the sub-heading\n",
+            std::path::Path::new("specs/intent.md"),
+            &no_edges(),
+        )
+        .unwrap();
+    assert!(
+        !spanless.members[0]
+            .leaves
+            .contains_key(temper::layout::OWN_SPAN_LEAF),
+        "leaves: {:?}",
+        spanless.members[0].leaves
+    );
+}
+
+#[test]
+fn a_sub_heading_slugging_to_the_reserved_leaf_refuses_loud() {
+    // The reserved key is one leaf name, so a sub-heading slugging to it is a coincident
+    // leaf address — refused, never resolved by precedence (0051).
+    let layout = Layout {
+        regions: vec![LayoutRegion::Collection {
+            member_kind: "invariant".to_string(),
+            key: None,
+        }],
+    };
+    let doc = "## Invariants\n\n\
+### Loud or nothing\n\
+the member's own words\n\
+\n\
+#### Prose\n\
+a sub-heading claiming the reserved key\n";
+
+    let err = layout
+        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
+        .unwrap_err();
+
+    assert!(matches!(err, LayoutError::ReservedLeaf { .. }));
+    assert!(err.to_string().contains("Loud or nothing"));
+    assert!(err.to_string().contains("prose"));
+}
+
+#[test]
 fn an_unadmitted_top_level_heading_refuses_loud() {
     // A field section consumes the first heading; the second top-level heading fits no
     // declared region — structure no primitive admits.
@@ -291,6 +418,24 @@ fn emit_derives_layout_members_into_the_lock_and_leaves_the_document_untouched()
     assert_eq!(
         ids,
         vec!["loud-or-nothing", "the-projection-is-not-the-database"]
+    );
+
+    // Each member's own span rides that same row as its reserved `prose` leaf, so the one
+    // leaf family leaf predicates, leaf addresses, and `explain` range over carries the
+    // member's paragraph exactly as it carries a sub-heading's (0051).
+    let spans: Vec<&str> = declarations
+        .nested_members
+        .iter()
+        .filter(|row| row.host == "intent:intent" && row.kind == "invariant")
+        .filter_map(|row| row.leaves.get(temper::layout::OWN_SPAN_LEAF))
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        spans,
+        vec![
+            "A gate never fabricates absence.",
+            "Facts are declared, never mined back.",
+        ]
     );
 
     // Its verbatim prose region's span reaches the lock too, under the region that took

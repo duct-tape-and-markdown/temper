@@ -6,6 +6,15 @@ use std::path::{Path, PathBuf};
 
 use crate::extract;
 
+/// The reserved leaf key a nested member's **own span** lands under — the text directly
+/// under the member's heading, before its first child heading (0051). The name is the
+/// one `representation.md` and the SDK already spell a member's verbatim authored words
+/// with, so the leaf key names at leaf grain what the member-level value names at member
+/// grain: `<host-address>/<kind>/<key>/prose`. It is reserved on both halves — a child
+/// heading slugging to it refuses loud ([`LayoutError::ReservedLeaf`]), the way the SDK
+/// refuses a composed leaf of the same name.
+pub const OWN_SPAN_LEAF: &str = "prose";
+
 /// A declared **layout** — the ordered regions a `layout`-content kind's body is read as,
 /// each one of the three corpus primitives ([`LayoutRegion`]). The regions are the
 /// declared template; matching them against a member's actual heading tree is the
@@ -69,7 +78,8 @@ pub struct LayoutReading {
 /// One member read off a layout document's member collection: its child kind, its
 /// identity (the slugged heading, or the explicit key when the collection declares
 /// one — surviving a retitle of the heading), the authored heading it was read from,
-/// and its own leaves (the immediate deeper sub-headings' spans, keyed by slug).
+/// and its own leaves (the immediate deeper sub-headings' spans, keyed by slug, plus
+/// the member's own span under the reserved [`OWN_SPAN_LEAF`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LayoutMember {
     /// The child kind this member instantiates — the collection region's `member_kind`.
@@ -81,7 +91,10 @@ pub struct LayoutMember {
     /// no explicit key overrides, kept so a rename surfaces as a move.
     pub heading: String,
     /// The member's own prose leaves — its immediate deeper sub-headings' spans, keyed
-    /// by the slug of each sub-heading.
+    /// by the slug of each sub-heading, plus the member's **own span** under the
+    /// reserved [`OWN_SPAN_LEAF`] key when it authored one: the text directly under its
+    /// heading, cut at the first child heading (0051). An own span that is blank
+    /// authored nothing, so it declares no leaf.
     pub leaves: BTreeMap<String, String>,
 }
 
@@ -115,6 +128,23 @@ pub enum LayoutError {
         path: PathBuf,
         /// The unadmitted heading.
         heading: String,
+    },
+
+    /// A collection member carries a sub-heading slugging to the reserved
+    /// [`OWN_SPAN_LEAF`] key, which the member's own span already claims — a coincident
+    /// leaf address, refused the way a coincident lock address is (0049, 0051), never
+    /// resolved by precedence.
+    #[error(
+        "{path}: collection member `{heading}` has a `{leaf}` sub-heading, the reserved key its own span lands under"
+    )]
+    #[diagnostic(code(temper::layout::reserved_leaf))]
+    ReservedLeaf {
+        /// The layout document at fault.
+        path: PathBuf,
+        /// The member heading whose sub-heading collides.
+        heading: String,
+        /// The reserved leaf key the sub-heading slugged to.
+        leaf: String,
     },
 
     /// A field or collection region bound a heading with children, while a later
@@ -270,7 +300,16 @@ fn next_heading<'a>(
 /// Read one collection member off its child heading `node`: its identity is the
 /// slugged heading, or — when the collection declares an explicit `key` — the slug of
 /// the value under the member's `key` sub-heading, which a heading retitle leaves
-/// untouched. Its leaves are the member's immediate sub-headings' spans, keyed by slug.
+/// untouched. Its leaves are the member's immediate sub-headings' spans, keyed by slug,
+/// plus its **own span** under the reserved [`OWN_SPAN_LEAF`] key — the text directly
+/// under the member's heading, cut at the first child heading (0051), which `node.body`
+/// carries the sub-headings' text along with. Every authored span reaches a leaf this
+/// way (invariant 6), so a member's own paragraph is addressable exactly as a
+/// sub-heading's is.
+///
+/// The identity resolves off the sub-heading leaves alone, before the own span joins
+/// them: an explicit `key` names a sub-heading the author wrote, never the span the
+/// reader derived.
 fn read_collection_member(
     node: &extract::HeadingNode,
     member_kind: &str,
@@ -279,7 +318,15 @@ fn read_collection_member(
 ) -> Result<LayoutMember, LayoutError> {
     let mut leaves = BTreeMap::new();
     for child in &node.children {
-        leaves.insert(slugify(&child.heading), child.body.trim().to_string());
+        let slug = slugify(&child.heading);
+        if slug == OWN_SPAN_LEAF {
+            return Err(LayoutError::ReservedLeaf {
+                path: source_path.to_path_buf(),
+                heading: node.heading.clone(),
+                leaf: OWN_SPAN_LEAF.to_string(),
+            });
+        }
+        leaves.insert(slug, child.body.trim().to_string());
     }
     let identity = match key {
         None => slugify(&node.heading),
@@ -293,6 +340,13 @@ fn read_collection_member(
             slugify(value)
         }
     };
+    // The own span: `node.body` runs to the member's end, sub-headings included as text,
+    // so the preamble of that span — the same fence-aware cut `body_preamble` makes for a
+    // document's leading prose region — is exactly the text the member itself authored.
+    let own_span = extract::body_preamble(&node.body).trim().to_string();
+    if !own_span.is_empty() {
+        leaves.insert(OWN_SPAN_LEAF.to_string(), own_span);
+    }
     Ok(LayoutMember {
         member_kind: member_kind.to_string(),
         key: identity,
