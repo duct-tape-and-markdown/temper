@@ -32,6 +32,8 @@ import {
   pluginManifestDefaultContract,
   rule,
   ruleDefaultContract,
+  settings,
+  settingsDefaultContract,
   settingsLocal,
   settingsLocalDefaultContract,
   skill,
@@ -54,6 +56,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   marketplaceDefaultContract,
   supportingDocDefaultContract,
   settingsLocalDefaultContract,
+  settingsDefaultContract,
   knownMarketplaceDefaultContract,
 ];
 
@@ -603,6 +606,61 @@ test("settingsLocalDefaultContract types the structural container keys and leave
   // Cited and dated, every one — to the live settings docs.
   for (const entry of settingsLocalDefaultContract) {
     assert.match(entry.cite ?? "", /^https:\/\/code\.claude\.com\/docs\/en\/settings#\S+ \(retrieved 2026-07-16\)$/);
+  }
+});
+
+test("settings is a committed-class json-document file kind owning .claude/settings.json", () => {
+  assert.deepEqual(settings.facts.locus, {
+    kind: "at",
+    root: ".claude",
+    glob: "settings.json",
+  });
+  // No `commitment` at all is the committed class — the default, and what makes this file
+  // an emit target where `settings-local`'s overlay is read-in-place only.
+  assert.equal("commitment" in settings.facts.locus, false);
+  // The whole-file JSON format routes it to the document reader, like settings-local.
+  assert.equal(settings.facts.format, "json-document");
+  // A singleton at a documented path: identity is the file stem, so no declared key names it.
+  assert.equal(settings.facts.unitShape, "file");
+  assert.equal(settings.facts.identityField, undefined);
+  // It is the *container* of the three registration collection addresses, not a member at
+  // one of them — so it declares no collection address of its own, and it reaches the model
+  // on no channel: configuration the harness reads.
+  assert.equal(settings.facts.collectionAddress, undefined);
+  assert.equal(settings.facts.shape, undefined);
+  assert.deepEqual(settings.facts.registration, []);
+});
+
+test("settingsDefaultContract types the committed file's structural keys and cedes hooks to its kind", () => {
+  // The residue stays opaque, so no closed-keys clause — only the documented object-valued
+  // keys a committed team file carries are gated, each as a `map`.
+  assert.deepEqual(
+    settingsDefaultContract.map((c) => c.predicate.key),
+    ["type", "type", "type"],
+  );
+  assert.deepEqual(
+    settingsDefaultContract.map((c) => [c.predicate.field, c.predicate.value_type]),
+    [
+      ["permissions", ["map"]],
+      ["env", ["map"]],
+      ["attribution", ["map"]],
+    ],
+  );
+  assert.ok(settingsDefaultContract.every((c) => c.severity === "required"));
+  // `hooks` is absent by ownership, not by opacity: the committed file's `hooks` object is
+  // the `hook` kind's collection address, so its shape is that kind's contract to hold —
+  // the one place settings-local's guidance does not transfer.
+  assert.equal(
+    settingsDefaultContract.some((c) => c.predicate.field === "hooks"),
+    false,
+  );
+  assert.ok(hookDefaultContract.length > 0, "the hooks segment is contracted by its own kind");
+  // Cited and dated, every one — to the live settings reference.
+  for (const entry of settingsDefaultContract) {
+    assert.match(
+      entry.cite ?? "",
+      /^https:\/\/code\.claude\.com\/docs\/en\/settings-reference#\S+ \(retrieved 2026-09-22\)$/,
+    );
   }
 });
 

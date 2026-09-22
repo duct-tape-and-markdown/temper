@@ -1286,6 +1286,117 @@ export const settingsLocalDefaultContract: readonly Clause[] = [
 ];
 
 /**
+ * Claude Code's committed project settings — `.claude/settings.json`, the file a team
+ * checks in so everyone who clones the repository gets the same permissions, hooks,
+ * plugins and environment (code.claude.com/docs/en/settings, "Settings files and who they
+ * affect", retrieved 2026-09-22).
+ *
+ * Only the documented top-level keys a committed team file carries are typed here; the
+ * settings schema is large and version-evolving, and every key not named below survives as
+ * opaque residue named as such — the partial-governance posture `settings-local` already
+ * holds. What is deliberately absent is not residue but *ownership*: `hooks`,
+ * `enabledPlugins` and `extraKnownMarketplaces` are the collection addresses of the
+ * {@link hook}, {@link installedPlugin} and {@link knownMarketplace} kinds, so a member
+ * registers there and this container never types the key. Declaring one here would author
+ * the same segment twice.
+ */
+export interface Settings {
+  /** JSON Schema URL for editor autocomplete; Claude Code ignores it at load time. */
+  readonly $schema?: string;
+  /** Tool-permission rules: `{ allow, ask, deny }`, each an array of rule strings, plus `defaultMode`. */
+  readonly permissions?: Readonly<Record<string, unknown>>;
+  /** Environment variables applied to every session and its subprocesses, a map of string to string. */
+  readonly env?: Readonly<Record<string, string>>;
+  /** The model this project runs as. */
+  readonly model?: string;
+  /** Attribution Claude Code adds to commits and pull requests: `{ commit, pr, sessionUrl }`. */
+  readonly attribution?: Readonly<Record<string, unknown>>;
+  /**
+   * Whether to add a Claude co-author trailer to git commits.
+   *
+   * @deprecated Claude Code documents `attribution` as this key's replacement
+   * (code.claude.com/docs/en/settings-reference#attribution, retrieved 2026-09-22).
+   */
+  readonly includeCoAuthoredBy?: boolean;
+  /** Whether project MCP servers from `.mcp.json` are auto-approved. */
+  readonly enableAllProjectMcpServers?: boolean;
+  /** MCP servers from `.mcp.json` to approve. */
+  readonly enabledMcpjsonServers?: readonly string[];
+  /** MCP servers from `.mcp.json` to reject. */
+  readonly disabledMcpjsonServers?: readonly string[];
+  /** The output rendering style. */
+  readonly outputStyle?: string;
+  /** Whether to enable auto-memory for this project. */
+  readonly autoMemoryEnabled?: boolean;
+  /** Absolute or `~/`-prefixed path for auto-memory storage, honored at any settings scope. */
+  readonly autoMemoryDirectory?: string;
+}
+
+/**
+ * `settings` — `.claude/settings.json`, a whole-file JSON document at the **committed**
+ * commitment class: the program authors every key, `emit` renders the file whole, and the
+ * member's byte fingerprint makes a hand edit to any part of it `config.stale` (decision
+ * 0050). Its top-level keys are its fields; identity is the fixed singleton stem
+ * `settings` (the `file` unit shape — a project's committed settings are the one file at
+ * this documented path, so no declared key names it). Channel-less: configuration the
+ * harness reads, never surfaced to the model.
+ *
+ * It is the **container** of three registration collection addresses — `hooks`,
+ * `enabledPlugins`, `extraKnownMarketplaces` — which keep their own kinds
+ * ({@link hook}, {@link installedPlugin}, {@link knownMarketplace}). Those segments and
+ * this member's opaque residue are one file: emit renders the declared segments in
+ * address order, then the residue (code.claude.com/docs/en/settings, retrieved
+ * 2026-09-22).
+ */
+export const settings: KindDefinition<Settings> = kind<Settings>({
+  name: "settings",
+  locus: { kind: "at", root: ".claude", glob: "settings.json" },
+  format: "json-document",
+  unitShape: "file",
+  registration: [],
+});
+
+/**
+ * The default contract for `settings` — the structural container keys typed, everything
+ * else opaque. The settings reference documents several hundred keys, most of them scalar
+ * preferences and many of them managed-scope-only, so a `closedKeys()` allow-list would
+ * strand a valid committed file the moment upstream adds a key: the residue is opaque, not
+ * indicted. What stays decidable is the shape of the documented object-valued keys a
+ * committed team file carries — `permissions`, `env` and `attribution` are each a JSON
+ * *object*, and a value that is not one cannot be applied — so each is gated as a `map`.
+ *
+ * `hooks` is **not** gated here, and its absence is ownership rather than an opaque
+ * residue key: the committed file's `hooks` object is the {@link hook} kind's collection
+ * address, so its shape is that kind's contract to hold, member by member. This is the one
+ * place `settingsLocalDefaultContract`'s guidance does not transfer — a hook in the local
+ * overlay is opaque residue precisely because no kind reads it there.
+ *
+ * Deliberately absent as undecidable: whether a permission rule reads correctly, whether
+ * an env var is one this project needs, whether the chosen `model` exists — semantic
+ * judgment, never a gate clause.
+ */
+export const settingsDefaultContract: readonly Clause[] = [
+  clause(type("permissions", ["map"]), {
+    severity: "required",
+    guidance:
+      "`permissions` is the tool-permission object — `allow`, `ask` and `deny` rule arrays plus `defaultMode`. A value that is not an object carries no rules Claude Code can read, so the rules a whole team relies on silently apply nothing.",
+    cite: "https://code.claude.com/docs/en/settings-reference#permissions (retrieved 2026-09-22)",
+  }),
+  clause(type("env", ["map"]), {
+    severity: "required",
+    guidance:
+      "`env` is a map of environment variables — string keys to string values — applied to every session and its subprocesses. A non-object value is not a shorter spelling of one variable; it is a shape the loader cannot expand, so none of the variables take effect.",
+    cite: "https://code.claude.com/docs/en/settings-reference#env (retrieved 2026-09-22)",
+  }),
+  clause(type("attribution", ["map"]), {
+    severity: "required",
+    guidance:
+      "`attribution` is the commit/PR attribution object — `commit`, `pr` and `sessionUrl`. A non-object value configures none of them, so Claude Code falls back to its default trailer with no error, which is exactly the outcome a project setting this key was avoiding.",
+    cite: "https://code.claude.com/docs/en/settings-reference#attribution (retrieved 2026-09-22)",
+  }),
+];
+
+/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.
