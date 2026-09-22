@@ -1393,5 +1393,104 @@
     ],
     "acceptance": "temper check/emit run clean (or with real, human-verified findings) over 2-3 vendored external harness .claude/ trees, snapshot-tested in tests/gauntlet.rs, so the July external-yield probe is a standing gate rather than a one-time manual run.",
     "notes": "observed at e77766c5, cross-cutting note — every defect in the 09-03 batch came from a foreign harness, none from the self-mirror; docs/ledger.md's 07-22 probe (9 real harnesses) is the candidate pool. Human picks 2-3 (licensing); test wiring is build's once chosen. scoped at 89d96cca."
+  },
+  {
+    "tag": "INTEGRATION-SUITE-ONE-TEST-TARGET",
+    "gate": {
+      "kind": "parked",
+      "reason": "A human scheduling call, two constraints plan cannot express as a gate. (1) The move renames every path under tests/, so it collides with the fifteen queued entries that edit a tests/ file — it must land as a singleton against a quiet queue, and naming fifteen blockedBy parents would be a false spine, not a dependency. (2) The harness migration's judge resolves nextest binary-ids (`temper::graph$...` becomes `temper::it$graph::...`), so this lands before that migration or with it, never after. Unpark by rewriting the entry against the tests/ tree of that day."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/it/**",
+          "description": "The single integration crate cargo auto-discovers from `tests/it/main.rs`: main.rs declares `mod common;` once plus one `mod <name>;` per moved suite; each moved `tests/<name>.rs` lands at `tests/it/<name>.rs` with its `mod common;` line rewritten to `use crate::common;`; `tests/common/mod.rs` moves to `tests/it/common/mod.rs` (its header paragraph documents the per-binary recompilation its blanket `allow(dead_code)` exists to absorb — rewrite it, and narrow the allow, once one crate unifies dead-code analysis); insta snapshots re-bless under `tests/it/snapshots/`, keyed on the module path."
+        }
+      ],
+      "edit": [
+        {
+          "path": "Cargo.toml",
+          "description": "An explicit `[[test]] name = \"it\"` target only if auto-discovery of `tests/it/main.rs` needs it. `autotests` stays on: with it off, a later stray `tests/foo.rs` compiles into no target and its tests silently never run — a vacuous green, the failure mode engineering.md's 'A green verdict is proven non-vacuous' names."
+        }
+      ],
+      "retire": [
+        "tests/acceptance.rs",
+        "tests/agent_kind.rs",
+        "tests/builtin_contract_matrix.rs",
+        "tests/builtin_lock_frozen.rs",
+        "tests/bundle.rs",
+        "tests/check_cost.rs",
+        "tests/cli.rs",
+        "tests/closed_keys.rs",
+        "tests/command_kind.rs",
+        "tests/contract_template.rs",
+        "tests/coverage.rs",
+        "tests/coverage_note.rs",
+        "tests/dial_kind.rs",
+        "tests/directive_classing.rs",
+        "tests/display_rule.rs",
+        "tests/emit.rs",
+        "tests/extent.rs",
+        "tests/extract_equivalence.rs",
+        "tests/field_addressing.rs",
+        "tests/gate_fail_loud.rs",
+        "tests/gauntlet.rs",
+        "tests/graph.rs",
+        "tests/hook_kind.rs",
+        "tests/install.rs",
+        "tests/installed_plugin_kind.rs",
+        "tests/json_document_format.rs",
+        "tests/known_marketplace_kind.rs",
+        "tests/layer_join.rs",
+        "tests/layout_edge_slot.rs",
+        "tests/layout_kind.rs",
+        "tests/layout_prose_import.rs",
+        "tests/local_locus.rs",
+        "tests/lock_declaration_rows.rs",
+        "tests/manifest_adapter.rs",
+        "tests/manifest_schema_oracle.rs",
+        "tests/marketplace_kind.rs",
+        "tests/mcp_server_kind.rs",
+        "tests/memory_contract.rs",
+        "tests/memory_gate.rs",
+        "tests/nested_member.rs",
+        "tests/plugin_manifest_kind.rs",
+        "tests/projection_path_seam.rs",
+        "tests/prose_include.rs",
+        "tests/read_verbs.rs",
+        "tests/registration_locus.rs",
+        "tests/reporters.rs",
+        "tests/requirement_roster.rs",
+        "tests/rule_contract.rs",
+        "tests/seam_bindings_current.rs",
+        "tests/section_contains.rs",
+        "tests/session_start.rs",
+        "tests/settings_kind.rs",
+        "tests/settings_local_kind.rs",
+        "tests/shape_predicate.rs",
+        "tests/tap.rs",
+        "tests/toml_document.rs",
+        "tests/type_predicate.rs",
+        "tests/common/mod.rs"
+      ]
+    },
+    "summary": "The suite declares 57 integration-test targets, so `tests/common` is one home in source and 53 linked copies in target/ — fold them into one `tests/it` crate.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "tests/it/gauntlet.rs",
+        "asserts": "the snapshot-heaviest suite passes byte-identical assertions after re-blessing under tests/it/snapshots/ — the moved suites assert exactly what they asserted before"
+      },
+      {
+        "path": "tests/it/main.rs",
+        "asserts": "every one of the 57 moved suites is declared as a module, so the consolidated run's test count equals the 57-target run's — a suite missing from main.rs is a suite that silently stops running"
+      }
+    ],
+    "acceptance": "`cargo test` green with a test count equal to the pre-move run's (capture it before the move and compare, so no suite is lost in the fold), `cargo clippy --all-targets -- -D warnings` green over the single crate, and one integration-test executable in target/debug/deps where 57 stood — the decidable pin, per the cost section's 'The pin is a count, never a clock'. The commit body reports `cargo test --no-run` wall time and peak RSS before and after, timing staying the manual signal a human reads rather than a gate; that pair is also what answers the standing objection, that one crate compiles as one unit, so peak RSS falls while wall time may rise.",
+    "notes": "Drained from .flume/refactor/session-integration-tests-one-binary.md (observed 4dd4583f; re-verified on disk — 57 crates, 53 `mod common;`, 782-line shared module, tests/ untouched since). Evidence: a 14:42 OOM rebooted the 7.7GB WSL VM with 17 rust-lld + 20 rustc holding 2.6GB; CARGO_BUILD_JOBS=4 treats that by capping parallelism on every gate run. Cargo prescribes this fold for a suite this size (cargo-targets.html, 'Integration tests', retrieved 2026-09-22). scoped at 9270fc0b"
   }
 ]
