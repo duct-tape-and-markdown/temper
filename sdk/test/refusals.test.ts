@@ -384,6 +384,55 @@ test("an edge field resolving to a composed member emits without throwing", () =
 });
 
 // ---------------------------------------------------------------------------
+// (6) Reserved leaf — a composed leaf named `prose`, the key a read member's own
+//     span owns (0051). Refused at compose, where the author can still rename the
+//     field, on the value's own leaves and on every collection entry's alike.
+// ---------------------------------------------------------------------------
+
+test("embeddedMemberValue refuses a top-level leaf named `prose`", () => {
+  const decision = decisionKind();
+  assert.throws(
+    () =>
+      embeddedMemberValue({
+        kind: decision,
+        key: "surface-authority",
+        leaves: { prose: "the words" },
+      }),
+    /embedded member `decision` `surface-authority`: leaf `prose` is reserved/,
+  );
+});
+
+test("embeddedMemberValue refuses a collection entry's leaf named `prose`", () => {
+  const decision = decisionKind();
+  assert.throws(
+    () =>
+      embeddedMemberValue({
+        kind: decision,
+        key: "surface-authority",
+        leaves: { chosen: "x" },
+        collections: { alternatives: [{ key: "the-other-way", leaves: { prose: "the words" } }] },
+      }),
+    // The address the refusal names is the entry's, not the host value's — an author
+    // reading it knows which of many entries to rename.
+    /`surface-authority\.alternatives\.the-other-way`: leaf `prose` is reserved/,
+  );
+});
+
+test("embeddedMemberValue admits every other leaf key, top-level and in a collection", () => {
+  // The reservation binds exactly one name: a near-miss key composes, or the guard
+  // would be refusing the authored fields it exists to protect.
+  const decision = decisionKind();
+  assert.doesNotThrow(() =>
+    embeddedMemberValue({
+      kind: decision,
+      key: "surface-authority",
+      leaves: { chosen: "x", prosecution: "not the reserved key" },
+      collections: { alternatives: [{ key: "the-other-way", leaves: { rejected: "y" } }] },
+    }),
+  );
+});
+
+// ---------------------------------------------------------------------------
 // A clean harness — every join resolves, every required requirement filled.
 // ---------------------------------------------------------------------------
 
