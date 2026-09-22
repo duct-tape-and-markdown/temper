@@ -84,9 +84,9 @@ independently, and a finding names the concrete address it fired at. Guards
 do not nest.
 
 Some predicates need whole-graph context — a degree bound, a reachability
-test. That is evaluation cost, not a category: **reachability is a clause**
-in the root member's default contract, on by default — a dialable severity,
-and the spine rule sends every dialable check to a contract.
+test. That is evaluation cost, not a category: **reachability** and
+**drift** are clauses in the root member's default contract, on by
+default at advisory — severities the author declares, never the tool.
 
 ## selection
 

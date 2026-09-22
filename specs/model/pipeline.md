@@ -88,9 +88,9 @@ EOL before it hashes; every non-EOL difference remains the hand-edit.
 
 A mismatch is never silently reconciled: no reverse parse from projection to
 source, no merge model — a projection edit routes to the owning member. How
-loudly a hand-edit is treated is the author's declared severity, never the
-tool's own determination; the enforcement artifacts bind only paths the lock
-names as projections, so with no lock nothing is a projection.
+loudly any drift finding is treated is its clause's declared severity
+(`contract.md`, "clause"), never the tool's; the enforcement artifacts bind
+only paths the lock names as projections, so with no lock nothing is one.
 
 ## Telemetry
 
