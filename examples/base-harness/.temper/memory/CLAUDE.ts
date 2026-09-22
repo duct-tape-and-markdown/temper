@@ -1,5 +1,5 @@
+import { span } from "@dtmd/temper";
 import { memory } from "@dtmd/temper/claude-code";
-import { span } from "../kinds.ts";
 import { GATE_COMMAND, VERIFY_COMMAND, VERIFY_EXPECTED } from "../facts.ts";
 
 /**

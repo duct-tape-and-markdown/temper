@@ -2206,6 +2206,53 @@ fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
     );
 }
 
+/// The shipped example harness is a real consumer's program, and nothing ran it:
+/// its modules imported two symbols the SDK had since dropped (`maxLines`, retired
+/// into `extent(unit, bound)`; `span`, moved off the example's own `kinds.ts` onto
+/// the shipped surface), so `node` refused the module graph at link — a break no
+/// gate saw, because every other seam case here drives a fixture program this suite
+/// authors. This one drives the committed example instead: the SDK is vendored at
+/// the gitignored `node_modules` path a real `npm install` would fill, and the emit
+/// is a `--dry-run`, so the pass writes not a byte into the repo tree.
+///
+/// `Unchanged` across every projection is three claims at once: the program links,
+/// it composes to a payload the engine accepts, and the artifacts committed beside
+/// it are byte-current with their authored sources.
+#[test]
+fn emit_program_runs_the_shipped_example_harness() {
+    let into = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("examples")
+        .join("base-harness")
+        .join(".temper");
+    common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
+
+    let report = drift::emit_program(
+        &into,
+        EmitOptions {
+            dry_run: true,
+            ..EmitOptions::default()
+        },
+    )
+    .expect("the shipped example's program must link, run, and compile");
+
+    assert!(
+        !report.entries.is_empty(),
+        "the example projects artifacts; an empty report means the walk found none"
+    );
+    for entry in &report.entries {
+        assert_eq!(
+            entry.outcome,
+            EmitOutcome::Unchanged,
+            "the example's committed artifacts are byte-current: {} {} reported {:?}. \
+             Re-run `cargo run -- emit --into examples/base-harness/.temper` and commit \
+             what moves.",
+            entry.kind,
+            entry.name,
+            entry.outcome
+        );
+    }
+}
+
 // ---------------------------------------------------------------------------
 // The one-shot gate — `check --harness` / session-start over a raw harness with no
 // lock and no `.temper/`: no copy-tree scratch import, the discovery walk

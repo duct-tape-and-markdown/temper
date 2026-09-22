@@ -1,5 +1,5 @@
-import { blocks } from "@dtmd/temper";
-import { flow, participantsLine, span, step } from "../../kinds.ts";
+import { blocks, span } from "@dtmd/temper";
+import { flow, participantsLine, step } from "../../kinds.ts";
 import { system_scanner } from "../systems/scanner.ts";
 import { system_renderer } from "../systems/renderer.ts";
 

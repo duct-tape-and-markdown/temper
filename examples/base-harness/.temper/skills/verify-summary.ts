@@ -1,6 +1,5 @@
-import { blocks, text } from "@dtmd/temper";
+import { blocks, span, text } from "@dtmd/temper";
 import { skill } from "@dtmd/temper/claude-code";
-import { span } from "../kinds.ts";
 import { GATE_COMMAND, VERIFY_COMMAND, VERIFY_EXPECTED } from "../facts.ts";
 
 /**

@@ -1,5 +1,5 @@
-import { blocks } from "@dtmd/temper";
-import { invariantOf, span, system } from "../../kinds.ts";
+import { blocks, span } from "@dtmd/temper";
+import { invariantOf, system } from "../../kinds.ts";
 
 export const system_renderer = system({
   name: "renderer",

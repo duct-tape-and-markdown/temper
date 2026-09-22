@@ -1,5 +1,5 @@
+import { span } from "@dtmd/temper";
 import { skill } from "@dtmd/temper/claude-code";
-import { span } from "../kinds.ts";
 
 /**
  * The Governance procedure: how this harness grows. The domain skeleton is

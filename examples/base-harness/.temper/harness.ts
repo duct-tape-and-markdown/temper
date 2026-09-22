@@ -1,4 +1,4 @@
-import { clause, count, emit, harness, maxLines, uniqueName } from "@dtmd/temper";
+import { clause, count, emit, extent, harness, uniqueName } from "@dtmd/temper";
 import { skill, skillDefaultContract } from "@dtmd/temper/claude-code";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_conduct } from "./rules/conduct.ts";
@@ -87,10 +87,10 @@ const program = harness({
       kind: system,
       clauses: [
         clause(uniqueName(), { severity: "required" }),
-        clause(maxLines(120), {
+        clause(extent("lines", 120), {
           severity: "advisory",
           guidance:
-            "a system doc is navigational, not exhaustive — past ~120 lines, promote a section to a flow or split the system",
+            "a system doc is navigational, not exhaustive — past ~120 rendered lines, promote a section to a flow or split the system. Measured render-side, off the projected artifact rather than the source body.",
         }),
       ],
     },

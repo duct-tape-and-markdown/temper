@@ -1,5 +1,5 @@
-import { blocks } from "@dtmd/temper";
-import { alternativeOf, decision, span } from "../../kinds.ts";
+import { blocks, span } from "@dtmd/temper";
+import { alternativeOf, decision } from "../../kinds.ts";
 
 export const decision_authorityArrow = decision({
   name: "authority-arrow",
