@@ -1,133 +1,5 @@
 [
   {
-    "tag": "EXAMPLE-PROGRAM-IMPORTS-A-DROPPED-SPAN",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "examples/base-harness/.temper/harness.ts",
-          "description": "The emit entry point, and the second dropped-symbol import: `:1` names `maxLines`, which 4bdb7960 retired into `extent(unit, bound)` while re-pointing the three shipped budgets and no example consumer. Node dies at *this* module's link error before any member module loads, so the entry's test fails identically without it. `:90` becomes `clause(extent(\"lines\", 120), …)` — the same 120-line budget under the predicate that subsumed it — and its `severity: \"advisory\"` guidance takes the render-side rewording 4bdb7960 gave the shipped three (`sdk/src/builtins.ts:1487`, `:1619`): the measure is the projected artifact's lines, not the source body."
-        },
-        {
-          "path": "examples/base-harness/.temper/memory/CLAUDE.ts",
-          "description": "`:2` imports `span` from `../kinds.ts`, which no longer exports it — 0c6a7ae0 deleted the local factory and re-pointed no consumer, so node's ESM linker refuses the module (`does not provide an export named 'span'`, reproduced on node v22.21). The import moves to `@dtmd/temper`, the shipped constructor that commit exists to give them. Call site `:14` unchanged: its template literal's content is flush-left, so `dedent` is identity over it."
-        },
-        {
-          "path": "examples/base-harness/.temper/skills/grow-harness.ts",
-          "description": "The same one-symbol import at `:2`; call site `:14`, a flush-left template literal."
-        },
-        {
-          "path": "examples/base-harness/.temper/skills/verify-summary.ts",
-          "description": "The same one-symbol import at `:3`; call site `:29`, a `blocks()` child whose literal is flush-left (the `3.`-item continuation lines are content indentation, so the common-indent cut stays 0)."
-        },
-        {
-          "path": "examples/base-harness/.temper/docs/decisions/authority-arrow.ts",
-          "description": "`:2` is a mixed import — `alternativeOf` and `decision` stay on `../../kinds.ts`, `span` moves to `@dtmd/temper`. Three call sites (`:7`, `:16`, `:24`), all flush-left string concatenations."
-        },
-        {
-          "path": "examples/base-harness/.temper/docs/flows/summarize.ts",
-          "description": "`:2` mixed — `flow`, `participantsLine`, `step` stay. Call site `:31` carries the derived participants line, the computed-prose case `span` was shipped for."
-        },
-        {
-          "path": "examples/base-harness/.temper/docs/systems/renderer.ts",
-          "description": "`:2` mixed — `invariantOf` and `system` stay; call site `:9`."
-        },
-        {
-          "path": "examples/base-harness/.temper/docs/systems/scanner.ts",
-          "description": "`:2` mixed — `invariantOf` and `system` stay; call site `:9`."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "The gate that would have caught it, in the suite that already drives the seam over a real `node` (the section from `:1776`, `emit_program` at thirteen sites): vendor the built SDK into `examples/base-harness/.temper/node_modules/@dtmd` (`common::vendor_sdk`, the gitignored path `.gitignore:22` already anticipates) and call `drift::emit_program` over `examples/base-harness/.temper` with `dry_run: true` — which writes not a byte (`src/main.rs:112`) and returns one `EmitOutcome` per projection. Assert `Ok` and every outcome `EmitOutcome::Unchanged` (`src/drift.rs:667`): the example's program links, composes, and its committed artifacts are current. On the pre-fix tree the call fails at node's link error, per `specs/process/engineering.md`, \"A fix ships the test that would have caught it\"."
-        },
-        {
-          "path": "examples/base-harness/.temper/lock.toml",
-          "description": "The example's lock: an `emit_hash` moves for every projection whose bytes move, so it joins any re-emit. Nothing here changes if every outcome is `Unchanged`."
-        },
-        {
-          "path": "examples/base-harness/CLAUDE.md",
-          "description": "The `memory` member's projection (`.temper/memory/CLAUDE.ts`). The re-emit fence, exercised only if the dry run reports this artifact `Emitted`: the shipped `span` dedents and the deleted local factory did not (`sdk/src/prose.ts:191` — common-indent cut, leading-newline strip, trailing-indent trim), so whitespace before a closing backtick can move even though every call site's content is flush-left. "
-        },
-        {
-          "path": "examples/base-harness/.claude/skills/grow-harness/SKILL.md",
-          "description": "The `grow-harness` skill's projection. The re-emit fence, exercised only if the dry run reports this artifact `Emitted`: the shipped `span` dedents and the deleted local factory did not (`sdk/src/prose.ts:191` — common-indent cut, leading-newline strip, trailing-indent trim), so whitespace before a closing backtick can move even though every call site's content is flush-left. "
-        },
-        {
-          "path": "examples/base-harness/.claude/skills/verify-summary/SKILL.md",
-          "description": "The `verify-summary` skill's projection. The re-emit fence, exercised only if the dry run reports this artifact `Emitted`: the shipped `span` dedents and the deleted local factory did not (`sdk/src/prose.ts:191` — common-indent cut, leading-newline strip, trailing-indent trim), so whitespace before a closing backtick can move even though every call site's content is flush-left. "
-        },
-        {
-          "path": "examples/base-harness/docs/decisions/authority-arrow.md",
-          "description": "The `decision` member's projection, three `span` children. The re-emit fence, exercised only if the dry run reports this artifact `Emitted`: the shipped `span` dedents and the deleted local factory did not (`sdk/src/prose.ts:191` — common-indent cut, leading-newline strip, trailing-indent trim), so whitespace before a closing backtick can move even though every call site's content is flush-left. "
-        },
-        {
-          "path": "examples/base-harness/docs/flows/summarize.md",
-          "description": "The `flow` member's projection, the computed participants line among its spans. The re-emit fence, exercised only if the dry run reports this artifact `Emitted`: the shipped `span` dedents and the deleted local factory did not (`sdk/src/prose.ts:191` — common-indent cut, leading-newline strip, trailing-indent trim), so whitespace before a closing backtick can move even though every call site's content is flush-left. "
-        },
-        {
-          "path": "examples/base-harness/docs/systems/renderer.md",
-          "description": "The `renderer` system's projection. The re-emit fence, exercised only if the dry run reports this artifact `Emitted`: the shipped `span` dedents and the deleted local factory did not (`sdk/src/prose.ts:191` — common-indent cut, leading-newline strip, trailing-indent trim), so whitespace before a closing backtick can move even though every call site's content is flush-left. "
-        },
-        {
-          "path": "examples/base-harness/docs/systems/scanner.md",
-          "description": "The `scanner` system's projection. The re-emit fence, exercised only if the dry run reports this artifact `Emitted`: the shipped `span` dedents and the deleted local factory did not (`sdk/src/prose.ts:191` — common-indent cut, leading-newline strip, trailing-indent trim), so whitespace before a closing backtick can move even though every call site's content is flush-left. "
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The example's program dies at module link: `harness.ts` imports a retired `maxLines`, seven modules import a `span` `kinds.ts` no longer exports — and no gate runs it.",
-    "per": {
-      "path": "specs/model/authoring.md",
-      "section": "The SDK"
-    },
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "a dry-run `emit_program` over `examples/base-harness/.temper` returns `Ok` and reports every projection `Unchanged` — the shipped example's program links through the real SDK, composes, and its committed lock and projections are byte-current; the same case fails on the pre-fix tree at node's missing-export link error"
-      }
-    ],
-    "acceptance": "`cargo test` green with the new example-seam case (it fails on the pre-fix tree at node's link error, and fails on a `span`-only fix too), `cargo clippy --all-targets -- -D warnings` clean, `cargo fmt --all --check` clean. If the dry run reports any artifact `Emitted`, the same tick re-emits the example inside the fence and the commit body names what moved and why — dedent is the one behavioral difference between the deleted `span` factory and the shipped one.",
-    "notes": "Re-scoped from a86a5ee9's capture: `maxLines` went at 4bdb7960 (17 Jul), `span` at 0c6a7ae0 — one class, and `.flume/ripple.mjs` walks no example tree (filed as friction). Verified out of tree with both fixes: `node harness.ts` links and a dry-run emit reports 11 unchanged, 0 emitted, so the projection fence is the escape hatch, not the expectation. Rejected: re-exporting `span` from `kinds.ts`, a local barrel over a shipped surface. scoped at f23471e3"
-  },
-  {
-    "tag": "EXPLAIN-KIND-READS-THE-BUILTIN-FACT-ROWS",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "`explain_target` (:2265) threads `&declarations.kinds` (:2415) — the committed lock's `kind` family alone — into `explain`, so a built-in kind this surface declares no row for reaches `narrate_kind` (:607) with no facts at all and falls to the \"nothing declared\" line. Layer the embedded built-in lock's own rows under the committed ones, name-keyed, committed winning wholesale: `builtin_lock::declarations().kinds` is already the `KindFactRow` shape (`src/builtin.rs` projects the floor contracts off the same document), so this is a merge, not a lowering. The assembly lands in `explain_target`, beside the corpus it already builds — `explain` (:376) stays a pure function of its inputs, so every `tests/read_verbs.rs` case driving it with hand-built rows is untouched. Two doc claims the widening changes restate with it: `explain`'s `kind_facts` paragraph (:353, \"the lock's own `kind` family\") and `narrate_kind`'s (:600, \"renders off the declarations alone, so the whole of it reaches an adopter carrying no member of the kind at all\") — the promise this entry makes true."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "The e2e proof, through `common::explain_in` (the one binary seam, already used at :1319): on a harness carrying no `agent` member, `explain kind:agent` names `.claude/agents`, `**/*.md`, its `description-trigger(description)` registration channel and the `agent:<name>` address form in place of the \"No authoring guidance is declared\" line. Precedence beside it: a harness whose lock declares a built-in kind's row narrates that row, never the embedded one. The direct-`explain` cases (:881, :1223, :1269) hand-build their `kind_facts` and ride unchanged — a kind declaring nothing still narrates cleanly, which is why the empty-line branch survives rather than being deleted."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "`explain kind:<builtin>` teaches nothing about a kind the harness has no member of — the fact rows come from the committed lock, which declares only the kinds in use.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "Read verbs"
-    },
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "`explain kind:agent` over a harness carrying no agent names its locus, registration channel and address form; a committed lock row for a built-in kind wins over the embedded one"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle: in this repo — whose `.temper/lock.toml` declares kind rows for `hook`/`memory`/`rule`/`skill` only — `temper explain kind:agent` names the agent locus and the `agent:<name>` address form instead of the \"nothing declared\" line, while `temper explain kind:rule` is byte-unchanged.",
-    "notes": "Measured at f8bb2e07: `explain kind:` gives the \"nothing declared\" line for agent, command, mcp-server, settings-local, dial, known-marketplace and installed-plugin; supporting-doc gets its hosting strand only, off `skill`'s row. Guidance rides `contracts` and is unaffected. Serialized ahead of CONTAINMENT-INCIDENCE-FAMILY and KIND-ROW-LEAF-SET-COLUMN, which share read.rs/read_verbs.rs. scoped at f8bb2e07"
-  },
-  {
     "tag": "PROVENANCE-SOURCE-HASH-RETIRES",
     "gate": {
       "kind": "open"
@@ -435,8 +307,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "DEGREE-FIELD-SET-FILTER",
-        "EXPLAIN-KIND-READS-THE-BUILTIN-FACT-ROWS"
+        "DEGREE-FIELD-SET-FILTER"
       ]
     },
     "dependsOnForks": [],
@@ -490,8 +361,7 @@
       "kind": "blockedBy",
       "tags": [
         "DEGREE-FIELD-SET-FILTER",
-        "CONTAINMENT-INCIDENCE-FAMILY",
-        "EXPLAIN-KIND-READS-THE-BUILTIN-FACT-ROWS"
+        "CONTAINMENT-INCIDENCE-FAMILY"
       ]
     },
     "dependsOnForks": [],
