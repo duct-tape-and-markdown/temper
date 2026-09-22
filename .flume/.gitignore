@@ -1,0 +1,10 @@
+awake/
+prior-attempts/
+rendered-prompts/
+worktrees/
+merging/
+node_modules/
+loop.pid
+tick-verdict.json
+tick-verdicts.jsonl
+stop
