@@ -2,15 +2,13 @@
 
 - Spec derived through: fcf719f4 — unchanged, copied forward; the spec delta
   is drained.
-- Audited through: 1bc830f2 — the 20dc4f08..HEAD window is reconciled; one
-  build commit touched src/ (c641d50c), verified on disk.
-- Residue swept through: 1bc830f2 — same window, swept: the fingerprint
-  family beside c641d50c, one gap filed.
+- Audited through: 1bc830f2 — unchanged, copied forward; 1bc830f2..HEAD is
+  unreconciled (three build commits touched src/).
+- Residue swept through: 1bc830f2 — unchanged, copied forward.
 - Posture swept through: tests/tap.rs next — unchanged, copied forward.
-- This tick: reconciled 20dc4f08..HEAD, both motions — filed
-  PROVENANCE-SOURCE-HASH-RETIRES off the fingerprint sweep.
-- Queue: 26 pending — 4 open, 14 blockedBy, 3 deferred, 5 parked. Pickable: 4.
+- This tick: drained the inbox note and the refactor capture — filed four
+  entries, serialized the three that share `src/engine.rs`/`src/contract.rs`.
+- Queue: 27 pending — 1 open, 18 blockedBy, 3 deferred, 5 parked. Pickable: 1.
   Open forks: 12. Friction: 0. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture sweep resumes at tests/tap.rs once
-the pickable wave hands back.
+Plan continues: yes — the 1bc830f2..HEAD post-ship window is unreconciled.
