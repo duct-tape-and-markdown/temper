@@ -267,48 +267,9 @@ that evidence, not preference, is the bite condition.
   discovered members (blocks the script-edge demo), and `emit --into`
   re-root reaping live projections.
 
-- `(field-reach)` — *UNRATIFIED draft (2026-09-22), session-proposed from a
-  consumer field report; the human keeps or drops it.* **Reachability over
-  declared field edges from declared roots.** Today's `graph.reachable` is
-  the runtime-load closure: world → a live registration channel, then
-  `@import` directives, capped at `MAX_IMPORT_HOPS` (`src/graph.rs`
-  `live_members`). A kind with no registration counts as always live
-  (`graph.rs:1006`). So in a user-declared corpus, a member reached only
-  through a dead member stays silent. Example: roots A → B → C, plus an
-  orphan D → C′. `degree(incoming ≥ 1)` catches D and never C′, because
-  one-hop degree can't express transitive closure. The opportunity is an
-  opt-in predicate: each selected member lies in the closure of a root
-  selection over a declared field set. It is decidable (a graph closure,
-  invariant 2) and well-defined over cycles. *Rents:* `contract.md`
-  "clause" ("some predicates need whole-graph context … a reachability
-  test"). The by-incidence field-set filter (0052), for the edge set the
-  closure walks. `membership`'s precedent of a predicate naming a second
-  selection (its target requirement) as a parameter, so roots are named
-  the same way and selectors stay atomic. *Tensions:* (a) it must never
-  merge into the default `reachable` clause. Folding field edges into the
-  runtime closure would silence a true dead-registration finding: a skill
-  whose trigger is dead but which a live rule `routes_to` still never
-  loads. That breaks invariant 6. It needs its own name and rule id
-  (`reached-from`, not `reachable`). (b) Invariant 1's density bound. A
-  clause demanding every member be field-reachable is fine when the
-  author declares it. Shipped in a default contract, it becomes the
-  declaration-density demand the invariant forbids, so it stays out of
-  every default contract. (c) Invariant 5. If a shipped package ever
-  carries it, it enters advisory. (d) It presupposes that field-edge cycles
-  are legal. Under today's `graph.acyclic` scope (inbox, "acyclicity fires
-  on declared field edges") the cyclic flows it most wants to judge are
-  refused before it runs. *Leaning:* do it as a vocabulary addition, not a
-  kernel change: one predicate taking `roots` (a requirement name, like
-  `membership`'s target) and `via` (a field set, like 0052's filter).
-  *Parked:* adding the closure to `degree` as a mode (it overloads a
-  local count with a global walk). Recommending the demote-to-plain-field
-  workaround (it loses the edge from `explain`'s enumeration). *Bite
-  condition:* the acyclicity defect is fixed. 0052's field-set filter has
-  shipped. Then ratification. Second-corpus scope is settled for this
-  entry (human-ruled 2026-09-22): opt-in, domain-neutral predicates built
-  from existing nouns meet `representation.md` "Reach". Only kinds or
-  defaults designed for another corpus are held back, so a non-harness
-  first driver doesn't block it.
+- `(field-reach)` — RATIFIED 2026-09-22; current home
+  `specs/decisions/0056` (a predicate; the corpus does not enumerate the
+  vocabulary).
 
 - `(declared-input)` — RATIFIED 2026-09-22; current home
   `specs/model/authoring.md`, "The SDK" (inputs), and `pipeline.md`,
