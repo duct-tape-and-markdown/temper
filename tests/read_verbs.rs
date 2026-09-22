@@ -1328,6 +1328,66 @@ fn explain_narrates_a_custom_embedded_kinds_guidance_after_a_full_sdk_round_trip
 }
 
 #[test]
+fn explain_narrates_a_builtin_kinds_floor_facts_on_a_harness_carrying_no_member_of_it() {
+    // `emit` writes a `kind` row only for a kind the assembly declares a member of, so a
+    // read off the committed family alone left `explain kind:agent` on an agent-less
+    // harness at the "nothing declared" line — exactly the adopter a bare-kind narration
+    // exists for (contract.md, "Read verbs"). The embedded built-in lock's own rows lie
+    // underneath the committed ones, so the floor answers where the harness is silent.
+    let harness = common::scaffold("explain-builtin-kind-floor-facts");
+    common::write_lock(&harness, drift::Declarations::default());
+
+    let out = common::explain_in(&harness, "kind:agent");
+    assert!(
+        !out.contains("No authoring guidance is declared"),
+        "a built-in kind the harness has no member of narrates its floor facts, not the \
+         empty line: {out}"
+    );
+    assert!(
+        out.contains("`.claude/agents/**/*.md`"),
+        "the floor row names where an agent lands — locus root and glob: {out}"
+    );
+    assert!(
+        out.contains("`description-trigger(description)`"),
+        "and the registration channel an agent reaches the session on: {out}"
+    );
+    assert!(
+        out.contains("`agent:<name>`"),
+        "and the address form a reference to one is spelled in: {out}"
+    );
+}
+
+#[test]
+fn a_committed_kind_row_for_a_builtin_kind_wins_over_the_embedded_one() {
+    // Precedence, name-keyed and **wholesale**: the committed row is the harness's own
+    // authored declaration for the kind, so the floor never shows through its gaps — a
+    // half-backfilled reading would narrate a locus and a channel the harness never
+    // declared together.
+    let harness = common::scaffold("explain-committed-kind-row-wins");
+    common::write_lock(
+        &harness,
+        drift::Declarations {
+            kinds: vec![common::kind_facts("agent", "docs/agents", "*.md")],
+            ..drift::Declarations::default()
+        },
+    );
+
+    let out = common::explain_in(&harness, "kind:agent");
+    assert!(
+        out.contains("`docs/agents/*.md`"),
+        "the committed row's locus is the one narrated: {out}"
+    );
+    assert!(
+        !out.contains(".claude/agents"),
+        "the embedded row's locus never shows through it: {out}"
+    );
+    assert!(
+        !out.contains("description-trigger"),
+        "nor does any other column of the row the committed one displaced: {out}"
+    );
+}
+
+#[test]
 fn a_requirement_with_a_telemetry_verifier_narrates_the_field_strand() {
     let skills = [
         feature("skill-a", &["telemetry-req"]),

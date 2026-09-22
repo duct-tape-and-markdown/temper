@@ -48,6 +48,7 @@ use std::path::{Path, PathBuf};
 
 use crate::admissibility;
 use crate::builtin_kind;
+use crate::builtin_lock;
 use crate::compose::{self, Edge, Requirement};
 use crate::contract::Contract;
 use crate::document::Satisfies;
@@ -350,10 +351,13 @@ fn resolve<'a>(
 /// `roster` is the requirement namespace `check` gates; `contracts` are the resolved
 /// contracts the gate judges with, keyed by kind, so [`why`] can name a member's
 /// clauses by the addresses their findings print and a bare kind name resolves against
-/// its keys; `kind_facts` is the lock's own `kind` family — the declared `cite`, body
-/// layout and nesting templates a bare-kind narration reads, none of which `Contract`
-/// (name, clauses, guidance) has a column for, so they travel as the rows themselves
-/// rather than widening `Contract` for this one caller; `edges` is the
+/// its keys; `kind_facts` is the `kind` family a bare-kind narration reads — the declared
+/// `cite`, locus, body layout and nesting templates, none of which `Contract` (name,
+/// clauses, guidance) has a column for, so they travel as the rows themselves rather than
+/// widening `Contract` for this one caller. The caller assembles it: `explain_target`
+/// lays the embedded built-in lock's rows under the committed lock's, name-keyed, so a
+/// built-in kind the harness has no member of — and therefore no committed row for —
+/// still narrates its floor facts; `edges` is the
 /// declared relationship set [`why`]'s edge walk resolves; `mention_edges` is the
 /// already-resolved mention edge set the same walk folds in, so a member's only
 /// outgoing reference being a mention still narrates rather than reading "it points at
@@ -599,7 +603,9 @@ fn narrate_governing_contract(
 ///
 /// Every strand but the last renders off the declarations alone, so the whole of it
 /// reaches an adopter carrying **no member of the kind at all** — the moment the
-/// narration exists for.
+/// narration exists for. That promise rests on the caller's `kind_facts`: a built-in
+/// kind's row must be there even when the harness declares none, which is why
+/// [`explain_target`] lays the embedded built-in lock underneath the committed one.
 ///
 /// A kind declaring none of the six narrates a clean "nothing declared" line rather
 /// than silence, so an empty result still confirms the kind resolved and was read, not
@@ -2408,11 +2414,36 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         .map(|entry| (entry.path.to_string_lossy().to_string(), entry.name))
         .collect();
 
+    // The kind fact rows a bare-kind narration reads: the committed lock's own rows with
+    // the embedded built-in lock's laid underneath, name-keyed, a committed row winning
+    // **wholesale** — it is the authored declaration for that kind, and half of it
+    // backfilled off the floor would narrate a locus the harness never declared.
+    // `emit` writes a `kind` row only for a kind the harness has a member of, so the
+    // committed family alone leaves `explain kind:agent` on an agent-less harness with no
+    // facts at all — the exact moment a bare-kind narration exists for (contract.md,
+    // "Read verbs"). A merge, not a lowering: `builtin_lock::declarations().kinds` is
+    // already the `KindFactRow` shape the committed family is, off the same document
+    // `crate::builtin` projects the floor contracts from. Appended rather than sorted, so
+    // a harness declaring every kind it narrates reads byte-identically to before.
+    let mut kind_facts = declarations.kinds.clone();
+    let committed: std::collections::BTreeSet<&str> = declarations
+        .kinds
+        .iter()
+        .map(|row| row.name.as_str())
+        .collect();
+    kind_facts.extend(
+        builtin_lock::declarations()
+            .kinds
+            .iter()
+            .filter(|row| !committed.contains(row.name.as_str()))
+            .cloned(),
+    );
+
     let mut narration = explain(
         &custom_members,
         &roster,
         &contracts,
-        &declarations.kinds,
+        &kind_facts,
         &by_kind,
         &assembly_edges,
         &mention_edges,
