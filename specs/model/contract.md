@@ -23,19 +23,18 @@ prose — the **mention**: a rendering claim, never a fourth locus; its target
 may be a member or a leaf. One resolution path and one degree semantics hold
 whatever an edge claims about rendering. A member's reference set is a
 **derived view** — the union of the edges its fields and embedded members
-declare — never a second authored list.
+declare, and its **containment** of each embedded member its body composes
+(one field per admitted kind, derived) — never a second authored list.
 
-Every edge resolves into one enumeration that the gate and every read verb
-share, so narration can never disagree with the verdict. Edges are declared,
-never mined from prose. Path-resolved edges resolve against the filesystem
-the harness actually reads — raw disk, never the ignore-filtered discovery
-view: an extra file in the resolution set can only suppress a finding, while
-pruning one can forge a finding. (Member discovery is the opposite case and
-honors ignore rules — `adoption.md`.) An edge carries no obligation of its
-own: whether an edge is counted is decided by the clauses that range over
-it. A mention is obligation-free by default: the shipped `mention-reachable`
-advisory judges only the mentions a member authored, and a contract may
-count them further.
+Every edge resolves into one enumeration the gate and every read verb
+share, so narration never disagrees with the verdict. Edges are declared,
+never mined from prose. Path-resolved edges resolve against raw disk, never
+the ignore-filtered discovery view: an extra file can only suppress a
+finding, a pruned one can forge one (member discovery is the opposite case
+— `adoption.md`). An edge carries no obligation of its own: the clauses
+that range over it decide whether it counts. A mention is obligation-free
+by default: the shipped `mention-reachable` advisory judges only the
+mentions a member authored, and a contract may count them further.
 
 ## clause
 
@@ -96,14 +95,15 @@ The set a contract binds to. Selectors are declared, decidable expressions:
 - **by kind** — every member of a kind: the universal binding,
 - **by opt-in** — the members whose satisfies edge targets a requirement:
   the existential binding,
-- **by incidence** — the edges at a member, filtered by field and direction.
+- **by incidence** — the edges at a member, filtered by direction and a
+  field set; a bound ranges over the union, an unfiltered one over every
+  edge but containment, which counts only where a filter names it.
 
-A selection picks members or edges, and the set predicates are one algebra
-over selections. There is no separate universal/existential machinery: the
-quantifier is the clause's grain. Selectors are atomic and do not compose:
-narrowing a selection is an each-grain clause over it, never a second
-selector. A member outside the narrowing is a finding, never a silent
-exclusion.
+A selection picks members or edges; the set predicates are one algebra over
+selections, and the quantifier is the clause's grain — no separate
+universal/existential machinery. Selectors are atomic and do not compose:
+narrowing is an each-grain clause over a selection, never a second
+selector, and a member outside it is a finding, never a silent exclusion.
 
 ## requirement — a shipped kind, not a primitive
 

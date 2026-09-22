@@ -188,34 +188,6 @@ tax.
   rules for a layout retitle should bind a composed rename identically, one
   identity story for nested rows, not two. No dependents.
 
-- `(containment-selection-family)` — OPEN, live driver (cascade spec
-  use-case, 09-05). The one contract a real adopter wants that the
-  vocabulary cannot spell today: "every rule body carries ≥1 directive," a
-  per-host floor over the embedded values a member's body composes.
-  Selections are by kind, by opt-in, and by incidence (`contract.md`,
-  "selection"); containment — host member → its embedded values — is not an
-  edge in the relation graph (`graph.rs` knows hosts only through
-  `embedded_hosts` for scope judgments), so `count` over an embedded kind is
-  corpus-wide and `degree` sees no containment arc. 0004 makes nested
-  members members and says the contract layer ranges over them "exactly as
-  over top-level ones," and a host's containment of its values is a
-  relationship the program declares (`blocks()`), so it fits "declared,
-  never mined." Candidate shape: containment joins the resolved edge set as
-  a derived incidence family (one field per admitted kind, e.g.
-  `contains:directive`), so the existing `degree` algebra spells the floor
-  with no new predicate. `contract.md`'s own bar: "adding one is a
-  deliberate language change" — a Decision is needed before any entry, not
-  inferred here. **Sharpened 09-06** (cascade-integrations, live consumer
-  evidence the Decision must cover or reject explicitly): cascade's actual
-  clause is "every rule body carries ≥1 directive OR consult" — a floor
-  over a *union* of admitted kinds, not one. One field per admitted kind
-  plus `degree` spells a per-kind floor only; needs either a field-set
-  filter on `degree` (a bound over `contains:directive` ∪
-  `contains:consult`) or a union spelling in the incidence family.
-  `Predicate::Degree` carries no field filter today though `contract.md`
-  "selection" defines by-incidence as filtered by field and direction;
-  every `ResolvedEdge` already carries `field`. No dependents.
-
 - `(post-tool-use-placement)` — OPEN, live driver (GH #42 (ii),
   cascade-integrations, confirmed on disk at a13f6bf2). `install.rs:173`'s
   `POST_TOOL_USE_COMMAND` is byte-identical to `SESSION_START_COMMAND`
