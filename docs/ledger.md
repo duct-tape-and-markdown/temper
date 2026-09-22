@@ -64,7 +64,9 @@ hard.
 
 - Loop on flume 0.17.0 (09-22), Opus both phases, `maxParallel: 2`;
   worktrees off-repo via the chain's `worktreesBase`. Relaunch:
-  `setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`,
+  `CARGO_BUILD_JOBS=4 setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`
+  (the cap is load-bearing: default cargo on 20 cores linking ~60 test
+  binaries, beside flume's own loop, OOM-rebooted the 7.7 GB VM twice 09-22),
   with a Monitor on the log. Pause with the stop flag (`.flume/stop`),
   never a kill; remove it to relaunch. The loop's lifetime is the WSL
   VM's — keep a terminal open.
