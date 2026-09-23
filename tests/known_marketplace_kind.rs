@@ -12,8 +12,6 @@
 //! (presence is the channel, as a connection's is), and the settings file that names no
 //! marketplace at all.
 
-use std::path::Path;
-
 mod common;
 
 use common::{check_harness, write_settings};
@@ -21,8 +19,6 @@ use common::{check_harness, write_settings};
 use serde_json::Value as JsonValue;
 use temper::builtin_kind;
 use temper::builtin_lock;
-use temper::extract::Features;
-use temper::json_manifest::Manifest;
 use temper::kind::{CollectionAddress, CollectionKeyPath, Content, Registration};
 
 /// A `.claude/settings.json` carrying two registered marketplaces in the real Claude Code
@@ -49,27 +45,6 @@ fn known_marketplace_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("known-marketplace").expect("known-marketplace is embedded")
 }
 
-/// The kind's members projected through the shared read-time fold — the same `Features` a
-/// clause and the reachability gate range over.
-fn features(harness: &Path) -> Vec<Features> {
-    let kind = known_marketplace_kind();
-    let disc = temper::import::Discovery::new(harness);
-    let files = temper::import::discover_kind_files(
-        &disc,
-        &kind,
-        kind.governs.as_ref().unwrap(),
-        temper::import::LocalOverride::Honored,
-    );
-    let reads = Manifest::read_kind(&files, &kind).unwrap();
-    let address = kind.collection_address.clone().unwrap();
-    let source = harness.join(".claude/settings.json");
-    reads
-        .iter()
-        .flat_map(|manifest| &manifest.members)
-        .map(|member| builtin_kind::features(&kind, &member.to_unit(&address, &source), &[]))
-        .collect()
-}
-
 #[test]
 fn the_known_marketplace_kind_is_a_fields_only_manifest_kind_at_the_extra_known_marketplaces_address()
  {
@@ -92,15 +67,7 @@ fn a_settings_extra_known_marketplaces_map_surfaces_one_member_per_entry_keyed_b
     let harness = common::tmpdir("read-known-marketplaces");
     write_settings(&harness, SETTINGS);
 
-    let disc = temper::import::Discovery::new(&harness);
-    let kind = known_marketplace_kind();
-    let files = temper::import::discover_kind_files(
-        &disc,
-        &kind,
-        kind.governs.as_ref().unwrap(),
-        temper::import::LocalOverride::Honored,
-    );
-    let reads = Manifest::read_kind(&files, &kind).unwrap();
+    let reads = common::manifest_members(&harness, &known_marketplace_kind());
     assert_eq!(
         reads.len(),
         1,
@@ -173,7 +140,7 @@ fn the_registry_channel_is_never_provably_dead() {
     let harness = common::tmpdir("known-marketplace-reach");
     write_settings(&harness, SETTINGS);
 
-    let members = features(&harness);
+    let members = common::kind_features(&harness, &known_marketplace_kind());
     let channels = vec![Registration::Registry];
     let by_kind = std::collections::BTreeMap::from([("known-marketplace", members.as_slice())]);
     let registrations = std::collections::BTreeMap::from([("known-marketplace", channels)]);
@@ -201,15 +168,7 @@ fn a_settings_file_with_no_known_marketplaces_surfaces_no_member_and_no_finding(
     let harness = common::tmpdir("known-marketplaces-absent");
     write_settings(&harness, SETTINGS_NO_MARKETPLACES);
 
-    let disc = temper::import::Discovery::new(&harness);
-    let kind = known_marketplace_kind();
-    let files = temper::import::discover_kind_files(
-        &disc,
-        &kind,
-        kind.governs.as_ref().unwrap(),
-        temper::import::LocalOverride::Honored,
-    );
-    let reads = Manifest::read_kind(&files, &kind).unwrap();
+    let reads = common::manifest_members(&harness, &known_marketplace_kind());
     assert_eq!(reads.len(), 1, "the settings.json manifest is still read");
     assert!(
         reads[0].members.is_empty(),

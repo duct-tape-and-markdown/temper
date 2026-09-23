@@ -10,8 +10,6 @@
 //! entry into a member, the documented `false` that gates the member off its one channel,
 //! and the settings file that declares no plugins at all.
 
-use std::path::Path;
-
 mod common;
 
 use common::{check_harness, write_settings};
@@ -19,9 +17,7 @@ use common::{check_harness, write_settings};
 use serde_json::Value as JsonValue;
 use temper::builtin_kind;
 use temper::builtin_lock;
-use temper::extract::Features;
-use temper::json_manifest::Manifest;
-use temper::kind::{CollectionAddress, CollectionKeyPath, Content, CustomKind, Registration};
+use temper::kind::{CollectionAddress, CollectionKeyPath, Content, Registration};
 
 /// A `.claude/settings.json` carrying two enabled plugins and one explicitly disabled, in
 /// the real Claude Code shape: `enabledPlugins` maps a `<plugin>@<marketplace>` identity
@@ -60,47 +56,6 @@ const SETTINGS_WITH_MARKETPLACES: &str = r#"{
   }
 }"#;
 
-/// A kind's members projected through the shared read-time fold, keyed by kind name — the
-/// same `Features` the reference graph ranges over.
-fn features_of(kind: &CustomKind, harness: &Path) -> Vec<Features> {
-    let disc = temper::import::Discovery::new(harness);
-    let files = temper::import::discover_kind_files(
-        &disc,
-        kind,
-        kind.governs.as_ref().unwrap(),
-        temper::import::LocalOverride::Honored,
-    );
-    let reads = Manifest::read_kind(&files, kind).unwrap();
-    let address = kind.collection_address.clone().unwrap();
-    let source = harness.join(".claude/settings.json");
-    reads
-        .iter()
-        .flat_map(|manifest| &manifest.members)
-        .map(|member| builtin_kind::features(kind, &member.to_unit(&address, &source), &[]))
-        .collect()
-}
-
-/// The kind's members projected through the shared read-time fold — the same `Features` a
-/// clause and the reachability gate range over.
-fn features(harness: &Path) -> Vec<Features> {
-    let kind = installed_plugin_kind();
-    let disc = temper::import::Discovery::new(harness);
-    let files = temper::import::discover_kind_files(
-        &disc,
-        &kind,
-        kind.governs.as_ref().unwrap(),
-        temper::import::LocalOverride::Honored,
-    );
-    let reads = Manifest::read_kind(&files, &kind).unwrap();
-    let address = kind.collection_address.clone().unwrap();
-    let source = harness.join(".claude/settings.json");
-    reads
-        .iter()
-        .flat_map(|manifest| &manifest.members)
-        .map(|member| builtin_kind::features(&kind, &member.to_unit(&address, &source), &[]))
-        .collect()
-}
-
 #[test]
 fn the_installed_plugin_kind_is_a_fields_only_manifest_kind_at_the_enabled_plugins_address() {
     let plugin = installed_plugin_kind();
@@ -129,15 +84,7 @@ fn a_settings_enabled_plugins_map_surfaces_one_member_per_entry_keyed_by_plugin_
     let harness = common::tmpdir("read-enabled-plugins");
     write_settings(&harness, SETTINGS);
 
-    let disc = temper::import::Discovery::new(&harness);
-    let kind = installed_plugin_kind();
-    let files = temper::import::discover_kind_files(
-        &disc,
-        &kind,
-        kind.governs.as_ref().unwrap(),
-        temper::import::LocalOverride::Honored,
-    );
-    let reads = Manifest::read_kind(&files, &kind).unwrap();
+    let reads = common::manifest_members(&harness, &installed_plugin_kind());
     assert_eq!(
         reads.len(),
         1,
@@ -199,7 +146,7 @@ fn a_false_valued_entry_gates_its_member_off_every_channel() {
     let harness = common::tmpdir("enabled-plugins-gate");
     write_settings(&harness, SETTINGS);
 
-    let members = features(&harness);
+    let members = common::kind_features(&harness, &installed_plugin_kind());
     let channels = vec![Registration::Enablement {
         field: "enabled".to_string(),
     }];
@@ -239,15 +186,7 @@ fn a_settings_file_with_no_enabled_plugins_surfaces_no_member_and_no_finding() {
     let harness = common::tmpdir("enabled-plugins-absent");
     write_settings(&harness, SETTINGS_NO_PLUGINS);
 
-    let disc = temper::import::Discovery::new(&harness);
-    let kind = installed_plugin_kind();
-    let files = temper::import::discover_kind_files(
-        &disc,
-        &kind,
-        kind.governs.as_ref().unwrap(),
-        temper::import::LocalOverride::Honored,
-    );
-    let reads = Manifest::read_kind(&files, &kind).unwrap();
+    let reads = common::manifest_members(&harness, &installed_plugin_kind());
     assert_eq!(reads.len(), 1, "the settings.json manifest is still read");
     assert!(
         reads[0].members.is_empty(),
@@ -313,10 +252,10 @@ fn the_marketplace_half_of_an_enablement_key_is_a_declared_edge_to_known_marketp
     let harness = common::tmpdir("enabled-plugins-marketplace-edge");
     write_settings(&harness, SETTINGS_WITH_MARKETPLACES);
 
-    let plugins = features_of(&plugin, &harness);
-    let marketplaces = features_of(
-        &builtin_kind::definition("known-marketplace").expect("known-marketplace is embedded"),
+    let plugins = common::kind_features(&harness, &plugin);
+    let marketplaces = common::kind_features(
         &harness,
+        &builtin_kind::definition("known-marketplace").expect("known-marketplace is embedded"),
     );
 
     // Every plugin surfaces its marketplace half as the `marketplace` field the edge reads —

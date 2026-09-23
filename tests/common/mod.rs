@@ -15,13 +15,16 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Once, OnceLock};
 
+use temper::builtin_kind;
 use temper::drift::{
     self, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EmitOptions, KindFactRow,
     MentionRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
 };
 use temper::extract::Features;
 use temper::frontmatter::Member;
-use temper::kind::Unit;
+use temper::import;
+use temper::json_manifest::Manifest;
+use temper::kind::{CustomKind, Unit};
 use temper::tap::{TapEvent, TapRecord};
 
 /// The fixed prefix every test binary's per-run fixture parent is named under, so
@@ -202,6 +205,48 @@ pub fn write_mcp_json(root: &Path, body: &str) {
 /// — never a layout invented for the test's convenience.
 pub fn write_settings(root: &Path, body: &str) {
     write_sibling(root, ".claude/settings.json", body);
+}
+
+/// A manifest kind's read, end to end over `harness`: discover the kind's manifest
+/// files off its own `governs` locus, then infer each one's collection members at the
+/// kind's declared address. One `Manifest` per discovered file, so a caller still
+/// asserts how many manifests were read and what surfaced in each.
+///
+/// `LocalOverride::Honored` is the engine's own walk (`compose::manifest_units`), so a
+/// test reads what `check` reads. A fresh `Discovery` per call is deliberate here and
+/// the reason the count-pinned suites (`tests/check_cost.rs`) keep their own hoisted
+/// walk instead of calling through.
+pub fn manifest_members(harness: &Path, kind: &CustomKind) -> Vec<Manifest> {
+    let disc = import::Discovery::new(harness);
+    let files = import::discover_kind_files(
+        &disc,
+        kind,
+        kind.governs.as_ref().unwrap(),
+        import::LocalOverride::Honored,
+    );
+    Manifest::read_kind(&files, kind).unwrap()
+}
+
+/// A manifest kind's members projected through the shared read-time fold — the same
+/// `Features` a clause and the reachability gate range over, flattened across every
+/// manifest [`manifest_members`] read. Each member's unit takes its source from the
+/// manifest it was read off, exactly as `compose::manifest_units` does.
+///
+/// Named apart from [`features`], which builds a `Features` fixture from nothing.
+pub fn kind_features(harness: &Path, kind: &CustomKind) -> Vec<Features> {
+    let address = kind.collection_address.clone().unwrap();
+    let mut features = Vec::new();
+    for manifest in manifest_members(harness, kind) {
+        let source = &manifest.provenance.source_path;
+        for member in &manifest.members {
+            features.push(builtin_kind::features(
+                kind,
+                &member.to_unit(&address, source),
+                &[],
+            ));
+        }
+    }
+    features
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined

@@ -140,14 +140,7 @@ fn read_kind_routes_a_manifest_kind_through_its_governs_locus() {
     );
     kind.collection_address = Some(mcp_address());
 
-    let disc = temper::import::Discovery::new(&harness);
-    let files = temper::import::discover_kind_files(
-        &disc,
-        &kind,
-        kind.governs.as_ref().unwrap(),
-        temper::import::LocalOverride::Honored,
-    );
-    let reads = Manifest::read_kind(&files, &kind).unwrap();
+    let reads = common::manifest_members(&harness, &kind);
     assert_eq!(reads.len(), 1);
     assert_eq!(reads[0].members.len(), 2);
 }
