@@ -13,7 +13,7 @@ use serde_json::Value as JsonValue;
 
 use crate::check::Diagnostic;
 use crate::compose::{self, EnforcementMode};
-use crate::contract::{Clause, Severity};
+use crate::contract::{Clause, Predicate, Severity};
 use crate::extract::Features;
 
 /// The kind's bare name — temper's own, and the owner segment of every label it may not
@@ -77,8 +77,8 @@ impl Dial {
         self.entries.is_empty()
     }
 
-    /// Re-read every clause in `clauses` this dial names, at the severity it declares —
-    /// returning the addresses it actually reached.
+    /// Re-read every clause this dial names — `clauses` and the bodies their `when`
+    /// guards nest — at the severity it declares, returning the addresses it reached.
     ///
     /// Hardening (advisory → required) binds under every mode. Softening is the reviewed
     /// half: `mode` [`Block`](EnforcementMode::Block) leaves the authored severity
@@ -92,17 +92,39 @@ impl Dial {
     pub fn apply(&self, mode: EnforcementMode, clauses: &mut [Clause]) -> BTreeSet<String> {
         let mut reached = BTreeSet::new();
         for clause in clauses.iter_mut() {
-            let Some(&severity) = self.entries.get(&clause.label) else {
-                continue;
-            };
-            reached.insert(clause.label.clone());
-            let softens = clause.severity == Severity::Required && severity == Severity::Advisory;
-            if softens && mode == EnforcementMode::Block {
-                continue;
-            }
-            clause.severity = severity;
+            self.dial_clause(mode, clause, &mut reached);
         }
         reached
+    }
+
+    /// Dial one clause, then every clause a `when` guard's body nests under it.
+    ///
+    /// A body clause reports under its own address at its own severity, so the dial has
+    /// to reach it at that address or the round trip breaks in the one direction it may
+    /// never break: an author reads a body finding's `rule` id, spells it into the dial,
+    /// and the entry names nothing. Guards do not nest, so the descent is one level
+    /// deep — written as a recursion because the body is a `Clause` like any other, and
+    /// a second traversal rule for the same type is the duplicate to avoid.
+    fn dial_clause(
+        &self,
+        mode: EnforcementMode,
+        clause: &mut Clause,
+        reached: &mut BTreeSet<String>,
+    ) {
+        if let Some(&severity) = self.entries.get(&clause.label) {
+            reached.insert(clause.label.clone());
+            let softens = clause.severity == Severity::Required && severity == Severity::Advisory;
+            // Softening under `block` leaves the authored severity standing: this
+            // machine may only ever be stricter than the shared gate.
+            if !(softens && mode == EnforcementMode::Block) {
+                clause.severity = severity;
+            }
+        }
+        if let Predicate::When { body, .. } = &mut clause.predicate {
+            for body_clause in body.iter_mut() {
+                self.dial_clause(mode, body_clause, reached);
+            }
+        }
     }
 
     /// Every entry that dialed nothing, as a finding — the two ways a dial can be wrong

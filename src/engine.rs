@@ -88,16 +88,19 @@ fn member_findings(
             continue;
         }
         for violation in evaluate(contract, &clause.predicate, features, peers) {
+            // The asserting clause rides its own violation out. A `when` body clause is
+            // the clause that actually failed, so its address, its declared weight and
+            // its colocated teaching all win over the enclosing guard's: the reader
+            // dials the check that fired, at the severity its author declared, taught by
+            // the sentence that author wrote. A top-level clause names none of the three
+            // and the clause in hand supplies them.
             diagnostics.push(
                 Diagnostic::new(
-                    severity_of(clause.severity),
-                    &clause.label,
+                    severity_of(violation.severity.unwrap_or(clause.severity)),
+                    violation.label.as_deref().unwrap_or(&clause.label),
                     &features.id,
                     violation.message,
                 )
-                // The colocated guidance rides its own violation — the just-in-time
-                // teaching moment. A `when` body clause's guidance is the teaching
-                // for what actually failed, so it wins over the enclosing guard's.
                 .with_guidance(violation.guidance.or_else(|| clause.guidance.clone())),
             );
         }
@@ -1053,32 +1056,58 @@ enum Outcome {
     Indeterminate,
 }
 
-/// One violation a predicate produced: the message, plus the guidance of the clause
-/// that *asserted* the predicate when that is not the clause the finding is filed
-/// under.
+/// One violation a predicate produced: the message, plus the address, severity and
+/// guidance of the clause that *asserted* the predicate when that is not the clause
+/// the finding is filed under.
 ///
-/// Only a `when` body sets it. A top-level clause's violations carry `None` and pick
-/// the guidance up at [`member_findings`], which is the clause in hand there; a body
-/// clause's do not — the enclosing `when` is what [`member_findings`] sees, so the
-/// body clause's own colocated teaching has to ride the violation out or be lost.
+/// Only a `when` body sets the three. A top-level clause's violations carry `None` and
+/// pick all of it up at [`member_findings`], which is the clause in hand there; a body
+/// clause's do not — the enclosing `when` is what [`member_findings`] sees, so a body
+/// clause's own address, its own declared weight and its own colocated teaching have to
+/// ride the violation out or be lost. Lost, they would make the body's severity inert
+/// (every body violation reported at its host guard's) and its address unreachable
+/// (every body violation filed under the host's label, so only the host could be
+/// dialed).
 struct Violation {
     /// The sentence the finding reports.
     message: String,
+    /// The address to file under instead of the filing clause's, if the producer owns
+    /// one of its own.
+    label: Option<String>,
+    /// The severity to report at instead of the filing clause's, if the producer
+    /// declared one.
+    severity: Option<contract::Severity>,
     /// The guidance to prefer over the filing clause's, if the producer declared one.
     guidance: Option<String>,
 }
 
 impl Violation {
-    /// Lift plain messages into violations that name no guidance of their own — the
-    /// clause the finding is filed under supplies it.
+    /// Lift plain messages into violations that name no clause of their own — the
+    /// clause the finding is filed under supplies address, severity and guidance alike.
     fn unguided(messages: Vec<String>) -> Vec<Self> {
         messages
             .into_iter()
             .map(|message| Violation {
                 message,
+                label: None,
+                severity: None,
                 guidance: None,
             })
             .collect()
+    }
+
+    /// Attribute this violation to the body clause that asserted it, where it does not
+    /// already name one: the address it reports under, the severity it reports at, and
+    /// the teaching it carries, all three the body clause's.
+    ///
+    /// Only the outermost `when` attributes — guards do not nest, so the "already named"
+    /// guard is the defensive half of a shape the vocabulary forbids.
+    fn attribute_to(&mut self, body_clause: &Clause) {
+        self.label.get_or_insert_with(|| body_clause.label.clone());
+        self.severity.get_or_insert(body_clause.severity);
+        if self.guidance.is_none() {
+            self.guidance = body_clause.guidance.clone();
+        }
     }
 }
 
@@ -1506,7 +1535,7 @@ fn decide(
                             for body_clause in body {
                                 for mut violation in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
                                     violation.message = format!("{element_address}: {}", violation.message);
-                                    violation.guidance = violation.guidance.or_else(|| body_clause.guidance.clone());
+                                    violation.attribute_to(body_clause);
                                     violations.push(violation);
                                 }
                             }
@@ -1516,7 +1545,7 @@ fn decide(
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
                                 for mut violation in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
-                                    violation.guidance = violation.guidance.or_else(|| body_clause.guidance.clone());
+                                    violation.attribute_to(body_clause);
                                     violations.push(violation);
                                 }
                             }

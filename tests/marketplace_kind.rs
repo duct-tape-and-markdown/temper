@@ -25,6 +25,7 @@ mod common;
 use common::{check_harness, write_marketplace_json};
 
 use temper::builtin_kind;
+use temper::drift::{ClauseRow, Declarations};
 use temper::json_manifest::DocumentMember;
 use temper::kind::{Content, Format, Governs, Registration, UnitShape};
 
@@ -334,12 +335,24 @@ fn when_body_clauses_fire_on_guarded_elements_that_violate_them() {
         !ok,
         "a github source missing `repo` fails the gate: {findings:?}"
     );
-    // The body clause should fire on the github source element, named by the guard label.
+    // The body clause files under its own address, not its host guard's: the reader who
+    // wants to dial the `repo` check must be able to name it without touching the guard.
+    assert_eq!(
+        common::findings_for(
+            &findings,
+            "marketplace.when.plugins[*].source.source=github.required.source.repo",
+        )
+        .len(),
+        1,
+        "the body clause reports under its own address: {findings:?}"
+    );
     assert!(
-        findings
-            .iter()
-            .any(|f| f.contains("marketplace.when.plugins[*].source.source=github")),
-        "the when clause fires with the guard's label: {findings:?}"
+        common::findings_for(
+            &findings,
+            "marketplace.when.plugins[*].source.source=github"
+        )
+        .is_empty(),
+        "and never under the host guard's: {findings:?}"
     );
     // The finding should reference the array element's address and mention the missing field.
     assert!(
@@ -361,9 +374,10 @@ fn when_body_clauses_fire_on_guarded_elements_that_violate_them() {
 #[test]
 fn two_guards_over_one_field_print_their_own_addresses() {
     // The four documented object sources guard the same field — `plugins[*].source.source`
-    // — so their labels are told apart by the guard's value set alone. A catalog breaking
-    // two of them at once is the case that needs the discrimination: an author reading the
-    // `url` finding must be able to dial *that* clause without silencing `github` too.
+    // — so their hosts are told apart by the guard's value set, and each body clause by the
+    // host it is owned under. A catalog breaking two of them at once is the case that needs
+    // the discrimination: an author reading the `url` finding must be able to dial *that*
+    // check without silencing `github` too.
     let harness = common::tmpdir("marketplace-two-guards-one-field");
     write_marketplace_json(
         &harness,
@@ -383,22 +397,80 @@ fn two_guards_over_one_field_print_their_own_addresses() {
 
     let github = common::findings_for(
         &findings,
-        "marketplace.when.plugins[*].source.source=github",
+        "marketplace.when.plugins[*].source.source=github.required.source.repo",
     );
-    let url = common::findings_for(&findings, "marketplace.when.plugins[*].source.source=url");
+    let url = common::findings_for(
+        &findings,
+        "marketplace.when.plugins[*].source.source=url.required.source.url",
+    );
     assert_eq!(
         github.len(),
         1,
-        "the github guard indicts its own element under its own address: {findings:?}"
+        "the github body clause indicts its own element under its own address: {findings:?}"
     );
     assert_eq!(
         url.len(),
         1,
-        "the url guard indicts its own element under its own address: {findings:?}"
+        "the url body clause indicts its own element under its own address: {findings:?}"
     );
     assert!(
         github[0].contains("source.repo") && url[0].contains("source.url"),
         "each address carries the body clause its own guard admits: {github:?} / {url:?}"
+    );
+}
+
+#[test]
+fn an_advisory_body_clause_under_a_required_guard_reports_advisory() {
+    // A body clause declares its own weight, and the guard conditioning it declares
+    // another: a guard whose own failure blocks can still condition a check its author
+    // meant only to counsel. Every shipped body row is `required` under a `required`
+    // host, so the case authors its own contract — a lock clause row is a built-in
+    // kind's whole contract, which also leaves this catalog's only finding the one
+    // asserted about.
+    let harness = common::tmpdir("marketplace-advisory-body");
+    write_marketplace_json(
+        &harness,
+        r#"{
+  "name": "acme-tools",
+  "owner": { "name": "DevTools Team" },
+  "plugins": [
+    { "name": "github-plugin", "source": { "source": "github" } }
+  ]
+}
+"#,
+    );
+    common::write_lock(
+        &harness,
+        Declarations {
+            clauses: vec![ClauseRow {
+                kind: Some("marketplace".to_string()),
+                field: Some("plugins[*].source.source".to_string()),
+                values: Some(vec!["github".to_string()]),
+                guard_predicate: Some("enum".to_string()),
+                body: Some(vec![ClauseRow {
+                    field: Some("source.repo".to_string()),
+                    ..common::clause("required", "advisory")
+                }]),
+                ..common::clause("when", "required")
+            }],
+            ..Default::default()
+        },
+    );
+
+    let (findings, ok) = check_harness(&harness);
+
+    let body = common::findings_for(
+        &findings,
+        "marketplace.when.plugins[*].source.source=github.required.source.repo",
+    );
+    assert_eq!(body.len(), 1, "the body clause fires: {findings:?}");
+    assert!(
+        body[0].starts_with("::warning"),
+        "at the severity its own author declared, not its host's: {findings:?}"
+    );
+    assert!(
+        ok,
+        "so an advisory body clause counsels without blocking: {findings:?}"
     );
 }
 

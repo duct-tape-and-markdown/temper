@@ -773,6 +773,79 @@ fn explain_narrates_kind_guidance_in_governing_contract() {
 }
 
 #[test]
+fn explain_lists_a_when_bodys_address_under_its_host_clauses() {
+    // The narration promises every address a finding here can print. A body clause files
+    // under its own, so listing the host alone would leave an author reading a `rule` id
+    // `explain` never named — and dialing it on faith.
+    use temper::contract::{Clause, Contract, Predicate, Severity};
+    let custom = [CustomMember {
+        kind: "spec".to_string(),
+        id: "myspec".to_string(),
+        satisfies: Vec::new(),
+    }];
+    let members = [feature("myspec", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
+    contracts.insert(
+        "spec".to_string(),
+        Contract {
+            name: "spec".to_string(),
+            guidance: None,
+            clauses: vec![Clause {
+                label: "spec.when.source=github".to_string(),
+                severity: Severity::Required,
+                guidance: None,
+                source: None,
+                predicate: Predicate::When {
+                    guard: Box::new(Predicate::Enum {
+                        field: "source".to_string(),
+                        values: vec!["github".to_string()],
+                    }),
+                    body: vec![Clause {
+                        label: "spec.when.source=github.required.repo".to_string(),
+                        severity: Severity::Advisory,
+                        guidance: None,
+                        source: None,
+                        predicate: Predicate::Required {
+                            field: "repo".to_string(),
+                        },
+                    }],
+                },
+            }],
+        },
+    );
+
+    let registrations = BTreeMap::new();
+    let out = temper::read::explain(
+        &custom,
+        &roster,
+        &contracts,
+        &[],
+        &by_kind,
+        &[],
+        &[],
+        &registrations,
+        &[],
+        &[],
+        &[],
+        &[],
+        0,
+        "myspec",
+        &BTreeMap::new(),
+    );
+
+    assert!(
+        out.contains("  • `spec.when.source=github`"),
+        "the host guard is still named: {out}"
+    );
+    assert!(
+        out.contains("    ◦ `spec.when.source=github.required.repo`"),
+        "and its body clause's own address sits under it: {out}"
+    );
+}
+
+#[test]
 fn explain_omits_governing_contract_guidance_when_absent() {
     // A kind with no guidance emits no guidance line in the governing contract
     // narration, but still narrates the clauses normally.

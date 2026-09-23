@@ -50,7 +50,7 @@ use crate::admissibility;
 use crate::builtin_kind;
 use crate::builtin_lock;
 use crate::compose::{self, Edge, Requirement};
-use crate::contract::Contract;
+use crate::contract::{Contract, Predicate};
 use crate::document::Satisfies;
 use crate::drift;
 use crate::extract::{self, Features, MemberAddress};
@@ -568,6 +568,14 @@ fn narrate_governing_contract(
     );
     for clause in &contract.clauses {
         let _ = writeln!(out, "  • `{}`", clause.label);
+        // A `when` body clause reports under its own address, so the promise the line
+        // above makes — every address a finding here can print — is only kept by
+        // listing it too, indented under the guard whose elements it judges.
+        if let Predicate::When { body, .. } = &clause.predicate {
+            for body_clause in body {
+                let _ = writeln!(out, "    ◦ `{}`", body_clause.label);
+            }
+        }
     }
     out.push('\n');
 }

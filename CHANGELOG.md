@@ -40,6 +40,22 @@ breaking changes. Releases are small and frequent.
   `…=http+sse+streamable-http+ws`. Six of those seven were live collisions in
   the shipped default contract.
 
+- **Breaking: a `when` body violation reports under the body clause's own
+  address, at the body clause's own severity.** The `rule` id is now
+  `<host-label>.<predicate>.<field>` —
+  `marketplace.when.plugins[*].source.source=github.required.source.repo`
+  rather than the enclosing guard's `…=github`. A dial entry naming the guard's
+  label no longer reaches the body, so an entry written to soften one body
+  check stops silencing it (and stops silencing every sibling body clause under
+  the same guard, which was never what it said); respell it off the finding's
+  new `rule` id, which the dial now reaches at that address. The severity is
+  the body clause's too: an `advisory` body clause under a `required` guard
+  counsels instead of blocking, which no authoring could express before. No
+  shipped verdict moves — all eight shipped body rows declare `required` under
+  `required` hosts — and `explain` now lists a body clause's address under its
+  host's, so the contract narration still names every address a finding can
+  print.
+
 ## [0.0.18] — 2026-09-08
 
 ### Upgrading from 0.0.17

@@ -316,6 +316,49 @@ fn a_requirements_own_clause_dials_by_the_address_it_reports_under() {
 }
 
 #[test]
+fn a_when_bodys_own_clause_dials_by_the_address_it_reports_under() {
+    // A body clause reports under its own address, so the dial has to reach it there.
+    // Reaching only the top level would break the round trip in the one direction it may
+    // never break: the author reads the address off the finding, spells it back, and the
+    // entry is refused as naming nothing.
+    let harness = harness_at_mode("dial-when-body", "warn", CLEAN_SKILL);
+    common::write_marketplace_json(
+        &harness,
+        r#"{
+  "name": "acme-tools",
+  "owner": { "name": "DevTools Team" },
+  "plugins": [
+    { "name": "github-plugin", "source": { "source": "github" } }
+  ]
+}
+"#,
+    );
+    let rule = "marketplace.when.plugins[*].source.source=github.required.source.repo";
+
+    let (before, ok) = common::check_harness(&harness);
+    assert_eq!(
+        reported_severity(&before, rule).as_deref(),
+        Some("error"),
+        "a github source missing `repo` is the body clause's finding: {before:?}"
+    );
+    assert!(!ok, "at the shipped severity it blocks: {before:?}");
+
+    write_dial(&harness, &dial_entry(rule, "advisory"));
+    let (after, ok) = common::check_harness(&harness);
+
+    assert_eq!(
+        reported_severity(&after, rule).as_deref(),
+        Some("warning"),
+        "the body clause dials by the address it reported under: {after:?}"
+    );
+    assert!(
+        common::findings_for(&after, "dial.entry").is_empty(),
+        "and the entry is never refused as naming nothing: {after:?}"
+    );
+    assert!(ok, "and no longer blocks this machine: {after:?}");
+}
+
+#[test]
 fn a_dial_document_is_read_in_place_and_no_row_of_it_reaches_the_lock() {
     // The committed half is the kind; the uncommitted half is the document. The lock
     // captures the first and not the second, which is what makes committed bytes
