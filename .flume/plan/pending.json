@@ -1,98 +1,8 @@
 [
   {
-    "tag": "EXAMPLE-LOCK-IS-BYTE-GATED",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/emit.rs",
-          "description": "`emit_program_runs_the_shipped_example_harness` (:2222) runs the example's program under `dry_run: true`, and `drift::emit_program` writes the lock only inside `if !options.dry_run` (`src/drift.rs:1550`) — so the assertion loop reads `report.entries`, which carry projections alone, and the committed `examples/base-harness/.temper/lock.toml` is reproduced by nothing. Once the parent moves the emit onto a `copy_tree`d tmpdir, `dry_run` goes false: the write lands in the copy, every projection still reports `Unchanged`, and the copy's `.temper/lock.toml` byte-compares against the committed file — `tests/builtin_lock_frozen.rs`'s currency shape, applied to the one other lock the repo commits. Every path the lock records is root-relative (`source_path`/`governs_root` hold `.claude/rules/conduct.md`, `docs`, `src`, `.`) and no column stamps a version or a timestamp, so the copy's bytes and the checkout's are the same bytes or the file is stale. The failure names `cargo run -- emit --into examples/base-harness/.temper` as the remedy, the spelling the projection assertion already prints, and the doc comment's \"the artifacts committed beside it are byte-current\" stops over-claiming."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The example harness's committed lock is reproduced by no gate: its emit runs `dry_run`, and `emit_program` writes the lock only when that flag is false.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "the example's emit writes a lock into the temp copy whose bytes equal `examples/base-harness/.temper/lock.toml` — the pin reddens when one byte of the committed file is changed, and on the pre-fix tree there is no lock to compare at all"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, with `examples/base-harness/.temper/lock.toml` byte-unchanged — b975e096 regenerated it through a real `emit --into`, so a green run is the proof the gate reproduces it. Oracle: reverting one row of the committed lock reddens the new pin alone.",
-    "notes": "Swept from b975e096, which regenerated this lock by hand and measured the cost of its being ungated: labels, `extent`/`unit`, layout prose and source rows, rendered-line columns and kind `guidance` had all accumulated undiffed. That fix shipped no gate; this is it. Behind the parent because it edits the same test and rests on its tmpdir copy — a non-dry-run emit in the checkout would write into the repo tree. scoped at 9993fc0d"
-  },
-  {
-    "tag": "CONTAINMENT-INCIDENCE-FAMILY",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "New `containment_edges` beside `embedded_hosts_by_key` (:1843), reading the one grammar it already reads: every member whose `Features::id` parses as a nested address (`member_address::embedded_source_host`, :196) yields one `ResolvedEdge` from its host node `(host_kind, host_name)` to its own `(kind, id)` under the field `contains:<kind>` — derived from the composed members the admission already gates (`admissibility::declared_embedded_kinds`, :25), never from prose. A *file* child (a `path`-carrying template) owns its own unit and composes no body, so it yields none. `degree` (:307) takes the `by_kind` corpus and derives the family **after** its opt-in early return — no always-on walk enters the gate, so no new `check_cost` pin is owed — folding a containment arc into adjacency only for a clause whose field filter names its `contains:` field. An unfiltered bound's verdict cannot move."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": ":563 hands `graph::degree` the `by_kind` corpus it already holds, beside the resolved and mention edges. `acyclic`, `route_mentions`, and `mention_reachable` are untouched: none of them names a field, and containment counts only where a clause names it."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`why_impl`'s edges-out (:1229) and edges-in (:1269) lists fold the same `graph::containment_edges` over the `by_kind` they already hold — one enumeration for narration and verdict (READ-EDGE-UNIFY) — in containment's own voice: a derived incidence over the members a body composes, never \"via its `<field>` field\", which names a declaration no author wrote. `narrate_hosted_kinds` (:1072) already tells an author which kinds a host admits and is untouched."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "The family's cases beside the existing `degree` ones (:348-:560): a host's containment arcs are derived one per composed embedded member and none for a file child; a floor filtered to two `contains:` fields ranges over their union; the same floor unfiltered counts no containment arc."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "`why` on a host names the members its body composes as containment incidences, and `why` on an embedded member names its host — neither rendered as a declared field, beside the mention narration pinned at :612."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "`graph::degree` gains the `by_kind` corpus, so its second call site moves with it: :460 already holds `by_kind` for the `mention_reachable` call two lines down and passes it through unchanged. The cost pin itself is untouched — the containment family is derived after `degree`'s opt-in early return, so `resolved_edges_count()` does not move."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      ".flume/refactor/build-containment-degree-signature-fence.md"
-    ],
-    "summary": "`contract.md` names containment among a member's derived edges; no enumeration carries it, so a floor over the embedded members a body composes has no arc to count.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "edge"
-    },
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "containment arcs are derived one per composed embedded member; a `degree` bound filtered to a `contains:` field set counts them over the union, and an unfiltered bound counts none"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "`why` narrates a host's containment of its composed members, and the embedded member's own containment by its host, as incidences rather than declared fields"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle (the adopter's floor 0052 names): a `rule` admitting `directive` and `consult`, bounded outgoing ≥ 1 filtered to `contains:directive` ∪ `contains:consult`, fires on a rule whose body composes neither and is silent on one composing either — while the same bound unfiltered counts no containment arc, so a rule composing nothing and declaring one `routes_to` keeps today's verdict.",
-    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. Gated on the flake that reverted attempt one, not on its work. scoped at 47b74e5b"
-  },
-  {
     "tag": "REQUIREMENT-CLAUSES-REACH-THE-MEMBER-JUDGE",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "CONTAINMENT-INCIDENCE-FAMILY"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -134,10 +44,7 @@
   {
     "tag": "KIND-ROW-LEAF-SET-COLUMN",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "CONTAINMENT-INCIDENCE-FAMILY"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -503,7 +410,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "EXAMPLE-LOCK-IS-BYTE-GATED",
         "SDK-KIND-LEAF-SET-LOWERING"
       ]
     },
@@ -736,8 +642,7 @@
       "kind": "blockedBy",
       "tags": [
         "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
-        "KIND-ROW-LEAF-SET-COLUMN",
-        "CONTAINMENT-INCIDENCE-FAMILY"
+        "KIND-ROW-LEAF-SET-COLUMN"
       ]
     },
     "dependsOnForks": [],
