@@ -38,6 +38,7 @@ import * as sdk from "../src/index.js";
 import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
 import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
+import { clauseRow } from "./common.js";
 
 function projectedHarness() {
   return harness({
@@ -219,48 +220,17 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
   ]);
   assert.deepEqual(declarations.clauses, [
  {
+      ...clauseRow("extent", "advisory"),
       kind: "rule",
-      predicate: "extent",
-      field: undefined,
-      severity: "advisory",
-      guidance: undefined,
-      cite: undefined,
-      count: undefined,
-      target: undefined,
-      degree: undefined,
-      gate: undefined,
-      value_type: undefined,
-      shape: undefined,
+      // `deepEqual` compares own keys at every depth, so the nested bound keeps
+      // its explicit `min` key — the lowering writes one.
       bound: { min: undefined, max: 300 },
       unit: "lines",
-      charset: undefined,
-      keys: undefined,
-      values: undefined,
-      range: undefined,
-      section: undefined,
-      sections: undefined,
  },
  {
+      ...clauseRow("required", "required"),
       kind: "rule",
-      predicate: "required",
       field: "paths",
-      severity: "required",
-      guidance: undefined,
-      cite: undefined,
-      count: undefined,
-      target: undefined,
-      degree: undefined,
-      gate: undefined,
-      value_type: undefined,
-      shape: undefined,
-      bound: undefined,
-      unit: undefined,
-      charset: undefined,
-      keys: undefined,
-      values: undefined,
-      range: undefined,
-      section: undefined,
-      sections: undefined,
  },
   ]);
   assert.deepEqual(declarations.requirements, [
