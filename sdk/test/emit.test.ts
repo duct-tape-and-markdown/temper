@@ -31,6 +31,7 @@ import {
   kind,
   maxLen,
   reachable,
+  reachedFrom,
   renderText,
   required,
   rootDefaultContract,
@@ -411,6 +412,46 @@ test("a degree clause's filter lands the row's field column, sorted and `+`-join
     declarations.map((c) => c.fields),
     [["writes", "clobbers"], ["reads"], undefined],
   );
+});
+
+test("a reached-from clause lowers to a row carrying its roots, its via set, and its own address", () => {
+  // The predicate the engine judges, spelled from the one surface an adopter imports:
+  // the roots land `membership`'s `target` column, the via set `degree`'s shared
+  // `fields` column, and the `field` column — what emit stamps the label from — carries
+  // the identity the clause has no field to supply.
+  const h = harness({
+    members: [],
+    expect: [
+      {
+        kind: rule,
+        clauses: [
+          clause(reachedFrom("entrypoint"), { severity: "advisory" }),
+          clause(reachedFrom("entrypoint", ["routes_to"]), { severity: "advisory" }),
+        ],
+      },
+    ],
+  });
+
+  const declarations = compileDeclarations(h).clauses.filter((c) => c.kind === "rule");
+  assert.deepEqual(
+    declarations.map((c) => c.predicate),
+    ["reached-from", "reached-from"],
+ );
+  assert.deepEqual(
+    declarations.map((c) => c.target),
+    ["entrypoint", "entrypoint"],
+ );
+  assert.deepEqual(
+    declarations.map((c) => c.fields),
+    [undefined, ["routes_to"]],
+ );
+  // Two clauses off one roots requirement, two addresses: the unfiltered closure is the
+  // roots name alone, the filtered one qualifies it by the arcs it walks. Folding them
+  // onto one label is the malformed lock admissibility refuses.
+  assert.deepEqual(
+    declarations.map((c) => c.field),
+    ["entrypoint", "entrypoint.routes_to"],
+ );
 });
 
 test("the JSON pipe carries the declaration rows under `declarations` and the pinned version", () => {

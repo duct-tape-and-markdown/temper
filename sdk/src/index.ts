@@ -45,6 +45,7 @@ export {
   optional,
   range,
   reachable,
+  reachedFrom,
   required,
   requireSections,
   requirement,

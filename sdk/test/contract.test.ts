@@ -1,5 +1,6 @@
 /**
- * The node-set/edge-scope clause constructors: `count`/`unique`/`membership`/`degree` compose a
+ * The node-set/edge-scope clause constructors: `count`/`unique`/`membership`/`degree`/
+ * `reachedFrom` compose a
  * set-/edge-scope demand as an ordinary `Predicate` value, peers of the
  * node-scope constructors (`required`, `extent`, …) already in `contract.ts`.
  */
@@ -21,6 +22,7 @@ import {
   optional,
   range,
   reachable,
+  reachedFrom,
   required,
   requireSections,
   rootDefaultContract,
@@ -76,6 +78,42 @@ test("a degree filter lands the lock row's shared fields column, absent when unf
   assert.deepEqual(filtered.fields, ["writes"]);
   assert.deepEqual(filtered.degree, { incoming: { min: undefined, max: 1 }, outgoing: undefined });
   assert.equal(skillClauseRow(degree({ incoming: { max: 1 } })).fields, undefined);
+});
+
+test("reachedFrom composes a roots requirement and a via field set as an ordinary predicate", () => {
+  // The roots ride `membership`'s own `target` slot and the via set `degree`'s own
+  // `fields` slot — the two channels the clause already has, never a third scheme.
+  assert.deepEqual(reachedFrom("entrypoint", ["routes_to", "delegates_to"]), {
+    key: "reached-from",
+    target: "entrypoint",
+    fields: ["routes_to", "delegates_to"],
+ });
+  // No via set ⇒ unfiltered, the slot absent exactly as an unfiltered `degree` leaves it.
+  assert.deepEqual(reachedFrom("entrypoint"), { key: "reached-from", target: "entrypoint" });
+});
+
+test("a reachedFrom clause lands its roots in target and its via set in the shared fields column", () => {
+  const predicate = reachedFrom("entrypoint", ["routes_to", "delegates_to"]);
+  const row = skillClauseRow(predicate);
+  assert.equal(row.target, "entrypoint");
+  // Authored order, and a fresh array: the predicate's set is read-only, the row's
+  // column is the mutable one the engine decodes (`src/contract.rs` `predicate_from_row`).
+  assert.deepEqual(row.fields, ["routes_to", "delegates_to"]);
+  assert.notEqual(row.fields, predicate.fields);
+  // Unfiltered: the column is absent, which the engine lifts as `via: None`.
+  assert.equal(skillClauseRow(reachedFrom("entrypoint")).fields, undefined);
+});
+
+test("a reachedFrom clause rides the same severity/guidance/cite channels as any clause", () => {
+  const demand = clause(reachedFrom("entrypoint", ["routes_to"]), {
+    severity: "advisory",
+    guidance: "every flow hangs off an entrypoint",
+    cite: "specs/decisions/0056-reached-from-joins-the-vocabulary.md",
+ });
+  assert.equal(demand.predicate.key, "reached-from");
+  assert.equal(demand.severity, "advisory");
+  assert.equal(demand.guidance, "every flow hangs off an entrypoint");
+  assert.equal(demand.cite, "specs/decisions/0056-reached-from-joins-the-vocabulary.md");
 });
 
 test("every set-/edge-scope predicate composes into a clause value like any other", () => {
@@ -341,6 +379,30 @@ test("two require_sections clauses on one kind land two distinct field columns",
   );
   assert.deepEqual(rows[0]!.sections, ["Usage", "Decision"]);
   assert.deepEqual(rows[1]!.sections, ["Installation", "Example"]);
+});
+
+test("two reached-from clauses on one kind land two distinct field columns", () => {
+  // A `reached-from` clause names no field, so the column emit stamps the label from
+  // carries its identity instead: the roots, plus the via filter that tells two
+  // closures off one requirement apart. Sorted and `+`-joined, so two spellings of one
+  // via set are one address; an unfiltered closure is the roots alone.
+  const rows = skillClauseRowsFor("reached-from", [
+    reachedFrom("entrypoint", ["routes_to"]),
+    reachedFrom("entrypoint", ["delegates_to", "routes_to"]),
+    reachedFrom("root-rule"),
+  ]);
+  assert.deepEqual(
+    rows.map((row) => row.field),
+    ["entrypoint.routes_to", "entrypoint.delegates_to+routes_to", "root-rule"],
+ );
+  // The columns the Rust reader actually reconstructs the predicate from are untouched
+  // by the synthesized identity — the via set keeps its authored order.
+  assert.deepEqual(
+    rows.map((row) => row.target),
+    ["entrypoint", "entrypoint", "root-rule"],
+ );
+  assert.deepEqual(rows[1]!.fields, ["delegates_to", "routes_to"]);
+  assert.equal(rows[2]!.fields, undefined);
 });
 
 test("when composes a guarded clause with a guard predicate and a body of clauses", () => {

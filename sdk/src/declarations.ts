@@ -113,7 +113,13 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
       predicate.key === "count"
         ? { min: predicate.args?.min ?? 0, max: predicate.args?.max ?? Number.MAX_SAFE_INTEGER }
         : undefined,
-    target: predicate.key === "membership" ? predicate.target : undefined,
+    // The requirement-name column `membership`'s allowed-value target and
+    // `reached-from`'s closure roots share — one naming scheme for "the requirement
+    // whose satisfiers this clause reads" (`src/contract.rs` `predicate_from_row`).
+    target:
+      predicate.key === "membership" || predicate.key === "reached-from"
+        ? predicate.target
+        : undefined,
     degree:
       predicate.key === "degree"
         ? {
@@ -122,9 +128,12 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
  }
         : undefined,
     // The by-incidence field set rides its own shared column, not the direction-only
-    // `degree` bound — the slot `reached-from`'s via set joins next. Copied into a
+    // `degree` bound — the slot `reached-from`'s via set joins it. Copied into a
     // fresh array: the predicate's set is read-only, the row's column is not.
-    fields: predicate.key === "degree" && predicate.fields ? [...predicate.fields] : undefined,
+    fields:
+      (predicate.key === "degree" || predicate.key === "reached-from") && predicate.fields
+        ? [...predicate.fields]
+        : undefined,
     gate: predicate.key === "mention-reachable" ? predicate.gate : undefined,
     value_type:
       predicate.key === "type" && predicate.value_type ? [...predicate.value_type] : undefined,
@@ -162,17 +171,18 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
 }
 
 /**
- * The `field` column for one predicate: the field it names, or — for the three
- * predicates that name a *section* or a field *set* rather than a field — an
- * identity synthesized from the arguments the row already carries.
+ * The `field` column for one predicate: the field it names, or — for the four
+ * predicates that name a *section*, a field *set*, or a *requirement* rather than a
+ * field — an identity synthesized from the arguments the row already carries.
  *
- * `section_contains`, `require_sections` and `degree` set no `field`, and the column
- * is what emit stamps a clause's label from (`stamp_clause_label`, `src/drift.rs`), so
- * reading `Predicate.field` folds every clause of one of those predicates on one kind
- * into one label — two rows wearing one label, which admissibility refuses as a
- * malformed lock. Synthesizing here keeps the whole fix at the lowering: the Rust
- * reader reconstructs all three predicates from the `section`/`sections`/`fields`
- * columns and never from this one, so nothing round-trips through the synthesized text.
+ * `section_contains`, `require_sections`, `degree` and `reached-from` set no `field`,
+ * and the column is what emit stamps a clause's label from (`stamp_clause_label`,
+ * `src/drift.rs`), so reading `Predicate.field` folds every clause of one of those
+ * predicates on one kind into one label — two rows wearing one label, which
+ * admissibility refuses as a malformed lock. Synthesizing here keeps the whole fix at
+ * the lowering: the Rust reader reconstructs all four predicates from the
+ * `section`/`sections`/`fields`/`target` columns and never from this one, so nothing
+ * round-trips through the synthesized text.
  */
 function clauseField(predicate: Predicate): string | undefined {
   if (predicate.key === "section_contains") {
@@ -192,6 +202,21 @@ function clauseField(predicate: Predicate): string | undefined {
     // no segment: it ranges over every edge at the member, so two of them on one kind
     // are a redundancy the author collapses, never a distinction an address must hold.
     return predicate.fields === undefined ? undefined : [...predicate.fields].sort().join("+");
+  }
+  if (predicate.key === "reached-from") {
+    // A `reached-from` clause names no field either: its identity is the pair it walks.
+    // The roots requirement leads, and a declared via set follows after a `.` — the
+    // two-argument `section_contains` precedent — sorted and `+`-joined by `degree`'s
+    // rule directly above. So two closures rooted at one requirement over different
+    // arcs land two addresses instead of folding into one, and two spellings of one via
+    // set land one. An unfiltered closure adds no second segment: the roots are its
+    // whole identity, and two of them on one kind are a redundancy the author
+    // collapses.
+    const { target } = predicate;
+    if (target === undefined) return undefined;
+    return predicate.fields === undefined
+      ? target
+      : `${target}.${[...predicate.fields].sort().join("+")}`;
   }
   return predicate.field;
 }

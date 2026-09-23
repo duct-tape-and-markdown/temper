@@ -43,8 +43,10 @@ export interface Predicate {
    * `incoming_min`/`incoming_max`/`outgoing_min`/`outgoing_max`). */
   readonly args?: Readonly<Record<string, number>>;
   /**
-   * `membership`'s target requirement name — a separate slot from `field` (the
-   * checked field) since `membership` names both.
+   * The **requirement name** a clause reads its source set from — `membership`'s
+   * allowed-value target and `reached-from`'s closure roots, one naming scheme for
+   * both. A separate slot from `field` since `membership` names a checked field too,
+   * and `reached-from` names no field at all.
    */
   readonly target?: string;
   /**
@@ -78,9 +80,9 @@ export interface Predicate {
   readonly sections?: readonly string[];
   /**
    * A by-incidence clause's **field set** — the fields whose edges the selection is
-   * filtered to. `degree`'s today, `reached-from`'s via set next: one concept, one
-   * slot, mirroring the lock's own shared `fields` column rather than a
-   * `degree`-private key. Absent ⇒ unfiltered, every edge at the member.
+   * filtered to. `degree`'s bound filter and `reached-from`'s via set both ride it:
+   * one concept, one slot, mirroring the lock's own shared `fields` column rather than
+   * a `degree`-private key. Absent ⇒ unfiltered, every edge at the member.
    */
   readonly fields?: readonly string[];
   /** `extent`'s declared unit — the render-side size proxy the bound is measured in. */
@@ -294,6 +296,33 @@ export const degree = (bounds: {
     ? { key: "degree", args }
     : { key: "degree", args, fields: bounds.fields };
 };
+/**
+ * Every selected member lies in the forward closure of `roots` over the `via` field
+ * set — `degree`'s global counterpart. `degree` asks the local question (how many arcs
+ * sit at this member), so the first orphan of a dead chain fires and none behind it;
+ * this asks the global one, so every member the roots cannot reach is equally a
+ * finding.
+ *
+ * `roots` names a **requirement**, spelled exactly as `membership` names its target
+ * set: rootness is a role, and a role is opt-in, so the roots are declared once and
+ * never re-derived from a kind. A root holds trivially, and the walk visits each node
+ * once, so a cycle inside the closure terminates and moves no verdict.
+ *
+ * `via` is the same by-incidence field set `degree`'s filter rides. Omit it and the
+ * closure follows every edge at a member but containment; name a set and it follows
+ * the union of those fields' arcs, so a mention or an import counts only where the set
+ * names its field.
+ *
+ * Each-grain over the **selection** the clause binds to, and judged by the reference
+ * graph rather than any member's own fields. It belongs in **no default contract**: a
+ * clause demanding every member be reached is the declaration-density demand
+ * `specs/intent.md`'s invariant 1 forbids unless the author declares it
+ * (`specs/decisions/0056-reached-from-joins-the-vocabulary.md`).
+ */
+export const reachedFrom = (roots: string, via?: readonly string[]): Predicate =>
+  via === undefined
+    ? { key: "reached-from", target: roots }
+    : { key: "reached-from", target: roots, fields: via };
 
 /**
  * A guarded clause — a predicate (restricted to `type` or `enum`) that acts as a
