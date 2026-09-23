@@ -54,7 +54,7 @@
       "edit": [
         {
           "path": "src/engine.rs",
-          "description": "`Selection::values` (:706) keeps `value.as_scalar()?` only, so a `FeatureValue::List` contributes nothing to either side of `out_of_set` (:966) — the allowed set and the checked values alike — and the clause decides nothing over a list. The each-grain family has no such hole: `addressed` (:1638) locates one node per `[*]` element, but `addressed_field` (:315) deliberately excludes the set predicates (\"read by their own judges over a resolved selection, never parsed as a member-local path\"), so `membership(\"emits[*]\", ...)` is unspellable and the bare key is the only spelling there is. Read a list per element on both sides: the allowed set is the union of the satisfiers' values with lists flattened, each element of the member's own value is checked, and each out-of-set element is its own finding naming the member and the element. Leave `duplicates` (:936), `values`' other consumer, reading exactly what it reads today — `unique` over a list is the open `(unique-over-a-list)` fork, so the per-element projection is membership's own or `values` gains an explicit grain its two callers pick."
+          "description": "`Selection::values` (:706) keeps `value.as_scalar()?` only, so a `FeatureValue::List` contributes nothing to either side of `out_of_set` (:966) — the allowed set and the checked values alike — and the clause decides nothing over a list. The each-grain family has no such hole: `addressed` (:1638) locates one node per `[*]` element, but `addressed_field` (:315) deliberately excludes the set predicates (\"read by their own judges over a resolved selection, never parsed as a member-local path\"), so `membership(\"emits[*]\", ...)` is unspellable and the bare key is the only spelling there is. Read a list per element on both sides: the allowed set is the union of the satisfiers' values with lists flattened, each element of the member's own value is checked, and each out-of-set element is its own finding naming the member and the element. Leave `duplicates` (:934), `values`' other consumer, reading exactly what it reads today — 0058 rules `unique` over a list a refusal rather than a reading, and that ships behind this entry as UNIQUE-REFUSES-A-LIST-VALUED-FIELD, so the per-element projection is membership's own or `values` gains an explicit grain its two callers pick."
         },
         {
           "path": "tests/requirement_roster.rs",
@@ -75,7 +75,48 @@
       }
     ],
     "acceptance": "`cargo test` green with `membership` firing one finding per out-of-set element of a list-valued field, satisfiers' lists flattened into the allowed set, and the `unique` judge's behavior unchanged.",
-    "notes": "Consumer report on 0.0.18 and 0.0.19, reproduced at 4756671c; re-verified this tick — no commit touched src/ since. Invariant 6 forbids the silent pass; contract.md \"clause\" puts membership at the whole grain and is silent on containers, which is why only the per-element reading of a plural feature is derived here. The `unique` half rides its fork. scoped at 3201cbbc"
+    "notes": "Consumer report on 0.0.18 and 0.0.19, reproduced at 4756671c; re-verified this tick — every cited symbol resolves. Invariant 6 forbids the silent pass; contract.md \"clause\" puts membership at the whole grain and is silent on containers, which is why only the per-element reading of a plural feature is derived here. The `unique` half is ruled (0058) and serialized behind this entry. scoped at 5d9cafd7"
+  },
+  {
+    "tag": "UNIQUE-REFUSES-A-LIST-VALUED-FIELD",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "MEMBERSHIP-READS-A-LIST-VALUED-FIELD"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "`duplicates` (:934) counts `Selection::values` (:706), which keeps `value.as_scalar()?` only, so a `FeatureValue::List` (`extract.rs:118`) contributes no value to the multiset and the clause exits 0 — invariant 6's silent pass. 0058 rules the outcome: where the judge meets a non-scalar value under `unique` it reports through `finding` (:1025 → `Diagnostic::from_clause`, so the clause's own declared severity, label and guidance ride the finding), naming the member, the field and the value's kind (`FeatureValue::kind`, `extract.rs:150`), and saying `unique` over it is not defined — an author who means a scalar narrows with a `type` clause. It never passes and never picks a reading. The scalar path stays byte-identical: a missing field still carries no value to collide on, two scalars still collide as today, `values`' scalars-only doc sentence stays true, and `duplicates`' own doc comment gains the refusal sentence. `FeatureValue::Map` reaches the same dead branch and projects no contents any predicate reads, so it carries no candidate reading either — written as one non-scalar refusal rather than a list-only arm that leaves the sibling shape silently passing."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "The set-predicates integration home (`model_skill` :304, `a_unique_field_fires_when_two_satisfiers_share_a_value` :318): a satisfier whose `model:` frontmatter is a YAML list, under a requirement declaring `unique = [\"model\"]`, fails the run with a finding naming the member, the field and the refusal — the author-facing half a unit pin cannot show. The existing scalar collision case and its distinct-value pass stay unedited."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A `unique` clause over a list-valued field counts nothing and exits 0 — the judge must refuse a non-scalar value loudly instead of passing.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "the unit module (:1676) pins both halves beside `unique_is_whole_grain_over_a_by_kind_selection` (:2434) — a `json!` list value yields one finding per carrying member at the clause's severity, and the scalar collision and distinct-value verdicts are unmoved"
+      },
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a list-valued field under `unique` fails the run with a finding naming the member, the field and that `unique` over a list is not defined"
+      }
+    ],
+    "acceptance": "`cargo test` green with `unique` over a non-scalar field reporting at the clause's declared severity — one finding per carrying member — and every scalar verdict (collision, distinct, missing field) unchanged.",
+    "notes": "0058 (bfbb6d5a) settles `(unique-over-a-list)`; the record deletes this tick. Serialized behind the membership sibling — both edit `src/engine.rs` and `tests/requirement_roster.rs`. No built-in contract declares `unique { field }` (the matrix snapshot carries `unique-name` only), so no fixture or snapshot moves. The `Map` arm goes past 0058's letter, which names the list; the widening is argued in this tick's commit body. scoped at 5d9cafd7"
   },
   {
     "tag": "RESERVED-LEAF-REFUSAL-NAMES-A-TAKEABLE-REMEDY",

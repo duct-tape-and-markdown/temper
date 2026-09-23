@@ -475,41 +475,6 @@ tax.
   report string) with no common shippable core, and plan does not pick among
   them. No dependents.
 
-- `(unique-over-a-list)` — OPEN, live driver (consumer report on 0.0.18 and
-  0.0.19, reproduced at 4756671c and re-verified on disk this tick). A
-  `unique` clause over a list-valued field decides nothing and exits 0:
-  `duplicates` (`engine.rs:936`) reads `Selection::values` (`:706`), which
-  keeps `value.as_scalar()?` only, so a `FeatureValue::List` contributes no
-  value to the multiset it counts. That is invariant 6's silent pass, so
-  this fork owes a ruling rather than a deferral — the sibling half ships as
-  MEMBERSHIP-READS-A-LIST-VALUED-FIELD, whose per-element reading follows
-  from "drawn from the satisfiers' values" with no new concept; `unique`'s
-  does not. The reporter's proposed remedy — refuse the clause at
-  **admissibility** — is unavailable as spelled: that tier runs "before any
-  member is read" (`admissibility.rs:6`), and a field's list-ness is member
-  data, never a declared fact (`ValueType` is the *parsed value's* kind; only
-  a `type` clause declares one). Whatever is ruled fires where the judge
-  meets the value. Candidates. (a) **Flatten**: every element across the
-  selection must be unique, so two members sharing an element collide and a
-  repeat inside one member's list collides with itself. (b) **Flatten across
-  members only**: each member's list is deduplicated first, so `unique` asks
-  only that two members share no element. (c) **Judge-time refusal**: a list
-  under `unique` is a finding naming the member and the field, loud without
-  ruling the semantics, and the author narrows with a `type` clause. Session
-  recommendation: **(a)** — `unique` names a value that must not repeat
-  across the selection, the selection's value multiset is the object it
-  counts, and reading a list as a plural feature is the same move membership
-  makes; one reading for both set predicates is the "one algebra over
-  selections" `contract.md` "selection" already claims, where (b) gives the
-  two siblings two flattening rules and (c) leaves a spellable clause
-  permanently undecidable. The objection (a) must answer: a list field is
-  usually an unordered tag set where a within-member repeat is authoring
-  noise and not a contract breach, so (a) fires on a shape `unique` was never
-  aimed at — which is (b)'s whole case. `count` is out of scope: it carries
-  no field and counts the selection itself. No dependents —
-  MEMBERSHIP-READS-A-LIST-VALUED-FIELD ships under today's `unique` reading
-  and names the constraint in its own `files[]`.
-
 - `(guard-locus-binding-clause-gated)` — OPEN, live driver (post-ship sweep
   of b0665cae, measured on disk this tick). Since that commit the
   undeclared-member fact is a **clause** on `check`: no `locus-declared`
