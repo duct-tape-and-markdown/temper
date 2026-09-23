@@ -26,33 +26,17 @@ hard.
   and is the latent-bug surface. Validate it; never cut capability for
   want of a consumer.
 
-## Next session's one focus (09-22 close)
+## Next session's one focus (09-23, post-cut)
 
-- **Loop left running overnight** (flume 0.17, `CARGO_BUILD_JOBS=4`, VM 11 GB
+- **Loop hibernating** (flume 0.17, `CARGO_BUILD_JOBS=4`, VM 11 GB
   via `.wslconfig`; flume's own loop capped at vitest 4 workers / width 2 after
   two OOM reboots 09-22). Check `pnpm exec flume status` and the log first.
-- **0.0.19: cut once** (John, 09-22) when SDK-MEMBER-DECLARES-INPUTS,
-  SDK-REACHED-FROM-CONSTRUCTOR and LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED
-  have shipped; at close, ROOT-DEFAULT-CONTRACT-SHIPS was the next rung (3
-  more under it). **John's go is given in advance (09-22: "good with … when
-  the time comes")**, conditional on the checks below passing. If any check
-  fails, stop and ask; the approval does not cover a red check.
-  Before it: check the consumer's five limits against disk, and run cascade's
-  regression at the cut sha. Upgrade notes owed:
-  - `settings.json` hand edits now drift (0050), and the guard no longer
-    admits residue edits;
-  - drift rule ids become clause labels (0054);
-  - `when` labels carry the guard's values, and filtered `degree` labels carry
-    their field set (0049 fixes);
-  - set predicates in a `when` body are refused, not silently skipped. The
-    platform consumer's guarded `degree`/`membership` hit this, so tell them
-    to use kind partition;
-  - `reachable` reports again once the root default ships;
-  - settings residue is `residue: {…}`.
-- `(guard-body-address-and-severity)`: ruled (a) by John 09-22 and landed as
-  0057 (a body clause is an ordinary clause). Plan derives it and deletes the
-  record. Add its label respelling to the 0.0.19 upgrade notes.
-- After the cut (John approved the sequence 09-22), unpark
+- **0.0.19 shipped 09-23** (9e548318, tag v0.0.19; smoke green; lock synced
+  60002e8b). Pre-cut evidence is in the release commit body. Cascade must
+  rename its embedded `prose` leaves (15 sites, John: adopters rename) and
+  declare a `settings` member; tell cascade's session when it is next up. The
+  consumer program used for the check lives at `~/.cache/consumer-check`.
+- **Next, approved by John 09-22:** unpark
   INTEGRATION-SUITE-ONE-TEST-TARGET, then do the harness migration (the judge
   resolves test ids the fold renames).
 - Harness-migration carry list (re-verify in the package, or file with flume):
