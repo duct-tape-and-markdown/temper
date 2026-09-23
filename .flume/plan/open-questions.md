@@ -341,49 +341,6 @@ tax.
   reports green — the mechanism is right and the *default* is wrong. No
   dependents; nothing is built on it until it is ruled.
 
-- `(guard-body-address-and-severity)` — OPEN, live driver (post-ship sweep of
-  c5093c52, measured on disk this tick). A `when` guard's body clauses are
-  "a body of **ordinary clauses**" (`contract.md`, "clause"), and an ordinary
-  clause is "one predicate plus the severity its author declared" with an
-  address "printed by every finding". A body clause today has neither. Its
-  declared **severity** is discarded — `decide`'s `When` arm
-  (`engine.rs:1361`/`:1370`) recurses through `evaluate` on
-  `body_clause.predicate` alone, so every body violation reports at the host
-  guard's severity. Its **label** is stamped but owner-less:
-  `stamp_clause_label` passes `None` for a nested body row (`drift.rs:1614`)
-  where the sibling line passes `requirement_owner(...)` for a requirement's
-  nested row (`:1588`), so the shipped lock carries `required.source.url`
-  twice (`src/builtin_lock.toml:411`, `:429` — one under the `url` guard, one
-  under `git-subdir`), and `clause_collision_diagnostics` (`admissibility.rs:279`)
-  never sees it: it walks kinds' own clauses, requirements' nested ones and a
-  joined layer's, never a guard's body. The SDK meanwhile spells a body clause
-  with the full `clause()` constructor (`sdk/src/contract.ts:296`), so
-  `severity` is authorable and inert. Candidates. (a) A body clause is an
-  ordinary clause with its own address: its owner is the host clause's label
-  (the requirement-nesting precedent, one line up in the same function), the
-  collision walk descends into bodies, the finding reports under the body
-  label at the body's declared severity, and the dial reaches it. (b) A
-  guard's body is one clause's **interior**: the host's severity and address
-  govern, emit stops stamping a body label, and the SDK's `when()` body takes
-  a narrower type than `Clause` so a severity cannot be spelled and dropped —
-  but `clause_from_row` requires a label, so the body lowering needs its own
-  constructor, and per-case dial granularity is gone. (c) Split them: the
-  address stays the host's (the corpus does say "Guard and body share one
-  address binding"), the severity becomes the body's own — **rejected**: two
-  clauses under one address at different severities is exactly the
-  undialable pair `clause.label-collision` exists to refuse. Session
-  recommendation: **(a)** — the corpus calls the body ordinary clauses, and
-  the one place the engine already answers "what owns a nested row" answers
-  it one line above the `None`. The objection (a) must answer: the corpus's
-  own "share one address binding" reads against a separate body address, and
-  the label it mints
-  (`marketplace.when.plugins[*].source.source=url.required.source.url`) is a
-  sentence, not a name an author dials. No entry filed — the three rulings
-  produce incompatible entries (qualify the label / delete it / neither) with
-  no common shippable core. No dependents:
-  WHEN-BODY-GUIDANCE-REACHES-ITS-FINDING is independent — guidance is
-  per-violation teaching under every candidate here.
-
 - `(unmodeled-surface-registry)` — OPEN, live driver (refactor capture
   `build-unmodeled-surface-dormant`, filed at 2dba7c0c, re-verified on disk
   this tick). `coverage.unmodeled-surface` can no longer fire.
