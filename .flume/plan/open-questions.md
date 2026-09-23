@@ -382,6 +382,61 @@ tax.
   WHEN-BODY-GUIDANCE-REACHES-ITS-FINDING is independent — guidance is
   per-violation teaching under every candidate here.
 
+- `(unmodeled-surface-registry)` — OPEN, live driver (refactor capture
+  `build-unmodeled-surface-dormant`, filed at 2dba7c0c, re-verified on disk
+  this tick). `coverage.unmodeled-surface` can no longer fire.
+  `coverage_note::check` has exactly one production call site
+  (`gate.rs:660`), handed `builtin_kind::definitions()` — the full built-in
+  set, never a scope-filtered one, and never the `overlaid_builtin_kinds`
+  sitting beside it — and both `KNOWN_SURFACES` rows are governed whole
+  under it: `.claude/settings.json` by 0050's `settings` container
+  (`builtin_kind.rs:552`), `.mcp.json` by `mcp-server`, whose collection
+  spans the whole manifest (`coverage_note.rs:291`). So `whole` is true on
+  every real invocation and `segment_coverage` answers `Full` every time.
+  Measured at cefac0f0: a tmp harness carrying
+  `.claude/settings.json = {permissions, env}` and
+  `.mcp.json = {mcpServers, somethingElse}` — four present keys no segment
+  kind governs — reported `coverage.checked` alone, zero findings. Both
+  branches behind the verdict (`coverage_note.rs:146`, `:161`), the
+  `segments`/`Segment` model (`builtin_kind.rs:51`) and
+  `manifest_top_level_keys` (`:334`) exist only to decide something nothing
+  reaches, and three fixtures withhold a built-in from scope to observe it
+  (`tests/coverage_note.rs:93`, `:386`, `tests/check_cost.rs:397`) — two of
+  them saying exactly that in their own comments. That is the vacuity class
+  `engineering.md` "A green verdict is proven non-vacuous" names. The
+  capture's subtraction list is narrowed by the re-verify: `with_locked_kinds`
+  **survives** — its `governing_kinds` also feeds the
+  `coverage.unclaimed-entry` strand (`coverage_note.rs:176`), where a locked
+  custom kind's `governs` still suppresses a `.claude/` stray.
+  What the corpus does not settle is what the advisory is *for* now.
+  `builtins.md` "The coverage bar" speaks only to the vocabulary growing by
+  documented capability; the one body sentence naming the posture — the
+  supporting-doc bullet's "supporting files of other types remain unmodeled
+  and are named as such, the `settings.json` partial-governance posture" —
+  cites a precedent 0050 retired. Candidates. (a) **Retire it**: the rule,
+  the `segments` column, `Segment`, `manifest_top_level_keys` and both
+  branches go, `KNOWN_SURFACES` shrinks to the unclaimed-entry exclusion
+  list, and the supporting-doc sentence needs a new precedent. (b) **Keep it
+  and fix its classification**, which makes it non-vacuous on the registry it
+  already has: `.mcp.json` has no container member at all — no kind
+  fingerprints that file — so its `somethingElse` reaches no row, no
+  projection input and no finding, where settings.json's residue is at least
+  carried by 0050's container. Give `.mcp.json` a segment model (`mcpServers`
+  its one governed segment, every other present key residue) and the measured
+  case becomes a named gap, with no new external fact. (c) **Keep it and grow
+  the registry** with a documented `.claude/` surface no built-in governs —
+  needs a cited external fact this tick does not have, and "the vocabulary
+  grows by documented capability" points the other way: a documented surface
+  temper can model earns a *kind*, not a permanent advisory. Session
+  recommendation: **(b)** — it is the only candidate that closes a measured
+  silence rather than ratifying one, and it costs no capability. The
+  objection (b) must answer: if the Claude Code docs schematize `.mcp.json`
+  as exactly `{mcpServers}`, a key beside it is malformed input rather than a
+  coverage gap, and (a) wins — that citation is the ruling's first input. No
+  entry filed: the three rulings produce incompatible entries (delete the
+  rule / re-segment `.mcp.json` / add a registry row) with no common
+  shippable core. No dependents.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
