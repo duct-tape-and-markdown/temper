@@ -577,6 +577,158 @@ fn a_document_body_scaffolds_to_a_module_adjacent_file_never_the_original_path()
     assert!(projected.ends_with(expected_body), "got:\n{projected}");
 }
 
+// ---------------------------------------------------------------------------
+// the whole-document formats — a `json-document` kind's artifact is its fields
+// ---------------------------------------------------------------------------
+
+/// A `.claude/settings.json` whose top-level keys are the `settings` member's own
+/// fields — the whole file is one JSON document, not frontmatter over a body.
+const SETTINGS_DOCUMENT: &str = "{\n  \"model\": \"opus\",\n  \"permissions\": {\n    \"allow\": [\"Bash(cargo test:*)\"]\n  }\n}\n";
+
+/// A `.claude-plugin/plugin.json`, a `json-document` kind whose identity is the
+/// top-level `name` rather than the file stem — the stem is `plugin` for every
+/// manifest ever written.
+const PLUGIN_MANIFEST: &str = "{\n  \"name\": \"demo-pack\",\n  \"description\": \"A demo plugin.\",\n  \"version\": \"1.2.3\"\n}\n";
+
+/// A `.claude/settings.local.json` — the machine's own overlay, at the `local`
+/// commitment class.
+const SETTINGS_LOCAL: &str = "{\n  \"model\": \"haiku\"\n}\n";
+
+/// A harness carrying only whole-document artifacts — the committed settings, a plugin
+/// manifest, and a local overlay — with the built SDK vendored so the first emit runs
+/// for real. Returns the root and its `.temper` directory.
+fn write_document_harness(label: &str) -> (PathBuf, PathBuf) {
+    let root = common::tmpdir(label);
+    let claude = root.join(".claude");
+    fs::create_dir_all(&claude).unwrap();
+    fs::write(claude.join("settings.json"), SETTINGS_DOCUMENT).unwrap();
+    fs::write(claude.join("settings.local.json"), SETTINGS_LOCAL).unwrap();
+    common::write_plugin_json(&root, PLUGIN_MANIFEST);
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    (root, temper_dir)
+}
+
+#[test]
+fn a_settings_document_lifts_into_a_fields_bearing_member_whose_emit_re_renders_its_keys() {
+    let (root, temper_dir) = write_document_harness("lift-settings-document");
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(
+        outcome.scaffolded, 2,
+        "the settings document and the plugin manifest — never the local overlay"
+    );
+
+    // Read under the format the kind declares, the document's top-level keys land as
+    // typed properties; read as frontmatter instead, the module carried no fields at
+    // all and the whole JSON became a prose body emit has no home for.
+    let module = fs::read_to_string(temper_dir.join("settings").join("settings.ts")).unwrap();
+    assert!(
+        module.contains("import { settings } from \"@dtmd/temper/claude-code\";"),
+        "got:\n{module}"
+    );
+    assert!(module.contains("model: \"opus\","), "got:\n{module}");
+    assert!(
+        module.contains("permissions: {\"allow\":[\"Bash(cargo test:*)\"]},"),
+        "got:\n{module}"
+    );
+    assert!(
+        !module.contains("prose:"),
+        "a whole-document member is its fields — there is no body slot to fill, got:\n{module}"
+    );
+    assert!(
+        !temper_dir.join("settings").join("settings.md").exists(),
+        "no prose sidecar holding the raw JSON"
+    );
+
+    // The first emit re-renders the document from the program — every authored key
+    // survives the round trip.
+    let emit = outcome.emit.as_ref().expect("the yes-path ran a real emit");
+    assert!(
+        emit.entries
+            .iter()
+            .any(|e| e.kind == "settings" && e.name == "settings"),
+        "the settings member is an emit target, got:\n{:#?}",
+        emit.entries
+    );
+    let projected: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join(".claude").join("settings.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(projected["model"], "opus");
+    assert_eq!(projected["permissions"]["allow"][0], "Bash(cargo test:*)");
+}
+
+#[test]
+fn a_plugin_manifest_lifts_under_its_name_key_with_the_sdks_camel_case_constructor() {
+    let (root, temper_dir) = write_document_harness("lift-plugin-manifest");
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // Identity is the document's declared `name` key; reading the JSON as frontmatter
+    // found none and aborted the whole lift `frontmatter::no_named_field_id`.
+    let module =
+        fs::read_to_string(temper_dir.join("plugin-manifest").join("demo-pack.ts")).unwrap();
+    assert!(
+        module.contains("import { pluginManifest } from \"@dtmd/temper/claude-code\";"),
+        "a hyphenated kind reaches the module as the SDK's camelCase export, never the \
+         row label — `import {{ plugin-manifest }}` is not TS; got:\n{module}"
+    );
+    assert!(
+        module.contains("export const plugin_manifest_demo_pack = pluginManifest({"),
+        "the kind prefix folds into the identifier exactly as the name does, got:\n{module}"
+    );
+    assert!(module.contains("name: \"demo-pack\","), "got:\n{module}");
+    assert!(module.contains("version: \"1.2.3\","), "got:\n{module}");
+    assert!(
+        fs::read_to_string(temper_dir.join("harness.ts"))
+            .unwrap()
+            .contains("plugin_manifest_demo_pack"),
+        "the entry point composes the lifted manifest"
+    );
+
+    let projected: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join(".claude-plugin").join("plugin.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(projected["name"], "demo-pack");
+    assert_eq!(projected["description"], "A demo plugin.");
+    assert_eq!(projected["version"], "1.2.3");
+}
+
+#[test]
+fn a_local_commitment_artifact_is_counted_in_discovery_and_converted_into_nothing() {
+    let (root, temper_dir) = write_document_harness("lift-local-skip");
+    let discovery = install::discover(&root).unwrap();
+    assert_eq!(
+        discovery.members.get("settings-local").map(Vec::len),
+        Some(1),
+        "the report counts what the walk found"
+    );
+
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    // A local artifact is read in place at check and is never an emit input or target,
+    // so the lift — which converts an artifact into a committed module whose artifact
+    // is a projection — writes nothing for it.
+    assert!(
+        !temper_dir.join("settings-local").exists(),
+        "a local-commitment artifact becomes no member module"
+    );
+    assert!(
+        !fs::read_to_string(temper_dir.join("harness.ts"))
+            .unwrap()
+            .contains("settings_local"),
+        "and the entry point composes nothing for it"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join(".claude").join("settings.local.json")).unwrap(),
+        SETTINGS_LOCAL,
+        "its authored bytes are untouched"
+    );
+}
+
 #[test]
 fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
     let root = write_harness("re-represent", false);

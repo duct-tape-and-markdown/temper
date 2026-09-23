@@ -54,6 +54,7 @@ use crate::json_manifest;
 use crate::json_splice::{self, Edit};
 use crate::kind::{self, CollectionAddress, CustomKind};
 use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER};
+use crate::toml_document;
 
 /// The SDK program's entry file — scaffolded once by the lift, run by every
 /// subsequent `emit`.
@@ -1947,11 +1948,64 @@ struct ScaffoldedMember {
 /// literal; a longer one is a document, written to a module-adjacent file.
 const INLINE_PROSE_LINE_LIMIT: usize = 3;
 
+/// One discovered artifact read for the lift, normalized across the read adapters so the
+/// scaffold writes one module shape whatever grammar the source was authored in — the
+/// same one adapter dispatch the check side's file read takes, narrowed to the file
+/// formats the lift converts.
+struct LiftedMember {
+    /// The member id — the module's file stem and its `name` property.
+    id: String,
+    /// The fields to hoist into typed properties, in projection order.
+    fields: Vec<(String, JsonValue)>,
+    /// The prose body, or [`None`] for a whole-document format ([`kind::Format::JsonDocument`],
+    /// [`kind::Format::TomlDocument`]): such a member is its fields, with no body slot to
+    /// move module-side.
+    body: Option<String>,
+}
+
+/// Read one discovered artifact under the format its kind declares — a `json-document` or
+/// `toml-document` kind's whole artifact through that grammar's adapter, every other file
+/// kind through the frontmatter adapter. Reading a JSON document as frontmatter instead
+/// would find no fields and hand the whole document back as a prose body, which no emit
+/// has a home for.
+///
+/// # Errors
+/// Returns a [`miette::Report`] if the source cannot be read or does not parse under its
+/// declared format.
+fn read_lifted_member(kind: &CustomKind, file: &Path) -> miette::Result<LiftedMember> {
+    match kind.format {
+        Some(kind::Format::JsonDocument) => {
+            let document = json_manifest::DocumentMember::read(kind, file)?;
+            Ok(LiftedMember {
+                id: document.id,
+                fields: document.fields.into_iter().collect(),
+                body: None,
+            })
+        }
+        Some(kind::Format::TomlDocument) => {
+            let document = toml_document::read(kind, file)?;
+            Ok(LiftedMember {
+                id: document.id,
+                fields: document.fields.into_iter().collect(),
+                body: None,
+            })
+        }
+        Some(kind::Format::YamlFrontmatter) | None => {
+            let member = frontmatter::Member::from_source(kind, file)?;
+            Ok(LiftedMember {
+                id: member.id,
+                fields: member.fields,
+                body: Some(member.body),
+            })
+        }
+    }
+}
+
 /// Scaffold the SDK program from `discovery`'s findings — the lift's whole
 /// output, a **whole conversion** (0016), never an intermediate state: a member
-/// module per discovered artifact hoisting every present frontmatter field into
-/// a typed property ([`member_module_source`]) and moving its prose
-/// module-side, plus a `harness.ts` skeleton importing them all. Writes nothing
+/// module per discovered artifact hoisting every present field into a typed
+/// property ([`member_module_source`]) and moving its prose module-side, plus
+/// a `harness.ts` skeleton importing them all. Writes nothing
 /// under `dry_run`, returning only the count a real run would scaffold.
 ///
 /// # Errors
@@ -1964,7 +2018,7 @@ fn scaffold(
 ) -> miette::Result<usize> {
     let kinds = builtin_kind::definitions();
 
-    let mut lifted: Vec<(String, frontmatter::Member)> = Vec::new();
+    let mut lifted: Vec<(String, LiftedMember)> = Vec::new();
     for (name, files) in &discovery.members {
         let Some(kind) = kinds.get(name) else {
             continue;
@@ -1974,8 +2028,15 @@ fn scaffold(
         if kind.content != kind::Content::File {
             continue;
         }
+        // A local-locus kind's document is per-machine and uncommitted: read in place at
+        // check, never an `emit` input or target. The lift converts an artifact into a
+        // committed member module whose artifact is a projection, and a local document is
+        // neither — so it is counted in the report and converted into nothing.
+        if kind.commitment == Some(kind::Commitment::Local) {
+            continue;
+        }
         for file in files {
-            lifted.push((name.clone(), frontmatter::Member::from_source(kind, file)?));
+            lifted.push((name.clone(), read_lifted_member(kind, file)?));
         }
     }
     lifted.sort_by(|(a_kind, a), (b_kind, b)| (a_kind, &a.id).cmp(&(b_kind, &b.id)));
@@ -1990,10 +2051,16 @@ fn scaffold(
         let dir = temper_dir.join(member_dir(kind));
         write_scaffold_file(
             &dir.join(format!("{}.ts", member.id)),
-            &member_module_source(kind, &member.id, &ident, &member.fields, &member.body),
+            &member_module_source(
+                kind,
+                &member.id,
+                &ident,
+                &member.fields,
+                member.body.as_deref(),
+            ),
         )?;
-        if !fits_inline(&member.body) {
-            write_scaffold_file(&dir.join(format!("{}.md", member.id)), &member.body)?;
+        if let Some(body) = member.body.as_deref().filter(|body| !fits_inline(body)) {
+            write_scaffold_file(&dir.join(format!("{}.md", member.id)), body)?;
         }
         scaffolded.push(ScaffoldedMember {
             ident,
@@ -2010,14 +2077,43 @@ fn scaffold(
 }
 
 /// A member module's TS identifier: kind-prefixed so a skill and a rule sharing a
-/// name never collide, non-alphanumeric bytes folded to `_`.
+/// name never collide, non-alphanumeric bytes folded to `_` — in the kind prefix as
+/// well as the name, since a hyphenated kind label (`settings-local`) is no more a legal
+/// identifier than a hyphenated member id is.
 fn member_ident(kind: &str, name: &str) -> String {
-    let mut ident = format!("{kind}_");
-    ident.extend(
-        name.chars()
-            .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' }),
-    );
+    let mut ident = fold_ident(kind);
+    ident.push('_');
+    ident.push_str(&fold_ident(name));
     ident
+}
+
+/// `label` with every non-alphanumeric byte folded to `_` — the one fold both halves of
+/// a [`member_ident`] take.
+fn fold_ident(label: &str) -> String {
+    label
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
+        .collect()
+}
+
+/// The SDK binding a kind's constructor is exported under: its hyphenated row label
+/// camelCased, the spelling `sdk/src/claude-code.ts` exports (`settings-local` →
+/// `settingsLocal`, `plugin-manifest` → `pluginManifest`). The row label is the engine's
+/// vocabulary and the camelCase binding is the SDK's; interpolating the former into the
+/// generated module would render `import { settings-local }`, which is not TS.
+fn sdk_constructor(kind: &str) -> String {
+    let mut out = String::new();
+    for (index, segment) in kind.split('-').enumerate() {
+        let mut chars = segment.chars();
+        match chars.next() {
+            Some(first) if index > 0 => {
+                out.extend(first.to_uppercase());
+                out.push_str(chars.as_str());
+            }
+            _ => out.push_str(segment),
+        }
+    }
+    out
 }
 
 /// Whether `body` lives inline as a `` text`…` `` template literal rather than a
@@ -2037,20 +2133,26 @@ fn fits_inline(body: &str) -> bool {
 }
 
 /// One lifted member's module source (0016, whole conversion): every present
-/// frontmatter field but `name` (already the object literal's identity
-/// property) hoists into its own typed TS property via [`json_to_ts_literal`],
-/// in the same order [`frontmatter::Member::fields`] carries them; `body`
+/// field but `name` (already the object literal's identity property) hoists
+/// into its own typed TS property via [`json_to_ts_literal`], in the order
+/// [`read_lifted_member`] carries them; `body`
 /// moves module-side — inline as a `` text`…` `` literal ([`fits_inline`]) or,
 /// for a document, a `file()` reference to the module-adjacent `<name>.md`
 /// [`scaffold`] writes beside this module. Replaces the retired own-path lift:
 /// the projected artifact is never this module's own `file()` source.
+///
+/// A `body` of [`None`] is a whole-document format's member ([`read_lifted_member`]): its
+/// fields are the whole member, so the module carries no `prose:` property and imports
+/// neither prose constructor. The kind reaches the module as the SDK binding its
+/// constructor is exported under ([`sdk_constructor`]), never the row label.
 fn member_module_source(
     kind: &str,
     name: &str,
     ident: &str,
     fields: &[(String, JsonValue)],
-    body: &str,
+    body: Option<&str>,
 ) -> String {
+    let constructor = sdk_constructor(kind);
     let mut fields_src = String::new();
     for (key, value) in fields {
         if key == "name" {
@@ -2063,14 +2165,20 @@ fn member_module_source(
         ));
     }
 
-    let prose_src = if fits_inline(body) {
-        format!("  prose: {},\n", inline_prose_literal(body))
-    } else {
-        format!("  prose: file(import.meta.url, \"./{name}.md\"),\n")
+    let (imports, prose_src) = match body {
+        None => (constructor.clone(), String::new()),
+        Some(body) if fits_inline(body) => (
+            format!("file, text, {constructor}"),
+            format!("  prose: {},\n", inline_prose_literal(body)),
+        ),
+        Some(_) => (
+            format!("file, text, {constructor}"),
+            format!("  prose: file(import.meta.url, \"./{name}.md\"),\n"),
+        ),
     };
 
     format!(
-        "import {{ file, text, {kind} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {kind}({{\n  name: {name:?},\n{fields_src}{prose_src}}});\n"
+        "import {{ {imports} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {constructor}({{\n  name: {name:?},\n{fields_src}{prose_src}}});\n"
     )
 }
 
@@ -2436,7 +2544,13 @@ mod tests {
         ];
         let body =
             "# Coordinate\n\nDrive the team through the playbook.\n\nMore than three lines.\n";
-        let source = member_module_source("skill", "coordinate", "skill_coordinate", &fields, body);
+        let source = member_module_source(
+            "skill",
+            "coordinate",
+            "skill_coordinate",
+            &fields,
+            Some(body),
+        );
         assert_eq!(
             source,
             "import { file, text, skill } from \"@dtmd/temper/claude-code\";\n\n\
@@ -2452,7 +2566,7 @@ mod tests {
     #[test]
     fn member_module_source_carries_a_hoisted_array_field_and_no_description() {
         let fields = vec![("paths".to_string(), serde_json::json!(["src/**/*.rs"]))];
-        let source = member_module_source("rule", "rust", "rule_rust", &fields, "# Rust\n");
+        let source = member_module_source("rule", "rust", "rule_rust", &fields, Some("# Rust\n"));
         assert_eq!(
             source,
             "import { file, text, rule } from \"@dtmd/temper/claude-code\";\n\n\
@@ -2475,8 +2589,66 @@ mod tests {
                 serde_json::json!("Reviews pull requests."),
             ),
         ];
-        let source = member_module_source("agent", "reviewer", "agent_reviewer", &fields, "");
+        let source = member_module_source("agent", "reviewer", "agent_reviewer", &fields, Some(""));
         assert_eq!(source.matches("name:").count(), 1);
+    }
+
+    #[test]
+    fn member_module_source_renders_a_whole_document_member_as_fields_alone() {
+        // A `json-document` kind's artifact is its fields — there is no body slot, so the
+        // module carries no `prose:` property and imports neither prose constructor.
+        let fields = vec![
+            ("model".to_string(), serde_json::json!("opus")),
+            (
+                "permissions".to_string(),
+                serde_json::json!({ "allow": ["Bash(cargo test:*)"] }),
+            ),
+        ];
+        let source =
+            member_module_source("settings", "settings", "settings_settings", &fields, None);
+        assert_eq!(
+            source,
+            "import { settings } from \"@dtmd/temper/claude-code\";\n\n\
+             export const settings_settings = settings({\n  \
+             name: \"settings\",\n  \
+             model: \"opus\",\n  \
+             permissions: {\"allow\":[\"Bash(cargo test:*)\"]},\n});\n"
+        );
+    }
+
+    #[test]
+    fn member_module_source_imports_a_hyphenated_kinds_camel_case_constructor() {
+        let fields = vec![("version".to_string(), serde_json::json!("1.2.3"))];
+        let source = member_module_source(
+            "plugin-manifest",
+            "demo-pack",
+            "plugin_manifest_demo_pack",
+            &fields,
+            None,
+        );
+        assert_eq!(
+            source,
+            "import { pluginManifest } from \"@dtmd/temper/claude-code\";\n\n\
+             export const plugin_manifest_demo_pack = pluginManifest({\n  \
+             name: \"demo-pack\",\n  \
+             version: \"1.2.3\",\n});\n"
+        );
+    }
+
+    #[test]
+    fn member_ident_folds_the_kind_prefix_as_well_as_the_name() {
+        assert_eq!(member_ident("skill", "coordinate"), "skill_coordinate");
+        assert_eq!(
+            member_ident("settings-local", "settings.local"),
+            "settings_local_settings_local"
+        );
+    }
+
+    #[test]
+    fn sdk_constructor_camel_cases_every_hyphenated_segment() {
+        assert_eq!(sdk_constructor("settings"), "settings");
+        assert_eq!(sdk_constructor("settings-local"), "settingsLocal");
+        assert_eq!(sdk_constructor("known-marketplace"), "knownMarketplace");
     }
 
     #[test]
