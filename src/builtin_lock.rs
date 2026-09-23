@@ -116,6 +116,46 @@ mod tests {
     }
 
     #[test]
+    fn every_lock_kind_row_lifts_to_the_facts_the_rust_population_spells() {
+        let declarations = declarations();
+        let population = crate::builtin_kind::definitions();
+
+        // The sibling of the names assertion above, and it carries that assertion's
+        // vacuity pin for the same reason: an empty row set would agree with anything.
+        assert!(!declarations.kinds.is_empty());
+
+        for row in &declarations.kinds {
+            let lifted = crate::kind::CustomKind::from_kind_fact_row(row).unwrap_or_else(|err| {
+                panic!("the embedded lock's `{}` row lifts: {err}", row.name)
+            });
+            let spelled = population
+                .get(&row.name)
+                .unwrap_or_else(|| panic!("`{}` ships in the Rust population", row.name));
+
+            // Group by group, never a whole-struct compare: three fact groups the Rust
+            // population carries have no `KindFactRow` column to ride, so the lift fills
+            // them with its own fixed answer — `extraction` with the generic
+            // markdown-structure primitive set, `relationships` and `bare_root_file`
+            // empty. Comparing those would assert the lift's defaults, not agreement.
+            let name = &row.name;
+            assert_eq!(lifted.governs, spelled.governs, "{name}: governs");
+            assert_eq!(lifted.commitment, spelled.commitment, "{name}: commitment");
+            assert_eq!(lifted.format, spelled.format, "{name}: format");
+            assert_eq!(lifted.unit_shape, spelled.unit_shape, "{name}: unit_shape");
+            assert_eq!(
+                lifted.registration, spelled.registration,
+                "{name}: registration"
+            );
+            assert_eq!(lifted.templates, spelled.templates, "{name}: templates");
+            assert_eq!(lifted.content, spelled.content, "{name}: content");
+            assert_eq!(
+                lifted.collection_address, spelled.collection_address,
+                "{name}: collection_address"
+            );
+        }
+    }
+
+    #[test]
     fn re_parsing_the_embedded_bytes_is_deterministic() {
         // The embed is static data; parsing it twice must agree byte-for-byte with
         // itself (`Declarations` derives `PartialEq`).
