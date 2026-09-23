@@ -403,7 +403,7 @@ value_type = ["string"]
 guard_predicate = "type"
 
 [[declaration.clause.body]]
-label = "shape.plugins[*].source"
+label = "marketplace.when.plugins[*].source=string.shape.plugins[*].source"
 predicate = "shape"
 field = "plugins[*].source"
 severity = "required"
@@ -422,7 +422,7 @@ values = ["github"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "required.source.repo"
+label = "marketplace.when.plugins[*].source.source=github.required.source.repo"
 predicate = "required"
 field = "source.repo"
 severity = "required"
@@ -440,7 +440,7 @@ values = ["url"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "required.source.url"
+label = "marketplace.when.plugins[*].source.source=url.required.source.url"
 predicate = "required"
 field = "source.url"
 severity = "required"
@@ -458,7 +458,7 @@ values = ["git-subdir"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "required.source.url"
+label = "marketplace.when.plugins[*].source.source=git-subdir.required.source.url"
 predicate = "required"
 field = "source.url"
 severity = "required"
@@ -466,7 +466,7 @@ guidance = "A `git-subdir` source entry must specify the `url` field — the HTT
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause.body]]
-label = "required.source.path"
+label = "marketplace.when.plugins[*].source.source=git-subdir.required.source.path"
 predicate = "required"
 field = "source.path"
 severity = "required"
@@ -484,7 +484,7 @@ values = ["npm"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "required.source.package"
+label = "marketplace.when.plugins[*].source.source=npm.required.source.package"
 predicate = "required"
 field = "source.package"
 severity = "required"
@@ -512,7 +512,7 @@ values = ["stdio"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "required.command"
+label = "mcp-server.when.type=stdio.required.command"
 predicate = "required"
 field = "command"
 severity = "required"
@@ -530,7 +530,7 @@ values = ["http", "streamable-http", "sse", "ws"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "required.url"
+label = "mcp-server.when.type=http+sse+streamable-http+ws.required.url"
 predicate = "required"
 field = "url"
 severity = "required"

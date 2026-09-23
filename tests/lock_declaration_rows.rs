@@ -3421,11 +3421,21 @@ fn a_when_clause_row_round_trips_the_lock() {
         Some(vec!["./path".to_string(), "object".to_string()].as_slice())
     );
 
-    // Body is preserved as nested rows.
+    // Body is preserved as nested rows, each addressed under its host guard: a body
+    // clause is an ordinary clause, and the host's own label is the owner segment that
+    // tells two guards' bodies over one field apart.
     assert_eq!(when_row.body.as_ref().map(|b| b.len()), Some(1));
     let body_clause = &when_row.body.as_ref().unwrap()[0];
     assert_eq!(body_clause.predicate, "required");
     assert_eq!(body_clause.field.as_deref(), Some("url"));
+    assert_eq!(
+        when_row.label.as_deref(),
+        Some("skill.when.source=./path+object")
+    );
+    assert_eq!(
+        body_clause.label.as_deref(),
+        Some("skill.when.source=./path+object.required.url")
+    );
 
     // The guard lifts through predicate_from_row.
     let guard_predicate = contract::predicate_from_row(&ClauseRow {
@@ -3486,6 +3496,49 @@ fn a_lock_carrying_two_rows_under_one_label_fails_admissibility_loud() {
     assert!(
         output.contains("clause.label-collision") && output.contains("skill.extent"),
         "the refusal names the coherence rule and the colliding address, got:\n{output}"
+    );
+}
+
+#[test]
+fn two_body_rows_under_one_guard_sharing_one_label_fail_admissibility_loud() {
+    // A guard's body carries ordinary clauses, so two of them reducing to one address are
+    // the same unaddressable pair a kind's own twins are — and the only thing that makes
+    // them tellable apart at all is the host guard's label they hang under.
+    let root = common::tmpdir("clause-label-collision-body");
+    common::write_skill(&root, "coordinate", &common::clean_skill("coordinate"));
+    let body_row = || ClauseRow {
+        field: Some("url".to_string()),
+        ..common::clause("required", "required")
+    };
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![ClauseRow {
+                kind: Some("skill".to_string()),
+                guard_predicate: Some("enum".to_string()),
+                field: Some("source".to_string()),
+                values: Some(vec!["object".to_string()]),
+                body: Some(vec![body_row(), body_row()]),
+                ..common::clause("when", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "two body rows under one address must fail the run, got:\n{output}"
+    );
+    assert!(
+        output.contains("clause.label-collision")
+            && output.contains("skill.when.source=object.required.url"),
+        "the refusal names the coherence rule and the colliding body address, got:\n{output}"
+    );
+    assert!(
+        output.contains("guard `skill.when.source=object`"),
+        "and the site sentence names the host guard the way a kind's own arm names the \
+         kind, got:\n{output}"
     );
 }
 

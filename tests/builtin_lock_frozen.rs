@@ -266,16 +266,20 @@ fn no_two_clause_rows_in_the_shipped_lock_share_a_label() {
     // (`gate.rs` walks the consumer's own declarations), so nothing but this test
     // stands between a shipped collision and an adopter.
     //
-    // Top-level rows only. A `when` body's nested rows carry today's owner-less
-    // spelling (`required.source.url` twice over, under two different guards) — their
-    // own collision, and not this assertion's.
+    // Every depth. A guard's body rows are ordinary clauses addressed under their host,
+    // so they share the namespace the rows above them do.
     let lock_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/builtin_lock.toml");
     let text = fs::read_to_string(&lock_path).expect("the embedded built-in lock must exist");
     let declarations =
         drift::parse_declarations(&lock_path, &text).expect("the embedded lock parses");
 
     let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
-    for row in &declarations.clauses {
+    // Guards do not nest, so a row and its body exhaust the lock's clause depth.
+    for row in declarations
+        .clauses
+        .iter()
+        .flat_map(|row| std::iter::once(row).chain(row.body.iter().flatten()))
+    {
         let label = row
             .label
             .as_deref()
@@ -303,5 +307,22 @@ fn no_two_clause_rows_in_the_shipped_lock_share_a_label() {
         when_labels.contains(&"mcp-server.when.type=stdio")
             && when_labels.contains(&"mcp-server.when.type=http+sse+streamable-http+ws"),
         "a `when` label carries its guard's value set, sorted and `+`-joined: {when_labels:?}"
+    );
+
+    // A body row addresses `<host-label>.<predicate>.<field>` — the host's own address is
+    // the owner segment, which is what parts the `url` and `git-subdir` guards' twin
+    // `source.url` demands.
+    let body_labels: Vec<&str> = declarations
+        .clauses
+        .iter()
+        .flat_map(|row| row.body.iter().flatten())
+        .filter_map(|row| row.label.as_deref())
+        .collect();
+    assert!(
+        body_labels.contains(&"marketplace.when.plugins[*].source.source=url.required.source.url")
+            && body_labels.contains(
+                &"marketplace.when.plugins[*].source.source=git-subdir.required.source.url"
+            ),
+        "a body label is owned by its host guard's own address: {body_labels:?}"
     );
 }

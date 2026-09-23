@@ -275,7 +275,11 @@ const CLAUSE_COLLISION_RULE: &str = "clause.label-collision";
 /// in, so two of them under one label leave both unaddressable exactly as the host's own
 /// twins would. A joined row can never collide with a *host* row — its address carries the
 /// layer that produced it (`LAYER_QUALIFIER`) — so what fires here is a malformed layer
-/// or a malformed corpus, never the join itself.
+/// or a malformed corpus, never the join itself. A joined row's **body** is the one set
+/// left out of the walk: the qualifier is appended to the host row's label at join time
+/// and never reaches the body labels already stamped under the unqualified host address,
+/// so descending there would read a layer's body clause and the host's identical one as
+/// twins and refuse a legitimate join (`.flume/refactor/build-layer-qualifier-skips-when-bodies.md`).
 pub fn clause_collision_diagnostics(
     declarations: &drift::Declarations,
     joined: &[drift::ClauseRow],
@@ -302,13 +306,17 @@ pub fn clause_collision_diagnostics(
         .iter()
         .map(|row| ("a joined layer's clauses".to_string(), row));
     let mut sites: BTreeMap<&str, Vec<String>> = BTreeMap::new();
-    for (site, row) in own.chain(nested).chain(layered) {
-        if let Some(label) = &row.label {
-            sites
-                .entry(label.as_str())
-                .or_default()
-                .push(format!("{site} at severity `{}`", row.severity));
+    for (site, row) in own.chain(nested) {
+        record_site(&mut sites, row, &site);
+        // A guard's body rows are ordinary clauses with addresses of their own (decision
+        // 0057), so two of them under one label are the same unaddressable pair a kind's
+        // own twins are. Guards do not nest, so one descent reaches every body row.
+        for body_row in row.body.iter().flatten() {
+            record_site(&mut sites, body_row, &guard_body_site(row));
         }
+    }
+    for (site, row) in layered {
+        record_site(&mut sites, row, &site);
     }
     sites
         .into_iter()
@@ -329,6 +337,35 @@ pub fn clause_collision_diagnostics(
             )
         })
         .collect()
+}
+
+/// Record one clause row's authoring site under its address, for the collision scan above.
+/// A row carrying no label contributes nothing: every emitted row is stamped with one, so
+/// an unlabelled row is a lock emit did not write, and the contract lift is what refuses
+/// it — re-deciding that here would be a second verdict on the same fact.
+fn record_site<'a>(
+    sites: &mut BTreeMap<&'a str, Vec<String>>,
+    row: &'a drift::ClauseRow,
+    site: &str,
+) {
+    if let Some(label) = &row.label {
+        sites
+            .entry(label.as_str())
+            .or_default()
+            .push(format!("{site} at severity `{}`", row.severity));
+    }
+}
+
+/// The authoring site of a clause in `host`'s guarded body — the host's own address, the
+/// way the arms above name the kind or the requirement a colliding row hangs off. It is
+/// also the owner segment every one of those body labels already carries
+/// (`drift::stamp_clause_label`), so the sentence names the very prefix the reader is
+/// staring at in the shared address.
+fn guard_body_site(host: &drift::ClauseRow) -> String {
+    match host.label.as_deref() {
+        Some(label) => format!("guard `{label}`'s body clauses"),
+        None => format!("an unlabelled `{}` guard's body clauses", host.predicate),
+    }
 }
 
 /// Builds the effective kind set: every built-in kind, optionally overlaid with any

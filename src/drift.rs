@@ -1602,21 +1602,26 @@ fn stamp_clause_labels(declarations: &mut Declarations) {
 /// segment with the guard's value set — read off `values` (an `enum` guard) or
 /// `value_type` (a `type` guard), discriminated by `guard_predicate`, all three already
 /// on the row, so nothing new round-trips.
+///
+/// A body clause is an ordinary clause (decision 0057), so it takes an owner exactly as a
+/// requirement's nested row does — the nesting rule one level down, with the **host row's
+/// own freshly stamped label** as the owner. A body row addresses
+/// `<host-label>.<predicate>.<field>`, which is the one name in scope that tells two
+/// guards' bodies apart: without it, the `url` and `git-subdir` source guards both compile
+/// a `required.source.url` no dial could reach and no finding could distinguish.
 fn stamp_clause_label(row: &mut ClauseRow, owner: Option<&str>) {
     let field = if row.predicate == "when" {
         crate::contract::when_label_field(row)
     } else {
         row.field.clone()
     };
-    row.label = Some(crate::contract::clause_label(
-        owner,
-        &row.predicate,
-        field.as_deref(),
-    ));
-    // Recursively stamp labels on nested body clauses in a `when` clause.
+    let label = crate::contract::clause_label(owner, &row.predicate, field.as_deref());
+    row.label = Some(label.clone());
+    // Recursively stamp labels on nested body clauses in a `when` clause, each owned by
+    // the host guard's address. Guards do not nest, so this recurses exactly one level.
     if let Some(body) = &mut row.body {
         for nested in body {
-            stamp_clause_label(nested, None);
+            stamp_clause_label(nested, Some(&label));
         }
     }
 }
