@@ -36,6 +36,12 @@ hard.
   rename its embedded `prose` leaves (15 sites, John: adopters rename) and
   declare a `settings` member; tell cascade's session when it is next up. The
   consumer program used for the check lives at `~/.cache/consumer-check`.
+- **0.0.20: cut once** (John, 09-23) the two 0.0.19 consumer defects ship:
+  the absolute source path outside the harness root, and list-valued
+  `membership`/`unique` (inbox 3201cbbc). Check them with the repro programs
+  in `~/.cache/input-outside` (emit from two checkout paths, byte-identical
+  lock) and `~/.cache/membership-list`. The cascade regression shows only the
+  known `prose` rename until cascade takes it.
 - **Next, approved by John 09-22:** unpark
   INTEGRATION-SUITE-ONE-TEST-TARGET, then do the harness migration (the judge
   resolves test ids the fold renames).
