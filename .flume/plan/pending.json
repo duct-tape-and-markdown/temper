@@ -339,6 +339,44 @@
     "notes": "Decision 0057, bullet 2 plus 'the dial reaches each body clause by its label'. All eight shipped body rows are `required` under `required` hosts, so no shipped verdict moves — only the printed address — and the severity half needs an authored advisory fixture to be non-vacuous. Cites re-measured past 81ee251b. scoped at dfa667d7"
   },
   {
+    "tag": "LAYER-QUALIFIER-REACHES-A-GUARD-BODY",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "`qualify_layer_label` (:1021) appends `@<layer>` to the row's own `label` and stops there, so a joined `when` row's `body` rows keep the labels emit stamped under the *unqualified* host address (`<host-label>.<predicate>.<field>` since 833b9a9d). Append the same qualifier to every body row's label — a body clause may not itself be a `when` (`contract.rs:540`), so one descent reaches them all — and say at `LAYER_QUALIFIER` (:960) that the `@`-can-never-collide invariant now holds at every depth rather than one level deep. `LockFamily::joined_clauses`' doc (:458) points at this function and needs no change beyond staying true."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "Drop the joined-arm carve-out. `clause_collision_diagnostics` (:283) descends into the host's and the requirements' bodies (`record_site` at :349, `guard_body_site` at :364) but records a joined row's head alone, so a layer whose own guard body carries two rows compiling to one address is admitted silently — the twin class decision 0057 made visible everywhere else. Fold the `layered` arm (:308) into the same body walk `own.chain(nested)` runs, and cut the doc paragraph (:272-282) explaining the exclusion, including its `.flume/refactor/build-layer-qualifier-skips-when-bodies.md` cite — the capture is deleted with this filing, so that pointer is already stale. The unit tests below gain the joined-body twin case beside `a_joined_layer_row_is_named_as_the_layer_it_arrived_on` (:788)."
+        },
+        {
+          "path": "tests/layer_join.rs",
+          "description": "Two cases over the module's `host`/`org`/`check_joining` fixtures, both through `check --layer`: (1) an org lock whose `when` clause's body carries two rows compiling to one address refuses the joining run with `clause.label-collision` naming the qualified address — today's carve-out admits it silently; (2) an org lock whose `when` clause is identical to one the host's own lock declares still joins and gates, raising no `clause.label-collision` — the legitimate join the carve-out was protecting, now held by the qualifier itself. Sibling of `the_same_lock_named_twice_joins_once` (:211), which already pins the no-false-collision half for a top-level row."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A joined layer's `when` body labels stay unqualified, so a layer's body clause and the host's identical one share one address — and the collision walk carves the joined arm out.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "The fix lands at the mechanism"
+    },
+    "tests": [
+      {
+        "path": "tests/layer_join.rs",
+        "asserts": "a joined layer whose guard body twins one address is refused with `clause.label-collision`; a joined layer duplicating the host's identical guard raises none and still gates"
+      }
+    ],
+    "acceptance": "`cargo test` green with the collision walk spanning every joined depth: a layer's own body twin is refused by `clause.label-collision`, and a layer whose guard matches the host's byte for byte still joins clean.",
+    "notes": "Refactor capture `build-layer-qualifier-skips-when-bodies.md` (filed 0b587eb1), re-verified on disk at HEAD: the qualifier still stops at the head, the carve-out is still in place, and admissibility's doc still cites the capture. Related, not blocking: WHEN-BODY-SEVERITY-AND-ADDRESS-REACH-THE-READER makes a body label author-facing, so this fix is its precondition. src/admissibility.rs is also in parked HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL. scoped at 7ebaf4a5"
+  },
+  {
     "tag": "CLAUSE-FINDING-ONE-CONSTRUCTOR",
     "gate": {
       "kind": "blockedBy",
