@@ -49,7 +49,9 @@ const settings_project = settings({
       "Bash(cargo fmt:*)",
     ],
   },
-  worktree: { bgIsolation: "none" },
+  // Undocumented in the settings reference (retrieved 2026-09-22): opaque,
+  // named residue rather than a typed key.
+  residue: { worktree: { bgIsolation: "none" } },
 });
 
 const program = harness({
