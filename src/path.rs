@@ -22,6 +22,57 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     out.into_iter().collect()
 }
 
+/// The lexical path from `root` to `target` — the spelling a lock row carries when a
+/// source dependency sits outside the harness tree. Both sides are normalized
+/// ([`normalize_path`]), their shared leading segments dropped, and every root segment
+/// left over becomes a `..`, so a target above the root reads `../../src/x.txt` rather
+/// than one machine's absolute path. Joining that row back onto whatever root a reader
+/// holds reaches the same place, which is what keeps a committed lock reproducible
+/// across checkouts.
+///
+/// Disk is never touched: the caller resolves symlinks before it asks (a lexical
+/// derivation cannot), and a path that does not exist relativizes exactly as one that
+/// does.
+///
+/// `None` when no relative path exists — the two sides sit under roots no run of `..`
+/// climbs between (on Windows, different drive prefixes), or the root keeps a leading
+/// `..` [`normalize_path`] had nothing to pop, naming a parent this side cannot spell.
+#[must_use]
+pub fn relative_from_root(root: &Path, target: &Path) -> Option<PathBuf> {
+    let root = normalize_path(root);
+    let target = normalize_path(target);
+    let mut root_rest = root.components().peekable();
+    let mut target_rest = target.components().peekable();
+    while let (Some(from), Some(to)) = (root_rest.peek(), target_rest.peek()) {
+        if from != to {
+            break;
+        }
+        root_rest.next();
+        target_rest.next();
+    }
+
+    let mut relative = PathBuf::new();
+    for component in root_rest {
+        match component {
+            Component::Normal(_) => relative.push(".."),
+            Component::CurDir => {}
+            Component::RootDir | Component::Prefix(_) | Component::ParentDir => return None,
+        }
+    }
+    for component in target_rest {
+        match component {
+            Component::Normal(segment) => relative.push(segment),
+            Component::ParentDir => relative.push(".."),
+            Component::CurDir => {}
+            Component::RootDir | Component::Prefix(_) => return None,
+        }
+    }
+    if relative.as_os_str().is_empty() {
+        relative.push(".");
+    }
+    Some(relative)
+}
+
 /// Relativize a file path against a harness root. If the path is absolute, strip the root
 /// prefix and return the relative path. If the path is already relative, return it as-is.
 /// All backslashes are normalized to forward slashes.
@@ -116,5 +167,39 @@ impl From<HarnessRelativePath> for String {
 impl From<&str> for HarnessRelativePath {
     fn from(s: &str) -> Self {
         Self(s.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_target_above_the_root_is_spelled_with_parent_segments() {
+        let relative = relative_from_root(
+            Path::new("/checkout/packages/agent"),
+            Path::new("/checkout/src/x.txt"),
+        );
+        assert_eq!(relative, Some(PathBuf::from("../../src/x.txt")));
+    }
+
+    #[test]
+    fn a_target_under_the_root_keeps_its_plain_relative_spelling() {
+        let relative = relative_from_root(
+            Path::new("/checkout/agent"),
+            Path::new("/checkout/agent/docs/included.md"),
+        );
+        assert_eq!(relative, Some(PathBuf::from("docs/included.md")));
+    }
+
+    #[test]
+    fn a_root_naming_a_parent_it_cannot_spell_has_no_relative_path() {
+        // The reachable stand-in for the case the refusal exists for: a root segment no
+        // run of `..` climbs from. A Windows drive prefix is the real shape, and `Path`
+        // parses no prefix off a Unix host, so the un-poppable leading `..` stands in.
+        assert_eq!(
+            relative_from_root(Path::new("../outside"), Path::new("/checkout/x.txt")),
+            None
+        );
     }
 }

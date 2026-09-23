@@ -302,6 +302,24 @@ pub enum DriftError {
         path: PathBuf,
     },
 
+    /// A declared source dependency — a composed-prose `include` or a member's declared
+    /// `input` — resolves to a path with no relative spelling from the harness root: on
+    /// Windows, a target on another drive, the one shape no run of `..` climbs to.
+    /// Refused before a byte is written rather than recorded absolute: a lock row is
+    /// committed, and an absolute one spells the checkout that emitted it and no other.
+    #[error(
+        "member `{member}` references `{import}`, which has no path relative to the harness root `{root}` — a lock row is committed and must resolve under the harness wherever it sits"
+    )]
+    #[diagnostic(code(temper::drift::unrooted_source_path))]
+    UnrootedSourcePath {
+        /// The referencing member's `kind:name` address.
+        member: String,
+        /// The reference the source declared, verbatim.
+        import: String,
+        /// The harness root the reference could not be spelled against.
+        root: PathBuf,
+    },
+
     /// A composed-prose include target's bytes are not valid UTF-8 — an include splices
     /// the target's text into the host projection, so a non-text target cannot be pulled
     /// in. Refused before a byte is written.
@@ -819,8 +837,8 @@ fn normalize_lock_path(path: &str) -> String {
 /// `.` when the workspace names no parent segment. `./.temper` and `.temper` name one
 /// surface, but their raw `parent()`s differ (`.` vs the empty path) — left alone that
 /// forks a row's spelling between two emits of the same workspace, and an empty root
-/// cannot be made absolute, which would silently spell a relativized target absolute
-/// instead ([`harness_relative`]). Lexical normalization plus the `.` floor collapses both
+/// cannot be made absolute, leaving an absolute target with no spelling against it at all
+/// ([`harness_relative`] refuses). Lexical normalization plus the `.` floor collapses both
 /// to one root.
 pub fn harness_root_of(workspace_dir: &Path) -> PathBuf {
     let normalized = crate::path::normalize_path(workspace_dir);
@@ -1344,7 +1362,7 @@ pub fn emit(
                 for include in includes {
                     // The SDK resolves an include's target absolutely; the row is spelled
                     // against the harness root, so it resolves under a harness at any path.
-                    let relative = harness_relative(&include.source_path, &harness_root);
+                    let relative = harness_relative(&host, &include.source_path, &harness_root)?;
                     let (row, bytes) = resolve_source_dependency(
                         &host,
                         &relative,
@@ -2154,7 +2172,7 @@ fn resolve_inputs(
     let no_members = BTreeMap::new();
     let mut resolved = Vec::with_capacity(rows.len());
     for input in rows {
-        let relative = harness_relative(&input.source_path, harness_root);
+        let relative = harness_relative(&input.member, &input.source_path, harness_root)?;
         let (row, _bytes) = resolve_source_dependency(
             &input.member,
             &relative,
@@ -2167,19 +2185,26 @@ fn resolve_inputs(
     Ok(resolved)
 }
 
-/// Re-express an include's SDK-resolved absolute `target` as a path relative to
+/// Re-express a source dependency's SDK-resolved absolute `target` as a path relative to
 /// `harness_root` — the one home for that transform, and the only place a path enters
 /// this pass already absolute. The result matches the member index and rides the lock in
 /// the same harness-relative vocabulary a projection path is spelled in, so the committed
-/// row resolves under the harness wherever it sits. A target outside the harness tree
-/// keeps its absolute form, still readable, just unrooted (joining it back onto any root
-/// is a no-op).
+/// row resolves under the harness wherever it sits. A target above the root is spelled
+/// with `..` segments ([`path::relative_from_root`](crate::path::relative_from_root)) —
+/// the spelling a layout region's `import` above the root already records, and the one
+/// thing that keeps the lock's bytes identical across two checkouts of one repo.
 ///
 /// Resolves both paths canonically to handle symlink hopping consistently with how the
 /// SDK resolves targets: when a symlink sits between the cwd and the harness, the two
-/// sides' lexical absolutization can diverge, failing to strip. Canonicalization unifies
-/// them before stripping, so the row is harness-relative regardless of symlinks in the cwd.
-fn harness_relative(target: &str, harness_root: &Path) -> String {
+/// sides' lexical absolutization can diverge, putting `..` segments in a row that should
+/// have none. Canonicalization unifies them first, so the row is harness-relative
+/// regardless of symlinks in the cwd.
+///
+/// # Errors
+/// Returns [`DriftError::UnrootedSourcePath`] where no relative path exists at all — a
+/// target on another Windows drive. Recording the absolute path instead would commit a
+/// row naming one machine's checkout, so the refusal is loud.
+fn harness_relative(host: &str, target: &str, harness_root: &Path) -> Result<String, DriftError> {
     let target_path = PathBuf::from(target);
     // Try canonicalizing both sides to resolve symlinks consistently. The SDK canonicalizes
     // targets via fs::canonicalize (via import.meta.url resolution), so our root must too.
@@ -2190,9 +2215,13 @@ fn harness_relative(target: &str, harness_root: &Path) -> String {
     let root_abs = fs::canonicalize(harness_root)
         .or_else(|_| std::path::absolute(harness_root))
         .unwrap_or_else(|_| harness_root.to_path_buf());
-    match target_abs.strip_prefix(&root_abs) {
-        Ok(relative) => to_lock_path(relative),
-        Err(_) => to_lock_path(&target_abs),
+    match crate::path::relative_from_root(&root_abs, &target_abs) {
+        Some(relative) => Ok(to_lock_path(&relative)),
+        None => Err(DriftError::UnrootedSourcePath {
+            member: host.to_string(),
+            import: target.to_string(),
+            root: root_abs,
+        }),
     }
 }
 

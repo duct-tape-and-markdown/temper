@@ -196,3 +196,50 @@ fn a_non_utf8_input_is_legal() {
         "and it reads fresh against the baseline emit just wrote"
     );
 }
+
+#[test]
+fn an_input_above_the_harness_root_records_a_relative_path_that_resolves_in_any_checkout() {
+    // An input's path arrives SDK-resolved and absolute, and a target the harness root is
+    // not a prefix of used to ride the lock in that form — so the committed row named the
+    // machine that emitted it and resolved nowhere else. The row is `../`-segmented from
+    // the root instead, the spelling a layout region's import above the root already
+    // records: two checkouts of one repo, one lock, and the read side joins it back.
+    let mut locks = Vec::new();
+    let mut workspaces = Vec::new();
+
+    for label in ["input-above-root-a", "input-above-root-b"] {
+        let checkout = common::tmpdir(label);
+        // The harness two directories down, the input at the checkout root — the source
+        // file a rule's claim rests on, outside the harness it governs.
+        let into = checkout.join("packages/agent/.temper");
+        fs::create_dir_all(&into).unwrap();
+        fs::create_dir_all(checkout.join("src")).unwrap();
+        let input = checkout.join("src/x.txt");
+        fs::write(&input, "def handle(request):\n    validate(request)\n").unwrap();
+
+        drift::emit(&payload_declaring(&input), &into, EmitOptions::default()).unwrap();
+
+        let inputs = drift::inputs(&into).unwrap();
+        assert_eq!(
+            inputs[0].source_path, "../../src/x.txt",
+            "an input above the root is spelled with `..` from the root, never absolutely"
+        );
+        locks.push(fs::read_to_string(into.join("lock.toml")).unwrap());
+        workspaces.push(into);
+    }
+
+    assert_eq!(
+        locks[0], locks[1],
+        "the same program emitted from two checkout paths writes one lock"
+    );
+
+    // The read side of the same row: the second checkout's `check` joins `../../src/x.txt`
+    // onto its own root, reads the file there, and finds it fresh.
+    let clause = fresh_clause();
+    assert!(
+        drift::input_stale(&workspaces[1], &clause)
+            .unwrap()
+            .is_empty(),
+        "a `../`-segmented row resolves under whatever root the reader holds"
+    );
+}

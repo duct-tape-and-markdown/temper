@@ -1783,6 +1783,45 @@ fn a_lock_with_composed_prose_includes_emitted_from_a_foreign_cwd_is_harness_rel
 }
 
 #[test]
+fn an_include_target_above_the_harness_root_is_spelled_the_same_in_two_checkouts() {
+    // The sibling case to the foreign-cwd test above: the include's path arrives
+    // SDK-resolved and absolute, and a target the harness root is not a prefix of used to
+    // ride the lock in that absolute form — so the committed row spelled the one checkout
+    // that emitted it (and, on Windows, carried canonicalize's verbatim prefix with it).
+    // A `../`-segmented row joins back under whatever root a reader holds: one program,
+    // two checkout paths, one set of lock bytes.
+    let (payload, include_target) = with_composed_prose_include();
+    let mut locks = Vec::new();
+
+    for label in ["above-root-checkout-a", "above-root-checkout-b"] {
+        let checkout = common::tmpdir(label);
+        // The harness sits two directories down from the checkout root, and the include
+        // target beside it at the top — a repo-wide doc a member composes in.
+        let into = checkout.join("packages/agent/.temper");
+        fs::create_dir_all(&into).unwrap();
+        fs::create_dir_all(checkout.join("docs")).unwrap();
+        let target = checkout.join("docs/included.md");
+        fs::write(&target, &include_target).unwrap();
+
+        let mut payload = payload.clone();
+        payload.declarations.includes[0].source_path = target.to_string_lossy().into_owned();
+        drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+        let includes = drift::includes(&into).unwrap();
+        assert_eq!(
+            includes[0].source_path, "../../docs/included.md",
+            "a target above the root is spelled with `..` from the root, never absolutely"
+        );
+        locks.push(fs::read_to_string(into.join("lock.toml")).unwrap());
+    }
+
+    assert_eq!(
+        locks[0], locks[1],
+        "the same program emitted from two checkout paths writes one lock"
+    );
+}
+
+#[test]
 fn a_re_emit_from_a_foreign_cwd_joins_the_prior_rows_under_the_targeted_root() {
     // The reap join is the row-reading side of the same contract: a row names a path
     // under the harness the verb was aimed at. Emit once with the workspace named off a
