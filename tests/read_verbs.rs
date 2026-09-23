@@ -412,20 +412,6 @@ fn tap_readout(records: &[TapRecord]) -> tap::LogReadout {
     tap::read_log(&workspace).unwrap()
 }
 
-/// A tap record naming `identity` under `event`, written at `version` — a `version` below
-/// `TAP_RECORD_VERSION` exercises the reader's older-version toleration.
-fn tap_record(version: u32, event: TapEvent, identity: &str) -> TapRecord {
-    TapRecord {
-        version,
-        session: "sess".to_string(),
-        event,
-        identity: identity.to_string(),
-        ts: "2026-08-26T00:00:00.000000Z".to_string(),
-        reason: None,
-        raw_path: None,
-    }
-}
-
 #[test]
 fn a_member_target_narrates_its_tap_event_counts_and_denominators() {
     // Two skill members share the `skill_invoked` denominator; a `tool_use` for a tool no
@@ -436,12 +422,12 @@ fn a_member_target_narrates_its_tap_event_counts_and_denominators() {
     let roster: BTreeMap<String, Requirement> = BTreeMap::new();
 
     let readout = tap_readout(&[
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "audit"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "audit"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "Bash"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "audit"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "audit"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "Bash"),
     ]);
 
     let out = explain_over_log(
@@ -480,8 +466,8 @@ fn an_older_version_record_surfaces_as_a_count_never_a_silent_skip() {
     // One current record and one an older tap wrote, both naming `deploy`. The older one
     // still materializes, so it is counted in the totals AND surfaced as an older line.
     let readout = tap_readout(&[
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
-        tap_record(TAP_RECORD_VERSION - 1, TapEvent::SkillInvoked, "deploy"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
+        common::tap_record(TAP_RECORD_VERSION - 1, TapEvent::SkillInvoked, "deploy"),
     ]);
     assert_eq!(
         readout.older_version, 1,
@@ -1540,9 +1526,9 @@ fn a_requirement_with_a_telemetry_verifier_narrates_the_field_strand() {
     )]);
 
     let readout = tap_readout(&[
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
     ]);
 
     let out = explain_over_log(
@@ -1585,7 +1571,7 @@ fn a_requirement_with_no_telemetry_verifier_gets_no_field_strand() {
         },
     )]);
 
-    let readout = tap_readout(&[tap_record(
+    let readout = tap_readout(&[common::tap_record(
         TAP_RECORD_VERSION,
         TapEvent::SkillInvoked,
         "skill-a",
@@ -1631,12 +1617,12 @@ fn a_requirement_telemetry_field_strand_shows_event_counts_per_satisfier() {
     )]);
 
     let readout = tap_readout(&[
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-a"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-b"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-b"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-a"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-b"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-b"),
     ]);
 
     let out = explain_over_log(
@@ -1684,8 +1670,8 @@ fn a_requirement_telemetry_field_strand_names_zero_hit_satisfiers() {
     )]);
 
     let readout = tap_readout(&[
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
     ]);
 
     let out = explain_over_log(
@@ -1776,8 +1762,8 @@ fn an_unfilled_telemetry_requirement_narrates_records_against_the_declared_membe
     )]);
 
     let readout = tap_readout(&[
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
-        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
     ]);
 
     let out = explain_over_log(
@@ -1824,7 +1810,7 @@ fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id()
     let roster: BTreeMap<String, Requirement> = BTreeMap::new();
 
     // TapRecord with the repo-relative path as identity.
-    let readout = tap_readout(&[tap_record(
+    let readout = tap_readout(&[common::tap_record(
         TAP_RECORD_VERSION,
         TapEvent::InstructionsLoaded,
         ".claude/subdir/CLAUDE.md",

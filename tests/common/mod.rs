@@ -22,6 +22,7 @@ use temper::drift::{
 use temper::extract::Features;
 use temper::frontmatter::Member;
 use temper::kind::Unit;
+use temper::tap::{TapEvent, TapRecord};
 
 /// The fixed prefix every test binary's per-run fixture parent is named under, so
 /// a sweep of all fixture debris this suite ever wrote is one `rm -rf
@@ -559,6 +560,25 @@ pub fn features(id: &str) -> Features {
         nested_members: Vec::new(),
         satisfies: Vec::new(),
         edge_placements: None,
+    }
+}
+
+/// A tap record naming `identity` under `event`, written at `version` — a `version` below
+/// `TAP_RECORD_VERSION` exercises the reader's older-version toleration. The base every
+/// tap fixture starts from, so a test spells only the columns it varies via struct update:
+/// `TapRecord { session: "a".to_string(), ..common::tap_record(..) }`.
+///
+/// `ts` is empty: `tap::append` stamps it unconditionally, so only a record serialized
+/// without going through the writer ever reads the value this base gives it.
+pub fn tap_record(version: u32, event: TapEvent, identity: &str) -> TapRecord {
+    TapRecord {
+        version,
+        session: "sess".to_string(),
+        event,
+        identity: identity.to_string(),
+        ts: String::new(),
+        reason: None,
+        raw_path: None,
     }
 }
 

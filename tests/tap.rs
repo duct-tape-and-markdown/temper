@@ -133,15 +133,7 @@ fn a_record_round_trips_through_append_and_read() {
     let workspace = root.join(".temper");
     std::fs::create_dir_all(&workspace).unwrap();
 
-    let record = TapRecord {
-        version: TAP_RECORD_VERSION,
-        session: "sess".to_string(),
-        event: TapEvent::SkillInvoked,
-        identity: "verify".to_string(),
-        ts: String::new(),
-        reason: None,
-        raw_path: None,
-    };
+    let record = common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "verify");
     tap::append(&workspace, &record).unwrap();
 
     let readout = tap::read_log(&workspace).unwrap();
@@ -169,13 +161,13 @@ fn an_instructions_loaded_identity_relativizes_against_the_checkout_root() {
 
     let absolute = root.join(".claude").join("rules").join("rust.md");
     let record = TapRecord {
-        version: TAP_RECORD_VERSION,
-        session: "sess".to_string(),
-        event: TapEvent::InstructionsLoaded,
-        identity: absolute.to_string_lossy().into_owned(),
-        ts: String::new(),
         reason: Some("session_start".to_string()),
         raw_path: Some(absolute.to_string_lossy().into_owned()),
+        ..common::tap_record(
+            TAP_RECORD_VERSION,
+            TapEvent::InstructionsLoaded,
+            &absolute.to_string_lossy(),
+        )
     };
     tap::append(&workspace, &record).unwrap();
 
@@ -202,13 +194,8 @@ fn two_appends_interleave_as_two_lines_without_rewriting() {
     std::fs::create_dir_all(&workspace).unwrap();
 
     let first = TapRecord {
-        version: TAP_RECORD_VERSION,
         session: "a".to_string(),
-        event: TapEvent::ToolUse,
-        identity: "Read".to_string(),
-        ts: String::new(),
-        reason: None,
-        raw_path: None,
+        ..common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "Read")
     };
     let second = TapRecord {
         session: "b".to_string(),
@@ -241,13 +228,8 @@ fn an_older_version_record_reads_tolerated_and_counted() {
     std::fs::create_dir_all(&workspace).unwrap();
 
     let current = TapRecord {
-        version: TAP_RECORD_VERSION,
         session: "now".to_string(),
-        event: TapEvent::ToolUse,
-        identity: "Read".to_string(),
-        ts: String::new(),
-        reason: None,
-        raw_path: None,
+        ..common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "Read")
     };
     // A line an older tap wrote: version 0, otherwise the current schema.
     let older = "{\"version\":0,\"session\":\"then\",\"event\":\"tool_use\",\"identity\":\"Grep\"}";
@@ -307,15 +289,7 @@ fn log_path_resolves_linked_worktree_to_primary_checkout() {
     // Now append a record using the worktree's workspace and verify it lands in the
     // primary checkout's .temper/tap.jsonl.
     let worktree_workspace = worktree.join(".temper");
-    let record = TapRecord {
-        version: TAP_RECORD_VERSION,
-        session: "test-session".to_string(),
-        event: TapEvent::ToolUse,
-        identity: "TestTool".to_string(),
-        ts: String::new(),
-        reason: None,
-        raw_path: None,
-    };
+    let record = common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "TestTool");
     tap::append(&worktree_workspace, &record).unwrap();
 
     // The record should be in the primary checkout's log, not the worktree's.
@@ -352,15 +326,7 @@ fn log_path_unchanged_for_primary_checkout_with_git_directory() {
     std::fs::create_dir_all(&primary_git).unwrap();
 
     let workspace = primary.join(".temper");
-    let record = TapRecord {
-        version: TAP_RECORD_VERSION,
-        session: "test-session".to_string(),
-        event: TapEvent::ToolUse,
-        identity: "Tool".to_string(),
-        ts: String::new(),
-        reason: None,
-        raw_path: None,
-    };
+    let record = common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "Tool");
     tap::append(&workspace, &record).unwrap();
 
     let log = workspace.join("tap.jsonl");
@@ -377,15 +343,7 @@ fn log_path_unchanged_for_non_git_directory() {
     let root = common::tmpdir("tap-non-git");
     let workspace = root.join(".temper");
 
-    let record = TapRecord {
-        version: TAP_RECORD_VERSION,
-        session: "test-session".to_string(),
-        event: TapEvent::ToolUse,
-        identity: "Tool".to_string(),
-        ts: String::new(),
-        reason: None,
-        raw_path: None,
-    };
+    let record = common::tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "Tool");
     tap::append(&workspace, &record).unwrap();
 
     let log = workspace.join("tap.jsonl");
