@@ -36,6 +36,19 @@ const exhaustiveLiterals = (name, where) => where.filter((f) => {
   }
   return false;
 });
+// A lock row type's TypeScript half: a TS object literal never names its type,
+// so a file is an exhaustive spelling when it names at least 80% of the fields
+// the generated binding (sdk/src/generated/<Name>.ts) declares.
+const tsFullSpellings = (name) => {
+  let src;
+  try { src = readFileSync(`sdk/src/generated/${name}.ts`, "utf8"); } catch { return []; }
+  const code = src.split("\n").filter((l) => !/^\s*(\*|\/\*\*|\/\/)/.test(l)).join("\n");
+  const body = code.split("= {")[1] ?? "";
+  const fields = [...new Set([...body.matchAll(/(?:^|[,{]\s*)([a-z_][a-z0-9_]*)\??\s*:/gm)].map((m) => m[1]))];
+  if (fields.length < 4) return [];
+  return [...text].filter(([f, t]) => f.endsWith(".ts") && !f.includes("/generated/") &&
+    fields.filter((x) => new RegExp(`\\b${x}\\s*:`).test(t)).length >= 0.8 * fields.length).map(([f]) => f);
+};
 const STOP = new Set(["src", "tests", "sdk", "true", "false", "None", "Some", "Ok", "Err", "String", "Vec", "Option", "Result", "self", "Self", "kind", "name", "path", "field", "key", "host", "check", "emit", "guard", "explain", "install", "temper", "rust", "tsc", "cargo", "insta"]);
 let out = "";
 for (const e of entries) {
@@ -57,6 +70,7 @@ for (const e of entries) {
       // `..` spread), which stay few, so report those instead of dropping it.
       if (/^[A-Z][a-z]/.test(id)) {
         for (const f of exhaustiveLiterals(id, where)) if (!declared.has(f)) hits.set(f, [...(hits.get(f) ?? []), `${id} {…} (exhaustive literal)`]);
+        for (const f of tsFullSpellings(id)) if (!declared.has(f)) hits.set(f, [...(hits.get(f) ?? []), `${id} (spells its fields)`]);
       }
       continue;
     }
