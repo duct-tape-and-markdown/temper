@@ -10,19 +10,19 @@
       "edit": [
         {
           "path": "sdk/src/assembly.ts",
-          "description": "`Harness` gains `contract: readonly Clause[]` beside `expect`/`require`/`mode` (:44-:62) and `harness()` (:71) defaults it to a new exported `rootDefaultContract` \u2014 `init.contract ?? rootDefaultContract`, the one place \"a shipped root default applies when the author declares none\" is spelled. `rootDefaultContract` homes here beside the root member's other fields (the `dialDefaultContract`-in-`dial.ts` precedent: a default contract lives with the surface it governs) and binds `reachable` at advisory, each clause carrying its own guidance and cite."
+          "description": "`Harness` gains `contract: readonly Clause[]` beside `expect`/`require`/`mode` (:44-:62) and `harness()` (:71) defaults it to a new exported `rootDefaultContract` — `init.contract ?? rootDefaultContract`, the one place \"a shipped root default applies when the author declares none\" is spelled. `rootDefaultContract` homes here beside the root member's other fields (the `dialDefaultContract`-in-`dial.ts` precedent: a default contract lives with the surface it governs) and binds `reachable` at advisory, each clause carrying its own guidance and cite."
         },
         {
           "path": "sdk/src/contract.ts",
-          "description": "The `reachable()` clause constructor beside `mentionReachable` (:218): no field argument, severity and guidance/cite as every clause carries them. Its doc states the grain \u2014 each-grain over the root selection, judged by the graph, not by a member's fields."
+          "description": "The `reachable()` clause constructor beside `mentionReachable` (:218): no field argument, severity and guidance/cite as every clause carries them. Its doc states the grain — each-grain over the root selection, judged by the graph, not by a member's fields."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "`compileDeclarations`' clause lowering (:1006-:1014) gains a third source beside `expect`'s kind-keyed rows and a requirement's nested ones: `harness.contract` lowers to top-level rows with **no** `kind` column, the discriminator `compose::root_contract_from_rows` reads. Row order stays deterministic \u2014 root rows in declaration order, emitted at a fixed position relative to the kind-sorted `expect` rows."
+          "description": "`compileDeclarations`' clause lowering (:1006-:1014) gains a third source beside `expect`'s kind-keyed rows and a requirement's nested ones: `harness.contract` lowers to top-level rows with **no** `kind` column, the discriminator `compose::root_contract_from_rows` reads. Row order stays deterministic — root rows in declaration order, emitted at a fixed position relative to the kind-sorted `expect` rows."
         },
         {
           "path": "sdk/src/index.ts",
-          "description": "Export `rootDefaultContract` and the `reachable` constructor from the root \u2014 adoption is the import, so an unexported default ships nowhere."
+          "description": "Export `rootDefaultContract` and the `reachable` constructor from the root — adoption is the import, so an unexported default ships nowhere."
         },
         {
           "path": "sdk/test/contract.test.ts",
@@ -38,7 +38,7 @@
         },
         {
           "path": "tests/builtin_lock_frozen.rs",
-          "description": "The byte-compare lane: `MEMBERLESS_BUILTIN_PROGRAM` (:28) needs no edit if `harness()` defaults the contract, which is exactly the claim to pin \u2014 add the assertion that the derived lock carries the root rows, and update the module doc (:1-:13) to say the memberless harness now contributes a root contract as well as kind facts and their defaults."
+          "description": "The byte-compare lane: `MEMBERLESS_BUILTIN_PROGRAM` (:28) needs no edit if `harness()` defaults the contract, which is exactly the claim to pin — add the assertion that the derived lock carries the root rows, and update the module doc (:1-:13) to say the memberless harness now contributes a root contract as well as kind facts and their defaults."
         },
         {
           "path": "tests/emit.rs",
@@ -46,7 +46,7 @@
         },
         {
           "path": "examples/base-harness/.temper/lock.toml",
-          "description": "The committed example lock, re-emitted so it carries the root rows \u2014 the example is an adopter's-eye artifact and a lock that predates the default would teach the wrong shape."
+          "description": "The committed example lock, re-emitted so it carries the root rows — the example is an adopter's-eye artifact and a lock that predates the default would teach the wrong shape."
         },
         {
           "path": "tests/acceptance.rs",
@@ -66,7 +66,7 @@
         },
         {
           "path": "src/gate.rs",
-          "description": "The root contract reaches no admissibility pass. `engine::admissibility(&contract, locus)` runs per kind (:43); the root selection is composed at :509 with no such call, so a member-grain clause in a root contract goes unjudged rather than refused. This entry is what first emits root rows, so it is where that refusal earns its consumer (the shipping commit 4b1508eb assigns it here by name). The root owns no `Locus` \u2014 its selection is the whole forest \u2014 so the call needs whichever locus value states that, or a root-scoped vacuity rule of its own."
+          "description": "The root contract reaches no admissibility pass. `engine::admissibility(&contract, locus)` runs per kind (:43); the root selection is composed at :509 with no such call, so a member-grain clause in a root contract goes unjudged rather than refused. This entry is what first emits root rows, so it is where that refusal earns its consumer (the shipping commit 4b1508eb assigns it here by name). The root owns no `Locus` — its selection is the whole forest — so the call needs whichever locus value states that, or a root-scoped vacuity rule of its own."
         },
         {
           "path": "src/engine.rs",
@@ -74,7 +74,7 @@
         },
         {
           "path": "tests/root_contract.rs",
-          "description": "The scope's existing suite (shipped at 4b1508eb) gains the two halves this entry adds: the emitted default's rows lift back into the root contract, and a member-grain clause in a root contract is refused at load while `reachable` \u2014 which names no field \u2014 is admitted."
+          "description": "The scope's existing suite (shipped at 4b1508eb) gains the two halves this entry adds: the emitted default's rows lift back into the root contract, and a member-grain clause in a root contract is refused at load while `reachable` — which names no field — is admitted."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
@@ -120,23 +120,23 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "`Predicate::ReachedFrom { roots, via }` joins the closed enum (:186). `roots` is a requirement name \u2014 the closure's roots are its satisfiers, named exactly as `Membership`'s `target` names its source set (:372), so it rides the `target` column and no second naming scheme appears. `via` is the field set DEGREE-FIELD-SET-FILTER landed on the shared `fields` column, which `Degree` (:382) already documents as `reached-from`'s too. `key()` (:696) answers `reached-from`; `ranges_over_selection` (:745) is true beside `degree`; `target()` (:764) and `documented_field()` (:812) are `None` (it names no one field \u2014 the `mention-reachable` precedent) and `declared_keys` (:865) skips it; `predicate_from_row` (:514) decodes the `target` + `fields` columns and never the `field` one, which carries only the synthesized label segment."
+          "description": "`Predicate::ReachedFrom { roots, via }` joins the closed enum (:186). `roots` is a requirement name — the closure's roots are its satisfiers, named exactly as `Membership`'s `target` names its source set (:372), so it rides the `target` column and no second naming scheme appears. `via` is the field set DEGREE-FIELD-SET-FILTER landed on the shared `fields` column, which `Degree` (:382) already documents as `reached-from`'s too. `key()` (:696) answers `reached-from`; `ranges_over_selection` (:745) is true beside `degree`; `target()` (:764) and `documented_field()` (:812) are `None` (it names no one field — the `mention-reachable` precedent) and `declared_keys` (:865) skips it; `predicate_from_row` (:514) decodes the `target` + `fields` columns and never the `field` one, which carries only the synthesized label segment."
         },
         {
           "path": "src/engine.rs",
-          "description": "The set-predicate arms the variant rides: `judge` (:657) leaves it to the graph exactly as `degree` is left (:704), and the per-member arms at :301/:357/:405/:1354 list it with the other selection predicates. `inadmissibilities` (:177, `Degree`'s own vacuity cases at :502) gains its two, both by standing precedent: an empty `roots` names no requirement to root from (`membership`'s rule verbatim), and an empty `via` follows no field \u2014 the closure would be the root set, so every non-root member fires, the false positive a directionless `degree` is already refused for."
+          "description": "The set-predicate arms the variant rides: `judge` (:657) leaves it to the graph exactly as `degree` is left (:704), and the per-member arms at :301/:357/:405/:1354 list it with the other selection predicates. `inadmissibilities` (:177, `Degree`'s own vacuity cases at :502) gains its two, both by standing precedent: an empty `roots` names no requirement to root from (`membership`'s rule verbatim), and an empty `via` follows no field — the closure would be the root set, so every non-root member fires, the false positive a directionless `degree` is already refused for."
         },
         {
           "path": "src/graph.rs",
-          "description": "New `reached_from` beside `degree` (:417), taking the same `(&[Selection], &[ResolvedEdge], &[ResolvedEdge], &BTreeMap<&str, &[Features]>)`. Opt-in through `any_clause_of` (:315), so a corpus declaring no such clause does no closure work. Per clause: the roots are the members of the `Selector::OptIn(roots)` selection \u2014 read off the same `selections` slice `engine::out_of_set` reads for `membership`, not a second satisfier walk \u2014 then a forward BFS over the via-filtered adjacency, reusing the per-clause field filter DEGREE-FIELD-SET-FILTER factored out rather than re-filtering. A visited set makes the closure well-defined over cycles; a root holds trivially by construction. One diagnostic per selected member outside the closure, at the clause's own severity and carrying its guidance (`degree` :608 is the shape), naming the roots requirement and the via set."
+          "description": "New `reached_from` beside `degree` (:417), taking the same `(&[Selection], &[ResolvedEdge], &[ResolvedEdge], &BTreeMap<&str, &[Features]>)`. Opt-in through `any_clause_of` (:315), so a corpus declaring no such clause does no closure work. Per clause: the roots are the members of the `Selector::OptIn(roots)` selection — read off the same `selections` slice `engine::out_of_set` reads for `membership`, not a second satisfier walk — then a forward BFS over the via-filtered adjacency, reusing the per-clause field filter DEGREE-FIELD-SET-FILTER factored out rather than re-filtering. A visited set makes the closure well-defined over cycles; a root holds trivially by construction. One diagnostic per selected member outside the closure, at the clause's own severity and carrying its guidance (`degree` :608 is the shape), naming the roots requirement and the via set."
         },
         {
           "path": "src/gate.rs",
-          "description": "Wire `graph::reached_from` after the `degree` call (:593), reading the hoisted `resolved_edges` (:575) and `mention_edges` the two graph judges around it already share, plus the one `selections` list that holds the opt-in, by-kind and root bindings (:505-:517) \u2014 the roots resolve off it, so no new corpus walk enters the gate."
+          "description": "Wire `graph::reached_from` after the `degree` call (:593), reading the hoisted `resolved_edges` (:575) and `mention_edges` the two graph judges around it already share, plus the one `selections` list that holds the opt-in, by-kind and root bindings (:505-:517) — the roots resolve off it, so no new corpus walk enters the gate."
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow::target`'s doc (:3800) widens to two owners \u2014 `membership`'s allowed-set source and `reached-from`'s roots requirement \u2014 and `to_table` (:4766) / `from_table` (:4843) write and read it for either predicate. The via set needs no column of its own: it is the `fields` column (:3813) DEGREE-FIELD-SET-FILTER added, whose doc already names this predicate as its second consumer. Riding this file's opening: `EmitOwnedEntry::path`'s doc (:3451) still points at `install::matches_projection`, renamed `matched_projection` at 60775513 (`install.rs:992`)."
+          "description": "`ClauseRow::target`'s doc (:3800) widens to two owners — `membership`'s allowed-set source and `reached-from`'s roots requirement — and `to_table` (:4766) / `from_table` (:4843) write and read it for either predicate. The via set needs no column of its own: it is the `fields` column (:3813) DEGREE-FIELD-SET-FILTER added, whose doc already names this predicate as its second consumer. Riding this file's opening: `EmitOwnedEntry::path`'s doc (:3451) still points at `install::matches_projection`, renamed `matched_projection` at 60775513 (`install.rs:992`)."
         },
         {
           "path": "src/schema.rs",
@@ -152,15 +152,15 @@
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "The declaration round trip: a `reached-from` row survives write\u2192read with its `target` and `fields` columns intact, and lifts back into the same predicate."
+          "description": "The declaration round trip: a `reached-from` row survives write→read with its `target` and `fields` columns intact, and lifts back into the same predicate."
         },
         {
           "path": "tests/manifest_schema_oracle.rs",
-          "description": "`covered_rule`'s exhaustive `Predicate` match (:165-:188) \u2014 a new variant is a compile error until it joins the schema-silent arm, which is the correct verdict: a graph-scope predicate measures no manifest rule."
+          "description": "`covered_rule`'s exhaustive `Predicate` match (:165-:188) — a new variant is a compile error until it joins the schema-silent arm, which is the correct verdict: a graph-scope predicate measures no manifest rule."
         },
         {
           "path": "tests/check_cost.rs",
-          "description": "`gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (:433) enumerates the hoisted walk's consumers; `reached_from` joins that list, and the opt-in claim is pinned the way `degree`'s is \u2014 no closure runs when no clause declares one."
+          "description": "`gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (:433) enumerates the hoisted walk's consumers; `reached_from` joins that list, and the opt-in claim is pinned the way `degree`'s is — no closure runs when no clause declares one."
         }
       ],
       "retire": []
@@ -184,7 +184,7 @@
         "asserts": "the closure runs once per gate invocation and not at all when no clause declares it"
       }
     ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green, with `src/builtin_lock.toml` byte-unchanged \u2014 0056 ships the predicate in no default contract. Oracle: a corpus whose requirement `entrypoint` has one satisfier `a`, with `a` routing to `b` and `b` to `c` while `d` links to nothing \u2014 a `reached-from` clause over the kind, rooted at `entrypoint` via `routes_to`, fires on `d` alone, where a one-hop `degree` floor fires on `d` and `a` both; adding a `b`\u2194`c` cycle leaves that verdict unchanged.",
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green, with `src/builtin_lock.toml` byte-unchanged — 0056 ships the predicate in no default contract. Oracle: a corpus whose requirement `entrypoint` has one satisfier `a`, with `a` routing to `b` and `b` to `c` while `d` links to nothing — a `reached-from` clause over the kind, rooted at `entrypoint` via `routes_to`, fires on `d` alone, where a one-hop `degree` floor fires on `d` and `a` both; adding a `b`↔`c` cycle leaves that verdict unchanged.",
     "notes": "0056's Consequences name three parts: the predicate, its judge beside `degree`, and the SDK constructor (SDK-REACHED-FROM-CONSTRUCTOR). Roots are named as `membership` names its target; `via` is 0052's field set, shipped at b1b63ddc with this predicate named in its doc. Distinct from `reachable` (4b1508eb), which is world/registration-rooted over the whole forest: this one is author-rooted at a requirement's satisfiers over a chosen field set. Its serialization parent shipped. scoped at db387262"
   },
   {
@@ -198,7 +198,7 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "`reachable` (:1006) takes `severity: Severity` and its `unreachable` constructor (:1274) builds a bare `Diagnostic` \u2014 the one graph judge whose finding carries no guidance. Both siblings take `&[Selection]`, locate their own clause through `any_clause_of` (:315) and end `.with_guidance(clause.guidance.clone())` (`degree` :608, `mention_reachable` :970). Take the clause here the same way, so severity and guidance arrive through one channel instead of one threaded and the other dropped. The doc at :999 states `severity` as the clause's declaration and states nothing about guidance."
+          "description": "`reachable` (:1006) takes `severity: Severity` and its `unreachable` constructor (:1274) builds a bare `Diagnostic` — the one graph judge whose finding carries no guidance. Both siblings take `&[Selection]`, locate their own clause through `any_clause_of` (:315) and end `.with_guidance(clause.guidance.clone())` (`degree` :608, `mention_reachable` :970). Take the clause here the same way, so severity and guidance arrive through one channel instead of one threaded and the other dropped. The doc at :999 states `severity` as the clause's declaration and states nothing about guidance."
         },
         {
           "path": "src/gate.rs",
@@ -210,7 +210,7 @@
         },
         {
           "path": "tests/installed_plugin_kind.rs",
-          "description": ":192 calls `temper::graph::reachable` directly \u2014 the caller 4b1508eb named as the reason it left the signature alone."
+          "description": ":192 calls `temper::graph::reachable` directly — the caller 4b1508eb named as the reason it left the signature alone."
         },
         {
           "path": "tests/known_marketplace_kind.rs",
@@ -246,8 +246,8 @@
         "asserts": "the judge attaches the clause's guidance to every unreachable diagnostic and stays silent with no clause"
       }
     ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green, with `src/builtin_lock.toml` byte-unchanged \u2014 no row moves. Oracle: a root contract whose `reachable` clause carries guidance produces a finding rendering that guidance, where 0.0.18 renders the message alone.",
-    "notes": "4b1508eb's first named deviation, verified at db387262: the gate finds the clause (:608) and drops every channel but severity. `contract.md` (\"clause\") makes guidance the channel the gate teaches through at the moment of failure, and the two sibling judges already honor it \u2014 this is the third. Shares `graph.rs`/`gate.rs` with REACHED-FROM-PREDICATE-AND-JUDGE and ships first: it settles the judge signature that entry's new judge copies. scoped at db387262"
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green, with `src/builtin_lock.toml` byte-unchanged — no row moves. Oracle: a root contract whose `reachable` clause carries guidance produces a finding rendering that guidance, where 0.0.18 renders the message alone.",
+    "notes": "4b1508eb's first named deviation, verified at db387262: the gate finds the clause (:608) and drops every channel but severity. `contract.md` (\"clause\") makes guidance the channel the gate teaches through at the moment of failure, and the two sibling judges already honor it — this is the third. Shares `graph.rs`/`gate.rs` with REACHED-FROM-PREDICATE-AND-JUDGE and ships first: it settles the judge signature that entry's new judge copies. scoped at db387262"
   },
   {
     "tag": "SDK-REACHED-FROM-CONSTRUCTOR",
@@ -264,15 +264,15 @@
       "edit": [
         {
           "path": "sdk/src/contract.ts",
-          "description": "`reachedFrom(roots, via)` beside `membership` (:247) and `degree` (:253), lowering to `{ key: \"reached-from\", target: roots, fields: [...via] }` \u2014 reusing the `target` slot `membership` documents (:46) and the `fields` slot `degree()` gains, never a third naming scheme. Its doc states the grain (each over the selection, judged by the graph), that a root holds trivially, and that it belongs in no default contract: a clause demanding every member be reached is the declaration-density demand invariant 1 forbids unless the author declares it."
+          "description": "`reachedFrom(roots, via)` beside `membership` (:247) and `degree` (:253), lowering to `{ key: \"reached-from\", target: roots, fields: [...via] }` — reusing the `target` slot `membership` documents (:46) and the `fields` slot `degree()` gains, never a third naming scheme. Its doc states the grain (each over the selection, judged by the graph), that a root holds trivially, and that it belongs in no default contract: a clause demanding every member be reached is the declaration-density demand invariant 1 forbids unless the author declares it."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "`clauseRow` writes `target` for `reached-from` as well as `membership` (:115) and the `fields` column for it as well as `degree`. `clauseField` (:160) synthesizes this predicate's label segment from the roots name \u2014 the `section_contains` precedent \u2014 so two `reached-from` clauses on one kind carry distinct addresses instead of folding into one label, which admissibility refuses as a malformed lock; the Rust reader reconstructs from `target` and never from the synthesized text."
+          "description": "`clauseRow` writes `target` for `reached-from` as well as `membership` (:115) and the `fields` column for it as well as `degree`. `clauseField` (:160) synthesizes this predicate's label segment from the roots name — the `section_contains` precedent — so two `reached-from` clauses on one kind carry distinct addresses instead of folding into one label, which admissibility refuses as a malformed lock; the Rust reader reconstructs from `target` and never from the synthesized text."
         },
         {
           "path": "sdk/src/index.ts",
-          "description": "Export the constructor from the root beside the other clause constructors \u2014 adoption is the import, so an unexported predicate ships nowhere."
+          "description": "Export the constructor from the root beside the other clause constructors — adoption is the import, so an unexported predicate ships nowhere."
         },
         {
           "path": "sdk/test/contract.test.ts",
@@ -280,7 +280,7 @@
         },
         {
           "path": "sdk/test/emit.test.ts",
-          "description": "The lowering: a `reached-from` clause on a kind's `expect` emits one row carrying `predicate`, `target`, `fields`, and a label whose trailing segment is the roots name \u2014 two such clauses on one kind emit two distinct labels."
+          "description": "The lowering: a `reached-from` clause on a kind's `expect` emits one row carrying `predicate`, `target`, `fields`, and a label whose trailing segment is the roots name — two such clauses on one kind emit two distinct labels."
         }
       ],
       "retire": []
@@ -300,8 +300,8 @@
         "asserts": "the clause lowers to a `reached-from` row with `target`, `fields`, and a roots-suffixed label; two clauses on one kind do not collide on one label"
       }
     ],
-    "acceptance": "`pnpm --dir sdk test` (strict `tsc` + `node --test`) and `cargo test` green \u2014 the SDK-derived memberless lock still byte-matches `src/builtin_lock.toml`, since no default contract names the predicate. Oracle: a program declaring `reachedFrom(\"entrypoint\", [\"routes_to\"])` at advisory emits a row `temper check` decodes and judges, where 0.0.18 has no spelling for it at all.",
-    "notes": "0056's Consequences' third part. Split from the predicate entry because the SDK half is the authoring surface and the Rust half is the vocabulary \u2014 the lock has to decode the row before the constructor can write one. Serialized behind ROOT-DEFAULT-CONTRACT-SHIPS: same seam (the clause-constructor surface plus `clauseRow`'s lowering) and the same four files. scoped at 3643f835"
+    "acceptance": "`pnpm --dir sdk test` (strict `tsc` + `node --test`) and `cargo test` green — the SDK-derived memberless lock still byte-matches `src/builtin_lock.toml`, since no default contract names the predicate. Oracle: a program declaring `reachedFrom(\"entrypoint\", [\"routes_to\"])` at advisory emits a row `temper check` decodes and judges, where 0.0.18 has no spelling for it at all.",
+    "notes": "0056's Consequences' third part. Split from the predicate entry because the SDK half is the authoring surface and the Rust half is the vocabulary — the lock has to decode the row before the constructor can write one. Serialized behind ROOT-DEFAULT-CONTRACT-SHIPS: same seam (the clause-constructor surface plus `clauseRow`'s lowering) and the same four files. scoped at 3643f835"
   },
   {
     "tag": "FRESH-CLAUSE-JUDGES-STALENESS",
@@ -317,7 +317,7 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "`Predicate::Fresh` joins the closed vocabulary (enum :132, parse arm :538, key arm :638) \u2014 argument-free like `reachable`: its subject is every lock row a member owns, projection fingerprint and each fingerprinted source dependency."
+          "description": "`Predicate::Fresh` joins the closed vocabulary (enum :132, parse arm :538, key arm :638) — argument-free like `reachable`: its subject is every lock row a member owns, projection fingerprint and each fingerprinted source dependency."
         },
         {
           "path": "src/engine.rs",
@@ -325,7 +325,7 @@
         },
         {
           "path": "src/schema.rs",
-          "description": "The keystroke-schema skip arm (:119-:123) gains `Fresh` \u2014 a lock-vs-disk predicate types no document field."
+          "description": "The keystroke-schema skip arm (:119-:123) gains `Fresh` — a lock-vs-disk predicate types no document field."
         },
         {
           "path": "src/drift.rs",
@@ -333,7 +333,7 @@
         },
         {
           "path": "src/gate.rs",
-          "description": "The three call sites (:650, :667-:679) pass the root contract's `fresh` clause, and are skipped when none binds \u2014 the same opt-in shape `degree`/`reachable` take. The comments at :646-:649 and :665-:668 stop asserting an advisory posture the clause now declares."
+          "description": "The three call sites (:650, :667-:679) pass the root contract's `fresh` clause, and are skipped when none binds — the same opt-in shape `degree`/`reachable` take. The comments at :646-:649 and :665-:668 stop asserting an advisory posture the clause now declares."
         },
         {
           "path": "sdk/src/contract.ts",
@@ -341,7 +341,7 @@
         },
         {
           "path": "sdk/src/assembly.ts",
-          "description": "`rootDefaultContract` gains `fresh` at advisory \u2014 today's posture, so no adopter turns red on the upgrade."
+          "description": "`rootDefaultContract` gains `fresh` at advisory — today's posture, so no adopter turns red on the upgrade."
         },
         {
           "path": "sdk/src/index.ts",
@@ -357,7 +357,7 @@
         },
         {
           "path": "CHANGELOG.md",
-          "description": "The rule-id note 0054's Consequences names: `config.stale`, `prose.include-stale` and `layout.import-stale` now report under the `fresh` clause's label, so a dial entry or a CI filter keyed to the old ids is restated \u2014 the ids are a published surface, and a silent rename is the drift class temper exists to refuse."
+          "description": "The rule-id note 0054's Consequences names: `config.stale`, `prose.include-stale` and `layout.import-stale` now report under the `fresh` clause's label, so a dial entry or a CI filter keyed to the old ids is restated — the ids are a published surface, and a silent rename is the drift class temper exists to refuse."
         },
         {
           "path": "sdk/test/contract.test.ts",
@@ -369,7 +369,7 @@
         },
         {
           "path": "tests/acceptance.rs",
-          "description": "The dialed-clause case, in the suite that already drives the built binary with a dial and `--deny-advisories` (:14-:19): a `.temper/dial.toml` naming the `fresh` label at required turns a drifted projection into a blocking finding, and the same corpus undialed stays advisory. The existing fixture snapshots are unaffected \u2014 the case builds its own corpus."
+          "description": "The dialed-clause case, in the suite that already drives the built binary with a dial and `--deny-advisories` (:14-:19): a `.temper/dial.toml` naming the `fresh` label at required turns a drifted projection into a blocking finding, and the same corpus undialed stays advisory. The existing fixture snapshots are unaffected — the case builds its own corpus."
         },
         {
           "path": "tests/layout_prose_import.rs",
@@ -377,11 +377,11 @@
         },
         {
           "path": "tests/check_cost.rs",
-          "description": "Fourteen call sites over the staleness judges \u2014 each now threads the clause; the cost pins over the walks stand, with the no-clause case doing no walk at all."
+          "description": "Fourteen call sites over the staleness judges — each now threads the clause; the cost pins over the walks stand, with the no-clause case doing no walk at all."
         },
         {
           "path": "tests/install.rs",
-          "description": "Seven `config_stale` sites in the install/guard suites \u2014 the guard's own enforcement mode is untouched, so these pin that the clause governs `check`'s finding and not the guard's verdict."
+          "description": "Seven `config_stale` sites in the install/guard suites — the guard's own enforcement mode is untouched, so these pin that the clause governs `check`'s finding and not the guard's verdict."
         },
         {
           "path": "tests/emit.rs",
@@ -398,7 +398,7 @@
       ],
       "retire": []
     },
-    "summary": "The three staleness findings are fixed `warn` pushes, so no placement can make a drifted content pin fail CI \u2014 the field report on 0.0.18.",
+    "summary": "The three staleness findings are fixed `warn` pushes, so no placement can make a drifted content pin fail CI — the field report on 0.0.18.",
     "per": {
       "path": "specs/model/pipeline.md",
       "section": "Drift"
@@ -434,7 +434,7 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "`Predicate::LocusDeclared` joins the closed vocabulary (enum :132, parse arm :538 under the key `locus-declared`, key arm :638) \u2014 argument-free: its subject is every document discovery finds at a governed locus."
+          "description": "`Predicate::LocusDeclared` joins the closed vocabulary (enum :132, parse arm :538 under the key `locus-declared`, key arm :638) — argument-free: its subject is every document discovery finds at a governed locus."
         },
         {
           "path": "src/engine.rs",
@@ -446,7 +446,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "`undeclared_locus_members_from_doc` (:2879) and `undeclared_layout_members_from_doc` (:2801) take the clause's severity and label instead of the baked `warn` and the two rule ids; their docs' advisory-posture claims (:2810, :2897) retire. The `represented` guard \u2014 the question is the lock's presence, not its contents \u2014 is unchanged."
+          "description": "`undeclared_locus_members_from_doc` (:2879) and `undeclared_layout_members_from_doc` (:2801) take the clause's severity and label instead of the baked `warn` and the two rule ids; their docs' advisory-posture claims (:2810, :2897) retire. The `represented` guard — the question is the lock's presence, not its contents — is unchanged."
         },
         {
           "path": "src/gate.rs",
@@ -462,7 +462,7 @@
         },
         {
           "path": "sdk/src/assembly.ts",
-          "description": "`rootDefaultContract` gains `locus-declared` at advisory \u2014 the third and last of 0054's clauses, completing today's drift posture."
+          "description": "`rootDefaultContract` gains `locus-declared` at advisory — the third and last of 0054's clauses, completing today's drift posture."
         },
         {
           "path": "sdk/src/index.ts",
@@ -490,7 +490,7 @@
         },
         {
           "path": "tests/coverage_note.rs",
-          "description": "Four `locus.undeclared-member` sites \u2014 the note's counts stand; the finding's id and severity come from the clause."
+          "description": "Four `locus.undeclared-member` sites — the note's counts stand; the finding's id and severity come from the clause."
         },
         {
           "path": "tests/acceptance.rs",
@@ -498,7 +498,7 @@
         },
         {
           "path": "tests/install.rs",
-          "description": "The install suite's undeclared-member assertion \u2014 the guard's boundary half (`src/install.rs:188`) is untouched."
+          "description": "The install suite's undeclared-member assertion — the guard's boundary half (`src/install.rs:188`) is untouched."
         },
         {
           "path": "tests/json_document_format.rs",
@@ -531,7 +531,7 @@
     "tests": [
       {
         "path": "tests/acceptance.rs",
-        "asserts": "a dial entry naming the `locus-declared` label at required turns an undeclared document at a governed locus \u2014 file locus and layout alike \u2014 into a blocking finding, while `fresh` stays advisory"
+        "asserts": "a dial entry naming the `locus-declared` label at required turns an undeclared document at a governed locus — file locus and layout alike — into a blocking finding, while `fresh` stays advisory"
       },
       {
         "path": "tests/coverage_note.rs",
@@ -568,11 +568,11 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "New `InputRow { member, source_path }` beside `IncludeRow` (:3996) \u2014 its own type, not a reuse: an include's path pairs positionally with a body slot and an input's moves nothing, two concepts that happen to share two columns (`engineering.md`, \"A shared concept is one type\"). `Declarations` (:3510) gains `#[serde(default)] pub inputs: Vec<InputRow>`. Emit resolves each row through `resolve_source_dependency` in its own pass over the declaration family \u2014 not the projection loop at :1330, since an input rides any member, composed or not \u2014 with no UTF-8 decode (no bytes move, so a binary input is legal) and `target` left empty (0055 rejects the input-as-edge reading, so no graph surface changes). `INPUT_FAMILY = \"input\"` beside :2968-:2970; `write_rollup` (:502) takes the rows and writes them through `write_source_deps` (:517). `input_stale{,_from_doc}` beside `include_stale` (:3382-:3412); `source_dep_stale_from_doc` (:3281) grows a remedy parameter \u2014 the include and layout-import text unchanged, the input's reading: re-verify the member's claims against the input, then re-emit. A dangling input reuses `DriftError::DanglingImport` (:296), whose text names a reference, not an include."
+          "description": "New `InputRow { member, source_path }` beside `IncludeRow` (:3996) — its own type, not a reuse: an include's path pairs positionally with a body slot and an input's moves nothing, two concepts that happen to share two columns (`engineering.md`, \"A shared concept is one type\"). `Declarations` (:3510) gains `#[serde(default)] pub inputs: Vec<InputRow>`. Emit resolves each row through `resolve_source_dependency` in its own pass over the declaration family — not the projection loop at :1330, since an input rides any member, composed or not — with no UTF-8 decode (no bytes move, so a binary input is legal) and `target` left empty (0055 rejects the input-as-edge reading, so no graph surface changes). `INPUT_FAMILY = \"input\"` beside :2968-:2970; `write_rollup` (:502) takes the rows and writes them through `write_source_deps` (:517). `input_stale{,_from_doc}` beside `include_stale` (:3382-:3412); `source_dep_stale_from_doc` (:3281) grows a remedy parameter — the include and layout-import text unchanged, the input's reading: re-verify the member's claims against the input, then re-emit. A dangling input reuses `DriftError::DanglingImport` (:296), whose text names a reference, not an include."
         },
         {
           "path": "src/gate.rs",
-          "description": "A third staleness call beside the two at :669-:676, on the same pre-parsed `lock_doc` and the same `harness_root_for_staleness` \u2014 and taking the root `fresh` clause, since FRESH-CLAUSE-JUDGES-STALENESS has already moved its siblings onto it."
+          "description": "A third staleness call beside the two at :669-:676, on the same pre-parsed `lock_doc` and the same `harness_root_for_staleness` — and taking the root `fresh` clause, since FRESH-CLAUSE-JUDGES-STALENESS has already moved its siblings onto it."
         },
         {
           "path": "sdk/src/generated/Declarations.ts",
@@ -580,7 +580,7 @@
         },
         {
           "path": "sdk/src/generated/index.ts",
-          "description": "Regenerated barrel \u2014 `InputRow` re-exported."
+          "description": "Regenerated barrel — `InputRow` re-exported."
         },
         {
           "path": "tests/seam_bindings_current.rs",
@@ -593,7 +593,7 @@
       ],
       "retire": []
     },
-    "summary": "A member's inputs \u2014 the files its claims rest on \u2014 reach no lock row, so the only way to fingerprint one is to `include()` its bytes into a projection that does not want them.",
+    "summary": "A member's inputs — the files its claims rest on — reach no lock row, so the only way to fingerprint one is to `include()` its bytes into a projection that does not want them.",
     "per": {
       "path": "specs/model/pipeline.md",
       "section": "Drift"
@@ -625,15 +625,15 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "The `Input` type (`{ kind: \"input\"; path; moduleUrl }`) and the `input(import.meta.url, \"./path\")` constructor land here, not in `prose.ts`: an input rides no text span and pairs with no body slot, so it belongs beside the member-grain framework keys. `Member` (:348) and `MemberInit` (:388) gain `readonly inputs?: readonly Input[]`, the member assembly at :484-:486 gains `inputs: init.inputs ?? []`, and `FRAMEWORK_KEYS` (:370) gains `\"inputs\"` \u2014 without that, `orderedFields` (:431) would push the key into the projected frontmatter as a typed field. The surface binds a member: an embedded value takes no `MemberInit`, and its claims are its host's."
+          "description": "The `Input` type (`{ kind: \"input\"; path; moduleUrl }`) and the `input(import.meta.url, \"./path\")` constructor land here, not in `prose.ts`: an input rides no text span and pairs with no body slot, so it belongs beside the member-grain framework keys. `Member` (:348) and `MemberInit` (:388) gain `readonly inputs?: readonly Input[]`, the member assembly at :484-:486 gains `inputs: init.inputs ?? []`, and `FRAMEWORK_KEYS` (:370) gains `\"inputs\"` — without that, `orderedFields` (:431) would push the key into the projected frontmatter as a typed field. The surface binds a member: an embedded value takes no `MemberInit`, and its claims are its host's."
         },
         {
           "path": "sdk/src/index.ts",
-          "description": "Root-export `input` and the `Input` type on their own line \u2014 the prose line at :17-:18 stays the three prose constructors' (`root_exports.test.ts` walks the emitted `.d.ts`, so an unexported `Input` named by `MemberInit` fails there mechanically)."
+          "description": "Root-export `input` and the `Input` type on their own line — the prose line at :17-:18 stays the three prose constructors' (`root_exports.test.ts` walks the emitted `.d.ts`, so an unexported `Input` named by `MemberInit` fails there mechanically)."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "`inputRows(harness)` beside `includeRows` (:647-:673): one row per member input, in member-then-authored order, each path resolved against its own stating module (`fileURLToPath(new URL(input.path, input.moduleUrl))`) exactly as an include's is \u2014 never the workspace. `inputs:` joins the payload literal beside `includes:` (:1019), and `InputRow` joins the generated-type imports (:29)."
+          "description": "`inputRows(harness)` beside `includeRows` (:647-:673): one row per member input, in member-then-authored order, each path resolved against its own stating module (`fileURLToPath(new URL(input.path, input.moduleUrl))`) exactly as an include's is — never the workspace. `inputs:` joins the payload literal beside `includes:` (:1019), and `InputRow` joins the generated-type imports (:29)."
         },
         {
           "path": "sdk/test/emit.test.ts",
@@ -641,7 +641,7 @@
         },
         {
           "path": "CHANGELOG.md",
-          "description": "An Unreleased entry: `inputs` is a new author-facing surface \u2014 a member may fingerprint a file its claims rest on without pulling the bytes into its projection, and a moved input reports under the freshness clause with a re-verify remedy."
+          "description": "An Unreleased entry: `inputs` is a new author-facing surface — a member may fingerprint a file its claims rest on without pulling the bytes into its projection, and a moved input reports under the freshness clause with a re-verify remedy."
         }
       ],
       "retire": []
@@ -658,7 +658,7 @@
       }
     ],
     "acceptance": "`pnpm --dir sdk test` green (strict `tsc` plus `node --test`, `root_exports.test.ts` included) with the lowering case added, and the emitted payload carrying the input row the engine family already honours.",
-    "notes": "0055's SDK bullet \u2014 `inputs` on a member and its constructor. The consumer is the engine's `input` family (INPUT-SOURCE-DEPENDENCY-FAMILY), which this entry's rows fill; that ordering is why this rides second. scoped at d6dfdebb"
+    "notes": "0055's SDK bullet — `inputs` on a member and its constructor. The consumer is the engine's `input` family (INPUT-SOURCE-DEPENDENCY-FAMILY), which this entry's rows fill; that ordering is why this rides second. scoped at d6dfdebb"
   },
   {
     "tag": "RESIDUE-KEY-SHADOWS-A-TYPED-FIELD",
@@ -671,7 +671,7 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "`orderedFields` (:495) returns `[...head, ...typed, ...residueFields(init)]` with no key check and `residueFields` (:504) key-sorts the bag blind, so a residue key the surface also types is projected twice \u2014 residue last, and the engine's writer collects the pair list into a map (`drift.rs:2521`), so the untyped value wins silently. Both halves of the partition are in hand at that one call, which is where the refusal belongs; `RESERVED_LEAF` (:424) is the shape precedent \u2014 a framework name refused at the constructor, never resolved. A compile-time narrowing of the bag's key type against `keyof T` is the stronger front door where it types cleanly, but cannot be the only half: the erased caller reaches the same splice."
+          "description": "`orderedFields` (:495) returns `[...head, ...typed, ...residueFields(init)]` with no key check and `residueFields` (:504) key-sorts the bag blind, so a residue key the surface also types is projected twice — residue last, and the engine's writer collects the pair list into a map (`drift.rs:2521`), so the untyped value wins silently. Both halves of the partition are in hand at that one call, which is where the refusal belongs; `RESERVED_LEAF` (:424) is the shape precedent — a framework name refused at the constructor, never resolved. A compile-time narrowing of the bag's key type against `keyof T` is the stronger front door where it types cleanly, but cannot be the only half: the erased caller reaches the same splice."
         },
         {
           "path": "sdk/src/builtins.ts",
@@ -679,11 +679,11 @@
         },
         {
           "path": "sdk/src/index.ts",
-          "description": "Export the bag type if the narrowing lands as one \u2014 a custom kind's surface declaring `residue?` is authored outside this package, and an unexported type ships nowhere."
+          "description": "Export the bag type if the narrowing lands as one — a custom kind's surface declaring `residue?` is authored outside this package, and an unexported type ships nowhere."
         },
         {
           "path": "sdk/test/builtins.test.ts",
-          "description": "The refusal: a member init spelling a typed key inside `residue` is rejected \u2014 `@ts-expect-error` for the compile-time half (the suite's `tsc -p` pass fails on a directive that stops firing) and a thrown-refusal assertion for the erased one."
+          "description": "The refusal: a member init spelling a typed key inside `residue` is rejected — `@ts-expect-error` for the compile-time half (the suite's `tsc -p` pass fails on a directive that stops firing) and a thrown-refusal assertion for the erased one."
         },
         {
           "path": "sdk/test/emit.test.ts",
@@ -707,11 +707,11 @@
         "asserts": "no emitted field list carries one key twice; a non-colliding residue key still projects flat and key-sorted"
       }
     ],
-    "acceptance": "`pnpm --dir sdk test` (strict `tsc` + `node --test`) green. `cargo test` is untouched \u2014 the wire is unchanged and no lock row moves; the engine's field-list-to-map collect stays the writer's, since the partition is the authoring surface's to hold.",
-    "notes": "b0d8cab0's named corner cut, re-measured at db387262. `builtins.md` partitions the key space \u2014 documented keys typed, the unschematized remainder residue \u2014 so a key in both is a mis-spelling, not an override. The objection, recorded: residue could be read as a deliberate escape hatch; rejected, since that makes the bag a second spelling for one typed field. scoped at db387262"
+    "acceptance": "`pnpm --dir sdk test` (strict `tsc` + `node --test`) green. `cargo test` is untouched — the wire is unchanged and no lock row moves; the engine's field-list-to-map collect stays the writer's, since the partition is the authoring surface's to hold.",
+    "notes": "b0d8cab0's named corner cut, re-measured at db387262. `builtins.md` partitions the key space — documented keys typed, the unschematized remainder residue — so a key in both is a mis-spelling, not an override. The objection, recorded: residue could be read as a deliberate escape hatch; rejected, since that makes the bag a second spelling for one typed field. scoped at db387262"
   },
   {
-    "tag": "TAP-RECORD-FIXTURE-ONE-HOME",
+    "tag": "INSTALL-GATE-HOOKS-RIDE-THE-PROGRAM",
     "gate": {
       "kind": "open"
     },
@@ -720,49 +720,8 @@
       "new": [],
       "edit": [
         {
-          "path": "tests/common/mod.rs",
-          "description": "New `tap_record(version: u32, event: TapEvent, identity: &str) -> TapRecord` beside `features` (:543) \u2014 the module whose own header (:1-:9) names it \"one home for scaffolding \u2026 every suite was carrying its own copy of\", and which today carries no tap surface at all (verified `rg -a 'tap|Tap' tests/common/mod.rs`: zero hits). It is the existing `tests/read_verbs.rs:417` builder moved, not a new shape, so the signature is that builder's verbatim and `session` stays fixed at `\"sess\"`: a fixture varying session, reason, or raw_path spreads over it (`TapRecord { session: \"a\".to_string(), ..common::tap_record(..) }`), the pattern `common::features`' own doc already documents at :537 (`Features { body_lines: 1, ..common::features(id) }`). `ts` is `String::new()`, not read_verbs' `\"2026-08-26T00:00:00.000000Z\"` (:423): `tap::append` overwrites `ts` unconditionally (`src/tap.rs:283`) and no assertion in either suite reads a fixture `ts`, so the literal was inert on all ~20 of its call sites. Adds `use temper::tap::{TapEvent, TapRecord}`; the module's `#![allow(dead_code)]` (:10) already covers the binaries that never call it."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Delete the local `tap_record` (:417-:427) and call `common::tap_record` instead. The signature does not move, so its ~20 call sites (:439-:444, :483-:484, :1412-:1414, :1457, :1503-:1508, :1556-:1557, :1648-:1649, :1696) keep their spelling verbatim \u2014 including :484's `TAP_RECORD_VERSION - 1`, the older-version argument the shared signature must still take. `tap_readout` (:407) stays local: it owns this file's `common::tmpdir` and has one consumer, so it is this suite's own scaffolding, not shared. The file already honors the one-home rule for the other fixture it builds (its header, :23, names `common::features` as \"the one home the integration fixtures share\") \u2014 this is the same file keeping two rules 400 lines apart."
-        },
-        {
-          "path": "tests/tap.rs",
-          "description": "The seven hand-written `TapRecord` literals (:136, :171, :204, :243, :310, :355, :380) become `common::tap_record(..)` calls, each spreading only the columns it varies. :171 keeps `reason: Some(\"session_start\")` and `raw_path: Some(absolute)` by spread; :204/:213 keep sessions `\"a\"`/`\"b\"`, which the interleave assertions at :226/:229 read, so both spread on session and :213's existing `..first.clone()` shape stays legal either way. :243's `current` is serialized directly (`serde_json::to_string`, :257) rather than appended, so it keeps the empty `ts` the equality assertion at :273 reads \u2014 which the builder's `String::new()` gives it. `mod common;` (:12) is already declared and the `use temper::tap::{..}` line (:10) keeps `TapRecord` only if a spread still names it."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Two homes for one tap fixture: `read_verbs` carries a `tap_record` builder while `tests/tap.rs` hand-writes the same literal seven times, and `tests/common` carries none.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "tests/tap.rs",
-        "asserts": "the eight tap suites stay green with every record built by the shared fixture \u2014 a consolidation changes no assertion, so the suite as it stands is the pin, and `rg -a 'TapRecord \\{' tests/` afterwards returns only the spreads that vary a column"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "the field-strand suites stay green with the builder moved out, older-version case at :484 included \u2014 the proof the moved signature still takes every argument its call sites pass"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion text changed \u2014 a fixture consolidation ships behavior-identical, so the two suites' existing pins are its whole proof. `tests/common/mod.rs` gains exactly one item and `tests/read_verbs.rs` loses exactly one.",
-    "notes": "Posture sweep, tests/tap.rs neighborhood. Behind the parent on file collision alone: both edit tests/common/mod.rs, where the settings re-baseline may want a fixture \u2014 two `open` entries over one file is the merge revert the queue rule forbids. No behavior moves, so there is no pre-fix regression to pin; the consolidation's own bar is that both suites stay green unedited. scoped at c06563d0"
-  },
-  {
-    "tag": "INSTALL-GATE-HOOKS-RIDE-THE-PROGRAM",
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
           "path": "src/install.rs",
-          "description": "`evaluate_placements` (:698) splices the three gate groups into `.claude/settings.json` through `project_settings`/`drift::place`, and the `drift::emit_program` re-stamp at :545 immediately re-renders that same file from the `settings` member \u2014 which carries only the keys the lift hoisted \u2014 so all three groups vanish while their entries still report `ApplyOutcome::Applied`. Two writers, one file. On the represented path the file is a projection the program owns whole (`builtin_kind::claude_code_settings`, src/builtin_kind.rs:552), so the splice is the writer that yields: scaffold the three groups as `hook` member modules instead (`scaffold`, :2014, already mints module text) from `SESSION_START_COMMAND` (:97), `GUARD_COMMAND` (:152) and `POST_TOOL_USE_COMMAND` (:174), which stay this file's constants so `bundle.rs:425` and `gate_installed`'s comparison keep their one home and no SDK twin appears. `place_settings_only` (:680) stays the unrepresented path's own writer, untouched \u2014 adoption.md gives the no-path that one consented settings write. `detect_hook_member_conflicts` (:803) then reads temper's own rows, so its `SupersededByMember` branch and the placement tally at :2518 are re-read against the new source of truth rather than left reporting a placement that no longer happens."
+          "description": "`evaluate_placements` (:698) splices the three gate groups into `.claude/settings.json` through `project_settings`/`drift::place`, and the `drift::emit_program` re-stamp at :545 immediately re-renders that same file from the `settings` member — which carries only the keys the lift hoisted — so all three groups vanish while their entries still report `ApplyOutcome::Applied`. Two writers, one file. On the represented path the file is a projection the program owns whole (`builtin_kind::claude_code_settings`, src/builtin_kind.rs:552), so the splice is the writer that yields: scaffold the three groups as `hook` member modules instead (`scaffold`, :2014, already mints module text) from `SESSION_START_COMMAND` (:97), `GUARD_COMMAND` (:152) and `POST_TOOL_USE_COMMAND` (:174), which stay this file's constants so `bundle.rs:425` and `gate_installed`'s comparison keep their one home and no SDK twin appears. `place_settings_only` (:680) stays the unrepresented path's own writer, untouched — adoption.md gives the no-path that one consented settings write. `detect_hook_member_conflicts` (:803) then reads temper's own rows, so its `SupersededByMember` branch and the placement tally at :2518 are re-read against the new source of truth rather than left reporting a placement that no longer happens."
         },
         {
           "path": "tests/install.rs",
@@ -771,7 +730,7 @@
       ],
       "retire": []
     },
-    "summary": "Install's three gate hooks are spliced into `.claude/settings.json` and erased by the re-stamp emit that follows \u2014 the run reports `applied` and wires nothing.",
+    "summary": "Install's three gate hooks are spliced into `.claude/settings.json` and erased by the re-stamp emit that follows — the run reports `applied` and wires nothing.",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
@@ -783,7 +742,7 @@
       }
     ],
     "acceptance": "`cargo test` green, with a represented project whose pre-existing `.claude/settings.json` carries temper's three gate hook groups after `install` and still carries them after a subsequent `emit`.",
-    "notes": "Measured at e0d0123b: a fixture whose `.claude/settings.json` is {model, permissions} reports `3 applied` and lands a file with no `hooks` key at all; splicing one back draws `config.stale` and the very next `emit` drops it \u2014 so a post-emit splice cannot be the fix. The dogfood's `.temper/hooks.ts` is the worked module shape (harness territory, never build's to edit). scoped at e0d0123b"
+    "notes": "Measured at e0d0123b: a fixture whose `.claude/settings.json` is {model, permissions} reports `3 applied` and lands a file with no `hooks` key at all; splicing one back draws `config.stale` and the very next `emit` drops it — so a post-emit splice cannot be the fix. The dogfood's `.temper/hooks.ts` is the worked module shape (harness territory, never build's to edit). scoped at e0d0123b"
   },
   {
     "tag": "INSTALL-LIFTS-A-REGISTRATION-MEMBER",
@@ -801,11 +760,11 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "Two halves of one enumeration. (1) `discover` (:387) collects *files* per kind, so a `.claude/settings.json` carrying no hooks at all still reports `hook 1` \u2014 a file count printed under `render_discovery`'s (:406) \"members by kind\" heading; a registration kind's members are the entries at its `collection_address`, so the count comes from reading them. (2) `scaffold`'s skip (:2028) reads `kind.content != kind::Content::File` under a comment naming only layout kinds, so every fields-shape kind \u2014 `hook`, `installed-plugin`, `known-marketplace`, `mcp-server` \u2014 is dropped silently and the container's first emit sheds its groups. Convert each discovered collection entry into a member module named by its registration key, so 0016's whole conversion covers a manifest's registration segments and not just the container member the sibling entry lifts. Temper's own three gate hooks are already program members by then (INSTALL-GATE-HOOKS-RIDE-THE-PROGRAM) \u2014 this entry converts the project's own groups beside them."
+          "description": "Two halves of one enumeration. (1) `discover` (:387) collects *files* per kind, so a `.claude/settings.json` carrying no hooks at all still reports `hook 1` — a file count printed under `render_discovery`'s (:406) \"members by kind\" heading; a registration kind's members are the entries at its `collection_address`, so the count comes from reading them. (2) `scaffold`'s skip (:2028) reads `kind.content != kind::Content::File` under a comment naming only layout kinds, so every fields-shape kind — `hook`, `installed-plugin`, `known-marketplace`, `mcp-server` — is dropped silently and the container's first emit sheds its groups. Convert each discovered collection entry into a member module named by its registration key, so 0016's whole conversion covers a manifest's registration segments and not just the container member the sibling entry lifts. Temper's own three gate hooks are already program members by then (INSTALL-GATE-HOOKS-RIDE-THE-PROGRAM) — this entry converts the project's own groups beside them."
         },
         {
           "path": "tests/install.rs",
-          "description": "The lift suite: a project whose `.claude/settings.json` carries a `SessionStart` hook group and an `enabledPlugins` entry lifts one module per registration member, the first emit re-renders both segments beside the container's own keys, and the reported discovery count is the registration-entry count \u2014 pinned by a second fixture whose settings.json carries no registration segment at all and must report zero for those kinds."
+          "description": "The lift suite: a project whose `.claude/settings.json` carries a `SessionStart` hook group and an `enabledPlugins` entry lifts one module per registration member, the first emit re-renders both segments beside the container's own keys, and the reported discovery count is the registration-entry count — pinned by a second fixture whose settings.json carries no registration segment at all and must report zero for those kinds."
         }
       ],
       "retire": []
@@ -822,13 +781,13 @@
       }
     ],
     "acceptance": "`cargo test` green with `install` over a project whose settings.json carries registration segments producing a module per registration member, the adoption emit re-rendering the file with every segment intact, and the discovery report counting registration entries rather than the manifest file.",
-    "notes": "Re-measured at e0d0123b: the count is a file count \u2014 a settings.json with no hooks, no enabledPlugins and no extraKnownMarketplaces still reports `hook 1`, `installed-plugin 1`, `known-marketplace 1`, one per kind whose locus is that file. The shed-on-emit half stands (24420d45). Rests on `(hook-member-identity)`: a lifted hook needs a name, and two groups on one event share one address today. scoped at e0d0123b"
+    "notes": "Re-measured at e0d0123b: the count is a file count — a settings.json with no hooks, no enabledPlugins and no extraKnownMarketplaces still reports `hook 1`, `installed-plugin 1`, `known-marketplace 1`, one per kind whose locus is that file. The shed-on-emit half stands (24420d45). Rests on `(hook-member-identity)`: a lifted hook needs a name, and two groups on one event share one address today. scoped at e0d0123b"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
     "gate": {
       "kind": "deferred",
-      "reason": "An idea, not a defect (the raw note's own framing) \u2014 a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path, repo-rooted path) can't already express cleanly."
+      "reason": "An idea, not a defect (the raw note's own framing) — a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path, repo-rooted path) can't already express cleanly."
     },
     "dependsOnForks": [],
     "files": {
@@ -841,20 +800,20 @@
       ],
       "retire": []
     },
-    "summary": "A kind-declared citable handle ('how a reference to a member of this kind reads') \u2014 a lower-priority idea, not a defect, with no consumer yet.",
+    "summary": "A kind-declared citable handle ('how a reference to a member of this kind reads') — a lower-priority idea, not a defect, with no consumer yet.",
     "per": {
       "path": "specs/model/representation.md",
       "section": "kind"
     },
     "tests": [],
-    "acceptance": "A kind declaring `handle` lets a reference render hook spell a member of that kind without hand-rolling the branch on target.kind \u2014 provable once a real render hook wants one.",
+    "acceptance": "A kind declaring `handle` lets a reference render hook spell a member of that kind without hand-rolling the branch on target.kind — provable once a real render hook wants one.",
     "notes": "observed at ad10e8cb (cascade, idea). Compatible with the closed-set rule as a fifth engine-derived fact read off the target kind's declaration; the raw note itself calls this lower priority and not a defect. scoped at e1b26728"
   },
   {
     "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
     "gate": {
       "kind": "deferred",
-      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) \u2014 no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
+      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) — no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
     },
     "dependsOnForks": [],
     "files": {
@@ -862,7 +821,7 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields \u2014 shape unset; no field in any built-in kind wants one yet."
+          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
         },
         {
           "path": "src/drift.rs",
@@ -879,20 +838,20 @@
       ],
       "retire": []
     },
-    "summary": "0045 also frees guidance onto a field declaration, no predicate \u2014 deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
+    "summary": "0045 also frees guidance onto a field declaration, no predicate — deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
     "per": {
       "path": "specs/model/contract.md",
       "section": "clause"
     },
     "tests": [],
-    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating \u2014 provable once a real kind needs one.",
+    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
     "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
   },
   {
     "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
     "gate": {
       "kind": "deferred",
-      "reason": "project_modeline (src/install.rs:2258) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent \u2014 surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+      "reason": "project_modeline (src/install.rs:2258) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
     },
     "dependsOnForks": [],
     "files": {
@@ -900,12 +859,12 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists \u2014 a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
+          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists — a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
         }
       ],
       "retire": []
     },
-    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism \u2014 deferred out of the YAML-frontmatter widening.",
+    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism — deferred out of the YAML-frontmatter widening.",
     "per": {
       "path": "specs/distribution.md",
       "section": "The placements and their enforcement modes"
@@ -938,13 +897,13 @@
     },
     "tests": [],
     "acceptance": "src/tap.rs's timestamp formatting runs through a sanctioned date/time crate instead of hand-rolled calendar math, or the site carries a ruled comment stating why it stays a hand-roll.",
-    "notes": "drained from .flume/refactor/plan-tap-iso8601-hand-roll.md (filed at cd35a551); re-verified live at HEAD \u2014 no crate in the sanctioned set (CLAUDE.md, Tech stack) does date/time and this remains the sole iso8601 site (rg -n \"iso8601|SystemTime::now\" src/ tests/). scoped at e1b26728"
+    "notes": "drained from .flume/refactor/plan-tap-iso8601-hand-roll.md (filed at cd35a551); re-verified live at HEAD — no crate in the sanctioned set (CLAUDE.md, Tech stack) does date/time and this remains the sole iso8601 site (rg -n \"iso8601|SystemTime::now\" src/ tests/). scoped at e1b26728"
   },
   {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
     "gate": {
       "kind": "parked",
-      "reason": "Human re-ruling 09-03 (interactive): the first ruling \u2014 refuse a duplicate member address within a kind \u2014 was built (e4ff7bc6) and failed temper's own self-host test at afterMerge: Claude Code allows N matcher groups per event and this repo's own harness carries two PostToolUse groups, so a duplicate-event refusal rejects every real harness. The defect (silent last-writer-wins on edge resolution to `hook:<Event>`) stands; the remedy is a hook identity discriminator, which is a model fork, not build's to invent."
+      "reason": "Human re-ruling 09-03 (interactive): the first ruling — refuse a duplicate member address within a kind — was built (e4ff7bc6) and failed temper's own self-host test at afterMerge: Claude Code allows N matcher groups per event and this repo's own harness carries two PostToolUse groups, so a duplicate-event refusal rejects every real harness. The defect (silent last-writer-wins on edge resolution to `hook:<Event>`) stands; the remedy is a hook identity discriminator, which is a model fork, not build's to invent."
     },
     "dependsOnForks": [
       "hook-member-identity"
@@ -954,7 +913,7 @@
       "edit": [
         {
           "path": "src/admissibility.rs",
-          "description": "New sibling check beside `collection_address_collision_diagnostics` (which 21f61463 added for two *kinds* sharing one collectionAddress): a *single* kind's own members registering on the same key within that address (e.g. three `hook` members on `SessionStart`, which collapse to one entry in the `kind:name` composition map \u2014 silent last-writer-wins) is a declaration-time refusal with a named error, not a silent collapse."
+          "description": "New sibling check beside `collection_address_collision_diagnostics` (which 21f61463 added for two *kinds* sharing one collectionAddress): a *single* kind's own members registering on the same key within that address (e.g. three `hook` members on `SessionStart`, which collapse to one entry in the `kind:name` composition map — silent last-writer-wins) is a declaration-time refusal with a named error, not a silent collapse."
         },
         {
           "path": "src/gate.rs",
@@ -962,7 +921,7 @@
         },
         {
           "path": "tests/hook_kind.rs",
-          "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members \u2014 mirroring 21f61463's kind-collision test shape."
+          "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members — mirroring 21f61463's kind-collision test shape."
         }
       ],
       "retire": []
@@ -979,13 +938,13 @@
       }
     ],
     "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
-    "notes": "GH #32. First pick built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test \u2014 temper's own settings.json has two PostToolUse groups. The revert itself isn't a resolvable commit (worktree-local, reverted pre-merge); see 080311b9 for the park record (its predecessor citation, e4ff7bc6, doesn't resolve at HEAD). Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). scoped at bf4b4168."
+    "notes": "GH #32. First pick built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. The revert itself isn't a resolvable commit (worktree-local, reverted pre-merge); see 080311b9 for the park record (its predecessor citation, e4ff7bc6, doesn't resolve at HEAD). Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). scoped at bf4b4168."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) is now proven live, not merely wired: the v0.0.11 tag fired it and its publish smoke gate went green (b6dc0a3's commit body)."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) is now proven live, not merely wired: the v0.0.11 tag fired it and its publish smoke gate went green (b6dc0a3's commit body)."
     },
     "dependsOnForks": [],
     "files": {
@@ -1001,11 +960,11 @@
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
       "path": "specs/distribution.md",
-      "section": "What ships \u2014 three channels"
+      "section": "What ships — three channels"
     },
     "tests": [],
-    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json) \u2014 distribution.md's v0.1 launch gate: prebuilt binaries install on all three OSes.",
-    "notes": "Park re-tested on disk at 01ba369: release.yml still states the darwin + channel-3 deferral verbatim (lines 7-9). The lockstep clause carried here since ac40c72/b676656 is resolved, dropped: da77c60 walked Cargo.toml 0.1.0\u21920.0.11 to match npm's cadence directly (no v0.1-tag flip), b6dc0a3 fixed the lockfile mismatch, and tag v0.0.11\u2192da77c60 fired release.yml with a green smoke gate per its own commit body \u2014 channel 2 is proven live, not just wired. scoped 01ba369."
+    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json) — distribution.md's v0.1 launch gate: prebuilt binaries install on all three OSes.",
+    "notes": "Park re-tested on disk at 01ba369: release.yml still states the darwin + channel-3 deferral verbatim (lines 7-9). The lockstep clause carried here since ac40c72/b676656 is resolved, dropped: da77c60 walked Cargo.toml 0.1.0→0.0.11 to match npm's cadence directly (no v0.1-tag flip), b6dc0a3 fixed the lockfile mismatch, and tag v0.0.11→da77c60 fired release.yml with a green smoke gate per its own commit body — channel 2 is proven live, not just wired. scoped 01ba369."
   },
   {
     "tag": "GAUNTLET-EXTERNAL-HARNESS-FIXTURES",
@@ -1024,7 +983,7 @@
       "edit": [
         {
           "path": "tests/gauntlet.rs",
-          "description": "Anticipated: one check+emit snapshot test per vendored external fixture, alongside the existing in-repo kitchen-sink corpus \u2014 the standing gate the 07-22 probe wasn't."
+          "description": "Anticipated: one check+emit snapshot test per vendored external fixture, alongside the existing in-repo kitchen-sink corpus — the standing gate the 07-22 probe wasn't."
         }
       ],
       "retire": []
@@ -1041,26 +1000,26 @@
       }
     ],
     "acceptance": "temper check/emit run clean (or with real, human-verified findings) over 2-3 vendored external harness .claude/ trees, snapshot-tested in tests/gauntlet.rs, so the July external-yield probe is a standing gate rather than a one-time manual run.",
-    "notes": "observed at e77766c5, cross-cutting note \u2014 every defect in the 09-03 batch came from a foreign harness, none from the self-mirror; docs/ledger.md's 07-22 probe (9 real harnesses) is the candidate pool. Human picks 2-3 (licensing); test wiring is build's once chosen. scoped at 89d96cca."
+    "notes": "observed at e77766c5, cross-cutting note — every defect in the 09-03 batch came from a foreign harness, none from the self-mirror; docs/ledger.md's 07-22 probe (9 real harnesses) is the candidate pool. Human picks 2-3 (licensing); test wiring is build's once chosen. scoped at 89d96cca."
   },
   {
     "tag": "INTEGRATION-SUITE-ONE-TEST-TARGET",
     "gate": {
       "kind": "parked",
-      "reason": "A human scheduling call, two constraints plan cannot express as a gate. (1) The move renames every path under tests/, so it collides with the fifteen queued entries that edit a tests/ file \u2014 it must land as a singleton against a quiet queue, and naming fifteen blockedBy parents would be a false spine, not a dependency. (2) The harness migration's judge resolves nextest binary-ids (`temper::graph$...` becomes `temper::it$graph::...`), so this lands before that migration or with it, never after. Unpark by rewriting the entry against the tests/ tree of that day."
+      "reason": "A human scheduling call, two constraints plan cannot express as a gate. (1) The move renames every path under tests/, so it collides with the fifteen queued entries that edit a tests/ file — it must land as a singleton against a quiet queue, and naming fifteen blockedBy parents would be a false spine, not a dependency. (2) The harness migration's judge resolves nextest binary-ids (`temper::graph$...` becomes `temper::it$graph::...`), so this lands before that migration or with it, never after. Unpark by rewriting the entry against the tests/ tree of that day."
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "tests/it/**",
-          "description": "The single integration crate cargo auto-discovers from `tests/it/main.rs`: main.rs declares `mod common;` once plus one `mod <name>;` per moved suite; each moved `tests/<name>.rs` lands at `tests/it/<name>.rs` with its `mod common;` line rewritten to `use crate::common;`; `tests/common/mod.rs` moves to `tests/it/common/mod.rs` (its header paragraph documents the per-binary recompilation its blanket `allow(dead_code)` exists to absorb \u2014 rewrite it, and narrow the allow, once one crate unifies dead-code analysis); insta snapshots re-bless under `tests/it/snapshots/`, keyed on the module path."
+          "description": "The single integration crate cargo auto-discovers from `tests/it/main.rs`: main.rs declares `mod common;` once plus one `mod <name>;` per moved suite; each moved `tests/<name>.rs` lands at `tests/it/<name>.rs` with its `mod common;` line rewritten to `use crate::common;`; `tests/common/mod.rs` moves to `tests/it/common/mod.rs` (its header paragraph documents the per-binary recompilation its blanket `allow(dead_code)` exists to absorb — rewrite it, and narrow the allow, once one crate unifies dead-code analysis); insta snapshots re-bless under `tests/it/snapshots/`, keyed on the module path."
         }
       ],
       "edit": [
         {
           "path": "Cargo.toml",
-          "description": "An explicit `[[test]] name = \"it\"` target only if auto-discovery of `tests/it/main.rs` needs it. `autotests` stays on: with it off, a later stray `tests/foo.rs` compiles into no target and its tests silently never run \u2014 a vacuous green, the failure mode engineering.md's 'A green verdict is proven non-vacuous' names."
+          "description": "An explicit `[[test]] name = \"it\"` target only if auto-discovery of `tests/it/main.rs` needs it. `autotests` stays on: with it off, a later stray `tests/foo.rs` compiles into no target and its tests silently never run — a vacuous green, the failure mode engineering.md's 'A green verdict is proven non-vacuous' names."
         }
       ],
       "retire": [
@@ -1124,7 +1083,7 @@
         "tests/common/mod.rs"
       ]
     },
-    "summary": "The suite declares 57 integration-test targets, so `tests/common` is one home in source and 53 linked copies in target/ \u2014 fold them into one `tests/it` crate.",
+    "summary": "The suite declares 57 integration-test targets, so `tests/common` is one home in source and 53 linked copies in target/ — fold them into one `tests/it` crate.",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
@@ -1132,14 +1091,14 @@
     "tests": [
       {
         "path": "tests/it/gauntlet.rs",
-        "asserts": "the snapshot-heaviest suite passes byte-identical assertions after re-blessing under tests/it/snapshots/ \u2014 the moved suites assert exactly what they asserted before"
+        "asserts": "the snapshot-heaviest suite passes byte-identical assertions after re-blessing under tests/it/snapshots/ — the moved suites assert exactly what they asserted before"
       },
       {
         "path": "tests/it/main.rs",
-        "asserts": "every one of the 57 moved suites is declared as a module, so the consolidated run's test count equals the 57-target run's \u2014 a suite missing from main.rs is a suite that silently stops running"
+        "asserts": "every one of the 57 moved suites is declared as a module, so the consolidated run's test count equals the 57-target run's — a suite missing from main.rs is a suite that silently stops running"
       }
     ],
-    "acceptance": "`cargo test` green with a test count equal to the pre-move run's (capture it before the move and compare, so no suite is lost in the fold), `cargo clippy --all-targets -- -D warnings` green over the single crate, and one integration-test executable in target/debug/deps where 57 stood \u2014 the decidable pin, per the cost section's 'The pin is a count, never a clock'. The commit body reports `cargo test --no-run` wall time and peak RSS before and after, timing staying the manual signal a human reads rather than a gate; that pair is also what answers the standing objection, that one crate compiles as one unit, so peak RSS falls while wall time may rise.",
-    "notes": "Drained from .flume/refactor/session-integration-tests-one-binary.md (observed 4dd4583f; re-verified on disk \u2014 57 crates, 53 `mod common;`, 782-line shared module, tests/ untouched since). Evidence: a 14:42 OOM rebooted the 7.7GB WSL VM with 17 rust-lld + 20 rustc holding 2.6GB; CARGO_BUILD_JOBS=4 treats that by capping parallelism on every gate run. Cargo prescribes this fold for a suite this size (cargo-targets.html, 'Integration tests', retrieved 2026-09-22). scoped at 9270fc0b"
+    "acceptance": "`cargo test` green with a test count equal to the pre-move run's (capture it before the move and compare, so no suite is lost in the fold), `cargo clippy --all-targets -- -D warnings` green over the single crate, and one integration-test executable in target/debug/deps where 57 stood — the decidable pin, per the cost section's 'The pin is a count, never a clock'. The commit body reports `cargo test --no-run` wall time and peak RSS before and after, timing staying the manual signal a human reads rather than a gate; that pair is also what answers the standing objection, that one crate compiles as one unit, so peak RSS falls while wall time may rise.",
+    "notes": "Drained from .flume/refactor/session-integration-tests-one-binary.md (observed 4dd4583f; re-verified on disk — 57 crates, 53 `mod common;`, 782-line shared module, tests/ untouched since). Evidence: a 14:42 OOM rebooted the 7.7GB WSL VM with 17 rust-lld + 20 rustc holding 2.6GB; CARGO_BUILD_JOBS=4 treats that by capping parallelism on every gate run. Cargo prescribes this fold for a suite this size (cargo-targets.html, 'Integration tests', retrieved 2026-09-22). scoped at 9270fc0b"
   }
 ]
