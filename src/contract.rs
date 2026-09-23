@@ -499,6 +499,28 @@ pub enum Predicate {
     /// selection — the whole governed forest — because reachability is a fact about the
     /// harness, not about one kind's members (`specs/model/contract.md`, "clause").
     Reachable,
+    /// `fresh`: every lock row a selected member owns still matches disk — the
+    /// **projection's** byte fingerprint, and each **fingerprinted source dependency** a
+    /// layout import or a composed-prose include recorded. Drift is one comparison in
+    /// one vocabulary (`specs/model/pipeline.md`, "Drift"), so one predicate carries all
+    /// of it: a hand-edited projection, a moved import target and a moved include target
+    /// are the same freshness fact over the same lock row family, and an author hardening
+    /// freshness hardens it once.
+    ///
+    /// Carries **no field argument**, exactly as [`Predicate::Reachable`] carries none:
+    /// its argument is the committed lock read against disk, never a column of the
+    /// clause.
+    ///
+    /// Judged by the three [`crate::drift`] staleness judges —
+    /// [`crate::drift::config_stale_from_doc`],
+    /// [`crate::drift::layout_import_stale_from_doc`] and
+    /// [`crate::drift::include_stale_from_doc`] — not the per-member table: the verdict
+    /// needs the committed lock and the bytes on disk, neither of which the member in
+    /// hand carries. Bound to the **root member's** selection, like
+    /// [`Predicate::Reachable`]: freshness is a fact about the harness, and a per-kind
+    /// binding beside the root's would double-report one row
+    /// (`specs/decisions/0054-the-root-member-carries-a-contract.md`).
+    Fresh,
     /// `format-places-edges`: the edge scope, at the **each** grain — the selection is
     /// the edges incident on the member, and every one of them must be placed by the
     /// format that renders the member. A format that omits an edge its kind declares
@@ -657,6 +679,9 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         // No argument column to decode: the graph is the argument, as it is for the
         // sibling-read `closed-keys`.
         "reachable" => Predicate::Reachable,
+        // Argument-free for the same reason: the lock read against disk is the
+        // argument, so there is no column to decode.
+        "fresh" => Predicate::Fresh,
         "format-places-edges" => Predicate::FormatPlacesEdges,
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
@@ -768,6 +793,7 @@ impl Predicate {
             Predicate::GlobValid { .. } => "glob-valid",
             Predicate::MentionReachable { .. } => "mention-reachable",
             Predicate::Reachable => "reachable",
+            Predicate::Fresh => "fresh",
             Predicate::FormatPlacesEdges => "format-places-edges",
             Predicate::When { .. } => "when",
         }
@@ -775,11 +801,13 @@ impl Predicate {
 
     /// Whether this predicate ranges over the **selection** a clause binds to rather
     /// than one member's own features — `count`/`unique`/`membership` at the whole
-    /// grain, `degree`/`reached-from`/`kind`/`mention-reachable` at the each grain.
+    /// grain, `degree`/`reached-from`/`kind`/`mention-reachable` at the each grain, and
+    /// the root-bound `reachable`/`fresh` pair.
     /// Judged by
     /// [`crate::engine::judge`], [`crate::graph::degree`],
-    /// [`crate::graph::reached_from`], and
-    /// [`crate::graph::mention_reachable`] over the resolved
+    /// [`crate::graph::reached_from`],
+    /// [`crate::graph::mention_reachable`] and [`crate::drift`]'s staleness judges over
+    /// the resolved
     /// selection; every other predicate is judged by [`crate::engine::validate`] over a
     /// member.
     ///
@@ -801,6 +829,7 @@ impl Predicate {
                 | Predicate::Kind { .. }
                 | Predicate::MentionReachable { .. }
                 | Predicate::Reachable
+                | Predicate::Fresh
                 | Predicate::Extent { whole: true, .. }
         )
     }
@@ -844,8 +873,10 @@ impl Predicate {
             // Two field arguments, so no *one* field is "the" field it constrains —
             // the set predicates' silence here is the precedent.
             | Predicate::MentionReachable { .. }
-            // The graph is its argument, so there is no field for it to name.
+            // The graph is its argument, so there is no field for it to name — and the
+            // lock read against disk is `fresh`'s, for the same silence.
             | Predicate::Reachable
+            | Predicate::Fresh
             | Predicate::FormatPlacesEdges
             // Guard and body carry no field or schema key of their own.
             | Predicate::When { .. } => None,
@@ -897,6 +928,7 @@ impl Predicate {
             // the pair belongs to neither property's hover docs alone.
             | Predicate::MentionReachable { .. }
             | Predicate::Reachable
+            | Predicate::Fresh
             | Predicate::FormatPlacesEdges
             // Guard and body carry no frontmatter field to document.
             | Predicate::When { .. } => None,
@@ -946,6 +978,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::Kind { .. }
             | Predicate::MentionReachable { .. }
             | Predicate::Reachable
+            | Predicate::Fresh
             | Predicate::FormatPlacesEdges
             | Predicate::When { .. } => None,
         })

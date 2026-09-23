@@ -241,13 +241,18 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       kind: "rule",
       field: "paths",
  },
-    // The root member's own clause, past the kind-sorted `expect` rows and carrying no
+    // The root member's own clauses, past the kind-sorted `expect` rows and carrying no
     // `kind` column — the absence `compose::root_contract_from_rows` reads as "the
-    // root's". `fullHarness()` declares no `contract`, so this is the shipped default.
+    // root's". `fullHarness()` declares no `contract`, so these are the shipped default.
  {
       ...clauseRow("reachable", "advisory"),
       guidance: rootDefaultContract[0]!.guidance,
       cite: rootDefaultContract[0]!.cite,
+ },
+ {
+      ...clauseRow("fresh", "advisory"),
+      guidance: rootDefaultContract[1]!.guidance,
+      cite: rootDefaultContract[1]!.cite,
  },
   ]);
   assert.deepEqual(declarations.requirements, [
@@ -341,6 +346,11 @@ test("the root member's contract lowers to kind-less top-level rows, defaulted a
       guidance: rootDefaultContract[0]!.guidance,
       cite: rootDefaultContract[0]!.cite,
     },
+    {
+      ...clauseRow("fresh", "advisory"),
+      guidance: rootDefaultContract[1]!.guidance,
+      cite: rootDefaultContract[1]!.cite,
+    },
   ]);
   assert.equal(defaulted.length, rootDefaultContract.length);
 
@@ -356,7 +366,7 @@ test("the root member's contract lowers to kind-less top-level rows, defaulted a
     { ...clauseRow("count", "required"), count: { min: 1, max: Number.MAX_SAFE_INTEGER } },
   ]);
   assert.ok(
-    !authored.some((row) => row.predicate === "reachable"),
+    !authored.some((row) => row.predicate === "reachable" || row.predicate === "fresh"),
     "an authored root contract replaces the default wholesale",
   );
 

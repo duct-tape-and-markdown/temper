@@ -8,10 +8,10 @@
 //! no harness re-supply, the payload IS the source. Each projection is re-emitted
 //! **whole** and byte-deterministically — verified by a double-emit comparison, so
 //! nondeterministic authoring is a loud failure, never a silent churn. A hand-edited
-//! projection is overwritten: it is drift routed to the source, surfaced by
-//! `config.stale`/the guard, not a merge. [`place`] is the whole-file placement merge
-//! for artifacts temper *places* rather than emits; it keeps its own three-state conflict detection until `install` rides
-//! emit's projection.
+//! projection is overwritten: it is drift routed to the source, surfaced by the root
+//! `fresh` clause/the guard, not a merge. [`place`] is the whole-file placement merge for
+//! artifacts temper *places* rather than emits; it keeps its own three-state conflict
+//! detection until `install` rides emit's projection.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -473,7 +473,7 @@ pub(crate) struct RollupEntry {
     /// anchor source-drift detection compares against.
     pub(crate) source_hash: String,
     /// SHA-256 of the last emitted projection — the **emit freshness fact**, the
-    /// baseline `config.stale` and projection freshness compare a committed output
+    /// baseline the root `fresh` clause's projection judge compares a committed output
     /// against. At import it provisionally equals `source_hash`: no `emit` has run
     /// yet, so the last thing projected onto the source is the source as imported
     /// (`emit` advances it once it lands).
@@ -2368,8 +2368,8 @@ fn normalize_lf(text: &str) -> String {
 ///
 /// The projection is regenerated from the payload — never merged against on-disk
 /// bytes — so a hand-edited projection is simply overwritten: a direct edit to
-/// emitted output is drift routed to the source (`config.stale`/the guard surface
-/// it), not a mergeable conflict. The on-disk read decides only `Emitted` vs the
+/// emitted output is drift routed to the source (the root `fresh` clause/the guard
+/// surface it), not a mergeable conflict. The on-disk read decides only `Emitted` vs the
 /// idempotent `Unchanged`.
 fn emit_one(
     projection: &Projection,
@@ -2711,23 +2711,24 @@ fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
 }
 
 // ---------------------------------------------------------------------------
-// config.stale — the freshness fact the gate reads
+// the `fresh` clause's projection half — the freshness fact the gate reads
 // ---------------------------------------------------------------------------
 
-/// The diagnostic `rule` id every freshness finding reports under.
-const CONFIG_STALE_RULE: &str = "config.stale";
-
-/// The `config.stale` freshness findings for a surface `workspace_dir`:
+/// The projection-freshness findings for a surface `workspace_dir`:
 /// a
 /// committed projection whose bytes no longer match the emit fingerprint the lock
 /// recorded — the authored source changed and `emit` has not run, or the emitted
 /// output was hand-edited. One finding
 /// per drifted row, pointing at the projection that moved.
 ///
-/// **Advisory** (`warn`): under the default `warn` enforcement mode the guard warns-and-routes
-/// rather than blocks, and temper fabricates no
-/// hard gate the author did not declare — a stale projection is a
-/// nudge to re-emit.
+/// `clause` is the root member's own [`contract::Predicate::Fresh`] clause
+/// ([`crate::engine::root_clause`]), and it is every channel a finding carries: the
+/// author's declared severity, the `label` the finding reports under, and the guidance
+/// the gate teaches through. How loudly drift is treated is the clause's to declare,
+/// never this judge's (`specs/model/pipeline.md`, "Drift") — the shipped root default
+/// binds it at `advisory`, so an adopter who declares nothing sees the same nudge to
+/// re-emit, and a `.temper/dial.toml` naming the label at `required` makes a drifted
+/// projection block.
 ///
 /// Read off `<workspace_dir>/lock.toml` — every `[[<kind>]]` row (built-in and custom):
 /// each row's `source_path` is re-hashed and compared to its `emit_hash`. A row without
@@ -2741,17 +2742,22 @@ const CONFIG_STALE_RULE: &str = "config.stale";
 /// landscape file is its own source), so it contributes no freshness fact here: an
 /// in-place member cannot drift.
 #[must_use]
-pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
+pub fn config_stale(
+    workspace_dir: &Path,
+    clause: &contract::Clause,
+) -> Vec<crate::check::Diagnostic> {
     let doc = read_lock_document_for_emit(workspace_dir);
-    config_stale_from_doc(&doc, workspace_dir)
+    config_stale_from_doc(&doc, workspace_dir, clause)
 }
 
 /// Staleness findings from the given lock document without re-reading from disk.
 /// Reuses a parsed lock document to avoid duplicate read+parse operations when gate()
-/// already holds the document. Findings are harness-relative to `workspace_dir`.
+/// already holds the document. Findings are harness-relative to `workspace_dir`, and
+/// each reads its severity, label and guidance off `clause` as [`config_stale`] documents.
 pub fn config_stale_from_doc(
     doc: &DocumentMut,
     workspace_dir: &Path,
+    clause: &contract::Clause,
 ) -> Vec<crate::check::Diagnostic> {
     let mut findings = Vec::new();
     let harness_root = harness_root_of(workspace_dir);
@@ -2769,13 +2775,17 @@ pub fn config_stale_from_doc(
             continue;
         };
         if sha256_hex(&canonicalize_eol(&bytes)) != emit_hash {
-            findings.push(crate::check::Diagnostic::warn(
-                CONFIG_STALE_RULE,
-                &source_path as &str,
-                format!(
-                    "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
-                ),
-            ));
+            findings.push(
+                crate::check::Diagnostic::new(
+                    crate::engine::severity_of(clause.severity),
+                    clause.label.as_str(),
+                    &source_path as &str,
+                    format!(
+                        "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
+                    ),
+                )
+                .with_guidance(clause.guidance.clone()),
+            );
         }
     }
     findings
@@ -2826,8 +2836,10 @@ fn declared_member_addresses(doc: &DocumentMut) -> Option<BTreeSet<String>> {
 /// slots, and then read for nothing else — its collections count zero, `explain` reports no
 /// nested members, and every leaf address under it fails to resolve. This states the cause.
 ///
-/// **Advisory** (`warn`), the posture [`config_stale`] takes: the harness is checkable, one
-/// document short of what its author meant to gate.
+/// **Advisory** (`warn`), fixed here: the harness is checkable, one document short of
+/// what its author meant to gate. Unlike the freshness facts, this push is not yet a
+/// declared clause's to weigh — the `locus-declared` predicate decision 0054 names is
+/// the other half of that move.
 ///
 /// What is asked is that record's *presence*, never what the document lowered into: a
 /// declared member of a field-regions-only layout, or one whose collection emptied, yields
@@ -2913,9 +2925,9 @@ pub struct UndeclaredLocusMembers {
 /// reported over it — and `guard` never bound it, yet Claude Code loads it. Remedy named
 /// first is to declare the member and re-emit.
 ///
-/// **Advisory** (`warn`), the posture [`config_stale`] and
-/// [`undeclared_layout_members_from_doc`] take: the harness is checkable, one document
-/// short of what its author meant to gate.
+/// **Advisory** (`warn`), the posture [`undeclared_layout_members_from_doc`] takes: the
+/// harness is checkable, one document short of what its author meant to gate, and the
+/// `locus-declared` predicate that would make it the author's to weigh has not landed.
 ///
 /// The caller gates this on the lock's *presence*: on an unrepresented harness every
 /// discovered member is undeclared, and naming them all would be noise, not a finding.
@@ -3290,9 +3302,12 @@ pub fn layout_sources(workspace_dir: &Path) -> miette::Result<Vec<LayoutSourceRo
 /// The drift findings for source dependencies under `family` from an already-parsed
 /// document: a fingerprinted target whose bytes no longer match the lock's `import_hash` —
 /// the target moved and `emit` has not re-run — or one no longer readable, the dependency
-/// gone. One `warn` finding per drifted dependency (under `rule`, its target described as
-/// a `noun`), the same advisory posture [`config_stale`] takes over a committed projection:
-/// the drift is surfaced, never a hard gate the author did not declare.
+/// gone. One finding per drifted dependency, its target described as a `noun`.
+///
+/// `clause` is the root member's own [`contract::Predicate::Fresh`] clause, read for all
+/// three channels exactly as [`config_stale_from_doc`] reads it: a source dependency's
+/// fingerprint and a projection's are the same freshness fact over the same lock, so one
+/// clause declares how loudly both are treated.
 ///
 /// # Errors
 ///
@@ -3301,30 +3316,31 @@ pub fn source_dep_stale_from_doc(
     doc: &DocumentMut,
     harness_root: &Path,
     family: &str,
-    rule: &str,
     noun: &str,
+    clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     let mut findings = Vec::new();
     for row in source_deps_from_doc(doc, family)? {
-        match fs::read(harness_root.join(&row.source_path)) {
-            Ok(bytes) if sha256_hex(&canonicalize_eol(&bytes)) == row.import_hash => {}
-            Ok(_) => findings.push(crate::check::Diagnostic::warn(
-                rule,
+        let message = match fs::read(harness_root.join(&row.source_path)) {
+            Ok(bytes) if sha256_hex(&canonicalize_eol(&bytes)) == row.import_hash => continue,
+            Ok(_) => format!(
+                "{noun} target `{}` (referenced by `{}`) no longer matches the lock's fingerprint — the target changed and `emit` has not run; re-emit to reconcile",
+                row.source_path, row.member
+            ),
+            Err(_) => format!(
+                "{noun} target `{}` (referenced by `{}`) is no longer readable — the fingerprinted dependency moved or was removed; re-emit to reconcile",
+                row.source_path, row.member
+            ),
+        };
+        findings.push(
+            crate::check::Diagnostic::new(
+                crate::engine::severity_of(clause.severity),
+                clause.label.as_str(),
                 &row.source_path,
-                format!(
-                    "{noun} target `{}` (referenced by `{}`) no longer matches the lock's fingerprint — the target changed and `emit` has not run; re-emit to reconcile",
-                    row.source_path, row.member
-                ),
-            )),
-            Err(_) => findings.push(crate::check::Diagnostic::warn(
-                rule,
-                &row.source_path,
-                format!(
-                    "{noun} target `{}` (referenced by `{}`) is no longer readable — the fingerprinted dependency moved or was removed; re-emit to reconcile",
-                    row.source_path, row.member
-                ),
-            )),
-        }
+                message,
+            )
+            .with_guidance(clause.guidance.clone()),
+        );
     }
     Ok(findings)
 }
@@ -3332,9 +3348,8 @@ pub fn source_dep_stale_from_doc(
 /// The drift findings for a workspace's source dependencies under `family`: a
 /// fingerprinted target whose bytes no longer match the lock's `import_hash` — the target
 /// moved and `emit` has not re-run — or one no longer readable, the dependency gone. One
-/// `warn` finding per drifted dependency (under `rule`, its target described as a
-/// `noun`), the same advisory posture [`config_stale`] takes over a committed projection:
-/// the drift is surfaced, never a hard gate the author did not declare.
+/// finding per drifted dependency, its target described as a `noun`, at the `clause`'s
+/// declared severity and under its label ([`source_dep_stale_from_doc`]).
 ///
 /// # Errors
 ///
@@ -3342,8 +3357,8 @@ pub fn source_dep_stale_from_doc(
 fn source_dep_stale(
     workspace_dir: &Path,
     family: &str,
-    rule: &str,
     noun: &str,
+    clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     let path = workspace_dir.join(crate::LOCK_FILENAME);
     let text = match fs::read_to_string(&path) {
@@ -3360,28 +3375,25 @@ fn source_dep_stale(
         })?;
     increment_lock_parses();
     let harness_root = harness_root_of(workspace_dir);
-    source_dep_stale_from_doc(&doc, &harness_root, family, rule, noun)
+    source_dep_stale_from_doc(&doc, &harness_root, family, noun, clause)
 }
 
 /// The drift findings for a workspace's layout imports — a moved or unreadable import
-/// target, surfaced as a `warn` under `layout.import-stale`.
+/// target, reported under `clause`'s label at `clause`'s declared severity.
 ///
 /// # Errors
 ///
 /// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
 pub fn layout_import_stale(
     workspace_dir: &Path,
+    clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
-    source_dep_stale(
-        workspace_dir,
-        LAYOUT_IMPORT_FAMILY,
-        "layout.import-stale",
-        "layout import",
-    )
+    source_dep_stale(workspace_dir, LAYOUT_IMPORT_FAMILY, "layout import", clause)
 }
 
 /// The drift findings for layout imports from an already-parsed lock document — a moved
-/// or unreadable import target, surfaced as a `warn` under `layout.import-stale`.
+/// or unreadable import target, reported under `clause`'s label at `clause`'s declared
+/// severity.
 ///
 /// # Errors
 ///
@@ -3389,33 +3401,33 @@ pub fn layout_import_stale(
 pub fn layout_import_stale_from_doc(
     doc: &DocumentMut,
     harness_root: &Path,
+    clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     source_dep_stale_from_doc(
         doc,
         harness_root,
         LAYOUT_IMPORT_FAMILY,
-        "layout.import-stale",
         "layout import",
+        clause,
     )
 }
 
 /// The drift findings for a workspace's composed-prose includes — a moved or unreadable
-/// include target, surfaced as a `warn` under `prose.include-stale`.
+/// include target, reported under `clause`'s label at `clause`'s declared severity.
 ///
 /// # Errors
 ///
 /// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
-pub fn include_stale(workspace_dir: &Path) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
-    source_dep_stale(
-        workspace_dir,
-        INCLUDE_FAMILY,
-        "prose.include-stale",
-        "prose include",
-    )
+pub fn include_stale(
+    workspace_dir: &Path,
+    clause: &contract::Clause,
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+    source_dep_stale(workspace_dir, INCLUDE_FAMILY, "prose include", clause)
 }
 
 /// The drift findings for composed-prose includes from an already-parsed lock document —
-/// a moved or unreadable include target, surfaced as a `warn` under `prose.include-stale`.
+/// a moved or unreadable include target, reported under `clause`'s label at `clause`'s
+/// declared severity.
 ///
 /// # Errors
 ///
@@ -3423,14 +3435,9 @@ pub fn include_stale(workspace_dir: &Path) -> Result<Vec<crate::check::Diagnosti
 pub fn include_stale_from_doc(
     doc: &DocumentMut,
     harness_root: &Path,
+    clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
-    source_dep_stale_from_doc(
-        doc,
-        harness_root,
-        INCLUDE_FAMILY,
-        "prose.include-stale",
-        "prose include",
-    )
+    source_dep_stale_from_doc(doc, harness_root, INCLUDE_FAMILY, "prose include", clause)
 }
 
 // ---------------------------------------------------------------------------

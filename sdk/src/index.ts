@@ -35,6 +35,7 @@ export {
   extent,
   forbiddenKeys,
   formatPlacesEdges,
+  fresh,
   globValid,
   maxLen,
   membership,

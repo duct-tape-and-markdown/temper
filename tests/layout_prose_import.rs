@@ -21,6 +21,17 @@ use temper::read;
 
 mod common;
 
+/// The shipped root default's own `fresh` clause — the value `gate` threads into
+/// `drift::layout_import_stale`, read off the embedded lock so a drift assertion here
+/// reads the same label and severity a real `check` reports under.
+fn fresh_clause() -> temper::contract::Clause {
+    temper::builtin::root_contract()
+        .clauses
+        .into_iter()
+        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
+        .expect("the shipped root default binds `fresh`")
+}
+
 /// A layout kind governing a single lone `.md` document under `specs/`, carrying the
 /// given ordered region rows. The one shape every case here builds a member of.
 fn layout_kind(name: &str, regions: Vec<LayoutRegionRow>) -> KindFactRow {
@@ -101,10 +112,22 @@ fn an_import_region_resolves_to_its_target_and_is_fingerprinted_in_the_lock() {
     assert!(!imports[0].import_hash.is_empty());
 
     // The fingerprint tracks the target's bytes: fresh now, drift once the target moves.
-    assert!(drift::layout_import_stale(&into).unwrap().is_empty());
+    let clause = fresh_clause();
+    assert!(
+        drift::layout_import_stale(&into, &clause)
+            .unwrap()
+            .is_empty()
+    );
     fs::write(harness.join("specs/included.md"), "edited prose.\n").unwrap();
-    let stale = drift::layout_import_stale(&into).unwrap();
+    let stale = drift::layout_import_stale(&into, &clause).unwrap();
     assert_eq!(stale.len(), 1, "a moved target is drift: {stale:?}");
+    // The clause is every channel the finding carries: it reports under the clause's own
+    // label, at the severity the clause declared, never a rule id baked into the judge.
+    assert_eq!(stale[0].rule, clause.label);
+    assert_eq!(
+        stale[0].severity,
+        temper::engine::severity_of(clause.severity)
+    );
 }
 
 #[test]
@@ -139,13 +162,15 @@ fn a_crlf_import_target_is_fresh_against_its_own_baseline() {
     // The baseline speaks the comparator's EOL-blind vocabulary, so the target reads fresh
     // immediately after emit — nothing on disk moved between the write and the read.
     assert!(
-        drift::layout_import_stale(&into).unwrap().is_empty(),
+        drift::layout_import_stale(&into, &fresh_clause())
+            .unwrap()
+            .is_empty(),
         "a CRLF import target is fresh against the baseline emit just wrote"
     );
 
     // Still a fingerprint, not a waiver: a non-EOL edit to the target is drift.
     fs::write(harness.join("specs/included.md"), "edited prose.\r\n").unwrap();
-    let stale = drift::layout_import_stale(&into).unwrap();
+    let stale = drift::layout_import_stale(&into, &fresh_clause()).unwrap();
     assert_eq!(stale.len(), 1, "a moved target is drift: {stale:?}");
 }
 
@@ -323,8 +348,8 @@ fn crlf_import_target_reads_clean_for_source_dep_stale() {
         &lock_doc,
         &harness,
         "layout_import",
-        "layout.import-stale",
         "layout import",
+        &fresh_clause(),
     )
     .unwrap();
 
@@ -346,8 +371,8 @@ fn crlf_import_target_reads_clean_for_source_dep_stale() {
         &lock_doc,
         &harness,
         "layout_import",
-        "layout.import-stale",
         "layout import",
+        &fresh_clause(),
     )
     .unwrap();
 

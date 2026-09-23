@@ -1357,8 +1357,8 @@ export interface Settings {
 /**
  * `settings` — `.claude/settings.json`, a whole-file JSON document at the **committed**
  * commitment class: the program authors every key, `emit` renders the file whole, and the
- * member's byte fingerprint makes a hand edit to any part of it `config.stale` (decision
- * 0050). Its top-level keys are its fields; identity is the fixed singleton stem
+ * member's byte fingerprint makes a hand edit to any part of it drift under the root
+ * `fresh` clause (decision 0050). Its top-level keys are its fields; identity is the fixed singleton stem
  * `settings` (the `file` unit shape — a project's committed settings are the one file at
  * this documented path, so no declared key names it). Channel-less: configuration the
  * harness reads, never surfaced to the model.

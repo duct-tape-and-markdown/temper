@@ -243,6 +243,23 @@ export const mentionReachable = (scopeField: string, gateField: string): Predica
  */
 export const reachable = (): Predicate => ({ key: "reachable" });
 /**
+ * Every lock row a selected member owns still matches disk — its projection's byte
+ * fingerprint, and each fingerprinted source dependency a layout import or a
+ * composed-prose include recorded. A drifted row means the authored source changed and
+ * `emit` has not run, or the emitted bytes were hand-edited.
+ *
+ * Drift is one comparison in one vocabulary, so one predicate carries all of it: a
+ * hand-edited projection, a moved import target and a moved include target are the same
+ * freshness fact over the same rows, and hardening freshness hardens it once.
+ *
+ * Names **no field**, like {@link reachable}: the argument is the committed lock read
+ * against disk, never any member's own fields. So it composes into a root `contract`,
+ * whose selection is the whole governed forest — a per-kind binding beside the root's
+ * would double-report one row, and a user-declared kind carries no default contract to
+ * bind it in.
+ */
+export const fresh = (): Predicate => ({ key: "fresh" });
+/**
  * Every edge the member's kind declares is placed by the format that renders the member
  * — a format that omits one renders a contract the prose does not represent. Names no
  * field: the selection is the member's whole incident edge set, at the `each` grain.

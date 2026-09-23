@@ -156,21 +156,32 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
         .filter(|row| row.kind.is_none())
         .collect();
     assert_eq!(
-        root.len(),
-        1,
+        root.iter()
+            .map(|row| (
+                row.label.as_deref(),
+                row.predicate.as_str(),
+                row.severity.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            (Some("root.reachable"), "reachable", "advisory"),
+            (Some("root.fresh"), "fresh", "advisory"),
+        ],
         "the memberless emit contributes the root default's rows, got {root:#?}"
     );
-    assert_eq!(root[0].predicate, "reachable");
-    assert_eq!(root[0].severity, "advisory");
-    assert_eq!(root[0].label.as_deref(), Some("root.reachable"));
     assert!(
-        root[0].guidance.is_some() && root[0].cite.is_some(),
-        "a shipped floor clause teaches and cites"
+        root.iter().all(|row| row.guidance.is_some()),
+        "every shipped root clause teaches"
+    );
+    assert!(
+        root[0].cite.is_some(),
+        "and cites where its verdict rests on an external fact — `reachable`'s dead-channel \
+         criteria are Claude Code's. `fresh` compares temper's own lock against disk, so \
+         there is nothing external for it to cite"
     );
 
-    // And it lifts back through the engine's own root-contract reader, so what ships is
+    // And they lift back through the engine's own root-contract reader, so what ships is
     // a contract the gate can run, never a row family that merely parses.
-    let lifted = contract::Predicate::Reachable;
     assert_eq!(
         temper::compose::root_contract_from_rows(&declarations.clauses)
             .expect("the derived root rows lift")
@@ -178,7 +189,7 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
             .iter()
             .map(|clause| clause.predicate.clone())
             .collect::<Vec<_>>(),
-        vec![lifted]
+        vec![contract::Predicate::Reachable, contract::Predicate::Fresh]
     );
 }
 

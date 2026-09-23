@@ -32,6 +32,17 @@ use temper::placement;
 
 mod common;
 
+/// The shipped root default's own `fresh` clause — the value `gate` threads into the
+/// projection-freshness judge, read off the embedded lock rather than hand-built so the
+/// assertion measures what a real `check` measures.
+fn fresh_clause() -> temper::contract::Clause {
+    temper::builtin::root_contract()
+        .clauses
+        .into_iter()
+        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
+        .expect("the shipped root default binds `fresh`")
+}
+
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
@@ -2476,9 +2487,12 @@ fn crlf_checkout_reads_clean_for_config_stale() {
     let crlf_content = lf_content.replace('\n', "\r\n");
     fs::write(&skill_path, &crlf_content).unwrap();
 
-    // config_stale must find no staleness (CRLF is canonicalized away).
-    let stale_findings =
-        drift::config_stale_from_doc(&drift::read_lock_document(&into).unwrap(), &harness);
+    // The projection judge must find no staleness (CRLF is canonicalized away).
+    let stale_findings = drift::config_stale_from_doc(
+        &drift::read_lock_document(&into).unwrap(),
+        &harness,
+        &fresh_clause(),
+    );
     assert!(
         stale_findings.is_empty(),
         "CRLF-only diff should read clean: {:?}",

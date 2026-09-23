@@ -11,6 +11,22 @@ breaking changes. Releases are small and frequent.
 
 ### Changed
 
+- **Breaking: the three drift findings report under the root `fresh`
+  clause's label.** `config.stale`, `prose.include-stale` and
+  `layout.import-stale` retire as rule ids: a drifted projection, a moved
+  layout-import target and a moved composed-prose include target are one
+  freshness fact over one lock row family, so one clause weighs all three
+  and every finding prints its label (`root.fresh` under the shipped
+  default). A dial entry or a CI filter keyed to an old id stops matching
+  and must be respelled off the finding's new `rule` id — the ids are a
+  published surface, and a silent rename is the drift class temper exists
+  to refuse. The severity is now the clause's, so a `.temper/dial.toml`
+  reading `root.fresh` at `required` makes a drifted content pin fail CI,
+  which no placement could do before. The shipped root default binds
+  `fresh` at `advisory` — today's posture, so nothing turns red on the
+  upgrade — and a root contract that binds no `fresh` clause reports no
+  staleness at all.
+
 - **Breaking: a `when` clause's compiled label carries its guard's value
   set.** The address is now `<kind>.when.<field>=<values>`, the guard's
   values sorted and `+`-joined — `mcp-server.when.type=stdio`. A `when`

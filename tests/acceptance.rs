@@ -470,3 +470,179 @@ fn deny_advisories_never_blocks_on_the_coverage_disclosure_note() {
          zero, got:\n{output}"
     );
 }
+
+/// A hash no file on disk can match, so a lock row carrying it is drifted the moment it
+/// is written — the corpus *is* the drifted state, with nothing to move afterwards.
+const UNMATCHABLE_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+/// The lock's kind-less `[[declaration.clause]]` row binding the root's `fresh` clause at
+/// `severity` — `compose::root_contract` reads the kind-less rows as the root's whole
+/// contract, so a case says exactly which root predicates bind by what it writes here.
+fn root_fresh_row(severity: &str) -> String {
+    format!(
+        "[[declaration.clause]]\n\
+         label = \"root.fresh\"\n\
+         predicate = \"fresh\"\n\
+         severity = \"{severity}\"\n"
+    )
+}
+
+/// A corpus stale in all three ways the root `fresh` clause judges — one committed
+/// projection whose bytes no longer match its `emit_hash`, one layout-import target and
+/// one composed-prose include target whose bytes no longer match their `import_hash` —
+/// with `root_rows` as the root member's whole contract.
+///
+/// Every hash is [`UNMATCHABLE_HASH`], so the three facts are the lock's own claim
+/// against real files rather than a re-emit the test would have to drive.
+fn drifted_corpus(label: &str, root_rows: &str) -> PathBuf {
+    let corpus = common::tmpdir(label);
+    common::write_skill(&corpus, "coordinate", &common::clean_skill("coordinate"));
+    fs::write(corpus.join("imported.md"), "imported prose.\n").unwrap();
+    fs::write(corpus.join("included.md"), "included prose.\n").unwrap();
+    // `[[skill]]` leads: a top-level provenance row written after `[declaration]` would
+    // nest under it.
+    write_lock(
+        &corpus,
+        &format!(
+            "[[skill]]\n\
+             name = \"coordinate\"\n\
+             source_path = \".claude/skills/coordinate/SKILL.md\"\n\
+             source_hash = \"{UNMATCHABLE_HASH}\"\n\
+             emit_hash = \"{UNMATCHABLE_HASH}\"\n\
+             \n\
+             [[declaration.layout_import]]\n\
+             member = \"skill:coordinate\"\n\
+             source_path = \"imported.md\"\n\
+             import_hash = \"{UNMATCHABLE_HASH}\"\n\
+             \n\
+             [[declaration.include]]\n\
+             member = \"skill:coordinate\"\n\
+             source_path = \"included.md\"\n\
+             import_hash = \"{UNMATCHABLE_HASH}\"\n\
+             \n\
+             {root_rows}"
+        ),
+    );
+    corpus
+}
+
+/// The freshness findings are the root `fresh` clause's to weigh, and the dial reaches
+/// the clause by its label: the same drifted corpus is advisory undialed and **blocking**
+/// once a `.temper/dial.toml` reads the label at `required`.
+///
+/// This is the 0.0.18 field report's point. The three drift pushes were fixed `warn`s:
+/// the dial reaches clause labels only and enforcement mode acts at `guard`, so no
+/// placement could make a drifted content pin fail CI. All three now report under one
+/// clause's label, so one dial entry — or one composed clause — decides all three.
+#[test]
+fn the_fresh_clause_weighs_all_three_staleness_facts_and_the_dial_reaches_it() {
+    let corpus = drifted_corpus("fresh-advisory", &root_fresh_row("advisory"));
+
+    let (ok, findings) = check_findings(&corpus, &corpus, &[]);
+    let fresh = common::findings_for(&findings, "root.fresh");
+    assert_eq!(
+        fresh.len(),
+        3,
+        "one finding per drifted lock row — the projection, the layout import, the \
+         include — all under the one clause's label, got: {findings:#?}"
+    );
+    assert!(
+        fresh.iter().all(|line| line.starts_with("::warning")),
+        "the clause declared `advisory`, so none of them blocks, got: {fresh:#?}"
+    );
+    assert!(ok, "and the run exits zero, got:\n{findings:#?}");
+    // Each drifted row is named, so the count above cannot be three findings over one row.
+    for artifact in [
+        ".claude/skills/coordinate/SKILL.md",
+        "imported.md",
+        "included.md",
+    ] {
+        assert!(
+            fresh.iter().any(|line| line.contains(artifact)),
+            "`{artifact}` is one of the drifted rows the clause indicts, got: {fresh:#?}"
+        );
+    }
+
+    // The advisory posture is promotable, which is what the strict CI policy buys today.
+    // The exit code alone does not prove the escalation — the always-on
+    // `install.gate-installed` advisory would carry it — so the arm pins the promoted
+    // findings themselves beside it.
+    let (denied_ok, findings) = check_findings(&corpus, &corpus, &["--deny-advisories"]);
+    assert!(
+        !denied_ok,
+        "an advisory freshness violation exits non-zero under --deny-advisories, got:\n\
+         {findings:#?}"
+    );
+    assert_eq!(
+        common::findings_for(&findings, "root.fresh").len(),
+        3,
+        "and the three promoted findings are the clause's own, got: {findings:#?}"
+    );
+
+    // And dialing the label at `required` blocks the *unflagged* run — the placement the
+    // field report found unreachable.
+    common::write_sibling(
+        &corpus,
+        ".temper/dial.toml",
+        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.fresh\"\nseverity = \"required\"\n",
+    );
+    let (dialed_ok, findings) = check_findings(&corpus, &corpus, &[]);
+    let fresh = common::findings_for(&findings, "root.fresh");
+    assert_eq!(
+        fresh.len(),
+        3,
+        "the dial softens nothing away: {findings:#?}"
+    );
+    assert!(
+        fresh.iter().all(|line| line.starts_with("::error")),
+        "the dialed clause reads `required`, so every drifted row blocks, got: {fresh:#?}"
+    );
+    assert!(
+        !dialed_ok,
+        "so a drifted content pin fails CI with no flag at all, got:\n{findings:#?}"
+    );
+}
+
+/// A root contract that binds no `fresh` clause reports no staleness finding at all —
+/// the observable form of the judges' opt-in: the gate locates the clause on the root
+/// selection and walks nothing where none binds.
+///
+/// Pinned here rather than in the cost suite, which counts lock reads and parses: the
+/// lock document is already read and parsed before the `fresh` lookup, so a skipped walk
+/// contributes zero to either counter and those pins cannot see it.
+#[test]
+fn a_root_contract_binding_no_fresh_clause_reports_no_staleness_at_all() {
+    // `reachable` alone: real kind-less rows, so the fallback to the shipped default —
+    // which binds both — never fires, and the corpus is drifted exactly as the case above.
+    let corpus = drifted_corpus(
+        "fresh-unbound",
+        "[[declaration.clause]]\n\
+         label = \"root.reachable\"\n\
+         predicate = \"reachable\"\n\
+         severity = \"advisory\"\n",
+    );
+
+    let (ok, findings) = check_findings(&corpus, &corpus, &[]);
+    assert!(
+        common::findings_for(&findings, "root.fresh").is_empty(),
+        "no clause, no finding — freshness is not a fact the tool pushes unasked, got: \
+         {findings:#?}"
+    );
+    assert!(
+        !findings.iter().any(
+            |line| line.contains("does not match the lock's emit fingerprint")
+                || line.contains("no longer matches the lock's fingerprint")
+        ),
+        "and no staleness message rides any other rule id either, got: {findings:#?}"
+    );
+    assert!(ok, "the run exits zero, got:\n{findings:#?}");
+
+    // Nor does the strict CI policy resurrect an unbound clause: `--deny-advisories`
+    // promotes advisory *violations*, and a clause nobody declared produced none.
+    let (_, findings) = check_findings(&corpus, &corpus, &["--deny-advisories"]);
+    assert!(
+        common::findings_for(&findings, "root.fresh").is_empty(),
+        "opting out is a real opt-out, not a failure deferred to the strict policy, got: \
+         {findings:#?}"
+    );
+}

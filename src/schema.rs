@@ -129,6 +129,10 @@ pub fn emit(contract: &Contract) -> Value {
             // `reachable` reads the registration corpus and the import closure, never a
             // property of the document being validated — the schema channel is silent.
             | Predicate::Reachable
+            // `fresh` compares the committed lock against the bytes on disk. A
+            // lock-vs-disk predicate types no document field: there is nothing for a
+            // keystroke gate to validate as you type, so the schema channel is silent.
+            | Predicate::Fresh
             | Predicate::GlobValid { .. }
             // `when` is a guard conditioning a body; the guard and body are evaluated
             // at the engine level, not expressed as schema constraints. Any frontmatter

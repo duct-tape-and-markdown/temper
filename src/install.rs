@@ -1331,8 +1331,9 @@ fn unparseable_manifest_finding(
 /// ([`GuardedManifest::container`]) — and the caller falls back to the projection-drift
 /// binding. That last case is the one the co-ownership reading does not reach: with a container
 /// member the file is a whole projection, so it carries no residue a hand write could
-/// legitimately touch, and passing such a write here would contradict the `config.stale`
-/// verdict `check` gives the very same bytes. Returns `Some(findings)` when the write does
+/// legitimately touch, and passing such a write here would contradict the
+/// projection-drift verdict `check`'s root `fresh` clause gives the very same bytes.
+/// Returns `Some(findings)` when the write does
 /// target a co-owned manifest: `findings` is empty for a conforming one (a write touching only
 /// opaque residue, or members that all pass), or the error-severity findings its members trip,
 /// to be surfaced at the

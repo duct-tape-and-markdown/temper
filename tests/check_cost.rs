@@ -23,6 +23,17 @@ use temper::glob;
 use temper::import::{self, Discovery, LocalOverride};
 use temper::kind;
 
+/// The shipped root default's own `fresh` clause — the value `gate` threads into the
+/// three staleness judges, taken from the embedded lock so these cost pins measure the
+/// walk a real run makes rather than a hand-built stand-in.
+fn fresh_clause() -> temper::contract::Clause {
+    temper::builtin::root_contract()
+        .clauses
+        .into_iter()
+        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
+        .expect("the shipped root default binds `fresh`")
+}
+
 /// Generate a Claude Code harness at consumer scale under `root`, mirroring the real
 /// layout (`.claude/skills/<name>/SKILL.md` + companions, `.claude/rules/*.md`,
 /// `.claude/commands/*.md`, `.claude/agents/**/*.md`, nested `**/CLAUDE.md` memory), and
@@ -317,9 +328,10 @@ import_hash = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     let harness_root = workspace
         .parent()
         .unwrap_or_else(|| std::path::Path::new("."));
-    let _ = temper::drift::layout_import_stale_from_doc(&lock_doc, harness_root);
+    let clause = fresh_clause();
+    let _ = temper::drift::layout_import_stale_from_doc(&lock_doc, harness_root, &clause);
     // 4. include_stale
-    let _ = temper::drift::include_stale_from_doc(&lock_doc, harness_root);
+    let _ = temper::drift::include_stale_from_doc(&lock_doc, harness_root, &clause);
 
     // Count lock reads/parses after hoisting test.
     let reads_after = temper::drift::lock_read_count();
@@ -650,7 +662,7 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
     let lock_doc = temper::drift::read_lock_document(&workspace).expect("lock should parse");
 
     // Call config_stale_from_doc which should not re-read or re-parse the lock.
-    let _ = temper::drift::config_stale_from_doc(&lock_doc, &workspace);
+    let _ = temper::drift::config_stale_from_doc(&lock_doc, &workspace, &fresh_clause());
 
     // Count lock reads/parses after test.
     let reads_after = temper::drift::lock_read_count();

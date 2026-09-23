@@ -32,6 +32,19 @@ use temper::install::{self, InstallOutcome, Represent};
 
 mod common;
 
+/// The shipped root default's own `fresh` clause — what the gate threads into the
+/// projection-freshness judge. These suites assert the judge's verdict over bytes
+/// `install` wrote; the *guard*'s enforcement mode is a separate decision and is
+/// untouched by the clause, so a case here pins that the clause governs `check`'s
+/// finding and not the guard's.
+fn fresh_clause() -> temper::contract::Clause {
+    temper::builtin::root_contract()
+        .clauses
+        .into_iter()
+        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
+        .expect("the shipped root default binds `fresh`")
+}
+
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
@@ -826,7 +839,7 @@ fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
     // must fold those placements back in before the run returns, so the lock
     // already matches this run's own output with no second run required.
     assert!(
-        temper::drift::config_stale(&temper_dir).is_empty(),
+        temper::drift::config_stale(&temper_dir, &fresh_clause()).is_empty(),
         "the first install run must leave the lock's fingerprints matching the placement-inclusive bytes"
     );
 
@@ -900,7 +913,7 @@ fn a_frontmatterless_memory_projection_carries_the_html_banner_and_a_re_run_conv
             .count(),
         1
     );
-    assert!(temper::drift::config_stale(&temper_dir).is_empty());
+    assert!(temper::drift::config_stale(&temper_dir, &fresh_clause()).is_empty());
 }
 
 #[test]
@@ -2265,11 +2278,61 @@ fn container_owned_settings_harness(slug: &str) -> PathBuf {
 }
 
 #[test]
+fn the_guards_enforcement_mode_decides_a_guarded_write_whatever_the_fresh_clause_binds() {
+    // Two verdicts over one path, and only one of them is the clause's. `check`'s
+    // projection-drift finding is the root `fresh` clause's to weigh — declare no such
+    // clause and the finding is gone. The *guard*'s refusal is the enforcement mode's, at
+    // the boundary, before any byte lands: it binds the path because the lock names it a
+    // projection, and no contract clause enters that decision. A harness that opted out of
+    // the freshness finding has not opted out of the boundary.
+    let root = common::tmpdir("guard-mode-outlives-a-clauseless-fresh");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    // A root contract binding `reachable` alone: the lock declares kind-less rows, so
+    // these rows *are* the root's whole contract and no `fresh` clause is composed.
+    fs::write(
+        temper_dir.join("lock.toml"),
+        format!(
+            "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+             [[declaration.clause]]\nlabel = \"root.reachable\"\n\
+             predicate = \"reachable\"\nseverity = \"advisory\"\n\n\
+             {CLAUDE_WRITE_LOCK_ROW}"
+        ),
+    )
+    .unwrap();
+    // The projection on disk, drifted from the `emit_hash` the row above records — so the
+    // only reason `check` can stay silent is the absent clause.
+    let skill = root.join(".claude").join("skills").join("x");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
+
+    let (findings, _ok) = common::check_harness(&root);
+    assert!(
+        common::findings_for(&findings, "root.fresh").is_empty(),
+        "with no `fresh` clause bound, the drifted projection draws no freshness finding: \
+         {findings:#?}"
+    );
+
+    let (code, stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    assert_eq!(
+        code,
+        Some(2),
+        "the guard still denies the write at the lock's `block` mode: {stderr}"
+    );
+    assert!(
+        stderr.contains("temper-managed projection"),
+        "and speaks as the projection binding, which reads the lock's rows and no clause: \
+         {stderr}"
+    );
+}
+
+#[test]
 fn guard_refuses_a_residue_only_write_to_a_container_owned_manifest() {
     // The co-ownership allowance reverses where a container member projects the manifest
     // whole. Every byte is then emit's — the part-authored file co-ownership assumes cannot
-    // arise — so there is no opaque residue a hand write may touch, and `check` gives these
-    // very bytes a `config.stale` verdict. A boundary that waved the edit through would
+    // arise — so there is no opaque residue a hand write may touch, and `check`'s root
+    // `fresh` clause gives these very bytes a projection-drift verdict. A boundary that
+    // waved the edit through would
     // contradict the gate, so the write earns the projection refusal instead.
     let root = container_owned_settings_harness("guard-manifest-container-owned");
     let pending = CO_OWNED_SETTINGS.replace(": false", ": true");
@@ -2931,7 +2994,7 @@ fn crlf_checkouts_preserve_managed_projections_through_install_emit_cycle() {
 
     // gate_installed must be quiet (no stale config drift).
     assert!(
-        temper::drift::config_stale(&temper_dir).is_empty(),
+        temper::drift::config_stale(&temper_dir, &fresh_clause()).is_empty(),
         "gate_installed must be quiet on CRLF projections after install"
     );
 
@@ -3030,11 +3093,11 @@ fn crlf_lf_twins_both_converge_on_install() {
 
     // Both must report gate clean.
     assert!(
-        temper::drift::config_stale(&lf_temper_dir).is_empty(),
+        temper::drift::config_stale(&lf_temper_dir, &fresh_clause()).is_empty(),
         "LF harness gate must be clean"
     );
     assert!(
-        temper::drift::config_stale(&crlf_temper_dir).is_empty(),
+        temper::drift::config_stale(&crlf_temper_dir, &fresh_clause()).is_empty(),
         "CRLF harness gate must be clean"
     );
 }
@@ -3094,7 +3157,7 @@ fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_
 
         // Gate must be quiet (no drift).
         assert!(
-            temper::drift::config_stale(&temper_dir).is_empty(),
+            temper::drift::config_stale(&temper_dir, &fresh_clause()).is_empty(),
             "gate must report no drift after install→edit→emit (LF)"
         );
     };
@@ -3146,7 +3209,7 @@ fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_
 
         // Gate must be quiet (no drift).
         assert!(
-            temper::drift::config_stale(&temper_dir).is_empty(),
+            temper::drift::config_stale(&temper_dir, &fresh_clause()).is_empty(),
             "gate must report no drift after install→edit→emit (CRLF)"
         );
     };

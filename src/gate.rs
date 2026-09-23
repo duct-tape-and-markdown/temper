@@ -7,7 +7,7 @@ use crate::admissibility;
 use crate::builtin_kind;
 use crate::check::{self, Severity};
 use crate::compose;
-use crate::contract::Contract;
+use crate::contract::{self, Contract};
 use crate::coverage;
 use crate::coverage_note;
 use crate::dial;
@@ -717,12 +717,22 @@ pub fn gate(
         &committed.kinds,
     )?);
 
-    // The freshness fact: a committed projection
-    // whose bytes no longer match the lock's emit fingerprint is `config.stale`. Read
-    // off the surface `workspace`'s lock (where the members were imported and the
-    // fingerprints recorded), advisory so a hand-edited or un-re-emitted projection is
-    // surfaced without failing the run.
-    diagnostics.extend(drift::config_stale_from_doc(&lock_doc, workspace));
+    // The freshness facts — the root member's own `fresh` clause, whose subject is every
+    // lock row a member owns: the projection's byte fingerprint here, each fingerprinted
+    // source dependency below. Opt-in exactly as `reachable` is, and through the same
+    // door: the clause is located on the one `selections` list already in hand — past the
+    // dial, so a dialed severity is the one a finding carries — and where none binds no
+    // walk runs at all. One clause reaches all three judges because drift is one
+    // comparison in one vocabulary (`specs/model/pipeline.md`, "Drift"): severity, label
+    // and guidance travel together rather than two channels threaded and the third
+    // dropped.
+    let fresh_clause = engine::root_clause(&selections, &contract::Predicate::Fresh);
+
+    // The projection half, read off the surface `workspace`'s lock (where the members
+    // were imported and the fingerprints recorded).
+    if let Some(clause) = fresh_clause {
+        diagnostics.extend(drift::config_stale_from_doc(&lock_doc, workspace, clause));
+    }
 
     // The second disk-vs-lock fact, over declaration rows rather than fingerprints: a
     // committed layout document discovery found that the lock declares no member for. Its
@@ -737,19 +747,23 @@ pub fn gate(
     }
     diagnostics.extend(undeclared_locus.findings);
 
-    // The source-dependency freshness facts: a fingerprinted layout-import or
-    // composed-prose include target whose bytes no longer match the lock — the target
-    // moved and `emit` has not re-run. Advisory, the same `warn` posture `config.stale`
-    // takes over a drifted projection. Use the pre-parsed lock document to avoid re-reading.
-    let harness_root_for_staleness = drift::harness_root_of(workspace);
-    diagnostics.extend(drift::layout_import_stale_from_doc(
-        &lock_doc,
-        &harness_root_for_staleness,
-    )?);
-    diagnostics.extend(drift::include_stale_from_doc(
-        &lock_doc,
-        &harness_root_for_staleness,
-    )?);
+    // The source-dependency half of the same `fresh` clause: a fingerprinted
+    // layout-import or composed-prose include target whose bytes no longer match the
+    // lock — the target moved and `emit` has not re-run. Uses the pre-parsed lock
+    // document to avoid re-reading.
+    if let Some(clause) = fresh_clause {
+        let harness_root_for_staleness = drift::harness_root_of(workspace);
+        diagnostics.extend(drift::layout_import_stale_from_doc(
+            &lock_doc,
+            &harness_root_for_staleness,
+            clause,
+        )?);
+        diagnostics.extend(drift::include_stale_from_doc(
+            &lock_doc,
+            &harness_root_for_staleness,
+            clause,
+        )?);
+    }
 
     Ok((diagnostics, announcement))
 }

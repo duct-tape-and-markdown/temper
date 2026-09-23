@@ -8,7 +8,7 @@
  */
 
 import type { Member, KindDefinition } from "./kind.js";
-import { clause, reachable } from "./contract.js";
+import { clause, fresh, reachable } from "./contract.js";
 import type { Clause, Requirement } from "./contract.js";
 
 /**
@@ -117,11 +117,17 @@ export function harness(init: {
  * Homed beside the root member's other fields, the precedent `dialDefaultContract` sets
  * in `dial.ts`: a default contract lives with the surface it governs.
  *
- * One clause today. `reachable` is the predicate only the root can bind — its selection
- * is the whole forest and its judge is the reference graph — and it is the one check
- * that catches authored configuration the harness never loads at all. Advisory: a dead
- * registration is often deliberate work-in-progress, and whether it gates is the
- * adopting author's call, dialed or re-declared rather than tool-decided.
+ * Two clauses, both predicates only the root can bind: their selection is the whole
+ * forest and their judges read the reference graph and the committed lock, neither of
+ * which any one kind's population carries. `reachable` is the one check that catches
+ * authored configuration the harness never loads at all; `fresh` is the one that catches
+ * a projection or a fingerprinted source dependency that has moved out from under its
+ * lock row.
+ *
+ * Both advisory — today's posture for each, so no adopter turns red on the upgrade. A
+ * dead registration is often deliberate work-in-progress, and a drifted projection is
+ * usually a re-emit away; whether either gates is the adopting author's call, dialed or
+ * re-declared rather than tool-decided.
  */
 export const rootDefaultContract: readonly Clause[] = [
   clause(reachable(), {
@@ -130,5 +136,10 @@ export const rootDefaultContract: readonly Clause[] = [
       "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line.",
     cite:
       "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)",
+  }),
+  clause(fresh(), {
+    severity: "advisory",
+    guidance:
+      "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI.",
   }),
 ];

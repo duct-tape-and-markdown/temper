@@ -19,6 +19,17 @@ use temper::read;
 
 mod common;
 
+/// The shipped root default's own `fresh` clause — the value `gate` threads into
+/// `drift::include_stale`, taken from the embedded lock so a drift assertion here reads
+/// the same label and severity a real `check` reports under.
+fn fresh_clause() -> temper::contract::Clause {
+    temper::builtin::root_contract()
+        .clauses
+        .into_iter()
+        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
+        .expect("the shipped root default binds `fresh`")
+}
+
 /// The include slot byte the SDK plants per include (`U+0001`) — the engine splices the
 /// target's bytes here.
 const INCLUDE_SLOT: char = '\u{1}';
@@ -74,10 +85,15 @@ fn an_include_lands_byte_identical_and_is_fingerprinted() {
     assert!(!includes[0].import_hash.is_empty());
 
     // The fingerprint tracks the target's bytes: fresh now, drift once the target moves.
-    assert!(drift::include_stale(&into).unwrap().is_empty());
+    let clause = fresh_clause();
+    assert!(drift::include_stale(&into, &clause).unwrap().is_empty());
     fs::write(harness.join("fragment.md"), "edited prose.\n").unwrap();
-    let stale = drift::include_stale(&into).unwrap();
+    let stale = drift::include_stale(&into, &clause).unwrap();
     assert_eq!(stale.len(), 1, "a moved include target is drift: {stale:?}");
+    assert_eq!(
+        stale[0].rule, clause.label,
+        "and it reports under the `fresh` clause's own label, never a baked rule id"
+    );
 }
 
 #[test]
@@ -109,7 +125,9 @@ fn a_crlf_include_target_is_fresh_against_its_own_baseline() {
     // The baseline speaks the comparator's EOL-blind vocabulary, so the target reads fresh
     // immediately after emit — nothing on disk moved between the write and the read.
     assert!(
-        drift::include_stale(&into).unwrap().is_empty(),
+        drift::include_stale(&into, &fresh_clause())
+            .unwrap()
+            .is_empty(),
         "a CRLF include target is fresh against the baseline emit just wrote"
     );
 
@@ -127,7 +145,7 @@ fn a_crlf_include_target_is_fresh_against_its_own_baseline() {
 
     // Still a fingerprint, not a waiver: a non-EOL edit to the target is drift.
     fs::write(harness.join("fragment.md"), "edited prose.\r\n").unwrap();
-    let stale = drift::include_stale(&into).unwrap();
+    let stale = drift::include_stale(&into, &fresh_clause()).unwrap();
     assert_eq!(stale.len(), 1, "a moved include target is drift: {stale:?}");
 }
 

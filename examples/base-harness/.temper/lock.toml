@@ -331,6 +331,12 @@ severity = "advisory"
 guidance = "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line."
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
 
+[[declaration.clause]]
+label = "root.fresh"
+predicate = "fresh"
+severity = "advisory"
+guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
+
 [[declaration.requirement]]
 name = "conduct"
 required = true
