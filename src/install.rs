@@ -17,13 +17,21 @@
 //!   conversion (0016), never an intermediate state — every present frontmatter
 //!   field hoists into a typed property and prose moves module-side (inline for
 //!   a short body, a module-adjacent file for a document) — plus a `harness.ts`
-//!   skeleton — runs the first `emit` (the adoption moment,
+//!   skeleton, and temper's own gate as three `hook` members ([`GATE_HOOKS`]) —
+//!   runs the first `emit` (the adoption moment,
 //!   [`drift::emit_program`]), which regenerates every composed kind's artifact as a
 //!   canonical projection — a layout kind's document stays a source at either depth,
-//!   never regenerated — and places the guard hook / managed-by note /
+//!   never regenerated — and places the managed-by note /
 //!   schema modeline at every path the fresh lock declares **emit-owned**
 //!   ([`drift::emit_owned_targets`], [`evaluate_placements`]) — the first emit's
 //!   diff is the one reviewable adoption diff, never an own-path passthrough.
+//!
+//! **One writer per file.** On the yes-path `.claude/settings.json` is a projection the
+//! program owns whole, so the gate hooks reach it the way every other member reaches its
+//! artifact — through `emit`. Splicing them in beside `emit` reported `applied` and wired
+//! nothing: the re-stamp emit below re-rendered the file from the program and erased the
+//! splice in the same run. [`place_settings_only`] keeps the merge for the **no**-path,
+//! where the file is the human's and no program renders it.
 //!
 //! [`gate_installed`] is the read-only shadow `check` folds in: the same placement
 //! evaluation, dry-run, collapsed to one advisory [`Diagnostic`]. It never scaffolds,
@@ -51,7 +59,7 @@ use crate::engine;
 use crate::frontmatter;
 use crate::import;
 use crate::json_manifest;
-use crate::json_splice::{self, Edit};
+use crate::json_splice;
 use crate::kind::{self, CollectionAddress, CustomKind};
 use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER};
 use crate::toml_document;
@@ -151,12 +159,6 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 /// Public so the guard-hook acceptance can drive the exact wired command.
 pub const GUARD_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
 
-/// The stable token the guard command carries so a re-install *replaces* the existing
-/// temper guard in place rather than appending a second one. The command is
-/// mode-independent (the subcommand reads the enforcement mode live), so this is simply the
-/// subcommand invocation.
-const GUARD_MARKER: &str = "temper guard";
-
 /// The tool-name matcher the `PostToolUse` Bash drift-check hook binds — direct Bash tool
 /// invocations. PostToolUse runs after the Bash call to re-check emit-owned targets for
 /// drift, since the PreToolUse guard cannot see Bash-mediated writes.
@@ -173,9 +175,52 @@ const BASH_MATCHER: &str = "Bash";
 /// fail-loud invariant.
 pub const POST_TOOL_USE_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start";
 
-/// The stable token the PostToolUse command carries so a re-install *replaces* the
-/// existing temper hook in place rather than appending a second one.
-const POST_TOOL_USE_MARKER: &str = "temper check";
+/// How many hook groups temper's gate rides — the width of [`GATE_HOOKS`] and of every
+/// per-hook reading taken beside it.
+const GATE_HOOK_COUNT: usize = 3;
+
+/// One of the three hook groups temper's own gate rides, as the `hook` **member** the
+/// lift mints it as: the lifecycle event it keys under, the tool-name matcher it binds
+/// (`None` where the event carries no tool), and the exec-form command it runs.
+struct GateHook {
+    /// The placement row [`run`] and [`gate_installed`] report this hook under.
+    placement: Placement,
+    /// The `hooks.<Event>` key — and the member's identity, since a hook's id is its event.
+    event: &'static str,
+    /// The tool-name filter, absent on an event that fires unconditionally.
+    matcher: Option<&'static str>,
+    /// The exec-form command, this module's own constant.
+    command: &'static str,
+}
+
+/// temper's whole gate, in the order the placement rows report it. On the represented
+/// path these are program members: [`scaffold`] mints one module apiece, `emit` projects
+/// them into `.claude/settings.json`'s `hooks` collection, and nothing else writes that
+/// file — the settings document is a projection the program owns whole
+/// ([`builtin_kind`]'s `settings` kind), so a second writer splicing the same bytes would
+/// be erased by the next emit. [`place_settings_only`] is the unrepresented path's own
+/// writer and places [`Placement::SessionStart`] alone: with no program there is no
+/// projection to guard and nothing for `emit` to re-render.
+const GATE_HOOKS: [GateHook; GATE_HOOK_COUNT] = [
+    GateHook {
+        placement: Placement::SessionStart,
+        event: "SessionStart",
+        matcher: None,
+        command: SESSION_START_COMMAND,
+    },
+    GateHook {
+        placement: Placement::GuardHook,
+        event: "PreToolUse",
+        matcher: Some(GUARD_MATCHER),
+        command: GUARD_COMMAND,
+    },
+    GateHook {
+        placement: Placement::PostToolUseHook,
+        event: "PostToolUse",
+        matcher: Some(BASH_MATCHER),
+        command: POST_TOOL_USE_COMMAND,
+    },
+];
 
 /// The message `temper guard` prints on a projection hit — stating the limit verbatim:
 /// the guard binds only this provider's tool-mediated writes (Write/Edit/MultiEdit),
@@ -493,6 +538,11 @@ fn run_represented(
     let harness_entry = temper_dir.join(HARNESS_ENTRY);
     let already_scaffolded = harness_entry.is_file();
 
+    // What the settings document wired before this run touched anything — the only
+    // reading of "before" the emit below cannot destroy, and the split between a gate
+    // hook this run wired ([`ApplyOutcome::Applied`]) and one already in place.
+    let gate_before = gate_hooks_wired(&settings_path(root))?;
+
     // Assured before the lift writes a single member module: "no half-scaffolded
     // state" — a dependency spawn failure must never leave a partial `.temper/`
     // program behind it.
@@ -527,8 +577,8 @@ fn run_represented(
         )?)
     };
 
-    let mut entries = if emit.is_some() {
-        evaluate_placements(root, &temper_dir, dry_run)?
+    let entries = if emit.is_some() {
+        evaluate_placements(root, &temper_dir, dry_run, Some(gate_before))?
     } else {
         Vec::new()
     };
@@ -550,21 +600,6 @@ fn run_represented(
                 teardown: false,
             },
         )?;
-
-        // After the second emit, detect if any hook placements were superseded by
-        // authored hook members that claim the same events.
-        let conflicted_events = detect_hook_member_conflicts(&temper_dir)?;
-        for entry in &mut entries {
-            let superseded = match entry.placement {
-                Placement::SessionStart => conflicted_events.contains("SessionStart"),
-                Placement::GuardHook => conflicted_events.contains("PreToolUse"),
-                Placement::PostToolUseHook => conflicted_events.contains("PostToolUse"),
-                _ => false,
-            };
-            if superseded && entry.outcome == ApplyOutcome::Applied {
-                entry.outcome = ApplyOutcome::SupersededByMember;
-            }
-        }
     }
 
     Ok(InstallOutcome {
@@ -591,29 +626,13 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
         return Vec::new();
     }
     let represented = temper_dir.join(HARNESS_ENTRY).is_file();
-    let Ok(mut entries) = (if represented {
-        evaluate_placements(root, &temper_dir, true)
+    let Ok(entries) = (if represented {
+        evaluate_placements(root, &temper_dir, true, None)
     } else {
         place_settings_only(root, true)
     }) else {
         return Vec::new();
     };
-
-    // For a represented harness, detect if any hook placements are superseded by
-    // authored hook members in the lock, just like install::run does.
-    if represented && let Ok(conflicted_events) = detect_hook_member_conflicts(&temper_dir) {
-        for entry in &mut entries {
-            let superseded = match entry.placement {
-                Placement::SessionStart => conflicted_events.contains("SessionStart"),
-                Placement::GuardHook => conflicted_events.contains("PreToolUse"),
-                Placement::PostToolUseHook => conflicted_events.contains("PostToolUse"),
-                _ => false,
-            };
-            if superseded && entry.outcome == ApplyOutcome::Applied {
-                entry.outcome = ApplyOutcome::SupersededByMember;
-            }
-        }
-    }
 
     // Tally the missing/drifted placements by kind. The hook and guard are single
     // placements; modelines and managed-by notes are one per modeled artifact, so
@@ -675,12 +694,13 @@ fn settings_path(root: &Path) -> PathBuf {
 }
 
 /// Project only the `SessionStart` hook into `.claude/settings.json` — the no-path's
-/// whole write. No guard, no note, no modeline: those bind
-/// only paths a lock declares emit-owned, and an unrepresented project has no lock.
+/// whole write, and the only writer that merges this file. No guard, no note, no
+/// modeline: those bind only paths a lock declares emit-owned, and an unrepresented
+/// project has no lock.
 fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<InstallEntry>> {
     let settings_path = settings_path(root);
     let existing = read_optional(&settings_path)?;
-    let settings = project_settings(&settings_path, existing.as_deref(), false, false)?;
+    let settings = project_settings(&settings_path, existing.as_deref())?;
     drift::place(&settings_path, &settings.desired, None, dry_run)?;
     Ok(vec![InstallEntry {
         placement: Placement::SessionStart,
@@ -689,44 +709,85 @@ fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<Install
     }])
 }
 
-/// Project the `SessionStart` hook, the `PreToolUse` guard (only when emit-owned
-/// targets exist — "the guard arrives with its constituency, never before"), the
-/// `PostToolUse` Bash drift-check hook (only when emit-owned targets exist), and
-/// each emit-owned target's managed-by note + schema modeline — the represented
-/// project's whole placement set, lock-grounded via [`drift::emit_owned_targets`]
-/// rather than a raw discovery walk.
+/// Which of [`GATE_HOOKS`] `.claude/settings.json` wires right now, in `GATE_HOOKS`
+/// order — read straight off the file, which on the represented path is `emit`'s
+/// projection of the gate hook members. An absent or empty document wires none; an
+/// unparseable one is an [`InstallError`], never a silent "none".
+fn gate_hooks_wired(path: &Path) -> Result<[bool; GATE_HOOK_COUNT], InstallError> {
+    let Some(text) = read_optional(path)? else {
+        return Ok([false; GATE_HOOK_COUNT]);
+    };
+    if text.trim().is_empty() {
+        return Ok([false; GATE_HOOK_COUNT]);
+    }
+    let root: JsonValue = serde_json::from_str(&text).map_err(|source| InstallError::Settings {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let object = root
+        .as_object()
+        .ok_or_else(|| InstallError::SettingsShape {
+            path: path.to_path_buf(),
+        })?;
+    Ok(GATE_HOOKS.map(|hook| event_has_command(object, hook.event, hook.command)))
+}
+
+/// One gate hook's reported outcome, read off the projection rather than off a write
+/// `install` performed — the represented path places nothing in this file.
+///
+/// - wired now, not before → [`Applied`](ApplyOutcome::Applied): this run wired it.
+/// - wired now and before → [`Unchanged`](ApplyOutcome::Unchanged).
+/// - not wired, its event claimed by a `hook` member →
+///   [`SupersededByMember`](ApplyOutcome::SupersededByMember): an authored member owns
+///   the event and temper's command is not among the groups it projects.
+/// - not wired and unclaimed → [`Conflicted`](ApplyOutcome::Conflicted): the program
+///   declares no hook at this event at all, so nothing projects temper's gate there.
+///   Surfaced rather than clobbered — `install` scaffolds the gate hook members with the
+///   rest of the lift and never edits an authored `harness.ts` afterwards.
+fn gate_outcome(before: bool, after: bool, claimed: bool) -> ApplyOutcome {
+    match (after, before, claimed) {
+        (true, true, _) => ApplyOutcome::Unchanged,
+        (true, false, _) => ApplyOutcome::Applied,
+        (false, _, true) => ApplyOutcome::SupersededByMember,
+        (false, _, false) => ApplyOutcome::Conflicted,
+    }
+}
+
+/// Report the three gate hooks and place each emit-owned target's managed-by note +
+/// schema modeline — the represented project's whole placement set, lock-grounded via
+/// [`drift::emit_owned_targets`] rather than a raw discovery walk.
+///
+/// The gate hooks are **read, never written**: on this path `.claude/settings.json` is a
+/// projection the program owns whole, and [`GATE_HOOKS`] reach it as the `hook` members
+/// [`scaffold`] minted, so `emit` is its one writer. `gate_before` is what the file wired
+/// before this run's emit, which is what splits [`ApplyOutcome::Applied`] from
+/// [`ApplyOutcome::Unchanged`]; `None` — [`gate_installed`]'s read-only shadow, which
+/// runs no emit at all — takes the current state as the before state, so a wired gate
+/// reads `Unchanged`.
 fn evaluate_placements(
     root: &Path,
     temper_dir: &Path,
     dry_run: bool,
+    gate_before: Option<[bool; GATE_HOOK_COUNT]>,
 ) -> miette::Result<Vec<InstallEntry>> {
     let targets = drift::emit_owned_targets(temper_dir);
 
     let mut entries = Vec::new();
     let settings_path = settings_path(root);
-    let existing = read_optional(&settings_path)?;
-    let settings = project_settings(
-        &settings_path,
-        existing.as_deref(),
-        !targets.is_empty(),
-        !targets.is_empty(),
-    )?;
-    drift::place(&settings_path, &settings.desired, None, dry_run)?;
-    entries.push(InstallEntry {
-        placement: Placement::SessionStart,
-        outcome: placement_outcome(settings.hook_present),
-        path: settings_path.clone(),
-    });
-    if !targets.is_empty() {
+    let wired = gate_hooks_wired(&settings_path)?;
+    let before = gate_before.unwrap_or(wired);
+    // Read once, and only when some gate hook is missing — the answer is only ever
+    // consulted to tell an authored member's claim from a program that declares none.
+    let claimed = if wired.iter().all(|wired| *wired) {
+        std::collections::BTreeSet::new()
+    } else {
+        hook_claimed_events(temper_dir)?
+    };
+    for (index, hook) in GATE_HOOKS.iter().enumerate() {
         entries.push(InstallEntry {
-            placement: Placement::GuardHook,
-            outcome: placement_outcome(settings.guard_present),
+            placement: hook.placement,
+            outcome: gate_outcome(before[index], wired[index], claimed.contains(hook.event)),
             path: settings_path.clone(),
-        });
-        entries.push(InstallEntry {
-            placement: Placement::PostToolUseHook,
-            outcome: placement_outcome(settings.post_tool_use_present),
-            path: settings_path,
         });
     }
 
@@ -797,24 +858,28 @@ fn schema_artifact_exists(root: &Path, kind: &str) -> bool {
         .is_file()
 }
 
-/// Detect hook members that claim the events synthesized placements would register on.
-/// Returns a set of event names where an authored hook member claims the collection address,
-/// so the synthesized placement for that event was superseded and dropped by re-emit.
-fn detect_hook_member_conflicts(
-    temper_dir: &Path,
-) -> miette::Result<std::collections::BTreeSet<String>> {
+/// The lifecycle events the program's own `hook` members claim — every `hooks.<Event>`
+/// key the lock carries a registration row for.
+///
+/// Since the lift mints temper's gate as `hook` members ([`GATE_HOOKS`]), temper's own
+/// rows are in here too, so a claim alone no longer means supersession: the caller reads
+/// this set only for an event whose gate command the projection does **not** carry, where
+/// a claim means some *other* member owns the event ([`gate_outcome`]). A lock row's
+/// `fields` are seam-inbound and dropped from the lock, so the command is read off the
+/// projected manifest rather than from here.
+fn hook_claimed_events(temper_dir: &Path) -> miette::Result<std::collections::BTreeSet<String>> {
     use std::collections::BTreeSet;
 
     let declarations = drift::read_declarations(temper_dir)?;
-    let mut conflicted_events = BTreeSet::new();
+    let mut claimed_events = BTreeSet::new();
 
     for registration in &declarations.registrations {
         if registration.kind == "hook" {
-            conflicted_events.insert(registration.key.clone());
+            claimed_events.insert(registration.key.clone());
         }
     }
 
-    Ok(conflicted_events)
+    Ok(claimed_events)
 }
 
 /// The verdict `temper guard` reaches over a `PreToolUse` payload at the root
@@ -1402,10 +1467,12 @@ pub fn render_manifest_findings(findings: &[Diagnostic]) -> String {
     out
 }
 
-/// Map "was this placement already in its desired state" onto the settings outcomes.
-/// The settings file carries no baseline fingerprint (idempotent placement), so a
-/// placement is only ever [`Applied`](ApplyOutcome::Applied) (absent/drifted) or
-/// [`Unchanged`](ApplyOutcome::Unchanged) — never `Conflicted`.
+/// Map "was this placement already in its desired state" onto the settings outcomes for
+/// the unrepresented path's merge ([`place_settings_only`]). That file carries no
+/// baseline fingerprint (idempotent placement), so its placement is only ever
+/// [`Applied`](ApplyOutcome::Applied) (absent/drifted) or
+/// [`Unchanged`](ApplyOutcome::Unchanged) — never `Conflicted`. The represented path
+/// reads its gate off the projection instead ([`gate_outcome`]).
 fn placement_outcome(present: bool) -> ApplyOutcome {
     if present {
         ApplyOutcome::Unchanged
@@ -1428,70 +1495,43 @@ fn read_optional(path: &Path) -> Result<Option<String>, InstallError> {
     }
 }
 
-/// The desired `.claude/settings.json` plus whether each temper hook was already in
-/// its desired state before the merge — so `install` reports the `SessionStart` hook,
-/// the `PreToolUse` guard, and the `PostToolUse` hook as distinct placements though
-/// they share one file.
+/// The desired `.claude/settings.json` plus whether temper's `SessionStart` hook was
+/// already in its desired state before the merge — the **unrepresented** path's whole
+/// projection ([`place_settings_only`]). A represented harness merges nothing here: its
+/// three gate hooks are program members ([`GATE_HOOKS`]) and `emit` is the file's one
+/// writer.
 struct SettingsProjection {
     /// The re-emitted settings JSON (canonical pretty, trailing newline).
     desired: String,
     /// Whether the `SessionStart` hook was already present.
     hook_present: bool,
-    /// Whether the guard hook was already present (`false`, unchecked, when
-    /// `include_guard` is `false` — there is no constituency to place it for).
-    guard_present: bool,
-    /// Whether the PostToolUse hook was already present (`false`, unchecked, when
-    /// `include_post_tool_use` is `false` — there is no constituency to place it for).
-    post_tool_use_present: bool,
 }
 
 /// Project the desired `.claude/settings.json` — the existing settings with the
-/// `SessionStart` hook merged in, and the `PreToolUse` guard ([`GUARD_COMMAND`])
-/// merged in too when `include_guard` is set ("the guard arrives with its
-/// constituency, never before"), and the `PostToolUse` Bash hook merged in when
-/// `include_post_tool_use` is set — or a fresh document when the file is absent or
-/// empty. Idempotent: an already-present temper hook at its desired shape is left
-/// alone, so re-merging reproduces the bytes.
+/// `SessionStart` hook merged in, or a fresh document when the file is absent or empty.
+/// Idempotent: an already-present temper hook at its desired shape is left alone, so
+/// re-merging reproduces the bytes.
 ///
-/// Format-preserving: an existing document is never re-serialized. Only the three
-/// hook groups' own bytes change — every other key, its order, and the file's
-/// formatting survive (decision 0008, the JSON peer of the `toml_edit` keystone).
+/// Format-preserving: an existing document is never re-serialized. Only the hook group's
+/// own bytes change — every other key, its order, and the file's formatting survive
+/// (decision 0008, the JSON peer of the `toml_edit` keystone). That guarantee is why
+/// this merge is the *unrepresented* path's alone: there the file is the human's and
+/// temper is a guest in it, where a represented harness projects it whole from the
+/// program.
 fn project_settings(
     path: &Path,
     existing: Option<&str>,
-    include_guard: bool,
-    include_post_tool_use: bool,
 ) -> Result<SettingsProjection, InstallError> {
     match existing {
-        Some(text) if !text.trim().is_empty() => {
-            merge_settings(path, text, include_guard, include_post_tool_use)
-        }
-        _ => fresh_settings(path, include_guard, include_post_tool_use),
+        Some(text) if !text.trim().is_empty() => merge_settings(path, text),
+        _ => fresh_settings(path),
     }
 }
 
 /// A fresh canonical `.claude/settings.json` — there is no existing document to
 /// preserve, so a plain pretty re-serialize is exactly the right shape.
-fn fresh_settings(
-    path: &Path,
-    include_guard: bool,
-    include_post_tool_use: bool,
-) -> Result<SettingsProjection, InstallError> {
-    let mut hooks = serde_json::Map::new();
-    hooks.insert("SessionStart".to_string(), json!([session_start_group()]));
-    if include_guard {
-        hooks.insert(
-            "PreToolUse".to_string(),
-            json!([guard_group(GUARD_COMMAND)]),
-        );
-    }
-    if include_post_tool_use {
-        hooks.insert(
-            "PostToolUse".to_string(),
-            json!([post_tool_use_group(POST_TOOL_USE_COMMAND)]),
-        );
-    }
-    let root = json!({ "hooks": hooks });
+fn fresh_settings(path: &Path) -> Result<SettingsProjection, InstallError> {
+    let root = json!({ "hooks": { "SessionStart": [session_start_group()] } });
     let desired = format!(
         "{}\n",
         serde_json::to_string_pretty(&root).map_err(|source| InstallError::Settings {
@@ -1502,20 +1542,14 @@ fn fresh_settings(
     Ok(SettingsProjection {
         desired,
         hook_present: false,
-        guard_present: false,
-        post_tool_use_present: false,
     })
 }
 
-/// Splice the temper hook groups into an existing, non-empty `.claude/settings.json`
-/// document without re-serializing it. Already-present, already-correct hooks are
-/// left untouched, so a no-op merge returns `text` byte-identical.
-fn merge_settings(
-    path: &Path,
-    text: &str,
-    include_guard: bool,
-    include_post_tool_use: bool,
-) -> Result<SettingsProjection, InstallError> {
+/// Splice the `SessionStart` group into an existing, non-empty `.claude/settings.json`
+/// document without re-serializing it. An already-present, already-correct hook is left
+/// untouched (so a no-op merge returns `text` byte-identical), and a human's own
+/// `SessionStart` groups are never modified — temper only ever adds its own.
+fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, InstallError> {
     let root: JsonValue = serde_json::from_str(text).map_err(|source| InstallError::Settings {
         path: path.to_path_buf(),
         source,
@@ -1526,23 +1560,11 @@ fn merge_settings(
             path: path.to_path_buf(),
         })?;
 
-    let hook_present = session_start_present(object);
-    let guard_present = include_guard && guard_present(object, GUARD_COMMAND);
-    let guard_marker_present = include_guard && guard_marker_present(object);
-    let post_tool_use_present =
-        include_post_tool_use && post_tool_use_present(object, POST_TOOL_USE_COMMAND);
-    let post_tool_use_marker_present =
-        include_post_tool_use && post_tool_use_marker_present(object);
-
-    if hook_present
-        && guard_present == include_guard
-        && post_tool_use_present == include_post_tool_use
-    {
+    let hook_present = event_has_command(object, "SessionStart", SESSION_START_COMMAND);
+    if hook_present {
         return Ok(SettingsProjection {
             desired: text.to_string(),
             hook_present,
-            guard_present,
-            post_tool_use_present,
         });
     }
 
@@ -1553,255 +1575,34 @@ fn merge_settings(
             })?;
     let root_shape = json_splice::object_shape(text, root_start);
 
-    let mut edits = Vec::new();
-    match root_shape.members.iter().find(|m| m.key == "hooks") {
+    let edit = match root_shape.members.iter().find(|m| m.key == "hooks") {
         Some(hooks_member) => {
             let hooks_shape = json_splice::object_shape(text, hooks_member.value_span.0);
-            splice_hooks(
-                text,
-                &hooks_shape,
-                &HooksState {
-                    hook_present,
-                    include_guard,
-                    guard_present,
-                    guard_marker_present,
-                    include_post_tool_use,
-                    post_tool_use_present,
-                    post_tool_use_marker_present,
-                },
-                &mut edits,
-            );
-        }
-        None => {
-            let mut hooks = serde_json::Map::new();
-            hooks.insert("SessionStart".to_string(), json!([session_start_group()]));
-            if include_guard {
-                hooks.insert(
-                    "PreToolUse".to_string(),
-                    json!([guard_group(GUARD_COMMAND)]),
-                );
-            }
-            if include_post_tool_use {
-                hooks.insert(
-                    "PostToolUse".to_string(),
-                    json!([post_tool_use_group(POST_TOOL_USE_COMMAND)]),
-                );
-            }
-            edits.push(json_splice::insert_member(
-                &root_shape,
-                "hooks",
-                &json!(hooks),
-                1,
-            ));
-        }
-    }
-
-    let desired = json_splice::apply_edits(text, edits);
-    Ok(SettingsProjection {
-        desired,
-        hook_present,
-        guard_present,
-        post_tool_use_present,
-    })
-}
-
-/// Hooks state for the splice operation.
-struct HooksState {
-    hook_present: bool,
-    include_guard: bool,
-    guard_present: bool,
-    guard_marker_present: bool,
-    include_post_tool_use: bool,
-    post_tool_use_present: bool,
-    post_tool_use_marker_present: bool,
-}
-
-/// Add the edits needed to bring an existing `hooks` object up to date: append the
-/// `SessionStart` group when absent (never modifying an existing one — a second
-/// `install` only ever adds its own group, never touches a human's), insert, append, or
-/// in-place update the `PreToolUse` guard group depending on what's already there ("the
-/// guard arrives with its constituency, never before"), and similarly for the
-/// `PostToolUse` Bash drift-check group.
-fn splice_hooks(
-    text: &str,
-    hooks_shape: &json_splice::ObjectShape,
-    state: &HooksState,
-    edits: &mut Vec<Edit>,
-) {
-    if !state.hook_present {
-        match hooks_shape.members.iter().find(|m| m.key == "SessionStart") {
-            Some(member) => {
-                let array = json_splice::array_shape(text, member.value_span.0);
-                edits.push(json_splice::append_element(
-                    &array,
-                    &session_start_group(),
-                    3,
-                ));
-            }
-            None => {
-                edits.push(json_splice::insert_member(
-                    hooks_shape,
+            match hooks_shape.members.iter().find(|m| m.key == "SessionStart") {
+                Some(member) => {
+                    let array = json_splice::array_shape(text, member.value_span.0);
+                    json_splice::append_element(&array, &session_start_group(), 3)
+                }
+                None => json_splice::insert_member(
+                    &hooks_shape,
                     "SessionStart",
                     &json!([session_start_group()]),
                     2,
-                ));
+                ),
             }
         }
-    }
+        None => json_splice::insert_member(
+            &root_shape,
+            "hooks",
+            &json!({ "SessionStart": [session_start_group()] }),
+            1,
+        ),
+    };
 
-    if state.include_guard && !state.guard_present {
-        match hooks_shape.members.iter().find(|m| m.key == "PreToolUse") {
-            Some(member) => {
-                let array = json_splice::array_shape(text, member.value_span.0);
-                if state.guard_marker_present {
-                    edits.extend(splice_guard_command(text, &array, GUARD_COMMAND));
-                } else {
-                    edits.push(json_splice::append_element(
-                        &array,
-                        &guard_group(GUARD_COMMAND),
-                        3,
-                    ));
-                }
-            }
-            None => {
-                edits.push(json_splice::insert_member(
-                    hooks_shape,
-                    "PreToolUse",
-                    &json!([guard_group(GUARD_COMMAND)]),
-                    2,
-                ));
-            }
-        }
-    }
-
-    if state.include_post_tool_use && !state.post_tool_use_present {
-        match hooks_shape.members.iter().find(|m| m.key == "PostToolUse") {
-            Some(member) => {
-                let array = json_splice::array_shape(text, member.value_span.0);
-                if state.post_tool_use_marker_present {
-                    edits.extend(splice_post_tool_use_command(
-                        text,
-                        &array,
-                        POST_TOOL_USE_COMMAND,
-                    ));
-                } else {
-                    edits.push(json_splice::append_element(
-                        &array,
-                        &post_tool_use_group(POST_TOOL_USE_COMMAND),
-                        3,
-                    ));
-                }
-            }
-            None => {
-                edits.push(json_splice::insert_member(
-                    hooks_shape,
-                    "PostToolUse",
-                    &json!([post_tool_use_group(POST_TOOL_USE_COMMAND)]),
-                    2,
-                ));
-            }
-        }
-    }
-}
-
-/// The edits that rewrite just the `command` string of every hook entry, in every
-/// `PreToolUse` group of `array`, whose command already carries [`GUARD_MARKER`] —
-/// the surgical form of replacing a stale temper guard with `new_command` in place,
-/// touching nothing else in the group (its `matcher`, sibling groups, or the rest
-/// of the document).
-fn splice_guard_command(
-    text: &str,
-    array: &json_splice::ArrayShape,
-    new_command: &str,
-) -> Vec<Edit> {
-    let mut edits = Vec::new();
-    for &group_span in &array.elements {
-        let Ok(group_value) = serde_json::from_str::<JsonValue>(&text[group_span.0..group_span.1])
-        else {
-            continue;
-        };
-        if !group_has_command(&group_value, |command| command.contains(GUARD_MARKER)) {
-            continue;
-        }
-        let group_shape = json_splice::object_shape(text, group_span.0);
-        let Some(hooks_member) = group_shape.members.iter().find(|m| m.key == "hooks") else {
-            continue;
-        };
-        let inner = json_splice::array_shape(text, hooks_member.value_span.0);
-        for &hook_span in &inner.elements {
-            let Ok(hook_value) = serde_json::from_str::<JsonValue>(&text[hook_span.0..hook_span.1])
-            else {
-                continue;
-            };
-            let is_guard = hook_value
-                .get("command")
-                .and_then(JsonValue::as_str)
-                .is_some_and(|command| command.contains(GUARD_MARKER));
-            if !is_guard {
-                continue;
-            }
-            let hook_shape = json_splice::object_shape(text, hook_span.0);
-            if let Some(command_member) = hook_shape.members.iter().find(|m| m.key == "command") {
-                edits.push(Edit {
-                    span: command_member.value_span,
-                    replacement: serde_json::to_string(new_command)
-                        .expect("a plain command string serializes infallibly"),
-                });
-            }
-        }
-    }
-    edits
-}
-
-/// The edits that rewrite just the `command` string of every hook entry, in every
-/// `PostToolUse` group of `array`, whose command already carries [`POST_TOOL_USE_MARKER`] —
-/// the surgical form of replacing a stale temper post-tool-use hook with `new_command` in place,
-/// touching nothing else in the group (its `matcher`, sibling groups, or the rest
-/// of the document).
-fn splice_post_tool_use_command(
-    text: &str,
-    array: &json_splice::ArrayShape,
-    new_command: &str,
-) -> Vec<Edit> {
-    let mut edits = Vec::new();
-    for &group_span in &array.elements {
-        let Ok(group_value) = serde_json::from_str::<JsonValue>(&text[group_span.0..group_span.1])
-        else {
-            continue;
-        };
-        if !group_has_command(&group_value, |command| {
-            command.contains(POST_TOOL_USE_MARKER)
-        }) {
-            continue;
-        }
-        let group_shape = json_splice::object_shape(text, group_span.0);
-        let Some(hooks_member) = group_shape.members.iter().find(|m| m.key == "hooks") else {
-            continue;
-        };
-        let inner = json_splice::array_shape(text, hooks_member.value_span.0);
-        for &hook_span in &inner.elements {
-            let Ok(hook_value) = serde_json::from_str::<JsonValue>(&text[hook_span.0..hook_span.1])
-            else {
-                continue;
-            };
-            let is_post_tool_use = hook_value
-                .get("command")
-                .and_then(JsonValue::as_str)
-                .is_some_and(|command| command.contains(POST_TOOL_USE_MARKER));
-            if !is_post_tool_use {
-                continue;
-            }
-            let hook_shape = json_splice::object_shape(text, hook_span.0);
-            if let Some(command_member) = hook_shape.members.iter().find(|m| m.key == "command") {
-                edits.push(Edit {
-                    span: command_member.value_span,
-                    replacement: serde_json::to_string(new_command)
-                        .expect("a plain command string serializes infallibly"),
-                });
-            }
-        }
-    }
-    edits
+    Ok(SettingsProjection {
+        desired: json_splice::apply_edits(text, vec![edit]),
+        hook_present,
+    })
 }
 
 /// The `SessionStart` hook group temper installs: the exec-form command alone.
@@ -1811,102 +1612,26 @@ pub(crate) fn session_start_group() -> JsonValue {
     json!({ "hooks": [ { "type": "command", "command": SESSION_START_COMMAND } ] })
 }
 
-/// The `PreToolUse` guard group temper installs: `{matcher, hooks: [{type, command}]}` shape
-/// (`code.claude.com/docs/en/hooks`, retrieved 2026-07-20), running `command` at [`GUARD_MATCHER`].
-fn guard_group(command: &str) -> JsonValue {
-    json!({
-        "matcher": GUARD_MATCHER,
-        "hooks": [ { "type": "command", "command": command } ]
-    })
-}
-
-/// The `PostToolUse` Bash drift-check group temper installs: `{matcher, hooks: [{type, command}]}` shape
-/// (`code.claude.com/docs/en/hooks`, retrieved 2026-09-03), running `command` at [`BASH_MATCHER`].
-fn post_tool_use_group(command: &str) -> JsonValue {
-    json!({
-        "matcher": BASH_MATCHER,
-        "hooks": [ { "type": "command", "command": command } ]
-    })
-}
-
-/// Whether a `SessionStart` group carrying temper's exec-form command is already
-/// present — the idempotence check, so a second `install` neither duplicates the hook
-/// nor clobbers a human's other `SessionStart` groups.
-fn session_start_present(object: &serde_json::Map<String, JsonValue>) -> bool {
+/// Whether a group carrying `command` verbatim is already registered under `event` —
+/// the one presence read both faces take. The unrepresented merge asks it of the human's
+/// document (its idempotence check), and [`gate_hooks_wired`] asks it of the projected
+/// one about each of [`GATE_HOOKS`]; a differing command reads `false`, since a hook that
+/// runs something else is not temper's gate.
+fn event_has_command(
+    object: &serde_json::Map<String, JsonValue>,
+    event: &str,
+    command: &str,
+) -> bool {
     object
         .get("hooks")
-        .and_then(|hooks| hooks.get("SessionStart"))
+        .and_then(|hooks| hooks.get(event))
         .and_then(JsonValue::as_array)
-        .is_some_and(|groups| {
-            groups
-                .iter()
-                .any(|group| group_has_command(group, |command| command == SESSION_START_COMMAND))
-        })
+        .is_some_and(|groups| groups.iter().any(|group| group_has_command(group, command)))
 }
 
-/// Whether a `PreToolUse` group carrying *this exact* guard command is already present.
-/// A differing command reads `false`, so the guard reports as (re)applied and
-/// [`splice_guard_command`] rewrites it.
-fn guard_present(object: &serde_json::Map<String, JsonValue>, guard: &str) -> bool {
-    object
-        .get("hooks")
-        .and_then(|hooks| hooks.get("PreToolUse"))
-        .and_then(JsonValue::as_array)
-        .is_some_and(|groups| {
-            groups
-                .iter()
-                .any(|group| group_has_command(group, |command| command == guard))
-        })
-}
-
-/// Whether a `PreToolUse` group carrying *any* temper guard command (identified by
-/// [`GUARD_MARKER`]) is already present, regardless of its exact command — the
-/// "update in place vs. append fresh" fork [`splice_hooks`] reads.
-fn guard_marker_present(object: &serde_json::Map<String, JsonValue>) -> bool {
-    object
-        .get("hooks")
-        .and_then(|hooks| hooks.get("PreToolUse"))
-        .and_then(JsonValue::as_array)
-        .is_some_and(|groups| {
-            groups
-                .iter()
-                .any(|group| group_has_command(group, |command| command.contains(GUARD_MARKER)))
-        })
-}
-
-/// Whether a `PostToolUse` group carrying *this exact* post-tool-use command is already present.
-/// A differing command reads `false`, so the hook reports as (re)applied and
-/// splicing rewrites it.
-fn post_tool_use_present(object: &serde_json::Map<String, JsonValue>, command: &str) -> bool {
-    object
-        .get("hooks")
-        .and_then(|hooks| hooks.get("PostToolUse"))
-        .and_then(JsonValue::as_array)
-        .is_some_and(|groups| {
-            groups
-                .iter()
-                .any(|group| group_has_command(group, |cmd| cmd == command))
-        })
-}
-
-/// Whether a `PostToolUse` group carrying *any* temper post-tool-use command (identified by
-/// [`POST_TOOL_USE_MARKER`]) is already present, regardless of its exact command — the
-/// "update in place vs. append fresh" fork [`splice_hooks`] reads.
-fn post_tool_use_marker_present(object: &serde_json::Map<String, JsonValue>) -> bool {
-    object
-        .get("hooks")
-        .and_then(|hooks| hooks.get("PostToolUse"))
-        .and_then(JsonValue::as_array)
-        .is_some_and(|groups| {
-            groups.iter().any(|group| {
-                group_has_command(group, |command| command.contains(POST_TOOL_USE_MARKER))
-            })
-        })
-}
-
-/// Whether a hook group carries a `command` string satisfying `pred` — the shared
-/// spine of the `SessionStart` and guard presence checks.
-fn group_has_command(group: &JsonValue, pred: impl Fn(&str) -> bool) -> bool {
+/// Whether a hook group carries `command` verbatim on one of its handlers — the shared
+/// spine [`event_has_command`] walks each of an event's matcher groups with.
+fn group_has_command(group: &JsonValue, command: &str) -> bool {
     group
         .get("hooks")
         .and_then(JsonValue::as_array)
@@ -1914,7 +1639,7 @@ fn group_has_command(group: &JsonValue, pred: impl Fn(&str) -> bool) -> bool {
             hooks.iter().any(|hook| {
                 hook.get("command")
                     .and_then(JsonValue::as_str)
-                    .is_some_and(&pred)
+                    .is_some_and(|found| found == command)
             })
         })
 }
@@ -1933,6 +1658,7 @@ fn member_dir(kind: &str) -> String {
         "skill" => "skills".to_string(),
         "rule" => "rules".to_string(),
         "memory" => "memory".to_string(),
+        "hook" => "hooks".to_string(),
         other => other.to_string(),
     }
 }
@@ -2068,12 +1794,58 @@ fn scaffold(
         });
     }
 
+    // temper's own gate rides the program like any other member: one `hook` module per
+    // group in [`GATE_HOOKS`], composed into `harness.ts` below, so `emit` projects all
+    // three into `.claude/settings.json`'s `hooks` collection and nothing splices that
+    // file behind emit's back. The commands stay this module's constants — there is no
+    // SDK twin for them to drift against.
+    //
+    // They are not counted in the lift's total: the lift converts *discovered artifacts*,
+    // and these are members temper authors.
+    for hook in &GATE_HOOKS {
+        let ident = member_ident(GATE_HOOK_KIND, hook.event);
+        write_scaffold_file(
+            &temper_dir
+                .join(member_dir(GATE_HOOK_KIND))
+                .join(format!("{}.ts", hook.event)),
+            &member_module_source(
+                GATE_HOOK_KIND,
+                hook.event,
+                &ident,
+                &gate_hook_fields(hook),
+                None,
+            ),
+        )?;
+        scaffolded.push(ScaffoldedMember {
+            ident,
+            import_path: format!("./{}/{}.ts", member_dir(GATE_HOOK_KIND), hook.event),
+        });
+    }
+
     write_scaffold_file(
         &temper_dir.join(HARNESS_ENTRY),
         &harness_entry_source(&scaffolded),
     )?;
 
     Ok(lifted.len())
+}
+
+/// The kind row label temper's own gate hooks scaffold under — the same `hook` kind any
+/// authored `hooks.<Event>` member takes.
+const GATE_HOOK_KIND: &str = "hook";
+
+/// The typed fields one gate hook's member module carries: its matcher where the event
+/// binds one, then the `command` handler pair Claude Code documents
+/// (`code.claude.com/docs/en/hooks`, retrieved 2026-09-03). `name` is the event, already
+/// the module's identity property, so it is not repeated here.
+fn gate_hook_fields(hook: &GateHook) -> Vec<(String, JsonValue)> {
+    let mut fields = Vec::new();
+    if let Some(matcher) = hook.matcher {
+        fields.push(("matcher".to_string(), json!(matcher)));
+    }
+    fields.push(("type".to_string(), json!("command")));
+    fields.push(("command".to_string(), json!(hook.command)));
+    fields
 }
 
 /// A member module's TS identifier: kind-prefixed so a skill and a rule sharing a

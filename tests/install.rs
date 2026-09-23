@@ -72,11 +72,6 @@ const EXISTING_SETTINGS: &str =
 /// fixture targets.
 const NON_CANONICAL_SETTINGS: &str = "{\n    \"zeta\": \"first\",\n    \"permissions\": {\n        \"allow\": [\"Bash(cargo test:*)\"]\n    }\n}\n";
 
-/// [`NON_CANONICAL_SETTINGS`], but with the `SessionStart` hook already merged in —
-/// the starting point for a second merge that only has the `PreToolUse` guard left
-/// to graft.
-const NON_CANONICAL_SETTINGS_WITH_HOOK: &str = "{\n    \"zeta\": \"first\",\n    \"hooks\": {\n        \"SessionStart\": [\n            { \"hooks\": [ { \"type\": \"command\", \"command\": \"command -v temper >/dev/null 2>&1 || { echo \\\"temper: command not found\\\" >&2; exit 127; } && temper check . --reporter session-start\" } ] }\n        ]\n    }\n}\n";
-
 /// [`NON_CANONICAL_SETTINGS`], but with a `SessionStart` array already populated by a
 /// different, non-temper tool — `session_start_present` reads `false` (the command
 /// isn't temper's), so the merge must append temper's own group after this sibling
@@ -598,6 +593,7 @@ const SETTINGS_LOCAL: &str = "{\n  \"model\": \"haiku\"\n}\n";
 /// manifest, and a local overlay — with the built SDK vendored so the first emit runs
 /// for real. Returns the root and its `.temper` directory.
 fn write_document_harness(label: &str) -> (PathBuf, PathBuf) {
+    common::ensure_sdk_built();
     let root = common::tmpdir(label);
     let claude = root.join(".claude");
     fs::create_dir_all(&claude).unwrap();
@@ -609,6 +605,52 @@ fn write_document_harness(label: &str) -> (PathBuf, PathBuf) {
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
     (root, temper_dir)
+}
+
+/// Assert `.claude/settings.json` under `root` wires all three of temper's gate hook
+/// groups — the whole gate, read the way Claude Code reads it: a `hooks.<Event>` matcher
+/// group whose handler carries the exact command `install` declares. `context` names the
+/// moment being asserted, since the same claim is made before and after a re-emit.
+fn assert_gate_hooks_wired(root: &Path, context: &str) {
+    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    for (event, matcher, command) in [
+        ("SessionStart", None, temper::install::SESSION_START_COMMAND),
+        (
+            "PreToolUse",
+            Some("Write|Edit|MultiEdit"),
+            temper::install::GUARD_COMMAND,
+        ),
+        (
+            "PostToolUse",
+            Some("Bash"),
+            temper::install::POST_TOOL_USE_COMMAND,
+        ),
+    ] {
+        let groups = json["hooks"][event]
+            .as_array()
+            .unwrap_or_else(|| panic!("{context}: no `hooks.{event}` array, got:\n{settings}"));
+        let group = groups
+            .iter()
+            .find(|group| {
+                group["hooks"]
+                    .as_array()
+                    .is_some_and(|handlers| handlers.iter().any(|h| h["command"] == command))
+            })
+            .unwrap_or_else(|| {
+                panic!("{context}: no `{event}` group runs temper's command, got:\n{settings}")
+            });
+        match matcher {
+            Some(matcher) => assert_eq!(
+                group["matcher"], matcher,
+                "{context}: the `{event}` group binds its documented matcher"
+            ),
+            None => assert!(
+                group.get("matcher").is_none(),
+                "{context}: `{event}` carries no tool, so its group declares no matcher"
+            ),
+        }
+    }
 }
 
 #[test]
@@ -659,6 +701,44 @@ fn a_settings_document_lifts_into_a_fields_bearing_member_whose_emit_re_renders_
     .unwrap();
     assert_eq!(projected["model"], "opus");
     assert_eq!(projected["permissions"]["allow"][0], "Bash(cargo test:*)");
+
+    // The gate rides the same projection. Its three hook groups are `hook` **members**
+    // the lift scaffolded, so they land in the file emit renders whole — where a splice
+    // beside emit reported `applied` and was erased by the very next re-render, leaving
+    // this file with no `hooks` key at all.
+    assert_gate_hooks_wired(&root, "after install");
+    for hook in ["SessionStart", "PreToolUse", "PostToolUse"] {
+        let module = fs::read_to_string(temper_dir.join("hooks").join(format!("{hook}.ts")))
+            .unwrap_or_else(|_| panic!("the lift scaffolds a `hook` module for {hook}"));
+        assert!(
+            module.contains("import { hook } from \"@dtmd/temper/claude-code\";"),
+            "got:\n{module}"
+        );
+        assert!(
+            module.contains(&format!("name: {hook:?},")),
+            "got:\n{module}"
+        );
+    }
+    assert!(
+        fs::read_to_string(temper_dir.join("harness.ts"))
+            .unwrap()
+            .contains("hook_SessionStart"),
+        "the entry point composes the gate hook members"
+    );
+
+    // And a second emit keeps them — the assertion the splice could never pass: the
+    // re-stamp emit that follows `install`'s placements re-renders this same file from
+    // the program, so a writer other than emit is erased here by construction.
+    temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
+    assert_gate_hooks_wired(&root, "after a second emit");
+    let re_projected: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join(".claude").join("settings.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        re_projected, projected,
+        "the settings projection is byte-stable across a second emit"
+    );
 }
 
 #[test]
@@ -1132,79 +1212,83 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
 }
 
 #[test]
-fn the_guard_merge_never_reserializes_a_non_canonical_settings_file() {
-    let root = write_harness("format-preserving-guard", false);
+fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_back() {
+    // The represented path's `.claude/settings.json` is a projection the program owns
+    // whole, so the gate rides it as three `hook` members rather than a splice beside
+    // emit. The splice reported `applied` and the re-stamp emit that follows it in the
+    // same `install` run re-rendered the file from the program — which declared no hooks
+    // — so the run wired nothing. Here `emit` is the file's one writer, which is what
+    // makes a hand-stripped gate come back.
+    let root = write_harness("gate-hooks-projected", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
 
     let discovery = install::discover(&root).unwrap();
-    install::run(&root, &discovery, Represent::Yes, false).unwrap();
-
-    // Deepen by hand exactly like the emit-owned test above — the guard's
-    // constituency, so this run has one to place a `PreToolUse` group for.
-    fs::write(
-        temper_dir.join("skills").join("extra.md"),
-        "# Extra\n\nDeepened by hand.\n",
-    )
-    .unwrap();
-    fs::write(
-        temper_dir.join("skills").join("extra.ts"),
-        "import { file, skill } from \"@dtmd/temper/claude-code\";\n\n\
-         export const extra = skill({\n  name: \"extra\",\n  description: \"An extra skill authored by hand.\",\n  prose: file(import.meta.url, \"./extra.md\"),\n});\n",
-    )
-    .unwrap();
-    fs::write(
-        temper_dir.join("harness.ts"),
-        "import { emit, harness } from \"@dtmd/temper\";\n\
-         import { skill_coordinate } from \"./skills/coordinate.ts\";\n\
-         import { rule_rust } from \"./rules/rust.ts\";\n\
-         import { rule_collaboration } from \"./rules/collaboration.ts\";\n\
-         import { extra } from \"./skills/extra.ts\";\n\n\
-         const program = harness({\n  members: [skill_coordinate, rule_rust, rule_collaboration, extra],\n});\n\n\
-         process.stdout.write(emit(program).seam);\n",
-    )
-    .unwrap();
-
-    // Replace the settings the first `run` above wrote with a hand-authored,
-    // non-canonical document that already carries the `SessionStart` hook — so
-    // this second run has only the `PreToolUse` guard left to graft.
-    let settings_path = root.join(".claude").join("settings.json");
-    fs::write(&settings_path, NON_CANONICAL_SETTINGS_WITH_HOOK).unwrap();
-
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
-    assert_eq!(
-        outcome_of(&outcome, temper::install::Placement::GuardHook),
-        ApplyOutcome::Applied
+    for placement in [
+        temper::install::Placement::SessionStart,
+        temper::install::Placement::GuardHook,
+        temper::install::Placement::PostToolUseHook,
+    ] {
+        assert_eq!(
+            outcome_of(&outcome, placement),
+            ApplyOutcome::Applied,
+            "the lift wires {placement} through the program"
+        );
+    }
+    assert_gate_hooks_wired(&root, "after install");
+
+    // The lift minted one member module per group, all three composed into the entry
+    // point — the commands stay `install`'s own constants, with no SDK twin.
+    let harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
+    for (event, ident) in [
+        ("SessionStart", "hook_SessionStart"),
+        ("PreToolUse", "hook_PreToolUse"),
+        ("PostToolUse", "hook_PostToolUse"),
+    ] {
+        assert!(
+            temper_dir
+                .join("hooks")
+                .join(format!("{event}.ts"))
+                .is_file(),
+            "no module scaffolded for {event}"
+        );
+        assert!(harness.contains(ident), "got:\n{harness}");
+    }
+    let guard_module = fs::read_to_string(temper_dir.join("hooks").join("PreToolUse.ts")).unwrap();
+    assert!(
+        guard_module.contains("matcher: \"Write|Edit|MultiEdit\","),
+        "got:\n{guard_module}"
+    );
+    assert!(
+        guard_module.contains(&format!("command: {:?},", temper::install::GUARD_COMMAND)),
+        "got:\n{guard_module}"
     );
 
-    let after = fs::read_to_string(&settings_path).unwrap();
-    assert_one_hunk_diff(NON_CANONICAL_SETTINGS_WITH_HOOK, &after);
+    // Strip the guard group by hand, the drift the `PreToolUse` guard itself exists to
+    // catch. A plain `emit` — no `install` behind it — puts it back, because the member
+    // is where the hook lives.
+    let settings_path = root.join(".claude").join("settings.json");
+    let projected = fs::read_to_string(&settings_path).unwrap();
+    let mut stripped: serde_json::Value = serde_json::from_str(&projected).unwrap();
+    stripped["hooks"]
+        .as_object_mut()
+        .unwrap()
+        .remove("PreToolUse")
+        .expect("the guard group was there to strip");
+    fs::write(
+        &settings_path,
+        serde_json::to_string_pretty(&stripped).unwrap(),
+    )
+    .unwrap();
 
-    let json: serde_json::Value = serde_json::from_str(&after).unwrap();
-    assert_eq!(
-        json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
-        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard ."
-    );
-    assert_eq!(
-        json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start"
-    );
-    assert_eq!(
-        json["zeta"], "first",
-        "the human's non-canonical key survives"
-    );
-
-    // Re-running converges: both hooks are already in their desired shape.
-    let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
-    assert_eq!(
-        outcome_of(&second, temper::install::Placement::GuardHook),
-        ApplyOutcome::Unchanged
-    );
+    temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
+    assert_gate_hooks_wired(&root, "after a re-emit over a hand-stripped gate");
     assert_eq!(
         fs::read_to_string(&settings_path).unwrap(),
-        after,
-        "re-running the merge must converge"
+        projected,
+        "the re-emit reproduces the install-time projection byte for byte"
     );
 }
 
@@ -1308,111 +1392,82 @@ fn gate_installed_names_stale_noted_files() {
 
 #[test]
 fn gate_installed_does_not_report_superseded_by_member() {
-    // Regression test: gate_installed must exclude SupersededByMember outcomes
-    // from its tally, so a correctly-authored hook member that supersedes a
-    // synthesized placement is not flagged as needing install.
+    // `gate_installed` must exclude `SupersededByMember` from its tally, so an authored
+    // hook member that owns a gate event is not nagged about as a missing install.
     //
-    // This verifies the fix for: b7b2a7a6 added SupersededByMember but
-    // gate_installed wasn't updated to skip it alongside Unchanged.
+    // Supersession is what it means now that the gate itself is a set of `hook` members:
+    // not "a splice was overwritten" — nothing splices this file any more — but "the
+    // program declares a hook at this event and temper's command is not among the groups
+    // it projects". So the fixture rewrites the scaffolded `SessionStart` module rather
+    // than adding a second member beside it: a hook authored *alongside* temper's leaves
+    // the gate wired, which is the unchanged case, not this one.
     common::ensure_sdk_built();
     let root = write_harness("hook-supersede", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
 
-    // Represent and install: places the synthesized SessionStart hook.
     let discovery = install::discover(&root).unwrap();
     let first = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(
         outcome_of(&first, temper::install::Placement::SessionStart),
         ApplyOutcome::Applied,
-        "first install must apply the SessionStart placement"
+        "the lift wires the SessionStart hook through the program"
     );
-
-    // Verify gate is clean after install.
     assert!(
         install::gate_installed(&root).is_empty(),
-        "gate must be clean after successful install"
+        "gate must be clean after a successful install"
     );
 
-    // Now manually add an authored hook member to the harness program that
-    // claims SessionStart. This simulates what would happen if a user wrote:
-    // `import { sessionStartHook } from "./hooks/session_start.ts";`
-    // and added it to the harness members array.
-    fs::create_dir_all(temper_dir.join("hooks")).unwrap();
+    // Author over the scaffolded module: the same member identity and event, a command
+    // of the author's own. `harness.ts` already composes this identifier, so nothing
+    // else has to move.
     fs::write(
-        temper_dir.join("hooks").join("session_start.ts"),
-        "import { hook } from \"@dtmd/temper/claude-code\";\n\
-         export const sessionStartHook = hook({\n  \
+        temper_dir.join("hooks").join("SessionStart.ts"),
+        "import { hook } from \"@dtmd/temper/claude-code\";\n\n\
+         export const hook_SessionStart = hook({\n  \
          name: \"SessionStart\",\n  \
          type: \"command\",\n  \
-         command: \"echo test\",\n  \
+         command: \"echo test\",\n\
          });\n",
     )
     .unwrap();
 
-    // Update the harness to include the hook member by inserting it into the
-    // members array. The array may be formatted differently than we expect, so we
-    // use a more flexible approach: insert before the closing bracket.
-    let original_harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
-
-    // First add the import if not already present
-    let mut updated_harness = if original_harness.contains("sessionStartHook") {
-        original_harness.clone()
-    } else {
-        let import_line = "import { sessionStartHook } from \"./hooks/session_start.ts\";\n";
-        // Insert after the last import statement
-        if let Some(last_import_pos) = original_harness.rfind("import {") {
-            let eol = original_harness[last_import_pos..].find('\n').unwrap_or(0);
-            let insert_pos = last_import_pos + eol + 1;
-            let mut result = original_harness.clone();
-            result.insert_str(insert_pos, import_line);
-            result
-        } else {
-            original_harness.clone()
-        }
-    };
-
-    // Then add to members array - look for closing bracket and add before it
-    if !updated_harness.contains(", sessionStartHook") {
-        updated_harness = updated_harness.replace("members: [", "members: [sessionStartHook, ");
-    }
-    fs::write(temper_dir.join("harness.ts"), updated_harness).unwrap();
-
-    // Simulate a drift scenario: remove the placed hook from settings.json so the
-    // next run will try to re-apply it. But now there's an authored hook member
-    // that will claim it, so it should be marked SupersededByMember.
-    let settings_path = root.join(".claude").join("settings.json");
-    let settings = fs::read_to_string(&settings_path).unwrap();
-    let drifted = settings.replace("\"SessionStart\": [", "\"SessionStartRemoved\": [");
-    fs::write(&settings_path, drifted).unwrap();
-
-    // Re-run install: evaluate_placements will see the SessionStart hook is missing (needs Applied).
-    // emit will read the authored hook and register it in the lock.
-    // detect_hook_member_conflicts will find the "SessionStart" registration and mark
-    // the placement as SupersededByMember since its outcome would be Applied.
     let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
-
     assert_eq!(
         outcome_of(&second, temper::install::Placement::SessionStart),
         ApplyOutcome::SupersededByMember,
-        "SessionStart should be marked SupersededByMember when an authored hook member claims it"
+        "an authored hook member owning the event supersedes temper's own gate hook"
     );
-
-    // Verify gate_installed does not report SessionStart as missing/drifted.
-    // With the fix, SupersededByMember outcomes are skipped like Unchanged,
-    // so the superseded SessionStart placement should not appear in the finding.
-    let gate_findings = install::gate_installed(&root);
-    if !gate_findings.is_empty() {
-        // Check that SessionStart is NOT in the message (since it's superseded)
-        let has_session_start = gate_findings
-            .iter()
-            .any(|d| d.message.contains("session-start hook"));
-        assert!(
-            !has_session_start,
-            "SupersededByMember SessionStart should not be reported as missing/drifted"
+    // The guard and the post-tool-use hook are untouched members, so they stay wired —
+    // the vacuity guard on the claim above: supersession is per-event, not a whole-file
+    // verdict that would pass over an empty `hooks` collection.
+    for placement in [
+        temper::install::Placement::GuardHook,
+        temper::install::Placement::PostToolUseHook,
+    ] {
+        assert_eq!(
+            outcome_of(&second, placement),
+            ApplyOutcome::Unchanged,
+            "{placement} is still projected by its own member"
         );
     }
+    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    assert_eq!(
+        json["hooks"]["SessionStart"][0]["hooks"][0]["command"], "echo test",
+        "the authored member is what the projection carries, got:\n{settings}"
+    );
+
+    // The superseded placement is skipped in the tally, so `check`'s self-verify does
+    // not name it as missing or drifted.
+    let gate_findings = install::gate_installed(&root);
+    assert!(
+        !gate_findings
+            .iter()
+            .any(|d| d.message.contains("session-start hook")),
+        "a superseded SessionStart must not be reported as missing/drifted, got: {gate_findings:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------
