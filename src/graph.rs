@@ -23,7 +23,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use crate::builtin_kind::MAX_IMPORT_HOPS;
-use crate::check::{Diagnostic, Severity};
+use crate::check::Diagnostic;
 use crate::compose::{Edge, Requirement};
 use crate::contract::{EdgeBound, Predicate};
 use crate::engine::{self, Selection};
@@ -321,6 +321,26 @@ fn any_clause_of(selections: &[Selection], matches: impl Fn(&Predicate) -> bool)
             .iter()
             .any(|clause| matches(&clause.predicate))
     })
+}
+
+/// The root member's own `reachable` clause, or `None` where no root selection declares
+/// one — [`reachable`]'s opt-in test, and the [`any_clause_of`] the two other graph
+/// judges consult narrowed to the one selector this predicate binds at. It yields the
+/// clause rather than a bool because the judge reads the author's severity *and*
+/// guidance off it, the two channels a finding carries; the lookup lives here, beside
+/// its siblings', so no caller re-spells which selection a root clause rides.
+fn root_reachable_clause<'a>(
+    selections: &'a [Selection<'_>],
+) -> Option<&'a crate::contract::Clause> {
+    selections
+        .iter()
+        .find(|selection| selection.selector == engine::Selector::Root)
+        .and_then(|selection| {
+            selection
+                .clauses
+                .iter()
+                .find(|clause| clause.predicate == Predicate::Reachable)
+        })
 }
 
 /// The in/out edge counts one `degree` filter sees — built once per distinct field set
@@ -1155,12 +1175,17 @@ fn out_of_degree(
 ///
 /// `registrations` maps a kind to the declared [`Registration`] **set** its definition
 /// carries; `by_kind` is the same corpus map the other predicates read; `repo_files` is
-/// the repo file-set the `paths-match` globs are tested against; `edges` is the observed
-/// member→member directive edge set ([`classify_directives`]'s `edges`) reachability
-/// closes over. All are **parameters**, not graph dependencies, so the blast radius
-/// stays this module and the predicate is pure and testable. A kind that declares no
-/// registration contributes no entry to `registrations` and is not subject to a *finding*,
-/// but its members are unconditionally live and so can carry liveness across an import
+/// the repo file-set the `paths-match` globs are tested against; `resolved` and
+/// `directives` are the two edge families liveness propagates along — the resolved
+/// declared references and the observed member→member `@import` occurrences
+/// ([`classify_directives`]'s `edges`) — taken as two slices and chained *past* the
+/// opt-in early return, exactly as [`degree`] derives its containment family there, so a
+/// corpus binding no root clause pays for neither. All are **parameters**, not graph
+/// dependencies, so the blast radius stays this module and the predicate is pure and
+/// testable.
+///
+/// A kind that declares no registration contributes no entry to `registrations` and is
+/// not subject to a *finding*, but its members are unconditionally live and so can carry liveness across an import
 /// edge (a memory member that imports a rule); an `always`/`user-invoked` channel is
 /// unconditionally live and an `event` channel carries no repo-decidable dead criterion
 /// the spec names, so neither ever contributes a dead reason. Liveness propagates along a
@@ -1169,23 +1194,32 @@ fn out_of_degree(
 /// conditionally. Members iterate in the corpus's candidate order under each name-sorted
 /// kind, so findings are stable.
 ///
-/// `severity` is the **root member's** own `reachable` clause's declaration — the gate
-/// reads it off the composed root contract and the dial reaches that clause by the same
-/// [`GRAPH_REACHABLE_RULE`] address the findings report under. Whether a dead edge gates,
-/// and at what weight, is the author's call; a deliberate work-in-progress dead edge is
-/// dialed, never tool-decided.
+/// Opt-in like [`degree`], [`reached_from`] and [`mention_reachable`], and over the same
+/// `selections` slice they read: the judge locates the **root member's** own `reachable`
+/// clause ([`root_reachable_clause`]) and walks nothing where none binds. That one clause
+/// is every channel a finding carries — the author's declared severity, and the guidance
+/// the gate teaches through at the moment of failure (`specs/model/contract.md`,
+/// "clause"). The dial reaches it by the same [`GRAPH_REACHABLE_RULE`] address the
+/// findings report under. Whether a dead edge gates, and at what weight, is the author's
+/// call; a deliberate work-in-progress dead edge is dialed, never tool-decided.
 #[must_use]
 pub fn reachable(
+    selections: &[Selection],
     registrations: &BTreeMap<&str, Vec<Registration>>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
-    edges: &[ResolvedEdge],
-    severity: Severity,
+    resolved: &[ResolvedEdge],
+    directives: &[ResolvedEdge],
 ) -> Vec<Diagnostic> {
+    let Some(clause) = root_reachable_clause(selections) else {
+        return Vec::new();
+    };
     let world = world();
+    // The two families as one arc set, built past the early return above.
+    let edges: Vec<ResolvedEdge> = resolved.iter().chain(directives).cloned().collect();
     // The reachability closure: every member reachable from the world — own registration
     // live, or reached along a directive edge from a live importer within the hop cap.
-    let live = live_members(registrations, by_kind, repo_files, edges);
+    let live = live_members(registrations, by_kind, repo_files, &edges);
     let mut diagnostics = Vec::new();
     for (kind, channels) in registrations {
         let members = by_kind.get(kind).copied().unwrap_or(&[]);
@@ -1196,7 +1230,7 @@ pub fn reachable(
             if let Some(reason) = dead_channel_set(channels, member, repo_files) {
                 let node = ((*kind).to_string(), member.id.clone());
                 if !live.contains(&node) {
-                    diagnostics.push(unreachable(&world, kind, &member.id, &reason, severity));
+                    diagnostics.push(unreachable(&world, kind, &member.id, &reason, clause));
                 }
             }
         }
@@ -1442,10 +1476,19 @@ fn declared_globs(member: &Features, field: &str) -> Vec<String> {
 
 /// The finding for a member whose inbound registration edge from the [`world`] node is
 /// dead — naming the world, the member (kind + id), and the dead-edge reason, at the
-/// assembly-declared `severity`.
-fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Severity) -> Diagnostic {
+/// root clause's own declared severity and carrying its guidance, the way
+/// [`out_of_degree`] and [`unreached`] carry their own clause's. The address stays
+/// [`GRAPH_REACHABLE_RULE`]: the label a root `reachable` clause compiles to, and the one
+/// the dial spells back.
+fn unreachable(
+    world: &Node,
+    kind: &str,
+    id: &str,
+    reason: &str,
+    clause: &crate::contract::Clause,
+) -> Diagnostic {
     Diagnostic::new(
-        severity,
+        engine::severity_of(clause.severity),
         GRAPH_REACHABLE_RULE,
         id,
         format!(
@@ -1453,6 +1496,7 @@ fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Sever
             world.0
         ),
     )
+    .with_guidance(clause.guidance.clone())
 }
 
 /// One member the directive classing ranges over: its `(kind, id)` identity, the

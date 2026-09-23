@@ -33,6 +33,21 @@ fn root_reachable(severity: &str) -> ClauseRow {
     common::clause("reachable", severity)
 }
 
+/// The counsel the guidance case authors onto its root row — prose no other channel of
+/// the finding could carry, so seeing it in the output proves the guidance channel and
+/// nothing else did.
+const ROOT_COUNSEL: &str = "Scope the rule to a glob the repo actually carries.";
+
+/// The same row carrying the author's `guidance` — the fourth channel of a clause
+/// (`specs/model/contract.md`, "clause"), beside the severity, label and dial reach the
+/// cases above pin.
+fn root_reachable_with_guidance(severity: &str) -> ClauseRow {
+    ClauseRow {
+        guidance: Some(ROOT_COUNSEL.to_string()),
+        ..root_reachable(severity)
+    }
+}
+
 /// A lock-shaped copy of `row`, its address spelled — the shape the lift reads, since a
 /// row emit never stamped is a row emit never wrote.
 fn stamped(label: &str, row: ClauseRow) -> ClauseRow {
@@ -202,6 +217,54 @@ fn the_dial_reaches_a_root_clause_by_its_label() {
     assert!(
         ok,
         "so the dead registration no longer blocks, got:\n{findings:#?}"
+    );
+}
+
+#[test]
+fn a_root_reachable_finding_teaches_through_the_guidance_its_clause_declared() {
+    // Guidance is how the gate teaches at the moment of failure, so it is the clause's
+    // to deliver and the finding's to carry — the graph judge reads it off the same
+    // clause it reads the severity off, never one channel threaded and the other
+    // dropped. The github reporter renders the rule and the message alone, so the claim
+    // is read off the human reporter, whose help line is guidance's home.
+    let root = dead_registration_harness("root-reachable-guidance");
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![root_reachable_with_guidance("advisory")],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_harness_in(&root, None);
+    assert!(
+        run.output.contains("root.reachable"),
+        "the dead registration still reports under the root label, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains(ROOT_COUNSEL),
+        "and the finding renders the guidance its clause declared, got:\n{}",
+        run.output
+    );
+
+    // Guidance is advisory prose, never a predicate: the same clause at `advisory` still
+    // does not block, and a clause declaring none renders no counsel rather than a
+    // default the author never wrote.
+    assert!(run.ok, "guidance gates nothing, got:\n{}", run.output);
+    let bare = dead_registration_harness("root-reachable-no-guidance");
+    common::write_lock(
+        &bare,
+        Declarations {
+            clauses: vec![root_reachable("advisory")],
+            ..Declarations::default()
+        },
+    );
+    let bare_run = common::check_harness_in(&bare, None);
+    assert!(
+        bare_run.output.contains("root.reachable") && !bare_run.output.contains(ROOT_COUNSEL),
+        "a guidance-free clause reports without inventing counsel, got:\n{}",
+        bare_run.output
     );
 }
 

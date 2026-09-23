@@ -7,7 +7,7 @@ use crate::admissibility;
 use crate::builtin_kind;
 use crate::check::{self, Severity};
 use crate::compose;
-use crate::contract::{self, Contract};
+use crate::contract::Contract;
 use crate::coverage;
 use crate::coverage_note;
 use crate::dial;
@@ -621,30 +621,21 @@ pub fn gate(
 
     // `reachable`: the root member's own graph-scope clause — every governed member's
     // inbound registration edge from the world node must be live, or a reachable member
-    // must import it. Opt-in exactly as `degree`/`mention-reachable` are: with no root
-    // `reachable` clause the closure never walks. It reads the same hoisted
+    // must import it. Opt-in exactly as `degree`/`reached-from`/`mention-reachable` are,
+    // and through the same door: the judge takes the one `selections` list already in
+    // hand, locates its root clause there, and walks nothing where none binds — so the
+    // clause's severity *and* its guidance reach the finding through one channel rather
+    // than one being threaded and the other dropped. It reads the same hoisted
     // `resolved_edges` plus the directive edges the classing observed, since liveness
     // propagates along an `@import` the target format executes.
-    if let Some(clause) = selections
-        .iter()
-        .find(|selection| selection.selector == engine::Selector::Root)
-        .and_then(|selection| {
-            selection
-                .clauses
-                .iter()
-                .find(|clause| clause.predicate == contract::Predicate::Reachable)
-        })
-    {
-        let mut reachability_edges = resolved_edges.clone();
-        reachability_edges.extend(directive_arcs.iter().cloned());
-        diagnostics.extend(graph::reachable(
-            &registrations_by_kind(&overlaid_builtin_kinds, &custom_units_and_features),
-            &by_kind,
-            &repo_files,
-            &reachability_edges,
-            engine::severity_of(clause.severity),
-        ));
-    }
+    diagnostics.extend(graph::reachable(
+        &selections,
+        &registrations_by_kind(&overlaid_builtin_kinds, &custom_units_and_features),
+        &by_kind,
+        &repo_files,
+        resolved_edges,
+        &directive_arcs,
+    ));
 
     // `mention-reachable`: the second selection predicate whose judge needs the graph —
     // each selected member's references must be able to fire where their target can be

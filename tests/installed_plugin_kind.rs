@@ -177,6 +177,23 @@ fn a_settings_enabled_plugins_map_surfaces_one_member_per_entry_keyed_by_plugin_
     assert!(reads[0].opaque_fields.contains_key("permissions"));
 }
 
+/// The root selection binding one `reachable` clause at `required` — the opt-in the
+/// judge locates before it walks anything, and the declaration its findings report
+/// under. `members` stays empty: the predicate ranges over `by_kind`.
+fn root_reachable_binding() -> Vec<temper::engine::Selection<'static>> {
+    vec![temper::engine::Selection {
+        selector: temper::engine::Selector::Root,
+        clauses: vec![temper::contract::Clause {
+            label: "root.reachable".to_string(),
+            severity: temper::contract::Severity::Required,
+            predicate: temper::contract::Predicate::Reachable,
+            guidance: None,
+            source: None,
+        }],
+        members: Vec::new(),
+    }]
+}
+
 #[test]
 fn a_false_valued_entry_gates_its_member_off_every_channel() {
     let harness = common::tmpdir("enabled-plugins-gate");
@@ -190,11 +207,12 @@ fn a_false_valued_entry_gates_its_member_off_every_channel() {
     let registrations = std::collections::BTreeMap::from([("installed-plugin", channels)]);
 
     let findings = temper::graph::reachable(
+        &root_reachable_binding(),
         &registrations,
         &by_kind,
         &[],
         &[],
-        temper::check::Severity::Error,
+        &[],
     );
 
     // The gate rides the declared field's documented semantics, never a second channel

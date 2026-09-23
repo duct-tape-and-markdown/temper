@@ -494,13 +494,16 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
         &graph::embedded_hosts_by_key(&by_kind),
     );
     // The third consumer: reachability closes over the same resolved slice (plus the
-    // directive edges, empty here), so it re-walks nothing either.
+    // directive edges, empty here), so it re-walks nothing either. Its opt-in is the
+    // root clause it reads off `selections` — empty here, so the call is a no-op, and
+    // the pin below is about the *edge* walk either way.
     let _ = graph::reachable(
+        &selections,
         &BTreeMap::new(),
         &by_kind,
         &[],
         resolved_edges,
-        temper::check::Severity::Warn,
+        &[],
     );
 
     // The narrowing itself, pinned at the cost seam: `acyclic` no longer takes this

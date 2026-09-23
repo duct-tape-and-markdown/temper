@@ -2094,18 +2094,38 @@ mod embedded_edge_source_scope {
 }
 
 /// Library-level fixture proof of the `reachable` predicate: the pure machinery over
-/// constructed `Features`, with the severity the **root member's** own `reachable` clause
-/// declares threaded into the finding. The gate-level suite (`tests/root_contract.rs`)
-/// composes that clause off the lock and hands its severity here, so the direct-call
-/// suite and the gate agree on who declares it.
+/// constructed `Features`, judged under the **root member's** own `reachable` clause —
+/// the one channel both the severity a finding gates at and the guidance it teaches
+/// through arrive on. The gate-level suite (`tests/root_contract.rs`) composes that
+/// clause off the lock, so the direct-call suite and the gate agree on who declares it.
 mod reachability {
     use std::collections::BTreeMap;
 
     use serde_json::Value as JsonValue;
     use temper::check::Severity;
+    use temper::contract::{Clause, Predicate, Severity as Declared};
+    use temper::engine::{Selection, Selector};
     use temper::extract::Features;
     use temper::graph::{ResolvedEdge, reachable};
     use temper::kind::Registration;
+
+    /// The root selection binding one `reachable` clause at `severity`, optionally
+    /// carrying `guidance` — the opt-in the judge locates, and the sole source of both
+    /// channels its findings report. `members` stays empty: the predicate ranges over
+    /// `by_kind`, never the selection's own member list.
+    fn bound(severity: Declared, guidance: Option<&str>) -> Vec<Selection<'static>> {
+        vec![Selection {
+            selector: Selector::Root,
+            clauses: vec![Clause {
+                label: "root.reachable".to_string(),
+                severity,
+                predicate: Predicate::Reachable,
+                guidance: guidance.map(str::to_string),
+                source: None,
+            }],
+            members: Vec::new(),
+        }]
+    }
 
     /// A member carrying an id and, optionally, one frontmatter field — the only inputs
     /// the reachability predicate reads (the id for the finding, the named registration
@@ -2171,7 +2191,17 @@ mod reachability {
             ("rule", vec![paths_match("paths")]),
         ]);
         let files = vec!["src/graph.rs".to_string()];
-        assert!(reachable(&registrations, &by_kind, &files, &[], Severity::Error).is_empty());
+        assert!(
+            reachable(
+                &bound(Declared::Required, None),
+                &registrations,
+                &by_kind,
+                &files,
+                &[],
+                &[],
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -2185,7 +2215,14 @@ mod reachability {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations = BTreeMap::from([("skill", vec![description_trigger("description")])]);
 
-        let diags = reachable(&registrations, &by_kind, &[], &[], Severity::Error);
+        let diags = reachable(
+            &bound(Declared::Required, None),
+            &registrations,
+            &by_kind,
+            &[],
+            &[],
+            &[],
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, "root.reachable");
@@ -2195,7 +2232,14 @@ mod reachability {
 
         // The severity is the root clause's: the same dead edge at `advisory` is a warn,
         // so a required-vs-advisory reachability declaration is honored.
-        let advisory = reachable(&registrations, &by_kind, &[], &[], Severity::Warn);
+        let advisory = reachable(
+            &bound(Declared::Advisory, None),
+            &registrations,
+            &by_kind,
+            &[],
+            &[],
+            &[],
+        );
         assert_eq!(advisory.len(), 1);
         assert_eq!(advisory[0].severity, Severity::Warn);
     }
@@ -2212,7 +2256,14 @@ mod reachability {
         let registrations = BTreeMap::from([("rule", vec![paths_match("paths")])]);
         let files = vec!["src/graph.rs".to_string(), "README.md".to_string()];
 
-        let diags = reachable(&registrations, &by_kind, &files, &[], Severity::Error);
+        let diags = reachable(
+            &bound(Declared::Required, None),
+            &registrations,
+            &by_kind,
+            &files,
+            &[],
+            &[],
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "root.reachable");
         assert_eq!(diags[0].artifact, "style");
@@ -2236,7 +2287,17 @@ mod reachability {
         // A non-empty repo file-set the absent/blank field is *not* tested against.
         let files = vec!["src/graph.rs".to_string()];
 
-        assert!(reachable(&registrations, &by_kind, &files, &[], Severity::Error).is_empty());
+        assert!(
+            reachable(
+                &bound(Declared::Required, None),
+                &registrations,
+                &by_kind,
+                &files,
+                &[],
+                &[],
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -2251,7 +2312,17 @@ mod reachability {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations: BTreeMap<&str, Vec<Registration>> = BTreeMap::new();
 
-        assert!(reachable(&registrations, &by_kind, &[], &[], Severity::Error).is_empty());
+        assert!(
+            reachable(
+                &bound(Declared::Required, None),
+                &registrations,
+                &by_kind,
+                &[],
+                &[],
+                &[],
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -2273,7 +2344,17 @@ mod reachability {
         let edges = [import_edge(("memory", "root"), ("rule", "scoped"))];
         let files = vec!["src/graph.rs".to_string()];
 
-        assert!(reachable(&registrations, &by_kind, &files, &edges, Severity::Error).is_empty());
+        assert!(
+            reachable(
+                &bound(Declared::Required, None),
+                &registrations,
+                &by_kind,
+                &files,
+                &[],
+                &edges,
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -2295,7 +2376,14 @@ mod reachability {
         let registrations = BTreeMap::from([("skill", vec![description_trigger("description")])]);
         let edges = [import_edge(("skill", "importer"), ("skill", "target"))];
 
-        let diags = reachable(&registrations, &by_kind, &[], &edges, Severity::Error);
+        let diags = reachable(
+            &bound(Declared::Required, None),
+            &registrations,
+            &by_kind,
+            &[],
+            &[],
+            &edges,
+        );
         assert_eq!(diags.len(), 2);
         assert!(diags.iter().any(|d| d.artifact == "target"));
         assert!(diags.iter().any(|d| d.artifact == "importer"));
@@ -2329,7 +2417,14 @@ mod reachability {
         }
         let files = vec!["src/graph.rs".to_string()];
 
-        let diags = reachable(&registrations, &by_kind, &files, &edges, Severity::Error);
+        let diags = reachable(
+            &bound(Declared::Required, None),
+            &registrations,
+            &by_kind,
+            &files,
+            &[],
+            &edges,
+        );
         assert_eq!(diags.len(), 1, "only the past-cap member stays dead");
         assert_eq!(diags[0].artifact, "r5");
     }
@@ -2354,7 +2449,98 @@ mod reachability {
             ],
         )]);
 
-        assert!(reachable(&registrations, &by_kind, &[], &[], Severity::Error).is_empty());
+        assert!(
+            reachable(
+                &bound(Declared::Required, None),
+                &registrations,
+                &by_kind,
+                &[],
+                &[],
+                &[],
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn the_clause_s_guidance_rides_every_finding_it_produces() {
+        // Guidance is the channel the gate teaches through at the moment of failure
+        // (`specs/model/contract.md`, "clause"), so it arrives on the finding beside the
+        // severity — one channel, read off the one clause, exactly as the `degree` and
+        // `reached-from` judges carry their own clause's.
+        let skills = [
+            member(
+                "alpha",
+                Some(("description", JsonValue::String(" ".to_string()))),
+            ),
+            member(
+                "beta",
+                Some(("description", JsonValue::String(" ".to_string()))),
+            ),
+        ];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let registrations = BTreeMap::from([("skill", vec![description_trigger("description")])]);
+        let counsel = "Give the skill a description, or retire it.";
+
+        let diags = reachable(
+            &bound(Declared::Advisory, Some(counsel)),
+            &registrations,
+            &by_kind,
+            &[],
+            &[],
+            &[],
+        );
+        assert_eq!(diags.len(), 2, "both dead members fire, got: {diags:#?}");
+        for diag in &diags {
+            assert_eq!(diag.severity, Severity::Warn);
+            assert_eq!(
+                diag.guidance.as_deref(),
+                Some(counsel),
+                "every unreachable finding carries the clause's guidance, got: {diag:#?}"
+            );
+        }
+
+        // And a clause that declared none leaves the channel empty rather than inventing
+        // counsel the author never wrote.
+        let silent = reachable(
+            &bound(Declared::Advisory, None),
+            &registrations,
+            &by_kind,
+            &[],
+            &[],
+            &[],
+        );
+        assert!(silent.iter().all(|diag| diag.guidance.is_none()));
+    }
+
+    #[test]
+    fn no_root_reachable_clause_judges_nothing() {
+        // Opt-in is the judge's own test, over the selections it is handed: the same dead
+        // description-trigger under a root selection binding some *other* predicate — and
+        // under no selection at all — produces nothing.
+        let skills = [member(
+            "standards",
+            Some(("description", JsonValue::String(" ".to_string()))),
+        )];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let registrations = BTreeMap::from([("skill", vec![description_trigger("description")])]);
+
+        let other = vec![Selection {
+            selector: Selector::Root,
+            clauses: vec![Clause {
+                label: "root.count".to_string(),
+                severity: Declared::Advisory,
+                predicate: Predicate::Count {
+                    min: 0,
+                    max: usize::MAX,
+                },
+                guidance: None,
+                source: None,
+            }],
+            members: Vec::new(),
+        }];
+        assert!(reachable(&other, &registrations, &by_kind, &[], &[], &[]).is_empty());
+        assert!(reachable(&[], &registrations, &by_kind, &[], &[], &[]).is_empty());
     }
 }
 
