@@ -9,6 +9,48 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+## [0.0.20] — 2026-09-23
+
+### Upgrading from 0.0.19
+
+Each line is what a 0.0.19 harness may see first, then what to do.
+
+- **A lock row's `source_path` changes on the next `emit`.** An `input()`,
+  `include()` or layout import outside the program root used to record an
+  absolute, machine-specific path. It now records a path relative to the
+  program root (`../../src/x.txt`). Re-emit once and commit the lock; it is
+  then the same on every checkout. A target on a different Windows drive has
+  no relative path and is refused with the path named.
+- **`membership` over a list-valued field may now report findings.** It used
+  to pass silently whatever the list held. It now checks each element, and
+  each element outside the allowed set is its own finding.
+- **`unique` over a list-valued field is now a finding** saying that
+  `unique` over a list is not defined, where it used to pass silently. If
+  the field is meant to be a scalar, narrow it with a `type` clause.
+- **The `guard` stops binding stray documents unless the contract asks it
+  to.** A write of a document the program never declared, at a governed
+  locus, binds the guard only where a `locus-declared` clause is bound. The
+  shipped root default binds one, so nothing changes unless your root
+  contract drops it. If you dropped it and still want the guard to catch
+  strays, bind it again.
+
+### Fixed
+
+- **A source dependency outside the program root no longer breaks the
+  lock's portability.** The committed lock is now byte-identical across
+  checkouts, worktrees and machines, and it no longer carries Windows'
+  `//?/` path prefix.
+- **`membership` and `unique` no longer pass silently over a list.**
+
+### Changed
+
+- **The `guard` asks the contract.** Whether an undeclared document at a
+  governed locus is a problem is the contract's call (`locus-declared`);
+  what happens about it is the enforcement mode's (`block`, `warn`, `note`).
+- **The reserved-`prose` refusal says to rename the field.** On an embedded
+  value it no longer suggests authoring the words as member prose, which an
+  embedded value cannot do.
+
 ## [0.0.19] — 2026-09-23
 
 ### Upgrading from 0.0.18
