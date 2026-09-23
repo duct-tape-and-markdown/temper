@@ -271,15 +271,12 @@ const CLAUSE_COLLISION_RULE: &str = "clause.label-collision";
 /// lock, refused before it judges anything, never a collision resolved with a counter
 /// that would renumber a clause's siblings every time one is inserted above it.
 ///
-/// `joined` faces the same rule: a layer's rows share the address space they are judged
-/// in, so two of them under one label leave both unaddressable exactly as the host's own
-/// twins would. A joined row can never collide with a *host* row — its address carries the
-/// layer that produced it (`LAYER_QUALIFIER`) — so what fires here is a malformed layer
-/// or a malformed corpus, never the join itself. A joined row's **body** is the one set
-/// left out of the walk: the qualifier is appended to the host row's label at join time
-/// and never reaches the body labels already stamped under the unqualified host address,
-/// so descending there would read a layer's body clause and the host's identical one as
-/// twins and refuse a legitimate join (`.flume/refactor/build-layer-qualifier-skips-when-bodies.md`).
+/// `joined` faces the same rule at the same depth: a layer's rows share the address space
+/// they are judged in, so two of them under one label leave both unaddressable exactly as
+/// the host's own twins would. A joined row can never collide with a *host* row — every
+/// address a join carries, head and guarded body alike, is stamped with the layer that
+/// produced it (`LAYER_QUALIFIER`) — so what fires here is a malformed layer or a
+/// malformed corpus, never the join itself.
 pub fn clause_collision_diagnostics(
     declarations: &drift::Declarations,
     joined: &[drift::ClauseRow],
@@ -306,7 +303,7 @@ pub fn clause_collision_diagnostics(
         .iter()
         .map(|row| ("a joined layer's clauses".to_string(), row));
     let mut sites: BTreeMap<&str, Vec<String>> = BTreeMap::new();
-    for (site, row) in own.chain(nested) {
+    for (site, row) in own.chain(nested).chain(layered) {
         record_site(&mut sites, row, &site);
         // A guard's body rows are ordinary clauses with addresses of their own (decision
         // 0057), so two of them under one label are the same unaddressable pair a kind's
@@ -314,9 +311,6 @@ pub fn clause_collision_diagnostics(
         for body_row in row.body.iter().flatten() {
             record_site(&mut sites, body_row, &guard_body_site(row));
         }
-    }
-    for (site, row) in layered {
-        record_site(&mut sites, row, &site);
     }
     sites
         .into_iter()
@@ -798,6 +792,31 @@ mod tests {
         assert!(
             message.contains("a joined layer's clauses"),
             "the joined row must be named as the layer's: {message}"
+        );
+    }
+
+    #[test]
+    fn a_joined_layers_own_guard_body_twins_are_refused_like_the_hosts() {
+        // A layer's guarded body is address space it shares with itself, so two rows under
+        // one label leave both unaddressable however the join qualified the guard above
+        // them.
+        let body = || clause_row(None, "rule.when.status=draft.required.owner", "required");
+        let joined = vec![drift::ClauseRow {
+            body: Some(vec![body(), body()]),
+            ..clause_row(Some("rule"), "rule.when.status=draft", "required")
+        }];
+        let message = only_message(&clause_collision_diagnostics(
+            &drift::Declarations::default(),
+            &joined,
+        ))
+        .to_string();
+        assert!(
+            message.contains("rule.when.status=draft.required.owner"),
+            "the colliding body address must be named: {message}"
+        );
+        assert!(
+            message.contains("guard `rule.when.status=draft`'s body clauses"),
+            "sited under the joined guard the rows hang off: {message}"
         );
     }
 

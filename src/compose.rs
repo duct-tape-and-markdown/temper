@@ -956,7 +956,10 @@ fn layer_lock_path(layer: &Path) -> PathBuf {
 ///
 /// A compiled address is dot-joined ([`contract::clause_label`]), so `@` appears in no
 /// label emit can write — which is what makes a joined address unable to collide with a
-/// host's, whatever the two locks happen to declare.
+/// host's, whatever the two locks happen to declare. Every address a join carries wears
+/// the qualifier, a guard's body rows as much as the head they hang under
+/// ([`qualify_layer_label`]), so the property holds at every depth rather than at the top
+/// level alone.
 const LAYER_QUALIFIER: char = '@';
 
 /// The locks an invocation joined, and the clause rows they carried.
@@ -1012,17 +1015,32 @@ fn read_layer_clauses(layers: &[PathBuf]) -> miette::Result<JoinedLayers> {
     Ok(joined)
 }
 
-/// One joined clause row, re-addressed under the layer that carried it.
+/// One joined clause row and every row under it, re-addressed under the layer that
+/// carried it.
+///
+/// A guard's body rows are ordinary clauses with addresses of their own (decision 0057),
+/// stamped under the *host's* address, so leaving them bare would hand a layer's body
+/// clause the same address the host's identical one already wears. A body clause may not
+/// itself be a `when` ([`contract::Predicate::When`]), so one descent reaches every row a
+/// join carries.
 ///
 /// A row carrying no address is left as it is: every emitted row is stamped with one, so
 /// a row without one is a lock emit did not write, and the contract lift is the one home
 /// that refuses it ([`clause_from_row`]) — re-deciding that here would be a
 /// second verdict on the same fact.
 fn qualify_layer_label(mut row: drift::ClauseRow, layer: &str) -> drift::ClauseRow {
+    qualify_one_label(&mut row, layer);
+    for body_row in row.body.iter_mut().flatten() {
+        qualify_one_label(body_row, layer);
+    }
+    row
+}
+
+/// Append the layer qualifier to one row's own address, for [`qualify_layer_label`].
+fn qualify_one_label(row: &mut drift::ClauseRow, layer: &str) {
     if let Some(label) = row.label.take() {
         row.label = Some(format!("{label}{LAYER_QUALIFIER}{layer}"));
     }
-    row
 }
 
 /// This machine's [`dial::Dial`], read off the shipped `dial` kind's own members.

@@ -375,3 +375,100 @@ fn a_layer_never_tips_a_builtin_off_its_embedded_default() {
     );
     assert_eq!(floor(&with_layer), 1, "and it fires: {with_layer:?}");
 }
+
+/// A `type` guard over `skill`'s `description` — a guard that holds at every real skill,
+/// so what the cases below vary is the `body` it carries and never whether it fires.
+fn description_guard(body: Vec<ClauseRow>) -> ClauseRow {
+    ClauseRow {
+        unit: None,
+        kind: Some("skill".to_string()),
+        guard_predicate: Some("type".to_string()),
+        field: Some("description".to_string()),
+        value_type: Some(vec!["string".to_string()]),
+        body: Some(body),
+        ..common::clause("when", "required")
+    }
+}
+
+/// A `max_len` body clause over `skill`'s `description`, bounded far under any real
+/// description's length — the guarded twin of [`description_bound`].
+fn description_bound_body() -> ClauseRow {
+    ClauseRow {
+        field: Some("description".to_string()),
+        bound: Some(BoundRow {
+            min: None,
+            max: Some(10),
+        }),
+        ..common::clause("max_len", "required")
+    }
+}
+
+/// The address a joined guard's body clause is judged under, up to the layer qualifier.
+const JOINED_BODY_ADDRESS: &str = "skill.when.description=string.max_len.description";
+
+#[test]
+fn a_joined_layers_own_guard_body_twin_refuses_the_run() {
+    let harness = host("layer-body-twin");
+    let org = org(
+        "layer-body-twin-org",
+        vec![description_guard(vec![
+            description_bound_body(),
+            description_bound_body(),
+        ])],
+    );
+
+    let (findings, ok) = check_joining(&harness, &[&lock_of(&org)]);
+
+    // A layer's guarded body is address space the layer shares with itself: two rows
+    // compiling one address leave both unaddressable, which is a malformed layer wherever
+    // it was compiled — the same refusal the host's own body twins earn, at the depth the
+    // join reaches.
+    assert!(!ok, "a malformed layer fails the check: {findings:?}");
+    let collisions = common::findings_for(&findings, "clause.label-collision");
+    assert_eq!(
+        collisions.len(),
+        1,
+        "the twinned body address is refused, loud: {findings:?}"
+    );
+    assert!(
+        collisions[0].contains(&format!("{JOINED_BODY_ADDRESS}@")),
+        "naming the address as the layer carries it: {collisions:?}"
+    );
+}
+
+#[test]
+fn a_joined_guard_the_host_already_declares_joins_clean() {
+    let harness = host("layer-body-same");
+    common::write_lock(
+        &harness,
+        Declarations {
+            clauses: vec![description_guard(vec![description_bound_body()])],
+            ..Default::default()
+        },
+    );
+    let org = org(
+        "layer-body-same-org",
+        vec![description_guard(vec![description_bound_body()])],
+    );
+
+    let (findings, ok) = check_joining(&harness, &[&lock_of(&org)]);
+
+    // The layer restates a guard the host already declares, body for body. That is an
+    // ordinary join, not a twin — the layer's body clause is addressed under the layer
+    // that carried it exactly as its guard is, so the two never share one address.
+    assert!(!ok, "the guarded body still gates: {findings:?}");
+    assert!(
+        common::findings_for(&findings, "clause.label-collision").is_empty(),
+        "an identical guard collides with nothing: {findings:?}"
+    );
+    assert_eq!(
+        common::findings_for(&findings, JOINED_BODY_ADDRESS).len(),
+        1,
+        "the host's own body clause fires under its bare address: {findings:?}"
+    );
+    assert_eq!(
+        findings_naming(&findings, &format!("{JOINED_BODY_ADDRESS}@")).len(),
+        1,
+        "and the layer's under the layer that carried it: {findings:?}"
+    );
+}
