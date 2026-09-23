@@ -847,6 +847,12 @@ const factory: ChainFactory = (flume) => {
     // tick that files a capture reverts whole, capture included.
     entryChannelPaths: [...BUILD_CHANNEL_PATHS, ...BUILD_SURFACE_PATHS],
     gates: buildGates,
+    // Queue- and diff-derived prompt values are data, never prompt syntax: the
+    // engine neutralizes inline-exec spans in them before it scans (flume
+    // spec/prompt.md). An entry that mentions Rust's `json!` in backticks once
+    // rendered "!`…`" and ran a fragment of its own JSON as a shell command.
+    // PER_PATH stays live: the prompt runs it inside its own span.
+    promptDataKeys: ["ENTRY_JSON", "PER_SECTION", "SCOPED_DELTA"],
     // The park signal, declared (0.10: ship classification is the chain's
     // call, never inferred from paths by the engine). Build's prompt names
     // one legitimate not-shipped commit: capture-only — "commit the capture
