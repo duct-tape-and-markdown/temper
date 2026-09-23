@@ -157,22 +157,7 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
 
     // A `guide` layout importing a file that does not exist, beside a projected skill
     // whose artifact would be written were emit to reach its write pass.
-    let skill_facts = KindFactRow {
-        name: "skill".to_string(),
-        provider: None,
-        governs_root: Some(".claude/skills".to_string()),
-        governs_glob: Some("*/SKILL.md".to_string()),
-        commitment: None,
-        format: Some("yaml-frontmatter".to_string()),
-        unit_shape: Some("directory".to_string()),
-        registration: Vec::new(),
-        templates: Vec::new(),
-        content: None,
-        shape: None,
-        collection_address: None,
-        guidance: None,
-        cite: None,
-    };
+    let skill_facts = common::skill_kind_facts(None, &[]);
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {

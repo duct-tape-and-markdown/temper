@@ -76,6 +76,18 @@ content?: LayoutRow,
  */
 shape?: string, 
 /**
+ * The kind's **leaf set** — the leaf names a member of it carries, derived at emit
+ * from the member value type the SDK knows, never authored twice (decision 0053).
+ * Empty for a kind whose declaration carries none, the same tolerant round-trip
+ * [`registration`](KindFactRow::registration) takes, so a committed lock written
+ * before the column existed re-reads byte-identically.
+ *
+ * The declaration a read verb renders where the surface holds no member yet: the
+ * type is the declaration, so a present set outranks the union of what members
+ * carry today.
+ */
+leaves?: Array<string>, 
+/**
  * The declared **collection address** — for a registration member surfacing inside a
  * host manifest, which manifest and which key path it keys at. Absent for a
  * file-locus kind, so an ordinary row stays byte-identical.

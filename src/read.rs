@@ -600,7 +600,7 @@ fn narrate_governing_contract(
 ///   member of the kind can still write a document the reader places.
 /// * **hosted kinds** — the child kinds the row admits. An **embedded** kind (a
 ///   path-less `templates` entry, or a layout collection region's `member_kind`) lives
-///   in the host's own body and is narrated with the leaves its members carry; a
+///   in the host's own body and is narrated with the leaves a member of it carries; a
 ///   **file** child (a `templates` entry carrying a `path`) owns its own unit and is
 ///   narrated with that path.
 ///
@@ -671,7 +671,14 @@ fn narrate_kind(
     if let Some(layout) = layout {
         narrate_layout(&mut out, layout);
     }
-    narrate_hosted_kinds(&mut out, name, &embedded, &file_children, by_kind);
+    narrate_hosted_kinds(
+        &mut out,
+        name,
+        &embedded,
+        &file_children,
+        kind_facts,
+        by_kind,
+    );
     out
 }
 
@@ -738,11 +745,7 @@ fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
             out,
             "  • reaching the session on {} — the declared registration channel{} a member \
              of it is read through.",
-            row.registration
-                .iter()
-                .map(|channel| format!("`{channel}`"))
-                .collect::<Vec<_>>()
-                .join(", "),
+            backticked(&row.registration),
             if row.registration.len() == 1 { "" } else { "s" }
         );
     }
@@ -1035,21 +1038,26 @@ fn layout_skeleton(regions: &[drift::LayoutRegionRow]) -> Vec<String> {
     lines
 }
 
-/// Narrate the child kinds a host admits: the embedded ones with the leaves their
-/// members carry, then the file children with the path their units sit at. Silent when
+/// Narrate the child kinds a host admits: the embedded ones with the leaves a member of
+/// each carries, then the file children with the path their units sit at. Silent when
 /// the kind hosts neither — a kind that nests nothing has no strand, not an empty
 /// heading.
 ///
-/// A leaf list is the corpus's, not a declaration: an embedded kind declares no field
-/// set anywhere, so the leaves shown are the union of what the members of it in this
-/// surface carry today, read off `by_kind` — the same corpus the gate ranges over, whose
-/// embedded entries are the lock's `nested_member` rows lifted leaf-by-leaf into fields
+/// Two sources answer "what leaves", and the declaration outranks the corpus (0053):
+/// the child's own `kind` row carries a leaf set derived at emit from the member value
+/// type — *the type is the declaration* — so where the row declares one it is rendered
+/// whether or not a member exists, which is the whole point: an adopter reads what a
+/// child carries before authoring one. Where the row declares none, the fallback is the
+/// union of what the members of it in this surface carry today, read off `by_kind` — the
+/// same corpus the gate ranges over, whose embedded entries are the lock's
+/// `nested_member` rows lifted leaf-by-leaf into fields
 /// ([`crate::compose::embedded_features_by_kind`]), never a second read of the lock.
 fn narrate_hosted_kinds(
     out: &mut String,
     name: &str,
     embedded: &[&str],
     file_children: &[&drift::TemplateRow],
+    kind_facts: &[drift::KindFactRow],
     by_kind: &BTreeMap<&str, &[Features]>,
 ) {
     if !embedded.is_empty() {
@@ -1059,6 +1067,19 @@ fn narrate_hosted_kinds(
              other:"
         );
         for kind in embedded {
+            let declared = kind_facts
+                .iter()
+                .find(|row| row.name == *kind)
+                .map(|row| row.leaves.as_slice())
+                .filter(|leaves| !leaves.is_empty());
+            if let Some(declared) = declared {
+                let _ = writeln!(
+                    out,
+                    "  • `{kind}` — the leaves a member of it carries: {}",
+                    backticked(declared)
+                );
+                continue;
+            }
             let leaves = corpus_leaves(by_kind, kind);
             if leaves.is_empty() {
                 let _ = writeln!(
@@ -1070,11 +1091,7 @@ fn narrate_hosted_kinds(
                 let _ = writeln!(
                     out,
                     "  • `{kind}` — the leaves its members carry today: {}",
-                    leaves
-                        .iter()
-                        .map(|leaf| format!("`{leaf}`"))
-                        .collect::<Vec<_>>()
-                        .join(", ")
+                    backticked(&leaves)
                 );
             }
         }
@@ -1092,6 +1109,16 @@ fn narrate_hosted_kinds(
         }
         out.push('\n');
     }
+}
+
+/// A comma-separated inline list of code-spanned names — the one spelling every
+/// narrated name set takes.
+fn backticked(names: &[String]) -> String {
+    names
+        .iter()
+        .map(|name| format!("`{name}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// Every leaf name the members of `kind` in this surface carry, deduplicated and

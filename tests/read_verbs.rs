@@ -1155,6 +1155,58 @@ fn a_composed_kind_narrates_the_embedded_kinds_it_admits_and_their_leaves() {
 }
 
 #[test]
+fn a_hosted_kinds_declared_leaf_set_renders_with_no_member_of_it_present() {
+    // The moment the column exists for: `decision` is admitted into a `spec` body and the
+    // surface holds no decision member anywhere, so the corpus union can teach nothing.
+    // Its own row carries the leaf set derived at emit from the value type — the type is
+    // the declaration — and that is what the adopter reads before authoring one.
+    // `invariant` declares none, so its strand still falls back to what its members carry.
+    let kinds = [
+        drift::KindFactRow {
+            templates: vec![
+                TemplateRow {
+                    kind: "decision".to_string(),
+                    path: None,
+                },
+                TemplateRow {
+                    kind: "invariant".to_string(),
+                    path: None,
+                },
+            ],
+            ..common::kind_facts("spec", "specs", "*.md")
+        },
+        drift::KindFactRow {
+            leaves: vec!["chosen".to_string(), "because".to_string()],
+            ..common::kind_facts("decision", "specs/decisions", "*.md")
+        },
+        common::kind_facts("invariant", "specs/invariants", "*.md"),
+    ];
+    let mut held = feature("spec:s/invariant/one-home", &[]);
+    held.fields = BTreeMap::from([(
+        "statement".to_string(),
+        serde_json::Value::String("one job, one home".to_string()),
+    )]);
+    let invariants = [held];
+    let decisions: [Features; 0] = [];
+    let by_kind: BTreeMap<&str, &[Features]> =
+        BTreeMap::from([("decision", &decisions[..]), ("invariant", &invariants[..])]);
+
+    let out = explain_kind(&kinds, &by_kind, "kind:spec");
+    assert!(
+        out.contains("• `decision` — the leaves a member of it carries: `chosen`, `because`"),
+        "the declared set renders in declaration order with no member of the kind present: {out}"
+    );
+    assert!(
+        !out.contains("`decision` — no member of it is in this surface yet"),
+        "and it displaces the empty-corpus line rather than sitting beside it: {out}"
+    );
+    assert!(
+        out.contains("• `invariant` — the leaves its members carry today: `statement`"),
+        "a hosted kind whose row declares no set still narrates the corpus union: {out}"
+    );
+}
+
+#[test]
 fn a_vowel_initial_hosting_kind_narrates_both_hosted_strands_with_no_article_before_its_name() {
     // The narration cannot know how a kind name is pronounced, so it never composes an
     // English article ahead of one: `a `intent` member` is wrong for every vowel-initial

@@ -3616,6 +3616,18 @@ pub struct KindFactRow {
     /// take, so a body-bearing kind's row stays byte-identical.
     #[serde(default)]
     pub shape: Option<String>,
+    /// The kind's **leaf set** — the leaf names a member of it carries, derived at emit
+    /// from the member value type the SDK knows, never authored twice (decision 0053).
+    /// Empty for a kind whose declaration carries none, the same tolerant round-trip
+    /// [`registration`](KindFactRow::registration) takes, so a committed lock written
+    /// before the column existed re-reads byte-identically.
+    ///
+    /// The declaration a read verb renders where the surface holds no member yet: the
+    /// type is the declaration, so a present set outranks the union of what members
+    /// carry today.
+    #[serde(default)]
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub leaves: Vec<String>,
     /// The declared **collection address** — for a registration member surfacing inside a
     /// host manifest, which manifest and which key path it keys at. Absent for a
     /// file-locus kind, so an ordinary row stays byte-identical.
@@ -4525,6 +4537,9 @@ impl KindFactRow {
         if let Some(shape) = &self.shape {
             table.insert("shape", value(shape.clone()));
         }
+        if !self.leaves.is_empty() {
+            table.insert("leaves", value(string_array(&self.leaves)));
+        }
         if let Some(address) = &self.collection_address {
             table.insert(
                 "collection_address",
@@ -4556,6 +4571,7 @@ impl KindFactRow {
                 None => None,
             },
             shape: opt_str(table, "shape")?,
+            leaves: opt_str_array(table, "leaves")?.unwrap_or_default(),
             collection_address: match opt_table(table, "collection_address")? {
                 Some(address) => Some(collection_address_from_table(address)?),
                 None => None,
@@ -5723,6 +5739,32 @@ mod tests {
         let table = row.to_table();
         assert!(!table.contains_key("guidance"));
         assert!(!table.contains_key("cite"));
+
+        let round_tripped = row
+            .round_trip_through_table()
+            .expect("round-trip succeeded");
+        assert_eq!(row, round_tripped);
+    }
+
+    #[test]
+    fn kind_fact_row_round_trips_a_leaf_set_in_declaration_order() {
+        let row = KindFactRow {
+            leaves: vec!["chosen".to_string(), "because".to_string()],
+            ..crate::test_support::kind_fact_row("decision")
+        };
+
+        let round_tripped = row
+            .round_trip_through_table()
+            .expect("round-trip succeeded");
+        assert_eq!(row, round_tripped);
+    }
+
+    #[test]
+    fn kind_fact_row_omits_an_absent_leaves_column() {
+        let row = crate::test_support::kind_fact_row("rule");
+
+        let table = row.to_table();
+        assert!(!table.contains_key("leaves"));
 
         let round_tripped = row
             .round_trip_through_table()

@@ -574,24 +574,12 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![drift::KindFactRow {
-                name: "hook".to_string(),
-                provider: None,
-                governs_root: Some(".claude".to_string()),
-                governs_glob: Some("settings.json".to_string()),
-                commitment: None,
-                format: None,
-                unit_shape: None,
-                registration: vec![],
-                templates: Vec::new(),
-                content: None,
-                shape: None,
                 collection_address: Some(CollectionAddressRow {
                     manifest: "settings.json".to_string(),
                     key_path: "hooks.<Event>".to_string(),
                     entry_shape: Some("group-array(hooks;matcher)".to_string()),
                 }),
-                guidance: None,
-                cite: None,
+                ..common::kind_facts("hook", ".claude", "settings.json")
             }],
             registrations: vec![drift::RegistrationRow {
                 kind: "hook".to_string(),
@@ -852,44 +840,20 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
     // Build declarations with the two kinds
     let kind_rows = vec![
         KindFactRow {
-            name: "hook".to_string(),
-            provider: None,
-            governs_root: Some(".claude".to_string()),
-            governs_glob: Some("settings.json".to_string()),
-            commitment: None,
-            format: None,
-            unit_shape: None,
-            registration: vec![],
-            templates: Vec::new(),
-            content: None,
-            shape: None,
             collection_address: Some(CollectionAddressRow {
                 manifest: "settings.json".to_string(),
                 key_path: "hooks.<Event>".to_string(),
                 entry_shape: Some("group-array(hooks;matcher)".to_string()),
             }),
-            guidance: None,
-            cite: None,
+            ..common::kind_facts("hook", ".claude", "settings.json")
         },
         KindFactRow {
-            name: "installed-plugin".to_string(),
-            provider: None,
-            governs_root: Some(".claude".to_string()),
-            governs_glob: Some("settings.json".to_string()),
-            commitment: None,
-            format: None,
-            unit_shape: None,
-            registration: vec![],
-            templates: Vec::new(),
-            content: None,
-            shape: None,
             collection_address: Some(CollectionAddressRow {
                 manifest: "settings.json".to_string(),
                 key_path: "enabledPlugins.*".to_string(),
                 entry_shape: Some("scalar(enabled)".to_string()),
             }),
-            guidance: None,
-            cite: None,
+            ..common::kind_facts("installed-plugin", ".claude", "settings.json")
         },
     ];
 

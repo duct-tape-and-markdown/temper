@@ -1138,6 +1138,61 @@ fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
     );
 }
 
+/// A kind's declared leaf set — the leaf names a member of it carries, derived at emit
+/// from the value type the SDK knows — survives write→read through the lock's `kind` row
+/// in declaration order, and a kind declaring none writes no `leaves` key at all, so a
+/// lock committed before the column existed re-reads byte-identically.
+#[test]
+fn a_kinds_declared_leaf_set_round_trips_through_the_lock() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            KindFactRow {
+                // Authored out of alphabetical order: the column is the declaration's
+                // own sequence, never a sorted rendering of it.
+                leaves: vec!["chosen".to_string(), "because".to_string()],
+                ..common::kind_facts("decision", "specs/decisions", "*.md")
+            },
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("kind-leaf-set", &payload);
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    let decision = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "decision")
+        .expect("the leaf-carrying kind fact is recorded");
+    assert_eq!(
+        decision.leaves,
+        vec!["chosen".to_string(), "because".to_string()],
+        "the declared leaf set survives the wire in declaration order"
+    );
+
+    let rule = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the leafless kind fact is recorded");
+    assert!(
+        rule.leaves.is_empty(),
+        "a kind declaring no leaf set round-trips with an empty leaves column"
+    );
+
+    let lock = fs::read_to_string(into.join(temper::LOCK_FILENAME)).unwrap();
+    assert_eq!(
+        lock.matches("leaves = ").count(),
+        1,
+        "only the declaring kind writes the key; a leafless row spells none:\n{lock}"
+    );
+}
+
 /// A host kind whose templates are all path-less — the shape an admitted embedded kind
 /// mints, and the only shape the legacy bare-string spelling could shape.
 fn spec_kind_facts_with_embedded_templates() -> KindFactRow {
