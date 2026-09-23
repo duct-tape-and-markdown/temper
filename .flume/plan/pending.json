@@ -1,65 +1,8 @@
 [
   {
-    "tag": "WHEN-LABEL-CARRIES-ITS-GUARD-VALUES",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "`clause_label` (:84) joins `<owner>.<predicate>[.<field>]`, and a `when` row's `field` is its *guard's* field — so two guards over one field compile one address. 0049 rules the fix (\"a compiled label is a clause's address and carries every argument that distinguishes the clause\"), and the spelling is ruled: the guard's value set, sorted and `+`-joined, after `=` — `mcp-server.when.type=stdio`, `skill.when.routes_to=string`. Own that spelling here, next to `clause_label` and `requirement_owner`, so Rust has one home for it. The three-argument `clause_label` keeps its fifteen call sites: the segment composes into the `field` *argument* at the stamp, never into the `field` *column* — `predicate_from_row` (:547) reads that column back to rebuild the guard, which is why `when` cannot take the column-synthesis route `require_sections` took."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`stamp_clause_label` (:1594) stamps from `row.predicate` and `row.field`; for `predicate == \"when\"` it composes the guard's value set first — `values` for an `enum` guard, `value_type` for a `type` guard, discriminated by the `guard_predicate` column, all three already on the row, so nothing new round-trips. Nested body rows (:1603) keep today's owner-less spelling; their own collision is separate and is not this entry's."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Regenerated through the memberless program `tests/builtin_lock_frozen.rs` drives — never hand-edited (the file's own header says so). Seven labels move: four `marketplace.when.plugins[*].source.source` rows (:383, :401, :419, :445) gain `=git-subdir` / `=github` / `=npm` / `=url`, two `mcp-server.when.type` rows (:473, :491) gain `=stdio` and `=http+sse+streamable-http+ws`, and `marketplace.when.plugins[*].source` (:364) gains `=string`. Six of those seven are live collisions in the shipped default contract — this is the one lock `clause_collision_diagnostics` never reads (`gate.rs:231` walks the harness's own declarations), which is why they shipped."
-        },
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "The `--frozen` lane re-derives the lock through a real `node` subprocess and byte-compares it against the embedded copy, so it is what proves Rust's new stamp and the SDK's unchanged rows still agree. The SDK needs no change: `clauseRow` (`sdk/src/declarations.ts`) writes no `label` column — emit stamps it — and `values`/`value_type` already lower."
-        },
-        {
-          "path": "tests/marketplace_kind.rs",
-          "description": ":340 asserts a finding contains `marketplace.when.plugins[*].source.source`; it becomes the `=github`-qualified address, and the case gains the discrimination it could not make before — the `url` guard's finding and the `github` guard's now print different ids."
-        },
-        {
-          "path": "CHANGELOG.md",
-          "description": "An Unreleased breaking note: every `when` clause's compiled label now carries its guard's value set (`<kind>.when.<field>=<values>`, sorted and `+`-joined), so a dial entry naming an old `…when.<field>` address stops matching and must be respelled off the finding's new `rule` id. Name the seven shipped labels that move."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Two `when` clauses over one field compile one label — the shipped built-in lock carries six such collisions, so those clauses are undialable and their findings indistinguishable.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "the re-derived lock byte-matches the embedded one under the new spelling, and no two clause rows in it share a label"
-      },
-      {
-        "path": "tests/marketplace_kind.rs",
-        "asserts": "a `github`-source finding and a `url`-source finding print different rule ids, each carrying its own guard's value set"
-      }
-    ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `pnpm --dir sdk test` green, with `src/builtin_lock.toml` regenerated (never hand-edited) and every `when` label in it unique. Oracle: `temper explain` over a harness declaring two `when` guards on one field prints two distinct addresses, where today both read `<kind>.when.<field>`.",
-    "notes": "Routed from the inbox note observed at f8bb2e07; the `+`-joined value-set spelling is human-ruled 09-22, the `require_sections` precedent. Re-verified at HEAD: the note's \"Rust and the SDK must compile the same string\" does not hold — the SDK writes no `label` column, so this is Rust-side plus the regenerated lock. Body-clause labels collide too (`required.source.url` twice) and are accepted debt, not scope. scoped at bf85c672"
-  },
-  {
     "tag": "SETTINGS-KIND-SHIPS(builtin)",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "WHEN-LABEL-CARRIES-ITS-GUARD-VALUES"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -229,54 +172,9 @@
     "notes": "0016's whole-conversion bar applied to the one file three registration kinds already share: the lift converts, it never leaves a key behind. The assembly-level `settings` bag (`sdk/src/assembly.ts:55`, 'a shrinking list') is the pre-0050 channel for the same keys; whether it retires once the member owns them is not ruled by 0050 and is left alone here. scoped at cb0f52c4"
   },
   {
-    "tag": "SDK-KIND-LEAF-SET-LOWERING",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "`KindFacts` becomes generic over the kind's typed surface (new `KindFacts<T extends object = Record<string, unknown>>`) so a new optional leaf-set witness binds to `keyof T`, and `kind<T>` (:476) carries it to the row. 0053 rejects a free author-written leaf schema and rules the corpus supplies the key set *through its typed constructor*, so the witness is compiler-bound, never a loose list: an exhaustive record (`{ [K in keyof T]-?: true }`, where omitting a key is a type error) is the shape that makes a partial set impossible; `readonly (keyof T & string)[]` is the weaker one that admits a subset. `relocate` (:546) rides the base's witness unchanged — a relocation appends edge fields over the kind's own surface, never an embedded leaf — so `relocationInvariants` needs no new erasure."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`kindFactRow` (:345) lowers the witness into the row's `leaves` column, absent when the kind declares none. `kindFactKindsInPlay` (:504) admits an embedded kind only when it declares `guidance`/`cite` — widen it to a declared leaf set, or the column never reaches the lock for the very kinds it exists to teach. The module's erased `KindFacts` signatures (:215, :285, :323, :345, :370, :382, :400, :431, :469-472, :492, :504, :556) ride the generic's default, so no call site re-spells a type argument."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "`:69` re-exports the `KindFacts` type — it follows the generic."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "The emitted-rows home (the `guidance` row precedent at :482): a kind declaring the witness emits its leaf set on the row in declaration order; a kind declaring none emits no `leaves` key, so `:201`'s exhaustive `deepEqual` over the built-in rows stands unchanged; and an embedded kind whose only declaration is a leaf set now takes a row where it takes none today."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "No SDK surface carries an embedded kind's leaf set, so the lock's `leaves` column is never written and only a hand-built row can teach what a child carries.",
-    "per": {
-      "path": "specs/model/authoring.md",
-      "section": "The SDK"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a kind declaring the leaf-set witness emits it on its kind row in declaration order, a kind declaring none emits no `leaves` key, and an embedded kind carrying only a leaf set takes a row"
-      }
-    ],
-    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`) and `cargo test` green. Oracle: a witness omitting one key of `T` fails `tsc`, and an embedded kind declaring a witness and nothing else lands a `leaves`-carrying row in the emitted declarations where it lands no row at all today.",
-    "notes": "0053 (a0e3e2aa) rules the set is lowered from `keyof T` at emit; TypeScript erases the type, so the ruling's own clarification — the corpus supplies the key set through its typed constructor — is the mechanism, and the compiler binding is what keeps it off the rejected-alternative list. `examples/base-harness`'s three embedded kinds (kinds.ts :43, :62, :107) are the first adopters, deliberately outside this fence: the witness is optional, so no committed lock moves. scoped at 98e9e496"
-  },
-  {
     "tag": "DEGREE-LABEL-CARRIES-ITS-FIELD-SET",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "SDK-KIND-LEAF-SET-LOWERING"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -411,7 +309,6 @@
       "kind": "blockedBy",
       "tags": [
         "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
-        "SDK-KIND-LEAF-SET-LOWERING",
         "INSTALL-LIFTS-SETTINGS-RESIDUE"
       ]
     },
