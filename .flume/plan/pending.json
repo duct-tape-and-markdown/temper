@@ -119,6 +119,39 @@
     "notes": "0058 (bfbb6d5a) settles `(unique-over-a-list)`; the record deletes this tick. Serialized behind the membership sibling — both edit `src/engine.rs` and `tests/requirement_roster.rs`. No built-in contract declares `unique { field }` (the matrix snapshot carries `unique-name` only), so no fixture or snapshot moves. The `Map` arm goes past 0058's letter, which names the list; the widening is argued in this tick's commit body. scoped at 5d9cafd7"
   },
   {
+    "tag": "GUARD-LOCUS-BINDING-ASKS-THE-CONTRACT",
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "`guarded_loci` (:685) assembles its locus set from kind facts alone and reads no clause row, so a write of an undeclared document at a governed locus binds the guard whatever the contract says — `block` denies it while `check`, under the same absent clause, reports nothing (`tests/acceptance.rs`, `a_root_contract_binding_no_locus_declared_clause_reports_no_undeclared_member_at_all`). Gate the set on the root member's own `locus-declared` clause, located the way `gate.rs`'s `locus_declared_clause` (:691) locates it but off the declarations already in hand: `compose::root_contract(&declarations.clauses)` (`compose.rs:251`, rows-or-default, so a lock carrying no kind-less row still gets the shipped default) scanned for `contract::Predicate::LocusDeclared`; where none binds, the locus set is empty and the projection binding is the guard's only one. Pure row scan — no disk read and no walk, so the per-tool-call cost bound is unmoved — and the dial moves a clause's severity only (`dial::Dial::dial_clause`), never its binding, so a declarations-level scan cannot disagree with the dialed selection `check` reads. Fold the clause gate into the doc comment's exclusion list, which today states four kind-fact exclusions and no contract one. A clause row outside the closed vocabulary now reaches the guard as the loud `ClauseRowError` refusal the corrupt-lock arm already expects."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Both arms, beside `guard_reads_a_pretooluse_payload_and_acts_on_the_posture` (:512), whose represented-lock fixture shape they reuse. Bound: a lock declaring no clause row at all — rows-or-default reinstates the embedded `root.locus-declared` — still denies `.claude/rules/stray.md` under `block`. Unbound: a lock declaring a kind-less `root.fresh` clause row and no locus-declared one allows the same write (exit 0, nothing on stderr) while its declared `rule` projection still blocks, so the narrowing reaches the undeclared-document binding and nothing else. The unbound arm is the one that fails today."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The guard pushes the undeclared-document fact unasked: `guarded_loci` reads no clause row, so `block` denies a write `check` stays silent about.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "tests": [
+      {
+        "path": "tests/cli.rs",
+        "asserts": "a represented harness whose root contract binds no `locus-declared` clause allows a write of an undeclared document inside a governed locus under `block` while still blocking its declared projection; a harness declaring no clause row keeps the default binding and denies the same write"
+      }
+    ],
+    "acceptance": "`cargo test` green with the new `tests/cli.rs` arms, and `tests/install.rs`'s `guard_binds_an_undeclared_write_inside_a_governed_locus` and `the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone` unchanged and green — their fixture lock declares no clause row, so the default contract binds the clause and every existing arm holds.",
+    "notes": "0059's one derived entry. No fixture change is needed for the bound arm: `represented_rule_harness` (tests/install.rs:1606) writes a lock with no clause row. Housed in tests/cli.rs, the guard verb's behaviour home, to stay file-disjoint from INSTALL-LIFTS-A-REGISTRATION-MEMBER, which holds tests/install.rs and waits on `(hook-member-identity)`. The consumer case is latent — `code/` copies, guard not installed. scoped at 188ac48a"
+  },
+  {
     "tag": "RESERVED-LEAF-REFUSAL-NAMES-A-TAKEABLE-REMEDY",
     "gate": {
       "kind": "open"

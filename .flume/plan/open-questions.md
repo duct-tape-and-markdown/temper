@@ -475,56 +475,6 @@ tax.
   report string) with no common shippable core, and plan does not pick among
   them. No dependents.
 
-- `(guard-locus-binding-clause-gated)` — OPEN, live driver (post-ship sweep
-  of b0665cae, measured on disk this tick). Since that commit the
-  undeclared-member fact is a **clause** on `check`: no `locus-declared`
-  clause bound, no finding — pinned by
-  `a_root_contract_binding_no_locus_declared_clause_reports_no_undeclared_member_at_all`
-  (`tests/acceptance.rs:736`), whose own message rules it, "a stranger at a
-  governed locus is not a fact the tool pushes unasked". `temper guard`
-  pushes exactly that fact unasked. `guarded_loci` (`main.rs:685`) assembles
-  its locus set from the embedded kind data overlaid with the lock's
-  relocations and reads **no clause row at all**; its four exclusions
-  (`local` commitment, no `governs`, a `collection_address`, a `.`-rooted
-  locus) are all kind facts. So `matches_governed_locus`
-  (`install.rs:1093`) binds a write into any governed locus the program
-  declares no member at, and the mode decides: `block` denies the call. The
-  commit body named the omission deliberately ("enforcement mode still
-  denies a guarded write to a harness that binds no clause at all") — a
-  build-commit ruling, not a corpus one. The corpus is genuinely silent:
-  `rg guard specs/` outside `specs/decisions/` returns one line on this
-  placement, `distribution.md`'s "Per tool call" bullet, which states only
-  the mode vocabulary and never what the guard *binds*; contract.md's three
-  `guard` hits are the unrelated clause-guard predicate. The blast radius is
-  not the `.claude/` tree: a custom kind over ordinary source — the
-  read-only ground shape `(external-commitment)` carries field evidence for,
-  `src` / `**/*.cs`, committed so `local` would be a lie — reaches
-  `guarded_loci` unexcluded, so every Write/Edit to a `.cs` file that is not
-  a declared member binds, at warn by default and denial under `block`. That
-  is the "a hostile gate gets disabled" failure `distribution.md` names for
-  the session-start placement, arriving at the one placement that can
-  actually deny. Three candidates. (a) **The clause decides whether the fact
-  binds, the mode decides what happens**: `guarded_loci` drops the locus set
-  where no `locus-declared` clause is bound, keeping the two axes the corpus
-  already separates (severity at `check`, enforcement mode at `guard`)
-  intact. (b) Map the clause's severity onto the verdict — `advisory` softens
-  to `warn`/`note`, `required` takes the declared mode. **Rejected as
-  spelled**: it collapses the two axes into one and the corpus states no
-  mapping from a severity to the `note`/`warn` split, which is about *where
-  the finding goes*, not how heavy it is. (c) Rule the guard a write-time
-  boundary rather than a contract judge, and say so in `distribution.md`'s
-  bullet, so the divergence is declared. Session recommendation: **(a)** —
-  the guard is already lock-grounded by construction ("Placements are
-  lock-grounded, never assumed"), the clause rows sit in the very
-  `declarations` value `guarded_loci` is handed (`main.rs:364`), so the
-  filter is a scan of already-parsed rows and the per-tool-call cost bound is
-  unmoved; and (c) ratifies a boundary that denies an adopter's ordinary
-  source edits. The objection (a) must answer: the guard's *first* binding —
-  a direct edit to an emit-owned projection — is not clause-gated either and
-  no one wants it to be, so "the guard consults clauses" needs a rule for
-  which bindings do, not a blanket one. No dependents; nothing is built on it
-  until it is ruled.
-
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its

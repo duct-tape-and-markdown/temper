@@ -1,6 +1,6 @@
 # Plan state
 
-- Spec derived through: bfbb6d5a — advanced; 0058 routed, all four
+- Spec derived through: aa389f08 — advanced; 0059 routed, all four
   Consequences bullets accounted for in this tick's commit body.
 - Audited through: bab35c14 — unchanged, copied forward; no commit past it
   touches `src/`, `tests/` or `sdk/`.
@@ -12,10 +12,10 @@
   open — sdk/src/builtins.ts, sdk/src/declarations.ts, tests/emit.rs,
   src/install.rs, tests/install.rs, src/compose.rs, src/drift.rs,
   src/glob.rs, src/placement.rs.
-- This tick: derived 0058 — one entry filed behind the membership sibling,
-  the `(unique-over-a-list)` record deleted, the sibling entry re-cut.
-- Queue: 13 pending — 4 open, 1 blockedBy, 3 deferred, 5 parked. Pickable: 3
-  (disjoint). Open forks: 16. Friction: 1 (human channel). Amendments: 0.
+- This tick: derived 0059 — one open entry filed, housed in tests/cli.rs to
+  stay disjoint, and the `(guard-locus-binding-clause-gated)` record deleted.
+- Queue: 14 pending — 5 open, 1 blockedBy, 3 deferred, 5 parked. Pickable: 4
+  (disjoint). Open forks: 15. Friction: 1 (human channel). Amendments: 0.
   Refactor: 0. Inbox: 0.
 
 Plan continues: after-build — the posture sweep, mid-rotation at
