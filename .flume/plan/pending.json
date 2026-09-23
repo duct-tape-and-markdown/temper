@@ -1,51 +1,5 @@
 [
   {
-    "tag": "SDK-MEMBER-DECLARES-INPUTS",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "The `Input` type (`{ kind: \"input\"; path; moduleUrl }`) and the `input(import.meta.url, \"./path\")` constructor land here, not in `prose.ts`: an input rides no text span and pairs with no body slot, so it belongs beside the member-grain framework keys. `Member` (:348) and `MemberInit` (:388) gain `readonly inputs?: readonly Input[]`, the member assembly at :484-:486 gains `inputs: init.inputs ?? []`, and `FRAMEWORK_KEYS` (:370) gains `\"inputs\"` — without that, `orderedFields` (:431) would push the key into the projected frontmatter as a typed field. The surface binds a member: an embedded value takes no `MemberInit`, and its claims are its host's."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Root-export `input` and the `Input` type on their own line — the prose line at :17-:18 stays the three prose constructors' (`root_exports.test.ts` walks the emitted `.d.ts`, so an unexported `Input` named by `MemberInit` fails there mechanically)."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`inputRows(harness)` beside `includeRows` (:647-:673): one row per member input, in member-then-authored order, each path resolved against its own stating module (`fileURLToPath(new URL(input.path, input.moduleUrl))`) exactly as an include's is — never the workspace. `inputs:` joins the payload literal beside `includes:` (:1019), and `InputRow` joins the generated-type imports (:29)."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "The lowering case: a member declaring one input lowers to one `declarations.inputs` row carrying the module-resolved absolute path, and its projected fields and body are byte-identical to the same member without it."
-        },
-        {
-          "path": "CHANGELOG.md",
-          "description": "An Unreleased entry: `inputs` is a new author-facing surface — a member may fingerprint a file its claims rest on without pulling the bytes into its projection, and a moved input reports under the freshness clause with a re-verify remedy."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A member cannot declare the files its claims rest on: the SDK offers only `include()`, which copies a target's bytes into the projection to buy a fingerprint.",
-    "per": {
-      "path": "specs/model/authoring.md",
-      "section": "The SDK"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "an authored `inputs: [input(import.meta.url, \"./x\")]` reaches `declarations.inputs` with the module-resolved path, and the member's projected fields and body are unchanged by its presence"
-      }
-    ],
-    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` plus `node --test`, `root_exports.test.ts` included) with the lowering case added, and the emitted payload carrying the input row the engine family already honours.",
-    "notes": "0055's SDK bullet — `inputs` on a member and its constructor. The consumer is the engine's `input` family (INPUT-SOURCE-DEPENDENCY-FAMILY), which this entry's rows fill; that ordering is why this rides second. scoped at d6dfdebb"
-  },
-  {
     "tag": "LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED",
     "gate": {
       "kind": "open"
@@ -194,44 +148,6 @@
     ],
     "acceptance": "`cargo test` and `pnpm --dir sdk test` green with the regenerated embedded lock, `cargo clippy --all-targets -- -D warnings` clean, and hardening `locus-declared` alone leaves `fresh` advisory (0054's rejected one-predicate bundling, pinned).",
     "notes": "The last two of 0054's five fixed pushes, and the predicate 0054 kept separate from `fresh` so hardening a stale pin does not also harden the undeclared-document notes a read-only ground kind draws (its first rejected alternative). The dial case rides `tests/acceptance.rs`. drift.rs cites re-measured +5 past 833b9a9d; contract.rs and the SDK unmoved. scoped at 30f55b49"
-  },
-  {
-    "tag": "LAYER-QUALIFIER-REACHES-A-GUARD-BODY",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "`qualify_layer_label` (:1021) appends `@<layer>` to the row's own `label` and stops there, so a joined `when` row's `body` rows keep the labels emit stamped under the *unqualified* host address (`<host-label>.<predicate>.<field>` since 833b9a9d). Append the same qualifier to every body row's label — a body clause may not itself be a `when` (`contract.rs:540`), so one descent reaches them all — and say at `LAYER_QUALIFIER` (:960) that the `@`-can-never-collide invariant now holds at every depth rather than one level deep. `LockFamily::joined_clauses`' doc (:458) points at this function and needs no change beyond staying true."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "Drop the joined-arm carve-out. `clause_collision_diagnostics` (:283) descends into the host's and the requirements' bodies (`record_site` at :349, `guard_body_site` at :364) but records a joined row's head alone, so a layer whose own guard body carries two rows compiling to one address is admitted silently — the twin class decision 0057 made visible everywhere else. Fold the `layered` arm (:308) into the same body walk `own.chain(nested)` runs, and cut the doc paragraph (:272-282) explaining the exclusion, including its `.flume/refactor/build-layer-qualifier-skips-when-bodies.md` cite — the capture is deleted with this filing, so that pointer is already stale. The unit tests below gain the joined-body twin case beside `a_joined_layer_row_is_named_as_the_layer_it_arrived_on` (:788)."
-        },
-        {
-          "path": "tests/layer_join.rs",
-          "description": "Two cases over the module's `host`/`org`/`check_joining` fixtures, both through `check --layer`: (1) an org lock whose `when` clause's body carries two rows compiling to one address refuses the joining run with `clause.label-collision` naming the qualified address — today's carve-out admits it silently; (2) an org lock whose `when` clause is identical to one the host's own lock declares still joins and gates, raising no `clause.label-collision` — the legitimate join the carve-out was protecting, now held by the qualifier itself. Sibling of `the_same_lock_named_twice_joins_once` (:211), which already pins the no-false-collision half for a top-level row."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A joined layer's `when` body labels stay unqualified, so a layer's body clause and the host's identical one share one address — and the collision walk carves the joined arm out.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "The fix lands at the mechanism"
-    },
-    "tests": [
-      {
-        "path": "tests/layer_join.rs",
-        "asserts": "a joined layer whose guard body twins one address is refused with `clause.label-collision`; a joined layer duplicating the host's identical guard raises none and still gates"
-      }
-    ],
-    "acceptance": "`cargo test` green with the collision walk spanning every joined depth: a layer's own body twin is refused by `clause.label-collision`, and a layer whose guard matches the host's byte for byte still joins clean.",
-    "notes": "Refactor capture `build-layer-qualifier-skips-when-bodies.md` (filed 0b587eb1), re-verified on disk at HEAD: the qualifier still stops at the head, the carve-out is still in place, and admissibility's doc still cites the capture. Related, not blocking: WHEN-BODY-SEVERITY-AND-ADDRESS-REACH-THE-READER makes a body label author-facing, so this fix is its precondition. src/admissibility.rs is also in parked HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL. scoped at 7ebaf4a5"
   },
   {
     "tag": "CLAUSE-FINDING-ONE-CONSTRUCTOR",
