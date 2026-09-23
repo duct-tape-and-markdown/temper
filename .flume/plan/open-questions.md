@@ -439,6 +439,38 @@ tax.
   rule / re-segment `.mcp.json` / add a registry row) with no common
   shippable core. No dependents.
 
+- `(empty-contract-unspellable)` — OPEN, no adopter driver (refactor capture
+  `build-root-default-contract-fence`, filed at ca48168a; generalized on disk
+  this tick). An authored **empty** clause array is unspellable: rows-or-default
+  reads "no rows for this owner" as "the author declared nothing" and reinstates
+  the embedded default, so `expect(kind, [])` and a root `contract: []` both
+  compose the full built-in contract. One branch, written twice —
+  `compose::builtin_contract` (`compose.rs:1424`) per kind and
+  `compose::root_contract` (`:251`) for the root. `builtins.md` "Default
+  contracts" promises the opposite: "overriding is array surgery in the language
+  the author already writes — no layering rules, no precedence table", and "the
+  built-ins are first-party instances of it, never a privileged form". The empty
+  array is the one surgery the mechanism reverses, and the reversal is the
+  privileged form that sentence disavows. The collision is sharper than a missing
+  feature: the branch's own stated rationale is **forward compatibility** — "a
+  lock committed before the root contract shipped still gets the shipped default
+  rather than silence" (`compose.rs:246`) — and the lock, being row-shaped, gives
+  "this lock predates the default" and "this author declared none" a single
+  encoding. Candidates. (a) Give the lock an explicit discriminator (a
+  contract-declared marker per kind row, and a root one), so absence stays the
+  old-lock case and the empty array reaches the engine as itself. (b) Rule it
+  intended and say so in one `builtins.md` sentence: a default contract is a
+  **floor**, so the empty array is not an override but a no-op — no code, no
+  column. (c) A sentinel `none()` clause — **rejected**: a predicate meaning "no
+  predicates" is exactly the precedence table the section refuses. Session
+  recommendation: **(a)** — the two questions the branch collapses are genuinely
+  different, and (b) makes the corpus's own "never a privileged form" false for
+  the one array surgery an author is most likely to try. The objection (a) must
+  answer: no adopter has asked for the empty contract, so the 0035 evidence bar
+  routes it to (b) until one does — and a new lock column is a migration plus a
+  fourth thing every writer must set. No entry filed, no dependents:
+  ROOT-DEFAULT-CONTRACT-SHIPS ships under today's rule either way.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its

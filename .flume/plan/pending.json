@@ -41,6 +41,10 @@
           "description": "The byte-compare lane: `MEMBERLESS_BUILTIN_PROGRAM` (:28) needs no edit if `harness()` defaults the contract, which is exactly the claim to pin — add the assertion that the derived lock carries the root rows, and update the module doc (:1-:13) to say the memberless harness now contributes a root contract as well as kind facts and their defaults."
         },
         {
+          "path": "src/builtin_lock.rs",
+          "description": "`the_embedded_lock_parses_into_kind_facts_and_floor_clauses_only` (:41) walks every embedded clause row and asserts `clause.kind` is `Some(<one of the thirteen built-ins>)` (:94-:112). The root's row carries `kind = None` by construction — that absence *is* the root declaration — so the regenerated lock fails it. Admit the kind-less row **pinned as the root's** (exactly one, label `root.reachable`), never widened to \"any `None`\": the assertion's job is to catch a row nobody declared."
+        },
+        {
           "path": "tests/emit.rs",
           "description": "Emit-side row assertions over a payload's declaration family; the kind-less root rows now ride every emitted lock, so any whole-clause-set assertion (and the cwd-invariance case at :1558) accounts for them."
         },
@@ -65,6 +69,10 @@
           "description": "Accepted snapshot for the gauntlet's diagnostics under the shipped root default."
         },
         {
+          "path": "tests/snapshots/gauntlet__projection_tree.snap",
+          "description": "The gauntlet's projection tree moves too — the emitted lock gains the root rows — so the second accepted snapshot is named rather than left to a path glob."
+        },
+        {
           "path": "src/gate.rs",
           "description": "The root contract reaches no admissibility pass. `engine::admissibility(&contract, locus)` runs per kind (:43); the root selection is composed at :509 with no such call, so a member-grain clause in a root contract goes unjudged rather than refused. This entry is what first emits root rows, so it is where that refusal earns its consumer (the shipping commit 4b1508eb assigns it here by name). The root owns no `Locus` — its selection is the whole forest — so the call needs whichever locus value states that, or a root-scoped vacuity rule of its own."
         },
@@ -75,6 +83,10 @@
         {
           "path": "tests/root_contract.rs",
           "description": "The scope's existing suite (shipped at 4b1508eb) gains the two halves this entry adds: the emitted default's rows lift back into the root contract, and a member-grain clause in a root contract is refused at load while `reachable` — which names no field — is admitted."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "`gate_reachability_closure_runs_once_per_invocation_and_only_when_a_root_clause_binds` (:924) writes `Declarations::default()` and asserts the closure walks zero times; with the default shipped, `compose::root_contract`'s fallback composes `builtin::root_contract()`, which binds `reachable`, so it walks once. The claim survives restated — what opts in is the *clause*, not the root selection's existence: seed a root row of another predicate (a `count` bound) in place of the empty `Declarations`."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
@@ -104,10 +116,18 @@
       {
         "path": "tests/root_contract.rs",
         "asserts": "the emitted default's kind-less rows lift into the root contract; a member-grain root clause is refused at admissibility"
+      },
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "the reachability closure walks zero times for a root contract binding some other predicate, and once for one binding `reachable` — the clause opts in, not the root selection"
+      },
+      {
+        "path": "src/builtin_lock.rs",
+        "asserts": "the embedded lock's clause rows are the thirteen kinds' plus exactly one kind-less root row, labelled `root.reachable`"
       }
     ],
     "acceptance": "`pnpm --dir sdk test` and `cargo test` green (the frozen lane byte-matches the regenerated embedded lock), `cargo clippy --all-targets -- -D warnings` clean.",
-    "notes": "Re-measured at db387262: `src/builtin_lock.toml` carries 94 clause rows and 0 kind-less ones, so `builtin::root_contract()` composes an empty contract and the rows-or-default fallback 4b1508eb shipped falls back to silence. The Rust half (lift, selection, judge, dial) is done; this entry is the SDK half plus the admissibility pass 4b1508eb deferred here by name. scoped at db387262"
+    "notes": "Re-scoped at 12269e0d from the fence capture the attempt filed: the SDK/Rust work reached green, and two tests outside the fence assert the negation of the shipped default (`src/builtin_lock.rs`, `tests/check_cost.rs`) — one-hunk restatements, no `src/` behaviour with them. The attempt also found `tests/emit.rs` and `tests/acceptance.rs` + its snap needed no edit; both stay permitted, not required. scoped at 12269e0d"
   },
   {
     "tag": "REACHED-FROM-PREDICATE-AND-JUDGE",
