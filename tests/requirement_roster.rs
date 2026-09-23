@@ -354,6 +354,56 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
     );
 }
 
+#[test]
+fn a_unique_field_over_a_list_valued_satisfier_refuses_rather_than_passing() {
+    let root = common::tmpdir("unique-list");
+    // `model:` rides in as a YAML flow sequence, so the satisfier's whole-value
+    // projection is a `FeatureValue::List` — which once contributed nothing to the
+    // multiset `unique` counts, and the clause exited 0. The refusal is the author-facing
+    // half: the run fails, naming the satisfier, the field and that `unique` over a
+    // non-scalar is not defined. The scalar satisfier beside it collides with nobody.
+    common::write_skill(&root, "agent-a", &model_skill("agent-a", "[opus, sonnet]"));
+    common::write_skill(&root, "agent-b", &model_skill("agent-b", "haiku"));
+    common::author_satisfies(&root, "skills", "agent-a", &["agents"]);
+    common::author_satisfies(&root, "skills", "agent-b", &["agents"]);
+    common::write_requirements(
+        &root,
+        vec![RequirementRow {
+            clauses: vec![common::required_clause_row(
+                "unique",
+                Some("model"),
+                None,
+                None,
+                None,
+            )],
+            ..common::requirement("agents", false, Some("skill"))
+        }],
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "a list-valued field under `unique` must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    let reported = run.findings();
+    let findings = common::findings_for(&reported, "requirement.agents.unique.model");
+    assert_eq!(
+        findings.len(),
+        1,
+        "one finding for the one list-carrying satisfier, got:\n{}",
+        run.output
+    );
+    assert!(
+        findings[0].contains("agent-a")
+            && findings[0].contains("model")
+            && findings[0].contains("list")
+            && findings[0].contains("not defined"),
+        "the finding names the member, the field, the kind, and the refusal, got:\n{}",
+        run.output
+    );
+}
+
 // ---- admissibility: the roster is itself checked --------------------------
 
 #[test]

@@ -704,7 +704,8 @@ impl Selection<'_> {
     /// projection [`duplicates`] decides over. A member missing the field carries no
     /// value, so it contributes none, and neither does a container: a list has no whole
     /// value to collide on, and `unique` is no per-element reading — that grain is
-    /// [`Selection::elements`], `membership`'s alone.
+    /// [`Selection::elements`], `membership`'s alone. A container's non-contribution is
+    /// not a pass: [`duplicates`] refuses the member on its own pass over the selection.
     fn values<'f>(&'f self, field: &str) -> impl Iterator<Item = (&'f str, String)> {
         self.members.iter().filter_map(move |(_, features)| {
             let value = features.field(field)?;
@@ -954,27 +955,60 @@ fn over_budget(
 /// more members share. A member missing the field carries no value to collide on, so it
 /// is silently skipped: a missing field is no collision. Values are grouped in a
 /// [`std::collections::BTreeMap`] so the finding set is stable across runs.
+///
+/// A member carrying a **non-scalar** value is refused rather than skipped: a container
+/// has no whole value to collide on, and `unique` over one is not defined, so each
+/// carrying member draws its own finding naming the member, the field and the value's
+/// kind. The judge never passes over a shape it cannot decide (invariant 6) and never
+/// picks a reading for the author (`specs/decisions/0058`) — an author who means a
+/// scalar narrows with a `type` clause. [`FeatureValue::Map`] is refused alongside
+/// [`FeatureValue::List`]: it projects no contents any predicate reads, so it carries no
+/// candidate reading either, and a list-only arm would leave the sibling shape passing
+/// silently.
 fn duplicates(selection: &Selection, clause: &Clause, field: &str) -> Vec<Diagnostic> {
+    let mut diagnostics: Vec<Diagnostic> = selection
+        .members
+        .iter()
+        .filter_map(|(_, features)| {
+            let value = features.field(field)?;
+            if value.as_scalar().is_some() {
+                return None;
+            }
+            Some(finding(
+                selection,
+                clause,
+                format!(
+                    "{} requires `{field}` unique across its selection, but `{}` declares `{field}` as a {} — `unique` over a non-scalar value is not defined; narrow the field with a `type` clause where a scalar is meant",
+                    selection.selector.noun(),
+                    features.id,
+                    value.kind().name(),
+                ),
+            ))
+        })
+        .collect();
+
     let mut by_value: BTreeMap<String, Vec<&str>> = BTreeMap::new();
     for (id, value) in selection.values(field) {
         by_value.entry(value).or_default().push(id);
     }
-    by_value
-        .into_iter()
-        .filter(|(_, sharers)| sharers.len() > 1)
-        .map(|(value, sharers)| {
-            finding(
-                selection,
-                clause,
-                format!(
-                    "{} requires `{field}` unique across its selection, but {} members share `{field}` = `{value}` ({})",
-                    selection.selector.noun(),
-                    sharers.len(),
-                    sharers.join(", ")
-                ),
-            )
-        })
-        .collect()
+    diagnostics.extend(
+        by_value
+            .into_iter()
+            .filter(|(_, sharers)| sharers.len() > 1)
+            .map(|(value, sharers)| {
+                finding(
+                    selection,
+                    clause,
+                    format!(
+                        "{} requires `{field}` unique across its selection, but {} members share `{field}` = `{value}` ({})",
+                        selection.selector.noun(),
+                        sharers.len(),
+                        sharers.join(", ")
+                    ),
+                )
+            }),
+    );
+    diagnostics
 }
 
 /// The whole-grain `membership` findings: build the allowed set from `field` over the
@@ -2488,6 +2522,82 @@ mod tests {
                 },
             )])
             .is_empty()
+        );
+    }
+
+    #[test]
+    fn unique_refuses_a_non_scalar_field_rather_than_passing_over_it() {
+        // A container has no whole value to collide on, so `values` contributed none and
+        // the clause exited 0 — invariant 6's silent pass. 0058 rules the loud outcome:
+        // one finding per carrying member, naming the member, the field and the kind, and
+        // no reading picked. The scalar declarer beside them is untouched: it collides
+        // with nobody, so it draws nothing.
+        let listed = [
+            features("plan", &[("model", json!(["opus", "sonnet"]))], 1, None),
+            features("ship", &[("model", json!(["haiku"]))], 1, None),
+            features("draft", &[("model", scalar("opus"))], 1, None),
+        ];
+        let diags = judge(&[kind_selection(
+            "skill",
+            &listed,
+            Predicate::Unique {
+                field: "model".to_string(),
+            },
+        )]);
+        assert_eq!(
+            diags.len(),
+            2,
+            "one finding per list-carrying member, got: {diags:?}"
+        );
+        assert!(diags.iter().all(|d| d.rule == "skill.unique"));
+        assert!(
+            diags
+                .iter()
+                .all(|d| d.message.contains("list") && d.message.contains("not defined")),
+            "each finding names the kind and refuses, got: {diags:?}"
+        );
+        assert!(
+            diags.iter().any(|d| d.message.contains("plan"))
+                && diags.iter().any(|d| d.message.contains("ship")),
+            "each carrying member is named by its own finding, got: {diags:?}"
+        );
+
+        // A map reaches the same refusal — it projects no contents any predicate reads,
+        // so it carries no candidate reading either.
+        let mapped = [features(
+            "plan",
+            &[("model", json!({"id": "opus"}))],
+            1,
+            None,
+        )];
+        let diags = judge(&[kind_selection(
+            "skill",
+            &mapped,
+            Predicate::Unique {
+                field: "model".to_string(),
+            },
+        )]);
+        assert_eq!(diags.len(), 1, "got: {diags:?}");
+        assert!(diags[0].message.contains("map"), "got: {diags:?}");
+
+        // The severity is the clause's own declaration, not the judge's taste — the
+        // refusal rides `Diagnostic::from_clause` like every other set finding.
+        let advisory = Selection {
+            selector: Selector::Kind("skill".to_string()),
+            clauses: vec![clause(
+                "skill",
+                ClauseSeverity::Advisory,
+                Predicate::Unique {
+                    field: "model".to_string(),
+                },
+            )],
+            members: listed.iter().map(|f| ("skill", f)).collect(),
+        };
+        let diags = judge(&[advisory]);
+        assert_eq!(diags.len(), 2, "got: {diags:?}");
+        assert!(
+            diags.iter().all(|d| d.severity == Severity::Warn),
+            "an advisory `unique` warns rather than blocks, got: {diags:?}"
         );
     }
 
