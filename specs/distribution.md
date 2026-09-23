@@ -61,7 +61,10 @@ toolchain; the plugin a stranger installs is the one that gates this repo
   finding goes: **block** denies the call; **warn** allows it and surfaces
   the finding in-band, into the live context; **note** allows it and records
   the finding out-of-band only — the next report, never the session.
-  Default: warn.
+  Default: warn. What the guard binds is the contract's call, and the mode
+  decides only what happens: a write of a document the program never
+  declared, at a governed locus, binds only where a `locus-declared` clause
+  is bound.
 
 `temper install` is the one on-ramp: discovery report, one question, every
 answer flag-spelled (`--yes`), no invisible state — re-running converges.
