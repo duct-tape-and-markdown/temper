@@ -12,10 +12,10 @@
   tests/hook_kind.rs, sdk/src/builtins.ts, sdk/src/declarations.ts,
   tests/emit.rs, src/install.rs, tests/install.rs, src/compose.rs,
   src/drift.rs, src/glob.rs, src/placement.rs.
-- This tick: drained the refactor capture — the dormant unmodeled-surface
-  verdict re-verified at HEAD and registered as `(unmodeled-surface-registry)`,
-  no entry filed (three incompatible rulings).
-- Queue: 19 pending — 3 open, 8 blockedBy, 3 deferred, 5 parked. Pickable: 3.
+- This tick: drained the inbox — the settings residue note re-verified on
+  disk (emit already flattens `worktree`; only the type refuses) and routed
+  into SDK-SETTINGS-RESIDUE-CHANNEL.
+- Queue: 20 pending — 4 open, 8 blockedBy, 3 deferred, 5 parked. Pickable: 4.
   Open forks: 14. Friction: 1 (human channel). Amendments: 0. Refactor: 0.
   Inbox: 0.
 

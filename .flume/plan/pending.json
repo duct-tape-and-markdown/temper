@@ -1,5 +1,50 @@
 [
   {
+    "tag": "SDK-SETTINGS-RESIDUE-CHANNEL",
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Reserve `residue` as a framework key on `MemberInit` (add it to `FRAMEWORK_KEYS`) and splice its entries into `orderedFields`' result after the typed fields, key-sorted. Reservation precedent and doc neighbour: `RESERVED_LEAF` (`prose`) in this same file — a name the framework owns, so a kind whose external format documents a key of that name cannot spell it as an ordinary field. The channel stays opt-in by type, not by kind fact: only an interface that declares `residue?` can spell it, so a closed-frontmatter kind (skill, rule, agent) keeps refusing an unknown key by excess-property check."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`Settings` (:1303) and `SettingsLocal` (:1208) each gain `readonly residue?: Readonly<Record<string, unknown>>` — the opaque-and-named channel builtins.md's two settings bullets require, doc-commented with the settings-reference cite already carried on the neighbouring keys. The `settings` and `settingsLocal` kind doc-comments name the channel where they already say the residue is opaque."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Cover both halves: a `settings({...})` / `settingsLocal({...})` init carrying `residue` type-checks, and a misspelled documented key (e.g. `permisions`) still refuses — asserted with `@ts-expect-error`, the idiom already used at sdk/test/emit.test.ts:550, which strict tsc turns into a gate failure if the refusal ever stops firing."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "A settings member authored with `residue` lowers to top-level `.claude/settings.json` keys, after the member's typed fields and key-sorted — the ordering the existing harness-level residue test at :1686 already pins for the pre-0050 route, now at member grain."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "`Settings`/`SettingsLocal` type only documented keys, so a valid-but-undocumented key renders yet fails strict tsc: the residue the corpus calls opaque and named has no spelling.",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "a `Settings`/`SettingsLocal` init accepts a `residue` bag, and a misspelled documented key still fails to compile under `@ts-expect-error`"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a settings member's residue keys emit as top-level settings.json keys after its typed fields, key-sorted"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` green — strict `tsc` accepts a residue-bearing settings init, still rejects a misspelled documented key, and `node --test` shows the residue keys emitted flat after the typed fields. `cargo test` unaffected: the wire already carries flat fields.",
+    "notes": "Measured at 4db1a853: `.temper/harness.ts:52` spells `worktree` on `settings({...})` and `.claude/settings.json:74` carries it byte-identical — emit already flattens any authored field; only `MemberInit<Settings>` refuses (TS2353). Bag-shape precedent: `Harness.settings` (sdk/src/assembly.ts:56). Re-spelling the dogfood onto the channel is a human `chore(harness):` commit, outside this entry. scoped at 4db1a853"
+  },
+  {
     "tag": "GUARD-SETTINGS-RESIDUE-ALLOWANCE-RETIRES",
     "gate": {
       "kind": "open"
