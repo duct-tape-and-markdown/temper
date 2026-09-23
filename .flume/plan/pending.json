@@ -106,6 +106,44 @@
     "notes": "Auto-adoption lands this for every harness, not only programs: `unmodeled-surface` retires (src/coverage_note.rs:131, `whole` keys off a governing kind) and a settings.json with no declared member draws `locus.undeclared-member`. This repo's own harness is that case until a `chore(harness):` commit declares the member. `tests/settings_kind.rs` and `tests/install.rs` are the fence gap the first attempt hit (8e481f58), re-verified on disk. scoped at c06563d0"
   },
   {
+    "tag": "WHEN-BODY-GUIDANCE-REACHES-ITS-FINDING",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "`Outcome::Violated` carries a violation that may name its own guidance, not a bare `String`: the `Predicate::When` arm (:1325, the two body recursions at :1361/:1370) attaches the body clause's `guidance` to each message it produces, and `member_findings` (:80) prefers that over the host clause's at the one `with_guidance` site (:100). `evaluate` (:917) has exactly three call sites — `member_findings` plus those two recursions — and every other producer goes through the `Outcome::violated`/`Outcome::check` helpers (:953/:958), so the seventeen construction sites keep their spelling. `evaluate`, `decide`, `Outcome` and `member_findings` are all module-private, so the type change reaches no other file; `validate`/`judge`/`judge_members` keep their signatures. Unit pin beside `when_guard_enum_matches_and_body_evaluates` (:2919): a body clause declaring guidance has it on the diagnostic, and a body clause declaring none falls back to the host's."
+        },
+        {
+          "path": "tests/marketplace_kind.rs",
+          "description": "`when_body_clauses_fire_on_guarded_elements_that_violate_them` (:312) gains the delivery pin. It runs under the github reporter today (`common::check_harness`), which prints no guidance for any clause — so the new assertion reads `common::check_harness_in(&harness, None).output`, the default human reporter whose `help:` block is the channel guidance actually rides (measured this tick: an `agent.required.description` violation prints its guidance there, a `marketplace.when.plugins[*].source.source=github` violation prints none). The existing label and element-address assertions stand unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "All eight `when` body rows in the shipped built-in lock carry authored guidance that no finding ever delivers — the guard's own guidance (absent) is attached instead.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [
+      {
+        "path": "tests/marketplace_kind.rs",
+        "asserts": "a `url` source missing its `url` field prints the body clause's own authored guidance in the default reporter's `help:` block, under the guard's label and the element's address"
+      },
+      {
+        "path": "src/engine.rs",
+        "asserts": "a `when` body clause's guidance rides its violation's diagnostic; a body clause declaring none falls back to the host clause's"
+      }
+    ],
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green, with the marketplace pin red before the change.",
+    "notes": "Measured this tick: all 8 `[[declaration.clause.body]]` rows in src/builtin_lock.toml carry distinct guidance, and `with_guidance` is called at exactly two sites, both reading a top-level clause. Independent of `(guard-body-address-and-severity)`: guidance is per-violation teaching under every candidate ruling there, while severity and the body label ride that fork. The lock does not move. scoped at fbbe2c6d"
+  },
+  {
     "tag": "GUARD-SETTINGS-RESIDUE-ALLOWANCE-RETIRES",
     "gate": {
       "kind": "blockedBy",
@@ -188,7 +226,8 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "SETTINGS-KIND-SHIPS(builtin)"
+        "SETTINGS-KIND-SHIPS(builtin)",
+        "WHEN-BODY-GUIDANCE-REACHES-ITS-FINDING"
       ]
     },
     "dependsOnForks": [],
@@ -247,6 +286,10 @@
         {
           "path": "tests/lock_declaration_rows.rs",
           "description": "The declaration-row round trip gains the root row: a clause row written with no `kind` column reads back as a root clause and lifts into the root contract, where a kind-named row does not."
+        },
+        {
+          "path": "tests/manifest_schema_oracle.rs",
+          "description": "`covered_rule` (:142) matches the whole `Predicate` enum with no wildcard — its uncovered arm list ends `| Predicate::When { .. } => return None` (:188) — so `Predicate::Reachable` must join that arm or the suite stops compiling. A graph-scope predicate states no rule a published JSON Schema carries, so it belongs with `MentionReachable` (:186) in the uncovered list, exactly as `src/schema.rs`'s skip arm treats it. The sibling entry REACHED-FROM-PREDICATE-AND-JUDGE already declares this file for the same reason."
         }
       ],
       "retire": []
@@ -271,7 +314,7 @@
       }
     ],
     "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green; `tests/root_contract.rs` fails when the gate's `graph::reachable` call is removed.",
-    "notes": "0054's scaffolding entry: the root selection plus the one predicate whose judge already exists, so the mechanism ships with a consumer. Nothing emits a root row yet — ROOT-DEFAULT-CONTRACT-SHIPS is that half; until it lands only the embedded lock and a hand-built one carry rows. Blocked behind the two chain tips it shares files with (gate/graph/drift/contract/engine/check_cost/lock_declaration_rows). scoped at 7b6dda62"
+    "notes": "0054's scaffolding entry: the root selection plus the one predicate whose judge already exists, so the mechanism ships with a consumer. Nothing emits a root row yet — ROOT-DEFAULT-CONTRACT-SHIPS is that half; until it lands only the embedded lock and a hand-built one carry rows. Blocked behind the two tips it shares files with — the settings lock re-derive and the when-body guidance fix, which owns `src/engine.rs` first. scoped at 7b6dda62"
   },
   {
     "tag": "ROOT-DEFAULT-CONTRACT-SHIPS",
