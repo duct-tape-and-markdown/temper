@@ -1270,6 +1270,51 @@
     "notes": "0055's SDK bullet — `inputs` on a member and its constructor. The consumer is the engine's `input` family (INPUT-SOURCE-DEPENDENCY-FAMILY), which this entry's rows fill; that ordering is why this rides second. scoped at d6dfdebb"
   },
   {
+    "tag": "TAP-RECORD-FIXTURE-ONE-HOME",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "EXAMPLE-EMIT-GATE-BUILDS-THE-SDK-IT-READS"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "New `tap_record(version: u32, event: TapEvent, identity: &str) -> TapRecord` beside `features` (:543) — the module whose own header (:1-:9) names it \"one home for scaffolding … every suite was carrying its own copy of\", and which today carries no tap surface at all (verified `rg -a 'tap|Tap' tests/common/mod.rs`: zero hits). It is the existing `tests/read_verbs.rs:417` builder moved, not a new shape, so the signature is that builder's verbatim and `session` stays fixed at `\"sess\"`: a fixture varying session, reason, or raw_path spreads over it (`TapRecord { session: \"a\".to_string(), ..common::tap_record(..) }`), the pattern `common::features`' own doc already documents at :537 (`Features { body_lines: 1, ..common::features(id) }`). `ts` is `String::new()`, not read_verbs' `\"2026-08-26T00:00:00.000000Z\"` (:423): `tap::append` overwrites `ts` unconditionally (`src/tap.rs:283`) and no assertion in either suite reads a fixture `ts`, so the literal was inert on all ~20 of its call sites. Adds `use temper::tap::{TapEvent, TapRecord}`; the module's `#![allow(dead_code)]` (:10) already covers the binaries that never call it."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Delete the local `tap_record` (:417-:427) and call `common::tap_record` instead. The signature does not move, so its ~20 call sites (:439-:444, :483-:484, :1412-:1414, :1457, :1503-:1508, :1556-:1557, :1648-:1649, :1696) keep their spelling verbatim — including :484's `TAP_RECORD_VERSION - 1`, the older-version argument the shared signature must still take. `tap_readout` (:407) stays local: it owns this file's `common::tmpdir` and has one consumer, so it is this suite's own scaffolding, not shared. The file already honors the one-home rule for the other fixture it builds (its header, :23, names `common::features` as \"the one home the integration fixtures share\") — this is the same file keeping two rules 400 lines apart."
+        },
+        {
+          "path": "tests/tap.rs",
+          "description": "The seven hand-written `TapRecord` literals (:136, :171, :204, :243, :310, :355, :380) become `common::tap_record(..)` calls, each spreading only the columns it varies. :171 keeps `reason: Some(\"session_start\")` and `raw_path: Some(absolute)` by spread; :204/:213 keep sessions `\"a\"`/`\"b\"`, which the interleave assertions at :226/:229 read, so both spread on session and :213's existing `..first.clone()` shape stays legal either way. :243's `current` is serialized directly (`serde_json::to_string`, :257) rather than appended, so it keeps the empty `ts` the equality assertion at :273 reads — which the builder's `String::new()` gives it. `mod common;` (:12) is already declared and the `use temper::tap::{..}` line (:10) keeps `TapRecord` only if a spread still names it."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Two homes for one tap fixture: `read_verbs` carries a `tap_record` builder while `tests/tap.rs` hand-writes the same literal seven times, and `tests/common` carries none.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "tests/tap.rs",
+        "asserts": "the eight tap suites stay green with every record built by the shared fixture — a consolidation changes no assertion, so the suite as it stands is the pin, and `rg -a 'TapRecord \\{' tests/` afterwards returns only the spreads that vary a column"
+      },
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "the field-strand suites stay green with the builder moved out, older-version case at :484 included — the proof the moved signature still takes every argument its call sites pass"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion text changed — a fixture consolidation ships behavior-identical, so the two suites' existing pins are its whole proof. `tests/common/mod.rs` gains exactly one item and `tests/read_verbs.rs` loses exactly one.",
+    "notes": "Posture sweep, tests/tap.rs neighborhood. Behind the parent on file collision alone: both edit tests/common/mod.rs, which the parent adds `copy_tree` to — two `open` entries over one file is the merge revert the queue rule forbids. No behavior moves, so there is no pre-fix regression to pin; the consolidation's own bar is that both suites stay green unedited. scoped at 4e03d810"
+  },
+  {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
     "gate": {
       "kind": "deferred",
