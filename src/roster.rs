@@ -3,10 +3,13 @@
 //!
 //! [`selections`] resolves every requirement's opt-in selection — the members whose
 //! `satisfies` edge targets it, kind-blind — and binds the requirement's own clauses to
-//! it, so `crate::engine::judge` and `crate::graph::degree` judge it through the one
-//! selection algebra: this is the existential instance of that algebra, never a second
-//! machinery beside it. [`admissibility`] checks each requirement's own definition
-//! before the roster is trusted to judge a harness.
+//! it, so `crate::engine::judge` (the set predicates), `crate::engine::judge_members`
+//! (every member-grain one, over the satisfiers) and `crate::graph::degree` judge it
+//! through the one selection algebra: this is the existential instance of that algebra,
+//! never a second machinery beside it. The quantifier is the clause's grain, never the
+//! selector's, so a requirement's `required` means what a kind's does.
+//! [`admissibility`] checks each requirement's own definition before the roster is
+//! trusted to judge a harness.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -190,6 +193,15 @@ mod tests {
         by_kind: &BTreeMap<&str, &[Features]>,
     ) -> Vec<Diagnostic> {
         engine::judge(&selections(requirements, by_kind))
+    }
+
+    /// The member-grain half of the same composition — a requirement's own clauses
+    /// judged over each satisfier.
+    fn judge_roster_members(
+        requirements: &BTreeMap<String, Requirement>,
+        by_kind: &BTreeMap<&str, &[Features]>,
+    ) -> Vec<Diagnostic> {
+        engine::judge_members(&selections(requirements, by_kind))
     }
 
     /// A required-severity clause wrapping `predicate` — the shape every set-scope
@@ -743,38 +755,71 @@ mod tests {
     fn a_requirements_clauses_admit_every_predicate_this_scope_judges() {
         // The other half of the facet split: a per-artifact contract has no judge for
         // the node-set family and fences it, but here every one of them is judged —
-        // `count`/`unique`/`membership`/`kind` over the satisfier set by `check`,
-        // `degree` over the reference graph by `crate::graph` — so a requirement
-        // declaring all five is admissible.
+        // `count`/`unique`/`membership`/`kind` over the satisfier set by
+        // `engine::judge`, `degree` over the reference graph by `crate::graph` — and a
+        // member-grain predicate is judged too, by `engine::judge_members` over the
+        // same satisfiers, so a requirement declaring all six is admissible.
+        let clauses = vec![
+            required_clause(Predicate::Count { min: 1, max: 3 }),
+            required_clause(Predicate::Unique {
+                field: "name".to_string(),
+            }),
+            required_clause(Predicate::Membership {
+                field: "model".to_string(),
+                target: "approved-models".to_string(),
+            }),
+            required_clause(Predicate::Degree {
+                incoming: Some(crate::contract::EdgeBound {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+                fields: None,
+            }),
+            required_clause(Predicate::Kind {
+                kind: "skill".to_string(),
+            }),
+            required_clause(Predicate::Required {
+                field: "model".to_string(),
+            }),
+        ];
         let req = Requirement {
             kind: Some("skill".to_string()),
-            clauses: vec![
-                required_clause(Predicate::Count { min: 1, max: 3 }),
-                required_clause(Predicate::Unique {
-                    field: "name".to_string(),
-                }),
-                required_clause(Predicate::Membership {
-                    field: "model".to_string(),
-                    target: "approved-models".to_string(),
-                }),
-                required_clause(Predicate::Degree {
-                    incoming: Some(crate::contract::EdgeBound {
-                        min: Some(1),
-                        max: None,
-                    }),
-                    outgoing: None,
-                    fields: None,
-                }),
-                required_clause(Predicate::Kind {
-                    kind: "skill".to_string(),
-                }),
-            ],
+            clauses: clauses.clone(),
             ..requirement("agents")
         };
         assert!(
             run_admissibility(req, Path::new("")).is_empty(),
-            "the facet that carries a judge must keep admitting all five"
+            "the facet that carries a judge must keep admitting all six"
         );
+
+        // Admit and judge are one claim, asserted together: the member-grain clause the
+        // case just admitted fires over a satisfier that lacks the field, at the
+        // requirement's own address. Without the member-grain pass this set is silent.
+        let mut requirements = BTreeMap::new();
+        requirements.insert(
+            "agents".to_string(),
+            Requirement {
+                kind: Some("skill".to_string()),
+                clauses,
+                ..requirement("agents")
+            },
+        );
+        let skills = [skill_satisfying("bare", &["agents"], None)];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let diags = judge_roster_members(&requirements, &by_kind);
+        assert_eq!(
+            diags.len(),
+            1,
+            "expected one `required` finding, got {diags:?}"
+        );
+        assert_eq!(diags[0].severity, Severity::Error);
+        // The helper stamps no field segment (it passes `None`), so the address here is
+        // the owner-plus-predicate stem; the full `…required.<field>` address emit
+        // writes is pinned end to end in `tests/requirement_roster.rs`.
+        assert_eq!(diags[0].rule, "requirement.gate.required");
+        assert_eq!(diags[0].artifact, "bare");
+        assert!(diags[0].message.contains("model"));
     }
 
     #[test]

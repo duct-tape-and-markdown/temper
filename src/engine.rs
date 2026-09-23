@@ -20,11 +20,13 @@
 //!
 //! ## The two grains
 //!
-//! A clause binds to a [`Selection`] and evaluates at one of two grains. [`validate`]
-//! judges the member grain — one member's own [`Features`]. [`judge`] judges the
-//! selection grain — the set predicates, over whatever selector picked the set
-//! (`crate::graph::degree` reads the same selections, since a degree bound needs the
-//! reference graph the members alone do not carry).
+//! A clause binds to a [`Selection`] and evaluates at one of two grains. [`judge`]
+//! judges the selection grain — the set predicates, over whatever selector picked the
+//! set (`crate::graph::degree` reads the same selections, since a degree bound needs
+//! the reference graph the members alone do not carry). The member grain — one member's
+//! own [`Features`] — has two entry points over one body ([`member_findings`]):
+//! [`validate`] for a kind's contract, and [`judge_members`] for the opt-in selections
+//! no contract covers.
 //!
 //! ## The honest bound (`verifier` philosophy)
 //!
@@ -60,25 +62,43 @@ use crate::extract::{FeatureValue, Features, ValueType, json_to_feature};
 /// allowed set from another selection, `degree` counts arcs in the reference graph).
 #[must_use]
 pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> {
+    let peers: Vec<&Features> = artifacts.iter().collect();
+    artifacts
+        .iter()
+        .flat_map(|features| member_findings(contract, features, &peers))
+        .collect()
+}
+
+/// Every member-grain finding one contract's clauses produce over one member — the
+/// shared body of the two member-grain passes, [`validate`] over a kind's contract and
+/// [`judge_members`] over an opt-in selection's clauses, so one routing rule and one
+/// finding shape serve both bindings.
+///
+/// `peers` is the member's own selection, whole: the cross-member predicates
+/// (`unique-name`) decide over the set the clause was bound to, never over a wider one.
+/// A clause that ranges over the selection is skipped here and judged by [`judge`].
+fn member_findings(
+    contract: &Contract,
+    features: &Features,
+    peers: &[&Features],
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    for features in artifacts {
-        for clause in &contract.clauses {
-            if clause.predicate.ranges_over_selection() {
-                continue;
-            }
-            for message in evaluate(contract, &clause.predicate, features, artifacts) {
-                diagnostics.push(
-                    Diagnostic::new(
-                        severity_of(clause.severity),
-                        &clause.label,
-                        &features.id,
-                        message,
-                    )
-                    // The clause's colocated guidance rides its own violation — the
-                    // just-in-time teaching moment.
-                    .with_guidance(clause.guidance.clone()),
-                );
-            }
+    for clause in &contract.clauses {
+        if clause.predicate.ranges_over_selection() {
+            continue;
+        }
+        for message in evaluate(contract, &clause.predicate, features, peers) {
+            diagnostics.push(
+                Diagnostic::new(
+                    severity_of(clause.severity),
+                    &clause.label,
+                    &features.id,
+                    message,
+                )
+                // The clause's colocated guidance rides its own violation — the
+                // just-in-time teaching moment.
+                .with_guidance(clause.guidance.clone()),
+            );
         }
     }
     diagnostics
@@ -646,7 +666,8 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                     diagnostics.extend(over_budget(selection, clause, *unit, *max));
                 }
                 // `degree` binds to a selection too, but its judge needs the graph.
-                // Every other predicate binds to a member, not a set.
+                // Every other predicate binds to a member, not a set — [`judge_members`]
+                // is their pass over the same selections.
                 Predicate::Required { .. }
                 | Predicate::Optional { .. }
                 | Predicate::Type { .. }
@@ -672,6 +693,45 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                 | Predicate::FormatPlacesEdges
                 | Predicate::When { .. } => {}
             }
+        }
+    }
+    diagnostics
+}
+
+/// Judge every clause bound to an **opt-in** selection at the **member grain** — the
+/// other half of [`judge`]'s split, over the same selections.
+///
+/// The quantifier is the clause's grain, never the selector's (`contract.md`,
+/// "selection"), so a `required` means the same bound by kind or by opt-in. A kind's
+/// member-grain clauses already reach [`validate`] off the identical contract; a
+/// requirement's own clauses reach no other judge, so this pass is scoped to
+/// [`Selector::OptIn`] — judging a by-kind selection here would double-report every
+/// kind clause.
+///
+/// The selection's own clauses are the contract in scope: `closed-keys` reads its
+/// allow-list off the sibling `required`/`optional` clauses the same requirement
+/// declares, so a requirement closing its satisfiers closes them to exactly what it
+/// declares. Findings name the member, at the clause's own address — the
+/// `requirement.<name>.…` label [`crate::roster::selections`] stamps.
+#[must_use]
+pub fn judge_members(selections: &[Selection]) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for selection in selections {
+        if !matches!(selection.selector, Selector::OptIn(_)) {
+            continue;
+        }
+        let contract = Contract {
+            name: selection.selector.label().to_string(),
+            clauses: selection.clauses.clone(),
+            guidance: None,
+        };
+        let peers: Vec<&Features> = selection
+            .members
+            .iter()
+            .map(|(_, features)| *features)
+            .collect();
+        for (_, features) in &selection.members {
+            diagnostics.extend(member_findings(&contract, features, &peers));
         }
     }
     diagnostics
@@ -858,7 +918,7 @@ fn evaluate(
     contract: &Contract,
     predicate: &Predicate,
     features: &Features,
-    all: &[Features],
+    all: &[&Features],
 ) -> Vec<String> {
     match decide(contract, predicate, features, all) {
         Outcome::Holds => Vec::new(),
@@ -936,7 +996,7 @@ fn decide(
     contract: &Contract,
     predicate: &Predicate,
     features: &Features,
-    all: &[Features],
+    all: &[&Features],
 ) -> Outcome {
     match predicate {
         // A value/presence predicate is the *only* owner of its field's
@@ -2087,13 +2147,13 @@ mod tests {
         let mut over = features("over", &[], 0, None);
         over.rendered_lines = Some(3);
         assert!(matches!(
-            decide(&carrier, &extent, &over, std::slice::from_ref(&over)),
+            decide(&carrier, &extent, &over, &[&over]),
             Outcome::Violated(_)
         ));
         let mut within = features("within", &[], 0, None);
         within.rendered_lines = Some(2);
         assert!(matches!(
-            decide(&carrier, &extent, &within, std::slice::from_ref(&within)),
+            decide(&carrier, &extent, &within, &[&within]),
             Outcome::Holds
         ));
 
@@ -2104,12 +2164,7 @@ mod tests {
         unrendered.rendered_lines = None;
         unrendered.rendered_chars = None;
         assert!(matches!(
-            decide(
-                &carrier,
-                &extent,
-                &unrendered,
-                std::slice::from_ref(&unrendered)
-            ),
+            decide(&carrier, &extent, &unrendered, &[&unrendered]),
             Outcome::Indeterminate
         ));
     }
@@ -2353,7 +2408,7 @@ mod tests {
                         &contract(ClauseSeverity::Required, predicate.clone()),
                         &predicate,
                         &demo,
-                        std::slice::from_ref(&demo),
+                        &[&demo],
                     ),
                     Outcome::Indeterminate
                 ),
@@ -2392,7 +2447,7 @@ mod tests {
             );
             assert!(
                 !matches!(
-                    decide(&carrier, &predicate, &demo, std::slice::from_ref(&demo)),
+                    decide(&carrier, &predicate, &demo, &[&demo]),
                     Outcome::Indeterminate
                 ),
                 "`{}` reached conformance undecided — it would read as a green pass",

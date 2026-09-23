@@ -1,6 +1,7 @@
 //! End-to-end acceptance over the harness-contract roster — the set-scope
 //! predicates (`count` / `unique` / `membership`), each quantified over a
-//! requirement's **satisfier set**.
+//! requirement's **satisfier set**, and the member-grain ones quantified over each
+//! satisfier in it.
 //!
 //! Drives the built `temper` binary so the whole path is pinned: a golden lock at the
 //! project root carrying the declared requirements, and running the roster over the harness's live
@@ -17,6 +18,10 @@
 //!   nothing;
 //! - the roster is itself checked (admissibility);
 //! - a stray retired manifest declaring no roster leaves the floor outcome unchanged;
+//! - a member-grain clause (`required`) bound by opt-in reaches a judge too — the
+//!   quantifier is the clause's grain, not the selector's — and a kind's own
+//!   member-grain clause still reports exactly once
+//!   (REQUIREMENT-CLAUSES-REACH-THE-MEMBER-JUDGE);
 //! - every embedded built-in kind reaches the same satisfier corpus, not only
 //!   `skill`/`rule` — a `memory` member's `satisfies` row counts toward cardinality,
 //!   roster admissibility, and a `degree` bound exactly as a skill's does
@@ -949,6 +954,154 @@ fn a_skill_kind_requirement_filled_by_installed_plugin_is_a_kind_mismatch() {
     assert!(
         run.output.contains("example-plugin") && run.output.contains("skill"),
         "the finding must name the plugin and the required kind, got:\n{}",
+        run.output
+    );
+}
+
+// ---- member scope: a requirement's own member-grain clauses over the satisfiers ----
+
+/// The `gate` requirement's `required` row over `zz_missing_field` — a member-grain
+/// predicate bound by opt-in rather than by kind. `zz_missing_field` is a name no
+/// modeled kind carries, so every satisfier lacks it and the clause fires on each.
+fn missing_field_requirement(clauses: Vec<ClauseRow>) -> RequirementRow {
+    RequirementRow {
+        clauses,
+        ..common::requirement("gate", false, Some("rule"))
+    }
+}
+
+#[test]
+fn a_requirements_required_clause_fires_over_a_satisfier_missing_the_field() {
+    let root = common::tmpdir("requirement-member-grain-required");
+    common::write_rule(&root, "style");
+    common::author_rule_satisfies(&root, "style", &["gate"]);
+
+    // The vacuity pin, first: an exactly-one `count` bound over the same selection
+    // passes, so the satisfier set demonstrably holds the one rule — the verdict below
+    // is judged over a non-empty set, never over an empty one that could only be green.
+    common::write_requirements(
+        &root,
+        vec![missing_field_requirement(vec![
+            common::required_clause_row(
+                "count",
+                None,
+                Some(temper::drift::CountBoundRow { min: 1, max: 1 }),
+                None,
+                None,
+            ),
+        ])],
+    );
+    let pinned = common::check_in(&root, &[], None);
+    assert!(
+        pinned.ok,
+        "the satisfier set must hold exactly the one opted-in rule ⇒ zero, got:\n{}",
+        pinned.output
+    );
+
+    // The member grain of the same selection: `required` names a field no satisfier
+    // carries, so it fires — once per satisfier, at the requirement's own address.
+    // Before REQUIREMENT-CLAUSES-REACH-THE-MEMBER-JUDGE this run was silent and green:
+    // `engine::judge` read the set predicates only, and `engine::validate` runs over
+    // kind contracts alone, so the clause reached no judge at all.
+    common::write_requirements(
+        &root,
+        vec![missing_field_requirement(vec![
+            common::required_clause_row("required", Some("zz_missing_field"), None, None, None),
+        ])],
+    );
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "a `required` clause bound by opt-in must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    let reported = run.findings();
+    let findings = common::findings_for(&reported, "requirement.gate.required.zz_missing_field");
+    assert_eq!(
+        findings.len(),
+        1,
+        "exactly one finding, at the requirement's own label, got:\n{}",
+        run.output
+    );
+    assert!(
+        findings[0].contains("style") && findings[0].contains("zz_missing_field"),
+        "the finding names the satisfier and the absent field, got:\n{}",
+        run.output
+    );
+
+    // The one-shot harness gate over the identical emitted harness reaches the same
+    // finding — a member-grain requirement clause is not two-step-only.
+    let harness_run = common::check_harness_in(&root, None);
+    assert!(
+        !harness_run.ok,
+        "check --harness must fail on the same clause ⇒ non-zero, got:\n{}",
+        harness_run.output
+    );
+}
+
+#[test]
+fn a_requirement_with_no_satisfiers_judges_its_member_grain_clauses_over_nothing() {
+    let root = common::tmpdir("requirement-member-grain-empty");
+    common::write_rule(&root, "style");
+    // No `satisfies` row at all: the opt-in selection is empty. A member-grain clause
+    // quantifies over the selected members, so an empty selection has nothing to
+    // indict — the each grain is silent, exactly as the whole-grain `count` default
+    // would not be. `required = false` keeps coverage out of the verdict.
+    common::write_requirements(
+        &root,
+        vec![missing_field_requirement(vec![
+            common::required_clause_row("required", Some("zz_missing_field"), None, None, None),
+        ])],
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "an empty opt-in selection fires no member-grain finding ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_kinds_own_member_grain_clause_reports_exactly_once() {
+    let root = common::tmpdir("kind-member-grain-once");
+    // The skill floor's `forbidden_keys` is a member-grain clause of the `skill`
+    // contract, and that contract is also bound to the kind's own selection
+    // (`gate::kind_selections`). `engine::validate` already reads it there, so the
+    // member-grain pass over selections skips the by-kind half — a second read would
+    // print this finding twice.
+    common::write_skill(
+        &root,
+        "legacy-rule",
+        &skill_with_forbidden_key("legacy-rule"),
+    );
+    common::author_satisfies(&root, "skills", "legacy-rule", &["gate"]);
+    common::write_requirements(
+        &root,
+        vec![missing_field_requirement(vec![
+            common::required_clause_row(
+                "count",
+                None,
+                Some(temper::drift::CountBoundRow {
+                    min: 1,
+                    max: usize::MAX,
+                }),
+                None,
+                None,
+            ),
+        ])],
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "the floor's required forbidden_keys must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert_eq!(
+        common::findings_for(&run.findings(), "skill.forbidden_keys").len(),
+        1,
+        "a kind's member-grain clause reports once, never twice, got:\n{}",
         run.output
     );
 }

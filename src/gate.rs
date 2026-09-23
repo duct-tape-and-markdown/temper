@@ -531,6 +531,13 @@ pub fn gate(
     // The selection grain: `count` / `unique` / `membership` whole, `kind` each.
     diagnostics.extend(engine::judge(&selections));
 
+    // The member grain of the opt-in selections: a requirement's own `required`/`type`/…
+    // clauses bind to its satisfiers, and `validate` above ran over kind contracts
+    // alone, so this is the only judge they reach. Scoped to the opt-in half inside
+    // `judge_members` — a kind selection carries the same clauses `validate` already
+    // read.
+    diagnostics.extend(engine::judge_members(&selections));
+
     // The edge scope: build the reference graph over the declared edges and check route
     // resolution — a declared reference must resolve to a real artifact of the
     // target kind. Admissibility before conformance:
@@ -702,8 +709,11 @@ pub fn gate(
 /// The clause set is the contract entire, not the set clauses alone: `engine::judge`
 /// reads the ones that range over the selection and `engine::validate` has already read
 /// the member-grain ones off the identical contract, so the two judges split one
-/// declaration rather than two filtered copies of it. A kind in `by_kind` with no
-/// contract of its own declares no clause to judge and contributes no selection.
+/// declaration rather than two filtered copies of it. That second half is why
+/// `engine::judge_members` — the member-grain pass over a selection — skips a by-kind
+/// selection: its clauses are already read here, and judging them again would
+/// double-report every one. A kind in `by_kind` with no contract of its own declares no
+/// clause to judge and contributes no selection.
 fn kind_selections<'a>(
     contracts: &BTreeMap<String, Contract>,
     by_kind: &BTreeMap<&'a str, &'a [extract::Features]>,
