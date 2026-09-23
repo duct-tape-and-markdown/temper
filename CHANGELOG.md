@@ -9,84 +9,97 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+## [0.0.19] — 2026-09-23
+
+### Upgrading from 0.0.18
+
+Each line is what a 0.0.18 harness may see first, then what to do.
+
+- **`emit` fails with "leaf `prose` is reserved".** `prose` now names a
+  member's own words, so an embedded value may not use it as a field name.
+  Rename the field (`leaves: { words: prose }`) and the renderer that reads it.
+  The projection bytes do not change.
+- **`root.locus-declared` on `.claude/settings.json`.** The committed settings
+  file is now governed whole. Declare a `settings` member (`settings({ name:
+  "settings", … })` from `@dtmd/temper/claude-code`) and move the harness-level
+  `settings:` keys into it. A key the settings reference does not document goes
+  in its `residue: { … }` bag.
+- **A hand edit to `.claude/settings.json` is refused by `guard` and reported
+  by `check`.** The file is a projection now, so 0.0.18's allowance for
+  residue-only edits is gone. Author the change in the program and re-emit.
+- **A dial entry or CI filter stops matching.** These rule ids moved to clause
+  labels: `config.stale`, `prose.include-stale` and `layout.import-stale` are
+  now `root.fresh`; `locus.undeclared-member` and `layout.undeclared-member` are
+  now `root.locus-declared`. `when` labels now carry the guard's values
+  (`mcp-server.when.type=stdio`; seven shipped `marketplace` and `mcp-server`
+  labels moved, six of them former collisions), a `when` body clause has its
+  own label under its host's, and a filtered `degree` clause carries its fields
+  (`state.degree.writes`). Respell each entry from the finding's new `rule` id.
+- **A set predicate inside a `when` body is refused.** `degree`,
+  `membership`, `count`, `unique` and `kind` in a guard's body were accepted and
+  never judged. Move the clause to the kind's top level, or split the members
+  into two kinds.
+- **New findings may appear.**
+  - `root.reachable` names a member whose every registration channel is dead;
+    this check had not run since 0.0.8.
+  - A member-grain clause bound through a requirement is now judged over the
+    requirement's satisfiers.
+  - An `@import` ring among memory files now fails `graph.acyclic`.
+- **Workarounds for field-edge cycles can go.** A cycle through declared
+  fields (view → signal → path → view) is legal now; only the import relation
+  must be acyclic.
+
 ### Added
 
-- **SDK: a member declares the files its claims rest on.** `inputs:
-  [input(import.meta.url, "./schema.json")]` on any member fingerprints the
-  named file on the lock and moves not one byte — the path resolving against
-  the stating module, never the workspace, the same anchor `file()` and
-  `include()` take. Buying that fingerprint previously meant `include()`-ing
-  the target's bytes into a projection that did not want them. An input pairs
-  with no body slot, so the member's projected fields and body are identical
-  with it and without; when the input's bytes move, the member reports under
-  the root `fresh` clause with a remedy that routes the author to re-verify
-  the claims *before* re-emitting.
+- **A root contract.** `harness({ contract })` binds clauses over the whole
+  harness, and `rootDefaultContract` applies when a program declares none.
+  It binds three predicates at `advisory`:
+  - `reachable`: a member whose every registration channel is dead;
+  - `fresh`: a lock row that no longer matches disk;
+  - `locus-declared`: a document at a governed locus that the program never
+    declared.
+
+  Compose the array to change a severity, or dial the label (`root.fresh`
+  at `required` makes a drifted pin fail CI).
+- **`reachedFrom(roots, via)`.** Each selected member must be reachable from
+  the satisfiers of the `roots` requirement over the named edge fields. It
+  catches a member stranded behind another unreachable member, which a
+  one-hop `degree` cannot. It follows cycles and ships in no default contract.
+- **Field-filtered `degree`.** `degree({ incoming: { min: 1 }, fields:
+  ["writes"] })` counts only the named edge fields. Two filtered bounds on one
+  kind are separate clauses with separate labels.
+- **Member inputs.** `inputs: [input(import.meta.url, "./code/login.asp")]`
+  fingerprints a file a member's claims rest on without copying any of its
+  bytes into the projection. When the file changes, `root.fresh` names the
+  member and says to re-verify its claims before re-emitting.
+- **The `settings` kind.** It governs the committed `.claude/settings.json`
+  whole: documented keys are typed, the rest goes in a named `residue` bag, and
+  the lock fingerprints the file. A `residue` key that shadows a typed field is
+  refused.
+- **Containment edges.** A host carries one `contains:<kind>` edge to each
+  embedded member its body composes. An unfiltered `degree` ignores them; name
+  them in `fields` to count them.
+- **`span(words)`** builds a prose span from a computed string. The `` text`…` ``
+  tag treats its interpolations as references, never as words.
+- **`explain kind:<name>` for an unused kind.** A built-in kind the harness has
+  no member of now narrates its locus, registration and address form, and a
+  kind's leaf set shows before any member exists.
+- **A layout member's own span** lands on its reserved `prose` leaf, addressed
+  `<host-address>/<kind>/<key>/prose`.
 
 ### Changed
 
-- **Breaking: the three drift findings report under the root `fresh`
-  clause's label.** `config.stale`, `prose.include-stale` and
-  `layout.import-stale` retire as rule ids: a drifted projection, a moved
-  layout-import target and a moved composed-prose include target are one
-  freshness fact over one lock row family, so one clause weighs all three
-  and every finding prints its label (`root.fresh` under the shipped
-  default). A dial entry or a CI filter keyed to an old id stops matching
-  and must be respelled off the finding's new `rule` id — the ids are a
-  published surface, and a silent rename is the drift class temper exists
-  to refuse. The severity is now the clause's, so a `.temper/dial.toml`
-  reading `root.fresh` at `required` makes a drifted content pin fail CI,
-  which no placement could do before. The shipped root default binds
-  `fresh` at `advisory` — today's posture, so nothing turns red on the
-  upgrade — and a root contract that binds no `fresh` clause reports no
-  staleness at all.
+- **Acyclicity covers the import relation only.** Cycles through declared
+  field edges are legal. `@import` directives are now checked, and before
+  this release they were not.
+- **`install`** brings an existing `.claude/settings.json` into the program
+  as a `settings` member, and places its gate hooks through the program.
 
-- **Breaking: the two undeclared-member findings report under the root
-  `locus-declared` clause's label.** `locus.undeclared-member` and
-  `layout.undeclared-member` retire as rule ids: a document at a file kind's
-  governed locus and one at a layout kind's are one fact — a stranger the
-  program never declared — so one clause weighs both and every finding prints
-  its label (`root.locus-declared` under the shipped default). A dial entry or
-  a CI filter keyed to an old id stops matching and must be respelled off the
-  finding's new `rule` id. The severity is now the clause's, so a
-  `.temper/dial.toml` reading `root.locus-declared` at `required` makes an
-  undeclared document fail CI, which no placement could do before. The shipped
-  root default binds it at `advisory` — today's posture, so nothing turns red
-  on the upgrade — and a root contract that binds no `locus-declared` clause
-  reports no undeclared member at all. Kept apart from `fresh`: hardening a
-  stale pin and hardening an undeclared document are separate decisions, and a
-  read-only ground kind draws the second routinely while its pins stay fresh.
-  `coverage.checked`'s declared/undeclared split is a disclosure, not the
-  clause's finding — it prints the same counts at every severity, and the
-  `guard` boundary half is unchanged.
+### Fixed
 
-- **Breaking: a `when` clause's compiled label carries its guard's value
-  set.** The address is now `<kind>.when.<field>=<values>`, the guard's
-  values sorted and `+`-joined — `mcp-server.when.type=stdio`. A `when`
-  row's `field` column is its *guard's* field, so two guards over one field
-  compiled one address: undialable, and their findings indistinguishable. A
-  dial entry naming an old `…when.<field>` address stops matching and must be
-  respelled off the finding's new `rule` id. Seven shipped labels move:
-  `marketplace.when.plugins[*].source` → `…=string`,
-  `marketplace.when.plugins[*].source.source` → `…=git-subdir` / `…=github` /
-  `…=npm` / `…=url`, and `mcp-server.when.type` → `…=stdio` /
-  `…=http+sse+streamable-http+ws`. Six of those seven were live collisions in
-  the shipped default contract.
-
-- **Breaking: a `when` body violation reports under the body clause's own
-  address, at the body clause's own severity.** The `rule` id is now
-  `<host-label>.<predicate>.<field>` —
-  `marketplace.when.plugins[*].source.source=github.required.source.repo`
-  rather than the enclosing guard's `…=github`. A dial entry naming the guard's
-  label no longer reaches the body, so an entry written to soften one body
-  check stops silencing it (and stops silencing every sibling body clause under
-  the same guard, which was never what it said); respell it off the finding's
-  new `rule` id, which the dial now reaches at that address. The severity is
-  the body clause's too: an `advisory` body clause under a `required` guard
-  counsels instead of blocking, which no authoring could express before. No
-  shipped verdict moves — all eight shipped body rows declare `required` under
-  `required` hosts — and `explain` now lists a body clause's address under its
-  host's, so the contract narration still names every address a finding can
-  print.
+- **A CRLF file no longer mismatches its own fingerprint.** An include,
+  layout-import or input target with Windows line endings was hashed raw at
+  emit and line-ending-normalized at check, so it read as changed on every run.
 
 ## [0.0.18] — 2026-09-08
 
