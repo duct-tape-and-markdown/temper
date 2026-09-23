@@ -87,17 +87,18 @@ fn member_findings(
         if clause.predicate.ranges_over_selection() {
             continue;
         }
-        for message in evaluate(contract, &clause.predicate, features, peers) {
+        for violation in evaluate(contract, &clause.predicate, features, peers) {
             diagnostics.push(
                 Diagnostic::new(
                     severity_of(clause.severity),
                     &clause.label,
                     &features.id,
-                    message,
+                    violation.message,
                 )
-                // The clause's colocated guidance rides its own violation — the
-                // just-in-time teaching moment.
-                .with_guidance(clause.guidance.clone()),
+                // The colocated guidance rides its own violation — the just-in-time
+                // teaching moment. A `when` body clause's guidance is the teaching
+                // for what actually failed, so it wins over the enclosing guard's.
+                .with_guidance(violation.guidance.or_else(|| clause.guidance.clone())),
             );
         }
     }
@@ -919,10 +920,10 @@ fn evaluate(
     predicate: &Predicate,
     features: &Features,
     all: &[&Features],
-) -> Vec<String> {
+) -> Vec<Violation> {
     match decide(contract, predicate, features, all) {
         Outcome::Holds => Vec::new(),
-        Outcome::Violated(messages) => messages,
+        Outcome::Violated(violations) => violations,
         // Unreachable on an admissible run, and pinned so it stays that way
         // (`when_body_refuses_every_predicate_the_indeterminate_arm_answers`): every producer of
         // that arm is fenced before conformance — `dependency-exists` by [`judgeless`],
@@ -941,17 +942,46 @@ fn evaluate(
 enum Outcome {
     /// The predicate is true of the features.
     Holds,
-    /// The predicate is false; each string is one violation to report.
-    Violated(Vec<String>),
+    /// The predicate is false; each entry is one violation to report.
+    Violated(Vec<Violation>),
     /// The feature this predicate names is absent from the projection, so the
     /// clause cannot be decided here (no pass, no finding).
     Indeterminate,
 }
 
+/// One violation a predicate produced: the message, plus the guidance of the clause
+/// that *asserted* the predicate when that is not the clause the finding is filed
+/// under.
+///
+/// Only a `when` body sets it. A top-level clause's violations carry `None` and pick
+/// the guidance up at [`member_findings`], which is the clause in hand there; a body
+/// clause's do not — the enclosing `when` is what [`member_findings`] sees, so the
+/// body clause's own colocated teaching has to ride the violation out or be lost.
+struct Violation {
+    /// The sentence the finding reports.
+    message: String,
+    /// The guidance to prefer over the filing clause's, if the producer declared one.
+    guidance: Option<String>,
+}
+
+impl Violation {
+    /// Lift plain messages into violations that name no guidance of their own — the
+    /// clause the finding is filed under supplies it.
+    fn unguided(messages: Vec<String>) -> Vec<Self> {
+        messages
+            .into_iter()
+            .map(|message| Violation {
+                message,
+                guidance: None,
+            })
+            .collect()
+    }
+}
+
 impl Outcome {
     /// A single-message violation.
     fn violated(message: String) -> Self {
-        Outcome::Violated(vec![message])
+        Outcome::Violated(Violation::unguided(vec![message]))
     }
 
     /// `Holds` when `ok`, else a single-message violation.
@@ -1017,7 +1047,7 @@ fn decide(
                 if absent.is_empty() {
                     Outcome::Holds
                 } else {
-                    Outcome::Violated(absent)
+                    Outcome::Violated(Violation::unguided(absent))
                 }
             }
         },
@@ -1096,7 +1126,7 @@ fn decide(
             if present.is_empty() {
                 Outcome::Holds
             } else {
-                Outcome::Violated(present)
+                Outcome::Violated(Violation::unguided(present))
             }
         }
 
@@ -1119,7 +1149,7 @@ fn decide(
             if undeclared.is_empty() {
                 Outcome::Holds
             } else {
-                Outcome::Violated(undeclared)
+                Outcome::Violated(Violation::unguided(undeclared))
             }
         }
 
@@ -1176,7 +1206,7 @@ fn decide(
                 if bad.is_empty() {
                     Outcome::Holds
                 } else {
-                    Outcome::Violated(bad)
+                    Outcome::Violated(Violation::unguided(bad))
                 }
             }
         },
@@ -1216,7 +1246,7 @@ fn decide(
             if missing.is_empty() {
                 Outcome::Holds
             } else {
-                Outcome::Violated(missing)
+                Outcome::Violated(Violation::unguided(missing))
             }
         }
 
@@ -1246,7 +1276,7 @@ fn decide(
             if bare.is_empty() {
                 Outcome::Holds
             } else {
-                Outcome::Violated(bare)
+                Outcome::Violated(Violation::unguided(bare))
             }
         }
 
@@ -1295,7 +1325,7 @@ fn decide(
             if omitted.is_empty() {
                 Outcome::Holds
             } else {
-                Outcome::Violated(omitted)
+                Outcome::Violated(Violation::unguided(omitted))
             }
         }
 
@@ -1358,8 +1388,10 @@ fn decide(
                                 .unwrap_or(JsonValue::Null);
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
-                                for msg in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
-                                    violations.push(format!("{element_address}: {msg}"));
+                                for mut violation in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
+                                    violation.message = format!("{element_address}: {}", violation.message);
+                                    violation.guidance = violation.guidance.or_else(|| body_clause.guidance.clone());
+                                    violations.push(violation);
                                 }
                             }
                         } else {
@@ -1367,8 +1399,9 @@ fn decide(
                             let element_json = root.clone();
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
-                                for msg in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
-                                    violations.push(msg);
+                                for mut violation in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
+                                    violation.guidance = violation.guidance.or_else(|| body_clause.guidance.clone());
+                                    violations.push(violation);
                                 }
                             }
                         }
@@ -1463,7 +1496,7 @@ fn addressed(
     if messages.is_empty() {
         Outcome::Holds
     } else {
-        Outcome::Violated(messages)
+        Outcome::Violated(Violation::unguided(messages))
     }
 }
 
@@ -2961,6 +2994,69 @@ mod tests {
             None,
         );
         assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
+    }
+
+    #[test]
+    fn when_body_guidance_rides_the_violation_it_teaches() {
+        // The finding is filed under the enclosing `when` clause's label, so without
+        // the violation carrying it out, the body clause's colocated teaching — the
+        // sentence that explains what actually failed — reaches nobody.
+        let mut guarded = clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::Required {
+                field: "description".to_string(),
+            },
+        );
+        guarded.guidance = Some("an active skill documents itself".to_string());
+        let unguarded = clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::Required {
+                field: "summary".to_string(),
+            },
+        );
+        let mut host = clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::When {
+                guard: Box::new(Predicate::Enum {
+                    field: "status".to_string(),
+                    values: vec!["active".to_string()],
+                }),
+                body: vec![guarded, unguarded],
+            },
+        );
+        host.guidance = Some("the host's counsel".to_string());
+        let contract = Contract {
+            name: "skill".to_string(),
+            guidance: None,
+            clauses: vec![host],
+        };
+
+        let artifact = features("demo", &[("status", scalar("active"))], 1, None);
+        let diags = validate(&contract, std::slice::from_ref(&artifact));
+        assert_eq!(diags.len(), 2);
+
+        let described = diags
+            .iter()
+            .find(|d| d.message.contains("description"))
+            .expect("the body clause over `description` fires");
+        assert_eq!(
+            described.guidance.as_deref(),
+            Some("an active skill documents itself"),
+            "the body clause's own guidance rides its violation"
+        );
+
+        let summarized = diags
+            .iter()
+            .find(|d| d.message.contains("summary"))
+            .expect("the body clause over `summary` fires");
+        assert_eq!(
+            summarized.guidance.as_deref(),
+            Some("the host's counsel"),
+            "a body clause declaring none falls back to the host clause's"
+        );
     }
 
     #[test]

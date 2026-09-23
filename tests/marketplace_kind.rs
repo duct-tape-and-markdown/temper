@@ -322,7 +322,8 @@ fn when_body_clauses_fire_on_guarded_elements_that_violate_them() {
   "name": "acme-tools",
   "owner": { "name": "DevTools Team" },
   "plugins": [
-    { "name": "github-plugin", "source": { "source": "github" } }
+    { "name": "github-plugin", "source": { "source": "github" } },
+    { "name": "url-plugin", "source": { "source": "url" } }
   ]
 }
 "#,
@@ -346,6 +347,14 @@ fn when_body_clauses_fire_on_guarded_elements_that_violate_them() {
             .iter()
             .any(|f| f.contains("plugins[0]") && f.contains("source.repo")),
         "the finding names the array element's address: {findings:?}"
+    );
+    // The body clause's authored guidance is the teaching for what failed, and the
+    // default reporter's `help:` block is the channel it rides. The github reporter
+    // above prints no guidance for any clause, so the pin reads the human render.
+    let human = common::check_harness_in(&harness, None).output;
+    assert!(
+        human.contains("must specify the `url` field"),
+        "the `url` body clause's own guidance reaches the reader: {human}"
     );
 }
 
