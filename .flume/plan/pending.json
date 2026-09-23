@@ -22,11 +22,19 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "The three staleness judges stop baking severity and rule id: `config_stale_from_doc` (:2733), `layout_import_stale_from_doc` (:3348-:3378) and `include_stale_from_doc` (:3384-:3412) take the root `fresh` clause's severity and label, and the doc lines asserting \"**Advisory** (`warn`), the posture `config_stale` takes\" (:2810, :2897, :3275, :3317, :4296) retire in favour of the clause's declared severity. The finding's remedy text is unchanged."
+          "description": "The three staleness judges stop baking severity and rule id: `config_stale_from_doc` (:2733), `layout_import_stale_from_doc` (:3348-:3378) and `include_stale_from_doc` (:3384-:3412) read all three of the root `fresh` clause's channels — severity, label and guidance, the third through `check::Diagnostic::with_guidance` (`src/check.rs:131`), the shape ROOT-REACHABLE-GUIDANCE-REACHES-ITS-FINDING just set; threading two of three would reopen the gap that entry closed. The doc lines asserting \"**Advisory** (`warn`), the posture `config_stale` takes\" (:2810, :2897, :3275, :3317, :4296) retire in favour of the clause's declared severity. The finding's remedy text is unchanged."
         },
         {
           "path": "src/gate.rs",
           "description": "The three call sites (:650, :667-:679) pass the root contract's `fresh` clause, and are skipped when none binds — the same opt-in shape `degree`/`reachable` take. The comments at :646-:649 and :665-:668 stop asserting an advisory posture the clause now declares."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "The doc at :1334 names the retired `config.stale` id while explaining why the guard refuses a write — the id prose rides this entry rather than shipping stale."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "The lib-side twin of the frozen lane's pin: `the_embedded_lock_parses_into_kind_facts_and_floor_clauses_only` (:117) fixes the shipped root default's kind-less row inventory at exactly `[\"root.reachable\"]`, saying \"a second kind-less row is a row nobody declared\". The `fresh` row is that second row by design, so the pin restates to the two-row inventory and keeps its vacuity guard."
         },
         {
           "path": "sdk/src/contract.ts",
@@ -41,12 +49,24 @@
           "description": "Export `fresh` from the root beside `reachable`."
         },
         {
+          "path": "sdk/src/builtins.ts",
+          "description": "One prose line (:1360) names the retired `config.stale` id; it rides this entry rather than shipping stale beside the `fresh()` constructor."
+        },
+        {
           "path": "src/builtin_lock.toml",
           "description": "Regenerated: the embedded root contract gains the `fresh` row."
         },
         {
+          "path": "examples/base-harness/.temper/lock.toml",
+          "description": "The example's program adopts the shipped default whole (`harness.ts:99`, no `contract` of its own), so its committed lock gains the `root.fresh` row. Regeneration only — `cargo run -- emit --into examples/base-harness/.temper`, never a hand edit."
+        },
+        {
           "path": "tests/builtin_lock_frozen.rs",
           "description": "The frozen lane's row inventory covers the added root row."
+        },
+        {
+          "path": "tests/root_contract.rs",
+          "description": "`the_shipped_root_default_binds_reachable_and_rides_a_harness_that_declares_none` (:334) asserts the emitted default's kind-less rows lift back as exactly `[(\"root.reachable\", Reachable, Advisory)]` — same second-row break, and the test's *name* also becomes false once the default binds two predicates."
         },
         {
           "path": "CHANGELOG.md",
@@ -62,23 +82,35 @@
         },
         {
           "path": "tests/acceptance.rs",
-          "description": "The dialed-clause case, in the suite that already drives the built binary with a dial and `--deny-advisories` (:14-:19): a `.temper/dial.toml` naming the `fresh` label at required turns a drifted projection into a blocking finding, and the same corpus undialed stays advisory. The existing fixture snapshots are unaffected — the case builds its own corpus."
+          "description": "Two cases, in the suite that already drives the built binary with a dial and `--deny-advisories` (:14-:19). The dialed one: a `.temper/dial.toml` naming the `fresh` label at required turns a drifted projection into a blocking finding, and the same corpus undialed stays advisory. The no-clause one: a root contract binding no `fresh` clause reports no staleness finding at all — the observable form of `gate.rs`'s skip, which the cost suite's lock counters cannot see. The existing fixture snapshots are unaffected — both cases build their own corpus."
         },
         {
           "path": "tests/layout_prose_import.rs",
           "description": "The two `layout.import-stale` assertions (:hits) move to the clause's label and read the declared severity."
         },
         {
+          "path": "tests/prose_include.rs",
+          "description": "Four `drift::include_stale` calls (:77, :79, :112, :130) over a judge this entry re-signatures, so the file does not compile until they thread the clause. The unfenced twin of `tests/layout_prose_import.rs`'s `layout_import_stale` sites."
+        },
+        {
           "path": "tests/check_cost.rs",
-          "description": "Fourteen call sites over the staleness judges — each now threads the clause; the cost pins over the walks stand, with the no-clause case doing no walk at all."
+          "description": "Fourteen call sites over the staleness judges — each now threads the clause, and the cost pins over the walks stand unchanged. The no-clause skip is deliberately *not* pinned here: the counters are `lock_read_count`/`lock_parse_count` (:645-:671) and the lock document is already read and parsed before `gate.rs`'s `if let Some(clause)`, so a skipped walk contributes zero to either counter and the suite cannot observe it."
         },
         {
           "path": "tests/install.rs",
           "description": "Seven `config_stale` sites in the install/guard suites — the guard's own enforcement mode is untouched, so these pin that the clause governs `check`'s finding and not the guard's verdict."
         },
         {
+          "path": "tests/settings_kind.rs",
+          "description": "Three `config.stale` sites (the module doc at :14, the assertions at :249 and :325) move to the `fresh` clause's label — the settings container's hand-edit case is the id move's loudest consumer."
+        },
+        {
+          "path": "tests/manifest_schema_oracle.rs",
+          "description": "`covered_rule`'s `match` over `Predicate` (:143) is exhaustive, so every closed-vocabulary addition breaks it (`E0004`); `Fresh` joins the `None` side in one line — a lock-vs-disk predicate types no document field."
+        },
+        {
           "path": "tests/emit.rs",
-          "description": "Three staleness-judge sites over emitted payloads."
+          "description": "Three staleness-judge sites over emitted payloads, plus `emit_program_runs_the_shipped_example_harness` (:2317), which byte-compares the example harness's committed lock against a fresh emit — it goes green on the regenerated lock below, never on a hand edit."
         },
         {
           "path": "tests/gauntlet.rs",
@@ -99,7 +131,7 @@
     "tests": [
       {
         "path": "tests/acceptance.rs",
-        "asserts": "a dial entry naming the `fresh` label at required turns a drifted projection, a moved include target and a moved layout-import target into blocking findings; undialed they stay advisory"
+        "asserts": "a dial entry naming the `fresh` label at required turns a drifted projection, a moved include target and a moved layout-import target into blocking findings; undialed they stay advisory; and a root contract binding no `fresh` clause reports no staleness finding at all"
       },
       {
         "path": "tests/install.rs",
@@ -111,7 +143,7 @@
       }
     ],
     "acceptance": "`cargo test` and `pnpm --dir sdk test` green with the regenerated embedded lock, `cargo clippy --all-targets -- -D warnings` clean, and a dial entry naming the `fresh` label demonstrably flips the run's exit code under `--deny-advisories`.",
-    "notes": "Three of 0054's five fixed pushes; the two undeclared-member pushes are LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED's. The severity move is the point of the field report: with the dial reaching clause labels only and enforcement mode acting at `guard`, no placement could make a drifted content pin fail CI. scoped at 7b6dda62"
+    "notes": "Three of 0054's five fixed pushes; the two undeclared-member pushes are LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED's. The severity move is the field report's point: with the dial reaching clause labels only and enforcement mode acting at `guard`, no placement could make a drifted content pin fail CI. Seven paths added from the fence capture a build attempt filed — two of them the unfenced twins of pins already listed. scoped at d32972e1"
   },
   {
     "tag": "LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED",
@@ -146,8 +178,16 @@
           "description": "The two call sites (:613-:625, :660-:672) pass the root `locus-declared` clause and are skipped when none binds; `undeclared_locus.counts` still feeds the coverage note either way, so the checked-members disclosure cannot silently absorb an undeclared member when the clause is dialed down."
         },
         {
+          "path": "src/builtin_lock.rs",
+          "description": "The lib-side twin of the frozen lane's pin (:117): the root default's kind-less row inventory restates from two rows to three. FRESH-CLAUSE-JUDGES-STALENESS restates it once already; this entry is the second restatement, not the first."
+        },
+        {
           "path": "src/coverage_note.rs",
           "description": "The note reads the undeclared counts (`src/gate.rs`'s `undeclared_locus.counts`); its doc states that the counts are a disclosure, not the clause's finding, so dialing `locus-declared` changes the finding's weight and never the count the note prints."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "The doc at :234 names `check`'s `locus.undeclared-member` id beside the guard's boundary half; the id prose rides this entry. The intra-doc link to `drift::undeclared_locus_members_from_doc` is unaffected — the symbol does not move."
         },
         {
           "path": "sdk/src/contract.ts",
@@ -166,8 +206,20 @@
           "description": "Regenerated: the embedded root contract gains the third row."
         },
         {
+          "path": "examples/base-harness/.temper/lock.toml",
+          "description": "The example adopts the shipped default whole, so its committed lock gains the `root.locus-declared` row; `tests/emit.rs` byte-compares it. Regeneration only — `cargo run -- emit --into examples/base-harness/.temper`."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "`emit_program_runs_the_shipped_example_harness` (:2317) is the byte-compare that reads the regenerated example lock above."
+        },
+        {
           "path": "tests/builtin_lock_frozen.rs",
           "description": "The frozen lane covers all three root rows."
+        },
+        {
+          "path": "tests/root_contract.rs",
+          "description": "The shipped-default pin at :334 lifts the kind-less rows back — the third row restates it again, and the test's name (`binds_reachable`) is already false by then."
         },
         {
           "path": "CHANGELOG.md",
@@ -194,6 +246,10 @@
           "description": "The install suite's undeclared-member assertion — the guard's boundary half (`src/install.rs:188`) is untouched."
         },
         {
+          "path": "tests/settings_kind.rs",
+          "description": "The settings container's `locus.undeclared-member` assertion (:309) moves to the clause's label — a site neither the coverage-note nor the install suite covers."
+        },
+        {
           "path": "tests/json_document_format.rs",
           "description": "One undeclared-member assertion over a JSON-document kind's locus."
         },
@@ -204,6 +260,10 @@
         {
           "path": "tests/layout_kind.rs",
           "description": "Four `layout.undeclared-member` assertions."
+        },
+        {
+          "path": "tests/manifest_schema_oracle.rs",
+          "description": "`covered_rule`'s exhaustive `match` over `Predicate` (:143) breaks on the addition (`E0004`); `LocusDeclared` joins the `None` side in one line."
         },
         {
           "path": "tests/gauntlet.rs",
@@ -236,7 +296,7 @@
       }
     ],
     "acceptance": "`cargo test` and `pnpm --dir sdk test` green with the regenerated embedded lock, `cargo clippy --all-targets -- -D warnings` clean, and hardening `locus-declared` alone leaves `fresh` advisory (0054's rejected one-predicate bundling, pinned).",
-    "notes": "The last two of 0054's five fixed pushes, and the predicate 0054 kept separate from `fresh` so hardening a stale pin does not also harden the undeclared-document notes a read-only ground kind draws (its first rejected alternative). The dial case rides `tests/acceptance.rs`, beside the `fresh` one. scoped at 7b6dda62"
+    "notes": "The last two of 0054's five fixed pushes, and the predicate 0054 kept separate from `fresh` so hardening a stale pin does not also harden the undeclared-document notes a read-only ground kind draws (its first rejected alternative). The dial case rides `tests/acceptance.rs`, beside the `fresh` one. Seven paths added: the same twin-pin and example-lock class the `fresh` fence capture surfaced. scoped at d32972e1"
   },
   {
     "tag": "INPUT-SOURCE-DEPENDENCY-FAMILY",

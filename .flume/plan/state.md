@@ -2,12 +2,9 @@
 
 - Spec derived through: 069811e6 — unchanged, copied forward; the delta past
   it is empty.
-- Audited through: 02608819 — advanced: db387262..HEAD reconciled, one code
-  commit (24a2145a, the tap fixture's move into tests/common) verified on
-  disk; nothing dropped, every gate re-tested and still true.
-- Residue swept through: 02608819 — advanced: the same window, code against
-  corpus, is clean — the one commit discharges a duplicate surface rather
-  than leaving one.
+- Audited through: 02608819 — unchanged: this tick took the refactor channel,
+  the job above reconciliation in the order.
+- Residue swept through: 02608819 — unchanged, same reason.
 - Posture swept through: tests/hook_kind.rs next — mid-rotation continues.
   Frozen frontier (armed at 7d695577): covered — src/read.rs,
   src/telemetry.rs, tests/read_verbs.rs, src/admissibility.rs, src/gate.rs,
@@ -15,11 +12,12 @@
   tests/hook_kind.rs, sdk/src/builtins.ts, sdk/src/declarations.ts,
   tests/emit.rs, src/install.rs, tests/install.rs, src/compose.rs,
   src/drift.rs, src/glob.rs, src/placement.rs.
-- This tick: reconciled db387262..HEAD — both motions clean, no entry filed,
-  dropped or re-gated; both cursors advanced.
-- Queue: 21 pending — 5 open, 8 blockedBy, 3 deferred, 5 parked. Pickable: 5.
+- This tick: drained `build-fresh-clause-fence-short` — all six claims
+  re-verified at HEAD, seven paths added to FRESH-CLAUSE-JUDGES-STALENESS and
+  seven to its sibling, capture deleted.
+- Queue: 15 pending — 3 open, 4 blockedBy, 3 deferred, 5 parked. Pickable: 2.
   Open forks: 14. Friction: 1 (human channel). Amendments: 0. Refactor: 0.
   Inbox: 0.
 
-Plan continues: after-build — the posture rotation (tests/hook_kind.rs next)
-is the only live job left and five pickable entries ship first.
+Plan continues: yes — post-ship reconciliation of 02608819..HEAD, six ship
+commits the cursors have not seen.
