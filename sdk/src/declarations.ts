@@ -27,6 +27,7 @@ import type {
   CollectionEntryWire,
   Declarations,
   IncludeRow,
+  InputRow,
   KindFactRow,
   LayoutRegionRow,
   LayoutRow,
@@ -733,6 +734,28 @@ function includeRows(harness: Harness): IncludeRow[] {
 }
 
 /**
+ * The `input` rows — every member's declared inputs, in member-then-authored order.
+ * Each carries the declaring member's `kind:name` address and the input's path resolved
+ * against the stating module ({@link fileURLToPath} over the input's own `moduleUrl`),
+ * never the workspace — exactly as an include's is; the engine reads and fingerprints
+ * it, and splices nothing.
+ *
+ * Unlike an include, an input pairs with no body slot, so nothing downstream depends on
+ * this order — the authored one is kept anyway, so a re-emit is byte-stable and the
+ * author reads their own declarations back.
+ */
+function inputRows(harness: Harness): InputRow[] {
+  const rows: InputRow[] = [];
+  for (const member of harness.members) {
+    const address = hostAddress(member.kind, member.name);
+    for (const declared of member.inputs) {
+      rows.push({ member: address, source_path: fileURLToPath(new URL(declared.path, declared.moduleUrl)) });
+    }
+  }
+  return rows;
+}
+
+/**
  * One composed embedded value's key in an {@link EdgePlacements} table — its host's
  * `kind:name` address plus the value's own kind and key, the same triple the
  * `nested_member` row it feeds is identified by.
@@ -1085,9 +1108,7 @@ export function compileDeclarations(
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
     includes: includeRows(harness),
-    // Empty until the authoring surface carries declared inputs: the seam's every
-    // `#[serde(default)]` Vec generates non-optional, so the key is required regardless.
-    inputs: [],
+    inputs: inputRows(harness),
     nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements, extents),
     registrations: [...registrationRows(harness), ...tapHookRows(harness)],
     settings: settingsRows(harness),

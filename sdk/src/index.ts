@@ -69,6 +69,7 @@ export type {
   EmbeddedMemberCollectionEntry,
   EmbeddedMemberValue,
   Format,
+  Input,
   KindDefinition,
   KindFacts,
   KindOptions,
@@ -88,6 +89,11 @@ export type {
   UnitShape,
 } from "./kind.js";
 export { embeddedMemberValue, kind, relocate } from "./kind.js";
+
+// Inputs — the files a member's claims rest on, fingerprinted by the lock and moved
+// nowhere. A member-grain declaration, not a word in a body, so it rides here rather
+// than on the prose line.
+export { input } from "./kind.js";
 
 // The assembly — `harness()` and its six fields.
 export type { Admission, EnforcementMode, ExpectBinding, Harness } from "./assembly.js";

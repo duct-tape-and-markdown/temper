@@ -9,6 +9,19 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+### Added
+
+- **SDK: a member declares the files its claims rest on.** `inputs:
+  [input(import.meta.url, "./schema.json")]` on any member fingerprints the
+  named file on the lock and moves not one byte — the path resolving against
+  the stating module, never the workspace, the same anchor `file()` and
+  `include()` take. Buying that fingerprint previously meant `include()`-ing
+  the target's bytes into a projection that did not want them. An input pairs
+  with no body slot, so the member's projected fields and body are identical
+  with it and without; when the input's bytes move, the member reports under
+  the root `fresh` clause with a remedy that routes the author to re-verify
+  the claims *before* re-emitting.
+
 ### Changed
 
 - **Breaking: the three drift findings report under the root `fresh`

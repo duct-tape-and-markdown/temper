@@ -379,6 +379,35 @@ export type KindFacts<T extends object = Record<string, unknown>> =
     };
 
 /**
+ * A **declared input** — a file the member's claims rest on, fingerprinted by the lock
+ * and moved nowhere (`specs/model/authoring.md`, "The SDK"). The path resolves against
+ * the stating module ({@link moduleUrl}), never the workspace — the same anchor
+ * `include()` and a `file()` body take.
+ *
+ * It lives here rather than beside the prose references it rhymes with: an input rides
+ * no text span and pairs with no body slot, so it is a member-grain framework key, not a
+ * word in a body. When the input's bytes move, the member's own freshness finding routes
+ * the author to re-verify the claims *before* re-emitting — temper never judges whether
+ * the claim still holds, only names the place to look.
+ */
+export interface Input {
+  readonly kind: "input";
+  /** Path to the input, resolved against {@link moduleUrl}. */
+  readonly path: string;
+  /** The declaring module's own `import.meta.url` — what {@link path} resolves against. */
+  readonly moduleUrl: string;
+}
+
+/**
+ * Declare a file a member's claims rest on — the lock fingerprints it and no byte
+ * reaches the projection. The path resolves against the stating module, so the call is
+ * `input(import.meta.url, "./schema.json")`.
+ */
+export function input(moduleUrl: string, path: string): Input {
+  return { kind: "input", path, moduleUrl };
+}
+
+/**
  * One authored member — a typed value in the library. Kind identity travels by
  * import (`facts`), never by string; the
  * typed fields are flat at the top level, carried as an ordered pair list so the
@@ -403,10 +432,12 @@ export interface Member {
   readonly requires: Readonly<Record<string, Requirement>>;
   /** The capabilities the member's behavior uses — the permission union's source. */
   readonly needs: readonly Capability[];
+  /** The files this member's claims rest on — fingerprinted, never moved. */
+  readonly inputs: readonly Input[];
 }
 
 /** The framework keys of a member init — everything else is a typed field (flat). */
-const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs", "residue"]);
+const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs", "inputs", "residue"]);
 
 /**
  * The **reserved leaf key** a nested member's own span lands under (0051) —
@@ -462,6 +493,12 @@ export type MemberInit<T> = {
   readonly satisfies?: readonly string[];
   readonly requires?: Readonly<Record<string, Requirement>>;
   readonly needs?: readonly Capability[];
+  /**
+   * The files this member's claims rest on ({@link input}) — fingerprinted by the lock,
+   * with no byte reaching the projection. The surface binds a *member*: an embedded
+   * value takes no `MemberInit`, and its claims are its host's.
+   */
+  readonly inputs?: readonly Input[];
 } & T;
 
 /**
@@ -601,6 +638,7 @@ export function kind<T extends object>(facts: KindFacts<T>, options: KindOptions
     satisfies: init.satisfies ?? [],
     requires: init.requires ?? {},
     needs: init.needs ?? [],
+    inputs: init.inputs ?? [],
   });
   return Object.assign(construct, { facts, key: facts.name, render: options.render });
 }

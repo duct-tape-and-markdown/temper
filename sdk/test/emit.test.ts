@@ -28,6 +28,7 @@ import {
   forbiddenKeys,
   harness,
   include,
+  input,
   kind,
   maxLen,
   reachable,
@@ -491,6 +492,33 @@ test("a composed-prose include contributes an include row with the module-resolv
   assert.deepEqual(compileDeclarations(h).includes, [
     { member: "rule:rust", source_path: "/repo/.temper/rules/fragment.md" },
   ]);
+});
+
+test("a declared input contributes an input row with the module-resolved path, moving no byte", () => {
+  const moduleUrl = pathToFileURL("/repo/.temper/rules/rust.ts").href;
+  const body = text`
+    # Rust conventions
+
+    Errors via miette/thiserror.
+  `;
+  const inputs = [input(moduleUrl, "./schema.json")];
+  const declaring = harness({
+    members: [rule({ name: "rust", paths: ["src/**/*.rs"], prose: body, inputs })],
+  });
+
+  assert.deepEqual(compileDeclarations(declaring).inputs, [
+    { member: "rule:rust", source_path: "/repo/.temper/rules/schema.json" },
+  ]);
+
+  // An input is fingerprinted, never spliced: the member it rides projects exactly as
+  // the same member without it, fields and body alike, and `inputs` never reaches the
+  // frontmatter as a typed field.
+  const bare = harness({ members: [rule({ name: "rust", paths: ["src/**/*.rs"], prose: body })] });
+  const [withInput] = emit(declaring).members;
+  const [without] = emit(bare).members;
+  assert.deepEqual(withInput!.fields, without!.fields);
+  assert.equal(withInput!.body, without!.body);
+  assert.deepEqual(compileDeclarations(bare).inputs, []);
 });
 
 test("an include leaves its slot in the rendered body for the engine to splice, mentions still resolving", () => {
