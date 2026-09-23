@@ -101,8 +101,12 @@ pub fn ensure_sdk_built() {
 
 /// Vendor the repo's built SDK into `node_modules_scope/temper` — the
 /// `node_modules/@dtmd` directory of a fixture harness — standing in for a real
-/// `npm install`'s local-dependency resolution. Idempotent: skips if the
-/// link/junction already exists.
+/// `npm install`'s local-dependency resolution. Idempotent: skips *linking* when
+/// the link/junction already exists, and never skips the build — the link points
+/// at `sdk/`, so its existence says nothing about whether `sdk/dist` holds the
+/// bytes the caller is about to read. [`ensure_sdk_built`] therefore runs first
+/// and unconditionally, which also makes a caller with a surviving link join that
+/// `Once` instead of racing a sibling test's `rm -rf dist && tsc`.
 ///
 /// Unix links a real symlink, same as `npm install` would for a `file:`/workspace
 /// dependency. Windows shells `cmd /C mklink /J` for a junction rather than
@@ -116,12 +120,12 @@ pub fn ensure_sdk_built() {
 /// command string) lets `Command` quote them, since `CARGO_MANIFEST_DIR` may
 /// contain spaces.
 pub fn vendor_sdk(node_modules_scope: &Path) {
+    ensure_sdk_built();
     std::fs::create_dir_all(node_modules_scope).unwrap();
     let link = node_modules_scope.join("temper");
     if link.exists() {
         return;
     }
-    ensure_sdk_built();
     let target = sdk_root();
 
     #[cfg(unix)]
@@ -571,6 +575,24 @@ pub fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
             (rel, fs::read(entry.path()).unwrap())
         })
         .collect()
+}
+
+/// Copy every file under `from` into `to`, preserving relative layout — the walk
+/// that lets a test drive a committed in-tree harness without writing into the
+/// checkout. Same `walkdir` shape as [`tree_bytes`], under the same `is_file()`
+/// filter, and here that filter is load-bearing: `walkdir` does not follow links
+/// and a link's file type is not `file`, so a vendored
+/// `node_modules/@dtmd/temper` is neither copied nor descended.
+pub fn copy_tree(from: &Path, to: &Path) {
+    for entry in walkdir::WalkDir::new(from) {
+        let entry = entry.unwrap();
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let dest = to.join(entry.path().strip_prefix(from).unwrap());
+        fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        fs::copy(entry.path(), &dest).unwrap();
+    }
 }
 
 /// Lift an imported [`Member`] straight into the raw [`Unit`] the composed

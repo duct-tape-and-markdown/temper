@@ -2211,19 +2211,34 @@ fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
 /// into `extent(unit, bound)`; `span`, moved off the example's own `kinds.ts` onto
 /// the shipped surface), so `node` refused the module graph at link — a break no
 /// gate saw, because every other seam case here drives a fixture program this suite
-/// authors. This one drives the committed example instead: the SDK is vendored at
-/// the gitignored `node_modules` path a real `npm install` would fill, and the emit
-/// is a `--dry-run`, so the pass writes not a byte into the repo tree.
+/// authors. This one drives the committed example instead — from a temp copy of the
+/// whole `examples/base-harness/` tree, never the checkout: the SDK is vendored at
+/// the copy's `node_modules` path a real `npm install` would fill, and the emit is a
+/// `--dry-run`, so the pass writes not a byte into the repo tree.
+///
+/// The copy is what keeps the vendoring honest. `vendor_sdk` skips *linking* when a
+/// link already exists, and only this case's link used to persist — in the checkout,
+/// gitignored and therefore invisible, so every later run reused it and drove `node`
+/// over whatever `sdk/dist` happened to hold. A fresh scope per run has no link to
+/// skip. The example harness root is self-contained — every lock row's
+/// `source_path`/`governs_root` is root-relative (`docs/`, `src`, `.claude/`) — so
+/// the copy proves exactly the three claims below that the checkout would.
 ///
 /// `Unchanged` across every projection is three claims at once: the program links,
 /// it composes to a payload the engine accepts, and the artifacts committed beside
 /// it are byte-current with their authored sources.
 #[test]
 fn emit_program_runs_the_shipped_example_harness() {
-    let into = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let committed = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("examples")
-        .join("base-harness")
-        .join(".temper");
+        .join("base-harness");
+    // A link an *earlier* run (or a hand `npm install`) left in the checkout is not
+    // this run's doing, and the checkout pin below reads the delta, not the state.
+    let residue_before = committed.join(".temper").join("node_modules").exists();
+
+    let harness = common::tmpdir("shipped-example");
+    common::copy_tree(&committed, &harness);
+    let into = harness.join(".temper");
     common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
 
     let report = drift::emit_program(
@@ -2250,7 +2265,32 @@ fn emit_program_runs_the_shipped_example_harness() {
             entry.name,
             entry.outcome
         );
+        assert!(
+            entry.source_path.starts_with(&harness),
+            "the emit runs from the copy: {} {} targeted {}, outside {}",
+            entry.kind,
+            entry.name,
+            entry.source_path.display(),
+            harness.display()
+        );
     }
+
+    // The regression, pinned from both ends. The vendoring landed in the copy —
+    // pre-fix it landed in the checkout, so this link is absent there — and the run
+    // created nothing under the committed tree.
+    assert!(
+        into.join("node_modules")
+            .join("@dtmd")
+            .join("temper")
+            .exists(),
+        "the SDK is vendored into the copy's node_modules, never the checkout's"
+    );
+    assert_eq!(
+        committed.join(".temper").join("node_modules").exists(),
+        residue_before,
+        "the example emit runs from a copy: this run may not create \
+         examples/base-harness/.temper/node_modules in the checkout"
+    );
 }
 
 // ---------------------------------------------------------------------------
