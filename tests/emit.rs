@@ -2214,7 +2214,8 @@ fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
 /// authors. This one drives the committed example instead — from a temp copy of the
 /// whole `examples/base-harness/` tree, never the checkout: the SDK is vendored at
 /// the copy's `node_modules` path a real `npm install` would fill, and the emit is a
-/// `--dry-run`, so the pass writes not a byte into the repo tree.
+/// real one — every byte it writes, projections and lock alike, lands in the copy and
+/// none in the repo tree.
 ///
 /// The copy is what keeps the vendoring honest. `vendor_sdk` skips *linking* when a
 /// link already exists, and only this case's link used to persist — in the checkout,
@@ -2226,7 +2227,13 @@ fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
 ///
 /// `Unchanged` across every projection is three claims at once: the program links,
 /// it composes to a payload the engine accepts, and the artifacts committed beside
-/// it are byte-current with their authored sources.
+/// it are byte-current with their authored sources. The lock is the fourth claim, and
+/// it is why the emit is not a dry run: `emit_program` writes `lock.toml` only when
+/// `dry_run` is off, so a dry run reports projections alone and reproduces not one of
+/// the lock's rows — labels, `extent`/`unit`, layout source rows and rendered-line
+/// columns all rode uncompared. The copy's lock byte-compares against the committed
+/// one instead: `tests/builtin_lock_frozen.rs`'s currency shape, applied to the one
+/// other lock this repo commits.
 #[test]
 fn emit_program_runs_the_shipped_example_harness() {
     let committed = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -2241,14 +2248,22 @@ fn emit_program_runs_the_shipped_example_harness() {
     let into = harness.join(".temper");
     common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
 
-    let report = drift::emit_program(
-        &into,
-        EmitOptions {
-            dry_run: true,
-            ..EmitOptions::default()
-        },
+    // `copy_tree` carried the committed lock in, so a compare against the copy would
+    // pass on a file this run never touched — vacuous exactly where the bug was. A
+    // trailing comment makes the write observable: it is inert to every reader (the
+    // prior lock still parses, so the orphan classification and the layer-dropped
+    // guard still run against the real committed rows), and `write_rollup` writes the
+    // file whole, so the comment survives if and only if emit never wrote.
+    let lock = into.join("lock.toml");
+    let carried = fs::read_to_string(&lock).expect("the copy carries the committed lock");
+    fs::write(
+        &lock,
+        format!("{carried}# emit must rewrite this file whole\n"),
     )
-    .expect("the shipped example's program must link, run, and compile");
+    .unwrap();
+
+    let report = drift::emit_program(&into, EmitOptions::default())
+        .expect("the shipped example's program must link, run, and compile");
 
     assert!(
         !report.entries.is_empty(),
@@ -2274,6 +2289,18 @@ fn emit_program_runs_the_shipped_example_harness() {
             harness.display()
         );
     }
+
+    // The lock no projection row speaks for. Every path it records is root-relative
+    // (`source_path`/`governs_root` hold `.claude/rules/conduct.md`, `docs`, `src`, `.`)
+    // and no column stamps a version or a timestamp, so the copy's bytes and the
+    // checkout's are the same bytes — or the committed file is stale.
+    let derived = fs::read_to_string(&lock).expect("emit writes the example's lock into the copy");
+    assert_eq!(
+        derived, carried,
+        "examples/base-harness/.temper/lock.toml has drifted from what the example's own \
+         program emits. Re-run `cargo run -- emit --into examples/base-harness/.temper` and \
+         commit what moves — never hand-edit a row."
+    );
 
     // The regression, pinned from both ends. The vendoring landed in the copy —
     // pre-fix it landed in the checkout, so this link is absent there — and the run
