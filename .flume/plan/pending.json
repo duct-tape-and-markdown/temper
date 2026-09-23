@@ -1,8 +1,46 @@
 [
   {
-    "tag": "DEGREE-FIELD-SET-FILTER",
+    "tag": "LOCK-ROW-FIXTURE-ONE-HOME(sdk)",
     "gate": {
       "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/test/common.ts",
+          "description": "The SDK-side fixture home `tests/common/mod.rs` is on the src side — first tenant `clauseRow(predicate, severity)`, returning exactly the twenty keys `sdk/src/declarations.ts`'s own `clauseRow` lowering (:110-:160) writes for a non-guard clause (`kind` through `sections`), each `undefined` but the two arguments. The key *set* is the contract, not just the values: `node:assert/strict`'s `deepEqual` compares own keys, so a base spelling fewer keys than the lowering writes fails the case it exists to serve. Not itself a test module — `node --test` globs `dist/test/**/*.test.js` — and `tsconfig.json` already includes `test/**/*.ts`, so neither it nor `package.json` moves. Under `verbatimModuleSyntax` + NodeNext the import spells `./common.js`."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The two inline `ClauseRow` literals inside the eight-families `compileDeclarations` case (:220-:264) collapse onto the base: the `extent` row spreads `kind`/`bound`/`unit`, the `required` row spreads `kind`/`field`, and `predicate`/`severity` are the base's own arguments. `bound: { min: undefined, max: 300 }` keeps its explicit `min` key — `deepEqual` compares own keys at every depth, so the nested literal is carried over, never trimmed. The file's sibling exhaustive literals — `kinds` (:201) and `requirements` (:266) — are the base's next tenants but stay untouched here: SDK-KIND-LEAF-SET-LOWERING already fences this file for the kind row's own column, and folding them now is scope this entry has no driver for."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The SDK tests have no shared lock-row fixture home, so `ClauseRow`'s twenty runtime columns are hand-spelled twice and any new column breaks both literals.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "the eight-families case's two clause rows assert through the shared base, each spreading only its own divergences, and the compiled declarations it compares are unchanged"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`) and `cargo test` green. Behaviour-preserving and test-only: no `src/` or `sdk/src/` byte moves, so `src/builtin_lock.toml` is untouched. Oracle: `sdk/test/` then holds exactly one exhaustive `ClauseRow` spelling — the base — so the next lock column lands in one place on the SDK side, as it already does on the src and tests sides.",
+    "notes": "Drained from `.flume/refactor/build-clause-row-sdk-fixture-home.md`, re-verified at HEAD: `declarations.ts`'s `clauseRow` spells all twenty columns unconditionally, so a new column gives the runtime row a key the two literals lack. Third slice of the family after (src) and (extent), and the one out-of-fence file the build's whole implementation of DEGREE-FIELD-SET-FILTER needed. scoped at a32276c0"
+  },
+  {
+    "tag": "DEGREE-FIELD-SET-FILTER",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "LOCK-ROW-FIXTURE-ONE-HOME(sdk)"
+      ]
     },
     "dependsOnForks": [],
     "files": {
@@ -63,6 +101,10 @@
         {
           "path": "tests/common/mod.rs",
           "description": "`clause` (:709) spells all twenty-three columns to set two; it gains the new one at its default, which is what keeps every integration call site untouched."
+        },
+        {
+          "path": "sdk/test/common.ts",
+          "description": "The SDK-side fixture base its parent lands gains `fields: undefined` — the one line that keeps both emitted-row literals green, the SDK twin of the `src/test_support.rs` and `tests/common/mod.rs` fills above. `sdk/test/emit.test.ts` needs no edit once the base exists, which is why the parent is serialized ahead rather than this fence widened."
         }
       ],
       "retire": []
@@ -83,7 +125,7 @@
       }
     ],
     "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `pnpm --dir sdk test` green, with `src/builtin_lock.toml` byte-unchanged (no shipped clause is filtered). Oracle (the inbox repro): a `channel` kind bounding incoming degree to [0,1] filtered to `writes` counts the two `path.writes` arcs and not the `effect.clobbers` one, where all three count today.",
-    "notes": "0052's Consequences name this entry verbatim (\"`Predicate::Degree` gains a field-set filter\"); the inbox note observed at d9a34e39 is its second driver, repro'd on 0.0.18. The filter lands on a shared `ClauseRow.fields` column, since 0056 declares `reached-from`'s via set to be the same field set. Containment's own half rides CONTAINMENT-INCIDENCE-FAMILY. Serialized behind LOCK-ROW-FIXTURE-ONE-HOME(extent): `tests/extent.rs` is the one out-of-fence file the new column needs. scoped at bf85c672"
+    "notes": "0052's Consequences name this entry verbatim (\"`Predicate::Degree` gains a field-set filter\"); the inbox note observed at d9a34e39 is its second driver, repro'd on 0.0.18. The filter lands on a shared `ClauseRow.fields` column, since 0056 declares `reached-from`'s via set to be the same field set. Containment's half rides CONTAINMENT-INCIDENCE-FAMILY. Build implemented it whole at a32276c0, every gate green, one out-of-fence file — now the parent's. scoped at a32276c0"
   },
   {
     "tag": "WHEN-BODY-REFUSES-A-SET-PREDICATE",
