@@ -94,7 +94,8 @@ pub fn emit(contract: &Contract) -> Value {
             // `optional` is documentation, `extent`/`require_sections`/
             // `must_define`/`section_contains` are body/structural, the
             // cross-artifact predicates range over the whole corpus, and
-            // `count`/`unique`/`membership`/`degree`/`kind`/`format-places-edges`
+            // `count`/`unique`/`membership`/`degree`/`reached-from`/`kind`/
+            // `format-places-edges`
             // range over a node-set or the edge graph, never a single artifact's
             // frontmatter. `glob-valid`
             // does name a field, but "parses under globset" is no JSON-Schema
@@ -114,6 +115,10 @@ pub fn emit(contract: &Contract) -> Value {
             | Predicate::Unique { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
+            // `reached-from` walks the forward closure over the whole reference graph;
+            // a graph-scope verdict constrains no property of the document being
+            // validated, so the schema channel is honestly silent.
+            | Predicate::ReachedFrom { .. }
             | Predicate::Kind { .. }
             | Predicate::FormatPlacesEdges
             // `mention-reachable` reads the *mentioned* member's gate field across the

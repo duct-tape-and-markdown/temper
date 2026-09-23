@@ -390,10 +390,46 @@ pub enum Predicate {
         /// the member. `Some` ⇒ the union of the named fields' edges, and an empty set
         /// names none of them — vacuous, rejected at admissibility.
         ///
-        /// The same shape `reached-from`'s via set will carry
+        /// The same shape [`Predicate::ReachedFrom`]'s via set carries
         /// (`specs/decisions/0056-…`): one concept, one type, one lock column
         /// ([`crate::drift::ClauseRow::fields`]).
         fields: Option<Vec<String>>,
+    },
+    /// `reached-from`: the **each** grain over the selection — every selected member
+    /// lies in the forward closure of the **roots** over the `via` field set. `degree`
+    /// asks a local question (how many arcs sit at this member); this asks the global
+    /// one, so the first orphan of a dead chain and every member behind it are equally
+    /// findings, where a one-hop floor indicts the orphan alone.
+    ///
+    /// Distinct from [`Predicate::Reachable`], which is world-rooted over the whole
+    /// forest and closes over registration channels and `@import` directives: this one
+    /// is **author-rooted** at a requirement's satisfiers and closes over the declared
+    /// field edges the author names
+    /// (`specs/decisions/0056-reached-from-joins-the-vocabulary.md`).
+    ///
+    /// A root holds trivially, by construction. The closure is well-defined over
+    /// cycles — the walk visits each node once — so a ring inside it terminates and
+    /// moves no verdict.
+    ///
+    /// Judged by [`crate::graph::reached_from`], not the per-member table: the verdict
+    /// needs the whole reference graph *and* a second selection's members, neither of
+    /// which the member in hand carries. It ships in **no default contract**: a clause
+    /// demanding every member be reached is the declaration-density demand
+    /// `intent.md`'s invariant 1 forbids unless the author declares it.
+    ReachedFrom {
+        /// The name of the requirement whose satisfiers are the closure's roots. A
+        /// **requirement name**, spelled exactly as [`Predicate::Membership`]'s
+        /// `target` names its source set: rootness is a role, and a role is opt-in, so
+        /// the roots are named once and never re-derived here. An empty name roots
+        /// from nothing and is rejected at admissibility.
+        roots: String,
+        /// The **field set** the closure's arcs are filtered to — the same shape and
+        /// the same lock column ([`crate::drift::ClauseRow::fields`])
+        /// [`Predicate::Degree`]'s filter rides. `None` ⇒ unfiltered, every edge at a
+        /// member but containment. `Some` ⇒ the union of the named fields' arcs, and
+        /// an empty set names none of them: the closure would be the root set alone,
+        /// so every non-root member fires — vacuous, rejected at admissibility.
+        via: Option<Vec<String>>,
     },
     /// `kind`: the **each** grain — every member of the selection is of the declared
     /// artifact kind. This is how a selection narrows: a member of a different kind is a
@@ -626,6 +662,15 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             field: row.field.clone()?,
             target: row.target.clone()?,
         },
+        // The roots ride the same `target` column `membership`'s source set does — one
+        // naming scheme for "the requirement whose satisfiers this clause reads" — and
+        // the via set the same shared `fields` column `degree`'s filter does. The
+        // `field` column is not read: a `reached-from` row spells no field there but the
+        // synthesized label segment.
+        "reached-from" => Predicate::ReachedFrom {
+            roots: row.target.clone()?,
+            via: row.fields.clone(),
+        },
         "degree" => {
             let bound = row.degree.as_ref()?;
             Predicate::Degree {
@@ -718,6 +763,7 @@ impl Predicate {
             Predicate::Unique { .. } => "unique",
             Predicate::Membership { .. } => "membership",
             Predicate::Degree { .. } => "degree",
+            Predicate::ReachedFrom { .. } => "reached-from",
             Predicate::Kind { .. } => "kind",
             Predicate::GlobValid { .. } => "glob-valid",
             Predicate::MentionReachable { .. } => "mention-reachable",
@@ -729,8 +775,10 @@ impl Predicate {
 
     /// Whether this predicate ranges over the **selection** a clause binds to rather
     /// than one member's own features — `count`/`unique`/`membership` at the whole
-    /// grain, `degree`/`kind`/`mention-reachable` at the each grain. Judged by
-    /// [`crate::engine::judge`], [`crate::graph::degree`], and
+    /// grain, `degree`/`reached-from`/`kind`/`mention-reachable` at the each grain.
+    /// Judged by
+    /// [`crate::engine::judge`], [`crate::graph::degree`],
+    /// [`crate::graph::reached_from`], and
     /// [`crate::graph::mention_reachable`] over the resolved
     /// selection; every other predicate is judged by [`crate::engine::validate`] over a
     /// member.
@@ -749,6 +797,7 @@ impl Predicate {
                 | Predicate::Unique { .. }
                 | Predicate::Membership { .. }
                 | Predicate::Degree { .. }
+                | Predicate::ReachedFrom { .. }
                 | Predicate::Kind { .. }
                 | Predicate::MentionReachable { .. }
                 | Predicate::Reachable
@@ -788,6 +837,9 @@ impl Predicate {
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Degree { .. }
+            // Its `roots` is a requirement name and its `via` a field *set*, so it
+            // names no one field — `mention-reachable`'s silence below is the precedent.
+            | Predicate::ReachedFrom { .. }
             | Predicate::Kind { .. }
             // Two field arguments, so no *one* field is "the" field it constrains —
             // the set predicates' silence here is the precedent.
@@ -838,6 +890,7 @@ impl Predicate {
             | Predicate::Unique { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
+            | Predicate::ReachedFrom { .. }
             | Predicate::Kind { .. }
             // Its scope field is a real frontmatter property, but the clause's verdict
             // is about the *target*'s gate, not this property's value — guidance about
@@ -889,6 +942,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::Unique { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
+            | Predicate::ReachedFrom { .. }
             | Predicate::Kind { .. }
             | Predicate::MentionReachable { .. }
             | Predicate::Reachable

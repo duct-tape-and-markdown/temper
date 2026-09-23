@@ -605,6 +605,20 @@ pub fn gate(
         &by_kind,
     ));
 
+    // `reached-from`: `degree`'s global counterpart — a clause demands each selected
+    // member lie in the forward closure of an author-named root set over a chosen field
+    // set, so the first orphan of a dead chain and every member behind it are equally
+    // findings. It reads the same hoisted `resolved_edges` and mention edges the two
+    // graph judges around it share, and the roots resolve off the one `selections` list
+    // already in hand — the opt-in, by-kind and root bindings — so no second corpus walk
+    // enters the gate. Opt-in like `degree`: with no such clause, no closure walks.
+    diagnostics.extend(graph::reached_from(
+        &selections,
+        resolved_edges,
+        &mention_edges,
+        &by_kind,
+    ));
+
     // `reachable`: the root member's own graph-scope clause — every governed member's
     // inbound registration edge from the world node must be live, or a reachable member
     // must import it. Opt-in exactly as `degree`/`mention-reachable` are: with no root

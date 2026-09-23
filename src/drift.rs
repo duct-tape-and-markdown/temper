@@ -3448,7 +3448,7 @@ pub struct EmitOwnedEntry {
     /// The projected artifact's path as the lock spells it: relative to the harness root.
     /// A consumer reaching disk joins it onto the root it was aimed at; the guard compares
     /// it for equality against a `file_path` relativized against that same root
-    /// (`install::matches_projection`).
+    /// (`install::matched_projection`).
     pub path: PathBuf,
 }
 
@@ -3794,15 +3794,18 @@ pub struct ClauseRow {
     /// The `count` clause's satisfier-set-size bound, when the predicate is `count`.
     #[serde(default)]
     pub count: Option<CountBoundRow>,
-    /// The `membership` clause's target requirement name, when the predicate is
-    /// `membership`.
+    /// The **requirement name** whose satisfiers a clause reads its second selection
+    /// from — two owners, one naming scheme: `membership`'s allowed-set source and
+    /// `reached-from`'s closure roots. Both ask the same question of the same column
+    /// ("which requirement's satisfiers?"), so a second column would be the residue
+    /// class ([`crate::contract::predicate_from_row`] decodes either from here).
     #[serde(default)]
     pub target: Option<String>,
     /// The `degree` clause's in/out edge-count bound, when the predicate is `degree`.
     #[serde(default)]
     pub degree: Option<DegreeBoundRow>,
     /// The **field set** a by-incidence clause filters its selection to — `degree`'s
-    /// today, `reached-from`'s via set next (`specs/decisions/0056-…`). Shared rather
+    /// bound and `reached-from`'s via set (`specs/decisions/0056-…`). Shared rather
     /// than nested inside [`DegreeBoundRow`] because the filter is the *clause's*, not
     /// either direction's, and the two consumers name one concept: a lock spelling it
     /// twice would be the residue class.

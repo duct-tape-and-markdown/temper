@@ -720,6 +720,301 @@ fn a_filter_naming_two_fields_counts_both_edges_to_one_target() {
     );
 }
 
+/// A floor-clean skill reaching another over *two* reference fields — the two-field
+/// incidence a via set selects within. Either target may be empty, spelling a skill
+/// that links over one field alone.
+fn two_field_skill(name: &str, routes_to: &str, cites: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         routes_to: {routes_to}\n\
+         cites: {cites}\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// The dead-chain corpus decision 0056 names: the skill `a` routes to `b`, `b` to `c`
+/// (optionally back to `b`, closing a ring inside the closure), and `d` routes nowhere.
+/// The requirement `entrypoint`'s one satisfier is `a`, so the forward closure over
+/// `routes_to` is `{a, b, c}` and `d` alone sits outside it.
+fn write_dead_chain_harness(root: &Path, c_routes_back: bool) {
+    common::write_skill(root, "a", &routing_skill("a", "b"));
+    common::write_skill(root, "b", &routing_skill("b", "c"));
+    if c_routes_back {
+        common::write_skill(root, "c", &routing_skill("c", "b"));
+    } else {
+        common::write_skill(root, "c", &common::clean_skill("c"));
+    }
+    common::write_skill(root, "d", &common::clean_skill("d"));
+}
+
+/// The `entrypoint` requirement's declaration row — the role `reached-from` roots its
+/// closure at. Kind-blind and not `required`: its whole job is to name the satisfier
+/// set, never to demand one.
+fn entrypoint_requirement() -> RequirementRow {
+    common::requirement("entrypoint", false, None)
+}
+
+/// A `reached-from` clause row over the `skill` kind, rooted at `entrypoint` and
+/// filtered to `via`. The roots ride the `target` column `membership`'s source set
+/// does; the via set rides the shared `fields` column `degree`'s filter does.
+fn reached_from_clause(via: Option<&[&str]>) -> ClauseRow {
+    ClauseRow {
+        kind: Some("skill".to_string()),
+        target: Some("entrypoint".to_string()),
+        fields: via.map(|set| set.iter().map(|field| (*field).to_string()).collect()),
+        ..common::clause("reached-from", "required")
+    }
+}
+
+/// The one `routes_to` edge off `skill`, targeting skills — the chain the closure walks.
+fn skill_routes_to_edge() -> Vec<AssemblyFactRow> {
+    vec![edge("skill", "routes_to", "skill")]
+}
+
+/// The members `rule` indicted, in report order — read off the github reporter's
+/// one-line-per-finding rendering (`::error title=<rule>::<artifact>: <message>`).
+/// One line per finding is the point: a one-letter member name is a substring of half
+/// the human renderer's prose, so only the artifact column decides who fired.
+fn indicted(run: &common::CheckRun, rule: &str) -> Vec<String> {
+    let findings = run.findings();
+    common::findings_for(&findings, rule)
+        .into_iter()
+        .filter_map(|line| line.split("::").nth(2))
+        .filter_map(|body| body.split(':').next())
+        .map(str::to_string)
+        .collect()
+}
+
+#[test]
+fn a_reached_from_clause_fires_on_the_member_outside_the_closure() {
+    let root = common::tmpdir("reached-from-dead-chain");
+    // `a` (the sole satisfier of `entrypoint`) routes to `b`, `b` to `c`, and `d` links
+    // to nothing. The closure over `routes_to` is `{a, b, c}`: the root holds trivially,
+    // `b` and `c` hold transitively, and `d` alone is a finding.
+    write_dead_chain_harness(&root, false);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: skill_routes_to_edge(),
+            requirements: vec![entrypoint_requirement()],
+            clauses: vec![reached_from_clause(Some(&["routes_to"]))],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "a", &["entrypoint"]);
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "an unreached member must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert_eq!(
+        indicted(&run, "skill.reached-from"),
+        vec!["d"],
+        "the closure holds the root and everything behind it; `d` alone fires, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("entrypoint") && run.output.contains("routes_to"),
+        "the finding names the roots requirement and the via set, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_one_hop_degree_floor_fires_on_the_root_the_closure_holds() {
+    let root = common::tmpdir("reached-from-degree-contrast");
+    // The same dead chain, judged by a one-hop `degree` floor instead: `incoming >= 1`
+    // reads the arcs *at* each member, so the root `a` — which nothing points at — fires
+    // beside `d`. That false positive on a declared entrypoint is exactly what the
+    // closure predicate exists to retire (0056).
+    write_dead_chain_harness(&root, false);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: skill_routes_to_edge(),
+            requirements: vec![entrypoint_requirement()],
+            clauses: vec![ClauseRow {
+                kind: Some("skill".to_string()),
+                degree: Some(DegreeBoundRow {
+                    incoming: Some(edge_bound(Some(1), None)),
+                    outgoing: None,
+                }),
+                fields: Some(vec!["routes_to".to_string()]),
+                ..common::clause("degree", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "a", &["entrypoint"]);
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert_eq!(
+        indicted(&run, "skill.degree"),
+        vec!["a", "d"],
+        "a one-hop floor indicts the unpointed-at root as well as the orphan, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_cycle_inside_the_closure_terminates_and_moves_no_verdict() {
+    let root = common::tmpdir("reached-from-cycle");
+    // The same corpus with `c` routing back to `b`: a ring sits inside the closure. The
+    // walk visits each node once, so it terminates, and the verdict is unchanged — `d`
+    // alone fires.
+    write_dead_chain_harness(&root, true);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: skill_routes_to_edge(),
+            requirements: vec![entrypoint_requirement()],
+            clauses: vec![reached_from_clause(Some(&["routes_to"]))],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "a", &["entrypoint"]);
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert_eq!(
+        indicted(&run, "skill.reached-from"),
+        vec!["d"],
+        "a ring inside the closure changes no verdict, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_via_set_naming_one_field_ignores_another_fields_arcs() {
+    let root = common::tmpdir("reached-from-via-one-field");
+    // `a` reaches `b` over `cites` and over nothing else. A via set naming `routes_to`
+    // alone follows no arc out of the root, so the closure is `{a}` and both `b` and `d`
+    // fire — where the same clause via `cites` would hold `b`.
+    common::write_skill(&root, "a", &two_field_skill("a", "", "b"));
+    common::write_skill(&root, "b", &common::clean_skill("b"));
+    common::write_skill(&root, "d", &common::clean_skill("d"));
+    let declarations = Declarations {
+        assembly: vec![
+            edge("skill", "routes_to", "skill"),
+            edge("skill", "cites", "skill"),
+        ],
+        requirements: vec![entrypoint_requirement()],
+        clauses: vec![reached_from_clause(Some(&["routes_to"]))],
+        ..Declarations::default()
+    };
+    common::write_lock(&root, declarations.clone());
+    common::author_satisfies(&root, "skills", "a", &["entrypoint"]);
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert_eq!(
+        indicted(&run, "skill.reached-from"),
+        vec!["b", "d"],
+        "a via set ranges over the fields it names and no others, got:\n{}",
+        run.output
+    );
+
+    // The same corpus under a via set naming `cites`: the arc is now followed, so `b`
+    // joins the closure and `d` alone is left outside it.
+    let named = common::tmpdir("reached-from-via-named-field");
+    common::write_skill(&named, "a", &two_field_skill("a", "", "b"));
+    common::write_skill(&named, "b", &common::clean_skill("b"));
+    common::write_skill(&named, "d", &common::clean_skill("d"));
+    common::write_lock(
+        &named,
+        Declarations {
+            clauses: vec![reached_from_clause(Some(&["cites"]))],
+            ..declarations
+        },
+    );
+    common::author_satisfies(&named, "skills", "a", &["entrypoint"]);
+
+    let run = common::check_in(&named, &[], Some("github"));
+    assert_eq!(
+        indicted(&run, "skill.reached-from"),
+        vec!["d"],
+        "the named field's arc carries the closure, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_mention_carries_the_closure_only_where_the_via_set_names_it() {
+    let root = common::tmpdir("reached-from-mention-unnamed");
+    // `a` mentions `b` and declares no reference field at all. A mention joins the same
+    // adjacency a declared edge does, but it carries its own `mention` field — so a via
+    // set naming `routes_to` alone never follows it and `b` stays outside the closure.
+    common::write_skill(&root, "a", &common::clean_skill("a"));
+    common::write_skill(&root, "b", &common::clean_skill("b"));
+    let declarations = Declarations {
+        assembly: skill_routes_to_edge(),
+        requirements: vec![entrypoint_requirement()],
+        mentions: vec![common::mention("skill:a", "skill:b")],
+        clauses: vec![reached_from_clause(Some(&["routes_to"]))],
+        ..Declarations::default()
+    };
+    common::write_lock(&root, declarations.clone());
+    common::author_satisfies(&root, "skills", "a", &["entrypoint"]);
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert_eq!(
+        indicted(&run, "skill.reached-from"),
+        vec!["b"],
+        "an unnamed mention carries no closure, got:\n{}",
+        run.output
+    );
+
+    // The same corpus under a via set naming `mention`: the rendering claim is now an
+    // arc the closure follows, and `b` holds.
+    let named = common::tmpdir("reached-from-mention-named");
+    common::write_skill(&named, "a", &common::clean_skill("a"));
+    common::write_skill(&named, "b", &common::clean_skill("b"));
+    common::write_lock(
+        &named,
+        Declarations {
+            clauses: vec![reached_from_clause(Some(&["mention"]))],
+            ..declarations
+        },
+    );
+    common::author_satisfies(&named, "skills", "a", &["entrypoint"]);
+
+    let run = common::check_in(&named, &[], Some("github"));
+    assert!(
+        indicted(&run, "skill.reached-from").is_empty(),
+        "a via set naming `mention` follows the mention arc, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_selection_with_no_reached_from_clause_produces_no_finding() {
+    let root = common::tmpdir("reached-from-no-clause");
+    // The identical dead chain, with no `reached-from` clause declared anywhere: the
+    // predicate is opt-in, so the orphan `d` is nobody's finding and the run is clean.
+    write_dead_chain_harness(&root, false);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: skill_routes_to_edge(),
+            requirements: vec![entrypoint_requirement()],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "a", &["entrypoint"]);
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        indicted(&run, "skill.reached-from").is_empty(),
+        "no declared clause, no closure and no finding, got:\n{}",
+        run.output
+    );
+}
+
 /// The `gate` requirement bound to `rule`, carrying an **advisory** `mention-reachable`
 /// clause over `paths` → `paths`: the source rule's own scope field, and the field read
 /// off the *mentioned* member for its gate. Advisory is the shipped severity — literal

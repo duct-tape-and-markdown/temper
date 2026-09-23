@@ -439,7 +439,8 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
     // `acyclic` is off that consumer list: `contract.md` ("well-formedness") scopes it to
     // the import relation, which is not this walk. `check` is the walk's own thin
     // wrapper (it reads the dangling half of the same computation), so the consumers of
-    // the *pre-computed* slice are `degree`, `mention_reachable`, and `reachable`.
+    // the *pre-computed* slice are `degree`, `reached_from`, `mention_reachable`, and
+    // `reachable`.
     use std::collections::BTreeMap;
     use temper::compose;
     use temper::extract::Features;
@@ -482,6 +483,9 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
     // `degree` also takes the composed corpus, for the containment family it derives
     // *after* its opt-in early return — no always-on walk, so the pin below does not move.
     let _ = graph::degree(&selections, resolved_edges, &[], &by_kind);
+    // `reached_from` walks the closure `degree` cannot see, over the same slice and
+    // under the same opt-in early return — so it re-walks nothing either.
+    let _ = graph::reached_from(&selections, resolved_edges, &[], &by_kind);
     let _ = graph::mention_reachable(
         &selections,
         resolved_edges,
@@ -509,8 +513,103 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
     // The cost doctrine: the walk is computed exactly once per gate invocation.
     assert_eq!(
         resolves_calls, 1,
-        "gate() must compute resolved_edges exactly once, shared across degree and mention_reachable: {resolves_calls} calls (before {count_before}, after {count_after})",
+        "gate() must compute resolved_edges exactly once, shared across degree, reached_from and mention_reachable: {resolves_calls} calls (before {count_before}, after {count_after})",
     );
+}
+
+/// `reached-from` is **opt-in**: a corpus declaring no such clause walks no closure at
+/// all, and one declaring a clause walks it once per `(roots, via)` pair however many
+/// members the selection carries. The claim is pinned the way `degree`'s and
+/// `reachable`'s are — at the judge, over a corpus that would fire if it ran.
+#[test]
+fn the_reached_from_closure_is_opt_in_and_walks_once_per_root_and_via_pair() {
+    use std::collections::BTreeMap;
+    use temper::compose;
+    use temper::contract::{Clause, Predicate, Severity};
+    use temper::engine::{Selection, Selector};
+    use temper::extract::Features;
+    use temper::graph;
+
+    // skill:a → skill:b over `routes_to`; skill:d links to nothing.
+    let edges = [compose::Edge {
+        field: "routes_to".to_string(),
+        from: "skill".to_string(),
+        to: vec!["skill".to_string()],
+    }];
+    let mut a_fields = BTreeMap::new();
+    a_fields.insert("routes_to".to_string(), serde_json::json!(["b"]));
+    let skills = [
+        Features {
+            fields: a_fields,
+            body_lines: 1,
+            ..common::features("a")
+        },
+        Features {
+            body_lines: 1,
+            ..common::features("b")
+        },
+        Features {
+            body_lines: 1,
+            ..common::features("d")
+        },
+    ];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let resolved = graph::resolved_edges(&edges, &by_kind).resolved;
+
+    let members: Vec<(&str, &Features)> = skills.iter().map(|f| ("skill", f)).collect();
+    let roots: Vec<(&str, &Features)> = vec![("skill", &skills[0])];
+
+    // No `reached-from` clause anywhere: a `count` bound is a selection clause that is
+    // not this predicate, so the judge returns on its opt-in guard having walked nothing.
+    let quiet = [Selection {
+        selector: Selector::Kind("skill".to_string()),
+        clauses: vec![Clause {
+            label: "skill.count".to_string(),
+            severity: Severity::Advisory,
+            predicate: Predicate::Count {
+                min: 0,
+                max: usize::MAX,
+            },
+            guidance: None,
+            source: None,
+        }],
+        members: members.clone(),
+    }];
+    assert!(
+        graph::reached_from(&quiet, &resolved, &[], &by_kind).is_empty(),
+        "a corpus declaring no reached-from clause walks no closure and finds nothing",
+    );
+
+    // The same corpus with the clause declared, plus the roots requirement's own opt-in
+    // selection the judge reads its roots off: `d` is outside the closure and fires.
+    let declared = [
+        Selection {
+            selector: Selector::OptIn("entrypoint".to_string()),
+            clauses: Vec::new(),
+            members: roots,
+        },
+        Selection {
+            selector: Selector::Kind("skill".to_string()),
+            clauses: vec![Clause {
+                label: "skill.reached-from".to_string(),
+                severity: Severity::Required,
+                predicate: Predicate::ReachedFrom {
+                    roots: "entrypoint".to_string(),
+                    via: Some(vec!["routes_to".to_string()]),
+                },
+                guidance: None,
+                source: None,
+            }],
+            members,
+        },
+    ];
+    let diagnostics = graph::reached_from(&declared, &resolved, &[], &by_kind);
+    assert_eq!(
+        diagnostics.len(),
+        1,
+        "the root and the member it reaches hold; the orphan alone fires: {diagnostics:#?}",
+    );
+    assert_eq!(diagnostics[0].artifact, "d");
 }
 
 #[test]

@@ -4,11 +4,13 @@
 //! **declared** reference fields, read off [`Features`], never grepped from a body.
 //! Nodes are `(kind, id)`
 //! across every kind; edges are the [`Edge`] relationships declared on the surface.
-//! Five checks range over it: [`check`] (route resolution — a reference resolves to a
+//! Six checks range over it: [`check`] (route resolution — a reference resolves to a
 //! real target), [`admissibility`] (each edge names its field and a modeled target
 //! kind, checked before the graph is trusted), [`acyclic`] (the **import relation** is
 //! well-founded), [`degree`] (a satisfier node's in/out count lands in a requirement's
-//! bound), and [`reachable`]. All but [`acyclic`] range over one resolved-edge
+//! bound), [`reached-from`](reached_from) (a selected member lies in the forward closure
+//! of an author-named root set), and [`reachable`]. All but [`acyclic`] range over one
+//! resolved-edge
 //! enumeration ([`resolved_edges`]), computed once per `gate()` invocation and shared
 //! with `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
 //!
@@ -336,39 +338,17 @@ struct DegreeIndex {
 }
 
 impl DegreeIndex {
-    /// Fold the resolved reference edges, the already-resolved mention edges, and the
-    /// derived containment family into one index, keeping only the edges `filter` names
-    /// — `None` keeps every one *but* containment.
-    ///
-    /// Mention and import edges join the same adjacency a declared reference edge does
-    /// and carry their own field (`mention`, the directive's own key), so a filter
-    /// naming that field ranges over them exactly as over a declared reference.
-    ///
-    /// Containment is the one family an unfiltered bound excludes (decision 0052): every
-    /// embedded member carries exactly one incoming containment edge, so counting it
-    /// unasked would make a standing `degree(incoming ≥ 1)` vacuous and silently flip an
-    /// authored clause's verdict. It counts only where a filter names its
-    /// [`contains_field`].
+    /// Count the edges [`filtered_edges`] admits per endpoint — that function owns the
+    /// filter's semantics (containment included), this one owns only the tally.
     fn build(
         resolved: &[ResolvedEdge],
         mentions: &[ResolvedEdge],
         containment: &[ResolvedEdge],
         filter: Option<&[String]>,
     ) -> Self {
-        let counted_containment: &[ResolvedEdge] = match filter {
-            Some(_) => containment,
-            None => &[],
-        };
-        let mut edges: BTreeSet<(&Node, &String, &Node)> = BTreeSet::new();
-        for edge in resolved.iter().chain(mentions).chain(counted_containment) {
-            if filter.is_some_and(|fields| !fields.contains(&edge.field)) {
-                continue;
-            }
-            edges.insert((&edge.from, &edge.field, &edge.to));
-        }
         let mut outgoing: BTreeMap<Node, usize> = BTreeMap::new();
         let mut incoming: BTreeMap<Node, usize> = BTreeMap::new();
-        for (from, _, to) in edges {
+        for (from, _, to) in filtered_edges(resolved, mentions, containment, filter) {
             *outgoing.entry(from.clone()).or_default() += 1;
             *incoming.entry(to.clone()).or_default() += 1;
         }
@@ -376,12 +356,46 @@ impl DegreeIndex {
     }
 }
 
+/// The distinct **edges** one by-incidence field filter admits: a `(from, field, to)`
+/// triple per edge, deduplicated, so one member reaching one target under two fields
+/// yields two and a list field naming the same target twice yields one.
+///
+/// The one home for the filter's semantics, shared by both by-incidence judges —
+/// [`DegreeIndex::build`] counts the triples per endpoint, [`reached_from`] folds them
+/// into a forward adjacency. `None` keeps every edge *but* containment; `Some` keeps
+/// the union of the named fields' edges, containment included where the set names a
+/// [`contains_field`] (decision 0052: counting containment unasked would make a
+/// standing `degree(incoming ≥ 1)` vacuous and silently flip an authored verdict).
+///
+/// Mention and import edges join the same adjacency a declared reference edge does and
+/// carry their own field (`mention`, the directive's own key), so a filter naming that
+/// field ranges over them exactly as over a declared reference.
+fn filtered_edges<'e>(
+    resolved: &'e [ResolvedEdge],
+    mentions: &'e [ResolvedEdge],
+    containment: &'e [ResolvedEdge],
+    filter: Option<&[String]>,
+) -> BTreeSet<(&'e Node, &'e String, &'e Node)> {
+    let counted_containment: &[ResolvedEdge] = match filter {
+        Some(_) => containment,
+        None => &[],
+    };
+    let mut edges: BTreeSet<(&Node, &String, &Node)> = BTreeSet::new();
+    for edge in resolved.iter().chain(mentions).chain(counted_containment) {
+        if filter.is_some_and(|fields| !fields.contains(&edge.field)) {
+            continue;
+        }
+        edges.insert((&edge.from, &edge.field, &edge.to));
+    }
+    edges
+}
+
 /// Check the **`degree`** predicate over every declared [`Selection`]: for each `degree`
 /// clause bound to one, return a [`Diagnostic`] — at the clause's own declared severity
 /// — per selected member whose in/out edge count over the resolved arcs falls outside
 /// the bound.
 ///
-/// `degree` is the one set predicate this module judges rather than
+/// `degree` is one of the two set predicates this module judges rather than
 /// [`engine::judge`]: the clause is each-grain over the selection's members and
 /// whole-grain over each member's own **by-incidence** selection — the edges at it,
 /// filtered by direction and by the clause's own **field set** — which is the graph,
@@ -396,6 +410,9 @@ impl DegreeIndex {
 /// way, and a filter naming every declared field says exactly what no filter says. Each distinct filter is
 /// indexed once per call and shared by every clause declaring it, so a corpus-wide
 /// walk happens per filter rather than per clause.
+///
+/// The global counterpart is [`reached_from`], which shares this
+/// filter's semantics ([`filtered_edges`]) and walks the closure a count cannot see.
 ///
 /// Unlike route resolution and [`acyclic`], `degree` is **opt-in** — selections declaring
 /// no `degree` clause do no graph work. A node is `(kind, id)`, so a selection whose
@@ -478,6 +495,161 @@ pub fn degree(
         }
     }
     diagnostics
+}
+
+/// Check the **`reached-from`** predicate over every declared [`Selection`]: for each
+/// clause bound to one, return a [`Diagnostic`] — at the clause's own declared severity
+/// — per selected member that does not lie in the forward closure of the clause's
+/// **roots** over its **via** field set.
+///
+/// The second set predicate this module judges rather than [`engine::judge`], and the
+/// global counterpart of [`degree`]: `degree` counts the arcs *at* a member, so the
+/// first orphan of a dead chain fires and none behind it; this walks the closure, so
+/// every member the roots cannot reach fires
+/// (`specs/decisions/0056-reached-from-joins-the-vocabulary.md`).
+///
+/// **Roots** are the members of the [`engine::Selector::OptIn`] selection the clause's `roots`
+/// requirement names — read off the same `selections` slice `engine`'s `membership`
+/// judge reads its allowed set from, never a second satisfier walk: rootness is a role,
+/// and shaping the role's set is the requirement's own job. A roots requirement no
+/// selection carries has no satisfiers, so the closure is empty and every selected
+/// member fires — the same "an unfilled requirement is visible" posture `membership`
+/// takes over an empty source set.
+///
+/// **Via** is 0052's field set on the shared `fields` column, filtered by
+/// [`filtered_edges`] exactly as a `degree` bound's is: `None` ranges over every edge
+/// but containment, a named set over the union of its fields, and a mention or import
+/// arc counts only where the set names its field.
+///
+/// A root holds trivially, by construction — the walk seeds the visited set with the
+/// roots. A **visited set** makes the closure well-defined over cycles: a ring inside
+/// it terminates and moves no verdict.
+///
+/// Opt-in exactly as [`degree`] and [`mention_reachable`] are: a corpus declaring no
+/// `reached-from` clause walks no closure, and the containment family is derived past
+/// that early return so it costs nothing either. Each distinct via set is walked once
+/// per roots requirement and shared by every clause declaring the pair, so the cost is
+/// per closure rather than per clause.
+#[must_use]
+pub fn reached_from(
+    selections: &[Selection],
+    resolved: &[ResolvedEdge],
+    mention_edges: &[ResolvedEdge],
+    by_kind: &BTreeMap<&str, &[Features]>,
+) -> Vec<Diagnostic> {
+    if !any_clause_of(selections, |predicate| {
+        matches!(predicate, Predicate::ReachedFrom { .. })
+    }) {
+        return Vec::new();
+    }
+    let containment = containment_edges(by_kind);
+
+    // One closure per distinct `(roots, via)` pair, computed on first sight and reused
+    // by every clause declaring the same pair.
+    let mut closures: BTreeMap<(String, Option<Vec<String>>), BTreeSet<Node>> = BTreeMap::new();
+
+    let mut diagnostics = Vec::new();
+    for selection in selections {
+        for clause in &selection.clauses {
+            let Predicate::ReachedFrom { roots, via } = &clause.predicate else {
+                continue;
+            };
+            let closure = closures
+                .entry((roots.clone(), via.clone()))
+                .or_insert_with(|| {
+                    forward_closure(
+                        &root_nodes(selections, roots),
+                        &filtered_edges(resolved, mention_edges, &containment, via.as_deref()),
+                    )
+                });
+            for (kind, features) in &selection.members {
+                let node = ((*kind).to_string(), features.id.clone());
+                if closure.contains(&node) {
+                    continue;
+                }
+                diagnostics.push(unreached(
+                    selection,
+                    clause,
+                    &features.id,
+                    roots,
+                    via.as_deref(),
+                ));
+            }
+        }
+    }
+    diagnostics
+}
+
+/// The nodes a `reached-from` clause roots its closure at: the members of the
+/// [`engine::Selector::OptIn`] selection its `roots` requirement names, read off the whole
+/// declared selection list rather than re-derived from the `satisfies` family — the
+/// identical resolution `crate::engine`'s `membership` judge makes for its target.
+fn root_nodes(selections: &[Selection], roots: &str) -> BTreeSet<Node> {
+    let source = engine::Selector::OptIn(roots.to_string());
+    selections
+        .iter()
+        .filter(|selection| selection.selector == source)
+        .flat_map(|selection| {
+            selection
+                .members
+                .iter()
+                .map(|(kind, features)| ((*kind).to_string(), features.id.clone()))
+        })
+        .collect()
+}
+
+/// Every node reachable from `roots` by following `edges` forward, roots included — a
+/// BFS whose visited set is the answer. The visited set is what makes the walk
+/// well-defined over cycles: a node is expanded once, so a ring inside the closure
+/// terminates and adds nothing a second time.
+fn forward_closure(
+    roots: &BTreeSet<Node>,
+    edges: &BTreeSet<(&Node, &String, &Node)>,
+) -> BTreeSet<Node> {
+    let mut adjacency: BTreeMap<&Node, BTreeSet<&Node>> = BTreeMap::new();
+    for (from, _, to) in edges {
+        adjacency.entry(from).or_default().insert(to);
+    }
+    let mut reached: BTreeSet<Node> = roots.clone();
+    let mut frontier: Vec<Node> = roots.iter().cloned().collect();
+    while let Some(node) = frontier.pop() {
+        let Some(next) = adjacency.get(&node) else {
+            continue;
+        };
+        for target in next {
+            if reached.insert((*target).clone()) {
+                frontier.push((*target).clone());
+            }
+        }
+    }
+    reached
+}
+
+/// The `reached-from` finding: the selection, the roots requirement, the via set, and
+/// the member the closure never reached — the words [`out_of_degree`] names its own
+/// bound in, over a closure rather than a count.
+fn unreached(
+    selection: &Selection,
+    clause: &crate::contract::Clause,
+    artifact: &str,
+    roots: &str,
+    via: Option<&[String]>,
+) -> Diagnostic {
+    let over = match via {
+        Some(fields) => format!("over {}", quoted(fields)),
+        None => "over every declared edge".to_string(),
+    };
+    Diagnostic::new(
+        engine::severity_of(clause.severity),
+        &clause.label,
+        artifact,
+        format!(
+            "{} requires each member reached from the satisfiers of `{roots}` {over}, but \
+             `{artifact}` is not in that closure",
+            selection.selector.noun(),
+        ),
+    )
+    .with_guidance(clause.guidance.clone())
 }
 
 /// The host member an edge's source belongs to, or `None` when the source is no embedded

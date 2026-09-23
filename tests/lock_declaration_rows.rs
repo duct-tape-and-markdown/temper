@@ -669,6 +669,65 @@ fn a_degree_clause_rows_field_set_filter_round_trips_and_is_absent_when_unfilter
     );
 }
 
+/// A `reached-from` clause row round-trips its two arguments across the columns it
+/// shares with its siblings — the roots requirement on `membership`'s `target` column,
+/// the via set on `degree`'s `fields` column. No column of its own: one concept, one
+/// column, and the lift reads neither from `field`, which carries only a label segment.
+#[test]
+fn a_reached_from_clause_row_round_trips_its_roots_and_via_set() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        target: Some("entrypoint".to_string()),
+        fields: Some(vec!["routes_to".to_string(), "cites".to_string()]),
+        ..common::clause("reached-from", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-reached-from", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "reached-from")
+        .expect("the reached-from clause row round-trips");
+    assert_eq!(
+        row.target.as_deref(),
+        Some("entrypoint"),
+        "the roots requirement survives write→read on the shared target column"
+    );
+    assert_eq!(
+        row.fields.as_deref(),
+        Some(&["routes_to".to_string(), "cites".to_string()][..]),
+        "the via set survives write→read in declaration order"
+    );
+
+    // The columns are the wire the engine lifts: both arguments must reach the typed
+    // predicate, and the lift must read neither of them off `field`.
+    let predicate =
+        contract::predicate_from_row(row).expect("the reached-from row lifts to a predicate");
+    assert!(
+        matches!(
+            &predicate,
+            Predicate::ReachedFrom { roots, via: Some(set) }
+                if roots == "entrypoint" && set == &["routes_to", "cites"]
+        ),
+        "the lifted predicate carries the clause's own roots and via set, got: {predicate:?}"
+    );
+}
+
 /// A `mention-reachable` clause row round-trips **both** field ends — the source's scope
 /// on the shared `field` column and the target's gate on its own `gate` column. The one
 /// two-argument predicate: `field` alone cannot carry both, so the `gate` column is the

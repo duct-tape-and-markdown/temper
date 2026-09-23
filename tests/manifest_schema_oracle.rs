@@ -181,6 +181,7 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
+        | Predicate::ReachedFrom { .. }
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }

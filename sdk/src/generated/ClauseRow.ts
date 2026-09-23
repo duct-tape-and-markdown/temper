@@ -81,8 +81,11 @@ cite?: string,
  */
 count?: CountBoundRow, 
 /**
- * The `membership` clause's target requirement name, when the predicate is
- * `membership`.
+ * The **requirement name** whose satisfiers a clause reads its second selection
+ * from — two owners, one naming scheme: `membership`'s allowed-set source and
+ * `reached-from`'s closure roots. Both ask the same question of the same column
+ * ("which requirement's satisfiers?"), so a second column would be the residue
+ * class ([`crate::contract::predicate_from_row`] decodes either from here).
  */
 target?: string, 
 /**
@@ -91,7 +94,7 @@ target?: string,
 degree?: DegreeBoundRow, 
 /**
  * The **field set** a by-incidence clause filters its selection to — `degree`'s
- * today, `reached-from`'s via set next (`specs/decisions/0056-…`). Shared rather
+ * bound and `reached-from`'s via set (`specs/decisions/0056-…`). Shared rather
  * than nested inside [`DegreeBoundRow`] because the filter is the *clause's*, not
  * either direction's, and the two consumers name one concept: a lock spelling it
  * twice would be the residue class.

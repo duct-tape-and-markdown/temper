@@ -332,6 +332,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
+        | Predicate::ReachedFrom { .. }
         | Predicate::Kind { .. }
         | Predicate::MentionReachable { .. }
         | Predicate::Reachable
@@ -388,6 +389,7 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
+        | Predicate::ReachedFrom { .. }
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
@@ -436,6 +438,7 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
+        | Predicate::ReachedFrom { .. }
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
@@ -555,6 +558,22 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
                         "`degree` clause's {label} bound has min {min} greater than max {max}"
                     ));
                 }
+            }
+            messages
+        }
+        // `reached-from`'s two clause-level arguments, each by a standing precedent. An
+        // empty `roots` names no requirement to root the closure from — `membership`'s
+        // empty-target rule verbatim, since the two name their source set the same way.
+        // A declared via set naming no field follows no arc, so the closure is the root
+        // set alone and every non-root member fires: the false-positive shape a
+        // directionless `degree` is already refused for.
+        Predicate::ReachedFrom { roots, via } => {
+            let mut messages = Vec::new();
+            if roots.is_empty() {
+                messages.push("`reached-from` clause names an empty roots requirement".to_string());
+            }
+            if via.as_ref().is_some_and(Vec::is_empty) {
+                messages.push("`reached-from` clause's via set names no field".to_string());
             }
             messages
         }
@@ -711,7 +730,8 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                 } => {
                     diagnostics.extend(over_budget(selection, clause, *unit, *max));
                 }
-                // `degree` binds to a selection too, but its judge needs the graph.
+                // `degree` and `reached-from` bind to a selection too, but their
+                // judges need the graph.
                 // Every other predicate binds to a member, not a set — [`judge_members`]
                 // is their pass over the same selections.
                 Predicate::Required { .. }
@@ -735,6 +755,7 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                 | Predicate::UniqueName
                 | Predicate::DependencyExists
                 | Predicate::Degree { .. }
+                | Predicate::ReachedFrom { .. }
                 | Predicate::MentionReachable { .. }
                 | Predicate::Reachable
                 | Predicate::FormatPlacesEdges
@@ -1385,6 +1406,10 @@ fn decide(
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
+        // `reached-from` is each-grain over the selection, but its verdict reads the
+        // whole reference graph and the roots requirement's *other* selection — neither
+        // is on the member in hand — so `crate::graph::reached_from` judges it.
+        | Predicate::ReachedFrom { .. }
         | Predicate::Kind { .. }
         // `mention-reachable` is each-grain over the selection, but its verdict reads
         // the mention graph and the *target* member's gate field — neither is on the
@@ -3363,6 +3388,7 @@ mod tests {
             | Predicate::Unique { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
+            | Predicate::ReachedFrom { .. }
             | Predicate::Kind { .. }
             | Predicate::MentionReachable { .. }
             | Predicate::Reachable => true,
