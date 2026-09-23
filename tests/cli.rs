@@ -567,6 +567,77 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     }
 }
 
+/// The governed-locus binding is the root member's own `locus-declared` clause, asked
+/// before any locus is bound — so the guard's verdict and `check`'s silence cannot
+/// disagree about a write of an undeclared document inside a governed locus. Both arms
+/// reuse the represented-lock fixture shape the posture case above writes.
+#[test]
+fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
+    let stray =
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}";
+    let declared =
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/safety.md\"}}";
+
+    // Bound — the lock declares no clause row at all, so `compose::root_contract`'s
+    // rows-or-default rule reinstates the embedded `root.locus-declared` and the stray
+    // document is denied under `block`.
+    let bound = common::tmpdir("guard-locus-clause-bound");
+    fs::create_dir_all(bound.join(".temper")).unwrap();
+    fs::write(
+        bound.join(".temper").join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+         [[rule]]\nname = \"safety\"\nsource_path = \".claude/rules/safety.md\"\n\
+         source_hash = \"abc\"\nemit_hash = \"abc\"\n",
+    )
+    .unwrap();
+    let (code, stderr) = common::run_guard(&bound, stray);
+    assert_eq!(
+        code,
+        Some(2),
+        "the default root contract binds `locus-declared`, so block denies the stray \
+         write, got: {stderr}"
+    );
+
+    // Unbound — the lock declares a kind-less `root.fresh` row and no `locus-declared`
+    // one, so real rows answer the root contract and the clause simply does not bind.
+    // The stray write is allowed with nothing said.
+    let unbound = common::tmpdir("guard-locus-clause-unbound");
+    fs::create_dir_all(unbound.join(".temper")).unwrap();
+    fs::write(
+        unbound.join(".temper").join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+         [[declaration.clause]]\nlabel = \"root.fresh\"\npredicate = \"fresh\"\n\
+         severity = \"advisory\"\n\n\
+         [[rule]]\nname = \"safety\"\nsource_path = \".claude/rules/safety.md\"\n\
+         source_hash = \"abc\"\nemit_hash = \"abc\"\n",
+    )
+    .unwrap();
+    let (code, stderr) = common::run_guard(&unbound, stray);
+    assert_eq!(
+        code,
+        Some(0),
+        "no `locus-declared` clause, no locus binding — the write `check` stays silent \
+         about is allowed, got: {stderr}"
+    );
+    assert!(
+        stderr.is_empty(),
+        "and nothing reaches the session either, got: {stderr}"
+    );
+
+    // The narrowing reaches the undeclared-document binding and nothing else: the same
+    // unbound harness still blocks a write of its own declared projection.
+    let (code, stderr) = common::run_guard(&unbound, declared);
+    assert_eq!(
+        code,
+        Some(2),
+        "the projection binding is independent of the root clause, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("temper-managed projection"),
+        "and it is the projection message, got: {stderr}"
+    );
+}
+
 #[test]
 fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
     // The guard reads its enforcement mode off the harness's lock. A corrupt lock —

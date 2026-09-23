@@ -19,6 +19,7 @@ use temper::builtin_kind;
 use temper::bundle;
 use temper::check::{self, Severity};
 use temper::compose;
+use temper::contract;
 use temper::drift;
 use temper::gate;
 use temper::install;
@@ -670,19 +671,41 @@ fn container_kinds(
 /// built-in. Pure embedded data: no disk read and no walk, so the guard's per-tool-call
 /// cost bound is the existing one.
 ///
-/// Four exclusions, each on its own fact: a `local`-commitment kind's documents are the
-/// author's own by declaration (never an emit input or target, so no member is ever
-/// declared for them); a kind with no `governs` locus composes its paths from a host and
-/// governs no glob; a kind carrying a `collection_address` is a manifest whose members
-/// [`guarded_manifests`] checks by contract, not by locus; and a `.`-rooted locus
-/// (`memory`'s `**/CLAUDE.md`) would judge every `CLAUDE.md` in the tree, vendored ones
-/// included, because the guard has no ignore reader where discovery prunes by the
+/// Gated on the **contract** before any kind fact is read: the whole set is empty unless
+/// the root member's own `locus-declared` clause binds, located off the declarations
+/// already in hand ([`compose::root_contract`], rows-or-default, so a lock carrying no
+/// kind-less row still gets the shipped default) rather than off a walk. The
+/// undeclared-document fact is opt-in at `check`, so the guard asks the same question
+/// before it binds — otherwise `block` denies a write the same absent clause makes
+/// `check` silent about. Pure row scan, no disk read and no walk; and the dial moves a
+/// clause's severity only (`dial::Dial::dial_clause`), never its binding, so
+/// this declarations-level scan cannot disagree with the dialed selection `check` reads.
+/// Where no clause binds, the guard's projection binding is its only one.
+///
+/// Four further exclusions, each on its own kind fact: a `local`-commitment kind's
+/// documents are the author's own by declaration (never an emit input or target, so no
+/// member is ever declared for them); a kind with no `governs` locus composes its paths
+/// from a host and governs no glob; a kind carrying a `collection_address` is a manifest
+/// whose members [`guarded_manifests`] checks by contract, not by locus; and a `.`-rooted
+/// locus (`memory`'s `**/CLAUDE.md`) would judge every `CLAUDE.md` in the tree, vendored
+/// ones included, because the guard has no ignore reader where discovery prunes by the
 /// repo's ignore rules — binding it would disagree with `check`.
 ///
 /// # Errors
 ///
-/// Propagates the lock-row lift errors the overlay and the custom-row partition raise.
+/// Propagates the lock-row lift errors the overlay and the custom-row partition raise,
+/// and the [`compose::ClauseRowError`] a clause row outside the closed vocabulary raises
+/// — a corrupt lock, refused loud here as everywhere.
 fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<install::GuardedLocus>> {
+    let root = compose::root_contract(&declarations.clauses)?;
+    if !root
+        .clauses
+        .iter()
+        .any(|clause| clause.predicate == contract::Predicate::LocusDeclared)
+    {
+        return Ok(Vec::new());
+    }
+
     let builtin_defs = builtin_kind::definitions();
 
     let push = |kind: &CustomKind, loci: &mut Vec<install::GuardedLocus>| {
