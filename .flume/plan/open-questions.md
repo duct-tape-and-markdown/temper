@@ -146,10 +146,11 @@ tax.
   identity story for nested rows, not two. No dependents.
 
 - `(post-tool-use-placement)` — OPEN, live driver (GH #42 (ii),
-  cascade-integrations, confirmed on disk at a13f6bf2). `install.rs:173`'s
-  `POST_TOOL_USE_COMMAND` is byte-identical to `SESSION_START_COMMAND`
-  (`:96`) — both `temper check . --reporter session-start` — and its group
-  binds `BASH_MATCHER` (`:163`) under the same constituency test as the
+  cascade-integrations, re-measured on disk this tick after 842884f4 rewrote
+  the module). `install.rs:176`'s `POST_TOOL_USE_COMMAND` is byte-identical
+  to `SESSION_START_COMMAND` (`:105`) — both
+  `temper check . --reporter session-start` — and its group binds
+  `BASH_MATCHER` (`:166`) under the same constituency test as the
   `PreToolUse` guard, so `reporter::context`'s pass-time disclosure (the
   `Checked:` block, `reporter.rs:158`, every `Severity::Note` plus the
   announcement, ~960 bytes of `additionalContext`) replays on EVERY Bash
@@ -159,8 +160,14 @@ tax.
   Per tool call (`PreToolUse` = `temper guard`, three enforcement modes) —
   and `PostToolUse` appears **nowhere** in the evergreen corpus. It arrived
   via `cf67f291` (09-03, a `build:` commit), a placement build minted with
-  no spec section owning it. Three candidate rulings, none derivable from
-  the corpus as it stands: (a) unsanctioned — install stops wiring it, and
+  no spec section owning it, and 842884f4 has since **entrenched** it: the
+  three gate hooks are now `hook` members the lift mints from one
+  `GATE_HOOKS` table (`install.rs:204`), so the unsanctioned placement is a
+  row in temper's own scaffolded program rather than a splice — which
+  narrows (a) below to deleting a table row and widens the blast radius of
+  leaving it unruled, since every newly-adopted harness now carries it as an
+  authored member. Three candidate rulings, none derivable from
+  the corpus as it stands: (a) unsanctioned — install stops minting it, and
   Bash-mediated writes stay CI's, the backstop the guard's own message
   already names verbatim to the author; (b) sanctioned, and
   `distribution.md` gains a sixth bullet: PostToolUse is the Bash-write
@@ -427,6 +434,44 @@ tax.
   routes it to (b) until one does — and a new lock column is a migration plus a
   fourth thing every writer must set. No entry filed, no dependents:
   ROOT-DEFAULT-CONTRACT-SHIPS ships under today's rule either way.
+
+- `(represented-harness-gate-upgrade)` — OPEN, live driver (842884f4's own
+  stated deferral, measured on disk this tick). Since that commit temper's
+  gate rides the program: `scaffold` mints one `hook` member per `GATE_HOOKS`
+  row (`install.rs:204`) and `emit` is `.claude/settings.json`'s one writer.
+  But `run_represented` (`:530`) lifts only when `harness.ts` is absent —
+  `let scaffolded = if already_scaffolded { 0 } else { scaffold(…) }`
+  (`:556`) — so a harness represented before that change, or one whose author
+  deleted a gate hook module, has no member at those events. `gate_outcome`
+  (`:747`) then answers `Conflicted` and `gate_installed` names it, forever:
+  re-running install re-wires nothing. `adoption.md` "Install" promises
+  "Re-running install converges, placements following the lock's current
+  contents", and on the represented path a gate hook is no longer a placement
+  install performs but a **member the lock carries**, so the sentence's
+  subject no longer covers the case — that silence is the fork. Three
+  candidates. (a) Install re-lifts: it mints the missing modules and appends
+  their import + composition to `harness.ts`. Install is the one verb that
+  writes program sources, so this breaks no emit fence — but it means editing
+  a TypeScript file the author has since restructured, machinery temper does
+  not have and would carry permanently. (b) **Report-only**: `Conflicted`
+  grows a remedy — the module path to add and the one import line — and
+  install writes nothing. (c) Install writes the missing
+  `.temper/hooks/<Event>.ts` modules but never touches `harness.ts`, leaving
+  the author one line to add; **rejected** — an unimported module in a
+  represented program is exactly the unreached member `reached-from`
+  (62d9ac0c) was built to indict, so the remedy would author the defect.
+  Session recommendation: **(b)**, and the decisive argument is not the
+  migration but the standing case: an author who deliberately deletes the
+  PostToolUse gate hook — the live `(post-tool-use-placement)` fork is
+  precisely that wish — must not have install silently re-add it on the next
+  run. `Conflicted` on a removed member is the *correct* verdict; what is
+  missing is only that it says nothing about what to do. The objection (b)
+  must answer: a one-time migration for harnesses adopted before 842884f4 is
+  then hand-work temper narrates but never performs, and adoption.md's
+  "installs the tool whole" reads as a first-run-only promise. No entry
+  filed: (a) and (b) produce incompatible entries (TS-editing machinery vs a
+  report string) with no common shippable core, and plan does not pick among
+  them. No dependents.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
