@@ -1,8 +1,45 @@
 [
   {
-    "tag": "CONTAINMENT-INCIDENCE-FAMILY",
+    "tag": "EXAMPLE-EMIT-GATE-BUILDS-THE-SDK-IT-READS",
     "gate": {
       "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "`vendor_sdk` (:118) calls `ensure_sdk_built()` (:90) BEFORE the `link.exists()` early return (:121), restoring the invariant its own doc already states — \"vendor the repo's **built** SDK\". The `Once` inside `ensure_sdk_built` keeps it one build per test binary, so the ~20 tmpdir callers pay nothing new; what changes is that a caller whose link already exists now joins that `Once` instead of racing it. Plus a new `copy_tree(from, to)` beside `tree_bytes` (:563), the same `walkdir` shape filtered to `entry.file_type().is_file()` — so a vendored `node_modules/@dtmd/temper` symlink is neither copied nor descended — creating each destination parent before the `fs::copy`."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "`emit_program_runs_the_shipped_example_harness` (:2222) stops writing into the checkout: `copy_tree`s `examples/base-harness/` into a `common::tmpdir` and emits from the copy's `.temper`, so `vendor_sdk` (:2227) sees a fresh scope and always builds. The harness root is self-contained — every lock row's `source_path`/`governs_root` is root-relative (`docs/`, `src`, `.claude/`) — so the copy proves the same three claims the doc-comment names. The `Unchanged` assertion's remediation line still points at the committed path. Closes with the regression pin: `examples/base-harness/.temper/node_modules` was never created."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The example-harness emit gate reads whatever `sdk/dist` holds: `vendor_sdk` skips the build when its link exists, and only this test's link persists — in the checkout it writes.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A seam gate reads what the real writer wrote"
+    },
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "the example emit runs from a temp copy of `examples/base-harness/` and leaves `examples/base-harness/.temper/node_modules` uncreated — the pin that fails on the pre-fix tree, where the test writes that link itself"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, and the example test passes on a checkout whose `sdk/dist` is absent at run start (the pre-fix tree crashes there with ENOENT on `dist/src/prose.js` once the link exists).",
+    "notes": "The flake that reverted CONTAINMENT-INCIDENCE-FAMILY: a sibling test's `ensure_sdk_built` runs `rm -rf dist && tsc` (sdk/package.json:43) on one thread while this test — having taken the early return — reads `dist/` on another. `vendor_sdk`'s signature does not move, so its ~20 `tests/install.rs` call sites are ripple noise. scoped at 47b74e5b"
+  },
+  {
+    "tag": "CONTAINMENT-INCIDENCE-FAMILY",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "EXAMPLE-EMIT-GATE-BUILDS-THE-SDK-IT-READS"
+      ]
     },
     "dependsOnForks": [],
     "files": {
@@ -27,6 +64,10 @@
         {
           "path": "tests/read_verbs.rs",
           "description": "`why` on a host names the members its body composes as containment incidences, and `why` on an embedded member names its host — neither rendered as a declared field, beside the mention narration pinned at :612."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "`graph::degree` gains the `by_kind` corpus, so its second call site moves with it: :460 already holds `by_kind` for the `mention_reachable` call two lines down and passes it through unchanged. The cost pin itself is untouched — the containment family is derived after `degree`'s opt-in early return, so `resolved_edges_count()` does not move."
         }
       ],
       "retire": []
@@ -47,7 +88,7 @@
       }
     ],
     "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle (the adopter's floor 0052 names): a `rule` admitting `directive` and `consult`, bounded outgoing ≥ 1 filtered to `contains:directive` ∪ `contains:consult`, fires on a rule whose body composes neither and is silent on one composing either — while the same bound unfiltered counts no containment arc, so a rule composing nothing and declaring one `routes_to` keeps today's verdict.",
-    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. The second parent is read.rs/read_verbs.rs overlap. scoped at 6f4e39f4",
+    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. Gated on the flake that reverted attempt one, not on its work. scoped at 47b74e5b",
     "observedFiles": [
       ".flume/refactor/build-containment-degree-signature-fence.md"
     ]
