@@ -389,7 +389,7 @@ test("an edge field resolving to a composed member emits without throwing", () =
 //     field, on the value's own leaves and on every collection entry's alike.
 // ---------------------------------------------------------------------------
 
-test("embeddedMemberValue refuses a top-level leaf named `prose`", () => {
+test("embeddedMemberValue refuses a top-level leaf named `prose`, naming the rename", () => {
   const decision = decisionKind();
   assert.throws(
     () =>
@@ -398,7 +398,15 @@ test("embeddedMemberValue refuses a top-level leaf named `prose`", () => {
         key: "surface-authority",
         leaves: { prose: "the words" },
       }),
-    /embedded member `decision` `surface-authority`: leaf `prose` is reserved/,
+    (error: Error) => {
+      assert.match(error.message, /embedded member `decision` `surface-authority`: leaf `prose` is reserved/);
+      // The remedy is named, and it is the one an author of an embedded value can take:
+      // this init carries leaves and collections alone, so a member-prose route would
+      // point at a surface that does not exist here.
+      assert.match(error.message, /rename the field$/);
+      assert.doesNotMatch(error.message, /member's prose/);
+      return true;
+    },
   );
 });
 

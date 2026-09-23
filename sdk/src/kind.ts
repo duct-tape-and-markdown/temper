@@ -924,7 +924,9 @@ export function embeddedMemberValue(init: {
  * Refuse a composed leaf named {@link RESERVED_LEAF} — the key a read member's own span
  * owns, so a second meaning under it is a coincident leaf address, refused at compose
  * rather than resolved by precedence (0051). Loud at the authoring seam, where the author
- * can rename the field, not at emit over bytes already written.
+ * can rename the field, not at emit over bytes already written. The rename is the whole
+ * remedy: an embedded value carries leaves and collections alone, so there is no
+ * member-level prose here to move the words into.
  *
  * # Throws
  * If `leaves` carries the reserved key.
@@ -937,6 +939,6 @@ function refuseReservedLeaf(
   if (!Object.hasOwn(leaves, RESERVED_LEAF)) return;
   throw new Error(
     `embedded member \`${kind}\` \`${key}\`: leaf \`${RESERVED_LEAF}\` is reserved for a ` +
-      `member's own span — rename the field, or author the words as the member's prose`,
+      `member's own span — rename the field`,
   );
 }
