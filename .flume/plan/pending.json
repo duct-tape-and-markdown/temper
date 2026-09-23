@@ -1,131 +1,8 @@
 [
   {
-    "tag": "BUILTIN-KIND-FACTS-AGREE-WITH-THE-LOCK",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_lock.rs",
-          "description": "`the_embedded_lock_parses_into_kind_facts_and_floor_clauses_only` (:41) compares the lock's kind *names* against `builtin_kind::definitions()`'s keys (c5b41848) and stops; the facts behind each name are compared with nothing. Add the sibling assertion in the same module: for every row, `CustomKind::from_kind_fact_row(row)` equals `definitions()[&row.name]` on the groups a `KindFactRow` carries — `governs`, `commitment`, `format`, `unit_shape`, `registration`, `templates`, `content`, `collection_address` — field by field, never a whole-struct compare (the lift fills `extraction` with a fixed primitive set and leaves `relationships`/`bare_root_file` empty). It carries the names assertion's own vacuity pin: an empty row set would agree and prove nothing."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Only the built-in kinds' names are gated against the embedded lock — a `governs`, `format`, `registration` or `templates` divergence between the two populations ships green.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "src/builtin_lock.rs",
-        "asserts": "every embedded lock kind row lifts to the `CustomKind` `builtin_kind::definitions()` spells, on every fact group the row can carry"
-      }
-    ],
-    "acceptance": "`cargo test` green. Oracle: flipping one `governs_glob` or dropping one `registration` label in `src/builtin_kind.rs` fails this assertion, where at HEAD it passes every gate — the gate reads the Rust population and `explain` reads the lock rows, and `explain_target` reads both in one function under a doc comment promising the two cannot disagree.",
-    "notes": "Three fact groups a `KindFactRow` cannot carry stay the Rust population's alone and are named here rather than silently skipped: `extraction` (no SDK surface declares a primitive — the gap `(directive-relation-scope)` carries), `relationships` (`installed-plugin`'s one edge, `src/builtin_kind.rs`:430, which rides the lock as an assembly fact) and `bare_root_file` (`skill`). Test-only: no shipped byte moves. scoped at 59857dd5"
-  },
-  {
-    "tag": "DEGREE-FIELD-SET-FILTER",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "`Predicate::Degree` (:328) carries `incoming`/`outgoing` only — add the field-set filter beside them, as the clause's own `fields` set rather than a property of either bound: 0056's `reached-from` via set is the same concept (`specs/process/engineering.md`, \"A shared concept is one type\"), so one shape serves both. An unfiltered bound keeps today's meaning (every resolved edge at the member); `EdgeBound` is untouched."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Admissibility for `Degree` (:461) gains the vacuity case a filter can reach — a filter naming no field constrains nothing, exactly as a directionless bound does; the `Predicate::Degree { .. }` arms at :266/:321/:368/:646/:1223 ride the widened variant and the unit cases at :1736-1790 follow."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "`degree` (:307-420) drops the field before counting: `resolved_arcs` collapses `(from, to)` across fields, so two fields between one pair count once. Filter per clause over `ResolvedEdge.field` (already carried) and dedupe arcs **per filtered set**, so an `a`-edge and a `b`-edge to one target count two. Mention/import edges keep joining the same adjacency and answer a filter naming their field."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "A new shared `ClauseRow.fields: Option<Vec<String>>` column carries the filter — **not** a key inside `DegreeBoundRow` (:3942), which stays direction-only: the second consumer is 0056's `reached-from` via set, and a lock spelling one concept two ways is the residue class. `ClauseRow::to_table` (:4737) and `from_table` (:4803) round-trip it beside `target`/`degree`, absent when unfiltered so no committed lock row moves."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "`:760` constructs `Predicate::Degree { incoming, outgoing }` for the requirement roster's shipped clause — a construction site the widened variant reaches; it stays unfiltered."
-        },
-        {
-          "path": "sdk/src/contract.ts",
-          "description": "`degree()` (:253) takes the field set, so the clause the lock encodes losslessly is the one the author wrote. Strict `tsc` against 0.0.18 rejects `degree({ incoming: { max: 1 }, field: \"writes\" })` with TS2353 today. The `Predicate` interface gains the `fields` slot the row column mirrors — the slot `reachedFrom` will reuse, never a `degree`-private one."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "The `degree` cases gain the two the filter owns: a bound filtered to one field ignores another field's arcs, and one member reaching one target through two fields counts two under a filter naming both."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The degree row's declaration round-trip: a filtered bound survives write→read byte-identically, an unfiltered one emits no filter key."
-        },
-        {
-          "path": "sdk/test/contract.test.ts",
-          "description": "The constructor's args shape — the filtered spelling type-checks and lands in the clause's `args`."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "`:875` hand-spells a `DegreeBoundRow` literal for the roster's own degree clause — a widened row breaks the literal; it stays unfiltered."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`clauseRow`'s lowering (:105-:155) writes the new `fields` column for a `degree` predicate beside the `degree` bound it already writes (:116-:123) — the constructor's args reach the lock nowhere else, so the SDK half is unfinished without it."
-        },
-        {
-          "path": "sdk/src/generated/ClauseRow.ts",
-          "description": "Generated, never hand-edited: re-blessed with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` once the Rust row gains the column."
-        },
-        {
-          "path": "src/test_support.rs",
-          "description": "`clause_row` — the src-side base LOCK-ROW-FIXTURE-ONE-HOME(src) lands — spells every `ClauseRow` column, so the new one is absent there once and nowhere else in `src/`."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "`clause` (:709) spells all twenty-three columns to set two; it gains the new one at its default, which is what keeps every integration call site untouched."
-        },
-        {
-          "path": "sdk/test/common.ts",
-          "description": "The SDK-side fixture base its parent lands gains `fields: undefined` — the one line that keeps both emitted-row literals green, the SDK twin of the `src/test_support.rs` and `tests/common/mod.rs` fills above. `sdk/test/emit.test.ts` needs no edit once the base exists, which is why the parent is serialized ahead rather than this fence widened."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "`contract.md`'s by-incidence selector filters by a field set; `Predicate::Degree` bounds direction only, so every field counts and two fields to one target count once.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "selection"
-    },
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a `degree` bound filtered to one field counts only that field's arcs, and arc dedupe is per filtered set — two fields to one target count two"
-      },
-      {
-        "path": "sdk/test/contract.test.ts",
-        "asserts": "`degree()` accepts the field set and carries it in the clause's args"
-      }
-    ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `pnpm --dir sdk test` green, with `src/builtin_lock.toml` byte-unchanged (no shipped clause is filtered). Oracle (the inbox repro): a `channel` kind bounding incoming degree to [0,1] filtered to `writes` counts the two `path.writes` arcs and not the `effect.clobbers` one, where all three count today.",
-    "notes": "0052's Consequences name this entry verbatim (\"`Predicate::Degree` gains a field-set filter\"); the inbox note observed at d9a34e39 is its second driver, repro'd on 0.0.18. The filter lands on a shared `ClauseRow.fields` column, since 0056 declares `reached-from`'s via set to be the same field set. Containment's half rides CONTAINMENT-INCIDENCE-FAMILY. Build implemented it whole at a32276c0, every gate green, one out-of-fence file — now the parent's. scoped at a32276c0"
-  },
-  {
     "tag": "WHEN-BODY-REFUSES-A-SET-PREDICATE",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "DEGREE-FIELD-SET-FILTER"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -155,10 +32,7 @@
   {
     "tag": "CONTAINMENT-INCIDENCE-FAMILY",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "DEGREE-FIELD-SET-FILTER"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -256,7 +130,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "DEGREE-FIELD-SET-FILTER",
         "CONTAINMENT-INCIDENCE-FAMILY"
       ]
     },
@@ -404,8 +277,7 @@
       "kind": "blockedBy",
       "tags": [
         "KIND-ROW-LEAF-SET-COLUMN",
-        "WHEN-LABEL-CARRIES-ITS-GUARD-VALUES",
-        "BUILTIN-KIND-FACTS-AGREE-WITH-THE-LOCK"
+        "WHEN-LABEL-CARRIES-ITS-GUARD-VALUES"
       ]
     },
     "dependsOnForks": [],
@@ -813,7 +685,6 @@
       "tags": [
         "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
         "KIND-ROW-LEAF-SET-COLUMN",
-        "DEGREE-FIELD-SET-FILTER",
         "CONTAINMENT-INCIDENCE-FAMILY"
       ]
     },
