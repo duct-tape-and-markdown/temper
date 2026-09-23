@@ -83,7 +83,7 @@
     "notes": "The discriminator is the same one `emit` uses to decide whether a rollup row lands (src/drift.rs:1279): a container member makes the manifest a whole projection, so invariant 7's part-authored file cannot arise. Without this the file's `config.stale` verdict at check is contradicted by a guard that waved the edit through at the boundary. 0050's changelog consequence covers this reversal and rides the release channel. scoped at cb0f52c4"
   },
   {
-    "tag": "INSTALL-LIFTS-SETTINGS-RESIDUE",
+    "tag": "INSTALL-LIFTS-A-JSON-DOCUMENT-MEMBER",
     "gate": {
       "kind": "blockedBy",
       "tags": [
@@ -96,16 +96,16 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "`scaffold` (:1911) lifts only file members discovered by kind and writes a `harness.ts` skeleton — an existing `.claude/settings.json`'s documented keys and residue (`permissions`, `autoMemoryEnabled`) reach the program through nothing, so after the lift they survive only as long as nobody re-renders the file. Hoist them into a scaffolded `settings` member module the skeleton imports, so the first emit — the one reviewable adoption diff — sheds no key."
+          "description": "`scaffold` (:1911) hands every `Content::File` kind to `frontmatter::Member::from_source` (:1929) whatever format the kind declares, so a `json-document` member is read as YAML frontmatter — no fields, the whole JSON as `body`. Dispatch on the kind's declared format the way `compose::read_file_unit` (src/compose.rs:548) already does (`json_manifest::DocumentMember::read` for `json-document`, `toml_document::read` for `toml-document`), and skip a `local`-commitment kind beside the layout skip (:1925) — a local artifact is read in place and is never an emit target, so `settings-local`/`dial` must not become member modules at all. `member_module_source` (:1998) stops appending its unconditional `prose:` for a format that renders fields alone, and imports the SDK's camelCase constructor (`settingsLocal`, `pluginManifest`, sdk/src/claude-code.ts:28) instead of interpolating the kind value: a hyphenated kind renders `import { file, text, settings-local }` and `export const settings-local_settings_local` today, neither legal TS. `member_ident` (:1965) folds the kind prefix as it already folds the name. `json_to_ts_literal` (:2050) already renders any JSON value, so the field path needs no new renderer. The three `member_module_source` unit tests in this file (:2372, :2404, :2418) pin the frontmatter shape and move with it."
         },
         {
           "path": "tests/install.rs",
-          "description": "The lift suite: a project whose settings.json carries residue and hook groups is represented with a `settings` member carrying that residue, and the first emit round-trips the file's keys."
+          "description": "The lift suite: a project carrying `.claude/settings.json` lifts a `settings` member whose top-level keys are typed properties with no `.md` sidecar, and its first emit re-renders every key; `.claude-plugin/plugin.json` lifts under its `name` key rather than aborting `frontmatter::no_named_field_id`; a `local`-commitment artifact (`.claude/settings.local.json`) is counted in discovery and converted into nothing; the generated module for a hyphenated kind names the SDK's real export. `a_fresh_dry_run_scaffolds_and_writes_nothing` (:796) pins the preview count, which the local skip moves only for a project carrying a local artifact."
         }
       ],
       "retire": []
     },
-    "summary": "The lift scaffolds no `settings` member, so an adopter's existing `.claude/settings.json` keys reach the program nowhere and the first emit can shed them.",
+    "summary": "The lift reads every file member as frontmatter, so a json-document kind's JSON lands in a prose body — settings.json's first emit refuses `body_has_no_home`, plugin.json aborts unnamed.",
     "per": {
       "path": "specs/model/adoption.md",
       "section": "Install"
@@ -113,11 +113,11 @@
     "tests": [
       {
         "path": "tests/install.rs",
-        "asserts": "`install` over a project with a populated settings.json scaffolds a `settings` member carrying its documented keys and residue, and the first emit re-renders the file with every key intact."
+        "asserts": "a settings.json lifts into a fields-bearing `settings` member with no prose sidecar and round-trips its keys through the first emit; a plugin.json lifts under its `name` key; a local-commitment artifact is never converted; a hyphenated kind's module imports the SDK's camelCase constructor"
       }
     ],
-    "acceptance": "`cargo test` green with the lift producing a `settings` member module and the adoption emit round-tripping an existing settings file byte-for-byte on its keys.",
-    "notes": "0016's whole-conversion bar applied to the one file three registration kinds already share: the lift converts, it never leaves a key behind. The assembly-level `settings` bag (`sdk/src/assembly.ts:55`, 'a shrinking list') is the pre-0050 channel for the same keys; whether it retires once the member owns them is not ruled by 0050 and is left alone here. scoped at cb0f52c4"
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green, with `install --represent` over a project carrying `.claude/settings.json` and `.claude-plugin/plugin.json` producing a program whose first emit re-renders both files' keys intact, and writing no module for a local-commitment artifact.",
+    "notes": "Measured at 24420d45 (probes this tick): the lift reaches settings.json because `claude_code_settings()` joined `all_kinds()` (9fcf7521). It writes `settings({name, prose: file(...)})` plus a `.md` holding the JSON, and emit refuses `drift::body_has_no_home`; plugin.json aborts `frontmatter::no_named_field_id`; settings.local.json renders unparsable TS. Supersedes INSTALL-LIFTS-SETTINGS-RESIDUE, whose premise (no settings member scaffolded) is false at HEAD. scoped at 24420d45"
   },
   {
     "tag": "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
@@ -216,7 +216,7 @@
       "kind": "blockedBy",
       "tags": [
         "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
-        "INSTALL-LIFTS-SETTINGS-RESIDUE"
+        "INSTALL-LIFTS-A-JSON-DOCUMENT-MEMBER"
       ]
     },
     "dependsOnForks": [],
@@ -837,6 +837,45 @@
     ],
     "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion text changed — a fixture consolidation ships behavior-identical, so the two suites' existing pins are its whole proof. `tests/common/mod.rs` gains exactly one item and `tests/read_verbs.rs` loses exactly one.",
     "notes": "Posture sweep, tests/tap.rs neighborhood. Behind the parent on file collision alone: both edit tests/common/mod.rs, where the settings re-baseline may want a fixture — two `open` entries over one file is the merge revert the queue rule forbids. No behavior moves, so there is no pre-fix regression to pin; the consolidation's own bar is that both suites stay green unedited. scoped at c06563d0"
+  },
+  {
+    "tag": "INSTALL-LIFTS-A-REGISTRATION-MEMBER",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "INSTALL-LIFTS-A-JSON-DOCUMENT-MEMBER"
+      ]
+    },
+    "dependsOnForks": [
+      "hook-member-identity"
+    ],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`scaffold`'s skip (:1925) reads `kind.content != kind::Content::File` under a comment naming only layout kinds, so every fields-shape kind — `hook`, `installed-plugin`, `known-marketplace`, `mcp-server` — is dropped silently: its members sit at a `collection_address` inside a manifest, a shape the lift has no reader for. Convert each discovered collection entry into a member module named by its registration key, so 0016's whole conversion covers a manifest's registration segments and not just the container member the sibling entry lifts."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "The lift suite: a project whose `.claude/settings.json` carries a `SessionStart` hook group and an `enabledPlugins` entry lifts one module per registration member, the first emit re-renders both segments beside the container's own keys, and the discovery count agrees with the scaffolded count."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A registration member reaches no module: a settings.json hook group is counted in discovery and dropped by the lift, so the container's first emit sheds it.",
+    "per": {
+      "path": "specs/model/adoption.md",
+      "section": "Install"
+    },
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a settings.json carrying a hook group and an enabledPlugins entry lifts a module per registration member, and the first emit re-renders both segments with the container's keys"
+      }
+    ],
+    "acceptance": "`cargo test` green with `install --represent` over a project whose settings.json carries registration segments producing a module per registration member, and the adoption emit re-rendering the file with every segment intact.",
+    "notes": "Measured at 24420d45: a settings.json with one SessionStart group reports `hook 1` in discovery and scaffolds no hook module; with the settings container owning the file whole, a hand-corrected member's first emit rendered `.claude/settings.json` as `{permissions}` alone — the group and the residue key gone. Rests on `(hook-member-identity)`: a lifted hook needs a name, and two groups on one event share one address today. scoped at 24420d45"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",

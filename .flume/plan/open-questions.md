@@ -111,7 +111,9 @@ tax.
   unruled is now visible inside one function — resolution total for a
   nested key, first-wins for a top-level one, both cited to the same
   `representation.md` ("member") sentence. Dependents:
-  HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL.
+  HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL,
+  INSTALL-LIFTS-A-REGISTRATION-MEMBER — the lift must name each hook group
+  it converts, so the discriminator is that entry's precondition too.
 
 - `(layout-title-heading-admission)` — OPEN, live driver (GH #45(b)). Does a
   layout admit a document title — a lone leading H1 whose own span is
