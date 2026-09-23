@@ -94,6 +94,11 @@ fn member_findings(
             // dials the check that fired, at the severity its author declared, taught by
             // the sentence that author wrote. A top-level clause names none of the three
             // and the clause in hand supplies them.
+            //
+            // This is the one judge that must NOT fold into
+            // [`Diagnostic::from_clause`] — deliberate, not an oversight: that
+            // constructor reads all three channels off the clause in hand, and here two
+            // of the three may come from the violation instead.
             diagnostics.push(
                 Diagnostic::new(
                     severity_of(violation.severity.unwrap_or(clause.severity)),
@@ -1018,13 +1023,7 @@ fn wrong_kind(selection: &Selection, clause: &Clause, kind: &str) -> Vec<Diagnos
 /// One selection-grain finding: the clause's own declared severity, its address as the
 /// rule id, the selection as the indicted artifact, and the clause's colocated guidance.
 fn finding(selection: &Selection, clause: &Clause, message: String) -> Diagnostic {
-    Diagnostic::new(
-        severity_of(clause.severity),
-        &clause.label,
-        selection.selector.label(),
-        message,
-    )
-    .with_guidance(clause.guidance.clone())
+    Diagnostic::from_clause(clause, selection.selector.label(), message)
 }
 
 /// Evaluate one predicate over one artifact's features, returning a message per
@@ -1660,9 +1659,11 @@ fn addressed(
 /// `required` blocks (`Error`), `advisory` reports (`Warn`). The engine never
 /// chooses — it only translates what the author declared.
 ///
-/// `pub` so an assembly-scope dial that shares the author's `required`/`advisory`
-/// vocabulary — the reachability severity — maps through
-/// the one translation, never a second copy that could drift.
+/// `pub` so a test asserting a judge reported at its clause's declared weight
+/// (`tests/layout_prose_import.rs`) maps through the one translation, never a second
+/// copy that could drift. Every in-tree judge reaches it through
+/// [`check::Diagnostic::from_clause`]; only [`member_findings`], whose weight may come
+/// off the violation rather than the clause, still calls it directly.
 #[must_use]
 pub fn severity_of(severity: contract::Severity) -> check::Severity {
     match severity {

@@ -2822,17 +2822,13 @@ pub fn config_stale_from_doc(
             continue;
         };
         if sha256_hex(&canonicalize_eol(&bytes)) != emit_hash {
-            findings.push(
-                crate::check::Diagnostic::new(
-                    crate::engine::severity_of(clause.severity),
-                    clause.label.as_str(),
-                    &source_path as &str,
-                    format!(
-                        "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
-                    ),
-                )
-                .with_guidance(clause.guidance.clone()),
-            );
+            findings.push(crate::check::Diagnostic::from_clause(
+                clause,
+                &source_path as &str,
+                format!(
+                    "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
+                ),
+            ));
         }
     }
     findings
@@ -2903,16 +2899,14 @@ pub fn undeclared_layout_members_from_doc(
         .iter()
         .filter(|site| !declared.contains(&site.member))
         .map(|site| {
-            crate::check::Diagnostic::new(
-                crate::engine::severity_of(clause.severity),
-                clause.label.as_str(),
+            crate::check::Diagnostic::from_clause(
+                clause,
                 site.source_path.as_str(),
                 format!(
                     "layout document `{}` (member `{}`) is discovered but the lock declares no member for it — its body's members, prose, and leaf addresses are absent from every read, so its collections count zero and `explain` reports none; declare the member in the program and re-emit, or declare its kind `local` so `check` derives the rows at read time",
                     site.source_path, site.member
                 ),
             )
-            .with_guidance(clause.guidance.clone())
         })
         .collect()
 }
@@ -3006,18 +3000,14 @@ pub fn undeclared_locus_members_from_doc(
         } else {
             ""
         };
-        verdict.findings.push(
-            crate::check::Diagnostic::new(
-                crate::engine::severity_of(clause.severity),
-                clause.label.as_str(),
-                site.source_path.as_str(),
-                format!(
-                    "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it, yet Claude Code loads it; declare the member in the program and re-emit{local_remedy}",
-                    site.source_path, site.kind
-                ),
-            )
-            .with_guidance(clause.guidance.clone()),
-        );
+        verdict.findings.push(crate::check::Diagnostic::from_clause(
+            clause,
+            site.source_path.as_str(),
+            format!(
+                "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it, yet Claude Code loads it; declare the member in the program and re-emit{local_remedy}",
+                site.source_path, site.kind
+            ),
+        ));
     }
     verdict
 }
@@ -3424,15 +3414,11 @@ pub fn source_dep_stale_from_doc(
                 row.source_path, row.member
             ),
         };
-        findings.push(
-            crate::check::Diagnostic::new(
-                crate::engine::severity_of(clause.severity),
-                clause.label.as_str(),
-                &row.source_path,
-                message,
-            )
-            .with_guidance(clause.guidance.clone()),
-        );
+        findings.push(crate::check::Diagnostic::from_clause(
+            clause,
+            &row.source_path,
+            message,
+        ));
     }
     Ok(findings)
 }

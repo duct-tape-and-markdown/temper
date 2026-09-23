@@ -72,14 +72,6 @@ const GRAPH_ADMISSIBILITY_RULE: &str = "graph.admissibility";
 /// The diagnostic `rule` id the acyclicity finding reports under.
 const GRAPH_ACYCLIC_RULE: &str = "graph.acyclic";
 
-/// The diagnostic `rule` id every reachability finding reports under: the compiled
-/// address of the root member's own `reachable` clause
-/// ([`crate::contract::clause_label`] over [`crate::contract::ROOT_OWNER`]). The
-/// predicate names no field, so that address is a constant — spelled here rather than
-/// recomposed per finding, and pinned against the composed clause's own label by
-/// `tests/root_contract.rs`.
-const GRAPH_REACHABLE_RULE: &str = "root.reachable";
-
 /// The diagnostic `rule` id every unbacked-pointer directive finding reports under.
 const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
 
@@ -639,9 +631,8 @@ fn unreached(
         Some(fields) => format!("over {}", quoted(fields)),
         None => "over every declared edge".to_string(),
     };
-    Diagnostic::new(
-        engine::severity_of(clause.severity),
-        &clause.label,
+    Diagnostic::from_clause(
+        clause,
         artifact,
         format!(
             "{} requires each member reached from the satisfiers of `{roots}` {over}, but \
@@ -649,7 +640,6 @@ fn unreached(
             selection.selector.noun(),
         ),
     )
-    .with_guidance(clause.guidance.clone())
 }
 
 /// The host member an edge's source belongs to, or `None` when the source is no embedded
@@ -770,15 +760,7 @@ pub fn mention_reachable(
                     } else {
                         continue;
                     };
-                    diagnostics.push(
-                        Diagnostic::new(
-                            engine::severity_of(clause.severity),
-                            &clause.label,
-                            &features.id,
-                            message,
-                        )
-                        .with_guidance(clause.guidance.clone()),
-                    );
+                    diagnostics.push(Diagnostic::from_clause(clause, &features.id, message));
                 }
             }
         }
@@ -1129,9 +1111,8 @@ fn out_of_degree(
 ) -> Diagnostic {
     let min = bound.min.map_or_else(|| "0".to_string(), |n| n.to_string());
     let max = bound.max.map_or_else(|| "∞".to_string(), |n| n.to_string());
-    Diagnostic::new(
-        engine::severity_of(clause.severity),
-        &clause.label,
+    Diagnostic::from_clause(
+        clause,
         artifact,
         format!(
             "{} bounds {} degree to [{min}, {max}], but `{artifact}` has {actual}",
@@ -1139,7 +1120,6 @@ fn out_of_degree(
             direction.label(),
         ),
     )
-    .with_guidance(clause.guidance.clone())
 }
 
 /// Check the graph-scope **`reachable`** predicate: a member is reachable when its own
@@ -1179,8 +1159,8 @@ fn out_of_degree(
 /// clause ([`engine::root_clause`]) and walks nothing where none binds. That one clause
 /// is every channel a finding carries — the author's declared severity, and the guidance
 /// the gate teaches through at the moment of failure (`specs/model/contract.md`,
-/// "clause"). The dial reaches it by the same [`GRAPH_REACHABLE_RULE`] address the
-/// findings report under. Whether a dead edge gates, and at what weight, is the author's
+/// "clause"). The dial reaches it by the same `root.reachable` address the clause's own
+/// `label` compiles to and the findings report under. Whether a dead edge gates, and at what weight, is the author's
 /// call; a deliberate work-in-progress dead edge is dialed, never tool-decided.
 #[must_use]
 pub fn reachable(
@@ -1457,9 +1437,8 @@ fn declared_globs(member: &Features, field: &str) -> Vec<String> {
 /// The finding for a member whose inbound registration edge from the [`world`] node is
 /// dead — naming the world, the member (kind + id), and the dead-edge reason, at the
 /// root clause's own declared severity and carrying its guidance, the way
-/// [`out_of_degree`] and [`unreached`] carry their own clause's. The address stays
-/// [`GRAPH_REACHABLE_RULE`]: the label a root `reachable` clause compiles to, and the one
-/// the dial spells back.
+/// [`out_of_degree`] and [`unreached`] carry their own clause's — the address included,
+/// off the clause's own `label` rather than a rule id baked in beside it.
 fn unreachable(
     world: &Node,
     kind: &str,
@@ -1467,16 +1446,14 @@ fn unreachable(
     reason: &str,
     clause: &crate::contract::Clause,
 ) -> Diagnostic {
-    Diagnostic::new(
-        engine::severity_of(clause.severity),
-        GRAPH_REACHABLE_RULE,
+    Diagnostic::from_clause(
+        clause,
         id,
         format!(
             "the registration edge from the {} node to {kind} `{id}` is dead — {reason}",
             world.0
         ),
     )
-    .with_guidance(clause.guidance.clone())
 }
 
 /// One member the directive classing ranges over: its `(kind, id)` identity, the

@@ -122,6 +122,35 @@ impl Diagnostic {
         }
     }
 
+    /// A finding **a clause produced**: the one home that reads all three of a
+    /// [`Clause`](crate::contract::Clause)'s channels together — the author's declared
+    /// [`severity`](crate::contract::Clause::severity) (through
+    /// [`engine::severity_of`](crate::engine::severity_of)), the
+    /// [`label`](crate::contract::Clause::label) the finding reports under, and the
+    /// [`guidance`](crate::contract::Clause::guidance) the gate teaches through at the
+    /// moment of failure. A judge hands the clause, the indicted artifact and the
+    /// message; it can no more thread two channels of three than it can invent a
+    /// fourth.
+    ///
+    /// [`with_guidance`](Self::with_guidance) stays public beside it: a finding that
+    /// carries guidance from somewhere other than its filing clause — the `when` body
+    /// whose own prose wins over the enclosing guard's
+    /// ([`engine`](crate::engine)) — still needs the builder.
+    #[must_use]
+    pub fn from_clause(
+        clause: &crate::contract::Clause,
+        artifact: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            crate::engine::severity_of(clause.severity),
+            &clause.label,
+            artifact,
+            message,
+        )
+        .with_guidance(clause.guidance.clone())
+    }
+
     /// Attach a clause's [`guidance`](crate::contract::Clause::guidance) to this
     /// finding — the just-in-time delivery of the hover-sized *why* on the
     /// violation. A builder so the base
