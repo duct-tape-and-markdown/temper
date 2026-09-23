@@ -174,6 +174,20 @@ fn the_hook_default_contract_passes_documented_events() {
 
     let (findings, _ok) = check_harness(&harness);
 
+    // The vacuity pin: both `CLEAN_SETTINGS` hooks were read as members and judged, so the
+    // silence below is a verdict and not an empty selection (an empty harness reports
+    // `hook (0)` and emits the same zero findings).
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("hook (2)"),
+        "both documented-event hooks are checked, got: {}",
+        checked[0]
+    );
     assert!(
         common::findings_for(&findings, "hook.enum.event").is_empty(),
         "every documented event passes the clause, got: {findings:#?}"
