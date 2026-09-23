@@ -1,89 +1,8 @@
 [
   {
-    "tag": "SOURCE-DEPENDENCY-PATH-OUTSIDE-THE-ROOT",
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`harness_relative` (:2182) strips the canonical root as a prefix and, when the target sits above it, falls back to the absolute path (`Err(_) => to_lock_path(&target_abs)`, :2195) — so the committed row spells THIS checkout. Its two callers are the two families whose paths arrive SDK-resolved and absolute: composed-prose includes (:1347) and declared inputs (:2157). Record a `../`-segmented path from the root instead, and refuse loud (a new `DriftError` variant, matched nowhere outside this module) only where no relative path exists — a target on another Windows drive. The read side already works: `resolve_source_dependency` (:2103) joins `harness_root` onto the row and `source_dep_stale_from_doc` (:3406) does the same at check, and a layout region's `import` above the root ALREADY records `../` through that join — the precedent this aligns the two absolute-arriving families with. Rewrite the doc sentence at :2174 that sanctions the absolute fallback (\"keeps its absolute form, still readable, just unrooted\") — it is the only place the current behavior is stated."
-        },
-        {
-          "path": "src/path.rs",
-          "description": "`normalize_path` (:11) already keeps a leading `..` with nothing to pop, which is what makes a `../`-spelled row join back correctly — no change needed there. If the lexical root→target relative derivation is extracted rather than written inline, this module is its home, beside `normalize_path` and `HarnessRelativePath`: path mechanics have one home, and `pathdiff` is outside the sanctioned crate set."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "Beside `a_lock_with_composed_prose_includes_emitted_from_a_foreign_cwd_is_harness_relative` (:1680): the same program emitted from two different checkout paths writes a byte-identical lock when its include target sits above the harness root."
-        },
-        {
-          "path": "tests/declared_input.rs",
-          "description": "The input family's half: a member declaring `input(import.meta.url, \"../../src/x.txt\")` records `../../src/x.txt`, and the drift read resolves it under a second checkout root."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A source dependency above the harness root records an absolute path in the committed lock, so the lock stops being reproducible across checkouts.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "one program emitted from two checkout paths writes a byte-identical lock when an include target sits above the harness root"
-      },
-      {
-        "path": "tests/declared_input.rs",
-        "asserts": "an input above the root records a `../`-segmented path and resolves under a second checkout root"
-      }
-    ],
-    "acceptance": "`cargo test` green with the include and input families both recording a `../`-segmented source path for a target above the harness root, the same lock bytes from two checkout paths, and a loud refusal where no relative path exists.",
-    "notes": "Consumer report on 0.0.19 (win32), reproduced on linux at 4756671c; re-verified this tick — no commit touched src/ since. Windows also carries canonicalize's `//?/C:/` verbatim prefix, so such a lock is unreadable on linux. No test pins the absolute fallback; only the doc sentence sanctions it. scoped at 3201cbbc"
-  },
-  {
-    "tag": "MEMBERSHIP-READS-A-LIST-VALUED-FIELD",
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`Selection::values` (:706) keeps `value.as_scalar()?` only, so a `FeatureValue::List` contributes nothing to either side of `out_of_set` (:966) — the allowed set and the checked values alike — and the clause decides nothing over a list. The each-grain family has no such hole: `addressed` (:1638) locates one node per `[*]` element, but `addressed_field` (:315) deliberately excludes the set predicates (\"read by their own judges over a resolved selection, never parsed as a member-local path\"), so `membership(\"emits[*]\", ...)` is unspellable and the bare key is the only spelling there is. Read a list per element on both sides: the allowed set is the union of the satisfiers' values with lists flattened, each element of the member's own value is checked, and each out-of-set element is its own finding naming the member and the element. Leave `duplicates` (:934), `values`' other consumer, reading exactly what it reads today — 0058 rules `unique` over a list a refusal rather than a reading, and that ships behind this entry as UNIQUE-REFUSES-A-LIST-VALUED-FIELD, so the per-element projection is membership's own or `values` gains an explicit grain its two callers pick."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "The membership judge's integration home. A satisfier declaring a scalar and a satisfier declaring a list both contribute to the allowed set; a member whose list carries two out-of-set elements fires two findings, each naming its element; a member whose list is wholly drawn from the set passes; the scalar case stays byte-identical."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A `membership` clause over a list-valued field checks nothing and exits 0 — a list contributes no value to the allowed set or to the checked values.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a list-valued field is judged per element on both sides — each out-of-set element is its own finding, a fully drawn list passes, and the scalar reading is unchanged"
-      }
-    ],
-    "acceptance": "`cargo test` green with `membership` firing one finding per out-of-set element of a list-valued field, satisfiers' lists flattened into the allowed set, and the `unique` judge's behavior unchanged.",
-    "notes": "Consumer report on 0.0.18 and 0.0.19, reproduced at 4756671c; re-verified this tick — every cited symbol resolves. Invariant 6 forbids the silent pass; contract.md \"clause\" puts membership at the whole grain and is silent on containers, which is why only the per-element reading of a plural feature is derived here. The `unique` half is ruled (0058) and serialized behind this entry. scoped at 5d9cafd7"
-  },
-  {
     "tag": "UNIQUE-REFUSES-A-LIST-VALUED-FIELD",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "MEMBERSHIP-READS-A-LIST-VALUED-FIELD"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -123,6 +42,7 @@
     "gate": {
       "kind": "open"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -156,6 +76,7 @@
     "gate": {
       "kind": "open"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
