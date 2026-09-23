@@ -368,7 +368,9 @@ tax.
   `manifest_top_level_keys` (`:334`) exist only to decide something nothing
   reaches, and three fixtures withhold a built-in from scope to observe it
   (`tests/coverage_note.rs:93`, `:386`, `tests/check_cost.rs:397`) — two of
-  them saying exactly that in their own comments. That is the vacuity class
+  them saying exactly that in their own comments, and a fourth asserts the
+  rule's *absence* over the always-empty vec (`tests/hook_kind.rs:195`, an
+  `.all()` no ruling can currently falsify). That is the vacuity class
   `engineering.md` "A green verdict is proven non-vacuous" names. The
   capture's subtraction list is narrowed by the re-verify: `with_locked_kinds`
   **survives** — its `governing_kinds` also feeds the
