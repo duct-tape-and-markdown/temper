@@ -119,7 +119,7 @@ governs_glob = "settings.json"
 unit_shape = "file"
 registration = ["event(event)"]
 shape = "fields"
-collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }
 guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings)."
 
 [[declaration.kind]]
@@ -129,7 +129,7 @@ governs_glob = "settings.json"
 unit_shape = "file"
 registration = ["enablement(enabled)"]
 shape = "fields"
-collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*" }
+collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*", entry_shape = "scalar(enabled)" }
 
 [[declaration.kind]]
 name = "known-marketplace"
@@ -138,7 +138,7 @@ governs_glob = "settings.json"
 unit_shape = "file"
 registration = ["registry"]
 shape = "fields"
-collection_address = { manifest = "settings.json", key_path = "extraKnownMarketplaces.*" }
+collection_address = { manifest = "settings.json", key_path = "extraKnownMarketplaces.*", entry_shape = "object" }
 
 [[declaration.kind]]
 name = "machine"

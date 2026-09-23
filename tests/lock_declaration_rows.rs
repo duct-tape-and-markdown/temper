@@ -105,6 +105,37 @@ fn hook_kind_facts() -> KindFactRow {
     }
 }
 
+/// A second `hooks.<Event>` registration kind whose declared entry shape **diverges** from
+/// the one the per-key-path normalization fabricates for a shapeless row: it lifts
+/// `timeout` alongside `matcher`. The oracle for the column actually reaching the lock —
+/// no fallback can rescue this value, so it reads back only if emit wrote it.
+fn timed_hook_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            entry_shape: Some("group-array(hooks;matcher,timeout)".to_string()),
+        }),
+        ..common::kind_facts("timed-hook", ".claude", "settings.json")
+    }
+}
+
+/// A registration kind declaring an address but **no** entry shape — the row a lock
+/// written before the column was carried holds. Its wire form writes no `entry_shape`
+/// key, and the read-time normalization supplies the shape its key path had then.
+fn shapeless_hook_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            entry_shape: None,
+        }),
+        ..common::kind_facts("shapeless-hook", ".claude", "settings.json")
+    }
+}
+
 /// The one skill + one rule this file's payloads project.
 fn skill_and_rule_members() -> Vec<PayloadMember> {
     vec![
@@ -1238,6 +1269,8 @@ fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reac
                 &["user-invoked", "description-trigger(description)"],
             ),
             hook_kind_facts(),
+            timed_hook_kind_facts(),
+            shapeless_hook_kind_facts(),
         ],
         clauses: rich_declarations().clauses,
         ..Declarations::default()
@@ -1263,6 +1296,14 @@ fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reac
         .find(|k| k.name == "hook")
         .expect("the registration kind row is recorded");
     assert_eq!(hook_row.shape.as_deref(), Some("fields"));
+    assert_eq!(
+        hook_row
+            .collection_address
+            .as_ref()
+            .and_then(|address| address.entry_shape.as_deref()),
+        Some("group-array(hooks;matcher)"),
+        "the declared entry shape survives write -> read on the row's own column"
+    );
     let hook = CustomKind::from_kind_fact_row(hook_row).unwrap();
     assert_eq!(hook.content, Content::Fields);
     assert_eq!(
@@ -1275,6 +1316,55 @@ fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reac
                 lifted_fields: vec!["matcher".to_string()],
             },
         }),
+    );
+
+    // The divergent case: a second `hooks.<Event>` kind declaring a shape the per-key-path
+    // normalization cannot fabricate. It reads back with both lifted fields only because
+    // emit carried the column.
+    let timed_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "timed-hook")
+        .expect("the divergent registration kind row is recorded");
+    assert_eq!(
+        timed_row
+            .collection_address
+            .as_ref()
+            .and_then(|address| address.entry_shape.as_deref()),
+        Some("group-array(hooks;matcher,timeout)"),
+    );
+    let timed = CustomKind::from_kind_fact_row(timed_row).unwrap();
+    assert_eq!(
+        timed.collection_address.map(|address| address.entry_shape),
+        Some(temper::kind::EntryShape::GroupArray {
+            member_key: "hooks".to_string(),
+            lifted_fields: vec!["matcher".to_string(), "timeout".to_string()],
+        }),
+        "a shape diverging from its key path's normalization reads back as declared"
+    );
+
+    // A row declaring no shape writes no key — the presence discipline every optional
+    // column on this table takes — and the read-time normalization supplies the shape.
+    let shapeless_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "shapeless-hook")
+        .expect("the shapeless registration kind row is recorded");
+    assert!(
+        shapeless_row
+            .collection_address
+            .as_ref()
+            .expect("the shapeless kind keeps its address")
+            .entry_shape
+            .is_none(),
+        "a row declaring no entry shape writes no `entry_shape` key"
+    );
+    let lock_text = String::from_utf8(first.clone()).expect("the lock is UTF-8");
+    assert!(
+        lock_text.contains(
+            "collection_address = { manifest = \"settings.json\", key_path = \"hooks.<Event>\" }"
+        ),
+        "the shapeless row's wire form carries the pair alone, no `entry_shape` key:\n{lock_text}"
     );
 
     // A file-locus, body-bearing kind carries neither new column — both absent from its

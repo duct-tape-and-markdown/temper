@@ -89,7 +89,8 @@ governs_glob = "settings.json"
 unit_shape = "file"
 registration = ["event(event)"]
 shape = "fields"
-collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }
+guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings)."
 
 [[declaration.kind]]
 name = "memory"
@@ -97,6 +98,7 @@ governs_root = "."
 governs_glob = "**/CLAUDE.md"
 unit_shape = "file"
 registration = ["always"]
+guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."
 
 [[declaration.kind]]
 name = "rule"
@@ -105,6 +107,7 @@ governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
+guidance = "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
 
 [[declaration.kind]]
 name = "skill"
@@ -114,6 +117,7 @@ format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
 templates = [{ kind = "supporting-doc", path = "*.md" }]
+guidance = "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `disable-model-invocation: true` for side-effectful workflows you want to time yourself; `user-invocable: false` for background knowledge that is not a command; `metadata` is the sanctioned home for versioning — there is no top-level `version` field."
 
 [[declaration.kind]]
 name = "source"
@@ -140,16 +144,19 @@ registration = ["always"]
 templates = [{ kind = "invariant" }]
 
 [[declaration.clause]]
+label = "decision.unique-name"
 kind = "decision"
 predicate = "unique-name"
 severity = "required"
 
 [[declaration.clause]]
+label = "flow.unique-name"
 kind = "flow"
 predicate = "unique-name"
 severity = "required"
 
 [[declaration.clause]]
+label = "skill.required.name"
 kind = "skill"
 predicate = "required"
 field = "name"
@@ -158,6 +165,7 @@ guidance = "Every skill declares a `name` — the slug the harness binds to. Cla
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "skill.min_len.name"
 kind = "skill"
 predicate = "min_len"
 field = "name"
@@ -167,6 +175,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { min = 1 }
 
 [[declaration.clause]]
+label = "skill.allowed_chars.name"
 kind = "skill"
 predicate = "allowed_chars"
 field = "name"
@@ -176,6 +185,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
+label = "skill.max_len.name"
 kind = "skill"
 predicate = "max_len"
 field = "name"
@@ -185,6 +195,17 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { max = 64 }
 
 [[declaration.clause]]
+label = "skill.shape.name"
+kind = "skill"
+predicate = "shape"
+field = "name"
+severity = "required"
+guidance = "A hyphen separates segments, so it may not lead, trail, or double — `-pdf`, `pdf-`, and `pdf--processing` are the spec's own counter-examples. The charset clause above admits the hyphen; this places it."
+cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-17)"
+shape = "hyphen-placement"
+
+[[declaration.clause]]
+label = "skill.deny.name"
 kind = "skill"
 predicate = "deny"
 field = "name"
@@ -194,6 +215,7 @@ cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overvi
 values = ["anthropic", "claude"]
 
 [[declaration.clause]]
+label = "skill.name-matches-dir"
 kind = "skill"
 predicate = "name-matches-dir"
 severity = "required"
@@ -201,6 +223,7 @@ guidance = "The spec requires the name to match its parent directory. Claude Cod
 cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "skill.required.description"
 kind = "skill"
 predicate = "required"
 field = "description"
@@ -209,6 +232,7 @@ guidance = "The description is how the model chooses this skill from potentially
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "skill.min_len.description"
 kind = "skill"
 predicate = "min_len"
 field = "description"
@@ -218,6 +242,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { min = 1 }
 
 [[declaration.clause]]
+label = "skill.max_len.description"
 kind = "skill"
 predicate = "max_len"
 field = "description"
@@ -227,6 +252,17 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { max = 1024 }
 
 [[declaration.clause]]
+label = "skill.shape.description"
+kind = "skill"
+predicate = "shape"
+field = "description"
+severity = "required"
+guidance = "Anthropic's platform upload validation rejects a description carrying an XML tag — the description is injected into the system prompt, where a tag is markup rather than text. Neither the open spec nor Claude Code's runtime enforces it, so this is the clause that keeps a skill portable through the API and claude.ai. Prose spelling a comparison (`use when x < y`) is not a tag and does not fire."
+cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#skill-structure (retrieved 2026-07-17)"
+shape = "no-xml-tags"
+
+[[declaration.clause]]
+label = "skill.max_len.compatibility"
 kind = "skill"
 predicate = "max_len"
 field = "compatibility"
@@ -236,14 +272,17 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 bound = { max = 500 }
 
 [[declaration.clause]]
+label = "skill.extent"
 kind = "skill"
-predicate = "max_lines"
+predicate = "extent"
 severity = "advisory"
-guidance = "Progressive disclosure: keep SKILL.md under 500 lines and move detailed reference material to separate files, one level deep. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good."
+guidance = "Progressive disclosure: keep SKILL.md under 500 rendered lines and move detailed reference material to separate files, one level deep. Measured render-side — the lines the projected artifact contributes to context, not the source body before any include resolves. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good."
 cite = "https://agentskills.io/specification#progressive-disclosure (retrieved 2026-07-15)"
 bound = { max = 500 }
+unit = "lines"
 
 [[declaration.clause]]
+label = "skill.forbidden_keys"
 kind = "skill"
 predicate = "forbidden_keys"
 severity = "required"
@@ -252,6 +291,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 keys = ["globs", "alwaysApply"]
 
 [[declaration.clause]]
+label = "skill.glob-valid.paths"
 kind = "skill"
 predicate = "glob-valid"
 field = "paths"
@@ -260,16 +300,29 @@ guidance = "The optional `paths` scope gates every invocation channel until Clau
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "skill.mention-reachable.paths"
+kind = "skill"
+predicate = "mention-reachable"
+field = "paths"
+severity = "advisory"
+guidance = "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until Claude reads a matching file, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a skill that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this skill's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does."
+cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211)"
+gate = "paths"
+
+[[declaration.clause]]
+label = "system.unique-name"
 kind = "system"
 predicate = "unique-name"
 severity = "required"
 
 [[declaration.clause]]
+label = "system.extent"
 kind = "system"
-predicate = "max_lines"
+predicate = "extent"
 severity = "advisory"
-guidance = "a system doc is navigational, not exhaustive — past ~120 lines, promote a section to a flow or split the system"
+guidance = "a system doc is navigational, not exhaustive — past ~120 rendered lines, promote a section to a flow or split the system. Measured render-side, off the projected artifact rather than the source body."
 bound = { max = 120 }
+unit = "lines"
 
 [[declaration.requirement]]
 name = "conduct"
@@ -283,6 +336,7 @@ required = true
 prose = "every load-bearing area of this repository's behavior is documented as a system that declares spine membership"
 
 [[declaration.requirement.clauses]]
+label = "requirement.documented-spine.count"
 predicate = "count"
 severity = "required"
 guidance = "the spine is plural by definition — a one-system corpus is an undocumented repository with one essay"
@@ -378,78 +432,116 @@ host = "decision:authority-arrow"
 kind = "alternative"
 key = "code-authoritative"
 leaves = { body = "Rejected. Rational when humans author the code and decisions live nowhere else, but agent-authored code is output, and deriving intent from output is mining. It also defeats the docs' own purpose for agents: a doc that trails code cannot be trusted at planning time.", title = "Code authoritative" }
+rendered_lines = 3
+rendered_chars = 290
 
 [[declaration.nested_member]]
 host = "decision:authority-arrow"
 kind = "alternative"
 key = "per-change-doc-duty"
 leaves = { body = "Rejected as the primary mechanism. A convention held by reviewer vigilance fails silently, one forgotten change at a time. It survives here only as a courtesy, downstream of the arrow — see the superseded ruling this decision replaces.", title = "Per change documentation duty" }
+rendered_lines = 3
+rendered_chars = 270
 
 [[declaration.nested_member]]
 host = "flow:summarize"
 kind = "step"
 key = "scan"
 leaves = { body = "Every line of the document is classified. Lines carrying a box become items; everything else drops out here and is never seen again downstream.", in = "scanner", title = "Scan the lines" }
+rendered_lines = 5
+rendered_chars = 181
 
 [[declaration.nested_member]]
 host = "flow:summarize"
 kind = "step"
 key = "summarize"
 leaves = { body = "The surviving items tally into the summary line: done over total. The document itself is out of reach by design.", in = "renderer", title = "Render the summary" }
+rendered_lines = 5
+rendered_chars = 155
 
 [[declaration.nested_member]]
 host = "system:renderer"
 kind = "invariant"
 key = "derives-never-rereads"
 leaves = { body = "The renderer takes the scanned items alone. If a count looks wrong, the scan is wrong; the renderer holds no second opinion about the document.", title = "The summary derives from scan results, never the document" }
+rendered_lines = 3
+rendered_chars = 206
 
 [[declaration.nested_member]]
 host = "system:renderer"
 kind = "invariant"
 key = "one-line"
 leaves = { body = "The summary is a single line with no trailing detail. Anything richer is a new declared behavior, not a bigger string.", title = "One line out" }
+rendered_lines = 3
+rendered_chars = 136
 
 [[declaration.nested_member]]
 host = "system:scanner"
 kind = "invariant"
 key = "done-is-exact"
 leaves = { body = "Lowercase `x`, nothing else. `[X]` and `[~]` are unrecognized lines under the invariant above.", title = "A done box is exactly `[x]`" }
+rendered_lines = 3
+rendered_chars = 127
 
 [[declaration.nested_member]]
 host = "system:scanner"
 kind = "invariant"
 key = "ignored-never-guessed"
 leaves = { body = "A line without a box is not an item: the scanner drops it and does not repair near-misses. Loosening the pattern is a corpus amendment first, code second.", title = "Unrecognized lines are ignored, never guessed" }
+rendered_lines = 3
+rendered_chars = 205
 
 [[declaration.nested_member]]
 host = "glossary:glossary"
 kind = "term"
 key = "corpus"
+leaves = { prose = """
+The set of governed documents under `docs/` — this repository's declared
+intent, and the authoritative side of every docs-versus-code disagreement.""" }
 
 [[declaration.nested_member]]
 host = "glossary:glossary"
 kind = "term"
 key = "source"
+leaves = { prose = """
+A governed path the tool reads and never writes: a layout document like
+this one, or a `.temper/` module. Every governed path is a source or a
+projection, never both.""" }
 
 [[declaration.nested_member]]
 host = "glossary:glossary"
 kind = "term"
 key = "projection"
+leaves = { prose = """
+A governed path the tool writes and never reads back for meaning:
+`CLAUDE.md`, the files under `.claude/`. A hand-edit to a projection is
+drift, routed to the owning source.""" }
 
 [[declaration.nested_member]]
 host = "glossary:glossary"
 kind = "term"
 key = "layout"
+leaves = { prose = """
+A kind's declared template over a document's heading tree: prose regions,
+field sections, member collections. The layout is why a section here is
+model structure rather than formatting.""" }
 
 [[declaration.nested_member]]
 host = "glossary:glossary"
 kind = "term"
 key = "reconciliation"
+leaves = { prose = """
+The standing process that closes the corpus-versus-implementation delta in
+the corpus's favor. The replacement for per-change documentation duties.""" }
 
 [[declaration.nested_member]]
 host = "glossary:glossary"
 kind = "term"
 key = "checklist-item"
+leaves = { prose = """
+A line carrying a box (`- [ ]` or `- [x]`) — the unit the scanner yields
+and the renderer counts. A line without a box is not an item and is never
+guessed at.""" }
 
 [[declaration.registration]]
 kind = "hook"
@@ -462,3 +554,16 @@ kind = "hook"
 key = "SessionStart"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
+
+[[declaration.layout_prose]]
+member = "glossary:glossary"
+region_index = 0
+prose = """
+Domain terms with a specific meaning in this repository. Each term is an
+addressable member of the glossary host: a document elsewhere in the corpus
+can declare a mention against it, and renaming a term is a model change the
+gate sees, not a find-and-replace."""
+
+[[declaration.layout_source]]
+member = "glossary:glossary"
+source_path = "docs/glossary.md"

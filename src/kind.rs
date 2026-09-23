@@ -892,11 +892,17 @@ fn content_shape_from_label(label: &str) -> Option<Content> {
 /// [`CollectionAddress`]: absent for a file-locus kind, present for a registration member
 /// whose key path lifts through the closed [`CollectionKeyPath`] vocabulary.
 ///
+/// The row's own `entry_shape` column is the shape: a declared fact the kind carries and
+/// emit writes. A row omitting it is an **older spelling** — a lock written before the
+/// column was carried — normalized at read time to the shape its key path had then
+/// (`specs/model/pipeline.md`, "The lock": older spellings normalize at read, the file is
+/// never patched, and the next emit rewrites it whole in canonical form).
+///
 /// # Errors
 ///
-/// Returns a [`LockRowError`] when the recorded `key_path` label falls outside the closed
-/// vocabulary — the tool-written lock carries only labels the SDK could emit, so an
-/// unknown one is corruption rejected at load.
+/// Returns a [`LockRowError`] when the recorded `key_path` or `entry_shape` label falls
+/// outside its closed vocabulary — the tool-written lock carries only labels the SDK
+/// could emit, so an unknown one is corruption rejected at load.
 pub(crate) fn collection_address_from_row(
     row: &KindFactRow,
 ) -> Result<Option<CollectionAddress>, LockRowError> {
@@ -915,6 +921,8 @@ pub(crate) fn collection_address_from_row(
                     entry_shape_from_label(shape_label),
                 )?
             } else {
+                // A lock written before the column was carried: normalize to the shape
+                // its key path had at that spelling, rather than patch the file.
                 match key_path {
                     CollectionKeyPath::HooksEvent => EntryShape::GroupArray {
                         member_key: "hooks".to_string(),

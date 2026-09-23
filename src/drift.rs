@@ -4637,11 +4637,17 @@ fn edge_to_from_table(table: &dyn TableLike) -> Result<Option<Vec<String>>, RowE
 }
 
 /// Build a [`KindFactRow`]'s `collection_address` column's wire form: a `{ manifest =
-/// "…", key_path = "…" }` inline table, the presence-coupled pair carried as one column.
+/// "…", key_path = "…", entry_shape = "…" }` inline table, the presence-coupled pair
+/// plus the entry shape carried as one column. `entry_shape` is optional on the row and
+/// rides the same presence discipline every optional column here takes — written when
+/// declared, absent when the row declares none.
 fn collection_address_table(address: &CollectionAddressRow) -> InlineTable {
     let mut table = InlineTable::new();
     table.insert("manifest", Value::from(address.manifest.clone()));
     table.insert("key_path", Value::from(address.key_path.clone()));
+    if let Some(entry_shape) = &address.entry_shape {
+        table.insert("entry_shape", Value::from(entry_shape.clone()));
+    }
     table
 }
 
