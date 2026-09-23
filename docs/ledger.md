@@ -26,30 +26,41 @@ hard.
   and is the latent-bug surface. Validate it; never cut capability for
   want of a consumer.
 
-## Next session's one focus (09-22)
+## Next session's one focus (09-22 close)
 
-- 0050–0056 landed and derived 09-22; the acyclicity fix shipped
-  (4be7fae7). Flume 0.17, and the harness migration is ruled (runner spike
-  under way: a nextest verdict script resolves all 979 passing tests to
-  files; pending the 979-vs-~1,020 gap and a capped measurement).
-- **0.0.19: cut once** (John, 09-22) when the platform consumer's chain has
-  shipped: SDK-MEMBER-DECLARES-INPUTS, SDK-REACHED-FROM-CONSTRUCTOR,
-  LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED (and everything under them). The
-  publish itself still takes John's word at the cut (`release` rule).
-  Upgrade notes owed: `settings.json` hand edits now drift (0050); drift
-  rule ids become clause labels (0054); `when` labels carry the guard's
-  values (0049 fix); set predicates in a `when` body are refused, not
-  silently skipped. The platform consumer's guarded `degree`/`membership`
-  hit the last one, so tell them to move to kind partition.
-  After the cut, unpark INTEGRATION-SUITE-ONE-TEST-TARGET before the harness
-  migration: the judge resolves test ids that the fold renames.
-- Harness-migration carry list (hand-chain fixes of 09-22 to re-verify in the
-  package, or file with flume if it lacks them): the ripple walk covers
-  `examples/` and names a common type's exhaustive Rust literals and its full
-  TS spellings (00b1d690, 2ac1d6c7); a blocked entry may edit a file its
-  parent creates (59857dd5); every cargo/nextest call is capped (jobs, test
-  threads). The runner spike's verdict script is lost with /tmp: its final text
-  is in the 09-22 session transcript, and it goes in the repo at migration.
+- **Loop left running overnight** (flume 0.17, `CARGO_BUILD_JOBS=4`, VM 11 GB
+  via `.wslconfig`; flume's own loop capped at vitest 4 workers / width 2 after
+  two OOM reboots 09-22). Check `pnpm exec flume status` and the log first.
+- **0.0.19: cut once** (John, 09-22) when SDK-MEMBER-DECLARES-INPUTS,
+  SDK-REACHED-FROM-CONSTRUCTOR and LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED
+  have shipped; at close, ROOT-DEFAULT-CONTRACT-SHIPS was the next rung (3
+  more under it). The publish takes John's word at the cut (`release` rule).
+  Before it: check the consumer's five limits against disk, and run cascade's
+  regression at the cut sha. Upgrade notes owed:
+  - `settings.json` hand edits now drift (0050), and the guard no longer
+    admits residue edits;
+  - drift rule ids become clause labels (0054);
+  - `when` labels carry the guard's values, and filtered `degree` labels carry
+    their field set (0049 fixes);
+  - set predicates in a `when` body are refused, not silently skipped. The
+    platform consumer's guarded `degree`/`membership` hit this, so tell them
+    to use kind partition;
+  - `reachable` reports again once the root default ships;
+  - settings residue is `residue: {…}`.
+- **Waiting on John:** `(guard-body-address-and-severity)` in open-questions.
+  Session recommends (a): a `when`-body clause gets its own label (owner =
+  host label) and keeps its own severity. "Share one address binding" means the
+  element binding, not the label.
+- After the cut, unpark INTEGRATION-SUITE-ONE-TEST-TARGET before the harness
+  migration (the judge resolves test ids the fold renames).
+- Harness-migration carry list (re-verify in the package, or file with flume):
+  - the ripple walk covers `examples/` and names a common type's exhaustive
+    Rust literals and full TS spellings (00b1d690, 2ac1d6c7);
+  - a blocked entry may edit a file its parent creates (59857dd5);
+  - every cargo/nextest call is capped (jobs, test threads).
+  The runner spike's verdict script was lost with /tmp. Its final text is in
+  the 09-22 session transcript, and it lands in the repo at migration, along
+  with the open 979-vs-~1,020 nextest gap.
 - Still open with dependents: `(hook-member-identity)` (GH #32). Parked
   ruling: 0019's occupant (GH #45).
 
