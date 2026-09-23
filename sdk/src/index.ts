@@ -44,6 +44,7 @@ export {
   nameMatchesDir,
   optional,
   range,
+  reachable,
   required,
   requireSections,
   requirement,
@@ -87,7 +88,7 @@ export { embeddedMemberValue, kind, relocate } from "./kind.js";
 
 // The assembly — `harness()` and its six fields.
 export type { Admission, EnforcementMode, ExpectBinding, Harness } from "./assembly.js";
-export { harness } from "./assembly.js";
+export { harness, rootDefaultContract } from "./assembly.js";
 
 // Emit — the compile to the seam's JSON pipe; the engine is the sole compiler
 // of every projection and the whole lock.

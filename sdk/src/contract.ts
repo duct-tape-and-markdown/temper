@@ -227,6 +227,20 @@ export const mentionReachable = (scopeField: string, gateField: string): Predica
   gate: gateField,
 });
 /**
+ * Every selected member is reachable from the world — its own inbound registration edge
+ * is live, or a reachable member imports it. A member whose every declared registration
+ * channel is provably dead (a `paths` glob set matching no file, a blank
+ * description-trigger field) and that no live importer reaches is authored configuration
+ * the harness never loads.
+ *
+ * Names **no field**: the grain is each-grain over the *root* selection — the whole
+ * governed forest — and the verdict is read off the reference graph's reachability
+ * closure, never off any member's own fields. So it composes into a root `contract`,
+ * where a member-grain clause is refused: there is no one kind whose schema a root
+ * clause could name a field in.
+ */
+export const reachable = (): Predicate => ({ key: "reachable" });
+/**
  * Every edge the member's kind declares is placed by the format that renders the member
  * — a format that omits one renders a contract the prose does not represent. Names no
  * field: the selection is the member's whole incident edge set, at the `each` grain.

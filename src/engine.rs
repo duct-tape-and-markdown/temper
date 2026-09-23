@@ -148,7 +148,8 @@ pub fn admissibility(contract: &Contract, locus: &Locus) -> Vec<Diagnostic> {
 /// extracted from a file of its own, so every body-derived feature carries real bytes;
 /// an embedded member is read off its host's declared surface and owns no document, so
 /// the same features arrive empty and any predicate ranging over them returns one fixed
-/// answer for every member.
+/// answer for every member. The root's selection is decidable at a third grain again —
+/// the whole forest, no one kind's schema behind it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Locus {
     /// The selection's members each own a document — the at-locus binding, where the
@@ -156,6 +157,11 @@ pub enum Locus {
     Document,
     /// The members of the named embedded kind, folded from their hosts' bodies.
     Embedded(String),
+    /// The **root member's** selection — every discovered member of every kind, the
+    /// whole governed forest. Not a member grain at all: the root owns no document and
+    /// no field schema, so a member-grain predicate bound here reaches no judge, and
+    /// admissibility refuses it rather than let it decide nothing.
+    Root,
 }
 
 /// The admissibility violations of a single clause's predicate at `locus` — empty when
@@ -181,10 +187,37 @@ pub(crate) fn inadmissibilities(
 ) -> Vec<String> {
     let mut messages: Vec<String> = judgeless(predicate).into_iter().collect();
     messages.extend(bodyless(predicate, locus));
+    messages.extend(rootless(predicate, locus));
     messages.extend(unaddressable(predicate));
     messages.extend(vacuities(predicate, siblings));
     messages.extend(when_restrictions(predicate, locus));
     messages
+}
+
+/// The fence message when `predicate` is **member-grain** and the locus is the root's,
+/// else `None`.
+///
+/// The root's selection is the whole governed forest, and a member-grain clause over it
+/// would have to name a field in a schema no one kind supplies. The engine does not try:
+/// [`judge_members`] runs the member grain over the opt-in selections alone, so such a
+/// clause reaches no judge at all. A clause that decides nothing must be refused rather
+/// than degrade to a working no-op — the rule [`judgeless`] already states over the
+/// predicate alone, here over the predicate at its locus.
+///
+/// The admissible root vocabulary is therefore exactly the selection grain
+/// ([`Predicate::ranges_over_selection`]): `count`/`unique`/`membership`/`degree`/`kind`
+/// over the forest, `mention-reachable` and `reachable` over the graph.
+fn rootless(predicate: &Predicate, locus: &Locus) -> Option<String> {
+    if !matches!(locus, Locus::Root) || predicate.ranges_over_selection() {
+        return None;
+    }
+    Some(format!(
+        "`{}` is a member-grain predicate, and the root member's selection is the whole \
+         governed forest rather than one kind's population: there is no single field \
+         schema for it to decide over, and no member-grain judge runs over the root, so \
+         the clause would decide nothing. Bind it to a kind's `expect` instead",
+        predicate.key()
+    ))
 }
 
 /// The admissibility violations specific to `when` predicates — guard restriction and

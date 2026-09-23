@@ -920,9 +920,16 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
 /// member plus the hop-capped import propagation — so the cost doctrine binds it the same
 /// way it binds the resolved-edge walk: computed once per `gate()` invocation, and not at
 /// all where no root `reachable` clause opts in.
+///
+/// What opts in is the **clause**, never the root selection's existence. The shipped root
+/// default binds `reachable` (`rootDefaultContract`, `sdk/src/assembly.ts`), so the
+/// zero-walk half is stated over a lock that declares a root contract of its own naming
+/// some other predicate — rows-or-default then answers with those rows, and no
+/// `reachable` clause is in play. An empty `Declarations` would fall back to the embedded
+/// default and walk once, which is the shipped behaviour rather than a cost regression.
 #[test]
 fn gate_reachability_closure_runs_once_per_invocation_and_only_when_a_root_clause_binds() {
-    use temper::drift::Declarations;
+    use temper::drift::{ClauseRow, CountBoundRow, Declarations};
     use temper::gate;
     use temper::graph;
 
@@ -937,8 +944,22 @@ fn gate_reachability_closure_runs_once_per_invocation_and_only_when_a_root_claus
     )
     .unwrap();
 
-    // No root row: `reachable` is opt-in, so the closure never walks.
-    common::write_lock(&harness, Declarations::default());
+    // A root contract that binds some other predicate: `reachable` is opt-in per clause,
+    // so the closure never walks. The `count` bound is satisfied by any corpus size and
+    // decides nothing here — its whole job is to be a root row that is not `reachable`.
+    common::write_lock(
+        &harness,
+        Declarations {
+            clauses: vec![ClauseRow {
+                count: Some(CountBoundRow {
+                    min: 0,
+                    max: usize::MAX,
+                }),
+                ..common::clause("count", "advisory")
+            }],
+            ..Declarations::default()
+        },
+    );
     let before = graph::live_members_count();
     gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
     assert_eq!(

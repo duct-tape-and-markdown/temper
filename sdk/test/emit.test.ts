@@ -19,6 +19,7 @@ import {
   bash,
   blocks,
   clause,
+  count,
   degree,
   embeddedMemberValue,
   emit,
@@ -29,8 +30,10 @@ import {
   include,
   kind,
   maxLen,
+  reachable,
   renderText,
   required,
+  rootDefaultContract,
   script,
   telemetry,
   text,
@@ -237,6 +240,14 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       kind: "rule",
       field: "paths",
  },
+    // The root member's own clause, past the kind-sorted `expect` rows and carrying no
+    // `kind` column — the absence `compose::root_contract_from_rows` reads as "the
+    // root's". `fullHarness()` declares no `contract`, so this is the shipped default.
+ {
+      ...clauseRow("reachable", "advisory"),
+      guidance: rootDefaultContract[0]!.guidance,
+      cite: rootDefaultContract[0]!.cite,
+ },
   ]);
   assert.deepEqual(declarations.requirements, [
  {
@@ -296,19 +307,75 @@ test("clauseRow serializes a node-scope predicate's own argument onto the row", 
  ],
  });
 
-  const declarations = compileDeclarations(h);
+  // The kind's own rows: every `harness()` also lowers the root default's kind-less
+  // row, which carries no node-scope argument and is not what this case pins.
+  const declarations = compileDeclarations(h).clauses.filter((c) => c.kind === "rule");
   assert.deepEqual(
-    declarations.clauses.map((c) => c.bound),
+    declarations.map((c) => c.bound),
     [{ min: undefined, max: 64 }, undefined, undefined],
   );
   assert.deepEqual(
-    declarations.clauses.map((c) => c.keys),
+    declarations.map((c) => c.keys),
     [undefined, ["globs", "alwaysApply"], undefined],
   );
   assert.deepEqual(
-    declarations.clauses.map((c) => c.charset),
+    declarations.map((c) => c.charset),
     [undefined, undefined, { ranges: ["a-z"], chars: "-" }],
   );
+});
+
+test("the root member's contract lowers to kind-less top-level rows, defaulted and authored", () => {
+  // The root's clauses are the third source of a clause row, and the `kind` column's
+  // absence is their whole discriminator: at the top level it names the root member,
+  // and the engine's `compose::root_contract_from_rows` filters on exactly that.
+
+  // Defaulted — `harness()` takes no `contract`, so the shipped `rootDefaultContract`
+  // rides every program that never mentions it. This is what puts the root's rows in
+  // the embedded built-in lock, so the stranger gate reads the same contract an
+  // emitted harness does.
+  const defaulted = compileDeclarations(harness({ members: [] })).clauses;
+  assert.deepEqual(defaulted, [
+    {
+      ...clauseRow("reachable", "advisory"),
+      guidance: rootDefaultContract[0]!.guidance,
+      cite: rootDefaultContract[0]!.cite,
+    },
+  ]);
+  assert.equal(defaulted.length, rootDefaultContract.length);
+
+  // Authored — override is composing the array, never a merge: the declared clauses are
+  // the root's whole contract, and the default's `reachable` row is simply gone.
+  const authored = compileDeclarations(
+    harness({
+      members: [],
+      contract: [clause(count({ min: 1 }), { severity: "required" })],
+    }),
+  ).clauses;
+  assert.deepEqual(authored, [
+    { ...clauseRow("count", "required"), count: { min: 1, max: Number.MAX_SAFE_INTEGER } },
+  ]);
+  assert.ok(
+    !authored.some((row) => row.predicate === "reachable"),
+    "an authored root contract replaces the default wholesale",
+  );
+
+  // A requirement's nested clauses are kind-less too, and stay nested — the second home
+  // of the absent `kind` column, told apart by nesting rather than by a second column.
+  const withRequirement = compileDeclarations(
+    harness({
+      members: [],
+      require: {
+        "dev-standards": { prose: "the harness maintains development standards", kind: rule },
+      },
+      contract: [clause(count({ min: 1 }), { severity: "required" })],
+    }),
+  );
+  assert.deepEqual(
+    withRequirement.clauses.map((row) => row.predicate),
+    ["count"],
+    "a requirement's own clauses never surface as top-level rows",
+  );
+  assert.deepEqual(withRequirement.requirements[0]!.clauses, []);
 });
 
 test("a degree clause's filter lands the row's field column, sorted and `+`-joined", () => {
@@ -332,15 +399,16 @@ test("a degree clause's filter lands the row's field column, sorted and `+`-join
     ],
   });
 
-  const declarations = compileDeclarations(h);
+  // The kind's own rows, as above: the root default's kind-less row declares no filter.
+  const declarations = compileDeclarations(h).clauses.filter((c) => c.kind === "rule");
   assert.deepEqual(
-    declarations.clauses.map((c) => c.field),
+    declarations.map((c) => c.field),
     ["clobbers+writes", "reads", undefined],
   );
   // The synthesis is the label's alone: the `fields` column the engine rebuilds the
   // predicate from keeps the authored order, unsorted.
   assert.deepEqual(
-    declarations.clauses.map((c) => c.fields),
+    declarations.map((c) => c.fields),
     [["writes", "clobbers"], ["reads"], undefined],
   );
 });

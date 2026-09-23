@@ -8,6 +8,7 @@
  */
 
 import type { Member, KindDefinition } from "./kind.js";
+import { clause, reachable } from "./contract.js";
 import type { Clause, Requirement } from "./contract.js";
 
 /**
@@ -54,6 +55,22 @@ export interface Harness {
   readonly require: Readonly<Record<string, Requirement>>;
   /** The residual harness-level settings with no member home (a shrinking list). */
   readonly settings: Readonly<Record<string, unknown>>;
+  /**
+   * The **root member's own contract** — the clauses that bind to the whole governed
+   * forest rather than to one kind's population. Lowered to top-level clause rows
+   * carrying no `kind` column, the absence the engine reads as "the root's"
+   * (`specs/model/representation.md`, "The root member": the contract attaches to the
+   * harness the way it attaches to any member).
+   *
+   * Every clause here is judged at the selection grain, so the vocabulary is the
+   * selection predicates plus {@link reachable}; a member-grain clause names a field in
+   * a schema the root has no single kind to supply, and the gate refuses it at
+   * admissibility rather than leaving it unjudged.
+   *
+   * Absent, {@link rootDefaultContract} applies — the shipped floor, composed by
+   * {@link harness}.
+   */
+  readonly contract: readonly Clause[];
  /**
    * The root member's declared enforcement mode — harness-wide, overridable
  * per member. Defaults to `warn`: temper fabricates no enforcement the
@@ -75,6 +92,7 @@ export function harness(init: {
   require?: Readonly<Record<string, Requirement>>;
   settings?: Readonly<Record<string, unknown>>;
   mode?: EnforcementMode;
+  contract?: readonly Clause[];
 }): Harness {
   return {
     members: init.members,
@@ -83,5 +101,34 @@ export function harness(init: {
     require: init.require ?? {},
     settings: init.settings ?? {},
     mode: init.mode ?? "warn",
+    // The one place "a shipped root default applies when the author declares none" is
+    // spelled. Composing the array is the whole override surface: an authored
+    // `contract` replaces the default wholesale, never merges with it — the same
+    // rows-or-default rule a kind's `expect` binding takes over its floor.
+    contract: init.contract ?? rootDefaultContract,
   };
 }
+
+/**
+ * The **shipped root default contract** — what the root member owes absent an authored
+ * one, and what the embedded built-in lock therefore carries for the stranger gate (a
+ * harness with no lock of its own gets the same root contract an emitted one does).
+ *
+ * Homed beside the root member's other fields, the precedent `dialDefaultContract` sets
+ * in `dial.ts`: a default contract lives with the surface it governs.
+ *
+ * One clause today. `reachable` is the predicate only the root can bind — its selection
+ * is the whole forest and its judge is the reference graph — and it is the one check
+ * that catches authored configuration the harness never loads at all. Advisory: a dead
+ * registration is often deliberate work-in-progress, and whether it gates is the
+ * adopting author's call, dialed or re-declared rather than tool-decided.
+ */
+export const rootDefaultContract: readonly Clause[] = [
+  clause(reachable(), {
+    severity: "advisory",
+    guidance:
+      "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line.",
+    cite:
+      "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)",
+  }),
+];

@@ -101,6 +101,11 @@ const conventions = rule({
   `,
 });
 
+// `authoring` is the corpus's dead registration: its `paths` globs match no file here
+// and nothing imports it, so the shipped root `reachable` clause warns on it. `conventions`
+// carries the identical globs and stays silent — the embedded `citation` below is
+// unconditionally live and carries liveness across its edge, which is the asymmetry the
+// check-diagnostics snapshot pins.
 const authoring = rule({
   name: "authoring",
   paths: ["src/**/*.rs"],

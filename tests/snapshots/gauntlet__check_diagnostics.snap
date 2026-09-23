@@ -3,5 +3,6 @@ source: tests/gauntlet.rs
 expression: check_diagnostics(&harness)
 ---
 ok = true
+::warning title=root.reachable::authoring: the registration edge from the world node to rule `authoring` is dead — its `paths` globs match no file in the repository, so the harness activates it never
 ::warning title=install.gate-installed::<HARNESS>: temper's gate is not installed or has drifted — run `temper install` (missing or drifted: guard hook, post-tool-use hook)
 ::notice title=coverage.checked::harness: checked 10 members across 21 kinds: agent (0), citation (1 embedded), command (0), dial (0), guide (1), handbook (1), hook (1), installed-plugin (1), invariant (2 embedded), known-marketplace (1), machine (1), marketplace (0), mcp-server (0), memory (0), plugin-manifest (0), rule (2), settings (1), settings-local (0), skill (0), spec (1), supporting-doc (0)

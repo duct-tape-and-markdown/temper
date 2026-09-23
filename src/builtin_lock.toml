@@ -1,6 +1,8 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the fifteen built-in kinds' facts and their default contract clauses, plus two
+# the fifteen built-in kinds' facts and their default contract clauses, the **root
+# member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the one
+# clause row here naming no kind, that absence being what makes it the root's), plus two
 # assembly facts — the unconditional `mode = "warn"` (the root member's own enforcement
 # mode, specs/model/representation.md, "The root member", every harness carries absent an
 # authored mode) and the `installed-plugin` → `known-marketplace` edge, the marketplace
@@ -23,7 +25,10 @@
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
 # `memoryAnthropicDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
 # *root* — temper's own kind, whose entries re-read these very clauses at a machine's
-# declared severity, so it ships wherever they do. They are the identical rows an
+# declared severity, so it ships wherever they do — and, from that same root,
+# `rootDefaultContract`, which `harness()` composes whenever an author declares no
+# `contract` of their own, so a memberless emit carries it exactly as an adopted one
+# does. They are the identical rows an
 # adopted harness's own emit produces, just with no members to project. Regenerate by
 # re-running that memberless emit and re-embedding the resulting lock's declaration rows
 # verbatim; never hand-edit a row here.
@@ -1110,6 +1115,13 @@ severity = "advisory"
 guidance = "Reference the file from `SKILL.md` — a supporting file the skill's body never points at is invisible: Claude has no way to learn what it holds or when to load it, and it ships as dead weight in the bundle. Any resolved edge from the host skill counts, a mention included; what the edge cannot decide is whether the reference tells Claude *when* to follow it, and that sentence is the point of writing one."
 cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
 degree = { incoming = { min = 1 } }
+
+[[declaration.clause]]
+label = "root.reachable"
+predicate = "reachable"
+severity = "advisory"
+guidance = "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line."
+cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
 
 [[declaration.assembly]]
 fact = "mode"

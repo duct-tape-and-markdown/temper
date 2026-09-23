@@ -87,31 +87,39 @@ mod tests {
             }]
         );
 
-        // Floor clauses: every row names one of the built-in kinds, and carries a
-        // declared severity — no requirements, no satisfies, no provenance or
-        // emit-fingerprint rows (nothing was emitted; there are no members).
+        // Floor clauses: every row names one of the built-in kinds — or names no kind at
+        // all, which is the **root member's** own row and nothing else. The assertion's
+        // job is to catch a row nobody declared, so the kind-less case is pinned as the
+        // root's (exactly one, labelled `root.reachable`) rather than widened to "any
+        // `None`": a stray unowned row would then slip through the very check that
+        // exists to catch it. Every row carries a declared severity, and there are no
+        // requirements, satisfies, provenance or emit-fingerprint rows (nothing was
+        // emitted; there are no members).
         assert!(!declarations.clauses.is_empty());
+        let mut root_labels: Vec<&str> = Vec::new();
         for clause in &declarations.clauses {
-            assert!(matches!(
-                clause.kind.as_deref(),
+            match clause.kind.as_deref() {
                 Some(
-                    "agent"
-                        | "command"
-                        | "dial"
-                        | "hook"
-                        | "marketplace"
-                        | "mcp-server"
-                        | "plugin-manifest"
-                        | "settings"
-                        | "settings-local"
-                        | "skill"
-                        | "supporting-doc"
-                        | "rule"
-                        | "memory"
-                )
-            ));
+                    "agent" | "command" | "dial" | "hook" | "marketplace" | "mcp-server"
+                    | "plugin-manifest" | "settings" | "settings-local" | "skill"
+                    | "supporting-doc" | "rule" | "memory",
+                ) => {}
+                None => root_labels.push(
+                    clause
+                        .label
+                        .as_deref()
+                        .expect("emit stamps every lock clause row with its label"),
+                ),
+                other => panic!("the embedded lock carries a clause row for `{other:?}`"),
+            }
             assert!(matches!(clause.severity.as_str(), "required" | "advisory"));
         }
+        assert_eq!(
+            root_labels,
+            vec!["root.reachable"],
+            "the shipped root default is one `reachable` clause; a second kind-less row \
+             is a row nobody declared"
+        );
         assert!(declarations.requirements.is_empty());
         assert!(declarations.satisfies.is_empty());
     }

@@ -507,6 +507,12 @@ pub fn gate(
     // the whole governed forest. Composed here rather than at its consumer so the dial
     // loop below reaches a root clause by label with no second dial site.
     let root_contract = compose::root_contract(&declarations.clauses)?;
+    // The root contract earns trust the way a kind's does, by passing admissibility
+    // before it is used to check anything — the `two_greens_dispatch` half a root
+    // selection has no kind dispatcher to reach. `Locus::Root` is what it is judged at:
+    // the root owns no document and no field schema, so a member-grain clause here
+    // reaches no judge and is refused rather than left silently unjudged.
+    diagnostics.extend(engine::admissibility(&root_contract, &engine::Locus::Root));
     selections.push(engine::Selection {
         selector: engine::Selector::Root,
         clauses: root_contract.clauses,

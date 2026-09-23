@@ -1043,6 +1043,15 @@ export function compileDeclarations(
       clauses.push(clauseRow(clause, binding.kind.key));
  }
  }
+  // The root member's own clauses — the third source of a clause row, beside `expect`'s
+  // kind-keyed rows and a requirement's nested ones. They lower with **no** `kind`
+  // column: that absence at the top level is the discriminator
+  // `compose::root_contract_from_rows` reads, and `drift::stamp_clause_labels` addresses
+  // them under the `root` owner segment. Declaration order within the array, appended
+  // past the kind-sorted `expect` rows — a fixed position, so double emit is byte-stable.
+  for (const clause of harness.contract) {
+    clauses.push(clauseRow(clause, undefined));
+ }
   return {
     kinds: kindFactKindsInPlay(allKinds).map((facts) => kindFactRow(facts, admissions)),
     clauses,

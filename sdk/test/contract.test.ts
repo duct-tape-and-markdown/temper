@@ -20,8 +20,10 @@ import {
   mustDefine,
   optional,
   range,
+  reachable,
   required,
   requireSections,
+  rootDefaultContract,
   script,
   sectionContains,
   telemetry,
@@ -166,6 +168,35 @@ test("mentionReachable composes both field ends, the target's gate landing its o
   const row = skillClauseRow(mentionReachable("scope", "gate-field"));
   assert.equal(row.field, "scope");
   assert.equal(row.gate, "gate-field");
+});
+
+test("reachable composes a field-less graph-scope predicate lowering to a kind-less root row", () => {
+  // The one predicate naming neither a field nor a target: its selection is the root's
+  // — the whole governed forest — and its verdict is the reachability closure's, so
+  // there is no member field for it to carry.
+  assert.deepEqual(reachable(), { key: "reachable" });
+
+  // Lowered off the root's own `contract`, it takes neither a `kind` column (the
+  // discriminator that makes the row the root's) nor a `field` one.
+  const rows = compileDeclarations(
+    harness({ members: [], contract: [clause(reachable(), { severity: "advisory" })] }),
+  ).clauses;
+  assert.equal(rows.length, 1, `exactly one root row, got ${JSON.stringify(rows)}`);
+  assert.equal(rows[0]!.predicate, "reachable");
+  assert.equal(rows[0]!.kind, undefined);
+  assert.equal(rows[0]!.field, undefined);
+  assert.equal(rows[0]!.severity, "advisory");
+
+  // And the shipped default binds exactly this clause, at advisory — the tool never
+  // decides that a dead registration blocks.
+  assert.deepEqual(
+    rootDefaultContract.map((c) => [c.predicate.key, c.severity]),
+    [["reachable", "advisory"]],
+  );
+  assert.ok(
+    rootDefaultContract.every((c) => c.guidance && c.cite),
+    "every shipped floor clause teaches and cites",
+  );
 });
 
 test("mustDefine composes a body marker landing in the field column", () => {

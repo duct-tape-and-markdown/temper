@@ -11,6 +11,13 @@
 //! any other, since what the embedded lock carries is the whole shipped std-lib.
 //! Agreement is mechanical: this test is the CI job the fail-loud
 //! invariant describes, never a human re-reading two files side by side.
+//!
+//! The memberless harness contributes a **root contract** as well as kind facts and
+//! their defaults, and it does so by declaring nothing: `harness()` composes
+//! `rootDefaultContract` wherever an author names no `contract`, so the program below —
+//! which names none — carries the root's clauses into the embedded lock. That is what
+//! gives the stranger gate (a harness with no lock at all) the same root contract an
+//! emitted one gets, and it is why the program text needs no edit to pin the claim.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -119,6 +126,59 @@ fn the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit() {
         "src/builtin_lock.toml has drifted from @dtmd/temper/claude-code's own memberless \
          emit — regenerate it by re-running that emit and re-embedding the resulting rows \
          verbatim (src/builtin_lock.toml's own header), never by hand-editing a row"
+    );
+}
+
+/// The derived lock carries the **root member's** default contract, not kind floors
+/// alone — the half a byte-compare alone would pass silently if `harness()` ever stopped
+/// defaulting `contract`, since both sides would simply lose the rows together.
+///
+/// Asserted off the freshly derived lock rather than the embedded copy: the claim under
+/// test is the SDK's defaulting, and the embedded file is downstream of it.
+#[test]
+fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
+    let (_harness, into) = common::wire_sdk_harness("memberless", MEMBERLESS_BUILTIN_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default()).expect(
+        "re-deriving the built-in lock requires a working node + the built @dtmd/temper/claude-code module",
+    );
+
+    let lock_path = into.join("lock.toml");
+    let text = fs::read_to_string(&lock_path).expect("emit_program writes a lock.toml");
+    let declarations =
+        drift::parse_declarations(&lock_path, &text).expect("the derived lock parses");
+
+    // The program declares no `contract`, so every root row here is the shipped
+    // default's — and the absent `kind` column is the whole of what makes it the root's.
+    let root: Vec<_> = declarations
+        .clauses
+        .iter()
+        .filter(|row| row.kind.is_none())
+        .collect();
+    assert_eq!(
+        root.len(),
+        1,
+        "the memberless emit contributes the root default's rows, got {root:#?}"
+    );
+    assert_eq!(root[0].predicate, "reachable");
+    assert_eq!(root[0].severity, "advisory");
+    assert_eq!(root[0].label.as_deref(), Some("root.reachable"));
+    assert!(
+        root[0].guidance.is_some() && root[0].cite.is_some(),
+        "a shipped floor clause teaches and cites"
+    );
+
+    // And it lifts back through the engine's own root-contract reader, so what ships is
+    // a contract the gate can run, never a row family that merely parses.
+    let lifted = contract::Predicate::Reachable;
+    assert_eq!(
+        temper::compose::root_contract_from_rows(&declarations.clauses)
+            .expect("the derived root rows lift")
+            .clauses
+            .iter()
+            .map(|clause| clause.predicate.clone())
+            .collect::<Vec<_>>(),
+        vec![lifted]
     );
 }
 

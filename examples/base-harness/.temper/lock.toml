@@ -324,6 +324,13 @@ guidance = "a system doc is navigational, not exhaustive — past ~120 rendered 
 bound = { max = 120 }
 unit = "lines"
 
+[[declaration.clause]]
+label = "root.reachable"
+predicate = "reachable"
+severity = "advisory"
+guidance = "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line."
+cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
+
 [[declaration.requirement]]
 name = "conduct"
 required = true

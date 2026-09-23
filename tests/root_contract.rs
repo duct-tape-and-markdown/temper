@@ -4,14 +4,21 @@
 //! lifts into the **root** contract where a kind-named row does not; the root selection
 //! ranges over every discovered member of every kind; and a root clause addresses as
 //! `root.<predicate>` — the label its findings report under and the one an author spells
-//! back into a dial entry. `reachable` is the consumer the mechanism ships with: opt-in,
-//! so a lock naming no root row asks the graph nothing.
+//! back into a dial entry. `reachable` is the consumer the mechanism ships with, and it
+//! ships **bound**: `rootDefaultContract` declares it at advisory, so a harness that
+//! names no root contract inherits it through rows-or-default rather than asking the
+//! graph nothing. Opt-in is per *clause*, not per root selection — a lock whose root
+//! contract binds some other predicate still walks no reachability closure.
+//!
+//! The root carries only the selection grain. A member-grain clause here would name a
+//! field in a schema no one kind supplies and would reach no judge, so admissibility
+//! refuses it (`engine::Locus::Root`).
 
 use std::path::Path;
 
 use temper::compose;
 use temper::contract::{Predicate, Severity};
-use temper::drift::{ClauseRow, Declarations};
+use temper::drift::{ClauseRow, CountBoundRow, Declarations};
 
 mod common;
 
@@ -229,12 +236,129 @@ fn a_harness_declaring_no_root_reachable_clause_asks_the_graph_nothing() {
     // `reachable` is opt-in exactly as `degree` and `mention-reachable` are: the same
     // dead registration is silent where no root clause binds. The cost half of that
     // claim — the closure itself never walking — is pinned in `tests/check_cost.rs`.
+    //
+    // What opts in is the *clause*, not the root selection's existence, so the lock here
+    // declares a root contract of its own naming some other predicate. An empty
+    // `Declarations` would take the rows-or-default fallback to the shipped default,
+    // which binds `reachable` — the case directly below.
     let root = dead_registration_harness("root-reachable-opt-in");
-    common::write_lock(&root, Declarations::default());
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![ClauseRow {
+                count: Some(CountBoundRow {
+                    min: 0,
+                    max: usize::MAX,
+                }),
+                ..common::clause("count", "advisory")
+            }],
+            ..Declarations::default()
+        },
+    );
 
     let (findings, _) = common::check_harness(&root);
     assert!(
         common::findings_for(&findings, "root.reachable").is_empty(),
         "and the gate reports nothing under the root label, got:\n{findings:#?}"
+    );
+}
+
+#[test]
+fn the_shipped_root_default_binds_reachable_and_rides_a_harness_that_declares_none() {
+    // The default is shipped, not merely reachable through an authored clause: a lock
+    // carrying no root row at all takes the rows-or-default fallback to the embedded
+    // lock's own root rows, which the SDK's `rootDefaultContract` put there.
+    let contract = temper::builtin::root_contract();
+    assert_eq!(
+        contract
+            .clauses
+            .iter()
+            .map(|clause| (
+                clause.label.as_str(),
+                clause.predicate.clone(),
+                clause.severity
+            ))
+            .collect::<Vec<_>>(),
+        vec![("root.reachable", Predicate::Reachable, Severity::Advisory)],
+        "the emitted default's kind-less rows lift back into the root contract"
+    );
+    assert!(
+        contract.clauses[0].guidance.is_some() && contract.clauses[0].source.is_some(),
+        "and the shipped clause carries its own guidance and cite, got {:?}",
+        contract.clauses[0]
+    );
+
+    // End to end: the same dead registration the opt-in case above silences now reports,
+    // because the harness inherited the shipped clause by declaring nothing.
+    let root = dead_registration_harness("root-default-ships");
+    common::write_lock(&root, Declarations::default());
+
+    let (findings, ok) = common::check_harness(&root);
+    let reported = common::findings_for(&findings, "root.reachable");
+    assert_eq!(
+        reported.len(),
+        1,
+        "a harness with no root row of its own still gets the shipped clause, got:\n{findings:#?}"
+    );
+    assert!(
+        reported[0].starts_with("::warning"),
+        "the shipped default declares `advisory`, so a dead edge never blocks an adopter \
+         who never opted in, got: {}",
+        reported[0]
+    );
+    assert!(ok, "and the run passes, got:\n{findings:#?}");
+}
+
+#[test]
+fn a_member_grain_root_clause_is_refused_at_admissibility_while_reachable_is_admitted() {
+    // The root's selection is the whole governed forest, so a member-grain clause there
+    // names a field in a schema no one kind supplies — and `engine::judge_members` runs
+    // the member grain over the opt-in selections alone, so the clause would reach no
+    // judge at all. A clause that decides nothing is refused, never degraded to a
+    // working no-op.
+    let root = dead_registration_harness("root-member-grain");
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![ClauseRow {
+                field: Some("description".to_string()),
+                ..common::clause("required", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (findings, ok) = common::check_harness(&root);
+    let reported = common::findings_for(&findings, "root.required.description");
+    assert_eq!(
+        reported.len(),
+        1,
+        "the member-grain root clause is one admissibility finding, got:\n{findings:#?}"
+    );
+    assert!(
+        reported[0].starts_with("::error"),
+        "an inadmissible contract fails the run — there is no advisory admissibility, \
+         got: {}",
+        reported[0]
+    );
+    assert!(!ok, "and the run fails, got:\n{findings:#?}");
+
+    // The same pass admits `reachable`, which names no field: its grain is the selection
+    // and its judge is the graph, so it is exactly what a root contract may carry. The
+    // dead-registration finding below is conformance, not admissibility.
+    let admitted = dead_registration_harness("root-reachable-admitted");
+    common::write_lock(
+        &admitted,
+        Declarations {
+            clauses: vec![root_reachable("advisory")],
+            ..Declarations::default()
+        },
+    );
+    let (findings, _) = common::check_harness(&admitted);
+    assert!(
+        !findings
+            .iter()
+            .any(|finding| finding.starts_with("::error") && finding.contains("root.reachable")),
+        "`reachable` is admissible at the root, got:\n{findings:#?}"
     );
 }
