@@ -34,7 +34,9 @@ hard.
 - **0.0.19: cut once** (John, 09-22) when SDK-MEMBER-DECLARES-INPUTS,
   SDK-REACHED-FROM-CONSTRUCTOR and LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED
   have shipped; at close, ROOT-DEFAULT-CONTRACT-SHIPS was the next rung (3
-  more under it). The publish takes John's word at the cut (`release` rule).
+  more under it). **John's go is given in advance (09-22: "good with … when
+  the time comes")**, conditional on the checks below passing. If any check
+  fails, stop and ask; the approval does not cover a red check.
   Before it: check the consumer's five limits against disk, and run cascade's
   regression at the cut sha. Upgrade notes owed:
   - `settings.json` hand edits now drift (0050), and the guard no longer
@@ -47,12 +49,12 @@ hard.
     to use kind partition;
   - `reachable` reports again once the root default ships;
   - settings residue is `residue: {…}`.
-- **Waiting on John:** `(guard-body-address-and-severity)` in open-questions.
-  Session recommends (a): a `when`-body clause gets its own label (owner =
-  host label) and keeps its own severity. "Share one address binding" means the
-  element binding, not the label.
-- After the cut, unpark INTEGRATION-SUITE-ONE-TEST-TARGET before the harness
-  migration (the judge resolves test ids the fold renames).
+- `(guard-body-address-and-severity)`: ruled (a) by John 09-22 and landed as
+  0057 (a body clause is an ordinary clause). Plan derives it and deletes the
+  record. Add its label respelling to the 0.0.19 upgrade notes.
+- After the cut (John approved the sequence 09-22), unpark
+  INTEGRATION-SUITE-ONE-TEST-TARGET, then do the harness migration (the judge
+  resolves test ids the fold renames).
 - Harness-migration carry list (re-verify in the package, or file with flume):
   - the ripple walk covers `examples/` and names a common type's exhaustive
     Rust literals and full TS spellings (00b1d690, 2ac1d6c7);
