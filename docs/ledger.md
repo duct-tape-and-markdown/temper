@@ -36,12 +36,11 @@ hard.
   rename its embedded `prose` leaves (15 sites, John: adopters rename) and
   declare a `settings` member; tell cascade's session when it is next up. The
   consumer program used for the check lives at `~/.cache/consumer-check`.
-- **0.0.20: cut once** (John, 09-23) the two 0.0.19 consumer defects ship:
-  the absolute source path outside the harness root, and list-valued
-  `membership`/`unique` (inbox 3201cbbc). Check them with the repro programs
-  in `~/.cache/input-outside` (emit from two checkout paths, byte-identical
-  lock) and `~/.cache/membership-list`. The cascade regression shows only the
-  known `prose` rename until cascade takes it.
+- **0.0.20 shipped 09-23** (16e96b16, tag v0.0.20; smoke green). It fixes
+  the consumer's absolute source path and list-valued membership/unique
+  (0058), and the guard now asks the contract (0059). The hand chain now
+  declares build promptDataKeys (b6af91cd): queue text had been a step from
+  shell execution. Add it to the migration carry list below.
 - **Next, approved by John 09-22:** unpark
   INTEGRATION-SUITE-ONE-TEST-TARGET, then do the harness migration (the judge
   resolves test ids the fold renames).
@@ -49,7 +48,8 @@ hard.
   - the ripple walk covers `examples/` and names a common type's exhaustive
     Rust literals and full TS spellings (00b1d690, 2ac1d6c7);
   - a blocked entry may edit a file its parent creates (59857dd5);
-  - every cargo/nextest call is capped (jobs, test threads).
+  - every cargo/nextest call is capped (jobs, test threads);
+  - queue- and diff-derived prompt values are declared data (b6af91cd).
   The runner spike's verdict script was lost with /tmp. Its final text is in
   the 09-22 session transcript, and it lands in the repo at migration, along
   with the open 979-vs-~1,020 nextest gap.
