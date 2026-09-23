@@ -1,137 +1,8 @@
 [
   {
-    "tag": "INSTALL-LIFTS-A-JSON-DOCUMENT-MEMBER",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`scaffold` (:1911) hands every `Content::File` kind to `frontmatter::Member::from_source` (:1929) whatever format the kind declares, so a `json-document` member is read as YAML frontmatter — no fields, the whole JSON as `body`. Dispatch on the kind's declared format the way `compose::read_file_unit` (src/compose.rs:548) already does (`json_manifest::DocumentMember::read` for `json-document`, `toml_document::read` for `toml-document`), and skip a `local`-commitment kind beside the layout skip (:1925) — a local artifact is read in place and is never an emit target, so `settings-local`/`dial` must not become member modules at all. `member_module_source` (:1998) stops appending its unconditional `prose:` for a format that renders fields alone, and imports the SDK's camelCase constructor (`settingsLocal`, `pluginManifest`, sdk/src/claude-code.ts:28) instead of interpolating the kind value: a hyphenated kind renders `import { file, text, settings-local }` and `export const settings-local_settings_local` today, neither legal TS. `member_ident` (:1965) folds the kind prefix as it already folds the name. `json_to_ts_literal` (:2050) already renders any JSON value, so the field path needs no new renderer. The three `member_module_source` unit tests in this file (:2372, :2404, :2418) pin the frontmatter shape and move with it."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "The lift suite: a project carrying `.claude/settings.json` lifts a `settings` member whose top-level keys are typed properties with no `.md` sidecar, and its first emit re-renders every key; `.claude-plugin/plugin.json` lifts under its `name` key rather than aborting `frontmatter::no_named_field_id`; a `local`-commitment artifact (`.claude/settings.local.json`) is counted in discovery and converted into nothing; the generated module for a hyphenated kind names the SDK's real export. `a_fresh_dry_run_scaffolds_and_writes_nothing` (:796) pins the preview count, which the local skip moves only for a project carrying a local artifact."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The lift reads every file member as frontmatter, so a json-document kind's JSON lands in a prose body — settings.json's first emit refuses `body_has_no_home`, plugin.json aborts unnamed.",
-    "per": {
-      "path": "specs/model/adoption.md",
-      "section": "Install"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a settings.json lifts into a fields-bearing `settings` member with no prose sidecar and round-trips its keys through the first emit; a plugin.json lifts under its `name` key; a local-commitment artifact is never converted; a hyphenated kind's module imports the SDK's camelCase constructor"
-      }
-    ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green, with `install --represent` over a project carrying `.claude/settings.json` and `.claude-plugin/plugin.json` producing a program whose first emit re-renders both files' keys intact, and writing no module for a local-commitment artifact.",
-    "notes": "Measured at 24420d45 (probes this tick): the lift reaches settings.json because `claude_code_settings()` joined `all_kinds()` (9fcf7521). It writes `settings({name, prose: file(...)})` plus a `.md` holding the JSON, and emit refuses `drift::body_has_no_home`; plugin.json aborts `frontmatter::no_named_field_id`; settings.local.json renders unparsable TS. Supersedes INSTALL-LIFTS-SETTINGS-RESIDUE, whose premise (no settings member scaffolded) is false at HEAD. scoped at 24420d45"
-  },
-  {
-    "tag": "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/root_contract.rs",
-          "description": "The root scope's own suite. A hand-built lock whose top-level clause rows carry no `kind` column lifts into the root contract; the root selection ranges over every discovered member of every kind (the `all_features` set `src/gate.rs:474` already assembles); a root `reachable` clause at `advisory` reports a dead registration with `root.reachable` as the finding's rule id; a lock naming no root row falls back to the embedded lock's root rows (the rows-or-default rule `src/compose.rs:176-182` already states per kind); and the dial reaches the clause by that label through the existing `src/gate.rs:502-511` loop over selections."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "`Predicate::Reachable` joins the closed vocabulary (enum at :132, the parse arm beside `\"mention-reachable\"` at :538, the key arm at :638). It carries no field argument — like `closed-keys`, its argument is the graph. `clause_label` (:84) gains the root owner segment beside `requirement_owner` (:97): a root clause labels `root.<predicate>`, the same owner.predicate.field join a kind clause takes."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "`Selector::Root` joins the selector enum (:529) with its `label`/`noun` arms (:541, :552) — the whole governed forest as a finding's subject. `Predicate::Reachable` joins the graph-scope arms `MentionReachable` already rides (:268, :324, :371, :647, :1225) so `engine::judge`/`validate` leave it to its own judge rather than falling through, and the admissibility arm at :493 states what an argument-free graph predicate admits."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "New `root_contract_from_rows`, the sibling of `default_contract_from_rows` (:191) filtering `row.kind.is_none()` instead of `== Some(kind)`. The discriminator is safe on disk today: every one of `src/builtin_lock.toml`'s 91 top-level `[[declaration.clause]]` rows carries `kind`, and the 8 kind-less blocks are `[[declaration.clause.body]]` guard bodies nested under their guard, not top-level rows; a requirement's clauses likewise nest under `RequirementRow::clauses`."
-        },
-        {
-          "path": "src/builtin.rs",
-          "description": "`root_contract()` beside `contract`/`contracts` (:20-:45), lifting the embedded lock's kind-less top-level rows through the new `compose::root_contract_from_rows` — the embedded half of rows-or-default, so a committed lock predating the root contract still gets the shipped default rather than silence."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "Compose the root selection into `selections` beside `kind_selections` (:699) and `roster::selections` (:497) so the dial loop at :502-:511 reaches a root clause by label with no second dial site. Wire `graph::reachable` after `degree` (:562) at the root clause's declared severity, opt-in exactly as `degree`/`mention-reachable` are: no root `reachable` clause, no closure walk. It reads the same `resolved_edges` hoist (:548) plus `classify_directives`' directive edges."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "`reachable` (:900) keeps its signature — it already takes `severity` — but its doc (:895-:898) retires the claim that the severity is \"the **assembly's** declaration ... never a member's own clause\": 0054 makes it the root member's clause, dialable by label. `MAX_IMPORT_HOPS`/`live_members` are untouched."
-        },
-        {
-          "path": "src/schema.rs",
-          "description": "The keystroke-schema projection's skip arm (:119-:123, where `mention-reachable` already sits) gains `Reachable`: a graph-scope predicate constrains no field of a document, so it contributes nothing to an emitted JSON Schema."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`ClauseRow::kind`'s doc (:3740-ish, the column the seam type carries) widens: `None` inside a `RequirementRow` is the requirement's clause, and `None` at the top level is the **root member's**. Two homes for one absence, distinguished by nesting, not by a new column."
-        },
-        {
-          "path": "sdk/src/generated/ClauseRow.ts",
-          "description": "Regenerated from the widened Rust doc (`BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current`), never hand-edited — `tests/seam_bindings_current.rs` is the byte-compare gate that fails if it is stale."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "The hoist pins: `reachable` joins the gate's graph consumers, so the once-per-invocation claim over the resolved-edge walk covers it, and the reachability closure (`graph::live_members`) runs once per gate rather than per member (`specs/process/engineering.md`, \"Cost scale is hoisted, and pinned by count\")."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "The `reachability` module (:1689-:1900) calls `graph::reachable` directly with a severity and stands; its module doc stops describing the severity as the assembly's and names the root clause, so the direct-call suite and the new gate-level suite agree on who declares it."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The declaration-row round trip gains the root row: a clause row written with no `kind` column reads back as a root clause and lifts into the root contract, where a kind-named row does not."
-        },
-        {
-          "path": "tests/manifest_schema_oracle.rs",
-          "description": "`covered_rule` (:142) matches the whole `Predicate` enum with no wildcard — its uncovered arm list ends `| Predicate::When { .. } => return None` (:188) — so `Predicate::Reachable` must join that arm or the suite stops compiling. A graph-scope predicate states no rule a published JSON Schema carries, so it belongs with `MentionReachable` (:186) in the uncovered list, exactly as `src/schema.rs`'s skip arm treats it. The sibling entry REACHED-FROM-PREDICATE-AND-JUDGE already declares this file for the same reason."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "`graph::reachable` has had no caller since 207e701d — the root member carries no clause surface, so `check` cannot report a dead registration.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [
-      {
-        "path": "tests/root_contract.rs",
-        "asserts": "kind-less top-level clause rows lift into a root contract over the whole forest; a root `reachable` clause at advisory reports a dead registration under the `root.reachable` label; a lock with no root row falls back to the embedded default's rows"
-      },
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "the reachability closure runs once per gate invocation, and not at all when no root `reachable` clause binds"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a root clause row round-trips with its `kind` column absent"
-      }
-    ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green; `tests/root_contract.rs` fails when the gate's `graph::reachable` call is removed.",
-    "notes": "0054's scaffolding entry: the root selection plus the one predicate whose judge already exists, so the mechanism ships with a consumer. Nothing emits a root row yet — ROOT-DEFAULT-CONTRACT-SHIPS is that half; until it lands only the embedded lock and a hand-built one carry rows. Blocked behind the two tips it shares files with — the settings lock re-derive and the when-body guidance fix, which owns `src/engine.rs` first. scoped at 7b6dda62"
-  },
-  {
     "tag": "ROOT-DEFAULT-CONTRACT-SHIPS",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
-        "INSTALL-LIFTS-A-JSON-DOCUMENT-MEMBER"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -221,10 +92,7 @@
   {
     "tag": "REACHED-FROM-PREDICATE-AND-JUDGE",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "ROOT-CONTRACT-SELECTION-AND-REACHABLE"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -755,10 +623,7 @@
   {
     "tag": "INSTALL-LIFTS-A-REGISTRATION-MEMBER",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "INSTALL-LIFTS-A-JSON-DOCUMENT-MEMBER"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [
       "hook-member-identity"
