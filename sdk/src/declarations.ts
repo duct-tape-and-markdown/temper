@@ -334,13 +334,25 @@ function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefine
 }
 
 /**
+ * Lower a kind's exhaustive leaf-set witness into the row's `leaves` column: the
+ * witness's own keys, in the order its author declared them (`kind.ts`'s `LeafSet`,
+ * decision 0053 — the type is the declaration, and TypeScript erases it, so the record is
+ * how the corpus hands the key set over). `undefined` for a kind declaring no witness, so
+ * its row omits the column.
+ */
+function leafSetRow(leaves: KindFacts["leaves"]): string[] | undefined {
+  return leaves === undefined ? undefined : Object.keys(leaves);
+}
+
+/**
  * One kind's fact row — an `at` locus supplies `governs_root`/`governs_glob` and any
  * other locus neither (a nested-file kind's path composes from its host's unit and the
  * host template's pattern; an embedded kind owns no unit at all — both govern no glob).
  * A file locus's `commitment` class rides the same spelling, absent for the committed
  * default. `templates` names the embedded kinds the corpus admits over it, and `content`
  * lowers a declared layout (absent for a `file`-content kind). A registration kind
- * extends the row with its `shape` marker and `collection_address`. Advisory
+ * extends the row with its `shape` marker and `collection_address`. A declared leaf-set
+ * witness lowers to `leaves` ([`leafSetRow`]), absent for a kind declaring none. Advisory
  * `guidance`/`cite` pair rides alongside, locus-optional so an embedded kind's own
  * counsel reaches the lock the same way a nested-file kind's already does (decision
  * 0045) — callable for any locus; [`kindFactKindsInPlay`] decides which embedded kinds
@@ -360,6 +372,7 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     templates: templatesFor(facts, admissions),
     content: contentRow(facts.content),
     shape: facts.shape,
+    leaves: leafSetRow(facts.leaves),
     collection_address: collectionAddressRow(facts),
     guidance: facts.guidance,
     cite: facts.cite,
@@ -500,14 +513,22 @@ function atLocusKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
 /**
  * The distinct kinds in play that take a kind-fact row: every non-embedded locus
  * unconditionally (a nested-file kind owns a file the engine must place, and places it
- * off its row, though it governs no glob to be discovered at), plus an embedded kind
- * only when it declares `guidance` or `cite` of its own (decision 0045) — an embedded
- * kind with neither has nothing for the row to carry, and its members already reach the
- * corpus through their host's `templates` column alone (`kindsInPlay`), never the row.
+ * off its row, though it governs no glob to be discovered at), plus an embedded kind that
+ * has something of its own for a row to carry: `guidance` or `cite` (decision 0045), or a
+ * declared leaf set (decision 0053). The leaf set is on this list for the reason the
+ * column exists — it teaches what a child carries *before* the surface holds a member of
+ * it, and an embedded kind taking no row never reaches the lock to teach it. An embedded
+ * kind declaring none of the three has nothing for the row to carry, and its members
+ * already reach the corpus through their host's `templates` column alone (`kindsInPlay`),
+ * never the row.
  */
 function kindFactKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
   return allKinds.filter(
-    (facts) => facts.locus.kind !== "embedded" || facts.guidance !== undefined || facts.cite !== undefined,
+    (facts) =>
+      facts.locus.kind !== "embedded" ||
+      facts.guidance !== undefined ||
+      facts.cite !== undefined ||
+      facts.leaves !== undefined,
   );
 }
 

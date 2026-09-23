@@ -72,6 +72,7 @@ export type {
   KindRelocation,
   Layout,
   LayoutRegion,
+  LeafSet,
   Locus,
   Member,
   MemberInit,

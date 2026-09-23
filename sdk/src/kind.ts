@@ -128,6 +128,23 @@ export interface Layout {
 export type Shape = "fields";
 
 /**
+ * A kind's **leaf-set witness** — the leaf names a member of the kind carries, handed
+ * over by the kind's own typed surface `T` (decision 0053). The type is the declaration:
+ * nothing here is a second schema to keep in step with `T`, because the record's keys
+ * *are* `keyof T`. It exists at all because TypeScript erases `T` at the seam, so the
+ * set the compiler knows has to reach emit as a runtime value.
+ *
+ * The record is **exhaustive** — `-?` strips optionality, so omitting one key of `T` is a
+ * compile error and a key that is not `T`'s own is one too. That binding is what keeps
+ * the witness from degrading into the free-hand leaf schema the decision rejected: a
+ * partial set is unwritable rather than merely discouraged.
+ *
+ * Key order is the order the lowered row carries (`declarations.ts`), so a kind's leaves
+ * read in the order its author declared them.
+ */
+export type LeafSet<T extends object> = { readonly [K in keyof T]-?: true };
+
+/**
  * A registration member's **collection address** — where inside a host manifest its
  * registration surfaces: which `manifest` (`settings.json`, `.mcp.json`) and which
  * `keyPath` it keys at — one of the four addresses the shipped kinds surface at.
@@ -164,8 +181,15 @@ export interface Template {
   readonly path?: string;
 }
 
-/** The seven facts of a kind's runtime residue. */
-export type KindFacts =
+/**
+ * The seven facts of a kind's runtime residue, plus the derived {@link LeafSet} witness
+ * its typed surface hands over. `T` is that surface — the interface the kind's
+ * constructor is generic over. It defaults to an erased `Record<string, unknown>`, so
+ * every signature that only ever *reads* a facts value (`declarations.ts`'s lowering,
+ * {@link Member}, {@link KindDefinition}) names `KindFacts` bare and no call site
+ * re-spells a type argument.
+ */
+export type KindFacts<T extends object = Record<string, unknown>> =
   | {
       /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
       readonly name: string;
@@ -217,6 +241,11 @@ export type KindFacts =
       /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
        * hosts; absent for a kind that nests nothing. */
       readonly templates?: readonly Template[];
+      /** The kind's **leaf set**, witnessed exhaustively over its own typed surface and
+       * lowered to the row's `leaves` column at emit ({@link LeafSet}, decision 0053) —
+       * what a read verb renders where the surface holds no member of the kind yet.
+       * Absent for a kind whose constructor declares no witness. */
+      readonly leaves?: LeafSet<T>;
       /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
        * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
       readonly guidance?: string;
@@ -274,6 +303,11 @@ export type KindFacts =
       /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
        * hosts; absent for a kind that nests nothing. */
       readonly templates?: readonly Template[];
+      /** The kind's **leaf set**, witnessed exhaustively over its own typed surface and
+       * lowered to the row's `leaves` column at emit ({@link LeafSet}, decision 0053) —
+       * what a read verb renders where the surface holds no member of the kind yet.
+       * Absent for a kind whose constructor declares no witness. */
+      readonly leaves?: LeafSet<T>;
       /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
        * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
       readonly guidance?: string;
@@ -331,6 +365,11 @@ export type KindFacts =
       /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
        * hosts; absent for a kind that nests nothing. */
       readonly templates?: readonly Template[];
+      /** The kind's **leaf set**, witnessed exhaustively over its own typed surface and
+       * lowered to the row's `leaves` column at emit ({@link LeafSet}, decision 0053) —
+       * what a read verb renders where the surface holds no member of the kind yet.
+       * Absent for a kind whose constructor declares no witness. */
+      readonly leaves?: LeafSet<T>;
       /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
        * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
       readonly guidance?: string;
@@ -472,8 +511,13 @@ export interface KindOptions {
  * into emit is the seven facts plus flat field data. `options.render`, when given,
  * rides alongside `facts`/`key` on the returned constructor — never on the member
  * it builds, since it is erased before a member reaches emit.
+ *
+ * The facts are typed over the same `T` the constructor is, which is what binds a
+ * declared {@link LeafSet} witness to `keyof T`: the leaf set is the kind's own surface,
+ * checked here at the keystroke, and its lowering to the row is the one place it is
+ * spelled again (`declarations.ts`).
  */
-export function kind<T extends object>(facts: KindFacts, options: KindOptions = {}): KindDefinition<T> {
+export function kind<T extends object>(facts: KindFacts<T>, options: KindOptions = {}): KindDefinition<T> {
   const construct = (init: MemberInit<T>): Member => ({
     kind: facts.name,
     facts,
@@ -500,9 +544,9 @@ export function kind<T extends object>(facts: KindFacts, options: KindOptions = 
  *   members are found, the one fact the engine's own overlay exists to apply
  *   (`src/compose.rs`'s `overlay_builtin_kind`).
  *
- * Every other fact — format, unit shape, registration, content, templates — rides
- * through unchanged, which is exactly what makes the emitted row still read as a
- * relocation rather than a name collision on the reading side.
+ * Every other fact — format, unit shape, registration, content, templates, the declared
+ * leaf set — rides through unchanged, which is exactly what makes the emitted row still
+ * read as a relocation rather than a name collision on the reading side.
  */
 export interface KindRelocation<T> {
   /** The edge fields this relocation adds, each over a field of the kind's own surface. */
@@ -609,7 +653,12 @@ export function relocate<T extends object>(
   // Two spellings, not one with an optional `locus`: `KindFacts` is a union discriminated
   // on the locus, so the moved case must carry the `at` locus as its own literal branch.
   const facts: KindFacts = locus === undefined ? relocated : { ...relocated, locus };
-  return kind<T>(facts, { render: base.render });
+  // The base's leaf-set witness rides through as data, and the assertion is that
+  // pass-through spelled: a relocation appends *edge fields* over the kind's own surface,
+  // never a leaf, so the set the base's own constructor already bound still names what a
+  // member carries. `T` here is the widened surface (the base's fields plus the added
+  // edges), so re-binding the witness to `keyof T` would demand the edge fields be leaves.
+  return kind<T>(facts as KindFacts<T>, { render: base.render });
 }
 
 /**

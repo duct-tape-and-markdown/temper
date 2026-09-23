@@ -35,7 +35,7 @@ import {
   text,
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
-import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
+import type { LeafSet, ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
 import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
 import { clauseRow } from "./common.js";
@@ -212,6 +212,10 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       templates: undefined,
       content: undefined,
       shape: undefined,
+      // The built-in set declares no leaf-set witness, so the column is the absent one
+      // here — spelled, because `deepEqual` compares own keys and the row's key set is
+      // as much the contract as its values.
+      leaves: undefined,
       collection_address: undefined,
       guidance:
         "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
@@ -393,8 +397,9 @@ test("needs derive the permission union, deduped and sorted, never authored twic
 
 // ---------------------------------------------------------------------------
 // Kinds in play — an embedded kind takes a locus-optional kind-fact row only when it
-// declares its own `guidance`/`cite` (decision 0045); either way it takes no standalone
-// projection, since its members reach the corpus through their host alone.
+// declares something of its own for one to carry: `guidance`/`cite` (decision 0045) or a
+// leaf set (decision 0053). Either way it takes no standalone projection, since its
+// members reach the corpus through their host alone.
 // ---------------------------------------------------------------------------
 
 /** An embedded-locus kind, built via `kind()` directly — host-free, as every embedded kind is. */
@@ -456,6 +461,66 @@ test("an embedded kind declaring guidance/cite takes a locus-absent kind-fact ro
   assert.equal(row?.commitment, undefined);
   assert.equal(row?.guidance, "State the decision's rationale, not just its verdict.");
   assert.equal(row?.cite, "https://example.com/decisions (retrieved 2026-07-24)");
+});
+
+/**
+ * An embedded `decision`'s typed surface — the leaves a block of it carries. Declared
+ * out of alphabetical order on purpose: the lowered set is the author's order, never a
+ * sorted one.
+ */
+interface DecisionLeaves {
+  readonly verdict: string;
+  readonly rationale?: string;
+}
+
+test("an embedded kind declaring only a leaf set takes a fact row carrying it in declaration order", () => {
+  const decision = kind<DecisionLeaves>({
+    name: "decision-with-leaves",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    registration: [],
+    leaves: { verdict: true, rationale: true },
+  });
+  // No member of the kind is in this surface — the adopter's actual moment (decision
+  // 0053). The kind is in play through the admission alone, and the leaf set is the only
+  // thing it declares of its own: an embedded kind declaring nothing takes no row at all,
+  // so without this the column would never reach the lock for the very kinds it exists to
+  // teach.
+  const declarations = compileDeclarations(
+    harness({
+      members: [rule({ name: "rust", prose: text`# Rust` })],
+      admit: [{ host: rule, admits: [decision] }],
+    }),
+  );
+
+  const row = declarations.kinds.find((k) => k.name === "decision-with-leaves");
+  assert.ok(row, "an embedded kind carrying only a leaf set takes a kind-fact row");
+  assert.deepEqual(row?.leaves, ["verdict", "rationale"]);
+  // It still owns no unit: the row carries no governs pair, and the kind reaches a host's
+  // body through that host's `templates` column as it always did.
+  assert.equal(row?.governs_root, undefined);
+  assert.deepEqual(declarations.kinds.find((k) => k.name === "rule")!.templates, [
+    { kind: "decision-with-leaves" },
+  ]);
+
+  // A kind declaring no witness carries no column — and absent on the wire too, so a
+  // lock written before the column existed re-reads byte-identically.
+  const ruleRow = declarations.kinds.find((k) => k.name === "rule")!;
+  assert.equal(ruleRow.leaves, undefined);
+  assert.ok(!("leaves" in JSON.parse(JSON.stringify(ruleRow))), "an absent column reaches no wire key");
+});
+
+test("a leaf-set witness is exhaustive over the kind's surface — a partial one is a compile error", () => {
+  const whole: LeafSet<DecisionLeaves> = { verdict: true, rationale: true };
+  // @ts-expect-error a witness omitting one key of the surface does not type-check: the
+  // record's stripped optionality is what makes a partial set *unwritable* rather than
+  // merely discouraged, which is what keeps it off decision 0053's rejected list (a
+  // free-hand leaf schema — a second place to be wrong about the member type).
+  const partial: LeafSet<DecisionLeaves> = { verdict: true };
+  // Nothing at runtime tells the two apart — the refusal is `tsc`'s alone, and this
+  // suite's `tsc -p` pass is where it is held.
+  assert.deepEqual(Object.keys(whole), ["verdict", "rationale"]);
+  assert.deepEqual(Object.keys(partial), ["verdict"]);
 });
 
 test("a host kind's fact row carries the embedded kinds the corpus admits over it as templates", () => {
