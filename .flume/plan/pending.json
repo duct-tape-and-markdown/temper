@@ -1,51 +1,5 @@
 [
   {
-    "tag": "CLAUSE-FINDING-ONE-CONSTRUCTOR",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "`Diagnostic::from_clause(clause, artifact, message)` joins `warn` (:91) and `note` (:101) in the one home the base constructors already keep: it reads all three of a clause's channels — `engine::severity_of(clause.severity)` (already doc-linked at :17), `clause.label`, and `clause.guidance` through the existing `with_guidance` builder (:131) — so no call site can thread two of three. The builder stays public: a finding that carries guidance from somewhere other than its filing clause still needs it."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "`finding` (:1010) is the constructor verbatim over a selection's artifact label and folds whole. `member_findings` (:97) is the one site that must NOT fold and stays explicit: its guidance is `violation.guidance.or_else(|| clause.guidance.clone())` — a `when` body clause's guidance wins over the enclosing guard's — so its comment (:102-:104) gains the sentence naming it as the deliberate exception rather than an oversight the next reader folds away."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Four sites fold: `unreached` (:642), the mention-reachable push (:773), `out_of_degree` (:1132), and `unreachable` (:1470). The fourth retires `GRAPH_REACHABLE_RULE` (:81) — a string literal equal to what `contract::clause_label(Some(ROOT_OWNER), \"reachable\", None)` computes for the only clause that site is ever handed (`reachable` locates it at :1194, through `engine::root_clause` since fc7848b7), which is derived state stored beside its source (`engineering.md`, \"Derived state is computed, never stored beside its source\") and the one channel of three this module still bakes. Its two intra-doc links (:1182, :1461) re-point, or the afterMerge doc gate fails."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "The two sites 81ee251b added fold: the projection-fingerprint push in `config_stale_from_doc` (:2783-:2793) and the source-dependency push in `source_dep_stale_from_doc` (:3340-:3348). LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED's two undeclared-member judges will have landed by then and fold with them — which is why this rides behind it rather than racing it."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Eight sites hand-thread a clause's severity, label and guidance into a Diagnostic, and one of them bakes the label the clause already carries.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "every reachability finding still reports under `root.reachable` at the clause's declared severity carrying its guidance — unedited, since no behaviour moves"
-      },
-      {
-        "path": "tests/root_contract.rs",
-        "asserts": "the dial still reaches a root clause by the label its findings print"
-      }
-    ],
-    "acceptance": "`cargo test` green with no assertion edited — every finding's rule, severity and guidance byte-identical — `cargo clippy --all-targets -- -D warnings` clean, and the afterMerge doc gate clean with `GRAPH_REACHABLE_RULE` gone from the tree.",
-    "notes": "Sweep of b89a4372..HEAD: 81ee251b grew the hand-threaded class from six sites to eight, adding both of drift.rs's. Behaviour-preserving, so every assertion stays unedited. The gate is file collision, not logic: each parent owns one of the three modules the fold touches. graph.rs cites re-measured -20 past fc7848b7's deletion, drift.rs +5 past 833b9a9d. scoped at 30f55b49"
-  },
-  {
     "tag": "INSTALL-LIFTS-A-REGISTRATION-MEMBER",
     "gate": {
       "kind": "open"
@@ -80,64 +34,6 @@
     ],
     "acceptance": "`cargo test` green with `install` over a project whose settings.json carries registration segments producing a module per registration member, the adoption emit re-rendering the file with every segment intact, and the discovery report counting registration entries rather than the manifest file.",
     "notes": "Re-measured at e0d0123b: the count is a file count — a settings.json with no hooks, no enabledPlugins and no extraKnownMarketplaces still reports `hook 1`, `installed-plugin 1`, `known-marketplace 1`, one per kind whose locus is that file. Both halves re-verified past 81ee251b, which moved one doc line in the module and neither `discover` nor the content skip. Rests on `(hook-member-identity)`: a lifted hook needs a name, and two groups on one event share one address today. scoped at dfa667d7"
-  },
-  {
-    "tag": "MANIFEST-KIND-TEST-READ-ONE-HOME",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/common/mod.rs",
-          "description": "Gains the one home for the manifest-kind read: `manifest_members(harness, &kind)` running `Discovery::new` -> `import::discover_kind_files(.., kind.governs.as_ref().unwrap(), LocalOverride::Honored)` -> `json_manifest::Manifest::read_kind`, and `kind_features(harness, &kind)` folding those members through `builtin_kind::features` (the generalization of the two copies below). Name it `kind_features`, not `features` — `common::features(id)` (:548) is a different job, the Features fixture base."
-        },
-        {
-          "path": "tests/hook_kind.rs",
-          "description": "Two verbatim copies of the read dance at :83 and :132 call the helper instead."
-        },
-        {
-          "path": "tests/known_marketplace_kind.rs",
-          "description": "Three copies at :57, :97, :206; its local `features(harness)` (:54) is the hardcoded-kind specialization of installed_plugin's `features_of` and retires into `common::kind_features`."
-        },
-        {
-          "path": "tests/installed_plugin_kind.rs",
-          "description": "Four copies at :67, :88, :134, :244; its local `features_of(kind, harness)` (:65) — already the general form, called at :318 with the known-marketplace kind — moves to `tests/common` rather than being re-derived there."
-        },
-        {
-          "path": "tests/manifest_adapter.rs",
-          "description": "One copy at :144, over a hand-built CustomKind — the helper takes the kind by reference, so a locally constructed kind reaches it unchanged."
-        },
-        {
-          "path": "tests/mcp_server_kind.rs",
-          "description": "One copy at :69."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The manifest-kind read — discover, then `Manifest::read_kind` — is copy-pasted at eleven call sites across five test files, with two near-duplicate `features` folds beside it.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "tests/common/mod.rs",
-        "asserts": "the helper pair exists and is the only in-tree spelling of the manifest read dance for these five files"
-      },
-      {
-        "path": "tests/hook_kind.rs",
-        "asserts": "the hook read and inference cases keep their current assertions, driven through the shared helper"
-      },
-      {
-        "path": "tests/installed_plugin_kind.rs",
-        "asserts": "the known-marketplace call at :318 still folds through the shared `kind_features`"
-      }
-    ],
-    "acceptance": "`cargo test` green with no behavioral assertion changed, and `rg 'discover_kind_files' tests/` no longer matches the five files this entry edits.",
-    "notes": "Deliberately excludes `tests/check_cost.rs:122` and `tests/gauntlet.rs:377`: both iterate kinds against one hoisted `Discovery`, and check_cost is the walk-count pin — a helper constructing `Discovery::new` per call would change the very count it asserts. The bare-discovery sites (agent_kind, command_kind, nested_member) assert which files are found, a different job, and stay. scoped at a8131024"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
