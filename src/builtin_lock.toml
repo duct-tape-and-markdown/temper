@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the fourteen built-in kinds' facts and their default contract clauses, plus two
+# the fifteen built-in kinds' facts and their default contract clauses, plus two
 # assembly facts — the unconditional `mode = "warn"` (the root member's own enforcement
 # mode, specs/model/representation.md, "The root member", every harness carries absent an
 # authored mode) and the `installed-plugin` → `known-marketplace` edge, the marketplace
@@ -11,14 +11,15 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over the whole shipped std-lib:
-# `@dtmd/temper/claude-code`'s thirteen
+# `@dtmd/temper/claude-code`'s fourteen
 # built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `known-marketplace`,
-# `marketplace`, `mcp-server`, `plugin-manifest`, `settings-local`, `skill`,
+# `marketplace`, `mcp-server`, `plugin-manifest`, `settings`, `settings-local`, `skill`,
 # `supporting-doc`, `rule`, `memory`) and their
 # default contracts (`agentDefaultContract`, `commandDefaultContract`,
 # `hookDefaultContract`, `installedPluginDefaultContract`, `knownMarketplaceDefaultContract`,
 # `marketplaceDefaultContract`, `mcpServerDefaultContract`,
-# `pluginManifestDefaultContract`, `settingsLocalDefaultContract`, `skillDefaultContract`,
+# `pluginManifestDefaultContract`, `settingsDefaultContract`,
+# `settingsLocalDefaultContract`, `skillDefaultContract`,
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
 # `memoryAnthropicDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
 # *root* — temper's own kind, whose entries re-read these very clauses at a machine's
@@ -28,7 +29,7 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's fourteen kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's fifteen kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -46,9 +47,28 @@
 # the graph one: a supporting file no edge from its host skill reaches is never read.
 #
 # `installed-plugin` and `known-marketplace` are the two kinds here contributing a kind fact
-# and no clause row at all: each default contract is empty, so fourteen kinds carry twelve
+# and no clause row at all: each default contract is empty, so fifteen kinds carry thirteen
 # contracts' clauses. Neither format documents a gateable schema the member's own type does
 # not already hold — an installed plugin is one scalar under an identity key, a known
+# marketplace a `source`/`autoUpdate` object under a marketplace-name key — and the absence
+# is the honest encoding, not a row lost in regeneration.
+#
+# Four kinds here sit at the `json-document` format, where the whole artifact is one JSON
+# object and a kind's top-level keys are the fields its clauses range over: `marketplace`,
+# `plugin-manifest`, and the `settings`/`settings-local` pair. `plugin-manifest` alone
+# closes its key set — `closed-keys` indicts an undocumented top-level field and
+# `forbidden_keys` the `themes`/`monitors` spellings the experimental migration retires —
+# because that format documents one.
+#
+# The settings pair holds the opposite posture: `type` rows gate the structural container
+# keys and every other key stays opaque residue, with no `closed-keys` row, since the
+# settings schema is large and version-evolving and an allow-list would indict a valid file
+# the moment upstream adds a key. `settings-local` gates `permissions`/`env`/`hooks`;
+# committed `settings` gates `permissions`/`env`/`attribution` and deliberately not
+# `hooks` — that segment is the `hook` kind's collection address, so its shape is that
+# kind's contract to hold, member by member, while in the local overlay no kind reads it
+# and it rides as residue.
+
 [[declaration.kind]]
 name = "agent"
 governs_root = ".claude/agents"
@@ -142,6 +162,13 @@ format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
 guidance = "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
+
+[[declaration.kind]]
+name = "settings"
+governs_root = ".claude"
+governs_glob = "settings.json"
+format = "json-document"
+unit_shape = "file"
 
 [[declaration.kind]]
 name = "settings-local"
@@ -860,6 +887,36 @@ severity = "advisory"
 guidance = "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until Claude reads a matching file, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a rule that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this rule's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does."
 cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211)"
 gate = "paths"
+
+[[declaration.clause]]
+label = "settings.type.permissions"
+kind = "settings"
+predicate = "type"
+field = "permissions"
+severity = "required"
+guidance = "`permissions` is the tool-permission object — `allow`, `ask` and `deny` rule arrays plus `defaultMode`. A value that is not an object carries no rules Claude Code can read, so the rules a whole team relies on silently apply nothing."
+cite = "https://code.claude.com/docs/en/settings-reference#permissions (retrieved 2026-09-22)"
+value_type = ["map"]
+
+[[declaration.clause]]
+label = "settings.type.env"
+kind = "settings"
+predicate = "type"
+field = "env"
+severity = "required"
+guidance = "`env` is a map of environment variables — string keys to string values — applied to every session and its subprocesses. A non-object value is not a shorter spelling of one variable; it is a shape the loader cannot expand, so none of the variables take effect."
+cite = "https://code.claude.com/docs/en/settings-reference#env (retrieved 2026-09-22)"
+value_type = ["map"]
+
+[[declaration.clause]]
+label = "settings.type.attribution"
+kind = "settings"
+predicate = "type"
+field = "attribution"
+severity = "required"
+guidance = "`attribution` is the commit/PR attribution object — `commit`, `pr` and `sessionUrl`. A non-object value configures none of them, so Claude Code falls back to its default trailer with no error, which is exactly the outcome a project setting this key was avoiding."
+cite = "https://code.claude.com/docs/en/settings-reference#attribution (retrieved 2026-09-22)"
+value_type = ["map"]
 
 [[declaration.clause]]
 label = "settings-local.type.permissions"

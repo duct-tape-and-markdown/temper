@@ -11,9 +11,10 @@
 //!    templated `guide` host;
 //! 2. an embedded edge scoped on both endpoints — a `citation` edge inside a
 //!    `paths`-scoped rule's body, pointing at a second `paths`-scoped rule;
-//! 3. a partially-declared manifest — a `settings.json` carrying a declared
-//!    `hook` and `installed-plugin` beside opaque residue the harness models as no
-//!    member;
+//! 3. a declared manifest container — a `settings` member owning `settings.json`
+//!    whole, its residue keys its own fields, with a declared `hook`,
+//!    `installed-plugin` and `known-marketplace` registering at its three collection
+//!    addresses;
 //! 4. a local-locus member under ignore rules — a `local` kind whose gitignored
 //!    document the reviewed `governs` discovers all the same (the dial precedent);
 //! 5. a starred-segment lone file inside a directory-owning host — a `handbook`
@@ -38,7 +39,7 @@ mod common;
 /// manifest residue) is temper's own model (`specs/model/`), not an external fact.
 const GAUNTLET_PROGRAM: &str = r#"
 import { blocks, clause, emit, embeddedMemberValue, harness, kind, text, type } from "@dtmd/temper";
-import { hook, installedPlugin, knownMarketplace, rule } from "@dtmd/temper/claude-code";
+import { hook, installedPlugin, knownMarketplace, rule, settings } from "@dtmd/temper/claude-code";
 
 // Composition 1 — a composed layout body over a templated host.
 //
@@ -113,17 +114,23 @@ const authoring = rule({
   ),
 });
 
-// Composition 3 — a partially-declared manifest with a resolving plugin→marketplace edge.
+// Composition 3 — a declared manifest container with a resolving plugin→marketplace edge.
 //
-// A `hook`, an `installed-plugin`, and a `known-marketplace` register inside
-// `settings.json`, and the harness-level `settings` residue (`permissions`,
-// `autoMemoryEnabled`) folds in beside them as opaque keys the harness models as no
-// member — the file carries more than the program declares. The plugin's
-// `<plugin>@<marketplace>` key names `acme-marketplace`, and the known-marketplace
-// declares it, so the marketplace-half edge resolves on the reference graph (0039).
+// A `hook`, an `installed-plugin`, and a `known-marketplace` register at the three
+// collection addresses inside `settings.json`, and the `settings` container owns the
+// file whole — its `permissions`/`autoMemoryEnabled` residue is its own fields, so emit
+// renders the declared segments in address order and the residue after them. The
+// plugin's `<plugin>@<marketplace>` key names `acme-marketplace`, and the
+// known-marketplace declares it, so the marketplace-half edge resolves on the
+// reference graph (0039).
 const sessionHook = hook({ name: "SessionStart", type: "command", command: "temper reporter" });
 const formatterPlugin = installedPlugin({ name: "formatter@acme-marketplace", enabled: true });
 const acmeMarketplace = knownMarketplace({ name: "acme-marketplace", source: "./vendor/acme-marketplace" });
+const projectSettings = settings({
+  name: "settings",
+  permissions: { allow: ["Bash(cargo build:*)"] },
+  autoMemoryEnabled: false,
+});
 
 // Composition 4 — a local-locus member under ignore rules.
 //
@@ -160,15 +167,11 @@ const gateHandbook = handbook({ name: "operate-the-gate", prose: text`# Conventi
 process.stdout.write(
   emit(
     harness({
-      members: [gateGuide, representation, conventions, authoring, sessionHook, formatterPlugin, acmeMarketplace, gateHandbook],
+      members: [gateGuide, representation, conventions, authoring, sessionHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook],
       admit: [{ host: rule, admits: [citation] }],
       expect: [
         { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },
       ],
-      settings: {
-        permissions: { allow: ["Bash(cargo build:*)"] },
-        autoMemoryEnabled: false,
-      },
     }),
   ).seam,
 );

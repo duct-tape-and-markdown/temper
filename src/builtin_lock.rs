@@ -102,6 +102,7 @@ mod tests {
                         | "marketplace"
                         | "mcp-server"
                         | "plugin-manifest"
+                        | "settings"
                         | "settings-local"
                         | "skill"
                         | "supporting-doc"

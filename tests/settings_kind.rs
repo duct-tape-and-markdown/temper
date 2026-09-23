@@ -14,7 +14,9 @@
 //! — is `config.stale`, and the unmodeled-surface advisory retires because a kind now
 //! governs every key. The contrast case holds the same bytes under the pre-0050
 //! posture (the residue riding the harness-level `settings` option, no container kind)
-//! and shows both halves absent: no rollup row, and the advisory still firing.
+//! and shows both halves absent: no rollup row, and the file left undeclared at the
+//! kind's own governed locus — the built-in ships for every harness now, so an ownerless
+//! settings.json is an undeclared member rather than an unmodeled surface.
 //!
 //! Every format fact here is the live settings docs' (code.claude.com/docs/en/settings
 //! and code.claude.com/docs/en/settings-reference, retrieved 2026-09-22).
@@ -279,7 +281,7 @@ fn the_unmodeled_surface_advisory_retires_once_the_settings_kind_governs_the_fil
 }
 
 #[test]
-fn the_same_bytes_under_the_pre_0050_posture_carry_no_rollup_row_and_keep_the_advisory() {
+fn the_same_bytes_under_the_pre_0050_posture_carry_no_rollup_row_and_go_undeclared() {
     let (harness, into) = common::wire_sdk_harness("settings-ungoverned", SETTINGS_RESIDUE_PROGRAM);
     drift::emit_program(&into, EmitOptions::default()).unwrap();
 
@@ -296,13 +298,20 @@ fn the_same_bytes_under_the_pre_0050_posture_carry_no_rollup_row_and_keep_the_ad
         "an ownerless manifest gets no container rollup row"
     );
 
+    // The built-in kind ships for every harness, so the file is no longer an unmodeled
+    // surface — it is a document at a governed locus the program declares no member for,
+    // which is the finding an ownerless settings.json draws now.
     let (findings, _ok) = common::check_harness(&harness);
-    let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
-    assert_eq!(unmodeled.len(), 1, "{findings:?}");
     assert!(
-        unmodeled[0].contains(".claude/settings.json"),
-        "the advisory names the partially-governed file: {}",
-        unmodeled[0]
+        common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
+        "a governing kind retires the unmodeled-surface advisory: {findings:?}"
+    );
+    let undeclared = common::findings_for(&findings, "locus.undeclared-member");
+    assert_eq!(undeclared.len(), 1, "{findings:?}");
+    assert!(
+        undeclared[0].contains(".claude/settings.json"),
+        "the finding names the undeclared document at the settings locus: {}",
+        undeclared[0]
     );
     // And the edit the missing row cannot catch really is invisible.
     let path = settings_path(&harness);

@@ -6,9 +6,9 @@ expression: "projection_tree(&harness, &report)"
 
 guide:operate-the-gate -> Emitted @ docs/guides/operate-the-gate/GUIDE.md
 handbook:operate-the-gate -> Emitted @ docs/guides/operate-the-gate/conventions.md
-manifest:settings.json -> Emitted @ .claude/settings.json
 rule:authoring -> Emitted @ .claude/rules/authoring.md
 rule:conventions -> Emitted @ .claude/rules/conventions.md
+settings:settings -> Emitted @ .claude/settings.json
 
 # tree
 
@@ -98,6 +98,12 @@ source_path = ".claude/rules/conventions.md"
 source_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
 emit_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
 
+[[settings]]
+name = "settings"
+source_path = ".claude/settings.json"
+source_hash = "5a6b2174a90a0130e34282a514e357fd528aac137196acde9f9b708c517eddae"
+emit_hash = "5a6b2174a90a0130e34282a514e357fd528aac137196acde9f9b708c517eddae"
+
 [[declaration.kind]]
 name = "guide"
 governs_root = "docs/guides"
@@ -157,6 +163,13 @@ unit_shape = "file"
 registration = ["paths-match(paths)"]
 templates = [{ kind = "citation" }]
 guidance = "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
+
+[[declaration.kind]]
+name = "settings"
+governs_root = ".claude"
+governs_glob = "settings.json"
+format = "json-document"
+unit_shape = "file"
 
 [[declaration.kind]]
 name = "spec"

@@ -9,8 +9,9 @@
 //! name is its whole identity, so the kinds below never collide.
 //!
 //! This module is also the home for known Claude Code surfaces — the curated registry
-//! of documented surfaces (`.claude/settings.json`, `.mcp.json`) that no built-in kind
-//! governs, used by the coverage note to flag gaps in harness coverage.
+//! of documented surfaces (`.claude/settings.json`, `.mcp.json`) a harness's in-scope
+//! kinds may leave ungoverned, used by the coverage note to flag gaps in harness
+//! coverage.
 
 use std::collections::BTreeMap;
 
@@ -35,7 +36,7 @@ pub const CLAUDE_ROOT: &str = ".claude";
 /// deeper than this loads nothing at runtime and cannot carry liveness either.
 pub const MAX_IMPORT_HOPS: usize = 4;
 
-/// A known Claude Code harness surface temper's built-in kinds do not govern — an
+/// A known Claude Code harness surface the coverage note reasons about — an
 /// external fact carrying its citation at the point of claim
 /// (.claude/rules/collaboration.md, "External facts are cited").
 pub struct KnownSurface {
@@ -70,13 +71,13 @@ pub struct Segment {
 /// curated surfaces below, each of which is documented there.
 const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-16)";
 
-/// The curated known-surface list. Every entry is a documented Claude Code surface
-/// (verified against the settings docs, [`SETTINGS_DOC`]) that **no built-in kind
-/// governs**: skills live under `.claude/skills/` (the `skill` kind), commands under
-/// `.claude/commands/` (the `command` kind), subagents under `.claude/agents/` (the
-/// `agent` kind), rules under `.claude/rules/` (the `rule` kind), and memory under
-/// `CLAUDE.md` (the `memory` kind), so those loci are deliberately absent —
-/// governance already covers them.
+/// The curated known-surface list: each entry is a documented Claude Code surface
+/// (verified against the settings docs, [`SETTINGS_DOC`]) whose governance the note
+/// reports on, so a harness whose in-scope kinds leave one uncovered reads it as a gap
+/// rather than as silence. A locus a kind always governs is deliberately absent —
+/// skills under `.claude/skills/`, commands under `.claude/commands/`, subagents under
+/// `.claude/agents/`, rules under `.claude/rules/`, memory at `CLAUDE.md`: naming them
+/// would report coverage nothing can lack.
 /// Hooks are **not** a directory: they are configured inside
 /// `settings.json`, so the settings entry covers them and no invented `.claude/hooks/`
 /// locus appears (a false locus would be the exact uncited guess collaboration.md
@@ -536,6 +537,33 @@ fn claude_code_marketplace() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `.claude/settings.json` kind: the project's committed settings,
+/// the whole file one JSON document at the committed commitment class
+/// (`code.claude.com/docs/en/settings`, retrieved 2026-09-22) — the program authors every
+/// key, emit renders the file whole, and a hand edit to any part of it is drift.
+///
+/// Identity is the fixed singleton stem `settings` (the `file` unit shape): a project's
+/// committed settings are the one file at this documented path, so no declared key names
+/// it. It is the **container** of three registration collection addresses — `hooks`,
+/// `enabledPlugins`, `extraKnownMarketplaces` — which keep their own kinds
+/// ([`claude_code_hook`], [`claude_code_installed_plugin`],
+/// [`claude_code_known_marketplace`]); those segments and this member's opaque residue are
+/// one file. Channel-less: configuration the harness reads, never surfaced to the model.
+fn claude_code_settings() -> CustomKind {
+    CustomKind {
+        format: Some(Format::JsonDocument),
+        unit_shape: Some(crate::kind::UnitShape::File),
+        ..CustomKind::new(
+            "settings",
+            Governs {
+                root: CLAUDE_ROOT.to_string(),
+                glob: "settings.json".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+}
+
 /// Anthropic's documented `.claude/settings.local.json` kind: the machine's own per-project
 /// settings overlay, the whole file one JSON document at the **local** commitment class
 /// (`code.claude.com/docs/en/settings`, retrieved 2026-07-16). Read in place at check and
@@ -612,6 +640,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_marketplace(),
         claude_code_mcp_server(),
         claude_code_plugin_manifest(),
+        claude_code_settings(),
         claude_code_settings_local(),
         claude_code_skill(),
         claude_code_supporting_doc(),
@@ -871,6 +900,7 @@ mod tests {
                 "memory",
                 "plugin-manifest",
                 "rule",
+                "settings",
                 "settings-local",
                 "skill",
                 "supporting-doc"

@@ -53,6 +53,8 @@ import {
   pluginManifestDefaultContract,
   rule,
   ruleDefaultContract,
+  settings,
+  settingsDefaultContract,
   settingsLocal,
   settingsLocalDefaultContract,
   skill,
@@ -75,6 +77,7 @@ const program = harness({
     { kind: memory, clauses: memoryAnthropicDefaultContract },
     { kind: pluginManifest, clauses: pluginManifestDefaultContract },
     { kind: rule, clauses: ruleDefaultContract },
+    { kind: settings, clauses: settingsDefaultContract },
     { kind: settingsLocal, clauses: settingsLocalDefaultContract },
     { kind: skill, clauses: skillDefaultContract },
     { kind: supportingDoc, clauses: supportingDocDefaultContract },
@@ -136,8 +139,8 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
 
     assert_eq!(
         declarations.kinds.len(),
-        14,
-        "the derived lock carries all 14 built-in kind facts"
+        15,
+        "the derived lock carries all 15 built-in kind facts"
     );
 
     for kind_row in &declarations.kinds {

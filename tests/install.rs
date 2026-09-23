@@ -802,8 +802,9 @@ fn a_fresh_dry_run_scaffolds_and_writes_nothing() {
 
     let outcome = install::run(&root, &discovery, Represent::Yes, true).unwrap();
     assert_eq!(
-        outcome.scaffolded, 3,
-        "the preview still counts what would lift"
+        outcome.scaffolded, 4,
+        "the preview still counts what would lift — the skill, the two rules, and the \
+         `.claude/settings.json` the settings container governs"
     );
     assert!(
         outcome.emit.is_none(),
@@ -1468,8 +1469,9 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
 
 /// The arms the governed-locus binding must leave exactly where they were: a declared
 /// projection keeps the projection wording, a `local`-commitment locus is never bound by
-/// it, a manifest locus stays the manifest arm's, and an unrepresented harness keeps the
-/// `.claude/` fallback.
+/// it, a collection-address manifest locus stays the manifest arm's, and an unrepresented
+/// harness keeps the `.claude/` fallback. Its neighbour: a container kind's own locus
+/// binds, `.claude/settings.json` included.
 #[test]
 fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     let root = represented_rule_harness("guard-locus-neighbours", "block");
@@ -1504,12 +1506,12 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
         assert!(local_stderr.is_empty());
     }
 
-    // A manifest kind's locus stays `manifest_write_findings`'s: `.claude/settings.json`
-    // is not emit-owned in this lock (no registration rows), and the `collection_address`
-    // exclusion keeps the locus binding off it, so the write is allowed exactly as before.
+    // A manifest kind's locus stays `manifest_write_findings`'s: `.mcp.json` is not
+    // emit-owned in this lock (no registration rows), and the `collection_address`
+    // exclusion keeps the locus binding off `mcp-server`, so the write is allowed.
     let (manifest_code, manifest_stderr) = common::run_guard(
         &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".mcp.json\"}}",
     );
     assert_eq!(
         manifest_code,
@@ -1517,6 +1519,23 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
         "a manifest locus is the manifest arm's, not the locus binding's, got: {manifest_stderr}"
     );
     assert!(manifest_stderr.is_empty());
+
+    // `.claude/settings.json` is the other side of that exclusion: the `settings`
+    // container governs the file and carries no collection address, so its locus binds
+    // like any other — the guard saying what `check` already says about the same file.
+    let (settings_code, settings_stderr) = common::run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
+    );
+    assert_eq!(
+        settings_code,
+        Some(2),
+        "the settings container's locus binds, got: {settings_stderr}"
+    );
+    assert!(
+        settings_stderr.contains("`settings` kind's governed locus"),
+        "the finding names the `settings` kind, got: {settings_stderr}"
+    );
 
     // `memory` governs `.` with `**/CLAUDE.md`, and the guard has no ignore reader where
     // discovery prunes by the repo's ignore rules — so the `.`-rooted locus is excluded

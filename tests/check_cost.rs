@@ -353,7 +353,14 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
     // `widget` kind governing that file.
     common::write_skill(&harness, "test-skill", "# Test\n\nBody.");
     std::fs::create_dir_all(harness.join(".claude")).unwrap();
-    std::fs::write(harness.join(".claude/settings.json"), "{}").unwrap();
+    // One residue key no built-in segment kind governs, so the finding has something to
+    // fire on: an empty manifest names no ungoverned segment and the suppression below
+    // would read as vacuous.
+    std::fs::write(
+        harness.join(".claude/settings.json"),
+        r#"{ "permissions": { "allow": [] } }"#,
+    )
+    .unwrap();
 
     // Create a lock.toml with a widget kind row
     let lock_dir = harness.join(".temper");
@@ -383,26 +390,41 @@ unit_shape = "file"
         "lock should declare widget kind"
     );
 
-    // Call coverage_note::check with the pre-parsed kind rows (the new API)
+    // Call coverage_note::check with the pre-parsed kind rows (the new API). The in-scope
+    // set is the built-ins with the `settings` container withheld: it governs the file
+    // whole, and under it a locked kind's own contribution would be unobservable.
     let member_counts = BTreeMap::from([("skill".to_string(), 1usize)]);
-    let diagnostics = coverage_note::check(
-        &harness,
-        &temper::builtin_kind::definitions(),
-        &member_counts,
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &committed.kinds,
-    )
-    .expect("coverage_note::check should succeed");
+    let mut in_scope = temper::builtin_kind::definitions();
+    in_scope.remove("settings");
+    let check = |locked: &[temper::drift::KindFactRow]| {
+        coverage_note::check(
+            &harness,
+            &in_scope,
+            &member_counts,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            locked,
+        )
+        .expect("coverage_note::check should succeed")
+    };
+    let names_settings = |diagnostics: &[temper::check::Diagnostic]| {
+        diagnostics.iter().any(|d| {
+            d.rule == "coverage.unmodeled-surface" && d.artifact == ".claude/settings.json"
+        })
+    };
+
+    // Non-vacuity: with no locked rows handed in, the residue key is flagged.
+    assert!(
+        names_settings(&check(&[])),
+        "without the locked rows the ungoverned residue is flagged"
+    );
 
     // Verify: the custom widget kind was used to suppress the settings.json finding
     // because it governs the file. This proves the hoisted kind rows are being used
     // correctly to suppress the finding, just as if they had been read internally.
-    let has_unmodeled_settings = diagnostics
-        .iter()
-        .any(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".claude/settings.json");
+    let diagnostics = check(&committed.kinds);
     assert!(
-        !has_unmodeled_settings,
+        !names_settings(&diagnostics),
         "the locked widget kind should suppress the settings.json finding, got: {diagnostics:#?}"
     );
 }

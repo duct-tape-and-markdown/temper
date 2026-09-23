@@ -3,21 +3,21 @@
 //! disk that no kind — built-in or locked custom — governs, so the gate's silence
 //! about an unmodeled surface never reads as "checked".
 //!
-//! Driven across the real process boundary through the one-shot `check --harness` verb
-//! (the route session-start takes), over harness-dir fixtures mirroring the real Claude
-//! Code layout — `.claude/skills/*` plus, for the partial-governance arm, a bare
-//! `.claude/settings.json` whose `hooks` segment the `hook` built-in governs while its
-//! permissions/env residue stays unmodeled (the finding names only that residue, never
-//! the whole file), and for the locked-kind arm, a `.claude/settings.json` a committed
-//! `widget` kind row governs whole. `.mcp.json` is the wholly-ungoverned probe only when
-//! the kinds handed in carry no `mcp-server` row; under the built-in set it is governed
-//! whole and retires its finding.
-//! The GitHub reporter gives a machine-parseable finding
-//! set: each finding is one `::<level> title=<rule>::<artifact>: …` line, so the
-//! coverage note's levels are asserted exactly. Nothing here gates or injects a
-//! session-start verdict: the checked summary is a `::notice` disclosure (no clause
-//! behind it, so `--deny-advisories` never promotes it) and each ungoverned-surface
-//! flag is a `::warning` advisory — a gap the corpus can close.
+//! The whole-harness arms drive the real process boundary through the one-shot
+//! `check --harness` verb (the route session-start takes), over harness-dir fixtures
+//! mirroring the real Claude Code layout. The GitHub reporter gives them a
+//! machine-parseable finding set: each finding is one
+//! `::<level> title=<rule>::<artifact>: …` line, so the coverage note's levels are
+//! asserted exactly. Nothing here gates or injects a session-start verdict: the checked
+//! summary is a `::notice` disclosure (no clause behind it, so `--deny-advisories` never
+//! promotes it) and each ungoverned-surface flag is a `::warning` advisory — a gap the
+//! corpus can close.
+//!
+//! The narrowing arms call the note directly, because the kind set is the variable they
+//! turn: under the whole built-in set every known surface is governed whole —
+//! `.claude/settings.json` by the `settings` container, `.mcp.json` by `mcp-server` — so
+//! partial governance and locked-kind suppression are only observable with a container
+//! kind withheld from scope.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -27,6 +27,7 @@ mod common;
 
 use common::check_harness;
 
+use temper::check::{Diagnostic, Severity};
 use temper::coverage_note;
 use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 use temper::kind::CustomKind;
@@ -48,29 +49,35 @@ Drive the team through the playbook.\n"
     common::write_skill(root, name, &skill_md);
 }
 
-/// Commit a lock at `<root>/.temper/lock.toml` declaring a `widget` kind rooted at
-/// `.claude` selecting `settings.json`, and project its one member — a locked custom
-/// kind the coverage note's built-in set carries no row for, so the gate discovers it
-/// only by reading the lock (`COVERAGE-KIND-AWARE`). `widget` stands in for the
-/// not-yet-shipped custom kind here: `agent` no longer fits (AGENT-KIND graduated it
-/// to a real built-in), mirroring `command`'s own earlier graduation off this fixture.
+/// The `widget` kind's fact row — a locked custom kind the coverage note's built-in set
+/// carries no row for, so the gate discovers it only by reading the lock
+/// (`COVERAGE-KIND-AWARE`). `widget` stands in for the not-yet-shipped custom kind here:
+/// `agent` no longer fits (AGENT-KIND graduated it to a real built-in), mirroring
+/// `command`'s own earlier graduation off this fixture.
 ///
-/// The member's body is a valid-JSON `{}` so the projection it writes over the governed
-/// `.claude/settings.json` stays a well-formed manifest — the `hook` built-in reads that
-/// same file as JSON, so a markdown body would abort the gate on a parse error.
+/// The locus is the kind's own `.claude/widgets/*.json`, never `.claude/settings.json`:
+/// that file is the built-in `settings` kind's, and a second document kind claiming it
+/// whole is a `kind.governs-collision` — a document's kind is its position alone.
+fn widget_kind_facts(governs_root: &str, governs_glob: &str) -> KindFactRow {
+    KindFactRow {
+        unit_shape: Some("file".to_string()),
+        ..common::kind_facts("widget", governs_root, governs_glob)
+    }
+}
+
+/// Commit a lock at `<root>/.temper/lock.toml` declaring the `widget` kind and project
+/// its one member at `.claude/widgets/panel.json`. The member's body is a valid-JSON `{}`
+/// so the projection stays a well-formed document of the format its locus implies.
 fn lock_widget_kind(root: &Path) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![KindFactRow {
-                unit_shape: Some("file".to_string()),
-                ..common::kind_facts("widget", ".claude", "settings.json")
-            }],
+            kinds: vec![widget_kind_facts(".claude/widgets", "*.json")],
             ..Declarations::default()
         },
         members: vec![PayloadMember {
             kind: "widget".to_string(),
-            name: "settings".to_string(),
+            name: "panel".to_string(),
             host: None,
             fields: Vec::new(),
             body: "{}\n".to_string(),
@@ -80,17 +87,26 @@ fn lock_widget_kind(root: &Path) {
     drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
+/// The built-in kind set with the `settings` container withheld — a harness whose
+/// in-scope kinds carry the three `settings.json` segment kinds and nothing that governs
+/// the file itself, the one shape the partial-governance narrowing still reasons over.
+fn builtins_without_the_settings_container() -> BTreeMap<String, CustomKind> {
+    let mut kinds = temper::builtin_kind::definitions();
+    kinds
+        .remove("settings")
+        .expect("the settings container ships among the built-in kinds");
+    kinds
+}
+
 #[test]
-fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue() {
+fn a_settings_json_no_container_kind_governs_names_only_the_present_ungoverned_residue() {
+    // A `.claude/settings.json` whose top-level keys are exactly
+    // `{permissions, enabledPlugins, extraKnownMarketplaces, hooks}`: the `hook`,
+    // `installed-plugin` and `known-marketplace` built-ins govern the last three, and
+    // `permissions` is a present-but-unmodeled key no kind governs. The advisory must
+    // classify the file's ACTUAL keys — naming `permissions` as residue and never `env`,
+    // which is absent from the file (the field defect this closes).
     let harness = common::tmpdir("with-settings-json");
-    // Two clean skills the gate checks, plus a `.claude/settings.json` whose top-level keys
-    // are exactly `{permissions, enabledPlugins, extraKnownMarketplaces, hooks}`: the `hook`,
-    // `installed-plugin`, and `known-marketplace` built-ins govern the last three, and
-    // `permissions` is a present-but-unmodeled key no kind governs. The advisory must classify
-    // the file's ACTUAL keys — naming `permissions` as residue and never `env`, which is absent
-    // from the file (the field defect this closes).
-    write_skill(&harness, "coordinate");
-    write_skill(&harness, "review");
     common::write_settings(
         &harness,
         r#"{
@@ -101,100 +117,109 @@ fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue(
 }"#,
     );
 
-    let (findings, success) = check_harness(&harness);
-
-    // (1) The checked-summary names each kind's member count — silence never reads as
-    // "checked". Exactly one summary, a disclosure `notice`, reporting the two skills
-    // checked.
-    let checked = common::findings_for(&findings, "coverage.checked");
-    assert_eq!(
-        checked.len(),
-        1,
-        "expected exactly one checked summary, got: {findings:#?}"
-    );
-    let summary = checked[0];
-    assert!(
-        summary.starts_with("::notice "),
-        "the checked summary is disclosure (note), never a violation, got: {summary}"
-    );
-    assert!(
-        summary.contains("skill (2)"),
-        "the summary reports the two checked skills, got: {summary}"
-    );
-
-    // (2) The partially-governed `.claude/settings.json` surface is flagged — exactly once,
-    // `warning` — and the finding states only true things: it names the ungoverned
-    // `permissions` residue, never claiming the whole file is ungoverned. Contradicting
-    // its own `hooks` coverage is the invariant-6 violation this entry closes.
-    let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
-    let settings: Vec<&&String> = unmodeled
+    // (1) With the segment kinds alone in scope, the surface is flagged exactly once and
+    // the finding states only true things: it names the ungoverned `permissions` residue,
+    // never claiming the whole file is ungoverned.
+    let partial = coverage_note::check(
+        &harness,
+        &builtins_without_the_settings_container(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &[],
+    )
+    .unwrap();
+    let settings: Vec<&Diagnostic> = partial
         .iter()
-        .filter(|line| line.contains("::.claude/settings.json:"))
+        .filter(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".claude/settings.json")
         .collect();
     assert_eq!(
         settings.len(),
         1,
-        "expected exactly one flag on .claude/settings.json, got: {unmodeled:#?}"
+        "expected exactly one flag on .claude/settings.json, got: {partial:#?}"
     );
     let finding = settings[0];
-    assert!(
-        finding.starts_with("::warning "),
-        "the unmodeled-surface flag is advisory (warn), got: {finding}"
+    assert_eq!(
+        finding.severity,
+        Severity::Warn,
+        "the unmodeled-surface flag is advisory, never a violation, got: {finding:#?}"
     );
     assert!(
-        finding.contains("partially governed") && finding.contains("permissions"),
-        "the flag names the present ungoverned residue, got: {finding}"
+        finding.message.contains("partially governed") && finding.message.contains("permissions"),
+        "the flag names the present ungoverned residue, got: {}",
+        finding.message
     );
-    // An absent segment is NEVER asserted — the advisory classifies the file's actual keys, so
-    // `env` (which this settings.json does not carry) must not appear anywhere in the finding.
-    // `extraKnownMarketplaces` legitimately appears among the *checked* segments now that
-    // known-marketplace governs it, so it is no counter-example to that classification.
+    // An absent segment is NEVER asserted — the advisory classifies the file's actual keys,
+    // so `env` (which this settings.json does not carry) must not appear anywhere in the
+    // finding. `extraKnownMarketplaces` legitimately appears among the *checked* segments
+    // now that known-marketplace governs it, so it is no counter-example.
     assert!(
-        !finding.contains("env"),
-        "the flag must not name a key absent from the file, got: {finding}"
-    );
-    assert!(
-        !finding.contains("no kind governs it")
-            && !finding.contains("temper checks none of its members"),
-        "a partially-governed manifest must not claim it is wholly ungoverned, got: {finding}"
+        !finding.message.contains("env"),
+        "the flag must not name a key absent from the file, got: {}",
+        finding.message
     );
     assert!(
-        finding.contains("code.claude.com/docs/en/settings"),
-        "the flag cites the Claude Code docs at the point of claim, got: {finding}"
+        !finding.message.contains("no kind governs it")
+            && !finding
+                .message
+                .contains("temper checks none of its members"),
+        "a partially-governed manifest must not claim it is wholly ungoverned, got: {}",
+        finding.message
+    );
+    assert!(
+        finding.message.contains("code.claude.com/docs/en/settings"),
+        "the flag cites the Claude Code docs at the point of claim, got: {}",
+        finding.message
     );
 
-    // Neither level gates: no coverage finding is an `::error`, and the clean run still
-    // exits success. The two are apart — what was checked is disclosure, what is
-    // ungoverned is an advisory the corpus can close.
+    // (2) The same bytes under the whole built-in set: the `settings` container governs the
+    // file whole — its segment kinds' collections and its permissions residue alike — so no
+    // residue is left to name and the finding retires outright.
+    let whole = coverage_note::check(
+        &harness,
+        &temper::builtin_kind::definitions(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &[],
+    )
+    .unwrap();
     assert!(
-        common::findings_for(&findings, "coverage.checked")
+        whole
             .iter()
-            .all(|line| line.starts_with("::notice ")),
-        "the checked summary is disclosure, got: {findings:#?}"
+            .all(|d| !(d.rule == "coverage.unmodeled-surface"
+                && d.artifact == ".claude/settings.json")),
+        "the settings built-in governs the file whole and retires its finding, got: {whole:#?}"
+    );
+    // The two levels stay apart under either kind set: what was checked is a disclosure
+    // note, what is ungoverned is an advisory — and neither is ever an error.
+    assert!(
+        whole
+            .iter()
+            .filter(|d| d.rule == "coverage.checked")
+            .all(|d| d.severity == Severity::Note),
+        "the checked summary is disclosure, got: {whole:#?}"
     );
     assert!(
-        common::findings_for(&findings, "coverage.unmodeled-surface")
+        partial
             .iter()
-            .all(|line| line.starts_with("::warning ")),
-        "every ungoverned-surface flag is advisory, got: {findings:#?}"
-    );
-    assert!(
-        success,
-        "the coverage note must not fail the run, got: {findings:#?}"
+            .chain(whole.iter())
+            .all(|d| d.severity != Severity::Error),
+        "no coverage finding gates the run, got: {partial:#?} {whole:#?}"
     );
 }
 
 #[test]
 fn a_fully_represented_settings_json_retires_its_unmodeled_surface_finding() {
-    // The write side's terminal state: settings.json fully represented — its `hooks` a
-    // modeled collection and its permissions/env residue carried as named opaque fields of
-    // a container member. With every segment covered no residue remains to name, so the
-    // partial-governance finding retires entirely — the manifest is no longer a gap the
-    // note must flag. The `widget` container stands in for that fully-representing kind.
+    // The write side's terminal state, and the one auto-adoption now hands every harness:
+    // the `settings` built-in governs `.claude/settings.json` whole — its `hooks`,
+    // `enabledPlugins` and `extraKnownMarketplaces` collections through the segment kinds,
+    // its permissions/env residue as the container's own opaque fields. With every segment
+    // covered no residue remains to name, so the partial-governance finding retires
+    // entirely and the file is no longer a gap the note must flag.
     let harness = common::tmpdir("fully-represented-settings");
     write_skill(&harness, "coordinate");
     common::write_settings(&harness, "{}");
-    lock_widget_kind(&harness);
 
     let (findings, success) = check_harness(&harness);
 
@@ -207,6 +232,19 @@ fn a_fully_represented_settings_json_retires_its_unmodeled_surface_finding() {
     assert!(
         settings.is_empty(),
         "a fully-represented settings.json flags no unmodeled surface, got: {settings:#?}"
+    );
+    // And the disclosure counts the container member the governing kind discovered, so the
+    // retirement reads as coverage rather than as silence.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("settings (1)"),
+        "the summary counts the settings container it checked, got: {}",
+        checked[0]
     );
     assert!(
         success,
@@ -336,22 +374,58 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
 
 #[test]
 fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
+    // The suppression leg, asked of the note directly: a known surface no *in-scope* kind
+    // governs is still suppressed when a kind the committed lock declares governs it. The
+    // built-in set is withheld here because every known surface it carries a kind for is
+    // already governed whole — `settings.json` by the `settings` container, `.mcp.json` by
+    // `mcp-server` — so a locked kind's own contribution would be unobservable beneath it.
+    let harness = common::tmpdir("locked-widget-suppresses");
+    // One residue key, so the bare arm has something to flag: an empty manifest names no
+    // ungoverned segment at all, and the suppression would read as vacuous.
+    common::write_settings(&harness, r#"{ "permissions": { "allow": [] } }"#);
+    let no_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
+
+    let bare = coverage_note::check(
+        &harness,
+        &no_kinds,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &[],
+    )
+    .unwrap();
+    assert!(
+        bare.iter().any(
+            |d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".claude/settings.json"
+        ),
+        "with nothing in scope the surface is flagged, got: {bare:#?}"
+    );
+
+    let suppressed = coverage_note::check(
+        &harness,
+        &no_kinds,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &[widget_kind_facts(".claude", "settings.json")],
+    )
+    .unwrap();
+    assert!(
+        suppressed
+            .iter()
+            .all(|d| !(d.rule == "coverage.unmodeled-surface"
+                && d.artifact == ".claude/settings.json")),
+        "a locked custom kind governing .claude/settings.json suppresses the finding, got: {suppressed:#?}"
+    );
+}
+
+#[test]
+fn a_locked_custom_kinds_members_are_counted_beside_the_built_ins() {
     let harness = common::tmpdir("locked-widget-kind");
     write_skill(&harness, "coordinate");
-    common::write_settings(&harness, "{}");
     lock_widget_kind(&harness);
 
     let (findings, success) = check_harness(&harness);
-
-    // `.claude/settings.json` is present and governed by the locked `widget` kind,
-    // so it is never flagged unmodeled.
-    let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
-    assert!(
-        unmodeled
-            .iter()
-            .all(|line| !line.contains("::.claude/settings.json:")),
-        "a locked custom kind governing .claude/settings.json must suppress the finding, got: {unmodeled:#?}"
-    );
 
     // The checked-count message folds the custom kind's member in beside the
     // built-ins and carries no "built-in" qualifier that would misdescribe it.

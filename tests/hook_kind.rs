@@ -181,12 +181,14 @@ fn the_hook_default_contract_passes_documented_events() {
 }
 
 #[test]
-fn a_settings_json_stays_an_unmodeled_surface_until_its_container_is_represented() {
-    // The hook kind governs only the `hooks` segment of `settings.json`, never the whole
-    // container — so a file carrying an ungoverned key (`permissions`) alongside its `hooks`
-    // keeps its unmodeled-surface finding until it is a represented member (phase 2). The
-    // hook kind landing must not prematurely retire that finding.
-    let harness = common::tmpdir("settings-still-unmodeled");
+fn the_hook_kind_checks_its_segment_while_the_container_governs_the_whole_file() {
+    // The hook kind governs the `hooks` segment of `settings.json` and never the file:
+    // whole-file governance is the `settings` container's, and it shipping does not absorb
+    // the segment — the registration members are still discovered and checked as hooks,
+    // beside the one container member. With every segment of the file covered, nothing is
+    // left ungoverned to flag. (How a *partial* verdict reads when no container kind is in
+    // scope is `tests/coverage_note.rs`'s case, not this kind's.)
+    let harness = common::tmpdir("settings-container-governed");
     write_settings(
         &harness,
         r#"{
@@ -205,8 +207,19 @@ fn a_settings_json_stays_an_unmodeled_surface_until_its_container_is_represented
     assert!(
         unmodeled
             .iter()
-            .any(|line| line.contains(".claude/settings.json")),
-        "settings.json stays flagged until its container is represented, got: {findings:#?}"
+            .all(|line| !line.contains(".claude/settings.json")),
+        "the settings container governs the file whole, got: {findings:#?}"
+    );
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("hook (1)") && checked[0].contains("settings (1)"),
+        "the hook member is checked beside the container member, got: {}",
+        checked[0]
     );
 }
 
