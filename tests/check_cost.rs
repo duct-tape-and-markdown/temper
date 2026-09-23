@@ -457,7 +457,9 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
 
     // Use the pre-computed resolved edges in each consumer: neither re-walks.
     let selections: [temper::engine::Selection; 0] = [];
-    let _ = graph::degree(&selections, resolved_edges, &[]);
+    // `degree` also takes the composed corpus, for the containment family it derives
+    // *after* its opt-in early return — no always-on walk, so the pin below does not move.
+    let _ = graph::degree(&selections, resolved_edges, &[], &by_kind);
     let _ = graph::mention_reachable(
         &selections,
         resolved_edges,

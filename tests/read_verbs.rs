@@ -648,6 +648,85 @@ mod mention_narration {
     }
 }
 
+/// `why` narrates the **containment** family in its own voice (decision 0052): a host
+/// contains the embedded members its body composes, and an embedded member is contained
+/// by its host. It is a derived incidence over the admission and the composed members —
+/// never a declared reference field — so the narration must not spell it "via its
+/// `<field>` field", which would name a declaration no author wrote.
+mod containment_narration {
+    use std::collections::BTreeMap;
+
+    use temper::compose::Requirement;
+    use temper::extract::Features;
+    use temper::read;
+
+    use super::feature;
+
+    /// The host rule `style` and the one `directive` its body composes — the embedded
+    /// member's identity is its whole `<host-address>/<kind>/<key>` address.
+    fn composing_corpus() -> ([Features; 1], [Features; 1]) {
+        (
+            [feature("style", &[])],
+            [feature("rule:style/directive/no-force-push", &[])],
+        )
+    }
+
+    #[test]
+    fn a_host_narrates_the_members_its_body_composes_as_containment() {
+        let (rules, directives) = composing_corpus();
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("directive", &directives[..])]);
+        let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+        let out = read::why(&[], &roster, &BTreeMap::new(), &by_kind, &[], &[], "style");
+        assert!(
+            out.contains(
+                "it contains `rule:style/directive/no-force-push` (directive) — an embedded \
+                 member its body composes"
+            ),
+            "the host narrates its containment of the member its body composes: {out}"
+        );
+        assert!(
+            !out.contains("via its `contains:directive` field"),
+            "containment is an incidence, never a declared field the narration names: {out}"
+        );
+        assert!(
+            !out.contains("it points at no member"),
+            "a host whose body composes a member does not read as pointing at nothing: {out}"
+        );
+    }
+
+    #[test]
+    fn an_embedded_member_narrates_the_host_that_contains_it() {
+        let (rules, directives) = composing_corpus();
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("directive", &directives[..])]);
+        let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+        let out = read::why(
+            &[],
+            &roster,
+            &BTreeMap::new(),
+            &by_kind,
+            &[],
+            &[],
+            "rule:style/directive/no-force-push",
+        );
+        assert!(
+            out.contains("`style` (rule) contains it — its body composes this member"),
+            "the embedded member narrates the host that contains it: {out}"
+        );
+        assert!(
+            !out.contains("points at it via its `contains:directive` field"),
+            "containment is an incidence, never a declared field the narration names: {out}"
+        );
+        assert!(
+            !out.contains("Edges in: no member points at it."),
+            "a contained member does not read as one nothing reaches: {out}"
+        );
+    }
+}
+
 #[test]
 fn explain_narrates_kind_guidance_in_governing_contract() {
     // A kind's authored guidance in its contract rides the governing contract

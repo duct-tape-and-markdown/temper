@@ -2458,3 +2458,230 @@ mod target_set {
         }
     }
 }
+
+/// **Containment is an incidence** (decision 0052): a host carries one derived edge to
+/// each embedded member its body composes, under `contains:<kind>` for the admitted
+/// kind. The adopter's floor — "every rule body carries at least one directive or
+/// consult" — is one `degree` bound over the union of two `contains:` fields, and the
+/// same bound *unfiltered* counts no containment arc at all, so no standing clause's
+/// verdict moves.
+mod containment_incidence {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    use temper::extract::Features;
+    use temper::graph;
+
+    /// The `rule` kind admitting two embedded child kinds — `directive` and `consult`,
+    /// the body vocabulary the adopter's floor ranges over. Every other fact is the
+    /// built-in's, so the row relocates rather than collides.
+    fn rule_admitting_directive_and_consult() -> KindFactRow {
+        KindFactRow {
+            templates: vec![
+                TemplateRow {
+                    kind: "directive".to_string(),
+                    path: None,
+                },
+                TemplateRow {
+                    kind: "consult".to_string(),
+                    path: None,
+                },
+            ],
+            ..common::rule_kind_facts(None, &[])
+        }
+    }
+
+    /// One embedded member of `kind`, keyed `key`, nested under the rule `host`.
+    fn composed(host: &str, kind: &str, key: &str) -> NestedMemberRow {
+        NestedMemberRow {
+            host: format!("rule:{host}"),
+            kind: kind.to_string(),
+            key: key.to_string(),
+            leaves: BTreeMap::new(),
+            collections: Vec::new(),
+            placed_edges: None,
+            rendered_lines: None,
+            rendered_chars: None,
+        }
+    }
+
+    /// The three rules every end-to-end case here writes: `style` composes a directive,
+    /// `voice` composes a consult, `terse` composes neither.
+    fn write_three_rules(root: &Path) {
+        for name in ["style", "voice", "terse"] {
+            common::write_rule(root, name);
+        }
+    }
+
+    /// Opt every rule into `gate`, so the bound ranges over all three. Authored *after*
+    /// the lock: `author_rule_satisfies` edits the lock `write_lock` just wrote.
+    fn opt_three_rules_in(root: &Path) {
+        for name in ["style", "voice", "terse"] {
+            common::author_rule_satisfies(root, name, &["gate"]);
+        }
+    }
+
+    /// The two nested rows `style` and `voice` carry.
+    fn composed_rows() -> Vec<NestedMemberRow> {
+        vec![
+            composed("style", "directive", "no-force-push"),
+            composed("voice", "consult", "rust"),
+        ]
+    }
+
+    #[test]
+    fn containment_arcs_are_one_per_composed_embedded_member_and_none_for_a_file_child() {
+        // The family read straight off the composed corpus: the host `rule:style`
+        // composes two embedded members, so it carries exactly two arcs — one per
+        // member, each under its own kind's `contains:` field, each landing on the
+        // member's whole address. A *file* child owns its own unit rather than a fence
+        // in the host's body, so its identity is no nested address and it yields none.
+        let rules = [common::features("style")];
+        let directives = [common::features("rule:style/directive/no-force-push")];
+        let consults = [common::features("rule:style/consult/rust")];
+        // A `supporting-doc` — the built-in `path`-carrying template's child. Its
+        // identity is its own file's, never `<host>/<kind>/<key>`.
+        let docs = [common::features("reference")];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([
+            ("rule", &rules[..]),
+            ("directive", &directives[..]),
+            ("consult", &consults[..]),
+            ("supporting-doc", &docs[..]),
+        ]);
+
+        let mut arcs: Vec<(String, String, String, String)> = graph::containment_edges(&by_kind)
+            .into_iter()
+            .map(|edge| (edge.from.0, edge.from.1, edge.field, edge.to.1))
+            .collect();
+        arcs.sort();
+
+        assert_eq!(
+            arcs,
+            vec![
+                (
+                    "rule".to_string(),
+                    "style".to_string(),
+                    "contains:consult".to_string(),
+                    "rule:style/consult/rust".to_string(),
+                ),
+                (
+                    "rule".to_string(),
+                    "style".to_string(),
+                    "contains:directive".to_string(),
+                    "rule:style/directive/no-force-push".to_string(),
+                ),
+            ],
+            "one arc per composed embedded member, none for the file child"
+        );
+    }
+
+    #[test]
+    fn a_floor_filtered_to_two_contains_fields_ranges_over_their_union() {
+        let root = common::tmpdir("containment-union-floor");
+        // The adopter's floor: every rule body carries at least one directive **or**
+        // consult — one `degree` bound over `contains:directive` ∪ `contains:consult`.
+        // `style` composes a directive and `voice` a consult, so both clear it; `terse`
+        // composes neither and is the sole finding.
+        write_three_rules(&root);
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![rule_admitting_directive_and_consult()],
+                nested_members: composed_rows(),
+                requirements: vec![degree_requirement(
+                    Some("rule"),
+                    DegreeBoundRow {
+                        incoming: None,
+                        outgoing: Some(edge_bound(Some(1), None)),
+                    },
+                    Some(&["contains:directive", "contains:consult"]),
+                )],
+                ..Declarations::default()
+            },
+        );
+
+        opt_three_rules_in(&root);
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "a rule composing neither admitted kind falls outside the floor ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        let degree_findings = run.output.matches("requirement.gate.degree").count();
+        assert_eq!(
+            degree_findings, 1,
+            "exactly the one rule composing neither fires, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("but `terse` has 0"),
+            "the finding names the rule whose body composes neither, got:\n{}",
+            run.output
+        );
+        assert!(
+            !run.output.contains("but `style` has") && !run.output.contains("but `voice` has"),
+            "a body composing either admitted kind clears the union floor, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn the_same_floor_unfiltered_counts_no_containment_arc() {
+        let root = common::tmpdir("containment-unfiltered-floor");
+        // The identical bound with no field set. An unfiltered bound ranges over every
+        // edge at the member *but* containment, so the two composing rules are read as
+        // pointing at nothing and fire — while `terse`, composing nothing and declaring
+        // one ordinary `routes_to`, keeps today's verdict and stays silent.
+        write_three_rules(&root);
+        fs::write(
+            root.join(".claude/rules/terse.md"),
+            routing_rule("standards"),
+        )
+        .unwrap();
+        common::write_skill(&root, "standards", &common::clean_skill("standards"));
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![rule_admitting_directive_and_consult()],
+                assembly: routes_to_edge(),
+                nested_members: composed_rows(),
+                requirements: vec![degree_requirement(
+                    Some("rule"),
+                    DegreeBoundRow {
+                        incoming: None,
+                        outgoing: Some(edge_bound(Some(1), None)),
+                    },
+                    None,
+                )],
+                ..Declarations::default()
+            },
+        );
+
+        opt_three_rules_in(&root);
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "an unfiltered bound counts no containment arc, so the composing rules fail \
+             it ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        let degree_findings = run.output.matches("requirement.gate.degree").count();
+        assert_eq!(
+            degree_findings, 2,
+            "the two composing rules fire and the routing one does not, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("but `style` has 0") && run.output.contains("but `voice` has 0"),
+            "containment is invisible to an unfiltered bound, got:\n{}",
+            run.output
+        );
+        assert!(
+            !run.output.contains("but `terse` has"),
+            "a rule declaring one `routes_to` keeps today's verdict, got:\n{}",
+            run.output
+        );
+    }
+}

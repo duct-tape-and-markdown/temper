@@ -570,7 +570,14 @@ pub fn gate(
     // `engine::judge` reads *and* the edges, reusing the arc resolution
     // `check` assembles, plus the already-resolved mention edges —
     // obligation-free by default, counted only when a `degree` clause opts in.
-    diagnostics.extend(graph::degree(&selections, resolved_edges, &mention_edges));
+    diagnostics.extend(graph::degree(
+        &selections,
+        resolved_edges,
+        &mention_edges,
+        // The composed corpus the derived containment family reads — counted only by a
+        // clause whose field filter names a `contains:` field (decision 0052).
+        &by_kind,
+    ));
 
     // `mention-reachable`: the second selection predicate whose judge needs the graph —
     // each selected member's references must be able to fire where their target can be

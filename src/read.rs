@@ -500,7 +500,10 @@ pub fn explain(
 /// rather than reading "it points at no member".
 /// So `why`'s edge narration cannot disagree with the gate (READ-EDGE-UNIFY): a
 /// `routes_to` edge the gate resolves is the exact edge `why` narrates, and a member
-/// with no resolved edge stays silent.
+/// with no resolved edge stays silent. The **containment** family rides the same walk
+/// ([`graph::containment_edges`]) and narrates in its own voice — a host contains the
+/// embedded members its body composes, a derived incidence rather than a declared
+/// field — so a family the gate can count is never one the read leaves unsaid.
 ///
 /// The `roster` is the requirement namespace `check` gates, so a `satisfies` link
 /// narrates as filled exactly when a green `check` counts it covered.
@@ -1122,6 +1125,11 @@ fn why_impl(
     let (resolved_mentions, dangling_mentions) =
         graph::partition_mentions(mention_edges, by_kind, roster);
     resolved.extend(resolved_mentions);
+    // The derived containment family, off the same enumeration the gate's `degree`
+    // counts (READ-EDGE-UNIFY) — kept beside the resolved set rather than folded into
+    // it, because containment is an incidence a body composes, never a reference field
+    // an author declared, and the two narrate in different voices.
+    let containment = graph::containment_edges(by_kind);
 
     let mut matches: Vec<Member> = members(custom)
         .into_iter()
@@ -1162,6 +1170,7 @@ fn why_impl(
             roster,
             contracts,
             &resolved,
+            &containment,
             &dangling_mentions,
         );
     }
@@ -1176,6 +1185,7 @@ fn why_one(
     roster: &BTreeMap<String, Requirement>,
     contracts: &BTreeMap<String, Contract>,
     resolved: &[ResolvedEdge],
+    containment: &[ResolvedEdge],
     dangling_mentions: &[ResolvedEdge],
 ) {
     let _ = writeln!(
@@ -1211,15 +1221,21 @@ fn why_one(
     let node: (String, String) = (member.kind.clone(), member.id.clone());
 
     let outgoing: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.from == node).collect();
-    if outgoing.is_empty() {
+    let contains: Vec<&ResolvedEdge> = containment
+        .iter()
+        .filter(|edge| edge.from == node)
+        .collect();
+    if outgoing.is_empty() && contains.is_empty() {
         let _ = writeln!(
             out,
-            "Edges out: it points at no member (it declares no resolved reference)."
+            "Edges out: it points at no member (it declares no resolved reference and its \
+             body composes none)."
         );
     } else {
         let _ = writeln!(
             out,
-            "Edges out (the resolved references it declares, the exact set the gate ranges over):"
+            "Edges out (the resolved references it declares and the members its body \
+             composes, the exact set the gate ranges over):"
         );
         for edge in outgoing {
             let (to_kind, to_id) = &edge.to;
@@ -1227,6 +1243,16 @@ fn why_one(
                 out,
                 "  • it points at `{to_id}` ({to_kind}) via its `{}` field",
                 edge.field
+            );
+        }
+        // Containment's own voice: the incidence is derived from the kinds this host
+        // admits and the members its body composes, so naming a field here would name a
+        // declaration no author wrote.
+        for edge in contains {
+            let (to_kind, to_id) = &edge.to;
+            let _ = writeln!(
+                out,
+                "  • it contains `{to_id}` ({to_kind}) — an embedded member its body composes"
             );
         }
     }
@@ -1252,16 +1278,29 @@ fn why_one(
     }
 
     let incoming: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.to == node).collect();
-    if incoming.is_empty() {
+    let contained_by: Vec<&ResolvedEdge> =
+        containment.iter().filter(|edge| edge.to == node).collect();
+    if incoming.is_empty() && contained_by.is_empty() {
         let _ = writeln!(out, "Edges in: no member points at it.");
     } else {
-        let _ = writeln!(out, "Edges in (the resolved references that point at it):");
+        let _ = writeln!(
+            out,
+            "Edges in (the resolved references that point at it and the host whose body \
+             composes it):"
+        );
         for edge in incoming {
             let (from_kind, from_id) = &edge.from;
             let _ = writeln!(
                 out,
                 "  • `{from_id}` ({from_kind}) points at it via its `{}` field",
                 edge.field
+            );
+        }
+        for edge in contained_by {
+            let (from_kind, from_id) = &edge.from;
+            let _ = writeln!(
+                out,
+                "  • `{from_id}` ({from_kind}) contains it — its body composes this member"
             );
         }
     }

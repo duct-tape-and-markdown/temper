@@ -78,6 +78,13 @@ const MENTION_FIELD: &str = "mention";
 /// edge from a declared reference edge in the one resolved-edge set.
 const IMPORT_FIELD: &str = "import";
 
+/// The `field` prefix every containment [`ResolvedEdge`] records — a **derived**
+/// incidence over the embedded members a host's body composes, one field per admitted
+/// kind (`contains:<kind>`), never a frontmatter field an author wrote. Lets a `degree`
+/// filter name one admitted kind's containment and a reader tell the family apart from
+/// the declared references beside it in the one resolved-edge set.
+const CONTAINS_FIELD_PREFIX: &str = "contains:";
+
 /// A node in the artifact-level reference graph: `(kind, id)`. An id is unique only
 /// *within* a kind and an edge resolves only within its target kind, so the kind is
 /// part of the identity — else a same-named rule and skill collapse into one node and
@@ -311,19 +318,31 @@ struct DegreeIndex {
 }
 
 impl DegreeIndex {
-    /// Fold the resolved reference edges and the already-resolved mention edges into
-    /// one index, keeping only the edges `filter` names — `None` keeps every one.
+    /// Fold the resolved reference edges, the already-resolved mention edges, and the
+    /// derived containment family into one index, keeping only the edges `filter` names
+    /// — `None` keeps every one *but* containment.
     ///
     /// Mention and import edges join the same adjacency a declared reference edge does
     /// and carry their own field (`mention`, the directive's own key), so a filter
     /// naming that field ranges over them exactly as over a declared reference.
+    ///
+    /// Containment is the one family an unfiltered bound excludes (decision 0052): every
+    /// embedded member carries exactly one incoming containment edge, so counting it
+    /// unasked would make a standing `degree(incoming ≥ 1)` vacuous and silently flip an
+    /// authored clause's verdict. It counts only where a filter names its
+    /// [`contains_field`].
     fn build(
         resolved: &[ResolvedEdge],
         mentions: &[ResolvedEdge],
+        containment: &[ResolvedEdge],
         filter: Option<&[String]>,
     ) -> Self {
+        let counted_containment: &[ResolvedEdge] = match filter {
+            Some(_) => containment,
+            None => &[],
+        };
         let mut edges: BTreeSet<(&Node, &String, &Node)> = BTreeSet::new();
-        for edge in resolved.iter().chain(mentions) {
+        for edge in resolved.iter().chain(mentions).chain(counted_containment) {
             if filter.is_some_and(|fields| !fields.contains(&edge.field)) {
                 continue;
             }
@@ -355,8 +374,8 @@ impl DegreeIndex {
 /// The counting unit is the **edge** `(from, field, to)`, never the field-blind arc:
 /// a filter ranges over the union of the fields it names
 /// (`specs/model/contract.md`, "selection"), and an unfiltered bound over every edge
-/// at the member — so two fields between one pair count two either way, and a filter
-/// naming every field says exactly what no filter says. Each distinct filter is
+/// at the member *but* containment — so two fields between one pair count two either
+/// way, and a filter naming every declared field says exactly what no filter says. Each distinct filter is
 /// indexed once per call and shared by every clause declaring it, so a corpus-wide
 /// walk happens per filter rather than per clause.
 ///
@@ -369,17 +388,26 @@ impl DegreeIndex {
 /// a mention is obligation-free by default (no shipped clause counts it), but an
 /// authored `degree` clause may range over it exactly as it does a declared reference
 /// edge.
+///
+/// `by_kind` is the composed corpus the **containment** family derives from
+/// ([`containment_edges`]) — a host's incidence on each embedded member its body
+/// composes. The family is derived *after* the opt-in early return, so a corpus whose
+/// selections declare no `degree` clause pays nothing for it, and it enters the
+/// adjacency only for a clause whose field filter names its `contains:` field: an
+/// unfiltered bound's verdict cannot move.
 #[must_use]
 pub fn degree(
     selections: &[Selection],
     resolved: &[ResolvedEdge],
     mention_edges: &[ResolvedEdge],
+    by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
     if !any_clause_of(selections, |predicate| {
         matches!(predicate, Predicate::Degree { .. })
     }) {
         return Vec::new();
     }
+    let containment = containment_edges(by_kind);
 
     // One index per distinct filter, built on first sight and reused by every clause
     // declaring the same set — the unfiltered `None` key included.
@@ -396,9 +424,9 @@ pub fn degree(
             else {
                 continue;
             };
-            let index = indexes
-                .entry(fields.clone())
-                .or_insert_with(|| DegreeIndex::build(resolved, mention_edges, fields.as_deref()));
+            let index = indexes.entry(fields.clone()).or_insert_with(|| {
+                DegreeIndex::build(resolved, mention_edges, &containment, fields.as_deref())
+            });
             for (kind, features) in &selection.members {
                 let node = ((*kind).to_string(), features.id.clone());
                 let in_degree = index.incoming.get(&node).copied().unwrap_or(0);
@@ -1930,6 +1958,54 @@ pub fn embedded_hosts_by_key(by_kind: &BTreeMap<&str, &[Features]>) -> BTreeMap<
         .collect()
 }
 
+/// The containment `field` an admitted embedded kind's incidence rides —
+/// `contains:<kind>`. One field per admitted kind, so a by-incidence filter names the
+/// kinds it counts and ranges over their union (`specs/model/contract.md`, "selection").
+#[must_use]
+pub fn contains_field(kind: &str) -> String {
+    format!("{CONTAINS_FIELD_PREFIX}{kind}")
+}
+
+/// The **containment** incidence family — one [`ResolvedEdge`] from each host to every
+/// embedded member its body composes, under the field [`contains_field`] names for that
+/// member's kind.
+///
+/// `contract.md` ("edge") counts a member's containment of each embedded member its body
+/// composes among its **derived** edges: derived from the host's admission
+/// ([`admissibility::declared_embedded_kinds`](crate::admissibility::declared_embedded_kinds),
+/// which gates every composed member in `by_kind` before it is trusted) and the composed
+/// members themselves, never mined from prose. Nothing here re-decides admission: a
+/// member the corpus composes under an embedded kind is one the admission already
+/// admitted.
+///
+/// Read off each member's **own identity** through the one address grammar
+/// ([`embedded_source_host`](crate::member_address::embedded_source_host)), the same
+/// reader [`embedded_hosts_by_key`] beside it uses. A *file* child — a `path`-carrying
+/// template's member — owns its own unit rather than a fence in the host's body, so its
+/// identity is no nested address and it yields no containment arc.
+///
+/// The arc runs host → member: `from` is the host's `(kind, name)` node, `to` the
+/// embedded member's own `(kind, id)` node, where the id is its whole
+/// `<host-address>/<kind>/<key>` address — the identical node [`degree`] keys a selected
+/// embedded member by, so a bound over the family and a bound over the member agree.
+#[must_use]
+pub fn containment_edges(by_kind: &BTreeMap<&str, &[Features]>) -> Vec<ResolvedEdge> {
+    let mut edges = Vec::new();
+    for (kind, members) in by_kind {
+        for features in members.iter() {
+            let Some((_, (host_kind, host_name))) = embedded_source_host(&features.id) else {
+                continue;
+            };
+            edges.push(ResolvedEdge {
+                from: (host_kind.to_string(), host_name.to_string()),
+                field: contains_field(kind),
+                to: ((*kind).to_string(), features.id.clone()),
+            });
+        }
+    }
+    edges
+}
+
 /// An edge's declared target set, rendered for a diagnostic: one kind reads as its own
 /// name, several as an `or`-joined list — the authored address names one of them.
 fn render_target_kinds(to: &[String]) -> String {
@@ -2574,7 +2650,15 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        assert!(degree(&roster::selections(&requirements, &by_kind), &resolved, &[]).is_empty());
+        assert!(
+            degree(
+                &roster::selections(&requirements, &by_kind),
+                &resolved,
+                &[],
+                &by_kind
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -2599,7 +2683,12 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &resolved,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, "requirement.gate.degree");
@@ -2630,7 +2719,15 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        assert!(degree(&roster::selections(&requirements, &by_kind), &resolved, &[]).is_empty());
+        assert!(
+            degree(
+                &roster::selections(&requirements, &by_kind),
+                &resolved,
+                &[],
+                &by_kind
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -2654,7 +2751,12 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &resolved,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "requirement.gate.degree");
         assert_eq!(diags[0].artifact, "standards");
@@ -2683,7 +2785,12 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &resolved,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "requirement.gate.degree");
         assert_eq!(diags[0].artifact, "style");
@@ -2712,7 +2819,12 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &resolved,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "style");
         assert!(diags[0].message.contains("outgoing"));
@@ -2730,7 +2842,15 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        assert!(degree(&roster::selections(&requirements, &by_kind), &resolved, &[]).is_empty());
+        assert!(
+            degree(
+                &roster::selections(&requirements, &by_kind),
+                &resolved,
+                &[],
+                &by_kind
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -2790,7 +2910,12 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let resolved = resolved_edges(&edges, &by_kind).resolved;
-        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &resolved,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "standards");
     }
@@ -2824,7 +2949,8 @@ mod tests {
             degree(
                 &roster::selections(&requirements, &by_kind),
                 &[],
-                &mention_edges
+                &mention_edges,
+                &by_kind
             )
             .is_empty()
         );
