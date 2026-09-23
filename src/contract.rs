@@ -80,6 +80,9 @@ pub struct Clause {
 ///
 /// `owner` is `None` only for a row that names no kind and hangs off no requirement — a
 /// shape no producer writes and no consumer reads; its label simply omits the segment.
+///
+/// `field` is the row's own field column for every predicate but `when`, whose guard's
+/// value set qualifies it — [`when_label_field`] composes that argument.
 #[must_use]
 pub fn clause_label(owner: Option<&str>, predicate: &str, field: Option<&str>) -> String {
     owner
@@ -96,6 +99,48 @@ pub fn clause_label(owner: Option<&str>, predicate: &str, field: Option<&str>) -
 #[must_use]
 pub fn requirement_owner(name: &str) -> String {
     format!("requirement.{name}")
+}
+
+/// The [`clause_label`] `field` **argument** for a `when` row: the guard's field
+/// qualified by the guard's own value set — `plugins[*].source.source=github`,
+/// `type=http+sse+streamable-http+ws` — sorted and `+`-joined after an `=`.
+///
+/// A `when` row's `field` column is its *guard's* field, so two guards over one field
+/// (the `github`/`url`/`npm`/`git-subdir` source forms, the stdio/remote transports)
+/// compile one address unless the values that distinguish them are in it: a label is a
+/// clause's address and carries every argument that distinguishes the clause
+/// (decision 0049). The value set is the discriminator, so it is what the segment adds.
+///
+/// Composed into the `field` *argument*, never written to the `field` *column*:
+/// [`predicate_from_row`] rebuilds the guard from that column, so the column stays the
+/// bare field — the column-synthesis route `require_sections` and `section_contains`
+/// take (`sdk/src/declarations.ts`, `clauseField`) is closed to `when`.
+///
+/// The guard's values come from whichever column its predicate spells them in —
+/// `values` for an `enum` guard, `value_type` for a `type` guard — both already on the
+/// row. A guard predicate carrying neither, or carrying an empty set (a vacuous clause,
+/// admissibility's to refuse), qualifies nothing and the segment is the bare field.
+/// `None` only where the row names no field at all.
+#[must_use]
+pub fn when_label_field(row: &ClauseRow) -> Option<String> {
+    let field = row.field.as_deref()?;
+    let values = match row.guard_predicate.as_deref() {
+        Some("enum") => row.values.as_ref(),
+        Some("type") => row.value_type.as_ref(),
+        _ => None,
+    };
+    let set: BTreeSet<&str> = values
+        .into_iter()
+        .flatten()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    if set.is_empty() {
+        return Some(field.to_string());
+    }
+    Some(format!(
+        "{field}={}",
+        set.into_iter().collect::<Vec<_>>().join("+")
+    ))
 }
 
 /// The author-declared weight of a clause. Replaces the tool-baked error/warn

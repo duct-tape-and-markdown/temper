@@ -361,7 +361,7 @@ guidance = "Every catalog entry declares a `source` — where the plugin is fetc
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source"
+label = "marketplace.when.plugins[*].source=string"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source"
@@ -380,7 +380,7 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retr
 shape = "leading-dot-slash"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source.source"
+label = "marketplace.when.plugins[*].source.source=github"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source.source"
@@ -398,7 +398,7 @@ guidance = "A `github` source entry must specify the `repo` field — the reposi
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source.source"
+label = "marketplace.when.plugins[*].source.source=url"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source.source"
@@ -416,7 +416,7 @@ guidance = "A `url` source entry must specify the `url` field — the HTTPS URL 
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source.source"
+label = "marketplace.when.plugins[*].source.source=git-subdir"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source.source"
@@ -442,7 +442,7 @@ guidance = "A `git-subdir` source entry must specify the `path` field — the pa
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source.source"
+label = "marketplace.when.plugins[*].source.source=npm"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source.source"
@@ -470,7 +470,7 @@ cite = "https://code.claude.com/docs/en/mcp (retrieved 2026-07-15)"
 values = ["stdio", "http", "streamable-http", "sse", "ws"]
 
 [[declaration.clause]]
-label = "mcp-server.when.type"
+label = "mcp-server.when.type=stdio"
 kind = "mcp-server"
 predicate = "when"
 field = "type"
@@ -488,7 +488,7 @@ guidance = "A stdio server must specify a `command` — the executable path and 
 cite = "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "mcp-server.when.type"
+label = "mcp-server.when.type=http+sse+streamable-http+ws"
 kind = "mcp-server"
 predicate = "when"
 field = "type"

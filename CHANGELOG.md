@@ -9,7 +9,20 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **Breaking: a `when` clause's compiled label carries its guard's value
+  set.** The address is now `<kind>.when.<field>=<values>`, the guard's
+  values sorted and `+`-joined — `mcp-server.when.type=stdio`. A `when`
+  row's `field` column is its *guard's* field, so two guards over one field
+  compiled one address: undialable, and their findings indistinguishable. A
+  dial entry naming an old `…when.<field>` address stops matching and must be
+  respelled off the finding's new `rule` id. Seven shipped labels move:
+  `marketplace.when.plugins[*].source` → `…=string`,
+  `marketplace.when.plugins[*].source.source` → `…=git-subdir` / `…=github` /
+  `…=npm` / `…=url`, and `mcp-server.when.type` → `…=stdio` /
+  `…=http+sse+streamable-http+ws`. Six of those seven were live collisions in
+  the shipped default contract.
 
 ## [0.0.18] — 2026-09-08
 

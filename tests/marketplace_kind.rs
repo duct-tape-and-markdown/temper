@@ -337,7 +337,7 @@ fn when_body_clauses_fire_on_guarded_elements_that_violate_them() {
     assert!(
         findings
             .iter()
-            .any(|f| f.contains("marketplace.when.plugins[*].source.source")),
+            .any(|f| f.contains("marketplace.when.plugins[*].source.source=github")),
         "the when clause fires with the guard's label: {findings:?}"
     );
     // The finding should reference the array element's address and mention the missing field.
@@ -346,6 +346,50 @@ fn when_body_clauses_fire_on_guarded_elements_that_violate_them() {
             .iter()
             .any(|f| f.contains("plugins[0]") && f.contains("source.repo")),
         "the finding names the array element's address: {findings:?}"
+    );
+}
+
+#[test]
+fn two_guards_over_one_field_print_their_own_addresses() {
+    // The four documented object sources guard the same field — `plugins[*].source.source`
+    // — so their labels are told apart by the guard's value set alone. A catalog breaking
+    // two of them at once is the case that needs the discrimination: an author reading the
+    // `url` finding must be able to dial *that* clause without silencing `github` too.
+    let harness = common::tmpdir("marketplace-two-guards-one-field");
+    write_marketplace_json(
+        &harness,
+        r#"{
+  "name": "acme-tools",
+  "owner": { "name": "DevTools Team" },
+  "plugins": [
+    { "name": "github-plugin", "source": { "source": "github" } },
+    { "name": "url-plugin", "source": { "source": "url" } }
+  ]
+}
+"#,
+    );
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(!ok, "both malformed sources fail the gate: {findings:?}");
+
+    let github = common::findings_for(
+        &findings,
+        "marketplace.when.plugins[*].source.source=github",
+    );
+    let url = common::findings_for(&findings, "marketplace.when.plugins[*].source.source=url");
+    assert_eq!(
+        github.len(),
+        1,
+        "the github guard indicts its own element under its own address: {findings:?}"
+    );
+    assert_eq!(
+        url.len(),
+        1,
+        "the url guard indicts its own element under its own address: {findings:?}"
+    );
+    assert!(
+        github[0].contains("source.repo") && url[0].contains("source.url"),
+        "each address carries the body clause its own guard admits: {github:?} / {url:?}"
     );
 }
 

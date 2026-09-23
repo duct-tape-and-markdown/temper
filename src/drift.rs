@@ -1591,11 +1591,22 @@ fn stamp_clause_labels(declarations: &mut Declarations) {
 }
 
 /// Write one clause row's address, derived from the row's own identity columns.
+///
+/// A `when` row's `field` column is its guard's field, so two guards over one field
+/// would compile one address; [`crate::contract::when_label_field`] qualifies the
+/// segment with the guard's value set — read off `values` (an `enum` guard) or
+/// `value_type` (a `type` guard), discriminated by `guard_predicate`, all three already
+/// on the row, so nothing new round-trips.
 fn stamp_clause_label(row: &mut ClauseRow, owner: Option<&str>) {
+    let field = if row.predicate == "when" {
+        crate::contract::when_label_field(row)
+    } else {
+        row.field.clone()
+    };
     row.label = Some(crate::contract::clause_label(
         owner,
         &row.predicate,
-        row.field.as_deref(),
+        field.as_deref(),
     ));
     // Recursively stamp labels on nested body clauses in a `when` clause.
     if let Some(body) = &mut row.body {

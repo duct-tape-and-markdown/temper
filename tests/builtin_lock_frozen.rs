@@ -12,6 +12,7 @@
 //! Agreement is mechanical: this test is the CI job the fail-loud
 //! invariant describes, never a human re-reading two files side by side.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -180,5 +181,53 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
             gate_field: "paths".to_string()
         }),
         "the real SDK-derived rule.mention-reachable gate-column spelling lifts through the engine reader"
+    );
+}
+
+#[test]
+fn no_two_clause_rows_in_the_shipped_lock_share_a_label() {
+    // A label is a clause's address: the dial names a clause by it and every finding
+    // prints it. Two rows wearing one address are undialable and their findings
+    // indistinguishable — and this is the one lock no collision diagnostic reads
+    // (`gate.rs` walks the consumer's own declarations), so nothing but this test
+    // stands between a shipped collision and an adopter.
+    //
+    // Top-level rows only. A `when` body's nested rows carry today's owner-less
+    // spelling (`required.source.url` twice over, under two different guards) — their
+    // own collision, and not this assertion's.
+    let lock_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/builtin_lock.toml");
+    let text = fs::read_to_string(&lock_path).expect("the embedded built-in lock must exist");
+    let declarations =
+        drift::parse_declarations(&lock_path, &text).expect("the embedded lock parses");
+
+    let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
+    for row in &declarations.clauses {
+        let label = row
+            .label
+            .as_deref()
+            .expect("emit stamps every lock clause row with its label");
+        *seen.entry(label).or_default() += 1;
+    }
+
+    let collisions: Vec<_> = seen
+        .iter()
+        .filter(|(_, count)| **count > 1)
+        .map(|(label, count)| format!("{label} ×{count}"))
+        .collect();
+    assert!(
+        collisions.is_empty(),
+        "every clause row in the shipped lock addresses itself uniquely: {collisions:?}"
+    );
+
+    let when_labels: Vec<&str> = declarations
+        .clauses
+        .iter()
+        .filter(|row| row.predicate == "when")
+        .filter_map(|row| row.label.as_deref())
+        .collect();
+    assert!(
+        when_labels.contains(&"mcp-server.when.type=stdio")
+            && when_labels.contains(&"mcp-server.when.type=http+sse+streamable-http+ws"),
+        "a `when` label carries its guard's value set, sorted and `+`-joined: {when_labels:?}"
     );
 }
