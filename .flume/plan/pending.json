@@ -1,155 +1,8 @@
 [
   {
-    "tag": "SETTINGS-KIND-SHIPS(builtin)",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "`claude_code_settings()` beside `claude_code_settings_local()` (:550) — the same JsonDocument/File shape without the `.local()` call, governing `.claude`/`settings.json` — added to `all_kinds()` (:604) and to the embedded-name assertion (:858), which moves from fourteen names to fifteen."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Regenerated, never hand-edited (its own header states the procedure): re-run the memberless emit over the whole shipped std-lib with `settings`/`settingsDefaultContract` bound and re-embed the declaration rows verbatim. The header's kind count and name list move too. The header's prose is separately truncated: `9d3aed09` cut 23 comment lines, leaving line 51 ending mid-sentence (\"… an installed plugin is one scalar under an identity key, a known\") and taking the `plugin-manifest` and `settings-local` paragraphs with it. Restore the sentence's tail and both paragraphs while the counts move — comment staleness rides the entry that next opens the file, never a standalone one."
-        },
-        {
-          "path": "src/builtin_lock.rs",
-          "description": "The embedded lock's asserted kind-name list (:55-:70) and the clause-kind match arm set (:100-:117) gain `settings`."
-        },
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "`MEMBERLESS_BUILTIN_PROGRAM` (:32) imports and `expect`-binds `settings` / `settingsDefaultContract` beside `settingsLocal` (:55, :77) — the frozen lane re-derives the lock from the real SDK, so an unbound kind would silently drop its rows from the byte-compare."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The embedded-lock kind-count assertion and its 'Fourteen, not the twelve `specs/builtins.md` enumerates' comment (:2361) — the corpus now enumerates thirteen and the lock carries fifteen."
-        },
-        {
-          "path": "tests/builtin_contract_matrix.rs",
-          "description": "The matrix walks every embedded kind's clauses (:15-:30); `settings` joins its enumeration."
-        },
-        {
-          "path": "tests/snapshots/builtin_contract_matrix__builtin_contract_matrix.snap",
-          "description": "Re-accepted: the new kind's default-contract clauses join the matrix snapshot."
-        },
-        {
-          "path": "tests/hook_kind.rs",
-          "description": "`a_settings_json_stays_an_unmodeled_surface_until_its_container_is_represented` (:184) — its premise ('phase 2', :187) is exactly what this entry lands, and `whole` keys off a governing *kind*, not a member, so the finding retires as soon as the kind ships. Rewrite the test to what still holds (the hook kind alone governs only the `hooks` segment) or retire it naming the entry."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "The `coverage.unmodeled-surface` expectation for `.claude/settings.json` (:403) inverts; the cost pins may move with the extra governing kind."
-        },
-        {
-          "path": "tests/coverage_note.rs",
-          "description": "The settings.json coverage fixtures and their partial-governance assertions re-baseline against a whole-file governing built-in: the partially-governed case (:84), the fully-represented retirement (:188) and the locked-custom-kind suppression (:346)."
-        },
-        {
-          "path": "tests/session_start.rs",
-          "description": "The reporter context assertion that names `settings.json` (:401) — today it rides the unmodeled-surface note."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "Where a shared fixture helper lands if the re-baseline wants one (`write_settings`, the settings writer, is already here at :196)."
-        },
-        {
-          "path": "tests/gauntlet.rs",
-          "description": "The gauntlet corpus: its `.claude/settings.json` (:14, :119) sits at a governed locus with no member, so `locus.undeclared-member` now names it unless the fixture declares one."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
-          "description": "Re-accepted: the `coverage.unmodeled-surface` line for `.claude/settings.json` (:8) goes, the `coverage.checked` kind count moves, and any new `locus.undeclared-member` line appears."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__projection_tree.snap",
-          "description": "Re-accepted if the gauntlet fixture gains a `settings` member and its projection joins the tree."
-        },
-        {
-          "path": "tests/settings_kind.rs",
-          "description": "`the_same_bytes_under_the_pre_0050_posture_carry_no_rollup_row_and_keep_the_advisory` (:281) — the pre-0050 contrast case asserts `coverage.unmodeled-surface` still names `.claude/settings.json` when the program authors no container member (:300-:306). With the kind embedded that harness draws `locus.undeclared-member` instead and the advisory count is 0. The rollup-row half (:293) and the invisible-hand-edit half (:308-:318) still hold — only the advisory leg re-baselines, exactly the shape of the `tests/hook_kind.rs:184` case above."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Two cases whose premise the embedded kind retires. `a_fresh_dry_run_scaffolds_and_writes_nothing` (:795) pins `outcome.scaffolded == 3`; `.claude/settings.json` is a governed locus the represent path now lifts, so the preview counts 4. `the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone` (:1473) writes `.claude/settings.json` on its manifest-arm leg (:1507-:1519) expecting exit 0 — `guarded_loci` (`src/main.rs:648`) excludes a kind carrying a `collection_address` (:656), which the `settings` container does not, so the locus binds and the guard exits 2 with the undeclared-member finding. That agrees with `check`, the agreement that function's own doc states it exists to hold, so the re-baseline is the case's: point the manifest-only leg at `.mcp.json` (a collection address with no container kind) and assert `.claude/settings.json` under the locus arm."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The `settings` kind ships in the SDK but not in the embedded built-in lock, so a harness checked without a program — the stranger gate — still sees its settings file ungoverned.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "The lock re-derived from the real SDK over the whole shipped std-lib byte-matches `src/builtin_lock.toml` with `settings` and its default contract in it."
-      },
-      {
-        "path": "tests/hook_kind.rs",
-        "asserts": "The hook kind governs only the `hooks` segment; whole-file governance is the `settings` kind's, and `coverage.unmodeled-surface` no longer names `.claude/settings.json`."
-      },
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "A lockless harness with a settings.json draws no unmodeled-surface finding for it."
-      },
-      {
-        "path": "tests/install.rs",
-        "asserts": "the represent-path preview counts the settings locus it would lift, and the guard's governed-locus binding fires on `.claude/settings.json` while the manifest arm keeps a collection-address manifest (`.mcp.json`) — the guard agreeing with `check` on the same file"
-      }
-    ],
-    "acceptance": "`cargo test` green with the frozen built-in lock re-derived and byte-matched, and every settings.json fixture re-baselined against whole-file governance.",
-    "notes": "Auto-adoption lands this for every harness, not only programs: `unmodeled-surface` retires (src/coverage_note.rs:131, `whole` keys off a governing kind) and a settings.json with no declared member draws `locus.undeclared-member`. This repo's own harness is that case until a `chore(harness):` commit declares the member. `tests/settings_kind.rs` and `tests/install.rs` are the fence gap the first attempt hit (8e481f58), re-verified on disk. scoped at c06563d0"
-  },
-  {
-    "tag": "WHEN-BODY-GUIDANCE-REACHES-ITS-FINDING",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`Outcome::Violated` carries a violation that may name its own guidance, not a bare `String`: the `Predicate::When` arm (:1325, the two body recursions at :1361/:1370) attaches the body clause's `guidance` to each message it produces, and `member_findings` (:80) prefers that over the host clause's at the one `with_guidance` site (:100). `evaluate` (:917) has exactly three call sites — `member_findings` plus those two recursions — and every other producer goes through the `Outcome::violated`/`Outcome::check` helpers (:953/:958), so the seventeen construction sites keep their spelling. `evaluate`, `decide`, `Outcome` and `member_findings` are all module-private, so the type change reaches no other file; `validate`/`judge`/`judge_members` keep their signatures. Unit pin beside `when_guard_enum_matches_and_body_evaluates` (:2919): a body clause declaring guidance has it on the diagnostic, and a body clause declaring none falls back to the host's."
-        },
-        {
-          "path": "tests/marketplace_kind.rs",
-          "description": "`when_body_clauses_fire_on_guarded_elements_that_violate_them` (:312) gains the delivery pin. It runs under the github reporter today (`common::check_harness`), which prints no guidance for any clause — so the new assertion reads `common::check_harness_in(&harness, None).output`, the default human reporter whose `help:` block is the channel guidance actually rides (measured this tick: an `agent.required.description` violation prints its guidance there, a `marketplace.when.plugins[*].source.source=github` violation prints none). The existing label and element-address assertions stand unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "All eight `when` body rows in the shipped built-in lock carry authored guidance that no finding ever delivers — the guard's own guidance (absent) is attached instead.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [
-      {
-        "path": "tests/marketplace_kind.rs",
-        "asserts": "a `url` source missing its `url` field prints the body clause's own authored guidance in the default reporter's `help:` block, under the guard's label and the element's address"
-      },
-      {
-        "path": "src/engine.rs",
-        "asserts": "a `when` body clause's guidance rides its violation's diagnostic; a body clause declaring none falls back to the host clause's"
-      }
-    ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green, with the marketplace pin red before the change.",
-    "notes": "Measured this tick: all 8 `[[declaration.clause.body]]` rows in src/builtin_lock.toml carry distinct guidance, and `with_guidance` is called at exactly two sites, both reading a top-level clause. Independent of `(guard-body-address-and-severity)`: guidance is per-violation teaching under every candidate ruling there, while severity and the body label ride that fork. The lock does not move. scoped at fbbe2c6d"
-  },
-  {
     "tag": "GUARD-SETTINGS-RESIDUE-ALLOWANCE-RETIRES",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "SETTINGS-KIND-SHIPS(builtin)"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -224,11 +77,7 @@
   {
     "tag": "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "SETTINGS-KIND-SHIPS(builtin)",
-        "WHEN-BODY-GUIDANCE-REACHES-ITS-FINDING"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -905,10 +754,7 @@
   {
     "tag": "TAP-RECORD-FIXTURE-ONE-HOME",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "SETTINGS-KIND-SHIPS(builtin)"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
