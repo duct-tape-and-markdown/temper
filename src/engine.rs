@@ -30,9 +30,10 @@
 //!
 //! A predicate no judge decides never degrades to a working no-op: [`admissibility`]
 //! **fences it**, so a hand-authored clause fails loudly instead of quietly deciding
-//! nothing. One predicate is fenced — `dependency-exists`, which names no decidable
-//! reference syntax or extractor, so no projection carries the fact it would range
-//! over.
+//! nothing. One predicate is fenced outright — `dependency-exists`, which names no
+//! decidable reference syntax or extractor, so no projection carries the fact it would
+//! range over. One placement is fenced the same way: a set predicate inside a `when`
+//! guard's body, which binds at an element and has no selection to range over.
 //!
 //! [`Error`]: check::Severity::Error
 //! [`Warn`]: check::Severity::Warn
@@ -186,10 +187,23 @@ fn when_restrictions(predicate: &Predicate, locus: &Locus) -> Vec<String> {
         messages.extend(inadmissibilities(guard.as_ref(), locus, body));
     }
 
-    // Body clauses must not nest another when. Non-nested clauses recurse.
+    // Body clauses must not nest another `when`, and must not range over the
+    // selection: the body binds at the *element* the guard locates, and a selection
+    // predicate has no element to range over. Evaluating one under the guard would
+    // narrow a selection by a field value, and narrowing is an each-grain clause over
+    // a selection, never a second selector. Either refusal stands alone rather than
+    // recursing: one clause, one message naming what is wrong with it.
     for clause in body {
         if matches!(clause.predicate, Predicate::When { .. }) {
             messages.push("`when` guard body cannot nest another `when` clause".to_string());
+        } else if clause.predicate.ranges_over_selection() {
+            messages.push(format!(
+                "`{}` ranges over the selection, so it binds to a selection's top-level \
+                 clauses, never a `when` guard's body: the body binds at the element the \
+                 guard locates, and narrowing a selection by a field value is an \
+                 each-grain clause over that selection, never a second selector",
+                clause.predicate.key()
+            ));
         } else {
             messages.extend(inadmissibilities(&clause.predicate, locus, body));
         }
@@ -849,9 +863,13 @@ fn evaluate(
     match decide(contract, predicate, features, all) {
         Outcome::Holds => Vec::new(),
         Outcome::Violated(messages) => messages,
-        // Unreachable on an admissible run: [`admissibility`] fences every producer
-        // before conformance. The empty vec keeps that floor silent rather than
-        // reporting a verdict no judge reached.
+        // Unreachable on an admissible run, and pinned so it stays that way
+        // (`when_body_refuses_every_predicate_the_indeterminate_arm_answers`): every producer of
+        // that arm is fenced before conformance — `dependency-exists` by [`judgeless`],
+        // the set predicates by [`validate`]'s routing at the top grain and by
+        // [`when_restrictions`] inside a guard's body. Silence is right on the
+        // inadmissible run too: admissibility has already reported a blocking error
+        // naming the clause, so a second finding here would only double-report it.
         Outcome::Indeterminate => Vec::new(),
     }
 }
@@ -1412,7 +1430,7 @@ mod tests {
     use serde_json::{Value as JsonValue, json};
 
     use crate::check::{Severity, any_error};
-    use crate::contract::{Charset, Clause, Severity as ClauseSeverity};
+    use crate::contract::{Charset, Clause, Severity as ClauseSeverity, Shape};
     use crate::extract::ValueType;
 
     /// Build a `Features` with the given name-keyed scalar fields, body line
@@ -1833,6 +1851,93 @@ mod tests {
             Predicate::Kind {
                 kind: "skill".to_string(),
             },
+            Predicate::MentionReachable {
+                scope_field: "paths".to_string(),
+                gate_field: "paths".to_string(),
+            },
+            Predicate::Extent {
+                unit: ExtentUnit::Lines,
+                max: 40,
+                whole: true,
+            },
+        ]
+    }
+
+    /// The member-grain vocabulary — one live sample of every predicate [`decide`]
+    /// answers over one member's own features, each addressing the `model` key the
+    /// fixtures carry. The complement of [`set_predicates`]; together with the fenced
+    /// `dependency-exists` they are the closed vocabulary, one sample apiece.
+    fn member_predicates() -> Vec<Predicate> {
+        vec![
+            Predicate::Required {
+                field: "model".to_string(),
+            },
+            Predicate::Optional {
+                field: "model".to_string(),
+            },
+            Predicate::Type {
+                field: "model".to_string(),
+                kinds: BTreeSet::from([ValueType::String]),
+            },
+            Predicate::MinLen {
+                field: "model".to_string(),
+                min: 1,
+            },
+            Predicate::MaxLen {
+                field: "model".to_string(),
+                max: 9,
+            },
+            Predicate::Range {
+                field: "model".to_string(),
+                min: 0.0,
+                max: 9.0,
+            },
+            Predicate::Enum {
+                field: "model".to_string(),
+                values: vec!["opus".to_string()],
+            },
+            Predicate::Deny {
+                field: "model".to_string(),
+                values: vec!["claude".to_string()],
+            },
+            Predicate::ForbiddenKeys {
+                keys: vec!["globs".to_string()],
+            },
+            Predicate::AllowedChars {
+                field: "model".to_string(),
+                charset: slug_charset(),
+            },
+            Predicate::Extent {
+                unit: ExtentUnit::Lines,
+                max: 9,
+                whole: false,
+            },
+            Predicate::RequireSections {
+                sections: vec!["Usage".to_string()],
+            },
+            Predicate::MustDefine {
+                marker: "model".to_string(),
+            },
+            Predicate::SectionContains {
+                heading: "Decision".to_string(),
+                marker: "Rejected".to_string(),
+            },
+            Predicate::NameMatchesDir,
+            Predicate::UniqueName,
+            Predicate::GlobValid {
+                field: "model".to_string(),
+            },
+            Predicate::FormatPlacesEdges,
+            Predicate::ClosedKeys,
+            Predicate::Shape {
+                field: "model".to_string(),
+                shape: Shape::NoXmlTags,
+            },
+            // A guard over the same key, so the body evaluates at the one element the
+            // path locates rather than standing in for an absent field.
+            when_over(Predicate::Required {
+                field: "model".to_string(),
+            }),
         ]
     }
 
@@ -2265,68 +2370,6 @@ mod tests {
         // over their selection instead (above), and the fenced one never reaches
         // conformance at all.
         let demo = features("demo", &[("model", scalar("opus"))], 1, Some("demo"));
-        let vocabulary = vec![
-            Predicate::Required {
-                field: "model".to_string(),
-            },
-            Predicate::Optional {
-                field: "model".to_string(),
-            },
-            Predicate::Type {
-                field: "model".to_string(),
-                kinds: BTreeSet::from([ValueType::String]),
-            },
-            Predicate::MinLen {
-                field: "model".to_string(),
-                min: 1,
-            },
-            Predicate::MaxLen {
-                field: "model".to_string(),
-                max: 9,
-            },
-            Predicate::Range {
-                field: "model".to_string(),
-                min: 0.0,
-                max: 9.0,
-            },
-            Predicate::Enum {
-                field: "model".to_string(),
-                values: vec!["opus".to_string()],
-            },
-            Predicate::Deny {
-                field: "model".to_string(),
-                values: vec!["claude".to_string()],
-            },
-            Predicate::ForbiddenKeys {
-                keys: vec!["globs".to_string()],
-            },
-            Predicate::AllowedChars {
-                field: "model".to_string(),
-                charset: slug_charset(),
-            },
-            Predicate::Extent {
-                unit: ExtentUnit::Lines,
-                max: 9,
-                whole: false,
-            },
-            Predicate::RequireSections {
-                sections: vec!["Usage".to_string()],
-            },
-            Predicate::MustDefine {
-                marker: "model".to_string(),
-            },
-            Predicate::SectionContains {
-                heading: "Decision".to_string(),
-                marker: "Rejected".to_string(),
-            },
-            Predicate::NameMatchesDir,
-            Predicate::UniqueName,
-            Predicate::GlobValid {
-                field: "model".to_string(),
-            },
-            Predicate::FormatPlacesEdges,
-            Predicate::ClosedKeys,
-        ];
 
         // Each predicate is judged inside a contract that also declares `model` — the demo's
         // one key. It is inert for every predicate but `closed-keys`, whose allow-list is
@@ -2339,7 +2382,7 @@ mod tests {
                 field: "model".to_string(),
             },
         );
-        for predicate in vocabulary {
+        for predicate in member_predicates() {
             let mut carrier = contract(ClauseSeverity::Required, predicate.clone());
             carrier.clauses.push(declares_model.clone());
             assert!(
@@ -3053,5 +3096,135 @@ mod tests {
             diags[0].message.contains("no values"),
             "message should mention no values"
         );
+    }
+
+    /// The `when` predicate whose guard is a live `enum` over `model` and whose body is
+    /// the one clause under test — the shape the body fence ranges over.
+    fn when_over(body_predicate: Predicate) -> Predicate {
+        Predicate::When {
+            guard: Box::new(Predicate::Enum {
+                field: "model".to_string(),
+                values: vec!["opus".to_string()],
+            }),
+            body: vec![clause("skill", ClauseSeverity::Required, body_predicate)],
+        }
+    }
+
+    #[test]
+    fn when_body_refuses_a_set_predicate() {
+        // A `when` body binds at the element the guard locates, and a selection
+        // predicate has no element to range over: evaluating one there would narrow a
+        // selection by a field value, which is an each-grain clause over that
+        // selection, never a second selector. Unfenced it reached `decide`'s
+        // indeterminate arm and the clause passed judged by nobody.
+        for predicate in set_predicates() {
+            let key = predicate.key();
+            let diags = admissibility(
+                &contract(ClauseSeverity::Required, when_over(predicate)),
+                &Locus::Document,
+            );
+            assert_eq!(
+                diags.len(),
+                1,
+                "`{key}` in a `when` body should fire once, got: {diags:?}"
+            );
+            assert_eq!(
+                diags[0].severity,
+                Severity::Error,
+                "`{key}`: an inadmissible contract fails the run"
+            );
+            assert!(
+                diags[0].message.contains(&format!("`{key}`")),
+                "`{key}`: the message must name the predicate, got: {}",
+                diags[0].message
+            );
+            assert!(
+                diags[0].message.contains("`when` guard's body"),
+                "`{key}`: the message must say where a set predicate does bind, got: {}",
+                diags[0].message
+            );
+        }
+    }
+
+    /// Whether [`decide`]'s indeterminate arm is the one that answers `predicate` — the
+    /// arm that reaches no verdict over any member whatever its features carry, and
+    /// whose silence [`evaluate`]'s floor swallows.
+    ///
+    /// Exhaustive on purpose, and half the pin behind that floor's "unreachable on an
+    /// admissible run" claim: a new predicate does not compile until its author says
+    /// which side of this line it falls on, and the test below holds every `true` to a
+    /// refusal from [`inadmissibilities`] inside a `when` body.
+    fn answered_by_the_indeterminate_arm(predicate: &Predicate) -> bool {
+        match predicate {
+            Predicate::DependencyExists
+            | Predicate::Count { .. }
+            | Predicate::Unique { .. }
+            | Predicate::Membership { .. }
+            | Predicate::Degree { .. }
+            | Predicate::Kind { .. }
+            | Predicate::MentionReachable { .. } => true,
+            // The one predicate carrying its own grain: the whole-grain budget sums the
+            // selection, the each-grain one reads the member in hand.
+            Predicate::Extent { whole, .. } => *whole,
+            Predicate::Required { .. }
+            | Predicate::Optional { .. }
+            | Predicate::Type { .. }
+            | Predicate::MinLen { .. }
+            | Predicate::MaxLen { .. }
+            | Predicate::Range { .. }
+            | Predicate::Enum { .. }
+            | Predicate::Deny { .. }
+            | Predicate::ForbiddenKeys { .. }
+            | Predicate::ClosedKeys
+            | Predicate::AllowedChars { .. }
+            | Predicate::Shape { .. }
+            | Predicate::RequireSections { .. }
+            | Predicate::MustDefine { .. }
+            | Predicate::SectionContains { .. }
+            | Predicate::NameMatchesDir
+            | Predicate::UniqueName
+            | Predicate::GlobValid { .. }
+            | Predicate::FormatPlacesEdges
+            | Predicate::When { .. } => false,
+        }
+    }
+
+    #[test]
+    fn when_body_refuses_every_predicate_the_indeterminate_arm_answers() {
+        // `evaluate`'s floor reports nothing for an undecided clause, on the claim that
+        // no admissible contract can produce one. The claim holds only while every
+        // producer of that arm is fenced *wherever it can be written* — the `when` body
+        // is the placement that was not, and this is what keeps the next set predicate
+        // from re-opening it: the classifier above does not compile until a new variant
+        // is placed, and every placement on the `true` side must be refused by name.
+        for predicate in set_predicates()
+            .into_iter()
+            .chain([Predicate::DependencyExists])
+        {
+            let key = predicate.key();
+            assert!(
+                answered_by_the_indeterminate_arm(&predicate),
+                "`{key}`: the sample banks and the classifier disagree"
+            );
+            let refusals = inadmissibilities(&when_over(predicate), &Locus::Document, &[]);
+            assert!(
+                refusals
+                    .iter()
+                    .any(|message| message.contains(&format!("`{key}`"))),
+                "`{key}` in a `when` body reaches `decide` with no judge and no refusal, \
+                 got: {refusals:?}"
+            );
+        }
+
+        // And the other side of the classifier is the member-grain bank, every one of
+        // which `decide` answers — `no_admissible_predicate_reaches_indeterminate_at_conformance`
+        // is the assertion, this is only the agreement.
+        for predicate in member_predicates() {
+            assert!(
+                !answered_by_the_indeterminate_arm(&predicate),
+                "`{}`: the sample banks and the classifier disagree",
+                predicate.key()
+            );
+        }
     }
 }
