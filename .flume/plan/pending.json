@@ -31,7 +31,11 @@
       }
     ],
     "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, and the example test passes on a checkout whose `sdk/dist` is absent at run start (the pre-fix tree crashes there with ENOENT on `dist/src/prose.js` once the link exists).",
-    "notes": "The flake that reverted CONTAINMENT-INCIDENCE-FAMILY: a sibling test's `ensure_sdk_built` runs `rm -rf dist && tsc` (sdk/package.json:43) on one thread while this test — having taken the early return — reads `dist/` on another. `vendor_sdk`'s signature does not move, so its ~20 `tests/install.rs` call sites are ripple noise. scoped at 47b74e5b"
+    "notes": "The flake that reverted CONTAINMENT-INCIDENCE-FAMILY: a sibling test's `ensure_sdk_built` runs `rm -rf dist && tsc` (sdk/package.json:43) on one thread while this test — having taken the early return — reads `dist/` on another. `vendor_sdk`'s signature does not move, so its ~20 `tests/install.rs` call sites are ripple noise. scoped at 47b74e5b",
+    "observedFiles": [
+      "tests/common/mod.rs",
+      "tests/emit.rs"
+    ]
   },
   {
     "tag": "EXAMPLE-LOCK-IS-BYTE-GATED",
@@ -105,6 +109,9 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      ".flume/refactor/build-containment-degree-signature-fence.md"
+    ],
     "summary": "`contract.md` names containment among a member's derived edges; no enumeration carries it, so a floor over the embedded members a body composes has no arc to count.",
     "per": {
       "path": "specs/model/contract.md",
@@ -121,10 +128,7 @@
       }
     ],
     "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle (the adopter's floor 0052 names): a `rule` admitting `directive` and `consult`, bounded outgoing ≥ 1 filtered to `contains:directive` ∪ `contains:consult`, fires on a rule whose body composes neither and is silent on one composing either — while the same bound unfiltered counts no containment arc, so a rule composing nothing and declaring one `routes_to` keeps today's verdict.",
-    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. Gated on the flake that reverted attempt one, not on its work. scoped at 47b74e5b",
-    "observedFiles": [
-      ".flume/refactor/build-containment-degree-signature-fence.md"
-    ]
+    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. Gated on the flake that reverted attempt one, not on its work. scoped at 47b74e5b"
   },
   {
     "tag": "REQUIREMENT-CLAUSES-REACH-THE-MEMBER-JUDGE",
