@@ -285,10 +285,10 @@ pub enum DriftError {
         member: String,
     },
 
-    /// A prose reference — a layout region's `import` or a composed-prose `include` —
-    /// names a file that does not exist on disk. Refused before a byte is written: the
-    /// author cannot produce output from a source that references content that is not
-    /// there.
+    /// A declared source dependency — a layout region's `import`, a composed-prose
+    /// `include`, or a member's declared `input` — names a file that does not exist on
+    /// disk. Refused before a byte is written: the author cannot produce output from a
+    /// source that references content that is not there.
     #[error(
         "member `{member}` references `{import}`, resolving to `{path}`, which does not exist — a dangling reference"
     )]
@@ -493,9 +493,10 @@ pub(crate) struct RollupEntry {
 /// carries the program's own embedded-member facts *and* the rows emit derives from
 /// layout sources in the same pass (`emit` merges them before this write), so a layout
 /// document's members reach the lock as declaration rows without a projection of their
-/// own. `layout_imports` and `includes` are the layout sources' and composed prose's
-/// fingerprinted content dependencies, written into the same `[declaration]` table
-/// under their own families; `layout_prose` is what those sources' *verbatim* prose
+/// own. `source_deps` carries the fingerprinted content dependencies — the layout
+/// sources' imports, the composed prose's includes, the declaring members' inputs — each
+/// written into the same `[declaration]` table under its own family; `layout_prose` is
+/// what those sources' *verbatim* prose
 /// regions captured, the span an import region has no equivalent of; `layout_sources`
 /// records that emit read each layout document at all, the one fact about a layout host
 /// that does not depend on what its body had to give.
@@ -503,8 +504,7 @@ pub(crate) fn write_rollup(
     into: &Path,
     rollups: &BTreeMap<String, Vec<RollupEntry>>,
     declarations: &Declarations,
-    layout_imports: &[LayoutImportRow],
-    includes: &[LayoutImportRow],
+    source_deps: &SourceDeps<'_>,
     layout_prose: &[LayoutProseRow],
     layout_sources: &[LayoutSourceRow],
 ) -> Result<(), DriftError> {
@@ -513,8 +513,9 @@ pub(crate) fn write_rollup(
         doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(rows));
     }
     declarations.write_into(&mut doc);
-    write_source_deps(&mut doc, LAYOUT_IMPORT_FAMILY, layout_imports);
-    write_source_deps(&mut doc, INCLUDE_FAMILY, includes);
+    write_source_deps(&mut doc, LAYOUT_IMPORT_FAMILY, source_deps.layout_imports);
+    write_source_deps(&mut doc, INCLUDE_FAMILY, source_deps.includes);
+    write_source_deps(&mut doc, INPUT_FAMILY, source_deps.inputs);
     write_layout_prose(&mut doc, layout_prose);
     write_layout_sources(&mut doc, layout_sources);
 
@@ -1117,6 +1118,12 @@ pub fn emit(
             .push(include);
     }
 
+    // The declared inputs, resolved in their own pass over the declaration family
+    // rather than inside the projection loop below: an input rides any member, composed
+    // or not, and moves no byte into that member's artifact. A dangling input refuses
+    // here, before any projection is derived, the same posture an include takes.
+    let input_rows = resolve_inputs(&payload.declarations.inputs, &harness_root)?;
+
     let mut projections = Vec::with_capacity(payload.members.len());
     // The composed-prose includes emit resolved this pass — each fingerprinted as a
     // never-reaped source dependency (its own `include` lock family), refusing loud when
@@ -1560,8 +1567,11 @@ pub fn emit(
             workspace_dir,
             &rollups,
             &declarations,
-            &layout_import_rows,
-            &include_rows,
+            &SourceDeps {
+                layout_imports: &layout_import_rows,
+                includes: &include_rows,
+                inputs: &input_rows,
+            },
             &layout_prose_rows,
             &layout_source_rows,
         )?;
@@ -2123,6 +2133,38 @@ fn resolve_source_dependency(
         import_hash: sha256_hex(&canonicalize_eol(&bytes)),
     };
     Ok((row, bytes))
+}
+
+/// Fingerprint every declared input — the files the program's members say their
+/// claims rest on — into the lock's `input` source-dependency family.
+///
+/// Each row's path arrives SDK-resolved and absolute, as an include's does, so it is
+/// re-expressed against `harness_root` ([`harness_relative`]) before it is resolved and
+/// hashed. No member index is offered: an input's target is a file that need not be a
+/// member, so every row's `target` stays empty and no graph surface sees one. Nothing is
+/// decoded either: an input moves no byte into any projection, so a binary input is legal.
+///
+/// # Errors
+/// Returns [`DriftError::DanglingImport`] when an input does not exist — refused before a
+/// byte is written — or [`DriftError::Read`] when it exists but cannot be read.
+fn resolve_inputs(
+    rows: &[InputRow],
+    harness_root: &Path,
+) -> Result<Vec<LayoutImportRow>, DriftError> {
+    let no_members = BTreeMap::new();
+    let mut resolved = Vec::with_capacity(rows.len());
+    for input in rows {
+        let relative = harness_relative(&input.source_path, harness_root);
+        let (row, _bytes) = resolve_source_dependency(
+            &input.member,
+            &relative,
+            Path::new("."),
+            harness_root,
+            &no_members,
+        )?;
+        resolved.push(row);
+    }
+    Ok(resolved)
 }
 
 /// Re-express an include's SDK-resolved absolute `target` as a path relative to
@@ -3000,10 +3042,33 @@ pub struct LayoutImportRow {
     pub import_hash: String,
 }
 
+/// The three source-dependency families one emit pass derived, gathered for the lock
+/// write ([`write_rollup`]). Named rather than positional: every family is the same
+/// `LayoutImportRow` slice, so three adjacent parameters would swap silently.
+pub(crate) struct SourceDeps<'a> {
+    /// The layout sources' `import` regions.
+    pub(crate) layout_imports: &'a [LayoutImportRow],
+    /// The composed prose's `include` targets.
+    pub(crate) includes: &'a [LayoutImportRow],
+    /// The members' declared inputs.
+    pub(crate) inputs: &'a [LayoutImportRow],
+}
+
 /// The lock family key layout imports fingerprint under.
 const LAYOUT_IMPORT_FAMILY: &str = "layout_import";
 /// The lock family key composed-prose includes fingerprint under.
 const INCLUDE_FAMILY: &str = "include";
+/// The lock family key declared inputs fingerprint under.
+const INPUT_FAMILY: &str = "input";
+
+/// The remedy a moved layout-import or composed-prose include target reports: its bytes
+/// were copied into the referencing projection, so re-emitting is the whole reconciliation.
+const REEMIT_REMEDY: &str = "re-emit to reconcile";
+/// The remedy a moved declared input reports. Nothing was copied, so re-emitting
+/// alone would bless the new bytes without anyone re-checking the claim that rests on
+/// them: temper never judges whether the claim still holds (invariant 8), it names the
+/// place to look.
+const INPUT_REMEDY: &str = "re-verify the member's claims against the input, then re-emit";
 
 /// The lock document's `[declaration]` table, mutably — created when absent, so a lock
 /// carrying nothing but an emit-derived family still round-trips. `None` only when the
@@ -3138,6 +3203,17 @@ pub fn includes(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError
 /// Returns a [`DriftError::LockRow`] if a present row is malformed.
 pub fn includes_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutImportRow>, DriftError> {
     source_deps_from_doc(doc, INCLUDE_FAMILY)
+}
+
+/// Every declared-input row a lock at `workspace_dir` carries — the files the members'
+/// claims rest on, fingerprinted for the drift comparison alone: an input's target need
+/// not be a member, so no edge lift reads this family.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
+pub fn inputs(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError> {
+    source_deps(workspace_dir, INPUT_FAMILY)
 }
 
 // ---------------------------------------------------------------------------
@@ -3307,7 +3383,10 @@ pub fn layout_sources(workspace_dir: &Path) -> miette::Result<Vec<LayoutSourceRo
 /// The drift findings for source dependencies under `family` from an already-parsed
 /// document: a fingerprinted target whose bytes no longer match the lock's `import_hash` —
 /// the target moved and `emit` has not re-run — or one no longer readable, the dependency
-/// gone. One finding per drifted dependency, its target described as a `noun`.
+/// gone. One finding per drifted dependency, its target described as a `noun` and closed
+/// by its family's `remedy`: what a copied-in target asks of the author is not what a
+/// claim's declared input asks, and the finding names the remedy, never the tool's
+/// judgement of whether the claim still holds.
 ///
 /// `clause` is the root member's own [`contract::Predicate::Fresh`] clause, read for all
 /// three channels exactly as [`config_stale_from_doc`] reads it: a source dependency's
@@ -3322,6 +3401,7 @@ pub fn source_dep_stale_from_doc(
     harness_root: &Path,
     family: &str,
     noun: &str,
+    remedy: &str,
     clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     let mut findings = Vec::new();
@@ -3329,11 +3409,11 @@ pub fn source_dep_stale_from_doc(
         let message = match fs::read(harness_root.join(&row.source_path)) {
             Ok(bytes) if sha256_hex(&canonicalize_eol(&bytes)) == row.import_hash => continue,
             Ok(_) => format!(
-                "{noun} target `{}` (referenced by `{}`) no longer matches the lock's fingerprint — the target changed and `emit` has not run; re-emit to reconcile",
+                "{noun} target `{}` (referenced by `{}`) no longer matches the lock's fingerprint — the target changed and `emit` has not run; {remedy}",
                 row.source_path, row.member
             ),
             Err(_) => format!(
-                "{noun} target `{}` (referenced by `{}`) is no longer readable — the fingerprinted dependency moved or was removed; re-emit to reconcile",
+                "{noun} target `{}` (referenced by `{}`) is no longer readable — the fingerprinted dependency moved or was removed; {remedy}",
                 row.source_path, row.member
             ),
         };
@@ -3363,6 +3443,7 @@ fn source_dep_stale(
     workspace_dir: &Path,
     family: &str,
     noun: &str,
+    remedy: &str,
     clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     let path = workspace_dir.join(crate::LOCK_FILENAME);
@@ -3380,7 +3461,7 @@ fn source_dep_stale(
         })?;
     increment_lock_parses();
     let harness_root = harness_root_of(workspace_dir);
-    source_dep_stale_from_doc(&doc, &harness_root, family, noun, clause)
+    source_dep_stale_from_doc(&doc, &harness_root, family, noun, remedy, clause)
 }
 
 /// The drift findings for a workspace's layout imports — a moved or unreadable import
@@ -3393,7 +3474,13 @@ pub fn layout_import_stale(
     workspace_dir: &Path,
     clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
-    source_dep_stale(workspace_dir, LAYOUT_IMPORT_FAMILY, "layout import", clause)
+    source_dep_stale(
+        workspace_dir,
+        LAYOUT_IMPORT_FAMILY,
+        "layout import",
+        REEMIT_REMEDY,
+        clause,
+    )
 }
 
 /// The drift findings for layout imports from an already-parsed lock document — a moved
@@ -3413,6 +3500,7 @@ pub fn layout_import_stale_from_doc(
         harness_root,
         LAYOUT_IMPORT_FAMILY,
         "layout import",
+        REEMIT_REMEDY,
         clause,
     )
 }
@@ -3427,7 +3515,13 @@ pub fn include_stale(
     workspace_dir: &Path,
     clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
-    source_dep_stale(workspace_dir, INCLUDE_FAMILY, "prose include", clause)
+    source_dep_stale(
+        workspace_dir,
+        INCLUDE_FAMILY,
+        "prose include",
+        REEMIT_REMEDY,
+        clause,
+    )
 }
 
 /// The drift findings for composed-prose includes from an already-parsed lock document —
@@ -3442,7 +3536,57 @@ pub fn include_stale_from_doc(
     harness_root: &Path,
     clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
-    source_dep_stale_from_doc(doc, harness_root, INCLUDE_FAMILY, "prose include", clause)
+    source_dep_stale_from_doc(
+        doc,
+        harness_root,
+        INCLUDE_FAMILY,
+        "prose include",
+        REEMIT_REMEDY,
+        clause,
+    )
+}
+
+/// The drift findings for a workspace's declared inputs — an input whose bytes moved or
+/// went unreadable, reported under `clause`'s label at `clause`'s declared severity. Its
+/// remedy is its own — re-verify, then re-emit: no byte of the input was ever copied
+/// anywhere, so re-emitting alone would re-baseline a claim nobody re-read.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
+pub fn input_stale(
+    workspace_dir: &Path,
+    clause: &contract::Clause,
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+    source_dep_stale(
+        workspace_dir,
+        INPUT_FAMILY,
+        "declared input",
+        INPUT_REMEDY,
+        clause,
+    )
+}
+
+/// The drift findings for declared inputs from an already-parsed lock document — a moved
+/// or unreadable input, reported under `clause`'s label at `clause`'s declared severity
+/// with the re-verify-then-re-emit remedy ([`input_stale`]).
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if a present row is malformed.
+pub fn input_stale_from_doc(
+    doc: &DocumentMut,
+    harness_root: &Path,
+    clause: &contract::Clause,
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+    source_dep_stale_from_doc(
+        doc,
+        harness_root,
+        INPUT_FAMILY,
+        "declared input",
+        INPUT_REMEDY,
+        clause,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -3563,6 +3707,12 @@ pub struct Declarations {
     /// declaration table, so a lock round-trip reads it empty).
     #[serde(default)]
     pub includes: Vec<IncludeRow>,
+    /// The members' declared inputs — the files their claims rest on. Seam-inbound
+    /// like `includes`: `emit` resolves and fingerprints each as an `input` source
+    /// dependency without moving a byte into any projection, so a lock round-trip reads
+    /// this family empty.
+    #[serde(default)]
+    pub inputs: Vec<InputRow>,
     /// The host members' declared embedded-member facts — captured as declaration
     /// rows rather than a second copy the engine reads back off the rendered fence
     /// (0018, "the projection is not the database").
@@ -4057,6 +4207,23 @@ pub struct IncludeRow {
     pub source_path: String,
 }
 
+/// One **declared input** the SDK declares — a file the member's claims rest on, and the
+/// member that rests on it. Its own type, not a reuse of [`IncludeRow`]: an include's
+/// path pairs positionally with a body slot, an input's moves nothing, and two concepts
+/// sharing two columns are still two concepts.
+///
+/// A seam-inbound row only, the same posture an include takes: `emit` resolves it against
+/// disk ([`resolve_source_dependency`]) and lowers it to a fingerprinted `input` source
+/// dependency — this row itself never reaches the lock. Nothing is spliced and no byte
+/// moves, so the target is never decoded and a binary input is legal.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct InputRow {
+    /// The declaring member's own `kind:name` address.
+    pub member: String,
+    /// The input's SDK-resolved absolute path.
+    pub source_path: String,
+}
+
 /// One fields-only registration member the SDK erased for the manifest write face — a
 /// hook, an MCP server — carried across the seam so `emit` routes its host manifest whole
 /// through the canonical write face ([`crate::json_manifest::write_manifest`]) rather than
@@ -4411,6 +4578,10 @@ fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, LockRowError
         // dependency at emit, never written into this declaration table, so a lock
         // round-trip reads none.
         includes: Vec::new(),
+        // Declared inputs are seam-inbound only — lowered to the fingerprinted `input`
+        // source dependency at emit, never written into this declaration table, so a lock
+        // round-trip reads none.
+        inputs: Vec::new(),
         nested_members: family(table, "nested_member", NestedMemberRow::from_table)?,
         registrations: family(table, "registration", RegistrationRow::from_table)?,
         // Settings residue is seam-inbound only — folded into its manifest's opaque residue

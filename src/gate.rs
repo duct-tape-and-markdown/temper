@@ -748,9 +748,9 @@ pub fn gate(
     diagnostics.extend(undeclared_locus.findings);
 
     // The source-dependency half of the same `fresh` clause: a fingerprinted
-    // layout-import or composed-prose include target whose bytes no longer match the
-    // lock — the target moved and `emit` has not re-run. Uses the pre-parsed lock
-    // document to avoid re-reading.
+    // layout-import, composed-prose include or declared-input target whose bytes no
+    // longer match the lock — the target moved and `emit` has not re-run. All three read
+    // the pre-parsed lock document, so a third family costs no read and no parse.
     if let Some(clause) = fresh_clause {
         let harness_root_for_staleness = drift::harness_root_of(workspace);
         diagnostics.extend(drift::layout_import_stale_from_doc(
@@ -759,6 +759,11 @@ pub fn gate(
             clause,
         )?);
         diagnostics.extend(drift::include_stale_from_doc(
+            &lock_doc,
+            &harness_root_for_staleness,
+            clause,
+        )?);
+        diagnostics.extend(drift::input_stale_from_doc(
             &lock_doc,
             &harness_root_for_staleness,
             clause,

@@ -349,6 +349,7 @@ fn crlf_import_target_reads_clean_for_source_dep_stale() {
         &harness,
         "layout_import",
         "layout import",
+        "re-emit to reconcile",
         &fresh_clause(),
     )
     .unwrap();
@@ -372,6 +373,7 @@ fn crlf_import_target_reads_clean_for_source_dep_stale() {
         &harness,
         "layout_import",
         "layout import",
+        "re-emit to reconcile",
         &fresh_clause(),
     )
     .unwrap();

@@ -24,7 +24,7 @@ use std::process::Command;
 
 use sha2::{Digest, Sha256};
 use temper::drift::{
-    self, CollectionAddressRow, Declarations, EmitOptions, EmitOutcome, KindFactRow,
+    self, CollectionAddressRow, Declarations, EmitOptions, EmitOutcome, InputRow, KindFactRow,
     NestedMemberRow, Payload, PayloadMember, RegistrationRow, SettingsRow,
 };
 use temper::json_manifest;
@@ -1015,6 +1015,59 @@ fn a_total_collection_drop_refuses_at_the_segment_cliff_unless_teardown() {
             .unwrap()
             .contains("PreToolUse"),
         "the spelled teardown clears the hook from the manifest"
+    );
+}
+
+#[test]
+fn a_declared_input_rides_the_seam_into_the_lock_and_double_emit_reproduces_it() {
+    let (harness, into) = workspace("declared-input-seam");
+    // The input is a committed file the member's claim rests on, governed by no kind — it
+    // is fingerprinted, never projected and never reaped.
+    fs::create_dir_all(harness.join("snapshot")).unwrap();
+    fs::write(
+        harness.join("snapshot/handler.py"),
+        "def handle():\n    pass\n",
+    )
+    .unwrap();
+
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::rule_kind_facts(None, &[])],
+            inputs: vec![InputRow {
+                member: "rule:rust".to_string(),
+                source_path: harness
+                    .join("snapshot/handler.py")
+                    .to_string_lossy()
+                    .into_owned(),
+            }],
+            ..Default::default()
+        },
+        members: vec![common::rule_member("rust", None, RUST_BODY)],
+    };
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let after_first = common::tree_bytes(&harness);
+    let lock_after_first = fs::read(into.join("lock.toml")).unwrap();
+
+    // One `[[declaration.input]]` row, and the seam's own `inputs` family stays inbound —
+    // it is lowered to that source dependency, never written back as a declaration row.
+    assert_eq!(drift::inputs(&into).unwrap().len(), 1);
+    assert!(drift::read_declarations(&into).unwrap().inputs.is_empty());
+
+    // The declaring member's projection carries no byte of the input, so a second emit
+    // over the same payload reports Unchanged and reproduces both sides exactly.
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Unchanged);
+    assert_eq!(
+        after_first,
+        common::tree_bytes(&harness),
+        "a declared input moves no byte on either emit"
+    );
+    assert_eq!(
+        lock_after_first,
+        fs::read(into.join("lock.toml")).unwrap(),
+        "double emit reproduces the input row byte-for-byte"
     );
 }
 

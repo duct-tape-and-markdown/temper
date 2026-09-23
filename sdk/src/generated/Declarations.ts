@@ -2,6 +2,7 @@
 import type { AssemblyFactRow } from "./AssemblyFactRow.js";
 import type { ClauseRow } from "./ClauseRow.js";
 import type { IncludeRow } from "./IncludeRow.js";
+import type { InputRow } from "./InputRow.js";
 import type { KindFactRow } from "./KindFactRow.js";
 import type { MentionRow } from "./MentionRow.js";
 import type { NestedMemberRow } from "./NestedMemberRow.js";
@@ -67,6 +68,13 @@ mentions: Array<MentionRow>,
  * declaration table, so a lock round-trip reads it empty).
  */
 includes: Array<IncludeRow>, 
+/**
+ * The members' declared inputs — the files their claims rest on. Seam-inbound
+ * like `includes`: `emit` resolves and fingerprints each as an `input` source
+ * dependency without moving a byte into any projection, so a lock round-trip reads
+ * this family empty.
+ */
+inputs: Array<InputRow>, 
 /**
  * The host members' declared embedded-member facts — captured as declaration
  * rows rather than a second copy the engine reads back off the rendered fence

@@ -1085,6 +1085,9 @@ export function compileDeclarations(
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
     includes: includeRows(harness),
+    // Empty until the authoring surface carries declared inputs: the seam's every
+    // `#[serde(default)]` Vec generates non-optional, so the key is required regardless.
+    inputs: [],
     nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements, extents),
     registrations: [...registrationRows(harness), ...tapHookRows(harness)],
     settings: settingsRows(harness),

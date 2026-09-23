@@ -251,6 +251,7 @@ fn rich_declarations() -> Declarations {
             target: "rule:rust".to_string(),
         }],
         includes: Vec::new(),
+        inputs: Vec::new(),
         nested_members: Vec::new(),
         registrations: Vec::new(),
         settings: Vec::new(),
