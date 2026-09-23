@@ -1,5 +1,5 @@
 import { emit, harness, requirement, telemetry } from "@dtmd/temper";
-import { rule } from "@dtmd/temper/claude-code";
+import { rule, settings } from "@dtmd/temper/claude-code";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
 import { rule_forkLifecycle } from "./rules/fork-lifecycle.ts";
@@ -34,6 +34,24 @@ import {
 // so KindDefinition<Skill> fails that assignment on real variance grounds
 // (a KindDefinition<object> slot must be callable with no T fields at all).
 // Only all-optional-field kinds (rule, memory) can fill `kind:` today.
+// The committed `.claude/settings.json` as one member (0050): every key is
+// authored here and the file renders whole from it. The permission allowlist
+// stays authored until members declare capability needs and the derived union
+// takes over (specs/model/pipeline.md, "Emit").
+const settings_project = settings({
+  name: "settings",
+  autoMemoryEnabled: false,
+  permissions: {
+    allow: [
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo fmt:*)",
+    ],
+  },
+  worktree: { bgIsolation: "none" },
+});
+
 const program = harness({
   // The write-boundary guard blocks: a hand-edit to a managed projection is
   // denied (exit 2), not merely surfaced. `warn`'s PreToolUse exit-0 stdout is
@@ -95,23 +113,8 @@ const program = harness({
     hook_guard,
     hook_postToolUseBash,
     hook_fmtOnWrite,
+    settings_project,
   ],
-  // Residual settings with no member home yet. The permission allowlist is
-  // authored residue until members declare capability needs and the derived
-  // union takes over (specs/model/pipeline.md, "Emit" — derived facts are
-  // computed, never authored twice; today nothing declares a need).
-  settings: {
-    autoMemoryEnabled: false,
-    permissions: {
-      allow: [
-        "Bash(cargo build:*)",
-        "Bash(cargo test:*)",
-        "Bash(cargo clippy:*)",
-        "Bash(cargo fmt:*)",
-      ],
-    },
-    worktree: { bgIsolation: "none" },
-  },
 });
 
 process.stdout.write(emit(program).seam);

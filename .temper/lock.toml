@@ -58,6 +58,12 @@ source_path = ".claude/rules/sdk.md"
 source_hash = "21e77cbfb2257285f0b30278d7b71337e1346d150639b3762d717c23dcefa2a0"
 emit_hash = "21e77cbfb2257285f0b30278d7b71337e1346d150639b3762d717c23dcefa2a0"
 
+[[settings]]
+name = "settings"
+source_path = ".claude/settings.json"
+source_hash = "bf3e0a68c2d2c72fa3636e6816a586a2852c58e4f322a0075d0a5d1d8baf6161"
+emit_hash = "bf3e0a68c2d2c72fa3636e6816a586a2852c58e4f322a0075d0a5d1d8baf6161"
+
 [[skill]]
 name = "capture-friction"
 source_path = ".claude/skills/capture-friction/SKILL.md"
@@ -71,7 +77,7 @@ governs_glob = "settings.json"
 unit_shape = "file"
 registration = ["event(event)"]
 shape = "fields"
-collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }
 guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings)."
 
 [[declaration.kind]]
@@ -90,6 +96,13 @@ format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
 guidance = "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
+
+[[declaration.kind]]
+name = "settings"
+governs_root = ".claude"
+governs_glob = "settings.json"
+format = "json-document"
+unit_shape = "file"
 
 [[declaration.kind]]
 name = "skill"
