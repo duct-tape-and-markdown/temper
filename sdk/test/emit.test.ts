@@ -19,6 +19,7 @@ import {
   bash,
   blocks,
   clause,
+  degree,
   embeddedMemberValue,
   emit,
   extent,
@@ -307,6 +308,40 @@ test("clauseRow serializes a node-scope predicate's own argument onto the row", 
   assert.deepEqual(
     declarations.clauses.map((c) => c.charset),
     [undefined, undefined, { ranges: ["a-z"], chars: "-" }],
+  );
+});
+
+test("a degree clause's filter lands the row's field column, sorted and `+`-joined", () => {
+  // A `degree` clause names no field, so the `field` column — what emit stamps the
+  // label from — carries the by-incidence filter instead: the one argument that tells
+  // two bounds on one kind apart. Sorted, so two spellings of one set are one address;
+  // an unfiltered bound adds nothing, being the kind's single whole-incidence bound.
+  const h = harness({
+    members: [],
+    expect: [
+      {
+        kind: rule,
+        clauses: [
+          clause(degree({ outgoing: { max: 1 }, fields: ["writes", "clobbers"] }), {
+            severity: "required",
+          }),
+          clause(degree({ outgoing: { max: 1 }, fields: ["reads"] }), { severity: "required" }),
+          clause(degree({ incoming: { min: 1 } }), { severity: "advisory" }),
+        ],
+      },
+    ],
+  });
+
+  const declarations = compileDeclarations(h);
+  assert.deepEqual(
+    declarations.clauses.map((c) => c.field),
+    ["clobbers+writes", "reads", undefined],
+  );
+  // The synthesis is the label's alone: the `fields` column the engine rebuilds the
+  // predicate from keeps the authored order, unsorted.
+  assert.deepEqual(
+    declarations.clauses.map((c) => c.fields),
+    [["writes", "clobbers"], ["reads"], undefined],
   );
 });
 

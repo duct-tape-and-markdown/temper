@@ -2206,6 +2206,85 @@ fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
     );
 }
 
+/// A fixture SDK program declaring two `degree` bounds on one kind, each filtered to
+/// its own by-incidence field set — the two-clause corpus the filter made meaningful
+/// (`specs/model/contract.md`, "selection"). Both bounds hold of the members below,
+/// so the only thing that can refuse this program is its own addressing.
+const FILTERED_DEGREE_PROGRAM: &str = r#"
+import { clause, degree, emit, harness, kind, text } from "@dtmd/temper";
+
+const service = kind({
+  name: "service",
+  locus: { kind: "at", root: "docs/services", glob: "*.md" },
+  format: "yaml-frontmatter",
+  unitShape: "file",
+  registration: [{ via: "always" }],
+  edgeFields: [
+    { field: "depends-on", to: ["service"] },
+    { field: "reads-from", to: ["service"] },
+  ],
+});
+
+const ledger = service({ name: "ledger", prose: text`# Ledger` });
+const billing = service({
+  name: "billing",
+  "depends-on": ["ledger"],
+  "reads-from": ["ledger"],
+  prose: text`# Billing`,
+});
+
+const program = harness({
+  members: [ledger, billing],
+  expect: [
+    {
+      kind: service,
+      clauses: [
+        clause(degree({ outgoing: { max: 1 }, fields: ["depends-on"] }), { severity: "required" }),
+        clause(degree({ outgoing: { max: 2 }, fields: ["reads-from"] }), { severity: "required" }),
+      ],
+    },
+  ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn two_filtered_degree_bounds_on_one_kind_emit_and_check_under_their_own_addresses() {
+    let (harness, into) = common::wire_sdk_harness("filtered-degree", FILTERED_DEGREE_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    // Each bound's filter is what distinguishes it from its sibling, so each label
+    // carries it. Pre-fix both rows compiled the bare `service.degree`.
+    let declarations = drift::read_declarations(&into).unwrap();
+    let labels: Vec<&str> = declarations
+        .clauses
+        .iter()
+        .filter(|row| row.predicate == "degree")
+        .filter_map(|row| row.label.as_deref())
+        .collect();
+    assert_eq!(
+        labels,
+        vec!["service.degree.depends-on", "service.degree.reads-from"],
+        "each filtered bound compiles its own address off the field set it ranges over"
+    );
+
+    // And the corpus is admissible: two rows under one label are a malformed lock
+    // (`clause.label-collision`), which is what this program used to emit.
+    let run = common::check_in(&harness, &["."], Some("github"));
+    assert!(
+        common::findings_for(&run.findings(), "clause.label-collision").is_empty(),
+        "two filtered `degree` bounds are two addressable clauses, not a collision: {}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "a corpus whose two filtered `degree` bounds both hold must gate green: {}",
+        run.output
+    );
+}
+
 /// The shipped example harness is a real consumer's program, and nothing ran it:
 /// its modules imported two symbols the SDK had since dropped (`maxLines`, retired
 /// into `extent(unit, bound)`; `span`, moved off the example's own `kinds.ts` onto

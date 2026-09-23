@@ -162,17 +162,17 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
 }
 
 /**
- * The `field` column for one predicate: the field it names, or — for the two
- * predicates that name a *section* rather than a field — an identity synthesized
- * from the arguments the row already carries.
+ * The `field` column for one predicate: the field it names, or — for the three
+ * predicates that name a *section* or a field *set* rather than a field — an
+ * identity synthesized from the arguments the row already carries.
  *
- * `section_contains` and `require_sections` set no `field`, and the column is what
- * emit stamps a clause's label from (`stamp_clause_label`, `src/drift.rs`), so
- * reading `Predicate.field` folds every clause of either predicate on one kind
+ * `section_contains`, `require_sections` and `degree` set no `field`, and the column
+ * is what emit stamps a clause's label from (`stamp_clause_label`, `src/drift.rs`), so
+ * reading `Predicate.field` folds every clause of one of those predicates on one kind
  * into one label — two rows wearing one label, which admissibility refuses as a
  * malformed lock. Synthesizing here keeps the whole fix at the lowering: the Rust
- * reader reconstructs both predicates from the `section`/`sections` columns and
- * never from this one, so nothing round-trips through the synthesized text.
+ * reader reconstructs all three predicates from the `section`/`sections`/`fields`
+ * columns and never from this one, so nothing round-trips through the synthesized text.
  */
 function clauseField(predicate: Predicate): string | undefined {
   if (predicate.key === "section_contains") {
@@ -183,6 +183,15 @@ function clauseField(predicate: Predicate): string | undefined {
     // Joined with `+` rather than the label's own `.`, so the segment reads as the
     // set it is and two different heading lists cannot fold to one label.
     return predicate.sections?.join("+");
+  }
+  if (predicate.key === "degree") {
+    // A `degree` clause names no field of its own: its by-incidence filter is what
+    // distinguishes two bounds on one kind, so the filter is the segment — sorted and
+    // `+`-joined by the rule directly above, so two field lists spelling one set land
+    // one address and two different sets never fold to one. An unfiltered bound adds
+    // no segment: it ranges over every edge at the member, so two of them on one kind
+    // are a redundancy the author collapses, never a distinction an address must hold.
+    return predicate.fields === undefined ? undefined : [...predicate.fields].sort().join("+");
   }
   return predicate.field;
 }
