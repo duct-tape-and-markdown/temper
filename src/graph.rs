@@ -323,26 +323,6 @@ fn any_clause_of(selections: &[Selection], matches: impl Fn(&Predicate) -> bool)
     })
 }
 
-/// The root member's own `reachable` clause, or `None` where no root selection declares
-/// one — [`reachable`]'s opt-in test, and the [`any_clause_of`] the two other graph
-/// judges consult narrowed to the one selector this predicate binds at. It yields the
-/// clause rather than a bool because the judge reads the author's severity *and*
-/// guidance off it, the two channels a finding carries; the lookup lives here, beside
-/// its siblings', so no caller re-spells which selection a root clause rides.
-fn root_reachable_clause<'a>(
-    selections: &'a [Selection<'_>],
-) -> Option<&'a crate::contract::Clause> {
-    selections
-        .iter()
-        .find(|selection| selection.selector == engine::Selector::Root)
-        .and_then(|selection| {
-            selection
-                .clauses
-                .iter()
-                .find(|clause| clause.predicate == Predicate::Reachable)
-        })
-}
-
 /// The in/out edge counts one `degree` filter sees — built once per distinct field set
 /// and read per selected member.
 ///
@@ -1196,7 +1176,7 @@ fn out_of_degree(
 ///
 /// Opt-in like [`degree`], [`reached_from`] and [`mention_reachable`], and over the same
 /// `selections` slice they read: the judge locates the **root member's** own `reachable`
-/// clause ([`root_reachable_clause`]) and walks nothing where none binds. That one clause
+/// clause ([`engine::root_clause`]) and walks nothing where none binds. That one clause
 /// is every channel a finding carries — the author's declared severity, and the guidance
 /// the gate teaches through at the moment of failure (`specs/model/contract.md`,
 /// "clause"). The dial reaches it by the same [`GRAPH_REACHABLE_RULE`] address the
@@ -1211,7 +1191,7 @@ pub fn reachable(
     resolved: &[ResolvedEdge],
     directives: &[ResolvedEdge],
 ) -> Vec<Diagnostic> {
-    let Some(clause) = root_reachable_clause(selections) else {
+    let Some(clause) = engine::root_clause(selections, &Predicate::Reachable) else {
         return Vec::new();
     };
     let world = world();
