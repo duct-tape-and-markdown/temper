@@ -133,6 +133,10 @@ pub fn emit(contract: &Contract) -> Value {
             // lock-vs-disk predicate types no document field: there is nothing for a
             // keystroke gate to validate as you type, so the schema channel is silent.
             | Predicate::Fresh
+            // `locus-declared` asks whether the document being edited is declared at
+            // all — a fact about the lock and the discovery walk, never about anything
+            // inside the buffer, so the same silence.
+            | Predicate::LocusDeclared
             | Predicate::GlobValid { .. }
             // `when` is a guard conditioning a body; the guard and body are evaluated
             // at the engine level, not expressed as schema constraints. Any frontmatter

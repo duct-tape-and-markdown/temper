@@ -231,7 +231,7 @@ pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projecte
 
 /// The message `temper guard` prints when a pending write lands inside a represented
 /// committed kind's governed locus and names no member the lock declares there. It is
-/// the boundary half of `check`'s `locus.undeclared-member`
+/// the boundary half of `check`'s root `locus-declared` clause
 /// ([`drift::undeclared_locus_members_from_doc`]) and names the same remedy in the same
 /// words — one fact must not be spoken two ways at two placements. Unlike
 /// [`GUARD_MESSAGE`], the file is not a projection the author edited: it is a document

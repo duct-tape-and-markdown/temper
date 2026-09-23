@@ -1625,7 +1625,7 @@ fn represented_rule_harness(name: &str, mode: &str) -> std::path::PathBuf {
 #[test]
 fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
     // block — the write is denied and the finding names the governing kind and the
-    // declare-and-re-emit remedy `check`'s `locus.undeclared-member` names.
+    // declare-and-re-emit remedy `check`'s root `locus-declared` clause names.
     let block_root = represented_rule_harness("guard-undeclared-locus-block", "block");
     let (code, stderr) = common::run_guard(
         &block_root,

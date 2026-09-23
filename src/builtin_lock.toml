@@ -1,7 +1,7 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
 # the fifteen built-in kinds' facts and their default contract clauses, the **root
-# member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the two
+# member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the three
 # clause rows here naming no kind, that absence being what makes them the root's), plus two
 # assembly facts — the unconditional `mode = "warn"` (the root member's own enforcement
 # mode, specs/model/representation.md, "The root member", every harness carries absent an
@@ -1128,6 +1128,12 @@ label = "root.fresh"
 predicate = "fresh"
 severity = "advisory"
 guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
+
+[[declaration.clause]]
+label = "root.locus-declared"
+predicate = "locus-declared"
+severity = "advisory"
+guidance = "A document sits at a governed locus that your program declares no member for. Claude Code loads it, but temper maintains nothing about it: `emit` never writes or reaps it, `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared."
 
 [[declaration.assembly]]
 fact = "mode"

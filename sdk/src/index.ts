@@ -37,6 +37,7 @@ export {
   formatPlacesEdges,
   fresh,
   globValid,
+  locusDeclared,
   maxLen,
   membership,
   mentionReachable,

@@ -8,7 +8,7 @@
  */
 
 import type { Member, KindDefinition } from "./kind.js";
-import { clause, fresh, reachable } from "./contract.js";
+import { clause, fresh, locusDeclared, reachable } from "./contract.js";
 import type { Clause, Requirement } from "./contract.js";
 
 /**
@@ -117,17 +117,19 @@ export function harness(init: {
  * Homed beside the root member's other fields, the precedent `dialDefaultContract` sets
  * in `dial.ts`: a default contract lives with the surface it governs.
  *
- * Two clauses, both predicates only the root can bind: their selection is the whole
- * forest and their judges read the reference graph and the committed lock, neither of
- * which any one kind's population carries. `reachable` is the one check that catches
- * authored configuration the harness never loads at all; `fresh` is the one that catches
- * a projection or a fingerprinted source dependency that has moved out from under its
- * lock row.
+ * Three clauses, all predicates only the root can bind: their selection is the whole
+ * forest and their judges read the reference graph, the committed lock and the discovery
+ * walk, none of which any one kind's population carries. `reachable` is the one check
+ * that catches authored configuration the harness never loads at all; `fresh` is the one
+ * that catches a projection or a fingerprinted source dependency that has moved out from
+ * under its lock row; `locus-declared` is the one that catches a document sitting at a
+ * governed locus that the program never declared.
  *
- * Both advisory — today's posture for each, so no adopter turns red on the upgrade. A
- * dead registration is often deliberate work-in-progress, and a drifted projection is
- * usually a re-emit away; whether either gates is the adopting author's call, dialed or
- * re-declared rather than tool-decided.
+ * All advisory — today's posture for each, so no adopter turns red on the upgrade. A
+ * dead registration is often deliberate work-in-progress, a drifted projection is usually
+ * a re-emit away, and an undeclared document is often a surface mid-adoption; whether any
+ * of them gates is the adopting author's call, dialed or re-declared rather than
+ * tool-decided.
  */
 export const rootDefaultContract: readonly Clause[] = [
   clause(reachable(), {
@@ -141,5 +143,10 @@ export const rootDefaultContract: readonly Clause[] = [
     severity: "advisory",
     guidance:
       "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI.",
+  }),
+  clause(locusDeclared(), {
+    severity: "advisory",
+    guidance:
+      "A document sits at a governed locus that your program declares no member for. Claude Code loads it, but temper maintains nothing about it: `emit` never writes or reaps it, `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared.",
   }),
 ];

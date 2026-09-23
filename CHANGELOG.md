@@ -40,6 +40,25 @@ breaking changes. Releases are small and frequent.
   upgrade — and a root contract that binds no `fresh` clause reports no
   staleness at all.
 
+- **Breaking: the two undeclared-member findings report under the root
+  `locus-declared` clause's label.** `locus.undeclared-member` and
+  `layout.undeclared-member` retire as rule ids: a document at a file kind's
+  governed locus and one at a layout kind's are one fact — a stranger the
+  program never declared — so one clause weighs both and every finding prints
+  its label (`root.locus-declared` under the shipped default). A dial entry or
+  a CI filter keyed to an old id stops matching and must be respelled off the
+  finding's new `rule` id. The severity is now the clause's, so a
+  `.temper/dial.toml` reading `root.locus-declared` at `required` makes an
+  undeclared document fail CI, which no placement could do before. The shipped
+  root default binds it at `advisory` — today's posture, so nothing turns red
+  on the upgrade — and a root contract that binds no `locus-declared` clause
+  reports no undeclared member at all. Kept apart from `fresh`: hardening a
+  stale pin and hardening an undeclared document are separate decisions, and a
+  read-only ground kind draws the second routinely while its pins stay fresh.
+  `coverage.checked`'s declared/undeclared split is a disclosure, not the
+  clause's finding — it prints the same counts at every severity, and the
+  `guard` boundary half is unchanged.
+
 - **Breaking: a `when` clause's compiled label carries its guard's value
   set.** The address is now `<kind>.when.<field>=<values>`, the guard's
   values sorted and `+`-joined — `mcp-server.when.type=stdio`. A `when`

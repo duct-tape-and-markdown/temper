@@ -307,7 +307,7 @@ fn the_same_bytes_under_the_pre_0050_posture_carry_no_rollup_row_and_go_undeclar
         common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
         "a governing kind retires the unmodeled-surface advisory: {findings:?}"
     );
-    let undeclared = common::findings_for(&findings, "locus.undeclared-member");
+    let undeclared = common::findings_for(&findings, "root.locus-declared");
     assert_eq!(undeclared.len(), 1, "{findings:?}");
     assert!(
         undeclared[0].contains(".claude/settings.json"),

@@ -372,7 +372,7 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
         extent[0]
     );
     // Pinned to the `extent` rule, never to whole stdout: the lock declares this kind
-    // and no member of it, so `locus.undeclared-member` names the clean spec too — a
+    // and no member of it, so the root `locus-declared` clause names the clean spec too — a
     // second rule over the same artifact, and not this claim's business.
     assert!(
         !extent[0].contains("00-intent"),
@@ -600,6 +600,165 @@ fn the_fresh_clause_weighs_all_three_staleness_facts_and_the_dial_reaches_it() {
     assert!(
         !dialed_ok,
         "so a drifted content pin fails CI with no flag at all, got:\n{findings:#?}"
+    );
+}
+
+/// A corpus carrying an undeclared document at each governed locus the `locus-declared`
+/// clause judges — one skill at the built-in `skill` kind's file locus and one document
+/// at a declared layout kind's — beside one drifted projection row, so the two clauses'
+/// findings are separable in the same run. `root_rows` is the root member's whole
+/// contract.
+fn undeclared_corpus(label: &str, root_rows: &str) -> PathBuf {
+    let corpus = common::tmpdir(label);
+    // Declared and drifted: its provenance row carries an unmatchable hash, so `fresh`
+    // has exactly one finding to weigh here.
+    common::write_skill(&corpus, "coordinate", &common::clean_skill("coordinate"));
+    // Undeclared: no provenance row names it, so it is a stranger at the `skill` kind's
+    // governed locus.
+    common::write_skill(&corpus, "stray", &common::clean_skill("stray"));
+    // The layout half: the lock declares the kind and no member of it, so discovery reads
+    // `specs/intent.md` for its field slots and the lock records no `layout_source` row.
+    common::write_sibling(
+        &corpus,
+        "specs/intent.md",
+        "The product intent, authored in prose.\n",
+    );
+    write_lock(
+        &corpus,
+        &format!(
+            "[[skill]]\n\
+             name = \"coordinate\"\n\
+             source_path = \".claude/skills/coordinate/SKILL.md\"\n\
+             source_hash = \"{UNMATCHABLE_HASH}\"\n\
+             emit_hash = \"{UNMATCHABLE_HASH}\"\n\
+             \n\
+             [[declaration.kind]]\n\
+             name = \"intent\"\n\
+             governs_root = \"specs\"\n\
+             governs_glob = \"intent.md\"\n\
+             unit_shape = \"file\"\n\
+             registration = [\"always\"]\n\
+             content = {{ regions = [{{ region = \"prose\" }}] }}\n\
+             \n\
+             {root_rows}"
+        ),
+    );
+    corpus
+}
+
+/// The two undeclared-member findings are the root `locus-declared` clause's to weigh,
+/// and the dial reaches the clause by its label: the same corpus is advisory undialed and
+/// **blocking** once a `.temper/dial.toml` reads the label at `required`.
+///
+/// The drifted projection beside them is what makes the separation observable. Decision
+/// 0054 rejected bundling all five fixed pushes under one predicate, because a read-only
+/// ground kind draws undeclared-document notes routinely while its pins stay fresh —
+/// so hardening `locus-declared` must leave `fresh` exactly where the author left it,
+/// which is the last arm below.
+#[test]
+fn the_locus_declared_clause_weighs_both_undeclared_facts_and_dials_apart_from_fresh() {
+    let corpus = undeclared_corpus(
+        "locus-declared-advisory",
+        &format!(
+            "{}\n{}",
+            root_fresh_row("advisory"),
+            "[[declaration.clause]]\n\
+             label = \"root.locus-declared\"\n\
+             predicate = \"locus-declared\"\n\
+             severity = \"advisory\"\n"
+        ),
+    );
+
+    let (ok, findings) = check_findings(&corpus, &corpus, &[]);
+    let undeclared = common::findings_for(&findings, "root.locus-declared");
+    assert_eq!(
+        undeclared.len(),
+        2,
+        "the file-locus stranger and the layout stranger report under the one clause's \
+         label, got: {findings:#?}"
+    );
+    assert!(
+        undeclared.iter().all(|line| line.starts_with("::warning")),
+        "the clause declared `advisory`, so neither blocks, got: {undeclared:#?}"
+    );
+    assert!(ok, "and the run exits zero, got:\n{findings:#?}");
+    // Each stranger is named, so the count above cannot be two findings over one document.
+    for artifact in [".claude/skills/stray/SKILL.md", "specs/intent.md"] {
+        assert!(
+            undeclared.iter().any(|line| line.contains(artifact)),
+            "`{artifact}` is one of the undeclared documents the clause indicts, got: \
+             {undeclared:#?}"
+        );
+    }
+
+    // And dialing the label at `required` blocks the *unflagged* run — the placement the
+    // field report found unreachable, now reached for the undeclared half too.
+    common::write_sibling(
+        &corpus,
+        ".temper/dial.toml",
+        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.locus-declared\"\nseverity = \"required\"\n",
+    );
+    let (dialed_ok, findings) = check_findings(&corpus, &corpus, &[]);
+    let undeclared = common::findings_for(&findings, "root.locus-declared");
+    assert_eq!(
+        undeclared.len(),
+        2,
+        "the dial softens nothing away: {findings:#?}"
+    );
+    assert!(
+        undeclared.iter().all(|line| line.starts_with("::error")),
+        "the dialed clause reads `required`, so every undeclared document blocks, got: \
+         {undeclared:#?}"
+    );
+    assert!(
+        !dialed_ok,
+        "so an undeclared document fails CI with no flag at all, got:\n{findings:#?}"
+    );
+
+    // 0054's rejected alternative, pinned: the sibling clause is untouched by the dial
+    // entry that hardened this one.
+    let fresh = common::findings_for(&findings, "root.fresh");
+    assert_eq!(
+        fresh.len(),
+        1,
+        "the drifted projection still reports, got: {findings:#?}"
+    );
+    assert!(
+        fresh[0].starts_with("::warning"),
+        "and stays advisory — hardening a stale pin is a separate decision from \
+         hardening an undeclared document, got: {}",
+        fresh[0]
+    );
+}
+
+/// A root contract that binds no `locus-declared` clause reports neither undeclared-member
+/// finding — the same opt-in shape `fresh` takes, over the walk the gate skips where no
+/// clause binds.
+#[test]
+fn a_root_contract_binding_no_locus_declared_clause_reports_no_undeclared_member_at_all() {
+    // `fresh` alone: real kind-less rows, so the fallback to the shipped default — which
+    // binds all three — never fires, and the corpus carries the same two strangers.
+    let corpus = undeclared_corpus("locus-declared-unbound", &root_fresh_row("advisory"));
+
+    let (_, findings) = check_findings(&corpus, &corpus, &[]);
+    assert!(
+        common::findings_for(&findings, "root.locus-declared").is_empty(),
+        "no clause, no finding — a stranger at a governed locus is not a fact the tool \
+         pushes unasked, got: {findings:#?}"
+    );
+    assert!(
+        !findings
+            .iter()
+            .any(|line| line.contains("the lock declares no member for it")),
+        "and no undeclared-member message rides any other rule id either, got: \
+         {findings:#?}"
+    );
+    // The sibling clause is unaffected: opting out of one root predicate opts out of
+    // exactly that one.
+    assert_eq!(
+        common::findings_for(&findings, "root.fresh").len(),
+        1,
+        "got: {findings:#?}"
     );
 }
 

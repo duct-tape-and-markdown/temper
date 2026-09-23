@@ -684,17 +684,23 @@ pub fn gate(
     // presence, not its contents.
     let represented = workspace.join(crate::LOCK_FILENAME).is_file();
 
+    // Both halves are the root member's own `locus-declared` clause, located the way the
+    // `fresh` clause below is: on the one `selections` list already in hand, past the
+    // dial so a dialed severity is the one a finding carries. Where none binds, neither
+    // walk runs.
+    let locus_declared_clause =
+        engine::root_clause(&selections, &contract::Predicate::LocusDeclared);
+
     // The file-locus half of the disk-vs-lock fact: a document at a represented kind's
     // governed locus that no provenance row names. Unlike the guard, a `.`-rooted locus
     // is kept: discovery already prunes by the repo's ignore rules, so the walk judged is
     // the walk made.
-    let undeclared_locus = if represented {
-        drift::undeclared_locus_members_from_doc(&lock_doc, &sites.file)
-    } else {
-        drift::UndeclaredLocusMembers {
+    let undeclared_locus = match locus_declared_clause.filter(|_| represented) {
+        Some(clause) => drift::undeclared_locus_members_from_doc(&lock_doc, &sites.file, clause),
+        None => drift::UndeclaredLocusMembers {
             findings: Vec::new(),
             counts: BTreeMap::new(),
-        }
+        },
     };
 
     // The wedge's advisory coverage note: state which kinds checked how many members,
@@ -739,10 +745,11 @@ pub fn gate(
     // body reaches nothing — no collection member, no captured prose, no leaf address —
     // and every downstream read of it is silently empty, so the cause is named here. Its
     // file-locus counterpart was decided above, where the coverage note reads its counts.
-    if represented {
+    if let Some(clause) = locus_declared_clause.filter(|_| represented) {
         diagnostics.extend(drift::undeclared_layout_members_from_doc(
             &lock_doc,
             &sites.layout,
+            clause,
         ));
     }
     diagnostics.extend(undeclared_locus.findings);

@@ -327,7 +327,8 @@ fn a_harness_declaring_no_root_reachable_clause_asks_the_graph_nothing() {
 }
 
 #[test]
-fn the_shipped_root_default_binds_reachable_and_fresh_and_rides_a_harness_that_declares_none() {
+fn the_shipped_root_default_binds_the_three_root_predicates_and_rides_a_harness_that_declares_none()
+{
     // The default is shipped, not merely reachable through an authored clause: a lock
     // carrying no root row at all takes the rows-or-default fallback to the embedded
     // lock's own root rows, which the SDK's `rootDefaultContract` put there.
@@ -345,6 +346,11 @@ fn the_shipped_root_default_binds_reachable_and_fresh_and_rides_a_harness_that_d
         vec![
             ("root.reachable", Predicate::Reachable, Severity::Advisory),
             ("root.fresh", Predicate::Fresh, Severity::Advisory),
+            (
+                "root.locus-declared",
+                Predicate::LocusDeclared,
+                Severity::Advisory
+            ),
         ],
         "the emitted default's kind-less rows lift back into the root contract"
     );
@@ -359,8 +365,8 @@ fn the_shipped_root_default_binds_reachable_and_fresh_and_rides_a_harness_that_d
     assert!(
         contract.clauses[0].source.is_some(),
         "and cites where its verdict rests on an external fact — `reachable`'s \
-         dead-channel criteria are Claude Code's, while `fresh` compares temper's own \
-         lock against disk and has nothing external to cite, got {:?}",
+         dead-channel criteria are Claude Code's, while `fresh` and `locus-declared` \
+         compare temper's own lock against disk and have nothing external to cite, got {:?}",
         contract.clauses[0]
     );
 

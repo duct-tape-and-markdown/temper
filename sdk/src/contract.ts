@@ -260,6 +260,25 @@ export const reachable = (): Predicate => ({ key: "reachable" });
  */
 export const fresh = (): Predicate => ({ key: "fresh" });
 /**
+ * Every document discovery finds at a **governed locus** is one the lock declares a
+ * member for — a file-content kind's committed document joined against the provenance
+ * rows, a layout host's document against the `layout_source` record `emit` writes when
+ * it reads one. A stranger at a governed locus is loaded by Claude Code and maintained
+ * by nobody: `emit` never reaps it, `guard` never bound it, and every address under it
+ * resolves to nothing.
+ *
+ * Kept apart from {@link fresh} rather than folded into it: a stale pin and an
+ * undeclared document are different facts with different remedies — re-emit versus
+ * declare the member — and a read-only ground kind draws the second routinely while
+ * its pins stay fresh, so hardening one must not harden the other.
+ *
+ * Names **no field**, like {@link fresh}: the subject is the discovery walk read
+ * against the lock's declarations, never any member's own fields. So it composes into a
+ * root `contract` — what is governed is a locus, not a population, and a per-kind
+ * binding would have no member to hang off.
+ */
+export const locusDeclared = (): Predicate => ({ key: "locus-declared" });
+/**
  * Every edge the member's kind declares is placed by the format that renders the member
  * — a format that omits one renders a contract the prose does not represent. Names no
  * field: the selection is the member's whole incident edge set, at the `each` grain.

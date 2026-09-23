@@ -42,7 +42,9 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 /// embedded-member count grouped from the lock's nested_member rows;
 /// `undeclared_counts` is how many of each kind's discovered members no lock row
 /// declares, disclosed apart so the one line stating what was checked cannot silently
-/// absorb a document the program does not declare; `kinds` is the built-in kind set.
+/// absorb a document the program does not declare — a **disclosure**, never the
+/// `locus-declared` clause's finding, so dialing that clause changes the finding's
+/// weight and never the count printed here; `kinds` is the built-in kind set.
 /// `locked_kinds` are the kind-fact rows from the committed lock
 /// (an empty slice for an unadopted harness), so a locked custom kind's `governs`
 /// suppresses a known surface exactly as a built-in's does. Nothing here is ever

@@ -90,9 +90,10 @@ mod tests {
         // Floor clauses: every row names one of the built-in kinds — or names no kind at
         // all, which is the **root member's** own row and nothing else. The assertion's
         // job is to catch a row nobody declared, so the kind-less case is pinned as the
-        // root's (exactly the two the shipped default binds, `root.reachable` and
-        // `root.fresh`) rather than widened to "any `None`": a stray unowned row would
-        // then slip through the very check that exists to catch it. Every row carries a
+        // root's (exactly the three the shipped default binds, `root.reachable`,
+        // `root.fresh` and `root.locus-declared`) rather than widened to "any `None`": a
+        // stray unowned row would then slip through the very check that exists to catch
+        // it. Every row carries a
         // declared severity, and there are no requirements, satisfies, provenance or
         // emit-fingerprint rows (nothing was emitted; there are no members).
         assert!(!declarations.clauses.is_empty());
@@ -116,9 +117,9 @@ mod tests {
         }
         assert_eq!(
             root_labels,
-            vec!["root.reachable", "root.fresh"],
-            "the shipped root default is the `reachable`/`fresh` pair, in declaration \
-             order; a third kind-less row is a row nobody declared"
+            vec!["root.reachable", "root.fresh", "root.locus-declared"],
+            "the shipped root default is the `reachable`/`fresh`/`locus-declared` trio, \
+             in declaration order; a fourth kind-less row is a row nobody declared"
         );
         assert!(declarations.requirements.is_empty());
         assert!(declarations.satisfies.is_empty());

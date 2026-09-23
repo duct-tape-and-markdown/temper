@@ -1147,7 +1147,7 @@ pub fn emit(
     let mut layout_satisfies: Vec<SatisfiesRow> = Vec::new();
     // The lock's record that emit *read* each committed layout document — the layout
     // host's only trace that does not depend on what its body lowered into, and so the
-    // fact `layout.undeclared-member` asks about.
+    // fact the root `locus-declared` clause asks about.
     let mut layout_source_rows: Vec<LayoutSourceRow> = Vec::new();
     let mut layout_paths: BTreeSet<String> = BTreeSet::new();
     // The local-locus members this pass passed over: emit writes nothing at their paths
@@ -2839,12 +2839,9 @@ pub fn config_stale_from_doc(
 }
 
 // ---------------------------------------------------------------------------
-// layout.undeclared-member — the second disk-vs-lock fact, over declaration rows
-// rather than fingerprints
+// the `locus-declared` clause's layout half — the second disk-vs-lock fact, over
+// declaration rows rather than fingerprints
 // ---------------------------------------------------------------------------
-
-/// The diagnostic `rule` id a discovered-but-undeclared layout document reports under.
-const LAYOUT_UNDECLARED_MEMBER_RULE: &str = "layout.undeclared-member";
 
 /// One discovered committed layout-kind member, as the gate found it on disk — the
 /// address the lock is asked about and the path a finding names.
@@ -2874,7 +2871,7 @@ fn declared_member_addresses(doc: &DocumentMut) -> Option<BTreeSet<String>> {
     )
 }
 
-/// The `layout.undeclared-member` findings for the discovered committed layout documents
+/// The undeclared-member findings for the discovered committed layout documents
 /// `sites` names — one per member the lock carries no [`LayoutSourceRow`] for.
 ///
 /// A layout document is a *source*: `emit` projects nothing at its path and writes it no
@@ -2883,10 +2880,12 @@ fn declared_member_addresses(doc: &DocumentMut) -> Option<BTreeSet<String>> {
 /// slots, and then read for nothing else — its collections count zero, `explain` reports no
 /// nested members, and every leaf address under it fails to resolve. This states the cause.
 ///
-/// **Advisory** (`warn`), fixed here: the harness is checkable, one document short of
-/// what its author meant to gate. Unlike the freshness facts, this push is not yet a
-/// declared clause's to weigh — the `locus-declared` predicate decision 0054 names is
-/// the other half of that move.
+/// `clause` is the root member's own [`contract::Predicate::LocusDeclared`] clause
+/// ([`crate::engine::root_clause`]), and it is every channel a finding carries: the
+/// author's declared severity, the `label` the finding reports under, and the guidance
+/// the gate teaches through. A layout host's locus is governed the same way a file
+/// kind's is, so both halves report under the one label
+/// [`undeclared_locus_members_from_doc`] reads.
 ///
 /// What is asked is that record's *presence*, never what the document lowered into: a
 /// declared member of a field-regions-only layout, or one whose collection emptied, yields
@@ -2895,6 +2894,7 @@ fn declared_member_addresses(doc: &DocumentMut) -> Option<BTreeSet<String>> {
 pub fn undeclared_layout_members_from_doc(
     doc: &DocumentMut,
     sites: &[LayoutMemberSite],
+    clause: &contract::Clause,
 ) -> Vec<crate::check::Diagnostic> {
     let Some(declared) = declared_member_addresses(doc) else {
         return Vec::new();
@@ -2903,25 +2903,23 @@ pub fn undeclared_layout_members_from_doc(
         .iter()
         .filter(|site| !declared.contains(&site.member))
         .map(|site| {
-            crate::check::Diagnostic::warn(
-                LAYOUT_UNDECLARED_MEMBER_RULE,
+            crate::check::Diagnostic::new(
+                crate::engine::severity_of(clause.severity),
+                clause.label.as_str(),
                 site.source_path.as_str(),
                 format!(
                     "layout document `{}` (member `{}`) is discovered but the lock declares no member for it — its body's members, prose, and leaf addresses are absent from every read, so its collections count zero and `explain` reports none; declare the member in the program and re-emit, or declare its kind `local` so `check` derives the rows at read time",
                     site.source_path, site.member
                 ),
             )
+            .with_guidance(clause.guidance.clone())
         })
         .collect()
 }
 
 // ---------------------------------------------------------------------------
-// locus.undeclared-member — the file-locus half of the same disk-vs-lock fact
+// the same clause's file-locus half
 // ---------------------------------------------------------------------------
-
-/// The diagnostic `rule` id a discovered-but-undeclared document at a governed file
-/// locus reports under.
-const LOCUS_UNDECLARED_MEMBER_RULE: &str = "locus.undeclared-member";
 
 /// One discovered committed member of a **file-content** kind at a governed locus, as
 /// the gate found it on disk — the path the lock is asked about, the kind that governs
@@ -2940,21 +2938,24 @@ pub struct LocusMemberSite {
     pub custom: bool,
 }
 
-/// The `locus.undeclared-member` verdict over a represented harness's governed file
-/// loci: the findings to report, plus how many fell to each kind.
+/// The undeclared-member verdict over a represented harness's governed file loci: the
+/// findings to report, plus how many fell to each kind.
 ///
 /// Both come off one pass over one predicate: the count the `coverage.checked`
 /// disclosure states apart is the same set the findings name, never a second
 /// re-derivation of it.
 pub struct UndeclaredLocusMembers {
-    /// One `locus.undeclared-member` finding per discovered document no provenance row
-    /// names.
+    /// One finding per discovered document no provenance row names, under the
+    /// `locus-declared` clause's own label and severity.
     pub findings: Vec<crate::check::Diagnostic>,
-    /// How many undeclared members fell to each kind, keyed by bare kind name.
+    /// How many undeclared members fell to each kind, keyed by bare kind name. A
+    /// **disclosure**, not the clause's finding: the `coverage.checked` note states it
+    /// whatever severity the clause declares, so dialing the clause changes a finding's
+    /// weight and never the count the note prints.
     pub counts: BTreeMap<String, usize>,
 }
 
-/// The `locus.undeclared-member` findings for the discovered committed file documents
+/// The undeclared-member findings for the discovered committed file documents
 /// `sites` names — one per document the lock's provenance rows never name.
 ///
 /// A file-content member's whole trace on the lock is its **projection provenance row**,
@@ -2972,9 +2973,10 @@ pub struct UndeclaredLocusMembers {
 /// reported over it — and `guard` never bound it, yet Claude Code loads it. Remedy named
 /// first is to declare the member and re-emit.
 ///
-/// **Advisory** (`warn`), the posture [`undeclared_layout_members_from_doc`] takes: the
-/// harness is checkable, one document short of what its author meant to gate, and the
-/// `locus-declared` predicate that would make it the author's to weigh has not landed.
+/// `clause` is the root member's own [`contract::Predicate::LocusDeclared`] clause, read
+/// for all three channels exactly as [`undeclared_layout_members_from_doc`] reads it:
+/// how loudly a stranger at a governed locus is treated is the author's to declare, and
+/// the shipped root default binds it at `advisory`.
 ///
 /// The caller gates this on the lock's *presence*: on an unrepresented harness every
 /// discovered member is undeclared, and naming them all would be noise, not a finding.
@@ -2982,6 +2984,7 @@ pub struct UndeclaredLocusMembers {
 pub fn undeclared_locus_members_from_doc(
     doc: &DocumentMut,
     sites: &[LocusMemberSite],
+    clause: &contract::Clause,
 ) -> UndeclaredLocusMembers {
     let declared: BTreeSet<String> = read_prior_provenance_from_doc(doc)
         .into_iter()
@@ -3003,14 +3006,18 @@ pub fn undeclared_locus_members_from_doc(
         } else {
             ""
         };
-        verdict.findings.push(crate::check::Diagnostic::warn(
-            LOCUS_UNDECLARED_MEMBER_RULE,
-            site.source_path.as_str(),
-            format!(
-                "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it, yet Claude Code loads it; declare the member in the program and re-emit{local_remedy}",
-                site.source_path, site.kind
-            ),
-        ));
+        verdict.findings.push(
+            crate::check::Diagnostic::new(
+                crate::engine::severity_of(clause.severity),
+                clause.label.as_str(),
+                site.source_path.as_str(),
+                format!(
+                    "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it, yet Claude Code loads it; declare the member in the program and re-emit{local_remedy}",
+                    site.source_path, site.kind
+                ),
+            )
+            .with_guidance(clause.guidance.clone()),
+        );
     }
     verdict
 }

@@ -448,7 +448,7 @@ fn a_locked_custom_kinds_members_are_counted_beside_the_built_ins() {
     // The fixture's own skill is on disk but not in the emitted payload, so this
     // represented harness carries exactly one undeclared member — pinned here rather
     // than left implicit, since it is what the arms above are read against.
-    let undeclared = common::findings_for(&findings, "locus.undeclared-member");
+    let undeclared = common::findings_for(&findings, "root.locus-declared");
     assert_eq!(
         undeclared.len(),
         1,
@@ -547,7 +547,7 @@ fn an_undeclared_document_at_a_governed_locus_is_named_and_counted_apart() {
 
     let (findings, success) = check_harness(&harness);
 
-    let undeclared = common::findings_for(&findings, "locus.undeclared-member");
+    let undeclared = common::findings_for(&findings, "root.locus-declared");
     assert_eq!(
         undeclared.len(),
         1,
@@ -587,6 +587,63 @@ fn an_undeclared_document_at_a_governed_locus_is_named_and_counted_apart() {
     );
 }
 
+/// The disclosure is not the clause's finding. `coverage.checked` states the undeclared
+/// count off the same single pass the findings come from, and `src/gate.rs` feeds it
+/// whatever the root `locus-declared` clause declares — so dialing that clause moves the
+/// finding's weight and leaves the count printed here exactly where it was.
+#[test]
+fn the_disclosures_undeclared_count_is_unchanged_by_the_clauses_severity() {
+    let harness = common::tmpdir("undeclared-locus-dialed");
+    lock_rules(&harness, &["declared"]);
+    common::write_rule(&harness, "stranger");
+
+    // Undialed: the shipped default's `advisory`.
+    let (findings, success) = check_harness(&harness);
+    let advisory = common::findings_for(&findings, "root.locus-declared");
+    assert_eq!(advisory.len(), 1, "got: {findings:#?}");
+    assert!(
+        advisory[0].starts_with("::warning "),
+        "got: {}",
+        advisory[0]
+    );
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert!(
+        checked[0].contains("rule (2: 1 declared, 1 undeclared)"),
+        "got: {}",
+        checked[0]
+    );
+    assert!(success, "got: {findings:#?}");
+
+    common::write_sibling(
+        &harness,
+        ".temper/dial.toml",
+        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.locus-declared\"\nseverity = \"required\"\n",
+    );
+
+    let (findings, success) = check_harness(&harness);
+    let dialed = common::findings_for(&findings, "root.locus-declared");
+    assert_eq!(dialed.len(), 1, "got: {findings:#?}");
+    assert!(
+        dialed[0].starts_with("::error "),
+        "the dial reaches the finding's weight, got: {}",
+        dialed[0]
+    );
+    assert!(!success, "and the run now blocks, got: {findings:#?}");
+
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(checked.len(), 1, "got: {findings:#?}");
+    assert!(
+        checked[0].contains("rule (2: 1 declared, 1 undeclared)"),
+        "and the disclosure says the same thing at either severity, got: {}",
+        checked[0]
+    );
+    assert!(
+        checked[0].starts_with("::notice "),
+        "the disclosure is still a note, never promoted with the clause, got: {}",
+        checked[0]
+    );
+}
+
 #[test]
 fn a_declared_and_emitted_member_reports_neither_the_finding_nor_an_undeclared_count() {
     // The same harness with both documents declared and emitted.
@@ -614,7 +671,7 @@ fn a_declared_and_emitted_member_reports_neither_the_finding_nor_an_undeclared_c
         checked[0]
     );
     assert!(
-        common::findings_for(&findings, "locus.undeclared-member").is_empty(),
+        common::findings_for(&findings, "root.locus-declared").is_empty(),
         "a declared, emitted member trips no undeclared finding, got: {findings:#?}"
     );
 }
@@ -642,7 +699,7 @@ fn an_unrepresented_harness_reports_no_undeclared_member_however_many_it_finds()
         checked[0]
     );
     assert!(
-        common::findings_for(&findings, "locus.undeclared-member").is_empty(),
+        common::findings_for(&findings, "root.locus-declared").is_empty(),
         "an unrepresented harness names no undeclared member, got: {findings:#?}"
     );
 }

@@ -802,7 +802,7 @@ fn a_discovered_layout_document_the_lock_declares_no_member_for_surfaces_an_advi
     );
 
     assert!(
-        run.output.contains("layout.undeclared-member"),
+        run.output.contains("root.locus-declared"),
         "an undeclared layout document must be named, never left as silent zero coverage: {}",
         run.output
     );
@@ -844,7 +844,7 @@ fn a_declared_layout_member_draws_no_undeclared_finding() {
         run.output
     );
     assert!(
-        !run.output.contains("layout.undeclared-member"),
+        !run.output.contains("root.locus-declared"),
         "a declared layout member draws no finding: {}",
         run.output
     );
@@ -902,7 +902,7 @@ fn a_declared_field_only_layout_member_draws_no_undeclared_finding() {
         run.output
     );
     assert!(
-        !run.output.contains("layout.undeclared-member"),
+        !run.output.contains("root.locus-declared"),
         "a declared member of a field-only layout draws no finding: {}",
         run.output
     );
@@ -970,7 +970,7 @@ fn a_declared_layout_member_whose_document_lowers_to_nothing_draws_no_undeclared
         run.output
     );
     assert!(
-        !run.output.contains("layout.undeclared-member"),
+        !run.output.contains("root.locus-declared"),
         "a declared member whose document lowered into no row draws no finding: {}",
         run.output
     );

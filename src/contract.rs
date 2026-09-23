@@ -80,9 +80,9 @@ pub struct Clause {
 ///
 /// A row that names no kind and hangs off no requirement is the **root member's**, and
 /// passes [`ROOT_OWNER`] — the same owner.predicate.field join a kind clause takes, over
-/// the one member that is the whole governed forest. `owner` is `None` only inside a
-/// `when` body, whose rows are addressed under their guard rather than an owner of their
-/// own; its label simply omits the segment.
+/// the one member that is the whole governed forest. A `when` body's rows pass their
+/// host's own label as the owner, so every row on every contract names one; `None` is
+/// admitted — it simply omits the segment — but no caller spells it.
 ///
 /// `field` is the row's own field column for every predicate but `when`, whose guard's
 /// value set qualifies it — [`when_label_field`] composes that argument.
@@ -521,6 +521,32 @@ pub enum Predicate {
     /// binding beside the root's would double-report one row
     /// (`specs/decisions/0054-the-root-member-carries-a-contract.md`).
     Fresh,
+    /// `locus-declared`: every document discovery finds at a **governed locus** is one
+    /// the lock declares a member for — a file-content kind's committed document joined
+    /// against the provenance rows, and a layout host's document joined against the
+    /// `layout_source` records `emit` writes when it reads one. A stranger at a governed
+    /// locus is loaded by Claude Code and maintained by nobody: `emit` never reaps it,
+    /// `guard` never bound it, and every address under it resolves to nothing.
+    ///
+    /// Carries **no field argument**, exactly as [`Predicate::Fresh`] carries none: its
+    /// subject is every document the discovery walk turns up at a governed locus, never
+    /// a column of the clause.
+    ///
+    /// Kept apart from [`Predicate::Fresh`] rather than folded into it: a stale pin and
+    /// an undeclared document are different facts with different remedies — re-emit
+    /// versus declare the member — and a read-only ground kind draws the second
+    /// routinely while its pins stay fresh, so hardening one must not harden the other
+    /// (`specs/decisions/0054-the-root-member-carries-a-contract.md`, its first rejected
+    /// alternative).
+    ///
+    /// Judged by the two [`crate::drift`] undeclared-member judges —
+    /// [`crate::drift::undeclared_locus_members_from_doc`] and
+    /// [`crate::drift::undeclared_layout_members_from_doc`] — not the per-member table:
+    /// the verdict needs the committed lock and the discovery walk, and the document in
+    /// question is by definition no member at all. Bound to the **root member's**
+    /// selection, like [`Predicate::Fresh`]: what is governed is a locus, not a
+    /// population, and a per-kind binding would have no member to hang off.
+    LocusDeclared,
     /// `format-places-edges`: the edge scope, at the **each** grain — the selection is
     /// the edges incident on the member, and every one of them must be placed by the
     /// format that renders the member. A format that omits an edge its kind declares
@@ -682,6 +708,9 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         // Argument-free for the same reason: the lock read against disk is the
         // argument, so there is no column to decode.
         "fresh" => Predicate::Fresh,
+        // And the discovery walk read against the lock's declarations is
+        // `locus-declared`'s, for the same absence of a column.
+        "locus-declared" => Predicate::LocusDeclared,
         "format-places-edges" => Predicate::FormatPlacesEdges,
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
@@ -794,6 +823,7 @@ impl Predicate {
             Predicate::MentionReachable { .. } => "mention-reachable",
             Predicate::Reachable => "reachable",
             Predicate::Fresh => "fresh",
+            Predicate::LocusDeclared => "locus-declared",
             Predicate::FormatPlacesEdges => "format-places-edges",
             Predicate::When { .. } => "when",
         }
@@ -802,11 +832,12 @@ impl Predicate {
     /// Whether this predicate ranges over the **selection** a clause binds to rather
     /// than one member's own features — `count`/`unique`/`membership` at the whole
     /// grain, `degree`/`reached-from`/`kind`/`mention-reachable` at the each grain, and
-    /// the root-bound `reachable`/`fresh` pair.
+    /// the root-bound `reachable`/`fresh`/`locus-declared` trio.
     /// Judged by
     /// [`crate::engine::judge`], [`crate::graph::degree`],
     /// [`crate::graph::reached_from`],
-    /// [`crate::graph::mention_reachable`] and [`crate::drift`]'s staleness judges over
+    /// [`crate::graph::mention_reachable`] and [`crate::drift`]'s staleness and
+    /// undeclared-member judges over
     /// the resolved
     /// selection; every other predicate is judged by [`crate::engine::validate`] over a
     /// member.
@@ -830,6 +861,7 @@ impl Predicate {
                 | Predicate::MentionReachable { .. }
                 | Predicate::Reachable
                 | Predicate::Fresh
+                | Predicate::LocusDeclared
                 | Predicate::Extent { whole: true, .. }
         )
     }
@@ -874,9 +906,11 @@ impl Predicate {
             // the set predicates' silence here is the precedent.
             | Predicate::MentionReachable { .. }
             // The graph is its argument, so there is no field for it to name — and the
-            // lock read against disk is `fresh`'s, for the same silence.
+            // lock read against disk is `fresh`'s, the discovery walk read against it
+            // `locus-declared`'s, for the same silence.
             | Predicate::Reachable
             | Predicate::Fresh
+            | Predicate::LocusDeclared
             | Predicate::FormatPlacesEdges
             // Guard and body carry no field or schema key of their own.
             | Predicate::When { .. } => None,
@@ -929,6 +963,7 @@ impl Predicate {
             | Predicate::MentionReachable { .. }
             | Predicate::Reachable
             | Predicate::Fresh
+            | Predicate::LocusDeclared
             | Predicate::FormatPlacesEdges
             // Guard and body carry no frontmatter field to document.
             | Predicate::When { .. } => None,
@@ -979,6 +1014,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::MentionReachable { .. }
             | Predicate::Reachable
             | Predicate::Fresh
+            | Predicate::LocusDeclared
             | Predicate::FormatPlacesEdges
             | Predicate::When { .. } => None,
         })

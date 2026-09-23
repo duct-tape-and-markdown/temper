@@ -255,6 +255,11 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       guidance: rootDefaultContract[1]!.guidance,
       cite: rootDefaultContract[1]!.cite,
  },
+ {
+      ...clauseRow("locus-declared", "advisory"),
+      guidance: rootDefaultContract[2]!.guidance,
+      cite: rootDefaultContract[2]!.cite,
+ },
   ]);
   assert.deepEqual(declarations.requirements, [
  {
@@ -352,6 +357,11 @@ test("the root member's contract lowers to kind-less top-level rows, defaulted a
       guidance: rootDefaultContract[1]!.guidance,
       cite: rootDefaultContract[1]!.cite,
     },
+    {
+      ...clauseRow("locus-declared", "advisory"),
+      guidance: rootDefaultContract[2]!.guidance,
+      cite: rootDefaultContract[2]!.cite,
+    },
   ]);
   assert.equal(defaulted.length, rootDefaultContract.length);
 
@@ -367,7 +377,9 @@ test("the root member's contract lowers to kind-less top-level rows, defaulted a
     { ...clauseRow("count", "required"), count: { min: 1, max: Number.MAX_SAFE_INTEGER } },
   ]);
   assert.ok(
-    !authored.some((row) => row.predicate === "reachable" || row.predicate === "fresh"),
+    !authored.some((row) =>
+      ["reachable", "fresh", "locus-declared"].includes(row.predicate),
+    ),
     "an authored root contract replaces the default wholesale",
   );
 
