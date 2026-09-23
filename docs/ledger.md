@@ -43,6 +43,13 @@ hard.
   hit the last one, so tell them to move to kind partition.
   After the cut, unpark INTEGRATION-SUITE-ONE-TEST-TARGET before the harness
   migration: the judge resolves test ids that the fold renames.
+- Harness-migration carry list (hand-chain fixes of 09-22 to re-verify in the
+  package, or file with flume if it lacks them): the ripple walk covers
+  `examples/` and names a common type's exhaustive Rust literals and its full
+  TS spellings (00b1d690, 2ac1d6c7); a blocked entry may edit a file its
+  parent creates (59857dd5); every cargo/nextest call is capped (jobs, test
+  threads). The runner spike's verdict script is lost with /tmp: its final text
+  is in the 09-22 session transcript, and it goes in the repo at migration.
 - Still open with dependents: `(hook-member-identity)` (GH #32). Parked
   ruling: 0019's occupant (GH #45).
 
