@@ -12,7 +12,8 @@
 //! The cases mirror the entry's acceptance:
 //! - the `count` cardinality bound quantifies over the satisfier set;
 //! - the `unique` predicate quantifies over the satisfier set;
-//! - the `membership` predicate draws its allowed set from a *second* satisfier set;
+//! - the `membership` predicate draws its allowed set from a *second* satisfier set,
+//!   and reads a list-valued field per element on both sides of it;
 //! - a `match = {…}` key, and the retired `[role.*]` surface, are inert — a
 //!   the retired manifest is never read at all, so a stray one carrying either changes
 //!   nothing;
@@ -578,6 +579,127 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
     assert!(
         run.ok,
         "every satisfier drawn from the derived set passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+/// A floor-clean skill named `name` carrying a `models:` frontmatter field spelled
+/// exactly as `models` gives it — a YAML flow sequence (`[opus, haiku]`) or a bare
+/// scalar (`sonnet`), the two shapes one `membership` clause reads over. An unknown key
+/// on the skill surface folds into the same feature map, so a sequence rides in as a
+/// `FeatureValue::List` and the skill stays floor-clean either way.
+fn models_skill(name: &str, models: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         models: {models}\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// The `membership` rows over the plural `models` field — the same two requirements
+/// [`membership_requirements`] declares, addressing the list-valued feature.
+fn plural_membership_requirements() -> Vec<RequirementRow> {
+    vec![
+        RequirementRow {
+            clauses: vec![common::required_clause_row(
+                "membership",
+                Some("models"),
+                None,
+                Some("approved-model"),
+                None,
+            )],
+            ..common::requirement("agents", false, Some("skill"))
+        },
+        common::requirement("approved-model", false, Some("skill")),
+    ]
+}
+
+/// Write the two-satisfier approved set every plural case draws from: one satisfier
+/// declaring a list, one declaring a scalar, both flattened into the allowed set —
+/// `{ opus, haiku, sonnet }`.
+fn write_plural_approved_set(root: &Path) {
+    common::write_skill(
+        root,
+        "approved-pair",
+        &models_skill("approved-pair", "[opus, haiku]"),
+    );
+    common::write_skill(
+        root,
+        "approved-sonnet",
+        &models_skill("approved-sonnet", "sonnet"),
+    );
+    common::author_satisfies(root, "skills", "approved-pair", &["approved-model"]);
+    common::author_satisfies(root, "skills", "approved-sonnet", &["approved-model"]);
+}
+
+#[test]
+fn a_membership_requirement_fires_once_per_out_of_set_element_of_a_list_valued_field() {
+    let root = common::tmpdir("membership-list-bad");
+    // The allowed set flattens both satisfiers' readings — a list and a scalar — into
+    // `{ opus, haiku, sonnet }`. The `agent-mixed` satisfier's own list carries two
+    // elements outside it — each its own finding, where a list-valued field once
+    // contributed to neither side of the clause and the run passed silently.
+    common::write_skill(
+        &root,
+        "agent-mixed",
+        &models_skill("agent-mixed", "[opus, gpt, llama]"),
+    );
+    write_plural_approved_set(&root);
+    common::author_satisfies(&root, "skills", "agent-mixed", &["agents"]);
+    common::write_requirements(&root, plural_membership_requirements());
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "an out-of-set element of a list-valued field must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    let reported = run.findings();
+    let findings = common::findings_for(&reported, "requirement.agents.membership.models");
+    assert_eq!(
+        findings.len(),
+        2,
+        "one finding per out-of-set element, got:\n{}",
+        run.output
+    );
+    assert!(
+        findings
+            .iter()
+            .all(|line| line.contains("agent-mixed") && line.contains("models")),
+        "each finding names the member carrying the element, got:\n{}",
+        run.output
+    );
+    assert!(
+        findings.iter().any(|line| line.contains("gpt"))
+            && findings.iter().any(|line| line.contains("llama")),
+        "each out-of-set element is named by its own finding, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_membership_requirement_is_clean_when_a_list_is_wholly_drawn_from_the_set() {
+    let root = common::tmpdir("membership-list-ok");
+    // Every element of the member's list is in the derived set — including `sonnet`,
+    // which only the scalar-declaring satisfier contributes — so the run is clean.
+    common::write_skill(
+        &root,
+        "agent-drawn",
+        &models_skill("agent-drawn", "[haiku, sonnet]"),
+    );
+    write_plural_approved_set(&root);
+    common::author_satisfies(&root, "skills", "agent-drawn", &["agents"]);
+    common::write_requirements(&root, plural_membership_requirements());
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a list wholly drawn from the derived set passes ⇒ zero, got:\n{}",
         run.output
     );
 }

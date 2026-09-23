@@ -700,13 +700,36 @@ pub struct Selection<'a> {
 }
 
 impl Selection<'_> {
-    /// Every selected member's `field` value that is a scalar — the projection the
-    /// whole-grain field predicates decide over. A member missing the field carries no
-    /// value, so it contributes none.
+    /// Every selected member's `field` value that is a scalar — the whole-value
+    /// projection [`duplicates`] decides over. A member missing the field carries no
+    /// value, so it contributes none, and neither does a container: a list has no whole
+    /// value to collide on, and `unique` is no per-element reading — that grain is
+    /// [`Selection::elements`], `membership`'s alone.
     fn values<'f>(&'f self, field: &str) -> impl Iterator<Item = (&'f str, String)> {
         self.members.iter().filter_map(move |(_, features)| {
             let value = features.field(field)?;
             Some((features.id.as_str(), value.as_scalar()?.to_string()))
+        })
+    }
+
+    /// Every selected member's `field` read **per element** — a scalar contributes its
+    /// own text, a list one entry per element — the projection [`out_of_set`] decides
+    /// over on both sides, the allowed set it derives and the values it checks alike.
+    /// A member missing the field contributes none, and so does a map: no predicate
+    /// reads a map's contents ([`FeatureValue::Map`] carries none).
+    ///
+    /// The grain is the clause's, not the feature's, which is why this sits beside
+    /// [`Selection::values`] rather than replacing it: `membership` reads a plural
+    /// feature element-wise and `unique` does not.
+    fn elements<'f>(&'f self, field: &str) -> impl Iterator<Item = (&'f str, String)> {
+        self.members.iter().flat_map(move |(_, features)| {
+            let id = features.id.as_str();
+            let elements = match features.field(field) {
+                Some(FeatureValue::Scalar { text, .. }) => vec![text],
+                Some(FeatureValue::List(items)) => items,
+                Some(FeatureValue::Map) | None => Vec::new(),
+            };
+            elements.into_iter().map(move |element| (id, element))
         })
     }
 }
@@ -955,10 +978,14 @@ fn duplicates(selection: &Selection, clause: &Clause, field: &str) -> Vec<Diagno
 }
 
 /// The whole-grain `membership` findings: build the allowed set from `field` over the
-/// selection `target` names, then emit one finding per member whose own `field` scalar
-/// is absent from it. A member missing `field` carries no value to check, so it is
-/// silently skipped — a missing field is no violation, the way a missing `unique` field
-/// is no collision.
+/// selection `target` names, then emit one finding per member value absent from it. A
+/// member missing `field` carries no value to check, so it is silently skipped — a
+/// missing field is no violation, the way a missing `unique` field is no collision.
+///
+/// Both sides read [`Selection::elements`], so a list-valued field is judged element by
+/// element rather than deciding nothing: a satisfier's list flattens into the allowed
+/// set, and each of a member's own elements is checked against it, one finding per
+/// out-of-set element naming the member and the element it carries.
 ///
 /// The allowed set is corpus-*derived*, so a `target` with no members — or a `target` no
 /// selector declares — yields the empty set, under which every valued member is
@@ -974,19 +1001,19 @@ fn out_of_set(
     let allowed: BTreeSet<String> = selections
         .iter()
         .filter(|other| other.selector == source)
-        .flat_map(|other| other.values(field))
+        .flat_map(|other| other.elements(field))
         .map(|(_, value)| value)
         .collect();
 
     selection
-        .values(field)
+        .elements(field)
         .filter(|(_, value)| !allowed.contains(value))
         .map(|(id, value)| {
             finding(
                 selection,
                 clause,
                 format!(
-                    "{} requires `{field}` of each member drawn from the `{field}` feature of the members satisfying `{target}`, but `{id}` declares `{field}` = `{value}`, which is not in that set",
+                    "{} requires `{field}` of each member drawn from the `{field}` feature of the members satisfying `{target}`, but `{id}` declares `{field}` value `{value}`, which is not in that set",
                     selection.selector.noun(),
                 ),
             )
@@ -2500,6 +2527,60 @@ mod tests {
         assert_eq!(diags[0].rule, "skill.membership");
         assert_eq!(diags[0].artifact, "skill");
         assert!(diags[0].message.contains("ship") && diags[0].message.contains("gpt"));
+    }
+
+    #[test]
+    fn membership_reads_a_list_valued_field_per_element_on_both_sides() {
+        // A plural feature decides element-wise: the satisfiers' lists flatten into the
+        // allowed set alongside a scalar satisfier's value, each of a member's own
+        // elements is checked against it, and every out-of-set element is its own
+        // finding naming the element it indicts.
+        let skills = [
+            features(
+                "plan",
+                &[("models", json!(["opus", "gpt", "llama"]))],
+                1,
+                None,
+            ),
+            features("ship", &[("models", json!(["opus", "haiku"]))], 1, None),
+        ];
+        let approved = [
+            features(
+                "approved-list",
+                &[("models", json!(["opus", "haiku"]))],
+                1,
+                None,
+            ),
+            features("approved-scalar", &[("models", scalar("sonnet"))], 1, None),
+        ];
+        let selections = [
+            kind_selection(
+                "skill",
+                &skills,
+                Predicate::Membership {
+                    field: "models".to_string(),
+                    target: "approved-model".to_string(),
+                },
+            ),
+            Selection {
+                selector: Selector::OptIn("approved-model".to_string()),
+                clauses: Vec::new(),
+                members: approved.iter().map(|f| ("manifest", f)).collect(),
+            },
+        ];
+        let diags = judge(&selections);
+        assert_eq!(
+            diags.len(),
+            2,
+            "one finding per out-of-set element of `plan`, none for the wholly drawn `ship`"
+        );
+        assert!(
+            diags
+                .iter()
+                .all(|d| d.rule == "skill.membership" && d.message.contains("plan")),
+            "each finding names the member carrying the element"
+        );
+        assert!(diags[0].message.contains("gpt") && diags[1].message.contains("llama"));
     }
 
     #[test]
