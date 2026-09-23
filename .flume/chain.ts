@@ -709,12 +709,17 @@ const factory: ChainFactory = (flume) => {
       const result = parsePending(raw, entryExtension);
       if (!result.ok) return { ok: true, message: "parse gate owns malformed pending" };
       const offending: string[] = [];
+      // A blocked entry may edit a file one of its parents creates: the parent
+      // lists it in files.new, and the ship that opens the child lands it.
+      const createdBy = new Map(result.entries.map((e) => [e.tag, new Set(e.files.new.map((f) => f.path))]));
       for (const entry of result.entries) {
         if (entry.gate.kind !== "open" && entry.gate.kind !== "blockedBy")
           continue;
         const tag = entry.tag;
+        const parents = entry.gate.kind === "blockedBy" ? entry.gate.tags : [];
+        const parentCreates = (path: string) => parents.some((t) => createdBy.get(t)?.has(path));
         for (const f of entry.files.edit) {
-          if (!existsSync(join(ctx.repoRoot, f.path))) offending.push(`  [${tag}] edit path missing on disk: ${f.path}`);
+          if (!existsSync(join(ctx.repoRoot, f.path)) && !parentCreates(f.path)) offending.push(`  [${tag}] edit path missing on disk: ${f.path}`);
         }
         for (const p of entry.files.retire) {
           if (!existsSync(join(ctx.repoRoot, p))) offending.push(`  [${tag}] retire path missing on disk: ${p}`);
@@ -738,7 +743,7 @@ const factory: ChainFactory = (flume) => {
       }
       return {
         ok: false,
-        message: `${offending.length} declared reference(s) do not resolve on disk — fix the entry, mark the surface new, or route it as an open question`,
+        message: `${offending.length} declared reference(s) do not resolve on disk — fix the entry, mark the surface new (or list it in a blockedBy parent's files.new), or route it as an open question`,
         details: offending.join("\n"),
       };
     },
