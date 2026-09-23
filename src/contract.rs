@@ -78,8 +78,11 @@ pub struct Clause {
 /// rows reducing to one label are a malformed lock, refused by admissibility rather
 /// than disambiguated with a counter that would renumber every sibling on an insert.
 ///
-/// `owner` is `None` only for a row that names no kind and hangs off no requirement — a
-/// shape no producer writes and no consumer reads; its label simply omits the segment.
+/// A row that names no kind and hangs off no requirement is the **root member's**, and
+/// passes [`ROOT_OWNER`] — the same owner.predicate.field join a kind clause takes, over
+/// the one member that is the whole governed forest. `owner` is `None` only inside a
+/// `when` body, whose rows are addressed under their guard rather than an owner of their
+/// own; its label simply omits the segment.
 ///
 /// `field` is the row's own field column for every predicate but `when`, whose guard's
 /// value set qualifies it — [`when_label_field`] composes that argument.
@@ -92,6 +95,12 @@ pub fn clause_label(owner: Option<&str>, predicate: &str, field: Option<&str>) -
         .collect::<Vec<_>>()
         .join(".")
 }
+
+/// The [`clause_label`] owner segment for a clause the **root member** carries — the
+/// harness itself, whose selection is the whole governed forest. The root is one member
+/// among many in the label namespace, so a root clause addresses as `root.<predicate>`
+/// and dials by that label exactly as a kind's clause does.
+pub const ROOT_OWNER: &str = "root";
 
 /// The [`clause_label`] owner segment for a clause attached to a requirement rather
 /// than to a kind: `requirement.<name>`, keeping a requirement's demands in the same
@@ -439,6 +448,21 @@ pub enum Predicate {
         /// source's scope.
         gate_field: String,
     },
+    /// `reachable`: every selected member's own inbound registration edge from the
+    /// world node is live, or a reachable member imports it. A member every channel of
+    /// whose kind's declared registration set is provably dead — and that no live
+    /// importer reaches — is a dead registration the harness never loads.
+    ///
+    /// Carries **no field argument**: its argument is the graph, exactly as
+    /// [`Predicate::ClosedKeys`]'s is its sibling clause set. The registration channels
+    /// it reads are the *kind's* declared facts, never a column of the clause.
+    ///
+    /// Judged by [`crate::graph::reachable`], not the per-member table: the verdict
+    /// needs the whole registration corpus, the repo file-set, and the import closure,
+    /// none of which the member in hand carries. Bound to the **root member's**
+    /// selection — the whole governed forest — because reachability is a fact about the
+    /// harness, not about one kind's members (`specs/model/contract.md`, "clause").
+    Reachable,
     /// `format-places-edges`: the edge scope, at the **each** grain — the selection is
     /// the edges incident on the member, and every one of them must be placed by the
     /// format that renders the member. A format that omits an edge its kind declares
@@ -594,6 +618,9 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             scope_field: row.field.clone()?,
             gate_field: row.gate.clone()?,
         },
+        // No argument column to decode: the graph is the argument, as it is for the
+        // sibling-read `closed-keys`.
+        "reachable" => Predicate::Reachable,
         "format-places-edges" => Predicate::FormatPlacesEdges,
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
@@ -694,6 +721,7 @@ impl Predicate {
             Predicate::Kind { .. } => "kind",
             Predicate::GlobValid { .. } => "glob-valid",
             Predicate::MentionReachable { .. } => "mention-reachable",
+            Predicate::Reachable => "reachable",
             Predicate::FormatPlacesEdges => "format-places-edges",
             Predicate::When { .. } => "when",
         }
@@ -723,6 +751,7 @@ impl Predicate {
                 | Predicate::Degree { .. }
                 | Predicate::Kind { .. }
                 | Predicate::MentionReachable { .. }
+                | Predicate::Reachable
                 | Predicate::Extent { whole: true, .. }
         )
     }
@@ -763,6 +792,8 @@ impl Predicate {
             // Two field arguments, so no *one* field is "the" field it constrains —
             // the set predicates' silence here is the precedent.
             | Predicate::MentionReachable { .. }
+            // The graph is its argument, so there is no field for it to name.
+            | Predicate::Reachable
             | Predicate::FormatPlacesEdges
             // Guard and body carry no field or schema key of their own.
             | Predicate::When { .. } => None,
@@ -812,6 +843,7 @@ impl Predicate {
             // is about the *target*'s gate, not this property's value — guidance about
             // the pair belongs to neither property's hover docs alone.
             | Predicate::MentionReachable { .. }
+            | Predicate::Reachable
             | Predicate::FormatPlacesEdges
             // Guard and body carry no frontmatter field to document.
             | Predicate::When { .. } => None,
@@ -859,6 +891,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::Degree { .. }
             | Predicate::Kind { .. }
             | Predicate::MentionReachable { .. }
+            | Predicate::Reachable
             | Predicate::FormatPlacesEdges
             | Predicate::When { .. } => None,
         })

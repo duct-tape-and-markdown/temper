@@ -1799,10 +1799,10 @@ mod embedded_edge_source_scope {
 }
 
 /// Library-level fixture proof of the `reachable` predicate: the pure machinery over
-/// constructed `Features`, including a caller-declared severity threaded into the
-/// finding. The dial that once wired this into the gate retired;
-/// the predicate itself stays a live capability for a future edge-scope
-/// clause to call.
+/// constructed `Features`, with the severity the **root member's** own `reachable` clause
+/// declares threaded into the finding. The gate-level suite (`tests/root_contract.rs`)
+/// composes that clause off the lock and hands its severity here, so the direct-call
+/// suite and the gate agree on who declares it.
 mod reachability {
     use std::collections::BTreeMap;
 
@@ -1893,13 +1893,13 @@ mod reachability {
         let diags = reachable(&registrations, &by_kind, &[], &[], Severity::Error);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, "graph.reachable");
+        assert_eq!(diags[0].rule, "root.reachable");
         assert_eq!(diags[0].artifact, "standards");
         assert!(diags[0].message.contains("description"));
         assert!(diags[0].message.contains("world"));
 
-        // The dial is the assembly's: the same dead edge at `advisory` is a warn, so a
-        // required-vs-advisory reachability declaration is honored (REACHABILITY-WIRE).
+        // The severity is the root clause's: the same dead edge at `advisory` is a warn,
+        // so a required-vs-advisory reachability declaration is honored.
         let advisory = reachable(&registrations, &by_kind, &[], &[], Severity::Warn);
         assert_eq!(advisory.len(), 1);
         assert_eq!(advisory[0].severity, Severity::Warn);
@@ -1919,7 +1919,7 @@ mod reachability {
 
         let diags = reachable(&registrations, &by_kind, &files, &[], Severity::Error);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "graph.reachable");
+        assert_eq!(diags[0].rule, "root.reachable");
         assert_eq!(diags[0].artifact, "style");
         assert!(diags[0].message.contains("paths"));
         assert!(diags[0].message.contains("world"));

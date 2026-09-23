@@ -7,7 +7,7 @@ use crate::admissibility;
 use crate::builtin_kind;
 use crate::check::{self, Severity};
 use crate::compose;
-use crate::contract::Contract;
+use crate::contract::{self, Contract};
 use crate::coverage;
 use crate::coverage_note;
 use crate::dial;
@@ -495,13 +495,26 @@ pub fn gate(
     // trusted to judge the harness.
     diagnostics.extend(roster::admissibility(&requirements, &by_kind, harness_root));
 
-    // The declared selections, whole: every requirement's opt-in selection and every
-    // kind's by-kind selection. Both lists are assembled before either is judged
+    // The declared selections, whole: every requirement's opt-in selection, every
+    // kind's by-kind selection, and the root member's selection over all of them. All
+    // are assembled before any is judged
     // because a `membership` clause draws its allowed set from a *second* selection,
     // and the judge resolves that target off this one list — the existential and the
     // universal binding are the same algebra, so neither can be judged in isolation.
     let mut selections = roster::selections(&requirements, &by_kind);
     selections.extend(kind_selections(&contracts, &by_kind));
+    // The root member's selection ranges over every discovered member of every kind —
+    // the whole governed forest. Composed here rather than at its consumer so the dial
+    // loop below reaches a root clause by label with no second dial site.
+    let root_contract = compose::root_contract(&declarations.clauses)?;
+    selections.push(engine::Selection {
+        selector: engine::Selector::Root,
+        clauses: root_contract.clauses,
+        members: by_kind
+            .iter()
+            .flat_map(|(kind, features)| features.iter().map(move |feature| (*kind, feature)))
+            .collect(),
+    });
     // The last of the dial's four sites, and the only one over selections rather than
     // contracts. A requirement's own clauses reach a judge only here,
     // as does the each-grain narrowing clause its `kind` facet sources — both are
@@ -568,7 +581,7 @@ pub fn gate(
     // other are an ordinary mutual reference. The relation is the member→member
     // `@import` edges the directive classing observed plus the layout-prose imports the
     // lock carries pre-resolved. Always-on over that whole set, like route resolution.
-    let mut import_edges = directive_arcs;
+    let mut import_edges = directive_arcs.clone();
     import_edges.extend(layout_import_edges);
     diagnostics.extend(graph::acyclic(&import_edges));
 
@@ -585,6 +598,33 @@ pub fn gate(
         // clause whose field filter names a `contains:` field (decision 0052).
         &by_kind,
     ));
+
+    // `reachable`: the root member's own graph-scope clause — every governed member's
+    // inbound registration edge from the world node must be live, or a reachable member
+    // must import it. Opt-in exactly as `degree`/`mention-reachable` are: with no root
+    // `reachable` clause the closure never walks. It reads the same hoisted
+    // `resolved_edges` plus the directive edges the classing observed, since liveness
+    // propagates along an `@import` the target format executes.
+    if let Some(clause) = selections
+        .iter()
+        .find(|selection| selection.selector == engine::Selector::Root)
+        .and_then(|selection| {
+            selection
+                .clauses
+                .iter()
+                .find(|clause| clause.predicate == contract::Predicate::Reachable)
+        })
+    {
+        let mut reachability_edges = resolved_edges.clone();
+        reachability_edges.extend(directive_arcs.iter().cloned());
+        diagnostics.extend(graph::reachable(
+            &registrations_by_kind(&overlaid_builtin_kinds, &custom_units_and_features),
+            &by_kind,
+            &repo_files,
+            &reachability_edges,
+            engine::severity_of(clause.severity),
+        ));
+    }
 
     // `mention-reachable`: the second selection predicate whose judge needs the graph —
     // each selected member's references must be able to fire where their target can be
@@ -728,5 +768,24 @@ fn kind_selections<'a>(
                 members: features.iter().map(|feature| (*kind, feature)).collect(),
             })
         })
+        .collect()
+}
+
+/// Each kind's declared [`kind::Registration`] set, keyed by its bare row label — the
+/// channel map [`graph::reachable`] asks whether a member's own inbound world edge can
+/// be live.
+///
+/// A kind declaring no registration contributes no entry: its members load
+/// unconditionally, and the judge reads that absence as unconditional liveness rather
+/// than as an empty dead set.
+fn registrations_by_kind<'a>(
+    builtin: &'a BTreeMap<String, CustomKind>,
+    custom: &'a [(CustomKind, compose::KindUnitsAndFeatures)],
+) -> BTreeMap<&'a str, Vec<kind::Registration>> {
+    builtin
+        .values()
+        .chain(custom.iter().map(|(kind, _)| kind))
+        .filter(|kind| !kind.registration.is_empty())
+        .map(|kind| (kind.name.as_str(), kind.registration.clone()))
         .collect()
 }

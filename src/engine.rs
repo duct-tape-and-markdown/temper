@@ -301,6 +301,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::Degree { .. }
         | Predicate::Kind { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::Reachable
         | Predicate::FormatPlacesEdges
         // Guard and body carry no field to address.
         | Predicate::When { .. } => None,
@@ -357,6 +358,7 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::Reachable
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => return None,
     };
@@ -404,6 +406,7 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::Reachable
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => None,
     }
@@ -561,6 +564,10 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         | Predicate::DependencyExists
         | Predicate::Unique { .. }
         | Predicate::GlobValid { .. }
+        // An argument-free graph predicate has no clause-level argument to be empty or
+        // inverted: `reachable` admits whatever the graph says, so there is nothing here
+        // the author could have spelled vacuously.
+        | Predicate::Reachable
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => Vec::new(),
     }
@@ -577,6 +584,9 @@ pub enum Selector {
     /// The members whose satisfies edge targets a requirement — the existential
     /// binding.
     OptIn(String),
+    /// Every discovered member of every kind — the **root member's** selection, the
+    /// whole governed forest. Carries no name: there is one root per harness.
+    Root,
 }
 
 impl Selector {
@@ -587,6 +597,7 @@ impl Selector {
         match self {
             Selector::Kind(kind) => kind,
             Selector::OptIn(requirement) => requirement,
+            Selector::Root => crate::contract::ROOT_OWNER,
         }
     }
 
@@ -598,6 +609,7 @@ impl Selector {
         match self {
             Selector::Kind(kind) => format!("kind `{kind}`"),
             Selector::OptIn(requirement) => format!("requirement `{requirement}`"),
+            Selector::Root => "the root member".to_string(),
         }
     }
 }
@@ -691,6 +703,7 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                 | Predicate::DependencyExists
                 | Predicate::Degree { .. }
                 | Predicate::MentionReachable { .. }
+                | Predicate::Reachable
                 | Predicate::FormatPlacesEdges
                 | Predicate::When { .. } => {}
             }
@@ -1345,6 +1358,10 @@ fn decide(
         // member in hand — so `crate::graph::mention_reachable` judges it, exactly as
         // `degree`'s judge lives there.
         | Predicate::MentionReachable { .. }
+        // `reachable` is each-grain over the root selection, but its verdict reads the
+        // registration corpus, the repo file-set, and the import closure — none on the
+        // member in hand — so `crate::graph::reachable` judges it.
+        | Predicate::Reachable
         // Whole-grain `extent` sums the selection; [`judge`] decides it, not this
         // per-member table.
         | Predicate::Extent { whole: true, .. } => Outcome::Indeterminate,
@@ -1948,6 +1965,7 @@ mod tests {
                 scope_field: "paths".to_string(),
                 gate_field: "paths".to_string(),
             },
+            Predicate::Reachable,
             Predicate::Extent {
                 unit: ExtentUnit::Lines,
                 max: 40,
@@ -3313,7 +3331,8 @@ mod tests {
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
             | Predicate::Kind { .. }
-            | Predicate::MentionReachable { .. } => true,
+            | Predicate::MentionReachable { .. }
+            | Predicate::Reachable => true,
             // The one predicate carrying its own grain: the whole-grain budget sums the
             // selection, the each-grain one reads the member in hand.
             Predicate::Extent { whole, .. } => *whole,

@@ -34,6 +34,18 @@ pub fn contract(kind: &str) -> Option<Contract> {
         .then(|| contract_for_kind(kind))
 }
 
+/// The **root member's** embedded floor [`Contract`] — every embedded clause row that
+/// names no kind, in declaration order, projected into typed clauses. The embedded half
+/// of rows-or-default ([`compose::root_contract`]): a committed lock carrying no root row
+/// falls back here rather than to silence.
+#[must_use]
+pub fn root_contract() -> Contract {
+    compose::root_contract_from_rows(&builtin_lock::declarations().clauses).expect(
+        "the embedded built-in lock declares only required/advisory severities and \
+             this projection's supported predicates, each carrying its required argument",
+    )
+}
+
 /// Every embedded built-in kind's floor, keyed by its bare row label — the
 /// compiled default program's floor roster.
 #[must_use]

@@ -39,6 +39,12 @@ thread_local! {
     /// across check, degree, and mention_reachable) rather than recomputing it
     /// per check.
     static RESOLVED_EDGES_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+
+    /// Per-thread count of reachability-closure computations. Incremented each time
+    /// [`live_members`] walks the registration seed and the import propagation, pinning
+    /// that whole-corpus work at once per `gate()` invocation — and at zero where no
+    /// root `reachable` clause binds.
+    static LIVE_MEMBERS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// Per-thread count of resolved-edge computations. The walk is single-threaded on
@@ -46,6 +52,13 @@ thread_local! {
 #[must_use]
 pub fn resolved_edges_count() -> usize {
     RESOLVED_EDGES_COUNT.with(|c| c.get())
+}
+
+/// Per-thread count of reachability-closure computations. The closure is single-threaded
+/// on its caller's thread, so this counts one run's computations in isolation.
+#[must_use]
+pub fn live_members_count() -> usize {
+    LIVE_MEMBERS_COUNT.with(std::cell::Cell::get)
 }
 
 /// The diagnostic `rule` id every route-resolution finding reports under.
@@ -57,8 +70,13 @@ const GRAPH_ADMISSIBILITY_RULE: &str = "graph.admissibility";
 /// The diagnostic `rule` id the acyclicity finding reports under.
 const GRAPH_ACYCLIC_RULE: &str = "graph.acyclic";
 
-/// The diagnostic `rule` id every reachability finding reports under.
-const GRAPH_REACHABLE_RULE: &str = "graph.reachable";
+/// The diagnostic `rule` id every reachability finding reports under: the compiled
+/// address of the root member's own `reachable` clause
+/// ([`crate::contract::clause_label`] over [`crate::contract::ROOT_OWNER`]). The
+/// predicate names no field, so that address is a constant — spelled here rather than
+/// recomposed per finding, and pinned against the composed clause's own label by
+/// `tests/root_contract.rs`.
+const GRAPH_REACHABLE_RULE: &str = "root.reachable";
 
 /// The diagnostic `rule` id every unbacked-pointer directive finding reports under.
 const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
@@ -979,9 +997,11 @@ fn out_of_degree(
 /// conditionally. Members iterate in the corpus's candidate order under each name-sorted
 /// kind, so findings are stable.
 ///
-/// `severity` is the **assembly's** declaration: whether a dead edge
-/// gates, and at what weight, is the assembly's dial like `degree`, never a member's own
-/// clause — a deliberate work-in-progress dead edge stays the author's call.
+/// `severity` is the **root member's** own `reachable` clause's declaration — the gate
+/// reads it off the composed root contract and the dial reaches that clause by the same
+/// [`GRAPH_REACHABLE_RULE`] address the findings report under. Whether a dead edge gates,
+/// and at what weight, is the author's call; a deliberate work-in-progress dead edge is
+/// dialed, never tool-decided.
 #[must_use]
 pub fn reachable(
     registrations: &BTreeMap<&str, Vec<Registration>>,
@@ -1082,6 +1102,8 @@ fn live_members(
     repo_files: &[String],
     edges: &[ResolvedEdge],
 ) -> BTreeSet<Node> {
+    LIVE_MEMBERS_COUNT.with(|c| c.set(c.get() + 1));
+
     // Seed: every member whose own world-edge is live. A kind absent from `registrations`
     // declares no registration, so its members load unconditionally and seed the closure —
     // `by_kind` carries every kind, so an always-live importer is in scope.

@@ -439,7 +439,7 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
     // `acyclic` is off that consumer list: `contract.md` ("well-formedness") scopes it to
     // the import relation, which is not this walk. `check` is the walk's own thin
     // wrapper (it reads the dangling half of the same computation), so the consumers of
-    // the *pre-computed* slice are `degree` and `mention_reachable`.
+    // the *pre-computed* slice are `degree`, `mention_reachable`, and `reachable`.
     use std::collections::BTreeMap;
     use temper::compose;
     use temper::extract::Features;
@@ -488,6 +488,15 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
         &[],
         &by_kind,
         &graph::embedded_hosts_by_key(&by_kind),
+    );
+    // The third consumer: reachability closes over the same resolved slice (plus the
+    // directive edges, empty here), so it re-walks nothing either.
+    let _ = graph::reachable(
+        &BTreeMap::new(),
+        &by_kind,
+        &[],
+        resolved_edges,
+        temper::check::Severity::Warn,
     );
 
     // The narrowing itself, pinned at the cost seam: `acyclic` no longer takes this
@@ -904,5 +913,61 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
         reads, 1,
         "build_manifest_cache must read each manifest exactly once, shared across \
          all governing kinds, not once per kind: {reads} reads (before {reads_before}, after {reads_after})",
+    );
+}
+
+/// The reachability closure is whole-corpus work — the registration seed over every
+/// member plus the hop-capped import propagation — so the cost doctrine binds it the same
+/// way it binds the resolved-edge walk: computed once per `gate()` invocation, and not at
+/// all where no root `reachable` clause opts in.
+#[test]
+fn gate_reachability_closure_runs_once_per_invocation_and_only_when_a_root_clause_binds() {
+    use temper::drift::Declarations;
+    use temper::gate;
+    use temper::graph;
+
+    let harness = tmpdir("reachability-closure-pin");
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    // A rule whose `paths` glob matches no file — a dead `paths-match` channel, so the
+    // closure has something to decide rather than short-circuiting on a clean corpus.
+    fs::write(
+        rules.join("style.md"),
+        "---\npaths: [\"never/**/*.xyz\"]\n---\n# Style\n",
+    )
+    .unwrap();
+
+    // No root row: `reachable` is opt-in, so the closure never walks.
+    common::write_lock(&harness, Declarations::default());
+    let before = graph::live_members_count();
+    gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
+    assert_eq!(
+        graph::live_members_count() - before,
+        0,
+        "a gate with no root `reachable` clause must walk no reachability closure",
+    );
+
+    // One root row, on a fresh copy of the same corpus: the closure walks exactly once
+    // for the whole run, never once per member of the corpus it ranges over.
+    let opted_in = tmpdir("reachability-closure-pin-opted-in");
+    fs::create_dir_all(opted_in.join(".claude").join("rules")).unwrap();
+    common::copy_tree(&harness.join(".claude"), &opted_in.join(".claude"));
+    common::write_lock(
+        &opted_in,
+        Declarations {
+            clauses: vec![common::clause("reachable", "advisory")],
+            ..Declarations::default()
+        },
+    );
+    let before = graph::live_members_count();
+    let (diagnostics, _) = gate::gate(&opted_in.join(".temper"), &opted_in, &[]).unwrap();
+    assert!(
+        diagnostics.iter().any(|d| d.rule == "root.reachable"),
+        "the copied corpus carries the dead rule, so the one walk decided something real",
+    );
+    assert_eq!(
+        graph::live_members_count() - before,
+        1,
+        "the reachability closure is hoisted per gate invocation, never per member",
     );
 }

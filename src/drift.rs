@@ -1575,12 +1575,17 @@ pub fn emit(
 /// write: the seam ships no label, so an authored one cannot disagree with the emitted
 /// one, and a re-emit of the same program lands the same labels.
 ///
-/// A requirement's nested row names no kind of its own, so its owner comes from the
-/// requirement it hangs off — the one place that name is in scope.
+/// Two rows name no kind, and nesting tells them apart. A requirement's nested row takes
+/// the requirement it hangs off as its owner — the one place that name is in scope. A
+/// top-level row is the **root member's**, and takes [`crate::contract::ROOT_OWNER`], so
+/// a root clause addresses under the same owner.predicate.field join a kind clause does.
 fn stamp_clause_labels(declarations: &mut Declarations) {
     for row in &mut declarations.clauses {
-        let owner = row.kind.clone();
-        stamp_clause_label(row, owner.as_deref());
+        let owner = row
+            .kind
+            .clone()
+            .unwrap_or_else(|| crate::contract::ROOT_OWNER.to_string());
+        stamp_clause_label(row, Some(&owner));
     }
     for requirement in &mut declarations.requirements {
         let owner = crate::contract::requirement_owner(&requirement.name);
@@ -3757,10 +3762,11 @@ pub struct ClauseRow {
     /// to author and no way to author a wrong one.
     #[serde(default)]
     pub label: Option<String>,
-    /// The kind whose contract carries the clause. `None` when this row is nested
-    /// inside a [`RequirementRow`]'s own [`clauses`](RequirementRow::clauses) — a
-    /// requirement's set-scope demand names no kind of its own; it ranges over
-    /// whatever kind the requirement's own row already carries.
+    /// The kind whose contract carries the clause. `None` has two homes, distinguished
+    /// by nesting rather than by a second column: inside a [`RequirementRow`]'s own
+    /// [`clauses`](RequirementRow::clauses) it is the requirement's set-scope demand,
+    /// ranging over whatever kind the requirement's own row already carries; at the top
+    /// level it is the **root member's** clause, ranging over the whole governed forest.
     #[serde(default)]
     pub kind: Option<String>,
     /// The predicate's clause key (`required`, `max_len`, …).

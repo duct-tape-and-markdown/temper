@@ -18,6 +18,7 @@ mod common;
 
 use temper::builtin;
 use temper::builtin_lock;
+use temper::compose;
 use temper::contract::{self, Clause, Contract, Predicate, Severity};
 use temper::drift::{
     self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow,
@@ -718,6 +719,73 @@ fn a_mention_reachable_clause_row_round_trips_both_field_ends() {
         }),
         "both columns lift into the typed predicate"
     );
+}
+
+/// The **root member's** clause row round-trips with its `kind` column absent — the one
+/// column that says whose contract carries a top-level row. It lifts into the root
+/// contract, where a kind-named row does not, and emit stamps it under the root owner
+/// segment so an author can spell its address back into a dial entry.
+#[test]
+fn a_root_clause_row_round_trips_with_its_kind_column_absent() {
+    let mut declarations = rich_declarations();
+    // `common::clause` leaves `kind` at `None`; at the top level that absence *is* the
+    // root declaration, and no other column carries the fact.
+    declarations
+        .clauses
+        .push(common::clause("reachable", "advisory"));
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-root-reachable", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "reachable")
+        .expect("the root reachable clause row round-trips");
+    assert_eq!(row.kind, None, "a root row names no kind");
+    assert_eq!(
+        row.label.as_deref(),
+        Some("root.reachable"),
+        "and emit stamps it under the root owner segment"
+    );
+    assert_eq!(
+        contract::predicate_from_row(row),
+        Some(Predicate::Reachable),
+        "the argument-free row lifts into the typed predicate"
+    );
+
+    // The two lifts partition the family: the root's row reaches the root contract, and
+    // no kind's contract picks it up.
+    let root = compose::root_contract_from_rows(&read_back.clauses).unwrap();
+    assert_eq!(
+        root.clauses
+            .iter()
+            .map(|clause| clause.label.as_str())
+            .collect::<Vec<_>>(),
+        vec!["root.reachable"],
+    );
+    for kind in ["rule", "skill"] {
+        let contract =
+            compose::default_contract_from_rows(&read_back.clauses, &read_back.kinds, kind)
+                .unwrap();
+        assert!(
+            !contract
+                .clauses
+                .iter()
+                .any(|clause| clause.predicate == Predicate::Reachable),
+            "the root's row is invisible to the `{kind}` contract",
+        );
+    }
 }
 
 /// A kind's own floor clause row round-trips its **node-scope predicate argument**

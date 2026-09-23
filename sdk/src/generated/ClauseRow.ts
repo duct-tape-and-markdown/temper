@@ -40,10 +40,11 @@ export type ClauseRow = {
  */
 label?: string, 
 /**
- * The kind whose contract carries the clause. `None` when this row is nested
- * inside a [`RequirementRow`]'s own [`clauses`](RequirementRow::clauses) — a
- * requirement's set-scope demand names no kind of its own; it ranges over
- * whatever kind the requirement's own row already carries.
+ * The kind whose contract carries the clause. `None` has two homes, distinguished
+ * by nesting rather than by a second column: inside a [`RequirementRow`]'s own
+ * [`clauses`](RequirementRow::clauses) it is the requirement's set-scope demand,
+ * ranging over whatever kind the requirement's own row already carries; at the top
+ * level it is the **root member's** clause, ranging over the whole governed forest.
  */
 kind?: string, 
 /**

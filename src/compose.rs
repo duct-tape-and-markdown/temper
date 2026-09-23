@@ -209,6 +209,52 @@ pub fn default_contract_from_rows(
     })
 }
 
+/// The **root member's** whole [`Contract`], built from the top-level clause rows that
+/// name no kind — the sibling of [`default_contract_from_rows`], filtering
+/// `row.kind.is_none()` where that one filters `== Some(kind)`.
+///
+/// The discriminator is nesting, not a column: a row absent a `kind` *inside* a
+/// [`drift::RequirementRow`] is that requirement's, and one absent a `kind` at the top
+/// level is the root's. Only the top-level slice reaches here, so the two never collide.
+/// The root names no kind fact row, so the contract carries no kind guidance — a root
+/// clause's own `guidance` is the channel it teaches through.
+///
+/// # Errors
+///
+/// As [`default_contract_from_rows`]: a row the closed vocabulary cannot admit is a
+/// corrupt lock, refused rather than dropped.
+pub fn root_contract_from_rows(clauses: &[ClauseRow]) -> Result<Contract, ClauseRowError> {
+    let contract_clauses = clauses
+        .iter()
+        .filter(|row| row.kind.is_none())
+        .map(clause_from_row)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Contract {
+        name: contract::ROOT_OWNER.to_string(),
+        clauses: contract_clauses,
+        guidance: None,
+    })
+}
+
+/// The root member's effective [`Contract`]: the committed lock's own kind-less
+/// top-level rows when it declares any, else the embedded default
+/// ([`crate::builtin::root_contract`]). The rows-or-default rule
+/// [`builtin_contract`] states per kind, over the one member that is the whole forest —
+/// so a lock committed before the root contract shipped still gets the shipped default
+/// rather than silence.
+///
+/// # Errors
+///
+/// Propagates the [`ClauseRowError`] the row lift raises for a row the closed vocabulary
+/// cannot admit.
+pub fn root_contract(clauses: &[ClauseRow]) -> Result<Contract, ClauseRowError> {
+    if clauses.iter().any(|row| row.kind.is_none()) {
+        root_contract_from_rows(clauses)
+    } else {
+        Ok(crate::builtin::root_contract())
+    }
+}
+
 /// A contract with the clause rows of the invocation's joined locks naming `kind`
 /// appended to it — the host's own contract, hardened.
 ///
