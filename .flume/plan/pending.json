@@ -1,8 +1,211 @@
 [
   {
-    "tag": "LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED",
+    "tag": "WHEN-BODY-LABEL-OWNED-BY-ITS-HOST",
     "gate": {
       "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`stamp_clause_label` (:1605) recurses on a `when` body at :1619 with `None` for owner where the sibling line one function up passes `requirement_owner(...)` for a requirement's nested row. Pass the host row's freshly stamped label as the nested owner, so a body row addresses `<host-label>.<predicate>.<field>`; the doc names the rule beside the requirement-nesting one it copies."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "`clause_collision_diagnostics` (:279) walks kinds' own clauses, requirements' nested ones and a joined layer's, never a guard's body — so a body twin is unrefusable. Descend into each `when` row's `body`, with a site sentence naming the host clause's label the way the existing arms name the kind or the requirement."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Regenerated, not hand-edited: the eight body rows under the seven shipped `when` clauses take host-owned labels, so the two `required.source.url` twins (:438, :456 — one under the `url` guard, one under `git-subdir`) part."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "`no_two_clause_rows_in_the_shipped_lock_share_a_label` carves body rows out at :198-200 ('Top-level rows only … their own collision, and not this assertion's'). Retire the carve-out and its comment; the uniqueness scan spans each `when` row's body."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "`a_when_clause_row_round_trips_the_lock` (:3317) reads back the body row's predicate and field; pin its emitted label too. The `clause-label-collision` case at :3393 gains a sibling putting two identical body rows under one guard."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A `when` body clause's label is owner-less, so the shipped lock carries `required.source.url` twice and no collision walk can see it.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "every clause row in the shipped lock — a `when` body's rows included — addresses itself uniquely, and a body label reads `<host-label>.<predicate>.<field>`"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "emit stamps a body row under its host's label, and two body rows sharing one address raise `clause.label-collision`"
+      }
+    ],
+    "acceptance": "`cargo test` green with the frozen lane's body carve-out gone: the regenerated `src/builtin_lock.toml` byte-matches the SDK-derived declarations and carries no duplicate label at any depth.",
+    "notes": "Decision 0057, bullets 1, 3 and 4. All eight shipped body rows declare `required` under `required` hosts, so no verdict moves here and no finding's spelling changes yet — the engine still prints the host's label until WHEN-BODY-SEVERITY-AND-ADDRESS-REACH-THE-READER. `.temper/lock.toml` carries no `when` row, so the dogfood is untouched. scoped at 64033b72"
+  },
+  {
+    "tag": "ROOT-CLAUSE-LOOKUP-ONE-HOME",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`root_reachable_clause` (:332) is a second copy of `engine::root_clause` (`src/engine.rs:716`) with `Predicate::Reachable` inlined — the same `Selector::Root` walk, and both docs carry the same 'yield the clause, not a bool, so severity + label + guidance all reach the finding' rationale. Delete it and call `engine::root_clause(&selections, &Predicate::Reachable)` at `reachable`'s opt-in guard (:1214); `engine` and `Predicate` are already in scope at this module's head (:337, :342). The doc at :1199 links the retired name — re-point it at `engine::root_clause`, which the crate's `deny(rustdoc::broken_intra_doc_links)` would otherwise fail at the afterMerge doc gate. `any_clause_of` (:317) answers a different question (any selector, predicate-shape match) and stays."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "No behaviour moves, so no assertion changes: `no_root_reachable_clause_judges_nothing` (:2517) is the acceptance witness and should stay green unedited. Listed only so its prose may be re-pointed if the retired private name leaves the tree."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Two copies of the root-selection clause lookup: `graph::root_reachable_clause` re-walks what `engine::root_clause` already does, with the predicate inlined.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "`reachable` still judges nothing where no root selection binds the predicate, and still reports at the clause's declared severity carrying its guidance — unchanged behaviour through the shared lookup"
+      }
+    ],
+    "acceptance": "`cargo test` green with `tests/graph.rs`'s assertions unedited, `cargo clippy --all-targets -- -D warnings` clean, and the afterMerge doc gate clean with the retired symbol's intra-doc link re-pointed.",
+    "notes": "Drained from `.flume/refactor/build-root-clause-lookup-twins.md` (filed at 32de1b65; capture deleted this tick) — `src/graph.rs` sat outside FRESH-CLAUSE-JUDGES-STALENESS's fence, so the unification could not ride it. Re-verified at HEAD: exactly two `Selector::Root` walks in `src/` (`engine.rs:722`, `graph.rs:337`); `gate.rs:517` constructs a root selection, a different job. No other entry lists `src/graph.rs` or `tests/graph.rs`. scoped at d03760fe"
+  },
+  {
+    "tag": "INPUT-SOURCE-DEPENDENCY-FAMILY",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "WHEN-BODY-LABEL-OWNED-BY-ITS-HOST"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/declared_input.rs",
+          "description": "The family's engine-side suite, modelled on `tests/prose_include.rs`: a hand-built payload declaring an input row, emitted, then read back off the lock."
+        },
+        {
+          "path": "sdk/src/generated/InputRow.ts",
+          "description": "The ts-rs export of the new seam row (written by `BLESS_SEAM_BINDINGS=1`, never by hand)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "New `InputRow { member, source_path }` beside `IncludeRow` (:3996) — its own type, not a reuse: an include's path pairs positionally with a body slot and an input's moves nothing, two concepts that happen to share two columns (`engineering.md`, \"A shared concept is one type\"). `Declarations` (:3510) gains `#[serde(default)] pub inputs: Vec<InputRow>`. Emit resolves each row through `resolve_source_dependency` in its own pass over the declaration family — not the projection loop at :1330, since an input rides any member, composed or not — with no UTF-8 decode (no bytes move, so a binary input is legal) and `target` left empty (0055 rejects the input-as-edge reading, so no graph surface changes). `INPUT_FAMILY = \"input\"` beside :2968-:2970; `write_rollup` (:502) takes the rows and writes them through `write_source_deps` (:517). `input_stale{,_from_doc}` beside `include_stale` (:3382-:3412); `source_dep_stale_from_doc` (:3281) grows a remedy parameter — the include and layout-import text unchanged, the input's reading: re-verify the member's claims against the input, then re-emit. A dangling input reuses `DriftError::DanglingImport` (:296), whose text names a reference, not an include."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "A third staleness call beside the two at :669-:676, on the same pre-parsed `lock_doc` and the same `harness_root_for_staleness` — and taking the root `fresh` clause, since FRESH-CLAUSE-JUDGES-STALENESS has already moved its siblings onto it."
+        },
+        {
+          "path": "sdk/src/generated/Declarations.ts",
+          "description": "Regenerated: the seam's declaration struct gains `inputs`."
+        },
+        {
+          "path": "sdk/src/generated/index.ts",
+          "description": "Regenerated barrel — `InputRow` re-exported."
+        },
+        {
+          "path": "tests/seam_bindings_current.rs",
+          "description": "`InputRow` joins the imported row list (:18-:23) and `fresh_bindings`, so a stale binding fails loud here."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "The source-dependency block (:278-:322) gains the `input` family: a third staleness read off the one pre-parsed document, with the lock read/parse counts pinned unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A member's inputs — the files its claims rest on — reach no lock row, so the only way to fingerprint one is to `include()` its bytes into a projection that does not want them.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Drift"
+    },
+    "tests": [
+      {
+        "path": "tests/declared_input.rs",
+        "asserts": "an input lands one `[[declaration.input]]` row with a hash and an empty target while the host projection's bytes are unchanged; moving the input fires one finding naming the member and the input, whose remedy is to re-verify then re-emit; a dangling input refuses before a byte is written; a non-UTF-8 input is legal"
+      },
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "the third staleness family adds no lock read and no lock parse"
+      }
+    ],
+    "acceptance": "`cargo test` green with `tests/declared_input.rs` added, `cargo clippy --all-targets -- -D warnings` clean, the blessed bindings committed and `tests/seam_bindings_current.rs` green, and `pnpm --dir sdk test` green against the regenerated `Declarations`.",
+    "notes": "0055's lock-row and remedy-text bullets; the authoring surface that fills this family is SDK-MEMBER-DECLARES-INPUTS. Blocked on FRESH so the finding is born under the clause rather than a fourth fixed `warn` a later entry has to sweep, and on the EOL fix so the new baseline is written in the comparator's vocabulary. scoped at d6dfdebb"
+  },
+  {
+    "tag": "SDK-MEMBER-DECLARES-INPUTS",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "INPUT-SOURCE-DEPENDENCY-FAMILY"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "The `Input` type (`{ kind: \"input\"; path; moduleUrl }`) and the `input(import.meta.url, \"./path\")` constructor land here, not in `prose.ts`: an input rides no text span and pairs with no body slot, so it belongs beside the member-grain framework keys. `Member` (:348) and `MemberInit` (:388) gain `readonly inputs?: readonly Input[]`, the member assembly at :484-:486 gains `inputs: init.inputs ?? []`, and `FRAMEWORK_KEYS` (:370) gains `\"inputs\"` — without that, `orderedFields` (:431) would push the key into the projected frontmatter as a typed field. The surface binds a member: an embedded value takes no `MemberInit`, and its claims are its host's."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Root-export `input` and the `Input` type on their own line — the prose line at :17-:18 stays the three prose constructors' (`root_exports.test.ts` walks the emitted `.d.ts`, so an unexported `Input` named by `MemberInit` fails there mechanically)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`inputRows(harness)` beside `includeRows` (:647-:673): one row per member input, in member-then-authored order, each path resolved against its own stating module (`fileURLToPath(new URL(input.path, input.moduleUrl))`) exactly as an include's is — never the workspace. `inputs:` joins the payload literal beside `includes:` (:1019), and `InputRow` joins the generated-type imports (:29)."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The lowering case: a member declaring one input lowers to one `declarations.inputs` row carrying the module-resolved absolute path, and its projected fields and body are byte-identical to the same member without it."
+        },
+        {
+          "path": "CHANGELOG.md",
+          "description": "An Unreleased entry: `inputs` is a new author-facing surface — a member may fingerprint a file its claims rest on without pulling the bytes into its projection, and a moved input reports under the freshness clause with a re-verify remedy."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A member cannot declare the files its claims rest on: the SDK offers only `include()`, which copies a target's bytes into the projection to buy a fingerprint.",
+    "per": {
+      "path": "specs/model/authoring.md",
+      "section": "The SDK"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "an authored `inputs: [input(import.meta.url, \"./x\")]` reaches `declarations.inputs` with the module-resolved path, and the member's projected fields and body are unchanged by its presence"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` plus `node --test`, `root_exports.test.ts` included) with the lowering case added, and the emitted payload carrying the input row the engine family already honours.",
+    "notes": "0055's SDK bullet — `inputs` on a member and its constructor. The consumer is the engine's `input` family (INPUT-SOURCE-DEPENDENCY-FAMILY), which this entry's rows fill; that ordering is why this rides second. scoped at d6dfdebb"
+  },
+  {
+    "tag": "LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "WHEN-BODY-LABEL-OWNED-BY-ITS-HOST",
+        "INPUT-SOURCE-DEPENDENCY-FAMILY"
+      ]
     },
     "dependsOnForks": [],
     "files": {
@@ -148,168 +351,6 @@
     ],
     "acceptance": "`cargo test` and `pnpm --dir sdk test` green with the regenerated embedded lock, `cargo clippy --all-targets -- -D warnings` clean, and hardening `locus-declared` alone leaves `fresh` advisory (0054's rejected one-predicate bundling, pinned).",
     "notes": "The last two of 0054's five fixed pushes, and the predicate 0054 kept separate from `fresh` so hardening a stale pin does not also harden the undeclared-document notes a read-only ground kind draws (its first rejected alternative). The dial case rides `tests/acceptance.rs`, beside the `fresh` one. Seven paths added: the same twin-pin and example-lock class the `fresh` fence capture surfaced. scoped at d32972e1"
-  },
-  {
-    "tag": "INPUT-SOURCE-DEPENDENCY-FAMILY",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/declared_input.rs",
-          "description": "The family's engine-side suite, modelled on `tests/prose_include.rs`: a hand-built payload declaring an input row, emitted, then read back off the lock."
-        },
-        {
-          "path": "sdk/src/generated/InputRow.ts",
-          "description": "The ts-rs export of the new seam row (written by `BLESS_SEAM_BINDINGS=1`, never by hand)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "New `InputRow { member, source_path }` beside `IncludeRow` (:3996) — its own type, not a reuse: an include's path pairs positionally with a body slot and an input's moves nothing, two concepts that happen to share two columns (`engineering.md`, \"A shared concept is one type\"). `Declarations` (:3510) gains `#[serde(default)] pub inputs: Vec<InputRow>`. Emit resolves each row through `resolve_source_dependency` in its own pass over the declaration family — not the projection loop at :1330, since an input rides any member, composed or not — with no UTF-8 decode (no bytes move, so a binary input is legal) and `target` left empty (0055 rejects the input-as-edge reading, so no graph surface changes). `INPUT_FAMILY = \"input\"` beside :2968-:2970; `write_rollup` (:502) takes the rows and writes them through `write_source_deps` (:517). `input_stale{,_from_doc}` beside `include_stale` (:3382-:3412); `source_dep_stale_from_doc` (:3281) grows a remedy parameter — the include and layout-import text unchanged, the input's reading: re-verify the member's claims against the input, then re-emit. A dangling input reuses `DriftError::DanglingImport` (:296), whose text names a reference, not an include."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "A third staleness call beside the two at :669-:676, on the same pre-parsed `lock_doc` and the same `harness_root_for_staleness` — and taking the root `fresh` clause, since FRESH-CLAUSE-JUDGES-STALENESS has already moved its siblings onto it."
-        },
-        {
-          "path": "sdk/src/generated/Declarations.ts",
-          "description": "Regenerated: the seam's declaration struct gains `inputs`."
-        },
-        {
-          "path": "sdk/src/generated/index.ts",
-          "description": "Regenerated barrel — `InputRow` re-exported."
-        },
-        {
-          "path": "tests/seam_bindings_current.rs",
-          "description": "`InputRow` joins the imported row list (:18-:23) and `fresh_bindings`, so a stale binding fails loud here."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "The source-dependency block (:278-:322) gains the `input` family: a third staleness read off the one pre-parsed document, with the lock read/parse counts pinned unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A member's inputs — the files its claims rest on — reach no lock row, so the only way to fingerprint one is to `include()` its bytes into a projection that does not want them.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Drift"
-    },
-    "tests": [
-      {
-        "path": "tests/declared_input.rs",
-        "asserts": "an input lands one `[[declaration.input]]` row with a hash and an empty target while the host projection's bytes are unchanged; moving the input fires one finding naming the member and the input, whose remedy is to re-verify then re-emit; a dangling input refuses before a byte is written; a non-UTF-8 input is legal"
-      },
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "the third staleness family adds no lock read and no lock parse"
-      }
-    ],
-    "acceptance": "`cargo test` green with `tests/declared_input.rs` added, `cargo clippy --all-targets -- -D warnings` clean, the blessed bindings committed and `tests/seam_bindings_current.rs` green, and `pnpm --dir sdk test` green against the regenerated `Declarations`.",
-    "notes": "0055's lock-row and remedy-text bullets; the authoring surface that fills this family is SDK-MEMBER-DECLARES-INPUTS. Blocked on FRESH so the finding is born under the clause rather than a fourth fixed `warn` a later entry has to sweep, and on the EOL fix so the new baseline is written in the comparator's vocabulary. scoped at d6dfdebb"
-  },
-  {
-    "tag": "SDK-MEMBER-DECLARES-INPUTS",
-    "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "INPUT-SOURCE-DEPENDENCY-FAMILY"
-      ]
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "The `Input` type (`{ kind: \"input\"; path; moduleUrl }`) and the `input(import.meta.url, \"./path\")` constructor land here, not in `prose.ts`: an input rides no text span and pairs with no body slot, so it belongs beside the member-grain framework keys. `Member` (:348) and `MemberInit` (:388) gain `readonly inputs?: readonly Input[]`, the member assembly at :484-:486 gains `inputs: init.inputs ?? []`, and `FRAMEWORK_KEYS` (:370) gains `\"inputs\"` — without that, `orderedFields` (:431) would push the key into the projected frontmatter as a typed field. The surface binds a member: an embedded value takes no `MemberInit`, and its claims are its host's."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Root-export `input` and the `Input` type on their own line — the prose line at :17-:18 stays the three prose constructors' (`root_exports.test.ts` walks the emitted `.d.ts`, so an unexported `Input` named by `MemberInit` fails there mechanically)."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`inputRows(harness)` beside `includeRows` (:647-:673): one row per member input, in member-then-authored order, each path resolved against its own stating module (`fileURLToPath(new URL(input.path, input.moduleUrl))`) exactly as an include's is — never the workspace. `inputs:` joins the payload literal beside `includes:` (:1019), and `InputRow` joins the generated-type imports (:29)."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "The lowering case: a member declaring one input lowers to one `declarations.inputs` row carrying the module-resolved absolute path, and its projected fields and body are byte-identical to the same member without it."
-        },
-        {
-          "path": "CHANGELOG.md",
-          "description": "An Unreleased entry: `inputs` is a new author-facing surface — a member may fingerprint a file its claims rest on without pulling the bytes into its projection, and a moved input reports under the freshness clause with a re-verify remedy."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A member cannot declare the files its claims rest on: the SDK offers only `include()`, which copies a target's bytes into the projection to buy a fingerprint.",
-    "per": {
-      "path": "specs/model/authoring.md",
-      "section": "The SDK"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "an authored `inputs: [input(import.meta.url, \"./x\")]` reaches `declarations.inputs` with the module-resolved path, and the member's projected fields and body are unchanged by its presence"
-      }
-    ],
-    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` plus `node --test`, `root_exports.test.ts` included) with the lowering case added, and the emitted payload carrying the input row the engine family already honours.",
-    "notes": "0055's SDK bullet — `inputs` on a member and its constructor. The consumer is the engine's `input` family (INPUT-SOURCE-DEPENDENCY-FAMILY), which this entry's rows fill; that ordering is why this rides second. scoped at d6dfdebb"
-  },
-  {
-    "tag": "WHEN-BODY-LABEL-OWNED-BY-ITS-HOST",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`stamp_clause_label` (:1605) recurses on a `when` body at :1619 with `None` for owner where the sibling line one function up passes `requirement_owner(...)` for a requirement's nested row. Pass the host row's freshly stamped label as the nested owner, so a body row addresses `<host-label>.<predicate>.<field>`; the doc names the rule beside the requirement-nesting one it copies."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "`clause_collision_diagnostics` (:279) walks kinds' own clauses, requirements' nested ones and a joined layer's, never a guard's body — so a body twin is unrefusable. Descend into each `when` row's `body`, with a site sentence naming the host clause's label the way the existing arms name the kind or the requirement."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Regenerated, not hand-edited: the eight body rows under the seven shipped `when` clauses take host-owned labels, so the two `required.source.url` twins (:438, :456 — one under the `url` guard, one under `git-subdir`) part."
-        },
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "`no_two_clause_rows_in_the_shipped_lock_share_a_label` carves body rows out at :198-200 ('Top-level rows only … their own collision, and not this assertion's'). Retire the carve-out and its comment; the uniqueness scan spans each `when` row's body."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "`a_when_clause_row_round_trips_the_lock` (:3317) reads back the body row's predicate and field; pin its emitted label too. The `clause-label-collision` case at :3393 gains a sibling putting two identical body rows under one guard."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A `when` body clause's label is owner-less, so the shipped lock carries `required.source.url` twice and no collision walk can see it.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "every clause row in the shipped lock — a `when` body's rows included — addresses itself uniquely, and a body label reads `<host-label>.<predicate>.<field>`"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "emit stamps a body row under its host's label, and two body rows sharing one address raise `clause.label-collision`"
-      }
-    ],
-    "acceptance": "`cargo test` green with the frozen lane's body carve-out gone: the regenerated `src/builtin_lock.toml` byte-matches the SDK-derived declarations and carries no duplicate label at any depth.",
-    "notes": "Decision 0057, bullets 1, 3 and 4. All eight shipped body rows declare `required` under `required` hosts, so no verdict moves here and no finding's spelling changes yet — the engine still prints the host's label until WHEN-BODY-SEVERITY-AND-ADDRESS-REACH-THE-READER. `.temper/lock.toml` carries no `when` row, so the dogfood is untouched. scoped at 64033b72"
   },
   {
     "tag": "WHEN-BODY-SEVERITY-AND-ADDRESS-REACH-THE-READER",
