@@ -63,11 +63,27 @@
         {
           "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
           "description": "Accepted snapshot for the gauntlet's diagnostics under the shipped root default."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "The root contract reaches no admissibility pass. `engine::admissibility(&contract, locus)` runs per kind (:43); the root selection is composed at :509 with no such call, so a member-grain clause in a root contract goes unjudged rather than refused. This entry is what first emits root rows, so it is where that refusal earns its consumer (the shipping commit 4b1508eb assigns it here by name). The root owns no `Locus` \u2014 its selection is the whole forest \u2014 so the call needs whichever locus value states that, or a root-scoped vacuity rule of its own."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "`inadmissibilities` (:177) reads the clause's `Locus` to decide vacuity and the enum names two member-grain cases (:153). A root-grain clause is the third; name it rather than defaulting a root contract into a member locus, which would answer the wrong vacuity question."
+        },
+        {
+          "path": "tests/root_contract.rs",
+          "description": "The scope's existing suite (shipped at 4b1508eb) gains the two halves this entry adds: the emitted default's rows lift back into the root contract, and a member-grain clause in a root contract is refused at load while `reachable` \u2014 which names no field \u2014 is admitted."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Already pins the absent-`kind` column's round trip (:769); the shipped default's rows ride that same lane, so the case widens from a synthesized row to the emitted one."
         }
       ],
       "retire": []
     },
-    "summary": "Nothing emits a root clause row: `harness()` takes no contract and no shipped root default exists, so every emitted and embedded lock leaves the root selection empty.",
+    "summary": "The shipped root default is empty: `harness()` takes no contract, so the regenerated embedded lock carries zero kind-less rows and the root fallback composes an empty contract.",
     "per": {
       "path": "specs/model/representation.md",
       "section": "The root member"
@@ -84,10 +100,14 @@
       {
         "path": "tests/builtin_lock_frozen.rs",
         "asserts": "the SDK-derived memberless lock byte-matches `src/builtin_lock.toml`, root rows included"
+      },
+      {
+        "path": "tests/root_contract.rs",
+        "asserts": "the emitted default's kind-less rows lift into the root contract; a member-grain root clause is refused at admissibility"
       }
     ],
     "acceptance": "`pnpm --dir sdk test` and `cargo test` green (the frozen lane byte-matches the regenerated embedded lock), `cargo clippy --all-targets -- -D warnings` clean.",
-    "notes": "The SDK and embedded halves are one entry because `tests/builtin_lock_frozen.rs` byte-compares a fresh SDK-derived lock against `src/builtin_lock.toml` \u2014 a default the SDK emits and the embedded lock lacks is a red gate in the same commit. `.temper/lock.toml` (the dogfood) is outside build's fence and re-emits on the next `chore(harness):` tick; until then the embedded root rows judge this repo under rows-or-default. scoped at 7b6dda62"
+    "notes": "Re-measured at db387262: `src/builtin_lock.toml` carries 94 clause rows and 0 kind-less ones, so `builtin::root_contract()` composes an empty contract and the rows-or-default fallback 4b1508eb shipped falls back to silence. The Rust half (lift, selection, judge, dial) is done; this entry is the SDK half plus the admissibility pass 4b1508eb deferred here by name. scoped at db387262"
   },
   {
     "tag": "REACHED-FROM-PREDICATE-AND-JUDGE",
@@ -100,27 +120,27 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "`Predicate::ReachedFrom { roots, via }` joins the closed enum (:132). `roots` is a requirement name \u2014 the closure's roots are its satisfiers, named exactly as `Membership`'s `target` names its source set (:318), so it rides the `target` column and no second naming scheme appears. `via` is the field set DEGREE-FIELD-SET-FILTER lands on the shared `fields` column. `key()` (:634) answers `reached-from`; `ranges_over_selection` (:664) is true beside `degree`; `target()` (:694) and `documented_field()` (:750) are `None` (it names no one field \u2014 the `mention-reachable` precedent) and `declared_keys` (:800) skips it; `predicate_from_row` (:543) decodes the `target` + `fields` columns and never the `field` one, which carries only the synthesized label segment."
+          "description": "`Predicate::ReachedFrom { roots, via }` joins the closed enum (:186). `roots` is a requirement name \u2014 the closure's roots are its satisfiers, named exactly as `Membership`'s `target` names its source set (:372), so it rides the `target` column and no second naming scheme appears. `via` is the field set DEGREE-FIELD-SET-FILTER landed on the shared `fields` column, which `Degree` (:382) already documents as `reached-from`'s too. `key()` (:696) answers `reached-from`; `ranges_over_selection` (:745) is true beside `degree`; `target()` (:764) and `documented_field()` (:812) are `None` (it names no one field \u2014 the `mention-reachable` precedent) and `declared_keys` (:865) skips it; `predicate_from_row` (:514) decodes the `target` + `fields` columns and never the `field` one, which carries only the synthesized label segment."
         },
         {
           "path": "src/engine.rs",
-          "description": "The set-predicate arms the variant rides: `judge` (:611) leaves it to the graph exactly as `degree` is left (:646), and the per-member arms at :265/:320/:367/:520/:1222 list it with the other selection predicates. `admissibility` (:451) gains its two vacuity cases, both by standing precedent: an empty `roots` names no requirement to root from (`membership`'s rule verbatim), and an empty `via` follows no field \u2014 the closure would be the root set, so every non-root member fires, the false positive a directionless `degree` is already refused for."
+          "description": "The set-predicate arms the variant rides: `judge` (:657) leaves it to the graph exactly as `degree` is left (:704), and the per-member arms at :301/:357/:405/:1354 list it with the other selection predicates. `inadmissibilities` (:177, `Degree`'s own vacuity cases at :502) gains its two, both by standing precedent: an empty `roots` names no requirement to root from (`membership`'s rule verbatim), and an empty `via` follows no field \u2014 the closure would be the root set, so every non-root member fires, the false positive a directionless `degree` is already refused for."
         },
         {
           "path": "src/graph.rs",
-          "description": "New `reached_from` beside `degree` (:307), taking the same `(&[Selection], &[ResolvedEdge], &[ResolvedEdge])`. Opt-in through `any_clause_of` (:276), so a corpus declaring no such clause does no closure work. Per clause: the roots are the members of the `Selector::OptIn(roots)` selection \u2014 read off the same `selections` slice `engine::out_of_set` reads for `membership`, not a second satisfier walk \u2014 then a forward BFS over the via-filtered adjacency, reusing the per-clause field filter DEGREE-FIELD-SET-FILTER factors out rather than re-filtering. A visited set makes the closure well-defined over cycles; a root holds trivially by construction. One diagnostic per selected member outside the closure, at the clause's own severity, naming the roots requirement and the via set."
+          "description": "New `reached_from` beside `degree` (:417), taking the same `(&[Selection], &[ResolvedEdge], &[ResolvedEdge], &BTreeMap<&str, &[Features]>)`. Opt-in through `any_clause_of` (:315), so a corpus declaring no such clause does no closure work. Per clause: the roots are the members of the `Selector::OptIn(roots)` selection \u2014 read off the same `selections` slice `engine::out_of_set` reads for `membership`, not a second satisfier walk \u2014 then a forward BFS over the via-filtered adjacency, reusing the per-clause field filter DEGREE-FIELD-SET-FILTER factored out rather than re-filtering. A visited set makes the closure well-defined over cycles; a root holds trivially by construction. One diagnostic per selected member outside the closure, at the clause's own severity and carrying its guidance (`degree` :608 is the shape), naming the roots requirement and the via set."
         },
         {
           "path": "src/gate.rs",
-          "description": "Wire `graph::reached_from` after the `degree` call (:563), reading the hoisted `resolved_edges` (:548) and `mention_edges` the two graph judges above it already share, plus the one `selections` list that holds both the opt-in and by-kind bindings (:497-:499) \u2014 the roots resolve off it, so no new corpus walk enters the gate."
+          "description": "Wire `graph::reached_from` after the `degree` call (:593), reading the hoisted `resolved_edges` (:575) and `mention_edges` the two graph judges around it already share, plus the one `selections` list that holds the opt-in, by-kind and root bindings (:505-:517) \u2014 the roots resolve off it, so no new corpus walk enters the gate."
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow::target`'s doc (:3765) widens to two owners \u2014 `membership`'s allowed-set source and `reached-from`'s roots requirement \u2014 and `to_table` (:4737) / `from_table` (:4803) write and read it for either predicate. The via set needs no column of its own: it is the `fields` column DEGREE-FIELD-SET-FILTER adds."
+          "description": "`ClauseRow::target`'s doc (:3800) widens to two owners \u2014 `membership`'s allowed-set source and `reached-from`'s roots requirement \u2014 and `to_table` (:4766) / `from_table` (:4843) write and read it for either predicate. The via set needs no column of its own: it is the `fields` column (:3813) DEGREE-FIELD-SET-FILTER added, whose doc already names this predicate as its second consumer. Riding this file's opening: `EmitOwnedEntry::path`'s doc (:3451) still points at `install::matches_projection`, renamed `matched_projection` at 60775513 (`install.rs:992`)."
         },
         {
           "path": "src/schema.rs",
-          "description": "The keystroke-schema skip arm (:115-:128, where `mention-reachable` and `degree` already sit): a graph-scope predicate constrains no field of a document, so it contributes nothing to an emitted JSON Schema."
+          "description": "The keystroke-schema skip arm (:110-:131, where `mention-reachable`, `degree` and `reachable` already sit): a graph-scope predicate constrains no field of a document, so it contributes nothing to an emitted JSON Schema."
         },
         {
           "path": "sdk/src/generated/ClauseRow.ts",
@@ -140,12 +160,12 @@
         },
         {
           "path": "tests/check_cost.rs",
-          "description": "`gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (:411) enumerates the hoisted walk's consumers; `reached_from` joins that list, and the opt-in claim is pinned the way `degree`'s is \u2014 no closure runs when no clause declares one."
+          "description": "`gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (:433) enumerates the hoisted walk's consumers; `reached_from` joins that list, and the opt-in claim is pinned the way `degree`'s is \u2014 no closure runs when no clause declares one."
         }
       ],
       "retire": []
     },
-    "summary": "No predicate answers \"is this member connected at all\": `degree` counts one hop, so the first orphan of a dead chain fires and none behind it.",
+    "summary": "No predicate answers \"is this member reached from the roots the author named\": `degree` counts one hop, so the first orphan of a dead chain fires and none behind it.",
     "per": {
       "path": "specs/model/contract.md",
       "section": "clause"
@@ -165,7 +185,69 @@
       }
     ],
     "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --all --check` green, with `src/builtin_lock.toml` byte-unchanged \u2014 0056 ships the predicate in no default contract. Oracle: a corpus whose requirement `entrypoint` has one satisfier `a`, with `a` routing to `b` and `b` to `c` while `d` links to nothing \u2014 a `reached-from` clause over the kind, rooted at `entrypoint` via `routes_to`, fires on `d` alone, where a one-hop `degree` floor fires on `d` and `a` both; adding a `b`\u2194`c` cycle leaves that verdict unchanged.",
-    "notes": "0056's Consequences name three parts: the predicate, its judge beside `degree`, and the SDK constructor (SDK-REACHED-FROM-CONSTRUCTOR). Roots are named as `membership` names its target; `via` is 0052's field set, so DEGREE-FIELD-SET-FILTER is a real parent; acyclicity (a cyclic field graph must stay legal to judge) shipped at 09ad535a. ROOT-CONTRACT-SELECTION-AND-REACHABLE widens the same vocabulary seam and the same six files; it is serialized first, not duplicated. scoped at 3643f835"
+    "notes": "0056's Consequences name three parts: the predicate, its judge beside `degree`, and the SDK constructor (SDK-REACHED-FROM-CONSTRUCTOR). Roots are named as `membership` names its target; `via` is 0052's field set, shipped at b1b63ddc with this predicate named in its doc. Distinct from `reachable` (4b1508eb), which is world/registration-rooted over the whole forest: this one is author-rooted at a requirement's satisfiers over a chosen field set. Its serialization parent shipped. scoped at db387262"
+  },
+  {
+    "tag": "ROOT-REACHABLE-GUIDANCE-REACHES-ITS-FINDING",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`reachable` (:1006) takes `severity: Severity` and its `unreachable` constructor (:1274) builds a bare `Diagnostic` \u2014 the one graph judge whose finding carries no guidance. Both siblings take `&[Selection]`, locate their own clause through `any_clause_of` (:315) and end `.with_guidance(clause.guidance.clone())` (`degree` :608, `mention_reachable` :970). Take the clause here the same way, so severity and guidance arrive through one channel instead of one threaded and the other dropped. The doc at :999 states `severity` as the clause's declaration and states nothing about guidance."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "The `if let Some(clause)` at :608 hand-rolls the opt-in test `graph::any_clause_of` performs for the two siblings, purely to reach `clause.severity` (:625). Hand the judge the clause (or the selections it already holds), which both puts the opt-in test in one home and carries the guidance the author wrote."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "The reachability module's direct calls (:1879-:2062) pass `Severity::Error`/`Warn` positionally and move to the new signature. One case fires: a dead registration under a clause declaring guidance reports that guidance on the finding."
+        },
+        {
+          "path": "tests/installed_plugin_kind.rs",
+          "description": ":192 calls `temper::graph::reachable` directly \u2014 the caller 4b1508eb named as the reason it left the signature alone."
+        },
+        {
+          "path": "tests/known_marketplace_kind.rs",
+          "description": ":164, the same direct call over the marketplace half."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": ":494 calls the judge inside the closure-cost case; it moves with the signature and the cost claim is unchanged."
+        },
+        {
+          "path": "tests/directive_classing.rs",
+          "description": "Drives the same judge for the import-closure half of liveness; moves with the signature."
+        },
+        {
+          "path": "tests/root_contract.rs",
+          "description": "The gate-level suite that already pins the root clause's severity, label and dial reach: add that its finding carries the clause's own guidance, the one channel of the four still dropped."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A root `reachable` clause's guidance never reaches its finding: the gate has the clause in hand and passes only its severity, where both sibling graph judges attach it.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [
+      {
+        "path": "tests/root_contract.rs",
+        "asserts": "a `root.reachable` finding reports the guidance its clause declared, beside the severity and label already pinned"
+      },
+      {
+        "path": "tests/graph.rs",
+        "asserts": "the judge attaches the clause's guidance to every unreachable diagnostic and stays silent with no clause"
+      }
+    ],
+    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green, with `src/builtin_lock.toml` byte-unchanged \u2014 no row moves. Oracle: a root contract whose `reachable` clause carries guidance produces a finding rendering that guidance, where 0.0.18 renders the message alone.",
+    "notes": "4b1508eb's first named deviation, verified at db387262: the gate finds the clause (:608) and drops every channel but severity. `contract.md` (\"clause\") makes guidance the channel the gate teaches through at the moment of failure, and the two sibling judges already honor it \u2014 this is the third. Shares `graph.rs`/`gate.rs` with REACHED-FROM-PREDICATE-AND-JUDGE and ships first: it settles the judge signature that entry's new judge copies. scoped at db387262"
   },
   {
     "tag": "SDK-REACHED-FROM-CONSTRUCTOR",
@@ -577,6 +659,56 @@
     ],
     "acceptance": "`pnpm --dir sdk test` green (strict `tsc` plus `node --test`, `root_exports.test.ts` included) with the lowering case added, and the emitted payload carrying the input row the engine family already honours.",
     "notes": "0055's SDK bullet \u2014 `inputs` on a member and its constructor. The consumer is the engine's `input` family (INPUT-SOURCE-DEPENDENCY-FAMILY), which this entry's rows fill; that ordering is why this rides second. scoped at d6dfdebb"
+  },
+  {
+    "tag": "RESIDUE-KEY-SHADOWS-A-TYPED-FIELD",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`orderedFields` (:495) returns `[...head, ...typed, ...residueFields(init)]` with no key check and `residueFields` (:504) key-sorts the bag blind, so a residue key the surface also types is projected twice \u2014 residue last, and the engine's writer collects the pair list into a map (`drift.rs:2521`), so the untyped value wins silently. Both halves of the partition are in hand at that one call, which is where the refusal belongs; `RESERVED_LEAF` (:424) is the shape precedent \u2014 a framework name refused at the constructor, never resolved. A compile-time narrowing of the bag's key type against `keyof T` is the stronger front door where it types cleanly, but cannot be the only half: the erased caller reaches the same splice."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`Settings`' and `SettingsLocal`'s `residue?: Readonly<Record<string, unknown>>` declarations (`SettingsLocal`'s at :1234) take whatever narrowed bag type `kind.ts` exports, and their docs state the partition `builtins.md` draws: a key this surface types is spelled as that field, never here."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export the bag type if the narrowing lands as one \u2014 a custom kind's surface declaring `residue?` is authored outside this package, and an unexported type ships nowhere."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "The refusal: a member init spelling a typed key inside `residue` is rejected \u2014 `@ts-expect-error` for the compile-time half (the suite's `tsc -p` pass fails on a directive that stops firing) and a thrown-refusal assertion for the erased one."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Pin that no projection can carry one key twice, and that the non-colliding case is untouched: a residue key the surface does not type still splices flat, key-sorted, after the typed fields."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The residue bag silently overrides a typed field: the splice takes no collision check, so a residue key the surface also types projects the untyped value and drops the typed one.",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "a residue key colliding with a key the surface types is refused, at compile time and at the constructor"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "no emitted field list carries one key twice; a non-colliding residue key still projects flat and key-sorted"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` (strict `tsc` + `node --test`) green. `cargo test` is untouched \u2014 the wire is unchanged and no lock row moves; the engine's field-list-to-map collect stays the writer's, since the partition is the authoring surface's to hold.",
+    "notes": "b0d8cab0's named corner cut, re-measured at db387262. `builtins.md` partitions the key space \u2014 documented keys typed, the unschematized remainder residue \u2014 so a key in both is a mis-spelling, not an override. The objection, recorded: residue could be read as a deliberate escape hatch; rejected, since that makes the bag a second spelling for one typed field. scoped at db387262"
   },
   {
     "tag": "TAP-RECORD-FIXTURE-ONE-HOME",
