@@ -707,6 +707,39 @@ test("the settings kinds open a `residue` channel — the untyped remainder spel
   assert.deepEqual(misspelledLocal.fields, [["autoMemoryEnabld", true]]);
 });
 
+test("a residue key the surface also types is refused — the bag is the remainder, never a second spelling", () => {
+  // `builtins.md` partitions the file's key space: documented keys typed, the
+  // unschematized remainder residue. A key in both is a mis-spelling, and a silent one
+  // left to emit — the engine's writer collects the field pairs into a map, so the
+  // residue half, spliced last, would take the typed value's place.
+
+  // The front door is the bag's type, narrowed against the surface's own keys. Only
+  // `tsc` tells this call from a legal one — this suite's `tsc -p` pass is where the
+  // refusal is held, and a refusal that stopped firing would fail it on the unused
+  // directive alone. Nothing throws here: `model` is spelled once, in the wrong half.
+  const shadowed = settings({
+    name: "settings",
+    // @ts-expect-error `model` is a key this surface types — it is spelled as that field.
+    residue: { model: "opus" },
+  });
+  assert.deepEqual(shadowed.fields, [["model", "opus"]]);
+
+  const shadowedLocal = settingsLocal({
+    name: "settings.local",
+    // @ts-expect-error the same refusal on the overlay half.
+    residue: { outputStyle: "explanatory" },
+  });
+  assert.deepEqual(shadowedLocal.fields, [["outputStyle", "explanatory"]]);
+
+  // The narrowing cannot be the only half: a bag the program computed reaches the same
+  // splice with its keys erased, so the constructor refuses again over what it holds.
+  const computed: Readonly<Record<string, unknown>> = { permissions: { allow: [] } };
+  assert.throws(
+    () => settings({ name: "settings", permissions: { allow: ["Bash(cargo test:*)"] }, residue: computed }),
+    /`residue` key `permissions` is already a field this member projects/,
+  );
+});
+
 test("the residue channel is opt-in by type — a closed-frontmatter kind still refuses the key", () => {
   // `residue` is reserved framework-wide, so the *mechanics* are kindless: any init
   // carrying the bag splices it. What keeps the channel from silently widening every

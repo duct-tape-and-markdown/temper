@@ -78,6 +78,7 @@ export type {
   Member,
   MemberInit,
   Registration,
+  Residue,
   ResolvedEmbeddedMemberCollectionEntry,
   ResolvedEmbeddedMemberValue,
   Shape,

@@ -438,6 +438,18 @@ const RESERVED_LEAF = "prose";
 const RESIDUE_KEY = "residue";
 
 /**
+ * The bag a surface `T` declares its {@link RESIDUE_KEY} channel as — the keys `T` does
+ * *not* type, and only those. The two halves partition the format's key space, so a key
+ * in both is a mis-spelling rather than an override: open by key, then narrowed against
+ * `keyof T`, which leaves a typed key's slot here holding nothing a value can fill.
+ *
+ * The narrowing is the front door, never the whole gate — a bag the program computed
+ * arrives as a bare `Record<string, unknown>` and types fine, so the constructor refuses
+ * the collision again over the keys it actually holds ({@link orderedFields}).
+ */
+export type Residue<T> = Readonly<Record<string, unknown>> & { readonly [K in keyof T]?: never };
+
+/**
  * The init a kind constructor takes — the framework keys plus the kind's typed fields `T`.
  * {@link RESIDUE_KEY} is a framework key too, deliberately not spelled below: a kind opts
  * into that channel through its own surface `T`.
@@ -489,27 +501,50 @@ function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readon
   const typed: Array<readonly [string, unknown]> = [];
   for (const [key, value] of Object.entries(init)) {
     if (!FRAMEWORK_KEYS.has(key)) typed.push([key, value]);
- }
+  }
   const head: Array<readonly [string, unknown]> =
     facts.identityField !== undefined ? [[facts.identityField, init.name]] : [];
-  return [...head, ...typed, ...residueFields(init)];
+  const projected = [...head, ...typed];
+  return [...projected, ...residueFields(facts, init, projected)];
 }
 
 /**
- * The init's residue bag as projected fields, key-sorted. The bag is a record, so it
- * carries no authored order to preserve — sorting is what makes the projection a
- * function of the keys alone, the same stability the harness-level residue rows already
- * take (`declarations.ts`'s `settingsRows`).
+ * The init's residue bag as projected fields, key-sorted and disjoint from what the
+ * member already projects. The bag is a record, so it carries no authored order to
+ * preserve — sorting is what makes the projection a function of the keys alone, the same
+ * stability the harness-level residue rows already take (`declarations.ts`'s
+ * `settingsRows`).
+ *
+ * # Throws
+ * If a residue key is one `projected` already carries. The bag holds what the surface
+ * does not type, so a key in both is a mis-spelling, not an override — and a silent one
+ * downstream, since the engine's writer collects the field list into a map and the
+ * residue pair, spliced last, would take the typed value's place.
  */
-function residueFields(init: MemberInit<object>): Array<readonly [string, unknown]> {
+function residueFields(
+  facts: KindFacts,
+  init: MemberInit<object>,
+  projected: ReadonlyArray<readonly [string, unknown]>,
+): Array<readonly [string, unknown]> {
   const residue = (init as { readonly [RESIDUE_KEY]?: Readonly<Record<string, unknown>> })[RESIDUE_KEY];
   if (residue === undefined) return [];
+  const already = new Set(projected.map(([key]) => key));
+  const fields: Array<readonly [string, unknown]> = [];
   // Default `sort()` is UTF-16 code-unit order — the same total order `compareStrings`
   // gives every declaration family, reached without importing `declarations.ts` (which
   // imports `builtins.ts`, which imports this module).
-  return Object.keys(residue)
-    .sort()
-    .map((key): readonly [string, unknown] => [key, residue[key]]);
+  for (const key of Object.keys(residue).sort()) {
+    if (already.has(key)) {
+      throw new Error(
+        `member \`${init.name}\` of kind \`${facts.name}\`: \`${RESIDUE_KEY}\` key \`${key}\` is ` +
+          `already a field this member projects — the bag carries the keys the kind's surface ` +
+          `does not type, so spell this one as the field it is ` +
+          `(specs/builtins.md, "The shipped kinds").`,
+      );
+    }
+    fields.push([key, residue[key]]);
+  }
+  return fields;
 }
 
 /**

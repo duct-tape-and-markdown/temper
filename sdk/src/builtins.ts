@@ -11,7 +11,7 @@
  */
 
 import { kind } from "./kind.js";
-import type { KindDefinition } from "./kind.js";
+import type { KindDefinition, Residue } from "./kind.js";
 import type { Prose } from "./prose.js";
 import {
   allowedChars,
@@ -1234,10 +1234,11 @@ export interface SettingsLocal {
    * The opaque residue — every documented-but-untyped top-level key this overlay carries,
    * projected flat and key-sorted after the typed fields above. The settings schema is
    * large and version-evolving, so 0036 settles the unschematized remainder opaque and
-   * *named*: this bag is the name. A key typed above belongs above, never here
+   * *named*: this bag is the name. The two halves partition the file's key space, which
+   * the bag's type holds: a key typed above belongs above and is unspellable here
    * (code.claude.com/docs/en/settings, retrieved 2026-07-16).
    */
-  readonly residue?: Readonly<Record<string, unknown>>;
+  readonly residue?: Residue<SettingsLocal>;
 }
 
 /**
@@ -1343,12 +1344,14 @@ export interface Settings {
    * The opaque residue — every documented-but-untyped top-level key the committed file
    * carries, projected flat and key-sorted after the typed fields above. The settings
    * reference documents several hundred keys and gains more, so the remainder is opaque
-   * and *named* rather than indicted; this bag is the name. It is not an escape hatch for
-   * the three collection addresses: `hooks`, `enabledPlugins` and `extraKnownMarketplaces`
-   * are their kinds' to author, so a key of those names does not belong here either
+   * and *named* rather than indicted; this bag is the name. The two halves partition the
+   * file's key space, which the bag's type holds: a key typed above belongs above and is
+   * unspellable here. Nor is it an escape hatch for the three collection addresses:
+   * `hooks`, `enabledPlugins` and `extraKnownMarketplaces` are their kinds' to author, so
+   * a key of those names does not belong here either
    * (code.claude.com/docs/en/settings-reference, retrieved 2026-09-22).
    */
-  readonly residue?: Readonly<Record<string, unknown>>;
+  readonly residue?: Residue<Settings>;
 }
 
 /**

@@ -1824,6 +1824,39 @@ test("a settings member's residue lowers to top-level settings.json keys, after 
   assert.deepEqual(result.settings, []);
 });
 
+test("no member's projected fields carry one key twice, residue-bearing members included", () => {
+  // The wire is a pair list, but the engine's writer collects it into a map — so a key
+  // projected twice is not an ordering question, it is the earlier value dropped in
+  // silence. Nothing the authoring face emits can carry one: the residue splice is the
+  // only way two halves of a member reach the same list, and it refuses a collision at
+  // the constructor.
+  const h = harness({
+    members: [
+      ...projectedHarness().members,
+      settings({
+        name: "settings",
+        model: "opus",
+        residue: { worktree: { bgIsolation: "none" }, alwaysThinkingEnabled: true },
+      }),
+    ],
+  });
+
+  const result = emit(h);
+
+  for (const member of result.members) {
+    const keys = member.fields.map(([key]) => key);
+    assert.deepEqual([...new Set(keys)].sort(), [...keys].sort(), `\`${member.name}\` projects a key twice`);
+  }
+
+  // And the non-colliding bag is untouched by the check: still flat and key-sorted
+  // behind the typed field, never reordered or dropped.
+  assert.deepEqual(result.members.find((m) => m.kind === "settings")!.fields, [
+    ["model", "opus"],
+    ["alwaysThinkingEnabled", true],
+    ["worktree", { bgIsolation: "none" }],
+  ]);
+});
+
 test("a harness with no residual settings carries an empty settings family", () => {
   const result = emit(projectedHarness());
   assert.deepEqual(result.settings, []);
