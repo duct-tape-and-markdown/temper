@@ -172,48 +172,6 @@
     "notes": "0016's whole-conversion bar applied to the one file three registration kinds already share: the lift converts, it never leaves a key behind. The assembly-level `settings` bag (`sdk/src/assembly.ts:55`, 'a shrinking list') is the pre-0050 channel for the same keys; whether it retires once the member owns them is not ruled by 0050 and is left alone here. scoped at cb0f52c4"
   },
   {
-    "tag": "DEGREE-LABEL-CARRIES-ITS-FIELD-SET",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`clauseField` (:177) answers `predicate.field` for every predicate but the two section ones, and `degree()` (`sdk/src/contract.ts:269`) names no field — so every degree row lowers `field: undefined` and `stamp_clause_label` (`src/drift.rs:1594`) compiles the bare `<kind>.degree`. Add the `degree` arm beside `require_sections` (:182), whose comment already states the rule this reuses verbatim: the set sorted and `+`-joined, \"so the segment reads as the set it is and two different heading lists cannot fold to one label\". An unfiltered bound keeps today's bare label — one clause carries both directions, so two unfiltered rows on one kind are a redundancy the author collapses, never a distinction the address must hold."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "The writer's half: a kind whose `expect` carries two `degree` clauses filtered to different field sets lowers two rows whose `field` columns are the joined sets, and an unfiltered one still lowers `field: undefined`. `compileDeclarations` stamps no `label` (emit does), so the label itself is the engine-side pin below."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "The seam's own gate, driving the real writer: a `common::wire_sdk_harness` program (:149 in `tests/common/mod.rs`) declaring two filtered `degree` clauses on one kind emits, and `check` over the emitted workspace is green with two distinct labels — where today `clause_collision_diagnostics` (`src/admissibility.rs:279`) errors `clause.label-collision`, whose remedy line (\"drop the rest, or move one onto a field of its own\") a degree clause cannot take. Beside `emit_cli_fails_loud_when_the_sdk_program_is_broken` (:2191), the file's existing home for a real-program case."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A `degree` clause's label drops its field filter, so two filtered bounds on one kind both compile `<kind>.degree` and admissibility refuses the corpus.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "a program declaring two `degree` clauses filtered to different field sets emits and checks green, each clause printing its own address — the pre-fix tree reports `clause.label-collision` at error on the same program"
-      },
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a filtered `degree` clause lowers its field set into the row's `field` column, `+`-joined and sorted; an unfiltered one lowers `field: undefined`"
-      }
-    ],
-    "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `pnpm --dir sdk test` green, with `src/builtin_lock.toml` byte-unchanged — `supporting-doc.degree` is the one shipped degree row and it declares no filter, so no committed label moves. Oracle: the two-clause program above.",
-    "notes": "Swept from 61092c95, which shipped the filter that makes two degree clauses on one kind meaningful without giving either an address — `contract.md`: a label is the clause's address, and `pipeline.md` refuses two rows under one. SDK-REACHED-FROM-CONSTRUCTOR already plans this synthesis for `reached-from` and gains this as a parent, so it follows the precedent rather than inventing a second one. Ripple: `clauseField` has one caller and `wire_sdk_harness` gains one. scoped at 9993fc0d"
-  },
-  {
     "tag": "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
     "gate": {
       "kind": "blockedBy",
@@ -484,8 +442,7 @@
       "kind": "blockedBy",
       "tags": [
         "REACHED-FROM-PREDICATE-AND-JUDGE",
-        "ROOT-DEFAULT-CONTRACT-SHIPS",
-        "DEGREE-LABEL-CARRIES-ITS-FIELD-SET"
+        "ROOT-DEFAULT-CONTRACT-SHIPS"
       ]
     },
     "dependsOnForks": [],
