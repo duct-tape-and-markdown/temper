@@ -1,139 +1,8 @@
 [
   {
-    "tag": "REQUIREMENT-CLAUSES-REACH-THE-MEMBER-JUDGE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`judge` (:600) dispatches the six set predicates and drops every member-grain one under the comment \"Every other predicate binds to a member, not a set\" (:625) — true of a kind selection, whose member-grain half `validate` reads off the identical contract, and false of an opt-in selection, whose clauses reach `validate` nowhere (it is called only over kind contracts, `gate.rs:44`). Add the member-grain pass over `selection.members`, reusing `evaluate` so one definition of every predicate serves both bindings rather than a second copy drifting beside it. `decide`'s only use of its `Contract` argument is `closed_keys`' declared-key set (:1019), so the selection's own clauses are that scope here: a requirement declaring `closed-keys` beside its own `required`/`optional` closes its satisfiers to exactly what it declares — decidable, symmetric with a kind's contract, and it invents no machinery. The finding carries the clause's own label, which `roster::selections` already stamps under `requirement.<name>` (`contract::requirement_owner`)."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "`kind_selections` (:700) documents the existing split in so many words — \"`engine::judge` reads the ones that range over the selection and `engine::validate` has already read the member-grain ones off the identical contract\" — so the new pass must be scoped to opt-in selections or every kind clause double-reports. Wire it beside `engine::judge` (:532), after the dial's selection site (:514) so a dialed severity reaches these findings like any other, and record the scoping in `kind_selections`'s doc so the split stays one statement, not two."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "`selections` (:53) binds a requirement's own clauses plus the `kind` narrowing clause; `admissibility` (c) (:158) already admits member-grain predicates there via `engine::inadmissibilities`. The module doc (:5-6) and the `a_requirements_clauses_admit_every_predicate_this_scope_judges` case (:743) both assert this facet \"carries a judge\" — currently true of the five set predicates and false of everything else. Correct both statements where the fix makes them true, and extend the admissibility case's counterpart so the admit/judge pair is asserted together."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "The acceptance case, end to end through the real binary: a requirement whose `clauses` carry `required` on a field its satisfier lacks — silent and exit 0 today, a finding under the requirement's own label after. A vacuity pin asserts the satisfier set is non-empty before asserting the verdict (`specs/process/engineering.md`, \"A green verdict is proven non-vacuous\"), and the empty-selection case is spelled explicitly."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A requirement's member-grain clauses reach no judge: `judge` reads only set predicates and `validate` runs over kind contracts alone, so a `required` bound by opt-in is silent.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "selection"
-    },
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a `required` clause on a requirement fires against a satisfier missing the field, at the requirement's own label, with a vacuity pin on the satisfier set; and a kind's own member-grain clause still reports exactly once, never twice"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, `src/builtin_lock.toml` byte-unchanged and the gauntlet snapshots unmoved (no fixture requirement carries a member-grain clause). Oracle (the inbox repro): requirement `gate` with `required(\"zz_missing_field\")`, opted into by rule `style`, fails the run naming `requirement.gate.required.zz_missing_field` — exit 0 and no output today.",
-    "notes": "Routed from the inbox note observed at f8bb2e07, re-verified at HEAD: `roster.rs:192` calls `engine::judge` alone and `engine::validate` has two callers, `gate.rs:44` (kind contracts) and `install.rs:1325`. Spec-decided, no fork — `contract.md` \"selection\": the quantifier is the clause's grain, so a `required` means the same bound by kind or by opt-in. scoped at bf85c672"
-  },
-  {
-    "tag": "KIND-ROW-LEAF-SET-COLUMN",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`KindFactRow` (:3559) gains a new `leaves: Vec<String>` column spelled exactly as `registration` (:3597) — `#[serde(default)]` plus `#[ts(as = \"Option<Vec<String>>\", optional)]` — the kind's leaf set, empty for a kind whose declaration carries none. `to_table` (:4482) inserts it through `string_array` only when non-empty; `from_table` (:4530) reads `opt_str_array(table, \"leaves\")?.unwrap_or_default()`, so no committed lock re-spells (the tolerant round-trip every optional fact takes). The two round-trip cases at :5672/:5697 gain the column's own pair: a row carrying leaves round-trips unchanged, a row carrying none emits no key."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`narrate_hosted_kinds` (:1062) takes the `kind_facts` slice `narrate_kind` (:609) already holds and renders each hosted kind's declared leaf set — the strand 0053 names, where `corpus_leaves` (:1112) says \"no member of it is in this surface yet\" today. Precedence: a row's declared set wins wherever present (the type is the declaration), and the corpus union stays the fallback for a hosted kind whose row carries none. The hosted kind's *own* `narrate_kind` pass and its `declares_a_locus` guard (:674) are untouched — 0053 names the hosted-kinds strand and nothing wider."
-        },
-        {
-          "path": "src/test_support.rs",
-          "description": "`kind_fact_row` — the shared base LOCK-ROW-FIXTURE-ONE-HOME(src) lands — gains `leaves: Vec::new()`. Once the in-src spellings collapse onto it, this one line is the whole in-src cost of the new column."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "Expected no-op, fenced for safety: its twelve `KindFactRow` spellings (`spec_row` :1498 and the lift cases) collapse onto `test_support::kind_fact_row` under the named parent, whose oracle leaves `src/test_support.rs` the only exhaustive tail in `src/`. A surviving straggler is then a one-line `leaves: Vec::new()` fill rather than a fence revert."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "Same expected no-op: `kind_row` (:719) and the five collision literals collapse onto the shared base under the parent; fenced so a straggler is a one-line fill."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "Same expected no-op: the one inline `crate::drift::KindFactRow` literal (:609) inside a `Declarations` fixture collapses onto the shared base under the parent."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "The three exhaustive builders — `skill_kind_facts` (:635), `rule_kind_facts` (:656), `kind_facts` (:680) — each gain `leaves: Vec::new()`. The struct-update call sites across `tests/` ride unchanged, which is why the integration ripple is three lines and not a hundred."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "Three exhaustive literals (:557, :835, :855) that do not route through `common::kind_facts` — each gains the empty column, or collapses onto the shared builder while the file is open."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "`relocated_rule` (:208), the file's one exhaustive literal."
-        },
-        {
-          "path": "tests/prose_include.rs",
-          "description": "`rule_kind` (:28), the file's one exhaustive literal."
-        },
-        {
-          "path": "tests/layout_prose_import.rs",
-          "description": "`skill_facts` (:118), the file's one exhaustive literal — `layout_kind` (:26) already spreads and rides unchanged."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The kind row's declaration round-trip home: a row carrying a leaf set survives write→read byte-identically, and a row carrying none emits no `leaves` key — the lock-side proof beside the existing kind-row cases."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "The `explain` proof: a host admitting an embedded kind whose row carries a leaf set narrates those leaves with zero members of that kind in the surface — the adopter's moment 0053 serves — and a hosted kind with members but no declared set still narrates the corpus union."
-        },
-        {
-          "path": "sdk/src/generated/KindFactRow.ts",
-          "description": "Generated, never hand-edited: re-blessed with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` once the Rust row moves."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The lock's kind row carries no leaf set, so `explain kind` can teach an adopter nothing about a hosted kind no member of which exists yet.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a kind row's leaf set survives write→read byte-identically, and a row declaring none emits no `leaves` key"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "`explain kind:<host>` names a hosted kind's declared leaves where the surface holds no member of it, and falls back to the corpus union where the row declares none"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle: `explain kind:<host>` over a lock whose hosted kind's row carries `leaves` and whose corpus holds no member of that kind names the leaves in place of \"no member of it is in this surface yet\"; a row declaring no leaf set writes no `leaves` key, so a committed lock is untouched.",
-    "notes": "Decision 0053 (a0e3e2aa) names this entry's parts: the column on `KindFactRow` and the `explain` strand; the SDK's lowering is SDK-KIND-LEAF-SET-LOWERING. The declared-set-wins precedence is plan's reading of 0053's \"the type is the declaration\" — the decision speaks only to the empty-corpus branch. Three parents, all shared-file: drift.rs/test_support.rs, read.rs/read_verbs.rs, graph.rs. scoped at 98e9e496"
-  },
-  {
     "tag": "WHEN-LABEL-CARRIES-ITS-GUARD-VALUES",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "KIND-ROW-LEAF-SET-COLUMN"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -189,7 +58,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "KIND-ROW-LEAF-SET-COLUMN",
         "WHEN-LABEL-CARRIES-ITS-GUARD-VALUES"
       ]
     },
@@ -363,10 +231,7 @@
   {
     "tag": "SDK-KIND-LEAF-SET-LOWERING",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "KIND-ROW-LEAF-SET-COLUMN"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -455,7 +320,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "KIND-ROW-LEAF-SET-COLUMN",
         "SETTINGS-KIND-SHIPS(builtin)"
       ]
     },
@@ -641,8 +505,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "ROOT-CONTRACT-SELECTION-AND-REACHABLE",
-        "KIND-ROW-LEAF-SET-COLUMN"
+        "ROOT-CONTRACT-SELECTION-AND-REACHABLE"
       ]
     },
     "dependsOnForks": [],
