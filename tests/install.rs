@@ -2033,6 +2033,97 @@ fn guard_allows_an_edit_touching_only_unmodeled_manifest_residue() {
     );
 }
 
+/// A `block` harness whose lock declares the `settings` **container** member that projects
+/// `.claude/settings.json` whole: the kind row naming the container (a locus equal to the
+/// manifest's own path, keying no collection of its own) and the provenance row that member's
+/// projection rides. The `SessionStart` hook registration keys inside the same file, so one
+/// lock carries exactly the overlap a container-owned manifest presents to the guard.
+fn container_owned_settings_harness(slug: &str) -> PathBuf {
+    let root = common::tmpdir(slug);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[settings]]\nname = \"settings\"\nsource_path = \".claude/settings.json\"\n\
+         source_hash = \"abc\"\nemit_hash = \"abc\"\n\n\
+         [[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+         [[declaration.kind]]\nname = \"settings\"\ngoverns_root = \".claude\"\n\
+         governs_glob = \"settings.json\"\nformat = \"json-document\"\nunit_shape = \"file\"\n\n\
+         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\n\
+         manifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n",
+    )
+    .unwrap();
+    common::write_settings(&root, CO_OWNED_SETTINGS);
+    root
+}
+
+#[test]
+fn guard_refuses_a_residue_only_write_to_a_container_owned_manifest() {
+    // The co-ownership allowance reverses where a container member projects the manifest
+    // whole. Every byte is then emit's — the part-authored file co-ownership assumes cannot
+    // arise — so there is no opaque residue a hand write may touch, and `check` gives these
+    // very bytes a `config.stale` verdict. A boundary that waved the edit through would
+    // contradict the gate, so the write earns the projection refusal instead.
+    let root = container_owned_settings_harness("guard-manifest-container-owned");
+    let pending = CO_OWNED_SETTINGS.replace(": false", ": true");
+
+    let (code, stderr) =
+        common::run_guard(&root, &write_payload(".claude/settings.json", &pending));
+    assert_eq!(
+        code,
+        Some(2),
+        "a `block` harness denies a residue-only write to a container-owned manifest: {stderr}"
+    );
+    assert!(
+        stderr.contains("temper-managed projection"),
+        "the refusal speaks as the projection binding, not the co-owned one: {stderr}"
+    );
+    assert!(
+        !stderr.contains("temper-governed manifest"),
+        "a container-owned manifest never earns the co-owned wording: {stderr}"
+    );
+    assert!(
+        stderr.contains("`settings` member `settings`") && stderr.contains(".claude/settings.json"),
+        "the refusal names the member that owns the bytes: {stderr}"
+    );
+
+    // The control that isolates the container as the discriminator: same path, same pending
+    // bytes, same `block` mode, same hook registration — and `.claude/settings.json` is an
+    // emit-owned target in both locks. Only the container rows are gone, and the co-owned
+    // verdict survives.
+    let co_owned = settings_manifest_harness("guard-manifest-container-absent", CO_OWNED_SETTINGS);
+    let (ok_code, ok_stderr) =
+        common::run_guard(&co_owned, &write_payload(".claude/settings.json", &pending));
+    assert_eq!(
+        ok_code,
+        Some(0),
+        "with no container member the residue-only write still conforms: {ok_stderr}"
+    );
+    assert!(
+        ok_stderr.is_empty(),
+        "a conforming co-owned write surfaces nothing: {ok_stderr}"
+    );
+
+    // And the manifest no container member can project at all: `.mcp.json` is composed from
+    // registrations alone, so it stays co-owned whatever else the lock declares.
+    let (mcp_code, mcp_stderr) = common::run_guard(
+        &co_owned,
+        &write_payload(
+            ".mcp.json",
+            r#"{"mcpServers":{"gmail":{"type":"stdio","command":"npx"}},"someResidue":true}"#,
+        ),
+    );
+    assert_eq!(
+        mcp_code,
+        Some(0),
+        "a residue-carrying write to a container-less manifest conforms: {mcp_stderr}"
+    );
+    assert!(
+        mcp_stderr.is_empty(),
+        "a conforming co-owned write surfaces nothing: {mcp_stderr}"
+    );
+}
+
 #[test]
 fn guard_denies_an_unreconstructable_manifest_edit_with_the_manifest_message() {
     // An edit whose `old_string` is not on disk cannot be honestly applied, so no member was

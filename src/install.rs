@@ -199,9 +199,12 @@ fn undeclared_locus_message(kind: &str) -> String {
 
 /// The header `temper guard` prints when a pending write to a represented manifest carries a
 /// member that violates its contract — the per-member contract findings ([`GuardedManifest`])
-/// follow it, one per line. Unlike a `.claude/` projection ([`GUARD_MESSAGE`]), a manifest is
-/// co-owned: a write touching only opaque residue conforms and passes, so the finding names the
-/// contract broken, not the file edited. States the same binding limit: tool-mediated writes only.
+/// follow it, one per line. Unlike a `.claude/` projection ([`GUARD_MESSAGE`]), a manifest **no
+/// container member projects** is co-owned: a write touching only opaque residue conforms and
+/// passes, so the finding names the contract broken, not the file edited. A manifest a container
+/// member owns whole is not co-owned at all and never reaches this header
+/// ([`GuardedManifest::container`]) — it is a projection, and speaks the projection wording.
+/// States the same binding limit: tool-mediated writes only.
 const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
 
 /// The header `temper guard` prints when a pending `Edit`/`MultiEdit` to a represented
@@ -906,8 +909,8 @@ pub fn guard(
     // When targets are declared, check the file_path against them, then against the
     // governed loci that declare no member for it.
     let message = if let Some(targets) = targets {
-        if matches_projection(&file_path, root, targets) {
-            GUARD_MESSAGE.to_string()
+        if let Some(owner) = matched_projection(&file_path, root, targets) {
+            format!("{GUARD_MESSAGE}{}", projection_owner_line(owner))
         } else if let Some(locus) = matches_governed_locus(&file_path, root, loci) {
             undeclared_locus_message(&locus.kind)
         } else {
@@ -980,11 +983,35 @@ fn path_matches<'a>(
         .any(|candidate| candidate.to_string_lossy().replace('\\', "/") == file_path_normalized)
 }
 
-/// Whether `file_path` names one of `targets` — an equality compare against each row's
-/// `/`-normalized `source_path` (`PATH-SEP-NORMALIZE`), tolerant of `file_path` arriving
-/// absolute (Claude Code's own convention) against a workspace-relative lock row.
-fn matches_projection(file_path: &str, root: &Path, targets: &[drift::EmitOwnedEntry]) -> bool {
-    path_matches(file_path, root, targets.iter().map(|t| t.path.as_path()))
+/// The first of `targets` `file_path` names, or `None` for a path no target names — an
+/// equality compare against each row's `/`-normalized `source_path` (`PATH-SEP-NORMALIZE`),
+/// tolerant of `file_path` arriving absolute (Claude Code's own convention) against a
+/// workspace-relative lock row. The matched row, not a bare yes/no, because the refusal owes
+/// the author the member that owns the bytes (`projection_owner_line`).
+fn matched_projection<'a>(
+    file_path: &str,
+    root: &Path,
+    targets: &'a [drift::EmitOwnedEntry],
+) -> Option<&'a drift::EmitOwnedEntry> {
+    targets
+        .iter()
+        .find(|target| path_matches(file_path, root, std::iter::once(target.path.as_path())))
+}
+
+/// The line a projection refusal appends naming the member that owns the bytes — a drift
+/// finding names the member that owns the bytes, the side that moved, and the remedy
+/// (`model/pipeline.md`, "Drift"), and [`GUARD_MESSAGE`] alone names only the side and the
+/// remedy. Rendered as one indented line under the header, the shape
+/// [`render_manifest_findings`] already gives a manifest's findings, so the guard's one
+/// surface reads one way. The no-lock fallback appends nothing: with no declared set there is
+/// no member to name.
+fn projection_owner_line(owner: &drift::EmitOwnedEntry) -> String {
+    format!(
+        "\n  owner: the `{}` member `{}` owns `{}` — edit that member's source and re-emit",
+        owner.kind,
+        owner.name,
+        owner.path.to_string_lossy().replace('\\', "/")
+    )
 }
 
 /// The first of `loci` whose pattern `file_path` falls inside, or `None` for a path in
@@ -1032,6 +1059,14 @@ pub struct GuardedManifest {
     /// present in a write; a pending write omitting any of these is flagged at the
     /// declared enforcement mode.
     pub expected_keys: Vec<String>,
+    /// The **container kind** whose member projects this manifest whole, when the lock
+    /// declares one — the same structural fact `emit` reads to decide whether a rollup row
+    /// lands for the manifest's path (`drift`'s member loop). A container member makes every
+    /// byte of the file emit's, so the part-authored file the co-owned reading assumes cannot
+    /// arise: a pending hand write earns the projection refusal, not a contract check
+    /// ([`manifest_write_findings`]). `None` for a manifest no member projects — `.mcp.json`
+    /// composed from registrations alone — which stays co-owned.
+    pub container: Option<String>,
 }
 
 /// One string replacement a pending `Edit`/`MultiEdit` payload asks for: the exact text to
@@ -1225,11 +1260,16 @@ fn unparseable_manifest_finding(
 /// entry 4 of the manifest write side, extending the `.claude/`-projection binding
 /// ([`guard`]) to the manifest members the write face now governs.
 ///
-/// Returns `None` when the write targets no represented manifest — a non-manifest path, or a
-/// payload carrying no write shape at all — and the caller falls back to the projection-drift
-/// binding. Returns `Some(findings)` when the write does target one: `findings` is empty for a
-/// conforming manifest (a co-owned manifest write touching only opaque residue, or members
-/// that all pass), or the error-severity findings its members trip, to be surfaced at the
+/// Returns `None` when the write targets no represented manifest — a non-manifest path, a
+/// payload carrying no write shape at all, or a manifest a container member projects whole
+/// ([`GuardedManifest::container`]) — and the caller falls back to the projection-drift
+/// binding. That last case is the one the co-ownership reading does not reach: with a container
+/// member the file is a whole projection, so it carries no residue a hand write could
+/// legitimately touch, and passing such a write here would contradict the `config.stale`
+/// verdict `check` gives the very same bytes. Returns `Some(findings)` when the write does
+/// target a co-owned manifest: `findings` is empty for a conforming one (a write touching only
+/// opaque residue, or members that all pass), or the error-severity findings its members trip,
+/// to be surfaced at the
 /// author's declared enforcement mode. `Write` and `Edit`/`MultiEdit` are judged by one rule —
 /// the manifest the write would land ([`pending_manifest`]) — and an edit the guard cannot
 /// reconstruct earns its own finding rather than falling through to the projection binding,
@@ -1252,6 +1292,15 @@ pub fn manifest_write_findings(
         .filter(|manifest| path_matches(file_path, root, std::iter::once(manifest.path.as_path())))
         .collect();
     if matched.is_empty() {
+        return None;
+    }
+
+    // A matched manifest a container member projects whole is not co-owned: every byte is
+    // emit's, so invariant 7's part-authored file cannot arise and there is no residue a hand
+    // write may touch. Hand it back to the projection binding rather than passing it — the
+    // same discriminator `emit` uses to decide whether a rollup row lands for this path.
+    // Decided before the content is resolved, so the fall-through never costs a disk read.
+    if matched.iter().any(|manifest| manifest.container.is_some()) {
         return None;
     }
 

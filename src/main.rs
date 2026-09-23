@@ -370,11 +370,14 @@ fn main() -> miette::Result<ExitCode> {
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
 
-            // A represented manifest is co-owned — a write touching only opaque residue is
-            // legitimate — so its binding is a contract check of the pending members, not the
-            // blanket projection-drift the `.claude/` binding runs. It is consulted first:
-            // when the write targets a manifest, its verdict is authoritative; otherwise the
-            // projection binding decides. Both act at the one enforcement mode the lock declares.
+            // A represented manifest **no container member projects** is co-owned — a write
+            // touching only opaque residue is legitimate — so its binding is a contract check
+            // of the pending members, not the blanket projection-drift the `.claude/` binding
+            // runs. It is consulted first: when the write targets such a manifest, its verdict
+            // is authoritative. A manifest a container member owns whole is a projection like
+            // any other — it carries no residue to co-own — so the manifest binding declines it
+            // and the projection binding below decides. Both act at the one enforcement mode
+            // the lock declares.
             if let Some(findings) = install::manifest_write_findings(&payload, &path, &manifests) {
                 if findings.is_empty() {
                     return Ok(ExitCode::SUCCESS);
@@ -576,6 +579,7 @@ fn guarded_manifests(
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<install::GuardedManifest>> {
     let builtin_defs = builtin_kind::definitions();
+    let containers = container_kinds(declarations)?;
 
     let mut manifests = Vec::new();
     for kind in builtin_defs.values() {
@@ -588,6 +592,7 @@ fn guarded_manifests(
             compose::builtin_contract(&declarations.clauses, &declarations.kinds, &kind.name)?;
         let expected_keys = extract_expected_keys(declarations, &kind.name, &address);
         manifests.push(install::GuardedManifest {
+            container: containers.get(&path).cloned(),
             path,
             kind,
             contract,
@@ -610,6 +615,7 @@ fn guarded_manifests(
         )?;
         let expected_keys = extract_expected_keys(declarations, &kind.name, &address);
         manifests.push(install::GuardedManifest {
+            container: containers.get(&path).cloned(),
             path,
             kind,
             contract,
@@ -618,6 +624,37 @@ fn guarded_manifests(
         });
     }
     Ok(manifests)
+}
+
+/// Every manifest path a **container member** projects whole, mapped to the kind whose
+/// member owns it — [`install::GuardedManifest::container`]'s source.
+///
+/// The discriminator is the structural one `emit` reads: a manifest is a whole projection
+/// when a member projects *to the manifest's own path*, and the lock names that member's
+/// kind by a declared locus equal to that path and no `collection_address` of its own (a
+/// registration kind addresses a collection inside the manifest; it never projects the file).
+/// A kind row exists only for a kind the program actually uses — the same fact
+/// [`guarded_loci`] reads — so the row is evidence such a member is declared. A
+/// `local`-commitment kind is excluded: `emit` writes nothing at its path, so its document is
+/// the author's own and no projection refusal is owed there.
+///
+/// # Errors
+///
+/// Propagates the lock-row lift errors [`CustomKind::from_kind_fact_row`] raises.
+fn container_kinds(
+    declarations: &drift::Declarations,
+) -> miette::Result<BTreeMap<PathBuf, String>> {
+    let mut containers = BTreeMap::new();
+    for row in &declarations.kinds {
+        let kind = CustomKind::from_kind_fact_row(row)?;
+        if kind.collection_address.is_some() || kind.commitment == Some(Commitment::Local) {
+            continue;
+        }
+        if let Some(path) = manifest_path(&kind) {
+            containers.insert(path, kind.name);
+        }
+    }
+    Ok(containers)
 }
 
 /// Every governed locus the `PreToolUse` guard binds a pending write against — one
