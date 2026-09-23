@@ -1,90 +1,8 @@
 [
   {
-    "tag": "INPUT-SOURCE-DEPENDENCY-FAMILY",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/declared_input.rs",
-          "description": "The family's engine-side suite, modelled on `tests/prose_include.rs`: a hand-built payload declaring an input row, emitted, then read back off the lock."
-        },
-        {
-          "path": "sdk/src/generated/InputRow.ts",
-          "description": "The ts-rs export of the new seam row (written by `BLESS_SEAM_BINDINGS=1`, never by hand)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "New `InputRow { member, source_path }` beside `IncludeRow` (:4053) — its own type, not a reuse: an include's path pairs positionally with a body slot and an input's moves nothing, two concepts that happen to share two columns (`engineering.md`, \"A shared concept is one type\"). `Declarations` (:3542) gains `#[serde(default)] pub inputs: Vec<InputRow>`. Emit resolves each row through `resolve_source_dependency` in its own pass over the declaration family — not the include splice inside the projection loop (:1333), since an input rides any member, composed or not — with no UTF-8 decode (no bytes move, so a binary input is legal) and `target` left empty (0055 rejects the input-as-edge reading, so no graph surface changes). `INPUT_FAMILY = \"input\"` beside :3003-:3006; `write_rollup` (:502) takes the rows and writes them through `write_source_deps` (:3025, called at :516-:517). `input_stale{,_from_doc}` beside `include_stale` (:3426) and `include_stale_from_doc` (:3440); `source_dep_stale_from_doc` (:3320) grows a remedy parameter — the include and layout-import text unchanged, the input's reading: re-verify the member's claims against the input, then re-emit. A dangling input reuses `DriftError::DanglingImport` (:296), whose text names a reference, not an include."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "A third staleness call inside the `fresh_clause` block at :750-:765, on the same pre-parsed `lock_doc` and the same `harness_root_for_staleness` — and taking the root `fresh` clause `engine::root_clause` locates at :729. FRESH-CLAUSE-JUDGES-STALENESS shipped that lookup at 81ee251b, so the input family joins two siblings already reading the clause rather than minting a fourth fixed `warn`."
-        },
-        {
-          "path": "sdk/src/generated/Declarations.ts",
-          "description": "Regenerated: the seam's declaration struct gains `inputs`."
-        },
-        {
-          "path": "sdk/src/generated/index.ts",
-          "description": "Regenerated barrel — `InputRow` re-exported."
-        },
-        {
-          "path": "tests/seam_bindings_current.rs",
-          "description": "`InputRow` joins the imported row list (:17-:23) and `fresh_bindings`, so a stale binding fails loud here."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "`gate_lock_parse_is_hoisted_with_source_dependencies` (:285) gains the `input` family: a third staleness read off the one pre-parsed document, taking the same `fresh_clause()` helper 81ee251b added at :26-:35, with the lock read/parse counts pinned unchanged."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "The hand-written payload builder constructs the whole `Declarations` object at :1087, and ts-rs emits every `#[serde(default)]` Vec non-optional (`includes: Array<IncludeRow>` in the generated `Declarations.ts`), so strict `tsc` fails until `inputs:` is present. This entry supplies the key with an empty array — the rows themselves are SDK-MEMBER-DECLARES-INPUTS's `inputRows(harness)`, which lands next and replaces it."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "The seam round trip: a payload carrying one `input` row emits one `[[declaration.input]]` source-dependency row and no projected byte moves. REAL by precedent — e63e251a, the last commit to add a declaration family (`settings`), touched this file for exactly that half."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The declaration-row round trip for the new family, the one-line sibling e63e251a added for `settings`: an `input` row read back off the lock carries its member and source path."
-        },
-        {
-          "path": "tests/layout_prose_import.rs",
-          "description": "The two direct callers of `drift::source_dep_stale_from_doc` (:346, :369, over the `layout_import` family) take the remedy parameter the drift edit above adds — the only call sites outside `src/drift.rs`, so the signature change lands here or the suite does not compile. The layout-import remedy text is unchanged; both assertions stand."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A member's inputs — the files its claims rest on — reach no lock row, so the only way to fingerprint one is to `include()` its bytes into a projection that does not want them.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Drift"
-    },
-    "tests": [
-      {
-        "path": "tests/declared_input.rs",
-        "asserts": "an input lands one `[[declaration.input]]` row with a hash and an empty target while the host projection's bytes are unchanged; moving the input fires one finding naming the member and the input, whose remedy is to re-verify then re-emit; a dangling input refuses before a byte is written; a non-UTF-8 input is legal"
-      },
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "the third staleness family adds no lock read and no lock parse"
-      }
-    ],
-    "acceptance": "`cargo test` green with `tests/declared_input.rs` added, `cargo clippy --all-targets -- -D warnings` clean, the blessed bindings committed and `tests/seam_bindings_current.rs` green, and `pnpm --dir sdk test` green against the regenerated `Declarations`.",
-    "notes": "0055's lock-row and remedy-text bullets; the authoring surface that fills this family is SDK-MEMBER-DECLARES-INPUTS. Both original blockers shipped (FRESH at 81ee251b, the EOL canonicalization), so the standing gate is file-collision serialization on `src/drift.rs` alone. drift.rs cites re-measured +5 past 833b9a9d's label-stamp block. scoped at 30f55b49"
-  },
-  {
     "tag": "SDK-MEMBER-DECLARES-INPUTS",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "INPUT-SOURCE-DEPENDENCY-FAMILY"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -130,10 +48,7 @@
   {
     "tag": "LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "INPUT-SOURCE-DEPENDENCY-FAMILY"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -281,68 +196,6 @@
     "notes": "The last two of 0054's five fixed pushes, and the predicate 0054 kept separate from `fresh` so hardening a stale pin does not also harden the undeclared-document notes a read-only ground kind draws (its first rejected alternative). The dial case rides `tests/acceptance.rs`. drift.rs cites re-measured +5 past 833b9a9d; contract.rs and the SDK unmoved. scoped at 30f55b49"
   },
   {
-    "tag": "WHEN-BODY-SEVERITY-AND-ADDRESS-REACH-THE-READER",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`decide`'s `When` arm (:1471, body loops at :1506 and :1517) recurses through `evaluate` on `body_clause.predicate` alone, so a body violation reports at the host guard's severity under the host's label. Give `Violation` (:1064) the body clause's label and severity beside the `guidance` both loops already thread (:1509, :1519), set all three in both loops, and have `member_findings` (:80) prefer them over the filing clause's."
-        },
-        {
-          "path": "src/dial.rs",
-          "description": "`apply` (:92) matches `self.entries` against top-level `clause.label` only, so a dial entry naming a body clause reaches nothing and is then reported by `refusals` as naming no clause. Descend into each `when` predicate's body, dialing a body clause under the same hardening/softening rule and counting it in `reached`."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`narrate_governing_contract` (:540) promises 'Its clauses, by the address each one's findings report under' and lists `contract.clauses` alone. List a body clause's address under its host's, so explain's claim stays true now that a body finding reports under its own label."
-        },
-        {
-          "path": "CHANGELOG.md",
-          "description": "The Unreleased `### Changed` block gains the breaking note the decision calls for, in the register of the `when`-label entry already sitting there: a `when` body violation's `rule` id is now the body clause's own address, so a dial entry naming the enclosing guard's label stops silencing it."
-        },
-        {
-          "path": "tests/marketplace_kind.rs",
-          "description": "`when_body_clauses_fire_on_guarded_elements_that_violate_them` (:312) and `two_guards_over_one_field_print_their_own_addresses` (:362) assert the body findings' rule id; `common::findings_for` matches `title={rule}::` exactly, so both must name the body address rather than the guard's."
-        },
-        {
-          "path": "tests/dial_kind.rs",
-          "description": "A dial entry naming a body clause's label dials that clause and is not reported as naming nothing — the sibling of the requirement-clause case `a_requirements_own_clause_dials_by_the_address_it_reports_under` (:280)."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "The governing-contract narration (covered for guidance at :717, :776) gains the body-address case."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A `when` body violation reports at the host guard's severity under the host's label, so the body's declared severity is inert and no dial reaches it.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [
-      {
-        "path": "tests/marketplace_kind.rs",
-        "asserts": "a body violation's `rule` id is the body clause's own address, and an `advisory` body clause under a `required` guard reports advisory"
-      },
-      {
-        "path": "tests/dial_kind.rs",
-        "asserts": "a dial entry naming a body clause's label re-reads that clause's severity and raises no unreached-entry finding"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain lists a body clause's address under its host clause's"
-      }
-    ],
-    "acceptance": "`cargo test` green: a fixture whose `advisory` body clause fires reports at advisory under `<host-label>.<predicate>.<field>`, and dialing that label moves it.",
-    "notes": "Decision 0057, bullet 2 plus 'the dial reaches each body clause by its label'. All eight shipped body rows are `required` under `required` hosts, so no shipped verdict moves — only the printed address — and the severity half needs an authored advisory fixture to be non-vacuous. Cites re-measured past 81ee251b. scoped at dfa667d7"
-  },
-  {
     "tag": "LAYER-QUALIFIER-REACHES-A-GUARD-BODY",
     "gate": {
       "kind": "open"
@@ -385,8 +238,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED",
-        "WHEN-BODY-SEVERITY-AND-ADDRESS-REACH-THE-READER"
+        "LOCUS-DECLARED-CLAUSE-JUDGES-UNDECLARED"
       ]
     },
     "dependsOnForks": [],
