@@ -1,35 +1,5 @@
 [
   {
-    "tag": "WHEN-BODY-REFUSES-A-SET-PREDICATE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`when_restrictions` (:170) fences the guard's own predicate to `enum`/`type` and forbids nesting, then recurses each body clause through `inadmissibilities` — which refuses no set predicate. So `degree`/`membership`/`count`/`unique`/`kind`/`extent{whole}` in a `when` body reach `decide`'s set-predicate arm (:1223-1232), return `Outcome::Indeterminate`, and `evaluate` (:845) turns that into silence: the clause is accepted, judged by nobody, and `check` exits 0. Refuse them in the body: 0041 binds a body at the guard's *element*, and a selection predicate has no element to range over; evaluating one under the guard would narrow a selection by a field value, which `contract.md` \"selection\" forbids outright (\"narrowing is an each-grain clause over a selection, never a second selector\"). The message names the predicate and says a set predicate binds to a selection's top-level clauses, not to a guard's body. Second half: the floor at :845 claims \"unreachable on an admissible run: admissibility fences every producer\" — a claim that was false and is how this shipped. Make it true and pin it with an exhaustive match over `Predicate` asserting every variant that arm answers is one `inadmissibilities` refuses, so a new set predicate cannot silently re-open the hole. Not a panic: on an inadmissible run admissibility has already reported a blocking `Diagnostic::error` naming the clause, so the run is red and legible — intent.md invariant 6 asks for an error message at author-time, and a second finding out of `decide` would double-report the same clause. Cases ride the existing `when_guard_*` family in `mod tests` (:2777-3000)."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A set predicate in a `when` body reaches no judge and passes silently — admissibility fences the guard and nesting, never the body's grain.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "a `when` whose body carries `degree` (and each of the other five set predicates) is inadmissible, with the message naming the predicate; and the exhaustive pin — every `Predicate` variant `decide`'s set arm answers is refused by `inadmissibilities` inside a `when` body"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle (the inbox repro, `tests/graph.rs` fixtures): kind `rule` bound to `when(type(routes_to)=string) -> degree(incoming >= 1)` is refused at load with a message naming `degree`, where today `check` exits 0 over a rule nothing points at. `src/builtin_lock.toml` byte-unchanged — no shipped `when` body carries a set predicate.",
-    "notes": "Routed from the inbox note observed at f8bb2e07, re-verified on disk at HEAD (`when_restrictions` :170 fences guard and nesting only; `evaluate` :845 silences the arm). The note's third bullet asked `decide` to fail loud; narrowed here to pinning the floor's own claim, since admissibility already fires the blocking error — reasoning in the routing commit body. scoped at bf85c672"
-  },
-  {
     "tag": "CONTAINMENT-INCIDENCE-FAMILY",
     "gate": {
       "kind": "open"
@@ -77,14 +47,16 @@
       }
     ],
     "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green. Oracle (the adopter's floor 0052 names): a `rule` admitting `directive` and `consult`, bounded outgoing ≥ 1 filtered to `contains:directive` ∪ `contains:consult`, fires on a rule whose body composes neither and is silent on one composing either — while the same bound unfiltered counts no containment arc, so a rule composing nothing and declaring one `routes_to` keeps today's verdict.",
-    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. The second parent is read.rs/read_verbs.rs overlap. scoped at 6f4e39f4"
+    "notes": "0052's Consequences name three parts: `graph` emits the family, `Predicate::Degree` counts it only when named, `explain` narrates it as an incidence. The filter is DEGREE-FIELD-SET-FILTER's — with no field set no clause can name a `contains:` field. Narration rides here, not a second entry: containment counted but unnarrated is the disagreement READ-EDGE-UNIFY forbids. The second parent is read.rs/read_verbs.rs overlap. scoped at 6f4e39f4",
+    "observedFiles": [
+      ".flume/refactor/build-containment-degree-signature-fence.md"
+    ]
   },
   {
     "tag": "REQUIREMENT-CLAUSES-REACH-THE-MEMBER-JUDGE",
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "WHEN-BODY-REFUSES-A-SET-PREDICATE",
         "CONTAINMENT-INCIDENCE-FAMILY"
       ]
     },
