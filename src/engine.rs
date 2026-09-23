@@ -457,11 +457,21 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         // `degree` with neither direction bounded constrains nothing — vacuous, like
         // an empty-list predicate. A bounded direction whose own `min > max` is
         // likewise vacuous in that direction, the same inverted-bound rule as
-        // `range`/`count`.
-        Predicate::Degree { incoming, outgoing } => {
+        // `range`/`count`. A declared filter naming no field is the third vacuity: it
+        // selects the union of nothing, so every member's degree is zero whatever the
+        // graph says — the same shape as a directionless bound, one clause-level
+        // argument that decides nothing.
+        Predicate::Degree {
+            incoming,
+            outgoing,
+            fields,
+        } => {
             let mut messages = Vec::new();
             if incoming.is_none() && outgoing.is_none() {
                 messages.push("`degree` clause carries no incoming or outgoing bound".to_string());
+            }
+            if fields.as_ref().is_some_and(Vec::is_empty) {
+                messages.push("`degree` clause's field filter names no field".to_string());
             }
             for (label, bound) in [("incoming", incoming), ("outgoing", outgoing)] {
                 if let Some(EdgeBound {
@@ -1736,6 +1746,7 @@ mod tests {
         let no_direction = Predicate::Degree {
             incoming: None,
             outgoing: None,
+            fields: None,
         };
         let messages = inadmissibilities(&no_direction, &Locus::Document, &[]);
         assert_eq!(messages.len(), 1);
@@ -1749,8 +1760,39 @@ mod tests {
                 max: None,
             }),
             outgoing: None,
+            fields: None,
         };
         assert!(inadmissibilities(&routed, &Locus::Document, &[]).is_empty());
+    }
+
+    #[test]
+    fn a_degree_clause_whose_field_filter_names_no_field_is_inadmissible() {
+        // A declared filter selecting the union of nothing leaves every member at
+        // degree zero whatever the graph holds — the filter's own form of the
+        // directionless bound's vacuity, and not the same state as no filter at all.
+        let empty_filter = Predicate::Degree {
+            incoming: Some(EdgeBound {
+                min: Some(1),
+                max: None,
+            }),
+            outgoing: None,
+            fields: Some(Vec::new()),
+        };
+        let messages = inadmissibilities(&empty_filter, &Locus::Document, &[]);
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("field filter names no field"));
+
+        // A filter naming a field is an ordinary bound: the absent filter and the
+        // named one are both admissible, only the declared-empty one is not.
+        let named = Predicate::Degree {
+            incoming: Some(EdgeBound {
+                min: Some(1),
+                max: None,
+            }),
+            outgoing: None,
+            fields: Some(vec!["routes_to".to_string()]),
+        };
+        assert!(inadmissibilities(&named, &Locus::Document, &[]).is_empty());
     }
 
     #[test]
@@ -1761,6 +1803,7 @@ mod tests {
                 max: Some(1),
             }),
             outgoing: None,
+            fields: None,
         };
         let messages = inadmissibilities(&inverted, &Locus::Document, &[]);
         assert_eq!(messages.len(), 1);
@@ -1785,6 +1828,7 @@ mod tests {
                     max: None,
                 }),
                 outgoing: None,
+                fields: None,
             },
             Predicate::Kind {
                 kind: "skill".to_string(),

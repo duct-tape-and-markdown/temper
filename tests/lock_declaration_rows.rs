@@ -577,6 +577,97 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     assert_eq!(degree.outgoing.expect("outgoing bound").max, Some(3));
 }
 
+/// A `degree` clause row round-trips its **field-set filter** — the shared `fields`
+/// column, not a key inside the direction-only `degree` bound. Two rows, one filtered
+/// and one not: the filtered set survives write→read, and the unfiltered row emits no
+/// `fields` key at all, so no committed lock row moves when a clause declares no filter.
+#[test]
+fn a_degree_clause_rows_field_set_filter_round_trips_and_is_absent_when_unfiltered() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("rule".to_string()),
+        degree: Some(DegreeBoundRow {
+            incoming: Some(EdgeBoundRow {
+                min: None,
+                max: Some(1),
+            }),
+            outgoing: None,
+        }),
+        fields: Some(vec!["writes".to_string(), "clobbers".to_string()]),
+        ..common::clause("degree", "required")
+    });
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        degree: Some(DegreeBoundRow {
+            incoming: Some(EdgeBoundRow {
+                min: Some(1),
+                max: None,
+            }),
+            outgoing: None,
+        }),
+        ..common::clause("degree", "advisory")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-degree-fields", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let filtered = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "degree" && c.kind.as_deref() == Some("rule"))
+        .expect("the filtered degree clause row round-trips");
+    assert_eq!(
+        filtered.fields.as_deref(),
+        Some(&["writes".to_string(), "clobbers".to_string()][..]),
+        "the filter survives write→read in declaration order"
+    );
+    let unfiltered = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "degree" && c.kind.as_deref() == Some("skill"))
+        .expect("the unfiltered degree clause row round-trips");
+    assert_eq!(
+        unfiltered.fields, None,
+        "an unfiltered bound carries no set"
+    );
+
+    // The unfiltered row's own table carries no `fields` key — absence on the wire, not
+    // an empty array a reader would have to spell a second meaning for.
+    let text = String::from_utf8(first).unwrap();
+    let unfiltered_table = text
+        .split("[[declaration.clause]]")
+        .find(|chunk| {
+            chunk.contains("predicate = \"degree\"") && chunk.contains("kind = \"skill\"")
+        })
+        .expect("the unfiltered degree row is written");
+    assert!(
+        !unfiltered_table.contains("fields ="),
+        "an unfiltered degree row must emit no filter key, got:\n{unfiltered_table}"
+    );
+
+    // The column is the wire the engine lifts: the filter must reach the typed predicate.
+    let predicate = contract::predicate_from_row(filtered)
+        .expect("the filtered degree row lifts to a predicate");
+    assert!(
+        matches!(&predicate, Predicate::Degree { fields: Some(set), .. } if set == &["writes", "clobbers"]),
+        "the lifted predicate carries the clause's own field set"
+    );
+}
+
 /// A `mention-reachable` clause row round-trips **both** field ends — the source's scope
 /// on the shared `field` column and the target's gate on its own `gate` column. The one
 /// two-argument predicate: `field` alone cannot carry both, so the `gate` column is the

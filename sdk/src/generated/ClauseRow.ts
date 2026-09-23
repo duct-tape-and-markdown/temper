@@ -89,6 +89,17 @@ target?: string,
  */
 degree?: DegreeBoundRow, 
 /**
+ * The **field set** a by-incidence clause filters its selection to — `degree`'s
+ * today, `reached-from`'s via set next (`specs/decisions/0056-…`). Shared rather
+ * than nested inside [`DegreeBoundRow`] because the filter is the *clause's*, not
+ * either direction's, and the two consumers name one concept: a lock spelling it
+ * twice would be the residue class.
+ *
+ * Absent ⇒ unfiltered, so no committed lock row moves when a clause declares no
+ * filter.
+ */
+fields?: Array<string>, 
+/**
  * The `mention-reachable` clause's **target-side gate field**, when the predicate
  * is `mention-reachable`. The one predicate taking two field arguments: its
  * source-side scope field rides the shared [`field`](ClauseRow::field) column, and

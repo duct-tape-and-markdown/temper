@@ -76,6 +76,13 @@ export interface Predicate {
   readonly section?: { readonly heading: string; readonly marker: string };
   /** `require_sections`'s required heading list. */
   readonly sections?: readonly string[];
+  /**
+   * A by-incidence clause's **field set** — the fields whose edges the selection is
+   * filtered to. `degree`'s today, `reached-from`'s via set next: one concept, one
+   * slot, mirroring the lock's own shared `fields` column rather than a
+   * `degree`-private key. Absent ⇒ unfiltered, every edge at the member.
+   */
+  readonly fields?: readonly string[];
   /** `extent`'s declared unit — the render-side size proxy the bound is measured in. */
   readonly unit?: ExtentUnit;
 }
@@ -249,17 +256,29 @@ export const membership = (field: string, target: string): Predicate => ({
   field,
   target,
 });
-/** The in/out edge-count bound every selected member must land in. At least one direction must be given. */
+/**
+ * The in/out edge-count bound every selected member must land in. At least one
+ * direction must be given.
+ *
+ * `fields` filters the by-incidence selection both bounds range over — the clause's
+ * own filter, not either direction's. Omit it and the bound ranges over every edge at
+ * the member; name a set and it ranges over the union of those fields' edges, so two
+ * fields to one target count two. Containment (`contains:<kind>`) counts only where a
+ * filter names it.
+ */
 export const degree = (bounds: {
   incoming?: { min?: number; max?: number };
   outgoing?: { min?: number; max?: number };
+  fields?: readonly string[];
 }): Predicate => {
   const args: Record<string, number> = {};
   if (bounds.incoming?.min !== undefined) args.incoming_min = bounds.incoming.min;
   if (bounds.incoming?.max !== undefined) args.incoming_max = bounds.incoming.max;
   if (bounds.outgoing?.min !== undefined) args.outgoing_min = bounds.outgoing.min;
   if (bounds.outgoing?.max !== undefined) args.outgoing_max = bounds.outgoing.max;
-  return { key: "degree", args };
+  return bounds.fields === undefined
+    ? { key: "degree", args }
+    : { key: "degree", args, fields: bounds.fields };
 };
 
 /**

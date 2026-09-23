@@ -330,6 +330,16 @@ pub enum Predicate {
         incoming: Option<EdgeBound>,
         /// The bound on a member's outgoing edge count, when constrained.
         outgoing: Option<EdgeBound>,
+        /// The **field set** the by-incidence selection is filtered to — the clause's
+        /// own filter, not either direction's: both bounds range over one selection
+        /// (`specs/model/contract.md`, "selection"). `None` ⇒ unfiltered, every edge at
+        /// the member. `Some` ⇒ the union of the named fields' edges, and an empty set
+        /// names none of them — vacuous, rejected at admissibility.
+        ///
+        /// The same shape `reached-from`'s via set will carry
+        /// (`specs/decisions/0056-…`): one concept, one type, one lock column
+        /// ([`crate::drift::ClauseRow::fields`]).
+        fields: Option<Vec<String>>,
     },
     /// `kind`: the **each** grain — every member of the selection is of the declared
     /// artifact kind. This is how a selection narrows: a member of a different kind is a
@@ -555,6 +565,9 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
                     min: edge.min,
                     max: edge.max,
                 }),
+                // The filter is the clause's, so it rides the shared `fields` column
+                // rather than the direction-only `degree` bound.
+                fields: row.fields.clone(),
             }
         }
         "when" => {

@@ -35,6 +35,7 @@ export function clauseRow(predicate: string, severity: string): ClauseRow {
     count: undefined,
     target: undefined,
     degree: undefined,
+    fields: undefined,
     gate: undefined,
     value_type: undefined,
     shape: undefined,

@@ -102,10 +102,10 @@ fn world() -> Node {
 
 /// A **resolved edge** — a `(from, field, to)` triple over `(kind, id)` [`Node`]s,
 /// both endpoints naming a real artifact. The element type of [`ResolvedEdgesResult::resolved`], the
-/// one arc-resolution enumeration [`resolved_arcs`] folds into adjacency and
-/// `crate::read` narrates per node, so gate and read range over one identical edge set
-/// (READ-EDGE-UNIFY). Retains the reference `field` an arc drops, so a reader can see
-/// which declared reference produced the edge. Also the type [`classify_directives`]
+/// one arc-resolution enumeration [`DegreeIndex`] counts and `crate::read` narrates per
+/// node, so gate and read range over one identical edge set (READ-EDGE-UNIFY). Carries
+/// the reference `field` a bare arc drops, so a reader can see which declared reference
+/// produced the edge and a `degree` filter can select on it. Also the type [`classify_directives`]
 /// yields a member-class directive occurrence as, so an observed `@import` edge enters
 /// the same enumeration a declared reference edge does.
 #[derive(Clone)]
@@ -296,6 +296,49 @@ fn any_clause_of(selections: &[Selection], matches: impl Fn(&Predicate) -> bool)
     })
 }
 
+/// The in/out edge counts one `degree` filter sees — built once per distinct field set
+/// and read per selected member.
+///
+/// Keyed on the **edge** rather than the arc: a `(from, field, to)` triple, so one
+/// member reaching one target under two fields counts twice and a repeated target
+/// under one field (a list field naming it twice) still counts once. A node absent
+/// from either map has degree zero in that direction.
+struct DegreeIndex {
+    /// Out-degree per source node.
+    outgoing: BTreeMap<Node, usize>,
+    /// In-degree per target node.
+    incoming: BTreeMap<Node, usize>,
+}
+
+impl DegreeIndex {
+    /// Fold the resolved reference edges and the already-resolved mention edges into
+    /// one index, keeping only the edges `filter` names — `None` keeps every one.
+    ///
+    /// Mention and import edges join the same adjacency a declared reference edge does
+    /// and carry their own field (`mention`, the directive's own key), so a filter
+    /// naming that field ranges over them exactly as over a declared reference.
+    fn build(
+        resolved: &[ResolvedEdge],
+        mentions: &[ResolvedEdge],
+        filter: Option<&[String]>,
+    ) -> Self {
+        let mut edges: BTreeSet<(&Node, &String, &Node)> = BTreeSet::new();
+        for edge in resolved.iter().chain(mentions) {
+            if filter.is_some_and(|fields| !fields.contains(&edge.field)) {
+                continue;
+            }
+            edges.insert((&edge.from, &edge.field, &edge.to));
+        }
+        let mut outgoing: BTreeMap<Node, usize> = BTreeMap::new();
+        let mut incoming: BTreeMap<Node, usize> = BTreeMap::new();
+        for (from, _, to) in edges {
+            *outgoing.entry(from.clone()).or_default() += 1;
+            *incoming.entry(to.clone()).or_default() += 1;
+        }
+        Self { outgoing, incoming }
+    }
+}
+
 /// Check the **`degree`** predicate over every declared [`Selection`]: for each `degree`
 /// clause bound to one, return a [`Diagnostic`] — at the clause's own declared severity
 /// — per selected member whose in/out edge count over the resolved arcs falls outside
@@ -304,9 +347,18 @@ fn any_clause_of(selections: &[Selection], matches: impl Fn(&Predicate) -> bool)
 /// `degree` is the one set predicate this module judges rather than
 /// [`engine::judge`]: the clause is each-grain over the selection's members and
 /// whole-grain over each member's own **by-incidence** selection — the edges at it,
-/// filtered by direction — which is the graph, not a fact the members carry. Takes a
-/// pre-computed slice of resolved arcs (from [`ResolvedEdgesResult::resolved`])
-/// computed once per `gate()` invocation to avoid recomputation.
+/// filtered by direction and by the clause's own **field set** — which is the graph,
+/// not a fact the members carry. Takes a pre-computed slice of resolved arcs (from
+/// [`ResolvedEdgesResult::resolved`]) computed once per `gate()` invocation to avoid
+/// recomputation.
+///
+/// The counting unit is the **edge** `(from, field, to)`, never the field-blind arc:
+/// a filter ranges over the union of the fields it names
+/// (`specs/model/contract.md`, "selection"), and an unfiltered bound over every edge
+/// at the member — so two fields between one pair count two either way, and a filter
+/// naming every field says exactly what no filter says. Each distinct filter is
+/// indexed once per call and shared by every clause declaring it, so a corpus-wide
+/// walk happens per filter rather than per clause.
 ///
 /// Unlike route resolution and [`acyclic`], `degree` is **opt-in** — selections declaring
 /// no `degree` clause do no graph work. A node is `(kind, id)`, so a selection whose
@@ -329,21 +381,9 @@ pub fn degree(
         return Vec::new();
     }
 
-    let mut adjacency = resolved_arcs(resolved);
-    for edge in mention_edges {
-        adjacency
-            .entry(edge.from.clone())
-            .or_default()
-            .insert(edge.to.clone());
-    }
-    // Incoming degree per node, built once by inverting the resolved arcs; a node
-    // absent from the map has in-degree zero.
-    let mut incoming: BTreeMap<&Node, usize> = BTreeMap::new();
-    for targets in adjacency.values() {
-        for target in targets {
-            *incoming.entry(target).or_default() += 1;
-        }
-    }
+    // One index per distinct filter, built on first sight and reused by every clause
+    // declaring the same set — the unfiltered `None` key included.
+    let mut indexes: BTreeMap<Option<Vec<String>>, DegreeIndex> = BTreeMap::new();
 
     let mut diagnostics = Vec::new();
     for selection in selections {
@@ -351,14 +391,18 @@ pub fn degree(
             let Predicate::Degree {
                 incoming: incoming_bound,
                 outgoing: outgoing_bound,
+                fields,
             } = &clause.predicate
             else {
                 continue;
             };
+            let index = indexes
+                .entry(fields.clone())
+                .or_insert_with(|| DegreeIndex::build(resolved, mention_edges, fields.as_deref()));
             for (kind, features) in &selection.members {
                 let node = ((*kind).to_string(), features.id.clone());
-                let in_degree = incoming.get(&node).copied().unwrap_or(0);
-                let out_degree = adjacency.get(&node).map_or(0, BTreeSet::len);
+                let in_degree = index.incoming.get(&node).copied().unwrap_or(0);
+                let out_degree = index.outgoing.get(&node).copied().unwrap_or(0);
 
                 if let Some(edge_bound) = incoming_bound
                     && !edge_bound.admits(in_degree)
@@ -1320,11 +1364,11 @@ fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
 /// avoiding recomputation. For each admissible edge, each
 /// source of its `from` kind, and each named target, yields either a [`ResolvedEdge`]
 /// (when the target resolves to a real artifact of its `to` kind) or a dangling
-/// diagnostic (when it resolves to nothing). The resolved half feeds [`resolved_arcs`]
-/// into adjacency for [`degree`] and `crate::read` filters per node so
+/// diagnostic (when it resolves to nothing). The resolved half feeds [`DegreeIndex`]
+/// for [`degree`] and `crate::read` filters per node so
 /// gate and read narrate the same edges (READ-EDGE-UNIFY). Sources and targets iterate
-/// in name-sorted order for a stable enumeration; a target named twice yields two
-/// edges, deduped into one arc by [`resolved_arcs`].
+/// in name-sorted order for a stable enumeration; a target named twice under one field
+/// yields two edges, counted once by [`DegreeIndex`].
 #[must_use]
 pub fn resolved_edges(
     edges: &[Edge],
@@ -1380,11 +1424,12 @@ pub fn resolved_edges(
     }
 }
 
-/// Build the artifact-level directed graph over **resolved** arcs — the one adjacency
-/// builder [`degree`] runs over the declared-field arcs and [`acyclic`] over the import
-/// arcs — by folding pre-computed resolved arcs into `(kind, id)`-keyed adjacency. Arcs
-/// dedupe in the [`BTreeSet`], so a target named twice is one arc. Deriving it from the
-/// same [`resolved_edges`] the read family consumes keeps the gate's checks and
+/// Build the artifact-level directed graph over **resolved** arcs — the field-blind
+/// adjacency [`acyclic`] walks over the import arcs — by folding pre-computed resolved
+/// arcs into `(kind, id)`-keyed adjacency. Arcs dedupe in the [`BTreeSet`], so a target
+/// named twice is one arc: reachability asks only whether a path exists, where
+/// [`degree`] counts and so keys on the edge's field instead. Deriving it from the same
+/// [`resolved_edges`] the read family consumes keeps the gate's checks and
 /// `temper why` in lockstep.
 fn resolved_arcs(resolved: &[ResolvedEdge]) -> BTreeMap<Node, BTreeSet<Node>> {
     let mut adjacency: BTreeMap<Node, BTreeSet<Node>> = BTreeMap::new();
@@ -2520,6 +2565,7 @@ mod tests {
                     max: Some(0),
                 }),
                 outgoing: None,
+                fields: None,
             }),
         );
         let edges = [routes_to_edge()];
@@ -2544,6 +2590,7 @@ mod tests {
                     max: Some(0),
                 }),
                 outgoing: None,
+                fields: None,
             }),
         );
         let edges = [routes_to_edge()];
@@ -2574,6 +2621,7 @@ mod tests {
                     max: None,
                 }),
                 outgoing: None,
+                fields: None,
             }),
         );
         let edges = [routes_to_edge()];
@@ -2597,6 +2645,7 @@ mod tests {
                     max: None,
                 }),
                 outgoing: None,
+                fields: None,
             }),
         );
         let edges = [routes_to_edge()];
@@ -2625,6 +2674,7 @@ mod tests {
                     max: None,
                 }),
                 outgoing: None,
+                fields: None,
             }),
         );
         let edges = [routes_to_edge()];
@@ -2653,6 +2703,7 @@ mod tests {
                     min: None,
                     max: Some(0),
                 }),
+                fields: None,
             }),
         );
         let edges = [routes_to_edge()];
@@ -2730,6 +2781,7 @@ mod tests {
                     max: None,
                 }),
                 outgoing: None,
+                fields: None,
             }),
         );
         let edges = [routes_to_edge()];
@@ -2757,6 +2809,7 @@ mod tests {
                     max: None,
                 }),
                 outgoing: None,
+                fields: None,
             }),
         );
         let rules = [node("style", None)];

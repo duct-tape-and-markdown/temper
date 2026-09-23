@@ -763,6 +763,7 @@ mod tests {
                         max: None,
                     }),
                     outgoing: None,
+                    fields: None,
                 }),
                 required_clause(Predicate::Kind {
                     kind: "skill".to_string(),

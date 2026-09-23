@@ -121,6 +121,10 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
             outgoing: edgeBoundArgs(predicate.args, "outgoing"),
  }
         : undefined,
+    // The by-incidence field set rides its own shared column, not the direction-only
+    // `degree` bound — the slot `reached-from`'s via set joins next. Copied into a
+    // fresh array: the predicate's set is read-only, the row's column is not.
+    fields: predicate.key === "degree" && predicate.fields ? [...predicate.fields] : undefined,
     gate: predicate.key === "mention-reachable" ? predicate.gate : undefined,
     value_type:
       predicate.key === "type" && predicate.value_type ? [...predicate.value_type] : undefined,

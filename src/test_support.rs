@@ -150,6 +150,7 @@ pub(crate) fn clause_row(predicate: &str, severity: &str) -> crate::drift::Claus
         count: None,
         target: None,
         degree: None,
+        fields: None,
         gate: None,
         value_type: None,
         shape: None,

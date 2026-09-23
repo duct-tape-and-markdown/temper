@@ -59,6 +59,23 @@ test("degree composes an in/out edge-count bound as an ordinary predicate", () =
  });
 });
 
+test("degree carries the by-incidence field set its bounds range over", () => {
+  // The filter is the clause's own, not either direction's: one `fields` slot beside
+  // the direction args, the slot `reachedFrom`'s via set reuses.
+  assert.deepEqual(degree({ incoming: { max: 1 }, fields: ["writes", "clobbers"] }), {
+    key: "degree",
+    args: { incoming_max: 1 },
+    fields: ["writes", "clobbers"],
+ });
+});
+
+test("a degree filter lands the lock row's shared fields column, absent when unfiltered", () => {
+  const filtered = skillClauseRow(degree({ incoming: { max: 1 }, fields: ["writes"] }));
+  assert.deepEqual(filtered.fields, ["writes"]);
+  assert.deepEqual(filtered.degree, { incoming: { min: undefined, max: 1 }, outgoing: undefined });
+  assert.equal(skillClauseRow(degree({ incoming: { max: 1 } })).fields, undefined);
+});
+
 test("every set-/edge-scope predicate composes into a clause value like any other", () => {
   const demand = clause(count({ min: 1, max: 1 }), {
     severity: "required",

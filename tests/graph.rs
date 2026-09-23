@@ -58,16 +58,18 @@ fn edge_to_set(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
 
 /// The `gate` requirement's declaration row, optionally bound to `kind` and carrying
 /// a required `degree` clause — the lock row a `[requirement.gate]` table used to
-/// project. `kind: None` is the kind-blind case.
-fn degree_requirement(kind: Option<&str>, degree: DegreeBoundRow) -> RequirementRow {
+/// project. `kind: None` is the kind-blind case; `fields: None` is the unfiltered
+/// bound, ranging over every edge at the satisfier.
+fn degree_requirement(
+    kind: Option<&str>,
+    degree: DegreeBoundRow,
+    fields: Option<&[&str]>,
+) -> RequirementRow {
     RequirementRow {
-        clauses: vec![common::required_clause_row(
-            "degree",
-            None,
-            None,
-            None,
-            Some(degree),
-        )],
+        clauses: vec![ClauseRow {
+            fields: fields.map(|set| set.iter().map(|field| (*field).to_string()).collect()),
+            ..common::required_clause_row("degree", None, None, None, Some(degree))
+        }],
         ..common::requirement("gate", false, kind)
     }
 }
@@ -409,6 +411,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
                     incoming: Some(edge_bound(None, Some(0))),
                     outgoing: None,
                 },
+                None,
             )],
             ..Declarations::default()
         },
@@ -454,6 +457,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
                     incoming: Some(edge_bound(None, Some(0))),
                     outgoing: None,
                 },
+                None,
             )],
             ..Declarations::default()
         },
@@ -491,6 +495,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
                     incoming: Some(edge_bound(Some(1), None)),
                     outgoing: None,
                 },
+                None,
             )],
             ..Declarations::default()
         },
@@ -529,6 +534,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
                     incoming: Some(edge_bound(Some(1), None)),
                     outgoing: None,
                 },
+                None,
             )],
             ..Declarations::default()
         },
@@ -574,6 +580,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
                     incoming: Some(edge_bound(Some(1), None)),
                     outgoing: None,
                 },
+                None,
             )],
             ..Declarations::default()
         },
@@ -591,6 +598,124 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
             && run.output.contains("incoming")
             && run.output.contains("style"),
         "the finding names the degree bound, the direction, and the unreachable satisfier, got:\n{}",
+        run.output
+    );
+}
+
+/// A floor-clean rule reaching one skill over *two* reference fields — the two-field
+/// incidence a filtered bound ranges over. `routes_to` and `cites` are both unknown
+/// rule keys the floor preserves, so the only finding a case can produce is the degree
+/// one.
+fn two_field_rule(routes_to: &str, cites: &str) -> String {
+    format!(
+        "---\n\
+         routes_to: {routes_to}\n\
+         cites: {cites}\n\
+         ---\n\
+         # Style\n\
+         \n\
+         Prefer the standards skill.\n"
+    )
+}
+
+/// The two `routes_to`/`cites` edges off `rule`, both targeting skills — the declared
+/// model a field-set filter selects within.
+fn routes_to_and_cites_edges() -> Vec<AssemblyFactRow> {
+    vec![
+        edge("rule", "routes_to", "skill"),
+        edge("rule", "cites", "skill"),
+    ]
+}
+
+#[test]
+fn a_filtered_degree_bound_ignores_another_fields_arcs() {
+    let root = common::tmpdir("degree-filter-one-field");
+    // The rule reaches `standards` over `routes_to` and over nothing else. The routed
+    // bound (`incoming = { min = 1 }`) is filtered to `cites`, so it ranges over the
+    // `cites` edges alone: the skill's filtered in-degree is zero and the bound fires,
+    // where the same bound unfiltered would pass on the `routes_to` arc.
+    common::write_rule_skill_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_and_cites_edges(),
+            requirements: vec![degree_requirement(
+                Some("skill"),
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(Some(1), None)),
+                    outgoing: None,
+                },
+                Some(&["cites"]),
+            )],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "standards", &["gate"]);
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a bound filtered to `cites` must not be satisfied by a `routes_to` arc ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("degree")
+            && run.output.contains("incoming")
+            && run.output.contains("standards"),
+        "the finding names the degree bound, the direction, and the artifact no `cites` edge reaches, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_filter_naming_two_fields_counts_both_edges_to_one_target() {
+    let root = common::tmpdir("degree-filter-two-fields");
+    // The rule reaches `standards` twice — once over `routes_to`, once over `cites`.
+    // A filter naming both ranges over the *union* of the two fields' edges
+    // (`specs/model/contract.md`, "selection"), so the skill's in-degree is two,
+    // outside `incoming = { max = 1 }`. Collapsing the pair into one field-blind arc
+    // would pass this and lose the finding.
+    common::write_rule_skill_harness(
+        &root,
+        "style",
+        &two_field_rule("standards", "standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_and_cites_edges(),
+            requirements: vec![degree_requirement(
+                Some("skill"),
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(None, Some(1))),
+                    outgoing: None,
+                },
+                Some(&["routes_to", "cites"]),
+            )],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "standards", &["gate"]);
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "two fields reaching one target count two under a filter naming both ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("degree")
+            && run.output.contains("incoming")
+            && run.output.contains("standards"),
+        "the finding names the degree bound, the direction, and the over-reached artifact, got:\n{}",
         run.output
     );
 }
@@ -814,6 +939,7 @@ fn a_deferred_mention_resolves_against_a_discovered_member_at_check() {
                     incoming: Some(edge_bound(Some(1), None)),
                     outgoing: None,
                 },
+                None,
             )],
             ..Declarations::default()
         },
@@ -853,6 +979,7 @@ fn a_mention_naming_no_discovered_member_leaves_the_target_unreached() {
                     incoming: Some(edge_bound(Some(1), None)),
                     outgoing: None,
                 },
+                None,
             )],
             ..Declarations::default()
         },
@@ -1487,6 +1614,7 @@ mod embedded_edge_sources {
                         incoming: Some(edge_bound(Some(1), None)),
                         outgoing: None,
                     },
+                    None,
                 )],
                 ..Declarations::default()
             },
