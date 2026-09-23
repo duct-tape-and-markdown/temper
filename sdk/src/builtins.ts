@@ -1230,6 +1230,14 @@ export interface SettingsLocal {
   readonly autoMemoryEnabled?: boolean;
   /** Absolute or `~/`-prefixed path for auto-memory storage, honored at any settings scope (code.claude.com/docs/en/memory, retrieved 2026-07-26). */
   readonly autoMemoryDirectory?: string;
+  /**
+   * The opaque residue — every documented-but-untyped top-level key this overlay carries,
+   * projected flat and key-sorted after the typed fields above. The settings schema is
+   * large and version-evolving, so 0036 settles the unschematized remainder opaque and
+   * *named*: this bag is the name. A key typed above belongs above, never here
+   * (code.claude.com/docs/en/settings, retrieved 2026-07-16).
+   */
+  readonly residue?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -1238,9 +1246,10 @@ export interface SettingsLocal {
  * target, its rows derived at read time and no row of it ever landing in the lock. Its
  * top-level keys are its fields; identity is the fixed singleton stem `settings.local` (the
  * `file` unit shape — every machine's overlay is the one file at this path, so no declared
- * key names it). Channel-less: machine configuration read by the harness, never surfaced to
- * the model (code.claude.com/docs/en/settings, retrieved 2026-07-16; decisions
- * 0032/0034/0036).
+ * key names it). The keys it does not type ride {@link SettingsLocal.residue}, the opaque
+ * channel 0036's partial governance names. Channel-less: machine configuration read by the
+ * harness, never surfaced to the model (code.claude.com/docs/en/settings, retrieved
+ * 2026-07-16; decisions 0032/0034/0036).
  */
 export const settingsLocal: KindDefinition<SettingsLocal> = kind<SettingsLocal>({
   name: "settings-local",
@@ -1330,6 +1339,16 @@ export interface Settings {
   readonly autoMemoryEnabled?: boolean;
   /** Absolute or `~/`-prefixed path for auto-memory storage, honored at any settings scope. */
   readonly autoMemoryDirectory?: string;
+  /**
+   * The opaque residue — every documented-but-untyped top-level key the committed file
+   * carries, projected flat and key-sorted after the typed fields above. The settings
+   * reference documents several hundred keys and gains more, so the remainder is opaque
+   * and *named* rather than indicted; this bag is the name. It is not an escape hatch for
+   * the three collection addresses: `hooks`, `enabledPlugins` and `extraKnownMarketplaces`
+   * are their kinds' to author, so a key of those names does not belong here either
+   * (code.claude.com/docs/en/settings-reference, retrieved 2026-09-22).
+   */
+  readonly residue?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -1345,8 +1364,9 @@ export interface Settings {
  * `enabledPlugins`, `extraKnownMarketplaces` — which keep their own kinds
  * ({@link hook}, {@link installedPlugin}, {@link knownMarketplace}). Those segments and
  * this member's opaque residue are one file: emit renders the declared segments in
- * address order, then the residue (code.claude.com/docs/en/settings, retrieved
- * 2026-09-22).
+ * address order, then the residue — which the member itself authors through
+ * {@link Settings.residue}, flat and key-sorted behind its typed fields
+ * (code.claude.com/docs/en/settings, retrieved 2026-09-22).
  */
 export const settings: KindDefinition<Settings> = kind<Settings>({
   name: "settings",

@@ -38,7 +38,7 @@ import {
 import * as sdk from "../src/index.js";
 import type { LeafSet, ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
-import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
+import { agent, hook, mcpServer, memory, rule, settings, skill } from "../src/claude-code.js";
 import { clauseRow } from "./common.js";
 
 function projectedHarness() {
@@ -1712,6 +1712,48 @@ test("the assembly's residual settings erase into settings.json residue rows, ke
     result.registrations.map((r) => r.key),
     ["SessionStart"],
   );
+});
+
+test("a settings member's residue lowers to top-level settings.json keys, after its typed fields and key-sorted", () => {
+  const h = harness({
+    members: [
+      settings({
+        name: "settings",
+        permissions: { allow: ["Bash(cargo test:*)"] },
+        autoMemoryEnabled: false,
+        residue: { worktree: { bgIsolation: "none" }, alwaysThinkingEnabled: true },
+      }),
+    ],
+  });
+
+  const result = emit(h);
+
+  // The member projects the whole file, so its residue is not a `settings` residue row —
+  // it is flat top-level fields of the member itself, in the author's declared order for
+  // what the surface types and key order for what it merely carries.
+  const member = result.members.find((m) => m.kind === "settings");
+  assert.deepEqual(member?.fields, [
+    ["permissions", { allow: ["Bash(cargo test:*)"] }],
+    ["autoMemoryEnabled", false],
+    ["alwaysThinkingEnabled", true],
+    ["worktree", { bgIsolation: "none" }],
+  ]);
+
+  // The seam carries the same flat pairs — the wire never learned a residue shape, which
+  // is why the engine's write face needs no change to render them.
+  const seam = JSON.parse(result.seam);
+  assert.deepEqual(
+    seam.members.find((m: { kind: string }) => m.kind === "settings").fields,
+    [
+      ["permissions", { allow: ["Bash(cargo test:*)"] }],
+      ["autoMemoryEnabled", false],
+      ["alwaysThinkingEnabled", true],
+      ["worktree", { bgIsolation: "none" }],
+    ],
+  );
+
+  // The harness-level residue family is untouched: this member authored none of it.
+  assert.deepEqual(result.settings, []);
 });
 
 test("a harness with no residual settings carries an empty settings family", () => {

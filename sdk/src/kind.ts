@@ -406,7 +406,7 @@ export interface Member {
 }
 
 /** The framework keys of a member init — everything else is a typed field (flat). */
-const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs"]);
+const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs", "residue"]);
 
 /**
  * The **reserved leaf key** a nested member's own span lands under (0051) —
@@ -423,7 +423,25 @@ const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires"
  */
 const RESERVED_LEAF = "prose";
 
-/** The init a kind constructor takes — the framework keys plus the kind's typed fields `T`. */
+/**
+ * The **residue key** — the channel a partially-governed external format's undocumented
+ * keys ride under. A kind whose schema is large and version-evolving types what it
+ * governs and leaves the remainder opaque and *named* rather than indicted; `residue` is
+ * that name, spliced flat into the projected fields by {@link orderedFields}.
+ *
+ * Like {@link RESERVED_LEAF}, this is a name the framework owns — a kind whose external
+ * format documents a top-level key of it cannot spell that key as an ordinary field. The
+ * reservation is kindless, but the channel is opt-in by **type**: only a surface `T`
+ * declaring `residue?` can spell the bag, so a closed-frontmatter kind (a skill, a rule,
+ * an agent) keeps refusing it by excess-property check like any other unknown key.
+ */
+const RESIDUE_KEY = "residue";
+
+/**
+ * The init a kind constructor takes — the framework keys plus the kind's typed fields `T`.
+ * {@link RESIDUE_KEY} is a framework key too, deliberately not spelled below: a kind opts
+ * into that channel through its own surface `T`.
+ */
 export type MemberInit<T> = {
   readonly name: string;
   /** The host member this member's unit composes under — a nested-file child's, and only its. */
@@ -462,6 +480,9 @@ export interface KindDefinition<T> {
  * typed fields in the author's declared order. A fields-only registration kind (a
  * hook, an MCP server) carries its typed fields though it declares no `format` —
  * the fields are the whole member, folded into a manifest entry, never a header.
+ *
+ * A {@link RESIDUE_KEY} bag splices in last: what the program types, it orders; what it
+ * merely carries, it sorts.
  */
 function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readonly [string, unknown]> {
   if (facts.format === undefined && facts.shape !== "fields") return [];
@@ -471,7 +492,24 @@ function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readon
  }
   const head: Array<readonly [string, unknown]> =
     facts.identityField !== undefined ? [[facts.identityField, init.name]] : [];
-  return [...head, ...typed];
+  return [...head, ...typed, ...residueFields(init)];
+}
+
+/**
+ * The init's residue bag as projected fields, key-sorted. The bag is a record, so it
+ * carries no authored order to preserve — sorting is what makes the projection a
+ * function of the keys alone, the same stability the harness-level residue rows already
+ * take (`declarations.ts`'s `settingsRows`).
+ */
+function residueFields(init: MemberInit<object>): Array<readonly [string, unknown]> {
+  const residue = (init as { readonly [RESIDUE_KEY]?: Readonly<Record<string, unknown>> })[RESIDUE_KEY];
+  if (residue === undefined) return [];
+  // Default `sort()` is UTF-16 code-unit order — the same total order `compareStrings`
+  // gives every declaration family, reached without importing `declarations.ts` (which
+  // imports `builtins.ts`, which imports this module).
+  return Object.keys(residue)
+    .sort()
+    .map((key): readonly [string, unknown] => [key, residue[key]]);
 }
 
 /**

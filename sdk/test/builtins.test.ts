@@ -664,6 +664,63 @@ test("settingsDefaultContract types the committed file's structural keys and ced
   }
 });
 
+test("the settings kinds open a `residue` channel — the untyped remainder spells, a near-miss of a typed key still refuses", () => {
+  // The channel is a named bag, spliced flat behind the typed fields and key-sorted —
+  // `alwaysThinkingEnabled` precedes `worktree` regardless of authoring order.
+  const committed = settings({
+    name: "settings",
+    permissions: { allow: ["Bash(cargo test:*)"] },
+    residue: { worktree: { bgIsolation: "none" }, alwaysThinkingEnabled: true },
+  });
+  assert.deepEqual(committed.fields, [
+    ["permissions", { allow: ["Bash(cargo test:*)"] }],
+    ["alwaysThinkingEnabled", true],
+    ["worktree", { bgIsolation: "none" }],
+  ]);
+
+  const local = settingsLocal({
+    name: "settings.local",
+    model: "opus",
+    residue: { statusLine: { type: "command" } },
+  });
+  assert.deepEqual(local.fields, [
+    ["model", "opus"],
+    ["statusLine", { type: "command" }],
+  ]);
+
+  // The channel widens nothing: a misspelling of a key the surface *does* type is still an
+  // unknown key, refused at the keystroke. Only `tsc` tells these calls apart — this
+  // suite's `tsc -p` pass is where the refusal is held, and a refusal that stopped firing
+  // would fail it on the unused directive alone.
+  const misspelled = settings({
+    name: "settings",
+    // @ts-expect-error `permisions` is not the residue channel — the bag is named, so a
+    // near-miss of a governed key can never slip in as opaque remainder.
+    permisions: { allow: [] },
+  });
+  const misspelledLocal = settingsLocal({
+    name: "settings.local",
+    // @ts-expect-error the same refusal on the overlay half.
+    autoMemoryEnabld: true,
+  });
+  assert.deepEqual(misspelled.fields, [["permisions", { allow: [] }]]);
+  assert.deepEqual(misspelledLocal.fields, [["autoMemoryEnabld", true]]);
+});
+
+test("the residue channel is opt-in by type — a closed-frontmatter kind still refuses the key", () => {
+  // `residue` is reserved framework-wide, so the *mechanics* are kindless: any init
+  // carrying the bag splices it. What keeps the channel from silently widening every
+  // closed-frontmatter kind is the surface type alone — `Rule` declares no `residue`, so
+  // the key is as unknown here as any other, and only `tsc` says so.
+  const closed = rule({
+    name: "rust",
+    // @ts-expect-error the channel is opened by the kind's surface, never by the framework.
+    residue: { anything: true },
+    prose: text`# Rust`,
+  });
+  assert.deepEqual(closed.fields, [["anything", true]]);
+});
+
 test("command is a file-shaped unit with no identityField, unlike the directory-shaped skill", () => {
   assert.equal(command.facts.unitShape, "file");
   assert.equal(command.facts.identityField, undefined);
