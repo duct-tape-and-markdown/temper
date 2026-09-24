@@ -47,3 +47,17 @@ routing.
   it still holds, the choice is between refusing `required` on a layout
   slot at admissibility (as `sectionContains` on an embedded kind already
   is) and giving slot presence a meaning under positional binding.
+- observed at 8676e53b (issue audit, measured on Claude Code 2.1.281) — the
+  guard's `warn` mode reaches no one. `main.rs` Guard prints the finding with
+  `eprintln!` and exits 0 on `Warn`, but a hook's stderr on exit 0 "goes to
+  the debug log only, never the transcript, and Claude never sees it"
+  (code.claude.com/docs/en/hooks, "Exit code 0", retrieved 2026-09-24). A
+  probe confirmed it: a PreToolUse hook writing a token to stderr and exiting
+  0 left the token in the debug log and out of the model's context.
+  `distribution.md` "Per tool call" says `warn` "surfaces the finding in-band,
+  into the live context", and warn is the default, so by default the guard
+  does nothing visible. The spec is right and the code is wrong: no fork. In
+  band for PreToolUse is `hookSpecificOutput.additionalContext` with
+  `hookEventName: "PreToolUse"`. This shares its fix with 0060's PostToolUse
+  edge (the answer in the firing event's own shape), so derive the two
+  together. The manifest-findings branch has the same `Warn` arm.
