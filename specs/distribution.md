@@ -56,15 +56,19 @@ toolchain; the plugin a stranger installs is the one that gates this repo
   SDK-emitted, re-run `emit --frozen` and byte-compare — the check that makes
   byte-reproducibility mechanical. SARIF is CI's reporter.
 - **The author's terminal** — **hard**; the author runs `temper check`.
-- **Per tool call** — the `PreToolUse` guard is `temper guard`; it follows
-  the author's declared enforcement mode, three values split by where the
-  finding goes: **block** denies the call; **warn** allows it and surfaces
-  the finding in-band, into the live context; **note** allows it and records
-  the finding out-of-band only — the next report, never the session.
-  Default: warn. What the guard binds is the contract's call, and the mode
-  decides only what happens: a write of a document the program never
-  declared, at a governed locus, binds only where a `locus-declared` clause
-  is bound.
+- **Per tool call** — the guard is `temper guard`, at both edges of a tool
+  call; it follows the author's declared enforcement mode, three values split
+  by where the finding goes: **block** denies the call; **warn** allows it
+  and surfaces the finding in-band, into the live context; **note** allows
+  it and records the finding out-of-band only — the next report, never the
+  session. Default: warn. Before a file-writing tool (`PreToolUse`) the guard
+  judges the pending write. After a shell tool (`PostToolUse`), whose writes
+  no payload names, it judges what it binds against the tree the call left;
+  a write already made cannot be denied, so there **block** refuses the
+  call's result in-band and names the restore. A pass prints nothing. What
+  the guard binds is the contract's call, and the mode decides only what
+  happens: a write of a document the program never declared, at a governed
+  locus, binds only where a `locus-declared` clause is bound.
 
 `temper install` is the one on-ramp: discovery report, one question, every
 answer flag-spelled (`--yes`), no invisible state — re-running converges.
@@ -79,8 +83,8 @@ if it cannot check, it fails loud. The emit payload — the compiled program
 the SDK pipes to its pinned engine — is internal, versioned in lockstep,
 never a public format; the committed interface is artifacts plus the lock.
 
-The Claude Code facts these placements name — the `SessionStart` and
-`PreToolUse` hook shapes, the `additionalContext` cap, the
+The Claude Code facts these placements name — the `SessionStart`,
+`PreToolUse` and `PostToolUse` hook shapes, the `additionalContext` cap, the
 `yaml-language-server` modeline, the SARIF version — are external facts,
 each cited at its enforcement site in the engine (`reporter.rs`, the
 guard, `install`), never asserted bare here (the `builtins.md` discipline,
