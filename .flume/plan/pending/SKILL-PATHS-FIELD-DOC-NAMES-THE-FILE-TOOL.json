@@ -1,0 +1,25 @@
+{
+  "tag": "SKILL-PATHS-FIELD-DOC-NAMES-THE-FILE-TOOL",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "`SkillFrontmatter`'s `paths` field carries its own TSDoc (126-137): a present list removes the skill from every invocation channel \"until Claude reads a file the globs match\". That is the spelling 0061 retired; `specs/builtins.md` (\"The shipped kinds\", 109) now reads \"until a file tool (read, edit, write) touches a matching path\", and its next sentence adds that a shell read of the same path, or a search tool's, opens no path gate. Restate the field doc in the corpus's own words and carry that second sentence, the way the two `mention-reachable` guidances 00411872 moved already do; extend the doc's cite past `verified against 2.1.210` with the same 2.1.281 probe (2026-09-24) the four moved guidance cites carry. The sibling field doc on the rule side (`ruleDefaultContract`, 1614-1630) is already current and is the wording to match. TSDoc only — this string is no `guidance` fact, so no `ClauseRow` moves, `src/builtin_lock.toml` and `examples/base-harness/.temper/lock.toml` are untouched, and no emit is re-derived."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The skill `paths` field's own TSDoc still promises the retired \"until Claude reads a file the globs match\" — the seventh string 0061's guidance pass missed.",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
+  "tests": [],
+  "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`), and `SkillFrontmatter`'s `paths` doc states the file-tool opening and what the gate cannot see, with the 2.1.281 probe in its cite — no grep for \"Claude reads a file the globs match\" surviving in `sdk/`. Wording only, so no behavioral test ships and no lock is regenerated.",
+  "notes": "Residue sweep of bab35c14..HEAD. 00411872 moved six strings onto 0061's wording — four clause guidances, `ruleDefaultContract`'s doc-comment, `mentionReachable`'s API doc — and named them exhaustively; the field declaration's own TSDoc, the surface an author meets in the editor before any guidance fires, was not among them. scoped at 715f55ae"
+}
