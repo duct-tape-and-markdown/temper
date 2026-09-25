@@ -1,12 +1,12 @@
 {
   "tag": "GUARD-SHELL-EDGE-BINDS-THE-GOVERNED-LOCUS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "GUARD-JUDGES-THE-SHELL-EDGE"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/install.rs",
@@ -20,7 +20,8 @@
         "path": "tests/cli.rs",
         "description": "Beside the parent's shell-edge cases: a Bash-left stray at a governed locus, and the same tree with no `locus-declared` clause bound drawing nothing."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "The shell edge's second binding: a document a Bash call left at a governed locus that the lock declares no member for, where `locus-declared` is bound.",
   "per": {
