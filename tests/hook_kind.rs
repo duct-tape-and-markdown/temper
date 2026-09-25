@@ -5,9 +5,13 @@
 //! manifest at the `hooks.<Event>` collection address and read through the JSON manifest
 //! adapter, never a file tree of its own. Driven over fixtures mirroring the real Claude
 //! Code layout (`.claude/settings.json`, per `.claude/rules/rust.md`): the read that turns
-//! a `hooks.<Event>` entry into a member, and the shipped default contract's one decidable
-//! clause — the event must be a documented lifecycle event — firing on a broken hook and
-//! passing a clean one, end to end through the `check --harness` gate.
+//! a `hooks.<Event>` entry into a member, and the shipped default contract firing on a
+//! broken hook and passing a clean one, end to end through the `check --harness` gate.
+//!
+//! The contract spans both levels the member covers, because the read flattens both onto
+//! it: the lifecycle event carried off the collection key, and the handler's own schema —
+//! its `type`, and the fields the documented table marks required for that `type`, gated
+//! by one `when` guard per handler kind.
 
 mod common;
 
@@ -62,6 +66,58 @@ const NEWLY_DOCUMENTED_SETTINGS: &str = r#"{
     ]
   }
 }"#;
+
+/// A `.claude/settings.json` whose three hooks all key under documented events and each
+/// break their handler's own documented schema: a `command` handler with nothing to run,
+/// an `http` handler with nowhere to POST, and a handler naming a `type` outside the
+/// documented five (code.claude.com/docs/en/hooks, "Hook handler fields", retrieved
+/// 2026-09-25).
+const BROKEN_HANDLER_SETTINGS: &str = r#"{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [ { "type": "command" } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Write", "hooks": [ { "type": "http" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "webhook", "url": "https://example.test/stop" } ] }
+    ]
+  }
+}"#;
+
+/// A `.claude/settings.json` carrying one well-formed handler of every documented kind —
+/// five members, since a member is a handler and not a matcher group. Each carries exactly
+/// the fields its kind's table marks required (same source).
+const EVERY_HANDLER_KIND_SETTINGS: &str = r#"{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "echo guard" } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Write", "hooks": [
+        { "type": "http", "url": "https://example.test/audit" },
+        { "type": "mcp_tool", "server": "my_server", "tool": "security_scan" }
+      ] }
+    ],
+    "Stop": [
+      { "hooks": [
+        { "type": "prompt", "prompt": "Did the work finish?" },
+        { "type": "agent", "prompt": "Verify the tree is clean." }
+      ] }
+    ]
+  }
+}"#;
+
+/// Every finding line a `hook` clause raised, at any depth — a guarded clause reports under
+/// its own body address (`hook.when.type=command.required.command`), so a prefix read is
+/// what makes "no clause fired" a claim over the whole contract rather than over one label.
+fn hook_findings(findings: &[String]) -> Vec<&String> {
+    findings
+        .iter()
+        .filter(|line| line.contains("title=hook."))
+        .collect()
+}
 
 fn hook_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("hook").expect("hook is embedded")
@@ -228,6 +284,101 @@ fn the_hook_default_contract_passes_events_the_docs_added_after_the_first_retrie
     assert!(
         ok,
         "a harness registering only documented events gates clean, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn the_hook_default_contract_fires_on_a_handler_breaking_its_kinds_documented_schema() {
+    let harness = common::tmpdir("hook-broken-handler");
+    write_settings(&harness, BROKEN_HANDLER_SETTINGS);
+
+    let (findings, ok) = check_harness(&harness);
+
+    // The vacuity pin: all three hooks were read as members and judged, so each count
+    // below is a verdict over a member and not an empty selection.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("hook (3)"),
+        "all three broken-handler hooks are checked, got: {}",
+        checked[0]
+    );
+
+    // A `command` handler with nothing to run fires its own guard's body, and only it —
+    // the guard is keyed on `type`, so the `http` and `webhook` members never enter it.
+    let no_command = common::findings_for(&findings, "hook.when.type=command.required.command");
+    assert_eq!(
+        no_command.len(),
+        1,
+        "exactly the command handler missing its `command` fires, got: {findings:#?}"
+    );
+
+    // An `http` handler with nowhere to POST fires its own.
+    let no_url = common::findings_for(&findings, "hook.when.type=http.required.url");
+    assert_eq!(
+        no_url.len(),
+        1,
+        "exactly the http handler missing its `url` fires, got: {findings:#?}"
+    );
+
+    // A `type` outside the documented five fires the enum — and no guard, since no guard
+    // ranges over a value the allowlist refuses.
+    let bad_type = common::findings_for(&findings, "hook.enum.type");
+    assert_eq!(
+        bad_type.len(),
+        1,
+        "exactly the undocumented handler type fires the enum, got: {findings:#?}"
+    );
+    assert!(
+        bad_type[0].contains("webhook"),
+        "the finding names the undocumented handler type, got: {}",
+        bad_type[0]
+    );
+
+    // The lifecycle-event clause stays silent: all three key under documented events, so
+    // the handler half fires on its own evidence and not on the event half's.
+    assert!(
+        common::findings_for(&findings, "hook.enum.event").is_empty(),
+        "every event here is documented, got: {findings:#?}"
+    );
+    assert!(
+        !ok,
+        "a handler breaking its documented schema is a required-severity finding — the run fails, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn the_hook_default_contract_passes_a_well_formed_handler_of_every_documented_kind() {
+    let harness = common::tmpdir("hook-every-handler-kind");
+    write_settings(&harness, EVERY_HANDLER_KIND_SETTINGS);
+
+    let (findings, ok) = check_harness(&harness);
+
+    // The vacuity pin: one member per handler, five handlers, so the silence below is a
+    // verdict passed by every documented kind — including the two that share a guard.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("hook (5)"),
+        "one member per documented handler kind is checked, got: {}",
+        checked[0]
+    );
+
+    assert!(
+        hook_findings(&findings).is_empty(),
+        "a well-formed handler of every documented kind passes the whole contract, got: {findings:#?}"
+    );
+    assert!(
+        ok,
+        "a harness whose every handler is well-formed gates clean, got: {findings:#?}"
     );
 }
 

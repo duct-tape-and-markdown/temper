@@ -375,19 +375,67 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
  * A Claude Code hook — a fields-only registration member surfacing inside
  * `settings.json`, keyed under its lifecycle event. It owns no artifact of its own; a
  * handler names how it fires (`command`/`http`/`mcp_tool`/`prompt`/`agent`) plus the
- * documented common fields (code.claude.com/docs/en/hooks, retrieved 2026-07-15).
- * Authoring `hook(...)` builds a member whose typed fields fold into its manifest entry;
- * emit erases it into a registration write fact (`emit.ts`).
+ * documented common fields. Authoring `hook(...)` builds a member whose typed fields fold
+ * into its manifest entry; emit erases it into a registration write fact (`emit.ts`).
+ *
+ * The fields are the documented handler table's own — the common row every handler kind
+ * carries, then each kind's — each cited where it is claimed. They address by bare name
+ * because the group-array read flattens a handler object's keys onto the member and lifts
+ * the group's `matcher` beside them (`hook_member_fields`, `src/json_manifest.rs`), which
+ * is what lets {@link hookDefaultContract} judge them.
+ *
+ * `once` is deliberately untyped: the docs honor it only on a hook declared in skill
+ * frontmatter and ignore it in settings files, and this kind's locus *is* a settings file
+ * — typing it would invite dead configuration (code.claude.com/docs/en/hooks, "Common
+ * fields", retrieved 2026-09-25).
  */
 export interface Hook {
-  /** The handler kind — how the hook fires when its event matches. */
+  /** The handler kind — how the hook fires when its event matches (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25). */
   readonly type?: "command" | "http" | "mcp_tool" | "prompt" | "agent";
-  /** The shell command or executable a `command` handler runs. */
-  readonly command?: string;
-  /** Seconds before the handler is canceled. */
+  /**
+   * One permission rule scoping the fire (`"Bash(git *)"`, `"Edit(*.ts)"`). Holds exactly
+   * one rule — there is no `&&`/`||`/list syntax — and is evaluated only on the tool
+   * events; on any other event a hook carrying it never runs
+   * (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25).
+   */
+  readonly if?: string;
+  /** Seconds before the handler is canceled; the default varies by handler kind and event (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25). */
   readonly timeout?: number;
-  /** The tool-name filter a tool-scoped event fires on (`"*"`/`""`/absent = all). */
+  /** The spinner message shown while the handler runs (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25). */
+  readonly statusMessage?: string;
+  /**
+   * The tool-name filter a tool-scoped event fires on (`"*"`/`""`/absent = all). Authored
+   * per handler and lifted to its matcher group on the wire, since Claude Code carries the
+   * matcher at the group level (code.claude.com/docs/en/hooks, "Matcher patterns",
+   * retrieved 2026-09-25).
+   */
   readonly matcher?: string;
+  /** The shell command a `command` handler runs, or — beside `args` — the executable it spawns (code.claude.com/docs/en/hooks, "Command hook fields", retrieved 2026-09-25). */
+  readonly command?: string;
+  /** A `command` handler's argument vector; its presence spawns `command` directly, with no shell (same source). */
+  readonly args?: readonly string[];
+  /** A `command` handler runs in the background without blocking (same source). */
+  readonly async?: boolean;
+  /** A `command` handler runs in the background and wakes Claude on exit code 2 (same source). */
+  readonly asyncRewake?: boolean;
+  /** The shell a `command` handler runs under; ignored when `args` is set (same source). */
+  readonly shell?: "bash" | "powershell";
+  /** The endpoint an `http` handler POSTs the event's JSON input to (code.claude.com/docs/en/hooks, "HTTP hook fields", retrieved 2026-09-25). */
+  readonly url?: string;
+  /** Extra headers on an `http` handler's request; values interpolate `$VAR` names drawn from `allowedEnvVars` (same source). */
+  readonly headers?: Readonly<Record<string, string>>;
+  /** The environment variable names an `http` handler's headers may interpolate; unlisted references resolve empty (same source). */
+  readonly allowedEnvVars?: readonly string[];
+  /** The already-connected MCP server an `mcp_tool` handler calls — the scoped `plugin:<plugin>:<server>` name for a plugin-bundled one (code.claude.com/docs/en/hooks, "MCP tool hook fields", retrieved 2026-09-25). */
+  readonly server?: string;
+  /** The tool an `mcp_tool` handler calls on that server (same source). */
+  readonly tool?: string;
+  /** The arguments an `mcp_tool` handler passes; string values substitute `${path}` from the hook's JSON input (same source). */
+  readonly input?: Readonly<Record<string, unknown>>;
+  /** The prompt text a `prompt` or `agent` handler sends to the model; `$ARGUMENTS` stands for the hook input JSON (code.claude.com/docs/en/hooks, "Prompt and agent hook fields", retrieved 2026-09-25). */
+  readonly prompt?: string;
+  /** The model a `prompt` or `agent` handler evaluates under; absent means a fast default (same source). */
+  readonly model?: string;
 }
 
 /**
@@ -1067,12 +1115,9 @@ const RESERVED_MARKETPLACE_NAMES: readonly string[] = [
  * catalog published under a name that later becomes reserved stops loading for every user
  * who already added it. That is the one clause here worth more than a lint.
  *
- * The `source` union's per-form required fields are now gated via `when` clauses: decision
- * 0041's Rust implementation shipped in src/contract.rs (Predicate::When, src/engine.rs:1207
- * decide logic), and the SDK's `when()` export has been available since 884a704 — both well
- * before these comments were last touched. The per-source-form requirements now hold via guarded
- * clauses at `plugins[*].source`: the string form needs `leading-dot-slash` shape; each object
- * form (`github`, `url`, `git-subdir`, `npm`) needs its required fields.
+ * The `source` union's per-form required fields gate as `when` clauses at
+ * `plugins[*].source`: the string form needs `leading-dot-slash` shape, and each object
+ * form (`github`, `url`, `git-subdir`, `npm`) needs its own required fields.
  *
  * Deliberately absent as undecidable, and never a clause (`specs/intent.md`, invariant 2):
  * the docs *also* block names that "impersonate official marketplaces" (`official-claude-plugins`,
@@ -1723,21 +1768,37 @@ const DOCUMENTED_HOOK_EVENTS = [
 ] as const;
 
 /**
+ * Every documented Claude Code hook handler kind — the closed set a handler's `type` is
+ * drawn from (code.claude.com/docs/en/hooks, "Hook handler fields", retrieved 2026-09-25).
+ * The allowlist the `hook` default contract's handler enum ranges over, and the guard
+ * values its per-kind `when` clauses partition; the update ritual when the docs add a
+ * handler kind is to re-fetch, extend this set, widen {@link Hook}'s `type`, and give the
+ * new kind its own guarded clause — never to re-derive from memory.
+ */
+const DOCUMENTED_HOOK_HANDLER_TYPES = ["command", "http", "mcp_tool", "prompt", "agent"] as const;
+
+/**
  * The default contract for `hook` — Anthropic's documented hooks contract
- * (code.claude.com/docs/en/hooks, retrieved 2026-09-25). A hook surfaces at
- * `hooks.<Event>`, so the member the gate reads is the lifecycle event itself, its name
- * carried as the `event` field off the collection key. The one decidable, cited property
- * of that member is its event: a key outside the documented set is dead configuration —
- * Claude Code silently never fires a hook under an unrecognized event, so the strictest
- * documented profile is that the event is one temper's cited docs name.
+ * (code.claude.com/docs/en/hooks, retrieved 2026-09-25).
  *
- * **Re-examined against decision 0041's widened vocabulary and confirmed to still hold**:
- * The handler's own schema (`type`/`command`/`url`/`timeout`, the matcher grammar) lives
- * one array level deeper than `hooks.<Event>`, inside each event's matcher-group list. The
- * collection address `hooks.<Event>` does not walk into arrays, and even with the guard
- * vocabulary's when/enumOf/type extensions, addressing still cannot spell a path into the
- * handler array (e.g., `hooks.<Event>[0].type`). A clause over it would range over a field
- * the read never surfaces, so it is no clause at all — the addressing-reach gap remains.
+ * A hook surfaces at `hooks.<Event>`, so the lifecycle event is a member field, its name
+ * carried off the collection key. That event is the first decidable, cited property: a key
+ * outside the documented set is dead configuration — Claude Code silently never fires a
+ * hook under an unrecognized event, so the strictest documented profile is that the event
+ * is one temper's cited docs name.
+ *
+ * The handler's own schema is addressable for the same reason the event is. The
+ * group-array read flattens each handler object's keys onto the member and lifts the
+ * group's `matcher` beside them (`hook_member_fields`, `src/json_manifest.rs`), so `type`,
+ * `command`, `url`, `server`, `tool` and `prompt` all address by bare name — no path into
+ * the handler array is ever spelled, and none needs to be. The documented per-kind
+ * requirements therefore gate as `when` clauses in the shape
+ * {@link mcpServerDefaultContract} already holds: a guard over `type`, a body carrying
+ * that kind's required fields. `prompt` and `agent` share one guard because the docs give
+ * them one table and one required field.
+ *
+ * An absent `type` passes every guard, the way an absent transport does for an
+ * `mcp-server`: the enum settles which values are legal, never that a value is present.
  */
 export const hookDefaultContract: readonly Clause[] = [
   clause(enumOf("event", DOCUMENTED_HOOK_EVENTS), {
@@ -1746,6 +1807,66 @@ export const hookDefaultContract: readonly Clause[] = [
       "A hook keys under its lifecycle event; an event outside the documented set is dead configuration — Claude Code silently never fires a hook under an unrecognized event. If this is a newly-documented event, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding.",
     cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-09-25)",
   }),
+  clause(enumOf("type", DOCUMENTED_HOOK_HANDLER_TYPES), {
+    severity: "required",
+    guidance:
+      "A handler's `type` names how the hook fires; a value outside the documented five (`command`, `http`, `mcp_tool`, `prompt`, `agent`) is a handler Claude Code cannot run. If this is a newly-documented handler kind, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding.",
+    cite: "https://code.claude.com/docs/en/hooks#common-fields (retrieved 2026-09-25)",
+  }),
+  when(
+    enumOf("type", ["command"]),
+    [
+      clause(required("command"), {
+        severity: "required",
+        guidance:
+          "A `command` handler runs a shell command, so it must carry one — the command line to execute, or, beside `args`, the executable to spawn directly. Without it the handler registers and does nothing.",
+        cite: "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)",
+      }),
+    ],
+    { cite: "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)" },
+  ),
+  when(
+    enumOf("type", ["http"]),
+    [
+      clause(required("url"), {
+        severity: "required",
+        guidance:
+          "An `http` handler POSTs the event's JSON input to a URL, so it must carry one. Without it there is no endpoint to call.",
+        cite: "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)",
+      }),
+    ],
+    { cite: "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)" },
+  ),
+  when(
+    enumOf("type", ["mcp_tool"]),
+    [
+      clause(required("server"), {
+        severity: "required",
+        guidance:
+          "An `mcp_tool` handler names the already-connected MCP server it calls. For a plugin-bundled server that is the scoped `plugin:<plugin-name>:<server-name>` name, not the bare server key.",
+        cite: "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)",
+      }),
+      clause(required("tool"), {
+        severity: "required",
+        guidance:
+          "An `mcp_tool` handler names the tool it calls on its server; the server alone does not say what to invoke.",
+        cite: "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)",
+      }),
+    ],
+    { cite: "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)" },
+  ),
+  when(
+    enumOf("type", ["prompt", "agent"]),
+    [
+      clause(required("prompt"), {
+        severity: "required",
+        guidance:
+          "A `prompt` or `agent` handler sends prompt text to a model, so it must carry one; `$ARGUMENTS` stands for the hook input JSON. The two kinds share this requirement — the docs give them one field table.",
+        cite: "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)",
+      }),
+    ],
+    { cite: "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)" },
+  ),
 ];
 
 /**
@@ -1792,11 +1913,9 @@ const DOCUMENTED_MCP_TRANSPORTS = ["stdio", "http", "streamable-http", "sse", "w
  * profile is that a present `type` names one temper's cited docs carry. An absent `type`
  * passes — Claude Code reads it as `stdio`, the documented default.
  *
- * The per-transport requirements are now gated via `when` clauses: a stdio server (type
- * absent or `stdio`) needs a `command`, and a remote server (type `http`, `streamable-http`,
- * `sse`, or `ws`) needs a `url`. Decision 0041's Rust implementation shipped in
- * src/contract.rs and the SDK's `when()` export has been available since 884a704 — both
- * well before these comments were last written.
+ * The per-transport requirements gate as `when` clauses: a `stdio` server needs a
+ * `command`, and a remote server (`http`, `streamable-http`, `sse`, or `ws`) needs a
+ * `url`.
  */
 export const mcpServerDefaultContract: readonly Clause[] = [
   clause(enumOf("type", DOCUMENTED_MCP_TRANSPORTS), {

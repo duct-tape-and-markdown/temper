@@ -51,6 +51,17 @@ The standing bar every module holds.
     }
   },
   "hooks": {
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "http",
+            "url": "https://hooks.example.com/audit"
+          }
+        ],
+        "matcher": "Write"
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -101,8 +112,8 @@ emit_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
 [[settings]]
 name = "settings"
 source_path = ".claude/settings.json"
-source_hash = "5a6b2174a90a0130e34282a514e357fd528aac137196acde9f9b708c517eddae"
-emit_hash = "5a6b2174a90a0130e34282a514e357fd528aac137196acde9f9b708c517eddae"
+source_hash = "ac651535c1afa9c9bca50229b49531dadcb3c5a6a3773f0f117bd185cec2e026"
+emit_hash = "ac651535c1afa9c9bca50229b49531dadcb3c5a6a3773f0f117bd185cec2e026"
 
 [[declaration.kind]]
 name = "guide"
@@ -239,6 +250,12 @@ host = "spec:representation"
 kind = "invariant"
 key = "the-projection-is-not-the-database"
 leaves = { prose = "Facts are declared, never mined back." }
+
+[[declaration.registration]]
+kind = "hook"
+key = "PostToolUseFailure"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
 
 [[declaration.registration]]
 kind = "hook"

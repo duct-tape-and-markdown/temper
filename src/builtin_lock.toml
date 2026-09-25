@@ -309,6 +309,96 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-25)"
 values = ["SessionStart", "Setup", "UserPromptSubmit", "UserPromptExpansion", "PreToolUse", "PermissionRequest", "PermissionDenied", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "MessageDisplay", "SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "Stop", "StopFailure", "TeammateIdle", "InstructionsLoaded", "ConfigChange", "CwdChanged", "DirectoryAdded", "FileChanged", "WorktreeCreate", "WorktreeRemove", "PreCompact", "PostCompact", "PreModelSwitch", "PostModelSwitch", "Elicitation", "ElicitationResult", "SessionEnd"]
 
 [[declaration.clause]]
+label = "hook.enum.type"
+kind = "hook"
+predicate = "enum"
+field = "type"
+severity = "required"
+guidance = "A handler's `type` names how the hook fires; a value outside the documented five (`command`, `http`, `mcp_tool`, `prompt`, `agent`) is a handler Claude Code cannot run. If this is a newly-documented handler kind, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding."
+cite = "https://code.claude.com/docs/en/hooks#common-fields (retrieved 2026-09-25)"
+values = ["command", "http", "mcp_tool", "prompt", "agent"]
+
+[[declaration.clause]]
+label = "hook.when.type=command"
+kind = "hook"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)"
+values = ["command"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "hook.when.type=command.required.command"
+predicate = "required"
+field = "command"
+severity = "required"
+guidance = "A `command` handler runs a shell command, so it must carry one — the command line to execute, or, beside `args`, the executable to spawn directly. Without it the handler registers and does nothing."
+cite = "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
+label = "hook.when.type=http"
+kind = "hook"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)"
+values = ["http"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "hook.when.type=http.required.url"
+predicate = "required"
+field = "url"
+severity = "required"
+guidance = "An `http` handler POSTs the event's JSON input to a URL, so it must carry one. Without it there is no endpoint to call."
+cite = "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
+label = "hook.when.type=mcp_tool"
+kind = "hook"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)"
+values = ["mcp_tool"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "hook.when.type=mcp_tool.required.server"
+predicate = "required"
+field = "server"
+severity = "required"
+guidance = "An `mcp_tool` handler names the already-connected MCP server it calls. For a plugin-bundled server that is the scoped `plugin:<plugin-name>:<server-name>` name, not the bare server key."
+cite = "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause.body]]
+label = "hook.when.type=mcp_tool.required.tool"
+predicate = "required"
+field = "tool"
+severity = "required"
+guidance = "An `mcp_tool` handler names the tool it calls on its server; the server alone does not say what to invoke."
+cite = "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
+label = "hook.when.type=agent+prompt"
+kind = "hook"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)"
+values = ["prompt", "agent"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "hook.when.type=agent+prompt.required.prompt"
+predicate = "required"
+field = "prompt"
+severity = "required"
+guidance = "A `prompt` or `agent` handler sends prompt text to a model, so it must carry one; `$ARGUMENTS` stands for the hook input JSON. The two kinds share this requirement — the docs give them one field table."
+cite = "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
 label = "marketplace.required.name"
 kind = "marketplace"
 predicate = "required"

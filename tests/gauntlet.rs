@@ -12,9 +12,10 @@
 //! 2. an embedded edge scoped on both endpoints — a `citation` edge inside a
 //!    `paths`-scoped rule's body, pointing at a second `paths`-scoped rule;
 //! 3. a declared manifest container — a `settings` member owning `settings.json`
-//!    whole, its residue keys its own fields, with a declared `hook`,
-//!    `installed-plugin` and `known-marketplace` registering at its three collection
-//!    addresses;
+//!    whole, its residue keys its own fields, with two declared `hook`s (one of them a
+//!    non-command handler, so a `when`-guarded clause composes over a group-array
+//!    entry), an `installed-plugin` and a `known-marketplace` registering at its three
+//!    collection addresses;
 //! 4. a local-locus member under ignore rules — a `local` kind whose gitignored
 //!    document the reviewed `governs` discovers all the same (the dial precedent);
 //! 5. a starred-segment lone file inside a directory-owning host — a `handbook`
@@ -121,7 +122,7 @@ const authoring = rule({
 
 // Composition 3 — a declared manifest container with a resolving plugin→marketplace edge.
 //
-// A `hook`, an `installed-plugin`, and a `known-marketplace` register at the three
+// Two `hook`s, an `installed-plugin`, and a `known-marketplace` register at the three
 // collection addresses inside `settings.json`, and the `settings` container owns the
 // file whole — its `permissions`/`autoMemoryEnabled` residue is its own fields, so emit
 // renders the declared segments in address order and the residue after them. The
@@ -129,6 +130,20 @@ const authoring = rule({
 // known-marketplace declares it, so the marketplace-half edge resolves on the
 // reference graph (0039).
 const sessionHook = hook({ name: "SessionStart", type: "command", command: "temper reporter" });
+// The second hook is a *non-command* handler: an `http` one carrying its documented `url`.
+// It is the corpus's one guarded clause over a manifest member — `hook`'s per-handler-kind
+// `when` guards fire on the member's own `type`, so this entry exercises a guard composing
+// over a group-array registration beside the object-shape (`known-marketplace`) and
+// scalar-shape (`installed-plugin`) ones. Legal, so the only verdict it moves is the
+// member tally. `PostToolUseFailure` is deliberate: the three events temper's own gate
+// places at (`SessionStart`, `PreToolUse`, `PostToolUse`) would additionally supersede a
+// gate placement, and this cell is about the guard, not about that.
+const auditHook = hook({
+  name: "PostToolUseFailure",
+  matcher: "Write",
+  type: "http",
+  url: "https://hooks.example.com/audit",
+});
 const formatterPlugin = installedPlugin({ name: "formatter@acme-marketplace", enabled: true });
 const acmeMarketplace = knownMarketplace({ name: "acme-marketplace", source: "./vendor/acme-marketplace" });
 const projectSettings = settings({
@@ -172,7 +187,7 @@ const gateHandbook = handbook({ name: "operate-the-gate", prose: text`# Conventi
 process.stdout.write(
   emit(
     harness({
-      members: [gateGuide, representation, conventions, authoring, sessionHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook],
+      members: [gateGuide, representation, conventions, authoring, sessionHook, auditHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook],
       admit: [{ host: rule, admits: [citation] }],
       expect: [
         { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },

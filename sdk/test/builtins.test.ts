@@ -10,7 +10,7 @@ import { test } from "node:test";
 import type { Clause, Harness } from "../src/index.js";
 import { embeddedMemberValue, emit, harness, kind, relocate } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
-import type { Rule } from "../src/claude-code.js";
+import type { Hook, Rule } from "../src/claude-code.js";
 import {
   agent,
   agentDefaultContract,
@@ -662,6 +662,51 @@ test("settingsDefaultContract types the committed file's structural keys and ced
       /^https:\/\/code\.claude\.com\/docs\/en\/settings-reference#\S+ \(retrieved 2026-09-22\)$/,
     );
   }
+});
+
+test("hookDefaultContract guards every documented handler kind with that kind's required fields", () => {
+  // The compile-time half. A `Record` keyed by the union demands a row per handler kind
+  // and refuses one that is not a kind, so widening `Hook["type"]` without widening the
+  // contract fails `tsc` here — in TypeScript's own suite, not only in the Rust matrix.
+  const documentedHandlerKinds: Record<NonNullable<Hook["type"]>, true> = {
+    command: true,
+    http: true,
+    mcp_tool: true,
+    prompt: true,
+    agent: true,
+  };
+  const handlerKinds = Object.keys(documentedHandlerKinds).sort();
+
+  // The enum ranges over exactly those kinds — one allowlist, not two transcriptions.
+  const handlerEnum = hookDefaultContract.find(
+    (c) => c.predicate.key === "enum" && c.predicate.field === "type",
+  );
+  assert.deepEqual([...(handlerEnum?.predicate.values ?? [])].sort(), handlerKinds);
+
+  // The runtime half: each kind is guarded exactly once, and its body is the required
+  // fields the docs name for it.
+  const requiredByKind = new Map<string, readonly string[]>();
+  const guards = hookDefaultContract.filter((c) => c.predicate.key === "when");
+  for (const guarded of guards) {
+    assert.equal(guarded.when_guard?.key, "enum");
+    assert.equal(guarded.when_guard?.field, "type");
+    const body = (guarded.when_body ?? []).map((c) => {
+      assert.equal(c.predicate.key, "required", "a handler guard's body requires fields");
+      assert.ok((c.cite ?? "").length > 0, "a body clause carries its own cite");
+      return c.predicate.field as string;
+    });
+    for (const value of guarded.when_guard?.values ?? []) {
+      assert.equal(requiredByKind.has(value), false, `\`${value}\` is guarded exactly once`);
+      requiredByKind.set(value, body);
+    }
+  }
+  assert.deepEqual([...requiredByKind.keys()].sort(), handlerKinds);
+  assert.deepEqual(requiredByKind.get("command"), ["command"]);
+  assert.deepEqual(requiredByKind.get("http"), ["url"]);
+  assert.deepEqual(requiredByKind.get("mcp_tool"), ["server", "tool"]);
+  // One table in the docs, one guard here — so the two read the same body object.
+  assert.deepEqual(requiredByKind.get("prompt"), ["prompt"]);
+  assert.deepEqual(requiredByKind.get("agent"), ["prompt"]);
 });
 
 test("the settings kinds open a `residue` channel — the untyped remainder spells, a near-miss of a typed key still refuses", () => {
