@@ -683,6 +683,20 @@ test("hookDefaultContract guards every documented handler kind with that kind's 
   );
   assert.deepEqual([...(handlerEnum?.predicate.values ?? [])].sort(), handlerKinds);
 
+  // The two clauses over one field, pinned together: the enum settles which values are
+  // legal, the presence clause that a value is there at all. `type` is documented required
+  // with no default, so an absent one is dead configuration the enum alone cannot see —
+  // an allowlist has nothing to refuse when the field is missing.
+  const handlerPresence = hookDefaultContract.find(
+    (c) => c.predicate.key === "required" && c.predicate.field === "type",
+  );
+  assert.ok(handlerPresence, "`type` is presence-gated beside its enum");
+  assert.equal(handlerPresence?.severity, "required");
+  assert.ok((handlerPresence?.guidance ?? "").length > 0, "the presence clause teaches");
+  for (const overType of [handlerEnum, handlerPresence]) {
+    assert.ok((overType?.cite ?? "").length > 0, "each clause over `type` carries its own cite");
+  }
+
   // The runtime half: each kind is guarded exactly once, and its body is the required
   // fields the docs name for it.
   const requiredByKind = new Map<string, readonly string[]>();

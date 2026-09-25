@@ -390,8 +390,12 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
  * fields", retrieved 2026-09-25).
  */
 export interface Hook {
-  /** The handler kind — how the hook fires when its event matches (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25). */
-  readonly type?: "command" | "http" | "mcp_tool" | "prompt" | "agent";
+  /**
+   * The handler kind — how the hook fires when its event matches. Required and
+   * default-less: a handler naming no `type` is a registration Claude Code has no way to
+   * run (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25).
+   */
+  readonly type: "command" | "http" | "mcp_tool" | "prompt" | "agent";
   /**
    * One permission rule scoping the fire (`"Bash(git *)"`, `"Edit(*.ts)"`). Holds exactly
    * one rule — there is no `&&`/`||`/list syntax — and is evaluated only on the tool
@@ -1797,8 +1801,10 @@ const DOCUMENTED_HOOK_HANDLER_TYPES = ["command", "http", "mcp_tool", "prompt", 
  * that kind's required fields. `prompt` and `agent` share one guard because the docs give
  * them one table and one required field.
  *
- * An absent `type` passes every guard, the way an absent transport does for an
- * `mcp-server`: the enum settles which values are legal, never that a value is present.
+ * The enum settles which values are legal, never that a value is present, and an absent
+ * `type` enters no guard — so presence is its own clause beside the enum. The docs'
+ * common-fields table marks `type` required and gives it no default, so a handler naming
+ * none is dead configuration rather than a defaulted one.
  */
 export const hookDefaultContract: readonly Clause[] = [
   clause(enumOf("event", DOCUMENTED_HOOK_EVENTS), {
@@ -1806,6 +1812,12 @@ export const hookDefaultContract: readonly Clause[] = [
     guidance:
       "A hook keys under its lifecycle event; an event outside the documented set is dead configuration — Claude Code silently never fires a hook under an unrecognized event. If this is a newly-documented event, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding.",
     cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-09-25)",
+  }),
+  clause(required("type"), {
+    severity: "required",
+    guidance:
+      "A handler names how it fires, and the documented common-fields table gives `type` no default — so a handler carrying none is dead configuration: nothing to run, and no per-kind requirement for temper to hold it to either. Name one of the documented five (`command`, `http`, `mcp_tool`, `prompt`, `agent`).",
+    cite: "https://code.claude.com/docs/en/hooks#common-fields (retrieved 2026-09-25)",
   }),
   clause(enumOf("type", DOCUMENTED_HOOK_HANDLER_TYPES), {
     severity: "required",

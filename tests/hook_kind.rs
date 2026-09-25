@@ -67,11 +67,12 @@ const NEWLY_DOCUMENTED_SETTINGS: &str = r#"{
   }
 }"#;
 
-/// A `.claude/settings.json` whose three hooks all key under documented events and each
+/// A `.claude/settings.json` whose four hooks all key under documented events and each
 /// break their handler's own documented schema: a `command` handler with nothing to run,
-/// an `http` handler with nowhere to POST, and a handler naming a `type` outside the
-/// documented five (code.claude.com/docs/en/hooks, "Hook handler fields", retrieved
-/// 2026-09-25).
+/// an `http` handler with nowhere to POST, a handler naming a `type` outside the
+/// documented five, and one naming no `type` at all — the common-fields table marks it
+/// required and gives it no default (code.claude.com/docs/en/hooks, "Hook handler
+/// fields"/"Common fields", retrieved 2026-09-25).
 const BROKEN_HANDLER_SETTINGS: &str = r#"{
   "hooks": {
     "PreToolUse": [
@@ -82,6 +83,9 @@ const BROKEN_HANDLER_SETTINGS: &str = r#"{
     ],
     "Stop": [
       { "hooks": [ { "type": "webhook", "url": "https://example.test/stop" } ] }
+    ],
+    "SessionStart": [
+      { "hooks": [ { "command": "echo untyped" } ] }
     ]
   }
 }"#;
@@ -294,7 +298,7 @@ fn the_hook_default_contract_fires_on_a_handler_breaking_its_kinds_documented_sc
 
     let (findings, ok) = check_harness(&harness);
 
-    // The vacuity pin: all three hooks were read as members and judged, so each count
+    // The vacuity pin: all four hooks were read as members and judged, so each count
     // below is a verdict over a member and not an empty selection.
     let checked = common::findings_for(&findings, "coverage.checked");
     assert_eq!(
@@ -303,8 +307,8 @@ fn the_hook_default_contract_fires_on_a_handler_breaking_its_kinds_documented_sc
         "expected exactly one checked summary, got: {findings:#?}"
     );
     assert!(
-        checked[0].contains("hook (3)"),
-        "all three broken-handler hooks are checked, got: {}",
+        checked[0].contains("hook (4)"),
+        "all four broken-handler hooks are checked, got: {}",
         checked[0]
     );
 
@@ -337,6 +341,22 @@ fn the_hook_default_contract_fires_on_a_handler_breaking_its_kinds_documented_sc
         bad_type[0].contains("webhook"),
         "the finding names the undocumented handler type, got: {}",
         bad_type[0]
+    );
+
+    // A handler naming no `type` fires the presence clause — and only it. The enum stays
+    // silent: an allowlist refuses values, and an absent field offers none. `type` is
+    // documented required with no default, so this is the one break the enum beside it
+    // could never see.
+    let no_type = common::findings_for(&findings, "hook.required.type");
+    assert_eq!(
+        no_type.len(),
+        1,
+        "exactly the handler naming no `type` fires the presence clause, got: {findings:#?}"
+    );
+    assert_eq!(
+        bad_type.len(),
+        1,
+        "the absent `type` adds nothing to the enum's count, got: {findings:#?}"
     );
 
     // The lifecycle-event clause stays silent: all three key under documented events, so

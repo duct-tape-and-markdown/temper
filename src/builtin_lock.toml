@@ -309,6 +309,15 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-25)"
 values = ["SessionStart", "Setup", "UserPromptSubmit", "UserPromptExpansion", "PreToolUse", "PermissionRequest", "PermissionDenied", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "MessageDisplay", "SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "Stop", "StopFailure", "TeammateIdle", "InstructionsLoaded", "ConfigChange", "CwdChanged", "DirectoryAdded", "FileChanged", "WorktreeCreate", "WorktreeRemove", "PreCompact", "PostCompact", "PreModelSwitch", "PostModelSwitch", "Elicitation", "ElicitationResult", "SessionEnd"]
 
 [[declaration.clause]]
+label = "hook.required.type"
+kind = "hook"
+predicate = "required"
+field = "type"
+severity = "required"
+guidance = "A handler names how it fires, and the documented common-fields table gives `type` no default — so a handler carrying none is dead configuration: nothing to run, and no per-kind requirement for temper to hold it to either. Name one of the documented five (`command`, `http`, `mcp_tool`, `prompt`, `agent`)."
+cite = "https://code.claude.com/docs/en/hooks#common-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
 label = "hook.enum.type"
 kind = "hook"
 predicate = "enum"
