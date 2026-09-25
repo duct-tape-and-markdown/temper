@@ -1,12 +1,12 @@
 {
   "tag": "TAP-IDENTITY-RELATIVIZES-TO-THE-RUNNING-ROOT",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "GUARD-WARN-REACHES-THE-LIVE-CONTEXT"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/tap.rs",
@@ -24,7 +24,8 @@
         "path": "tests/tap.rs",
         "description": "Three cases. `log_path_resolves_linked_worktree_to_primary_checkout` (~:258) appends a `ToolUse` record, which carries no path to relativize, so the worktree case has never exercised the rewrite: add the `InstructionsLoaded` half over the same real `git worktree add` fixture. A lazy load's payload records its trigger path, relativized, and an included load its parent path. And beside the existing older-version line (~:234), a current-version record written without the two new keys reads clean."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "A tap record's paths: a linked worktree's identity stays absolute, breaking the read-time join, and a lazy load records nothing about what triggered it (0062).",
   "per": {

@@ -1,12 +1,12 @@
 {
   "tag": "GUARD-JUDGES-THE-SHELL-EDGE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "GUARD-WARN-REACHES-THE-LIVE-CONTEXT"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/main.rs",
@@ -32,7 +32,8 @@
         "path": "CHANGELOG.md",
         "description": "One `## [Unreleased]` entry: the PostToolUse gate row's command changes, so a harness scaffolded before this ships carries the old `temper check . --reporter session-start` line in `.claude/settings.json` and must re-run `temper install` (or, for a represented harness, change that one line in the hook module and re-emit). This is the upgrade block 0060's Consequences names."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`temper guard` runs at both edges of a tool call: after a shell tool it judges projection drift against the tree the call left, in that event's own envelope, at the declared mode.",
   "per": {
