@@ -870,7 +870,7 @@ kind = "rule"
 predicate = "glob-valid"
 field = "paths"
 severity = "required"
-guidance = "`paths` is the one documented rules key: globs (brace expansion supported) that scope the rule to matching files. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it."
+guidance = "`paths` is the one documented rules key: globs (brace expansion supported) that load the rule when a file tool (read, edit, write) touches a matching path. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it."
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
@@ -889,8 +889,8 @@ kind = "rule"
 predicate = "mention-reachable"
 field = "paths"
 severity = "advisory"
-guidance = "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until Claude reads a matching file, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a rule that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this rule's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does."
-cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211)"
+guidance = "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a rule that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this rule's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that."
+cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211; shell and search reads open no path gate, probed on Claude Code 2.1.281, 2026-09-24)"
 gate = "paths"
 
 [[declaration.clause]]
@@ -1094,7 +1094,7 @@ kind = "skill"
 predicate = "glob-valid"
 field = "paths"
 severity = "required"
-guidance = "The optional `paths` scope gates every invocation channel until Claude reads a file its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field."
+guidance = "The optional `paths` scope gates every invocation channel until a file tool (read, edit, write) touches a path its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field."
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
@@ -1103,8 +1103,8 @@ kind = "skill"
 predicate = "mention-reachable"
 field = "paths"
 severity = "advisory"
-guidance = "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until Claude reads a matching file, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a skill that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this skill's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does."
-cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211)"
+guidance = "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a skill that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this skill's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that."
+cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211; shell and search reads open no path gate, probed on Claude Code 2.1.281, 2026-09-24)"
 gate = "paths"
 
 [[declaration.clause]]

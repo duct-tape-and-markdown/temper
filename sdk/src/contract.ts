@@ -212,7 +212,8 @@ export const globValid = (field: string): Predicate => ({ key: "glob-valid", fie
 /**
  * Every mention a selected member authors can fire where its target can be invoked. A
  * target whose `gateField` carries globs is gated — removed from every invocation
- * channel until the agent reads a matching file — so a mention of it is actionable only
+ * channel until a file tool (read, edit, write) touches a matching path, a shell or
+ * search read of that path opening none — so a mention of it is actionable only
  * inside that gate. Fires on a scoped source whose `scopeField` globs are not contained
  * in the target's gate, and on an unscoped source mentioning a gated target.
  *

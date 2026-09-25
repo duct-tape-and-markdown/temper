@@ -1522,14 +1522,14 @@ export const skillDefaultContract: readonly Clause[] = [
   clause(globValid("paths"), {
     severity: "required",
     guidance:
-      "The optional `paths` scope gates every invocation channel until Claude reads a file its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field.",
+      "The optional `paths` scope gates every invocation channel until a file tool (read, edit, write) touches a path its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field.",
     cite: "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)",
   }),
   clause(mentionReachable("paths", "paths"), {
     severity: "advisory",
     guidance:
-      "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until Claude reads a matching file, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a skill that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this skill's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does.",
-    cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211)",
+      "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a skill that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this skill's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that.",
+    cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211; shell and search reads open no path gate, probed on Claude Code 2.1.281, 2026-09-24)",
   }),
 ];
 
@@ -1617,9 +1617,11 @@ export const agentDefaultContract: readonly Clause[] = [
  * v2.0.64). All sources retrieved 2026-07-15.
  *
  * `paths` is the one documented frontmatter key for rules: glob patterns
- * (brace expansion supported) that scope the rule to matching files. Rules
+ * (brace expansion supported) that scope the rule to matching paths. Rules
  * without it load at launch with the same priority as CLAUDE.md; path-scoped
- * rules load when Claude reads a matching file. Note skills now take a
+ * rules load when a file tool (read, edit, write) touches a matching path — a
+ * shell or search read of that path opens nothing (probed on Claude Code
+ * 2.1.281, 2026-09-24; decision 0061). Note skills now take a
  * `paths` key too — the two schemas are separate. (Guidance only: an
  * optional field asserts nothing decidable, so it carries no clause of its
  * own: `required` is the one
@@ -1636,7 +1638,7 @@ export const ruleDefaultContract: readonly Clause[] = [
   clause(globValid("paths"), {
     severity: "required",
     guidance:
-      "`paths` is the one documented rules key: globs (brace expansion supported) that scope the rule to matching files. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it.",
+      "`paths` is the one documented rules key: globs (brace expansion supported) that load the rule when a file tool (read, edit, write) touches a matching path. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it.",
     cite: "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)",
   }),
   clause(extent("lines", 200), {
@@ -1648,8 +1650,8 @@ export const ruleDefaultContract: readonly Clause[] = [
   clause(mentionReachable("paths", "paths"), {
     severity: "advisory",
     guidance:
-      "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until Claude reads a matching file, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a rule that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this rule's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does.",
-    cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211)",
+      "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a rule that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this rule's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that.",
+    cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211; shell and search reads open no path gate, probed on Claude Code 2.1.281, 2026-09-24)",
   }),
 ];
 

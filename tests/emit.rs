@@ -2456,8 +2456,11 @@ fn emit_program_runs_the_shipped_example_harness() {
             entry.outcome,
             EmitOutcome::Unchanged,
             "the example's committed artifacts are byte-current: {} {} reported {:?}. \
-             Re-run `cargo run -- emit --into examples/base-harness/.temper` and commit \
-             what moves.",
+             That emit needs the SDK resolvable from the example's own root first — \
+             vendor it the way `vendor_sdk` does, `ln -s $PWD/sdk \
+             examples/base-harness/.temper/node_modules/@dtmd/temper` (gitignored, \
+             never committed) — then re-run `cargo run -- emit --into \
+             examples/base-harness/.temper` and commit what moves.",
             entry.kind,
             entry.name,
             entry.outcome
@@ -2480,8 +2483,12 @@ fn emit_program_runs_the_shipped_example_harness() {
     assert_eq!(
         derived, carried,
         "examples/base-harness/.temper/lock.toml has drifted from what the example's own \
-         program emits. Re-run `cargo run -- emit --into examples/base-harness/.temper` and \
-         commit what moves — never hand-edit a row."
+         program emits. Vendor the SDK into the example's root the way `vendor_sdk` does \
+         (`ln -s $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` — \
+         gitignored, never committed; without it the program cannot resolve \
+         `@dtmd/temper` and the emit fails to link), then re-run `cargo run -- emit \
+         --into examples/base-harness/.temper` and commit what moves — never hand-edit \
+         a row."
     );
 
     // The regression, pinned from both ends. The vendoring landed in the copy —
