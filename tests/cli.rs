@@ -715,6 +715,135 @@ fn guard_judges_the_tree_a_shell_call_left_at_the_post_edge() {
     }
 }
 
+/// The shell edge's **second** binding: a document the call left at a governed locus that
+/// the lock declares no member for. The pending-write edge tests one payload `file_path`
+/// against the loci; a shell payload names no path, so the post edge enumerates each
+/// locus instead — and the finding it speaks is the locus judge's own, under its own
+/// preamble, never the projection-drift claim its sibling half makes.
+#[test]
+fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
+    for mode in ["warn", "block", "note"] {
+        // A clean tree — its one declared projection still matches the fingerprint — so
+        // the drift half is silent and the locus half is the only thing that can speak.
+        // The stray is a document no lock row names, at the `rule` kind's governed locus.
+        let root = post_edge_harness(
+            &format!("guard-post-{mode}-stray"),
+            mode,
+            &sha256_hex(PROJECTION.as_bytes()),
+        );
+        fs::write(
+            root.join(".claude").join("rules").join("stray.md"),
+            "---\nname: stray\n---\n\n# Stray\n",
+        )
+        .unwrap();
+
+        let (code, output) = common::run_guard(&root, POST_TOOL_USE_PAYLOAD);
+        assert_eq!(
+            code,
+            Some(0),
+            "the write has already landed, so no mode exits non-zero at this edge, got: \
+             {output}"
+        );
+        match mode {
+            "warn" => {
+                let context = post_edge_in_band(&output);
+                assert!(
+                    context.contains("temper-governed locus"),
+                    "warn surfaces the stray in-band under the locus preamble, got: \
+                     {context}"
+                );
+                assert!(
+                    context.contains(".claude/rules/stray.md"),
+                    "and names the document the call left, got: {context}"
+                );
+                assert!(
+                    !context.contains("temper-managed projection drift"),
+                    "a stray is not a fingerprinted projection that moved, so the drift \
+                     claim must not be made over it, got: {context}"
+                );
+                assert!(
+                    !context.contains(".claude/rules/rust.md"),
+                    "and the declared projection beside it is named by no half, got: \
+                     {context}"
+                );
+            }
+            "block" => {
+                let reason = post_edge_refusal(&output);
+                assert!(
+                    reason.contains("temper-governed locus"),
+                    "the refusal speaks the locus preamble, got: {reason}"
+                );
+                assert!(
+                    reason.contains(".claude/rules/stray.md"),
+                    "and names the document the call left, got: {reason}"
+                );
+            }
+            _ => assert!(
+                output.is_empty(),
+                "note records out-of-band only, got: {output}"
+            ),
+        }
+    }
+
+    // Both halves at once: a drifted projection *and* a stray beside it. Each speaks under
+    // its own preamble in one report — the shared surface joins the halves, never merges
+    // their claims.
+    let both = post_edge_harness("guard-post-both-halves", "warn", UNMATCHABLE);
+    fs::write(
+        both.join(".claude").join("rules").join("stray.md"),
+        "---\nname: stray\n---\n\n# Stray\n",
+    )
+    .unwrap();
+    let (code, output) = common::run_guard(&both, POST_TOOL_USE_PAYLOAD);
+    assert_eq!(code, Some(0), "got: {output}");
+    let context = post_edge_in_band(&output);
+    assert!(
+        context.contains("temper-managed projection drift")
+            && context.contains(".claude/rules/rust.md"),
+        "the drift half still speaks, got: {context}"
+    );
+    assert!(
+        context.contains("temper-governed locus") && context.contains(".claude/rules/stray.md"),
+        "and the locus half beside it, got: {context}"
+    );
+}
+
+/// The locus half is opt-in at the post edge exactly as it is at the pending-write edge: a
+/// lock whose real kind-less rows bind no `locus-declared` clause makes `check` silent
+/// about a stray, so the guard must be silent too — at `block`, the mode that would
+/// otherwise refuse the call's result.
+#[test]
+fn the_post_edge_stays_silent_where_no_locus_declared_clause_binds() {
+    let root = post_edge_harness(
+        "guard-post-locus-unbound",
+        "block",
+        &sha256_hex(PROJECTION.as_bytes()),
+    );
+    fs::write(
+        root.join(".claude").join("rules").join("stray.md"),
+        "---\nname: stray\n---\n\n# Stray\n",
+    )
+    .unwrap();
+
+    // One real clause row answers the root contract, so the shipped default no longer
+    // does and `locus-declared` simply does not bind.
+    let lock = root.join(".temper").join("lock.toml");
+    let declared = format!(
+        "{}\n[[declaration.clause]]\nlabel = \"root.fresh\"\n\
+         predicate = \"fresh\"\nseverity = \"advisory\"\n",
+        fs::read_to_string(&lock).unwrap()
+    );
+    fs::write(&lock, declared).unwrap();
+
+    let (code, output) = common::run_guard(&root, POST_TOOL_USE_PAYLOAD);
+    assert_eq!(code, Some(0), "got: {output}");
+    assert!(
+        output.is_empty(),
+        "no clause, no locus binding — the stray `check` stays silent about is not \
+         refused here either, got: {output}"
+    );
+}
+
 /// The post edge asks the root contract the same way the governed-locus binding does: a
 /// lock whose real kind-less rows bind no `fresh` clause makes `check` silent about a
 /// drifted projection, so the guard must be silent too — at `block`, the mode that would

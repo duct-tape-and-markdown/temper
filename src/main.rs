@@ -371,15 +371,25 @@ fn main() -> miette::Result<ExitCode> {
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
 
-            // The shell edge, taken before anything the pending-write edge needs is
+            // The governed loci, assembled once for both edges: the pending-write edge
+            // tests its payload's one `file_path` against them, the shell edge enumerates
+            // them. A pure row scan off the declarations already in hand — no disk read
+            // and no walk — so taking it ahead of the branch costs the shell edge nothing,
+            // and it is empty where the root contract binds no `locus-declared` clause,
+            // which is the locus binding's whole opt-in at either edge.
+            let loci = guarded_loci(&declarations)?;
+
+            // The shell edge, taken before anything else the pending-write edge needs is
             // assembled: after a shell tool no payload field names what it wrote, so the
-            // subject is the tree the call left and the judge is the projection half of
-            // the root `fresh` clause — `check`'s own. `block` cannot deny a write already
-            // made, so it refuses the call's *result* in-band and names the restore, which
-            // is why this arm exits zero at every mode: the refusal is the payload, not
-            // the exit code.
+            // subject is the tree the call left and the judges are `check`'s own over that
+            // tree — the projection half of the root `fresh` clause and the locus half of
+            // its `locus-declared` one. `block` cannot deny a write already made, so it
+            // refuses the call's *result* in-band and names the restore, which is why this
+            // arm exits zero at every mode: the refusal is the payload, not the exit code.
             if install::guard_edge(&payload) == install::GuardEdge::PostToolUse {
-                let Some(report) = install::shell_edge_drift(&workspace_dir, &declarations)? else {
+                let Some(report) =
+                    install::shell_edge_findings(&workspace_dir, &declarations, &loci)?
+                else {
                     return Ok(ExitCode::SUCCESS);
                 };
                 match mode {
@@ -398,7 +408,6 @@ fn main() -> miette::Result<ExitCode> {
             let lock_present = workspace_dir.join(temper::LOCK_FILENAME).is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
             let manifests = guarded_manifests(&declarations)?;
-            let loci = guarded_loci(&declarations)?;
 
             // A represented manifest **no container member projects** is co-owned — a write
             // touching only opaque residue is legitimate — so its binding is a contract check
@@ -743,7 +752,10 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
 
     let builtin_defs = builtin_kind::definitions();
 
-    let push = |kind: &CustomKind, loci: &mut Vec<install::GuardedLocus>| {
+    // A built-in's commitment is not the author's to respell, so the two sources' loci
+    // are tagged apart here — the one fact the locus finding's `local` remedy turns on,
+    // exactly as `gate::committed_member_sites` tags the same split for `check`.
+    let push = |kind: &CustomKind, custom: bool, loci: &mut Vec<install::GuardedLocus>| {
         let Some(governs) = kind.governs.as_ref() else {
             return;
         };
@@ -755,20 +767,22 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
         }
         loci.push(install::GuardedLocus {
             kind: kind.name.clone(),
+            root: governs.root.clone(),
             pattern: drift::join_locus(&governs.root, &governs.glob)
                 .to_string_lossy()
                 .replace('\\', "/"),
+            custom,
         });
     };
 
     let mut loci = Vec::new();
     for kind in builtin_defs.values() {
         let kind = compose::overlay_builtin_kind(kind, declarations)?;
-        push(&kind, &mut loci);
+        push(&kind, false, &mut loci);
     }
     let (custom_rows, _collisions) = compose::partition_kind_rows(declarations, &builtin_defs)?;
     for row in custom_rows {
-        push(&CustomKind::from_kind_fact_row(row)?, &mut loci);
+        push(&CustomKind::from_kind_fact_row(row)?, true, &mut loci);
     }
     Ok(loci)
 }

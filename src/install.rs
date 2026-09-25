@@ -170,7 +170,7 @@ pub const GUARD_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"t
 /// The tool-name matcher the guard's `PostToolUse` row binds — direct Bash tool
 /// invocations. A shell tool's writes name no path in the payload, so the `PreToolUse`
 /// guard cannot see them; this row runs the same guard after the call and judges the
-/// tree it left ([`shell_edge_drift`]).
+/// tree it left ([`shell_edge_findings`]).
 /// (`code.claude.com/docs/en/hooks`, retrieved 2026-09-03).
 const BASH_MATCHER: &str = "Bash";
 
@@ -266,13 +266,23 @@ const GUARD_MANIFEST_EDIT_MESSAGE: &str = "temper-governed manifest: this edit c
 /// only placement left, so it speaks rather than deferring to CI.
 const GUARD_MANIFEST_UNPARSEABLE_MESSAGE: &str = "temper-governed manifest: this write would leave the manifest unparseable, so nothing it governs can be checked — and a harness that cannot load aborts the next temper check before any reporter runs, so no later placement catches it either. Fix the JSON before landing it. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
 
-/// The header `temper guard` prints at the **post** edge of a tool call, where a shell
-/// tool's writes name no path the guard could have bound before the fact and the tree it
-/// left is the whole subject. The per-row drift findings ([`shell_edge_drift`]) follow it,
-/// one per line, each already naming the projection that moved and the member that owns
-/// it. It states the restore rather than a limit: the write has landed, so there is
-/// nothing left to refuse but the call's result.
+/// The header `temper guard` prints at the **post** edge of a tool call over its
+/// **projection** half, where a shell tool's writes name no path the guard could have bound
+/// before the fact and the tree it left is the whole subject. The per-row drift findings
+/// ([`shell_edge_findings`]) follow it, one per line, each already naming the projection
+/// that moved and the member that owns it. It states the restore rather than a limit: the
+/// write has landed, so there is nothing left to refuse but the call's result.
 const GUARD_SHELL_EDGE_MESSAGE: &str = "temper-managed projection drift: this call left a committed projection out of sync with the .temper/ surface the lock fingerprinted — edit the owning .temper/ module or document and re-run `temper emit` to restore it. A shell tool's writes name no path in the hook payload, so this edge judges the projection set the lock declares rather than one file.";
+
+/// The header `temper guard` prints at the **post** edge over its **locus** half: a document
+/// the call left at a represented kind's governed locus that the lock declares no member
+/// for. A separate preamble because [`GUARD_SHELL_EDGE_MESSAGE`] asserts *projection drift*
+/// — a file the lock fingerprinted moved — and a stray at a governed locus is not that: the
+/// lock never named it, so there is no fingerprint to restore and no owning module to edit.
+/// Names the governing kind's locus rather than an owning member, the same split
+/// [`undeclared_locus_message`] makes at the pending-write edge, and states the restore
+/// rather than a limit for the same reason its drift sibling does.
+const GUARD_SHELL_EDGE_LOCUS_MESSAGE: &str = "temper-governed locus: this call left a document at a represented kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared, yet Claude Code loads it; declare the member in the program and re-emit, or remove the file. A shell tool's writes name no path in the hook payload, so this edge enumerates the loci the lock's kinds govern rather than one file.";
 
 /// The extended-regex `temper guard` greps the payload for the firing event's own
 /// `hook_event_name`, the field that says which edge of the tool call this is. The same
@@ -902,8 +912,8 @@ fn hook_claimed_events(temper_dir: &Path) -> miette::Result<std::collections::BT
 pub enum GuardEdge {
     /// Before a file-writing tool — [`guard`] binds the `file_path` the payload names.
     PreToolUse,
-    /// After a shell tool — [`shell_edge_drift`] judges the projection set on disk,
-    /// because the call's writes name no path the payload carries.
+    /// After a shell tool — [`shell_edge_findings`] judges the tree on disk, because
+    /// the call's writes name no path the payload carries.
     PostToolUse,
 }
 
@@ -933,48 +943,143 @@ pub fn guard_edge(payload: &str) -> GuardEdge {
 }
 
 /// The finding `temper guard` surfaces at the **post** edge over the harness whose
-/// surface workspace is `workspace_dir`: the projection half of the root member's `fresh`
-/// clause, re-hashing each lock row's `source_path` against the `emit_hash` the lock
-/// recorded. [`None`] for a tree whose projections all still match — a pass prints
-/// nothing — and for a harness whose root contract binds no `fresh` clause at all.
+/// surface workspace is `workspace_dir` — two halves of the tree the call left, each the
+/// judge `check` already runs over that same fact:
 ///
-/// It is [`drift::config_stale`], the same judge `check` runs: one comparison in one
-/// vocabulary, so the boundary and the gate cannot disagree about whether a projection
-/// moved. The clause is located the way [`crate::compose::root_contract`]'s rows-or-default
-/// rule locates every root clause, off the `declarations` already in hand — no walk, no
-/// second lock read — and the dial is not consulted because it moves a clause's severity
-/// only, never its binding, and severity is not what decides here: the *enforcement mode*
-/// does, exactly as it does for the pending-write edge.
+/// - the **projection** half of the root member's `fresh` clause
+///   ([`drift::config_stale_from_doc`]), re-hashing each lock row's `source_path` against
+///   the `emit_hash` the lock recorded;
+/// - the **locus** half of its `locus-declared` clause
+///   ([`drift::undeclared_locus_members_from_doc`]), asking the lock's provenance rows
+///   about every document sitting at a governed locus `loci` names.
+///
+/// [`None`] where both halves are silent — a pass prints nothing — and for each half
+/// whose clause the root contract does not bind at all. One judge in one vocabulary per
+/// half, so the boundary and the gate cannot disagree about either fact. Clauses are
+/// located the way [`crate::compose::root_contract`]'s rows-or-default rule locates every
+/// root clause, off the `declarations` already in hand — no walk — and the dial is not
+/// consulted because it moves a clause's severity only, never its binding, and severity is
+/// not what decides here: the *enforcement mode* does, exactly as it does for the
+/// pending-write edge.
+///
+/// **One lock read.** Both judges take the parsed document, read once here through
+/// [`drift::read_lock_document`], so a post-edge call parses one lock however many halves
+/// speak.
+///
+/// The locus half is gated on the lock's **presence**, exactly as the pending-write edge
+/// gates its own locus binding on having a declared target set: on an unrepresented
+/// harness every document at every locus is undeclared, and naming them all would be
+/// noise rather than a finding.
 ///
 /// # Errors
 ///
 /// Propagates the [`crate::compose::ClauseRowError`] a clause row outside the closed
-/// vocabulary raises — a corrupt lock, refused loud here as everywhere.
-pub fn shell_edge_drift(
+/// vocabulary raises, and the lock read/parse error a corrupt lock raises — refused loud
+/// here as everywhere.
+pub fn shell_edge_findings(
     workspace_dir: &Path,
     declarations: &drift::Declarations,
+    loci: &[GuardedLocus],
 ) -> miette::Result<Option<String>> {
     let root = crate::compose::root_contract(&declarations.clauses)?;
-    let Some(clause) = root
-        .clauses
-        .iter()
-        .find(|clause| clause.predicate == crate::contract::Predicate::Fresh)
-    else {
-        return Ok(None);
-    };
-    let findings = drift::config_stale(workspace_dir, clause);
-    if findings.is_empty() {
+    let clause = |predicate| root.clauses.iter().find(|c| c.predicate == predicate);
+    let fresh = clause(crate::contract::Predicate::Fresh);
+    let locus_declared = clause(crate::contract::Predicate::LocusDeclared);
+    if fresh.is_none() && locus_declared.is_none() {
         return Ok(None);
     }
-    Ok(Some(render_shell_edge_findings(&findings)))
+
+    let doc = drift::read_lock_document(workspace_dir)?;
+    let drifted = fresh
+        .map(|clause| drift::config_stale_from_doc(&doc, workspace_dir, clause))
+        .unwrap_or_default();
+    let lock_present = workspace_dir.join(crate::LOCK_FILENAME).is_file();
+    let strays = locus_declared
+        .filter(|_| lock_present)
+        .map(|clause| {
+            let sites = locus_member_sites(&drift::harness_root_of(workspace_dir), loci);
+            drift::undeclared_locus_members_from_doc(&doc, &sites, clause).findings
+        })
+        .unwrap_or_default();
+
+    Ok(render_shell_edge_report(&drifted, &strays))
 }
 
-/// Render the post edge's drift findings for the guard's in-band surface:
-/// [`GUARD_SHELL_EDGE_MESSAGE`], then one `<rule>: <finding>` line per finding — the same
-/// shape [`render_manifest_findings`] gives a manifest's, so the guard's one surface reads
-/// one way whichever edge speaks.
-fn render_shell_edge_findings(findings: &[Diagnostic]) -> String {
-    let mut out = String::from(GUARD_SHELL_EDGE_MESSAGE);
+/// Every document on disk at a locus `loci` names, as the site shape the locus judge asks
+/// the lock's provenance rows about. The post edge's answer to having no path in its
+/// payload: the pending-write edge tests one `file_path` against the patterns
+/// ([`matches_governed_locus`]), so here each locus root is enumerated instead and every
+/// file under it matched against the same [`crate::glob::compile_glob`] pattern — the post
+/// edge binds exactly the paths the pre edge would have tested, and no others.
+///
+/// A bounded walk, one per locus root, never the whole tree: a per-tool-call cost is paid
+/// on every call a session makes. That bound is also why `import`'s own locus scan is the
+/// wrong reuse — it reads an index built from a whole-tree ignore-honoring walk — and
+/// why the caller's locus set carries no `.`-rooted locus: the guard has no ignore reader,
+/// so a root-rooted glob would judge vendored documents discovery prunes.
+///
+/// Sorted by path within each locus ([`walkdir::WalkDir::sort_by_file_name`]), so the
+/// findings a call surfaces read in one order on every platform.
+fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::LocusMemberSite> {
+    let mut sites = Vec::new();
+    for locus in loci {
+        let Some(matcher) = crate::glob::compile_glob(&locus.pattern) else {
+            continue;
+        };
+        let walk = walkdir::WalkDir::new(harness_root.join(&locus.root))
+            .min_depth(1)
+            .sort_by_file_name();
+        for entry in walk {
+            // A locus directory that does not exist, or an entry that cannot be read, is
+            // no site: absent evidence must never forge a finding.
+            let Ok(entry) = entry else { continue };
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            let Some(source_path) = harness_relative(&entry.path().to_string_lossy(), harness_root)
+            else {
+                continue;
+            };
+            if !matcher.is_match(&source_path) {
+                continue;
+            }
+            sites.push(drift::LocusMemberSite {
+                kind: locus.kind.clone(),
+                source_path,
+                custom: locus.custom,
+            });
+        }
+    }
+    sites
+}
+
+/// Render the post edge's two halves for the guard's in-band surface — each non-empty half
+/// under its own preamble, blank-line separated, [`None`] when both are silent. The halves
+/// are separate sections because the preamble is a *claim*: drift asserts a fingerprinted
+/// projection moved, and a stray at a governed locus is not that — the lock never named it,
+/// so there is no fingerprint to restore.
+fn render_shell_edge_report(drifted: &[Diagnostic], strays: &[Diagnostic]) -> Option<String> {
+    let sections: Vec<String> = [
+        (GUARD_SHELL_EDGE_MESSAGE, drifted),
+        (GUARD_SHELL_EDGE_LOCUS_MESSAGE, strays),
+    ]
+    .into_iter()
+    .filter(|(_, findings)| !findings.is_empty())
+    .map(|(preamble, findings)| render_shell_edge_findings(preamble, findings))
+    .collect();
+    if sections.is_empty() {
+        None
+    } else {
+        Some(sections.join("\n\n"))
+    }
+}
+
+/// Render one post-edge half: its `preamble`, then one `<rule>: <finding>` line per
+/// finding — the same shape [`render_manifest_findings`] gives a manifest's, so the guard's
+/// one surface reads one way whichever edge speaks. The per-finding lines are the judge's
+/// own words, the same ones `check` prints.
+fn render_shell_edge_findings(preamble: &str, findings: &[Diagnostic]) -> String {
+    let mut out = String::from(preamble);
     for finding in findings {
         out.push_str(&format!("\n  {}: {}", finding.rule, finding.message));
     }
@@ -1013,8 +1118,17 @@ pub enum GuardVerdict {
 pub struct GuardedLocus {
     /// The governing kind's bare name, as the finding reports it.
     pub kind: String,
+    /// The kind's `governs` root alone — the directory the **post** edge enumerates from,
+    /// where no payload field names a path to test ([`locus_member_sites`]). Carried beside
+    /// `pattern` rather than re-derived off it: the literal prefix of a compiled glob is
+    /// `globset`'s to know, not a substring this module should guess at.
+    pub root: String,
     /// The locus pattern — the kind's `governs` root joined to its glob, `/`-separated.
     pub pattern: String,
+    /// Whether the governing kind is a lock-declared *custom* kind — the one fact the
+    /// locus judge's `local` remedy turns on ([`drift::LocusMemberSite::custom`]), carried
+    /// so the post edge's findings are word-for-word the ones `check` prints.
+    pub custom: bool,
 }
 
 /// `temper guard`'s decision over one pending write: the verdict it reached and the
@@ -1136,16 +1250,25 @@ fn path_matches<'a>(
     root: &Path,
     mut candidates: impl Iterator<Item = &'a Path>,
 ) -> bool {
-    let Some(relative) = crate::path::relativize_against_root(file_path, root) else {
+    let Some(file_path_normalized) = harness_relative(file_path, root) else {
         return false;
     };
-
-    // `./x` and `x` name one file; the lock only ever spells the latter.
-    let file_path_normalized = crate::path::normalize_path(Path::new(&relative))
-        .to_string_lossy()
-        .replace('\\', "/");
     candidates
         .any(|candidate| candidate.to_string_lossy().replace('\\', "/") == file_path_normalized)
+}
+
+/// `file_path` spelled the one way every path compare in this module spells both its
+/// sides: relativized against `root` (Claude Code names an absolute path; the lock and a
+/// locus pattern are harness-relative), `/`-separated (`PATH-SEP-NORMALIZE`), and with a
+/// leading `./` erased — `./x` and `x` name one file, and the lock only ever spells the
+/// latter. [`None`] for a path outside `root`, which no candidate and no locus can name.
+fn harness_relative(file_path: &str, root: &Path) -> Option<String> {
+    let relative = crate::path::relativize_against_root(file_path, root)?;
+    Some(
+        crate::path::normalize_path(Path::new(&relative))
+            .to_string_lossy()
+            .replace('\\', "/"),
+    )
 }
 
 /// The first of `targets` `file_path` names, or `None` for a path no target names — an
@@ -1194,10 +1317,7 @@ fn matches_governed_locus<'a>(
     root: &Path,
     loci: &'a [GuardedLocus],
 ) -> Option<&'a GuardedLocus> {
-    let relative = crate::path::relativize_against_root(file_path, root)?;
-    let normalized = crate::path::normalize_path(Path::new(&relative))
-        .to_string_lossy()
-        .replace('\\', "/");
+    let normalized = harness_relative(file_path, root)?;
     loci.iter().find(|locus| {
         crate::glob::compile_glob(&locus.pattern)
             .is_some_and(|matcher| matcher.is_match(&normalized))
