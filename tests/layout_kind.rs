@@ -15,7 +15,7 @@ use std::collections::BTreeSet;
 use std::fs;
 
 use temper::drift::{
-    self, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, Payload,
+    self, ClauseRow, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, Payload,
     PayloadMember,
 };
 use temper::layout::{Layout, LayoutError, LayoutRegion};
@@ -668,6 +668,104 @@ fn check_refuses_a_layout_declaring_two_verbatim_prose_regions() {
         run.output.contains("region 0") && run.output.contains("region 2"),
         "the refusal must name both prose regions (0 and 2), got:\n{}",
         run.output
+    );
+}
+
+/// The `spec` layout: two field sections, `summary` then `detail` — the two-region shape
+/// the floor below is declared over, with the trailing slot the one a document may omit.
+fn slot_floor_kind_facts() -> KindFactRow {
+    KindFactRow {
+        content: Some(LayoutRow {
+            regions: ["summary", "detail"]
+                .into_iter()
+                .map(|slot| LayoutRegionRow {
+                    region: "field".to_string(),
+                    import: None,
+                    slot: Some(slot.to_string()),
+                    member_kind: None,
+                    key: None,
+                })
+                .collect(),
+        }),
+        ..common::kind_facts("spec", "specs", "*.md")
+    }
+}
+
+/// A `check` run over a lone `spec` document carrying `doc`, judged against the
+/// two-field-region kind and one `required` clause over its trailing slot — the floor
+/// itself, declared where the model puts it: on the selection, never on the region row.
+fn slot_floor_run(label: &str, doc: &str) -> common::CheckRun {
+    let root = common::tmpdir(label);
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![slot_floor_kind_facts()],
+            clauses: vec![ClauseRow {
+                kind: Some("spec".to_string()),
+                field: Some("detail".to_string()),
+                ..common::clause("required", "required")
+            }],
+            ..Default::default()
+        },
+    );
+    let specs = root.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("model.md"), doc).unwrap();
+    common::check_in(&root, &[], None)
+}
+
+/// A layout's regions state what may appear, never what must: a document conforms with a
+/// region empty, and "any floor — a required section, a minimum member count — is a
+/// clause over the selection" (`specs/model/representation.md`, "kind"). So the floor over
+/// a field slot is the ordinary `required` predicate naming it, and it must decide both
+/// ways — firing on the absent section, silent on the present one. Neither half may pass
+/// over an undiscovered document, so both assert the member reached the judged set first.
+#[test]
+fn a_required_clause_is_the_floor_over_a_layout_field_slot_in_both_directions() {
+    // The trailing section is absent — the region reads empty, which conforms, and the
+    // clause is the only thing that can object. It does, naming the slot.
+    let absent = slot_floor_run(
+        "layout-slot-floor-absent",
+        "# Summary\nThe representation model, authored in prose.\n",
+    );
+    assert!(
+        absent.output.contains("spec (1)"),
+        "the case is vacuous unless the run judged the discovered layout member: {}",
+        absent.output
+    );
+    assert!(
+        absent.output.contains("spec.required.detail"),
+        "an absent field section must fire the slot's `required` floor, naming the slot: {}",
+        absent.output
+    );
+    assert!(
+        !absent.ok,
+        "a `required` floor is a blocking clause — the run fails: {}",
+        absent.output
+    );
+
+    // The same document carrying that heading — nothing else changed — fills the slot, so
+    // the floor is met and says nothing.
+    let present = slot_floor_run(
+        "layout-slot-floor-present",
+        "# Summary\nThe representation model, authored in prose.\n\
+         \n# Detail\nA kind declares the field schema and the content.\n",
+    );
+    assert!(
+        present.output.contains("spec (1)"),
+        "the case is vacuous unless the run judged the discovered layout member: {}",
+        present.output
+    );
+    assert!(
+        !present.output.contains("spec.required.detail"),
+        "a present field section fills the slot — the floor holds silently: {}",
+        present.output
+    );
+    assert!(
+        present.ok,
+        "the run carries no other blocking finding, so the absent half's failure above is \
+         the floor and nothing else: {}",
+        present.output
     );
 }
 
