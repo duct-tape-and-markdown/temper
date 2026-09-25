@@ -10,15 +10,15 @@
     "edit": [
       {
         "path": "src/install.rs",
-        "description": "The shell edge's second binding, beside the drift half its parent entry lands: a document the call left at a represented committed kind's governed locus that the lock declares no member for. The pre edge tests one `file_path` against `GuardedLocus` patterns (`matches_governed_locus`, ~:1093); with no path in the payload the post edge has to find the documents, so it walks the same locus patterns and compares against the lock's provenance rows — `drift::undeclared_locus_members_from_doc`'s own two inputs. It speaks `undeclared_locus_message`'s existing words, and binds only where the root contract binds a `locus-declared` clause."
+        "description": "The post edge's second binding, beside the drift half its parent shipped. `shell_edge_drift` (:953) today locates the root `fresh` clause and calls `drift::config_stale` (:2821), which re-reads the lock; the locus half needs the lock document too, so read it once through the already-public `drift::read_lock_document` (drift.rs:4515) and feed both judges — `drift::config_stale_from_doc` (:2833) and `drift::undeclared_locus_members_from_doc` (:3007) — so one post-edge call parses one lock. The locus judge's `sites` (`drift::LocusMemberSite`, :2950) are the new machinery: the pre edge tests one payload `file_path` against the patterns (`matches_governed_locus`, :1192, called at :1079), and with no path in a shell payload the post edge must instead enumerate each `GuardedLocus` (:1013) root and match with the same `crate::glob::compile_glob`, relativizing each hit through `crate::path::relativize_against_root` — so the post edge binds exactly the paths the pre edge would have tested. `render_shell_edge_findings` (:976) prepends `GUARD_SHELL_EDGE_MESSAGE` (:275), which asserts projection drift; a stray at a governed locus is not that, so the preamble splits or generalizes while the per-finding lines stay the judge's own words (the same words `check` prints, as `undeclared_locus_message` (:239) is the pre edge's own)."
       },
       {
         "path": "src/main.rs",
-        "description": "The `PostToolUse` arm gains the locus judgment beside the drift one, reusing `guarded_loci` (~:699) — the pre edge's own locus assembly, already built on this path."
+        "description": "The `PostToolUse` arm (:381) returns before `guarded_loci` (assembled at :401, defined at :734) exists, so the loci move above the branch — or are assembled inside it — and the arm hands them to the widened post-edge judge. Nothing else changes: `install::guard_edge` already decided the edge, and no second payload reader is added. `guarded_loci` returns empty where the root contract binds no `locus-declared` clause, which is this binding's whole opt-in."
       },
       {
         "path": "tests/cli.rs",
-        "description": "Beside the parent's shell-edge cases: a Bash-left stray at a governed locus, and the same tree with no `locus-declared` clause bound drawing nothing."
+        "description": "Two cases beside the parent's, reusing its `post_edge_harness` (:761) and `post_edge_in_band` (:784) helpers: a `PostToolUse` payload over a represented tree carrying an undeclared document at a governed locus surfaces it at the declared mode, and the same tree with no `locus-declared` clause bound draws nothing. The parent's two cases (:660, :723) pin the drift half and must stay green — the shared report is the seam most likely to move under them."
       }
     ],
     "retire": []
@@ -35,5 +35,5 @@
     }
   ],
   "acceptance": "`cargo test` green with the new locus cases, which fail on the pre-fix tree (the shell edge sees only projection drift); `cargo clippy --all-targets -- -D warnings` clean.",
-  "notes": "Split from GUARD-JUDGES-THE-SHELL-EDGE up front: `distribution.md` names both bindings, but this one needs the documents found rather than a path tested, which is the only new machinery in either. Cost is the standing objection 0060 records — the walk rides every shell call, and drift already present re-fires until one `emit` clears it. `check`'s own site walk is the wrong reuse: 0060 rejects a per-call whole-contract check. scoped at a4086d03"
+  "notes": "Split from GUARD-JUDGES-THE-SHELL-EDGE (shipped 5820ad7b); rescoped against it this tick. `import::scan_locus` is the wrong reuse: it reads a `Discoverable` index built from a whole-tree ignore-honoring walk, the per-call cost 0060 rejects — hence the bounded per-locus enumeration, and hence `guarded_loci`'s exclusion of `.`-rooted loci (the guard has no ignore reader) carries unchanged. scoped at 53c9f544"
 }

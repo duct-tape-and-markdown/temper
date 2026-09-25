@@ -443,6 +443,17 @@ tax.
   filed: (a) and (b) produce incompatible entries (TS-editing machinery vs a
   report string) with no common shippable core, and plan does not pick among
   them. No dependents.
+  **Premise widened 09-25** (this repo, measured on disk): the silence is not
+  `Conflicted`'s alone. A member that *claims* the event but runs a stale
+  spelling of temper's own command answers `SupersededByMember`, which
+  `gate_installed` skips outright (`install.rs:~657`) — correct for an author
+  running their own command, wrong for a mirror that rotted. This harness is
+  that case since 5820ad7b: `.temper/hooks.ts`'s `PostToolUse` member still
+  runs the retired `temper check . --reporter session-start`, Claude Code
+  rejects the row on every fire, and `check` reports nothing
+  (`.flume/friction/plan-dogfood-post-tool-use-hook-runs-the-retired-command.md`).
+  So (b)'s report must cover both outcomes, and the hand-mirror itself — the
+  other half of the remedy — is the dogfood's to absorb.
 
 - `(cross-source-edge-correlation)` — OPEN, live driver (GH #59). No
   predicate relates a property of one edge's source to a property of
