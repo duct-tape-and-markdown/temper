@@ -148,9 +148,9 @@ tax.
 - `(re-rooted-harness-disclosure)` — OPEN, live driver (GH note observed at
   a5101a9d, re-diagnosed on disk this tick). `check --harness <dir>` can gate
   `<dir>/..` and say nothing about it. `resolve_harness_path`
-  (`main.rs:661`) answers `HarnessPath::Workspace { enclosing }` for any
+  (`main.rs:798`) answers `HarnessPath::Workspace { enclosing }` for any
   directory holding a file named `lock.toml`, and `harness_diagnostics`
-  (`:708`) then discovers the corpus from the **parent** — deliberate, and
+  (`:841`) then discovers the corpus from the **parent** — deliberate, and
   documented: rooting a workspace at itself would read the lock from
   `<path>` while walking `<path>` for a corpus that lives beside it, so
   every declared requirement false-fires `requirement.unfilled`. The defect
@@ -166,13 +166,13 @@ tax.
   is a corpus change, not an inference. Three candidates. (a) Narrow the
   `Workspace` branch to a path literally named `.temper` — the `Root` branch
   already requires that name, so the two branches disagree on what a
-  workspace is. **Rejected**: `emit --into <path>` (`main.rs:106`) takes an
+  workspace is. **Rejected**: `emit --into <path>` (`main.rs:105`) takes an
   arbitrary directory, so a relocated workspace is a spelling temper already
   sanctions. (b) Disclose the re-root: when the resolved root differs from
   the path argument, `check` says so, as a fourth clause on `authoring.md`'s
   announcement enumeration — an input that judged the run beyond the path the
   author named. (c) Make `--harness` refuse a workspace spelling exactly as
-  `install` already does (`main.rs:426` errors, naming the enclosing root).
+  `install` already does (`main.rs:449` errors, naming the enclosing root).
   **Rejected**: it breaks `resolve_harness_path`'s own stated invariant, that
   a workspace and the harness root it governs always name the same harness,
   by making one flag disagree with the positional. Session recommendation:
@@ -237,8 +237,8 @@ tax.
   observed at ae74bf49, cites re-derived at ea7625e3). A source build and
   the published binary are indistinguishable: `main.rs:46` declares
   `#[command(name = "temper", version, …)]`, so clap prints
-  `CARGO_PKG_VERSION` — `Cargo.toml:3`, `0.0.18` since the 0.0.18 release
-  (c60c976a) — for every build between tags, and an adopter probing an
+  `CARGO_PKG_VERSION` — `Cargo.toml:3`, `0.0.20` since the 0.0.20 release
+  (16e96b16) — for every build between tags, and an adopter probing an
   unreleased engine under pnpm scripts reads back the released string. The report's second half is **not** a defect:
   `sdk/bin/temper.js` resolving the platform `optionalDependencies` package
   whatever PATH says is exactly `distribution.md` "What ships — three
@@ -247,7 +247,7 @@ tax.
   corpus is silent on is what a build says about *itself*: `distribution.md`
   speaks to the pin and to CI's `emit --frozen` byte-compare, never to build
   provenance, and no other section does. The ruling is load-bearing because
-  the version is not display text — `src/lib.rs:17`'s `VERSION` is written
+  the version is not display text — `src/lib.rs:18`'s `VERSION` is written
   into two artifacts: the bundled plugin manifest's `version` field
   (`bundle.rs:248`, asserted at `:416`) and the SARIF driver version
   (`reporter.rs:268`). Three candidates. (a) a `build.rs` `git describe`

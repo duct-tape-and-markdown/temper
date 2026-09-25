@@ -81,7 +81,7 @@
       "tests/type_predicate.rs"
     ]
   },
-  "summary": "The suite declares 57 integration-test targets, so `tests/common` is one home in source and 53 linked copies in target/ — fold them into one `tests/it` crate.",
+  "summary": "The suite declares 59 integration-test targets, so `tests/common` is one home in source and 55 linked copies in target/ — fold them into one `tests/it` crate.",
   "per": {
     "path": "specs/process/engineering.md",
     "section": "One job, one home"
@@ -96,6 +96,6 @@
       "asserts": "every one of the 57 moved suites is declared as a module, so the consolidated run's test count equals the 57-target run's — a suite missing from main.rs is a suite that silently stops running"
     }
   ],
-  "acceptance": "`cargo test` green with a test count equal to the pre-move run's (capture it before the move and compare, so no suite is lost in the fold), `cargo clippy --all-targets -- -D warnings` green over the single crate, and one integration-test executable in target/debug/deps where 57 stood — the decidable pin, per the cost section's 'The pin is a count, never a clock'. The commit body reports `cargo test --no-run` wall time and peak RSS before and after, timing staying the manual signal a human reads rather than a gate; that pair is also what answers the standing objection, that one crate compiles as one unit, so peak RSS falls while wall time may rise.",
-  "notes": "Drained from .flume/refactor/session-integration-tests-one-binary.md (observed 4dd4583f; re-verified at bab35c14 — 59 crates, 55 `mod common;`, 873-line shared module, `retire` re-synced to the tree, +2). Evidence: a 14:42 OOM rebooted the 7.7GB WSL VM with 17 rust-lld + 20 rustc holding 2.6GB; CARGO_BUILD_JOBS=4 only caps parallelism. Cargo prescribes this fold at this size (cargo-targets.html, 'Integration tests', retrieved 2026-09-22). scoped at bab35c14"
+  "acceptance": "`cargo test` green with a test count equal to the pre-move run's (capture it before the move and compare, so no suite is lost in the fold), `cargo clippy --all-targets -- -D warnings` green over the single crate, and one integration-test executable in target/debug/deps where 59 stood — the decidable pin, per the cost section's 'The pin is a count, never a clock'. The commit body reports `cargo test --no-run` wall time and peak RSS before and after, timing staying the manual signal a human reads rather than a gate; that pair is also what answers the standing objection, that one crate compiles as one unit, so peak RSS falls while wall time may rise.",
+  "notes": "Drained from .flume/refactor/session-integration-tests-one-binary.md (observed 4dd4583f; re-verified at 0c56cf0a — 59 crates, 55 `mod common;`, 873-line shared module, `retire` re-synced to the tree, +2). Evidence: a 14:42 OOM rebooted the 7.7GB WSL VM with 17 rust-lld + 20 rustc holding 2.6GB; CARGO_BUILD_JOBS=4 only caps parallelism. Cargo prescribes this fold at this size (cargo-targets.html, 'Integration tests', retrieved 2026-09-22). scoped at 0c56cf0a"
 }
