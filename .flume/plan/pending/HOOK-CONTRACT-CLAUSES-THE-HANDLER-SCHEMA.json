@@ -1,10 +1,7 @@
 {
   "tag": "HOOK-CONTRACT-CLAUSES-THE-HANDLER-SCHEMA",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "LOCK-ROUND-TRIP-PIN-READS-THE-GUARD-FIELD"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,
