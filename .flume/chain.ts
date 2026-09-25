@@ -195,7 +195,7 @@ const gitOut = (args: string[], cwd: string): string | null => {
   }
 };
 const inboxNotes = (text: string | null): number =>
-  (text ?? "").replace(/<!--[\s\S]*?-->/g, "").split("\n").filter((l) => /^## /.test(l)).length;
+  (text ?? "").replace(/<!--[\s\S]*?-->/g, "").split("\n").filter((l) => /^- observed at /.test(l)).length;
 const specsPastCursor = (cursor: string, cwd: string): number => {
   const out = gitOut(["log", "--format=%h", `${cursor}..HEAD`, "--", "specs/"], cwd)?.trim() ?? "";
   return out.length === 0 ? 0 : out.split("\n").length;
@@ -563,6 +563,24 @@ const forkResolver = (repoRoot: string) => {
   };
 };
 
+/**
+ * Pickable as the dispatcher sees it: an open gate whose every declared fork
+ * is settled. A handoff that counts a fork-held entry as ready sends the loop
+ * to a build wave that picks nothing and hibernates, skipping plan.
+ */
+const hasPickable = (
+  entries: readonly { tag: string; gate: { kind: string } }[],
+  skip: ReadonlySet<string> = new Set(),
+): boolean => {
+  const settled = forkResolver(resolve(CHAIN_DIR, ".."));
+  return entries.some(
+    (e) =>
+      e.gate.kind === "open" &&
+      !skip.has(e.tag) &&
+      ((e as { dependsOnForks?: string[] }).dependsOnForks ?? []).every(settled),
+  );
+};
+
 // ---------- chain factory (flume ≥0.10) ----------
 
 const factory: ChainFactory = (flume) => {
@@ -789,7 +807,7 @@ const factory: ChainFactory = (flume) => {
       // breaker bounds a plan that keeps lying.
       if (result.noCommit === "gate-revert" || result.noCommit === "render-refused") return ["plan"];
       if (result.noCommit) {
-        return result.pendingAfter.some((e) => e.gate.kind === "open")
+        return hasPickable(result.pendingAfter)
           ? ["build"]
           : [];
       }
@@ -812,7 +830,7 @@ const factory: ChainFactory = (flume) => {
       } catch {
         // state.md missing — treat as stable.
       }
-      const hasPickable = result.pendingAfter.some((e) => e.gate.kind === "open");
+      const pickable = hasPickable(result.pendingAfter);
       if (marker === "yes") return ["plan"];
       // A quiet marker is honest for the tick's inputs (the gate above held
       // it there); the trunk may still carry inputs that landed after the
@@ -827,8 +845,8 @@ const factory: ChainFactory = (flume) => {
       }
       const live = liveTrunkInputs(resolve(CHAIN_DIR, ".."), stateText);
       if (live.length > 0) return ["plan"];
-      if (marker === "after-build") return hasPickable ? ["build"] : ["plan"];
-      return hasPickable ? ["build"] : [];
+      if (marker === "after-build") return pickable ? ["build"] : ["plan"];
+      return pickable ? ["build"] : [];
     },
   };
 
@@ -930,11 +948,7 @@ const factory: ChainFactory = (flume) => {
       // audit cursors span multi-wave windows by design. A true no-op wave
       // hibernates; `flume wake plan` forces it.
       const quarantined = new Set((result.quarantinedTags ?? []).map((q) => q.tag));
-      if (
-        result.pendingAfter.some(
-          (e) => e.gate.kind === "open" && !quarantined.has(e.tag),
-        )
-      ) {
+      if (hasPickable(result.pendingAfter, quarantined)) {
         return ["build"];
       }
       if (result.shippedTags.length === 0 && result.gateResults.length === 0) {
