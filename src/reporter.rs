@@ -11,7 +11,12 @@
 //! - [`sarif`] — a SARIF 2.1.0 log for code-scanning, so findings land in the
 //!   team's security review surface;
 //! - [`session_start`] — the `claude-session-start` reporter, the JSON payload a
-//!   Claude Code `SessionStart` hook writes to stdout (the gate above).
+//!   Claude Code `SessionStart` hook writes to stdout (the gate above);
+//! - [`tool_use`] — the guard's in-band reporter, the JSON payload a tool-call hook
+//!   writes to stdout when the declared enforcement mode is `warn`.
+//!
+//! The last two share one envelope ([`envelope`]) under a [`HookEvent`] parameter,
+//! because Claude Code accepts only the firing event's own name in it.
 //!
 //! Every member is built through `serde_json` (SARIF and the hook payload) or
 //! precise workflow-command escaping (`github`), so the output is well-formed by
@@ -41,9 +46,72 @@ use crate::check::{Announcement, Diagnostic, Severity};
 /// (code.claude.com/docs/en/hooks, retrieved 2026-07-20).
 pub const ADDITIONAL_CONTEXT_CAP: usize = 10_000;
 
-/// The `hookEventName` Claude Code expects in a `SessionStart` hook's
-/// `hookSpecificOutput` envelope.
-const HOOK_EVENT_NAME: &str = "SessionStart";
+/// A hook event, as Claude Code names it in the `hookSpecificOutput` envelope's
+/// `hookEventName` field.
+///
+/// The name is a parameter of [`envelope`] rather than a constant because Claude
+/// Code rejects an output stamping any name but the firing event's — so one
+/// envelope shape cannot be shared across placements by hard-coding a name; each
+/// firing site names its own event (code.claude.com/docs/en/hooks, retrieved
+/// 2026-09-24).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum HookEvent {
+    /// The session-start gate ([`session_start`]).
+    SessionStart,
+    /// The guard at the edge before a file-writing tool call ([`tool_use`]).
+    PreToolUse,
+}
+
+impl HookEvent {
+    /// The event's `hookEventName` spelling.
+    const fn name(self) -> &'static str {
+        match self {
+            Self::SessionStart => "SessionStart",
+            Self::PreToolUse => "PreToolUse",
+        }
+    }
+}
+
+/// Shape the `hookSpecificOutput` envelope for `event`, carrying `context` as
+/// `additionalContext` capped to [`ADDITIONAL_CONTEXT_CAP`], or the quiet envelope
+/// when there is nothing to inject.
+///
+/// This is the one home for the envelope, shared by every hook placement that
+/// injects into the live context: `additionalContext` on a hook exiting zero is the
+/// **only** channel that reaches the model — a hook's stderr on exit 0 reaches the
+/// debug log alone, never the model's context
+/// (code.claude.com/docs/en/hooks, "Exit code 0", retrieved 2026-09-24). Only exit
+/// code 2 delivers stderr to the model, which is why a non-blocking finding has to
+/// ride this envelope to be seen at all.
+fn envelope(event: HookEvent, context: Option<&str>) -> String {
+    let payload = match context {
+        Some(context) => json!({
+            "hookSpecificOutput": {
+                "hookEventName": event.name(),
+                "additionalContext": cap(context),
+        }
+        }),
+        None => json!({
+            "hookSpecificOutput": {
+                "hookEventName": event.name(),
+        }
+        }),
+    };
+    payload.to_string()
+}
+
+/// Render a guard finding into the in-band envelope for `event` — the payload the
+/// guard writes to stdout under the `warn` enforcement mode, where the write is
+/// allowed (exit 0) but the finding must still reach the live context.
+///
+/// The event name is the caller's, not this function's: the guard fires at both
+/// edges of a tool call and Claude Code accepts only the firing event's name
+/// ([`HookEvent`]). `block` does not come through here — it exits 2, the one exit
+/// code Claude Code delivers a hook's stderr from — and `note` emits nothing at all.
+#[must_use]
+pub fn tool_use(event: HookEvent, finding: &str) -> String {
+    envelope(event, Some(finding))
+}
 
 /// The instruction that leads a failing verdict: the gate is advisory, so it asks
 /// the agent to route the findings through the human rather than block.
@@ -64,20 +132,10 @@ const NOTIFY_INSTRUCTION: &str =
 /// `SessionStart` hook (code.claude.com/docs/en/hooks, retrieved 2026-07-20).
 #[must_use]
 pub fn session_start(diagnostics: &[Diagnostic], announcement: &Announcement) -> String {
-    let payload = match context(diagnostics, announcement) {
-        Some(context) => json!({
-            "hookSpecificOutput": {
-                "hookEventName": HOOK_EVENT_NAME,
-                "additionalContext": cap(&context),
-        }
-        }),
-        None => json!({
-            "hookSpecificOutput": {
-                "hookEventName": HOOK_EVENT_NAME,
-        }
-        }),
-    };
-    payload.to_string()
+    envelope(
+        HookEvent::SessionStart,
+        context(diagnostics, announcement).as_deref(),
+    )
 }
 
 /// The plain-text context the hook injects, or `None` when the run has nothing to
@@ -418,6 +476,30 @@ mod tests {
         // instruction or what judged the run.
         assert!(context.contains("approval before continuing"));
         assert!(context.contains("joined lock: /org/lock.toml"));
+    }
+
+    #[test]
+    fn the_guard_envelope_stamps_its_own_event_and_shares_the_cap() {
+        let json: serde_json::Value =
+            serde_json::from_str(&tool_use(HookEvent::PreToolUse, "a finding"))
+                .expect("the guard envelope is valid JSON");
+        assert_eq!(json["hookSpecificOutput"]["hookEventName"], "PreToolUse");
+        assert_eq!(
+            json["hookSpecificOutput"]["additionalContext"], "a finding",
+            "the finding rides additionalContext — the only channel a zero-exit hook \
+             reaches the model through"
+        );
+
+        // The one envelope, so the one cap: a finding longer than the limit is cut the
+        // same way a session-start verdict is.
+        let long = "x".repeat(ADDITIONAL_CONTEXT_CAP + 1);
+        let json: serde_json::Value =
+            serde_json::from_str(&tool_use(HookEvent::PreToolUse, &long)).unwrap();
+        let context = json["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap();
+        assert_eq!(context.chars().count(), ADDITIONAL_CONTEXT_CAP);
+        assert!(context.ends_with('…'));
     }
 
     #[test]

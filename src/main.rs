@@ -354,7 +354,9 @@ fn main() -> miette::Result<ExitCode> {
             // author's declared enforcement mode, three values split by where the
             // finding goes: `note` allows and defers out-of-band (exit 0, no in-band
             // message — the next report, never the session); `warn` allows and surfaces
-            // in-band (exit 0); `block` denies (exit 2). temper never escalates past the
+            // in-band via `additionalContext` (exit 0), the only channel a zero-exit hook
+            // reaches the model through; `block` denies (exit 2), the one exit code that
+            // delivers stderr. temper never escalates past the
             // mode the lock declares — the lock is what names a path a projection, so it
             // is also the sole source for how firmly that projection is enforced.
             // An unrepresented
@@ -387,7 +389,10 @@ fn main() -> miette::Result<ExitCode> {
                 return Ok(match mode {
                     compose::EnforcementMode::Note => ExitCode::SUCCESS,
                     compose::EnforcementMode::Warn => {
-                        eprintln!("{report}");
+                        println!(
+                            "{}",
+                            reporter::tool_use(reporter::HookEvent::PreToolUse, &report)
+                        );
                         ExitCode::SUCCESS
                     }
                     compose::EnforcementMode::Block => {
@@ -407,7 +412,10 @@ fn main() -> miette::Result<ExitCode> {
             Ok(match decision.verdict {
                 install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
                 install::GuardVerdict::Warn => {
-                    eprintln!("{}", decision.message);
+                    println!(
+                        "{}",
+                        reporter::tool_use(reporter::HookEvent::PreToolUse, &decision.message)
+                    );
                     ExitCode::SUCCESS
                 }
                 install::GuardVerdict::Block => {

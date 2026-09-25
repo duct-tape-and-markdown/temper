@@ -555,7 +555,7 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
         )
         .unwrap();
 
-        let (code, _stderr) = common::run_guard(
+        let (code, output) = common::run_guard(
             &root,
             "{\"tool_input\":{\"file_path\":\".claude/rules/rust.md\"}}",
         );
@@ -564,6 +564,20 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
             Some(0),
             "a `{mode}` harness allows a projection write"
         );
+        // The two allowing modes differ only in where the finding goes, and a
+        // zero-exit hook reaches the live context through `additionalContext`
+        // alone — so `warn`'s finding has to be in the envelope, not on stderr.
+        if mode == "warn" {
+            assert!(
+                common::guard_in_band(&output).contains("temper-managed projection"),
+                "warn surfaces the finding in-band, got: {output}"
+            );
+        } else {
+            assert!(
+                output.is_empty(),
+                "note records out-of-band only, got: {output}"
+            );
+        }
     }
 }
 

@@ -1664,26 +1664,27 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
 
     // warn — allowed, with the finding surfaced in-band.
     let warn_root = represented_rule_harness("guard-undeclared-locus-warn", "warn");
-    let (warn_code, warn_stderr) = common::run_guard(
+    let (warn_code, warn_output) = common::run_guard(
         &warn_root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
     );
     assert_eq!(warn_code, Some(0), "warn mode allows the write");
+    let in_band = common::guard_in_band(&warn_output);
     assert!(
-        warn_stderr.contains("`rule` kind's governed locus"),
-        "warn surfaces the finding in-band, got: {warn_stderr}"
+        in_band.contains("`rule` kind's governed locus"),
+        "warn surfaces the finding in-band, got: {in_band}"
     );
 
     // note — allowed, and nothing reaches the live session.
     let note_root = represented_rule_harness("guard-undeclared-locus-note", "note");
-    let (note_code, note_stderr) = common::run_guard(
+    let (note_code, note_output) = common::run_guard(
         &note_root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
     );
     assert_eq!(note_code, Some(0), "note mode allows the write");
     assert!(
-        note_stderr.is_empty(),
-        "note records out-of-band only, got: {note_stderr}"
+        note_output.is_empty(),
+        "note records out-of-band only, got: {note_output}"
     );
 }
 
@@ -1840,7 +1841,7 @@ fn guard_binds_settings_json_when_registration_members_compose() {
     )
     .unwrap();
 
-    let (warn_code, warn_stderr) = common::run_guard(
+    let (warn_code, warn_output) = common::run_guard(
         &warn_root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
     );
@@ -1850,7 +1851,7 @@ fn guard_binds_settings_json_when_registration_members_compose() {
         "warn mode allows the write but surfaces the finding"
     );
     assert!(
-        warn_stderr.contains("temper-managed projection"),
+        common::guard_in_band(&warn_output).contains("temper-managed projection"),
         "the warning must be in-band"
     );
 }
@@ -2146,7 +2147,7 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
     )
     .unwrap();
 
-    let (warn_code, warn_stderr) = common::run_guard(
+    let (warn_code, warn_output) = common::run_guard(
         &warn_root,
         &write_payload(".mcp.json", r#"{"mcpServers":{}}"#),
     );
@@ -2156,7 +2157,7 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
         "warn mode allows the write but surfaces the finding"
     );
     assert!(
-        warn_stderr.contains("lock declares member"),
+        common::guard_in_band(&warn_output).contains("lock declares member"),
         "the warning must be in-band"
     );
 }

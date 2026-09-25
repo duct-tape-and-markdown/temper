@@ -356,8 +356,8 @@ pub fn explain_in(root: &Path, target: &str) -> String {
 }
 
 /// Run `temper guard <root>` from inside `root` with `payload` on stdin, returning the
-/// exit code and stderr output. Mirrors the existing `check_*` family: the one home for
-/// guard driver scaffolding, consolidating what install.rs and cli.rs were
+/// exit code and the guard's combined output. Mirrors the existing `check_*` family: the
+/// one home for guard driver scaffolding, consolidating what install.rs and cli.rs were
 /// re-implementing independently. Its `.`-argument twin is [`run_guard_from_root`]: the
 /// two differ in exactly one variable, how the root is spelled.
 pub fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
@@ -371,7 +371,33 @@ pub fn run_guard_from_root(root: &Path, payload: &str) -> (Option<i32>, String) 
     run_guard_spawned_in(root, std::ffi::OsStr::new("."), payload)
 }
 
-/// Run `temper guard <root_arg>` with the working directory set to `cwd`.
+/// The finding a `warn`-mode guard run surfaced in-band, read out of the `PreToolUse`
+/// `hookSpecificOutput` envelope on stdout — the one channel a hook exiting zero reaches
+/// the model's context through, stderr on exit 0 landing in the debug log alone.
+///
+/// Panics unless `output` is exactly that envelope, so every warn arm asserts the
+/// placement and not merely the text: a finding on the wrong stream, or under the wrong
+/// event name, is a finding the session never sees.
+pub fn guard_in_band(output: &str) -> String {
+    let payload: serde_json::Value = serde_json::from_str(output.trim()).unwrap_or_else(|err| {
+        panic!("warn must emit the hook envelope on stdout: {err}, got: {output}")
+    });
+    let hook = &payload["hookSpecificOutput"];
+    assert_eq!(
+        hook["hookEventName"], "PreToolUse",
+        "the envelope must stamp the firing event, got: {output}"
+    );
+    hook["additionalContext"]
+        .as_str()
+        .unwrap_or_else(|| panic!("the finding must ride additionalContext, got: {output}"))
+        .to_string()
+}
+
+/// Run `temper guard <root_arg>` with the working directory set to `cwd`, returning the
+/// exit code and stdout-then-stderr concatenated — the same combined-stream contract
+/// [`check_in`] sets, for the same reason: the guard splits its channels by mode (`warn`
+/// injects in-band on stdout, `block` writes stderr), so a single-stream reader watching
+/// for a finding's *absence* reads the other mode's silence as agreement.
 fn run_guard_spawned_in(
     cwd: &Path,
     root_arg: &std::ffi::OsStr,
@@ -390,10 +416,9 @@ fn run_guard_spawned_in(
     // Tolerate a closed pipe if the child has already exited (e.g., on corrupt locks).
     let _ = child.stdin.take().unwrap().write_all(payload.as_bytes());
     let out = child.wait_with_output().unwrap();
-    (
-        out.status.code(),
-        String::from_utf8_lossy(&out.stderr).into_owned(),
-    )
+    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
+    output.push_str(&String::from_utf8_lossy(&out.stderr));
+    (out.status.code(), output)
 }
 
 /// Read `root`'s current lock declarations (empty if none), apply `patch`, and
