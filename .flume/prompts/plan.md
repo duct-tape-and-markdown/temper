@@ -164,14 +164,6 @@ rule on a digest line.
    administering discipline is the `posture-sweep` rule, loading when
    you read the posture pages — this prompt remembers nothing.
 
-**Operator hold — sweeps.** While this paragraph stands, the Sweep motion
-of job 3 and all of job 4 are not live inputs. Job 3 is live on `Audited
-through:` alone: the audit motion runs and advances that cursor, and
-`Residue swept through:` and `Posture swept through:` are copied forward
-verbatim. A held rotation never keeps the marker off `no`: when nothing
-else is live, write `no` and let build take the queue. A human removes this
-paragraph to lift the hold.
-
 **Closing the tick.** Every job ends, in the same tick, with the closing
 checklist its commit rides on: the queue is disjoint, every gate reason
 still true, `state.md` re-derived. Quiet is a verdict, never a job — when a

@@ -28,10 +28,6 @@ hard.
 
 ## Next session's one focus (09-23, post-cut)
 
-- **Sweep hold (09-25, John): reports first.** The six inbox notes and
-  0060-0062 ship before any residue or posture sweep; the audit motion
-  still runs. The hold is one paragraph in `.flume/prompts/plan.md`;
-  remove it once every entry derived from those inputs has shipped.
 - **Loop moves to the second machine (09-25).** flume's own loop holds
   this box continuously and the two cannot share it. temper's loop was never
   relaunched after the 0.19 migration (227b3bbb). On the new machine, from a
