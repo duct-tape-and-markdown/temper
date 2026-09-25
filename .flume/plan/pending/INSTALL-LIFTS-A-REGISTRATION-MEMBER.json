@@ -1,7 +1,10 @@
 {
   "tag": "INSTALL-LIFTS-A-REGISTRATION-MEMBER",
   "gate": {
-    "kind": "open"
+    "kind": "blockedBy",
+    "tags": [
+      "INTEGRATION-SUITE-ONE-TEST-TARGET"
+    ]
   },
   "dependsOnForks": [
     "hook-member-identity"
@@ -32,5 +35,5 @@
     }
   ],
   "acceptance": "`cargo test` green with `install` over a project whose settings.json carries registration segments producing a module per registration member, the adoption emit re-rendering the file with every segment intact, and the discovery report counting registration entries rather than the manifest file.",
-  "notes": "Re-measured at e0d0123b: the count is a file count — a settings.json with no hooks, no enabledPlugins and no extraKnownMarketplaces still reports `hook 1`, `installed-plugin 1`, `known-marketplace 1`. Both halves survive 87fe7447's rewrite; every line cite is re-read on disk this tick. Rests on `(hook-member-identity)`: a lifted hook needs a name, and two groups on one event share one address today. scoped at 715f55ae"
+  "notes": "Re-measured at e0d0123b: the count is a file count — a settings.json with no hooks, no enabledPlugins and no extraKnownMarketplaces still reports `hook 1`, `installed-plugin 1`, `known-marketplace 1`. Both halves survive 87fe7447's rewrite. Rests on `(hook-member-identity)`: a lifted hook needs a name, two groups on one event share one address. Now also blockedBy the tests/ fold, which retires this entry's `tests/install.rs` — re-scope its path on unblock. scoped at 909f3c94"
 }

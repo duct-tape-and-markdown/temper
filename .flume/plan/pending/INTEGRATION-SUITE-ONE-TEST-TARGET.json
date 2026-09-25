@@ -1,15 +1,14 @@
 {
   "tag": "INTEGRATION-SUITE-ONE-TEST-TARGET",
   "gate": {
-    "kind": "parked",
-    "reason": "A human scheduling call, two constraints plan cannot express as a gate. (1) The move renames every path under tests/, so it collides with the five queued entries that edit a tests/ file — it must land as a singleton against a quiet queue, and naming fifteen blockedBy parents would be a false spine, not a dependency. (2) The harness migration's judge resolves nextest binary-ids (`temper::graph$...` becomes `temper::it$graph::...`), so this lands before that migration or with it, never after. Unpark by rewriting the entry against the tests/ tree of that day."
+    "kind": "open"
   },
   "dependsOnForks": [],
   "files": {
     "new": [
       {
         "path": "tests/it/**",
-        "description": "The single integration crate cargo auto-discovers from `tests/it/main.rs`: main.rs declares `mod common;` once plus one `mod <name>;` per moved suite; each moved `tests/<name>.rs` lands at `tests/it/<name>.rs` with its `mod common;` line rewritten to `use crate::common;`; `tests/common/mod.rs` moves to `tests/it/common/mod.rs` (its header paragraph documents the per-binary recompilation its blanket `allow(dead_code)` exists to absorb — rewrite it, and narrow the allow, once one crate unifies dead-code analysis); insta snapshots re-bless under `tests/it/snapshots/`, keyed on the module path."
+        "description": "The single integration crate cargo auto-discovers from `tests/it/main.rs`: main.rs declares `mod common;` once plus one `mod <name>;` per moved suite; each moved `tests/<name>.rs` lands at `tests/it/<name>.rs` with its `mod common;` line rewritten to `use crate::common;`; `tests/common/mod.rs` moves to `tests/it/common/mod.rs` (its header paragraph documents the per-binary recompilation its blanket `allow(dead_code)` exists to absorb — rewrite it, and narrow the allow, once one crate unifies dead-code analysis). `tests/fixtures/` does NOT move: `common::fixture` resolves it from `CARGO_MANIFEST_DIR` + `tests/fixtures`, so that join stands unchanged. The 15 live snapshots re-bless under `tests/it/snapshots/` — insta keys the filename off the module path, so the new names are insta's to write and never hand-predicted; the two `adapter_fidelity__*.snap` in the retire list are orphans of the already-retired `tests/adapter_fidelity.rs` (`tests/memory_contract.rs:6` records the retirement) and are swept by this move rather than carried across — re-blessing regenerates only referenced snapshots."
       }
     ],
     "edit": [
@@ -78,7 +77,24 @@
       "tests/shape_predicate.rs",
       "tests/tap.rs",
       "tests/toml_document.rs",
-      "tests/type_predicate.rs"
+      "tests/type_predicate.rs",
+      "tests/snapshots/acceptance__rules_check_diagnostics.snap",
+      "tests/snapshots/adapter_fidelity__projected_scoped_rule_source.snap",
+      "tests/snapshots/adapter_fidelity__projected_skill_source.snap",
+      "tests/snapshots/builtin_contract_matrix__builtin_contract_matrix.snap",
+      "tests/snapshots/bundle__.claude-plugin__marketplace.json.snap",
+      "tests/snapshots/bundle__.claude-plugin__plugin.json.snap",
+      "tests/snapshots/bundle__bundle_is_deterministic.snap",
+      "tests/snapshots/display_rule__collections_only_value.snap",
+      "tests/snapshots/display_rule__decision_value.snap",
+      "tests/snapshots/display_rule__empty_value.snap",
+      "tests/snapshots/display_rule__leaves_only_value.snap",
+      "tests/snapshots/extract_equivalence__rule_features_collaboration.snap",
+      "tests/snapshots/extract_equivalence__rule_features_rust.snap",
+      "tests/snapshots/extract_equivalence__skill_features_coordinate.snap",
+      "tests/snapshots/gauntlet__check_diagnostics.snap",
+      "tests/snapshots/gauntlet__projection_tree.snap",
+      "tests/snapshots/install__a_fresh_install_settings_document_is_stable.snap"
     ]
   },
   "summary": "The suite declares 59 integration-test targets, so `tests/common` is one home in source and 55 linked copies in target/ — fold them into one `tests/it` crate.",
@@ -93,9 +109,9 @@
     },
     {
       "path": "tests/it/main.rs",
-      "asserts": "every one of the 57 moved suites is declared as a module, so the consolidated run's test count equals the 57-target run's — a suite missing from main.rs is a suite that silently stops running"
+      "asserts": "every one of the 59 moved suites is declared as a module, so the consolidated run's test count equals the 59-target run's — a suite missing from main.rs is a suite that silently stops running"
     }
   ],
   "acceptance": "`cargo test` green with a test count equal to the pre-move run's (capture it before the move and compare, so no suite is lost in the fold), `cargo clippy --all-targets -- -D warnings` green over the single crate, and one integration-test executable in target/debug/deps where 59 stood — the decidable pin, per the cost section's 'The pin is a count, never a clock'. The commit body reports `cargo test --no-run` wall time and peak RSS before and after, timing staying the manual signal a human reads rather than a gate; that pair is also what answers the standing objection, that one crate compiles as one unit, so peak RSS falls while wall time may rise.",
-  "notes": "Drained from .flume/refactor/session-integration-tests-one-binary.md (observed 4dd4583f; re-verified at 0c56cf0a — 59 crates, 55 `mod common;`, 873-line shared module, `retire` re-synced to the tree, +2). Evidence: a 14:42 OOM rebooted the 7.7GB WSL VM with 17 rust-lld + 20 rustc holding 2.6GB; CARGO_BUILD_JOBS=4 only caps parallelism. Cargo prescribes this fold at this size (cargo-targets.html, 'Integration tests', retrieved 2026-09-22). scoped at 0c56cf0a"
+  "notes": "Unparked: both park conditions hold — no rival pickable entry (the three tests/-touching siblings are gate-held) and no nextest in .flume/ at HEAD, so this lands before that migration. Re-verified on disk: 59 targets, 55 `mod common;`, common/mod.rs 900 lines, `retire` matches the tree. Move it mechanically (git mv + sed the `mod common;` line), never a per-file rewrite. src/ doc cites of `tests/<name>.rs` stale out and ride later entries. scoped at 909f3c94"
 }
