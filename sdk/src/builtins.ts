@@ -1681,7 +1681,7 @@ export const memoryAnthropicDefaultContract: readonly Clause[] = [
 
 /**
  * Every documented Claude Code hook lifecycle event — the closed set a `hooks.<Event>`
- * key is drawn from (code.claude.com/docs/en/hooks, "Hook events", retrieved 2026-07-15).
+ * key is drawn from (code.claude.com/docs/en/hooks, "Hook events", retrieved 2026-09-25).
  * The allowlist the `hook` default contract's one decidable clause ranges over; the
  * update ritual when the docs add an event is to re-fetch and extend this set, never to
  * re-derive from memory.
@@ -1709,11 +1709,14 @@ const DOCUMENTED_HOOK_EVENTS = [
   "InstructionsLoaded",
   "ConfigChange",
   "CwdChanged",
+  "DirectoryAdded",
   "FileChanged",
   "WorktreeCreate",
   "WorktreeRemove",
   "PreCompact",
   "PostCompact",
+  "PreModelSwitch",
+  "PostModelSwitch",
   "Elicitation",
   "ElicitationResult",
   "SessionEnd",
@@ -1721,7 +1724,7 @@ const DOCUMENTED_HOOK_EVENTS = [
 
 /**
  * The default contract for `hook` — Anthropic's documented hooks contract
- * (code.claude.com/docs/en/hooks, retrieved 2026-07-15). A hook surfaces at
+ * (code.claude.com/docs/en/hooks, retrieved 2026-09-25). A hook surfaces at
  * `hooks.<Event>`, so the member the gate reads is the lifecycle event itself, its name
  * carried as the `event` field off the collection key. The one decidable, cited property
  * of that member is its event: a key outside the documented set is dead configuration —
@@ -1741,7 +1744,7 @@ export const hookDefaultContract: readonly Clause[] = [
     severity: "required",
     guidance:
       "A hook keys under its lifecycle event; an event outside the documented set is dead configuration — Claude Code silently never fires a hook under an unrecognized event. If this is a newly-documented event, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding.",
-    cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-07-15)",
+    cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-09-25)",
   }),
 ];
 

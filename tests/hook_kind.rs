@@ -45,6 +45,24 @@ const CLEAN_SETTINGS: &str = r#"{
   }
 }"#;
 
+/// A `.claude/settings.json` keying under the three events the docs grew after the
+/// allowlist's first retrieval — `DirectoryAdded` (a mid-session `/add-dir`),
+/// `PreModelSwitch` and `PostModelSwitch` (code.claude.com/docs/en/hooks, "Hook events",
+/// retrieved 2026-09-25). Documented events, so the clause has nothing to say about them.
+const NEWLY_DOCUMENTED_SETTINGS: &str = r#"{
+  "hooks": {
+    "DirectoryAdded": [
+      { "hooks": [ { "type": "command", "command": "echo added" } ] }
+    ],
+    "PreModelSwitch": [
+      { "hooks": [ { "type": "command", "command": "echo before" } ] }
+    ],
+    "PostModelSwitch": [
+      { "hooks": [ { "type": "command", "command": "echo after" } ] }
+    ]
+  }
+}"#;
+
 fn hook_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("hook").expect("hook is embedded")
 }
@@ -174,6 +192,42 @@ fn the_hook_default_contract_passes_documented_events() {
     assert!(
         common::findings_for(&findings, "hook.enum.event").is_empty(),
         "every documented event passes the clause, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn the_hook_default_contract_passes_events_the_docs_added_after_the_first_retrieval() {
+    // The allowlist is an external fact with a retrieval date, so it goes stale under the
+    // page it cites: an event documented *after* that date is dead configuration by the
+    // clause's reckoning and live configuration in fact. A required-severity clause over a
+    // stale allowlist forges a finding on a correct harness — the false positive
+    // `specs/intent.md` invariant 2 names as how a gate gets disabled — so the three events
+    // the page grew are pinned here, not merely added to the array.
+    let harness = common::tmpdir("hook-newly-documented-events");
+    write_settings(&harness, NEWLY_DOCUMENTED_SETTINGS);
+
+    let (findings, ok) = check_harness(&harness);
+
+    // The vacuity pin: all three hooks were read as members and judged, so the silence
+    // below is a verdict and not an empty selection.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("hook (3)"),
+        "all three newly-documented-event hooks are checked, got: {}",
+        checked[0]
+    );
+    assert!(
+        common::findings_for(&findings, "hook.enum.event").is_empty(),
+        "an event the docs document passes the clause, got: {findings:#?}"
+    );
+    assert!(
+        ok,
+        "a harness registering only documented events gates clean, got: {findings:#?}"
     );
 }
 
