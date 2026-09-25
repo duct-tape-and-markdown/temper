@@ -1,7 +1,7 @@
 # CURRENT STATE
 
 <pending-digest>
-!`node -e 'const es=JSON.parse(require("fs").readFileSync(".flume/plan/pending.json","utf8"));for(const e of es){const g=e.gate||{kind:"open"};console.log(e.tag+"  |  "+g.kind+(g.tag?" "+g.tag:"")+"  |  "+e.summary)}' 2>/dev/null || echo "(no pending.json)"`
+!`node -e 'const fs=require("fs"),d=".flume/plan/pending";if(!fs.existsSync(d)){console.log("(no queue directory yet)");process.exit(0)}const fs_=fs.readdirSync(d).filter(f=>f.endsWith(".json")).sort();if(!fs_.length)console.log("(queue empty)");for(const f of fs_){const e=JSON.parse(fs.readFileSync(d+"/"+f,"utf8"));const g=e.gate||{kind:"open"};console.log(e.tag+"  |  "+g.kind+(g.tag?" "+g.tag:"")+"  |  "+e.summary)}'`
 </pending-digest>
 
 <state>
@@ -70,7 +70,7 @@ chosen job half-done — the job is the atom.
 disclosure — the prompt points, you read). `<pending-digest>` is one line per
 entry and `<spec-map>` is headings only; before your job acts on an entry or
 a spec section — rewriting, deriving from, verifying against — Read the full
-entry in `.flume/plan/pending.json` and the actual section in its file. Never
+entry in `.flume/plan/pending/<TAG>.json` and the actual section in its file. Never
 rule on a digest line.
 
 1. **Inbox** — `<inbox>` has content or `<refactor-captures>` holds live
@@ -172,8 +172,8 @@ its window empty), run the checklist, write
 `Plan continues: no`, and commit the restamp.
 
 **Entry discipline** binds every job that files or rewrites entries — the
-rule scoped to `.flume/plan/pending.json` (`.claude/rules/pending-entry.md`)
-loads automatically the moment you touch that file; it is not repeated here.
+rule scoped to `.flume/plan/pending/*.json` (`.claude/rules/pending-entry.md`)
+loads automatically the moment you touch an entry file; it is not repeated here.
 
 **Open questions** live in `open-questions.md`, never in pending; the
 lifecycle is the `fork-lifecycle` rule, loading when you touch the file.
@@ -190,10 +190,12 @@ per capture type (its own trigger condition covers when to reach for it).
 
 # OUTPUT
 
-One commit prefixed `plan:`. Write `.flume/plan/{pending.json,state.md,open-questions.md}`
-and drain `.flume/inbox.md` when inbox is the job. The harness rejects the
-commit if `pending.json` doesn't parse or you modify anything outside the
-phase's writable paths. `pending.json` entries carry the field-length footgun
+One commit prefixed `plan:`. Write `.flume/plan/{pending/<TAG>.json,state.md,open-questions.md}`
+and drain `.flume/inbox.md` when inbox is the job. The queue is one file per
+entry, named exactly for its `tag`; filing adds a file, shipping or retiring
+removes one. The harness rejects the commit if an entry file doesn't parse,
+its filename disagrees with its `tag`, or you modify anything outside the
+phase's writable paths. Entries carry the field-length footgun
 named in the `pending-entry` rule — re-read every `summary`/`notes` before
 finishing; a violation on any entry reverts the whole tick.
 

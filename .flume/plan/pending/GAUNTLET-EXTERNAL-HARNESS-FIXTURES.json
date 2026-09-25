@@ -1,0 +1,36 @@
+{
+  "tag": "GAUNTLET-EXTERNAL-HARNESS-FIXTURES",
+  "gate": {
+    "kind": "parked",
+    "reason": "Fixture choice is human territory (licensing): docs/ledger.md's 07-22 external-yield probe ran check over 9 real external harnesses and found the temper bugs the self-mirror can't (roots of GH #26/#30/#33/#38). Pick 2-3 of those 9 to vendor, license-check, and trim to their .claude/ trees before this unparks."
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [
+      {
+        "path": "tests/fixtures/gauntlet_external/",
+        "description": "Anticipated: the human-chosen 2-3 external harnesses' trimmed .claude/ trees, each vendored with its license noted (path/name unset until the human picks)."
+      }
+    ],
+    "edit": [
+      {
+        "path": "tests/gauntlet.rs",
+        "description": "Anticipated: one check+emit snapshot test per vendored external fixture, alongside the existing in-repo kitchen-sink corpus — the standing gate the 07-22 probe wasn't."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Extend the gauntlet with 2-3 real external harness fixtures so the July external-yield probe (9 foreign repos, 4 temper bugs found) becomes a standing gate, not a one-off.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "The gauntlet corpus"
+  },
+  "tests": [
+    {
+      "path": "tests/gauntlet.rs",
+      "asserts": "check/emit run over each vendored external fixture and snapshot-pin its findings"
+    }
+  ],
+  "acceptance": "temper check/emit run clean (or with real, human-verified findings) over 2-3 vendored external harness .claude/ trees, snapshot-tested in tests/gauntlet.rs, so the July external-yield probe is a standing gate rather than a one-time manual run.",
+  "notes": "observed at e77766c5, cross-cutting note — every defect in the 09-03 batch came from a foreign harness, none from the self-mirror; docs/ledger.md's 07-22 probe (9 real harnesses) is the candidate pool. Human picks 2-3 (licensing); test wiring is build's once chosen. scoped at 89d96cca."
+}

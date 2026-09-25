@@ -1,6 +1,7 @@
 # Pending-entry discipline
 
-Binds every edit to `.flume/plan/pending.json` — the `plan` phase filing or
+Binds every edit to an entry file under `.flume/plan/pending/` (one
+`<TAG>.json` per entry, named exactly for its `tag`) — the `plan` phase filing or
 rewriting an entry, and any interactive session hand-editing the queue.
 
 - A stale entry gets a full rewrite, never a patch. Every entry carries a

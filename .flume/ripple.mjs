@@ -7,8 +7,9 @@
 // is walked too: it holds live in-tree consumers of the SDK's authoring surface.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-const raw = JSON.parse(readFileSync(".flume/plan/pending.json", "utf8"));
-const entries = Array.isArray(raw) ? raw : Object.values(raw).find(Array.isArray) ?? [];
+// The queue is one `<tag>.json` per entry (flume ≥0.19).
+const queueDir = ".flume/plan/pending";
+const entries = readdirSync(queueDir).filter((n) => n.endsWith(".json")).sort().map((n) => JSON.parse(readFileSync(join(queueDir, n), "utf8")));
 const files = [];
 const walk = (d) => { for (const n of readdirSync(d)) { const p = join(d, n); const s = statSync(p); if (s.isDirectory()) { if (n !== "node_modules" && n !== "dist" && n !== "target") walk(p); } else if (/\.(rs|ts|toml|snap)$/.test(n)) files.push(p); } };
 for (const d of ["src", "tests", "sdk/src", "sdk/test", "examples"]) { try { walk(d); } catch {} }

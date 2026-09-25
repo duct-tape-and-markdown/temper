@@ -1,0 +1,38 @@
+{
+  "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
+  "gate": {
+    "kind": "deferred",
+    "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) — no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "Anticipated: a `KindFactRow` column (or sibling row) carrying per-field guidance/cite, following the `to_table`/`from_table` pattern GUIDANCE-KIND-SDK-LOCK-FACT establishes for the kind-level pair."
+      },
+      {
+        "path": "src/schema.rs",
+        "description": "Anticipated: `emit()`'s per-property `description` (156-172) folds field-declaration guidance in alongside a clause's, the same 'join into one description' discipline `push_description` (316-329) already runs for several guided clauses on one field."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "Anticipated: field-level narration extends `narrate_governing_contract` (374-402) or a sibling to print a field's declared guidance."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "0045 also frees guidance onto a field declaration, no predicate — deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "tests": [],
+  "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
+  "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
+}

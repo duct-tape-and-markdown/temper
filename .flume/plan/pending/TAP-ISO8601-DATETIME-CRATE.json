@@ -1,0 +1,26 @@
+{
+  "tag": "TAP-ISO8601-DATETIME-CRATE",
+  "gate": {
+    "kind": "parked",
+    "reason": "Adopting a new dependency is the human sanctioned-set call CLAUDE.md's Tech stack section reserves to itself, not plan- or build-derivable; needs either a `time` crate addition to the sanctioned set or a ruled pinned-semantics exception at the site."
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/tap.rs",
+        "description": "iso8601_utc_timestamp (313-368) and is_leap_year (370-372) hand-roll epoch-day Gregorian calendar arithmetic off SystemTime/UNIX_EPOCH to format an RFC 3339 UTC timestamp; replace with a sanctioned date/time crate (`time`, a narrower fit than `chrono` for one stamp) once added to CLAUDE.md's Tech stack, or mark the site a deliberate pinned-semantics exception (rust.md's comment taxonomy) if the human declines the dependency."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "src/tap.rs hand-rolls ISO-8601 calendar math for a timestamp; no sanctioned crate does date/time, so adopting one needs a human sanctioned-set call.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "Libraries before hand-rolls"
+  },
+  "tests": [],
+  "acceptance": "src/tap.rs's timestamp formatting runs through a sanctioned date/time crate instead of hand-rolled calendar math, or the site carries a ruled comment stating why it stays a hand-roll.",
+  "notes": "drained from .flume/refactor/plan-tap-iso8601-hand-roll.md (filed at cd35a551); re-verified live at HEAD — no crate in the sanctioned set (CLAUDE.md, Tech stack) does date/time and this remains the sole iso8601 site (rg -n \"iso8601|SystemTime::now\" src/ tests/). scoped at e1b26728"
+}

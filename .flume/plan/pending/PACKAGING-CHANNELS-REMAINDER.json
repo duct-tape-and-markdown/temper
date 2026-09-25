@@ -1,0 +1,26 @@
+{
+  "tag": "PACKAGING-CHANNELS-REMAINDER",
+  "gate": {
+    "kind": "parked",
+    "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) is now proven live, not merely wired: the v0.0.11 tag fired it and its publish smoke gate went green (b6dc0a3's commit body)."
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": ".github/workflows/release.yml",
+        "description": "Extend the existing release.yml (linux-x64 + win32-x64 first cut, the darwin deferral stated at lines 7-9) with the darwin matrix targets (aarch64/x86_64-apple-darwin) + an Apple notarization step, and a channel-3 step producing/publishing the `temper bundle` output with its marketplace.json. Distinct from the standalone tag-asset step, already wired (unexercised until a tag)."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "What ships — three channels"
+  },
+  "tests": [],
+  "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json) — distribution.md's v0.1 launch gate: prebuilt binaries install on all three OSes.",
+  "notes": "Park re-tested on disk at 01ba369: release.yml still states the darwin + channel-3 deferral verbatim (lines 7-9). The lockstep clause carried here since ac40c72/b676656 is resolved, dropped: da77c60 walked Cargo.toml 0.1.0→0.0.11 to match npm's cadence directly (no v0.1-tag flip), b6dc0a3 fixed the lockfile mismatch, and tag v0.0.11→da77c60 fired release.yml with a green smoke gate per its own commit body — channel 2 is proven live, not just wired. scoped 01ba369."
+}

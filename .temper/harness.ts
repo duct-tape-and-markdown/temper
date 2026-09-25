@@ -62,7 +62,7 @@ const program = harness({
   mode: "block",
   require: {
     "pending-entry-discipline": {
-      prose: "flume's plan phase (and any interactive session) needs pending.json entry-filing constraints available as a rule scoped to .flume/plan/pending.json",
+      prose: "flume's plan phase (and any interactive session) needs pending-entry filing constraints available as a rule scoped to .flume/plan/pending/*.json",
       kind: rule,
       required: true,
     },

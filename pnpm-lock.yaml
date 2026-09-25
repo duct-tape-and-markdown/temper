@@ -13,8 +13,8 @@ importers:
         version: 4.4.3
     devDependencies:
       '@dtmd/flume':
-        specifier: ^0.17.0
-        version: 0.17.0
+        specifier: ^0.19.0
+        version: 0.19.0
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.0
@@ -24,8 +24,8 @@ importers:
 
 packages:
 
-  '@dtmd/flume@0.17.0':
-    resolution: {integrity: sha512-S/+4GAi16R2/g6ki3l1nm5xFeQsoAqMPHfgWb0JzozBzdFtIV0yujhTCiPuEy5L/5MYraPLXSXqHgCbYy4ksNQ==}
+  '@dtmd/flume@0.19.0':
+    resolution: {integrity: sha512-N4KyhfQLkUQVSsX3BHhEHC+ZSlM4cuT6vBCpEZQei09y4h0o+YJnx4eqQY/1cbwahtdtpsPa+hg9Z9AlRjGyvg==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -216,7 +216,7 @@ packages:
 
 snapshots:
 
-  '@dtmd/flume@0.17.0':
+  '@dtmd/flume@0.19.0':
     dependencies:
       tsx: 4.22.4
       zod: 4.4.3

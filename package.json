@@ -12,7 +12,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@dtmd/flume": "^0.17.0",
+    "@dtmd/flume": "^0.19.0",
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0"
   }

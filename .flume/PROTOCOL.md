@@ -82,7 +82,7 @@ engine (fresh clone: `pnpm install`).
   engine-contract changes) under a running loop: stop, then relaunch — a
   supervisor stays on its launch contract while children re-read HEAD.
 - `pnpm exec flume log` / `check` — read verbs: recent tick verdicts; the
-  working tree's `pending.json` validated without spending an agent. (No
+  working tree's pending queue validated without spending an agent. (No
   `flume friction` here: the engine's friction channel is gitignored and
   hand-routed; this chain's committed `.flume/friction/**` captures are a
   different, deliberate design.)
@@ -111,7 +111,7 @@ with an undrained inbox or a trailing spec cursor reverts the tick.
 ## Disk vs git log
 
 To answer "did X ship?" or "is gate Y green?", read the disk artifact
-(`pending.json`, the `src/` file, `cargo` output). Never grep commit messages.
+(`plan/pending/<TAG>.json`, the `src/` file, `cargo` output). Never grep commit messages.
 Git log is orientation, not authority.
 
 ## Non-negotiables

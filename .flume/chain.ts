@@ -6,7 +6,7 @@
  * value arrives on that parameter, and the only engine import left is
  * `import type`, so a second physical engine can never enter the process.
  * Two phases, no spec phase: the evergreen `specs/` corpus is human-
- * authored, never phase-written. Plan reconciles `pending.json` against the
+ * authored, never phase-written. Plan reconciles the pending queue against the
  * corpus + current `src/` state; build ships entries to the trunk.
  *
  * The gates are the one place this differs materially from flume's
@@ -67,7 +67,7 @@ const TAG_PATTERN = /^[A-Z][A-Z0-9]*(?:[-.][A-Za-z0-9]+)*(?:\([a-z0-9]+\))?$/;
  * queue was authored under; the ≤200/≤500 caps are the ones the
  * `pending-entry` rule warns about. `schemaDelta` (0.6 core, no consumer)
  * is retired with v0.8, not re-declared. One declaration drives both the
- * parse gates below (`parsePending`) and the plan prompt's
+ * parse gates below (`parsePendingQueue`) and the plan prompt's
  * `{{PENDING_SCHEMA}}` (`renderSchemaForPrompt`), so the two cannot drift.
  */
 const entryExtension = {
@@ -311,13 +311,21 @@ const planHonestyGate: Gate = {
             message: `Inbox routed: claims ${claimed} note(s) with ${dests.length} destination(s), but this merge removed ${removed} — one destination group per removed note`,
           };
         }
+        // One entry per `<tag>.json` (flume ≥0.19; the parse gate holds the
+        // filename to the entry's tag), so the trunk's tag set is its listing.
         let tags = new Set<string>();
         try {
-          const parsed = JSON.parse(fromTrunk(".flume/plan/pending.json") ?? "[]") as unknown;
-          const list = Array.isArray(parsed)
-            ? parsed
-            : (Object.values(parsed as Record<string, unknown>).find(Array.isArray) as unknown[] | undefined) ?? [];
-          tags = new Set(list.map((e) => String((e as { tag?: string }).tag ?? "")));
+          const listing = execFileSync("git", ["ls-tree", "--name-only", "HEAD", ".flume/plan/pending/"], {
+            cwd: ctx.repoRoot,
+            encoding: "utf8",
+          });
+          tags = new Set(
+            listing
+              .split("\n")
+              .map((l) => l.slice(l.lastIndexOf("/") + 1))
+              .filter((f) => f.endsWith(".json"))
+              .map((f) => f.slice(0, -".json".length)),
+          );
         } catch {
           tags = new Set<string>(); // unreadable queue — resolution below fails closed on tags only
         }
@@ -486,7 +494,7 @@ const BUILD_WRITABLE_PATHS = [
   // human in its cycle, so it proposes
   // (leave the entry, surface the question — or a friction capture) instead
   // of writing. The harness writes the post-merge ship commit to
-  // pending.json itself.
+  // the pending queue itself.
 ];
 
 /**
@@ -563,8 +571,9 @@ const factory: ChainFactory = (flume) => {
     withSessionCapture,
     withTerminalRenderer,
     shellGate,
-    parsePending,
+    parsePendingQueue,
     pendingGate,
+    git,
     renderSchemaForPrompt,
   } = flume;
 
@@ -700,13 +709,11 @@ const factory: ChainFactory = (flume) => {
     name: "entry references resolve",
     when: "afterCommit",
     async run(ctx) {
-      let raw: string;
-      try {
-        raw = await readFile(join(ctx.flumeDir, "plan", "pending.json"), "utf8");
-      } catch {
-        return { ok: true, message: "no pending.json to check" };
-      }
-      const result = parsePending(raw, entryExtension);
+      // The queue as the gated commit holds it, through the engine's own
+      // listing (flume ≥0.19): absent and empty are one fact in a git tree.
+      const files = await git.readQueueAtRef(ctx.repoRoot, ctx.commitSha, `${ctx.stateRootRel ?? ".flume"}/plan/pending`);
+      if (!files || files.length === 0) return { ok: true, message: "no pending entries to check" };
+      const result = parsePendingQueue(files, entryExtension);
       if (!result.ok) return { ok: true, message: "parse gate owns malformed pending" };
       const offending: string[] = [];
       // A blocked entry may edit a file one of its parents creates: the parent
@@ -752,11 +759,11 @@ const factory: ChainFactory = (flume) => {
   const plan: Phase = {
     name: "plan",
     description:
-      "Reconcile .flume/plan/{pending.json,state.md,open-questions.md} against specs/ + current src state; drain .flume/inbox.md.",
+      "Reconcile .flume/plan/{pending/,state.md,open-questions.md} against specs/ + current src state; drain .flume/inbox.md.",
     promptPath: "prompts/plan.md",
     concurrency: "singleton",
     writablePaths: [
-      ".flume/plan/pending.json",
+      ".flume/plan/pending/*.json",
       ".flume/plan/state.md",
       ".flume/plan/open-questions.md",
       ".flume/inbox.md",

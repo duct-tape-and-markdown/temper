@@ -1,0 +1,26 @@
+{
+  "tag": "KIND-DECLARED-CITABLE-HANDLE",
+  "gate": {
+    "kind": "deferred",
+    "reason": "An idea, not a defect (the raw note's own framing) — a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path, repo-rooted path) can't already express cleanly."
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "Anticipated: a `handle` fact on KindFacts, read by a render hook branching on target.kind, alongside the existing closed engine-derived target-fact set."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A kind-declared citable handle ('how a reference to a member of this kind reads') — a lower-priority idea, not a defect, with no consumer yet.",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "kind"
+  },
+  "tests": [],
+  "acceptance": "A kind declaring `handle` lets a reference render hook spell a member of that kind without hand-rolling the branch on target.kind — provable once a real render hook wants one.",
+  "notes": "observed at ad10e8cb (cascade, idea). Compatible with the closed-set rule as a fifth engine-derived fact read off the target kind's declaration; the raw note itself calls this lower priority and not a defect. scoped at e1b26728"
+}

@@ -1,0 +1,41 @@
+{
+  "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
+  "gate": {
+    "kind": "parked",
+    "reason": "Human re-ruling 09-03 (interactive): the first ruling — refuse a duplicate member address within a kind — was built (e4ff7bc6) and failed temper's own self-host test at afterMerge: Claude Code allows N matcher groups per event and this repo's own harness carries two PostToolUse groups, so a duplicate-event refusal rejects every real harness. The defect (silent last-writer-wins on edge resolution to `hook:<Event>`) stands; the remedy is a hook identity discriminator, which is a model fork, not build's to invent."
+  },
+  "dependsOnForks": [
+    "hook-member-identity"
+  ],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/admissibility.rs",
+        "description": "New sibling check beside `collection_address_collision_diagnostics` (which 21f61463 added for two *kinds* sharing one collectionAddress): a *single* kind's own members registering on the same key within that address (e.g. three `hook` members on `SessionStart`, which collapse to one entry in the `kind:name` composition map — silent last-writer-wins) is a declaration-time refusal with a named error, not a silent collapse."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "Wire the new diagnostic beside the existing `collection_address_collision_diagnostics` call (~gate.rs:200s)."
+      },
+      {
+        "path": "tests/hook_kind.rs",
+        "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members — mirroring 21f61463's kind-collision test shape."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Refuse a duplicate member registration key within one kind's collection address (three hooks on SessionStart collapse to one) with a named error, not last-writer-wins.",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "Reach"
+  },
+  "tests": [
+    {
+      "path": "tests/hook_kind.rs",
+      "asserts": "duplicate hook members on the same event name are refused loud, naming both"
+    }
+  ],
+  "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
+  "notes": "GH #32. First pick built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. The revert itself isn't a resolvable commit (worktree-local, reverted pre-merge); see 080311b9 for the park record (its predecessor citation, e4ff7bc6, doesn't resolve at HEAD). Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). scoped at bf4b4168."
+}

@@ -1,0 +1,36 @@
+{
+  "tag": "INSTALL-LIFTS-A-REGISTRATION-MEMBER",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [
+    "hook-member-identity"
+  ],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "Two halves of one enumeration, re-cited against the module 842884f4 rewrote. (1) `discover` (:432) collects *files* per kind, so a `.claude/settings.json` carrying no hooks at all still reports `hook 1` — a file count printed under `render_discovery`'s (:451) \"members by kind\" heading; a registration kind's members are the entries at its `collection_address`, so the count comes from reading them. (2) `scaffold` (:1741) skips (:1755) reads `kind.content != kind::Content::File` under a comment naming only layout kinds, so every fields-shape kind — `hook`, `installed-plugin`, `known-marketplace`, `mcp-server` — is dropped silently and the container's first emit sheds its groups. Convert each discovered collection entry into a member module named by its registration key, so 0016's whole conversion covers a manifest's registration segments and not just the container member the sibling entry lifts. temper's own three gate hooks already reach the program as `hook` modules minted from `GATE_HOOKS` (:204, shipped 842884f4) and are deliberately uncounted by the lift — this entry converts the project's own groups beside them, so the two writers must not collide on `.temper/hooks/<Event>.ts`."
+      },
+      {
+        "path": "tests/install.rs",
+        "description": "The lift suite: a project whose `.claude/settings.json` carries a `SessionStart` hook group and an `enabledPlugins` entry lifts one module per registration member, the first emit re-renders both segments beside the container's own keys, and the reported discovery count is the registration-entry count — pinned by a second fixture whose settings.json carries no registration segment at all and must report zero for those kinds. A third pin: a project whose own `SessionStart` group is not temper's gate command still lifts as its own module and does not overwrite the `GATE_HOOKS` module at that event."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A registration member reaches no module: a settings.json hook group is counted in discovery and dropped by the lift, so the container's first emit sheds it.",
+  "per": {
+    "path": "specs/model/adoption.md",
+    "section": "Install"
+  },
+  "tests": [
+    {
+      "path": "tests/install.rs",
+      "asserts": "a settings.json carrying a hook group and an enabledPlugins entry lifts a module per registration member and the first emit re-renders both segments with the container's keys; a settings.json with no registration segment reports zero for those kinds"
+    }
+  ],
+  "acceptance": "`cargo test` green with `install` over a project whose settings.json carries registration segments producing a module per registration member, the adoption emit re-rendering the file with every segment intact, and the discovery report counting registration entries rather than the manifest file.",
+  "notes": "Re-measured at e0d0123b: the count is a file count — a settings.json with no hooks, no enabledPlugins and no extraKnownMarketplaces still reports `hook 1`, `installed-plugin 1`, `known-marketplace 1`, one per kind whose locus is that file. Both halves re-verified past 81ee251b, which moved one doc line in the module and neither `discover` nor the content skip. Rests on `(hook-member-identity)`: a lifted hook needs a name, and two groups on one event share one address today. scoped at dfa667d7"
+}

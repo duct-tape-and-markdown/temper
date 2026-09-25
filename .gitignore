@@ -12,7 +12,7 @@
 /.flume/prior-attempts/
 /.flume/rendered-prompts/
 /.flume/merging/
-/.flume/tick-verdict.json
+/.flume/tick-verdict/
 /.flume/tick-verdicts.jsonl
 
 # The dogfood authoring workspace (`.temper/`) IS committed — member modules,

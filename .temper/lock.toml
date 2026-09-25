@@ -19,8 +19,8 @@ emit_hash = "9b903784aea6b49de18f5b3921e8381c6409fb2df7d69420968850cfc5649597"
 [[rule]]
 name = "pending-entry"
 source_path = ".claude/rules/pending-entry.md"
-source_hash = "07493b08ea715b45582544344a4c6a9f289321d3a45421ec5f54e2f9a9e9582a"
-emit_hash = "07493b08ea715b45582544344a4c6a9f289321d3a45421ec5f54e2f9a9e9582a"
+source_hash = "e318351be31259be6a63728229684807f6675dc8ec40e823f07e5e7e410c241a"
+emit_hash = "e318351be31259be6a63728229684807f6675dc8ec40e823f07e5e7e410c241a"
 
 [[rule]]
 name = "plan-state"
@@ -114,6 +114,25 @@ registration = ["user-invoked", "description-trigger(description)"]
 templates = [{ kind = "supporting-doc", path = "*.md" }]
 guidance = "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `disable-model-invocation: true` for side-effectful workflows you want to time yourself; `user-invocable: false` for background knowledge that is not a command; `metadata` is the sanctioned home for versioning — there is no top-level `version` field."
 
+[[declaration.clause]]
+label = "root.reachable"
+predicate = "reachable"
+severity = "advisory"
+guidance = "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line."
+cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+label = "root.fresh"
+predicate = "fresh"
+severity = "advisory"
+guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
+
+[[declaration.clause]]
+label = "root.locus-declared"
+predicate = "locus-declared"
+severity = "advisory"
+guidance = "A document sits at a governed locus that your program declares no member for. Claude Code loads it, but temper maintains nothing about it: `emit` never writes or reaps it, `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared."
+
 [[declaration.requirement]]
 name = "context-arrives"
 required = false
@@ -135,7 +154,7 @@ prose = "an agent that hits harness friction or touches structural debt it can't
 name = "pending-entry-discipline"
 kind = "rule"
 required = true
-prose = "flume's plan phase (and any interactive session) needs pending.json entry-filing constraints available as a rule scoped to .flume/plan/pending.json"
+prose = "flume's plan phase (and any interactive session) needs pending-entry filing constraints available as a rule scoped to .flume/plan/pending/*.json"
 
 [[declaration.requirement]]
 name = "plan-state-discipline"
