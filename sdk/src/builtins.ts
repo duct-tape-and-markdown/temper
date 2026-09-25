@@ -126,13 +126,17 @@ export interface Skill {
   /**
    * The optional path scope — a channel gate, not a channel of its own. A
    * present list removes the skill from *every* invocation channel — the `/`
-   * listing, model invocation, and description-trigger invocation — until
-   * Claude reads a file the globs match; an absent one leaves all channels
-   * live. Distinct from a rule's `paths`, which registers the path-match as
-   * the rule's channel: here the field gates the skill's existing channels
-   * rather than being one, so it adds no `paths-match` registration entry
+   * listing, model invocation, and description-trigger invocation — until a
+   * file tool (read, edit, write) touches a matching path; an absent one
+   * leaves all channels live. A shell read of the same path, or a search
+   * tool's, opens no path gate, so a session that works inside the gate
+   * through the shell alone never loads the skill. Distinct from a rule's
+   * `paths`, which registers the path-match as the rule's channel: here the
+   * field gates the skill's existing channels rather than being one, so it
+   * adds no `paths-match` registration entry
    * (code.claude.com/docs/en/skills, retrieved 2026-07-15; verified against
-   * 2.1.210).
+   * 2.1.210; shell and search reads open no path gate, probed on Claude Code
+   * 2.1.281, 2026-09-24).
    */
   readonly paths?: readonly string[];
   readonly prose?: Prose;
