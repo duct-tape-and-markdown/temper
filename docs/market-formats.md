@@ -141,7 +141,9 @@ Drift register against our shipped representation:
    2.1.210, 2026-07-15): a `paths`-scoped skill is absent from the session's
    interface entirely — not in the listing, `Skill` tool returns "Unknown
    skill", user `/name` returns "Unknown command" — until Claude reads a
-   file matching a glob, at which point its *description* joins the listing
+   file matching a glob with a file tool (a shell read such as `cat` does
+   not open the gate: re-probed on Claude Code 2.1.281, 2026-09-24,
+   decision 0061), at which point its *description* joins the listing
    (the body still loads only on invocation). So `paths` is a hard
    registration gate conditioning the other channels, not rule-style body
    injection and not a mere relevance hint: the endpoint is

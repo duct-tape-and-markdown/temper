@@ -66,12 +66,15 @@ by name.
 
 ## guard
 
-A `PreToolUse` hook body. Reads the tool-call payload on stdin, and when the
-write targets a file the lock names as a projection, acts per the declared
-enforcement mode: `note` allows and defers, `warn` allows and surfaces
-in-band, `block` denies. The mode is read live from the harness's lock;
-temper never escalates on its own, and a harness with no lock reads the
-default `warn`. You rarely run this by hand: `install` wires it.
+The hook body for both edges of a tool call. It reads the payload on stdin,
+and the payload's event says which edge it is at. Before a write, it judges
+a target the lock names as a projection. After a shell call, whose payload
+names no path, it judges the tree the call left. Either way it acts per the
+declared enforcement mode: `note` defers, `warn` surfaces the finding
+in-band, `block` refuses and names the restore. A pass prints nothing. The
+mode is read live from the harness's lock; temper never escalates on its
+own, and a harness with no lock reads the default `warn`. You rarely run
+this by hand: `install` wires it on both hooks.
 
 ## install
 
