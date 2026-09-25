@@ -28,9 +28,22 @@ hard.
 
 ## Next session's one focus (09-23, post-cut)
 
-- **Loop hibernating** (flume 0.17, `CARGO_BUILD_JOBS=4`, VM 11 GB
-  via `.wslconfig`; flume's own loop capped at vitest 4 workers / width 2 after
-  two OOM reboots 09-22). Check `pnpm exec flume status` and the log first.
+- **Loop moves to the second machine (09-25).** flume's own loop holds
+  this box continuously and the two cannot share it. temper's loop was never
+  relaunched after the 0.19 migration (227b3bbb). On the new machine, from a
+  fresh clone: `pnpm install`, `pnpm -C sdk install && pnpm -C sdk build`,
+  `npm -C .temper install`, `cargo install --path .` (hooks run PATH
+  `temper`), then `pnpm exec flume check` and launch per Standing discipline.
+  `.flume/stop` is gitignored, so a fresh clone starts unpaused. The first
+  ticks are plan-only: six inbox notes to drain and 0060-0062 to derive.
+  Build has nothing pickable until then.
+- **09-24 session:** audited GH issues (12 closed; the 10 open all map to a
+  fork or an inbox note), ruled 0060 (the guard judges both edges of a
+  call: the PostToolUse hook was dead, since it sent the wrong
+  hookEventName), and ruled 0061/0062 from an adopter audit (a path gate
+  opens on file tools only; the tap keeps trigger and parent paths). Also
+  found: the guard's `warn` goes to stderr, which Claude never sees
+  (inbox).
 - **0.0.19 shipped 09-23** (9e548318, tag v0.0.19; smoke green; lock synced
   60002e8b). Pre-cut evidence is in the release commit body. Cascade must
   rename its embedded `prose` leaves (15 sites, John: adopters rename) and
@@ -81,7 +94,7 @@ hard.
 
 ## Standing discipline (mechanical, paid for)
 
-- Loop on flume 0.17.0 (09-22), Opus both phases, `maxParallel: 2`;
+- Loop on flume 0.19.0 (09-24; queue is `plan/pending/<TAG>.json`), Opus both phases, `maxParallel: 2`;
   worktrees off-repo via the chain's `worktreesBase`. Relaunch:
   `CARGO_BUILD_JOBS=4 setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`
   (the cap is load-bearing: default cargo on 20 cores linking ~60 test
