@@ -28,6 +28,12 @@ hard.
 
 ## Next session's one focus (09-23, post-cut)
 
+- **09-25 session (this machine):** loop set up here and ran; the report
+  work shipped and the sweep hold came and went. Stopped with the stop flag
+  on a usage cap; remove it to relaunch. Open: the cross-program member
+  join (a harness edge into another program's lock) from the consumer's
+  memo reply is unfiled, awaiting John's call; the memo's JOHN placeholders
+  (#1, #5, upgrade date, five pins, warn) are John's to answer.
 - **Loop moves to the second machine (09-25).** flume's own loop holds
   this box continuously and the two cannot share it. temper's loop was never
   relaunched after the 0.19 migration (227b3bbb). On the new machine, from a
