@@ -443,17 +443,35 @@ tax.
   filed: (a) and (b) produce incompatible entries (TS-editing machinery vs a
   report string) with no common shippable core, and plan does not pick among
   them. No dependents.
-  **Premise widened 09-25** (this repo, measured on disk): the silence is not
-  `Conflicted`'s alone. A member that *claims* the event but runs a stale
+  **Premise widened 09-25** (this repo, re-measured on disk this tick): the
+  silence is not `Conflicted`'s alone, and the rotted copy is not the
+  hand-mirror's alone either. A member that *claims* the event but runs a stale
   spelling of temper's own command answers `SupersededByMember`, which
-  `gate_installed` skips outright (`install.rs:~657`) — correct for an author
-  running their own command, wrong for a mirror that rotted. This harness is
-  that case since 5820ad7b: `.temper/hooks.ts`'s `PostToolUse` member still
-  runs the retired `temper check . --reporter session-start`, Claude Code
-  rejects the row on every fire, and `check` reports nothing
-  (`.flume/friction/plan-dogfood-post-tool-use-hook-runs-the-retired-command.md`).
-  So (b)'s report must cover both outcomes, and the hand-mirror itself — the
-  other half of the remedy — is the dogfood's to absorb.
+  `gate_installed` skips outright (`install.rs:668`) — right for an author
+  running their own command, wrong for a copy that rotted. **Every** represented
+  harness holds such a copy: `scaffold` writes the command in as a *literal*
+  (`gate_hook_fields`, `:2061`), so the day `GUARD_COMMAND` or
+  `SESSION_START_COMMAND` changes, an install-scaffolded member is exactly as
+  stale as a hand-mirrored one and reports the same nothing. This repo reached
+  that state by hand after 5820ad7b — its `PostToolUse` member ran the retired
+  `temper check . --reporter session-start`, Claude Code rejected the row on
+  every fire, `check` said nothing (friction drained at eea2e134) — and the
+  scaffolded path reaches it on the next command change. So (b)'s report must
+  cover both outcomes, and a fourth candidate joins. (d) **Remove the copy**:
+  the SDK exports the gate commands, so a `hook` member imports rather than
+  spells them — the shape the tap hooks already have, where `TAP_COMMAND` is the
+  SDK's and no author writes it, and the pin makes that coherent (the SDK pins
+  the binary at an exact version, `distribution.md` channel 2). The objection (d)
+  must answer is already written into the code it would change: "the commands
+  stay this module's constants — there is no SDK twin for them to drift against"
+  (`install.rs:2019`). A twin is a second home for one string, and the gate
+  holding the existing TS↔Rust family (`tests/seam_bindings_current.rs`)
+  byte-compares generated *types*, never constants — so (d) ships a new seam or
+  it ships the drift it set out to remove. Declined as its own shape: a registry
+  of *retired* command spellings `check` greps for, which catches the class only
+  one release late and leaves a graveyard of strings in the engine. The
+  hand-mirror in this repo stays the dogfood's to absorb whichever way this
+  rules.
 
 - `(cross-source-edge-correlation)` — OPEN, live driver (GH #59). No
   predicate relates a property of one edge's source to a property of
