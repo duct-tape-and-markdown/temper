@@ -106,10 +106,13 @@ the world over — user invocation and description trigger are channels, not
 rivals — and the documented fields that modulate them per member are
 ordinary declared fields. A declared field may also gate the member's
 channels outright: a skill's path scope removes it from every channel — the
-listing, model invocation, user invocation — until a matching file is in
-play (code.claude.com/docs/en/skills, retrieved 2026-07-15; verified against
-2.1.210). The gate is the field's documented semantics, carried with the
-field, never a channel entry.
+listing, model invocation, user invocation — until a file tool (read, edit,
+write) touches a matching path (code.claude.com/docs/en/skills, retrieved
+2026-07-15; verified against 2.1.210). A shell read of the same path, or a
+search tool's, opens no path gate, a skill's or a rule's (probed on 2.1.281,
+2026-09-24), so a reach judgment over a path gate states that it cannot see
+reads made any other way. The gate is the field's documented semantics,
+carried with the field, never a channel entry.
 
 Each kind's format facts are external facts about the harness, cited at the
 point of claim in the kind's own source.
@@ -128,7 +131,7 @@ partition is the harness's own documented guidance, not temper's invention
 - **memory** owns always-true facts; its output is ambient context, loaded
   at launch.
 - **rule** owns scoped conventions; its output is context injected when a
-  matching file is read.
+  file tool touches a matching path.
 - **skill** owns procedures; its output is an invoked procedure, loaded
   into the turn on activation. (**command** is the same domain at its
   legacy placement.)

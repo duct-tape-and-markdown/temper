@@ -61,3 +61,42 @@ routing.
   `hookEventName: "PreToolUse"`. This shares its fix with 0060's PostToolUse
   edge (the answer in the firing event's own shape), so derive the two
   together. The manifest-findings branch has the same `Warn` arm.
+- observed at 227b3bbb (adopter harness audit, item 2; confirmed by reading
+  the code, not run) — a tap record appended from a linked worktree keeps an
+  absolute identity. `log_path` sends the record to the primary checkout's
+  log (`src/tap.rs` ~173-222), and `append` (~:288) relativizes identity
+  against `log_path(..).parent().parent()`, the primary root. A rule path
+  inside a worktree is not under that root, so `strip_prefix` fails and each
+  worktree gets its own identity for one rule, which breaks the read-time
+  join to lock members. `pipeline.md` already says the log homes in the
+  primary so worktree records collapse, so this is a defect, not a fork.
+  Relativize against the root the tap ran from (the parent of
+  `workspace_dir`). Add a test that appends from a real linked worktree
+  (`tests/tap.rs` ~162-193 covers only the primary). 0062's new
+  trigger/parent paths take the same relativization.
+- observed at 227b3bbb (adopter harness audit, item 4; reproduced in this
+  repo the same day) — emitted hook commands run whatever `temper` is on
+  PATH. The adopter's hooks ran a cargo-installed 0.0.15 against a 0.0.18
+  pin, so all 834 tap records were written at version 1 and nothing flagged
+  it. This repo ran 0.0.18 from `~/.cargo/bin` against the published
+  0.0.20. Resolving the pinned binary from `node_modules` would break the
+  stranger gate (distribution.md: the binary alone, no Node), so the lever
+  is `check` reporting when the running engine differs from the one the
+  program pins. This is the adopter-side driver for
+  `(build-version-identity)`: fold it in there rather than filing a sibling.
+- observed at 227b3bbb (adopter harness audit, item 5 and authoring
+  patterns) — fork candidates, no entry. (i) A required
+  `degree({incoming: {min: 1}})` passed for a standard because one
+  path-scoped rule pointed at it, yet the standard's content never reached
+  readers of that surface. Candidate clause: a part tagged with a surface
+  glob must be carried by some member whose channel fires on that glob.
+  It is decidable and sits beside `reachedFrom` and
+  `mention-reachable.paths`. After 0061 a path channel fires on file tools
+  only, and the clause must say so. (ii) Facts vs norms: the kinds have
+  nowhere for task-independent facts that readers, reviewers and modellers
+  need, so the facts land in skills that are triggered by writing. The
+  adopter proposes a fact part (a statement, what a reader must not
+  conclude, and the surfaces it applies to) carried by a rule covering
+  those surfaces. (iii) Skill descriptions phrased only for writers, and
+  pointers rendered as bare subject labels. These are taste, so they
+  belong in default-contract guidance, never a decidable check.

@@ -110,9 +110,11 @@ them out loud — a count in the narration, never a silent skip — and a reader
 meeting no records where the lock declares tap registrations states that
 absence the same way: the declared wiring against the empty log, evidence
 never verdict. A record is an event's identity and its minimal discriminant —
-the member or path the event names, the load reason, the session id — never
-captured prose: no tool output, no prompt text, no message bodies; the bound
-is the tap's contract, not its configuration. Interpretation happens at read
+the member or path the event names, the load reason, the session id, and for
+a lazy or included load the path that triggered it or the file that included
+it — never captured prose: no tool output, no prompt text, no message
+bodies; the bound is the tap's contract, not its configuration.
+Interpretation happens at read
 time alone: the reader joins raw events to members through the lock's own
 declarations, so the tap stays dumb and the record stays honest — a fact
 about what fired, read for narration, never mined for model structure.
