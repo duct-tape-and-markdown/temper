@@ -61,8 +61,8 @@ emit_hash = "21e77cbfb2257285f0b30278d7b71337e1346d150639b3762d717c23dcefa2a0"
 [[settings]]
 name = "settings"
 source_path = ".claude/settings.json"
-source_hash = "bf3e0a68c2d2c72fa3636e6816a586a2852c58e4f322a0075d0a5d1d8baf6161"
-emit_hash = "bf3e0a68c2d2c72fa3636e6816a586a2852c58e4f322a0075d0a5d1d8baf6161"
+source_hash = "d29d54d03dff5bd4b21747e36abb9be1a22e2061bfb454963c066afd3f147402"
+emit_hash = "d29d54d03dff5bd4b21747e36abb9be1a22e2061bfb454963c066afd3f147402"
 
 [[skill]]
 name = "capture-friction"

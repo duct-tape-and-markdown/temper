@@ -7,7 +7,7 @@ import { hook } from "@dtmd/temper/claude-code";
 // PATH-resolvability preamble: a temper-invoking hook fails loud (exit 127)
 // when `temper` is off PATH, rather than a silent shell "command not found".
 // This string MUST stay byte-identical to src/install.rs's SESSION_START_COMMAND
-// / GUARD_COMMAND / POST_TOOL_USE_COMMAND — `gate_installed` compares the emitted hook against that Rust
+// / GUARD_COMMAND — `gate_installed` compares the emitted hook against that Rust
 // constant. The dogfood mirrors the product's canonical form by hand on purpose:
 // this harness is a consumer of temper, so it adapts to the product's gate; the
 // product is never reshaped to spare the dogfood the copy.
@@ -30,16 +30,15 @@ export const hook_guard = hook({
 });
 
 /**
- * The post-write drift check on shell-mediated writes: the PreToolUse guard
- * binds Write/Edit only, so a Bash write is checked after the call instead
- * of never. Mirrors src/install.rs's POST_TOOL_USE_COMMAND byte-for-byte,
- * the same way the two hooks above mirror their constants.
+ * The guard's other edge: a Bash write carries no file path, so it is judged
+ * after the call. One command serves both edges — the guard reads the firing
+ * event from its payload — so this mirrors GUARD_COMMAND like the hook above.
  */
 export const hook_postToolUseBash = hook({
   name: "PostToolUse",
   matcher: "Bash",
   type: "command",
-  command: `${failLoud} temper check . --reporter session-start`,
+  command: `${failLoud} temper guard .`,
 });
 
 /** Keep Rust formatted as the agent edits; never fails the tool call. */
