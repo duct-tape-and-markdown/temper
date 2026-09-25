@@ -1,7 +1,10 @@
 {
   "tag": "HOOK-CONTRACT-CLAUSES-THE-HANDLER-SCHEMA",
   "gate": {
-    "kind": "open"
+    "kind": "blockedBy",
+    "tags": [
+      "LOCK-ROUND-TRIP-PIN-READS-THE-GUARD-FIELD"
+    ]
   },
   "dependsOnForks": [],
   "priority": 0,
@@ -10,7 +13,7 @@
     "edit": [
       {
         "path": "sdk/src/builtins.ts",
-        "description": "Three joined edits, all off one re-fetch of code.claude.com/docs/en/hooks. (1) `hookDefaultContract`'s header (:1722, the hold paragraph at :1731) holds the handler schema unclaused on the premise that \"a clause over it would range over a field the read never surfaces\" — false at HEAD (see notes). Retire the hold paragraph; the header keeps the event clause's rationale and states why the handler fields are addressable. (2) Ship the handler clauses the kind's own `guidance` (:418) already teaches, in `mcpServerDefaultContract`'s shape (:1798): an `enumOf` over the documented handler `type` set beside a new `DOCUMENTED_HOOK_HANDLER_TYPES` const (the `DOCUMENTED_HOOK_EVENTS` idiom, :1689), then one `when(enumOf(\"type\", [...]), [...])` per handler kind carrying that kind's documented required fields. An absent `type` passes, as it does for `mcp-server`. (3) The `Hook` interface (:382) types four fields where the docs table names the handler-kind fields plus the common ones, so an author can spell only a command handler — widen it to the table, each field carrying its own cite, so every handler kind an author may write is one the clauses can judge."
+        "description": "Three joined edits, all off one re-fetch of code.claude.com/docs/en/hooks. (1) `hookDefaultContract`'s header (:1725, the hold paragraph at :1734) holds the handler schema unclaused on the premise that \"a clause over it would range over a field the read never surfaces\" — false at HEAD (see notes). Retire the hold paragraph; the header keeps the event clause's rationale and states why the handler fields are addressable. (2) Ship the handler clauses the kind's own `guidance` (:418) already teaches, in `mcpServerDefaultContract`'s shape (:1801): an `enumOf` over the documented handler `type` set beside a new `DOCUMENTED_HOOK_HANDLER_TYPES` const (the `DOCUMENTED_HOOK_EVENTS` idiom, :1689), then one `when(enumOf(\"type\", [...]), [...])` per handler kind carrying that kind's documented required fields. An absent `type` passes, as it does for `mcp-server`. (3) The `Hook` interface (:382) types four fields where the docs table names the handler-kind fields plus the common ones, so an author can spell only a command handler — widen it to the table, each field carrying its own cite, so every handler kind an author may write is one the clauses can judge."
       },
       {
         "path": "src/builtin_lock.toml",
@@ -59,5 +62,5 @@
     }
   ],
   "acceptance": "`cargo test` green with the regenerated lock and snapshots (`builtin_lock_frozen` and the matrix diff reviewed), the new hook_kind clause tests failing on the pre-fix tree, and `pnpm --dir sdk test` green.",
-  "notes": "Premise falsified on disk: `hook_member_fields` (`src/json_manifest.rs:628`) flattens each handler's own keys onto the member, pinned at `tests/hook_kind.rs:107`, and `to_unit` (:100) feeds them to the shared fold — so `type`/`command` address by bare name, no path into the array. Not fork-held: `(hook-member-identity)` governs address resolution, not clause evaluation. The two discharged-0041 archive paragraphs (:1070, :1792) ride this entry. scoped at 16f9f66f"
+  "notes": "Premise falsified on disk: `hook_member_fields` (`src/json_manifest.rs:628`) flattens each handler's keys onto the member (pinned at `tests/hook_kind.rs:107`), so `type`/`command` address by bare name. Blocked, not re-scoped: the five guards turn `tests/lock_declaration_rows.rs:2785` red through that test's own helper gap, which the blocking entry owns. The two discharged-0041 archive paragraphs (:1071, :1797) ride this entry. scoped at d8aed9be"
 }
