@@ -2423,14 +2423,19 @@ fn floor_quads(kind: &str) -> Vec<ClauseQuad> {
                 Severity::Required => "required",
                 Severity::Advisory => "advisory",
             };
-            // `target` is the one-field accessor and stays `None` for a two-field
-            // predicate, so the scope/gate pair is read off the variant itself — the
-            // row carries both columns, and both must round-trip.
+            // `target` is the one-field accessor and answers `None` wherever no *one*
+            // field is the predicate's own, so those variants are read off themselves —
+            // whatever columns the row carries must round-trip.
             let (field, gate) = match &clause.predicate {
                 Predicate::MentionReachable {
                     scope_field,
                     gate_field,
                 } => (Some(scope_field.clone()), Some(gate_field.clone())),
+                // Guard and body carry no field of their own (`Predicate::target`), but a
+                // `when` row's `field` column is the *guard's* — the very column
+                // `contract::predicate_from_row` rebuilds the guard off, and the same read
+                // the engine takes to locate the element the guard judges.
+                Predicate::When { guard, .. } => (guard.target().map(str::to_string), None),
                 predicate => (predicate.target().map(str::to_string), None),
             };
             (clause.predicate.key(), field, gate, severity)
@@ -2751,41 +2756,46 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert!(declarations.mentions.is_empty());
 }
 
+/// Every built-in kind's floor round-trips its clause rows through the derived lock.
+///
+/// The sweep runs over every kind `builtin_lock::declarations()` declares rather than a
+/// hand-picked roster: a floor that grows a predicate `floor_quads` cannot project is
+/// then caught by the kind that grows it, instead of surviving because no listed kind
+/// happened to carry that predicate. The memberless emit binds
+/// `memoryAnthropicDefaultContract` to the SDK's one exported `memory` kind, so that
+/// module floor's rows ride under the `memory` kind here.
 #[test]
 fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
-    assert_eq!(
-        lock_quads("skill"),
-        floor_quads("skill"),
-        "skill's floor clauses round-trip through the derived lock unchanged"
+    let mut compared = 0usize;
+    let mut guard_fields = 0usize;
+
+    for row in &builtin_lock::declarations().kinds {
+        let kind = row.name.as_str();
+        let lock = lock_quads(kind);
+        compared += lock.len();
+        guard_fields += lock
+            .iter()
+            .filter(|(predicate, field, _, _)| *predicate == "when" && field.is_some())
+            .count();
+        assert_eq!(
+            lock,
+            floor_quads(kind),
+            "{kind}'s floor clauses round-trip through the derived lock unchanged"
+        );
+    }
+
+    // The vacuity pin (`specs/process/engineering.md`, "A green verdict is proven
+    // non-vacuous"): the sweep judged rows at all, and among them at least one `when`
+    // row whose `field` column is populated — the column a projection that dropped the
+    // guard's field would agree with silently, every side reading `None`.
+    assert!(
+        compared > 0,
+        "the sweep compares the declared kinds' clause rows, not an empty set"
     );
-    assert_eq!(
-        lock_quads("rule"),
-        floor_quads("rule"),
-        "rule's floor clauses round-trip through the derived lock unchanged"
-    );
-    // The memberless emit binds `memoryAnthropicDefaultContract` to the SDK's one exported
-    // `memory` kind — its single advisory size clause survives under the `memory` kind's rows.
-    assert_eq!(
-        lock_quads("memory"),
-        floor_quads("memory"),
-        "memory's floor clauses round-trip through the derived lock unchanged"
-    );
-    assert_eq!(
-        lock_quads("command"),
-        floor_quads("command"),
-        "command's floor clauses round-trip through the derived lock unchanged"
-    );
-    assert_eq!(
-        lock_quads("agent"),
-        floor_quads("agent"),
-        "agent's floor clauses round-trip through the derived lock unchanged"
-    );
-    // The hook floor is a single `enum` clause over the lifecycle event — the strictest
-    // documented profile of a fields-only registration member.
-    assert_eq!(
-        lock_quads("hook"),
-        floor_quads("hook"),
-        "hook's floor clauses round-trip through the derived lock unchanged"
+    assert!(
+        guard_fields > 0,
+        "at least one compared `when` row carries its guard's field, so the guard column \
+         is judged rather than agreed to by mutual silence"
     );
 }
 
