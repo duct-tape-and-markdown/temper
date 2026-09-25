@@ -308,6 +308,18 @@ tax.
   The objection (c) must answer: a second version surface is a second place
   to be wrong ("One job, one home"), and a script reads the short form. No
   dependents.
+  **Adopter driver 09-25** (harness audit at 227b3bbb, reproduced here the
+  same day): an emitted hook command runs whatever `temper` PATH answers
+  with, so the adopter's hooks ran a cargo-installed 0.0.15 against a
+  0.0.18 pin and wrote all 834 tap records at version 1 with nothing
+  flagging it; this repo ran 0.0.18 from `~/.cargo/bin` against the
+  published 0.0.20. Resolving the pinned binary out of `node_modules`
+  is unavailable — it breaks the stranger gate (`distribution.md`: the
+  binary alone, no Node) — so the lever is `check` reporting when the
+  running engine differs from the one the program pins, which is (c)'s
+  build-provenance surface pointed at the adopter rather than the
+  terminal. This is the first driver this fork has had that costs
+  something measurable.
 
 - `(directive-relation-scope)` — OPEN, live driver (inbox note observed at
   4b25d0f3, re-verified on disk this tick). `contract.md` "edge" states the
@@ -474,6 +486,60 @@ tax.
   filed: (a) and (b) produce incompatible entries (TS-editing machinery vs a
   report string) with no common shippable core, and plan does not pick among
   them. No dependents.
+
+- `(cross-source-edge-correlation)` — OPEN, live driver (GH #59). No
+  predicate relates a property of one edge's source to a property of
+  another edge's source when both edges meet at one member. The shape is
+  `writer --writes--> target <--presents-- presenter --gatedBy-->
+  condition`, and the defect it would catch is a gated presenter whose
+  target has an ungated writer. Today's vocabulary misses it by
+  construction: `degree` counts edges at one member, `membership` tests one
+  field against a fixed set, and `reached-from` (0.0.19) follows
+  reachability, never a correlation between two sources. The ruling is a
+  `contract.md` "clause" addition with no spec section behind it, so it is
+  human-authored, not derivable. The objection it must answer: a general
+  path predicate is a query language, and the kernel grows one only when a
+  narrower shape cannot cover the demand — for example "every sibling
+  source into X over field F carries the edge G that the source over field
+  H carries", which stays decidable and bounded. No dependents.
+
+- `(command-reference-edge)` — OPEN, live driver (GH #35). A `/name` token
+  in a skill's or supporting doc's prose cannot be told apart from a quoted
+  user command or a foreign plugin's, which is why mention-routing it was
+  declined 09-03 as a bug. What stays open is the opt-in: a typed edge
+  field from a skill or supporting doc to a `command` member, resolved by
+  the gate like any declared edge — the author states the reference rather
+  than the extractor guessing it. Unruled: what the edge is called, and
+  whether it may target a command the harness does not own (a plugin's).
+  That second half is `(external-commitment)`'s own question — an
+  addressable roster member committed elsewhere — so the two ruled apart
+  would contradict each other. No dependents.
+
+- `(surface-carriage-clause)` — OPEN, live driver (adopter harness audit,
+  observed at 227b3bbb). A required `degree({incoming: {min: 1}})` passed
+  for a standard because one path-scoped rule pointed at it, while the
+  standard's content still reached no reader of that surface: degree counts
+  an edge, never delivery. Candidate clause: a part tagged with a surface
+  glob must be carried by some member whose channel fires on that glob —
+  decidable, and sitting beside `reached-from` and `mention-reachable`
+  rather than extending either. After 0061 a path channel fires on file
+  tools only (`builtins.md`), so the clause's own wording must name which
+  channels count as firing, or it silently re-asserts the reach 0061 just
+  narrowed. No dependents.
+
+- `(task-independent-fact-part)` — OPEN, live driver (adopter harness
+  audit, observed at 227b3bbb). The kinds have nowhere for a
+  task-independent fact — something a reader, reviewer or modeller must
+  hold whatever they are doing — so in the field those facts land inside
+  skills, whose trigger is writing, and a reader never meets them. The
+  adopter proposes a **fact part**: a statement, what a reader must not
+  conclude from it, and the surfaces it applies to, carried by a rule
+  covering those surfaces. Unruled: whether that is a kind, a part shape on
+  `rule`, or nothing temper owns — the spine rule (`intent.md`) keeps taste
+  out of the tool, and "a fact a reader must know" is one step from
+  content, which is the line the ruling has to draw. Sibling of
+  `(surface-carriage-clause)`, from the same audit: a fact part with no
+  carriage clause carries the same silence that fork names. No dependents.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 

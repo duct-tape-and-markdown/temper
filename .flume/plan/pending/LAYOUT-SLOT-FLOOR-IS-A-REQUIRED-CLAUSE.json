@@ -1,0 +1,19 @@
+{
+  "tag": "LAYOUT-SLOT-FLOOR-IS-A-REQUIRED-CLAUSE",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "tests/layout_kind.rs",
+        "description": "The suite drives `Layout::read` directly and `drift::emit` over a payload; nothing pairs a clause with a layout slot, so the floor the corpus names — `required` over a field section — is unpinned in either direction. Add one `check`-driving case over a two-field-region layout kind (`common::write_lock` + `common::check_in`, the shape `check_refuses_a_layout_declaring_two_verbatim_prose_regions` at ~:615 already uses): a document whose trailing slot's heading is absent reports `<kind>.required.<slot>`, and the same document carrying that heading reports nothing. Pin the judged set non-vacuous — the run's `coverage.checked` counts the layout member — so neither half can pass over an undiscovered document."
+      }
+    ]
+  },
+  "summary": "A layout field slot's floor — `required` over the slot — has no test in either direction, so the clause the corpus names as the floor mechanism could rot silently.",
+  "per": { "path": "specs/model/representation.md", "section": "kind" },
+  "tests": [
+    { "path": "tests/layout_kind.rs", "asserts": "an absent trailing field section fires `required` naming the slot; the same document with the section present holds silently; the layout member is counted in both runs" }
+  ],
+  "acceptance": "`cargo test --test layout_kind` green with both halves of the new case; `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "\"A layout's regions state what may appear, never what must ... any floor — a required section, a minimum member count — is a clause over the selection.\" GH #44 alleges `required` on a layout slot never fires; probed on b95d5e8f it does — an absent trailing slot reports `spec.required.detail`, a present one nothing, so the pin closes the issue with evidence rather than fixing a defect. scoped at b95d5e8f"
+}
