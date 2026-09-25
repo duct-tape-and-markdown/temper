@@ -9,6 +9,26 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+### Upgrading
+
+- **The `PostToolUse` gate row runs the guard now, not `check`.** A harness
+  scaffolded before this ships still wires `temper check . --reporter
+  session-start` at `PostToolUse` in `.claude/settings.json` — a command whose
+  reporter stamps `SessionStart`, the wrong event's name, so that row has never
+  been able to carry a finding. Re-run `temper install` to rewire it; for a
+  represented harness, change that one command in the `PostToolUse` hook module
+  to the guard's and re-emit. The row then judges the tree a shell call left for
+  projection drift, at your declared enforcement mode.
+
+### Changed
+
+- **`temper guard` runs at both edges of a tool call.** Before a file-writing
+  tool it judges the pending write, as it did. After a shell tool — whose writes
+  no payload names — it judges the tree the call left for projection drift. A
+  pass prints nothing; `warn` surfaces the finding in-band; `block` refuses the
+  call's result and names the restore, since a write already made cannot be
+  denied.
+
 ## [0.0.20] — 2026-09-23
 
 ### Upgrading from 0.0.19

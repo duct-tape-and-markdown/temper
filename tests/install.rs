@@ -634,11 +634,9 @@ fn assert_gate_hooks_wired(root: &Path, context: &str) {
             Some("Write|Edit|MultiEdit"),
             temper::install::GUARD_COMMAND,
         ),
-        (
-            "PostToolUse",
-            Some("Bash"),
-            temper::install::POST_TOOL_USE_COMMAND,
-        ),
+        // The post edge runs the *same* guard command the pre edge does: the payload's own
+        // `hook_event_name` says which edge fired, so one command serves both rows.
+        ("PostToolUse", Some("Bash"), temper::install::GUARD_COMMAND),
     ] {
         let groups = json["hooks"][event]
             .as_array()
@@ -1302,6 +1300,44 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
         fs::read_to_string(&settings_path).unwrap(),
         projected,
         "the re-emit reproduces the install-time projection byte for byte"
+    );
+}
+
+#[test]
+fn the_post_tool_use_row_runs_the_guard_the_pre_tool_use_row_runs() {
+    // One command at both edges of a tool call: the payload's own `hook_event_name` is
+    // what splits them, so the wiring carries no second command to drift and no second
+    // reporter to stamp the wrong event's name in its output.
+    let root = write_harness("post-edge-runs-the-guard", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_gate_hooks_wired(&root, "after install");
+
+    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    let command = json["hooks"]["PostToolUse"][0]["hooks"][0]["command"]
+        .as_str()
+        .unwrap_or_else(|| panic!("the `PostToolUse` row carries a command, got:\n{settings}"));
+    assert_eq!(
+        command,
+        temper::install::GUARD_COMMAND,
+        "the post edge runs the guard, got:\n{settings}"
+    );
+    assert!(
+        command.ends_with("temper guard ."),
+        "and it is the `temper guard .` invocation, got: {command}"
+    );
+
+    // The self-verify shadow `check` folds in reads the whole gate — the post row
+    // included — as installed and undrifted.
+    let findings = install::gate_installed(&root);
+    assert!(
+        findings.is_empty(),
+        "the wired gate must read as installed, got: {findings:?}"
     );
 }
 

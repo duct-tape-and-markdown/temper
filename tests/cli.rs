@@ -652,6 +652,171 @@ fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
     );
 }
 
+/// The guard's **shell** edge: a `PostToolUse` payload follows a call whose writes it
+/// names no path for, so the subject is the tree the call left and the judge is the
+/// projection half of the root `fresh` clause — `check`'s own. A write already made cannot
+/// be denied, so every mode exits zero here and `block` refuses the call's result in-band.
+#[test]
+fn guard_judges_the_tree_a_shell_call_left_at_the_post_edge() {
+    for mode in ["warn", "block", "note"] {
+        // A projection the lock fingerprinted and a shell call left behind — the lock's
+        // `emit_hash` cannot match any bytes, so the row is drifted by construction rather
+        // than by an emit this test would have to drive.
+        let drifted = post_edge_harness(&format!("guard-post-{mode}-drifted"), mode, UNMATCHABLE);
+        let (code, output) = common::run_guard(&drifted, POST_TOOL_USE_PAYLOAD);
+        assert_eq!(
+            code,
+            Some(0),
+            "the write has already landed, so no mode exits non-zero at this edge, got: \
+             {output}"
+        );
+        match mode {
+            "warn" => {
+                let context = post_edge_in_band(&output);
+                assert!(
+                    context.contains("temper-managed projection drift"),
+                    "warn surfaces the drift in-band, got: {context}"
+                );
+                assert!(
+                    context.contains(".claude/rules/rust.md"),
+                    "and names the projection that moved, got: {context}"
+                );
+            }
+            "block" => {
+                let reason = post_edge_refusal(&output);
+                assert!(
+                    reason.contains("temper emit"),
+                    "the refusal names the restore, got: {reason}"
+                );
+                assert!(
+                    reason.contains(".claude/rules/rust.md"),
+                    "and the projection that moved, got: {reason}"
+                );
+            }
+            _ => assert!(
+                output.is_empty(),
+                "note records out-of-band only, got: {output}"
+            ),
+        }
+
+        // A tree whose projection still matches the fingerprint: a pass prints nothing, at
+        // every mode — the post edge is silent about the calls that changed nothing.
+        let clean = post_edge_harness(
+            &format!("guard-post-{mode}-clean"),
+            mode,
+            &sha256_hex(PROJECTION.as_bytes()),
+        );
+        let (code, output) = common::run_guard(&clean, POST_TOOL_USE_PAYLOAD);
+        assert_eq!(code, Some(0), "a clean tree allows the call, got: {output}");
+        assert!(
+            output.is_empty(),
+            "and says nothing at `{mode}`, got: {output}"
+        );
+    }
+}
+
+/// The post edge asks the root contract the same way the governed-locus binding does: a
+/// lock whose real kind-less rows bind no `fresh` clause makes `check` silent about a
+/// drifted projection, so the guard must be silent too — at `block`, the mode that would
+/// otherwise refuse the call's result.
+#[test]
+fn the_post_edge_stays_silent_where_no_fresh_clause_binds() {
+    let root = post_edge_harness("guard-post-fresh-unbound", "block", UNMATCHABLE);
+    let lock = root.join(".temper").join("lock.toml");
+    let declared = format!(
+        "{}\n[[declaration.clause]]\nlabel = \"root.reachable\"\n\
+         predicate = \"reachable\"\nseverity = \"advisory\"\n",
+        fs::read_to_string(&lock).unwrap()
+    );
+    fs::write(&lock, declared).unwrap();
+
+    let (code, output) = common::run_guard(&root, POST_TOOL_USE_PAYLOAD);
+    assert_eq!(code, Some(0), "got: {output}");
+    assert!(
+        output.is_empty(),
+        "no clause, no finding — the drift `check` stays silent about is not refused \
+         here either, got: {output}"
+    );
+}
+
+/// The payload Claude Code delivers to a `PostToolUse` hook after a Bash call: the event
+/// name, the tool, and a `tool_response` that names no path the guard could have bound
+/// before the fact (code.claude.com/docs/en/hooks, "PostToolUse input", retrieved
+/// 2026-09-25).
+const POST_TOOL_USE_PAYLOAD: &str = "{\"session_id\":\"s\",\
+     \"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\
+     \"tool_input\":{\"command\":\"printf x >> .claude/rules/rust.md\"},\
+     \"tool_response\":{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false}}";
+
+/// The bytes the post-edge fixture's one projection carries on disk.
+const PROJECTION: &str = "---\nname: rust\n---\n\n# Rust\n\nMatch the surrounding code.\n";
+
+/// A hash no file's bytes can produce, so a lock row carrying it is drifted by
+/// construction.
+const UNMATCHABLE: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+/// A harness at `mode` whose lock declares one committed projection at `emit_hash` — the
+/// whole fixture the shell edge needs: the enforcement mode it acts at, and one
+/// fingerprinted row to re-hash against the file on disk.
+fn post_edge_harness(label: &str, mode: &str, emit_hash: &str) -> std::path::PathBuf {
+    let root = common::tmpdir(label);
+    let rules = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("rust.md"), PROJECTION).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        format!(
+            "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n\n\
+             [[rule]]\nname = \"rust\"\nsource_path = \".claude/rules/rust.md\"\n\
+             source_hash = \"{emit_hash}\"\nemit_hash = \"{emit_hash}\"\n"
+        ),
+    )
+    .unwrap();
+    root
+}
+
+/// The finding a `warn`-mode post-edge run surfaced in-band, read out of the
+/// `PostToolUse` `hookSpecificOutput` envelope — stamping this event's own name, since an
+/// envelope naming any other event is rejected whole.
+fn post_edge_in_band(output: &str) -> String {
+    let payload: serde_json::Value = serde_json::from_str(output.trim())
+        .unwrap_or_else(|err| panic!("warn must emit the hook envelope: {err}, got: {output}"));
+    let hook = &payload["hookSpecificOutput"];
+    assert_eq!(
+        hook["hookEventName"], "PostToolUse",
+        "the envelope must stamp the firing event, got: {output}"
+    );
+    hook["additionalContext"]
+        .as_str()
+        .unwrap_or_else(|| panic!("the finding must ride additionalContext, got: {output}"))
+        .to_string()
+}
+
+/// The reason a `block`-mode post-edge run refused the call's result with — the top-level
+/// `decision`/`reason` pair this event decides through, not the envelope a `warn` rides.
+fn post_edge_refusal(output: &str) -> String {
+    let payload: serde_json::Value = serde_json::from_str(output.trim())
+        .unwrap_or_else(|err| panic!("block must emit the refusal: {err}, got: {output}"));
+    assert_eq!(
+        payload["decision"], "block",
+        "the call's result is refused in-band, got: {output}"
+    );
+    payload["reason"]
+        .as_str()
+        .unwrap_or_else(|| panic!("the refusal must carry a reason, got: {output}"))
+        .to_string()
+}
+
+/// Lowercase hex SHA-256 — the emit fingerprint spelling the lock carries, so the clean
+/// arm's row matches the bytes on disk.
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::new_with_prefix(bytes).finalize())
+}
+
 #[test]
 fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
     // The guard reads its enforcement mode off the harness's lock. A corrupt lock —

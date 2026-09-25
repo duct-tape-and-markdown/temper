@@ -13,10 +13,15 @@
 //! - [`session_start`] — the `claude-session-start` reporter, the JSON payload a
 //!   Claude Code `SessionStart` hook writes to stdout (the gate above);
 //! - [`tool_use`] — the guard's in-band reporter, the JSON payload a tool-call hook
-//!   writes to stdout when the declared enforcement mode is `warn`.
+//!   writes to stdout when the declared enforcement mode is `warn`, at either edge of
+//!   the call;
+//! - [`post_tool_use_block`] — the same guard's `block` at the **post** edge, where the
+//!   write has already landed and only the call's *result* is left to refuse.
 //!
-//! The last two share one envelope ([`envelope`]) under a [`HookEvent`] parameter,
-//! because Claude Code accepts only the firing event's own name in it.
+//! [`session_start`] and [`tool_use`] share one envelope ([`envelope`]) under a
+//! [`HookEvent`] parameter, because Claude Code accepts only the firing event's own name
+//! in it. [`post_tool_use_block`] speaks the top-level `decision`/`reason` pair its event
+//! decides through instead, so it names no event at all.
 //!
 //! Every member is built through `serde_json` (SARIF and the hook payload) or
 //! precise workflow-command escaping (`github`), so the output is well-formed by
@@ -60,6 +65,9 @@ pub enum HookEvent {
     SessionStart,
     /// The guard at the edge before a file-writing tool call ([`tool_use`]).
     PreToolUse,
+    /// The guard at the edge after a shell tool call, judging the tree the call left
+    /// ([`tool_use`], and [`post_tool_use_block`] for the refusal this edge can still make).
+    PostToolUse,
 }
 
 impl HookEvent {
@@ -68,6 +76,7 @@ impl HookEvent {
         match self {
             Self::SessionStart => "SessionStart",
             Self::PreToolUse => "PreToolUse",
+            Self::PostToolUse => "PostToolUse",
         }
     }
 }
@@ -111,6 +120,35 @@ fn envelope(event: HookEvent, context: Option<&str>) -> String {
 #[must_use]
 pub fn tool_use(event: HookEvent, finding: &str) -> String {
     envelope(event, Some(finding))
+}
+
+/// Render a guard finding into the `PostToolUse` refusal — the payload the guard writes
+/// to stdout under the `block` enforcement mode at the **post** edge of a tool call,
+/// where the write the finding indicts has already landed. A write already made cannot
+/// be denied, so `block` here refuses the *call's result* and the `reason` names the
+/// restore.
+///
+/// Two external facts shape it (code.claude.com/docs/en/hooks, "JSON output" and
+/// "PostToolUse decision control", retrieved 2026-09-25):
+///
+/// - `PostToolUse` takes its decision from the **top-level** `decision`/`reason` pair,
+///   not the `hookSpecificOutput` envelope [`tool_use`] rides: `"block"` adds `reason`
+///   next to the tool result, which is the strongest in-band refusal this event offers.
+/// - Exit 0 plus this object is the intended shape — the docs' own instruction is to
+///   pick one signal per hook, exit codes or JSON, so the guard exits zero here and lets
+///   the object refuse. Exit 2 would block whether or not the JSON parsed, and its
+///   message would be stderr's rather than this reason's.
+///
+/// It carries no `hookSpecificOutput`, which is why it takes no [`HookEvent`]: the event
+/// name is required only *inside* that envelope, and a name that is not the firing
+/// event's is rejected whole ([`HookEvent`]).
+#[must_use]
+pub fn post_tool_use_block(reason: &str) -> String {
+    json!({
+        "decision": "block",
+        "reason": reason,
+    })
+    .to_string()
 }
 
 /// The instruction that leads a failing verdict: the gate is advisory, so it asks
@@ -500,6 +538,21 @@ mod tests {
             .unwrap();
         assert_eq!(context.chars().count(), ADDITIONAL_CONTEXT_CAP);
         assert!(context.ends_with('…'));
+    }
+
+    #[test]
+    fn the_post_edge_refusal_speaks_the_top_level_decision_pair() {
+        let json: serde_json::Value =
+            serde_json::from_str(&post_tool_use_block("re-run `temper emit`"))
+                .expect("the refusal is valid JSON");
+        assert_eq!(json["decision"], "block");
+        assert_eq!(json["reason"], "re-run `temper emit`");
+        // No envelope, so no event name to get wrong: this event decides through the
+        // top-level pair, and the envelope's `hookEventName` requirement never applies.
+        assert!(
+            json.get("hookSpecificOutput").is_none(),
+            "got: {json}, which would have to stamp an event name to be accepted"
+        );
     }
 
     #[test]

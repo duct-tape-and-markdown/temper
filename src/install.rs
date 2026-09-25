@@ -111,9 +111,10 @@ pub enum Placement {
     SessionStart,
     /// A schema modeline in a frontmatter artifact.
     Modeline,
-    /// The `PreToolUse` enforcement-mode guard hook.
+    /// The `PreToolUse` enforcement-mode guard hook — the guard's pending-write edge.
     GuardHook,
-    /// The `PostToolUse` Bash drift-check hook.
+    /// The `PostToolUse` guard hook — the same guard's shell edge, judging the tree a
+    /// Bash call left.
     PostToolUseHook,
     /// A managed-by note in a frontmatter artifact.
     Note,
@@ -147,10 +148,17 @@ const GATE_RULE: &str = "install.gate-installed";
 /// (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24).
 const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 
-/// The exec-form command the `PreToolUse` guard hook runs: the `temper` binary's own
+/// The exec-form command **both** guard hook rows run: the `temper` binary's own
 /// `guard` subcommand, reading the payload from stdin and deciding at the harness's
 /// declared enforcement mode. The `.` roots the
 /// lock the enforcement mode is read from — the project Claude Code runs the hook in.
+///
+/// One command at two edges, because the payload already says which edge fired it
+/// ([`guard_edge`]): before a file-writing tool it judges the pending write the payload
+/// names, after a shell tool the tree the call left. The alternative — a second command
+/// per edge — makes the wiring, not the payload, the thing that decides, and a hook
+/// stamping the wrong event's name in its output is rejected whole
+/// ([`crate::reporter::HookEvent`]).
 ///
 /// Guarded by a PATH-resolvability check: if `temper` is not found on PATH,
 /// exits non-zero with a clear error message naming the missing binary, per the
@@ -159,21 +167,12 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 /// Public so the guard-hook acceptance can drive the exact wired command.
 pub const GUARD_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
 
-/// The tool-name matcher the `PostToolUse` Bash drift-check hook binds — direct Bash tool
-/// invocations. PostToolUse runs after the Bash call to re-check emit-owned targets for
-/// drift, since the PreToolUse guard cannot see Bash-mediated writes.
+/// The tool-name matcher the guard's `PostToolUse` row binds — direct Bash tool
+/// invocations. A shell tool's writes name no path in the payload, so the `PreToolUse`
+/// guard cannot see them; this row runs the same guard after the call and judges the
+/// tree it left ([`shell_edge_drift`]).
 /// (`code.claude.com/docs/en/hooks`, retrieved 2026-09-03).
 const BASH_MATCHER: &str = "Bash";
-
-/// The exec-form command the `PostToolUse` Bash drift-check hook runs: the `temper`
-/// binary's `check` subcommand with the session-start reporter. This runs after Bash
-/// completes and re-checks emit-owned targets for drift, surfacing any findings in-band.
-/// The `.` roots the lock — the project Claude Code runs the hook in.
-///
-/// Guarded by a PATH-resolvability check: if `temper` is not found on PATH,
-/// exits non-zero with a clear error message naming the missing binary, per the
-/// fail-loud invariant.
-pub const POST_TOOL_USE_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start";
 
 /// How many hook groups temper's gate rides — the width of [`GATE_HOOKS`] and of every
 /// per-hook reading taken beside it.
@@ -218,7 +217,7 @@ const GATE_HOOKS: [GateHook; GATE_HOOK_COUNT] = [
         placement: Placement::PostToolUseHook,
         event: "PostToolUse",
         matcher: Some(BASH_MATCHER),
-        command: POST_TOOL_USE_COMMAND,
+        command: GUARD_COMMAND,
     },
 ];
 
@@ -266,6 +265,21 @@ const GUARD_MANIFEST_EDIT_MESSAGE: &str = "temper-governed manifest: this edit c
 /// carried the verdict is declared in the file that no longer parses. The boundary is the
 /// only placement left, so it speaks rather than deferring to CI.
 const GUARD_MANIFEST_UNPARSEABLE_MESSAGE: &str = "temper-governed manifest: this write would leave the manifest unparseable, so nothing it governs can be checked — and a harness that cannot load aborts the next temper check before any reporter runs, so no later placement catches it either. Fix the JSON before landing it. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
+
+/// The header `temper guard` prints at the **post** edge of a tool call, where a shell
+/// tool's writes name no path the guard could have bound before the fact and the tree it
+/// left is the whole subject. The per-row drift findings ([`shell_edge_drift`]) follow it,
+/// one per line, each already naming the projection that moved and the member that owns
+/// it. It states the restore rather than a limit: the write has landed, so there is
+/// nothing left to refuse but the call's result.
+const GUARD_SHELL_EDGE_MESSAGE: &str = "temper-managed projection drift: this call left a committed projection out of sync with the .temper/ surface the lock fingerprinted — edit the owning .temper/ module or document and re-run `temper emit` to restore it. A shell tool's writes name no path in the hook payload, so this edge judges the projection set the lock declares rather than one file.";
+
+/// The extended-regex `temper guard` greps the payload for the firing event's own
+/// `hook_event_name`, the field that says which edge of the tool call this is. The same
+/// conservative field-scoped shape as [`GUARD_FILE_PATH_MATCH`], and the first match is
+/// the one read: Claude Code's payload carries the event among its leading identity
+/// fields, ahead of the `tool_input` a write's content rides.
+const GUARD_HOOK_EVENT_MATCH: &str = r#""hook_event_name"[[:space:]]*:[[:space:]]*"([^"]*)""#;
 
 /// The extended-regex `temper guard` greps the `PreToolUse` payload for: any `file_path`
 /// value, captured so the guard can test it for lock-declared projection-set membership
@@ -880,6 +894,91 @@ fn hook_claimed_events(temper_dir: &Path) -> miette::Result<std::collections::BT
     }
 
     Ok(claimed_events)
+}
+
+/// Which edge of a tool call fired `temper guard`, and so which judge answers: the
+/// pending write the payload names, or the tree the call already left.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GuardEdge {
+    /// Before a file-writing tool — [`guard`] binds the `file_path` the payload names.
+    PreToolUse,
+    /// After a shell tool — [`shell_edge_drift`] judges the projection set on disk,
+    /// because the call's writes name no path the payload carries.
+    PostToolUse,
+}
+
+/// The edge `payload` fired at, read off its own `hook_event_name`
+/// ([`GUARD_HOOK_EVENT_MATCH`]).
+///
+/// Only `PostToolUse` answers [`GuardEdge::PostToolUse`]. A payload naming no event, or
+/// naming one the gate wires no row for, keeps the pending-write edge: that judge binds
+/// nothing a payload does not name a `file_path` in, so reading it at the wrong edge
+/// costs a regex and says nothing, where reading a *pre*-edge write as the post edge
+/// would drop the one binding that can still deny it.
+#[must_use]
+pub fn guard_edge(payload: &str) -> GuardEdge {
+    // A compile-time-constant pattern: the only failure is a malformed literal, a build
+    // invariant, so `expect` here can never fire on a real payload.
+    let event =
+        Regex::new(GUARD_HOOK_EVENT_MATCH).expect("GUARD_HOOK_EVENT_MATCH is a valid regex");
+    match event
+        .captures(payload)
+        .as_ref()
+        .and_then(|captures| captures.get(1))
+        .map(|value| value.as_str())
+    {
+        Some("PostToolUse") => GuardEdge::PostToolUse,
+        _ => GuardEdge::PreToolUse,
+    }
+}
+
+/// The finding `temper guard` surfaces at the **post** edge over the harness whose
+/// surface workspace is `workspace_dir`: the projection half of the root member's `fresh`
+/// clause, re-hashing each lock row's `source_path` against the `emit_hash` the lock
+/// recorded. [`None`] for a tree whose projections all still match — a pass prints
+/// nothing — and for a harness whose root contract binds no `fresh` clause at all.
+///
+/// It is [`drift::config_stale`], the same judge `check` runs: one comparison in one
+/// vocabulary, so the boundary and the gate cannot disagree about whether a projection
+/// moved. The clause is located the way [`crate::compose::root_contract`]'s rows-or-default
+/// rule locates every root clause, off the `declarations` already in hand — no walk, no
+/// second lock read — and the dial is not consulted because it moves a clause's severity
+/// only, never its binding, and severity is not what decides here: the *enforcement mode*
+/// does, exactly as it does for the pending-write edge.
+///
+/// # Errors
+///
+/// Propagates the [`crate::compose::ClauseRowError`] a clause row outside the closed
+/// vocabulary raises — a corrupt lock, refused loud here as everywhere.
+pub fn shell_edge_drift(
+    workspace_dir: &Path,
+    declarations: &drift::Declarations,
+) -> miette::Result<Option<String>> {
+    let root = crate::compose::root_contract(&declarations.clauses)?;
+    let Some(clause) = root
+        .clauses
+        .iter()
+        .find(|clause| clause.predicate == crate::contract::Predicate::Fresh)
+    else {
+        return Ok(None);
+    };
+    let findings = drift::config_stale(workspace_dir, clause);
+    if findings.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(render_shell_edge_findings(&findings)))
+}
+
+/// Render the post edge's drift findings for the guard's in-band surface:
+/// [`GUARD_SHELL_EDGE_MESSAGE`], then one `<rule>: <finding>` line per finding — the same
+/// shape [`render_manifest_findings`] gives a manifest's, so the guard's one surface reads
+/// one way whichever edge speaks.
+fn render_shell_edge_findings(findings: &[Diagnostic]) -> String {
+    let mut out = String::from(GUARD_SHELL_EDGE_MESSAGE);
+    for finding in findings {
+        out.push_str(&format!("\n  {}: {}", finding.rule, finding.message));
+    }
+    out
 }
 
 /// The verdict `temper guard` reaches over a `PreToolUse` payload at the root

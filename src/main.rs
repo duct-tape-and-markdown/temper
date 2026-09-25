@@ -121,14 +121,19 @@ enum Command {
         #[arg(long)]
         teardown: bool,
     },
-    /// The `PreToolUse` guard: read Claude Code's `PreToolUse` payload from stdin
-    /// and, when the write targets a `.claude/` projection, inform-and-route under
-    /// the declared enforcement mode: `note` allows and defers out-of-band, `warn`
-    /// allows and surfaces in-band (exit 0), `block` denies (exit 2). The mode is
-    /// read live from the harness's lock —
+    /// The guard at both edges of a tool call: read Claude Code's hook payload from
+    /// stdin and inform-and-route under the declared enforcement mode — `note` allows
+    /// and defers out-of-band, `warn` allows and surfaces in-band (exit 0), `block`
+    /// refuses. Which edge fired decides the subject: a `PreToolUse` payload names a
+    /// pending write, bound when it targets a `.claude/` projection or a governed locus
+    /// the lock declares no member at (`block` denies it, exit 2); a `PostToolUse`
+    /// payload follows a shell tool whose writes it names no path for, so the guard
+    /// judges the tree the call left for projection drift and `block` refuses the call's
+    /// result in-band, naming the restore — a write already made cannot be denied. The
+    /// mode is read live from the harness's lock —
     /// temper never escalates on its own determination, and an unrepresented
-    /// harness (no lock) reads the default `warn`. Wired at the write boundary by
-    /// `temper install`.
+    /// harness (no lock) reads the default `warn`. Both edges are wired by
+    /// `temper install`. A pass prints nothing.
     Guard {
         /// The harness root whose `.temper/lock.toml` declares the posture (defaults
         /// to the current directory, the project Claude Code runs the hook from).
@@ -348,30 +353,52 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Guard { path } => {
-            // The guard at Claude Code's write boundary: read the `PreToolUse` payload
-            // from stdin, and — when it names one of the lock's emit-owned projections, or
-            // lands inside a governed locus the lock declares no member at — act at the
-            // author's declared enforcement mode, three values split by where the
-            // finding goes: `note` allows and defers out-of-band (exit 0, no in-band
-            // message — the next report, never the session); `warn` allows and surfaces
-            // in-band via `additionalContext` (exit 0), the only channel a zero-exit hook
-            // reaches the model through; `block` denies (exit 2), the one exit code that
-            // delivers stderr. temper never escalates past the
-            // mode the lock declares — the lock is what names a path a projection, so it
-            // is also the sole source for how firmly that projection is enforced.
-            // An unrepresented
+            // The guard at both edges of a Claude Code tool call: read the hook payload
+            // from stdin and act at the author's declared enforcement mode, three values
+            // split by where the finding goes: `note` allows and defers out-of-band (exit
+            // 0, no in-band message — the next report, never the session); `warn` allows
+            // and surfaces in-band via `additionalContext` (exit 0), the only channel a
+            // zero-exit hook reaches the model through; `block` refuses. temper never
+            // escalates past the mode the lock declares — the lock is what names a path a
+            // projection, so it is also the sole source for how firmly that projection is
+            // enforced. An unrepresented
             // harness (no lock) reads the default `warn`, matching
             // `compose::EnforcementMode`'s own default, and falls back to binding any
             // `.claude/` write since there is no declared set to consult.
             let workspace_dir = path.join(temper::WORKSPACE_DIR);
             let declarations = drift::read_declarations(&workspace_dir)?;
             let mode = compose::mode_from_declarations(&declarations)?;
+            let mut payload = String::new();
+            io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
+
+            // The shell edge, taken before anything the pending-write edge needs is
+            // assembled: after a shell tool no payload field names what it wrote, so the
+            // subject is the tree the call left and the judge is the projection half of
+            // the root `fresh` clause — `check`'s own. `block` cannot deny a write already
+            // made, so it refuses the call's *result* in-band and names the restore, which
+            // is why this arm exits zero at every mode: the refusal is the payload, not
+            // the exit code.
+            if install::guard_edge(&payload) == install::GuardEdge::PostToolUse {
+                let Some(report) = install::shell_edge_drift(&workspace_dir, &declarations)? else {
+                    return Ok(ExitCode::SUCCESS);
+                };
+                match mode {
+                    compose::EnforcementMode::Note => {}
+                    compose::EnforcementMode::Warn => println!(
+                        "{}",
+                        reporter::tool_use(reporter::HookEvent::PostToolUse, &report)
+                    ),
+                    compose::EnforcementMode::Block => {
+                        println!("{}", reporter::post_tool_use_block(&report));
+                    }
+                }
+                return Ok(ExitCode::SUCCESS);
+            }
+
             let lock_present = workspace_dir.join(temper::LOCK_FILENAME).is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
             let manifests = guarded_manifests(&declarations)?;
             let loci = guarded_loci(&declarations)?;
-            let mut payload = String::new();
-            io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
 
             // A represented manifest **no container member projects** is co-owned — a write
             // touching only opaque residue is legitimate — so its binding is a contract check
