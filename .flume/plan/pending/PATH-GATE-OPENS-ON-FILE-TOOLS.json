@@ -1,0 +1,35 @@
+{
+  "tag": "PATH-GATE-OPENS-ON-FILE-TOOLS",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "Four shipped guidance strings still promise the read wording 0061 retired: `skill`'s `globValid(\"paths\")` (~:1525, \"until Claude reads a file its globs match\"), `skill`'s `mentionReachable` (~:1531), `rule`'s `globValid(\"paths\")` (~:1641, \"scope the rule to matching files\") and `rule`'s `mentionReachable` (~:1651) — plus `ruleDefaultContract`'s own doc-comment (~:1622, \"rules load when Claude reads a matching file\"). Each takes the file-tool wording, and each `mention-reachable` guidance states what the judgment cannot see: a shell or search read opens no gate. The two `mentionReachable` cites gain the probe (probed on Claude Code 2.1.281, 2026-09-24) beside the retrieval date already there."
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "`mentionReachable`'s own API doc (~:215) carries the same retired wording — \"channel until the agent reads a matching file\" — and is the surface an author reads before the guidance ever fires."
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "The embedded lock carries the same four guidance strings (~:873 and ~:892 for `rule`, ~:1097 and ~:1106 for `skill`). Regenerated, never hand-edited: re-run the memberless emit the lock's own header and `tests/builtin_lock_frozen.rs` describe, so the embedded rows and the SDK stay byte-identical."
+      }
+    ]
+  },
+  "summary": "A path gate opens on a file tool, not a shell read — four shipped `paths` guidance strings and the `mention-reachable` API doc still promise \"until Claude reads a matching file\".",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
+  "tests": [
+    {
+      "path": "tests/builtin_lock_frozen.rs",
+      "asserts": "the embedded lock's declaration rows still byte-match `@dtmd/temper/claude-code`'s memberless emit after the guidance strings move — the mechanical agreement that proves the lock was regenerated, not hand-edited"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` and `cargo test` green (`builtin_lock_frozen` is the agreement gate); `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "0061's evidence: a rule gated on its `paths` recorded 0 path loads across 161 sessions that read inside the gate — about 3,900 shell calls against 106 file-tool reads. Wording only, so no new behavioral test ships: the clauses' predicates are unchanged, and `builtin_lock_frozen` carries the one mechanical assertion. Grepped this tick — no snapshot carries the text. The `inject` verb 0061 rejects is out of scope. scoped at a4086d03"
+}

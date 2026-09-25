@@ -1,23 +1,42 @@
 {
   "tag": "TAP-IDENTITY-RELATIVIZES-TO-THE-RUNNING-ROOT",
-  "gate": { "kind": "open" },
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "GUARD-WARN-REACHES-THE-LIVE-CONTEXT"
+    ]
+  },
   "files": {
     "edit": [
       {
         "path": "src/tap.rs",
-        "description": "`append` (~:288) relativizes an `InstructionsLoaded` identity against `log_path(workspace_dir).parent().and_then(Path::parent)` — the primary checkout's root, because `log_path` redirects a linked worktree's log there. A file inside the worktree is not under the primary root, so `strip_prefix` fails and the identity stays absolute. Relativize against the root the tap ran from (`workspace_dir.parent()`) instead; `log_path`'s own primary-checkout redirection is correct and stays."
+        "description": "Two jobs on one record. (1) `append` (~:288) relativizes an `InstructionsLoaded` identity against `log_path(workspace_dir).parent().and_then(Path::parent)` — the primary checkout's root, because `log_path` redirects a linked worktree's log there. A file inside the worktree is not under the primary root, so `strip_prefix` fails and the identity stays absolute. Relativize against the root the tap ran from (`workspace_dir.parent()`); `log_path`'s own redirection is correct and stays. (2) `TapRecord` (~:103) gains `trigger_path` and `parent_path`, both `Option<String>` with the `#[serde(default, skip_serializing_if)]` shape `reason` and `raw_path` already carry, so a record an older tap wrote reads without them. `record_from_payload` (~:236) carries them through and `append` relativizes them exactly as it relativizes the identity — they are discriminants only when they are the paths the lock's members are joined by."
+      },
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "`classify_claude_code_hook_payload` (~:732) reads `trigger_file_path` (a lazy load) and `parent_file_path` (an `include` load) off an `InstructionsLoaded` payload and returns them; its three-tuple return widens, with one caller (`tap.rs:240`). Cite the external fact at the site beside the existing one: code.claude.com/docs/en/hooks, \"InstructionsLoaded input\", retrieved 2026-09-24. `globs` and `memory_type` are rejected by 0062 and stay unread."
+      },
+      {
+        "path": "tests/common/mod.rs",
+        "description": "`tap_record` (~:618) is the one full `TapRecord` literal in the suite — every fixture struct-updates from it — so the two new columns default to `None` here and no other test file respells them."
       },
       {
         "path": "tests/tap.rs",
-        "description": "`log_path_resolves_linked_worktree_to_primary_checkout` (~:258) appends a `ToolUse` record, which carries no path to relativize, so the worktree case has never exercised the rewrite. Add the `InstructionsLoaded` half over the same real `git worktree add` fixture: a rule path inside the worktree records the repo-relative id one worktree shares with the primary, with the absolute original in `raw_path`."
+        "description": "Three cases. `log_path_resolves_linked_worktree_to_primary_checkout` (~:258) appends a `ToolUse` record, which carries no path to relativize, so the worktree case has never exercised the rewrite: add the `InstructionsLoaded` half over the same real `git worktree add` fixture. A lazy load's payload records its trigger path, relativized, and an included load its parent path. And beside the existing older-version line (~:234), a current-version record written without the two new keys reads clean."
       }
     ]
   },
-  "summary": "A tap record appended from a linked worktree keeps an absolute identity, so each worktree gets its own id for one rule and the read-time join to lock members breaks.",
-  "per": { "path": "specs/model/pipeline.md", "section": "Telemetry" },
+  "summary": "A tap record's paths: a linked worktree's identity stays absolute, breaking the read-time join, and a lazy load records nothing about what triggered it (0062).",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "Telemetry"
+  },
   "tests": [
-    { "path": "tests/tap.rs", "asserts": "an `InstructionsLoaded` append from a real linked worktree records the same repo-relative identity a primary-checkout append records, and `raw_path` keeps the absolute original" }
+    {
+      "path": "tests/tap.rs",
+      "asserts": "an `InstructionsLoaded` append from a real linked worktree records the same repo-relative identity a primary-checkout append records, with `raw_path` keeping the absolute original; a lazy load carries its trigger path and an included load its parent path, both relativized; and a record written without either key reads clean"
+    }
   ],
-  "acceptance": "`cargo test --test tap` green with the new worktree case, which fails on the pre-fix tree (the identity reads absolute); `cargo clippy --all-targets -- -D warnings` clean.",
-  "notes": "\"The reader joins raw events to members through the lock's own declarations\" is what an absolute identity breaks — one rule reads as N members, one per worktree. 0062's new trigger/parent paths take the same relativization; the spec-delta tick that derives 0062 widens this entry rather than filing a sibling. Confirmed by reading src/tap.rs, not run. scoped at b95d5e8f"
+  "acceptance": "`cargo test --test tap` green with the worktree, trigger/parent and older-record cases, which fail on the pre-fix tree (the identity reads absolute and neither path exists); `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "\"The reader joins raw events to members through the lock's own declarations\" is what an absolute identity breaks — one rule reads as N members, one per worktree. 0062's two paths ride here because they take the same relativization on the same record. `blockedBy` is serialization, not dependency: tests/common/mod.rs is also GUARD-WARN's, and the two would collide at the merge. Confirmed by reading src/tap.rs, not run. scoped at a4086d03"
 }

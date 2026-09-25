@@ -145,49 +145,6 @@ tax.
   rules for a layout retitle should bind a composed rename identically, one
   identity story for nested rows, not two. No dependents.
 
-- `(post-tool-use-placement)` — OPEN, live driver (GH #42 (ii),
-  cascade-integrations, re-measured on disk this tick after 842884f4 rewrote
-  the module). `install.rs:176`'s `POST_TOOL_USE_COMMAND` is byte-identical
-  to `SESSION_START_COMMAND` (`:105`) — both
-  `temper check . --reporter session-start` — and its group binds
-  `BASH_MATCHER` (`:166`) under the same constituency test as the
-  `PreToolUse` guard, so `reporter::context`'s pass-time disclosure (the
-  `Checked:` block, `reporter.rs:158`, every `Severity::Note` plus the
-  announcement, ~960 bytes of `additionalContext`) replays on EVERY Bash
-  tool call rather than once at session open. The corpus owns no such
-  surface: `distribution.md` "The placements and their enforcement modes"
-  enumerates five — Keystroke, Session start, CI, the author's terminal, and
-  Per tool call (`PreToolUse` = `temper guard`, three enforcement modes) —
-  and `PostToolUse` appears **nowhere** in the evergreen corpus. It arrived
-  via `cf67f291` (09-03, a `build:` commit), a placement build minted with
-  no spec section owning it, and 842884f4 has since **entrenched** it: the
-  three gate hooks are now `hook` members the lift mints from one
-  `GATE_HOOKS` table (`install.rs:204`), so the unsanctioned placement is a
-  row in temper's own scaffolded program rather than a splice — which
-  narrows (a) below to deleting a table row and widens the blast radius of
-  leaving it unruled, since every newly-adopted harness now carries it as an
-  authored member. Three candidate rulings, none derivable from
-  the corpus as it stands: (a) unsanctioned — install stops minting it, and
-  Bash-mediated writes stay CI's, the backstop the guard's own message
-  already names verbatim to the author; (b) sanctioned, and
-  `distribution.md` gains a sixth bullet: PostToolUse is the Bash-write
-  drift check, its reporter carries **findings only** and is silent on pass
-  (a `--reporter post-tool-use`, or `--quiet-on-pass` on the session-start
-  one) — the never-silently-pass guarantee belongs to the *session-start*
-  bullet, scoped to session open, while "Per tool call"'s three modes route
-  findings, never disclosures; (c) sanctioned but folded into the existing
-  "Per tool call" bullet as the guard's Bash half, taking the author's
-  declared block/warn/note mode instead of a reporter. Session
-  recommendation: (b) — the hole is real, CI-only leaves a Bash-written
-  projection drifted for a whole session, and the fix is a reporter, not a
-  new concept; (c) is unavailable because `PostToolUse` cannot deny a call,
-  so it cannot honour the mode contract's `block` value. The objection (b)
-  must answer: a full `check` per Bash call is a tree-scale cost on every
-  command. No entry filed — the three rulings produce three incompatible
-  entries (delete the wiring / add a quiet reporter / rebind to the guard's
-  mode) with no common shippable core, and plan does not pick among them.
-  No dependents.
-
 - `(re-rooted-harness-disclosure)` — OPEN, live driver (GH note observed at
   a5101a9d, re-diagnosed on disk this tick). `check --harness <dir>` can gate
   `<dir>/..` and say nothing about it. `resolve_harness_path`
@@ -475,10 +432,10 @@ tax.
   represented program is exactly the unreached member `reached-from`
   (62d9ac0c) was built to indict, so the remedy would author the defect.
   Session recommendation: **(b)**, and the decisive argument is not the
-  migration but the standing case: an author who deliberately deletes the
-  PostToolUse gate hook — the live `(post-tool-use-placement)` fork is
-  precisely that wish — must not have install silently re-add it on the next
-  run. `Conflicted` on a removed member is the *correct* verdict; what is
+  migration but the standing case: an author who deliberately deletes a gate
+  hook — dropping the PostToolUse edge on a harness whose shell writes never
+  touch a projection, say — must not have install silently re-add it on the
+  next run. `Conflicted` on a removed member is the *correct* verdict; what is
   missing is only that it says nothing about what to do. The objection (b)
   must answer: a one-time migration for harnesses adopted before 842884f4 is
   then hand-work temper narrates but never performs, and adoption.md's

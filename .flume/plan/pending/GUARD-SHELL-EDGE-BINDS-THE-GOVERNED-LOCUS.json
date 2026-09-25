@@ -1,0 +1,38 @@
+{
+  "tag": "GUARD-SHELL-EDGE-BINDS-THE-GOVERNED-LOCUS",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "GUARD-JUDGES-THE-SHELL-EDGE"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "The shell edge's second binding, beside the drift half its parent entry lands: a document the call left at a represented committed kind's governed locus that the lock declares no member for. The pre edge tests one `file_path` against `GuardedLocus` patterns (`matches_governed_locus`, ~:1093); with no path in the payload the post edge has to find the documents, so it walks the same locus patterns and compares against the lock's provenance rows — `drift::undeclared_locus_members_from_doc`'s own two inputs. It speaks `undeclared_locus_message`'s existing words, and binds only where the root contract binds a `locus-declared` clause."
+      },
+      {
+        "path": "src/main.rs",
+        "description": "The `PostToolUse` arm gains the locus judgment beside the drift one, reusing `guarded_loci` (~:699) — the pre edge's own locus assembly, already built on this path."
+      },
+      {
+        "path": "tests/cli.rs",
+        "description": "Beside the parent's shell-edge cases: a Bash-left stray at a governed locus, and the same tree with no `locus-declared` clause bound drawing nothing."
+      }
+    ]
+  },
+  "summary": "The shell edge's second binding: a document a Bash call left at a governed locus that the lock declares no member for, where `locus-declared` is bound.",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "The placements and their enforcement modes"
+  },
+  "tests": [
+    {
+      "path": "tests/cli.rs",
+      "asserts": "a `PostToolUse` payload over a represented tree carrying an undeclared document at a governed locus surfaces it at the declared mode, and the same tree with no `locus-declared` clause bound draws nothing"
+    }
+  ],
+  "acceptance": "`cargo test` green with the new locus cases, which fail on the pre-fix tree (the shell edge sees only projection drift); `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "Split from GUARD-JUDGES-THE-SHELL-EDGE up front: `distribution.md` names both bindings, but this one needs the documents found rather than a path tested, which is the only new machinery in either. Cost is the standing objection 0060 records — the walk rides every shell call, and drift already present re-fires until one `emit` clears it. `check`'s own site walk is the wrong reuse: 0060 rejects a per-call whole-contract check. scoped at a4086d03"
+}
