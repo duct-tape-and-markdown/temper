@@ -16,6 +16,14 @@
       {
         "path": "src/builtin_lock.toml",
         "description": "The embedded lock carries the same four guidance strings (~:873 and ~:892 for `rule`, ~:1097 and ~:1106 for `skill`). Regenerated, never hand-edited: re-run the memberless emit the lock's own header and `tests/builtin_lock_frozen.rs` describe, so the embedded rows and the SDK stay byte-identical."
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "The second checked-in derived lock, and the one no file name announces: the example harness's program imports the shipped `skill` default contract, so two of the four rows live here too — `skill.glob-valid.paths` (:299) and `skill.mention-reachable.paths` (:308, whose `cite` gains the 2.1.281 probe beside the retrieval date). Its `rule` kind row rides its own contract, so no rule clause row is here to move. Regenerated, never hand-edited: vendor `@dtmd/temper` into `examples/base-harness/.temper/node_modules` (gitignored, never committed) the way `tests/common/mod.rs::vendor_sdk` (:126) does, then `cargo run -- emit --into examples/base-harness/.temper`."
+      },
+      {
+        "path": "tests/emit.rs",
+        "description": "`emit_program_runs_the_shipped_example_harness` (:2420) re-emits the example's own program into a temp copy and byte-compares its lock against the committed one, so it is the gate the fourth file answers to. Its remedy string (:2459, :2483) names only `cargo run -- emit --into examples/base-harness/.temper` and omits the vendoring that run needs, so the message cannot be followed as written — complete it with that prerequisite, having just run it. Wording of the failure message only: no assertion, fixture, or scope changes."
       }
     ]
   },
@@ -28,8 +36,12 @@
     {
       "path": "tests/builtin_lock_frozen.rs",
       "asserts": "the embedded lock's declaration rows still byte-match `@dtmd/temper/claude-code`'s memberless emit after the guidance strings move — the mechanical agreement that proves the lock was regenerated, not hand-edited"
+    },
+    {
+      "path": "tests/emit.rs",
+      "asserts": "`emit_program_runs_the_shipped_example_harness` — the example's committed lock byte-matches what its own program now emits, so the second derived lock moved with the SDK instead of drifting"
     }
   ],
-  "acceptance": "`pnpm --dir sdk test` and `cargo test` green (`builtin_lock_frozen` is the agreement gate); `cargo clippy --all-targets -- -D warnings` clean.",
-  "notes": "0061's evidence: a rule gated on its `paths` recorded 0 path loads across 161 sessions that read inside the gate — about 3,900 shell calls against 106 file-tool reads. Wording only, so no new behavioral test ships: the clauses' predicates are unchanged, and `builtin_lock_frozen` carries the one mechanical assertion. Grepped this tick — no snapshot carries the text. The `inject` verb 0061 rejects is out of scope. scoped at a4086d03"
+  "acceptance": "`pnpm --dir sdk test` and `cargo test` green — `builtin_lock_frozen` and `emit_program_runs_the_shipped_example_harness` are the two derived locks' currency gates, one per lock; `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "0061's evidence: a rule gated on its `paths` recorded 0 path loads across 161 sessions that read inside the gate — about 3,900 shell calls against 106 file-tool reads. Wording only, so no behavioral test ships: the predicates are unchanged and the two locks' currency gates carry the mechanical assertions. Grepped repo-wide this tick — no snapshot or test asserts the strings. The `inject` verb 0061 rejects is out of scope. scoped at b887478c"
 }
