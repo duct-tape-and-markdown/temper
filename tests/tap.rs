@@ -186,6 +186,66 @@ fn an_instructions_loaded_identity_relativizes_against_the_checkout_root() {
 }
 
 #[test]
+fn a_lazy_load_records_its_trigger_path_and_an_included_load_its_parent() {
+    // 0062: a lazy load names the path whose match pulled the rule in, an `include`
+    // load the file that pulled it. Both are paths, so both relativize exactly as the
+    // identity does — they are the paths the lock's members are joined by at read time.
+    let root = common::tmpdir("tap-trigger");
+    let workspace = root.join(".temper");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let rule = root.join(".claude").join("rules").join("rust.md");
+    let trigger = root.join("src").join("tap.rs");
+    let payload = format!(
+        "{{\"session_id\":\"s\",\"hook_event_name\":\"InstructionsLoaded\",\
+         \"file_path\":\"{rule}\",\"load_reason\":\"path_glob_match\",\
+         \"trigger_file_path\":\"{trigger}\",\"globs\":[\"src/**\"],\
+         \"memory_type\":\"project\",\"content\":\"RULE PROSE\"}}",
+        rule = rule.display(),
+        trigger = trigger.display(),
+    );
+    let (ok, readout) = tap(&root, &payload);
+    assert!(ok);
+    let lazy = &readout.records[0];
+    assert_eq!(lazy.reason.as_deref(), Some("path_glob_match"));
+    assert_eq!(
+        lazy.trigger_path.as_deref().map(std::path::Path::new),
+        Some(std::path::Path::new("src/tap.rs")),
+        "the trigger path is relativized like the identity"
+    );
+    assert_eq!(lazy.parent_path, None, "a lazy load has no including file");
+
+    let memory = root.join("CLAUDE.md");
+    let parent = root.join("docs").join("ledger.md");
+    let payload = format!(
+        "{{\"session_id\":\"s\",\"hook_event_name\":\"InstructionsLoaded\",\
+         \"file_path\":\"{memory}\",\"load_reason\":\"include\",\
+         \"parent_file_path\":\"{parent}\",\"content\":\"MEMORY PROSE\"}}",
+        memory = memory.display(),
+        parent = parent.display(),
+    );
+    let (ok, readout) = tap(&root, &payload);
+    assert!(ok);
+    let included = &readout.records[1];
+    assert_eq!(included.reason.as_deref(), Some("include"));
+    assert_eq!(
+        included.parent_path.as_deref().map(std::path::Path::new),
+        Some(std::path::Path::new("docs/ledger.md")),
+        "the including file is relativized like the identity"
+    );
+    assert_eq!(
+        included.trigger_path, None,
+        "an included load has no trigger path"
+    );
+
+    // The rejected payload fields never reach the log, prose and non-prose alike.
+    let raw = std::fs::read_to_string(workspace.join("tap.jsonl")).unwrap();
+    assert!(!raw.contains("PROSE"), "no prose reaches the log");
+    assert!(!raw.contains("globs"), "0062 rejects globs");
+    assert!(!raw.contains("memory_type"), "0062 rejects memory_type");
+}
+
+#[test]
 fn two_appends_interleave_as_two_lines_without_rewriting() {
     // An append is a single record: the second append never rewrites the file, so
     // both records survive as two lines — the parallel-safe interleave.
@@ -256,6 +316,29 @@ fn an_older_version_record_reads_tolerated_and_counted() {
 }
 
 #[test]
+fn a_current_version_record_without_the_trigger_paths_reads_clean() {
+    // 0062's two paths are optional columns, not a schema bump: a current-version
+    // record written before they existed — a tool use, which never carries either —
+    // reads as a full record, neither counted older nor read as corruption.
+    let root = common::tmpdir("tap-no-trigger");
+    let workspace = root.join(".temper");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let line = format!(
+        "{{\"version\":{TAP_RECORD_VERSION},\"session\":\"s\",\"event\":\"tool_use\",\
+         \"identity\":\"Grep\",\"ts\":\"2026-09-24T00:00:00.000000Z\"}}"
+    );
+    std::fs::write(workspace.join("tap.jsonl"), format!("{line}\n")).unwrap();
+
+    let readout = tap::read_log(&workspace).unwrap();
+    assert_eq!(readout.records.len(), 1, "the record reads, not rejected");
+    assert_eq!(readout.older_version, 0, "it is a current-version record");
+    assert_eq!(readout.records[0].identity, "Grep");
+    assert_eq!(readout.records[0].trigger_path, None);
+    assert_eq!(readout.records[0].parent_path, None);
+}
+
+#[test]
 fn log_path_resolves_linked_worktree_to_primary_checkout() {
     // A workspace inside a linked worktree (where .git is a file pointing to the
     // admin directory with relative paths) resolves to the primary checkout's
@@ -315,6 +398,41 @@ fn log_path_resolves_linked_worktree_to_primary_checkout() {
         "the record was appended to the primary checkout's log"
     );
     assert_eq!(readout.records[0].identity, "TestTool");
+
+    // A `ToolUse` record carries no path, so it never exercises the rewrite. An
+    // `InstructionsLoaded` append from the same worktree relativizes against the root
+    // the tap ran from — the worktree — not the primary checkout the log homes in:
+    // the loaded file lives under the worktree, so the primary root strips nothing and
+    // an absolute identity would read as a member of its own, one per worktree.
+    let loaded = worktree.join(".claude").join("rules").join("rust.md");
+    let instructions = TapRecord {
+        reason: Some("session_start".to_string()),
+        raw_path: Some(loaded.to_string_lossy().into_owned()),
+        ..common::tap_record(
+            TAP_RECORD_VERSION,
+            TapEvent::InstructionsLoaded,
+            &loaded.to_string_lossy(),
+        )
+    };
+    tap::append(&worktree_workspace, &instructions).unwrap();
+
+    let readout = tap::read_log(&worktree_workspace).unwrap();
+    assert_eq!(
+        readout.records.len(),
+        2,
+        "both records home in the primary log"
+    );
+    let read_record = &readout.records[1];
+    assert_eq!(
+        std::path::Path::new(&read_record.identity),
+        std::path::Path::new(".claude/rules/rust.md"),
+        "the identity is the same repo-relative id a primary-checkout append records"
+    );
+    assert_eq!(
+        read_record.raw_path.as_deref(),
+        Some(loaded.to_string_lossy().as_ref()),
+        "the absolute original survives in raw_path"
+    );
 }
 
 #[test]

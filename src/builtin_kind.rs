@@ -717,7 +717,9 @@ pub fn features(kind: &CustomKind, unit: &Unit, nested_members: &[NestedMemberRo
     features
 }
 
-/// Classify a Claude Code hook payload into its lifecycle event, identity, and optional reason.
+/// Classify a Claude Code hook payload into its lifecycle event, identity, and the
+/// optional discriminants an `InstructionsLoaded` load carries: its reason, the path
+/// whose match triggered a lazy load, and the file an `include` load was pulled from.
 ///
 /// The payload shapes are Claude Code's hook contract, an external fact:
 /// code.claude.com/docs/en/hooks (retrieved 2026-07-17). InstructionsLoaded carries
@@ -726,24 +728,32 @@ pub fn features(kind: &CustomKind, unit: &Unit, nested_members: &[NestedMemberRo
 /// with tool_name="Skill" and the skill name under tool_input.skill. The prose fields —
 /// content, expanded_prompt, tool_response — are never included in the returned classification.
 ///
+/// An `InstructionsLoaded` payload also carries `trigger_file_path` on a lazy load and
+/// `parent_file_path` on an `include` load, an external fact: code.claude.com/docs/en/hooks,
+/// "InstructionsLoaded input" (retrieved 2026-09-24). Both are read; the same payload's
+/// `globs` and `memory_type` are not (0062 — the lock already holds the first, and the
+/// second follows from the path).
+///
 /// Returns `None` if the payload does not parse, names no recognized event, or lacks the
 /// identity field its event needs.
 #[must_use]
 pub(crate) fn classify_claude_code_hook_payload(
     value: &JsonValue,
-) -> Option<(TapEvent, String, Option<String>)> {
+) -> Option<HookPayloadClassification> {
     let string = |key: &str| value.get(key).and_then(JsonValue::as_str);
 
     match string("hook_event_name")? {
-        "InstructionsLoaded" => {
-            let identity = string("file_path")?.to_string();
-            let reason = string("load_reason").map(str::to_string);
-            Some((TapEvent::InstructionsLoaded, identity, reason))
-        }
-        "UserPromptExpansion" => {
-            let identity = string("command_name")?.to_string();
-            Some((TapEvent::UserPromptExpansion, identity, None))
-        }
+        "InstructionsLoaded" => Some(HookPayloadClassification {
+            event: TapEvent::InstructionsLoaded,
+            identity: string("file_path")?.to_string(),
+            reason: string("load_reason").map(str::to_string),
+            trigger_path: string("trigger_file_path").map(str::to_string),
+            parent_path: string("parent_file_path").map(str::to_string),
+        }),
+        "UserPromptExpansion" => Some(HookPayloadClassification::bare(
+            TapEvent::UserPromptExpansion,
+            string("command_name")?,
+        )),
         "PostToolUse" => {
             let tool = string("tool_name")?;
             if tool == "Skill" {
@@ -751,12 +761,46 @@ pub(crate) fn classify_claude_code_hook_payload(
                     .get("tool_input")
                     .and_then(|input| input.get("skill"))
                     .and_then(JsonValue::as_str)?;
-                Some((TapEvent::SkillInvoked, skill.to_string(), None))
+                Some(HookPayloadClassification::bare(
+                    TapEvent::SkillInvoked,
+                    skill,
+                ))
             } else {
-                Some((TapEvent::ToolUse, tool.to_string(), None))
+                Some(HookPayloadClassification::bare(TapEvent::ToolUse, tool))
             }
         }
         _ => None,
+    }
+}
+
+/// What [`classify_claude_code_hook_payload`] reads off one hook payload: the lifecycle
+/// event, the identity it names, and the discriminants only an `InstructionsLoaded` load
+/// carries. Named rather than a wide tuple so each path is unmistakable at the one call
+/// site that relativizes them ([`crate::tap::record_from_payload`]).
+pub(crate) struct HookPayloadClassification {
+    /// Which lifecycle event the payload named.
+    pub(crate) event: TapEvent,
+    /// The member, path, skill, command or tool name the event names.
+    pub(crate) identity: String,
+    /// The load reason an `InstructionsLoaded` payload carries.
+    pub(crate) reason: Option<String>,
+    /// The path whose match triggered a lazy load.
+    pub(crate) trigger_path: Option<String>,
+    /// The file an `include` load was pulled from.
+    pub(crate) parent_path: Option<String>,
+}
+
+impl HookPayloadClassification {
+    /// An event carrying identity alone — every event but `InstructionsLoaded`, none of
+    /// which has a reason or a path to relativize.
+    fn bare(event: TapEvent, identity: &str) -> Self {
+        Self {
+            event,
+            identity: identity.to_string(),
+            reason: None,
+            trigger_path: None,
+            parent_path: None,
+        }
     }
 }
 

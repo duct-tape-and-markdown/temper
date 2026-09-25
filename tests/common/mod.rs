@@ -649,6 +649,8 @@ pub fn tap_record(version: u32, event: TapEvent, identity: &str) -> TapRecord {
         ts: String::new(),
         reason: None,
         raw_path: None,
+        trigger_path: None,
+        parent_path: None,
     }
 }
 

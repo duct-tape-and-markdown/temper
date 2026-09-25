@@ -3,9 +3,10 @@
 //! The tap reads a Claude Code hook payload and appends one machine-written
 //! record to the per-machine, uncommitted event log. A record is an event's
 //! identity and its minimal discriminant — the member or path it names, the
-//! load reason, the session id — and never captured prose. The record is the
-//! engine's own, not a member: bespoke-parsed and versioned in lockstep with
-//! the one binary that both writes and reads it. One home for the record's IO:
+//! load reason, the session id, and for a lazy or included load the path that
+//! triggered it or the file that included it — and never captured prose. The
+//! record is the engine's own, not a member: bespoke-parsed and versioned in
+//! lockstep with the binary that both writes and reads it. One home for its IO:
 //! the append writer, the version-tolerant reader, and the log-path locator
 //! ride together.
 
@@ -97,8 +98,8 @@ mod tests {
 
 /// One tap event, the whole record: the version it was written at, the session
 /// it fired in, the lifecycle event, the member or path it names, and the load
-/// reason an `InstructionsLoaded` event carries. Serialized one-per-line as
-/// JSONL.
+/// reason plus triggering paths an `InstructionsLoaded` event carries. Serialized
+/// one-per-line as JSONL.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TapRecord {
     /// The on-disk version this record was written at.
@@ -122,6 +123,17 @@ pub struct TapRecord {
     /// Present only for `InstructionsLoaded` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raw_path: Option<String>,
+    /// The path whose match triggered a lazy `InstructionsLoaded` load, repo-relative
+    /// like the identity; absent for every other load and event. A discriminant only
+    /// because it is a path the lock's members are joined by — never prose.
+    /// Absent from every record an older tap wrote.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger_path: Option<String>,
+    /// The file an `include` load was pulled from, repo-relative like the identity;
+    /// absent for every other load and event. A discriminant on the same terms as
+    /// `trigger_path`. Absent from every record an older tap wrote.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_path: Option<String>,
 }
 
 /// Errors raised writing or reading the tap log.
@@ -237,33 +249,35 @@ pub fn record_from_payload(payload: &str) -> Option<TapRecord> {
     let value: JsonValue = serde_json::from_str(payload).ok()?;
     let session = builtin_kind::hook_payload_session_id(&value);
 
-    let (event, identity, reason) = builtin_kind::classify_claude_code_hook_payload(&value)?;
+    let classified = builtin_kind::classify_claude_code_hook_payload(&value)?;
 
     // For InstructionsLoaded events, store the raw absolute path; it will be
     // relativized by append. For other events (skill, command, tool names),
     // raw_path stays None.
-    let raw_path = match event {
-        TapEvent::InstructionsLoaded => Some(identity.clone()),
+    let raw_path = match classified.event {
+        TapEvent::InstructionsLoaded => Some(classified.identity.clone()),
         _ => None,
     };
 
     Some(TapRecord {
         version: TAP_RECORD_VERSION,
         session,
-        event,
-        identity,
+        event: classified.event,
+        identity: classified.identity,
         ts: String::new(),
-        reason,
+        reason: classified.reason,
         raw_path,
+        trigger_path: classified.trigger_path,
+        parent_path: classified.parent_path,
     })
 }
 
 /// Append one record as a single JSONL line to the per-machine log under
 /// `workspace_dir`, creating the log (and its parent) if absent. Relativizes
-/// `InstructionsLoaded` identity against the primary checkout root and adds
-/// an ISO-8601 UTC timestamp. An append never rewrites the file — it opens in
-/// append mode and writes one line — so parallel sessions interleave lines
-/// safely rather than clobbering each other.
+/// every path an `InstructionsLoaded` record carries against the root the tap ran
+/// from and adds an ISO-8601 UTC timestamp. An append never rewrites the file —
+/// it opens in append mode and writes one line — so parallel sessions interleave
+/// lines safely rather than clobbering each other.
 ///
 /// # Errors
 ///
@@ -282,15 +296,25 @@ pub fn append(workspace_dir: &Path, record: &TapRecord) -> Result<(), TapError> 
     let mut finalized = record.clone();
     finalized.ts = iso8601_utc_timestamp();
 
-    // For InstructionsLoaded, relativize the identity against the primary
-    // checkout root — the parent of the `.temper/` workspace the log homes in
-    // (log_path's parent is the workspace, not the root).
+    // For InstructionsLoaded, relativize every path the record carries against the
+    // root the tap ran from — the parent of the `.temper/` workspace it was given.
+    // Not the log's own root: `log_path` redirects a linked worktree's log to the
+    // primary checkout, and a file loaded inside the worktree is under neither the
+    // primary root nor any prefix of it, so stripping that root leaves the path
+    // absolute and one rule reads as N members, one per worktree.
     if record.event == TapEvent::InstructionsLoaded
-        && let Some(primary_root) = log_path(workspace_dir).parent().and_then(Path::parent)
-        && let Ok(rel) = PathBuf::from(&record.identity).strip_prefix(primary_root)
-        && let Some(rel_str) = rel.to_str()
+        && let Some(run_root) = workspace_dir.parent()
     {
-        finalized.identity = rel_str.to_string();
+        if let Some(rel) = relativize(&finalized.identity, run_root) {
+            finalized.identity = rel;
+        }
+        for path in [&mut finalized.trigger_path, &mut finalized.parent_path] {
+            if let Some(absolute) = path
+                && let Some(rel) = relativize(absolute, run_root)
+            {
+                *absolute = rel;
+            }
+        }
     }
 
     let mut line =
@@ -307,6 +331,17 @@ pub fn append(workspace_dir: &Path, record: &TapRecord) -> Result<(), TapError> 
     file.write_all(line.as_bytes())
         .map_err(|source| TapError::LogAppend { path, source })?;
     Ok(())
+}
+
+/// `path` rewritten relative to `root`, or [`None`] when it does not lie under
+/// `root` (already relative, or a file outside the running checkout) — the caller
+/// keeps what it had.
+fn relativize(path: &str, root: &Path) -> Option<String> {
+    Path::new(path)
+        .strip_prefix(root)
+        .ok()?
+        .to_str()
+        .map(str::to_string)
 }
 
 /// Generate an ISO-8601 UTC timestamp for the current system time.
