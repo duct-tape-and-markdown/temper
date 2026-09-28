@@ -324,7 +324,7 @@ fn resolve<'a>(
         (_, false) => Species::Ambiguous(
             member_kinds
                 .into_iter()
-                .map(|kind| format!("{kind}:{target}"))
+                .map(|kind| member_address::host_address(kind, target))
                 .collect(),
         ),
         (1, true) => Species::Ambiguous(vec![
@@ -334,7 +334,7 @@ fn resolve<'a>(
         (_, true) => {
             let mut ambiguous = member_kinds
                 .into_iter()
-                .map(|kind| format!("{kind}:{target}"))
+                .map(|kind| member_address::host_address(kind, target))
                 .collect::<Vec<_>>();
             ambiguous.push(format!("requirement:{target}"));
             Species::Ambiguous(ambiguous)

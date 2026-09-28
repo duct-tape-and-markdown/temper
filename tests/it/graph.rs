@@ -1844,6 +1844,117 @@ mod embedded_edge_targets {
             run.output
         );
     }
+
+    /// The nested member's whole address — the one spelling every mention finding over it
+    /// must name it by, and the id its `Features` already carry.
+    const BILLING: &str = "service:service/domain/billing";
+
+    /// The same `billing` domain, gated by a `paths` leaf — a nested member with a gate a
+    /// `mention-reachable` clause can read off it, exactly as a file member's frontmatter.
+    fn gated_domain_row(paths: &str) -> NestedMemberRow {
+        NestedMemberRow {
+            leaves: BTreeMap::from([("paths".to_string(), paths.to_string())]),
+            ..domain_row("billing")
+        }
+    }
+
+    /// Drive a `mention-reachable` case whose **target** is the nested `billing` domain
+    /// gated to `docs/**`: a rule `style` scoped by `rule_paths` mentioning it by its whole
+    /// address, with the clause bound to `style` off the `gate` requirement.
+    fn nested_target_run(slug: &str, rule_paths: Option<&str>) -> common::CheckRun {
+        let root = common::scaffold(slug);
+        write_service(&root, "billing");
+        common::write_sibling(
+            &root,
+            ".claude/rules/style.md",
+            &common::scoped_rule(rule_paths),
+        );
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&["domain"])],
+                nested_members: vec![gated_domain_row("docs/**")],
+                mentions: vec![common::mention("rule:style", BILLING)],
+                requirements: vec![mention_reachable_requirement()],
+                ..Declarations::default()
+            },
+        );
+        common::author_satisfies(&root, "rules", "style", &["gate"]);
+
+        common::check_in(&root, &[], None)
+    }
+
+    /// A `mention-reachable` finding whose target is a nested member names that member's
+    /// whole address and nothing else. A nested member's node is `(<nested-kind>,
+    /// <whole-address>)`, so a finding that colon-joins the two halves back together spells
+    /// `domain:service:service/domain/billing` — an address no author ever wrote and no
+    /// reader parses. Both message arms are pinned: the unscoped source and the
+    /// uncontained-scope one each named the target by hand.
+    #[test]
+    fn a_mention_reachable_finding_names_a_nested_target_by_its_whole_address() {
+        for (slug, rule_paths) in [
+            ("mr-nested-unscoped", None),
+            ("mr-nested-uncontained", Some("src/**")),
+        ] {
+            let run = nested_target_run(slug, rule_paths);
+            assert!(
+                run.output.contains("mention-reachable") && run.output.contains(BILLING),
+                "the finding names the predicate and the nested target's whole address, got:\n{}",
+                run.output
+            );
+            assert!(
+                !run.output.contains(&format!("domain:{BILLING}")),
+                "and never its kind colon-joined onto that address, got:\n{}",
+                run.output
+            );
+        }
+    }
+
+    /// The route family's source-side twin: a mention *from* a nested member names that
+    /// member's whole address once. `edge.from` comes off the same node grammar as
+    /// `edge.to`, so the hand-rolled `kind:id` spelling doubled a body-carried mention's
+    /// source — locus and message both.
+    #[test]
+    fn a_dangling_mention_from_a_nested_source_names_it_by_its_whole_address() {
+        let root = common::scaffold("mention-route-nested-source");
+        // The `billing` domain mentions `skill:ghost`, absent from the corpus: the deferred
+        // mention's dangling verdict is check's, and it names its citing member.
+        write_service(&root, "billing");
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&["domain"])],
+                nested_members: vec![domain_row("billing")],
+                mentions: vec![common::mention(BILLING, "skill:ghost")],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], Some("github"));
+        assert!(
+            !run.ok,
+            "a mention whose target is absent from the corpus dangles ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        let findings = run.findings();
+        let route = common::findings_for(&findings, "graph.route");
+        assert_eq!(
+            route.len(),
+            1,
+            "one dangling verdict for the one mention, got:\n{}",
+            run.output
+        );
+        assert!(
+            route[0].contains(BILLING) && route[0].contains("ghost"),
+            "the finding names its nested citing member and the dangling target, got: {}",
+            route[0]
+        );
+        assert!(
+            !route[0].contains(&format!("domain:{BILLING}")),
+            "and never doubles the source's kind onto its address, got: {}",
+            route[0]
+        );
+    }
 }
 
 /// End-to-end proof of the **source** side of the same grain: an embedded member's own

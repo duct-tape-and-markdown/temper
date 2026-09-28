@@ -30,7 +30,8 @@ use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
 use crate::member_address::{
-    embedded_source_host, parse_host_address, parse_leaf_address, parse_nested_address,
+    embedded_source_host, host_address, parse_host_address, parse_leaf_address,
+    parse_nested_address,
 };
 use crate::read::resolve_leaf;
 
@@ -736,25 +737,22 @@ pub fn mention_reachable(
                         continue;
                     }
                     let scope = declared_globs(features, scope_field);
+                    let mentioned = render_node(&edge.to);
                     let message = if scope.is_empty() {
                         format!(
-                            "`{}` is unscoped, but its mention of `{}:{}` is actionable only \
+                            "`{}` is unscoped, but its mention of `{mentioned}` is actionable only \
                              inside that member's `{gate_field}` gate ({}): scope \
                              `{}`'s `{scope_field}` to the gate, or ungate the target",
                             features.id,
-                            edge.to.0,
-                            edge.to.1,
                             quoted(&gate),
                             features.id,
                         )
                     } else if let Some(uncovered) = uncontained(&scope, &gate) {
                         format!(
                             "`{}`'s `{scope_field}` glob `{uncovered}` is not in the \
-                             `{gate_field}` gate of the member it mentions, `{}:{}` ({}), so \
+                             `{gate_field}` gate of the member it mentions, `{mentioned}` ({}), so \
                              the mention can fire where that member cannot be invoked",
                             features.id,
-                            edge.to.0,
-                            edge.to.1,
                             quoted(&gate),
                         )
                     } else {
@@ -2266,15 +2264,17 @@ fn ambiguous_route(edge: &Edge, source: &str, target: &str, hosts: &[&str]) -> D
     )
 }
 
-/// Render a mention target [`Node`] as the author wrote it: a top-level member as its
-/// `kind:name` address, a requirement as its bare name, and a nested member — or an
-/// embedded leaf — as the whole address that is already its id.
-fn render_target(node: &Node) -> String {
+/// Render a [`Node`] — either endpoint of a mention — as the author wrote it: a top-level
+/// member as its `kind:name` [`host_address`], a requirement as its bare name, and a nested
+/// member — or an embedded leaf — as the whole address that is already its id. The one home
+/// for spelling a node back out, so no mention finding names a nested member by colon-joining
+/// its kind onto an id that is already a whole address.
+fn render_node(node: &Node) -> String {
     let (kind, name) = node;
     if reserved_node(node).is_some() || parse_nested_address(name).is_some() {
         name.clone()
     } else {
-        format!("{kind}:{name}")
+        host_address(kind, name)
     }
 }
 
@@ -2282,8 +2282,8 @@ fn render_target(node: &Node) -> String {
 /// discovered corpus — naming the citing member and the dangling target
 /// ([`route_mentions`]).
 fn dangling_mention(edge: &ResolvedEdge) -> Diagnostic {
-    let (from_kind, from_id) = &edge.from;
-    let target = render_target(&edge.to);
+    let source = render_node(&edge.from);
+    let target = render_node(&edge.to);
     let resolves_against = if reserved_node(&edge.to) == Some(REQUIREMENT_KIND) {
         "requirement"
     } else {
@@ -2291,9 +2291,9 @@ fn dangling_mention(edge: &ResolvedEdge) -> Diagnostic {
     };
     Diagnostic::error(
         GRAPH_ROUTE_RULE,
-        format!("{from_kind}:{from_id}"),
+        source.as_str(),
         format!(
-            "`{from_kind}:{from_id}` mentions `{target}`, which resolves to no {resolves_against} in the discovered corpus",
+            "`{source}` mentions `{target}`, which resolves to no {resolves_against} in the discovered corpus",
         ),
     )
 }
@@ -2302,13 +2302,13 @@ fn dangling_mention(edge: &ResolvedEdge) -> Diagnostic {
 /// [`dangling_mention`] twin, in the same wording the declared-reference family refuses
 /// with ([`ambiguous_bare_key`]).
 fn ambiguous_mention(edge: &ResolvedEdge, hosts: &[&str]) -> Diagnostic {
-    let (from_kind, from_id) = &edge.from;
-    let target = render_target(&edge.to);
+    let source = render_node(&edge.from);
+    let target = render_node(&edge.to);
     Diagnostic::error(
         GRAPH_ROUTE_RULE,
-        format!("{from_kind}:{from_id}"),
+        source.as_str(),
         format!(
-            "`{from_kind}:{from_id}` mentions `{target}`, {}",
+            "`{source}` mentions `{target}`, {}",
             ambiguous_bare_key(hosts)
         ),
     )

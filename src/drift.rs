@@ -1272,7 +1272,7 @@ pub fn emit(
             if root_path == workspace || root_path.starts_with(format!("{}/", crate::WORKSPACE_DIR))
             {
                 return Err(DriftError::AtLocusUnderWorkspace {
-                    member: format!("{}:{}", &facts.name, member.name),
+                    member: host_address(&facts.name, &member.name),
                     kind: member.kind.clone(),
                     root: root.to_string(),
                 }

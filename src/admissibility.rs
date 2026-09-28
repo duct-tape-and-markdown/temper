@@ -202,7 +202,7 @@ pub fn satisfies_label_admissibility(
             (kinds.len() > 1).then(|| {
                 let qualified = kinds
                     .iter()
-                    .map(|kind| format!("`{kind}:{member}`"))
+                    .map(|kind| format!("`{}`", member_address::host_address(kind, member)))
                     .collect::<Vec<_>>()
                     .join(" or ");
                 check::Diagnostic::error(
