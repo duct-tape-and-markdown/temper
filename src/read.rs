@@ -1212,6 +1212,25 @@ fn why_impl(
     out
 }
 
+/// Name either endpoint of an edge in `why`'s voice, one species at a time. The species
+/// is the graph's ([`graph::node_species`], the one classifier), so the narration cannot
+/// come to disagree with the gate about what a node is; the *wording* is `explain`'s, and
+/// it is the vocabulary `specs/model/contract.md` ("Read verbs") already enumerates — a
+/// member, a requirement, a leaf.
+///
+/// Only a member carries a kind to name, so only a member reads `` `id` (kind) ``. The
+/// two reserved nodes are named by species instead: the reserved embedded-leaf kind is
+/// a marker distinct from every artifact kind, and spelling it in the kind slot would
+/// tell a reader the surface declares a kind called `embedded`.
+fn narrate_node(node: &graph::Node) -> String {
+    let (kind, id) = node;
+    match graph::node_species(node) {
+        graph::NodeSpecies::Member => format!("`{id}` ({kind})"),
+        graph::NodeSpecies::Requirement => format!("requirement `{id}`"),
+        graph::NodeSpecies::EmbeddedLeaf => format!("leaf `{id}`"),
+    }
+}
+
 /// Narrate one matched member into `out` — the full forward walk for a single
 /// `(kind, id)` node.
 fn why_one(
@@ -1273,10 +1292,10 @@ fn why_one(
              composes, the exact set the gate ranges over):"
         );
         for edge in outgoing {
-            let (to_kind, to_id) = &edge.to;
             let _ = writeln!(
                 out,
-                "  • it points at `{to_id}` ({to_kind}) via its `{}` field",
+                "  • it points at {} via its `{}` field",
+                narrate_node(&edge.to),
                 edge.field
             );
         }
@@ -1284,10 +1303,10 @@ fn why_one(
         // admits and the members its body composes, so naming a field here would name a
         // declaration no author wrote.
         for edge in contains {
-            let (to_kind, to_id) = &edge.to;
             let _ = writeln!(
                 out,
-                "  • it contains `{to_id}` ({to_kind}) — an embedded member its body composes"
+                "  • it contains {} — an embedded member its body composes",
+                narrate_node(&edge.to)
             );
         }
     }
@@ -1296,19 +1315,11 @@ fn why_one(
     // corpus. It fired the gate's `graph.route` finding, so it reads as dangling here, not
     // as a resolved edge.
     for edge in dangling_mentions.iter().filter(|edge| edge.from == node) {
-        let (to_kind, to_id) = &edge.to;
-        // A nested member of a kind the corpus happens to name `requirement` is a member,
-        // not the reserved requirement node — its id is its whole address, which the
-        // reserved node's bare name never is.
-        let target = if to_kind == graph::REQUIREMENT_KIND && nested_key(to_id).is_none() {
-            format!("requirement `{to_id}`")
-        } else {
-            format!("`{to_id}` ({to_kind})")
-        };
         let _ = writeln!(
             out,
-            "  • it mentions {target}, which resolves to nothing in the surface — a \
-             dangling mention `check` reports."
+            "  • it mentions {}, which resolves to nothing in the surface — a \
+             dangling mention `check` reports.",
+            narrate_node(&edge.to)
         );
     }
 
@@ -1324,18 +1335,18 @@ fn why_one(
              composes it):"
         );
         for edge in incoming {
-            let (from_kind, from_id) = &edge.from;
             let _ = writeln!(
                 out,
-                "  • `{from_id}` ({from_kind}) points at it via its `{}` field",
+                "  • {} points at it via its `{}` field",
+                narrate_node(&edge.from),
                 edge.field
             );
         }
         for edge in contained_by {
-            let (from_kind, from_id) = &edge.from;
             let _ = writeln!(
                 out,
-                "  • `{from_id}` ({from_kind}) contains it — its body composes this member"
+                "  • {} contains it — its body composes this member",
+                narrate_node(&edge.from)
             );
         }
     }

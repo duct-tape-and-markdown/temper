@@ -632,6 +632,95 @@ mod mention_narration {
             "a dangling mention is never narrated as a resolved edge: {out}"
         );
     }
+
+    #[test]
+    fn a_dangling_mention_to_a_bare_name_narrates_it_as_a_requirement() {
+        // The species half that already held: a bare name binds the reserved requirement
+        // node, and `why` names it by species — never `` `ghost-req` (requirement) ``, as
+        // though the corpus declared a kind called `requirement`.
+        let rules = [feature("style", &[])];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+        let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+        let mentions = mention_edges("rule:style", "ghost-req");
+
+        let out = read::why(
+            &[],
+            &roster,
+            &BTreeMap::new(),
+            &by_kind,
+            &[],
+            &mentions,
+            "style",
+        );
+        assert!(
+            out.contains("it mentions requirement `ghost-req`, which resolves to nothing"),
+            "a dangling bare-name mention narrates its target as a requirement: {out}"
+        );
+        assert!(
+            !out.contains("(requirement)"),
+            "the reserved requirement node is never named as a kind: {out}"
+        );
+    }
+
+    #[test]
+    fn a_dangling_mention_to_a_leaf_address_narrates_it_as_a_leaf() {
+        // `EMBEDDED_LEAF_KIND` is a marker distinct from every artifact kind, so naming it
+        // in the kind slot tells a reader the surface declares a kind called `embedded`.
+        // A leaf is named by species, exactly as a requirement is.
+        let rules = [feature("style", &[])];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+        let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+        let mentions = mention_edges("rule:style", "rule:other/hook/on-enter/command");
+
+        let out = read::why(
+            &[],
+            &roster,
+            &BTreeMap::new(),
+            &by_kind,
+            &[],
+            &mentions,
+            "style",
+        );
+        assert!(
+            out.contains(
+                "it mentions leaf `rule:other/hook/on-enter/command`, which resolves to nothing"
+            ),
+            "a dangling leaf-address mention narrates its target as a leaf: {out}"
+        );
+        assert!(
+            !out.contains("(embedded)"),
+            "the reserved embedded-leaf marker is never named as a kind: {out}"
+        );
+    }
+
+    #[test]
+    fn a_mention_from_a_leaf_address_narrates_the_leaf_as_a_leaf() {
+        // The incoming side of the same species question: the mention *source* is a leaf
+        // address the SDK's own leaf writer emits, and the target resolves, so the edge
+        // lands in the resolved set `why` narrates as an edge in.
+        let rules = [feature("style", &[])];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+        let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+        let mentions = mention_edges("style/hook/on-enter/command", "rule:style");
+
+        let out = read::why(
+            &[],
+            &roster,
+            &BTreeMap::new(),
+            &by_kind,
+            &[],
+            &mentions,
+            "style",
+        );
+        assert!(
+            out.contains("leaf `style/hook/on-enter/command` points at it via its `mention` field"),
+            "a mention from a leaf address narrates its source as a leaf: {out}"
+        );
+        assert!(
+            !out.contains("(embedded)"),
+            "the reserved embedded-leaf marker is never named as a kind: {out}"
+        );
+    }
 }
 
 /// `why` narrates the **containment** family in its own voice (decision 0052): a host

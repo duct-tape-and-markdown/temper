@@ -1677,21 +1677,22 @@ pub struct MentionDeclaration {
 /// The reserved kind a bare requirement name resolves under — distinct from [`world`]
 /// and every artifact kind, so a requirement-targeted mention binds a node the
 /// degree/explain traversals range over and route resolution ([`route_mentions`])
-/// resolves against the roster rather than the by-kind corpus. Exposed so the read family
-/// renders a requirement-targeted mention as its bare name, never a `requirement:name`
-/// address no author wrote (READ-EDGE-UNIFY).
+/// resolves against the roster rather than the by-kind corpus.
 ///
 /// Reserved among *node* kinds, not among corpus kinds: a corpus may declare a nested
 /// kind spelled `requirement` (this one's members are the roster's, which has no kind at
-/// all), so the two are told apart by the node's id — `reserved_node`.
-pub const REQUIREMENT_KIND: &str = "requirement";
+/// all), so the two are told apart by the node's id — [`node_species`]. The kind string
+/// stays private to this module: a consumer asking which species a node is matches
+/// [`NodeSpecies`], never re-compares this constant.
+const REQUIREMENT_KIND: &str = "requirement";
 
 /// The reserved kind an embedded-leaf address resolves under — distinct from [`world`],
 /// [`REQUIREMENT_KIND`], and every artifact kind, so an embedded-leaf mention binds a node
 /// route resolution ([`route_mentions`]) resolves against the embedded leaves. Used with
 /// the full leaf address (e.g., `member/kind/key/child-path`) as the node's id. Reserved
 /// among node kinds on the same terms as [`REQUIREMENT_KIND`], and told from a corpus
-/// kind of the same name by [`reserved_node`].
+/// kind of the same name by [`node_species`]. A marker, never an artifact kind — no
+/// reader may spell it back out as one.
 const EMBEDDED_LEAF_KIND: &str = "embedded";
 
 /// Parse an address a mention may name into its graph [`Node`], reading the **grammar**
@@ -1717,17 +1718,37 @@ fn node_from_address(address: &str) -> Node {
     }
 }
 
-/// Whether a [`Node`] is one of the two **reserved** ones [`node_from_address`] mints for
-/// an address that names no member — a leaf under [`EMBEDDED_LEAF_KIND`], a bare
-/// requirement name under [`REQUIREMENT_KIND`]. Read off the grammar, never the kind
-/// string alone: a corpus is free to declare a nested kind *named* `requirement` or
-/// `embedded`, and such a member's node carries its whole address as its id, which no
-/// reserved node ever does.
-fn reserved_node(node: &Node) -> Option<&str> {
+/// Which of the three things a [`Node`] is — the one classification of node species,
+/// matched exhaustively by every consumer so a fourth species refuses to compile until
+/// each judge answers it (`specs/process/engineering.md`, "A shared concept is one
+/// type").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NodeSpecies {
+    /// A member of a corpus kind — top-level or nested — whose `.0` really is its kind.
+    Member,
+    /// The reserved node a bare requirement name binds, resolved against the roster.
+    Requirement,
+    /// The reserved node an embedded-leaf address binds, resolved against the corpus's
+    /// embedded leaves. Its `.0` is the [`EMBEDDED_LEAF_KIND`] marker, not a kind.
+    EmbeddedLeaf,
+}
+
+/// Classify a [`Node`] into its [`NodeSpecies`] — the tree's one answer to "which species
+/// is this node", read off the **grammar** and never the kind string alone: a corpus is
+/// free to declare a nested kind *named* `requirement` or `embedded`, and such a member's
+/// node carries its whole address as its id, which no reserved node ever does.
+///
+/// `pub(crate)` for [`crate::read`], the one out-of-module consumer, which names each
+/// species in `explain`'s own voice (`specs/model/contract.md`, "Read verbs").
+pub(crate) fn node_species(node: &Node) -> NodeSpecies {
     if parse_nested_address(&node.1).is_some() {
-        return None;
+        return NodeSpecies::Member;
     }
-    (node.0 == EMBEDDED_LEAF_KIND || node.0 == REQUIREMENT_KIND).then_some(node.0.as_str())
+    match node.0.as_str() {
+        EMBEDDED_LEAF_KIND => NodeSpecies::EmbeddedLeaf,
+        REQUIREMENT_KIND => NodeSpecies::Requirement,
+        _ => NodeSpecies::Member,
+    }
 }
 
 /// Lift the lock's `mention` rows into [`ResolvedEdge`]s by parsing both addresses
@@ -1769,23 +1790,24 @@ fn mention_finding(
         return None;
     }
     let (kind, name) = &edge.to;
-    // The reserved node kinds are read through [`reserved_node`], not off the kind string:
-    // a nested member's node carries its declared kind, which a corpus may spell
-    // `requirement` — and its identity is its whole address, which resolves at member
-    // grain below exactly as a `kind:name` target does.
-    match reserved_node(&edge.to) {
-        Some(EMBEDDED_LEAF_KIND) => {
+    // The species is read through [`node_species`], not off the kind string: a nested
+    // member's node carries its declared kind, which a corpus may spell `requirement` —
+    // and its identity is its whole address, which resolves at member grain exactly as a
+    // `kind:name` target does.
+    match node_species(&edge.to) {
+        NodeSpecies::EmbeddedLeaf => {
             let resolved = parse_leaf_address(name)
                 .is_some_and(|parsed| resolve_leaf(by_kind, &parsed).is_some());
-            return (!resolved).then(|| dangling_mention(edge));
+            (!resolved).then(|| dangling_mention(edge))
         }
-        Some(_) => return (!requirements.contains_key(name)).then(|| dangling_mention(edge)),
-        None => {}
-    }
-    match resolve_target(by_kind, kind, name) {
-        Membership::One(_) => None,
-        Membership::Ambiguous(hosts) => Some(ambiguous_mention(edge, &hosts)),
-        Membership::Missing => Some(dangling_mention(edge)),
+        NodeSpecies::Requirement => {
+            (!requirements.contains_key(name)).then(|| dangling_mention(edge))
+        }
+        NodeSpecies::Member => match resolve_target(by_kind, kind, name) {
+            Membership::One(_) => None,
+            Membership::Ambiguous(hosts) => Some(ambiguous_mention(edge, &hosts)),
+            Membership::Missing => Some(dangling_mention(edge)),
+        },
     }
 }
 
@@ -2271,10 +2293,12 @@ fn ambiguous_route(edge: &Edge, source: &str, target: &str, hosts: &[&str]) -> D
 /// its kind onto an id that is already a whole address.
 fn render_node(node: &Node) -> String {
     let (kind, name) = node;
-    if reserved_node(node).is_some() || parse_nested_address(name).is_some() {
-        name.clone()
-    } else {
-        host_address(kind, name)
+    match node_species(node) {
+        NodeSpecies::Requirement | NodeSpecies::EmbeddedLeaf => name.clone(),
+        // A nested member's id is already its whole address; only a top-level member's
+        // node splits back into `kind:name`.
+        NodeSpecies::Member if parse_nested_address(name).is_some() => name.clone(),
+        NodeSpecies::Member => host_address(kind, name),
     }
 }
 
@@ -2284,10 +2308,11 @@ fn render_node(node: &Node) -> String {
 fn dangling_mention(edge: &ResolvedEdge) -> Diagnostic {
     let source = render_node(&edge.from);
     let target = render_node(&edge.to);
-    let resolves_against = if reserved_node(&edge.to) == Some(REQUIREMENT_KIND) {
-        "requirement"
-    } else {
-        "member"
+    let resolves_against = match node_species(&edge.to) {
+        NodeSpecies::Requirement => "requirement",
+        // A leaf that resolves against no embedded leaf is reported against the member
+        // grain the corpus is searched at — the wording the gate has always used.
+        NodeSpecies::Member | NodeSpecies::EmbeddedLeaf => "member",
     };
     Diagnostic::error(
         GRAPH_ROUTE_RULE,
