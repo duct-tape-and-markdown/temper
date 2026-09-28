@@ -1,0 +1,9 @@
+---
+source: tests/it/display_rule.rs
+expression: render_member(&member)
+---
+<a id="decision.leaves-only"></a>
+### Decision: leaves-only
+
+<a id="decision.leaves-only.chosen"></a>
+**Chosen:** one authored leaf, no siblings

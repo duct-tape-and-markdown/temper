@@ -1,0 +1,6 @@
+---
+source: tests/it/display_rule.rs
+expression: render_member(&member)
+---
+<a id="decision.empty"></a>
+### Decision: empty

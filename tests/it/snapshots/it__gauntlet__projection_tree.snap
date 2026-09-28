@@ -1,0 +1,309 @@
+---
+source: tests/it/gauntlet.rs
+expression: "projection_tree(&harness, &report)"
+---
+# emit report
+
+guide:operate-the-gate -> Emitted @ docs/guides/operate-the-gate/GUIDE.md
+handbook:operate-the-gate -> Emitted @ docs/guides/operate-the-gate/conventions.md
+rule:authoring -> Emitted @ .claude/rules/authoring.md
+rule:conventions -> Emitted @ .claude/rules/conventions.md
+settings:settings -> Emitted @ .claude/settings.json
+
+# tree
+
+=== .claude/local/machine.md ===
+---
+mode: advisory
+---
+
+This workstation's own knob.
+
+=== .claude/rules/authoring.md ===
+---
+# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
+paths: ["src/**/*.rs"]
+---
+# Authoring
+
+How a change enters, and where the standard lives.
+
+
+See [conventions](conventions.md).
+
+=== .claude/rules/conventions.md ===
+---
+# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
+paths: ["src/**/*.rs"]
+---
+# Conventions
+
+The standing bar every module holds.
+
+=== .claude/settings.json ===
+{
+  "enabledPlugins": {
+    "formatter@acme-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "acme-marketplace": {
+      "source": "./vendor/acme-marketplace"
+    }
+  },
+  "hooks": {
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "http",
+            "url": "https://hooks.example.com/audit"
+          }
+        ],
+        "matcher": "Write"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "temper reporter",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "autoMemoryEnabled": false,
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)"
+    ]
+  }
+}
+
+=== .gitignore ===
+.claude/local/
+
+=== .temper/lock.toml ===
+[[guide]]
+name = "operate-the-gate"
+source_path = "docs/guides/operate-the-gate/GUIDE.md"
+source_hash = "2afc40bd9ab8f3fa78f8675e13dbf9a3a98bdea4f0aa86aa14c679f6be809563"
+emit_hash = "2afc40bd9ab8f3fa78f8675e13dbf9a3a98bdea4f0aa86aa14c679f6be809563"
+
+[[handbook]]
+name = "operate-the-gate"
+source_path = "docs/guides/operate-the-gate/conventions.md"
+source_hash = "552edf7357834fb223293bc7f5c3316f1341b3e1e62e7cd617ba62031b988d6c"
+emit_hash = "552edf7357834fb223293bc7f5c3316f1341b3e1e62e7cd617ba62031b988d6c"
+
+[[rule]]
+name = "authoring"
+source_path = ".claude/rules/authoring.md"
+source_hash = "c88e5507a7dd1b893526721f3969643b809cfb0d5d64d97b3496d9510ec857c6"
+emit_hash = "c88e5507a7dd1b893526721f3969643b809cfb0d5d64d97b3496d9510ec857c6"
+
+[[rule]]
+name = "conventions"
+source_path = ".claude/rules/conventions.md"
+source_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
+emit_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
+
+[[settings]]
+name = "settings"
+source_path = ".claude/settings.json"
+source_hash = "ac651535c1afa9c9bca50229b49531dadcb3c5a6a3773f0f117bd185cec2e026"
+emit_hash = "ac651535c1afa9c9bca50229b49531dadcb3c5a6a3773f0f117bd185cec2e026"
+
+[[declaration.kind]]
+name = "guide"
+governs_root = "docs/guides"
+governs_glob = "*/GUIDE.md"
+unit_shape = "directory"
+templates = [{ kind = "spec", path = "*.md" }]
+
+[[declaration.kind]]
+name = "handbook"
+governs_root = "docs/guides"
+governs_glob = "*/conventions.md"
+format = "yaml-frontmatter"
+unit_shape = "starred-segment"
+
+[[declaration.kind]]
+name = "hook"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["event(event)"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }
+guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings)."
+
+[[declaration.kind]]
+name = "installed-plugin"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["enablement(enabled)"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*", entry_shape = "scalar(enabled)" }
+
+[[declaration.kind]]
+name = "known-marketplace"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["registry"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "extraKnownMarketplaces.*", entry_shape = "object" }
+
+[[declaration.kind]]
+name = "machine"
+governs_root = ".claude/local"
+governs_glob = "*.md"
+commitment = "local"
+format = "yaml-frontmatter"
+unit_shape = "file"
+
+[[declaration.kind]]
+name = "rule"
+governs_root = ".claude/rules"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "file"
+registration = ["paths-match(paths)"]
+templates = [{ kind = "citation" }]
+guidance = "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
+
+[[declaration.kind]]
+name = "settings"
+governs_root = ".claude"
+governs_glob = "settings.json"
+format = "json-document"
+unit_shape = "file"
+
+[[declaration.kind]]
+name = "spec"
+unit_shape = "file"
+content = { regions = [{ region = "prose" }, { region = "field", slot = "intent" }, { region = "collection", member_kind = "invariant" }] }
+
+[[declaration.clause]]
+label = "machine.type.mode"
+kind = "machine"
+predicate = "type"
+field = "mode"
+severity = "advisory"
+value_type = ["string"]
+
+[[declaration.clause]]
+label = "root.reachable"
+predicate = "reachable"
+severity = "advisory"
+guidance = "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line."
+cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+label = "root.fresh"
+predicate = "fresh"
+severity = "advisory"
+guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
+
+[[declaration.clause]]
+label = "root.locus-declared"
+predicate = "locus-declared"
+severity = "advisory"
+guidance = "A document sits at a governed locus that your program declares no member for. Claude Code loads it, but temper maintains nothing about it: `emit` never writes or reaps it, `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared."
+
+[[declaration.assembly]]
+fact = "mode"
+value = "warn"
+
+[[declaration.assembly]]
+fact = "edge"
+from = "citation"
+field = "source"
+to = ["rule"]
+
+[[declaration.assembly]]
+fact = "edge"
+from = "installed-plugin"
+field = "marketplace"
+to = ["known-marketplace"]
+
+[[declaration.nested_member]]
+host = "rule:authoring"
+kind = "citation"
+key = "the-standard"
+leaves = { source = "rule:conventions" }
+placed_edges = ["source"]
+rendered_lines = 1
+rendered_chars = 34
+
+[[declaration.nested_member]]
+host = "spec:representation"
+kind = "invariant"
+key = "loud-or-nothing"
+leaves = { prose = "A gate never fabricates absence." }
+
+[[declaration.nested_member]]
+host = "spec:representation"
+kind = "invariant"
+key = "the-projection-is-not-the-database"
+leaves = { prose = "Facts are declared, never mined back." }
+
+[[declaration.registration]]
+kind = "hook"
+key = "PostToolUseFailure"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
+key = "SessionStart"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "installed-plugin"
+key = "formatter@acme-marketplace"
+manifest = "settings.json"
+key_path = "enabledPlugins.*"
+
+[[declaration.registration]]
+kind = "known-marketplace"
+key = "acme-marketplace"
+manifest = "settings.json"
+key_path = "extraKnownMarketplaces.*"
+
+[[declaration.layout_prose]]
+member = "spec:representation"
+region_index = 0
+prose = "The representation model, authored in prose."
+
+[[declaration.layout_source]]
+member = "spec:representation"
+source_path = "docs/guides/operate-the-gate/representation.md"
+
+=== docs/guides/operate-the-gate/GUIDE.md ===
+<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
+
+# Operate the gate
+
+=== docs/guides/operate-the-gate/conventions.md ===
+<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
+
+# Conventions
+
+=== docs/guides/operate-the-gate/representation.md ===
+The representation model, authored in prose.
+
+# Intent
+temper types the documents that program agents.
+
+# Invariants
+
+## Loud or nothing
+A gate never fabricates absence.
+
+## The projection is not the database
+Facts are declared, never mined back.

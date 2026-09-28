@@ -1,0 +1,3694 @@
+//! The lock's declaration-row family — the composed program's erased declarations.
+//!
+//! `emit` is the sole producer of a declaration-row family (kind facts, clauses,
+//! requirements — including the set-scope `count`/`unique`/`membership`/`degree`
+//! facets — assembly facts, and the member→requirement `satisfies` family) beside the
+//! existing provenance + emit-fingerprint rows, and the drift/gate side reads it back
+//! through [`temper::drift::read_declarations`]. These tests drive `emit` directly over
+//! hand-built [`Payload`]s — a golden-lock fixture (`tests/emit.rs`'s pattern), no
+//! scratch import — asserting the family is present and populated, that a double emit is
+//! byte-stable — the round-trip emit pins — and that a bare payload (no requirements,
+//! no satisfies) still round-trips.
+
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use crate::common;
+
+use temper::builtin;
+use temper::builtin_lock;
+use temper::compose;
+use temper::contract::{self, Clause, Contract, Predicate, Severity};
+use temper::drift::{
+    self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow,
+    CollectionEntryRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions,
+    KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember,
+    RangeBoundRow, RegistrationRow, RequirementRow, SatisfiesRow, SectionContainsRow, TemplateRow,
+};
+use temper::engine;
+use temper::extract::Features;
+use temper::kind::{
+    CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Primitive,
+};
+use temper::layout::{Layout, LayoutRegion};
+
+/// A host kind declaring both nesting layers a template can name: the embedded
+/// `decision` child kind (the shape [`tests/nested_member.rs`]'s `decision_kind` declares
+/// live), and a file child — the `note` kind at a path pattern relative to the host's own
+/// unit.
+fn spec_kind_facts_with_template() -> KindFactRow {
+    KindFactRow {
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("directory".to_string()),
+        templates: vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: Some("notes/*.md".to_string()),
+            },
+        ],
+        ..common::kind_facts("spec", "specs", "*.md")
+    }
+}
+
+/// A `spec` kind declaring a `layout` content in all three corpus primitives — an
+/// importing prose region, a field section filling a named slot, and a member collection
+/// of a named kind carrying an explicit key. The shape an SDK-declared layout kind's row
+/// carries into the lock.
+fn spec_kind_facts_with_layout() -> KindFactRow {
+    KindFactRow {
+        content: Some(LayoutRow {
+            regions: vec![
+                LayoutRegionRow {
+                    region: "prose".to_string(),
+                    import: Some("specs/intent.md".to_string()),
+                    slot: None,
+                    member_kind: None,
+                    key: None,
+                },
+                LayoutRegionRow {
+                    region: "field".to_string(),
+                    import: None,
+                    slot: Some("intent".to_string()),
+                    member_kind: None,
+                    key: None,
+                },
+                LayoutRegionRow {
+                    region: "collection".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: Some("invariant".to_string()),
+                    key: Some("core".to_string()),
+                },
+            ],
+        }),
+        ..common::kind_facts("spec", "specs", "*.md")
+    }
+}
+
+/// A `hook` kind declaring the two manifest-authoring facts 0021 phase 1 adds: the
+/// fields-only body shape (no body slot) and the collection address it registers at
+/// (`settings.json`'s `hooks.<Event>`). The shape an SDK-declared registration kind's row
+/// carries into the lock.
+fn hook_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            entry_shape: Some("group-array(hooks;matcher)".to_string()),
+        }),
+        ..common::kind_facts("hook", ".claude", "settings.json")
+    }
+}
+
+/// A second `hooks.<Event>` registration kind whose declared entry shape **diverges** from
+/// the one the per-key-path normalization fabricates for a shapeless row: it lifts
+/// `timeout` alongside `matcher`. The oracle for the column actually reaching the lock —
+/// no fallback can rescue this value, so it reads back only if emit wrote it.
+fn timed_hook_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            entry_shape: Some("group-array(hooks;matcher,timeout)".to_string()),
+        }),
+        ..common::kind_facts("timed-hook", ".claude", "settings.json")
+    }
+}
+
+/// A registration kind declaring an address but **no** entry shape — the row a lock
+/// written before the column was carried holds. Its wire form writes no `entry_shape`
+/// key, and the read-time normalization supplies the shape its key path had then.
+fn shapeless_hook_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            entry_shape: None,
+        }),
+        ..common::kind_facts("shapeless-hook", ".claude", "settings.json")
+    }
+}
+
+/// The one skill + one rule this file's payloads project.
+fn skill_and_rule_members() -> Vec<PayloadMember> {
+    vec![
+        common::skill_member(
+            "coordinate",
+            "Use when coordinating agents across axes; not for single-axis work.",
+            "# Coordinate\n\nDrive the team through the playbook.\n",
+        ),
+        common::rule_member(
+            "rust",
+            Some(&["src/**/*.rs"]),
+            "# Rust conventions\n\nPrefer a clone over a lifetime fight.\n",
+        ),
+    ]
+}
+
+/// A rich declaration set: a `block` enforcement mode, a `required` requirement, a
+/// second requirement exercising every set-scope facet (`count`/`unique`/`membership`/
+/// `degree`), and a member that opts into both via `satisfies` — so the requirement and
+/// satisfies families carry more than the bare-payload minimum.
+fn rich_declarations() -> Declarations {
+    Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
+        clauses: vec![
+            ClauseRow {
+                unit: None,
+                label: None,
+                kind: Some("skill".to_string()),
+                field: Some("description".to_string()),
+                ..common::clause("required", "required")
+            },
+            ClauseRow {
+                unit: None,
+                label: None,
+                kind: Some("rule".to_string()),
+                field: Some("paths".to_string()),
+                ..common::clause("required", "advisory")
+            },
+        ],
+        requirements: vec![
+            RequirementRow {
+                required: true,
+                ..common::requirement("review-coverage", false, Some("skill"))
+            },
+            RequirementRow {
+                clauses: vec![
+                    common::required_clause_row(
+                        "count",
+                        None,
+                        Some(CountBoundRow { min: 1, max: 2 }),
+                        None,
+                        None,
+                    ),
+                    ClauseRow {
+                        unit: None,
+                        label: None,
+                        field: Some("name".to_string()),
+                        ..common::clause("unique", "advisory")
+                    },
+                    common::required_clause_row(
+                        "membership",
+                        Some("name"),
+                        None,
+                        Some("review-coverage"),
+                        None,
+                    ),
+                    common::required_clause_row(
+                        "degree",
+                        None,
+                        None,
+                        None,
+                        Some(DegreeBoundRow {
+                            incoming: Some(EdgeBoundRow {
+                                min: Some(1),
+                                max: None,
+                            }),
+                            outgoing: Some(EdgeBoundRow {
+                                min: None,
+                                max: Some(3),
+                            }),
+                        }),
+                    ),
+                ],
+                ..common::requirement("roster-coverage", false, Some("skill"))
+            },
+        ],
+        assembly: vec![AssemblyFactRow {
+            fact: "mode".to_string(),
+            value: Some("block".to_string()),
+            from: None,
+            field: None,
+            to: None,
+        }],
+        satisfies: vec![
+            SatisfiesRow {
+                member: "coordinate".to_string(),
+                requirement: "review-coverage".to_string(),
+            },
+            SatisfiesRow {
+                member: "coordinate".to_string(),
+                requirement: "roster-coverage".to_string(),
+            },
+        ],
+        mentions: vec![MentionRow {
+            member: "skill:coordinate".to_string(),
+            target: "rule:rust".to_string(),
+        }],
+        includes: Vec::new(),
+        inputs: Vec::new(),
+        nested_members: Vec::new(),
+        registrations: Vec::new(),
+        settings: Vec::new(),
+    }
+}
+
+/// The whole seam payload: the one skill + one rule member, plus `declarations`.
+fn golden_payload(declarations: Declarations) -> Payload {
+    Payload {
+        version: drift::SEAM_VERSION,
+        declarations,
+        members: skill_and_rule_members(),
+    }
+}
+
+/// Compile `payload`'s projections and its whole lock into a fresh `<harness>/.temper`
+/// pair (`tests/emit.rs`'s `workspace` pattern) — the golden-lock fixture standing in for
+/// `import::run`, the retired scratch-copy producer.
+fn emitted(label: &str, payload: &Payload) -> (PathBuf, PathBuf) {
+    let harness = common::tmpdir(&format!("{label}-src"));
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    drift::emit(payload, &into, EmitOptions::default()).unwrap();
+    (harness, into)
+}
+
+#[test]
+fn lock_carries_all_four_declaration_families() {
+    let payload = golden_payload(rich_declarations());
+    let (_harness, into) = emitted("families", &payload);
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    // Kind facts: one per member-discovering built-in kind, name-sorted, carrying the
+    // declared runtime facts.
+    let skill = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "skill")
+        .expect("the skill kind fact is recorded");
+    assert_eq!(skill.provider.as_deref(), Some("claude-code"));
+    assert_eq!(skill.governs_root.as_deref(), Some(".claude/skills"));
+    assert_eq!(skill.governs_glob.as_deref(), Some("*/SKILL.md"));
+    assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
+    assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
+    assert_eq!(
+        skill.registration,
+        vec![
+            "user-invoked".to_string(),
+            "description-trigger(description)".to_string()
+        ]
+    );
+    assert!(
+        declarations.kinds.iter().any(|k| k.name == "rule"),
+        "the rule kind fact is recorded"
+    );
+
+    // Clauses: the built-in floor contract's clauses, keyed by kind.
+    assert!(
+        !declarations.clauses.is_empty(),
+        "the floor clauses are recorded"
+    );
+    assert!(
+        declarations
+            .clauses
+            .iter()
+            .any(|c| c.kind.as_deref() == Some("skill")),
+        "skill floor clauses are keyed by kind"
+    );
+    for clause in &declarations.clauses {
+        assert!(
+            matches!(clause.severity.as_str(), "required" | "advisory"),
+            "a clause severity is one of the declared vocabulary, got {:?}",
+            clause.severity
+        );
+    }
+
+    // Requirements: the assembly's `[requirement.*]` obligations.
+    let requirement = declarations
+        .requirements
+        .iter()
+        .find(|r| r.name == "review-coverage")
+        .expect("the declared requirement is recorded");
+    assert_eq!(requirement.kind.as_deref(), Some("skill"));
+    assert!(requirement.required);
+
+    // The set-scope demands: count/unique/membership/degree all carried as clause
+    // rows nested on the requirement.
+    let roster = declarations
+        .requirements
+        .iter()
+        .find(|r| r.name == "roster-coverage")
+        .expect("the set-scope requirement is recorded");
+    let count = roster
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "count")
+        .and_then(|c| c.count)
+        .expect("count bound is recorded");
+    assert_eq!((count.min, count.max), (1, 2));
+    let unique = roster
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "unique")
+        .expect("unique clause is recorded");
+    assert_eq!(unique.field.as_deref(), Some("name"));
+    let membership = roster
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "membership")
+        .expect("membership clause is recorded");
+    assert_eq!(membership.field.as_deref(), Some("name"));
+    assert_eq!(membership.target.as_deref(), Some("review-coverage"));
+    let degree = roster
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "degree")
+        .and_then(|c| c.degree.as_ref())
+        .expect("degree bound is recorded");
+    assert_eq!(degree.incoming.expect("incoming bound").min, Some(1));
+    assert_eq!(degree.incoming.expect("incoming bound").max, None);
+    assert_eq!(degree.outgoing.expect("outgoing bound").max, Some(3));
+    assert_eq!(degree.outgoing.expect("outgoing bound").min, None);
+
+    // Satisfies: the in-place member's declared fill keys, one row per key.
+    let mut satisfied: Vec<&str> = declarations
+        .satisfies
+        .iter()
+        .filter(|row| row.member == "coordinate")
+        .map(|row| row.requirement.as_str())
+        .collect();
+    satisfied.sort_unstable();
+    assert_eq!(satisfied, vec!["review-coverage", "roster-coverage"]);
+
+    // Assembly facts: the root member's declared enforcement mode.
+    let mode = declarations
+        .assembly
+        .iter()
+        .find(|f| f.fact == "mode")
+        .expect("the mode fact is recorded");
+    assert_eq!(mode.value.as_deref(), Some("block"));
+
+    // Mentions: the citing member's own address and the address its `n` names.
+    assert_eq!(
+        declarations.mentions,
+        vec![MentionRow {
+            member: "skill:coordinate".to_string(),
+            target: "rule:rust".to_string(),
+        }]
+    );
+}
+
+#[test]
+fn a_double_emit_is_byte_stable() {
+    let payload = golden_payload(rich_declarations());
+    let (_harness, into) = emitted("byte-stable", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // The declaration rows are a pure function of the same payload, so re-emitting
+    // reproduces the whole lock byte-for-byte.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let second = fs::read(&lock).unwrap();
+    assert_eq!(first, second, "a re-emit must not churn the lock");
+
+    // The declaration table survived the round-trip: reading it back yields the same
+    // populated families.
+    let declarations = drift::read_declarations(&into).unwrap();
+    assert!(!declarations.kinds.is_empty());
+    assert!(!declarations.clauses.is_empty());
+    assert!(!declarations.requirements.is_empty());
+    assert!(!declarations.assembly.is_empty());
+    assert!(!declarations.satisfies.is_empty());
+    assert!(!declarations.mentions.is_empty());
+}
+
+/// A requirement's authored `prose` (contract.md, "requirement — a shipped kind, not
+/// a primitive": carried, never interpreted) round-trips the lock row byte-for-byte —
+/// the emit/read_declarations half of the pipe `emit`'s the sole writer of.
+#[test]
+fn a_requirements_prose_round_trips_the_lock_row_verbatim() {
+    let mut declarations = rich_declarations();
+    declarations.requirements[0].prose =
+        Some("the corpus declares a governance model an architecture doc must satisfy".to_string());
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("requirement-prose", &payload);
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let requirement = read_back
+        .requirements
+        .iter()
+        .find(|r| r.name == "review-coverage")
+        .expect("the requirement is recorded");
+    assert_eq!(
+        requirement.prose.as_deref(),
+        Some("the corpus declares a governance model an architecture doc must satisfy"),
+        "the authored prose round-trips the lock row verbatim"
+    );
+}
+
+/// The other half of the pipe: a lock-declared requirement's `prose` reaches the
+/// running engine's own composed [`compose::Requirement`] and out through `explain`'s
+/// narration verbatim — the persistence gap this entry closes (`main.rs`'s
+/// `requirement_from_row` used to default it to `None` regardless of the row).
+#[test]
+fn a_requirements_prose_reaches_explains_narration_through_the_engine() {
+    let root = common::tmpdir("requirement-prose-engine-compose");
+    common::write_skill(
+        &root,
+        "governance-doc",
+        &common::clean_skill("governance-doc"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            requirements: vec![RequirementRow {
+                prose: Some(
+                    "the corpus declares a governance model an architecture doc must satisfy"
+                        .to_string(),
+                ),
+                required: true,
+                ..common::requirement("governance", false, Some("skill"))
+            }],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "governance-doc", &["governance"]);
+
+    let out = common::explain_in(&root, "governance");
+    assert!(
+        out.contains("the corpus declares a governance model an architecture doc must satisfy"),
+        "explain's engine-composed narration must carry the lock-declared prose verbatim, got:\n{out}"
+    );
+}
+
+/// A `ClauseRow` carrying the node-set/edge-scope predicates' arguments
+/// (`REQUIREMENT-CLAUSES-ALGEBRA`) round-trips through `to_table`/`from_table` byte-stably
+/// — the same law-5 double-emit guarantee `a_double_emit_is_byte_stable` pins for the rest
+/// of the declaration-row family.
+#[test]
+fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        count: Some(CountBoundRow { min: 1, max: 3 }),
+        ..common::clause("count", "required")
+    });
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        field: Some("name".to_string()),
+        ..common::clause("unique", "advisory")
+    });
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        field: Some("model".to_string()),
+        target: Some("approved-models".to_string()),
+        ..common::clause("membership", "required")
+    });
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        degree: Some(DegreeBoundRow {
+            incoming: Some(EdgeBoundRow {
+                min: Some(1),
+                max: None,
+            }),
+            outgoing: Some(EdgeBoundRow {
+                min: None,
+                max: Some(3),
+            }),
+        }),
+        ..common::clause("degree", "advisory")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-args", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: re-emitting the same payload reproduces
+    // the whole lock byte-for-byte.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let second = fs::read(&lock).unwrap();
+    assert_eq!(first, second, "a re-emit must not churn the lock");
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let count_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "count")
+        .expect("the count clause row round-trips");
+    let count = count_row.count.expect("count bound is recorded");
+    assert_eq!((count.min, count.max), (1, 3));
+
+    let unique_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "unique")
+        .expect("the unique clause row round-trips");
+    assert_eq!(unique_row.field.as_deref(), Some("name"));
+
+    let membership_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "membership")
+        .expect("the membership clause row round-trips");
+    assert_eq!(membership_row.field.as_deref(), Some("model"));
+    assert_eq!(membership_row.target.as_deref(), Some("approved-models"));
+
+    let degree_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "degree")
+        .expect("the degree clause row round-trips");
+    let degree = degree_row.degree.expect("degree bound is recorded");
+    assert_eq!(degree.incoming.expect("incoming bound").min, Some(1));
+    assert_eq!(degree.incoming.expect("incoming bound").max, None);
+    assert_eq!(degree.outgoing.expect("outgoing bound").min, None);
+    assert_eq!(degree.outgoing.expect("outgoing bound").max, Some(3));
+}
+
+/// A `degree` clause row round-trips its **field-set filter** — the shared `fields`
+/// column, not a key inside the direction-only `degree` bound. Two rows, one filtered
+/// and one not: the filtered set survives write→read, and the unfiltered row emits no
+/// `fields` key at all, so no committed lock row moves when a clause declares no filter.
+#[test]
+fn a_degree_clause_rows_field_set_filter_round_trips_and_is_absent_when_unfiltered() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("rule".to_string()),
+        degree: Some(DegreeBoundRow {
+            incoming: Some(EdgeBoundRow {
+                min: None,
+                max: Some(1),
+            }),
+            outgoing: None,
+        }),
+        fields: Some(vec!["writes".to_string(), "clobbers".to_string()]),
+        ..common::clause("degree", "required")
+    });
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        degree: Some(DegreeBoundRow {
+            incoming: Some(EdgeBoundRow {
+                min: Some(1),
+                max: None,
+            }),
+            outgoing: None,
+        }),
+        ..common::clause("degree", "advisory")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-degree-fields", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let filtered = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "degree" && c.kind.as_deref() == Some("rule"))
+        .expect("the filtered degree clause row round-trips");
+    assert_eq!(
+        filtered.fields.as_deref(),
+        Some(&["writes".to_string(), "clobbers".to_string()][..]),
+        "the filter survives write→read in declaration order"
+    );
+    let unfiltered = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "degree" && c.kind.as_deref() == Some("skill"))
+        .expect("the unfiltered degree clause row round-trips");
+    assert_eq!(
+        unfiltered.fields, None,
+        "an unfiltered bound carries no set"
+    );
+
+    // The unfiltered row's own table carries no `fields` key — absence on the wire, not
+    // an empty array a reader would have to spell a second meaning for.
+    let text = String::from_utf8(first).unwrap();
+    let unfiltered_table = text
+        .split("[[declaration.clause]]")
+        .find(|chunk| {
+            chunk.contains("predicate = \"degree\"") && chunk.contains("kind = \"skill\"")
+        })
+        .expect("the unfiltered degree row is written");
+    assert!(
+        !unfiltered_table.contains("fields ="),
+        "an unfiltered degree row must emit no filter key, got:\n{unfiltered_table}"
+    );
+
+    // The column is the wire the engine lifts: the filter must reach the typed predicate.
+    let predicate = contract::predicate_from_row(filtered)
+        .expect("the filtered degree row lifts to a predicate");
+    assert!(
+        matches!(&predicate, Predicate::Degree { fields: Some(set), .. } if set == &["writes", "clobbers"]),
+        "the lifted predicate carries the clause's own field set"
+    );
+}
+
+/// A `reached-from` clause row round-trips its two arguments across the columns it
+/// shares with its siblings — the roots requirement on `membership`'s `target` column,
+/// the via set on `degree`'s `fields` column. No column of its own: one concept, one
+/// column, and the lift reads neither from `field`, which carries only a label segment.
+#[test]
+fn a_reached_from_clause_row_round_trips_its_roots_and_via_set() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        target: Some("entrypoint".to_string()),
+        fields: Some(vec!["routes_to".to_string(), "cites".to_string()]),
+        ..common::clause("reached-from", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-reached-from", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "reached-from")
+        .expect("the reached-from clause row round-trips");
+    assert_eq!(
+        row.target.as_deref(),
+        Some("entrypoint"),
+        "the roots requirement survives write→read on the shared target column"
+    );
+    assert_eq!(
+        row.fields.as_deref(),
+        Some(&["routes_to".to_string(), "cites".to_string()][..]),
+        "the via set survives write→read in declaration order"
+    );
+
+    // The columns are the wire the engine lifts: both arguments must reach the typed
+    // predicate, and the lift must read neither of them off `field`.
+    let predicate =
+        contract::predicate_from_row(row).expect("the reached-from row lifts to a predicate");
+    assert!(
+        matches!(
+            &predicate,
+            Predicate::ReachedFrom { roots, via: Some(set) }
+                if roots == "entrypoint" && set == &["routes_to", "cites"]
+        ),
+        "the lifted predicate carries the clause's own roots and via set, got: {predicate:?}"
+    );
+}
+
+/// A `mention-reachable` clause row round-trips **both** field ends — the source's scope
+/// on the shared `field` column and the target's gate on its own `gate` column. The one
+/// two-argument predicate: `field` alone cannot carry both, so the `gate` column is the
+/// seam's vocabulary. This is a hand-built compiler-tier test of the lock's own row round-trip
+/// (emit/read_declarations). For the SDK-agreement claim — verifying the real SDK writes and
+/// the engine reads both ends identically — see
+/// `tests/builtin_lock_frozen.rs::the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader`.
+#[test]
+fn a_mention_reachable_clause_row_round_trips_both_field_ends() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("rule".to_string()),
+        field: Some("paths".to_string()),
+        gate: Some("paths".to_string()),
+        ..common::clause("mention-reachable", "advisory")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-mention-reachable", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "mention-reachable")
+        .expect("the mention-reachable clause row round-trips");
+    assert_eq!(row.field.as_deref(), Some("paths"), "the source scope end");
+    assert_eq!(row.gate.as_deref(), Some("paths"), "the target gate end");
+
+    // The row is the wire the engine lifts: both ends must reach the typed predicate,
+    // or the clause the lock carries is not the clause the judge runs.
+    assert_eq!(
+        contract::predicate_from_row(row),
+        Some(Predicate::MentionReachable {
+            scope_field: "paths".to_string(),
+            gate_field: "paths".to_string(),
+        }),
+        "both columns lift into the typed predicate"
+    );
+}
+
+/// The **root member's** clause row round-trips with its `kind` column absent — the one
+/// column that says whose contract carries a top-level row. It lifts into the root
+/// contract, where a kind-named row does not, and emit stamps it under the root owner
+/// segment so an author can spell its address back into a dial entry.
+#[test]
+fn a_root_clause_row_round_trips_with_its_kind_column_absent() {
+    let mut declarations = rich_declarations();
+    // `common::clause` leaves `kind` at `None`; at the top level that absence *is* the
+    // root declaration, and no other column carries the fact.
+    declarations
+        .clauses
+        .push(common::clause("reachable", "advisory"));
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-root-reachable", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "reachable")
+        .expect("the root reachable clause row round-trips");
+    assert_eq!(row.kind, None, "a root row names no kind");
+    assert_eq!(
+        row.label.as_deref(),
+        Some("root.reachable"),
+        "and emit stamps it under the root owner segment"
+    );
+    assert_eq!(
+        contract::predicate_from_row(row),
+        Some(Predicate::Reachable),
+        "the argument-free row lifts into the typed predicate"
+    );
+
+    // The two lifts partition the family: the root's row reaches the root contract, and
+    // no kind's contract picks it up.
+    let root = compose::root_contract_from_rows(&read_back.clauses).unwrap();
+    assert_eq!(
+        root.clauses
+            .iter()
+            .map(|clause| clause.label.as_str())
+            .collect::<Vec<_>>(),
+        vec!["root.reachable"],
+    );
+    for kind in ["rule", "skill"] {
+        let contract =
+            compose::default_contract_from_rows(&read_back.clauses, &read_back.kinds, kind)
+                .unwrap();
+        assert!(
+            !contract
+                .clauses
+                .iter()
+                .any(|clause| clause.predicate == Predicate::Reachable),
+            "the root's row is invisible to the `{kind}` contract",
+        );
+    }
+}
+
+/// A kind's own floor clause row round-trips its **node-scope predicate argument**
+/// (`LOCK-CLAUSE-PREDICATE-ARGS`) — `min_len`/`max_len`/`extent`'s bound,
+/// `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values — not just
+/// identity+severity, so a floor `Contract` is reconstructable from the rows alone.
+#[test]
+fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        field: Some("name".to_string()),
+        bound: Some(BoundRow {
+            min: None,
+            max: Some(64),
+        }),
+        ..common::clause("max_len", "required")
+    });
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
+        ..common::clause("forbidden_keys", "required")
+    });
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        field: Some("name".to_string()),
+        charset: Some(CharsetRow {
+            ranges: vec!["a-z".to_string(), "0-9".to_string()],
+            chars: Some("-".to_string()),
+        }),
+        ..common::clause("allowed_chars", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("floor-clause-args", &payload);
+    let read_back = drift::read_declarations(&into).unwrap();
+
+    let max_len_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "max_len" && c.field.as_deref() == Some("name"))
+        .expect("the max_len clause row round-trips");
+    let bound = max_len_row.bound.expect("the bound is recorded");
+    assert_eq!((bound.min, bound.max), (None, Some(64)));
+
+    let forbidden_keys_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "forbidden_keys")
+        .expect("the forbidden_keys clause row round-trips");
+    assert_eq!(
+        forbidden_keys_row.keys.as_deref(),
+        Some(["globs".to_string(), "alwaysApply".to_string()].as_slice())
+    );
+
+    let allowed_chars_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "allowed_chars")
+        .expect("the allowed_chars clause row round-trips");
+    let charset = allowed_chars_row
+        .charset
+        .as_ref()
+        .expect("the charset is recorded");
+    assert_eq!(charset.ranges, vec!["a-z".to_string(), "0-9".to_string()]);
+    assert_eq!(charset.chars.as_deref(), Some("-"));
+}
+
+/// The `range` (f64 bounds) and `section_contains` (heading+marker) clause rows
+/// round-trip their arguments through `to_table`/`from_table` byte-stably — the
+/// column homes `PREDICATE-CONSTRUCTORS` adds beside the existing node-scope args
+/// (`a_floor_clause_row_round_trips_its_node_scope_predicate_argument`).
+#[test]
+fn a_range_and_section_clause_row_round_trip_the_lock() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        field: Some("priority".to_string()),
+        range: Some(RangeBoundRow { min: 1.0, max: 5.5 }),
+        ..common::clause("range", "advisory")
+    });
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        section: Some(SectionContainsRow {
+            heading: "Decision".to_string(),
+            marker: "Rejected".to_string(),
+        }),
+        ..common::clause("section_contains", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("range-section-args", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the f64 bound formats stably across the round trip.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let range_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "range")
+        .expect("the range clause row round-trips");
+    let range = range_row.range.expect("the range bound is recorded");
+    assert_eq!((range.min, range.max), (1.0, 5.5));
+    assert_eq!(range_row.field.as_deref(), Some("priority"));
+
+    let section_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "section_contains")
+        .expect("the section_contains clause row round-trips");
+    let section = section_row
+        .section
+        .as_ref()
+        .expect("the section args are recorded");
+    assert_eq!(section.heading, "Decision");
+    assert_eq!(section.marker, "Rejected");
+}
+
+/// The `require_sections` (heading-list) clause row round-trips its arguments through
+/// `to_table`/`from_table` byte-stably — the column homes the `PREDICATE-CONSTRUCTORS`
+/// entry adds alongside the existing node-scope args.
+#[test]
+fn a_require_sections_clause_row_round_trips_the_lock() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        sections: Some(vec!["Usage".to_string(), "Decision".to_string()]),
+        ..common::clause("require_sections", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("require-sections-args", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the sections list formats stably across the round trip.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let require_sections_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "require_sections")
+        .expect("the require_sections clause row round-trips");
+    assert_eq!(
+        require_sections_row.sections.as_deref(),
+        Some(["Usage".to_string(), "Decision".to_string()].as_slice())
+    );
+
+    let predicate =
+        contract::predicate_from_row(require_sections_row).expect("require_sections lifts");
+    assert_eq!(
+        predicate,
+        Predicate::RequireSections {
+            sections: vec!["Usage".to_string(), "Decision".to_string()],
+        }
+    );
+}
+
+/// The five SDK-authorable predicates lift from their lock rows into the typed
+/// `Predicate` the engine evaluates (`PREDICATE-CONSTRUCTORS`): the row an SDK
+/// constructor emits decodes through `predicate_from_row`, and the lifted
+/// `section_contains` fires on a violating member — author → row → `Predicate` →
+/// finding.
+#[test]
+fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
+    let optional = ClauseRow {
+        unit: None,
+        label: None,
+        field: Some("model".to_string()),
+        ..common::clause("optional", "required")
+    };
+    assert_eq!(
+        contract::predicate_from_row(&optional),
+        Some(Predicate::Optional {
+            field: "model".to_string()
+        })
+    );
+
+    let range = ClauseRow {
+        unit: None,
+        label: None,
+        field: Some("priority".to_string()),
+        range: Some(RangeBoundRow { min: 1.0, max: 5.0 }),
+        ..common::clause("range", "required")
+    };
+    assert_eq!(
+        contract::predicate_from_row(&range),
+        Some(Predicate::Range {
+            field: "priority".to_string(),
+            min: 1.0,
+            max: 5.0,
+        })
+    );
+
+    let enumerated = ClauseRow {
+        unit: None,
+        label: None,
+        field: Some("status".to_string()),
+        values: Some(vec!["draft".to_string(), "final".to_string()]),
+        ..common::clause("enum", "required")
+    };
+    assert_eq!(
+        contract::predicate_from_row(&enumerated),
+        Some(Predicate::Enum {
+            field: "status".to_string(),
+            values: vec!["draft".to_string(), "final".to_string()],
+        })
+    );
+
+    let must_define = ClauseRow {
+        unit: None,
+        label: None,
+        field: Some("disable-model-invocation".to_string()),
+        ..common::clause("must_define", "required")
+    };
+    assert_eq!(
+        contract::predicate_from_row(&must_define),
+        Some(Predicate::MustDefine {
+            marker: "disable-model-invocation".to_string()
+        })
+    );
+
+    let section = ClauseRow {
+        unit: None,
+        label: None,
+        section: Some(SectionContainsRow {
+            heading: "Decision".to_string(),
+            marker: "Rejected".to_string(),
+        }),
+        ..common::clause("section_contains", "required")
+    };
+    let predicate = contract::predicate_from_row(&section).expect("section_contains lifts");
+    assert_eq!(
+        predicate,
+        Predicate::SectionContains {
+            heading: "Decision".to_string(),
+            marker: "Rejected".to_string(),
+        }
+    );
+
+    // The lifted predicate is a true positive: a `## Decision` section with no
+    // `Rejected` marker fires exactly one finding.
+    let contract = Contract {
+        name: "spec".to_string(),
+        guidance: None,
+        clauses: vec![Clause {
+            label: "spec.section_contains".to_string(),
+            severity: Severity::Required,
+            predicate,
+            guidance: None,
+            source: None,
+        }],
+    };
+    let unit = common::raw_unit(
+        "10-decisions",
+        BTreeMap::new(),
+        "# Spec\n\n## Decision: pick the generic engine\n\nChosen it; no alternative named.\n",
+        "specs/decisions.md",
+    );
+    let features: Features = Extraction::new(vec![Primitive::Sections]).extract(&unit);
+    let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
+    assert_eq!(diagnostics.len(), 1, "the bare Decision section fires once");
+    assert_eq!(diagnostics[0].rule, "spec.section_contains");
+
+    let require_sections = ClauseRow {
+        unit: None,
+        label: None,
+        sections: Some(vec!["Usage".to_string(), "Decision".to_string()]),
+        ..common::clause("require_sections", "required")
+    };
+    let predicate =
+        contract::predicate_from_row(&require_sections).expect("require_sections lifts");
+    assert_eq!(
+        predicate,
+        Predicate::RequireSections {
+            sections: vec!["Usage".to_string(), "Decision".to_string()],
+        }
+    );
+}
+
+/// A lock clause row the closed vocabulary cannot admit fails the run loud, never a
+/// silently dropped clause (`specs/model/contract.md`, "clause": an unknown predicate
+/// is rejected at load; `specs/model/pipeline.md`: the lock is tool-written, never
+/// hand-patched). A custom `spec` kind carrying a bogus-predicate clause row must
+/// error rather than check clean.
+#[test]
+fn check_rejects_a_lock_clause_row_the_closed_vocabulary_cannot_admit() {
+    let root = common::tmpdir("reject-out-of-vocabulary-clause");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            clauses: vec![ClauseRow {
+                unit: None,
+                label: None,
+                kind: Some("spec".to_string()),
+                ..common::clause("not_a_predicate", "advisory")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "an out-of-vocabulary clause row must fail the run loud, got:\n{output}"
+    );
+    assert!(
+        output.contains("not_a_predicate"),
+        "the load error names the offending predicate rather than dropping it, got:\n{output}"
+    );
+}
+
+/// A payload with no requirements/satisfies/assembly facts at all still emits and
+/// round-trips: those families are simply empty, never an error or a malformed row —
+/// the bootstrap's tolerant-read discipline extends to the new facets exactly as it
+/// does the existing ones.
+#[test]
+fn a_bare_harness_lock_still_round_trips() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("bare", &payload);
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    assert!(!declarations.kinds.is_empty());
+    assert!(!declarations.clauses.is_empty());
+    assert!(declarations.requirements.is_empty());
+    assert!(declarations.satisfies.is_empty());
+    assert!(declarations.mentions.is_empty());
+}
+
+/// A host kind's declared nesting templates — the embedded child kind it folds, and the
+/// file child's kind plus the path pattern its units sit at — round-trip through the lock's `kind`
+/// row unchanged, and a template-less kind (`rule`, `skill` here) still round-trips
+/// with no `templates` column at all (the empty-array-vanishes tolerance the rest of
+/// the declaration-row family already carries).
+#[test]
+fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            spec_kind_facts_with_template(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("nesting-templates", &payload);
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    let spec = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "spec")
+        .expect("the templated kind fact is recorded");
+    assert_eq!(
+        spec.templates,
+        vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: Some("notes/*.md".to_string()),
+            },
+        ],
+        "both nesting layers survive the wire: the embedded child by kind alone, the file \
+         child carrying its path pattern"
+    );
+
+    let rule = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the template-less kind fact is recorded");
+    assert!(
+        rule.templates.is_empty(),
+        "a kind declaring no templates round-trips with an empty templates column"
+    );
+}
+
+/// A kind's declared leaf set — the leaf names a member of it carries, derived at emit
+/// from the value type the SDK knows — survives write→read through the lock's `kind` row
+/// in declaration order, and a kind declaring none writes no `leaves` key at all, so a
+/// lock committed before the column existed re-reads byte-identically.
+#[test]
+fn a_kinds_declared_leaf_set_round_trips_through_the_lock() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            KindFactRow {
+                // Authored out of alphabetical order: the column is the declaration's
+                // own sequence, never a sorted rendering of it.
+                leaves: vec!["chosen".to_string(), "because".to_string()],
+                ..common::kind_facts("decision", "specs/decisions", "*.md")
+            },
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("kind-leaf-set", &payload);
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    let decision = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "decision")
+        .expect("the leaf-carrying kind fact is recorded");
+    assert_eq!(
+        decision.leaves,
+        vec!["chosen".to_string(), "because".to_string()],
+        "the declared leaf set survives the wire in declaration order"
+    );
+
+    let rule = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the leafless kind fact is recorded");
+    assert!(
+        rule.leaves.is_empty(),
+        "a kind declaring no leaf set round-trips with an empty leaves column"
+    );
+
+    let lock = fs::read_to_string(into.join(temper::LOCK_FILENAME)).unwrap();
+    assert_eq!(
+        lock.matches("leaves = ").count(),
+        1,
+        "only the declaring kind writes the key; a leafless row spells none:\n{lock}"
+    );
+}
+
+/// A host kind whose templates are all path-less — the shape an admitted embedded kind
+/// mints, and the only shape the legacy bare-string spelling could shape.
+fn spec_kind_facts_with_embedded_templates() -> KindFactRow {
+    KindFactRow {
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("directory".to_string()),
+        templates: vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: None,
+            },
+        ],
+        ..common::kind_facts("spec", "specs", "*.md")
+    }
+}
+
+/// Rewrite the one `templates` column in `text` to `spelling`, standing in for the lock
+/// an older engine really committed. Panics unless exactly one column matched — a silent
+/// no-op would leave the case asserting nothing.
+fn respell_templates_column(text: &str, spelling: &str) -> String {
+    let mut hits = 0;
+    let out = text
+        .lines()
+        .map(|line| {
+            if line.starts_with("templates = ") {
+                hits += 1;
+                format!("templates = {spelling}")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_eq!(hits, 1, "expected exactly one templates column in:\n{text}");
+    format!("{out}\n")
+}
+
+/// A committed lock carrying the legacy bare-string `templates` spelling loads: each
+/// string lifts to the same path-less [`TemplateRow`] the canonical inline table yields,
+/// the read never patches the committed file, and the next emit rewrites the column whole
+/// in canonical form.
+#[test]
+fn a_locks_legacy_bare_string_templates_read_as_kinds_and_re_emit_canonically() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            spec_kind_facts_with_embedded_templates(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("legacy-templates", &payload);
+    let lock = into.join("lock.toml");
+    let canonical = fs::read_to_string(&lock).unwrap();
+    assert!(
+        canonical.contains(r#"templates = [{ kind = "decision" }, { kind = "note" }]"#),
+        "today's emit writes the canonical inline-table spelling, got:\n{canonical}"
+    );
+
+    // The lock an older engine committed: the same fact, spelled as bare strings.
+    let legacy = respell_templates_column(&canonical, r#"["decision", "note"]"#);
+    fs::write(&lock, &legacy).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let spec = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "spec")
+        .expect("the templated kind fact is recorded");
+    assert_eq!(
+        spec.templates,
+        spec_kind_facts_with_embedded_templates().templates,
+        "a bare string is a spelling of the path-less template, never a lossy one"
+    );
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        legacy,
+        "the read normalizes the spelling; the committed file is never patched in place"
+    );
+
+    // The rewrite is the next emit's, and it writes the lock whole in canonical form.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        canonical,
+        "the next emit rewrites the legacy column canonically"
+    );
+}
+
+/// The refusal that survives the legacy read: an element that is neither the canonical
+/// inline table nor the legacy string is a row no SDK version could have emitted — a
+/// corrupt lock, rejected loud rather than shrugged off as a dropped row.
+#[test]
+fn a_templates_element_outside_both_spellings_still_refuses_loud() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            spec_kind_facts_with_embedded_templates(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("corrupt-templates", &payload);
+    let lock = into.join("lock.toml");
+
+    let corrupt = respell_templates_column(&fs::read_to_string(&lock).unwrap(), "[17]");
+    fs::write(&lock, &corrupt).unwrap();
+
+    let err = drift::read_declarations(&into).unwrap_err();
+    // miette wraps the rendered message, so match on the code plus the column it names.
+    let rendered = format!("{err:?}");
+    assert!(
+        rendered.contains("temper::drift::lock_row") && rendered.contains("`templates`"),
+        "expected a loud corrupt-lock refusal naming the templates column, got:\n{rendered}"
+    );
+}
+
+/// A kind's `layout`-content fact round-trips the lock via hand-built payload → compiler emit
+/// → lock read-back → engine `CustomKind` (`KIND-CONTENT-FACT`): the declared regions survive
+/// the lock byte-stably and reach `CustomKind::from_kind_fact_row`'s `content`, while a kind
+/// declaring no content reads as `Content::File` everywhere — the column absent from its row.
+/// For the real SDK-emit agreement claim (live SDK emit → lock kind row → engine CustomKind),
+/// see `tests/emit.rs:emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end`.
+#[test]
+fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kind() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            spec_kind_facts_with_layout(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("layout-content", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the content column is a pure function of the payload.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    // The layout kind's declared content reaches the engine's CustomKind through the row.
+    let spec_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "spec")
+        .expect("the layout kind row is recorded");
+    let spec = CustomKind::from_kind_fact_row(spec_row).unwrap();
+    assert_eq!(
+        spec.content,
+        Content::Layout(Layout {
+            regions: vec![
+                LayoutRegion::Prose {
+                    import: Some("specs/intent.md".to_string()),
+                },
+                LayoutRegion::Field {
+                    slot: "intent".to_string(),
+                },
+                LayoutRegion::Collection {
+                    member_kind: "invariant".to_string(),
+                    key: Some("core".to_string()),
+                },
+            ],
+        }),
+    );
+
+    // A kind with no content declaration is file everywhere — the column absent from the
+    // row, `Content::File` in the reconstructed CustomKind.
+    let rule_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the file-content kind row is recorded");
+    assert!(
+        rule_row.content.is_none(),
+        "a file-content kind's row omits the content column"
+    );
+    assert_eq!(
+        CustomKind::from_kind_fact_row(rule_row).unwrap().content,
+        Content::File
+    );
+}
+
+/// A registration kind's two manifest-authoring facts round-trip the lock via hand-built payload
+/// → compiler emit → lock read-back → engine `CustomKind`: the fields-only `shape` lifts to
+/// `Content::Fields` and the `collection_address` to the typed `CollectionAddress`, byte-stably
+/// across a double emit, while a file-locus body-bearing kind (`rule`) carries neither column —
+/// nothing file-locus or body-bearing regresses.
+/// For the real SDK-emit agreement claim (live SDK emit → lock kind row → engine CustomKind),
+/// see `tests/emit.rs:emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end`.
+#[test]
+fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reach_the_engine() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            hook_kind_facts(),
+            timed_hook_kind_facts(),
+            shapeless_hook_kind_facts(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("collection-address", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the new columns are a pure function of the payload.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    // The registration kind's facts reach the engine's CustomKind through the row.
+    let hook_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "hook")
+        .expect("the registration kind row is recorded");
+    assert_eq!(hook_row.shape.as_deref(), Some("fields"));
+    assert_eq!(
+        hook_row
+            .collection_address
+            .as_ref()
+            .and_then(|address| address.entry_shape.as_deref()),
+        Some("group-array(hooks;matcher)"),
+        "the declared entry shape survives write -> read on the row's own column"
+    );
+    let hook = CustomKind::from_kind_fact_row(hook_row).unwrap();
+    assert_eq!(hook.content, Content::Fields);
+    assert_eq!(
+        hook.collection_address,
+        Some(CollectionAddress {
+            manifest: "settings.json".to_string(),
+            key_path: CollectionKeyPath::HooksEvent,
+            entry_shape: temper::kind::EntryShape::GroupArray {
+                member_key: "hooks".to_string(),
+                lifted_fields: vec!["matcher".to_string()],
+            },
+        }),
+    );
+
+    // The divergent case: a second `hooks.<Event>` kind declaring a shape the per-key-path
+    // normalization cannot fabricate. It reads back with both lifted fields only because
+    // emit carried the column.
+    let timed_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "timed-hook")
+        .expect("the divergent registration kind row is recorded");
+    assert_eq!(
+        timed_row
+            .collection_address
+            .as_ref()
+            .and_then(|address| address.entry_shape.as_deref()),
+        Some("group-array(hooks;matcher,timeout)"),
+    );
+    let timed = CustomKind::from_kind_fact_row(timed_row).unwrap();
+    assert_eq!(
+        timed.collection_address.map(|address| address.entry_shape),
+        Some(temper::kind::EntryShape::GroupArray {
+            member_key: "hooks".to_string(),
+            lifted_fields: vec!["matcher".to_string(), "timeout".to_string()],
+        }),
+        "a shape diverging from its key path's normalization reads back as declared"
+    );
+
+    // A row declaring no shape writes no key — the presence discipline every optional
+    // column on this table takes — and the read-time normalization supplies the shape.
+    let shapeless_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "shapeless-hook")
+        .expect("the shapeless registration kind row is recorded");
+    assert!(
+        shapeless_row
+            .collection_address
+            .as_ref()
+            .expect("the shapeless kind keeps its address")
+            .entry_shape
+            .is_none(),
+        "a row declaring no entry shape writes no `entry_shape` key"
+    );
+    let lock_text = String::from_utf8(first.clone()).expect("the lock is UTF-8");
+    assert!(
+        lock_text.contains(
+            "collection_address = { manifest = \"settings.json\", key_path = \"hooks.<Event>\" }"
+        ),
+        "the shapeless row's wire form carries the pair alone, no `entry_shape` key:\n{lock_text}"
+    );
+
+    // A file-locus, body-bearing kind carries neither new column — both absent from its
+    // row, `Content::File` and no collection address in the reconstructed CustomKind.
+    let rule_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the file-locus kind row is recorded");
+    assert!(rule_row.shape.is_none(), "a body-bearing kind omits shape");
+    assert!(
+        rule_row.collection_address.is_none(),
+        "a file-locus kind omits the collection address"
+    );
+    let rule = CustomKind::from_kind_fact_row(rule_row).unwrap();
+    assert_eq!(rule.content, Content::File);
+    assert_eq!(rule.collection_address, None);
+}
+
+/// An `mcp-server` registration kind fact: fields-only, keyed at `.mcp.json`'s
+/// `mcpServers.*`, its file locus the `.mcp.json` at the harness root.
+fn mcp_server_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: ".mcp.json".to_string(),
+            key_path: "mcpServers.*".to_string(),
+            entry_shape: Some("object".to_string()),
+        }),
+        ..common::kind_facts("mcp-server", ".", ".mcp.json")
+    }
+}
+
+/// A represented manifest's registration members cross the seam into the lock's
+/// declaration rows AND reach the graph the read family builds — a hook/mcp-server member
+/// is governable end to end, not only SDK-erased (MANIFEST-WRITE-SEAM). `emit` writes the
+/// `.mcp.json` whole through the write face; the lock records the member as a declaration
+/// row (identity + address, its fields the projected artifact); and `explain` resolves the
+/// bare server name to the member, narrating it as a node — the read side no longer sees
+/// only the kind that addresses the collection.
+#[test]
+fn a_registration_member_surfaces_in_the_lock_and_reaches_the_read_graph() {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+                common::skill_kind_facts(
+                    Some("claude-code"),
+                    &["user-invoked", "description-trigger(description)"],
+                ),
+                mcp_server_kind_facts(),
+            ],
+            clauses: rich_declarations().clauses,
+            registrations: vec![RegistrationRow {
+                kind: "mcp-server".to_string(),
+                key: "gmail".to_string(),
+                manifest: ".mcp.json".to_string(),
+                key_path: "mcpServers.*".to_string(),
+                fields: vec![
+                    ("type".to_string(), serde_json::json!("stdio")),
+                    ("command".to_string(), serde_json::json!("npx")),
+                ],
+            }],
+            ..Declarations::default()
+        },
+        members: skill_and_rule_members(),
+    };
+    let (harness, into) = emitted("registration-governable", &payload);
+
+    // The lock records the registration member as a declaration row; `read_declarations`
+    // reads it back with its identity and address, the fields left to the projected
+    // manifest artifact (0018).
+    let declarations = drift::read_declarations(&into).unwrap();
+    let server = declarations
+        .registrations
+        .iter()
+        .find(|row| row.key == "gmail")
+        .expect("the registration member is recorded as a declaration row");
+    assert_eq!(server.kind, "mcp-server");
+    assert_eq!(server.manifest, ".mcp.json");
+    assert_eq!(server.key_path, "mcpServers.*");
+    assert!(
+        server.fields.is_empty(),
+        "the lock row records identity + address; the fields are the projected artifact"
+    );
+
+    // `emit` wrote the represented manifest whole at the harness root.
+    assert!(
+        harness.join(".mcp.json").is_file(),
+        "emit wrote the represented manifest through the write face"
+    );
+
+    // Governable end to end: the read family resolves the bare `gmail` to the member and
+    // narrates it as a node — not only the `mcp-server` kind that addresses the collection.
+    let out = common::explain_in(&harness, "gmail");
+    assert!(
+        out.contains("Member `gmail` (mcp-server)"),
+        "the represented manifest's member is a governable read-graph node, got:\n{out}"
+    );
+}
+
+/// An out-of-vocabulary collection-address `key_path` label survives the TOML-typed read
+/// but is a corrupt lock the kind lift rejects loud — never a silently narrowed address.
+#[test]
+fn from_kind_fact_row_rejects_an_out_of_vocabulary_collection_key_path() {
+    let row = KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.everything".to_string(),
+            entry_shape: Some("group-array(hooks;matcher)".to_string()),
+        }),
+        ..common::kind_facts("hook", ".claude", "settings.json")
+    };
+    let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
+    assert!(
+        matches!(&err, drift::LockRowError::Vocabulary { column, value, .. }
+            if column == "collection_address" && value == "hooks.everything"),
+        "expected an out-of-vocabulary collection key-path reject, got: {err:?}"
+    );
+}
+
+/// An out-of-vocabulary `shape` marker is likewise a load error — the fields-only marker
+/// admits only `fields`, so any other value rejects loud rather than reading a phantom
+/// content mode.
+#[test]
+fn from_kind_fact_row_rejects_an_out_of_vocabulary_shape() {
+    let row = KindFactRow {
+        shape: Some("bodyless".to_string()),
+        ..common::kind_facts("hook", ".claude", "settings.json")
+    };
+    let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
+    assert!(
+        matches!(&err, drift::LockRowError::Vocabulary { column, value, .. }
+            if column == "shape" && value == "bodyless"),
+        "expected an out-of-vocabulary shape reject, got: {err:?}"
+    );
+}
+
+/// A host member's declared embedded-member value's row — the shape a `blocks()`
+/// value like `tests/nested_member.rs`'s `decision_body` composes: leaves plus one
+/// collection's entries, authored out of alphabetical order.
+fn nested_member_row() -> NestedMemberRow {
+    let leaves = BTreeMap::from([(
+        "chosen".to_string(),
+        "the composition surface is canonical".to_string(),
+    )]);
+    let collections = vec![
+        CollectionEntryRow {
+            collection: "rejected".to_string(),
+            key: "read-only-lens".to_string(),
+            leaves: BTreeMap::from([(
+                "because".to_string(),
+                "you cannot compose a harness you only mirror".to_string(),
+            )]),
+        },
+        CollectionEntryRow {
+            collection: "rejected".to_string(),
+            key: "baked-projection".to_string(),
+            leaves: BTreeMap::from([(
+                "because".to_string(),
+                "a stamping projector breaks law 5".to_string(),
+            )]),
+        },
+    ];
+    NestedMemberRow {
+        host: "memory:CLAUDE".to_string(),
+        kind: "decision".to_string(),
+        key: "surface-authority".to_string(),
+        leaves,
+        collections,
+        placed_edges: None,
+        rendered_lines: None,
+        rendered_chars: None,
+    }
+}
+
+/// A declared embedded member's facts round-trip through the lock as
+/// `[[declaration.nested_member]]` rows (`NESTED-MEMBER-LOCK-ROW`), the same way
+/// `a_host_kinds_declared_templates_round_trip_through_the_lock` above proves for the
+/// templates row — additive: the fold-based read side (`tests/nested_member.rs`)
+/// never reads this family, only `emit`/`read_declarations` round-trip it.
+#[test]
+fn a_declared_embedded_members_facts_round_trip_through_the_lock_as_nested_member_rows() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
+        clauses: rich_declarations().clauses,
+        nested_members: vec![nested_member_row()],
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("nested-member-row", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: re-emitting the same payload reproduces the whole
+    // lock byte-for-byte.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let second = fs::read(&lock).unwrap();
+    assert_eq!(first, second, "a re-emit must not churn the lock");
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let row = declarations
+        .nested_members
+        .iter()
+        .find(|row| row.host == "memory:CLAUDE")
+        .expect("the nested-member row is recorded");
+    assert_eq!(row.kind, "decision");
+    assert_eq!(row.key, "surface-authority");
+    assert_eq!(
+        row.leaves.get("chosen").map(String::as_str),
+        Some("the composition surface is canonical")
+    );
+    // Authored out of alphabetical order (`read-only-lens` before `baked-projection`)
+    // — the round trip through the lock preserves that authored order verbatim.
+    assert_eq!(
+        row.collections
+            .iter()
+            .map(|entry| entry.key.as_str())
+            .collect::<Vec<_>>(),
+        vec!["read-only-lens", "baked-projection"],
+    );
+    let entry = row
+        .collections
+        .iter()
+        .find(|entry| entry.collection == "rejected" && entry.key == "baked-projection")
+        .expect("the collection entry round-trips");
+    assert_eq!(
+        entry.leaves.get("because").map(String::as_str),
+        Some("a stamping projector breaks law 5")
+    );
+}
+
+/// A value's format-placement record and its captured rendered span round-trip through the
+/// lock as its row's `placed_edges` and `rendered_lines`/`rendered_chars` columns — the
+/// only way either fact reaches `check`, since the engine never sees a `render` hook and
+/// never reads the rendering back. The states stay distinct across the trip: a format that
+/// placed an edge, one that placed none (`Some(vec![])`), a value no format rendered at all
+/// (both absent, so the columns are omitted and an ordinary row is byte-unchanged), and a
+/// rendered value carrying its measured span.
+#[test]
+fn a_values_format_placement_record_round_trips_through_the_lock() {
+    let row =
+        |key: &str, placed: Option<Vec<String>>, span: Option<(usize, usize)>| NestedMemberRow {
+            host: "memory:CLAUDE".to_string(),
+            kind: "citation".to_string(),
+            key: key.to_string(),
+            leaves: BTreeMap::from([("source".to_string(), "rule:rust".to_string())]),
+            collections: Vec::new(),
+            placed_edges: placed,
+            rendered_lines: span.map(|(lines, _)| lines),
+            rendered_chars: span.map(|(_, chars)| chars),
+        };
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
+        nested_members: vec![
+            row("placed", Some(vec!["source".to_string()]), Some((3, 42))),
+            row("omitted", Some(Vec::new()), None),
+            row("unrendered", None, None),
+        ],
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("placed-edges-row", &payload);
+    let first = fs::read(into.join("lock.toml")).unwrap();
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(into.join("lock.toml")).unwrap(),
+        "a re-emit must not churn the lock",
+    );
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let found = |key: &str| {
+        declarations
+            .nested_members
+            .iter()
+            .find(|row| row.key == key)
+            .expect("the row round-trips")
+            .clone()
+    };
+    assert_eq!(
+        found("placed").placed_edges,
+        Some(vec!["source".to_string()])
+    );
+    assert_eq!(found("omitted").placed_edges, Some(Vec::new()));
+    assert_eq!(
+        found("unrendered").placed_edges,
+        None,
+        "no format rendered the value, which is not a format that placed nothing",
+    );
+
+    // The rendered span rides the same row and keeps the same observed/unobserved
+    // distinction: the measured row carries both units, the unrendered one carries neither.
+    let placed = found("placed");
+    assert_eq!(placed.rendered_lines, Some(3));
+    assert_eq!(placed.rendered_chars, Some(42));
+    assert_eq!(
+        (
+            found("unrendered").rendered_lines,
+            found("unrendered").rendered_chars
+        ),
+        (None, None),
+        "a value no format rendered carries no span, so its extent stays undecidable",
+    );
+}
+
+/// A workspace with no `[declaration]` table (any pre-recut lock) reads back an empty
+/// declaration set rather than erroring — absent evidence forges no finding.
+#[test]
+fn a_lock_without_declarations_reads_empty() {
+    let dir = common::tmpdir("no-declarations");
+    fs::write(
+        dir.join("lock.toml"),
+        "[[skill]]\nname = \"x\"\nsource_path = \"/h/SKILL.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n",
+ )
+.unwrap();
+
+    let declarations = drift::read_declarations(&dir).unwrap();
+    assert_eq!(declarations, drift::Declarations::default());
+}
+
+/// A missing lock is the pre-import state, not an error.
+#[test]
+fn a_missing_lock_reads_empty() {
+    let dir: &Path = &common::tmpdir("missing-lock");
+    let declarations = drift::read_declarations(dir).unwrap();
+    assert_eq!(declarations, drift::Declarations::default());
+}
+
+/// Read a raw `lock.toml` off a fresh workspace — the shape the present-but-malformed
+/// cases drive `read_declarations` over directly, no emit round-trip.
+fn read_raw(label: &str, lock: &str) -> miette::Result<Declarations> {
+    let dir = common::tmpdir(label);
+    fs::write(dir.join("lock.toml"), lock).unwrap();
+    drift::read_declarations(&dir)
+}
+
+/// A present row missing a required column is a load error naming its family — one case
+/// per declaration family. The tool-written lock admits no degrade-to-absent read of a
+/// malformed row: a dropped `satisfies` row would forge an unfilled-requirement finding,
+/// a dropped `kind` row would unmodel members.
+#[test]
+fn read_declarations_rejects_a_present_row_missing_a_required_column() {
+    let cases = [
+        (
+            "kind",
+            "[[declaration.kind]]\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+        ),
+        (
+            "clause",
+            "[[declaration.clause]]\nseverity = \"required\"\n",
+        ),
+        (
+            "requirement",
+            "[[declaration.requirement]]\nrequired = true\n",
+        ),
+        ("assembly", "[[declaration.assembly]]\nvalue = \"block\"\n"),
+        (
+            "satisfies",
+            "[[declaration.satisfies]]\nmember = \"skill:x\"\n",
+        ),
+        ("mention", "[[declaration.mention]]\nmember = \"skill:x\"\n"),
+        (
+            "nested_member",
+            "[[declaration.nested_member]]\nkind = \"decision\"\nkey = \"k\"\n",
+        ),
+    ];
+    for (family, body) in cases {
+        let err = read_raw(&format!("missing-col-{family}"), body).unwrap_err();
+        assert!(
+            err.to_string().contains(family),
+            "the `{family}` family's missing-column load error must name the family, got:\n{err}"
+        );
+    }
+}
+
+/// A present column of the wrong TOML type is a load error naming its family and column —
+/// the tool never emits an integer `name`, so a lock carrying one is corruption.
+#[test]
+fn read_declarations_rejects_a_wrong_typed_column() {
+    let err = read_raw(
+        "wrong-typed-kind-name",
+        "[[declaration.kind]]\nname = 42\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+    )
+    .unwrap_err();
+    let message = err.to_string();
+    assert!(
+        message.contains("kind") && message.contains("name"),
+        "a wrong-typed column names its family and column, got:\n{message}"
+    );
+}
+
+/// The `layout_source` family — the lock's record that `emit` read a layout document —
+/// holds the same bar as every other declaration family: a present row the SDK could not
+/// have emitted is corruption refused loud, naming the family. It rides its own reader
+/// rather than `read_declarations`, exactly as `layout_prose` does: a layout source is
+/// derived by emit, never declared by the program.
+#[test]
+fn a_malformed_layout_source_row_refuses_loud() {
+    let dir = common::tmpdir("malformed-layout-source");
+    fs::write(
+        dir.join("lock.toml"),
+        "[[declaration.layout_source]]\nmember = 42\nsource_path = \"specs/intent.md\"\n",
+    )
+    .unwrap();
+
+    let err = drift::layout_sources(&dir).unwrap_err();
+    let message = err.to_string();
+    assert!(
+        message.contains("layout_source") && message.contains("member"),
+        "a wrong-typed column names its family and column, got:\n{message}"
+    );
+
+    // Non-vacuity: the same reader lifts a well-formed row without complaint, so the
+    // refusal above is the malformation's and not the family's.
+    let ok = common::tmpdir("well-formed-layout-source");
+    fs::write(
+        ok.join("lock.toml"),
+        "[[declaration.layout_source]]\nmember = \"intent:intent\"\nsource_path = \"specs/intent.md\"\n",
+    )
+    .unwrap();
+    let rows = drift::layout_sources(&ok).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].member, "intent:intent");
+    assert_eq!(rows[0].source_path, "specs/intent.md");
+}
+
+/// A malformed element inside a present row's array column fails the whole row — a
+/// tolerant row, never a tolerant element.
+#[test]
+fn read_declarations_rejects_a_malformed_array_element() {
+    let err = read_raw(
+        "malformed-array-element",
+        "[[declaration.clause]]\npredicate = \"unique\"\nseverity = \"required\"\nkeys = [\"a\", 3]\n",
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("clause"),
+        "a non-string array element fails the whole `clause` row, got:\n{err}"
+    );
+}
+
+/// A well-formed row omitting every optional column reads clean — absent optional
+/// columns stay legitimate absence; only a *present* malformed row errors.
+#[test]
+fn read_declarations_reads_a_row_with_absent_optional_columns() {
+    let declarations = read_raw(
+        "absent-optional-columns",
+        "[[declaration.kind]]\nname = \"spec\"\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+    )
+    .unwrap();
+    assert_eq!(declarations.kinds.len(), 1);
+    assert_eq!(declarations.kinds[0].format, None);
+    assert!(declarations.kinds[0].registration.is_empty());
+}
+
+/// An out-of-vocabulary `format` label survives the TOML-typed read but is a corrupt lock
+/// the kind lift rejects loud at `check` — never a silently narrowed kind. The label read
+/// tier's mirror of [`check_rejects_a_lock_clause_row_the_closed_vocabulary_cannot_admit`].
+#[test]
+fn check_rejects_a_lock_kind_row_with_an_out_of_vocabulary_format_label() {
+    let root = common::tmpdir("reject-out-of-vocabulary-format");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                format: Some("xml".to_string()),
+                ..common::kind_facts("spec", "specs", "*.md")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "an out-of-vocabulary format label must fail check loud, got:\n{output}"
+    );
+    assert!(
+        output.contains("xml"),
+        "the load error names the offending label rather than dropping it, got:\n{output}"
+    );
+}
+
+// ---- check resolves members via the lock's governs locus --------------------
+//
+// The lock: the gate
+// walks each kind's `governs` locus off the committed lock's own kind-fact row, read
+// straight off the harness disk — never a copied surface tree — and a harness with no
+// lock at all is still gated by the embedded default program's own locus (the built-in
+// lock), never a silent zero-member skip.
+
+/// A forbidden-key skill under `<root>/.claude/skills/coordinate/SKILL.md`.
+const GOVERNS_WALK_SKILL: &str = "---\n\
+name: coordinate\n\
+description: Use when coordinating agents across axes; not for single-axis work.\n\
+globs: \"**/*.rs\"\n\
+---\n\
+# Coordinate\n\
+\n\
+Drive the team through the playbook.\n";
+
+/// Run `temper check --reporter github` from `root`, returning `(exit success, combined
+/// output)` — the shape this file's assertions destructure.
+fn check_in(root: &Path) -> (bool, String) {
+    let run = common::check_in(root, &[], Some("github"));
+    (run.ok, run.output)
+}
+
+#[test]
+fn check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default() {
+    // Prove the walk is driven by the lock's own kind-fact row, not `skill`'s embedded
+    // `.claude/skills` default: point the lock's `skill` governs at a nonstandard
+    // locus, place the member only there, and confirm `check` finds and judges it.
+    let root = common::tmpdir("custom-governs-locus");
+    let skill = root.join("custom-locus").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), GOVERNS_WALK_SKILL).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.kind]]\n\
+         name = \"skill\"\n\
+         provider = \"claude-code\"\n\
+         governs_root = \"custom-locus/skills\"\n\
+         governs_glob = \"*/SKILL.md\"\n",
+    )
+    .unwrap();
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "the member at the lock's declared locus must be found and fire, got:\n{output}"
+    );
+    assert!(
+        output.contains("forbidden_keys"),
+        "the finding names the clause the relocated member tripped, got:\n{output}"
+    );
+}
+
+/// A bare `satisfies` label (the shape an older engine wrote, before the row carried
+/// the filler's `kind:name` address) qualifies against the live corpus where exactly one
+/// kind bears the name — the robust read decision 0024 owes a committed lock — but a name
+/// two kinds share is the malformed lock the compiled-label identity forbids, refused loud
+/// rather than cross-attributed to both members.
+#[test]
+fn a_bare_satisfies_label_qualifies_where_unambiguous_and_a_cross_kind_collision_is_refused() {
+    // Unambiguous: only a skill bears `solo`, so a bare row binds it and the run is clean.
+    let unambiguous = common::tmpdir("bare-satisfies-unambiguous");
+    common::write_skill(&unambiguous, "solo", &common::clean_skill("solo"));
+    common::write_lock(
+        &unambiguous,
+        Declarations {
+            requirements: vec![RequirementRow {
+                required: true,
+                ..common::requirement("doc", false, Some("skill"))
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "solo".to_string(),
+                requirement: "doc".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+    let (ok, output) = check_in(&unambiguous);
+    assert!(
+        ok,
+        "a bare satisfies label of an unambiguous member must qualify and fill ⇒ zero, got:\n{output}"
+    );
+
+    // Collision: a skill and a rule both named `csharp`, so a bare label neither member
+    // can uniquely own is a malformed lock refused loud.
+    let collision = common::tmpdir("bare-satisfies-collision");
+    common::write_skill(&collision, "csharp", &common::clean_skill("csharp"));
+    common::write_rule(&collision, "csharp");
+    common::write_lock(
+        &collision,
+        Declarations {
+            requirements: vec![RequirementRow {
+                required: true,
+                ..common::requirement("doc", false, None)
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "csharp".to_string(),
+                requirement: "doc".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+    let (ok, output) = check_in(&collision);
+    assert!(
+        !ok,
+        "a bare satisfies label two kinds share must be refused loud ⇒ non-zero, got:\n{output}"
+    );
+    assert!(
+        output.contains("csharp") && output.contains("ambiguous"),
+        "the refusal names the ambiguous label, got:\n{output}"
+    );
+}
+
+/// A `rule` member whose projected body carries one `member.directive` fence keyed
+/// `rendered-key` — inert prose under 0018 (the projection is write-only), kept here
+/// only to prove `explain` never re-reads it for facts: the lock's own
+/// `nested_member` row below declares the same child kind under a *different* key
+/// (`at-import`), so a fold-through-fence read and a lock-row read would disagree.
+const DIRECTIVE_TEMPLATED_RULE: &str = "# Rule using a nested directive\n\
+\n\
+Some prose.\n\
+\n\
+```member.directive rendered-key\n\
+target = \"some/path.md\"\n\
+```\n";
+
+#[test]
+fn a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member() {
+    // NESTED-MEMBER-LOCK-ROW / RETIRE-FOLD-MEMBERS: a lock row naming a built-in
+    // (`rule`) and declaring `templates` legitimately extends that built-in's host
+    // with a child kind (`row_relocates_builtin`'s own doc comment already names a
+    // declared, non-empty `templates` a legitimate extension, never a collision) —
+    // but the member's embedded facts come from its own `[[declaration.nested_member]]`
+    // row, addressed by `kind:name`, never by re-parsing the rule's rendered fence
+    // (0018, "the projection is not the database"). The row below names a *different*
+    // key than the rendered fence does, so `explain` narrating the row's key alone
+    // proves the fence is never re-read.
+    let root = common::tmpdir("nested-member-row-overlay");
+    let rules = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("uses-directive.md"), DIRECTIVE_TEMPLATED_RULE).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.kind]]\n\
+         name = \"rule\"\n\
+         provider = \"claude-code\"\n\
+         governs_root = \".claude/rules\"\n\
+         governs_glob = \"*.md\"\n\
+         templates = [{ kind = \"directive\" }]\n\
+         \n\
+         [[declaration.nested_member]]\n\
+         host = \"rule:uses-directive\"\n\
+         kind = \"directive\"\n\
+         key = \"at-import\"\n\
+         leaves = { target = \"declared/not-rendered.md\" }\n",
+    )
+    .unwrap();
+
+    let out = common::explain_in(&root, "uses-directive");
+    assert!(
+        out.contains("Nested members (the embedded members it carries):"),
+        "the lock's declared nested-member row must surface as a visible nested \
+         member instead of leaving it dark, got:\n{out}"
+    );
+    assert!(
+        out.contains("`directive` member `at-import`"),
+        "the folded nested member must name the row's own declared key, got:\n{out}"
+    );
+    assert!(
+        !out.contains("rendered-key"),
+        "the rendered fence's key must never surface — nothing re-reads it, got:\n{out}"
+    );
+}
+
+#[test]
+fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
+    // No `.temper/lock.toml` at all (never imported): `declarations.kinds` is empty, so
+    // `check` falls back to the embedded default program's own `governs` locus (the
+    // built-in lock) to walk the harness — a forbidden-key skill must still fire,
+    // never a silent zero-member skip.
+    let root = common::tmpdir("no-lock-builtin-fallback");
+    let skill = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), GOVERNS_WALK_SKILL).unwrap();
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "a forbidden-key skill must still fire with no committed lock at all, got:\n{output}"
+    );
+    assert!(
+        output.contains("forbidden_keys"),
+        "the finding names the clause the harness member tripped even with no lock, got:\n{output}"
+    );
+}
+
+// ---- SATISFIER-KIND-CLAUSE: a requirement row's `kind` sources a clause -------
+//
+// Selection: a `RequirementRow`'s `kind` column is a
+// declaration row in the lock, and it now *sources* the shipped each-grain "every
+// satisfier is kind K" clause rather than narrowing which opt-in artifacts are
+// candidates — a wrong-kind opt-in is a `requirement.kind` finding, never a silent
+// exclusion.
+
+#[test]
+fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
+    // `gate`'s declaration row in the lock narrows to `skill`. A skill opts in
+    // cleanly; a rule also opts in — the kind-blind satisfier set draws it in, and
+    // the each-grain clause the row's `kind` column sources flags it as a
+    // `requirement.kind` finding rather than silently excluding it.
+    let root = common::tmpdir("kind-clause-sources-from-row");
+    let skill_dir = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\n\
+ name: coordinate\n\
+ description: Use when coordinating agents across axes; not for single-axis work.\n\
+ ---\n\
+ # Coordinate\n\
+ \n\
+         Body.\n",
+    )
+    .unwrap();
+    let rules_dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    fs::write(rules_dir.join("style.md"), "# Style\n\nBody.\n").unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            requirements: vec![common::requirement("gate", false, Some("skill"))],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "coordinate", &["gate"]);
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "a wrong-kind opt-in the row's `kind` narrows against must fail the run ⇒ non-zero, got:\n{output}"
+    );
+    assert!(
+        output.contains("requirement.gate.kind") && output.contains("style"),
+        "the finding names the sourced kind clause and the wrong-kind satisfier, got:\n{output}"
+    );
+}
+
+// ---- BUILTIN-LOCK-DERIVED: the embedded built-in lock ------------------------
+//
+// Decision: the built-in lock is derived
+// from the SDK module, never transcribed: `src/builtin_lock.toml` is the real
+// `[declaration.*]` family a memberless emit of `@dtmd/temper/claude-code`'s built-in
+// kinds + four floors produces, and `temper::builtin` projects each kind's floor
+// `Contract` straight off this lock's clause rows — no hand-written mirror any
+// more. These tests pin that projection against the lock's own rows, proving
+// `builtin::contract` round-trips every row's predicate/field/severity losslessly.
+// `builtin_kind`'s kind facts stay a separate hand-written mirror, untouched here.
+
+/// The `(predicate, field, gate, severity)` a clause row carries — every column the
+/// projection must round-trip. The `gate` end is `Some` only for a two-field predicate
+/// (`mention-reachable`), whose second field the one-field `Predicate::target` cannot
+/// name by design.
+type ClauseQuad = (&'static str, Option<String>, Option<String>, &'static str);
+
+/// The declared quads a built-in floor's clauses carry, in declaration order — the
+/// shape a `ClauseRow` reduces a `Clause` to (`temper::drift::ClauseRow`;
+/// `Predicate::key`/`Predicate::target`).
+fn floor_quads(kind: &str) -> Vec<ClauseQuad> {
+    let contract = builtin::contract(kind)
+        .unwrap_or_else(|| panic!("built-in kind `{kind}` ships an embedded floor"));
+    contract
+        .clauses
+        .into_iter()
+        .map(|clause| {
+            let severity = match clause.severity {
+                Severity::Required => "required",
+                Severity::Advisory => "advisory",
+            };
+            // `target` is the one-field accessor and answers `None` wherever no *one*
+            // field is the predicate's own, so those variants are read off themselves —
+            // whatever columns the row carries must round-trip.
+            let (field, gate) = match &clause.predicate {
+                Predicate::MentionReachable {
+                    scope_field,
+                    gate_field,
+                } => (Some(scope_field.clone()), Some(gate_field.clone())),
+                // Guard and body carry no field of their own (`Predicate::target`), but a
+                // `when` row's `field` column is the *guard's* — the very column
+                // `contract::predicate_from_row` rebuilds the guard off, and the same read
+                // the engine takes to locate the element the guard judges.
+                Predicate::When { guard, .. } => (guard.target().map(str::to_string), None),
+                predicate => (predicate.target().map(str::to_string), None),
+            };
+            (clause.predicate.key(), field, gate, severity)
+        })
+        .collect()
+}
+
+/// The embedded built-in lock's own quads for one kind, in the row order the lock
+/// carries them.
+fn lock_quads(kind: &str) -> Vec<ClauseQuad> {
+    builtin_lock::declarations()
+        .clauses
+        .iter()
+        .filter(|row| row.kind.as_deref() == Some(kind))
+        .map(|row| {
+            (
+                row.predicate.as_str(),
+                row.field.clone(),
+                row.gate.clone(),
+                row.severity.as_str(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
+    let declarations = builtin_lock::declarations();
+
+    let skill = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "skill")
+        .expect("the skill kind fact is embedded");
+    assert_eq!(skill.governs_root.as_deref(), Some(".claude/skills"));
+    assert_eq!(skill.governs_glob.as_deref(), Some("*/SKILL.md"));
+    assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
+    assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
+    assert_eq!(
+        skill.registration,
+        vec![
+            "user-invoked".to_string(),
+            "description-trigger(description)".to_string()
+        ]
+    );
+
+    let rule = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the rule kind fact is embedded");
+    assert_eq!(rule.governs_root.as_deref(), Some(".claude/rules"));
+    assert_eq!(rule.governs_glob.as_deref(), Some("*.md"));
+    assert_eq!(rule.format.as_deref(), Some("yaml-frontmatter"));
+    assert_eq!(rule.unit_shape.as_deref(), Some("file"));
+    assert_eq!(rule.registration, vec!["paths-match(paths)".to_string()]);
+
+    let memory = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "memory")
+        .expect("the memory kind fact is embedded");
+    assert_eq!(memory.governs_root.as_deref(), Some("."));
+    assert_eq!(memory.governs_glob.as_deref(), Some("**/CLAUDE.md"));
+    assert_eq!(memory.format, None);
+    assert_eq!(memory.unit_shape.as_deref(), Some("file"));
+    assert_eq!(memory.registration, vec!["always".to_string()]);
+
+    let command = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "command")
+        .expect("the command kind fact is embedded");
+    assert_eq!(command.governs_root.as_deref(), Some(".claude/commands"));
+    assert_eq!(command.governs_glob.as_deref(), Some("*.md"));
+    assert_eq!(command.format.as_deref(), Some("yaml-frontmatter"));
+    assert_eq!(command.unit_shape.as_deref(), Some("file"));
+    assert_eq!(
+        command.registration,
+        vec![
+            "user-invoked".to_string(),
+            "description-trigger(description)".to_string()
+        ]
+    );
+
+    let agent = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "agent")
+        .expect("the agent kind fact is embedded");
+    assert_eq!(agent.governs_root.as_deref(), Some(".claude/agents"));
+    assert_eq!(agent.governs_glob.as_deref(), Some("**/*.md"));
+    assert_eq!(agent.format.as_deref(), Some("yaml-frontmatter"));
+    // Named-field identity — the third mode, wire-spelled `named-field(<field>)`.
+    assert_eq!(agent.unit_shape.as_deref(), Some("named-field(name)"));
+    assert_eq!(
+        agent.registration,
+        vec!["description-trigger(description)".to_string()]
+    );
+
+    // The `hook` kind is the first fields-only manifest kind: no `format` (it reads a
+    // JSON manifest, not frontmatter), a `fields` shape, and the `hooks.<Event>`
+    // collection address inside `settings.json`.
+    let hook = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "hook")
+        .expect("the hook kind fact is embedded");
+    assert_eq!(hook.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(hook.governs_glob.as_deref(), Some("settings.json"));
+    assert_eq!(hook.format, None);
+    assert_eq!(hook.unit_shape.as_deref(), Some("file"));
+    assert_eq!(hook.registration, vec!["event(event)".to_string()]);
+    assert_eq!(hook.shape.as_deref(), Some("fields"));
+    let address = hook
+        .collection_address
+        .as_ref()
+        .expect("the hook kind carries its collection address");
+    assert_eq!(address.manifest, "settings.json");
+    assert_eq!(address.key_path, "hooks.<Event>");
+
+    // The `mcp-server` kind is the second manifest kind: no `format`, a `fields` shape, the
+    // `connection` channel, and the `mcpServers.*` collection address inside `.mcp.json`.
+    let mcp = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "mcp-server")
+        .expect("the mcp-server kind fact is embedded");
+    assert_eq!(mcp.governs_root.as_deref(), Some("."));
+    assert_eq!(mcp.governs_glob.as_deref(), Some(".mcp.json"));
+    assert_eq!(mcp.format, None);
+    assert_eq!(mcp.registration, vec!["connection".to_string()]);
+    assert_eq!(mcp.shape.as_deref(), Some("fields"));
+    let mcp_address = mcp
+        .collection_address
+        .as_ref()
+        .expect("the mcp-server kind carries its collection address");
+    assert_eq!(mcp_address.manifest, ".mcp.json");
+    assert_eq!(mcp_address.key_path, "mcpServers.*");
+
+    // The `installed-plugin` kind is the third manifest kind, and the second addressing a
+    // collection inside `settings.json`: the `enablement` channel — the entry's own
+    // presence — and the `enabledPlugins.*` address. It keys at a different address than
+    // `hook`, so the two share a governs pair without contending for a collection.
+    let plugin = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "installed-plugin")
+        .expect("the installed-plugin kind fact is embedded");
+    assert_eq!(plugin.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(plugin.governs_glob.as_deref(), Some("settings.json"));
+    assert_eq!(plugin.format, None);
+    assert_eq!(plugin.unit_shape.as_deref(), Some("file"));
+    assert_eq!(plugin.registration, vec!["enablement(enabled)".to_string()]);
+    assert_eq!(plugin.shape.as_deref(), Some("fields"));
+    let plugin_address = plugin
+        .collection_address
+        .as_ref()
+        .expect("the installed-plugin kind carries its collection address");
+    assert_eq!(plugin_address.manifest, "settings.json");
+    assert_eq!(plugin_address.key_path, "enabledPlugins.*");
+
+    // The `known-marketplace` kind is the fourth manifest kind, and the third addressing a
+    // collection inside `settings.json`: the `registry` channel — the entry's own presence,
+    // never provably dead — and the `extraKnownMarketplaces.*` address. It keys at yet another
+    // address, so `hook`, `installed-plugin`, and it share a governs pair without contending.
+    let market = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "known-marketplace")
+        .expect("the known-marketplace kind fact is embedded");
+    assert_eq!(market.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(market.governs_glob.as_deref(), Some("settings.json"));
+    assert_eq!(market.format, None);
+    assert_eq!(market.unit_shape.as_deref(), Some("file"));
+    assert_eq!(market.registration, vec!["registry".to_string()]);
+    assert_eq!(market.shape.as_deref(), Some("fields"));
+    let market_address = market
+        .collection_address
+        .as_ref()
+        .expect("the known-marketplace kind carries its collection address");
+    assert_eq!(market_address.manifest, "settings.json");
+    assert_eq!(market_address.key_path, "extraKnownMarketplaces.*");
+
+    // The `supporting-doc` kind is the only one at the nested-file locus: it governs no
+    // glob at all, because both halves of its locus are the host's — `skill`'s unit and
+    // `skill`'s own template pattern. Frontmatterless, body-bearing, and channel-less.
+    let doc = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "supporting-doc")
+        .expect("the supporting-doc kind fact is embedded");
+    assert_eq!(doc.governs_root, None);
+    assert_eq!(doc.governs_glob, None);
+    assert_eq!(doc.format, None);
+    assert_eq!(doc.unit_shape.as_deref(), Some("file"));
+    assert_eq!(doc.registration, Vec::<String>::new());
+    assert_eq!(doc.shape, None);
+    assert_eq!(doc.collection_address, None);
+
+    // The other half of that locus: `skill`'s row is the one home of the path pattern
+    // its bundled reference documents sit at.
+    assert_eq!(
+        skill.templates,
+        vec![temper::drift::TemplateRow {
+            kind: "supporting-doc".to_string(),
+            path: Some("*.md".to_string()),
+        }]
+    );
+
+    // The SDK module sets no `provider` on any of its exported kinds yet, so
+    // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
+    // reconciles (`(builtin-workspace-qualified-key)`), not this link.
+    // The `plugin-manifest` kind is the first `json-document` built-in: the whole artifact
+    // is one JSON object, so the format label — not the file locus — is what routes it to
+    // the document reader. It owns its file rather than surfacing inside one, so unlike the
+    // three manifest kinds above it carries no collection address and no `fields` shape,
+    // and its identity is the document's own `name` key: every plugin manifest ever written
+    // has the stem `plugin`, so the named-field mode is the only one that tells two apart.
+    let manifest = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "plugin-manifest")
+        .expect("the plugin-manifest kind fact is embedded");
+    assert_eq!(manifest.governs_root.as_deref(), Some(".claude-plugin"));
+    assert_eq!(manifest.governs_glob.as_deref(), Some("plugin.json"));
+    assert_eq!(manifest.format.as_deref(), Some("json-document"));
+    assert_eq!(manifest.unit_shape.as_deref(), Some("named-field(name)"));
+    assert_eq!(manifest.shape, None);
+    assert_eq!(manifest.collection_address, None);
+    // Channel-less: distribution metadata reaches the installer, never the model.
+    assert_eq!(manifest.registration, Vec::<String>::new());
+
+    let marketplace = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "marketplace")
+        .expect("the marketplace kind fact is embedded");
+    // The same root as `plugin-manifest` above, told apart by the glob alone — the two
+    // `.claude-plugin` file kinds never contend for a file.
+    assert_eq!(marketplace.governs_root.as_deref(), Some(".claude-plugin"));
+    assert_eq!(
+        marketplace.governs_glob.as_deref(),
+        Some("marketplace.json")
+    );
+    assert_eq!(marketplace.format.as_deref(), Some("json-document"));
+    assert_eq!(marketplace.unit_shape.as_deref(), Some("named-field(name)"));
+    assert_eq!(marketplace.shape, None);
+    assert_eq!(marketplace.collection_address, None);
+    // Channel-less, like its sibling: a catalog is read by the installer.
+    assert_eq!(marketplace.registration, Vec::<String>::new());
+
+    let dial = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "dial")
+        .expect("the dial kind fact is embedded");
+    assert_eq!(dial.governs_root.as_deref(), Some(".temper"));
+    assert_eq!(dial.governs_glob.as_deref(), Some("dial.toml"));
+    assert_eq!(dial.format.as_deref(), Some("toml-document"));
+    assert_eq!(dial.unit_shape.as_deref(), Some("named-field(name)"));
+    // The committed, reviewed half of the local class: the kind's own row rides the lock
+    // saying its members' documents never will.
+    assert_eq!(dial.commitment.as_deref(), Some("local"));
+    assert_eq!(dial.shape, None);
+    assert_eq!(dial.collection_address, None);
+    // Channel-less: a dial is read by temper's own gate, never surfaced to the model.
+    assert_eq!(dial.registration, Vec::<String>::new());
+
+    // The container of the three `settings.json` collection addresses, and the one kind at
+    // that path carrying none of its own: `hook`/`installed-plugin`/`known-marketplace`
+    // govern their segments, `settings` governs the file.
+    let settings = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "settings")
+        .expect("the settings kind fact is embedded");
+    assert_eq!(settings.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(settings.governs_glob.as_deref(), Some("settings.json"));
+    assert_eq!(settings.format.as_deref(), Some("json-document"));
+    assert_eq!(settings.unit_shape.as_deref(), Some("file"));
+    // Committed, unlike its `settings-local` sibling below: emit renders the file whole.
+    assert_eq!(settings.commitment, None);
+    assert_eq!(settings.shape, None);
+    assert_eq!(settings.collection_address, None);
+    // Channel-less: configuration the harness reads, never surfaced to the model.
+    assert_eq!(settings.registration, Vec::<String>::new());
+
+    // The `settings-local` kind is the fourth `json-document` built-in and the second `local`
+    // kind: `.claude/settings.local.json` read in place, identity the fixed `file`-shape stem
+    // (no declared key names it), never an emit input or target.
+    let settings_local = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "settings-local")
+        .expect("the settings-local kind fact is embedded");
+    assert_eq!(settings_local.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(
+        settings_local.governs_glob.as_deref(),
+        Some("settings.local.json")
+    );
+    assert_eq!(settings_local.format.as_deref(), Some("json-document"));
+    assert_eq!(settings_local.unit_shape.as_deref(), Some("file"));
+    assert_eq!(settings_local.commitment.as_deref(), Some("local"));
+    assert_eq!(settings_local.shape, None);
+    assert_eq!(settings_local.collection_address, None);
+    // Channel-less: machine configuration read by the harness, never surfaced to the model.
+    assert_eq!(settings_local.registration, Vec::<String>::new());
+
+    assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
+    // Fifteen, not the thirteen `specs/builtins.md` enumerates: `supporting-doc` ships
+    // beside that roster without joining it (as `requirement` does), and `dial` is temper's
+    // own rather than a provider's, so the engine's kind set runs two above the corpus's
+    // count. Every number is right; none checks another.
+    assert_eq!(declarations.kinds.len(), 15);
+    assert!(declarations.requirements.is_empty());
+    assert!(declarations.satisfies.is_empty());
+    assert!(declarations.mentions.is_empty());
+}
+
+/// Every built-in kind's floor round-trips its clause rows through the derived lock.
+///
+/// The sweep runs over every kind `builtin_lock::declarations()` declares rather than a
+/// hand-picked roster: a floor that grows a predicate `floor_quads` cannot project is
+/// then caught by the kind that grows it, instead of surviving because no listed kind
+/// happened to carry that predicate. The memberless emit binds
+/// `memoryAnthropicDefaultContract` to the SDK's one exported `memory` kind, so that
+/// module floor's rows ride under the `memory` kind here.
+#[test]
+fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
+    let mut compared = 0usize;
+    let mut guard_fields = 0usize;
+
+    for row in &builtin_lock::declarations().kinds {
+        let kind = row.name.as_str();
+        let lock = lock_quads(kind);
+        compared += lock.len();
+        guard_fields += lock
+            .iter()
+            .filter(|(predicate, field, _, _)| *predicate == "when" && field.is_some())
+            .count();
+        assert_eq!(
+            lock,
+            floor_quads(kind),
+            "{kind}'s floor clauses round-trip through the derived lock unchanged"
+        );
+    }
+
+    // The vacuity pin (`specs/process/engineering.md`, "A green verdict is proven
+    // non-vacuous"): the sweep judged rows at all, and among them at least one `when`
+    // row whose `field` column is populated — the column a projection that dropped the
+    // guard's field would agree with silently, every side reading `None`.
+    assert!(
+        compared > 0,
+        "the sweep compares the declared kinds' clause rows, not an empty set"
+    );
+    assert!(
+        guard_fields > 0,
+        "at least one compared `when` row carries its guard's field, so the guard column \
+         is judged rather than agreed to by mutual silence"
+    );
+}
+
+/// A built-in clause row carries its module floor's guidance and cite through the
+/// derived lock (`LOCK-CLAUSE-CHANNELS`): the seam (`sdk/src/declarations.ts`
+/// `clauseRow`) and `drift::ClauseRow` used to drop both channels, stranding the
+/// gate's teaching prose on the wrong side of the erasure. Skill's `extent`
+/// advisory is the worked example: its progressive-disclosure guidance and
+/// agentskills.io cite (`sdk/src/builtins.ts` `skillDefaultContract`) must reach the embedded
+/// lock's row, and `builtin::contract`'s projection, unchanged.
+#[test]
+fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
+    let contract = builtin::contract("skill").expect("skill's built-in floor is embedded");
+    let floor_clause = contract
+        .clauses
+        .iter()
+        .find(|clause| clause.predicate.key() == "extent")
+        .expect("skill's floor carries a extent clause");
+    let expected_guidance = floor_clause
+        .guidance
+        .as_deref()
+        .expect("the projected floor's extent clause carries guidance");
+    let expected_cite = floor_clause
+        .source
+        .as_deref()
+        .expect("the projected floor's extent clause carries a cite");
+    assert!(
+        expected_guidance.contains("Progressive disclosure"),
+        "skill's extent advisory carries its progressive-disclosure guidance, got {expected_guidance:?}"
+    );
+    assert!(
+        expected_cite.contains("agentskills.io"),
+        "skill's extent advisory cites the agentskills spec, got {expected_cite:?}"
+    );
+
+    let row = builtin_lock::declarations()
+        .clauses
+        .iter()
+        .find(|row| row.kind.as_deref() == Some("skill") && row.predicate == "extent")
+        .expect("the derived lock carries skill's extent clause row");
+
+    assert_eq!(row.guidance.as_deref(), Some(expected_guidance));
+    assert_eq!(row.cite.as_deref(), Some(expected_cite));
+}
+
+// ---- MENTION-EDGE-LANDS: an authored mention binds the graph -----------------
+//
+// contract.md, "edge": a mention is one of four edge loci, and every edge resolves
+// into the one enumeration the gate and every read verb share. These prove the whole
+// pipeline past the lock round-trip already proven above: the mention row binds into
+// the reference graph, a `degree` clause can count it, and `explain` narrates its
+// resolved target rather than "points at no member" — with no declared reference
+// field between the two members at all.
+
+/// A floor-clean skill named `name` whose prose cites `target` in words alone (no
+/// declared reference field) — the mention is the only edge this fixture carries.
+fn mentioning_skill(name: &str, target: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         See the {target} rule.\n"
+    )
+}
+
+/// A floor-clean rule with a plain body and no frontmatter at all — the mention's
+/// target, declaring no reference field of its own.
+fn clean_rule(name: &str) -> String {
+    format!("# {name}\n\nBody.\n")
+}
+
+/// The `gate` requirement's declaration row, typed to `rule`, carrying a required
+/// `degree` clause bounding incoming edges to at least one.
+fn incoming_degree_requirement() -> RequirementRow {
+    RequirementRow {
+        clauses: vec![common::required_clause_row(
+            "degree",
+            None,
+            None,
+            None,
+            Some(DegreeBoundRow {
+                incoming: Some(EdgeBoundRow {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+            }),
+        )],
+        ..common::requirement("gate", false, Some("rule"))
+    }
+}
+
+#[test]
+fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
+    let root = common::tmpdir("mention-edge-lands");
+    // A skill `coordinate` and a rule `rust`, on disk, declaring no reference field
+    // between them at all — the only edge is the skill's authored mention of the rule.
+    let skill_dir = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        mentioning_skill("coordinate", "rust"),
+    )
+    .unwrap();
+    let rules_dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    fs::write(rules_dir.join("rust.md"), clean_rule("rust")).unwrap();
+
+    // The rule `rust` opts into `gate`, whose required `degree` clause bounds its
+    // incoming edges to at least one — satisfiable only by the mention, since no
+    // reference field is declared anywhere in this harness.
+    common::write_lock(
+        &root,
+        Declarations {
+            requirements: vec![incoming_degree_requirement()],
+            mentions: vec![MentionRow {
+                member: "skill:coordinate".to_string(),
+                target: "rule:rust".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+    // `why`'s member listing reads the lock's `satisfies` rows, not raw harness
+    // disk — author one for `coordinate` too (no `satisfies` claims of its own) so
+    // `explain` resolves it as a member at all.
+    common::author_satisfies(&root, "skills", "coordinate", &[]);
+    common::author_satisfies(&root, "rules", "rust", &["gate"]);
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        ok,
+        "the mention alone satisfies the rule's incoming degree bound ⇒ clean, got:\n{output}"
+    );
+
+    let out = common::explain_in(&root, "coordinate");
+    assert!(
+        out.contains("it points at `rust` (rule) via its `mention` field"),
+        "explain narrates the mention's resolved target rather than \"points at no member\": {out}"
+    );
+    assert!(
+        !out.contains("it points at no member"),
+        "a member whose only outgoing edge is a mention must not read as pointing at nothing: {out}"
+    );
+}
+
+#[test]
+fn a_mention_with_no_clause_ranging_over_it_is_obligation_free() {
+    // No `degree` clause at all: the mention rides the lock and binds the graph, but
+    // no shipped clause counts it — obligation-free by default (contract.md, "edge").
+    let root = common::tmpdir("mention-obligation-free");
+    let skill_dir = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        mentioning_skill("coordinate", "rust"),
+    )
+    .unwrap();
+    let rules_dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    fs::write(rules_dir.join("rust.md"), clean_rule("rust")).unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            mentions: vec![MentionRow {
+                member: "skill:coordinate".to_string(),
+                target: "rule:rust".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        ok,
+        "a mention with no clause ranging over it never gates ⇒ clean, got:\n{output}"
+    );
+}
+
+/// An `edge` fact's declared target *set* — the column carrying the non-empty set of
+/// kinds a field may resolve into.
+fn edge_fact(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
+    AssemblyFactRow {
+        fact: "edge".to_string(),
+        value: None,
+        from: Some(from.to_string()),
+        field: Some(field.to_string()),
+        to: Some(to.iter().map(|kind| (*kind).to_string()).collect()),
+    }
+}
+
+/// The lock text at `<root>/.temper/lock.toml`.
+fn lock_text(root: &Path) -> String {
+    fs::read_to_string(root.join(".temper").join(temper::LOCK_FILENAME)).unwrap()
+}
+
+#[test]
+fn an_edge_facts_target_set_round_trips_the_lock_as_an_array() {
+    let root = common::tmpdir("edge-to-set");
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![
+                edge_fact("citation", "source", &["rule", "skill"]),
+                edge_fact("rule", "routes_to", &["skill"]),
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    assert!(
+        lock_text(&root).contains(r#"to = ["rule", "skill"]"#),
+        "a multi-kind target set writes as an array, got:\n{}",
+        lock_text(&root)
+    );
+
+    let declarations = drift::read_declarations(&root.join(".temper")).unwrap();
+    let targets: Vec<Option<Vec<String>>> = declarations
+        .assembly
+        .iter()
+        .filter(|fact| fact.fact == "edge")
+        .map(|fact| fact.to.clone())
+        .collect();
+    assert_eq!(
+        targets,
+        vec![
+            Some(vec!["rule".to_string(), "skill".to_string()]),
+            Some(vec!["skill".to_string()]),
+        ],
+        "both the multi- and the one-element set round-trip as declared"
+    );
+}
+
+/// A lock committed before the target set widened carries `to = "<kind>"` — the lossless
+/// spelling of the one-element set. An upgraded engine owes it a robust read: the bare
+/// string reads as the singleton, and the file itself is never patched (the next emit
+/// rewrites it whole in the canonical array form).
+#[test]
+fn a_legacy_bare_string_target_reads_as_the_one_element_set_unpatched() {
+    let root = common::tmpdir("edge-to-legacy");
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![edge_fact("rule", "routes_to", &["skill"])],
+            ..Declarations::default()
+        },
+    );
+
+    // Rewrite the emitted row into the pre-set spelling a committed lock carries.
+    let lock = root.join(".temper").join(temper::LOCK_FILENAME);
+    let legacy = lock_text(&root).replace(r#"to = ["skill"]"#, r#"to = "skill""#);
+    assert!(
+        legacy.contains(r#"to = "skill""#),
+        "the fixture really is the bare-string spelling"
+    );
+    fs::write(&lock, &legacy).unwrap();
+
+    let declarations = drift::read_declarations(&root.join(".temper")).unwrap();
+    let edge = declarations
+        .assembly
+        .iter()
+        .find(|fact| fact.fact == "edge")
+        .expect("the legacy edge row reads back");
+    assert_eq!(
+        edge.to,
+        Some(vec!["skill".to_string()]),
+        "a bare-string `to` reads as the one-element set"
+    );
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        legacy,
+        "reading a legacy lock never patches the file"
+    );
+}
+
+#[test]
+fn an_edge_facts_target_column_that_is_neither_string_nor_string_array_refuses_loud() {
+    let root = common::tmpdir("edge-to-corrupt");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            assembly: vec![edge_fact("spec", "source", &["spec"])],
+            ..Declarations::default()
+        },
+    );
+
+    // A `to` of a type no emit could have produced — the robust legacy read stays narrow,
+    // so a genuinely corrupt column still refuses rather than being tolerated.
+    let lock = root.join(".temper").join(temper::LOCK_FILENAME);
+    let corrupt = lock_text(&root).replace(r#"to = ["spec"]"#, "to = 3");
+    fs::write(&lock, &corrupt).unwrap();
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "a corrupt `to` column must fail the run loud, got:\n{output}"
+    );
+    assert!(
+        output.contains("to"),
+        "the load error names the offending column rather than dropping the row, got:\n{output}"
+    );
+}
+
+// ---- one `(from, field)` slot is declared by one `edge` fact -----------------
+//
+// contract.md, "edge": the kind declares a field's target as ONE non-empty set of
+// kinds. Two rows spelling one slot are therefore a malformed lock — refused once at
+// the assembly tier, naming the merge, with neither arm resolved (resolving one of two
+// declarations is a guess, and the guess buries the refusal under the dangling routes
+// the arm the author did not mean forges).
+
+/// A floor-clean rule carrying a `routes_to` reference field naming `target` —
+/// `routes_to` is not a floor-forbidden rule key, so the only finding a case below can
+/// produce is the graph one.
+fn routing_rule(target: &str) -> String {
+    format!(
+        "---\n\
+         routes_to: {target}\n\
+         ---\n\
+         # Style\n\
+         \n\
+         Prefer the standards skill.\n"
+    )
+}
+
+/// The corpus both coincidence cases read: the rule `style` routing to the skill
+/// `standards`, which really exists — so with ONE declared row the run is clean and the
+/// refusal below is never an empty read.
+fn write_routing_harness(root: &Path) {
+    common::write_rule_skill_harness(
+        root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+}
+
+/// How many times `needle` occurs in `haystack` — the "reported ONCE per slot, not once
+/// per row" assertion.
+fn occurrences(haystack: &str, needle: &str) -> usize {
+    haystack.matches(needle).count()
+}
+
+#[test]
+fn one_edge_row_per_slot_resolves_and_the_run_is_clean() {
+    // Non-vacuity: the same corpus and the same slot, declared once, resolves.
+    let root = common::tmpdir("edge-slot-single");
+    write_routing_harness(&root);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![edge_fact("rule", "routes_to", &["skill"])],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        ok,
+        "one row for the slot resolves `style` → `standards` ⇒ clean, got:\n{output}"
+    );
+}
+
+#[test]
+fn two_edge_rows_for_one_slot_refuse_once_with_no_dangling_route_noise() {
+    let root = common::tmpdir("edge-slot-coincident");
+    write_routing_harness(&root);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![
+                edge_fact("rule", "routes_to", &["skill"]),
+                edge_fact("rule", "routes_to", &["agent"]),
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "two `edge` rows for one slot are a malformed lock ⇒ non-zero, got:\n{output}"
+    );
+    assert_eq!(
+        occurrences(&output, "`edge` facts"),
+        1,
+        "the slot is reported once, not once per row, got:\n{output}"
+    );
+    assert!(
+        output.contains("rule.routes_to")
+            && output.contains("`skill` and `agent`")
+            && output.contains("merge"),
+        "the refusal names the slot, both declared target sets, and the merge that fixes \
+         it, got:\n{output}"
+    );
+    assert!(
+        !output.contains("resolves to no"),
+        "neither arm resolves, so the refusal arrives alone rather than buried under the \
+         dangling routes the coincidence forges, got:\n{output}"
+    );
+}
+
+#[test]
+fn two_byte_identical_edge_rows_refuse_the_same_way() {
+    // The slot is keyed on `(from, field)` alone: identical rows are equally malformed,
+    // since resolving both doubles every arc the slot yields.
+    let root = common::tmpdir("edge-slot-identical");
+    write_routing_harness(&root);
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![
+                edge_fact("rule", "routes_to", &["skill"]),
+                edge_fact("rule", "routes_to", &["skill"]),
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    assert_eq!(
+        occurrences(&lock_text(&root), r#"field = "routes_to""#),
+        2,
+        "the fixture really carries both rows"
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "identical rows are a coincidence too ⇒ non-zero, got:\n{output}"
+    );
+    assert_eq!(
+        occurrences(&output, "`edge` facts"),
+        1,
+        "one finding for the slot, got:\n{output}"
+    );
+    assert!(
+        output.contains("rule.routes_to") && output.contains("targeting `skill` —"),
+        "the one distinct target set reads once, got:\n{output}"
+    );
+}
+
+// ---- CLAUSE-LABEL-IS-AN-ADDRESS: the clause's compiled address ---------------
+//
+// A clause's label is its identity. Emit writes it once, off the row's own
+// identity columns; every finding and `explain` print it; and two rows reducing to
+// one label are a malformed lock, refused before it judges anything.
+
+#[test]
+fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
+    let root = common::tmpdir("clause-label-emitted");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            clauses: vec![
+                ClauseRow {
+                    unit: None,
+                    kind: Some("spec".to_string()),
+                    field: Some("owner".to_string()),
+                    ..common::clause("required", "required")
+                },
+                // The collision the bare predicate key could not tell apart: two clauses
+                // of one predicate over *different* fields of one kind.
+                ClauseRow {
+                    unit: None,
+                    kind: Some("spec".to_string()),
+                    field: Some("title".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(80),
+                    }),
+                    ..common::clause("max_len", "required")
+                },
+                ClauseRow {
+                    unit: None,
+                    kind: Some("spec".to_string()),
+                    field: Some("owner".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(40),
+                    }),
+                    ..common::clause("max_len", "required")
+                },
+                // A fieldless predicate addresses on its owner and key alone.
+                ClauseRow {
+                    unit: Some("lines".to_string()),
+                    kind: Some("spec".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(150),
+                    }),
+                    ..common::clause("extent", "advisory")
+                },
+            ],
+            requirements: vec![RequirementRow {
+                clauses: vec![ClauseRow {
+                    unit: None,
+                    count: Some(CountBoundRow { min: 1, max: 9 }),
+                    ..common::clause("count", "required")
+                }],
+                ..common::requirement("spec-coverage", true, Some("spec"))
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let labels: Vec<String> = drift::read_declarations(&root.join(".temper"))
+        .unwrap()
+        .clauses
+        .iter()
+        .map(|row| row.label.clone().expect("emit stamps every clause row"))
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            "spec.required.owner",
+            "spec.max_len.title",
+            "spec.max_len.owner",
+            "spec.extent",
+        ],
+        "each row addresses as `<kind>.<predicate>[.<field>]` — the two `max_len` \
+         clauses over different fields are distinct addresses, not one colliding key"
+    );
+
+    // A requirement's own clause names no kind, so it addresses under the requirement
+    // it hangs off — the one place that name is in scope.
+    let requirement_labels: Vec<String> = drift::read_declarations(&root.join(".temper"))
+        .unwrap()
+        .requirements
+        .iter()
+        .flat_map(|row| row.clauses.clone())
+        .map(|row| row.label.expect("emit stamps a nested clause row too"))
+        .collect();
+    assert_eq!(requirement_labels, ["requirement.spec-coverage.count"]);
+}
+
+#[test]
+fn the_same_program_emits_the_same_clause_labels() {
+    // Determinism is what makes the label an address an author can write down: the
+    // same program re-emitted must address every clause identically, never renumber.
+    let declarations = || Declarations {
+        kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+        clauses: vec![
+            ClauseRow {
+                unit: None,
+                kind: Some("spec".to_string()),
+                field: Some("owner".to_string()),
+                ..common::clause("required", "required")
+            },
+            ClauseRow {
+                unit: Some("lines".to_string()),
+                kind: Some("spec".to_string()),
+                bound: Some(BoundRow {
+                    min: None,
+                    max: Some(150),
+                }),
+                ..common::clause("extent", "advisory")
+            },
+        ],
+        ..Declarations::default()
+    };
+    let labels_of = |slug: &str| -> Vec<String> {
+        let root = common::tmpdir(slug);
+        common::write_lock(&root, declarations());
+        drift::read_declarations(&root.join(".temper"))
+            .unwrap()
+            .clauses
+            .iter()
+            .filter_map(|row| row.label.clone())
+            .collect()
+    };
+
+    assert_eq!(
+        labels_of("clause-label-run-a"),
+        labels_of("clause-label-run-b")
+    );
+}
+
+/// A `when`-carrying `ClauseRow` (guard plus nested body) round-trips through
+/// `emit` and `read_declarations`, preserving the guard-and-body shape. The guard's
+/// predicate key and arguments ride the shared columns; the body is a nested array
+/// of clause rows.
+#[test]
+fn a_when_clause_row_round_trips_the_lock() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        guard_predicate: Some("enum".to_string()),
+        field: Some("source".to_string()),
+        values: Some(vec!["./path".to_string(), "object".to_string()]),
+        body: Some(vec![ClauseRow {
+            unit: None,
+            label: None,
+            kind: None,
+            field: Some("url".to_string()),
+            ..common::clause("required", "required")
+        }]),
+        ..common::clause("when", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("when-guard-body", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the when clause with guard and body formats
+    // stably across the round trip.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let when_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "when")
+        .expect("the when clause row round-trips");
+
+    // Guard predicate and arguments are preserved.
+    assert_eq!(when_row.guard_predicate.as_deref(), Some("enum"));
+    assert_eq!(when_row.field.as_deref(), Some("source"));
+    assert_eq!(
+        when_row.values.as_deref(),
+        Some(vec!["./path".to_string(), "object".to_string()].as_slice())
+    );
+
+    // Body is preserved as nested rows, each addressed under its host guard: a body
+    // clause is an ordinary clause, and the host's own label is the owner segment that
+    // tells two guards' bodies over one field apart.
+    assert_eq!(when_row.body.as_ref().map(|b| b.len()), Some(1));
+    let body_clause = &when_row.body.as_ref().unwrap()[0];
+    assert_eq!(body_clause.predicate, "required");
+    assert_eq!(body_clause.field.as_deref(), Some("url"));
+    assert_eq!(
+        when_row.label.as_deref(),
+        Some("skill.when.source=./path+object")
+    );
+    assert_eq!(
+        body_clause.label.as_deref(),
+        Some("skill.when.source=./path+object.required.url")
+    );
+
+    // The guard lifts through predicate_from_row.
+    let guard_predicate = contract::predicate_from_row(&ClauseRow {
+        guard_predicate: when_row.guard_predicate.clone(),
+        field: when_row.field.clone(),
+        values: when_row.values.clone(),
+        ..common::clause("enum", "required")
+    })
+    .expect("guard lifts");
+    assert_eq!(
+        guard_predicate,
+        Predicate::Enum {
+            field: "source".to_string(),
+            values: vec!["./path".to_string(), "object".to_string()],
+        }
+    );
+}
+
+#[test]
+fn a_lock_carrying_two_rows_under_one_label_fails_admissibility_loud() {
+    // Two rows of one predicate over one field of one kind reduce to one address, so
+    // neither can be named — a malformed lock, refused before it judges anything,
+    // never a collision quietly resolved to whichever row was read first.
+    let root = common::tmpdir("clause-label-collision");
+    common::write_skill(&root, "coordinate", &common::clean_skill("coordinate"));
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![
+                ClauseRow {
+                    unit: Some("lines".to_string()),
+                    kind: Some("skill".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(150),
+                    }),
+                    ..common::clause("extent", "advisory")
+                },
+                ClauseRow {
+                    unit: Some("lines".to_string()),
+                    kind: Some("skill".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(500),
+                    }),
+                    ..common::clause("extent", "required")
+                },
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "two clause rows under one address must fail the run, got:\n{output}"
+    );
+    assert!(
+        output.contains("clause.label-collision") && output.contains("skill.extent"),
+        "the refusal names the coherence rule and the colliding address, got:\n{output}"
+    );
+}
+
+#[test]
+fn two_body_rows_under_one_guard_sharing_one_label_fail_admissibility_loud() {
+    // A guard's body carries ordinary clauses, so two of them reducing to one address are
+    // the same unaddressable pair a kind's own twins are — and the only thing that makes
+    // them tellable apart at all is the host guard's label they hang under.
+    let root = common::tmpdir("clause-label-collision-body");
+    common::write_skill(&root, "coordinate", &common::clean_skill("coordinate"));
+    let body_row = || ClauseRow {
+        field: Some("url".to_string()),
+        ..common::clause("required", "required")
+    };
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![ClauseRow {
+                kind: Some("skill".to_string()),
+                guard_predicate: Some("enum".to_string()),
+                field: Some("source".to_string()),
+                values: Some(vec!["object".to_string()]),
+                body: Some(vec![body_row(), body_row()]),
+                ..common::clause("when", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "two body rows under one address must fail the run, got:\n{output}"
+    );
+    assert!(
+        output.contains("clause.label-collision")
+            && output.contains("skill.when.source=object.required.url"),
+        "the refusal names the coherence rule and the colliding body address, got:\n{output}"
+    );
+    assert!(
+        output.contains("guard `skill.when.source=object`"),
+        "and the site sentence names the host guard the way a kind's own arm names the \
+         kind, got:\n{output}"
+    );
+}
+
+/// A fixture SDK program declaring two `section_contains` clauses and two
+/// `require_sections` clauses on one kind. Neither predicate names a field, and a
+/// clause's compiled label is stamped from the row's `field` column, so lowering the
+/// predicate's own (absent) field folded every clause of one of these predicates on
+/// one kind into a single label — a malformed lock the author could not get past
+/// admissibility. Each clause here is authored to decide differently from its
+/// sibling, so a run that gates them independently is visible in the findings.
+const SECTION_CLAUSE_LABEL_PROGRAM: &str = r#"
+import { clause, emit, harness, requireSections, sectionContains, text } from "@dtmd/temper";
+import { skill } from "@dtmd/temper/claude-code";
+
+const program = harness({
+  members: [
+    skill({
+      name: "coordinate",
+      description: "Use when coordinating agents across axes.",
+      prose: text`
+        # Coordinate
+
+        ## Invariant: the roster is bounded
+
+        Test: the gauntlet covers it.
+
+        ## Usage
+
+        Drive the team.
+      `,
+    }),
+ ],
+  expect: [
+    {
+      kind: skill,
+      clauses: [
+        clause(sectionContains("Invariant", "Test"), { severity: "required" }),
+        clause(sectionContains("Invariant", "Standard"), { severity: "required" }),
+        clause(requireSections(["Usage"]), { severity: "required" }),
+        clause(requireSections(["Usage", "Decision"]), { severity: "required" }),
+ ],
+    },
+ ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+/// Two clauses of one section-addressing predicate on one kind compile — through the
+/// real SDK, across the seam — to two distinct labels, round-trip their own arguments,
+/// and gate independently: the passing sibling stays silent while the failing one
+/// fires under its own address.
+#[test]
+fn two_section_clauses_of_one_predicate_carry_distinct_labels_and_gate_independently() {
+    let (root, into) =
+        common::wire_sdk_harness("section-clause-labels", SECTION_CLAUSE_LABEL_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let labels_of = |predicate: &str| -> Vec<String> {
+        let mut labels: Vec<String> = declarations
+            .clauses
+            .iter()
+            .filter(|row| row.kind.as_deref() == Some("skill") && row.predicate == predicate)
+            .map(|row| row.label.clone().expect("emit stamps every clause row"))
+            .collect();
+        labels.sort();
+        labels
+    };
+
+    // The heading and the marker both reach the address, so two clauses over one
+    // heading stay two rows.
+    assert_eq!(
+        labels_of("section_contains"),
+        vec![
+            "skill.section_contains.Invariant.Standard".to_string(),
+            "skill.section_contains.Invariant.Test".to_string(),
+        ],
+    );
+    // The whole heading list reaches the address, so a list and its own prefix stay
+    // two rows.
+    assert_eq!(
+        labels_of("require_sections"),
+        vec![
+            "skill.require_sections.Usage".to_string(),
+            "skill.require_sections.Usage+Decision".to_string(),
+        ],
+    );
+
+    // The synthesized address changes no argument: the reader reconstructs both
+    // predicates from the `section`/`sections` columns, never from the label's text.
+    let lifted = |predicate: &str| -> Vec<Predicate> {
+        declarations
+            .clauses
+            .iter()
+            .filter(|row| row.kind.as_deref() == Some("skill") && row.predicate == predicate)
+            .map(|row| contract::predicate_from_row(row).expect("the clause row lifts"))
+            .collect()
+    };
+    assert_eq!(
+        lifted("section_contains"),
+        vec![
+            Predicate::SectionContains {
+                heading: "Invariant".to_string(),
+                marker: "Test".to_string(),
+            },
+            Predicate::SectionContains {
+                heading: "Invariant".to_string(),
+                marker: "Standard".to_string(),
+            },
+        ],
+    );
+    assert_eq!(
+        lifted("require_sections"),
+        vec![
+            Predicate::RequireSections {
+                sections: vec!["Usage".to_string()],
+            },
+            Predicate::RequireSections {
+                sections: vec!["Usage".to_string(), "Decision".to_string()],
+            },
+        ],
+    );
+
+    // Both pairs gate independently: the member carries a `Test` marker and a `Usage`
+    // heading, so one clause of each pair holds and the other fires under its own
+    // address — never one folded verdict for the pair.
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "the unsatisfied sibling of each pair must fail the run, got:\n{output}"
+    );
+    assert!(
+        output.contains("skill.section_contains.Invariant.Standard")
+            && output.contains("skill.require_sections.Usage+Decision"),
+        "each failing clause reports under its own address, got:\n{output}"
+    );
+    assert!(
+        !output.contains("skill.section_contains.Invariant.Test"),
+        "the satisfied `section_contains` sibling stays silent, got:\n{output}"
+    );
+}

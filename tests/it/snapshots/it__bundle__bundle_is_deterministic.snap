@@ -1,0 +1,11 @@
+---
+source: tests/it/bundle.rs
+assertion_line: 184
+expression: files
+---
+[
+    ".claude-plugin/marketplace.json",
+    ".claude-plugin/plugin.json",
+    "hooks/hooks.json",
+    "skills/temper/SKILL.md",
+]

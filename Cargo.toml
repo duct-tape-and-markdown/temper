@@ -63,8 +63,8 @@ insta = { version = "1", features = ["filters"] }
 # yaml-frontmatter adapter yields.
 serde_json = "1"
 # Test temp dirs (CLAUDE.md, "Tech stack") — the RAII builder behind
-# tests/common::tmpdir and every in-src `#[cfg(test)]` module's own temp dir.
+# tests/it/common::tmpdir and every in-src `#[cfg(test)]` module's own temp dir.
 tempfile = "3"
-# The seam-binding staleness gate (`tests/seam_bindings_current.rs`) names
+# The seam-binding staleness gate (`tests/it/seam_bindings_current.rs`) names
 # `ts_rs::{TS, Config}` directly to re-export the bindings in memory.
 ts-rs = { version = "12", features = ["no-serde-warnings"] }
