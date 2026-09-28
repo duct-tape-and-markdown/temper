@@ -1955,6 +1955,60 @@ mod embedded_edge_targets {
             route[0]
         );
     }
+
+    /// The same family at **leaf grain**: a mention whose target is a leaf address under a
+    /// composed nested member reports the missing *leaf*, never a missing member. The host
+    /// `billing` is right there in the corpus — it is only the `ghost` leaf inside it that
+    /// is absent — so `resolves to no member` would send the reader after a member that
+    /// exists, and would contradict `explain`, which narrates the very same target as a
+    /// leaf (`specs/model/contract.md`, "edge").
+    #[test]
+    fn a_dangling_mention_to_a_leaf_address_names_the_leaf_grain() {
+        let root = common::scaffold("mention-route-dangling-leaf");
+        // `billing` is composed and carries a `paths` leaf, but no `ghost` one: the leaf
+        // address dangles while its host nested member resolves.
+        write_service(&root, "billing");
+        let ghost = format!("{BILLING}/ghost");
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&["domain"])],
+                nested_members: vec![gated_domain_row("docs/**")],
+                mentions: vec![common::mention(BILLING, &ghost)],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], Some("github"));
+        assert!(
+            !run.ok,
+            "a mention to a leaf no nested member carries dangles ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        let findings = run.findings();
+        let route = common::findings_for(&findings, "graph.route");
+        assert_eq!(
+            route.len(),
+            1,
+            "one dangling verdict for the one mention, got:\n{}",
+            run.output
+        );
+        assert!(
+            route[0].contains(&ghost),
+            "the finding names the target at leaf grain, got: {}",
+            route[0]
+        );
+        assert!(
+            route[0].contains("resolves to no leaf"),
+            "and says which grain the corpus was searched at, got: {}",
+            route[0]
+        );
+        assert!(
+            !route[0].contains("resolves to no member"),
+            "never claiming the composed host member is the thing that is missing, got: {}",
+            route[0]
+        );
+    }
 }
 
 /// End-to-end proof of the **source** side of the same grain: an embedded member's own

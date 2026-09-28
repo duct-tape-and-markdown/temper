@@ -2302,17 +2302,24 @@ fn render_node(node: &Node) -> String {
     }
 }
 
-/// The finding for a mention whose target resolves to no member or requirement in the
-/// discovered corpus — naming the citing member and the dangling target
-/// ([`route_mentions`]).
+/// The finding for a mention whose target resolves to nothing in the discovered corpus —
+/// naming the citing member, the dangling target, and the **grain** the corpus was
+/// searched at: a member, a requirement, or an embedded leaf ([`route_mentions`]).
+///
+/// The grain is the target's own species, never the coarsest one: a leaf address is
+/// searched against the corpus's embedded leaves ([`crate::read::resolve_leaf`]), which
+/// misses with the host member present, so reporting it as a missing *member* sends the
+/// reader after a member that is right there. One word covers both sub-cases truthfully —
+/// no such leaf, and no such host — and it is the word `explain` narrates the same target
+/// with (`specs/model/contract.md`, "edge": one enumeration the gate and every read verb
+/// share).
 fn dangling_mention(edge: &ResolvedEdge) -> Diagnostic {
     let source = render_node(&edge.from);
     let target = render_node(&edge.to);
     let resolves_against = match node_species(&edge.to) {
         NodeSpecies::Requirement => "requirement",
-        // A leaf that resolves against no embedded leaf is reported against the member
-        // grain the corpus is searched at — the wording the gate has always used.
-        NodeSpecies::Member | NodeSpecies::EmbeddedLeaf => "member",
+        NodeSpecies::EmbeddedLeaf => "leaf",
+        NodeSpecies::Member => "member",
     };
     Diagnostic::error(
         GRAPH_ROUTE_RULE,
