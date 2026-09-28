@@ -1,9 +1,10 @@
 # Plan state
 
-- Spec derived through: 11d9efac — unchanged, copied forward: no `specs/`
+- Spec derived through: 862f0b60 — routed this tick: a two-site path
+  correction in `engineering.md`, no intent change, nothing derivable.
+- Audited through: 70afd6e0 — copied forward: no `src/`, `tests/` or `sdk/`
   commit past it.
-- Audited through: 70afd6e0 — 909f3c94..HEAD reconciled this tick.
-- Residue swept through: 70afd6e0 — same window, swept with the audit.
+- Residue swept through: 70afd6e0 — copied forward with the audit cursor.
 - Posture swept through: sdk/src/declarations.ts next — mid-rotation.
   Frozen frontier (armed at 7d695577), paths re-spelled for a7c8c9b5's fold:
   covered — src/read.rs, src/telemetry.rs, tests/it/read_verbs.rs,
@@ -12,11 +13,12 @@
   open — sdk/src/declarations.ts, tests/it/emit.rs, src/install.rs,
   tests/it/install.rs, src/compose.rs, src/drift.rs, src/glob.rs,
   src/placement.rs.
-- This tick: reconciled 909f3c94..HEAD — the 59→1 test-target fold shipped
-  clean; re-cited the three entries and three fork cites it path-rotted.
+- This tick: routed the 862f0b60 spec delta — pure path rot, no entry, no
+  fork; both corrected paths verified on disk.
 - Queue: 8 pending — 1 open, 3 deferred, 4 parked. Pickable: 0 (the one
   open entry rests on `(hook-member-identity)`). Open forks: 18. Friction:
-  1 (human channel). Amendments: 0. Refactor: 0. Inbox: 0.
+  1 (human channel, premise falsified at HEAD). Amendments: 0. Refactor: 0.
+  Inbox: 0.
 
 Plan continues: yes — the posture sweep at sdk/src/declarations.ts, with no
 pickable entry for build to take
