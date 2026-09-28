@@ -1,14 +1,12 @@
 {
   "tag": "INSTALL-LIFTS-A-REGISTRATION-MEMBER",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "INTEGRATION-SUITE-ONE-TEST-TARGET"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [
     "hook-member-identity"
   ],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
