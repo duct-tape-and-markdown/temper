@@ -9,7 +9,7 @@
 //! `extent` row naming an unknown unit, at load.
 
 use temper::compose::{self, ClauseRowError};
-use temper::contract::{self, Clause, Contract, ExtentUnit, Predicate, Severity as ClauseSeverity};
+use temper::contract::{Clause, Contract, ExtentUnit, Predicate, Severity as ClauseSeverity};
 use temper::drift::{BoundRow, ClauseRow};
 use temper::engine::{self, Selection, Selector};
 use temper::extract::Features;
@@ -30,23 +30,16 @@ fn member(id: &str, lines: usize, chars: usize, body_lines: usize) -> Features {
 
 /// An `extent` clause at the declared grain, addressed as a lifted row would be.
 fn clause(unit: ExtentUnit, max: usize, whole: bool) -> Clause {
-    let predicate = Predicate::Extent { unit, max, whole };
-    Clause {
-        label: contract::clause_label(Some("skill"), predicate.key(), predicate.target()),
-        severity: ClauseSeverity::Advisory,
-        predicate,
-        guidance: None,
-        source: None,
-    }
+    common::labelled_clause(
+        "skill",
+        ClauseSeverity::Advisory,
+        Predicate::Extent { unit, max, whole },
+    )
 }
 
 /// A contract binding one `extent` clause to `skill`.
 fn contract(unit: ExtentUnit, max: usize, whole: bool) -> Contract {
-    Contract {
-        name: "skill".to_string(),
-        guidance: None,
-        clauses: vec![clause(unit, max, whole)],
-    }
+    common::clause_contract("skill", vec![clause(unit, max, whole)])
 }
 
 /// A kind selection over `members`, carrying the one whole-grain `extent` clause `judge`

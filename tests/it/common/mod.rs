@@ -1045,26 +1045,56 @@ pub fn required_clause_row(
     }
 }
 
-/// An engine [`temper::contract::Contract`] over `kind` binding exactly one `required`
-/// clause on `predicate`, labelled the way a real contract labels it
-/// ([`temper::contract::clause_label`]) — the shape a proof that judges one predicate in
-/// isolation builds. Engine-typed, unlike the row-shaped [`clause`]: a [`ClauseRow`] is
-/// the wire form and cannot be handed to the engine.
-pub fn one_clause_contract(
+/// An engine [`temper::contract::Clause`] on `predicate` at `severity`, owned by `kind`
+/// and addressed exactly as the shipped stamper addresses a lifted row: the predicate's
+/// own key and target fill the label's trailing segments, so a finding's `rule` is the
+/// address a real lock stamps. Engine-typed, unlike the row-shaped [`clause`]: a
+/// [`ClauseRow`] is the wire form and cannot be handed to the engine.
+///
+/// `guidance` and `source` are `None` — a proof asserting over either builds its own
+/// clause.
+pub fn labelled_clause(
     kind: &str,
+    severity: temper::contract::Severity,
     predicate: temper::contract::Predicate,
+) -> temper::contract::Clause {
+    temper::contract::Clause {
+        label: temper::contract::clause_label(Some(kind), predicate.key(), predicate.target()),
+        severity,
+        predicate,
+        guidance: None,
+        source: None,
+    }
+}
+
+/// An engine [`temper::contract::Contract`] over `kind` binding `clauses` — the host a
+/// proof that judges predicates in isolation hangs [`labelled_clause`] results off.
+pub fn clause_contract(
+    kind: &str,
+    clauses: Vec<temper::contract::Clause>,
 ) -> temper::contract::Contract {
     temper::contract::Contract {
         name: kind.to_string(),
         guidance: None,
-        clauses: vec![temper::contract::Clause {
-            label: temper::contract::clause_label(Some(kind), predicate.key(), None),
-            severity: temper::contract::Severity::Required,
-            predicate,
-            guidance: None,
-            source: None,
-        }],
+        clauses,
     }
+}
+
+/// An engine [`temper::contract::Contract`] over `kind` binding exactly one `required`
+/// clause on `predicate` — the shape a proof that judges one predicate in isolation
+/// builds.
+pub fn one_clause_contract(
+    kind: &str,
+    predicate: temper::contract::Predicate,
+) -> temper::contract::Contract {
+    clause_contract(
+        kind,
+        vec![labelled_clause(
+            kind,
+            temper::contract::Severity::Required,
+            predicate,
+        )],
+    )
 }
 
 /// The findings a one-clause contract over `predicate` fires against `features` — the

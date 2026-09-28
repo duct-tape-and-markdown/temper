@@ -286,21 +286,8 @@ fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
 /// nothing to match and can never decide anything over any selection.
 #[test]
 fn a_named_kind_clause_is_admissible_on_a_kinds_own_contract_and_an_empty_one_is_not() {
-    let bare_contract = |predicate: Predicate| Contract {
-        name: "kind-clause-fixture".to_string(),
-        clauses: vec![temper::contract::Clause {
-            label: temper::contract::clause_label(
-                Some("kind-clause-fixture"),
-                predicate.key(),
-                None,
-            ),
-            severity: Severity::Required,
-            predicate,
-            guidance: None,
-            source: None,
-        }],
-        guidance: None,
-    };
+    let bare_contract =
+        |predicate: Predicate| common::one_clause_contract("kind-clause-fixture", predicate);
 
     assert!(
         engine::admissibility(
@@ -356,17 +343,14 @@ fn formatted(placements: Option<&[(&str, bool)]>) -> Features {
 /// A one-clause contract over `format-places-edges` at `severity` — the whole surface an
 /// author declares to adopt the check.
 fn places_edges_contract(severity: Severity) -> Contract {
-    Contract {
-        name: "citation".to_string(),
-        clauses: vec![temper::contract::Clause {
-            label: "citation.format-places-edges".to_string(),
+    common::clause_contract(
+        "citation",
+        vec![common::labelled_clause(
+            "citation",
             severity,
-            predicate: Predicate::FormatPlacesEdges,
-            guidance: None,
-            source: None,
-        }],
-        guidance: None,
-    }
+            Predicate::FormatPlacesEdges,
+        )],
+    )
 }
 
 /// The clause loads off a lock row and carries the closed-vocabulary shape: no argument

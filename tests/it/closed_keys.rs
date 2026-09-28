@@ -19,22 +19,12 @@ use crate::common::messages;
 
 /// One clause at `severity`, addressed as a lifted row would be.
 fn clause(severity: ClauseSeverity, predicate: Predicate) -> Clause {
-    Clause {
-        label: contract::clause_label(Some("plugin-manifest"), predicate.key(), predicate.target()),
-        severity,
-        predicate,
-        guidance: None,
-        source: None,
-    }
+    common::labelled_clause("plugin-manifest", severity, predicate)
 }
 
 /// A contract carrying `clauses` — the sibling set `closed-keys` reads its allow-list from.
 fn contract(clauses: Vec<Clause>) -> Contract {
-    Contract {
-        name: "plugin-manifest".to_string(),
-        guidance: None,
-        clauses,
-    }
+    common::clause_contract("plugin-manifest", clauses)
 }
 
 /// `required("name")`, the declaring row every fixture below opens with.
@@ -273,23 +263,17 @@ fn the_writers_own_embedded_members_carry_no_key_for_a_closed_set_to_indict() {
         assert!(hook.id.ends_with("/hook/on-enter"), "id is the address");
     }
 
-    let hook_clause = |predicate: Predicate| Clause {
-        label: contract::clause_label(Some("hook"), predicate.key(), predicate.target()),
-        severity: ClauseSeverity::Required,
-        predicate,
-        guidance: None,
-        source: None,
-    };
-    let closed = Contract {
-        name: "hook".to_string(),
-        guidance: None,
-        clauses: vec![
+    let hook_clause =
+        |predicate: Predicate| common::labelled_clause("hook", ClauseSeverity::Required, predicate);
+    let closed = common::clause_contract(
+        "hook",
+        vec![
             hook_clause(Predicate::Required {
                 field: "name".to_string(),
             }),
             hook_clause(Predicate::ClosedKeys),
         ],
-    };
+    );
     assert!(
         engine::admissibility(&closed, &Locus::Embedded("hook".to_string())).is_empty(),
         "the pairing is admissible — the clause has keys to close over"

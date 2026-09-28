@@ -8,7 +8,7 @@
 //! of spelling one.
 
 use temper::check::Severity;
-use temper::contract::{self, Clause, Contract, Predicate, Severity as ClauseSeverity, Shape};
+use temper::contract::{self, Contract, Predicate, Severity as ClauseSeverity, Shape};
 use temper::drift::ClauseRow;
 use temper::engine;
 use temper::extract::Features;
@@ -32,21 +32,17 @@ fn skill(name: &str, description: &str) -> Features {
 
 /// A contract of one `shape` clause on `field`, addressed as a lifted row would be.
 fn shaped(field: &str, shape: Shape) -> Contract {
-    let predicate = Predicate::Shape {
-        field: field.to_string(),
-        shape,
-    };
-    Contract {
-        name: "skill".to_string(),
-        guidance: None,
-        clauses: vec![Clause {
-            label: contract::clause_label(Some("skill"), predicate.key(), predicate.target()),
-            severity: ClauseSeverity::Required,
-            predicate,
-            guidance: None,
-            source: None,
-        }],
-    }
+    common::clause_contract(
+        "skill",
+        vec![common::labelled_clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::Shape {
+                field: field.to_string(),
+                shape,
+            },
+        )],
+    )
 }
 
 #[test]
