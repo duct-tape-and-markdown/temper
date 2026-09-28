@@ -11,35 +11,13 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use temper::compose::Edge;
-use temper::drift::{
-    self, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, Payload,
-    PayloadMember,
-};
+use temper::drift::{self, Declarations, EmitOptions, LayoutRegionRow, Payload, PayloadMember};
 use temper::extract::Features;
 use temper::graph::{self, ImportDeclaration};
 use temper::read;
 
 use crate::common;
-
-/// The shipped root default's own `fresh` clause — the value `gate` threads into
-/// `drift::layout_import_stale`, read off the embedded lock so a drift assertion here
-/// reads the same label and severity a real `check` reports under.
-fn fresh_clause() -> temper::contract::Clause {
-    temper::builtin::root_contract()
-        .clauses
-        .into_iter()
-        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
-        .expect("the shipped root default binds `fresh`")
-}
-
-/// A layout kind governing a single lone `.md` document under `specs/`, carrying the
-/// given ordered region rows. The one shape every case here builds a member of.
-fn layout_kind(name: &str, regions: Vec<LayoutRegionRow>) -> KindFactRow {
-    KindFactRow {
-        content: Some(LayoutRow { regions }),
-        ..common::kind_facts(name, "specs", &format!("{name}.md"))
-    }
-}
+use crate::common::{field_region, fresh_clause, layout_member};
 
 /// A `prose` region row importing `target`.
 fn import_region(target: &str) -> LayoutRegionRow {
@@ -49,29 +27,6 @@ fn import_region(target: &str) -> LayoutRegionRow {
         slot: None,
         member_kind: None,
         key: None,
-    }
-}
-
-/// A `field` region row filling `slot`.
-fn field_region(slot: &str) -> LayoutRegionRow {
-    LayoutRegionRow {
-        region: "field".to_string(),
-        import: None,
-        slot: Some(slot.to_string()),
-        member_kind: None,
-        key: None,
-    }
-}
-
-/// A layout member of `kind`, its document already on disk (a source, never projected).
-fn layout_member(kind: &str) -> PayloadMember {
-    PayloadMember {
-        kind: kind.to_string(),
-        name: kind.to_string(),
-        host: None,
-        fields: Vec::new(),
-        body: String::new(),
-        source_path: None,
     }
 }
 
@@ -91,7 +46,7 @@ fn an_import_region_resolves_to_its_target_and_is_fingerprinted_in_the_lock() {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![layout_kind(
+            kinds: vec![common::layout_kind_facts(
                 "guide",
                 vec![import_region("included.md"), field_region("intent")],
             )],
@@ -149,7 +104,7 @@ fn a_crlf_import_target_is_fresh_against_its_own_baseline() {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![layout_kind(
+            kinds: vec![common::layout_kind_facts(
                 "guide",
                 vec![import_region("included.md"), field_region("intent")],
             )],
@@ -187,7 +142,7 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![
-                layout_kind(
+                common::layout_kind_facts(
                     "guide",
                     vec![import_region("missing.md"), field_region("intent")],
                 ),
@@ -249,11 +204,11 @@ fn an_import_edge_joins_the_resolved_enumeration_and_narrates() {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![
-                layout_kind(
+                common::layout_kind_facts(
                     "guide",
                     vec![import_region("intent.md"), field_region("intent")],
                 ),
-                layout_kind("intent", vec![field_region("intent")]),
+                common::layout_kind_facts("intent", vec![field_region("intent")]),
             ],
             ..Default::default()
         },
@@ -288,7 +243,7 @@ fn an_import_edge_joins_the_resolved_enumeration_and_narrates() {
 
     // A read verb narrates it: `why` folds the import edge into the resolved set it walks,
     // so the guide's outgoing reference reads exactly as the gate resolves it.
-    let guide_features = [feature("guide")];
+    let guide_features = [common::features("guide")];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("guide", &guide_features[..])]);
     let no_edges: Vec<Edge> = Vec::new();
     let narration = read::why(
@@ -306,11 +261,6 @@ fn an_import_edge_joins_the_resolved_enumeration_and_narrates() {
     );
 }
 
-/// A bare `Features` carrying only an id — the corpus entry `why` matches a member on.
-fn feature(id: &str) -> Features {
-    common::features(id)
-}
-
 #[test]
 fn crlf_import_target_reads_clean_for_source_dep_stale() {
     let harness = common::scaffold("layout-import-crlf");
@@ -324,7 +274,7 @@ fn crlf_import_target_reads_clean_for_source_dep_stale() {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![layout_kind(
+            kinds: vec![common::layout_kind_facts(
                 "guide",
                 vec![import_region("included.md"), field_region("intent")],
             )],

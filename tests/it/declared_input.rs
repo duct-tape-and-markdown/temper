@@ -10,26 +10,10 @@
 
 use std::fs;
 
-use temper::drift::{self, Declarations, EmitOptions, InputRow, KindFactRow, Payload};
+use temper::drift::{self, Declarations, EmitOptions, InputRow, Payload};
 
 use crate::common;
-
-/// The shipped root default's own `fresh` clause — the value `gate` threads into
-/// `drift::input_stale`, taken from the embedded lock so a drift assertion here reads the
-/// same label and severity a real `check` reports under.
-fn fresh_clause() -> temper::contract::Clause {
-    temper::builtin::root_contract()
-        .clauses
-        .into_iter()
-        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
-        .expect("the shipped root default binds `fresh`")
-}
-
-/// A `rule` kind governing `.claude/rules/*.md` — a plain markdown, field-less projection,
-/// so the emitted artifact is the authored body verbatim and any extra byte would show.
-fn rule_kind() -> KindFactRow {
-    common::kind_facts("rule", ".claude/rules", "*.md")
-}
+use crate::common::fresh_clause;
 
 /// The body every case's host rule authors — the whole of what its projection may carry.
 const HOST_BODY: &str = "The legacy handler still validates on write.\n";
@@ -39,7 +23,7 @@ fn payload_declaring(input: &std::path::Path) -> Payload {
     Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![rule_kind()],
+            kinds: vec![common::bare_rule_kind_facts()],
             inputs: vec![InputRow {
                 member: "rule:host".to_string(),
                 source_path: input.to_string_lossy().into_owned(),

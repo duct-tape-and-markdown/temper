@@ -12,33 +12,17 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use temper::compose::Edge;
-use temper::drift::{self, Declarations, EmitOptions, IncludeRow, KindFactRow, Payload};
+use temper::drift::{self, Declarations, EmitOptions, IncludeRow, Payload};
 use temper::extract::Features;
 use temper::graph::{self, ImportDeclaration};
 use temper::read;
 
 use crate::common;
-
-/// The shipped root default's own `fresh` clause — the value `gate` threads into
-/// `drift::include_stale`, taken from the embedded lock so a drift assertion here reads
-/// the same label and severity a real `check` reports under.
-fn fresh_clause() -> temper::contract::Clause {
-    temper::builtin::root_contract()
-        .clauses
-        .into_iter()
-        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
-        .expect("the shipped root default binds `fresh`")
-}
+use crate::common::fresh_clause;
 
 /// The include slot byte the SDK plants per include (`U+0001`) — the engine splices the
 /// target's bytes here.
 const INCLUDE_SLOT: char = '\u{1}';
-
-/// A `rule` kind governing `.claude/rules/*.md` — a plain markdown, field-less projection,
-/// so the emitted artifact is the resolved body verbatim.
-fn rule_kind() -> KindFactRow {
-    common::kind_facts("rule", ".claude/rules", "*.md")
-}
 
 #[test]
 fn an_include_lands_byte_identical_and_is_fingerprinted() {
@@ -52,7 +36,7 @@ fn an_include_lands_byte_identical_and_is_fingerprinted() {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![rule_kind()],
+            kinds: vec![common::bare_rule_kind_facts()],
             includes: vec![IncludeRow {
                 member: "rule:host".to_string(),
                 source_path: harness.join("fragment.md").to_string_lossy().into_owned(),
@@ -111,7 +95,7 @@ fn a_crlf_include_target_is_fresh_against_its_own_baseline() {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![rule_kind()],
+            kinds: vec![common::bare_rule_kind_facts()],
             includes: vec![IncludeRow {
                 member: "rule:host".to_string(),
                 source_path: harness.join("fragment.md").to_string_lossy().into_owned(),
@@ -160,7 +144,7 @@ fn a_dangling_include_refuses_before_any_byte_is_written() {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![rule_kind()],
+            kinds: vec![common::bare_rule_kind_facts()],
             includes: vec![IncludeRow {
                 member: "rule:host".to_string(),
                 source_path: harness.join("missing.md").to_string_lossy().into_owned(),
@@ -204,7 +188,7 @@ fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![rule_kind()],
+            kinds: vec![common::bare_rule_kind_facts()],
             includes: vec![IncludeRow {
                 member: "rule:host".to_string(),
                 source_path: harness
@@ -241,7 +225,7 @@ fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
     assert_eq!(edges[0].field, "import");
 
     // A read verb narrates it: `why` folds the include edge into the resolved set it walks.
-    let host_features = [feature("host")];
+    let host_features = [common::features("host")];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &host_features[..])]);
     let no_edges: Vec<Edge> = Vec::new();
     let narration = read::why(
@@ -257,9 +241,4 @@ fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
         narration.contains("shared") && narration.contains("import"),
         "the include edge is narrated: {narration}"
     );
-}
-
-/// A bare `Features` carrying only an id — the corpus entry `why` matches a member on.
-fn feature(id: &str) -> Features {
-    common::features(id)
 }

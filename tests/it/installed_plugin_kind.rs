@@ -12,7 +12,7 @@
 
 use crate::common;
 
-use crate::common::{check_harness, write_settings};
+use crate::common::{check_harness, root_reachable_binding, write_settings};
 
 use serde_json::Value as JsonValue;
 use temper::builtin_kind;
@@ -122,23 +122,6 @@ fn a_settings_enabled_plugins_map_surfaces_one_member_per_entry_keyed_by_plugin_
 
     // `permissions` is no address's, so it stays opaque residue on the container.
     assert!(reads[0].opaque_fields.contains_key("permissions"));
-}
-
-/// The root selection binding one `reachable` clause at `required` — the opt-in the
-/// judge locates before it walks anything, and the declaration its findings report
-/// under. `members` stays empty: the predicate ranges over `by_kind`.
-fn root_reachable_binding() -> Vec<temper::engine::Selection<'static>> {
-    vec![temper::engine::Selection {
-        selector: temper::engine::Selector::Root,
-        clauses: vec![temper::contract::Clause {
-            label: "root.reachable".to_string(),
-            severity: temper::contract::Severity::Required,
-            predicate: temper::contract::Predicate::Reachable,
-            guidance: None,
-            source: None,
-        }],
-        members: Vec::new(),
-    }]
 }
 
 #[test]

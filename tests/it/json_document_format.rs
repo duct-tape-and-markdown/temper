@@ -17,11 +17,10 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
 
 use crate::common;
 
-use crate::common::write_plugin_json;
+use crate::common::{workspace, write_plugin_json};
 use serde_json::json;
 use temper::drift::{
     ClauseRow, Declarations, EmitOptions, EmitOutcome, IncludeRow, KindFactRow, Payload,
@@ -298,15 +297,6 @@ fn plugin_member() -> PayloadMember {
         body: String::new(),
         source_path: None,
     }
-}
-
-/// A `<harness>/.temper` pair — `emit` derives the projection root from the workspace
-/// dir's parent, the seam's own topology.
-fn workspace(label: &str) -> (PathBuf, PathBuf) {
-    let harness = common::tmpdir(label);
-    let into = harness.join(".temper");
-    fs::create_dir_all(&into).unwrap();
-    (harness, into)
 }
 
 #[test]

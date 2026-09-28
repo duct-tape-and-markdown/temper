@@ -7,13 +7,14 @@
 //! anywhere accepts an author-written pattern — the whole point of naming a shape instead
 //! of spelling one.
 
-use temper::check::{Diagnostic, Severity};
+use temper::check::Severity;
 use temper::contract::{self, Clause, Contract, Predicate, Severity as ClauseSeverity, Shape};
 use temper::drift::ClauseRow;
 use temper::engine;
 use temper::extract::Features;
 
 use crate::common;
+use crate::common::messages;
 
 /// A skill-shaped member carrying `name` and `description` — the two fields the shipped
 /// shape clauses range over.
@@ -46,11 +47,6 @@ fn shaped(field: &str, shape: Shape) -> Contract {
             source: None,
         }],
     }
-}
-
-/// Each finding's message.
-fn messages(diagnostics: &[Diagnostic]) -> Vec<&str> {
-    diagnostics.iter().map(|d| d.message.as_str()).collect()
 }
 
 #[test]

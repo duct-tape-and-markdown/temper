@@ -31,19 +31,7 @@ use temper::drift::ApplyOutcome;
 use temper::install::{self, InstallOutcome, Represent};
 
 use crate::common;
-
-/// The shipped root default's own `fresh` clause — what the gate threads into the
-/// projection-freshness judge. These suites assert the judge's verdict over bytes
-/// `install` wrote; the *guard*'s enforcement mode is a separate decision and is
-/// untouched by the clause, so a case here pins that the clause governs `check`'s
-/// finding and not the guard's.
-fn fresh_clause() -> temper::contract::Clause {
-    temper::builtin::root_contract()
-        .clauses
-        .into_iter()
-        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
-        .expect("the shipped root default binds `fresh`")
-}
+use crate::common::fresh_clause;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -2314,6 +2302,9 @@ fn container_owned_settings_harness(slug: &str) -> PathBuf {
     root
 }
 
+/// Every other `fresh_clause` case in this suite weighs the judge's verdict over bytes
+/// `install` wrote. This one pins the commitment that keeps that reading honest: the
+/// guard's enforcement mode is a separate decision, untouched by the clause.
 #[test]
 fn the_guards_enforcement_mode_decides_a_guarded_write_whatever_the_fresh_clause_binds() {
     // Two verdicts over one path, and only one of them is the clause's. `check`'s

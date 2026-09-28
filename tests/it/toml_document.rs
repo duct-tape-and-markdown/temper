@@ -20,6 +20,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::common;
+use crate::common::workspace;
 
 use serde_json::json;
 use temper::drift::{
@@ -267,15 +268,6 @@ fn a_malformed_document_fails_the_run_rather_than_gating_against_no_fields() {
         "the clause never judges a document that would not parse: {}",
         run.output
     );
-}
-
-/// A `<harness>/.temper` pair — `emit` derives the projection root from the workspace dir's
-/// parent, the seam's own topology.
-fn workspace(label: &str) -> (PathBuf, PathBuf) {
-    let harness = common::tmpdir(label);
-    let into = harness.join(".temper");
-    fs::create_dir_all(&into).unwrap();
-    (harness, into)
 }
 
 /// The fixture kind's member as the seam carries it.

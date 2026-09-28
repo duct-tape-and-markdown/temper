@@ -10,24 +10,12 @@
 
 use serde_json::json;
 
-use temper::check::{Diagnostic, Severity};
+use temper::check::Severity;
 use temper::contract::{self, Clause, Contract, Predicate, Severity as ClauseSeverity};
 use temper::engine::{self, Locus};
-use temper::extract::Features;
 
 use crate::common;
-
-/// A manifest-shaped member: the fields are the retained parse, exactly as the
-/// `json-document` read face hands them over.
-fn member(fields: serde_json::Value) -> Features {
-    let serde_json::Value::Object(fields) = fields else {
-        unreachable!("the fixture is a JSON object")
-    };
-    Features {
-        fields: fields.into_iter().collect(),
-        ..common::features("acme-tools")
-    }
-}
+use crate::common::messages;
 
 /// One clause at `severity`, addressed as a lifted row would be.
 fn clause(severity: ClauseSeverity, predicate: Predicate) -> Clause {
@@ -74,11 +62,6 @@ fn closes(severity: ClauseSeverity) -> Clause {
     clause(severity, Predicate::ClosedKeys)
 }
 
-/// Each finding's message.
-fn messages(diagnostics: &[Diagnostic]) -> Vec<&str> {
-    diagnostics.iter().map(|d| d.message.as_str()).collect()
-}
-
 #[test]
 fn a_key_the_kind_declares_neither_required_nor_optional_is_a_finding() {
     let contract = contract(vec![
@@ -86,7 +69,9 @@ fn a_key_the_kind_declares_neither_required_nor_optional_is_a_finding() {
         declares("version"),
         closes(ClauseSeverity::Required),
     ]);
-    let foreign = member(json!({"name": "acme-tools", "version": "1.0.0", "contributes": {}}));
+    let foreign = common::parsed_features(
+        json!({"name": "acme-tools", "version": "1.0.0", "contributes": {}}),
+    );
 
     let diagnostics = engine::validate(&contract, std::slice::from_ref(&foreign));
     assert_eq!(
@@ -103,7 +88,8 @@ fn a_key_the_kind_declares_neither_required_nor_optional_is_a_finding() {
 #[test]
 fn every_undeclared_key_points_at_itself() {
     let contract = contract(vec![declares_name(), closes(ClauseSeverity::Required)]);
-    let foreign = member(json!({"name": "acme-tools", "engines": {}, "publisher": "acme"}));
+    let foreign =
+        common::parsed_features(json!({"name": "acme-tools", "engines": {}, "publisher": "acme"}));
 
     // One finding per offending key, never one lumping them: the author fixes keys, not
     // clauses.
@@ -117,7 +103,7 @@ fn every_undeclared_key_points_at_itself() {
 fn the_finding_lands_at_the_clauses_declared_severity() {
     // The author dials the weight, never the tool: the same undeclared key blocks under a
     // `required` clause and reports under an `advisory` one.
-    let foreign = member(json!({"name": "acme-tools", "engines": {}}));
+    let foreign = common::parsed_features(json!({"name": "acme-tools", "engines": {}}));
     for (declared, expected) in [
         (ClauseSeverity::Required, Severity::Error),
         (ClauseSeverity::Advisory, Severity::Warn),
@@ -140,9 +126,11 @@ fn a_member_carrying_only_declared_keys_holds() {
 
     // Every declared key present, and a declared key *absent* — `optional` is satisfied
     // either way, so a closed key set is never a required one.
-    let full = member(json!({"name": "acme-tools", "version": "1.0.0", "keywords": ["ci"]}));
+    let full = common::parsed_features(
+        json!({"name": "acme-tools", "version": "1.0.0", "keywords": ["ci"]}),
+    );
     assert!(engine::validate(&contract, std::slice::from_ref(&full)).is_empty());
-    let sparse = member(json!({"name": "acme-tools"}));
+    let sparse = common::parsed_features(json!({"name": "acme-tools"}));
     assert!(engine::validate(&contract, std::slice::from_ref(&sparse)).is_empty());
 }
 
@@ -151,7 +139,8 @@ fn the_allow_list_is_read_from_the_kinds_rows_so_one_row_admits_a_key() {
     // The point of the widening: the key set is declared once. Adding the `optional` row is
     // the whole edit that admits the key — the clause itself carries no list to keep in
     // step, so the two cannot drift apart.
-    let carrying = member(json!({"name": "acme-tools", "displayName": "Acme Tools"}));
+    let carrying =
+        common::parsed_features(json!({"name": "acme-tools", "displayName": "Acme Tools"}));
 
     let closed = contract(vec![declares_name(), closes(ClauseSeverity::Required)]);
     assert_eq!(
@@ -189,7 +178,7 @@ fn a_path_declares_its_top_level_key_never_the_nested_one_it_addresses() {
         closes(ClauseSeverity::Required),
     ]);
 
-    let nested = member(json!({
+    let nested = common::parsed_features(json!({
         "name": "acme",
         "owner": {"name": "DevTools Team"},
         "plugins": [{"source": "./a"}],

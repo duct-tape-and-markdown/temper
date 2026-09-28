@@ -15,48 +15,12 @@ use std::fs;
 use temper::check::Severity;
 use temper::compose::Requirement;
 use temper::coverage;
-use temper::drift::{
-    self, AssemblyFactRow, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow,
-    Payload, PayloadMember,
-};
+use temper::drift::{self, AssemblyFactRow, Declarations, EmitOptions, Payload};
 use temper::extract::Features;
 use temper::read;
 
 use crate::common;
-
-/// A layout kind governing a single lone `.md` document under `specs/`, carrying the
-/// given ordered region rows — the layout host every case here builds a member of. Its
-/// kind facts ride the one home (`common::kind_facts`), overriding only `content`.
-fn layout_kind(name: &str, regions: Vec<LayoutRegionRow>) -> KindFactRow {
-    KindFactRow {
-        content: Some(LayoutRow { regions }),
-        ..common::kind_facts(name, "specs", &format!("{name}.md"))
-    }
-}
-
-/// A `field` region row filling `slot` — an edge slot when `slot` is one of the kind's
-/// edge fields, an ordinary field section otherwise.
-fn field_region(slot: &str) -> LayoutRegionRow {
-    LayoutRegionRow {
-        region: "field".to_string(),
-        import: None,
-        slot: Some(slot.to_string()),
-        member_kind: None,
-        key: None,
-    }
-}
-
-/// A layout member of `kind`, its document already on disk (a source, never projected).
-fn layout_member(kind: &str) -> PayloadMember {
-    PayloadMember {
-        kind: kind.to_string(),
-        name: kind.to_string(),
-        host: None,
-        fields: Vec::new(),
-        body: String::new(),
-        source_path: None,
-    }
-}
+use crate::common::{field_region, layout_member};
 
 /// An `edge` assembly fact — the lock row a `[[kind.<from>.relationships]]` table
 /// projects. A custom kind carries its declared edges only here, never on its kind-fact
@@ -120,7 +84,7 @@ fn a_satisfies_edge_slot_derives_fill_rows_the_gate_and_read_verbs_range_over() 
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![layout_kind(
+            kinds: vec![common::layout_kind_facts(
                 "guide",
                 vec![field_region("purpose"), field_region("satisfies")],
             )],
@@ -182,7 +146,10 @@ fn a_dangling_satisfies_edge_slot_entry_refuses_through_the_existing_coverage_re
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![layout_kind("guide", vec![field_region("satisfies")])],
+            kinds: vec![common::layout_kind_facts(
+                "guide",
+                vec![field_region("satisfies")],
+            )],
             ..Default::default()
         },
         members: vec![layout_member("guide")],
@@ -224,7 +191,7 @@ fn a_declared_relationship_edge_slots_entries_reach_the_gate_and_read_verbs() {
     common::write_lock(
         &harness,
         Declarations {
-            kinds: vec![layout_kind(
+            kinds: vec![common::layout_kind_facts(
                 "guide",
                 vec![field_region("purpose"), field_region("routes_to")],
             )],
@@ -265,7 +232,7 @@ fn a_dangling_relationship_edge_entry_is_a_route_finding_never_a_silent_drop() {
     common::write_lock(
         &harness,
         Declarations {
-            kinds: vec![layout_kind(
+            kinds: vec![common::layout_kind_facts(
                 "guide",
                 vec![field_region("purpose"), field_region("routes_to")],
             )],

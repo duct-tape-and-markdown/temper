@@ -16,23 +16,12 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::common::tmpdir;
+use crate::common::{fresh_clause, tmpdir};
 use temper::builtin_kind;
 use temper::frontmatter::Member;
 use temper::glob;
 use temper::import::{self, Discovery, LocalOverride};
 use temper::kind;
-
-/// The shipped root default's own `fresh` clause — the value `gate` threads into the
-/// three staleness judges, taken from the embedded lock so these cost pins measure the
-/// walk a real run makes rather than a hand-built stand-in.
-fn fresh_clause() -> temper::contract::Clause {
-    temper::builtin::root_contract()
-        .clauses
-        .into_iter()
-        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
-        .expect("the shipped root default binds `fresh`")
-}
 
 /// Generate a Claude Code harness at consumer scale under `root`, mirroring the real
 /// layout (`.claude/skills/<name>/SKILL.md` + companions, `.claude/rules/*.md`,

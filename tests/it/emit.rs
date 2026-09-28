@@ -24,24 +24,14 @@ use std::process::Command;
 
 use sha2::{Digest, Sha256};
 use temper::drift::{
-    self, CollectionAddressRow, Declarations, EmitOptions, EmitOutcome, InputRow, KindFactRow,
-    NestedMemberRow, Payload, PayloadMember, RegistrationRow, SettingsRow,
+    self, Declarations, EmitOptions, EmitOutcome, InputRow, KindFactRow, NestedMemberRow, Payload,
+    PayloadMember, RegistrationRow, SettingsRow,
 };
 use temper::json_manifest;
 use temper::placement;
 
 use crate::common;
-
-/// The shipped root default's own `fresh` clause — the value `gate` threads into the
-/// projection-freshness judge, read off the embedded lock rather than hand-built so the
-/// assertion measures what a real `check` measures.
-fn fresh_clause() -> temper::contract::Clause {
-    temper::builtin::root_contract()
-        .clauses
-        .into_iter()
-        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
-        .expect("the shipped root default binds `fresh`")
-}
+use crate::common::{fresh_clause, hook_kind_facts, workspace};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -71,16 +61,6 @@ fn basic_payload(members: Vec<PayloadMember>) -> Payload {
         },
         members,
     }
-}
-
-/// A fresh `<harness>/.temper` pair — `drift::emit` derives the projection root
-/// from the workspace dir's parent, matching the seam's own topology:
-/// `.temper/` sits beside `.claude/`.
-fn workspace(label: &str) -> (PathBuf, PathBuf) {
-    let harness = common::tmpdir(label);
-    let into = harness.join(".temper");
-    fs::create_dir_all(&into).unwrap();
-    (harness, into)
 }
 
 const RUST_BODY: &str =
@@ -629,19 +609,6 @@ fn a_single_star_and_any_depth_glob_project_to_the_expected_paths() {
 // members are regenerated whole through the canonical write face, never
 // json_splice's in-place edit.
 // ---------------------------------------------------------------------------
-
-/// A `hook` registration kind fact: fields-only, keyed at `settings.json`'s `hooks.<Event>`.
-fn hook_kind_facts() -> KindFactRow {
-    KindFactRow {
-        shape: Some("fields".to_string()),
-        collection_address: Some(CollectionAddressRow {
-            manifest: "settings.json".to_string(),
-            key_path: "hooks.<Event>".to_string(),
-            entry_shape: Some("group-array(hooks;matcher)".to_string()),
-        }),
-        ..common::kind_facts("hook", ".claude", "settings.json")
-    }
-}
 
 #[test]
 fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {

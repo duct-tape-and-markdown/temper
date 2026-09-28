@@ -20,18 +20,7 @@ use temper::engine::{self, Locus};
 use temper::extract::{Features, ValueType};
 
 use crate::common;
-
-/// A catalog-shaped member: the fields are the retained parse, exactly as the
-/// `json-document` read face hands them over.
-fn member(fields: serde_json::Value) -> Features {
-    let serde_json::Value::Object(fields) = fields else {
-        unreachable!("the fixture is a JSON object")
-    };
-    Features {
-        fields: fields.into_iter().collect(),
-        ..common::features("acme-tools")
-    }
-}
+use crate::common::messages;
 
 /// A one-clause contract over `predicate`, at error severity.
 fn contract(predicate: Predicate) -> Contract {
@@ -53,15 +42,10 @@ fn findings(predicate: Predicate, features: &Features) -> Vec<Diagnostic> {
     engine::validate(&contract(predicate), std::slice::from_ref(features))
 }
 
-/// Each finding's message.
-fn messages(diagnostics: &[Diagnostic]) -> Vec<&str> {
-    diagnostics.iter().map(|d| d.message.as_str()).collect()
-}
-
 #[test]
 fn a_name_path_reads_the_nested_value_and_fires_on_it() {
-    let filled = member(json!({"owner": {"name": "DevTools Team"}}));
-    let bare = member(json!({"owner": {"email": "tools@acme.example"}}));
+    let filled = common::parsed_features(json!({"owner": {"name": "DevTools Team"}}));
+    let bare = common::parsed_features(json!({"owner": {"email": "tools@acme.example"}}));
 
     let required = || Predicate::Required {
         field: "owner.name".to_string(),
@@ -109,8 +93,8 @@ fn a_name_path_that_resolves_nowhere_is_absent_rather_than_errored() {
     // A missing key, and a scalar met before the leaf (`owner` is a string, so
     // `owner.name` has no sub-key): the value predicates stay silent — absence is the
     // `required` clause's concern, exactly as for a bare name.
-    let scalar_owner = member(json!({"owner": "DevTools Team"}));
-    let no_owner = member(json!({"name": "acme-tools"}));
+    let scalar_owner = common::parsed_features(json!({"owner": "DevTools Team"}));
+    let no_owner = common::parsed_features(json!({"name": "acme-tools"}));
 
     for features in [&scalar_owner, &no_owner] {
         assert!(
@@ -137,7 +121,7 @@ fn a_name_path_that_resolves_nowhere_is_absent_rather_than_errored() {
 
 #[test]
 fn each_element_grains_over_the_array_and_indicts_each_offender_by_its_index() {
-    let catalog = member(json!({
+    let catalog = common::parsed_features(json!({
         "plugins": [
             {"name": "formatter", "source": "./plugins/formatter"},
             {"name": "nameless-source"},
@@ -184,7 +168,7 @@ fn each_element_grains_over_the_array_and_indicts_each_offender_by_its_index() {
     );
 
     // An empty catalog grains over nothing — no element, no finding.
-    let empty = member(json!({"plugins": []}));
+    let empty = common::parsed_features(json!({"plugins": []}));
     assert!(
         findings(
             Predicate::Required {
@@ -342,7 +326,7 @@ fn a_bare_name_addresses_exactly_what_it_addresses_today() {
     // same verdict, same wording, and a key the RFC's own name shorthand cannot spell
     // (`disable-model-invocation`) is an ordinary name segment here — the subset's names
     // are the format's keys, never the RFC's identifiers.
-    let features = member(json!({
+    let features = common::parsed_features(json!({
         "name": "acme-tools",
         "disable-model-invocation": true,
         "paths": ["src/**/*.rs", "["],

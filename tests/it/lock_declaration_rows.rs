@@ -15,6 +15,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::common;
+use crate::common::hook_kind_facts;
 
 use temper::builtin;
 use temper::builtin_lock;
@@ -87,22 +88,6 @@ fn spec_kind_facts_with_layout() -> KindFactRow {
             ],
         }),
         ..common::kind_facts("spec", "specs", "*.md")
-    }
-}
-
-/// A `hook` kind declaring the two manifest-authoring facts 0021 phase 1 adds: the
-/// fields-only body shape (no body slot) and the collection address it registers at
-/// (`settings.json`'s `hooks.<Event>`). The shape an SDK-declared registration kind's row
-/// carries into the lock.
-fn hook_kind_facts() -> KindFactRow {
-    KindFactRow {
-        shape: Some("fields".to_string()),
-        collection_address: Some(CollectionAddressRow {
-            manifest: "settings.json".to_string(),
-            key_path: "hooks.<Event>".to_string(),
-            entry_shape: Some("group-array(hooks;matcher)".to_string()),
-        }),
-        ..common::kind_facts("hook", ".claude", "settings.json")
     }
 }
 

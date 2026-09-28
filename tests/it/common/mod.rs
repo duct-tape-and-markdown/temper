@@ -15,9 +15,11 @@ use std::process::Command;
 use std::sync::{Once, OnceLock};
 
 use temper::builtin_kind;
+use temper::check::Diagnostic;
 use temper::drift::{
-    self, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EmitOptions, KindFactRow,
-    MentionRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
+    self, ClauseRow, CollectionAddressRow, CountBoundRow, Declarations, DegreeBoundRow,
+    EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, Payload, PayloadMember,
+    RequirementRow, SatisfiesRow,
 };
 use temper::extract::Features;
 use temper::frontmatter::Member;
@@ -71,6 +73,17 @@ pub fn scaffold(slug: &str) -> PathBuf {
     fs::create_dir_all(harness.join(".temper")).unwrap();
     fs::create_dir_all(harness.join("specs")).unwrap();
     harness
+}
+
+/// A fresh `<harness>`/`<harness>/.temper` pair — `drift::emit` derives the projection
+/// root from the workspace dir's parent, matching the seam's own topology: `.temper/`
+/// sits beside `.claude/`. The pair-returning sibling of [`scaffold`], for the emit
+/// suites that hold both paths.
+pub fn workspace(label: &str) -> (PathBuf, PathBuf) {
+    let harness = tmpdir(label);
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    (harness, into)
 }
 
 /// Path to a directory under `tests/fixtures`, resolved from the manifest so
@@ -632,6 +645,19 @@ pub fn features(id: &str) -> Features {
     }
 }
 
+/// A manifest-shaped member over [`features`]: `fields` is the retained parse, exactly
+/// as the `json-document` read face hands it over. Panics unless the fixture is a JSON
+/// object, the only shape a manifest member's retained parse ever takes.
+pub fn parsed_features(fields: serde_json::Value) -> Features {
+    let serde_json::Value::Object(fields) = fields else {
+        unreachable!("the fixture is a JSON object")
+    };
+    Features {
+        fields: fields.into_iter().collect(),
+        ..features("acme-tools")
+    }
+}
+
 /// A tap record naming `identity` under `event`, written at `version` — a `version` below
 /// `TAP_RECORD_VERSION` exercises the reader's older-version toleration. The base every
 /// tap fixture starts from, so a test spells only the columns it varies via struct update:
@@ -812,6 +838,64 @@ pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFac
     }
 }
 
+/// The `rule` built-in kind's locus row with **every** optional fact left at its
+/// default — no format, no unit shape, no registration. Deliberately not
+/// [`rule_kind_facts`], which declares the real kind's `yaml-frontmatter`/`file` facts:
+/// a plain markdown, field-less projection is what these callers pin, so the emitted
+/// artifact is the authored body verbatim and any extra byte would show.
+pub fn bare_rule_kind_facts() -> KindFactRow {
+    kind_facts("rule", ".claude/rules", "*.md")
+}
+
+/// A `hook` registration kind fact: fields-only (no body slot), keyed at
+/// `settings.json`'s `hooks.<Event>` — the shape an SDK-declared registration kind's row
+/// carries into the lock.
+pub fn hook_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            entry_shape: Some("group-array(hooks;matcher)".to_string()),
+        }),
+        ..kind_facts("hook", ".claude", "settings.json")
+    }
+}
+
+/// A layout kind governing a single lone `.md` document under `specs/`, carrying the
+/// given ordered region rows — the layout host the layout suites build a member of. Its
+/// kind facts ride [`kind_facts`], overriding only `content`.
+pub fn layout_kind_facts(name: &str, regions: Vec<LayoutRegionRow>) -> KindFactRow {
+    KindFactRow {
+        content: Some(LayoutRow { regions }),
+        ..kind_facts(name, "specs", &format!("{name}.md"))
+    }
+}
+
+/// A `field` region row filling `slot` — an edge slot when `slot` is one of the kind's
+/// edge fields, an ordinary field section otherwise.
+pub fn field_region(slot: &str) -> LayoutRegionRow {
+    LayoutRegionRow {
+        region: "field".to_string(),
+        import: None,
+        slot: Some(slot.to_string()),
+        member_kind: None,
+        key: None,
+    }
+}
+
+/// A layout member of `kind`, its document already on disk (a source, never projected).
+pub fn layout_member(kind: &str) -> PayloadMember {
+    PayloadMember {
+        kind: kind.to_string(),
+        name: kind.to_string(),
+        host: None,
+        fields: Vec::new(),
+        body: String::new(),
+        source_path: None,
+    }
+}
+
 /// The findings whose rule (the `title=<rule>` property) equals `rule` — the
 /// GitHub reporter's per-finding lines this suite's cases scrape for a count.
 pub fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
@@ -896,4 +980,37 @@ pub fn required_clause_row(
         degree,
         ..clause(predicate, "required")
     }
+}
+
+/// The shipped root default's own `fresh` clause — the value `gate` threads into the
+/// staleness judges, read off the embedded lock rather than hand-built so an assertion
+/// measures the label and severity a real `check` reports under.
+pub fn fresh_clause() -> temper::contract::Clause {
+    temper::builtin::root_contract()
+        .clauses
+        .into_iter()
+        .find(|clause| clause.predicate == temper::contract::Predicate::Fresh)
+        .expect("the shipped root default binds `fresh`")
+}
+
+/// Each finding's message.
+pub fn messages(diagnostics: &[Diagnostic]) -> Vec<&str> {
+    diagnostics.iter().map(|d| d.message.as_str()).collect()
+}
+
+/// The root selection binding one `reachable` clause at `required` — the opt-in the
+/// judge locates before it walks anything, and the declaration its findings report
+/// under. `members` stays empty: the predicate ranges over `by_kind`.
+pub fn root_reachable_binding() -> Vec<temper::engine::Selection<'static>> {
+    vec![temper::engine::Selection {
+        selector: temper::engine::Selector::Root,
+        clauses: vec![temper::contract::Clause {
+            label: "root.reachable".to_string(),
+            severity: temper::contract::Severity::Required,
+            predicate: temper::contract::Predicate::Reachable,
+            guidance: None,
+            source: None,
+        }],
+        members: Vec::new(),
+    }]
 }
