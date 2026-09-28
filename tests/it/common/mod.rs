@@ -1067,6 +1067,33 @@ pub fn one_clause_contract(
     }
 }
 
+/// The findings a one-clause contract over `predicate` fires against `features` — the
+/// judge every proof that isolates one predicate runs, composed once here rather than
+/// per suite.
+pub fn one_clause_findings(
+    kind: &str,
+    predicate: temper::contract::Predicate,
+    features: &Features,
+) -> Vec<Diagnostic> {
+    temper::engine::validate(
+        &one_clause_contract(kind, predicate),
+        std::slice::from_ref(features),
+    )
+}
+
+/// The admissibility verdict on a one-clause contract over `predicate`, at the document
+/// locus — the locus every caller judges under, so it is fixed here rather than threaded.
+/// A proof needing another locus calls [`temper::engine::admissibility`] directly.
+pub fn one_clause_admissibility(
+    kind: &str,
+    predicate: temper::contract::Predicate,
+) -> Vec<Diagnostic> {
+    temper::engine::admissibility(
+        &one_clause_contract(kind, predicate),
+        &temper::engine::Locus::Document,
+    )
+}
+
 /// The shipped root default's own `fresh` clause — the value `gate` threads into the
 /// staleness judges, read off the embedded lock rather than hand-built so an assertion
 /// measures the label and severity a real `check` reports under.

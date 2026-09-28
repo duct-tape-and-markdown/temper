@@ -14,18 +14,15 @@ use serde_json::json;
 
 use temper::check::{Diagnostic, Severity, any_error};
 use temper::contract::{Charset, Predicate, Shape};
-use temper::engine::{self, Locus};
 use temper::extract::{Features, ValueType};
 
 use crate::common;
 use crate::common::messages;
 
-/// The findings a one-clause contract over `predicate` fires against `features`.
+/// The findings a one-clause `marketplace` contract over `predicate` fires against
+/// `features` — the kind is this suite's constant, so it is bound once here.
 fn findings(predicate: Predicate, features: &Features) -> Vec<Diagnostic> {
-    engine::validate(
-        &common::one_clause_contract("marketplace", predicate),
-        std::slice::from_ref(features),
-    )
+    common::one_clause_findings("marketplace", predicate, features)
 }
 
 #[test]
@@ -180,14 +177,11 @@ fn a_path_beyond_the_declared_subset_is_inadmissible_rather_than_skipped() {
         "plugins['name']",
         "plugins.*.name",
     ] {
-        let diags = engine::admissibility(
-            &common::one_clause_contract(
-                "marketplace",
-                Predicate::Required {
-                    field: spelling.to_string(),
-                },
-            ),
-            &Locus::Document,
+        let diags = common::one_clause_admissibility(
+            "marketplace",
+            Predicate::Required {
+                field: spelling.to_string(),
+            },
         );
         assert_eq!(diags.len(), 1, "`{spelling}` must be refused: {diags:?}");
         assert_eq!(
@@ -257,10 +251,7 @@ fn a_path_beyond_the_declared_subset_is_inadmissible_rather_than_skipped() {
         },
     ] {
         let key = predicate.key();
-        let diags = engine::admissibility(
-            &common::one_clause_contract("marketplace", predicate),
-            &Locus::Document,
-        );
+        let diags = common::one_clause_admissibility("marketplace", predicate);
         assert_eq!(diags.len(), 1, "`{key}` must be fenced: {diags:?}");
     }
 
@@ -268,14 +259,11 @@ fn a_path_beyond_the_declared_subset_is_inadmissible_rather_than_skipped() {
     // the reach.
     for spelling in ["name", "owner.name", "plugins[*].source"] {
         assert!(
-            engine::admissibility(
-                &common::one_clause_contract(
-                    "marketplace",
-                    Predicate::Required {
-                        field: spelling.to_string(),
-                    }
-                ),
-                &Locus::Document,
+            common::one_clause_admissibility(
+                "marketplace",
+                Predicate::Required {
+                    field: spelling.to_string(),
+                }
             )
             .is_empty(),
             "`{spelling}` is inside the subset"
@@ -288,14 +276,11 @@ fn a_presence_clause_addressing_elements_rather_than_a_key_is_inadmissible() {
     // `required("plugins[*]")` names each element, so there is no key of it that could be
     // absent — the clause could never fire. Vacuous, and refused where the other vacuous
     // shapes are.
-    let diags = engine::admissibility(
-        &common::one_clause_contract(
-            "marketplace",
-            Predicate::Required {
-                field: "plugins[*]".to_string(),
-            },
-        ),
-        &Locus::Document,
+    let diags = common::one_clause_admissibility(
+        "marketplace",
+        Predicate::Required {
+            field: "plugins[*]".to_string(),
+        },
     );
     assert_eq!(diags.len(), 1, "{diags:?}");
     assert!(
@@ -307,15 +292,12 @@ fn a_presence_clause_addressing_elements_rather_than_a_key_is_inadmissible() {
     // A *value* predicate over the same path is fine: it judges each element's own value,
     // which is a question the elements answer.
     assert!(
-        engine::admissibility(
-            &common::one_clause_contract(
-                "marketplace",
-                Predicate::Type {
-                    field: "plugins[*]".to_string(),
-                    kinds: BTreeSet::from([ValueType::Map]),
-                }
-            ),
-            &Locus::Document,
+        common::one_clause_admissibility(
+            "marketplace",
+            Predicate::Type {
+                field: "plugins[*]".to_string(),
+                kinds: BTreeSet::from([ValueType::Map]),
+            }
         )
         .is_empty()
     );

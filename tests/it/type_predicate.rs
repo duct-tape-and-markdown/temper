@@ -16,7 +16,6 @@ use std::fs;
 
 use temper::contract::{self, Predicate};
 use temper::drift::{self, ClauseRow, EmitOptions};
-use temper::engine;
 use temper::extract::{Features, ValueType};
 use temper::kind::{Extraction, Primitive};
 
@@ -66,12 +65,10 @@ fn pack_features(field: &str, value: serde_json::Value) -> Features {
     .extract(&pack_unit(field, value))
 }
 
-/// The findings a one-clause contract over `predicate` fires against `features`.
+/// The findings a one-clause `pack` contract over `predicate` fires against `features` —
+/// the kind is this suite's constant, so it is bound once here.
 fn findings(predicate: Predicate, features: &Features) -> Vec<temper::check::Diagnostic> {
-    engine::validate(
-        &common::one_clause_contract("pack", predicate),
-        std::slice::from_ref(features),
-    )
+    common::one_clause_findings("pack", predicate, features)
 }
 
 /// The lock's one `type` clause row over `field`.
@@ -210,10 +207,7 @@ fn an_empty_set_is_inadmissible_rather_than_a_clause_that_admits_nothing() {
         }
     );
 
-    let diagnostics = engine::admissibility(
-        &common::one_clause_contract("pack", predicate),
-        &engine::Locus::Document,
-    );
+    let diagnostics = common::one_clause_admissibility("pack", predicate);
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].severity, temper::check::Severity::Error);
     assert_eq!(
