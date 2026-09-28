@@ -114,6 +114,26 @@ tax.
   HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL,
   INSTALL-LIFTS-A-REGISTRATION-MEMBER — the lift must name each hook group
   it converts, so the discriminator is that entry's precondition too.
+  **SDK-synthesis evidence 09-28** (posture sweep at
+  `sdk/src/declarations.ts`, measured on disk this tick): the duplicate
+  address is not only hand-authored — the SDK **synthesizes** it.
+  `TELEMETRY_EVENT_HOOKS` (`builtins.ts:1902`) maps `SkillInvoked →
+  (PostToolUse, "Skill")` and `ToolUse → (PostToolUse, ".*")`, so
+  `tapHookRows` (`declarations.ts:983`) correctly dedupes them apart as two
+  Claude Code groups and then emits both as `RegistrationRow { kind: hook,
+  key: event }` (`:1002`) — two rows at address `hook:PostToolUse`, by
+  construction, off the provider face. No author discipline avoids that one,
+  which is the strongest argument yet for (a) and retires (b)'s last hope (a
+  derived name has nothing to derive from when the SDK is the author). The
+  discriminator (a) wants already exists one function above the row that
+  discards it: `buildTapHookDedupeKey(event, matcher)` (`:965`). That
+  function is also residue — a third encoder of the composite-key job
+  `member-address.ts` is the one home for — and folding it there is
+  unspellable until identity is ruled, since `(event, matcher)` becomes a
+  member address only under (a); the two spellings that already **are**
+  member addresses fold without this ruling
+  (PLACEMENT-KEY-FOLDS-ONTO-THE-ADDRESS-GRAMMAR). So the fork now owes a
+  ruling to the SDK's write face as well as the engine's lookup.
 
 - `(layout-title-heading-admission)` — OPEN, live driver (GH #45(b)). Does a
   layout admit a document title — a lone leading H1 whose own span is
