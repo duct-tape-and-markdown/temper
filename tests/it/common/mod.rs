@@ -1078,6 +1078,15 @@ pub fn fresh_clause() -> temper::contract::Clause {
         .expect("the shipped root default binds `fresh`")
 }
 
+/// A built-in kind's shipped floor `Contract`, resolved off the embedded built-in lock
+/// exactly as the shipped `check` resolves it — so an assertion measures the clauses the
+/// tool ships, never a hand-built mirror of them. Panics by kind name: every kind a test
+/// names here is embedded, so a missing floor is the test's own typo.
+pub fn builtin_floor(kind: &str) -> temper::contract::Contract {
+    temper::builtin::contract(kind)
+        .unwrap_or_else(|| panic!("built-in kind `{kind}` ships an embedded floor"))
+}
+
 /// Each finding's message.
 pub fn messages(diagnostics: &[Diagnostic]) -> Vec<&str> {
     diagnostics.iter().map(|d| d.message.as_str()).collect()

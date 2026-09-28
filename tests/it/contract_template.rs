@@ -23,12 +23,6 @@ use temper::extract::Features;
 
 use crate::common;
 
-/// The built-in skill contract, resolved from the embedded built-in lock the same
-/// way the shipped tool resolves it.
-fn skill_builtin() -> Contract {
-    temper::builtin::contract("skill").expect("the skill floor is embedded")
-}
-
 /// A contract's decidable `(severity, predicate)` vector, in declaration order —
 /// the structural pin, excluding the per-clause guidance/`source` prose (product
 /// territory, asserted present elsewhere).
@@ -164,7 +158,7 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
 /// declared severities, and its display name is its bare kind label, `skill`.
 #[test]
 fn skill_builtin_carries_the_decidable_clause_vector() {
-    let contract = skill_builtin();
+    let contract = common::builtin_floor("skill");
     assert_eq!(contract.name, "skill");
     assert_eq!(predicate_vector(&contract), expected_skill_clauses());
 }
@@ -175,7 +169,7 @@ fn skill_builtin_carries_the_decidable_clause_vector() {
 /// citations — without coupling the build test to product prose.
 #[test]
 fn every_skill_builtin_clause_is_guided_and_cited() {
-    for clause in &skill_builtin().clauses {
+    for clause in &common::builtin_floor("skill").clauses {
         assert!(
             clause.guidance.is_some(),
             "a built-in clause must carry its guidance, got: {:?}",
@@ -195,7 +189,7 @@ fn every_skill_builtin_clause_is_guided_and_cited() {
 /// clause is a true/false fact over the artifact, never a semantic guess.
 #[test]
 fn skill_builtin_encodes_only_decidable_clauses() {
-    let kinds: BTreeSet<&str> = skill_builtin()
+    let kinds: BTreeSet<&str> = common::builtin_floor("skill")
         .clauses
         .iter()
         .map(|clause| clause.predicate.key())

@@ -17,7 +17,6 @@ use std::path::{Path, PathBuf};
 use crate::common;
 use crate::common::hook_kind_facts;
 
-use temper::builtin;
 use temper::builtin_lock;
 use temper::compose;
 use temper::contract::{self, Clause, Contract, Predicate, Severity};
@@ -2385,8 +2384,9 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
 // kinds + four floors produces, and `temper::builtin` projects each kind's floor
 // `Contract` straight off this lock's clause rows — no hand-written mirror any
 // more. These tests pin that projection against the lock's own rows, proving
-// `builtin::contract` round-trips every row's predicate/field/severity losslessly.
-// `builtin_kind`'s kind facts stay a separate hand-written mirror, untouched here.
+// `temper::builtin::contract` round-trips every row's predicate/field/severity
+// losslessly. `builtin_kind`'s kind facts stay a separate hand-written mirror,
+// untouched here.
 
 /// The `(predicate, field, gate, severity)` a clause row carries — every column the
 /// projection must round-trip. The `gate` end is `Some` only for a two-field predicate
@@ -2398,8 +2398,7 @@ type ClauseQuad = (&'static str, Option<String>, Option<String>, &'static str);
 /// shape a `ClauseRow` reduces a `Clause` to (`temper::drift::ClauseRow`;
 /// `Predicate::key`/`Predicate::target`).
 fn floor_quads(kind: &str) -> Vec<ClauseQuad> {
-    let contract = builtin::contract(kind)
-        .unwrap_or_else(|| panic!("built-in kind `{kind}` ships an embedded floor"));
+    let contract = common::builtin_floor(kind);
     contract
         .clauses
         .into_iter()
@@ -2790,10 +2789,10 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
 /// gate's teaching prose on the wrong side of the erasure. Skill's `extent`
 /// advisory is the worked example: its progressive-disclosure guidance and
 /// agentskills.io cite (`sdk/src/builtins.ts` `skillDefaultContract`) must reach the embedded
-/// lock's row, and `builtin::contract`'s projection, unchanged.
+/// lock's row, and `temper::builtin::contract`'s projection, unchanged.
 #[test]
 fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
-    let contract = builtin::contract("skill").expect("skill's built-in floor is embedded");
+    let contract = common::builtin_floor("skill");
     let floor_clause = contract
         .clauses
         .iter()

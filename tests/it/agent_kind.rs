@@ -5,7 +5,7 @@
 //! id is the frontmatter `name` — the third identity mode (named-field), never the
 //! filename or a containing subdirectory (organizational only). Driven at the
 //! crate-public API a real `import`/`check` read takes — `import::discover_kind_files`,
-//! `Member::from_source`, `builtin_kind::features`, and `builtin::contract` +
+//! `Member::from_source`, `builtin_kind::features`, and `temper::builtin::contract` +
 //! `engine::validate` for the floor's charset/uniqueness clauses — over fixtures
 //! mirroring the real Claude Code layout (`.claude/rules/rust.md`, "Harness-input
 //! fixtures mirror the real Claude Code layout").
@@ -15,7 +15,6 @@ use std::path::PathBuf;
 
 use crate::common;
 
-use temper::builtin;
 use temper::builtin_kind;
 use temper::contract::{Charset, Predicate};
 use temper::engine;
@@ -151,7 +150,7 @@ fn agent_name_charset() -> Charset {
 
 #[test]
 fn agent_builtin_carries_the_decidable_clause_vector() {
-    let contract = builtin::contract("agent").expect("the agent floor is embedded");
+    let contract = common::builtin_floor("agent");
     assert_eq!(contract.name, "agent");
 
     let predicates: Vec<Predicate> = contract
@@ -191,10 +190,8 @@ fn agent_builtin_carries_the_decidable_clause_vector() {
 
 #[test]
 fn the_agent_builtin_is_admissible() {
-    let diagnostics = engine::admissibility(
-        &builtin::contract("agent").unwrap(),
-        &engine::Locus::Document,
-    );
+    let diagnostics =
+        engine::admissibility(&common::builtin_floor("agent"), &engine::Locus::Document);
     assert!(diagnostics.is_empty(), "got: {diagnostics:?}");
 }
 
@@ -208,7 +205,7 @@ fn an_uppercase_name_trips_the_charset_clause() {
     let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&kind, &unit, &[]);
 
-    let contract = builtin::contract("agent").unwrap();
+    let contract = common::builtin_floor("agent");
     let diagnostics = engine::validate(&contract, &[features]);
 
     assert!(
@@ -229,7 +226,7 @@ fn a_lowercase_hyphenated_name_trips_no_charset_clause() {
     let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&kind, &unit, &[]);
 
-    let contract = builtin::contract("agent").unwrap();
+    let contract = common::builtin_floor("agent");
     let diagnostics = engine::validate(&contract, &[features]);
 
     assert!(
@@ -275,7 +272,7 @@ fn two_agents_sharing_a_name_in_one_scope_trip_the_uniqueness_clause() {
         &[],
     );
 
-    let contract = builtin::contract("agent").unwrap();
+    let contract = common::builtin_floor("agent");
     let diagnostics = engine::validate(&contract, &[first_features, second_features]);
 
     let collisions: Vec<_> = diagnostics
@@ -321,7 +318,7 @@ fn two_agents_with_distinct_names_trip_no_uniqueness_clause() {
         &[],
     );
 
-    let contract = builtin::contract("agent").unwrap();
+    let contract = common::builtin_floor("agent");
     let diagnostics = engine::validate(&contract, &[first_features, second_features]);
 
     assert!(

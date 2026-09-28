@@ -24,17 +24,9 @@ use crate::common;
 
 use temper::builtin_kind;
 use temper::check::{self, Diagnostic, Severity};
-use temper::contract::Contract;
 use temper::drift::{self, Declarations, EmitOptions, Payload, PayloadMember};
 use temper::engine;
 use temper::frontmatter::Member;
-
-/// The built-in Anthropic skill contract, resolved from the embedded built-in lock
-/// exactly as the shipped `check` does — so the acceptance path validates against
-/// the same clauses the tool ships.
-fn builtin_skill_contract() -> Contract {
-    temper::builtin::contract("skill").expect("the skill floor is embedded")
-}
 
 /// Render a diagnostic set as one stable line per finding (`<severity> <rule>:
 /// <message>`), in the order the engine collects them.
@@ -71,7 +63,7 @@ fn check_reproduces_the_expected_diagnostic_set() {
         .collect();
     fixtures.sort();
 
-    let contract = builtin_skill_contract();
+    let contract = common::builtin_floor("skill");
     let mut report = String::new();
     for dir in &fixtures {
         let name = dir.file_name().unwrap().to_string_lossy();
@@ -106,7 +98,7 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
     // reads each skill's surface member document through the one generic `Unit` loader.
     let unit = common::skill_surface_unit(&skill);
     let features = [builtin_kind::skill_features(&unit)];
-    let diagnostics = engine::validate(&builtin_skill_contract(), &features);
+    let diagnostics = engine::validate(&common::builtin_floor("skill"), &features);
     assert!(
         diagnostics.is_empty(),
         "the coordinate skill must check clean, got {diagnostics:?}",

@@ -14,17 +14,11 @@
 
 use std::collections::BTreeSet;
 
-use temper::contract::{Contract, ExtentUnit, Predicate, Severity};
+use temper::contract::{ExtentUnit, Predicate, Severity};
 use temper::drift::Declarations;
 use temper::engine;
 
 use crate::common;
-
-/// The built-in rule contract, resolved from the embedded built-in lock the same
-/// way the shipped tool resolves it.
-fn rule_builtin() -> Contract {
-    temper::builtin::contract("rule").expect("the rule floor is embedded")
-}
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
 /// declaration order — the Cursor-key `forbidden_keys` (required), the `paths`
@@ -76,7 +70,7 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
 /// survives unchanged.
 #[test]
 fn rule_builtin_carries_the_decidable_clause_vector() {
-    let contract = rule_builtin();
+    let contract = common::builtin_floor("rule");
     assert_eq!(contract.name, "rule");
 
     let clauses: Vec<(Severity, Predicate)> = contract
@@ -94,7 +88,7 @@ fn rule_builtin_carries_the_decidable_clause_vector() {
 /// survive the row projection, not just the predicate.
 #[test]
 fn every_rule_builtin_clause_is_guided_and_cited() {
-    for clause in &rule_builtin().clauses {
+    for clause in &common::builtin_floor("rule").clauses {
         assert!(
             clause.guidance.is_some(),
             "a built-in clause must carry its guidance, got: {:?}",
@@ -113,7 +107,7 @@ fn every_rule_builtin_clause_is_guided_and_cited() {
 /// never a semantic guess.
 #[test]
 fn rule_builtin_encodes_only_decidable_clauses() {
-    let contract = rule_builtin();
+    let contract = common::builtin_floor("rule");
 
     let kinds: BTreeSet<&str> = contract
         .clauses
@@ -146,7 +140,10 @@ fn the_rule_floor_glob_valid_clause_fires_on_an_unparseable_paths_glob() {
     // that never closes) alongside a well-formed one — only the broken entry is a
     // finding.
     let broken = rule_features(&["src/**/*.rs", "["]);
-    let diagnostics = engine::validate(&rule_builtin(), std::slice::from_ref(&broken));
+    let diagnostics = engine::validate(
+        &common::builtin_floor("rule"),
+        std::slice::from_ref(&broken),
+    );
     let glob_findings: Vec<&temper::check::Diagnostic> = diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.rule == "rule.glob-valid.paths")
@@ -161,7 +158,7 @@ fn the_rule_floor_glob_valid_clause_fires_on_an_unparseable_paths_glob() {
 
     // A valid glob (brace expansion included) passes — no `glob-valid` finding.
     let valid = rule_features(&["src/**/*.{rs,toml}", "docs/*.md"]);
-    let clean = engine::validate(&rule_builtin(), std::slice::from_ref(&valid));
+    let clean = engine::validate(&common::builtin_floor("rule"), std::slice::from_ref(&valid));
     assert!(
         clean
             .iter()
@@ -275,7 +272,8 @@ fn the_rule_floor_is_silent_when_the_scope_is_a_structural_subset_of_the_gate() 
 /// returns nothing.
 #[test]
 fn the_rule_builtin_is_admissible() {
-    let diagnostics = engine::admissibility(&rule_builtin(), &engine::Locus::Document);
+    let diagnostics =
+        engine::admissibility(&common::builtin_floor("rule"), &engine::Locus::Document);
     assert!(
         diagnostics.is_empty(),
         "the rule built-in should be admissible, got: {diagnostics:?}",

@@ -20,6 +20,8 @@ use std::collections::BTreeSet;
 
 use serde_json::Value;
 
+use crate::common;
+
 use temper::contract::Predicate;
 use temper::extract::ValueType;
 
@@ -198,8 +200,7 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
 /// The shipped floor's coverage, read from the built-in lock's own clause rows rather than
 /// a hand-written mirror of them.
 fn covered_rules() -> BTreeSet<String> {
-    temper::builtin::contract("plugin-manifest")
-        .expect("plugin-manifest ships an embedded floor")
+    common::builtin_floor("plugin-manifest")
         .clauses
         .iter()
         .filter_map(|clause| covered_rule(&clause.predicate))
