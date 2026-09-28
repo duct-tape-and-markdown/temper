@@ -336,9 +336,9 @@ tax.
   `segments`/`Segment` model (`builtin_kind.rs:51`) and
   `manifest_top_level_keys` (`:334`) exist only to decide something nothing
   reaches, and three fixtures withhold a built-in from scope to observe it
-  (`tests/coverage_note.rs:93`, `:386`, `tests/check_cost.rs:397`) — two of
+  (`tests/it/coverage_note.rs:93`, `:386`, `tests/it/check_cost.rs:413`) — two of
   them saying exactly that in their own comments, and a fourth asserts the
-  rule's *absence* over the always-empty vec (`tests/hook_kind.rs:195`, an
+  rule's *absence* over the always-empty vec (`tests/it/hook_kind.rs:428`, an
   `.all()` no ruling can currently falsify). That is the vacuity class
   `engineering.md` "A green verdict is proven non-vacuous" names. The
   capture's subtraction list is narrowed by the re-verify: `with_locked_kinds`
@@ -465,7 +465,7 @@ tax.
   must answer is already written into the code it would change: "the commands
   stay this module's constants — there is no SDK twin for them to drift against"
   (`install.rs:2019`). A twin is a second home for one string, and the gate
-  holding the existing TS↔Rust family (`tests/seam_bindings_current.rs`)
+  holding the existing TS↔Rust family (`tests/it/seam_bindings_current.rs`)
   byte-compares generated *types*, never constants — so (d) ships a new seam or
   it ships the drift it set out to remove. Declined as its own shape: a registry
   of *retired* command spellings `check` greps for, which catches the class only

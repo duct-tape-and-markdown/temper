@@ -19,8 +19,8 @@
         "description": "Wire the new diagnostic beside the existing `collection_address_collision_diagnostics` call (~gate.rs:200s)."
       },
       {
-        "path": "tests/hook_kind.rs",
-        "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members — mirroring 21f61463's kind-collision test shape."
+        "path": "tests/it/hook_kind.rs",
+        "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members — mirroring 21f61463's kind-collision test shape. The suite is a module of the one `it` crate since a7c8c9b5, so scaffolding is reached as `common::…` through `crate`."
       }
     ],
     "retire": []
@@ -32,10 +32,10 @@
   },
   "tests": [
     {
-      "path": "tests/hook_kind.rs",
+      "path": "tests/it/hook_kind.rs",
       "asserts": "duplicate hook members on the same event name are refused loud, naming both"
     }
   ],
   "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
-  "notes": "GH #32. First pick built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. The revert itself isn't a resolvable commit (worktree-local, reverted pre-merge); see 080311b9 for the park record (its predecessor citation, e4ff7bc6, doesn't resolve at HEAD). Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). scoped at bf4b4168."
+  "notes": "GH #32. First pick built the duplicate-key refusal; gate-reverted by the self-host test now at `tests/it/cli.rs` — temper's own settings.json has two PostToolUse groups. The revert isn't a resolvable commit (worktree-local, reverted pre-merge); see 080311b9 for the park record. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). scoped at 70afd6e0"
 }
