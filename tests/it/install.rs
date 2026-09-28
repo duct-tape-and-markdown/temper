@@ -1693,7 +1693,7 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
     );
     assert_eq!(warn_code, Some(0), "warn mode allows the write");
-    let in_band = common::guard_in_band(&warn_output);
+    let in_band = common::guard_in_band(&warn_output, "PreToolUse");
     assert!(
         in_band.contains("`rule` kind's governed locus"),
         "warn surfaces the finding in-band, got: {in_band}"
@@ -1875,7 +1875,7 @@ fn guard_binds_settings_json_when_registration_members_compose() {
         "warn mode allows the write but surfaces the finding"
     );
     assert!(
-        common::guard_in_band(&warn_output).contains("temper-managed projection"),
+        common::guard_in_band(&warn_output, "PreToolUse").contains("temper-managed projection"),
         "the warning must be in-band"
     );
 }
@@ -2181,7 +2181,7 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
         "warn mode allows the write but surfaces the finding"
     );
     assert!(
-        common::guard_in_band(&warn_output).contains("lock declares member"),
+        common::guard_in_band(&warn_output, "PreToolUse").contains("lock declares member"),
         "the warning must be in-band"
     );
 }

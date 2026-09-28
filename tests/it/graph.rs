@@ -22,39 +22,7 @@ use temper::drift::{
     AssemblyFactRow, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow,
     SatisfiesRow,
 };
-use temper::drift::{KindFactRow, LayoutRegionRow, LayoutRow, NestedMemberRow, TemplateRow};
-
-/// A floor-clean rule carrying a `routes_to` reference field — the declared edge
-/// the graph reads. `routes_to` is not a floor-forbidden rule key, so the rule
-/// stays clean and the only finding a case can produce is the route one.
-fn routing_rule(routes_to: &str) -> String {
-    format!(
-        "---\n\
-         routes_to: {routes_to}\n\
-         ---\n\
-         # Style\n\
-         \n\
-         Prefer the standards skill.\n"
-    )
-}
-
-/// An `edge` assembly fact declaring one target kind — the lock row a
-/// `[[kind.<from>.relationships]]` table used to project.
-fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
-    edge_to_set(from, field, &[to])
-}
-
-/// An `edge` assembly fact over a declared target *set* — the general row `edge` is the
-/// one-element case of.
-fn edge_to_set(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
-    AssemblyFactRow {
-        fact: "edge".to_string(),
-        value: None,
-        from: Some(from.to_string()),
-        field: Some(field.to_string()),
-        to: Some(to.iter().map(|kind| (*kind).to_string()).collect()),
-    }
-}
+use temper::drift::{KindFactRow, LayoutRow, NestedMemberRow, TemplateRow};
 
 /// The `gate` requirement's declaration row, optionally bound to `kind` and carrying
 /// a required `degree` clause — the lock row a `[requirement.gate]` table used to
@@ -95,8 +63,8 @@ fn routing_skill(name: &str, routes_to: &str) -> String {
 /// both.
 fn mutual_routes_edges() -> Vec<AssemblyFactRow> {
     vec![
-        edge("rule", "routes_to", "skill"),
-        edge("skill", "routes_to", "rule"),
+        common::edge("rule", "routes_to", "skill"),
+        common::edge("skill", "routes_to", "rule"),
     ]
 }
 
@@ -104,7 +72,7 @@ fn mutual_routes_edges() -> Vec<AssemblyFactRow> {
 /// targeting skills — the harness reference graph the cases build. A reference is a
 /// kind capability.
 fn routes_to_edge() -> Vec<AssemblyFactRow> {
-    vec![edge("rule", "routes_to", "skill")]
+    vec![common::edge("rule", "routes_to", "skill")]
 }
 
 #[test]
@@ -115,7 +83,7 @@ fn a_resolving_route_is_clean() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -143,7 +111,7 @@ fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("absent"),
+        &common::scoped_routing_rule(None, Some("absent")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -179,7 +147,7 @@ fn an_unadopted_harness_runs_no_graph() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("absent"),
+        &common::scoped_routing_rule(None, Some("absent")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -218,7 +186,11 @@ fn write_relocated_rule_harness(root: &Path, routes_to: &str) {
     common::write_skill(root, "standards", &common::clean_skill("standards"));
     let decisions = root.join("decisions");
     fs::create_dir_all(&decisions).unwrap();
-    fs::write(decisions.join("style.md"), routing_rule(routes_to)).unwrap();
+    fs::write(
+        decisions.join("style.md"),
+        common::scoped_routing_rule(None, Some(routes_to)),
+    )
+    .unwrap();
 }
 
 /// The lock a relocated `rule` with an added `routes_to` edge compiles to: the kind row
@@ -284,7 +256,7 @@ fn an_acyclic_reference_graph_passes() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -314,7 +286,7 @@ fn a_cyclic_field_reference_graph_passes() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &routing_skill("standards", "style"),
     );
@@ -395,7 +367,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -442,7 +414,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -480,7 +452,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -519,7 +491,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -566,7 +538,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -622,8 +594,8 @@ fn two_field_rule(routes_to: &str, cites: &str) -> String {
 /// model a field-set filter selects within.
 fn routes_to_and_cites_edges() -> Vec<AssemblyFactRow> {
     vec![
-        edge("rule", "routes_to", "skill"),
-        edge("rule", "cites", "skill"),
+        common::edge("rule", "routes_to", "skill"),
+        common::edge("rule", "cites", "skill"),
     ]
 }
 
@@ -637,7 +609,7 @@ fn a_filtered_degree_bound_ignores_another_fields_arcs() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -773,7 +745,7 @@ fn reached_from_clause(via: Option<&[&str]>) -> ClauseRow {
 
 /// The one `routes_to` edge off `skill`, targeting skills — the chain the closure walks.
 fn skill_routes_to_edge() -> Vec<AssemblyFactRow> {
-    vec![edge("skill", "routes_to", "skill")]
+    vec![common::edge("skill", "routes_to", "skill")]
 }
 
 /// The members `rule` indicted, in report order — read off the github reporter's
@@ -901,8 +873,8 @@ fn a_via_set_naming_one_field_ignores_another_fields_arcs() {
     common::write_skill(&root, "d", &common::clean_skill("d"));
     let declarations = Declarations {
         assembly: vec![
-            edge("skill", "routes_to", "skill"),
-            edge("skill", "cites", "skill"),
+            common::edge("skill", "routes_to", "skill"),
+            common::edge("skill", "cites", "skill"),
         ],
         requirements: vec![entrypoint_requirement()],
         clauses: vec![reached_from_clause(Some(&["routes_to"]))],
@@ -1151,21 +1123,6 @@ fn a_target_the_mention_does_not_reach_is_no_finding() {
     assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
 }
 
-/// A floor-clean rule scoped by `paths` **and** carrying a `routes_to` field edge — a
-/// reference riding a field, not the separate mention family. `mention-reachable` judges
-/// it once field and mention edges share one enumeration.
-fn scoped_routing_rule(paths: &str, routes_to: &str) -> String {
-    format!(
-        "---\n\
-         paths: [\"{paths}\"]\n\
-         routes_to: {routes_to}\n\
-         ---\n\
-         # Style\n\
-         \n\
-         Prefer the standards skill.\n"
-    )
-}
-
 /// The rendering claim carried on a **field edge** is judged, not only one riding the
 /// separate mention family. A rule scoped to `src/**` whose `routes_to` field points at a
 /// skill gated to `docs/**`, with no mention row at all: the field edge resolves into the
@@ -1179,7 +1136,7 @@ fn a_mention_riding_a_field_edge_is_judged() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &scoped_routing_rule("src/**", "standards"),
+        &common::scoped_routing_rule(Some("src/**"), Some("standards")),
         "standards",
         &common::gated_skill("standards", Some("docs/**")),
     );
@@ -1220,7 +1177,7 @@ fn a_deferred_mention_resolves_against_a_discovered_member_at_check() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -1260,7 +1217,7 @@ fn a_mention_naming_no_discovered_member_leaves_the_target_unreached() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -1306,7 +1263,7 @@ fn a_deferred_mention_to_an_absent_member_fires_a_route_finding() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -1392,7 +1349,7 @@ fn a_mention_to_a_declared_requirement_stays_clean() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -1422,7 +1379,7 @@ fn a_mention_to_an_undeclared_requirement_fires_a_route_finding() {
     common::write_rule_skill_harness(
         &root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -1459,25 +1416,16 @@ mod embedded_edge_targets {
     use super::*;
     use std::collections::BTreeMap;
 
-    /// A `field` region row filling `slot` — an edge slot when `slot` is one of the
-    /// kind's declared edge fields.
-    fn field_region(slot: &str) -> LayoutRegionRow {
-        LayoutRegionRow {
-            region: "field".to_string(),
-            import: None,
-            slot: Some(slot.to_string()),
-            member_kind: None,
-            key: None,
-        }
-    }
-
     /// The `service` layout host: a lone document under `specs/` carrying a `purpose`
     /// field section and a `serves` relationship edge slot, hosting the embedded kinds
     /// named in `templates`.
     fn service_kind(templates: &[&str]) -> KindFactRow {
         KindFactRow {
             content: Some(LayoutRow {
-                regions: vec![field_region("purpose"), field_region("serves")],
+                regions: vec![
+                    common::field_region("purpose"),
+                    common::field_region("serves"),
+                ],
             }),
             templates: templates
                 .iter()
@@ -1524,7 +1472,7 @@ mod embedded_edge_targets {
             &root,
             Declarations {
                 kinds: vec![service_kind(&["domain"])],
-                assembly: vec![edge("service", "serves", "domain")],
+                assembly: vec![common::edge("service", "serves", "domain")],
                 nested_members: vec![domain_row("billing")],
                 ..Declarations::default()
             },
@@ -1548,7 +1496,7 @@ mod embedded_edge_targets {
             &root,
             Declarations {
                 kinds: vec![service_kind(&["domain"])],
-                assembly: vec![edge("service", "serves", "domain")],
+                assembly: vec![common::edge("service", "serves", "domain")],
                 nested_members: vec![domain_row("billing")],
                 ..Declarations::default()
             },
@@ -1648,7 +1596,7 @@ mod embedded_edge_targets {
             &root,
             Declarations {
                 kinds: vec![service_kind(&[])],
-                assembly: vec![edge("service", "serves", "domain")],
+                assembly: vec![common::edge("service", "serves", "domain")],
                 ..Declarations::default()
             },
         );
@@ -1685,7 +1633,7 @@ mod embedded_edge_targets {
             &root,
             Declarations {
                 kinds: vec![service_kind(&["domain"])],
-                assembly: vec![edge("service", "serves", "domain")],
+                assembly: vec![common::edge("service", "serves", "domain")],
                 nested_members: vec![
                     NestedMemberRow {
                         host: "service:service".to_string(),
@@ -1738,7 +1686,7 @@ mod embedded_edge_targets {
             &root,
             Declarations {
                 kinds: vec![service_kind(&["domain"])],
-                assembly: vec![edge("service", "serves", "domain")],
+                assembly: vec![common::edge("service", "serves", "domain")],
                 nested_members: vec![
                     NestedMemberRow {
                         host: "service:service".to_string(),
@@ -1810,7 +1758,7 @@ mod embedded_edge_targets {
             &root,
             Declarations {
                 kinds: vec![service_kind(&["domain"])],
-                assembly: vec![edge("service", "serves", "domain")],
+                assembly: vec![common::edge("service", "serves", "domain")],
                 nested_members: vec![
                     NestedMemberRow {
                         host: "service:service".to_string(),
@@ -2066,7 +2014,7 @@ mod embedded_edge_sources {
             root,
             Declarations {
                 kinds: vec![article_kind()],
-                assembly: vec![edge("citation", "source", "skill")],
+                assembly: vec![common::edge("citation", "source", "skill")],
                 nested_members: vec![citation_row(source)],
                 requirements: vec![degree_requirement(
                     Some("skill"),
@@ -2202,7 +2150,7 @@ mod embedded_edge_source_scope {
             root,
             Declarations {
                 kinds: vec![manual_kind()],
-                assembly: vec![edge("consult", "target", "skill")],
+                assembly: vec![common::edge("consult", "target", "skill")],
                 nested_members: vec![consult_row()],
                 requirements: vec![manual_reach_requirement()],
                 satisfies: vec![SatisfiesRow {
@@ -2723,7 +2671,7 @@ mod target_set {
         common::write_rule_skill_harness(
             &root,
             "style",
-            &routing_rule(target),
+            &common::scoped_routing_rule(None, Some(target)),
             "standards",
             &common::clean_skill("standards"),
         );
@@ -2736,7 +2684,7 @@ mod target_set {
         common::write_lock(
             &root,
             Declarations {
-                assembly: vec![edge_to_set("rule", "routes_to", &["skill", "rule"])],
+                assembly: vec![common::edge_to_set("rule", "routes_to", &["skill", "rule"])],
                 ..Declarations::default()
             },
         );
@@ -2758,7 +2706,7 @@ mod target_set {
         common::write_lock(
             &root,
             Declarations {
-                assembly: vec![edge_to_set("rule", "routes_to", &["skill", "rule"])],
+                assembly: vec![common::edge_to_set("rule", "routes_to", &["skill", "rule"])],
                 ..Declarations::default()
             },
         );
@@ -2782,7 +2730,7 @@ mod target_set {
         common::write_lock(
             &root,
             Declarations {
-                assembly: vec![edge_to_set("rule", "routes_to", &["skill", "rule"])],
+                assembly: vec![common::edge_to_set("rule", "routes_to", &["skill", "rule"])],
                 ..Declarations::default()
             },
         );
@@ -2801,7 +2749,7 @@ mod target_set {
         common::write_lock(
             &root,
             Declarations {
-                assembly: vec![edge_to_set("rule", "routes_to", &["skill"])],
+                assembly: vec![common::edge_to_set("rule", "routes_to", &["skill"])],
                 ..Declarations::default()
             },
         );
@@ -2820,7 +2768,11 @@ mod target_set {
         common::write_lock(
             &root,
             Declarations {
-                assembly: vec![edge_to_set("rule", "routes_to", &["skill", "sorcery"])],
+                assembly: vec![common::edge_to_set(
+                    "rule",
+                    "routes_to",
+                    &["skill", "sorcery"],
+                )],
                 ..Declarations::default()
             },
         );
@@ -2883,7 +2835,7 @@ mod target_set {
             common::write_rule_skill_harness(
                 &root,
                 "style",
-                &routing_rule("standards"),
+                &common::scoped_routing_rule(None, Some("standards")),
                 "standards",
                 &common::clean_skill("standards"),
             );
@@ -2920,7 +2872,7 @@ mod target_set {
             common::write_rule_skill_harness(
                 &root,
                 "style",
-                &routing_rule("standards"),
+                &common::scoped_routing_rule(None, Some("standards")),
                 "standards",
                 &common::clean_skill("standards"),
             );
@@ -2959,7 +2911,7 @@ mod target_set {
             common::write_rule_skill_harness(
                 &root,
                 "style",
-                &routing_rule("standards"),
+                &common::scoped_routing_rule(None, Some("standards")),
                 "standards",
                 &common::clean_skill("standards"),
             );
@@ -2993,7 +2945,7 @@ mod target_set {
             common::write_rule_skill_harness(
                 &root,
                 "style",
-                &routing_rule("standards"),
+                &common::scoped_routing_rule(None, Some("standards")),
                 "standards",
                 &common::clean_skill("standards"),
             );
@@ -3035,7 +2987,7 @@ mod target_set {
             common::write_rule_skill_harness(
                 &root,
                 "style",
-                &routing_rule("standards"),
+                &common::scoped_routing_rule(None, Some("standards")),
                 "standards",
                 &common::clean_skill("standards"),
             );
@@ -3071,7 +3023,7 @@ mod target_set {
             common::write_rule_skill_harness(
                 &root,
                 "style",
-                &routing_rule("standards"),
+                &common::scoped_routing_rule(None, Some("standards")),
                 "standards",
                 &common::clean_skill("standards"),
             );
@@ -3282,7 +3234,7 @@ mod containment_incidence {
         write_three_rules(&root);
         fs::write(
             root.join(".claude/rules/terse.md"),
-            routing_rule("standards"),
+            common::scoped_routing_rule(None, Some("standards")),
         )
         .unwrap();
         common::write_skill(&root, "standards", &common::clean_skill("standards"));

@@ -15,25 +15,12 @@ use std::fs;
 use temper::check::Severity;
 use temper::compose::Requirement;
 use temper::coverage;
-use temper::drift::{self, AssemblyFactRow, Declarations, EmitOptions, Payload};
+use temper::drift::{self, Declarations, EmitOptions, Payload};
 use temper::extract::Features;
 use temper::read;
 
 use crate::common;
 use crate::common::{field_region, layout_member};
-
-/// An `edge` assembly fact — the lock row a `[[kind.<from>.relationships]]` table
-/// projects. A custom kind carries its declared edges only here, never on its kind-fact
-/// row, so this is the one place the gate and emit learn a layout slot is a relationship.
-fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
-    AssemblyFactRow {
-        fact: "edge".to_string(),
-        value: None,
-        from: Some(from.to_string()),
-        field: Some(field.to_string()),
-        to: Some(vec![to.to_string()]),
-    }
-}
 
 /// The `guide` host's `satisfies` fill claims as the lock carries them, in derived order
 /// — the exact rows emit wrote, read straight back off the committed lock.
@@ -195,7 +182,7 @@ fn a_declared_relationship_edge_slots_entries_reach_the_gate_and_read_verbs() {
                 "guide",
                 vec![field_region("purpose"), field_region("routes_to")],
             )],
-            assembly: vec![edge("guide", "routes_to", "skill")],
+            assembly: vec![common::edge("guide", "routes_to", "skill")],
             ..Default::default()
         },
     );
@@ -236,7 +223,7 @@ fn a_dangling_relationship_edge_entry_is_a_route_finding_never_a_silent_drop() {
                 "guide",
                 vec![field_region("purpose"), field_region("routes_to")],
             )],
-            assembly: vec![edge("guide", "routes_to", "skill")],
+            assembly: vec![common::edge("guide", "routes_to", "skill")],
             ..Default::default()
         },
     );

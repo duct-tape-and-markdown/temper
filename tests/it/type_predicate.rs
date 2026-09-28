@@ -14,7 +14,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
-use temper::contract::{self, Clause, Contract, Predicate, Severity};
+use temper::contract::{self, Predicate};
 use temper::drift::{self, ClauseRow, EmitOptions};
 use temper::engine;
 use temper::extract::{Features, ValueType};
@@ -66,26 +66,10 @@ fn pack_features(field: &str, value: serde_json::Value) -> Features {
     .extract(&pack_unit(field, value))
 }
 
-/// A one-clause `pack` contract over `predicate` — the shape both the conformance and
-/// the admissibility proofs below judge.
-fn one_clause_contract(predicate: Predicate) -> Contract {
-    Contract {
-        name: "pack".to_string(),
-        guidance: None,
-        clauses: vec![Clause {
-            label: contract::clause_label(Some("pack"), predicate.key(), None),
-            severity: Severity::Required,
-            predicate,
-            guidance: None,
-            source: None,
-        }],
-    }
-}
-
 /// The findings a one-clause contract over `predicate` fires against `features`.
 fn findings(predicate: Predicate, features: &Features) -> Vec<temper::check::Diagnostic> {
     engine::validate(
-        &one_clause_contract(predicate),
+        &common::one_clause_contract("pack", predicate),
         std::slice::from_ref(features),
     )
 }
@@ -226,8 +210,10 @@ fn an_empty_set_is_inadmissible_rather_than_a_clause_that_admits_nothing() {
         }
     );
 
-    let diagnostics =
-        engine::admissibility(&one_clause_contract(predicate), &engine::Locus::Document);
+    let diagnostics = engine::admissibility(
+        &common::one_clause_contract("pack", predicate),
+        &engine::Locus::Document,
+    );
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].severity, temper::check::Severity::Error);
     assert_eq!(

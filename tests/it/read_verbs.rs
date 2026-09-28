@@ -1122,43 +1122,13 @@ fn a_kind_qualified_name_no_kind_declares_is_not_found() {
     );
 }
 
-/// A layout kind's regions in wire form — a leading verbatim prose region, an `intent`
-/// field section, and an `invariant` member collection.
-fn intent_layout() -> LayoutRow {
-    LayoutRow {
-        regions: vec![
-            LayoutRegionRow {
-                region: "prose".to_string(),
-                import: None,
-                slot: None,
-                member_kind: None,
-                key: None,
-            },
-            LayoutRegionRow {
-                region: "field".to_string(),
-                import: None,
-                slot: Some("intent".to_string()),
-                member_kind: None,
-                key: None,
-            },
-            LayoutRegionRow {
-                region: "collection".to_string(),
-                import: None,
-                slot: None,
-                member_kind: Some("invariant".to_string()),
-                key: None,
-            },
-        ],
-    }
-}
-
 #[test]
 fn a_layout_kind_narrates_its_regions_in_order_and_a_document_that_fits_them() {
     // The authoring entry point for a kind whose body is typed: an author with no
     // member of it to copy reads the regions the document is parsed as, in order, and a
     // skeleton carrying every position the reader binds.
     let kinds = [drift::KindFactRow {
-        content: Some(intent_layout()),
+        content: Some(common::intent_layout_row()),
         ..common::kind_facts("intent", "specs", "intent.md")
     }];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
@@ -1268,7 +1238,7 @@ fn a_composed_kind_narrates_the_embedded_kinds_it_admits_and_their_leaves() {
                 path: Some("*.md".to_string()),
             },
         ],
-        content: Some(intent_layout()),
+        content: Some(common::intent_layout_row()),
         ..common::kind_facts("spec", "specs", "*.md")
     }];
     let mut chosen = feature("spec:s/decision/baked-projection", &[]);

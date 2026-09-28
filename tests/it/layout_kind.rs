@@ -328,42 +328,11 @@ fn an_unadmitted_top_level_heading_refuses_loud() {
     assert!(err.to_string().contains("Stray"));
 }
 
-/// The `intent_layout` regions in wire form — a leading prose region, an `intent` field
-/// section, and an `invariant` member collection — shared by the layout row a `spec`-kind
-/// declares and the one a relocated built-in declares.
-fn intent_layout_row() -> LayoutRow {
-    LayoutRow {
-        regions: vec![
-            LayoutRegionRow {
-                region: "prose".to_string(),
-                import: None,
-                slot: None,
-                member_kind: None,
-                key: None,
-            },
-            LayoutRegionRow {
-                region: "field".to_string(),
-                import: None,
-                slot: Some("intent".to_string()),
-                member_kind: None,
-                key: None,
-            },
-            LayoutRegionRow {
-                region: "collection".to_string(),
-                import: None,
-                slot: None,
-                member_kind: Some("invariant".to_string()),
-                key: None,
-            },
-        ],
-    }
-}
-
 /// The `intent` kind's fact row — a layout kind governing the single `specs/intent.md`
 /// document, carrying the `intent_layout` regions in wire form.
 fn intent_kind_facts() -> KindFactRow {
     KindFactRow {
-        content: Some(intent_layout_row()),
+        content: Some(common::intent_layout_row()),
         ..common::kind_facts("intent", "specs", "intent.md")
     }
 }
@@ -491,7 +460,7 @@ fn emit_refuses_a_non_fitting_layout_document() {
 /// under this layout rather than as frontmatter.
 fn relocated_rule_with_layout() -> KindFactRow {
     KindFactRow {
-        content: Some(intent_layout_row()),
+        content: Some(common::intent_layout_row()),
         ..common::kind_facts("rule", "decisions", "*.md")
     }
 }

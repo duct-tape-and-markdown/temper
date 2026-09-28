@@ -2963,18 +2963,6 @@ fn a_mention_with_no_clause_ranging_over_it_is_obligation_free() {
     );
 }
 
-/// An `edge` fact's declared target *set* — the column carrying the non-empty set of
-/// kinds a field may resolve into.
-fn edge_fact(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
-    AssemblyFactRow {
-        fact: "edge".to_string(),
-        value: None,
-        from: Some(from.to_string()),
-        field: Some(field.to_string()),
-        to: Some(to.iter().map(|kind| (*kind).to_string()).collect()),
-    }
-}
-
 /// The lock text at `<root>/.temper/lock.toml`.
 fn lock_text(root: &Path) -> String {
     fs::read_to_string(root.join(".temper").join(temper::LOCK_FILENAME)).unwrap()
@@ -2987,8 +2975,8 @@ fn an_edge_facts_target_set_round_trips_the_lock_as_an_array() {
         &root,
         Declarations {
             assembly: vec![
-                edge_fact("citation", "source", &["rule", "skill"]),
-                edge_fact("rule", "routes_to", &["skill"]),
+                common::edge_to_set("citation", "source", &["rule", "skill"]),
+                common::edge_to_set("rule", "routes_to", &["skill"]),
             ],
             ..Declarations::default()
         },
@@ -3027,7 +3015,7 @@ fn a_legacy_bare_string_target_reads_as_the_one_element_set_unpatched() {
     common::write_lock(
         &root,
         Declarations {
-            assembly: vec![edge_fact("rule", "routes_to", &["skill"])],
+            assembly: vec![common::edge_to_set("rule", "routes_to", &["skill"])],
             ..Declarations::default()
         },
     );
@@ -3066,7 +3054,7 @@ fn an_edge_facts_target_column_that_is_neither_string_nor_string_array_refuses_l
         &root,
         Declarations {
             kinds: vec![common::kind_facts("spec", "specs", "*.md")],
-            assembly: vec![edge_fact("spec", "source", &["spec"])],
+            assembly: vec![common::edge_to_set("spec", "source", &["spec"])],
             ..Declarations::default()
         },
     );
@@ -3096,20 +3084,6 @@ fn an_edge_facts_target_column_that_is_neither_string_nor_string_array_refuses_l
 // declarations is a guess, and the guess buries the refusal under the dangling routes
 // the arm the author did not mean forges).
 
-/// A floor-clean rule carrying a `routes_to` reference field naming `target` —
-/// `routes_to` is not a floor-forbidden rule key, so the only finding a case below can
-/// produce is the graph one.
-fn routing_rule(target: &str) -> String {
-    format!(
-        "---\n\
-         routes_to: {target}\n\
-         ---\n\
-         # Style\n\
-         \n\
-         Prefer the standards skill.\n"
-    )
-}
-
 /// The corpus both coincidence cases read: the rule `style` routing to the skill
 /// `standards`, which really exists — so with ONE declared row the run is clean and the
 /// refusal below is never an empty read.
@@ -3117,7 +3091,7 @@ fn write_routing_harness(root: &Path) {
     common::write_rule_skill_harness(
         root,
         "style",
-        &routing_rule("standards"),
+        &common::scoped_routing_rule(None, Some("standards")),
         "standards",
         &common::clean_skill("standards"),
     );
@@ -3137,7 +3111,7 @@ fn one_edge_row_per_slot_resolves_and_the_run_is_clean() {
     common::write_lock(
         &root,
         Declarations {
-            assembly: vec![edge_fact("rule", "routes_to", &["skill"])],
+            assembly: vec![common::edge_to_set("rule", "routes_to", &["skill"])],
             ..Declarations::default()
         },
     );
@@ -3157,8 +3131,8 @@ fn two_edge_rows_for_one_slot_refuse_once_with_no_dangling_route_noise() {
         &root,
         Declarations {
             assembly: vec![
-                edge_fact("rule", "routes_to", &["skill"]),
-                edge_fact("rule", "routes_to", &["agent"]),
+                common::edge_to_set("rule", "routes_to", &["skill"]),
+                common::edge_to_set("rule", "routes_to", &["agent"]),
             ],
             ..Declarations::default()
         },
@@ -3198,8 +3172,8 @@ fn two_byte_identical_edge_rows_refuse_the_same_way() {
         &root,
         Declarations {
             assembly: vec![
-                edge_fact("rule", "routes_to", &["skill"]),
-                edge_fact("rule", "routes_to", &["skill"]),
+                common::edge_to_set("rule", "routes_to", &["skill"]),
+                common::edge_to_set("rule", "routes_to", &["skill"]),
             ],
             ..Declarations::default()
         },

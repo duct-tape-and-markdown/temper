@@ -569,7 +569,7 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
         // alone — so `warn`'s finding has to be in the envelope, not on stderr.
         if mode == "warn" {
             assert!(
-                common::guard_in_band(&output).contains("temper-managed projection"),
+                common::guard_in_band(&output, "PreToolUse").contains("temper-managed projection"),
                 "warn surfaces the finding in-band, got: {output}"
             );
         } else {
@@ -672,7 +672,7 @@ fn guard_judges_the_tree_a_shell_call_left_at_the_post_edge() {
         );
         match mode {
             "warn" => {
-                let context = post_edge_in_band(&output);
+                let context = common::guard_in_band(&output, "PostToolUse");
                 assert!(
                     context.contains("temper-managed projection drift"),
                     "warn surfaces the drift in-band, got: {context}"
@@ -746,7 +746,7 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
         );
         match mode {
             "warn" => {
-                let context = post_edge_in_band(&output);
+                let context = common::guard_in_band(&output, "PostToolUse");
                 assert!(
                     context.contains("temper-governed locus"),
                     "warn surfaces the stray in-band under the locus preamble, got: \
@@ -796,7 +796,7 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
     .unwrap();
     let (code, output) = common::run_guard(&both, POST_TOOL_USE_PAYLOAD);
     assert_eq!(code, Some(0), "got: {output}");
-    let context = post_edge_in_band(&output);
+    let context = common::guard_in_band(&output, "PostToolUse");
     assert!(
         context.contains("temper-managed projection drift")
             && context.contains(".claude/rules/rust.md"),
@@ -905,23 +905,6 @@ fn post_edge_harness(label: &str, mode: &str, emit_hash: &str) -> std::path::Pat
     )
     .unwrap();
     root
-}
-
-/// The finding a `warn`-mode post-edge run surfaced in-band, read out of the
-/// `PostToolUse` `hookSpecificOutput` envelope — stamping this event's own name, since an
-/// envelope naming any other event is rejected whole.
-fn post_edge_in_band(output: &str) -> String {
-    let payload: serde_json::Value = serde_json::from_str(output.trim())
-        .unwrap_or_else(|err| panic!("warn must emit the hook envelope: {err}, got: {output}"));
-    let hook = &payload["hookSpecificOutput"];
-    assert_eq!(
-        hook["hookEventName"], "PostToolUse",
-        "the envelope must stamp the firing event, got: {output}"
-    );
-    hook["additionalContext"]
-        .as_str()
-        .unwrap_or_else(|| panic!("the finding must ride additionalContext, got: {output}"))
-        .to_string()
 }
 
 /// The reason a `block`-mode post-edge run refused the call's result with — the top-level

@@ -17,9 +17,9 @@ use std::sync::{Once, OnceLock};
 use temper::builtin_kind;
 use temper::check::Diagnostic;
 use temper::drift::{
-    self, ClauseRow, CollectionAddressRow, CountBoundRow, Declarations, DegreeBoundRow,
-    EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, Payload, PayloadMember,
-    RequirementRow, SatisfiesRow,
+    self, AssemblyFactRow, ClauseRow, CollectionAddressRow, CountBoundRow, Declarations,
+    DegreeBoundRow, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, Payload,
+    PayloadMember, RequirementRow, SatisfiesRow,
 };
 use temper::extract::Features;
 use temper::frontmatter::Member;
@@ -383,20 +383,22 @@ pub fn run_guard_from_root(root: &Path, payload: &str) -> (Option<i32>, String) 
     run_guard_spawned_in(root, std::ffi::OsStr::new("."), payload)
 }
 
-/// The finding a `warn`-mode guard run surfaced in-band, read out of the `PreToolUse`
-/// `hookSpecificOutput` envelope on stdout — the one channel a hook exiting zero reaches
-/// the model's context through, stderr on exit 0 landing in the debug log alone.
+/// The finding a `warn`-mode run surfaced in-band, read out of the `hookSpecificOutput`
+/// envelope on stdout — the one channel a hook exiting zero reaches the model's context
+/// through, stderr on exit 0 landing in the debug log alone.
 ///
-/// Panics unless `output` is exactly that envelope, so every warn arm asserts the
-/// placement and not merely the text: a finding on the wrong stream, or under the wrong
-/// event name, is a finding the session never sees.
-pub fn guard_in_band(output: &str) -> String {
+/// `event` is the `hookEventName` the envelope must stamp: `PreToolUse` for the guard,
+/// `PostToolUse` for the post-edit warn. Panics unless `output` is exactly that
+/// envelope, so every warn arm asserts the placement and not merely the text: a finding
+/// on the wrong stream, or under the wrong event name, is a finding the session never
+/// sees — an envelope naming any other event is rejected whole.
+pub fn guard_in_band(output: &str, event: &str) -> String {
     let payload: serde_json::Value = serde_json::from_str(output.trim()).unwrap_or_else(|err| {
         panic!("warn must emit the hook envelope on stdout: {err}, got: {output}")
     });
     let hook = &payload["hookSpecificOutput"];
     assert_eq!(
-        hook["hookEventName"], "PreToolUse",
+        hook["hookEventName"], event,
         "the envelope must stamp the firing event, got: {output}"
     );
     hook["additionalContext"]
@@ -510,17 +512,30 @@ pub fn write_rule(root: &Path, name: &str) {
     );
 }
 
-/// A floor-clean rule, optionally scoped by `paths` — a mention's source. `None` is
-/// the unscoped rule (the harness loads it always).
-pub fn scoped_rule(paths: Option<&str>) -> String {
+/// A floor-clean rule document, optionally scoped by `paths` and optionally carrying a
+/// `routes_to` reference field — the one home for all three spellings the suites build:
+/// the scoped rule (a mention's source), the routing rule (a declared field edge the
+/// graph reads), and both at once (a reference riding a field, under a scope).
+///
+/// `paths` `None` is the unscoped rule, which the harness loads always. `routes_to` is
+/// not a floor-forbidden rule key, so the document stays floor-clean either way and the
+/// only finding a routing case can produce is the graph one.
+pub fn scoped_routing_rule(paths: Option<&str>, routes_to: Option<&str>) -> String {
     let scope = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
+    let route = routes_to.map_or_else(String::new, |target| format!("routes_to: {target}\n"));
     format!(
         "---\n\
-         {scope}---\n\
+         {scope}{route}---\n\
          # Style\n\
          \n\
          Prefer the standards skill.\n"
     )
+}
+
+/// The unrouted spelling of [`scoped_routing_rule`] — a floor-clean rule carrying a
+/// scope and no field edge, the form callers that name only a scope spell.
+pub fn scoped_rule(paths: Option<&str>) -> String {
+    scoped_routing_rule(paths, None)
 }
 
 /// A floor-clean skill, optionally gated by `paths` — a mention's target. `None` is
@@ -551,6 +566,27 @@ pub fn write_rule_skill_harness(
 ) {
     write_sibling(root, &format!(".claude/rules/{rule_name}.md"), rule_md);
     write_skill(root, skill_name, skill_md);
+}
+
+/// An `edge` assembly fact declaring one target kind — the lock row a
+/// `[[kind.<from>.relationships]]` table projects. A custom kind carries its declared
+/// edges only here, never on its kind-fact row, so this is the one place the gate and
+/// emit learn a field is a relationship.
+pub fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
+    edge_to_set(from, field, &[to])
+}
+
+/// An `edge` assembly fact over a declared target *set* — the general row [`edge`] is
+/// the one-element case of, and the column carrying the non-empty set of kinds a field
+/// may resolve into.
+pub fn edge_to_set(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
+    AssemblyFactRow {
+        fact: "edge".to_string(),
+        value: None,
+        from: Some(from.to_string()),
+        field: Some(field.to_string()),
+        to: Some(to.iter().map(|kind| (*kind).to_string()).collect()),
+    }
 }
 
 /// A `mention` declaration row — the lock family a deferred discovery-locus mention
@@ -884,6 +920,33 @@ pub fn field_region(slot: &str) -> LayoutRegionRow {
     }
 }
 
+/// The `intent` layout's regions in wire form — a leading verbatim prose region, an
+/// `intent` field section, and an `invariant` member collection. The `_row` suffix is
+/// load-bearing: a suite's own `intent_layout` builds the engine
+/// [`Layout`](temper::layout::Layout) this is the wire form of, and the bare name would
+/// read as its twin.
+pub fn intent_layout_row() -> LayoutRow {
+    LayoutRow {
+        regions: vec![
+            LayoutRegionRow {
+                region: "prose".to_string(),
+                import: None,
+                slot: None,
+                member_kind: None,
+                key: None,
+            },
+            field_region("intent"),
+            LayoutRegionRow {
+                region: "collection".to_string(),
+                import: None,
+                slot: None,
+                member_kind: Some("invariant".to_string()),
+                key: None,
+            },
+        ],
+    }
+}
+
 /// A layout member of `kind`, its document already on disk (a source, never projected).
 pub fn layout_member(kind: &str) -> PayloadMember {
     PayloadMember {
@@ -979,6 +1042,28 @@ pub fn required_clause_row(
         target: target.map(str::to_string),
         degree,
         ..clause(predicate, "required")
+    }
+}
+
+/// An engine [`temper::contract::Contract`] over `kind` binding exactly one `required`
+/// clause on `predicate`, labelled the way a real contract labels it
+/// ([`temper::contract::clause_label`]) — the shape a proof that judges one predicate in
+/// isolation builds. Engine-typed, unlike the row-shaped [`clause`]: a [`ClauseRow`] is
+/// the wire form and cannot be handed to the engine.
+pub fn one_clause_contract(
+    kind: &str,
+    predicate: temper::contract::Predicate,
+) -> temper::contract::Contract {
+    temper::contract::Contract {
+        name: kind.to_string(),
+        guidance: None,
+        clauses: vec![temper::contract::Clause {
+            label: temper::contract::clause_label(Some(kind), predicate.key(), None),
+            severity: temper::contract::Severity::Required,
+            predicate,
+            guidance: None,
+            source: None,
+        }],
     }
 }
 
