@@ -1,0 +1,38 @@
+{
+  "tag": "FIXTURE-CLAUSE-LABEL-IS-THE-SHIPPED-ADDRESS",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/engine.rs",
+        "description": "The last hard-coded `None`. `clause(owner, severity, predicate)` (:1785) labels `contract::clause_label(Some(owner), predicate.key(), None)` (:1787), where the shipped stamper passes the row's own `field` column (`drift::stamp_clause_label`, src/drift.rs:1646) — so its doc's claim that 'a fixture supplies it exactly as a lifted row would' is false for every field-bearing predicate. Derive `predicate.target()` instead, exactly as `tests/it/common::labelled_clause` (tests/it/common/mod.rs:1056) now does; the signature and all 36 call sites (including `contract`, :1796, and `kind_selection`, :2435) stand. The `rule` assertions whose predicate names a field gain that segment: `skill.required` (:1831), `skill.type` (:1871), `skill.max_len` (:1952), `skill.range` (:1973, :2011), `skill.unique` (:2508, :2552), `skill.membership` (:2637, :2690), `skill.allowed_chars` (:2913), `skill.glob-valid` (:2938), `skill.enum` (:3092), and the empty-list loop's `deny`/`type` rows, whose `(predicate, key)` pairs at :3103 must carry the address rather than the bare key (:3136). The fieldless ones do not move: `count` (:2472, :2490), `kind` (:2724), `forbidden_keys` (:2898), `name-matches-dir` (:3020), `dependency-exists` (:2270, :3067). Excluded, and the exclusion named in the commit body: `require_sections` (:3050) and the `require_sections`/`section_contains` rows of the embedded-fence loop (:2310, asserted at :2327) are two of the four predicates whose emitted `field` column the SDK synthesizes from arguments (`clauseField`, sdk/src/declarations.ts:188 — `heading.marker`, `sections` joined on `+`), so `predicate.target()` reproduces neither and routing them through it would author a third spelling of a column the tool never stamps that way; both shipped addresses are already pinned against a live SDK emit at tests/it/lock_declaration_rows.rs:3583."
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "The same defect hand-spelled. `:825` and `:957` build a `Contract` literal whose one clause is `Predicate::Required { field: \"name\" }` labelled `spec.required`, where a real lock stamps `spec.required.name` — and `explain` narrates that label as the address an author dials, so the fixture teaches an address that does not exist. Both route through `common::clause_contract`/`common::labelled_clause`, and their two `out.contains(\"spec.required\")` assertions (:859, :992) tighten to the narrated bullet form `  • `spec.required.name``, the spelling the `when` test beside them already pins (:928). The `when` test's own labels (:885, :895) stay hand-spelled: `Predicate::When`'s `target()` is `None` (src/contract.rs:916) and its label's field argument is `contract::when_label_field`'s composed `source=github` segment, so the labeller cannot yield it — and its body clause already carries `.repo`, which is why this file currently disagrees with itself about whether a `required` label names its field."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A fixture labels its clause with no field segment, so fourteen `rule` assertions pin addresses no lock stamps — the hard-coded `None` the last fold removed, still live in src/.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "src/engine.rs",
+      "asserts": "each field-bearing predicate's finding reports the address a real lock stamps — `skill.required.name`, `skill.type.keywords`, `skill.unique.model`, `skill.enum.status` — while the fieldless predicates keep their bare `<owner>.<predicate>` spelling"
+    },
+    {
+      "path": "tests/it/read_verbs.rs",
+      "asserts": "`explain` narrates a `required` clause under the address a real lock stamps, `spec.required.name`, in the same bullet form the `when` host is already pinned in"
+    }
+  ],
+  "acceptance": "`cargo test` green with no fixture in `src/engine.rs` or `tests/it/read_verbs.rs` spelling a clause label its predicate's own target contradicts, the four synthesized-column predicates left to their live-emit pins, and `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "Found auditing 18c81f2d, which fixed this exact `None` in `tests/it/common` and moved one assertion (`pack.type` → `pack.type.keywords`); the in-src twin has 36 call sites and ~14 assertions and is a separate crate, so `tests/it/common` is unreachable from it — `contract::clause_label` is the shared home, and the fixture wrapper per test crate is the sanctioned boundary. scoped at 8d0d2fd2"
+}

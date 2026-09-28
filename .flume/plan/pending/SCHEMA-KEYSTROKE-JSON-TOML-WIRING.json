@@ -2,7 +2,7 @@
   "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
   "gate": {
     "kind": "deferred",
-    "reason": "project_modeline (src/install.rs:2188) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+    "reason": "project_modeline (src/install.rs:2407) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
   },
   "dependsOnForks": [],
   "files": {
