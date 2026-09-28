@@ -95,7 +95,7 @@ const entryExtension = {
         }),
       )
       .default([]),
-    hint: `[ { "path": "tests/foo.rs", "asserts": "..." } ] // what must turn green for acceptance`,
+    hint: `[ { "path": "tests/it/foo.rs", "asserts": "..." } ] // what must turn green for acceptance`,
   },
   acceptance: {
     schema: z.string().min(1),
@@ -526,7 +526,7 @@ const BUILD_SURFACE_PATHS = [
   "tests/snapshots/**",
   // ts-rs seam bindings are the same shape: generated from the Rust seam
   // types (doc comments included), byte-compared by
-  // tests/seam_bindings_current.rs, re-blessed by a build that changes the
+  // tests/it/seam_bindings_current.rs, re-blessed by a build that changes the
   // source they derive from. One fence miss on 2026-09-07 was these alone.
   "sdk/src/generated/**",
 ];

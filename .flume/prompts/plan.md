@@ -106,7 +106,7 @@ rule on a digest line.
    symbols reach but its `files[]` omits. Each path is either a real
    consumer (widen `files[]` — an enum or type change reaches every match
    site, a new finding reaches its wiring site in `gate.rs`, a diagnostic's
-   text reaches `tests/gauntlet.rs` and its `.snap`) or noise you can name;
+   text reaches `tests/it/gauntlet.rs` and its `.snap`) or noise you can name;
    an entry that ships with an unreconciled ripple reverts on the fence at
    one run per miss (eleven of nineteen build attempts on 2026-09-06).
 
