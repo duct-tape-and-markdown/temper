@@ -19,8 +19,8 @@ emit_hash = "9b903784aea6b49de18f5b3921e8381c6409fb2df7d69420968850cfc5649597"
 [[rule]]
 name = "pending-entry"
 source_path = ".claude/rules/pending-entry.md"
-source_hash = "e318351be31259be6a63728229684807f6675dc8ec40e823f07e5e7e410c241a"
-emit_hash = "e318351be31259be6a63728229684807f6675dc8ec40e823f07e5e7e410c241a"
+source_hash = "a5682d5d646c0de028037bd407166f3ee06fc6df0578760b24afadf7c79de05d"
+emit_hash = "a5682d5d646c0de028037bd407166f3ee06fc6df0578760b24afadf7c79de05d"
 
 [[rule]]
 name = "plan-state"
@@ -49,14 +49,14 @@ emit_hash = "d4e661cdc0a3ba0e875ec215150c6301522cf3cdd6ce23e446ec3273806e2ac0"
 [[rule]]
 name = "rust"
 source_path = ".claude/rules/rust.md"
-source_hash = "46bf86c50539837806f99bcfbd450d90e43f138f288c947cc11e59d7037c35e3"
-emit_hash = "46bf86c50539837806f99bcfbd450d90e43f138f288c947cc11e59d7037c35e3"
+source_hash = "190a4d9c2a2e8ec9951e266133db20550c3dd5bb9dad805ad2facc9342d66b93"
+emit_hash = "190a4d9c2a2e8ec9951e266133db20550c3dd5bb9dad805ad2facc9342d66b93"
 
 [[rule]]
 name = "sdk"
 source_path = ".claude/rules/sdk.md"
-source_hash = "21e77cbfb2257285f0b30278d7b71337e1346d150639b3762d717c23dcefa2a0"
-emit_hash = "21e77cbfb2257285f0b30278d7b71337e1346d150639b3762d717c23dcefa2a0"
+source_hash = "971ad3b86dacb4fea6ed18ca1cbc4e83aaa26008b36a9c0590f9d60b0004a99a"
+emit_hash = "971ad3b86dacb4fea6ed18ca1cbc4e83aaa26008b36a9c0590f9d60b0004a99a"
 
 [[settings]]
 name = "settings"

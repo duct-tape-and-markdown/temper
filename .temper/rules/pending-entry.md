@@ -27,7 +27,7 @@ rewriting an entry, and any interactive session hand-editing the queue.
   of re-deriving the premise.
 - **A "retire mechanism X" entry's blast radius is symbol scope, not path
   scope.** `rg` the retired function/type names across `tests/**`, not just
-  `src/**`/`sdk/**` — a shared test helper (`tests/common/*.rs`) that
+  `src/**`/`sdk/**` — a shared test helper (`tests/it/common/*.rs`) that
   round-trips through the retired API fans the edit out to every file
   importing that helper, invisibly to a source-only grep. Include those
   fan-out files in `files.edit` up front rather than letting build discover

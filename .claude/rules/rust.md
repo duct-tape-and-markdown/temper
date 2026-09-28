@@ -32,7 +32,7 @@ are flume gates, so a violation reverts the commit.
   near-duplicate > add new — and a new surface beside a near-duplicate names,
   in the commit body, what you considered and why it didn't fit. A sanctioned
   crate (direct or transitive) beats a hand-roll of the same mechanic; shared
-  test scaffolding lives in `tests/common`, never per-file copies.
+  test scaffolding lives in `tests/it/common`, never per-file copies.
 - One artifact kind per module (`skill`, later `hook`, `agent`, …). The `Rule`
   trait takes the whole workspace, never a single artifact — cross-artifact rules
   must slot in without a signature change.

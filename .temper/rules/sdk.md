@@ -9,7 +9,7 @@ alongside the cargo trio.
 ## The engine seam
 
 - The SDK is the authoring face of the same model the Rust engine reads; emit
-  is a byte-faithful projection of it. `tests/builtin_lock_frozen.rs`
+  is a byte-faithful projection of it. `tests/it/builtin_lock_frozen.rs`
   re-derives the built-in lock by building and running the real SDK
   (`npm run build`, `node`) and byte-compares it against the engine's embedded
   copy — a green `cargo build` proves nothing about this seam; only
