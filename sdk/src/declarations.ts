@@ -756,17 +756,9 @@ function inputRows(harness: Harness): InputRow[] {
 }
 
 /**
- * One composed embedded value's key in an {@link EdgePlacements} table — its host's
- * `kind:name` address plus the value's own kind and key, the same triple the
- * `nested_member` row it feeds is identified by.
- */
-export function placementKey(host: string, kind: string, key: string): string {
-  return `${host}${kind}${key}`;
-}
-
-/**
- * Each composed embedded value's placed edge fields, by {@link placementKey} — `emit`'s
- * record of which declared edges each value's format actually rendered (`emit.ts`'s
+ * Each composed embedded value's placed edge fields, by {@link nestedAddress} — the very
+ * address the `nested_member` row each entry feeds is identified by — `emit`'s record of
+ * which declared edges each value's format actually rendered (`emit.ts`'s
  * `edgePlacements`). A value with no entry had no format observe it, which is distinct
  * from a format that placed nothing: the row omits the column entirely and the
  * `format-places-edges` clause stays undecided rather than indict a format that never ran.
@@ -782,7 +774,7 @@ export interface RenderedExtent {
 }
 
 /**
- * Each composed embedded value's rendered extent, by {@link placementKey} — `emit`'s
+ * Each composed embedded value's rendered extent, by {@link nestedAddress} — `emit`'s
  * record of the span it projected for each value (`emit.ts`'s `renderedExtents`). A value
  * with no entry had no format rendered it (a member read off a layout host's source),
  * which the row spells by omitting both span columns rather than a captured zero: an
@@ -820,7 +812,7 @@ function nestedMemberRow(
       return { key: entry.key, leaves: entryLeaves };
  });
  }
-  const key = placementKey(host, value.kind, value.key);
+  const key = nestedAddress(host, value.kind, value.key);
   const placed = placements?.get(key);
   const extent = extents?.get(key);
   return {

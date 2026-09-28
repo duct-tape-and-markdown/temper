@@ -1727,6 +1727,58 @@ test("a composed embedded member's row carries its captured rendered span; a row
   assert.equal(unobserved.rendered_chars, undefined);
 });
 
+test("each composed value's placement and extent land on its own row, routed by the whole nested address", () => {
+  // Every placement and extent assertion above reads `nested_members[0]`, so a single-value
+  // harness cannot see a row taking a sibling's record. Each segment of the
+  // `(host, kind, key)` address earns a distinguishing pair here: one host carrying two keys
+  // of one kind, and one `(kind, key)` pair carried by two hosts.
+  const citation = kind<{ source: string; cite: string }>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: ["rule"] }],
+    },
+    // Spells the edge only where the value asks for it, and otherwise projects the value's
+    // own key: sibling rows then differ in both placement and span, so a swap is visible.
+    { render: (value) => (value.leaves.cite === "yes" ? `See \`${value.leaves.source}\`.` : value.key) },
+  );
+  const cited = (key: string, cite: string) =>
+    embeddedMemberValue({ kind: citation, key, leaves: { source: "rule:rust", cite } });
+
+  const rows = emit(
+    harness({
+      members: [
+        rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+        skill({
+          name: "operate-the-gate",
+          description: "Use when operating the gate.",
+          prose: blocks(cited("alpha", "no")),
+        }),
+        memory({ name: "CLAUDE", prose: blocks(cited("alpha", "yes"), cited("beta", "no")) }),
+      ],
+      admit: [
+        { host: skill, admits: [citation] },
+        { host: memory, admits: [citation] },
+      ],
+    }),
+  ).declarations.nested_members;
+  assert.equal(rows.length, 3, "three composed values, else this pin judges nothing");
+  const row = (host: string, key: string) => rows.find((r) => r.host === host && r.key === key)!;
+  const span = (host: string, key: string) => ({
+    placed: row(host, key).placed_edges,
+    lines: row(host, key).rendered_lines,
+    chars: row(host, key).rendered_chars,
+  });
+
+  // `skill:operate-the-gate/citation/alpha` shares its kind and key with
+  // `memory:CLAUDE/citation/alpha` and differs from it in the host segment alone.
+  assert.deepEqual(span("skill:operate-the-gate", "alpha"), { placed: [], lines: 1, chars: 5 });
+  assert.deepEqual(span("memory:CLAUDE", "alpha"), { placed: ["source"], lines: 1, chars: 16 });
+  assert.deepEqual(span("memory:CLAUDE", "beta"), { placed: [], lines: 1, chars: 4 });
+});
+
 test("a composed body interleaves prose spans and embedded values in authored order, byte-identical to a wrapper-kind narrative", () => {
   // A passage-style wrapper: an embedded kind whose render hook projects a leaf
   // verbatim, fence-free — the exhibit the native interleave retires.

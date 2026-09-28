@@ -31,7 +31,6 @@ import {
   declaredAtLocusKinds,
   declaredRequirements,
   encodeSeam,
-  placementKey,
   registrationRows,
   settingsRows,
   tapHookRows,
@@ -497,7 +496,7 @@ function placedEdges(
 
 /**
  * Every composed embedded value's placed edge fields, keyed by the value's
- * {@link placementKey} — what `emit` hands {@link compileDeclarations} so each
+ * {@link nestedAddress} — what `emit` hands {@link compileDeclarations} so each
  * `nested_member` row carries its own format's placement record. Iterates exactly the
  * values `nestedMemberRows` does, so every edge-bearing row it builds has an observation.
  */
@@ -509,7 +508,7 @@ function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, 
       if (isTextSpan(value)) continue;
       const placed = placedEdges(member, value, options);
       if (placed !== undefined) {
-        entries.push([placementKey(hostAddress(member.kind, member.name), value.kind, value.key), placed]);
+        entries.push([nestedAddress(hostAddress(member.kind, member.name), value.kind, value.key), placed]);
       }
     }
   }
@@ -530,7 +529,7 @@ function renderedLineCount(block: string): number {
 
 /**
  * Every composed embedded value's rendered extent — the line and character count of the
- * block `emit` projected for it — keyed by its {@link placementKey}, what `emit` hands
+ * block `emit` projected for it — keyed by its {@link nestedAddress}, what `emit` hands
  * {@link compileDeclarations} so each `nested_member` row carries the span an `extent`
  * clause budgets. Iterates exactly the values {@link edgePlacements} does, rendering each
  * through the same {@link renderMemberBlock} the body projection uses (a hook is pure, so
@@ -549,7 +548,7 @@ function renderedExtents(harness: Harness, options: ResolveOptions): Map<string,
       if (isTextSpan(value)) continue;
       const block = renderMemberBlock(member, value, options);
       entries.push([
-        placementKey(hostAddress(member.kind, member.name), value.kind, value.key),
+        nestedAddress(hostAddress(member.kind, member.name), value.kind, value.key),
         {
           lines: renderedLineCount(block),
           // Unicode scalar values, matching Rust's `chars().count()` — iterating a string
