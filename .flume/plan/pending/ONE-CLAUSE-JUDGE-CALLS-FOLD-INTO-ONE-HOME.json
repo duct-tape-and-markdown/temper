@@ -1,0 +1,43 @@
+{
+  "tag": "ONE-CLAUSE-JUDGE-CALLS-FOLD-INTO-ONE-HOME",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": ["BUILTIN-FLOOR-LOOKUP-FOLDS-INTO-ONE-HOME"]
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "tests/it/common/mod.rs",
+        "description": "Two helpers beside `one_clause_contract` (:1053), which b4545c82 already folded here — this entry folds the two compositions built on top of it. (1) `pub fn one_clause_findings(kind: &str, predicate: Predicate, features: &Features) -> Vec<Diagnostic>` — `engine::validate(&one_clause_contract(kind, predicate), std::slice::from_ref(features))`, the body both suites spell under a byte-identical doc comment. (2) `pub fn one_clause_admissibility(kind: &str, predicate: Predicate) -> Vec<Diagnostic>` — `engine::admissibility(&one_clause_contract(kind, predicate), &Locus::Document)`, documented as document-locus: all six call sites pass that locus and no other. `Diagnostic` and `Features` are already imported (:18, :24); `temper::engine`/`Locus` are not and come with the addition."
+      },
+      {
+        "path": "tests/it/field_addressing.rs",
+        "description": "`findings` (:24) keeps its name and its 17 call sites — the kind is a per-file constant, so the wrapper stays and its body becomes a one-line delegation to `common::one_clause_findings(\"marketplace\", predicate, features)`, the shape `scoped_rule` already has over `scoped_routing_rule`. The five inline `engine::admissibility(&common::one_clause_contract(\"marketplace\", …), &Locus::Document)` spellings (:183, :260, :271, :291, :310) reach `common::one_clause_admissibility(\"marketplace\", …)` instead. `use temper::engine::{self, Locus};` (:17) is then fully stranded — those six sites are its only uses — and goes; clippy runs at `-D warnings`. `Diagnostic` (:15) stays: it is the surviving wrapper's return type."
+      },
+      {
+        "path": "tests/it/type_predicate.rs",
+        "description": "The same two moves at kind `pack`: `findings` (:70) — the twin carrying the identical doc comment, five call sites — delegates to `common::one_clause_findings(\"pack\", predicate, features)`, and the lone inline admissibility spelling (:213, over `&engine::Locus::Document`) reaches `common::one_clause_admissibility(\"pack\", predicate)`. `use temper::engine;` (:19) is stranded by the pair — lines 71, 213 and 215 are its only uses — and goes with them."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "One job — the findings a one-clause contract yields — is spelled twice as a wrapper and six times inline across two suites; fold both onto tests/it/common.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "tests/it/field_addressing.rs",
+      "asserts": "the four field-addressing properties — nested name path, `[*]` each-grain, the inadmissible spellings, the bare name — pass unchanged with both compositions read through the one home"
+    },
+    {
+      "path": "tests/it/type_predicate.rs",
+      "asserts": "the `type` seam's verdicts and its one admissibility refusal (`lists no kinds`) pass unchanged through the shared helpers"
+    }
+  ],
+  "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, with `rg 'engine::(validate|admissibility)\\(' tests/it/field_addressing.rs tests/it/type_predicate.rs` empty — neither suite composes the one-clause judge itself.",
+  "notes": "Found by the body-comparison sweep b4545c82's census could not run on this pair: the two `findings` wrappers carry byte-identical doc comments and differ only in the kind literal, so no hash matched. That commit folded the `one_clause_contract` builder underneath them and left its two callers spelled per file. Serialized behind BUILTIN-FLOOR-LOOKUP-FOLDS-INTO-ONE-HOME: both entries edit tests/it/common/mod.rs. scoped at 6f641492"
+}
