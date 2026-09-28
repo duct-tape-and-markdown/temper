@@ -1,26 +1,24 @@
 {
   "tag": "COPIED-TEST-FIXTURES-FOLD-INTO-ONE-HOME",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "INCLUDE-ROW-ASSERTION-READS-THE-LOCK-THROUGH-THE-ENGINE"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "priority": 0,
   "files": {
     "new": [],
     "edit": [
       {
         "path": "tests/it/common/mod.rs",
-        "description": "The declared one home (its own header: \"one home for scaffolding \u2026 every suite would otherwise carry its own copy of\") gains each folded helper under one doc comment: `fresh_clause`, `workspace` (a `<tmpdir>/.temper` pair), `messages(&[Diagnostic]) -> Vec<&str>`, the manifest-shaped `member(serde_json::Value) -> Features`, `hook_kind_facts`, the layout trio `layout_kind`/`field_region`/`layout_member`, `root_reachable_binding`, and the bare rule row two suites spell `common::kind_facts(\"rule\", \".claude/rules\", \"*.md\")` \u2014 deliberately format-less and unit-shape-less, so it must NOT collapse into the existing `rule_kind_facts` (yaml-frontmatter, `file`) and its name has to say which row it is. `feature(id)` is already a one-line alias over this module's `features`, so its two copies delete rather than move. A folded name that would read ambiguously beside an existing sibling (`clause`, `features`, `mention`, `kind_facts`) is renamed at the fold. The module carries no blanket dead-code allow by design, and every folded helper has at least two callers, so nothing lands unused under `clippy -D warnings`."
+        "description": "The declared one home (its own header: \"one home for scaffolding … every suite would otherwise carry its own copy of\") gains each folded helper under one doc comment: `fresh_clause`, `workspace` (a `<tmpdir>/.temper` pair), `messages(&[Diagnostic]) -> Vec<&str>`, the manifest-shaped `member(serde_json::Value) -> Features`, `hook_kind_facts`, the layout trio `layout_kind`/`field_region`/`layout_member`, `root_reachable_binding`, and the bare rule row two suites spell `common::kind_facts(\"rule\", \".claude/rules\", \"*.md\")` — deliberately format-less and unit-shape-less, so it must NOT collapse into the existing `rule_kind_facts` (yaml-frontmatter, `file`) and its name has to say which row it is. `feature(id)` is already a one-line alias over this module's `features`, so its two copies delete rather than move. A folded name that would read ambiguously beside an existing sibling (`clause`, `features`, `mention`, `kind_facts`) is renamed at the fold. The module carries no blanket dead-code allow by design, and every folded helper has at least two callers, so nothing lands unused under `clippy -D warnings`."
       },
       {
         "path": "tests/it/emit.rs",
-        "description": "Drops `fresh_clause` (:38), `workspace` (:79) and `hook_kind_facts` (:634) \u2014 46 call sites, which reach the shared names through `use crate::common::{\u2026}` (the style ten suites already use), so no call site moves."
+        "description": "Drops `fresh_clause` (:38), `workspace` (:79) and `hook_kind_facts` (:634) — 46 call sites, which reach the shared names through `use crate::common::{…}` (the style ten suites already use), so no call site moves."
       },
       {
         "path": "tests/it/install.rs",
-        "description": "Drops `fresh_clause` (:40), 8 call sites. Its copy's doc carries a per-suite intent commitment \u2014 the guard's enforcement mode is a separate decision from the clause \u2014 which belongs to `the_guards_enforcement_mode_decides_a_guarded_write_whatever_the_fresh_clause_binds` (:2318), not to the shared helper: move that sentence onto the test, never into `common`."
+        "description": "Drops `fresh_clause` (:40), 8 call sites. Its copy's doc carries a per-suite intent commitment — the guard's enforcement mode is a separate decision from the clause — which belongs to `the_guards_enforcement_mode_decides_a_guarded_write_whatever_the_fresh_clause_binds` (:2318), not to the shared helper: move that sentence onto the test, never into `common`."
       },
       {
         "path": "tests/it/check_cost.rs",
@@ -36,7 +34,7 @@
       },
       {
         "path": "tests/it/layout_prose_import.rs",
-        "description": "Drops `fresh_clause` (:27), `layout_kind` (:37), `field_region` (:56), `layout_member` (:67) and `feature` (:310) \u2014 the widest copier at 28 call sites."
+        "description": "Drops `fresh_clause` (:27), `layout_kind` (:37), `field_region` (:56), `layout_member` (:67) and `feature` (:310) — the widest copier at 28 call sites."
       },
       {
         "path": "tests/it/layout_edge_slot.rs",
@@ -44,7 +42,7 @@
       },
       {
         "path": "tests/it/lock_declaration_rows.rs",
-        "description": "Drops `hook_kind_facts` (:97), 2 call sites. Its divergent sibling `timed_hook_kind_facts` (:111) \u2014 a lifted `timeout` beside `matcher` \u2014 stays local and struct-updates off the shared builder, exactly as it struct-updates off `common::kind_facts` today."
+        "description": "Drops `hook_kind_facts` (:97), 2 call sites. Its divergent sibling `timed_hook_kind_facts` (:111) — a lifted `timeout` beside `matcher` — stays local and struct-updates off the shared builder, exactly as it struct-updates off `common::kind_facts` today."
       },
       {
         "path": "tests/it/json_document_format.rs",
@@ -77,7 +75,7 @@
     ],
     "retire": []
   },
-  "summary": "Eleven fixture helpers are copy-pasted across fifteen integration suites \u2014 28 byte-identical definitions, `fresh_clause` six times \u2014 where `tests/it/common` is the declared one home.",
+  "summary": "Eleven fixture helpers are copy-pasted across fifteen integration suites — 28 byte-identical definitions, `fresh_clause` six times — where `tests/it/common` is the declared one home.",
   "per": {
     "path": "specs/process/engineering.md",
     "section": "One job, one home"
@@ -97,5 +95,5 @@
     }
   ],
   "acceptance": "`cargo test` green over the one `it` binary with each folded helper defined exactly once, in `tests/it/common/mod.rs`; `rg -n '^fn (fresh_clause|workspace|messages|member|feature|rule_kind|hook_kind_facts|layout_kind|field_region|layout_member|root_reachable_binding)\\(' tests/it/*.rs` returns nothing outside `common/mod.rs` bar a body the commit body names as identical only by coincidence; `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green.",
-  "notes": "Census taken by comparing definition bodies on disk: 11 names, 28 definitions, 15 suites. Fold only where both callers want the same fixture \u2014 a body identical by coincidence stays put and the commit body names it. No new assertion is possible or added: the 168 existing call sites are the pin, and a recurrence gate over suite sources is a separate design question. scoped at cfd5591e"
+  "notes": "Census taken by comparing definition bodies on disk: 11 names, 28 definitions, 15 suites. Fold only where both callers want the same fixture — a body identical by coincidence stays put and the commit body names it. No new assertion is possible or added: the 168 existing call sites are the pin, and a recurrence gate over suite sources is a separate design question. scoped at cfd5591e"
 }
