@@ -1,0 +1,40 @@
+{
+  "tag": "MENTION-FINDINGS-RENDER-EVERY-NODE-ONE-WAY",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/graph.rs",
+        "description": "`render_target` (:2272) is already the declared one home for spelling a `Node` as the author wrote it — a reserved node or a nested address carried whole, everything else `kind:name`. Four sites hand-roll it instead and get the first two branches wrong. `mention_reachable` spells its *target* inline twice, `format!(\"…`{}:{}`…\", edge.to.0, edge.to.1)` (:741, :753); a nested-member node is `(nested-kind, whole-address)` (`node_from_address`, :1709), so a mention of `skill:x/hook/y` is named `hook:skill:x/hook/y`, and an embedded-leaf target `embedded:a/b/c/d`. `dangling_mention` (:2284) and `ambiguous_mention` (:2304) spell their *source* the same way, twice each (:2294/:2296, :2309/:2311) — `edge.from` comes off the same `node_from_address`, so a body-carried mention names its source doubled, and a `:`-less `mention.member` (a spelling `member-address.ts:43` documents the SDK writing) renders `requirement:<id>` for a member. Fold all four onto the renderer, generalize its name to match what it renders (it takes any node, not a target), and let its own non-reserved branch call `member_address::host_address` rather than a fifth `format!`."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "The same writer residue, behaviour-identical here: `format!(\"{kind}:{target}\")` at :327 and :337 spells the qualified retry addresses `explain` hands back for an ambiguous bare name. Both arms are reached only after :279 has ruled the target slash-free and `by_kind` has matched it by equality, so each `kind` is a real kind and each `target` a top-level id — `member_address::host_address` is exactly this and the module is already imported (:59). Out of scope, deliberately: the `member:`/`requirement:` literals at :331, :332 and :339 are the *qualifier* vocabulary `resolve` strips at :223–:242, a different namespace from the address grammar."
+      },
+      {
+        "path": "src/admissibility.rs",
+        "description": "`format!(\"`{kind}:{member}`\")` (:205) spells the qualified alternatives an ambiguous bare satisfies label should be rewritten as. Behaviour-identical fold: the bare labels are pre-filtered `!member.contains(':')` (:193), so no nested id reaches it, and the file already reaches `member_address` for `nested_address` (:134, :172)."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "`DriftError::AtLocusUnderWorkspace`'s `member` field is built by `format!(\"{}:{}\", &facts.name, member.name)` (:1275) — a kind name and a payload member's name, the one thing `host_address` spells. Behaviour-identical, and the sharpest of the set: this file already imports `host_address` (:36) and calls it six times (:1322, :1328, :1970, :2037, :2277, :2520)."
+      },
+      {
+        "path": "tests/it/graph.rs",
+        "description": "The pins that would have caught it, beside the existing mention families — `mention_reachable_run` (:1039) and `a_dangling_embedded_edge_entry_is_a_route_finding` (:1542). A `mention-reachable` finding whose target is a nested member names that member's whole address and nothing else; a `graph.route` dangling-mention finding whose source is a nested member names the source's whole address. The existing top-level cases are the other half of the pin: they must stay byte-identical, which is what proves the fold moved no spelling it should not have."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Four mention findings colon-join a node's kind onto an id that is already a whole address, naming a nested target `hook:skill:x/hook/y` instead of the address the author wrote.",
+  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "tests": [
+    {
+      "path": "tests/it/graph.rs",
+      "asserts": "a mention-reachable finding over a nested-member target, and a dangling-mention finding from a nested-member source, each name that member's whole address once; the top-level cases are unchanged"
+    }
+  ],
+  "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, with `rg '}:{' src/` returning no colon-join of a kind and a name outside `src/member_address.rs` and `src/read.rs`'s qualifier literals, and the two new nested-node pins in `tests/it/graph.rs` passing.",
+  "notes": "Measured on disk this tick: `by_kind` carries nested members under their own kind with the full address as `Features.id` (`compose.rs:1307`), and `gate.rs:474` assembles exactly that set for both call sites, so `member_at` (`graph.rs:775`) resolves a nested target and the malformed spelling is reachable, not theoretical. No snapshot carries these messages (`rg` over `tests/it/snapshots/`), so the fold ripples to no `.snap`. scoped at 331d2e86"
+}
