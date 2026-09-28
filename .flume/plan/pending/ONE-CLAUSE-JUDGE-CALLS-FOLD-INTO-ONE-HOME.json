@@ -1,9 +1,9 @@
 {
   "tag": "ONE-CLAUSE-JUDGE-CALLS-FOLD-INTO-ONE-HOME",
   "gate": {
-    "kind": "blockedBy",
-    "tags": ["BUILTIN-FLOOR-LOOKUP-FOLDS-INTO-ONE-HOME"]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "priority": 0,
   "files": {
     "new": [],
