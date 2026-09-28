@@ -55,6 +55,27 @@ pub fn nested_address(host: &str, kind: &str, key: &str) -> String {
     format!("{host}/{kind}/{key}")
 }
 
+/// Whether `spelling` is exactly **one segment** of this grammar — non-empty, and carrying
+/// none of the `/` [`segment`] cuts an address at.
+///
+/// The predicate every writer's caller judges a key by, because [`nested_address`] is
+/// infallible and the reader beneath it is not. A key carrying a `/` shifts every segment
+/// below it by one: `nested_address("spec:alpha", "decision", "authority/rejected")` spells
+/// the very address the member keyed `authority` spells for its `rejected` leaf, and the
+/// leaf grain is what every reader tries first ([`crate::graph`]'s `node_from_address`,
+/// [`crate::read`]'s species split), so the member's own identity answers its sibling's
+/// leaf. An empty key spells an address [`segment`] admits at no grain at all.
+/// `specs/model/representation.md` ("member") makes both a malformed lock rather than a
+/// precedence rule: resolution is total, and coincident addresses are refused.
+///
+/// It lives here, beside the writer and the reader that must agree with it, rather than as
+/// a `contains('/')` per refusing caller — a hand-rolled spelling of this grammar anywhere
+/// else is a second implementation of one job.
+#[must_use]
+pub fn is_one_segment(spelling: &str) -> bool {
+    !spelling.is_empty() && !spelling.contains('/')
+}
+
 /// One parsed **nested-member address** — `<host-address>/<kind>/<key>`
 /// (`skill:use-when-x/hook/on-enter`), the identity `specs/model/representation.md`
 /// ("member") spells for a nested member and the one
@@ -286,6 +307,29 @@ mod tests {
             .expect("the bare short form is a leaf address");
         assert_eq!(parsed.member, "note");
         assert!(parse_nested_address("note/requirement/my-req").is_none());
+    }
+
+    #[test]
+    fn one_segment_is_non_empty_and_carries_no_separator() {
+        for spelling in ["on-enter", "rejected.baked.because", "a:b", "x"] {
+            assert!(is_one_segment(spelling), "`{spelling}` is one segment");
+        }
+        for spelling in ["", "authority/rejected", "/", "a/"] {
+            assert!(!is_one_segment(spelling), "`{spelling}` is not one segment");
+        }
+
+        // Why the predicate exists, stated against the writer and the reader it sits
+        // between: a key that is not one segment does not come back out of the reader as
+        // the member it was written for. It reads at *leaf* grain instead, as the
+        // `rejected` leaf of the sibling keyed `authority` — the same address, one grain
+        // down, which the reader half already pins from the other side
+        // (`a_leaf_path_keeps_its_dots_and_its_deeper_slashes`).
+        let shifted = nested_address("spec:alpha", "decision", "authority/rejected");
+        assert!(parse_nested_address(&shifted).is_none());
+        assert_eq!(
+            parse_leaf_address(&shifted).map(|leaf| (leaf.key, leaf.child_path)),
+            Some(("authority", "rejected"))
+        );
     }
 
     #[test]

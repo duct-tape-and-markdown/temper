@@ -20,6 +20,7 @@ import {
   parseHostAddress,
   parseLeafAddress,
   parseNestedAddress,
+  isOneSegment,
 } from "../src/member-address.js";
 
 test("a host address round-trips through its own reader", () => {
@@ -37,6 +38,28 @@ test("a host address round-trips through its own reader", () => {
   for (const address of ["collaboration", ":collaboration", "rule:", "skill:x/hook/on-enter"]) {
     assert.equal(parseHostAddress(address), undefined, `\`${address}\` is no host address`);
   }
+});
+
+test("one segment is non-empty and carries no separator", () => {
+  for (const spelling of ["on-enter", "rejected.baked.because", "a:b", "x"]) {
+    assert.equal(isOneSegment(spelling), true, `\`${spelling}\` is one segment`);
+  }
+  for (const spelling of ["", "authority/rejected", "/", "a/"]) {
+    assert.equal(isOneSegment(spelling), false, `\`${spelling}\` is not one segment`);
+  }
+
+  // Why the predicate exists, stated against the writer and the reader it sits between: a
+  // key that is not one segment does not come back out of the reader as the member it was
+  // written for. It reads at *leaf* grain instead — as the `rejected` leaf of the sibling
+  // keyed `authority`, the same address one grain down.
+  const shifted = nestedAddress(hostAddress("spec", "alpha"), "decision", "authority/rejected");
+  assert.equal(parseNestedAddress(shifted), undefined);
+  assert.deepEqual(parseLeafAddress(shifted), {
+    member: "spec:alpha",
+    kind: "decision",
+    key: "authority",
+    childPath: "rejected",
+  });
 });
 
 test("a nested-member address round-trips, and stops at member grain", () => {

@@ -1004,6 +1004,59 @@ mod host_qualified_addresses {
     }
 
     #[test]
+    fn a_key_that_is_not_one_address_segment_is_a_malformed_lock() {
+        // A member's identity *is* its address, so a key carrying the grammar's own `/`
+        // spells one segment too many: `authority/rejected` under `service:alpha` spells
+        // `service:alpha/domain/authority/rejected`, which is equally the `rejected` leaf
+        // of the sibling keyed `authority`. Both readers try leaf grain *first* and
+        // deliberately so (`graph::node_from_address`, `read`'s species split), so without
+        // this refusal an edge or an `explain` naming the member answers the sibling's
+        // leaf instead — silently, with no dangling finding to read.
+        //
+        // The coincidence judge is blind to it: `authority` and `authority/rejected` are
+        // two distinct `(host, kind, key)` triples, and it counts triples.
+        assert!(
+            admissibility::nested_member_key_segment(&declarations()).is_empty(),
+            "the corpus's own keys are each one segment — the judge is silent on it"
+        );
+
+        let mut coincident = declarations();
+        coincident
+            .nested_members
+            .push(domain_row("service:alpha", "authority"));
+        coincident
+            .nested_members
+            .push(domain_row("service:alpha", "authority/rejected"));
+        assert!(
+            admissibility::nested_member_coincidence(&coincident).is_empty(),
+            "two distinct triples are no coincidence by the triple count — this judge's \
+             whole reason for existing"
+        );
+
+        let findings = admissibility::nested_member_key_segment(&coincident);
+        assert_eq!(findings.len(), 1, "one refusal for the one malformed key");
+        assert_eq!(findings[0].rule, "nested-member.admissibility");
+        assert!(
+            findings[0]
+                .message
+                .contains("service:alpha/domain/authority/rejected"),
+            "the refusal names the address both members spell, got: {}",
+            findings[0].message
+        );
+
+        // The other hole in the grammar: an empty key names nothing at any grain.
+        let mut empty = declarations();
+        empty.nested_members.push(domain_row("service:alpha", ""));
+        let findings = admissibility::nested_member_key_segment(&empty);
+        assert_eq!(findings.len(), 1, "an empty key is refused too");
+        assert!(
+            findings[0].message.contains("service:alpha/domain/"),
+            "the refusal names the address the empty key spells, got: {}",
+            findings[0].message
+        );
+    }
+
+    #[test]
     fn the_citation_scoping_index_maps_an_ambiguous_key_to_no_host() {
         // The source side of the same judgment: `mention_reachable` scopes a body-carried
         // citation through this `(kind, key) → host` index. A key two hosts carry maps to

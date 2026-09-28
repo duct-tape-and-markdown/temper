@@ -97,6 +97,47 @@ pub fn nested_member_admissibility(declarations: &drift::Declarations) -> Vec<ch
         .collect()
 }
 
+/// Reject a `nested_member` row whose **key is not one address segment** — empty, or
+/// carrying the `/` the grammar cuts an address at
+/// ([`member_address::is_one_segment`]). A member's identity *is* its
+/// `<host-address>/<kind>/<key>` address, so a key carrying a separator spells an address
+/// one segment longer than the grammar's member grain: `authority/rejected` under
+/// `spec:alpha` spells `spec:alpha/decision/authority/rejected`, which is also the
+/// `rejected` leaf of the sibling keyed `authority` — and leaf grain is what the readers
+/// try first (`crate::graph`'s `node_from_address`, `crate::read`'s species split), so the
+/// member's own identity silently answers the sibling's leaf. An empty key spells an
+/// address that names nothing at any grain.
+///
+/// [`nested_member_coincidence`] cannot see this: it counts `(host, kind, key)` triples,
+/// and `authority` beside `authority/rejected` are two *distinct* triples whose spelled
+/// addresses coincide across grains. `representation.md` ("member") makes that a refusal
+/// and not a precedence rule — resolution is total, and coincident addresses are a
+/// malformed lock — so the same malformed-lock class reports here, under the same rule id.
+pub fn nested_member_key_segment(declarations: &drift::Declarations) -> Vec<check::Diagnostic> {
+    declarations
+        .nested_members
+        .iter()
+        .filter(|row| !member_address::is_one_segment(&row.key))
+        .map(|row| {
+            check::Diagnostic::error(
+                NESTED_MEMBER_ADMISSIBILITY_RULE,
+                &row.host,
+                format!(
+                    "`{}` declares a nested member keyed `{}`, which is not one address \
+                     segment — the identity it spells, `{}`, is not an address a reader \
+                     cuts back to this member: a `/` in the key shifts every segment \
+                     beneath it by one and reads as a sibling's leaf, and an empty key \
+                     names nothing. Key the member with one non-empty segment carrying \
+                     no `/`",
+                    row.host,
+                    row.key,
+                    member_address::nested_address(&row.host, &row.kind, &row.key),
+                ),
+            )
+        })
+        .collect()
+}
+
 /// Reject a host declaring the **same `(kind, key)` nested member twice** — two rows
 /// spelling one address. `representation.md` ("member") makes resolution total and
 /// coincident addresses a malformed lock: within one host a nested member's address *is*

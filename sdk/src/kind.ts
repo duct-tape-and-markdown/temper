@@ -12,6 +12,7 @@
 import type { Prose, Text } from "./prose.js";
 import type { Capability } from "./needs.js";
 import type { Requirement } from "./contract.js";
+import { isOneSegment } from "./member-address.js";
 
 /**
  * The shape of the on-disk artifact a member projects to (fact 3, projection) — a closed
@@ -902,6 +903,7 @@ export function embeddedMemberValue(init: {
 }): EmbeddedMemberValue {
   const definition = typeof init.kind === "string" ? undefined : init.kind;
   const kindKey = definition?.key ?? (init.kind as string);
+  refuseSegmentedKey(kindKey, init.key);
   refuseReservedLeaf(kindKey, init.key, init.leaves);
   for (const [collection, entries] of Object.entries(init.collections ?? {})) {
     for (const entry of entries) {
@@ -918,6 +920,35 @@ export function embeddedMemberValue(init: {
     ...(render !== undefined ? { render } : {}),
     ...(edgeFields !== undefined ? { edgeFields } : {}),
   };
+}
+
+/**
+ * Refuse an embedded member's key that is not **one address segment** — empty, or carrying
+ * the `/` the member-address grammar cuts an address at ({@link isOneSegment}). A member's
+ * identity *is* its `<host-address>/<kind>/<key>` address, so a key carrying the separator
+ * spells an address one segment too long: `authority/rejected` spells what the sibling
+ * keyed `authority` spells for its `rejected` leaf, and every reader answers that address
+ * at leaf grain.
+ *
+ * Refused at compose for the posture {@link refuseReservedLeaf} states for the sibling
+ * case: a coincident address is loud at the authoring seam, where the author can still
+ * rename, never at emit over bytes already written (0051). The engine's own judge is not
+ * this one twice — it judges a committed lock (hand-edited, or written by an older SDK),
+ * this one judges the composing program.
+ *
+ * Scoped to the member's own key: a `collections` entry key lands inside the **leaf tail**,
+ * which the grammar defines as the whole remainder after the third slash, so it aliases
+ * nothing and is deliberately left legal.
+ *
+ * # Throws
+ * If `key` is empty or carries `/`.
+ */
+function refuseSegmentedKey(kind: string, key: string): void {
+  if (isOneSegment(key)) return;
+  throw new Error(
+    `embedded member \`${kind}\` \`${key}\`: a member's key is one address segment — ` +
+      `non-empty and carrying no \`/\`, the separator its address is cut at`,
+  );
 }
 
 /**

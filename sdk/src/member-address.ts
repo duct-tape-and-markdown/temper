@@ -62,6 +62,25 @@ export function nestedAddress(host: string, kind: string, key: string): string {
 }
 
 /**
+ * Whether `spelling` is exactly **one segment** of this grammar — non-empty, and carrying
+ * none of the `/` {@link segment} cuts an address at.
+ *
+ * The predicate every writer's caller judges a key by, because {@link nestedAddress} is
+ * infallible and the reader beneath it is not. A key carrying a `/` shifts every segment
+ * below it by one: `nestedAddress("spec:alpha", "decision", "authority/rejected")` spells
+ * the very address the member keyed `authority` spells for its `rejected` leaf, and every
+ * reader tries leaf grain first — so the member's own identity answers its sibling's leaf.
+ * An empty key spells an address {@link segment} admits at no grain at all.
+ * `specs/model/representation.md` ("member") makes both a malformed lock rather than a
+ * precedence rule: resolution is total, and coincident addresses are refused.
+ *
+ * The engine's `is_one_segment` is the same predicate at the seam's other end.
+ */
+export function isOneSegment(spelling: string): boolean {
+  return spelling !== "" && !spelling.includes("/");
+}
+
+/**
  * Spell one leaf's address beneath a nested member. `member` is carried verbatim, so a
  * writer holding the bare member id spells the short form the lock already commits
  * ({@link LeafAddress.member}).

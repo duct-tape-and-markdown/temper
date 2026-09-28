@@ -423,6 +423,12 @@ pub fn gate(
     // resolution (`graph`).
     diagnostics.extend(admissibility::nested_member_coincidence(&declarations));
 
+    // And the same tier's grammar judgment: a key that is not one address segment spells
+    // an identity a reader cuts at a different grain — a `/` makes the member's own
+    // address its sibling's leaf, an empty key names nothing. The triple count above is
+    // blind to it (the two triples differ), so it is refused on its own.
+    diagnostics.extend(admissibility::nested_member_key_segment(&declarations));
+
     // The by-kind corpus every set-scope and graph predicate ranges over,
     // assembled through the same helper the read arm uses.
     let embedded_features = compose::embedded_features_by_kind(&declarations);

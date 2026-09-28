@@ -441,6 +441,59 @@ test("embeddedMemberValue admits every other leaf key, top-level and in a collec
 });
 
 // ---------------------------------------------------------------------------
+// (7) A key that is not one address segment — a member's identity *is* its
+//     `<host>/<kind>/<key>` address, so a key carrying the grammar's own `/` spells
+//     the sibling leaf address `<host>/<kind>/authority/rejected`, which every
+//     reader answers at leaf grain. Refused at compose, where the author can still
+//     rename, on the same posture as the reserved leaf above.
+// ---------------------------------------------------------------------------
+
+test("embeddedMemberValue refuses a key carrying the address grammar's separator", () => {
+  const decision = decisionKind();
+  assert.throws(
+    () =>
+      embeddedMemberValue({
+        kind: decision,
+        key: "authority/rejected",
+        leaves: { chosen: "x" },
+      }),
+    (error: Error) => {
+      // The key the author wrote is named back, and so is the separator that makes it
+      // two segments — together they are the whole remedy.
+      assert.match(error.message, /embedded member `decision` `authority\/rejected`:/);
+      assert.match(error.message, /one address segment/);
+      assert.match(error.message, /`\/`/);
+      return true;
+    },
+  );
+});
+
+test("embeddedMemberValue refuses an empty key", () => {
+  // The grammar's other hole: an empty segment names nothing at any grain, so the
+  // address the member would spell resolves to no member at all.
+  const decision = decisionKind();
+  assert.throws(
+    () => embeddedMemberValue({ kind: decision, key: "", leaves: { chosen: "x" } }),
+    /embedded member `decision` ``: a member's key is one address segment/,
+  );
+});
+
+test("embeddedMemberValue admits a well-formed key, dots and a collection path included", () => {
+  // Non-vacuity, and the deliberate scope: the refusal binds the member's own key. A
+  // *collection entry* key lands inside the leaf tail — the whole remainder after the
+  // third slash — so it aliases nothing and stays legal.
+  const decision = decisionKind();
+  assert.doesNotThrow(() =>
+    embeddedMemberValue({
+      kind: decision,
+      key: "surface-authority",
+      leaves: { chosen: "x" },
+      collections: { alternatives: [{ key: "the/other.way", leaves: { rejected: "y" } }] },
+    }),
+  );
+});
+
+// ---------------------------------------------------------------------------
 // A clean harness — every join resolves, every required requirement filled.
 // ---------------------------------------------------------------------------
 
