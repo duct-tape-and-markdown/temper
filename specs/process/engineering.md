@@ -18,7 +18,7 @@ becomes a pending entry.
   encoders — is residue, fileable against this section whenever no pending
   entry consolidates it.
 - Test scaffolding is a surface too: shared fixtures and builders live in
-  one home (`tests/common`), never copy-pasted per file.
+  one home (`tests/it/common`), never copy-pasted per file.
 
 ## Libraries before hand-rolls
 
@@ -158,7 +158,7 @@ both a writer-vs-writer byte pin and a hand-rowed reader suite.
 - **An agreement gate drives the real writer's output through the real
   reader** — the actual producer runs and the actual consumer decodes
   what it wrote, however much cheaper the hermetic fixture would be
-  (`tests/builtin_lock_frozen.rs` is the shape: a live SDK emit,
+  (`tests/it/builtin_lock_frozen.rs` is the shape: a live SDK emit,
   decoded by the engine reader).
 - **The scope is agreement claims, only.** Refusal and shape tests
   keep their hand-authored input — a real writer cannot produce the
