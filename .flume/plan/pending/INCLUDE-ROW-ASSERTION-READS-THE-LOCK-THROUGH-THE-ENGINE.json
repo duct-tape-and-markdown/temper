@@ -1,0 +1,30 @@
+{
+  "tag": "INCLUDE-ROW-ASSERTION-READS-THE-LOCK-THROUGH-THE-ENGINE",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "tests/it/emit.rs",
+        "description": "`a_lock_with_composed_prose_includes_emitted_from_a_foreign_cwd_is_harness_relative` (:1680) takes its verdict from a hand-walked lock text: `at_root_lock.lines()` scanned for `[[declaration.include]]`, then `strip_prefix(\"source_path = \")`, a `found_source_path` flag, an inner `break` at the next `[[`, and a claim no stronger than \"the value does not begin `\\\"/` or `\\\"C:\\\\`\" (:1740-1771). The tree already performs that read: `drift::includes` (src/drift.rs:3219) returns the include family typed, and the sibling test one screen below — `an_include_target_above_the_harness_root_is_spelled_the_same_in_two_checkouts` (:1806) — uses it to assert the exact spelling. Take the verdict from `drift::includes` over each lane's workspace and assert the exact harness-relative `source_path` (`included.md`) both lanes must carry, deleting the line walk. The byte-level pins stay byte-level: the two locks' equality (:1727) and the `[[declaration.include]]` presence assertion are claims about the lock's text and keep reading the text. The file already parses the lock through the sanctioned `toml_edit` where it wants a column (:420, :470), so no third reader is introduced."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A foreign-cwd include test hand-walks lock.toml lines for a `source_path` that `drift::includes` returns typed, and asserts only that the value is not absolute.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "both lanes' include rows read `source_path == \"included.md\"` through `drift::includes`, with the two locks still byte-identical and the `[[declaration.include]]` row still present"
+    }
+  ],
+  "acceptance": "`cargo test` green with the include test's verdict taken from `drift::includes` and the exact harness-relative spelling asserted for both lanes; no `[[declaration.include]]` line walk left in `tests/it/emit.rs`; `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green.",
+  "notes": "The claim widens as it folds: today only lane A's lock is scanned and the assertion is \"not absolute\", where the engine reader gives the exact spelling — which is what the sibling test at :1806 already asserts for its own case. No `src/` change: `drift::includes` is public and already called from this file's neighbour test. scoped at cfd5591e"
+}
