@@ -1,0 +1,62 @@
+{
+  "tag": "NESTED-KEY-SPELLS-ONE-ADDRESS-SEGMENT",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/member_address.rs",
+        "description": "The grammar's one home gains the predicate its refusing callers read — whether a string spells exactly one address segment (non-empty, carrying no `/`). Today `nested_address` (:54) writes `{host}/{kind}/{key}` infallibly while `segment` (:119) reads it back with `splitn(4, '/')` and refuses an empty segment (:124), so a key carrying the separator shifts every downstream reading by one segment and an empty key names nothing — neither refused anywhere. The predicate lives here, beside the writer and its reader, rather than as a `contains('/')` per refusal site: the module doc (:16) already names a hand-rolled spelling of this grammar as a second implementation of one job. Unit-test it in this file's own `mod tests`, beside `a_segment_shaped_hole_names_nothing_at_either_grain` (:292), which already pins the reader half of the same fact."
+      },
+      {
+        "path": "src/admissibility.rs",
+        "description": "New judge beside `nested_member_coincidence` (:113), under the same `NESTED_MEMBER_ADMISSIBILITY_RULE` (:67) and the same malformed-lock class: a `nested_member` row whose `key` is not one segment is refused, naming the row's host, its key and the address it spells. The existing judge cannot see it — it counts `(host, kind, key)` triples, and `authority` beside `authority/rejected` are two distinct triples whose spelled addresses coincide across grains (`spec:alpha/decision/authority/rejected` is both the second member's identity and the first member's `rejected` leaf). `representation.md` (\"member\") makes that a refusal, not a precedence rule: resolution is total and coincident addresses are a malformed lock. Reusing the rule id keeps the change off every rule-id registry (`rg` finds the id in this file and `CHANGELOG.md` alone)."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "Wire the new judge into the same block that runs the nested-member family — `nested_member_admissibility` (:417) and `nested_member_coincidence` (:424) — so a committed lock carrying the malformed key is refused by `check` wherever those two already fire."
+      },
+      {
+        "path": "sdk/src/member-address.ts",
+        "description": "The TS half of the identical predicate, beside `nestedAddress` (:60) and `segment` (:127) — the seam's other end, where the module doc already states that a spelling moves on both sides at once or the seam breaks. Same shape as the Rust half: one segment means non-empty and separator-free."
+      },
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "`embeddedMemberValue` (:897) throws when `init.key` is not one segment, beside the `refuseReservedLeaf` call it already makes — whose own doc (:934) states this posture verbatim for the sibling case: a coincident leaf address is refused at compose, loud at the authoring seam where the author can still rename, never at emit over bytes already written (0051). The two refusals cover different inputs and are not one job twice: this one judges the composing program, the engine's judges a committed lock (hand-edited, or written by an older SDK). Scoped to the member's own `key`: a `collections` entry key lands inside the leaf tail, which the grammar defines as the whole remainder after the third slash (`member_address.rs`'s `a_leaf_path_keeps_its_dots_and_its_deeper_slashes`), so it aliases nothing and is deliberately left legal."
+      },
+      {
+        "path": "tests/it/nested_member.rs",
+        "description": "Engine pins beside the coincidence case (:985): a declarations set whose host carries `authority` and `authority/rejected` of one kind fires exactly one error naming the address both spell; an empty key fires too; the untouched corpus stays silent, so the judge is non-vacuous in both directions. Worth pinning the reason the finding is needed in the case's own comment — `graph::node_from_address` (`src/graph.rs:1709`) and `read`'s species split (`src/read.rs:265`) both read leaf grain first, deliberately, so without this refusal an edge or `explain` naming the member silently answers the sibling's leaf."
+      },
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "description": "The authoring-seam pin, beside the reserved-leaf refusals (:402, :425): `embeddedMemberValue` with a `/`-carrying key throws naming the key and the separator, an empty key throws, and a well-formed key does not."
+      },
+      {
+        "path": "sdk/test/member-address.test.ts",
+        "description": "The predicate's own test, beside `a host address round-trips through its own reader` (:24), whose own loop already pins that a segmented spelling is no host address."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "An embedded member's key may carry the address grammar's own `/` — its identity then spells a sibling's leaf address, which every reader answers at leaf grain.",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "member"
+  },
+  "tests": [
+    {
+      "path": "tests/it/nested_member.rs",
+      "asserts": "a nested_member row whose key carries `/` or is empty is refused under nested-member.admissibility, naming the address it spells; a well-formed corpus stays silent"
+    },
+    {
+      "path": "sdk/test/refusals.test.ts",
+      "asserts": "embeddedMemberValue refuses a key carrying the grammar's separator, and an empty key, naming the key"
+    }
+  ],
+  "acceptance": "`cargo test` and `pnpm --dir sdk test` green with a `/`-carrying or empty embedded-member key refused at both ends of the seam — the composing program throwing at `embeddedMemberValue`, a committed lock row refused by `check` under `nested-member.admissibility` — and the well-formed corpus still silent.",
+  "notes": "Measured on disk this tick: nothing refuses the key (`rg` over compose/admissibility/kind.ts finds only the reserved-leaf and duplicate-triple refusals). The layout read path is closed already and is NOT in scope — `layout.rs` slugs both the heading (:332) and an explicit key's value (:340), and `slugify` (:375) keeps ASCII alphanumerics only, so no read key can carry a separator. scoped at 3ca0e3c0"
+}
