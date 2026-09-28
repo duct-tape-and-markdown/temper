@@ -1733,41 +1733,31 @@ fn a_lock_with_composed_prose_includes_emitted_from_a_foreign_cwd_is_harness_rel
         "composed-prose includes emit byte-identical locks from any cwd"
     );
 
-    // The critical assertion: the include row's source_path must be harness-relative, not
-    // a raw absolute path baked by a foreign-cwd invocation. The lock spelling should match
-    // regardless of which cwd the emit ran under.
-    let include_section_pattern = "[[declaration.include]]";
     assert!(
-        at_root_lock.contains(include_section_pattern),
+        at_root_lock.contains("[[declaration.include]]"),
         "the lock carries an include row: {at_root_lock}"
     );
-    // The source_path should be harness-relative (a simple filename in this case), not
-    // an absolute path like /tmp/...
-    let lines: Vec<&str> = at_root_lock.lines().collect();
-    let mut found_source_path = false;
-    for (i, line) in lines.iter().enumerate() {
-        if line.trim() == "[[declaration.include]]" {
-            // Look for source_path in the rows following this marker
-            for line_after in &lines[(i + 1)..] {
-                if line_after.starts_with("[[") {
-                    break; // Next section
-                }
-                if let Some(path_val) = line_after.strip_prefix("source_path = ") {
-                    found_source_path = true;
-                    assert!(
-                        !path_val.starts_with("\"/") && !path_val.starts_with("\"C:\\"),
-                        "the include's source_path must be harness-relative, not an absolute filesystem path: {path_val}"
-                    );
-                    break;
-                }
-            }
-            break;
-        }
+
+    // The critical assertion: the include row's source_path must be harness-relative, not
+    // a raw absolute path baked by a foreign-cwd invocation. Read the row through the
+    // engine's own include reader — the same reader the drift comparison and the
+    // include-edge lift run — and pin the exact spelling both lanes must carry.
+    for (label, workspace) in [
+        ("at-root", at_root.join(".temper")),
+        ("foreign-cwd", from_parent.join(".temper")),
+    ] {
+        let includes = drift::includes(&workspace).unwrap();
+        assert_eq!(
+            includes.len(),
+            1,
+            "the {label} lane's lock carries exactly the one include row emitted"
+        );
+        assert_eq!(
+            includes[0].source_path, "included.md",
+            "the {label} lane spells the include target against the harness root, \
+             never as the absolute path the SDK resolved"
+        );
     }
-    assert!(
-        found_source_path,
-        "lock should contain an include row with source_path"
-    );
 
     // Both emissions should succeed with no reaped entries
     for report in [&at_root_report, &foreign_report] {
