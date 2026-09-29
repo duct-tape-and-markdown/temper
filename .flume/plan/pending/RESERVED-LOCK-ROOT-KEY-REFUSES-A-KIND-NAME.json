@@ -4,8 +4,7 @@
     "kind": "blockedBy",
     "tags": [
       "INSTALL-NAMES-A-GATE-HOOKS-REMEDY",
-      "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
-      "EMPTY-CONTRACT-IS-A-DECLARED-CONTRACT"
+      "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL"
     ]
   },
   "dependsOnForks": [],
