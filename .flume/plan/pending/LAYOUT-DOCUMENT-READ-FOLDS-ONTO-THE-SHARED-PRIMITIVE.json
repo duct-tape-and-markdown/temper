@@ -1,0 +1,45 @@
+{
+  "tag": "LAYOUT-DOCUMENT-READ-FOLDS-ONTO-THE-SHARED-PRIMITIVE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "LOCAL-LAYOUT-DOCUMENT-IS-READ-ONCE-PER-RUN"
+    ]
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/layout.rs",
+        "description": "`LayoutError` (:106) gains the read pair its three sibling format errors carry — an I/O variant and a not-UTF-8 variant, each with its own `#[diagnostic(code(temper::layout::…))]` — plus the `impl From<crate::hash::ReadUtf8Error>` those three already spell (`frontmatter.rs:127`, `toml_document.rs:158`, `json_manifest.rs:306`)."
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "`layout_unit` (:562) reads through `crate::hash::read_utf8` mapped to `LayoutError`, retiring the ad-hoc `miette::miette!(\"failed to read layout document …\")` — the only adapter source load in the crate that bypasses the primitive `hash.rs`'s own module header calls \"the shared read+UTF-8-decode primitive all formats use to load source files\", and the only one whose read failure carries no diagnostic code."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "The layout reading wrapper (`read_layout_document`, :2032 today) reads through the same primitive; `DriftError` (:96) gains a not-UTF-8 variant so a non-UTF-8 layout document names itself rather than arriving as an `InvalidData` io string under `DriftError::Read`. The module's projection-target reads (:2141, :2414, :2475, :2751) are a different job — byte comparison against an emitted file, not an adapter source load — and stay as they are."
+      },
+      {
+        "path": "tests/it/layout_kind.rs",
+        "description": "A layout document whose bytes are not UTF-8 refuses in the layout vocabulary, beside the existing refusal pins (`MissingKey` :140, `Unadmitted` :327, `SwallowedHeading` :555) — today the same input produces an uncoded miette string."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The layout class's document read bypasses the shared read+decode primitive every other format uses, so its read failure has no vocabulary and no diagnostic code.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "tests/it/layout_kind.rs",
+      "asserts": "a non-UTF-8 layout document refuses with the layout error vocabulary and its diagnostic code, not an ad-hoc miette string"
+    }
+  ],
+  "acceptance": "Every adapter source load in the crate goes through `hash::read_utf8`, a non-UTF-8 layout document refuses with a coded `LayoutError`, and `cargo test` stays green.",
+  "notes": "Census by behavior: frontmatter (`frontmatter.rs:177`), json-document (`json_manifest.rs:318`) and toml-document (`toml_document.rs:33`) all funnel through `hash::read_utf8` and map the error into their own vocabulary; the layout class's two reads (`compose.rs:562`, `drift.rs:2032`) do neither. Blocked on the read hoist, which moves both sites. scoped at 6c6146e0"
+}
