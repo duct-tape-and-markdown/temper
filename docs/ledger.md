@@ -31,9 +31,11 @@ hard.
 - **Rotation closed (09-28):** the posture rotation armed at 7d695577
   closed at dbbb62e1; the loop was stopped after that wave rather than let
   the sweep re-arm over 7d695577..HEAD. Relaunching starts that new
-  rotation — a choice, not a default. Next human work: the 19 open forks
-  (INSTALL-LIFTS waits on `(hook-member-identity)`), the consumer's
-  cross-program join, the harness migration.
+  rotation — a choice, not a default.
+- **Forks ruled (09-29):** 18 of 19 closed (0063-0073, 96e6d497); one stays
+  open, `(cross-source-edge-correlation)`, with its stance. The loop's next
+  run is plan deriving the delta and two inbox notes. Still open for John:
+  the consumer's cross-program join, the harness migration.
 - **09-25 session (this machine):** loop set up here and ran; the report
   work shipped and the sweep hold came and went. Stopped with the stop flag
   on a usage cap; remove it to relaunch. Open: the cross-program member
