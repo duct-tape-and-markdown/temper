@@ -353,6 +353,76 @@ import_hash = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     );
 }
 
+/// The whole-run count-pin for the **committed lock**, over the real `gate()`
+/// (`engineering.md`, "Cost scale is hoisted, and pinned by count"): a check run opens
+/// `lock.toml` once and parses it once, however many tiers read off it — the declaration
+/// rows the contract tier judges against and the source-dependency families below share
+/// the one parsed document. Session-open `check` pays this on every tick, so a second
+/// door onto the same file is a per-tick disk read and a per-tick TOML parse.
+///
+/// The two pins beside this one drive `emit` and a hand-assembled stand-in for the gate;
+/// neither runs `gate()`, so neither saw the second door it opened — `read_declarations`
+/// read and parsed the lock past both counters. Counting the real run is what closes that:
+/// the pin reads 2/2 on the pre-fix tree once that face counts, 1/1 with the read hoisted.
+#[test]
+fn gate_reads_and_parses_the_lock_once() {
+    use temper::drift::{self, Declarations};
+    use temper::gate;
+
+    let harness = tmpdir("gate-lock-read-pin");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: coordinate\ndescription: Drive a task across a team of agents.\n---\n# Coordinate\n",
+    )
+    .unwrap();
+
+    // A represented harness: a lock carrying a declaration row family, so the tier that
+    // reads `[declaration]` has rows to lift rather than answering off an absent table.
+    // Written by the real lock writer (`drift::emit`) off a `KindFactRow`, the row this
+    // family's one producer emits — and written *before* the counters are sampled, since
+    // `emit` reads the lock through the same counted door.
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![common::skill_kind_facts(None, &[])],
+            ..Declarations::default()
+        },
+    );
+
+    let reads_before = drift::lock_read_count();
+    let parses_before = drift::lock_parse_count();
+    let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
+    let reads = drift::lock_read_count() - reads_before;
+    let parses = drift::lock_parse_count() - parses_before;
+
+    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a gate that
+    // judged nothing reads the lock zero times and would pass any ceiling. The run's own
+    // disclosure of what it checked names the member, so the count below is taken over a
+    // run that did the work.
+    let summary = &diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.rule == "coverage.checked")
+        .expect("the run discloses what it checked")
+        .message;
+    assert!(
+        summary.contains("skill (1"),
+        "the run must have judged the harness's one skill member, got: {summary}",
+    );
+
+    assert_eq!(
+        reads, 1,
+        "a check run must read lock.toml exactly once, shared across every tier that \
+         reads off it: {reads} reads (before {reads_before})",
+    );
+    assert_eq!(
+        parses, 1,
+        "a check run must parse lock.toml exactly once, shared across every tier that \
+         reads off it: {parses} parses (before {parses_before})",
+    );
+}
+
 #[test]
 fn coverage_note_accepts_pre_parsed_locked_kinds() {
     use std::collections::BTreeMap;

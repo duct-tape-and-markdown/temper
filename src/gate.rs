@@ -142,16 +142,17 @@ pub fn gate(
     harness_root: &Path,
     layers: &[std::path::PathBuf],
 ) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
+    // The gate's one read and one parse of the committed lock, shared by every consumer
+    // below — the declaration rows this tier judges against and the source-dependency
+    // families further down, per the cost doctrine (engineering.md, "Cost scale is
+    // hoisted, and pinned by count"; pinned by `gate_reads_and_parses_the_lock_once`).
+    let lock_doc = drift::read_lock_document(workspace)?;
     // The assembly's own declared facts — requirements and edges — ride the lock's
-    // declaration rows: `emit` is the sole
-    // producer, this is the gate's one read of it.
+    // declaration rows: `emit` is the sole producer, this is the gate's read side of them.
     // Never gated on a lock's presence — an unadopted harness's lock declares
     // nothing, so this tier is a no-op over it rather than skipped (never a
     // half-adopted state).
-    let committed = drift::read_declarations(workspace)?;
-    // Parse the lock document once for reuse across source-dependency checks, hoisting
-    // the read/parse operation per the cost doctrine (engineering.md, "Cost scale is hoisted").
-    let lock_doc = drift::read_lock_document(workspace)?;
+    let committed = drift::declarations_from_doc(&lock_doc)?;
     // One ignore-honoring walk per flavor, shared across every kind and nested host this
     // gate discovers ([`import::Discovery`]) — the session-open `check` walks the
     // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost. This one

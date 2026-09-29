@@ -4639,30 +4639,29 @@ pub fn read_lock_document(workspace_dir: &Path) -> miette::Result<DocumentMut> {
 
 /// Read the lock's declaration-row family back into a typed [`Declarations`]:
 /// the gate's read side over the
-/// rows the extraction wrote. A missing or malformed lock, or one with no `[declaration]`
+/// rows the extraction wrote. A missing lock, or one with no `[declaration]`
 /// table (any pre-recut lock), yields an empty set rather than an error — absent evidence
 /// forges no finding, the same tolerance
 /// [`config_stale`] takes.
+///
+/// Reads through the counted door ([`read_lock_document`]), so a caller that takes this
+/// face is visible to the `lock_read_count`/`lock_parse_count` pins rather than slipping
+/// past them; a caller that already holds the parsed document uses
+/// [`declarations_from_doc`] instead of paying a second read.
 ///
 /// # Errors
 ///
 /// Returns a [`DriftError`] if the lock exists but cannot be read or parsed as TOML.
 pub fn read_declarations(workspace_dir: &Path) -> miette::Result<Declarations> {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let text = match fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(Declarations::default());
-        }
-        Err(source) => return Err(DriftError::LockRead { path, source }.into()),
-    };
-    Ok(parse_declarations(&path, &text)?)
+    let doc = read_lock_document(workspace_dir)?;
+    Ok(declarations_from_doc(&doc)?)
 }
 
-/// Parse a lock document's declaration-row family off already-read `text` — the
-/// shared parser [`read_declarations`] and the embedded built-in lock
-/// ([`crate::builtin_lock`]) both delegate to, so a malformed committed lock and a
-/// malformed embed report through the identical [`DriftError::LockParse`]. `path`
+/// Parse a lock document's declaration-row family off already-read `text` — the face for
+/// a lock that never came off a workspace's disk: the embedded built-in lock
+/// ([`crate::builtin_lock`]) and a joined layer's already-loaded bytes
+/// ([`crate::compose`]). A lock read from a workspace takes [`read_declarations`]
+/// instead, which routes through the counted door. `path`
 /// labels the diagnostic only; the embedded lock has no on-disk workspace to root
 /// it at, so it passes its own module path as a stand-in.
 ///
@@ -4685,10 +4684,14 @@ pub fn parse_declarations(path: &Path, text: &str) -> Result<Declarations, Drift
 /// a malformed nested element — is a [`LockRowError`]; an absent family or an absent
 /// optional column is legitimate absence.
 ///
+/// The face a caller holding a parsed lock takes instead of re-reading it:
+/// [`crate::gate`] derives its committed declarations off the one document
+/// [`read_lock_document`] handed it.
+///
 /// # Errors
 ///
 /// Returns a [`LockRowError`] naming the family of the first present-but-malformed row.
-fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, LockRowError> {
+pub(crate) fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, LockRowError> {
     let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
         return Ok(Declarations::default());
     };
