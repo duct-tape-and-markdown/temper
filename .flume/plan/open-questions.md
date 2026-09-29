@@ -34,49 +34,6 @@ tax.
   assumption (`representation.md`, "Reach"). Stays open for that
   evidence. No dependents.
 
-- `(hook-address-matcher-glyph)` — OPEN, blocks 0063's first Consequence.
-  0063 rules a hook member's identity is its event plus its matcher, and that
-  the address grammar "spells the matcher as the name's discriminator" — but
-  names no glyph, and `representation.md` ("member") spells only
-  `<kind>:<name>` and `<host-address>/<kind>/<key>`. The joining character is
-  lock-visible, not an implementation detail: `examples/base-harness/.temper/
-  lock.toml:402` carries `member = "hook:PreToolUse"` in a `satisfies` row, so
-  a later re-spelling re-emits every adopter's lock. **Stance:** `:` —
-  `hook:PostToolUse:Bash`. The name segment is already everything after the
-  first `:`, so the reader round-trips with no new rule, and `is_one_segment`
-  (`src/member_address.rs:61`) already refuses the matcher carrying `/` that
-  0063's Rejected list says is refused loud rather than escaped. The objection
-  it must answer: `:` inside a name reads as a three-part address where the
-  grammar has two parts — and `/`, the other candidate, reads as the nesting a
-  matcher is not. Companion step the ruling must also settle: this repo's own
-  `.temper/lock.toml` re-emits with the new keys, and `build:` has never
-  written `.temper/` (the `chain.ts` fence; every such commit is
-  `chore(harness):`), so the re-emit is a human half, ordered after the ship.
-  Dependents: none filed — see the sibling fork.
-
-- `(hook-handler-grain)` — OPEN, blocks 0063's second Consequence, and with it
-  the first. 0063 says a group "carries its handlers as its own array, so
-  several commands on one (event, matcher) are one member" — but six of the
-  seven shipped `hook` default clauses range over **flat handler fields**
-  (`src/builtin_lock.toml:311-409`: `required`/`enum` on `type`, four `when`
-  bodies over `command`/`url`/their siblings); only `hook.enum.event` ranges
-  over the group's own key. The clause vocabulary has no per-element
-  predicate, so a member whose fields carry a handler array has nothing for
-  those six to range over. Where the handler-level contract lives is unruled,
-  and it decides the shape of every 0063 entry. **Stance:** handlers become
-  the group's **nested members** — the model's existing primitive
-  (`representation.md`, "nesting") — under a built-in `handler` kind carrying
-  today's six clauses verbatim; the group member keeps `matcher` and its
-  event. The objection it must answer: it adds a built-in kind, which
-  `builtins.md`'s domain partition and coverage bar must admit, and a
-  positional key (`.../handler/0`) makes reordering a delete-and-create
-  (0066). The alternative — a raw `hooks` array field and the six clauses
-  retired — is a coverage regression, not a simplification. Until this is
-  ruled, 0063 files no entries: the address change alone turns today's silent
-  collapse of two handlers in one group into a loud refusal of a **legal**
-  `settings.json`, which is the exact self-host failure that reverted the
-  09-03 build. Dependents: HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL (parked).
-
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
