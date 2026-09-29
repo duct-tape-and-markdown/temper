@@ -2479,7 +2479,12 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     // The whole file-set stays: `graph::reachability_orphaned` below reads it entire,
     // through `live_members`, and the read verb binds no clause to gate the walk behind.
     let repo_files = compose::repo_file_set(Path::new("."));
+    // The same defs the registration derivation above reads, for the same corpus-wide
+    // fact per kind: which kinds seed the directive traversal. The edge set this narrates
+    // widens with the traversal — a reached rule's own outbound `@import` shows — because
+    // it *is* the gate's set (READ-EDGE-UNIFY), never a second enumeration.
     let directive_members = compose::directive_members_from_resolved(
+        &builtin_defs,
         &builtin_units_and_features,
         &custom_units_and_features,
     );

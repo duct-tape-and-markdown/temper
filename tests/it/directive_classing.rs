@@ -18,23 +18,43 @@
 //! relation** `graph::acyclic` is scoped to (`specs/model/contract.md`,
 //! "well-formedness"), so the verdict split is asserted across the whole process
 //! boundary at the bottom of this file — an unbacked pointer still warns without
-//! failing the run, a member↔member ring reaches `graph.acyclic` and does.
+//! failing the run, a ring reaches `graph.acyclic` and does, and the ring closes through
+//! a `rule`, whose kind declares no directive primitive at all.
+//!
+//! **Whose** occurrences are classed is the traversal's question: the walk seeds at the
+//! declaring kinds and expands one hop per round to the cap, so a file an import reaches
+//! carries the directives its format executes whatever governs it, and a file nothing
+//! reaches carries none.
 
 use std::path::{Path, PathBuf};
 
+use temper::builtin_kind::MAX_IMPORT_HOPS;
 use temper::check::Severity;
 use temper::graph::{DirectiveMember, backing_in_set, classify_directives};
 
 use crate::common;
 
 /// A member carrying a kind, an id, the provenance `source_path` the classing joins on,
-/// and its `at-import` target occurrences in document order.
+/// and its `at-import` target occurrences in document order — its kind **declaring** the
+/// directive primitive, so it is a traversal *seed*: the classing reaches its occurrences
+/// with no importer of its own. `memory` is that kind among the built-ins.
 fn member(kind: &str, id: &str, source_path: &str, directives: &[&str]) -> DirectiveMember {
     DirectiveMember {
         kind: kind.to_string(),
         id: id.to_string(),
         source_path: PathBuf::from(source_path),
+        declares_directives: true,
         directives: directives.iter().map(|s| (*s).to_string()).collect(),
+    }
+}
+
+/// The same member with the flag off — a kind declaring no directive primitive (a `rule`,
+/// a `skill`). It carries occurrences exactly as a seed does; what differs is that only an
+/// import *reaching* it makes them count.
+fn non_declaring(kind: &str, id: &str, source_path: &str, directives: &[&str]) -> DirectiveMember {
+    DirectiveMember {
+        declares_directives: false,
+        ..member(kind, id, source_path, directives)
     }
 }
 
@@ -211,6 +231,127 @@ fn the_three_verdicts_partition_one_members_occurrences() {
     assert_eq!(classing.findings.len(), 1, "the ghost is the sole finding");
     assert_eq!(classing.findings[0].artifact, "root");
     assert!(classing.findings[0].message.contains("ghost.md"));
+}
+
+#[test]
+fn a_reached_non_declaring_member_carries_its_own_occurrences() {
+    // `CLAUDE.md` imports a rule, and the rule imports on: a member (`shared`) and a
+    // ghost. No `rule` template admits an import — the kind declares no directive
+    // primitive — yet the file the memory import reaches carries the directives the
+    // memory format executes. So the middle hop is visible: two edges, and the rule's own
+    // dead pointer is its finding.
+    let members = [
+        member("memory", "root", "CLAUDE.md", &[".claude/rules/style.md"]),
+        non_declaring(
+            "rule",
+            "style",
+            ".claude/rules/style.md",
+            &["../../shared.md", "./ghost.md"],
+        ),
+        member("memory", "shared", "shared.md", &[]),
+    ];
+    let classing = classify_directives(
+        &members,
+        &repo(&["CLAUDE.md", ".claude/rules/style.md", "shared.md"]),
+    );
+
+    let arcs: Vec<(&str, &str)> = classing
+        .edges
+        .iter()
+        .map(|edge| (edge.from.1.as_str(), edge.to.1.as_str()))
+        .collect();
+    assert_eq!(
+        arcs,
+        vec![("root", "style"), ("style", "shared")],
+        "the reached rule's own import is an edge, got: {arcs:?}"
+    );
+    assert_eq!(classing.findings.len(), 1, "got: {:?}", classing.findings);
+    assert_eq!(
+        classing.findings[0].artifact, "style",
+        "the unbacked pointer is keyed to the rule that authored it"
+    );
+}
+
+#[test]
+fn an_unreached_non_declaring_member_carries_none() {
+    // The ruling's second half, over the identical rule: nothing imports it, and its kind
+    // executes no directive of its own — so the harness never reads those lines at all.
+    // No edge, and no unbacked finding for the ghost: an occurrence nothing executes loses
+    // no context.
+    let members = [
+        member("memory", "root", "CLAUDE.md", &[]),
+        non_declaring(
+            "rule",
+            "style",
+            ".claude/rules/style.md",
+            &["../../shared.md", "./ghost.md"],
+        ),
+        member("memory", "shared", "shared.md", &[]),
+    ];
+    let classing = classify_directives(
+        &members,
+        &repo(&["CLAUDE.md", ".claude/rules/style.md", "shared.md"]),
+    );
+
+    assert!(
+        classing.edges.is_empty(),
+        "an unreached member's occurrences are not classed, got: {:?}",
+        classing
+            .edges
+            .iter()
+            .map(|edge| (&edge.from, &edge.to))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        classing.findings.is_empty(),
+        "nor is its dead pointer a finding, got: {:?}",
+        classing.findings
+    );
+}
+
+#[test]
+fn a_chain_longer_than_the_hop_cap_stops_at_the_cap() {
+    // `CLAUDE.md` → `a` → `b` → `c` → `d`, each hop a non-declaring rule. Imports recurse
+    // to a maximum depth of `MAX_IMPORT_HOPS` (code.claude.com/docs/en/memory), so `d` is
+    // the last file loaded and the classing stops after its arc: `d`'s own occurrence is
+    // never executed, so it is neither an edge nor a finding — exactly the tail `acyclic`
+    // reports a ring for rather than resolving.
+    // The chain is spelled off the cap itself, one link *past* it, so the case stays the
+    // case if the documented depth ever moves.
+    let chain: Vec<String> = (1..=MAX_IMPORT_HOPS).map(|hop| format!("h{hop}")).collect();
+    let mut members = vec![member("memory", "root", "CLAUDE.md", &["./h1.md"])];
+    for (position, id) in chain.iter().enumerate() {
+        // Each link imports the next; the last imports a ghost, so a classing one hop past
+        // the cap would announce itself as a finding.
+        let onward = chain
+            .get(position + 1)
+            .map_or_else(|| "./ghost.md".to_string(), |next| format!("./{next}.md"));
+        members.push(non_declaring("rule", id, &format!("{id}.md"), &[&onward]));
+    }
+    let files: Vec<String> = std::iter::once("CLAUDE.md".to_string())
+        .chain(chain.iter().map(|id| format!("{id}.md")))
+        .collect();
+    let file_refs: Vec<&str> = files.iter().map(String::as_str).collect();
+    let classing = classify_directives(&members, &repo(&file_refs));
+
+    let arcs: Vec<(&str, &str)> = classing
+        .edges
+        .iter()
+        .map(|edge| (edge.from.1.as_str(), edge.to.1.as_str()))
+        .collect();
+    let expected: Vec<(&str, &str)> = std::iter::once("root")
+        .chain(chain.iter().map(String::as_str))
+        .zip(chain.iter().map(String::as_str))
+        .collect();
+    assert_eq!(
+        arcs, expected,
+        "the chain classes exactly {MAX_IMPORT_HOPS} hops, got: {arcs:?}"
+    );
+    assert!(
+        classing.findings.is_empty(),
+        "the last link sits at the cap, so its own occurrence is never classed, got: {:?}",
+        classing.findings
+    );
 }
 
 /// A `memory` member at `dir/CLAUDE.md` importing `target` — the shape every stat-flavor
@@ -424,14 +565,21 @@ fn an_unbacked_pointer_warns_without_failing_the_run() {
 }
 
 #[test]
-fn a_member_to_member_ring_reaches_the_acyclicity_gate() {
-    // The other half of the split: every occurrence in the ring resolves to a member, so
-    // no unbacked-pointer finding fires at all — the edges the classing yields carry the
-    // verdict instead, as the import relation `graph::acyclic` is founded on.
+fn a_cross_kind_ring_reaches_the_acyclicity_gate() {
+    // The other half of the split, across kinds: `CLAUDE.md` imports a rule that imports
+    // that `CLAUDE.md` back. The middle hop is governed by `rule`, which declares no
+    // directive primitive of its own — under a flat pass its occurrence was invisible and
+    // the ring read green. Every occurrence resolves to a member, so no unbacked pointer
+    // fires; the edges the traversal yields carry the verdict, and the ring that closes
+    // through another kind is the same truncated tail `graph::acyclic` exists for.
     let root = common::tmpdir("directive-ring-gates");
     common::write_skill(&root, "standards", &common::clean_skill("standards"));
-    write_memory(&root, "CLAUDE.md", "@docs/CLAUDE.md");
-    write_memory(&root, "docs/CLAUDE.md", "@../CLAUDE.md");
+    write_memory(&root, "CLAUDE.md", "@.claude/rules/style.md");
+    common::write_sibling(
+        &root,
+        ".claude/rules/style.md",
+        "# Style\n\nBody.\n\n@../../CLAUDE.md\n",
+    );
 
     let run = common::check_in(&root, &["."], Some("github"));
     let findings = run.findings();

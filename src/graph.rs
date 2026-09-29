@@ -268,6 +268,12 @@ fn coincident_slots(edges: &[Edge]) -> BTreeMap<(&str, &str), Vec<&Edge>> {
 /// else: a declared reference *field* naming a member that names it back is an
 /// ordinary mutual reference, judged by whatever clauses range over it, never by this.
 ///
+/// The relation is scoped to the format's execution, **not to one kind**: a file an
+/// import reaches carries the directives its format executes whatever governs it, so a
+/// ring closes across kinds too — a `CLAUDE.md` importing a rule that imports that
+/// `CLAUDE.md` back truncates exactly as a memory-to-memory ring does, and fires here the
+/// same way.
+///
 /// The true positive is a **silently truncated tail**, not a load that never happens:
 /// imports recurse to "a maximum depth of four hops"
 /// (code.claude.com/docs/en/memory, retrieved 2026-09-22 — [`MAX_IMPORT_HOPS`]), and
@@ -1456,11 +1462,15 @@ fn unreachable(
 
 /// One member the directive classing ranges over: its `(kind, id)` identity, the
 /// provenance `source_path` that is the join key between world paths and members,
-/// and its extracted `at-import` target
-/// occurrences in document order. The caller builds it off the units the features were
-/// extracted from — the full path the decidable [`Features`] view drops — carrying
-/// *every* member (a directive may point at a member that itself imports nothing) with
-/// its `directives` (empty for a kind composing no `directives` primitive).
+/// whether its kind *declares* the directive primitive, and its extracted `at-import`
+/// target occurrences in document order. The caller builds it off the units the features
+/// were extracted from ([`crate::compose::directive_members_from_resolved`]) — the full
+/// path the decidable [`Features`] view drops — carrying *every* member, whatever its
+/// kind (a directive may point at a member that itself imports nothing).
+///
+/// The flag and the list are **two facts, not one**: the flag is the traversal's seed
+/// set, the list is what a member carries once reached — and a rule carries occurrences
+/// though no `rule` template admits an import.
 pub struct DirectiveMember {
     /// The member's kind name (`skill`, `memory`, a custom kind).
     pub kind: String,
@@ -1468,8 +1478,12 @@ pub struct DirectiveMember {
     pub id: String,
     /// The provenance source path the member was imported from — the classing join key.
     pub source_path: PathBuf,
+    /// Whether the member's own kind composes the `directives` primitive
+    /// ([`crate::kind::Extraction::directive_syntax`]) — a **seed** of the traversal. A
+    /// non-seed's occurrences are classed only where an import reaches it.
+    pub declares_directives: bool,
     /// The member's extracted `at-import` occurrences: raw target strings in document
-    /// order (`Features::directives`).
+    /// order, read off its body whatever its kind declares.
     pub directives: Vec<String>,
 }
 
@@ -1485,7 +1499,8 @@ pub struct DirectiveClassing {
     /// read. Reachability closing over them is a later slice.
     pub edges: Vec<ResolvedEdge>,
     /// The unbacked-pointer findings — one per occurrence resolving to nothing, keyed
-    /// to the importing member.
+    /// to the importing member. Only a **reached** member's occurrences are judged: an
+    /// occurrence nothing executes loads nothing and so loses no context.
     pub findings: Vec<Diagnostic>,
 }
 
@@ -1509,8 +1524,8 @@ pub fn backing_in_set(files: &[String]) -> impl Fn(&Path) -> bool + use<> {
     move |resolved| set.contains(resolved)
 }
 
-/// Classify each member's extracted `at-import` directive occurrences against the
-/// landscape: resolve every target
+/// Classify the corpus's `at-import` directive occurrences against the landscape:
+/// resolve every target
 /// relative to the importing member's file directory (an absolute target as-is;
 /// code.claude.com/docs/en/memory, retrieved 2026-07-16) and sort it into one of three
 /// classes — a **member** (the resolved path is another member's provenance
@@ -1519,48 +1534,79 @@ pub fn backing_in_set(files: &[String]) -> impl Fn(&Path) -> bool + use<> {
 /// nor enters the member graph), or **nothing** (an *unbacked pointer* — the importing
 /// member's finding, the silent-context-loss failure class made author-time).
 ///
+/// **Whose** occurrences are classed is a breadth-first traversal, not a flat pass: a
+/// file an import reaches carries the directives its format executes, *whatever kind
+/// governs it*. The walk seeds at the members whose kind declares the primitive
+/// (`declares_directives`), classes their occurrences, then expands into each
+/// member-class target and classes **its** occurrences, one hop per round, capped at
+/// [`MAX_IMPORT_HOPS`] — the same rounding `live_members` does, against the same
+/// documented recursion depth. An **unreached** non-declaring member's occurrences are
+/// neither an edge nor a finding: nothing executes them. The arc is emitted even where
+/// its target was already classed — a ring's closing arc is precisely what [`acyclic`]
+/// exists to find — and only the *expansion* is skipped.
+///
 /// `members` carries every member so the provenance index is complete — a target may
 /// point at a member that imports nothing. `backed` is asked once per cited target
 /// rather than handed the whole repository file-set, so the classing costs the imports
 /// the corpus authored, never the consumer's tree. Members and their targets iterate in
-/// the caller's order,
-/// so the edge and finding sets are stable. Member class beats repo-file class: a
-/// member *is* a repo file, and the stronger classification (it enters the graph) wins.
+/// the caller's order within each round, so the edge and finding sets are stable. Member
+/// class beats repo-file class: a member *is* a repo file, and the stronger
+/// classification (it enters the graph) wins.
 #[must_use]
 pub fn classify_directives(
     members: &[DirectiveMember],
     backed: BackingResolver<'_>,
 ) -> DirectiveClassing {
-    // The provenance index — normalized `source_path` → node — the join between a
-    // resolved target path and the member it names.
-    let index: BTreeMap<PathBuf, Node> = members
+    // The provenance index — normalized `source_path` → the member's position — the join
+    // between a resolved target path and the member it names, and the traversal's
+    // expansion step in one map.
+    let index: BTreeMap<PathBuf, usize> = members
         .iter()
-        .map(|member| {
-            (
-                crate::path::normalize_path(&member.source_path),
-                (member.kind.clone(), member.id.clone()),
-            )
-        })
+        .enumerate()
+        .map(|(position, member)| (crate::path::normalize_path(&member.source_path), position))
         .collect();
+
+    // `classed` is the set whose occurrences the walk has taken or is about to, seeded at
+    // the declaring kinds. Positions order it, so each round iterates in the caller's
+    // member order.
+    let mut classed: BTreeSet<usize> = members
+        .iter()
+        .enumerate()
+        .filter(|(_, member)| member.declares_directives)
+        .map(|(position, _)| position)
+        .collect();
+    let mut frontier = classed.clone();
 
     let mut edges = Vec::new();
     let mut findings = Vec::new();
-    for member in members {
-        for target in &member.directives {
-            let resolved = resolve_directive_target(&member.source_path, target);
-            if let Some(to) = index.get(&resolved) {
-                edges.push(ResolvedEdge {
-                    from: (member.kind.clone(), member.id.clone()),
-                    field: DIRECTIVE_FIELD.to_string(),
-                    to: to.clone(),
-                });
-            } else if !backed(&resolved) {
-                // Neither a member nor a repo file: an unbacked pointer that loads
-                // nothing. A backed repo file is a one-way boundary edge — no finding,
-                // no member edge.
-                findings.push(unbacked_pointer(&member.id, target));
+    // One hop per round, so a chain longer than the format's recursion cap stops there:
+    // the tail loads nothing, and classing it would report an edge nothing follows.
+    for _ in 0..MAX_IMPORT_HOPS {
+        let mut next: BTreeSet<usize> = BTreeSet::new();
+        for member in frontier.iter().map(|position| &members[*position]) {
+            for target in &member.directives {
+                let resolved = resolve_directive_target(&member.source_path, target);
+                if let Some(to) = index.get(&resolved) {
+                    edges.push(ResolvedEdge {
+                        from: (member.kind.clone(), member.id.clone()),
+                        field: DIRECTIVE_FIELD.to_string(),
+                        to: (members[*to].kind.clone(), members[*to].id.clone()),
+                    });
+                    if classed.insert(*to) {
+                        next.insert(*to);
+                    }
+                } else if !backed(&resolved) {
+                    // Neither a member nor a repo file: an unbacked pointer that loads
+                    // nothing. A backed repo file is a one-way boundary edge — no finding,
+                    // no member edge.
+                    findings.push(unbacked_pointer(&member.id, target));
+                }
             }
         }
+        if next.is_empty() {
+            break;
+        }
+        frontier = next;
     }
     DirectiveClassing { edges, findings }
 }
@@ -2709,6 +2755,9 @@ mod tests {
             kind: "memory".to_string(),
             id: id.to_string(),
             source_path: PathBuf::from(source_path),
+            // `memory` declares the `at-import` primitive, so every member here seeds the
+            // traversal: its occurrences are classed with no importer of its own.
+            declares_directives: true,
             directives: targets.iter().map(|t| (*t).to_string()).collect(),
         }
     }

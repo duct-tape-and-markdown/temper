@@ -1137,13 +1137,28 @@ pub enum Primitive {
 /// sole harvested member is [`AtImport`](DirectiveSyntax::AtImport); any other value
 /// is a load error, the closed-vocabulary guard the primitive discriminator carries
 /// applied to the per-syntax face.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DirectiveSyntax {
     /// `at-import` — an `@path/to/file` occurrence imports the target file into
     /// context (documented for Claude Code memory files, resolved relative to the
     /// importing file, absolute allowed; code.claude.com/docs/en/memory, retrieved
     /// 2026-07-02).
     AtImport,
+}
+
+impl DirectiveSyntax {
+    /// This syntax's occurrences in `body`, in document order — the raw target strings
+    /// the classing resolves. The **one** dispatch from a syntax to its reader, shared by
+    /// the [`Directives`](Primitive::Directives) primitive below and by the directive
+    /// traversal's read of a body an import *reaches*
+    /// ([`crate::compose::directive_members_from_resolved`]): the declaring kind and the
+    /// file its import reaches are read by the same grammar, never by two that could
+    /// drift.
+    pub(crate) fn occurrences(self, body: &str) -> Vec<String> {
+        match self {
+            DirectiveSyntax::AtImport => extract::body_at_imports(body),
+        }
+    }
 }
 
 impl Primitive {
@@ -1178,11 +1193,9 @@ impl Primitive {
             Primitive::Placement => {
                 features.source_dir = extract::source_dir_name(&unit.source_path)
             }
-            Primitive::Directives { syntax } => match syntax {
-                DirectiveSyntax::AtImport => {
-                    features.directives = extract::body_at_imports(&unit.body)
-                }
-            },
+            Primitive::Directives { syntax } => {
+                features.directives = syntax.occurrences(&unit.body)
+            }
             Primitive::Fenced => features.fenced_blocks = extract::body_fenced_blocks(&unit.body),
         }
     }
@@ -1238,6 +1251,28 @@ impl Extraction {
     #[must_use]
     pub fn primitives(&self) -> &[Primitive] {
         &self.primitives
+    }
+
+    /// The [`DirectiveSyntax`] this extractor composes a
+    /// [`Directives`](Primitive::Directives) primitive for, [`None`] where it composes
+    /// none — the **declaring-kind** test the directive traversal seeds at
+    /// ([`crate::graph::classify_directives`]). One narrow predicate rather than a
+    /// second consumer reading [`primitives`](Self::primitives) and re-deciding: the
+    /// traversal asks one question, and the answer *names the syntax* so the seed's own
+    /// grammar is what travels an import, never a hardwired `at-import`.
+    #[must_use]
+    pub fn directive_syntax(&self) -> Option<DirectiveSyntax> {
+        self.primitives
+            .iter()
+            .find_map(|primitive| match primitive {
+                Primitive::Directives { syntax } => Some(*syntax),
+                Primitive::Field { .. }
+                | Primitive::Headings
+                | Primitive::Sections
+                | Primitive::LineCount
+                | Primitive::Placement
+                | Primitive::Fenced => None,
+            })
     }
 
     /// Run the composed extractor over a raw markdown `unit`, folding each

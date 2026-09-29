@@ -390,6 +390,10 @@ pub fn gate(
         findings: unbacked_pointers,
     } = graph::classify_directives(
         &compose::directive_members_from_resolved(
+            // The declaring-kind flag per member: the traversal's seed set is the kinds
+            // that compose the directive primitive, and every other member carries the
+            // occurrences an import into it executes.
+            &builtin_defs,
             &builtin_units_and_features,
             &custom_units_and_features,
         ),

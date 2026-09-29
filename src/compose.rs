@@ -1362,32 +1362,74 @@ fn embedded_member_features(
 /// a second `resolve_kind_units` pass. Called by [`gate`](crate::gate::gate) and [`explain`](crate::read::explain) to avoid
 /// re-reading every member off disk after the units and features have already been
 /// resolved for validation.
+///
+/// Occurrences come off each unit's **body**, not out of `Features::directives`: that
+/// feature is yielded only where the kind composes the directive primitive, while a file
+/// an import reaches carries the directives its format executes whatever kind governs
+/// it — so a rule a `CLAUDE.md` imports must arrive with its own `@import` occurrences in
+/// hand. Whether a member's kind *declares* the primitive is the separate fact
+/// [`graph::classify_directives`] seeds its traversal at, read off `builtin_defs` here. A
+/// body-less kind (`Content::Fields`) extracts nothing.
 pub fn directive_members_from_resolved(
+    builtin_defs: &BTreeMap<String, CustomKind>,
     builtin_units_and_features: &BTreeMap<String, KindUnitsAndFeatures>,
     custom_units_and_features: &[(CustomKind, KindUnitsAndFeatures)],
 ) -> Vec<graph::DirectiveMember> {
+    // Every syntax some kind here declares — the grammars a *seed* executes, and so the
+    // grammars a body a seed's import reaches is read under. Derived rather than fixed at
+    // `at-import`, so a reached body is read by the seed set's own grammar and nothing
+    // wider; a corpus declaring no directive kind yields an empty set, matching the empty
+    // traversal it would seed.
+    let seed_syntaxes: BTreeSet<kind::DirectiveSyntax> = builtin_defs
+        .values()
+        .chain(custom_units_and_features.iter().map(|(kind, _)| kind))
+        .filter_map(|kind| kind.extraction.directive_syntax())
+        .collect();
+
     let mut members = Vec::new();
     for (kind_name, uaf) in builtin_units_and_features {
+        let declared = builtin_defs
+            .get(kind_name)
+            .and_then(|def| def.extraction.directive_syntax());
         for (unit, features) in uaf.units.iter().zip(&uaf.features) {
             members.push(graph::DirectiveMember {
                 kind: kind_name.clone(),
                 id: features.id.clone(),
                 source_path: unit.source_path.clone(),
-                directives: features.directives.clone(),
+                declares_directives: declared.is_some(),
+                directives: body_occurrences(&unit.body, declared, &seed_syntaxes),
             });
         }
     }
     for (custom_kind, uaf) in custom_units_and_features {
+        let declared = custom_kind.extraction.directive_syntax();
         for (unit, features) in uaf.units.iter().zip(&uaf.features) {
             members.push(graph::DirectiveMember {
                 kind: custom_kind.name.clone(),
                 id: features.id.clone(),
                 source_path: unit.source_path.clone(),
-                directives: features.directives.clone(),
+                declares_directives: declared.is_some(),
+                directives: body_occurrences(&unit.body, declared, &seed_syntaxes),
             });
         }
     }
     members
+}
+
+/// One member's directive occurrences: under the kind's own `declared` syntax where it
+/// declares one, else under every syntax a seed could execute into it.
+fn body_occurrences(
+    body: &str,
+    declared: Option<kind::DirectiveSyntax>,
+    seed_syntaxes: &BTreeSet<kind::DirectiveSyntax>,
+) -> Vec<String> {
+    match declared {
+        Some(syntax) => syntax.occurrences(body),
+        None => seed_syntaxes
+            .iter()
+            .flat_map(|syntax| syntax.occurrences(body))
+            .collect(),
+    }
 }
 
 /// Every file on disk under `root` as a raw [`Vec<String>`] of paths, hoisted to at most
