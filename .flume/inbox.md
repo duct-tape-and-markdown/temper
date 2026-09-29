@@ -35,3 +35,15 @@ routing.
   address, no path) stays rejected — it reopens the closed fact set. Test: a
   render reading `targets.<deferred>.path` refuses by name; one that ignores the
   field emits clean. Pin that `format-places-edges` still omits a deferred field.
+- observed at 3b397826 — **The engine stamp has no example exemption.** The
+  LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT capture (3b397826,
+  `.flume/refactor/build-lock-engine-stamp-fence.md`) proposes leaving the
+  shipped example's committed lock naming no engine, to avoid churn on each
+  release. Session stance, 2026-09-29: no. 0069 says the lock names the engine
+  that wrote it; an adopter's lock takes that same diff on every upgrade, and
+  the example is the adopter shape we ship — exempting it is a per-instance
+  branch on shared behavior (`engineering.md`, "The fix lands at the
+  mechanism") and hides exactly the churn adopters will see. The example lock
+  re-emits with its engine line like any other; a release bump regenerates it.
+  The re-scope adds `tests/it/builtin_lock_frozen.rs` (slice the derived side
+  from `[[declaration.kind]]` as the capture says) to the entry's files.
