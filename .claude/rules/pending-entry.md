@@ -36,6 +36,12 @@ rewriting an entry, and any interactive session hand-editing the queue.
   importing that helper, invisibly to a source-only grep. Include those
   fan-out files in `files.edit` up front rather than letting build discover
   them one `cargo test` failure at a time.
+- **A fold entry's census is the whole class, by behavior.** Before filing
+  "X folds into one home", find every copy of the job by what it does — the
+  literal it spells, the shape it builds, the call it makes — not by the
+  helper's name, across `src/` unit tests, `tests/it/**` and `sdk/**`. Name
+  every copy in `files[]`, or split the census into a `blockedBy` chain filed
+  up front; the audit after a fold should find no remaining copy.
 - **An entry is scoped to one comfortable context.** Build should land
   it well inside a single window. The derivation-time proxy is the
   `files[]` blast radius — the lines build must read and touch — counted
