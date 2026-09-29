@@ -227,6 +227,10 @@ fact = "mode"
 value = "warn"
 
 [[declaration.assembly]]
+fact = "contract"
+from = "machine"
+
+[[declaration.assembly]]
 fact = "edge"
 from = "citation"
 field = "source"

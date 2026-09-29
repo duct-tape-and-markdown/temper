@@ -3809,8 +3809,8 @@ pub struct Declarations {
     pub clauses: Vec<ClauseRow>,
     /// The named requirements the assembly declares.
     pub requirements: Vec<RequirementRow>,
-    /// The assembly-scope facts — the root member's declared enforcement `mode`,
-    /// edges.
+    /// The assembly-scope facts — the root member's declared enforcement `mode`, the
+    /// declared-contract markers, edges.
     pub assembly: Vec<AssemblyFactRow>,
     /// The member→requirement fill edges — every imported member's `satisfies` keys,
     /// so the roster/coverage
@@ -4518,19 +4518,21 @@ where
 }
 
 /// One assembly-scope fact — the root member's own declarations plus the
-/// graph edges the harness binds: a `fact` discriminator (`mode`, `edge`)
-/// plus the columns that fact carries. Absent columns are omitted from the
-/// lock, so each row round-trips to exactly what its producer wrote.
+/// graph edges the harness binds: a `fact` discriminator (`mode`, `contract`,
+/// `edge`) plus the columns that fact carries. Absent columns are omitted from
+/// the lock, so each row round-trips to exactly what its producer wrote.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 #[ts(optional_fields)]
 pub struct AssemblyFactRow {
-    /// The fact discriminator: `mode` or `edge`.
+    /// The fact discriminator: `mode`, `contract` or `edge`.
     pub fact: String,
     /// The scalar value a `mode` fact carries (the root member's declared
     /// enforcement mode).
     #[serde(default)]
     pub value: Option<String>,
-    /// An `edge` fact's source kind.
+    /// An `edge` fact's source kind, or the kind a `contract` fact marks a declared
+    /// contract for — absent on a `contract` fact, which makes it the root's, the same
+    /// kind-absent-means-root discriminator a top-level clause row uses.
     #[serde(default)]
     pub from: Option<String>,
     /// An `edge` fact's reference field.

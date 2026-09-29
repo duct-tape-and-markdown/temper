@@ -2,10 +2,13 @@
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
 # the sixteen built-in kinds' facts and their default contract clauses, the **root
 # member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the four
-# clause rows here naming no kind, that absence being what makes them the root's), plus two
-# assembly facts — the unconditional `mode = "warn"` (the root member's own enforcement
-# mode, specs/model/representation.md, "The root member", every harness carries absent an
-# authored mode) and the `installed-plugin` → `known-marketplace` edge, the marketplace
+# clause rows here naming no kind, that absence being what makes them the root's), plus
+# eighteen assembly facts — the unconditional `mode = "warn"` (the root member's own
+# enforcement mode, specs/model/representation.md, "The root member", every harness carries
+# absent an authored mode), one `contract` declaredness marker per `expect`-bound kind
+# (sixteen, each naming its kind in `from`; no marker names no kind, because the program
+# declares no root `contract` of its own and an undeclared contract writes none), and the
+# `installed-plugin` → `known-marketplace` edge, the marketplace
 # half of an enablement's `<plugin>@<marketplace>` key (decision 0039). No requirements,
 # no satisfies, no provenance or emit-fingerprint rows — nothing was emitted, no members.
 #
@@ -1258,6 +1261,70 @@ guidance = "Your committed lock records a different temper version than the one 
 [[declaration.assembly]]
 fact = "mode"
 value = "warn"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "agent"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "command"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "dial"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "hook"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "installed-plugin"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "known-marketplace"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "marketplace"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "mcp"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "mcp-server"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "memory"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "plugin-manifest"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "rule"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "settings"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "settings-local"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "skill"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "supporting-doc"
 
 [[declaration.assembly]]
 fact = "edge"

@@ -1196,6 +1196,95 @@ fn a_bare_harness_lock_still_round_trips() {
     assert!(declarations.mentions.is_empty());
 }
 
+/// A `contract` declaredness marker for `kind`, or for the **root** where `kind` is
+/// `None` — the fact `emit` writes for every `expect` binding and for an authored root
+/// `contract`, riding the family's existing columns rather than a column of its own.
+fn contract_marker(kind: Option<&str>) -> AssemblyFactRow {
+    AssemblyFactRow {
+        fact: "contract".to_string(),
+        value: None,
+        from: kind.map(str::to_string),
+        field: None,
+        to: None,
+    }
+}
+
+/// The `contract` assembly fact survives the writer and the reader, and it is what
+/// `compose::builtin_contract` keys the rows-or-default branch on — so `expect(kind, [])`
+/// composes a contract with no clauses where the same rowless, unmarked kind keeps its
+/// embedded floor (decision 0072).
+#[test]
+fn a_declared_contract_marker_round_trips_and_empties_the_kinds_contract() {
+    // `skill` is marked and carries no clause row: an authored empty clause array, the
+    // shape no row count can distinguish from silence. `rule` is neither marked nor
+    // rowed — silence itself, which still gets the embedded floor.
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
+        assembly: vec![contract_marker(Some("skill"))],
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("declared-contract", &payload);
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    assert_eq!(
+        declarations
+            .assembly
+            .iter()
+            .filter(|row| row.fact == "contract")
+            .map(|row| row.from.as_deref())
+            .collect::<Vec<_>>(),
+        vec![Some("skill")],
+        "the marker round-trips through the lock writer and reader, kind and all"
+    );
+
+    let empty = compose::builtin_contract(
+        &declarations.clauses,
+        &declarations.kinds,
+        &declarations.assembly,
+        "skill",
+    )
+    .unwrap();
+    assert_eq!(empty.name, "skill");
+    assert!(
+        empty.clauses.is_empty(),
+        "a marked kind with no clause row composes a contract with no clauses, got {:#?}",
+        empty.clauses
+    );
+
+    // The unmarked, rowless kind beside it falls to its embedded floor — the branch the
+    // marker must not widen, since that is the whole of an older lock's upgrade path.
+    let floor = compose::builtin_contract(
+        &declarations.clauses,
+        &declarations.kinds,
+        &declarations.assembly,
+        "rule",
+    )
+    .unwrap();
+    assert_eq!(
+        floor,
+        {
+            let mut embedded = temper::builtin::contract("rule").unwrap();
+            embedded.guidance = declarations
+                .kinds
+                .iter()
+                .find(|row| row.name == "rule")
+                .and_then(|row| row.guidance.clone());
+            embedded
+        },
+        "an unmarked rowless kind keeps the contract temper embeds for it"
+    );
+    assert!(
+        !floor.clauses.is_empty(),
+        "and that floor is non-empty, so the case above is a real contrast"
+    );
+}
+
 /// A host kind's declared nesting templates — the embedded child kind it folds, and the
 /// file child's kind plus the path pattern its units sit at — round-trip through the lock's `kind`
 /// row unchanged, and a template-less kind (`rule`, `skill` here) still round-trips

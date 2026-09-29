@@ -2407,7 +2407,12 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     for kind in builtin_defs.values() {
         contracts.insert(
             kind.name.clone(),
-            compose::builtin_contract(&declarations.clauses, &declarations.kinds, &kind.name)?,
+            compose::builtin_contract(
+                &declarations.clauses,
+                &declarations.kinds,
+                &declarations.assembly,
+                &kind.name,
+            )?,
         );
     }
 

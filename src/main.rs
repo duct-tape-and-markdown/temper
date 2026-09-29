@@ -616,7 +616,12 @@ fn kind_contract(
     name: &str,
 ) -> miette::Result<temper::contract::Contract> {
     if builtin_defs.contains_key(name) {
-        compose::builtin_contract(&declarations.clauses, &declarations.kinds, name)
+        compose::builtin_contract(
+            &declarations.clauses,
+            &declarations.kinds,
+            &declarations.assembly,
+            name,
+        )
     } else {
         Ok(compose::default_contract_from_rows(
             &declarations.clauses,
@@ -664,8 +669,12 @@ fn guarded_manifests(
         else {
             continue;
         };
-        let contract =
-            compose::builtin_contract(&declarations.clauses, &declarations.kinds, &kind.name)?;
+        let contract = compose::builtin_contract(
+            &declarations.clauses,
+            &declarations.kinds,
+            &declarations.assembly,
+            &kind.name,
+        )?;
         let expected_keys = extract_expected_keys(declarations, &kind.name, &address);
         manifests.push(install::GuardedManifest {
             container: containers.get(&path).cloned(),
@@ -772,7 +781,7 @@ fn container_kinds(
 /// and the [`compose::ClauseRowError`] a clause row outside the closed vocabulary raises
 /// — a corrupt lock, refused loud here as everywhere.
 fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<install::GuardedLocus>> {
-    let root = compose::root_contract(&declarations.clauses)?;
+    let root = compose::root_contract(&declarations.clauses, &declarations.assembly)?;
     if !root
         .clauses
         .iter()

@@ -606,7 +606,17 @@ function verifierRow(verifier: Verifier | undefined): VerifierRow | undefined {
 
 /**
  * The assembly-scope facts, in a stable order: the root member's declared `mode`, then
- * one edge row per kind edge field.
+ * one `contract` declaredness marker per `expect`-bound kind (kind-sorted, as `expect`'s
+ * own clause rows are) plus the root's where the author declared one, then one edge row
+ * per kind edge field.
+ *
+ * The `contract` marker is what makes an authored empty clause array a declared contract:
+ * a clause row count cannot tell `expect(kind, [])` from a kind the program never bound,
+ * nor a root `contract: []` from silence, so declaredness rides its own fact and
+ * `compose`'s two rows-or-default branches read it (decision 0072). It names its kind in
+ * the row's `from` column — the same column an `edge` fact names its source kind in — and
+ * omits `from` entirely for the root, the kind-absent-means-root discriminator a root
+ * clause row already uses.
  *
  * `kinds` is every kind in play at *any* locus, not just the unit-owning ones that take
  * a kind-fact row: an edge is a declared relationship at any grain, so an embedded
@@ -615,6 +625,10 @@ function verifierRow(verifier: Verifier | undefined): VerifierRow | undefined {
  */
 function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): AssemblyFactRow[] {
   const facts: AssemblyFactRow[] = [{ fact: "mode", value: harness.mode }];
+  for (const binding of [...harness.expect].sort((a, b) => compareStrings(a.kind.key, b.kind.key))) {
+    facts.push({ fact: "contract", from: binding.kind.key });
+ }
+  if (harness.contractDeclared) facts.push({ fact: "contract" });
   for (const kind of kinds) {
     for (const edge of kind.edgeFields ?? []) {
       facts.push({ fact: "edge", from: kind.name, field: edge.field, to: [...edge.to] });

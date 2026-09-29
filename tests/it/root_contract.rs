@@ -18,7 +18,7 @@ use std::path::Path;
 
 use temper::compose;
 use temper::contract::{Predicate, Severity};
-use temper::drift::{ClauseRow, CountBoundRow, Declarations};
+use temper::drift::{AssemblyFactRow, ClauseRow, CountBoundRow, Declarations};
 
 use crate::common;
 
@@ -271,7 +271,8 @@ fn a_root_reachable_finding_teaches_through_the_guidance_its_clause_declared() {
 #[test]
 fn a_lock_naming_no_root_row_falls_back_to_the_embedded_locks_root_rows() {
     // Rows-or-default, over the root member: a lock whose every clause row names a kind
-    // declares no root contract of its own, so the embedded lock's root rows answer.
+    // and whose assembly marks no root contract declares none of its own, so the embedded
+    // lock's root rows answer.
     let kind_named = vec![stamped(
         "skill.required.description",
         ClauseRow {
@@ -281,16 +282,71 @@ fn a_lock_naming_no_root_row_falls_back_to_the_embedded_locks_root_rows() {
         },
     )];
     assert_eq!(
-        compose::root_contract(&kind_named).unwrap(),
+        compose::root_contract(&kind_named, &[]).unwrap(),
         temper::builtin::root_contract(),
-        "a rowless root falls back to the embedded default, never to silence"
+        "a rowless, unmarked root falls back to the embedded default, never to silence"
     );
 
-    // And a root row displaces that default entirely, the same way a kind's rows do.
+    // And a root row displaces that default entirely, the same way a kind's rows do —
+    // with no marker, because a lock compiled before the marker existed carries none and
+    // its rows alone still have to keep its contract.
     let with_root = vec![stamped("root.reachable", root_reachable("advisory"))];
     assert_eq!(
-        compose::root_contract(&with_root).unwrap(),
+        compose::root_contract(&with_root, &[]).unwrap(),
         compose::root_contract_from_rows(&with_root).unwrap()
+    );
+}
+
+/// The declared-contract marker for the root — `from` absent, that absence being what
+/// makes the fact the root's, the same discriminator a top-level clause row uses.
+fn root_contract_marker() -> AssemblyFactRow {
+    AssemblyFactRow {
+        fact: "contract".to_string(),
+        value: None,
+        from: None,
+        field: None,
+        to: None,
+    }
+}
+
+#[test]
+fn an_authored_empty_root_contract_composes_no_clauses_where_silence_composes_the_default() {
+    // The whole of decision 0072 at the root: `contract: []` and an absent `contract`
+    // both write zero kind-less clause rows, so rows alone cannot tell them apart. The
+    // marker is what does — and it has to, or the one array surgery an author is
+    // likeliest to try reads as the silence it is the opposite of.
+    let declared = compose::root_contract(&[], &[root_contract_marker()]).unwrap();
+    assert!(
+        declared.clauses.is_empty(),
+        "an authored empty root contract composes no clauses, got {:#?}",
+        declared.clauses
+    );
+
+    // The same rowless lock without the marker is silence, and silence still gets the
+    // shipped floor — 0024's read-time normalization, which is what makes the upgrade
+    // lossless for a lock compiled before the marker shipped.
+    let shipped = temper::builtin::root_contract();
+    assert!(
+        !shipped.clauses.is_empty(),
+        "the shipped root default is the non-empty floor this case is contrasted against"
+    );
+    assert_eq!(
+        compose::root_contract(&[], &[]).unwrap(),
+        shipped,
+        "a lock carrying neither the marker nor a root row composes the shipped default"
+    );
+
+    // And a marker for some *kind*'s contract is not the root's: the two live in one
+    // family, discriminated by `from` alone, so a kind's marker must not tip the root off
+    // its default.
+    let kind_marker = AssemblyFactRow {
+        from: Some("skill".to_string()),
+        ..root_contract_marker()
+    };
+    assert_eq!(
+        compose::root_contract(&[], &[kind_marker]).unwrap(),
+        shipped,
+        "a kind's declared-contract marker leaves the root's own default standing"
     );
 }
 

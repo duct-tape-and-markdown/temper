@@ -243,7 +243,12 @@ pub fn gate(
         // a layer's row is not this harness declaring one, so it must never be what tips a
         // built-in off its embedded default and onto a contract of the layer's alone.
         let contract = compose::with_joined_clauses(
-            compose::builtin_contract(&declarations.clauses, &declarations.kinds, kind_name)?,
+            compose::builtin_contract(
+                &declarations.clauses,
+                &declarations.kinds,
+                &declarations.assembly,
+                kind_name,
+            )?,
             &joined_clauses,
             kind_name,
         )?;
@@ -516,7 +521,7 @@ pub fn gate(
     // The root member's selection ranges over every discovered member of every kind —
     // the whole governed forest. Composed here rather than at its consumer so the dial
     // loop below reaches a root clause by label with no second dial site.
-    let root_contract = compose::root_contract(&declarations.clauses)?;
+    let root_contract = compose::root_contract(&declarations.clauses, &declarations.assembly)?;
     // The root contract earns trust the way a kind's does, by passing admissibility
     // before it is used to check anything — the `two_greens_dispatch` half a root
     // selection has no kind dispatcher to reach. `Locus::Root` is what it is judged at:
@@ -728,13 +733,13 @@ pub fn gate(
         },
     };
 
-    // The wedge's advisory coverage note: state which kinds checked how many members,
-    // and name the known Claude Code surfaces present on disk that no kind — built-in
-    // or locked custom — governs, so the gate's silence about an unmodeled surface never
-    // reads as "checked". Warn-only — it leaves the run's exit code and the session-start
-    // verdict unchanged. Threads the already-parsed `committed.kinds` to avoid a redundant
-    // lock re-parse (COVERAGE-NOTE-LOCK-PARSE-HOIST), and the undeclared counts so the
-    // one line that says what was checked cannot silently absorb an undeclared member.
+    // The wedge's coverage note: `coverage.checked` discloses which kinds checked how
+    // many members, so the gate's silence never reads as "checked", and
+    // `coverage.unclaimed-entry` advises on a `.claude/` entry no in-scope kind governs.
+    // Neither moves the run's exit code or the session-start verdict. Threads the
+    // already-parsed `committed.kinds` to avoid a redundant lock re-parse
+    // (COVERAGE-NOTE-LOCK-PARSE-HOIST), and the undeclared counts so the one line that
+    // says what was checked cannot silently absorb an undeclared member.
     let mut nested_member_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in &committed.nested_members {
         *nested_member_counts.entry(row.kind.clone()).or_default() += 1;

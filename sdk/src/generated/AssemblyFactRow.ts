@@ -2,13 +2,13 @@
 
 /**
  * One assembly-scope fact — the root member's own declarations plus the
- * graph edges the harness binds: a `fact` discriminator (`mode`, `edge`)
- * plus the columns that fact carries. Absent columns are omitted from the
- * lock, so each row round-trips to exactly what its producer wrote.
+ * graph edges the harness binds: a `fact` discriminator (`mode`, `contract`,
+ * `edge`) plus the columns that fact carries. Absent columns are omitted from
+ * the lock, so each row round-trips to exactly what its producer wrote.
  */
 export type AssemblyFactRow = { 
 /**
- * The fact discriminator: `mode` or `edge`.
+ * The fact discriminator: `mode`, `contract` or `edge`.
  */
 fact: string, 
 /**
@@ -17,7 +17,9 @@ fact: string,
  */
 value?: string, 
 /**
- * An `edge` fact's source kind.
+ * An `edge` fact's source kind, or the kind a `contract` fact marks a declared
+ * contract for — absent on a `contract` fact, which makes it the root's, the same
+ * kind-absent-means-root discriminator a top-level clause row uses.
  */
 from?: string, 
 /**

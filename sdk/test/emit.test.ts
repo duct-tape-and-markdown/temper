@@ -276,7 +276,12 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       prose: "the harness maintains development standards",
  },
   ]);
-  assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "warn" }]);
+  // The `rule` marker is the harness's one `expect` binding declaring a contract; the
+  // root takes none, because `fullHarness()` declares no `contract` of its own.
+  assert.deepEqual(declarations.assembly, [
+ { fact: "mode", value: "warn" },
+ { fact: "contract", from: "rule" },
+  ]);
   assert.deepEqual(declarations.satisfies, [{ member: "rule:rust", requirement: "dev-standards" }]);
   assert.deepEqual(declarations.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
   // No member declares a composed-prose include in this harness.
@@ -304,6 +309,61 @@ test("compileDeclarations emits no uncoined `authority` fact, and the root membe
     compileDeclarations(blocked).assembly.find((fact) => fact.fact === "mode"),
     { fact: "mode", value: "block" },
   );
+});
+
+test("the declared-contract marker rides every `expect` binding and an authored root contract, and omits itself where the author declared none", () => {
+  // Decision 0072's whole mechanism at the writer. An authored empty clause array writes
+  // no clause row — identical to a kind the program never bound — so declaredness needs a
+  // fact of its own, and this is where it is written.
+  const empties = harness({
+ members: [],
+    expect: [
+      { kind: skill, clauses: [] },
+      { kind: rule, clauses: [] },
+ ],
+    contract: [],
+ });
+  const marked = compileDeclarations(empties);
+  assert.deepEqual(
+    marked.clauses,
+ [],
+    "an authored empty contract writes no clause row, per kind or at the root",
+ );
+  // Kind-sorted like `expect`'s own clause rows, then the root's — `from` absent, that
+  // absence being what makes the marker the root's.
+  assert.deepEqual(marked.assembly, [
+ { fact: "mode", value: "warn" },
+ { fact: "contract", from: "rule" },
+ { fact: "contract", from: "skill" },
+ { fact: "contract" },
+  ]);
+
+  // A non-empty authored contract is marked too: the marker states declaredness, never
+  // emptiness, so the read side never has to join it against a row count.
+  const populated = harness({
+ members: [],
+    expect: [{ kind: rule, clauses: [clause(required("paths"), { severity: "required" })] }],
+    contract: [clause(reachable(), { severity: "advisory" })],
+ });
+  assert.deepEqual(compileDeclarations(populated).assembly, [
+ { fact: "mode", value: "warn" },
+ { fact: "contract", from: "rule" },
+ { fact: "contract" },
+  ]);
+
+  // And the undeclared root omits the marker, which is what leaves `rootDefaultContract`
+  // — composed into `harness()`'s own `contract` field — reading as the default it is
+  // rather than as an authored copy of it.
+  const undeclaredRoot = compileDeclarations(harness({ members: [], expect: [] }));
+  assert.deepEqual(undeclaredRoot.assembly, [{ fact: "mode", value: "warn" }]);
+  assert.ok(
+    undeclaredRoot.clauses.length > 0,
+    "the shipped root default's clause rows still land — only the marker is withheld",
+ );
+  assert.ok(
+    undeclaredRoot.clauses.every((row) => row.kind === undefined),
+    "and every one of them is the root's",
+ );
 });
 
 test("clauseRow serializes a node-scope predicate's own argument onto the row", () => {

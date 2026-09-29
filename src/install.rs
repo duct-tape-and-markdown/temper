@@ -1146,7 +1146,7 @@ pub fn shell_edge_findings(
     declarations: &drift::Declarations,
     loci: &[GuardedLocus],
 ) -> miette::Result<Option<String>> {
-    let root = crate::compose::root_contract(&declarations.clauses)?;
+    let root = crate::compose::root_contract(&declarations.clauses, &declarations.assembly)?;
     let clause = |predicate| root.clauses.iter().find(|c| c.predicate == predicate);
     let fresh = clause(crate::contract::Predicate::Fresh);
     let locus_declared = clause(crate::contract::Predicate::LocusDeclared);

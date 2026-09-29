@@ -24,7 +24,7 @@ use crate::builtin_kind;
 use crate::contract::{self, Contract};
 use crate::dial;
 use crate::document;
-use crate::drift::{self, ClauseRow, KindFactRow};
+use crate::drift::{self, AssemblyFactRow, ClauseRow, KindFactRow};
 use crate::extract;
 use crate::frontmatter;
 use crate::graph;
@@ -244,19 +244,43 @@ pub fn root_contract_from_rows(clauses: &[ClauseRow]) -> Result<Contract, Clause
     })
 }
 
+/// Whether the lock declares a contract for this owner — a kind by name, or the root
+/// member as `None`. Two sources answer yes, and their disjunction is what makes the
+/// upgrade lossless: the `contract` assembly marker every emit now writes, or any clause
+/// row of the owner's. An authored empty clause array writes the marker and no row, so
+/// the marker alone distinguishes it from silence; a lock compiled before the marker
+/// existed carries rows without one, so its rows alone keep its contract. A lock with
+/// neither declares nothing, and the embedded default applies.
+fn contract_declared(
+    assembly: &[AssemblyFactRow],
+    clauses: &[ClauseRow],
+    kind: Option<&str>,
+) -> bool {
+    assembly
+        .iter()
+        .any(|fact| fact.fact == "contract" && fact.from.as_deref() == kind)
+        || clauses.iter().any(|row| row.kind.as_deref() == kind)
+}
+
 /// The root member's effective [`Contract`]: the committed lock's own kind-less
-/// top-level rows when it declares any, else the embedded default
+/// top-level rows when it declares a root contract, else the embedded default
 /// ([`crate::builtin::root_contract`]). The rows-or-default rule
 /// [`builtin_contract`] states per kind, over the one member that is the whole forest —
 /// so a lock committed before the root contract shipped still gets the shipped default
 /// rather than silence.
 ///
+/// Declaredness is [`contract_declared`]'s call, not a row count's: an authored
+/// `contract: []` is a declared contract with no clauses, and no row can carry that.
+///
 /// # Errors
 ///
 /// Propagates the [`ClauseRowError`] the row lift raises for a row the closed vocabulary
 /// cannot admit.
-pub fn root_contract(clauses: &[ClauseRow]) -> Result<Contract, ClauseRowError> {
-    if clauses.iter().any(|row| row.kind.is_none()) {
+pub fn root_contract(
+    clauses: &[ClauseRow],
+    assembly: &[AssemblyFactRow],
+) -> Result<Contract, ClauseRowError> {
+    if contract_declared(assembly, clauses, None) {
         root_contract_from_rows(clauses)
     } else {
         Ok(crate::builtin::root_contract())
@@ -1551,24 +1575,29 @@ pub fn build_manifest_cache(
 }
 
 /// A built-in `kind`'s effective [`Contract`]: its lock-declared clause rows are its
-/// whole contract when the lock names any, lifted through the same reject-loud path a
-/// custom kind's rows take ([`default_contract_from_rows`]); with no rows the
-/// kind falls back to the embedded default (from [`crate::builtin::contract`]).
+/// whole contract when the lock declares one for the kind, lifted through the same
+/// reject-loud path a custom kind's rows take ([`default_contract_from_rows`]); where the
+/// lock declares none the kind falls back to the embedded default (from
+/// [`crate::builtin::contract`]).
 /// Rows-or-default — never a severity-flip layer over the embedded default: a spread's
 /// appended clause gates, an array-surgery removal holds, and an out-of-vocabulary row
 /// rejects loud rather than sitting inert.
 ///
+/// Declaredness is [`contract_declared`]'s call, not a row count's: `expect(kind, [])` is
+/// a declared contract with no clauses, and no row can carry that.
+///
 /// # Errors
 ///
 /// Propagates the [`ClauseRowError`] the row lift raises for a row the closed
-/// vocabulary cannot admit, or the missing-embedded-contract error if a rowless kind
-/// ships none.
+/// vocabulary cannot admit, or the missing-embedded-contract error if a kind the lock
+/// declares nothing for ships none.
 pub fn builtin_contract(
     clauses: &[ClauseRow],
     kinds: &[KindFactRow],
+    assembly: &[AssemblyFactRow],
     kind: &str,
 ) -> miette::Result<Contract> {
-    if clauses.iter().any(|row| row.kind.as_deref() == Some(kind)) {
+    if contract_declared(assembly, clauses, Some(kind)) {
         Ok(default_contract_from_rows(clauses, kinds, kind)?)
     } else {
         let mut contract = crate::builtin::contract(kind).ok_or_else(|| {

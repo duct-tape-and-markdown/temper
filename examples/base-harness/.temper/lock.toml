@@ -395,6 +395,38 @@ fact = "mode"
 value = "warn"
 
 [[declaration.assembly]]
+fact = "contract"
+from = "alternative"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "decision"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "flow"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "invariant"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "skill"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "source"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "step"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "system"
+
+[[declaration.assembly]]
 fact = "edge"
 from = "superseded-decision"
 field = "superseded-by"

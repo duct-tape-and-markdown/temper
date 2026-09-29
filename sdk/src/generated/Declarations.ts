@@ -45,8 +45,8 @@ clauses: Array<ClauseRow>,
  */
 requirements: Array<RequirementRow>, 
 /**
- * The assembly-scope facts — the root member's declared enforcement `mode`,
- * edges.
+ * The assembly-scope facts — the root member's declared enforcement `mode`, the
+ * declared-contract markers, edges.
  */
 assembly: Array<AssemblyFactRow>, 
 /**

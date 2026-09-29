@@ -71,6 +71,19 @@ export interface Harness {
    * {@link harness}.
    */
   readonly contract: readonly Clause[];
+  /**
+   * Whether the author declared {@link contract} at all — `true` even for an authored
+   * empty array, `false` only where the field was absent and {@link rootDefaultContract}
+   * filled it.
+   *
+   * The distinction {@link contract} itself cannot hold: an empty array is a declared
+   * contract with no clauses, and the default applies only where nothing is declared
+   * (decision 0072, `specs/builtins.md`, "Default contracts"). Row presence alone cannot
+   * say it — an authored `[]` writes no clause row, exactly like silence — so
+   * `assemblyFactRows` lowers this flag to a kind-less `contract` assembly fact and
+   * `compose::root_contract` reads it instead of guessing from the rows.
+   */
+  readonly contractDeclared: boolean;
  /**
    * The root member's declared enforcement mode — harness-wide, overridable
  * per member. Defaults to `warn`: temper fabricates no enforcement the
@@ -106,6 +119,10 @@ export function harness(init: {
     // `contract` replaces the default wholesale, never merges with it — the same
     // rows-or-default rule a kind's `expect` binding takes over its floor.
     contract: init.contract ?? rootDefaultContract,
+    // …and the last place the distinction the line above erases is still visible: an
+    // authored `[]` is a declared contract with no clauses, so declaredness is recorded
+    // rather than re-derived from a row count downstream (decision 0072).
+    contractDeclared: init.contract !== undefined,
   };
 }
 
