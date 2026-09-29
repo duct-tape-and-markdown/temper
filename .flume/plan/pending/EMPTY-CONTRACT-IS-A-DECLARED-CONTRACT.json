@@ -3,7 +3,6 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT",
       "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK"
     ]
   },

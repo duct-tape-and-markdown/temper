@@ -4,11 +4,13 @@
     "kind": "blockedBy",
     "tags": [
       "MCP-KIND-SHIPS-IN-THE-SDK",
-      "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE",
-      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT"
+      "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE"
     ]
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/builtin_kind.rs",
@@ -54,7 +56,8 @@
         "path": "tests/it/snapshots/it__builtin_contract_matrix__builtin_contract_matrix.snap",
         "description": "The matrix derives its rows from the embedded lock's kinds, so `mcp` joins as a row with no cell filled — the same shape `installed-plugin` and `known-marketplace` hold."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "The engine embeds the `mcp` kind: a bare harness gets `.mcp.json` governed whole, so its residue reaches a row and a hand edit to any part of it is drift.",
   "per": {

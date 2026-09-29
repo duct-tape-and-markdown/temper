@@ -1,10 +1,7 @@
 {
   "tag": "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,

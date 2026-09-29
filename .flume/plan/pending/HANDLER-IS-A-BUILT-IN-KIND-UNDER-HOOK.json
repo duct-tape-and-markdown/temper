@@ -4,11 +4,13 @@
     "kind": "blockedBy",
     "tags": [
       "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK",
-      "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE",
-      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT"
+      "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE"
     ]
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "sdk/src/builtins.ts",
@@ -54,10 +56,14 @@
         "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
         "description": "Declared for the fence: the corpus's emitted lock renders here and its `hook` kind row gains the templates column. Re-baseline if the run moves a byte."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`handler` ships as a built-in embedded kind that `hook` templates, and the six handler-level clauses get it as their home.",
-  "per": { "path": "specs/builtins.md", "section": "The shipped kinds" },
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
   "tests": [
     {
       "path": "sdk/test/builtins.test.ts",
