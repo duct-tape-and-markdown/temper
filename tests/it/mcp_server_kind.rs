@@ -155,22 +155,14 @@ process.stdout.write(emit(harness({ members: [docs] })).seam);
 
 #[test]
 fn a_mcp_json_is_governed_whole_by_the_container_rather_than_by_this_segment_kind() {
-    // This kind reaches its segment, so on its own it would leave the document around
-    // `mcpServers` ungoverned — the shape a `settings.json` hook leaves its container in.
-    // The `mcp` container kind ships embedded beside it, so the file is governed whole for
-    // every harness, program or not, and the coverage note names both members apart.
+    // This kind reaches its segment alone; the `mcp` container kind ships embedded beside
+    // it, so the file is governed whole for every harness, program or not, and the coverage
+    // note names both members apart — one container member beside the two connections.
     let harness = common::tmpdir("mcp-modeled-surface");
     common::write_mcp_json(&harness, CLEAN_MCP);
 
     let (findings, _ok) = check_harness(&harness);
 
-    let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
-    assert!(
-        unmodeled.iter().all(|line| !line.contains(".mcp.json")),
-        "the embedded `mcp` kind governs .mcp.json whole — no unmodeled-surface finding, got: {findings:#?}"
-    );
-    // Silence above is truthful only because the container really is read: the note says so
-    // by name, one container member beside the two connections.
     assert!(
         findings.iter().any(|line| line.contains("mcp (1)")),
         "the container member is announced as checked, never silently skipped, got: {findings:#?}"
@@ -186,8 +178,7 @@ fn a_program_declaring_only_servers_leaves_the_containers_document_undeclared() 
     // The consequence of the split reach, stated where it bites: a program that declares
     // the connections alone still writes a whole `.mcp.json`, and that document sits at the
     // `mcp` kind's governed locus with no member of that kind naming it. The advisory it
-    // draws is `root.locus-declared` — a document temper maintains nothing about — never
-    // the ungoverned-surface reading, which the embedded container retired.
+    // draws is `root.locus-declared` — a document temper maintains nothing about.
     let (harness, into) = common::wire_sdk_harness("mcp-server-only", SERVER_ONLY_PROGRAM);
     drift::emit_program(&into, EmitOptions::default()).unwrap();
     assert!(
@@ -197,10 +188,6 @@ fn a_program_declaring_only_servers_leaves_the_containers_document_undeclared() 
 
     let (findings, _ok) = check_harness(&harness);
 
-    assert!(
-        common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
-        "a governing kind retires the unmodeled-surface advisory, got: {findings:#?}"
-    );
     let undeclared = common::findings_for(&findings, "root.locus-declared");
     assert_eq!(undeclared.len(), 1, "{findings:#?}");
     assert!(

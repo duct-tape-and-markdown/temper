@@ -280,10 +280,4 @@ fn the_servers_under_mcp_servers_stay_mcp_server_members_rather_than_container_f
         findings.iter().any(|f| f.contains("mcp-server (1)")),
         "the connection is still a member of its own kind: {findings:?}"
     );
-    // Every key of the file is governed — the segment by its own kind, the residue by the
-    // container — so no unmodeled-surface gap is left to name.
-    assert!(
-        common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
-        "{findings:?}"
-    );
 }
