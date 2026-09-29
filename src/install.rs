@@ -2572,10 +2572,9 @@ mod tests {
         let tools = GUARD_MATCHER.replace('|', "/");
         assert!(!tools.is_empty(), "the guard's PreToolUse row binds tools");
         let tail = binding_limit();
-        assert!(
-            tail.contains(&format!("({tools})")),
-            "the limit names the matcher's tools, got: {tail}"
-        );
+        let (head, _) = tail
+            .split_once(&format!("({tools})"))
+            .unwrap_or_else(|| panic!("the limit names the matcher's tools, got: {tail}"));
 
         let undeclared = undeclared_locus_message("skill");
         let messages: [&str; 5] = [
@@ -2596,7 +2595,7 @@ mod tests {
                 "a pending-write guard message must close on the one limit, got: {message}"
             );
             assert_eq!(
-                message.matches("This guard binds only").count(),
+                message.matches(head).count(),
                 1,
                 "the limit is spoken once, not re-spelled, in: {message}"
             );
