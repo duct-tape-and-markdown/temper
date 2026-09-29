@@ -108,12 +108,12 @@ fn is_placement_comment(line: &str) -> bool {
 mod tests {
     use super::*;
 
-    const NOTE_BANNER: &str = "<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->";
-
     #[test]
     fn placement_lines_round_trips_the_body_banner_of_a_frontmatterless_source() {
-        let source = format!("{NOTE_BANNER}\n\n# Project\n\nMemory body.\n");
-        assert_eq!(placement_lines(&source), vec![NOTE_BANNER.to_string()]);
+        let source = format!("{BANNER}\n\n# Project\n\nMemory body.\n");
+        assert_eq!(placement_lines(&source), vec![BANNER.to_string()]);
+        // The banner's own bytes carry the marker, so a placed banner is re-found.
+        assert!(BANNER.starts_with(BANNER_MARKER));
         // A bare frontmatterless body carries no placement.
         assert!(placement_lines("# Project\n\nMemory body.\n").is_empty());
     }
