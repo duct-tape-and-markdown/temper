@@ -1,0 +1,76 @@
+{
+  "tag": "EMPTY-CONTRACT-IS-A-DECLARED-CONTRACT",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "DIRECTIVE-BACKING-RESOLVES-BY-STAT",
+      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT",
+      "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/assembly.ts",
+        "description": "`harness()` is the last place that can still see whether the author passed a `contract` at all — `init.contract ?? rootDefaultContract` erases the distinction the moment it composes. Record that declaredness on the composed harness so the row writer can read it; the defaulting itself is unchanged."
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "`assemblyFactRows` writes the marker: one `contract` fact per `expect`-bound kind, naming the kind in the row's `from` column beside the `edge` facts' own use of it, and one `contract` fact carrying no kind for an authored root contract — the same kind-absent-means-root discriminator `compileDeclarations` already writes for a root clause row."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "`AssemblyFactRow`'s fact discriminator widens from `mode | edge` to include `contract` (the doc comment on `fact` states the set). The marker rides the row's existing columns, so no `sdk/src/generated/` binding regenerates and `tests/it/seam_bindings_current.rs` stays green untouched."
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "Both rows-or-default branches read the marker: `builtin_contract` (src/compose.rs:1461, per kind) and `root_contract` (src/compose.rs:258, the root). Declared = the marker OR any row of that owner's, so an older lock carrying rows keeps its contract and one carrying neither still falls to the embedded default — decision 0024's read-time normalization, which is what makes the upgrade lossless."
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "Regenerate: the memberless built-in program binds every kind through `expect`, so the embedded lock gains one `contract` fact per built-in kind. Its root contract is undeclared (the program names none) and gains no fact. Regeneration is a re-run of `@dtmd/temper/claude-code`'s own emit re-embedded verbatim per the file's header, never a hand-added row."
+      },
+      {
+        "path": "tests/it/builtin_lock_frozen.rs",
+        "description": "The byte-compare that forces the regeneration above. Expected to need no edit — listed so a shift in the assembly family's row order can be re-pinned here rather than outside the entry's fence."
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "The `contract` fact round-trips through the lock reader and writer; `expect(kind, [])` composes an empty contract for that kind, while a kind the lock marks nothing for keeps its embedded floor."
+      },
+      {
+        "path": "tests/it/root_contract.rs",
+        "description": "A root `contract: []` composes a root contract with no clauses, where today it composes the shipped three; a lock with neither marker nor root rows still composes `rootDefaultContract`."
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "The emitted declaration rows carry the marker for an authored contract — empty or not, per kind and at the root — and omit it where the author declared none."
+      }
+    ]
+  },
+  "summary": "An authored empty clause array is a declared contract: the lock marks declaredness per kind and at the root, and a default applies only where nothing is declared.",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Default contracts"
+  },
+  "tests": [
+    {
+      "path": "tests/it/root_contract.rs",
+      "asserts": "an authored empty root contract composes no root clauses, and a lock carrying neither the marker nor a root row still composes the shipped root default"
+    },
+    {
+      "path": "tests/it/lock_declaration_rows.rs",
+      "asserts": "the `contract` assembly fact round-trips, `expect(kind, [])` composes an empty contract for that kind, and an unmarked rowless kind keeps its embedded floor"
+    },
+    {
+      "path": "sdk/test/emit.test.ts",
+      "asserts": "emit writes the declared-contract marker per `expect`-bound kind and for an authored root contract, and omits it for an undeclared root"
+    },
+    {
+      "path": "tests/it/builtin_lock_frozen.rs",
+      "asserts": "the embedded lock still byte-equals @dtmd/temper/claude-code's memberless emit after the regeneration"
+    }
+  ],
+  "acceptance": "`cargo test` and `pnpm --dir sdk test` green: `expect(kind, [])` and a root `contract: []` each compose a contract with no clauses, a lock carrying neither marker nor rows still composes the embedded default, and src/builtin_lock.toml byte-equals the regenerated memberless emit.",
+  "notes": "0072 rules the collision between builtins.md's \"never a privileged form\" and the code: both branches key on row presence today, so an authored `[]` reads as silence. The marker rides `AssemblyFactRow`'s existing columns rather than a new `KindFactRow` column on purpose — a new column is a required field at 133 literal construction sites across src/ and tests/it/, and regenerates the seam bindings. scoped at 7beb01ba"
+}
