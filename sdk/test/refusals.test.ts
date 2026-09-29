@@ -16,6 +16,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { blocks, embeddedMemberValue, emit, file, harness, kind, text } from "../src/index.js";
 import { hook, memory, rule, skill } from "../src/claude-code.js";
 
@@ -266,15 +267,18 @@ test("blocks() admits a bare prose span", () => {
 //     an address naming no declared kind refuses before a byte is written.
 // ---------------------------------------------------------------------------
 
-/** An embedded kind whose `source` field is a declared edge to a `rule`. */
-function citationKind() {
-  return kind<object>({
-    name: "citation",
-    locus: { kind: "embedded" },
-    unitShape: "file",
-    registration: [],
-    edgeFields: [{ field: "source", to: ["rule"] }],
-  });
+/** An embedded kind whose `source` field is a declared edge to a `rule`, optionally rendered. */
+function citationKind(render?: (value: ResolvedEmbeddedMemberValue) => string) {
+  return kind<object>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: ["rule"] }],
+    },
+    render === undefined ? {} : { render },
+  );
 }
 
 /** A `memory` host carrying one `citation` value whose `source` leaf reads `address`. */
@@ -290,29 +294,69 @@ function citingHarness(citation: ReturnType<typeof citationKind>, address: strin
   });
 }
 
-test("emit defers an edge field naming a declared at-locus kind's uncomposed member", () => {
-  // The program declares `rule` (it composes `rust`) but not `ghost`, which a consumer's
-  // own tree may still carry: the address is inside the kind's universe and outside the
-  // program's, so emit derives no facts and `check` owns the route verdict — the same
-  // deferral a *mention* of `rule:ghost` takes. The case is true absence of the member:
-  // an embedded target the program *did* compose resolves off the member table's nested
-  // spellings (emit.test.ts, "either spelling"), never here.
-  const citation = citationKind();
-  const h = harness({
+/**
+ * A program that declares `rule` (it composes `rust`) but not `ghost`, cited by a
+ * `citation` whose `source` edge names that uncomposed member — the deferring case.
+ */
+function ghostCitingHarness(citation: ReturnType<typeof citationKind>) {
+  return harness({
     members: [
       rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust` }),
       ...citingHarness(citation, "rule:ghost").members,
     ],
     admit: [{ host: memory, admits: [citation] }],
   });
+}
 
-  const result = emit(h);
+test("emit defers an edge field naming a declared at-locus kind's uncomposed member", () => {
+  // The address is inside the kind's universe and outside the program's, so emit derives
+  // no facts and `check` owns the route verdict — the same deferral a *mention* of
+  // `rule:ghost` takes. The case is true absence of the member: an embedded target the
+  // program *did* compose resolves off the member table's nested spellings (emit.test.ts,
+  // "either spelling"), never here.
+  const result = emit(ghostCitingHarness(citationKind()));
   // The authored address rides the lock's `nested_member` row as written — the leaf the
   // engine lifts into the member's fields and route-resolves against the discovered
   // corpus (tests/it/graph.rs, the `graph.route` twin).
   assert.deepEqual(result.declarations.nested_members[0].leaves, { source: "rule:ghost" });
   // A deferred field carries no facts, so it is no `format-places-edges` obligation:
   // there is nothing to place, and the route verdict is the gate's.
+  assert.deepEqual(result.declarations.nested_members[0].placed_edges, undefined);
+});
+
+test("a render reading a deferred edge field's facts refuses by name", () => {
+  // The deferral derives no facts, so there is nothing for a hook to spell a reference
+  // off — and an absent key would surface as a `TypeError` in the author's own template,
+  // loud but unnamed and pointing at the wrong file. The read itself is the refusal, and
+  // it names the member, the embedded value, the edge field and the authored address
+  // (invariant 6, "Loud or nothing").
+  const citation = citationKind((value) => `See [${value.targets.source.name}](${value.targets.source.path}).`);
+  let thrown: unknown;
+  try {
+    emit(ghostCitingHarness(citation));
+  } catch (error) {
+    thrown = error;
+  }
+  assert.ok(thrown instanceof Error, "a deferred read refuses, and never with a raw TypeError");
+  assert.ok(!(thrown instanceof TypeError), `refused with a TypeError: ${thrown.message}`);
+  assert.match(thrown.message, /member `CLAUDE`/);
+  assert.match(thrown.message, /embedded value `the-standard` of kind `citation`/);
+  assert.match(thrown.message, /edge field `source` names `rule:ghost`/);
+  assert.match(thrown.message, /defers to `check`/);
+});
+
+test("a render that never names a deferred edge field emits clean", () => {
+  // The other half of the same ruling: deferral is not a render-selection rule. A format
+  // that does not reach for the absent facts writes its bytes, and the authored address
+  // still rides the `nested_member` row for `check` to route.
+  const citation = citationKind((value) => `The standard: ${value.leaves.source ?? "unstated"}.`);
+  const result = emit(ghostCitingHarness(citation));
+  assert.deepEqual(result.declarations.nested_members[0].leaves, { source: "rule:ghost" });
+  const claude = result.members.find((member) => member.name === "CLAUDE");
+  assert.ok(claude !== undefined);
+  assert.match(claude.body, /The standard: rule:ghost\./);
+  // Reading the *leaf* is a placement, but the deferred field derives no facts and so
+  // carries no obligation: `placed_edges` stays absent either way.
   assert.deepEqual(result.declarations.nested_members[0].placed_edges, undefined);
 });
 

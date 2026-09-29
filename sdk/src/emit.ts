@@ -273,10 +273,12 @@ function relativeProjection(from: string, to: string): string {
  *
  * An unfilled leaf is no edge, so it contributes no entry: requiredness is the kind's
  * own field schema, which fails in the author's program at compose time. A filled leaf
- * whose address {@link defersToGate} admits contributes none either — the program's own
+ * whose address {@link defersToGate} admits derives none either — the program's own
  * universe does not reach it, so the address rides the lock as authored and `check` owns
  * its route verdict, exactly as a dangling mention defers (`pipeline.md`, "Emit", the
- * "Refusing" bullet).
+ * "Refusing" bullet). Such a field is reported by name in {@link EdgeTargets.deferred}
+ * rather than dropped, so reading it refuses by name ({@link deferringTargets}) instead
+ * of surfacing as an absent key.
  *
  * # Throws
  * If a filled leaf names no composed member and no declared `at`-locus kind either, names
@@ -288,8 +290,9 @@ function edgeTargetFacts(
   value: EmbeddedMemberValue,
   leaves: Readonly<Record<string, string>>,
   options: ResolveOptions,
-): Record<string, EdgeTargetFacts> {
-  const targets: Record<string, EdgeTargetFacts> = {};
+): EdgeTargets {
+  const facts: Record<string, EdgeTargetFacts> = {};
+  const deferred = new Map<string, string>();
   const { deferrableKinds } = scopeOf(options);
   const context = `member \`${host.name}\`: embedded value \`${value.key}\` of kind \`${value.kind}\``;
   for (const edge of value.edgeFields ?? []) {
@@ -302,15 +305,59 @@ function edgeTargetFacts(
       // Judged on the address the author wrote, never `lookup`: the one-element-`to` lift
       // spells a bare name as a host address for the member table alone, and a bare name
       // names no discoverable member.
-      if (defersToGate(address, deferrableKinds)) continue;
+      if (defersToGate(address, deferrableKinds)) {
+        deferred.set(edge.field, reference);
+        continue;
+      }
       throw new Error(
         `${reference}, which resolves to no composed member — an edge target's facts are ` +
           `derived, never fabricated (specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
       );
     }
-    targets[edge.field] = resolvedTargetFacts(host, target, lookup, reference);
+    facts[edge.field] = resolvedTargetFacts(host, target, lookup, reference);
   }
-  return targets;
+  return { facts, deferred };
+}
+
+/**
+ * What {@link edgeTargetFacts} derived for one embedded value: the resolved edge fields'
+ * facts, and the fields it deliberately derived nothing for — each keyed to the reference
+ * naming its host member, its value's kind and key, the edge field and the authored
+ * address, so the refusal a read of one raises can say all of it.
+ */
+interface EdgeTargets {
+  readonly facts: Record<string, EdgeTargetFacts>;
+  readonly deferred: ReadonlyMap<string, string>;
+}
+
+/**
+ * The `targets` view a `render` hook receives: the resolved facts, plus a trap that
+ * refuses by name on a deferred edge field. Emit derives no facts for a target `check`
+ * owns, and a format cannot spell a reference off facts that do not exist — so the read
+ * is the failure, and it names the member, the value, the field and the address rather
+ * than surfacing as a `TypeError` off an absent key in the author's own template
+ * (invariant 6, "Loud or nothing").
+ *
+ * Only a string key in the deferred set is trapped: a symbol get — inspection, a `then`
+ * probe — reads through untouched. `ownKeys` is deliberately untrapped, so the deferred
+ * field stays invisible to {@link placedEdges}'s `Object.keys` and earns no
+ * `format-places-edges` obligation.
+ */
+function deferringTargets(targets: EdgeTargets): Readonly<Record<string, EdgeTargetFacts>> {
+  if (targets.deferred.size === 0) return targets.facts;
+  return new Proxy(targets.facts, {
+    get(record, property, receiver) {
+      const reference = typeof property === "string" ? targets.deferred.get(property) : undefined;
+      if (reference !== undefined) {
+        throw new Error(
+          `${reference}, whose target defers to \`check\` — emit derives no facts for it, so a ` +
+            `format cannot spell a reference off it (specs/model/pipeline.md, "Emit", the ` +
+            `"Refusing" bullet).`,
+        );
+      }
+      return Reflect.get(record, property, receiver);
+    },
+  });
 }
 
 /** Whether an address named the nested index — the embedded values one spelling reaches. */
@@ -401,7 +448,7 @@ function resolveMemberLeaves(
     key: value.key,
     leaves,
     collections,
-    targets: edgeTargetFacts(host, value, leaves, options),
+    targets: deferringTargets(edgeTargetFacts(host, value, leaves, options)),
   };
 }
 

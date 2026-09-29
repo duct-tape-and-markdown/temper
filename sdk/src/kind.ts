@@ -868,13 +868,16 @@ export interface ResolvedEmbeddedMemberValue {
   readonly collections: Readonly<Record<string, readonly ResolvedEmbeddedMemberCollectionEntry[]>>;
   /**
    * The target facts of each edge field this value *fills and resolves*, keyed by the edge
-   * field's own name — the data a `render` hook selects to spell a reference. Three cases
-   * carry no entry: an unfilled field (no edge at all), a kind declaring no edge fields —
-   * or a value composed off a bare kind name, which carries none — and a filled field
-   * whose target defers to `check`, naming a declared `at`-locus kind's uncomposed member
-   * (`pipeline.md`, "Emit", the "Refusing" bullet). A hook spelling a reference off a key
-   * must therefore handle its absence; the default TOML view is unaffected, writing the
-   * authored address leaf whether the program resolves it or the gate does.
+   * field's own name — the data a `render` hook selects to spell a reference. Two cases
+   * read absent: an unfilled field (no edge at all), and a kind declaring no edge fields —
+   * or a value composed off a bare kind name, which carries none. A hook spelling a
+   * reference off such a key must therefore handle its absence. A third derives no facts
+   * but does not read absent: a filled field whose target defers to `check`, naming a
+   * declared `at`-locus kind's uncomposed member (`pipeline.md`, "Emit", the "Refusing"
+   * bullet) — reading it refuses by name at emit, naming the member, the value, the field
+   * and the authored address, rather than handing a hook an absent key to trip over. The
+   * default TOML view is unaffected either way, writing the authored address leaf whether
+   * the program resolves it or the gate does.
    */
   readonly targets: Readonly<Record<string, EdgeTargetFacts>>;
 }
