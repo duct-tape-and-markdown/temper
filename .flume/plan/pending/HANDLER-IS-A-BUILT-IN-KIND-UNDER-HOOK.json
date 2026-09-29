@@ -1,7 +1,10 @@
 {
   "tag": "HANDLER-IS-A-BUILT-IN-KIND-UNDER-HOOK",
   "gate": {
-    "kind": "open"
+    "kind": "blockedBy",
+    "tags": [
+      "EMPTY-CONTRACT-IS-A-DECLARED-CONTRACT"
+    ]
   },
   "dependsOnForks": [],
   "priority": 0,
@@ -71,5 +74,5 @@
     }
   ],
   "acceptance": "`pnpm --dir sdk test` green (strict tsc included), cargo test green with the regenerated src/builtin_lock.toml passing the frozen byte-compare, cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean.",
-  "notes": "Decision 0075's kind, both halves in one commit because they are one: `hook.templates` is a lock column (src/builtin_lock.toml:193 is `skill`'s), so the SDK fact and the regenerated embedded lock cannot be separated the way `mcp`'s were. Blocked on the three entries that own src/builtin_lock.toml, the frozen lane and the gauntlet snapshots. It ships the kind and its clauses, never a member. scoped at 079c105e"
+  "notes": "Decision 0075's kind, both halves in one commit because they are one: `hook.templates` is a lock column (src/builtin_lock.toml:193 is `skill`'s), so the SDK fact and the regenerated embedded lock cannot be separated the way `mcp`'s were. Blocked on the last unshipped entry that regenerates src/builtin_lock.toml and its frozen lane — e1bba76b's gate named the other three and missed it. It ships the kind and its clauses, never a member. scoped at 2d9f5088"
 }

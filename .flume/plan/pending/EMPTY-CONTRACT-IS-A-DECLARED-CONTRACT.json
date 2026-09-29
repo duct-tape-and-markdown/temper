@@ -18,15 +18,35 @@
       },
       {
         "path": "src/drift.rs",
-        "description": "`AssemblyFactRow`'s fact discriminator widens from `mode | edge` to include `contract` (the doc comment on `fact` states the set). The marker rides the row's existing columns, so no `sdk/src/generated/` binding regenerates and `tests/it/seam_bindings_current.rs` stays green untouched."
+        "description": "`AssemblyFactRow`'s fact discriminator widens from `mode | edge` to include `contract` (the doc comment on `fact` states the set). The marker rides the row's existing columns, so no column is added — but the widened doc comment does re-bless `sdk/src/generated/AssemblyFactRow.ts` under `BLESS_SEAM_BINDINGS=1`, which `BUILD_SURFACE_PATHS` already allows every scoped tick, so that path is deliberately not listed here."
       },
       {
         "path": "src/compose.rs",
-        "description": "Both rows-or-default branches read the marker: `builtin_contract` (src/compose.rs:1461, per kind) and `root_contract` (src/compose.rs:258, the root). Declared = the marker OR any row of that owner's, so an older lock carrying rows keeps its contract and one carrying neither still falls to the embedded default — decision 0024's read-time normalization, which is what makes the upgrade lossless."
+        "description": "Both rows-or-default branches read the marker, which means both take the assembly slice their callers never passed: `builtin_contract` (src/compose.rs:1566) gains an `assembly` argument beside its `clauses`/`kinds`/`kind`, and `root_contract` (src/compose.rs:258) gains one beside its `clauses`. Declared = the marker OR any row of that owner's, so an older lock carrying rows keeps its contract and one carrying neither still falls to the embedded default — decision 0024's read-time normalization, which is what makes the upgrade lossless."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "Signature ripple, one call site: `builtin_contract` at src/read.rs:2410, inside the per-kind contract loop. `declarations` is already in scope, so the edit is the one added assembly argument."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "Signature ripple, two call sites: `builtin_contract` at src/gate.rs:246 (under `with_joined_clauses`) and `root_contract` at src/gate.rs:519. `declarations` is in scope at both. Riding this file's opening: the coverage-note comment at src/gate.rs:733 still describes the call below it as naming \"known Claude Code surfaces present on disk that no kind governs\", a class 1f8bef99 retired — re-point it at the two classes `coverage_note::check` actually emits, `coverage.checked` and `coverage.unclaimed-entry`."
+      },
+      {
+        "path": "src/main.rs",
+        "description": "Signature ripple, three call sites: `builtin_contract` at src/main.rs:619 and src/main.rs:668, `root_contract` at src/main.rs:775 (inside `guarded_loci`). `declarations` is in scope at all three."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "Signature ripple, one call site: `root_contract` at src/install.rs:1149, where the composed root's clauses are searched by predicate. `declarations` is the enclosing function's own parameter."
       },
       {
         "path": "src/builtin_lock.toml",
-        "description": "Regenerate: the memberless built-in program binds every kind through `expect`, so the embedded lock gains one `contract` fact per built-in kind. Its root contract is undeclared (the program names none) and gains no fact. Regeneration is a re-run of `@dtmd/temper/claude-code`'s own emit re-embedded verbatim per the file's header, never a hand-added row."
+        "description": "Regenerate: the memberless built-in program binds every kind through `expect`, so the embedded lock gains one `contract` fact per built-in kind (sixteen). Its root contract is undeclared (the program names none) and gains no fact. Regeneration is a re-run of `@dtmd/temper/claude-code`'s own emit re-embedded verbatim per the file's header, never a hand-added row."
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "The other derived lock in the tree, regenerated the same way rather than hand-edited: it gains one `contract` marker per `expect`-bound kind of the example program (eight). Regenerate with `ln -sfn $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` (the link is gitignored) then `cargo run -- emit --into examples/base-harness/.temper`."
       },
       {
         "path": "tests/it/builtin_lock_frozen.rs",
@@ -68,8 +88,12 @@
     {
       "path": "tests/it/builtin_lock_frozen.rs",
       "asserts": "the embedded lock still byte-equals @dtmd/temper/claude-code's memberless emit after the regeneration"
+    },
+    {
+      "path": "tests/it/gauntlet.rs",
+      "asserts": "the gauntlet's projection-tree snapshot re-blesses with the fixture's one added `contract` marker row (`cargo insta accept`; snapshots are fence-allowed)"
     }
   ],
-  "acceptance": "`cargo test` and `pnpm --dir sdk test` green: `expect(kind, [])` and a root `contract: []` each compose a contract with no clauses, a lock carrying neither marker nor rows still composes the embedded default, and src/builtin_lock.toml byte-equals the regenerated memberless emit.",
-  "notes": "0072 rules the collision between builtins.md's \"never a privileged form\" and the code: both branches key on row presence today, so an authored `[]` reads as silence. The marker rides `AssemblyFactRow`'s existing columns rather than a new `KindFactRow` column on purpose — a new column is a required field at 133 literal construction sites across src/ and tests/it/, and regenerates the seam bindings. scoped at 7beb01ba"
+  "acceptance": "`cargo test` and `pnpm --dir sdk test` green: `expect(kind, [])` and a root `contract: []` each compose a contract with no clauses, a lock carrying neither marker nor rows still composes the embedded default, and both derived locks byte-equal their regenerated emit.",
+  "notes": "0072 rules the collision between builtins.md's \"never a privileged form\" and the code: both branches key on row presence, so an authored `[]` reads as silence. The marker rides `AssemblyFactRow`'s existing columns — a new `KindFactRow` column is a required field at 133 literal sites. Re-scoped from a build that reached all five gates green with six paths outside the fence: the signature ripple and the derived example lock. scoped at 2d9f5088"
 }
