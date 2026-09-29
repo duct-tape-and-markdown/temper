@@ -87,15 +87,20 @@ The two manifest kinds, `settings`, `mcp`, and `settings-local` sit outside the
 domain partition below: distribution metadata and machine configuration,
 never authored session content (decisions 0031, 0036, 0050).
 
-Four are registration members — fields-only entries a manifest carries at
-a collection address, never files of their own (`model/representation.md`,
+Four are registration members — entries a manifest carries at a
+collection address, never files of their own (`model/representation.md`,
 "Reach"):
 
-- **hook** — one matcher group under `settings.json`'s `hooks.<Event>`,
-  carrying one or more handlers; identity is the event plus the matcher,
-  a matcher-less group taking the bare event, so two members with one
-  identity are a malformed lock; its channel is the documented event
-  (code.claude.com/docs/en/hooks, retrieved 2026-09-29).
+- **hook** — one matcher group under `settings.json`'s `hooks.<Event>`;
+  its name is the event, then `:` and the matcher's authored bytes when it
+  has one (`hook:PostToolUse:Edit|Write`), so two members with one
+  identity are a malformed lock; its channel is the documented event. Its
+  template names **handler**, the embedded kind of each entry in the
+  group's `hooks` array, keyed by position (`…/handler/0`) and carrying
+  the handler-level clauses. Matching handlers run in parallel, so the
+  position carries no runtime meaning (code.claude.com/docs/en/hooks,
+  retrieved 2026-09-29). Like `supporting-doc`, `handler` ships without
+  joining this enumeration.
 - **mcp-server** — one connection under `.mcp.json`'s `mcpServers`; its
   channel is the connection.
 - **installed-plugin** — one enablement entry under `settings.json`'s

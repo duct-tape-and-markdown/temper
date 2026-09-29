@@ -136,7 +136,7 @@ no container above the forest: it is members all the way down.
   manifests) are **manifests**: projections representing a controlled
   segment of their container member — its fields, its members' registration
   facts, and derived aggregates like the permission list. A registration
-  member (a hook, an MCP server, an installed plugin) is a fields-only kind
+  member (a hook, an MCP server, an installed plugin) is a file-less kind
   surfacing at its declared collection address; a small residue of genuinely
   unschematized keys remains as opaque fields, named as such.
 - Claude Code's artifact levels — user, project, project-local, enterprise —
