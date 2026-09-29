@@ -6,9 +6,10 @@
 //! consumer's whole tree per kind — is timed over it so the numbers, not a guess, name
 //! where the residual concentrates; the timings print (a manual signal a human reads) and
 //! the test asserts the work-count pins the cuts earn — decided by counts, independent of
-//! tree size: the shared walk runs once per flavor, glob compilation is hoisted per
-//! distinct glob rather than per candidate file, and the per-kind glob scan reads its
-//! members from that one walk's index, opening no directory of its own.
+//! tree size: the shared walk runs once per flavor, the directive backing set's
+//! whole-tree walk runs once per run, glob compilation is hoisted per distinct glob
+//! rather than per candidate file, and the per-kind glob scan reads its members from
+//! that one walk's index, opening no directory of its own.
 
 use crate::common;
 
@@ -795,6 +796,56 @@ fn a_full_check_run_walks_each_consulted_flavor_once() {
         walks, 2,
         "a whole run must walk each consulted flavor exactly once — one shared cache \
          threaded through the run, never a per-kind or per-call re-walk",
+    );
+}
+
+/// The run-level count-pin for the *directive backing set* (`engineering.md`, "Cost
+/// scale is hoisted, and pinned by count"): `compose::repo_file_set` is a whole-tree
+/// walk over the consumer's harness root, hoisted by hand to one call site per verb, and
+/// the sibling flavor pin above says nothing about it — it rides `walkdir`, not the
+/// shared `Discovery` cache. One `gate` runs per CLI invocation, so the run's delta is
+/// exactly 1: a per-kind or per-call re-walk of the whole tree fails here. The count is
+/// per-thread and the walk single-threaded on its caller's thread, so the delta is this
+/// run's alone whatever else runs concurrently.
+#[test]
+fn a_full_check_run_walks_the_directive_backing_set_once() {
+    use temper::compose;
+    use temper::gate;
+
+    let harness = tmpdir("backing-set-walk-pin");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    std::fs::create_dir_all(&skill).unwrap();
+    std::fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: coordinate\ndescription: Drive a task across a team of agents.\n---\n# Coordinate\n",
+    )
+    .unwrap();
+    let rules = harness.join(".claude").join("rules");
+    std::fs::create_dir_all(&rules).unwrap();
+    std::fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
+
+    // The raw-harness gate, exactly as `harness_diagnostics` dispatches a bare harness.
+    let before = compose::repo_file_set_count();
+    let (diagnostics, _) = gate::gate(&harness, &harness, &[]).unwrap();
+    let walks = compose::repo_file_set_count() - before;
+
+    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a run that
+    // classed no directive-bearing member would walk the tree for nothing, so the pin
+    // names the members the run actually checked before pinning the walk count.
+    let summary = &diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.rule == "coverage.checked")
+        .expect("the run discloses what it checked")
+        .message;
+    assert!(
+        summary.contains("skill (1") && summary.contains("rule (1"),
+        "the run must have checked the fixture's members, got: {summary}",
+    );
+
+    assert_eq!(
+        walks, 1,
+        "a whole run must walk the directive backing set exactly once — one hoisted \
+         whole-tree walk per run, never a per-kind or per-call re-walk",
     );
 }
 

@@ -39,6 +39,7 @@ use walkdir;
 thread_local! {
     static RESOLVE_KIND_UNITS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static OVERLAY_BUILTIN_KIND_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static REPO_FILE_SET_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// This thread's cumulative count of `resolve_kind_units` invocations.
@@ -51,6 +52,12 @@ pub fn resolve_kind_units_count() -> usize {
 #[must_use]
 pub fn overlay_builtin_kind_count() -> usize {
     OVERLAY_BUILTIN_KIND_COUNT.with(std::cell::Cell::get)
+}
+
+/// This thread's cumulative count of `repo_file_set` invocations.
+#[must_use]
+pub fn repo_file_set_count() -> usize {
+    REPO_FILE_SET_COUNT.with(std::cell::Cell::get)
 }
 
 /// A cache of manifest files read during one gate()/explain() invocation: one read per
@@ -1349,12 +1356,13 @@ pub fn directive_members_from_resolved(
 }
 
 /// Every represented manifest file on disk as a raw [`Vec<String>`] of paths,
-/// walked once per run to avoid re-reading per-kind. Paths are normalized
+/// hoisted to one walk per run ([`repo_file_set_count`] pins it). Paths are normalized
 /// (`.`/`..` segments resolved) to match the format `graph::classify_directives`'s
 /// index uses: when root is absolute, entries are absolute; when root is relative,
 /// entries are relative. This ensures the backing check's path-domain join holds
 /// regardless of the harness root's spelling.
 pub fn repo_file_set(root: &Path) -> Vec<String> {
+    REPO_FILE_SET_COUNT.with(|c| c.set(c.get() + 1));
     let mut files = Vec::new();
     for entry in walkdir::WalkDir::new(root).min_depth(1).sort_by_file_name() {
         let Ok(entry) = entry else { continue };
