@@ -1,12 +1,10 @@
 {
   "tag": "LAYOUT-DOCUMENT-READ-FOLDS-ONTO-THE-SHARED-PRIMITIVE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "LOCAL-LAYOUT-DOCUMENT-IS-READ-ONCE-PER-RUN"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
