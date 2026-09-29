@@ -523,7 +523,7 @@ const BUILD_SURFACE_PATHS = [
   // a symbol). Six fence misses on 2026-09-06 were a `.snap` alone. The
   // afterMerge test gate and the entry's acceptance still judge what a
   // build accepts; the fence only stops partitioning on them.
-  "tests/snapshots/**",
+  "tests/**/snapshots/**",
   // ts-rs seam bindings are the same shape: generated from the Rust seam
   // types (doc comments included), byte-compared by
   // tests/it/seam_bindings_current.rs, re-blessed by a build that changes the
