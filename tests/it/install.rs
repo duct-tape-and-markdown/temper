@@ -1541,7 +1541,14 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
 
     let (code, stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(code, Some(2), "the lock's `block` mode must block");
-    assert!(stderr.contains("direct Bash/PowerShell writes are not bound by it"));
+    // The in-band surface carries the binding limit whole, naming the tools the guard's
+    // `PreToolUse` row binds — the sentence reaches the user, tool list included.
+    assert!(
+        stderr.contains(
+            "This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it."
+        ),
+        "the guard's in-band message must carry the binding limit, got: {stderr}"
+    );
 }
 
 /// With no `lock.toml` at all there is no declared projection set to consult — unlike

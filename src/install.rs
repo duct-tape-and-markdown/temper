@@ -221,42 +221,79 @@ const GATE_HOOKS: [GateHook; GATE_HOOK_COUNT] = [
     },
 ];
 
-/// The message `temper guard` prints on a projection hit — stating the limit verbatim:
-/// the guard binds only this provider's tool-mediated writes (Write/Edit/MultiEdit),
-/// so other tools and direct Bash/PowerShell writes are not bound by it.
-/// Public so the `guard` subcommand (`main`) prints it whether it warns or blocks,
-/// under the `warn` or `block` enforcement mode.
-pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
+/// The binding limit every pending-write guard message closes on: the guard rides
+/// Claude Code's `PreToolUse` row, so it sees exactly the tools [`GUARD_MATCHER`] binds
+/// and nothing else. The tool list is that matcher's own alternation rendered for prose
+/// (`|` as `/`), so widening the row widens the sentence with it. The post edge carries
+/// no limit at all ([`GUARD_SHELL_EDGE_MESSAGE`]) — the write has landed, and there is
+/// nothing left to refuse.
+fn binding_limit() -> &'static str {
+    static LIMIT: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "This guard binds only Claude Code tool-mediated writes ({}); direct Bash/PowerShell writes are not bound by it.",
+            GUARD_MATCHER.replace('|', "/")
+        )
+    });
+    &LIMIT
+}
+
+/// The message `temper guard` prints on a projection hit — the `guard` subcommand (`main`)
+/// prints it whether it warns or blocks, under the `warn` or `block` enforcement mode.
+fn guard_message() -> &'static str {
+    static MESSAGE: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. {}",
+            binding_limit()
+        )
+    });
+    &MESSAGE
+}
 
 /// The message `temper guard` prints when a pending write lands inside a represented
 /// committed kind's governed locus and names no member the lock declares there. It is
 /// the boundary half of `check`'s root `locus-declared` clause
 /// ([`drift::undeclared_locus_members_from_doc`]) and names the same remedy in the same
 /// words — one fact must not be spoken two ways at two placements. Unlike
-/// [`GUARD_MESSAGE`], the file is not a projection the author edited: it is a document
+/// [`guard_message`], the file is not a projection the author edited: it is a document
 /// the program declares nothing about, so the finding names the governing kind rather
-/// than an owning module. States the same binding limit.
+/// than an owning module.
 fn undeclared_locus_message(kind: &str) -> String {
     format!(
-        "temper-governed locus: this write lands a document at the `{kind}` kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared, yet Claude Code loads it; declare the member in the program and re-emit. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it."
+        "temper-governed locus: this write lands a document at the `{kind}` kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared, yet Claude Code loads it; declare the member in the program and re-emit. {}",
+        binding_limit()
     )
 }
 
 /// The header `temper guard` prints when a pending write to a represented manifest carries a
 /// member that violates its contract — the per-member contract findings ([`GuardedManifest`])
-/// follow it, one per line. Unlike a `.claude/` projection ([`GUARD_MESSAGE`]), a manifest **no
+/// follow it, one per line. Unlike a `.claude/` projection ([`guard_message`]), a manifest **no
 /// container member projects** is co-owned: a write touching only opaque residue conforms and
 /// passes, so the finding names the contract broken, not the file edited. A manifest a container
 /// member owns whole is not co-owned at all and never reaches this header
 /// ([`GuardedManifest::container`]) — it is a projection, and speaks the projection wording.
-/// States the same binding limit: tool-mediated writes only.
-const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
+fn guard_manifest_message() -> &'static str {
+    static MESSAGE: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. {}",
+            binding_limit()
+        )
+    });
+    &MESSAGE
+}
 
 /// The header `temper guard` prints when a pending `Edit`/`MultiEdit` to a represented
 /// manifest cannot be reconstructed into the whole manifest it would land, so no member was
 /// checked at all. A co-owned manifest never earns the blanket projection wording
-/// ([`GUARD_MESSAGE`]) — the way through is a write the guard can read, not an untouched file.
-const GUARD_MANIFEST_EDIT_MESSAGE: &str = "temper-governed manifest: this edit cannot be reconstructed into the manifest it would land, so its governed members went unchecked — re-issue the change as a whole-file Write. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
+/// ([`guard_message`]) — the way through is a write the guard can read, not an untouched file.
+fn guard_manifest_edit_message() -> &'static str {
+    static MESSAGE: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "temper-governed manifest: this edit cannot be reconstructed into the manifest it would land, so its governed members went unchecked — re-issue the change as a whole-file Write. {}",
+            binding_limit()
+        )
+    });
+    &MESSAGE
+}
 
 /// The header `temper guard` prints when the manifest a pending write would land was
 /// reconstructed in full and does not parse. No later placement catches this one: a harness
@@ -264,7 +301,15 @@ const GUARD_MANIFEST_EDIT_MESSAGE: &str = "temper-governed manifest: this edit c
 /// reporter runs — and for `.claude/settings.json` the `SessionStart` hook that would have
 /// carried the verdict is declared in the file that no longer parses. The boundary is the
 /// only placement left, so it speaks rather than deferring to CI.
-const GUARD_MANIFEST_UNPARSEABLE_MESSAGE: &str = "temper-governed manifest: this write would leave the manifest unparseable, so nothing it governs can be checked — and a harness that cannot load aborts the next temper check before any reporter runs, so no later placement catches it either. Fix the JSON before landing it. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
+fn guard_manifest_unparseable_message() -> &'static str {
+    static MESSAGE: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "temper-governed manifest: this write would leave the manifest unparseable, so nothing it governs can be checked — and a harness that cannot load aborts the next temper check before any reporter runs, so no later placement catches it either. Fix the JSON before landing it. {}",
+            binding_limit()
+        )
+    });
+    &MESSAGE
+}
 
 /// The header `temper guard` prints at the **post** edge of a tool call over its
 /// **projection** half, where a shell tool's writes name no path the guard could have bound
@@ -1135,7 +1180,7 @@ pub struct GuardedLocus {
 /// finding that goes with it. The message is empty for [`GuardVerdict::Allow`] and for
 /// [`GuardVerdict::Note`], which surfaces nothing in-band — it rides the next report.
 /// Carried together because the two bindings speak different findings at the same
-/// mode: a declared projection is drift ([`GUARD_MESSAGE`]), a write inside a governed
+/// mode: a declared projection is drift ([`guard_message`]), a write inside a governed
 /// locus is an undeclared member (`undeclared_locus_message`).
 pub struct GuardDecision {
     /// What the guard decided — allow silently, defer out-of-band, surface in-band, deny.
@@ -1189,7 +1234,7 @@ pub fn guard(
     // governed loci that declare no member for it.
     let message = if let Some(targets) = targets {
         if let Some(owner) = matched_projection(&file_path, root, targets) {
-            format!("{GUARD_MESSAGE}{}", projection_owner_line(owner))
+            format!("{}{}", guard_message(), projection_owner_line(owner))
         } else if let Some(locus) = matches_governed_locus(&file_path, root, loci) {
             undeclared_locus_message(&locus.kind)
         } else {
@@ -1201,7 +1246,7 @@ pub fn guard(
         if !is_claude_path(&file_path) {
             return allow();
         }
-        GUARD_MESSAGE.to_string()
+        guard_message().to_string()
     };
 
     let verdict = match mode {
@@ -1288,7 +1333,7 @@ fn matched_projection<'a>(
 
 /// The line a projection refusal appends naming the member that owns the bytes — a drift
 /// finding names the member that owns the bytes, the side that moved, and the remedy
-/// (`model/pipeline.md`, "Drift"), and [`GUARD_MESSAGE`] alone names only the side and the
+/// (`model/pipeline.md`, "Drift"), and [`guard_message`] alone names only the side and the
 /// remedy. Rendered as one indented line under the header, the shape
 /// [`render_manifest_findings`] already gives a manifest's findings, so the guard's one
 /// surface reads one way. The no-lock fallback appends nothing: with no declared set there is
@@ -1666,20 +1711,20 @@ pub fn manifest_write_findings(
 }
 
 /// Render a represented manifest's findings for the guard's in-band surface: the header its
-/// findings earn — [`GUARD_MANIFEST_UNPARSEABLE_MESSAGE`] for a write that would leave the
-/// manifest unparseable, [`GUARD_MANIFEST_EDIT_MESSAGE`] for an edit that could not be
-/// reconstructed and so checked nothing, [`GUARD_MANIFEST_MESSAGE`] for a member that broke
+/// findings earn — [`guard_manifest_unparseable_message`] for a write that would leave the
+/// manifest unparseable, [`guard_manifest_edit_message`] for an edit that could not be
+/// reconstructed and so checked nothing, [`guard_manifest_message`] for a member that broke
 /// its contract — then one `<rule>: <finding>` line per finding. The two "nothing was
 /// checked" headers outrank the contract wording, which would misname the fault.
 #[must_use]
 pub fn render_manifest_findings(findings: &[Diagnostic]) -> String {
     let carries = |rule: &str| findings.iter().any(|finding| finding.rule == rule);
     let mut out = String::from(if carries(GUARD_MANIFEST_UNPARSEABLE_RULE) {
-        GUARD_MANIFEST_UNPARSEABLE_MESSAGE
+        guard_manifest_unparseable_message()
     } else if carries(GUARD_MANIFEST_EDIT_RULE) {
-        GUARD_MANIFEST_EDIT_MESSAGE
+        guard_manifest_edit_message()
     } else {
-        GUARD_MANIFEST_MESSAGE
+        guard_manifest_message()
     });
     for finding in findings {
         out.push_str(&format!("\n  {}: {}", finding.rule, finding.message));
@@ -2516,6 +2561,46 @@ pub fn render(outcome: &InstallOutcome) -> String {
 mod tests {
     use super::*;
     use crate::test_support::tmpdir;
+
+    /// Every message the guard speaks at the pending-write edge closes on the one
+    /// binding limit, and that limit's tool list is [`GUARD_MATCHER`]'s own alternation
+    /// — a message that re-spells the list instead of composing the tail fails here the
+    /// moment the matcher widens.
+    #[test]
+    fn every_pending_write_guard_message_closes_on_the_matchers_binding_limit() {
+        let tools = GUARD_MATCHER.replace('|', "/");
+        assert!(!tools.is_empty(), "the guard's PreToolUse row binds tools");
+        let tail = binding_limit();
+        assert!(
+            tail.contains(&format!("({tools})")),
+            "the limit names the matcher's tools, got: {tail}"
+        );
+
+        let undeclared = undeclared_locus_message("skill");
+        let messages: [&str; 5] = [
+            guard_message(),
+            &undeclared,
+            guard_manifest_message(),
+            guard_manifest_edit_message(),
+            guard_manifest_unparseable_message(),
+        ];
+        assert_eq!(
+            messages.len(),
+            5,
+            "every pending-write guard message is judged here"
+        );
+        for message in messages {
+            assert!(
+                message.ends_with(tail),
+                "a pending-write guard message must close on the one limit, got: {message}"
+            );
+            assert_eq!(
+                message.matches("This guard binds only").count(),
+                1,
+                "the limit is spoken once, not re-spelled, in: {message}"
+            );
+        }
+    }
 
     #[test]
     fn member_module_source_hoists_every_present_field_bar_name() {
