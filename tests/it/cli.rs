@@ -16,6 +16,8 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+use temper::drift::ClauseRow;
+
 use crate::common;
 
 /// The binary under test, located by Cargo at compile time.
@@ -515,14 +517,9 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     // non-projection write is allowed (exit 0). `warn`/`note` both allow a
     // projection write.
     let root = common::tmpdir("guard-block");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-         [[rule]]\nname = \"rust\"\nsource_path = \".claude/rules/rust.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n",
-    )
-    .unwrap();
+    common::GuardLock::declaring("block")
+        .member("rule", "rust", ".claude/rules/rust.md", "abc", "abc")
+        .write(&root);
 
     let (code, stderr) =
         common::run_guard(&root, &common::guard_write_payload(".claude/rules/rust.md"));
@@ -541,16 +538,9 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
 
     for mode in ["warn", "note"] {
         let root = common::tmpdir(&format!("guard-{mode}"));
-        let temper_dir = root.join(".temper");
-        fs::create_dir_all(&temper_dir).unwrap();
-        fs::write(
-            temper_dir.join("lock.toml"),
-            format!(
-                "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n\n\
-                 [[rule]]\nname = \"rust\"\nsource_path = \".claude/rules/rust.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
-            ),
-        )
-        .unwrap();
+        common::GuardLock::declaring(mode)
+            .member("rule", "rust", ".claude/rules/rust.md", "abc", "abc")
+            .write(&root);
 
         let (code, output) =
             common::run_guard(&root, &common::guard_write_payload(".claude/rules/rust.md"));
@@ -589,14 +579,9 @@ fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
     // rows-or-default rule reinstates the embedded `root.locus-declared` and the stray
     // document is denied under `block`.
     let bound = common::tmpdir("guard-locus-clause-bound");
-    fs::create_dir_all(bound.join(".temper")).unwrap();
-    fs::write(
-        bound.join(".temper").join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-         [[rule]]\nname = \"safety\"\nsource_path = \".claude/rules/safety.md\"\n\
-         source_hash = \"abc\"\nemit_hash = \"abc\"\n",
-    )
-    .unwrap();
+    common::GuardLock::declaring("block")
+        .member("rule", "safety", ".claude/rules/safety.md", "abc", "abc")
+        .write(&bound);
     let (code, stderr) = common::run_guard(&bound, &stray);
     assert_eq!(
         code,
@@ -609,16 +594,13 @@ fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
     // one, so real rows answer the root contract and the clause simply does not bind.
     // The stray write is allowed with nothing said.
     let unbound = common::tmpdir("guard-locus-clause-unbound");
-    fs::create_dir_all(unbound.join(".temper")).unwrap();
-    fs::write(
-        unbound.join(".temper").join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-         [[declaration.clause]]\nlabel = \"root.fresh\"\npredicate = \"fresh\"\n\
-         severity = \"advisory\"\n\n\
-         [[rule]]\nname = \"safety\"\nsource_path = \".claude/rules/safety.md\"\n\
-         source_hash = \"abc\"\nemit_hash = \"abc\"\n",
-    )
-    .unwrap();
+    common::GuardLock::declaring("block")
+        .clause_row(ClauseRow {
+            label: Some("root.fresh".to_string()),
+            ..common::clause("fresh", "advisory")
+        })
+        .member("rule", "safety", ".claude/rules/safety.md", "abc", "abc")
+        .write(&unbound);
     let (code, stderr) = common::run_guard(&unbound, &stray);
     assert_eq!(
         code,
@@ -886,17 +868,15 @@ fn post_edge_harness(label: &str, mode: &str, emit_hash: &str) -> std::path::Pat
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join("rust.md"), PROJECTION).unwrap();
 
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        format!(
-            "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n\n\
-             [[rule]]\nname = \"rust\"\nsource_path = \".claude/rules/rust.md\"\n\
-             source_hash = \"{emit_hash}\"\nemit_hash = \"{emit_hash}\"\n"
-        ),
-    )
-    .unwrap();
+    common::GuardLock::declaring(mode)
+        .member(
+            "rule",
+            "rust",
+            ".claude/rules/rust.md",
+            emit_hash,
+            emit_hash,
+        )
+        .write(&root);
     root
 }
 
@@ -945,13 +925,7 @@ fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
 
     // (2) A present but out-of-vocabulary `mode` value → loud, never degraded to warn.
     let bad_mode = common::tmpdir("guard-corrupt-mode");
-    let temper_dir = bad_mode.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"clobber\"\n",
-    )
-    .unwrap();
+    common::GuardLock::declaring("clobber").write(&bad_mode);
     let (code, stderr) = common::run_guard(&bad_mode, &payload);
     assert!(
         code != Some(0),

@@ -14,12 +14,15 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Once, OnceLock};
 
+use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
+
 use temper::builtin_kind;
 use temper::check::Diagnostic;
+use temper::compose::{self, EnforcementMode};
 use temper::drift::{
     self, AssemblyFactRow, ClauseRow, CollectionAddressRow, CountBoundRow, Declarations,
     DegreeBoundRow, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, Payload,
-    PayloadMember, RequirementRow, SatisfiesRow,
+    PayloadMember, RegistrationRow, RequirementRow, SatisfiesRow,
 };
 use temper::extract::Features;
 use temper::frontmatter::Member;
@@ -423,6 +426,274 @@ pub fn guard_edit_payload(file_path: &str, old_string: &str, new_string: &str) -
         },
     })
     .to_string()
+}
+
+/// One provenance row of a guard fixture's lock — the four columns `emit`'s own roll-up
+/// writes (`name`, `source_path`, `source_hash`, `emit_hash`), plus the kind whose
+/// `[[<kind>]]` array the row lands in. No public type carries this shape: the engine's
+/// `RollupEntry` is `pub(crate)`, and its hashes are exactly what a fixture needs to lie
+/// about — a row at a fingerprint no file's bytes can produce is drifted by construction.
+struct GuardLockMember {
+    kind: String,
+    name: String,
+    source_path: String,
+    source_hash: String,
+    emit_hash: String,
+}
+
+/// A hand-authored lock at `<root>/.temper/lock.toml` — the third half of every guard
+/// case, beside [`run_guard`] and the payload builders above, and the one home for the
+/// lock vocabulary every guard fixture declares its rows in.
+///
+/// Hand-rendered on purpose. [`write_lock`] is not the home for this: it runs
+/// `drift::emit`, which writes real projections at real fingerprints — the opposite of a
+/// guard fixture, whose whole point is a declared row whose file is absent or drifted
+/// (engineering.md, "A seam gate reads what the real writer wrote": a hand fixture is the
+/// tool for the input a real writer cannot produce).
+///
+/// What keeps the hand spelling honest is [`GuardLock::write`]'s read-back: the rendered
+/// bytes go straight through the engine's own reader and must lift to exactly the typed
+/// rows declared here, and the mode must resolve to the one asked for. A column this home
+/// spells differently from `src/` therefore fails every guard fixture at once, rather than
+/// writing a lock that declares nothing while the warn arms stay green on the default.
+pub struct GuardLock {
+    mode: String,
+    members: Vec<GuardLockMember>,
+    declarations: Declarations,
+}
+
+impl GuardLock {
+    /// A lock declaring `mode` as the assembly family's enforcement fact and nothing
+    /// else. `mode` is a string, never a typed [`EnforcementMode`]: the vocabulary
+    /// refusal `compose::mode_from_declarations` raises is a guard case of its own, and a
+    /// typed mode could not express the value it refuses.
+    pub fn declaring(mode: &str) -> Self {
+        Self {
+            mode: mode.to_string(),
+            members: Vec::new(),
+            declarations: Declarations {
+                assembly: vec![AssemblyFactRow {
+                    fact: "mode".to_string(),
+                    value: Some(mode.to_string()),
+                    from: None,
+                    field: None,
+                    to: None,
+                }],
+                ..Declarations::default()
+            },
+        }
+    }
+
+    /// Declare one emit-owned member of `kind` — its name, the projection path it owns,
+    /// and the two fingerprints, in the roll-up's own column order.
+    #[must_use]
+    pub fn member(
+        mut self,
+        kind: &str,
+        name: &str,
+        source_path: &str,
+        source_hash: &str,
+        emit_hash: &str,
+    ) -> Self {
+        self.members.push(GuardLockMember {
+            kind: kind.to_string(),
+            name: name.to_string(),
+            source_path: source_path.to_string(),
+            source_hash: source_hash.to_string(),
+            emit_hash: emit_hash.to_string(),
+        });
+        self
+    }
+
+    /// Declare one kind fact row — the container case's `[[declaration.kind]]`.
+    #[must_use]
+    pub fn kind_row(mut self, row: KindFactRow) -> Self {
+        self.declarations.kinds.push(row);
+        self
+    }
+
+    /// Declare one contract clause row. A guard fixture spells the `label` itself: the
+    /// lock-shaped row is what `compose::root_contract`'s rows-or-default rule reads.
+    #[must_use]
+    pub fn clause_row(mut self, row: ClauseRow) -> Self {
+        self.declarations.clauses.push(row);
+        self
+    }
+
+    /// Declare one registration member — the identity and collection address a lock row
+    /// carries. `fields` stays empty: they live in the projected manifest, never a second
+    /// copy the engine reads back.
+    #[must_use]
+    pub fn registration(mut self, kind: &str, key: &str, manifest: &str, key_path: &str) -> Self {
+        self.declarations.registrations.push(RegistrationRow {
+            kind: kind.to_string(),
+            key: key.to_string(),
+            manifest: manifest.to_string(),
+            key_path: key_path.to_string(),
+            fields: Vec::new(),
+        });
+        self
+    }
+
+    /// Render the lock at `<root>/.temper/lock.toml`, then read the bytes back through
+    /// the engine's own reader and assert they lift to exactly what was declared.
+    pub fn write(self, root: &Path) {
+        let workspace = root.join(temper::WORKSPACE_DIR);
+        fs::create_dir_all(&workspace).unwrap();
+        let path = workspace.join(temper::LOCK_FILENAME);
+        let text = self.render();
+        fs::write(&path, &text).unwrap();
+
+        // Parsed off the rendered text rather than re-read from disk: `read_declarations`
+        // increments the hoisting counters `check_cost` pins deltas on.
+        let lifted = drift::parse_declarations(&path, &text)
+            .unwrap_or_else(|err| panic!("the guard fixture lock must lift: {err}\n{text}"));
+        assert_eq!(
+            lifted, self.declarations,
+            "the rendered lock must lift back to the rows it declares — a column this \
+             writer spells differently from `src/` declares nothing:\n{text}"
+        );
+
+        // The mode is a declared fact, not a default: an absent or unreadable `mode` fact
+        // resolves to `EnforcementMode::default()`, which is exactly the silence this
+        // read-back exists to break. The match is exhaustive, so a fourth mode refuses to
+        // compile until this home answers it.
+        let resolved = match compose::mode_from_declarations(&lifted) {
+            Ok(EnforcementMode::Note) => "note",
+            Ok(EnforcementMode::Warn) => "warn",
+            Ok(EnforcementMode::Block) => "block",
+            Err(refusal) => {
+                // Only a fixture declaring a mode outside the closed vocabulary reaches
+                // here, and its whole point is that the refusal names the value.
+                assert!(
+                    format!("{refusal}").contains(&self.mode),
+                    "the vocabulary refusal must name the declared mode `{}`, got: {refusal}",
+                    self.mode
+                );
+                return;
+            }
+        };
+        assert_eq!(
+            resolved, self.mode,
+            "the lock must declare its enforcement mode, not inherit the default:\n{text}"
+        );
+    }
+
+    /// The lock's bytes: the per-kind provenance arrays first, then the declaration
+    /// families under an implicit `[declaration]` table — the layout `emit`'s own
+    /// roll-up writes.
+    fn render(&self) -> String {
+        let mut doc = DocumentMut::new();
+
+        let mut by_kind: BTreeMap<&str, ArrayOfTables> = BTreeMap::new();
+        for row in &self.members {
+            let mut table = Table::new();
+            table["name"] = value(row.name.clone());
+            table["source_path"] = value(row.source_path.clone());
+            table["source_hash"] = value(row.source_hash.clone());
+            table["emit_hash"] = value(row.emit_hash.clone());
+            by_kind.entry(row.kind.as_str()).or_default().push(table);
+        }
+        for (kind, tables) in by_kind {
+            doc[kind] = Item::ArrayOfTables(tables);
+        }
+
+        let mut declaration = Table::new();
+        // Implicit: only the `[[declaration.<family>]]` sub-headers render.
+        declaration.set_implicit(true);
+        insert_declaration_family(
+            &mut declaration,
+            "kind",
+            self.declarations.kinds.iter().map(kind_fact_table),
+        );
+        insert_declaration_family(
+            &mut declaration,
+            "clause",
+            self.declarations.clauses.iter().map(clause_table),
+        );
+        insert_declaration_family(
+            &mut declaration,
+            "assembly",
+            self.declarations.assembly.iter().map(assembly_fact_table),
+        );
+        insert_declaration_family(
+            &mut declaration,
+            "registration",
+            self.declarations
+                .registrations
+                .iter()
+                .map(registration_table),
+        );
+        doc["declaration"] = Item::Table(declaration);
+
+        doc.to_string()
+    }
+}
+
+/// Attach one declaration family's rows under `[[declaration.<family>]]`, writing
+/// nothing when the family is empty (an empty array vanishes on the toml round-trip).
+fn insert_declaration_family(table: &mut Table, family: &str, rows: impl Iterator<Item = Table>) {
+    let tables: ArrayOfTables = rows.collect();
+    if !tables.is_empty() {
+        table[family] = Item::ArrayOfTables(tables);
+    }
+}
+
+/// The `fact`/`value` columns of one assembly fact — the enforcement mode's whole
+/// spelling, and the one the guard's every arm rests on.
+fn assembly_fact_table(row: &AssemblyFactRow) -> Table {
+    let mut table = Table::new();
+    table["fact"] = value(row.fact.clone());
+    if let Some(cell) = &row.value {
+        table["value"] = value(cell.clone());
+    }
+    table
+}
+
+/// The kind-fact columns a guard fixture declares. The rest of [`KindFactRow`] is not
+/// rendered: a caller setting one fails [`GuardLock::write`]'s read-back loudly, which is
+/// the signal to widen this home rather than hand-spell a lock beside it.
+fn kind_fact_table(row: &KindFactRow) -> Table {
+    let mut table = Table::new();
+    table["name"] = value(row.name.clone());
+    for (column, cell) in [
+        ("governs_root", &row.governs_root),
+        ("governs_glob", &row.governs_glob),
+        ("format", &row.format),
+        ("unit_shape", &row.unit_shape),
+    ] {
+        if let Some(cell) = cell {
+            table[column] = value(cell.clone());
+        }
+    }
+    table
+}
+
+/// The clause columns a guard fixture declares — the same partial rendering (and the
+/// same read-back backstop) [`kind_fact_table`] takes.
+fn clause_table(row: &ClauseRow) -> Table {
+    let mut table = Table::new();
+    for (column, cell) in [("label", &row.label), ("kind", &row.kind)] {
+        if let Some(cell) = cell {
+            table[column] = value(cell.clone());
+        }
+    }
+    table["predicate"] = value(row.predicate.clone());
+    if let Some(field) = &row.field {
+        table["field"] = value(field.clone());
+    }
+    table["severity"] = value(row.severity.clone());
+    table
+}
+
+/// A registration row's four identity-and-address columns.
+fn registration_table(row: &RegistrationRow) -> Table {
+    let mut table = Table::new();
+    table["kind"] = value(row.kind.clone());
+    table["key"] = value(row.key.clone());
+    table["manifest"] = value(row.manifest.clone());
+    table["key_path"] = value(row.key_path.clone());
+    table
 }
 
 /// The finding a `warn`-mode run surfaced in-band, read out of the `hookSpecificOutput`

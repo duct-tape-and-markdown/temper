@@ -27,7 +27,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use temper::drift::ApplyOutcome;
+use temper::compose::{self, EnforcementMode};
+use temper::drift::{self, ApplyOutcome, ClauseRow, KindFactRow};
 use temper::install::{self, InstallOutcome, Represent};
 
 use crate::common;
@@ -1518,21 +1519,62 @@ fn gate_installed_does_not_report_superseded_by_member() {
 /// [`common::guard_write_payload`] at each of them.
 const CLAUDE_WRITE_PATH: &str = ".claude/skills/x/SKILL.md";
 
-/// A minimal lock row declaring [`CLAUDE_WRITE_PATH`] an emit-owned projection — real
+/// A lock at `mode` declaring [`CLAUDE_WRITE_PATH`] an emit-owned projection — real
 /// enforcement-mode tests bind against a declared member, never a lock with no member
-/// rows at all.
-const CLAUDE_WRITE_LOCK_ROW: &str = "[[skill]]\nname = \"x\"\nsource_path = \".claude/skills/x/SKILL.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n";
+/// rows at all. Callers compose their own further rows onto it before writing.
+fn claude_write_lock(mode: &str) -> common::GuardLock {
+    common::GuardLock::declaring(mode).member("skill", "x", CLAUDE_WRITE_PATH, "abc", "abc")
+}
+
+/// Every guard fixture's lock is built by one writer, and this is the pin that the
+/// writer's enforcement mode really lands in the bytes. `mode_from_declarations` reads an
+/// absent — or unreadably-spelled — `mode` fact as `EnforcementMode::default()`, which is
+/// `warn`: a `warn` fixture over a lock that declares nothing behaves exactly like one
+/// that declares everything, so every warn arm below would stay green over a lock saying
+/// nothing at all. Asserting the declared row *and* the mode the engine reads back off it
+/// closes both halves for all three modes at once.
+#[test]
+fn a_guard_fixtures_lock_declares_its_enforcement_mode_rather_than_inheriting_the_default() {
+    for (mode, resolved) in [
+        ("note", EnforcementMode::Note),
+        ("warn", EnforcementMode::Warn),
+        ("block", EnforcementMode::Block),
+    ] {
+        let root = common::tmpdir(&format!("guard-lock-declares-{mode}"));
+        common::GuardLock::declaring(mode)
+            .member("rule", "safety", ".claude/rules/safety.md", "abc", "abc")
+            .write(&root);
+
+        // Parsed off the bytes rather than read through `drift::read_declarations`, whose
+        // hoisting counters `check_cost` pins exact deltas on.
+        let path = root.join(temper::WORKSPACE_DIR).join(temper::LOCK_FILENAME);
+        let text = fs::read_to_string(&path).unwrap();
+        let declarations = drift::parse_declarations(&path, &text).unwrap();
+
+        let declared: Vec<&str> = declarations
+            .assembly
+            .iter()
+            .filter(|row| row.fact == "mode")
+            .filter_map(|row| row.value.as_deref())
+            .collect();
+        assert_eq!(
+            declared,
+            [mode],
+            "the fixture lock must carry the `mode` fact itself, never leave it to the \
+             default:\n{text}"
+        );
+        assert_eq!(
+            compose::mode_from_declarations(&declarations).unwrap(),
+            resolved,
+            "and the engine must read that fact back as the mode declared:\n{text}"
+        );
+    }
+}
 
 #[test]
 fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
     let root = common::tmpdir("lock-mode-block");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n{CLAUDE_WRITE_LOCK_ROW}"),
-    )
-    .unwrap();
+    claude_write_lock("block").write(&root);
     // A stray retired manifest naming the opposite enforcement mode must be ignored entirely —
     // the manifest is never read at all, by this or any other verb.
     fs::write(
@@ -1578,16 +1620,12 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
 #[test]
 fn guard_binds_declared_locus_targets_outside_claude() {
     let root = common::tmpdir("lock-declared-outside-claude");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
 
     // A lock with a `block` mode and a single emit-owned target outside `.claude/`
     // (e.g., a layout kind that governs `.rules/` directly).
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n[[rule]]\nname = \"safety\"\nsource_path = \".rules/safety.md\"\nsource_hash = \"def\"\nemit_hash = \"def\"\n"
-    )
-    .unwrap();
+    common::GuardLock::declaring("block")
+        .member("rule", "safety", ".rules/safety.md", "def", "def")
+        .write(&root);
 
     // A write targeting the declared `.rules/safety.md` path should be bound by the
     // guard, not silently allowed (the bug the entry fixes).
@@ -1627,15 +1665,9 @@ fn guard_binds_declared_locus_targets_outside_claude() {
 /// writer serves the block/warn/note arms.
 fn represented_rule_harness(name: &str, mode: &str) -> std::path::PathBuf {
     let root = common::tmpdir(name);
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        format!(
-            "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n\n[[rule]]\nname = \"safety\"\nsource_path = \".claude/rules/safety.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
-        ),
-    )
-    .unwrap();
+    common::GuardLock::declaring(mode)
+        .member("rule", "safety", ".claude/rules/safety.md", "abc", "abc")
+        .write(&root);
     root
 }
 
@@ -1812,15 +1844,11 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
 #[test]
 fn guard_binds_settings_json_when_registration_members_compose() {
     let root = common::tmpdir("guard-settings-json-emit-owned");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
 
     // A lock with `block` mode and a hook member (which composes into settings.json).
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n[[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n"
-    )
-    .unwrap();
+    common::GuardLock::declaring("block")
+        .registration("hook", "SessionStart", "settings.json", "hooks.<Event>")
+        .write(&root);
 
     // A pending write to .claude/settings.json should be bound by the guard
     // (not silently allowed), since the hook member composes into it.
@@ -1838,13 +1866,9 @@ fn guard_binds_settings_json_when_registration_members_compose() {
 
     // Verify that under `warn` mode, the same write is allowed but surfaces the finding.
     let warn_root = common::tmpdir("guard-settings-json-warn");
-    let warn_temper_dir = warn_root.join(".temper");
-    fs::create_dir_all(&warn_temper_dir).unwrap();
-    fs::write(
-        warn_temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"warn\"\n\n[[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n"
-    )
-    .unwrap();
+    common::GuardLock::declaring("warn")
+        .registration("hook", "SessionStart", "settings.json", "hooks.<Event>")
+        .write(&warn_root);
 
     let (warn_code, warn_output) = common::run_guard(
         &warn_root,
@@ -1869,16 +1893,12 @@ fn guard_binds_settings_json_when_registration_members_compose() {
 #[test]
 fn guard_matches_a_projection_by_path_equality_not_suffix() {
     let root = common::tmpdir("guard-path-equality");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
 
     // A lock with `block` mode and the root `CLAUDE.md` as a projected member
     // (the memory kind's single-segment projection).
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n[[memory]]\nname = \"root\"\nsource_path = \"CLAUDE.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
-    )
-    .unwrap();
+    common::GuardLock::declaring("block")
+        .member("memory", "root", "CLAUDE.md", "abc", "abc")
+        .write(&root);
 
     // A write to the actual root CLAUDE.md projection (absolute path) should be blocked.
     let (code, stderr) = common::run_guard(
@@ -1916,17 +1936,9 @@ fn guard_matches_a_projection_by_path_equality_not_suffix() {
 #[test]
 fn guard_reaches_the_same_verdict_from_a_dot_root_as_from_an_absolute_root() {
     let root = common::tmpdir("guard-dot-root");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        format!(
-            "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-             [[memory]]\nname = \"root\"\nsource_path = \"CLAUDE.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n\n\
-             {CLAUDE_WRITE_LOCK_ROW}"
-        ),
-    )
-    .unwrap();
+    claude_write_lock("block")
+        .member("memory", "root", "CLAUDE.md", "abc", "abc")
+        .write(&root);
 
     // (file_path as the payload spells it, the verdict both invocation forms owe it)
     let cases: Vec<(String, Option<i32>)> = vec![
@@ -1994,13 +2006,7 @@ fn guard_reaches_the_same_verdict_from_a_dot_root_as_from_an_absolute_root() {
 /// projection — so one lock exercises both bindings the guard now runs.
 fn manifest_guard_harness(slug: &str) -> PathBuf {
     let root = common::tmpdir(slug);
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n{CLAUDE_WRITE_LOCK_ROW}"),
-    )
-    .unwrap();
+    claude_write_lock("block").write(&root);
     root
 }
 
@@ -2065,13 +2071,7 @@ fn guard_follows_the_declared_mode_for_a_manifest_violation() {
     // `note` allows it with no in-band message at all — the finding rides the next report.
     for (mode, expect_stderr) in [("warn", true), ("note", false)] {
         let root = common::tmpdir(&format!("guard-manifest-{mode}"));
-        let temper_dir = root.join(".temper");
-        fs::create_dir_all(&temper_dir).unwrap();
-        fs::write(
-            temper_dir.join("lock.toml"),
-            format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n"),
-        )
-        .unwrap();
+        common::GuardLock::declaring(mode).write(&root);
 
         let (code, stderr) = common::run_guard(
             &root,
@@ -2095,17 +2095,12 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
     // enforcement mode. This regression test ensures the guard checks the lock's expected
     // member roster, not just the members present in the pending write.
     let root = common::tmpdir("guard-manifest-dropped-member-block");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
 
     // A lock with `block` mode declaring an MCP server and a hook member.
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-         [[declaration.registration]]\nkind = \"mcp-server\"\nkey = \"gmail\"\nmanifest = \".mcp.json\"\nkey_path = \"mcpServers.*\"\n\n\
-         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n"
-    )
-    .unwrap();
+    common::GuardLock::declaring("block")
+        .registration("mcp-server", "gmail", ".mcp.json", "mcpServers.*")
+        .registration("hook", "SessionStart", "settings.json", "hooks.<Event>")
+        .write(&root);
 
     // A write to `.mcp.json` that omits the `gmail` server (empty mcpServers object)
     // must be flagged, even though what's there parses correctly.
@@ -2129,14 +2124,9 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
 
     // Verify that under `warn` mode, the same write is allowed but surfaces the finding.
     let warn_root = common::tmpdir("guard-manifest-dropped-member-warn");
-    let warn_temper_dir = warn_root.join(".temper");
-    fs::create_dir_all(&warn_temper_dir).unwrap();
-    fs::write(
-        warn_temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"warn\"\n\n\
-         [[declaration.registration]]\nkind = \"mcp-server\"\nkey = \"gmail\"\nmanifest = \".mcp.json\"\nkey_path = \"mcpServers.*\"\n"
-    )
-    .unwrap();
+    common::GuardLock::declaring("warn")
+        .registration("mcp-server", "gmail", ".mcp.json", "mcpServers.*")
+        .write(&warn_root);
 
     let (warn_code, warn_output) = common::run_guard(
         &warn_root,
@@ -2158,14 +2148,7 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
 /// exact overlap an `Edit` to it has to be judged under.
 fn settings_manifest_harness(slug: &str, settings: &str) -> PathBuf {
     let root = common::tmpdir(slug);
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n",
-    )
-    .unwrap();
+    settings_manifest_lock("block").write(&root);
     common::write_settings(&root, settings);
     root
 }
@@ -2238,19 +2221,20 @@ fn guard_allows_an_edit_touching_only_unmodeled_manifest_residue() {
 /// lock carries exactly the overlap a container-owned manifest presents to the guard.
 fn container_owned_settings_harness(slug: &str) -> PathBuf {
     let root = common::tmpdir(slug);
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[settings]]\nname = \"settings\"\nsource_path = \".claude/settings.json\"\n\
-         source_hash = \"abc\"\nemit_hash = \"abc\"\n\n\
-         [[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-         [[declaration.kind]]\nname = \"settings\"\ngoverns_root = \".claude\"\n\
-         governs_glob = \"settings.json\"\nformat = \"json-document\"\nunit_shape = \"file\"\n\n\
-         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\n\
-         manifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n",
-    )
-    .unwrap();
+    settings_manifest_lock("block")
+        .member(
+            "settings",
+            "settings",
+            ".claude/settings.json",
+            "abc",
+            "abc",
+        )
+        .kind_row(KindFactRow {
+            format: Some("json-document".to_string()),
+            unit_shape: Some("file".to_string()),
+            ..common::kind_facts("settings", ".claude", "settings.json")
+        })
+        .write(&root);
     common::write_settings(&root, CO_OWNED_SETTINGS);
     root
 }
@@ -2267,20 +2251,14 @@ fn the_guards_enforcement_mode_decides_a_guarded_write_whatever_the_fresh_clause
     // projection, and no contract clause enters that decision. A harness that opted out of
     // the freshness finding has not opted out of the boundary.
     let root = common::tmpdir("guard-mode-outlives-a-clauseless-fresh");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
     // A root contract binding `reachable` alone: the lock declares kind-less rows, so
     // these rows *are* the root's whole contract and no `fresh` clause is composed.
-    fs::write(
-        temper_dir.join("lock.toml"),
-        format!(
-            "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-             [[declaration.clause]]\nlabel = \"root.reachable\"\n\
-             predicate = \"reachable\"\nseverity = \"advisory\"\n\n\
-             {CLAUDE_WRITE_LOCK_ROW}"
-        ),
-    )
-    .unwrap();
+    claude_write_lock("block")
+        .clause_row(ClauseRow {
+            label: Some("root.reachable".to_string()),
+            ..common::clause("reachable", "advisory")
+        })
+        .write(&root);
     // The projection on disk, drifted from the `emit_hash` the row above records — so the
     // only reason `check` can stay silent is the absent clause.
     let skill = root.join(".claude").join("skills").join("x");
@@ -2412,14 +2390,7 @@ fn guard_denies_an_unreconstructable_manifest_edit_with_the_manifest_message() {
 
     // An absent file is unreconstructable for the same reason, and denies the same way.
     let bare = common::tmpdir("guard-manifest-edit-absent-file");
-    let temper_dir = bare.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n",
-    )
-    .unwrap();
+    settings_manifest_lock("block").write(&bare);
 
     let (absent_code, absent_stderr) = common::run_guard(
         &bare,
@@ -2437,13 +2408,15 @@ fn guard_denies_an_unreconstructable_manifest_edit_with_the_manifest_message() {
     );
 }
 
-/// A `block` harness's lock is one line different per enforcement mode — the manifest
-/// binding's verdict is a function of the mode alone, so the unparseable case exercises
-/// all three off one lock body.
-fn settings_manifest_lock(mode: &str) -> String {
-    format!(
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n\n\
-         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n"
+/// A lock at `mode` declaring the `SessionStart` hook registration — the manifest
+/// binding's verdict is a function of the mode alone, so one builder serves the `block`
+/// harness above and the unparseable case's three arms alike.
+fn settings_manifest_lock(mode: &str) -> common::GuardLock {
+    common::GuardLock::declaring(mode).registration(
+        "hook",
+        "SessionStart",
+        "settings.json",
+        "hooks.<Event>",
     )
 }
 
@@ -2496,9 +2469,7 @@ fn guard_follows_the_declared_mode_for_an_unparseable_manifest_write() {
     // in-band and allows the write; `note` allows it with no in-band message at all.
     for (mode, expect_stderr) in [("warn", true), ("note", false)] {
         let root = common::tmpdir(&format!("guard-manifest-unparseable-{mode}"));
-        let temper_dir = root.join(".temper");
-        fs::create_dir_all(&temper_dir).unwrap();
-        fs::write(temper_dir.join("lock.toml"), settings_manifest_lock(mode)).unwrap();
+        settings_manifest_lock(mode).write(&root);
         common::write_settings(&root, CO_OWNED_SETTINGS);
 
         let (code, stderr) = common::run_guard(
