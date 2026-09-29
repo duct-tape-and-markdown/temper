@@ -479,19 +479,25 @@ fn an_embedded_kind_with_nested_members_renders_a_nonzero_embedded_marked_count(
     let harness = common::tmpdir("embedded-nested-members");
     write_skill(&harness, "test-skill");
 
-    let lock_dir = harness.join(".temper");
-    std::fs::create_dir_all(&lock_dir).unwrap();
-    std::fs::write(
-        lock_dir.join("lock.toml"),
-        r#"[declaration]
-
-[[declaration.nested_member]]
-host = "skill:test-skill"
-kind = "supporting-doc"
-key = "overview"
-"#,
-    )
-    .unwrap();
+    // Written by the real lock writer (`drift::emit`), which renders this family
+    // (`NestedMemberRow::to_table`) — and writes no provenance row for a declarations-only
+    // payload, so the skill on disk stays undeclared, exactly as the case requires.
+    common::write_lock(
+        &harness,
+        Declarations {
+            nested_members: vec![drift::NestedMemberRow {
+                host: "skill:test-skill".to_string(),
+                kind: "supporting-doc".to_string(),
+                key: "overview".to_string(),
+                leaves: BTreeMap::new(),
+                collections: Vec::new(),
+                placed_edges: None,
+                rendered_lines: None,
+                rendered_chars: None,
+            }],
+            ..Declarations::default()
+        },
+    );
 
     let (findings, _success) = check_harness(&harness);
 

@@ -370,21 +370,18 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
     )
     .unwrap();
 
-    // Create a lock.toml with a widget kind row
-    let lock_dir = harness.join(".temper");
-    std::fs::create_dir_all(&lock_dir).unwrap();
-    std::fs::write(
-        lock_dir.join("lock.toml"),
-        r#"[declaration]
-
-[[declaration.kind]]
-name = "widget"
-governs_root = ".claude"
-governs_glob = "settings.json"
-unit_shape = "file"
-"#,
-    )
-    .unwrap();
+    // Written by the real lock writer (`drift::emit`) off a `KindFactRow`, the row this
+    // family's one producer emits — never a hand-spelled `[[declaration.kind]]` table.
+    common::write_lock(
+        &harness,
+        drift::Declarations {
+            kinds: vec![drift::KindFactRow {
+                unit_shape: Some("file".to_string()),
+                ..common::kind_facts("widget", ".claude", "settings.json")
+            }],
+            ..drift::Declarations::default()
+        },
+    );
 
     // Verify that coverage_note::check works correctly when passed pre-parsed kind rows
     // from a caller's own read_declarations call (as gate() now does, per
@@ -807,8 +804,11 @@ fn a_full_check_run_walks_each_consulted_flavor_once() {
 /// kind_features for validation and again through collect_directive_members).
 #[test]
 fn resolve_kind_units_runs_once_per_kind_not_twice() {
+    use temper::builtin_kind;
     use temper::compose;
+    use temper::drift;
     use temper::gate;
+    use temper::kind::Commitment;
 
     let harness = tmpdir("resolve-units-once");
     let skill = harness.join(".claude").join("skills").join("test-skill");
@@ -822,53 +822,67 @@ fn resolve_kind_units_runs_once_per_kind_not_twice() {
     std::fs::create_dir_all(&rules).unwrap();
     std::fs::write(rules.join("test-rule.md"), "# Rule\n").unwrap();
 
-    // Create a custom kind with one member to verify custom kinds are also resolved
-    // exactly once.
-    let custom_kinds = harness.join(".temper");
-    std::fs::create_dir_all(&custom_kinds).unwrap();
-    std::fs::write(
-        custom_kinds.join("lock.toml"),
-        r#"[[kind]]
-name = "custom-kind"
-content = "file"
-format = "toml-document"
-governs = ".custom"
-unit_shape = "file"
-"#,
-    )
-    .unwrap();
+    // One custom kind beside the built-ins, so the pin below covers a locked kind and
+    // not the built-in set alone. Written by the real lock writer (`drift::emit`) off a
+    // `KindFactRow`, the row this family's one producer emits. A plain markdown file
+    // kind on purpose: its members' identity is the file stem, where a `toml-document`
+    // kind would carry a `named-field` identity fact this case has no use for.
+    common::write_lock(
+        &harness,
+        drift::Declarations {
+            kinds: vec![common::kind_facts("custom-kind", ".custom", "*.md")],
+            ..drift::Declarations::default()
+        },
+    );
     let custom_dir = harness.join(".custom");
     std::fs::create_dir_all(&custom_dir).unwrap();
-    std::fs::write(
-        custom_dir.join("member.toml"),
-        "[custom]\ndata = \"test\"\n",
-    )
-    .unwrap();
+    std::fs::write(custom_dir.join("member.md"), "# Member\n").unwrap();
 
+    // The adopted-harness dispatch: the workspace is the `.temper/` the lock lives in,
+    // the harness root the tree discovery walks — exactly the pair `harness_diagnostics`
+    // hands `gate` for a root carrying a workspace.
     let before = compose::resolve_kind_units_count();
-    gate::gate(&harness, &harness, &[]).unwrap();
+    let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
     let resolves = compose::resolve_kind_units_count() - before;
 
-    // The count-pin verifies resolve_kind_units is called exactly once per kind.
-    // With 15+ built-in kinds plus custom kinds, a vacuous test would pass with zero;
-    // a real run must demonstrate non-zero delta.
+    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): the count
+    // below is only a *custom*-kind pin if the custom kind actually resolved its own
+    // member — a bare `resolves > 0` the built-in set satisfies alone proves nothing
+    // about it. The run's own disclosure of what it checked names the member.
+    let summary = &diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.rule == "coverage.checked")
+        .expect("the run discloses what it checked")
+        .message;
     assert!(
-        resolves > 0,
-        "resolve_kind_units not called at all (delta was 0); the real counter may not be wired",
+        summary.contains("custom-kind (1"),
+        "the locked custom kind must have resolved its own member, got: {summary}",
     );
 
     // Before the fix, resolve_kind_units was called twice per kind: once through
-    // kind_features and again through collect_directive_members. After the fix, it's
-    // called exactly once per kind. The exact count depends on how many built-in kinds
-    // exist (14) plus custom kinds (at least 1), but the key invariant is that with
-    // 2+ kinds, we should see fewer than `2 * kind_count` resolves. For 15+ kinds,
-    // a pre-fix run would make 30+ calls; post-fix should be ~15-20.
-    let kind_count_estimate = 15;
-    let max_expected_if_doubled = kind_count_estimate * 2;
-    assert!(
-        resolves < max_expected_if_doubled,
-        "resolve_kind_units called {resolves} times; if it ran twice per kind \
-         (pre-fix), would expect {max_expected_if_doubled}+ — the threading fix may not be working",
+    // kind_features and again through collect_directive_members. After the fix the
+    // judging pass runs it once per consulted kind — every built-in plus the one locked
+    // `custom-kind`. Spelled as an equality off the real sets rather than a ceiling, so
+    // a re-doubled call site fails hard instead of fitting under a loose bound; the two
+    // pre-passes `assemble_lock_family` makes before that pass are named, not folded
+    // into slack:
+    //   - one per local-locus kind, whose read-time rows the family is assembled from;
+    //   - one more for `dial` alone, which `read_dial` resolves to build the dial off.
+    // The `dial` term is the run's third resolution of that one kind — captured in
+    // .flume/refactor/, and pinned rather than hidden so the count moves when it lands.
+    let builtins = builtin_kind::definitions();
+    let locals = builtins
+        .values()
+        .filter(|kind| kind.commitment == Some(Commitment::Local))
+        .count();
+    let expected = builtins.len() + 1 + locals + 1;
+    assert_eq!(
+        resolves,
+        expected,
+        "resolve_kind_units must run once per consulted kind ({} built-ins plus the \
+         locked `custom-kind`), plus the {locals} local-locus pre-passes and the one \
+         `dial` read; got {resolves}",
+        builtins.len(),
     );
 }
 
