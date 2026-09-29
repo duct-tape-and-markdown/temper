@@ -383,6 +383,48 @@ pub fn run_guard_from_root(root: &Path, payload: &str) -> (Option<i32>, String) 
     run_guard_spawned_in(root, std::ffi::OsStr::new("."), payload)
 }
 
+/// A `PreToolUse` payload announcing a bare `Write` to `file_path` — the input half of the
+/// two runners above, and the one home for the payload's key names.
+///
+/// The keys are a provider fact: `tool_name` and `tool_input` on the event envelope
+/// (`code.claude.com/docs/en/hooks`, "PreToolUse input", retrieved 2026-09-25), and
+/// `file_path` inside it (`code.claude.com/docs/en/tools-reference`, retrieved
+/// 2026-09-07). Its two siblings carry the same envelope over the wider `tool_input` the
+/// same reference documents: [`guard_write_payload_with_content`] and
+/// [`guard_edit_payload`].
+pub fn guard_write_payload(file_path: &str) -> String {
+    serde_json::json!({
+        "tool_name": "Write",
+        "tool_input": { "file_path": file_path },
+    })
+    .to_string()
+}
+
+/// A `PreToolUse` `Write` payload landing whole-file `content` at `file_path` — the shape
+/// the manifest guard reads a pending manifest's members off, a partial `Edit` carrying no
+/// full manifest.
+pub fn guard_write_payload_with_content(file_path: &str, content: &str) -> String {
+    serde_json::json!({
+        "tool_name": "Write",
+        "tool_input": { "file_path": file_path, "content": content },
+    })
+    .to_string()
+}
+
+/// A `PreToolUse` `Edit` payload — the partial shape carrying replacement strings rather
+/// than the whole file, which the guard reconstructs against the on-disk manifest.
+pub fn guard_edit_payload(file_path: &str, old_string: &str, new_string: &str) -> String {
+    serde_json::json!({
+        "tool_name": "Edit",
+        "tool_input": {
+            "file_path": file_path,
+            "old_string": old_string,
+            "new_string": new_string,
+        },
+    })
+    .to_string()
+}
+
 /// The finding a `warn`-mode run surfaced in-band, read out of the `hookSpecificOutput`
 /// envelope on stdout — the one channel a hook exiting zero reaches the model's context
 /// through, stderr on exit 0 landing in the debug log alone.

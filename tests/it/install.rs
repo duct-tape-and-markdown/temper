@@ -1514,14 +1514,13 @@ fn gate_installed_does_not_report_superseded_by_member() {
 // guard — the lock, not the retired manifest, grounds the enforcement mode
 // ---------------------------------------------------------------------------
 
-/// A `PreToolUse` payload naming a `.claude/` projection `file_path` — the write the
-/// guard binds on.
-const CLAUDE_WRITE_PAYLOAD: &str =
-    "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/x/SKILL.md\"}}";
+/// The `.claude/` projection path the enforcement-mode arms bind a write to, fed to
+/// [`common::guard_write_payload`] at each of them.
+const CLAUDE_WRITE_PATH: &str = ".claude/skills/x/SKILL.md";
 
-/// A minimal lock row declaring `.claude/skills/x/SKILL.md` (the [`CLAUDE_WRITE_PAYLOAD`]
-/// target) an emit-owned projection — real enforcement-mode tests bind against a declared
-/// member, never a lock with no member rows at all.
+/// A minimal lock row declaring [`CLAUDE_WRITE_PATH`] an emit-owned projection — real
+/// enforcement-mode tests bind against a declared member, never a lock with no member
+/// rows at all.
 const CLAUDE_WRITE_LOCK_ROW: &str = "[[skill]]\nname = \"x\"\nsource_path = \".claude/skills/x/SKILL.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n";
 
 #[test]
@@ -1542,7 +1541,7 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
     )
     .unwrap();
 
-    let (code, stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
     assert_eq!(code, Some(2), "the lock's `block` mode must block");
     // The in-band surface carries the binding limit whole, naming the tools the guard's
     // `PreToolUse` row binds — the sentence reaches the user, tool list included.
@@ -1559,7 +1558,7 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
 #[test]
 fn guard_defaults_to_warn_when_the_lock_is_absent() {
     let root = common::tmpdir("lock-mode-absent");
-    let (code, stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
     assert_eq!(
         code,
         Some(0),
@@ -1567,10 +1566,8 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
     );
     assert!(stderr.contains("temper-managed projection"));
 
-    let (allow_code, allow_stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"src/main.rs\"}}",
-    );
+    let (allow_code, allow_stderr) =
+        common::run_guard(&root, &common::guard_write_payload("src/main.rs"));
     assert_eq!(allow_code, Some(0));
     assert!(allow_stderr.is_empty());
 }
@@ -1594,10 +1591,7 @@ fn guard_binds_declared_locus_targets_outside_claude() {
 
     // A write targeting the declared `.rules/safety.md` path should be bound by the
     // guard, not silently allowed (the bug the entry fixes).
-    let (code, stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".rules/safety.md\"}}",
-    );
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload(".rules/safety.md"));
     assert_eq!(
         code,
         Some(2),
@@ -1609,10 +1603,8 @@ fn guard_binds_declared_locus_targets_outside_claude() {
     // the `skill` kind's governed locus and the lock declares no member there, so the
     // locus binding catches it. Representation must not loosen the boundary the no-lock
     // fallback would have held.
-    let (undeclared_code, undeclared_stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/x/SKILL.md\"}}",
-    );
+    let (undeclared_code, undeclared_stderr) =
+        common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
     assert_eq!(
         undeclared_code,
         Some(2),
@@ -1624,10 +1616,8 @@ fn guard_binds_declared_locus_targets_outside_claude() {
     );
 
     // A write to an entirely different path should be allowed.
-    let (other_code, other_stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"src/main.rs\"}}",
-    );
+    let (other_code, other_stderr) =
+        common::run_guard(&root, &common::guard_write_payload("src/main.rs"));
     assert_eq!(other_code, Some(0));
     assert!(other_stderr.is_empty());
 }
@@ -1661,7 +1651,7 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
     let block_root = represented_rule_harness("guard-undeclared-locus-block", "block");
     let (code, stderr) = common::run_guard(
         &block_root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
+        &common::guard_write_payload(".claude/rules/stray.md"),
     );
     assert_eq!(
         code,
@@ -1682,7 +1672,7 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
     // carries none. The locus set is embedded kind data, so the binding holds anyway.
     let (agent_code, agent_stderr) = common::run_guard(
         &block_root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/agents/stray.md\"}}",
+        &common::guard_write_payload(".claude/agents/stray.md"),
     );
     assert_eq!(
         agent_code,
@@ -1698,7 +1688,7 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
     let warn_root = represented_rule_harness("guard-undeclared-locus-warn", "warn");
     let (warn_code, warn_output) = common::run_guard(
         &warn_root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
+        &common::guard_write_payload(".claude/rules/stray.md"),
     );
     assert_eq!(warn_code, Some(0), "warn mode allows the write");
     let in_band = common::guard_in_band(&warn_output, "PreToolUse");
@@ -1711,7 +1701,7 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
     let note_root = represented_rule_harness("guard-undeclared-locus-note", "note");
     let (note_code, note_output) = common::run_guard(
         &note_root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
+        &common::guard_write_payload(".claude/rules/stray.md"),
     );
     assert_eq!(note_code, Some(0), "note mode allows the write");
     assert!(
@@ -1733,7 +1723,7 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     // is consulted first and its wording is what the author reads.
     let (declared_code, declared_stderr) = common::run_guard(
         &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/safety.md\"}}",
+        &common::guard_write_payload(".claude/rules/safety.md"),
     );
     assert_eq!(declared_code, Some(2));
     assert!(
@@ -1745,12 +1735,8 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     // an emit input or target — so no member is ever declared at their loci and the
     // binding must not fire there. `settings.local.json` and the dial are the two.
     for local_path in [".claude/settings.local.json", ".temper/dial.toml"] {
-        let (local_code, local_stderr) = common::run_guard(
-            &root,
-            &format!(
-                "{{\"tool_name\":\"Write\",\"tool_input\":{{\"file_path\":\"{local_path}\"}}}}"
-            ),
-        );
+        let (local_code, local_stderr) =
+            common::run_guard(&root, &common::guard_write_payload(local_path));
         assert_eq!(
             local_code,
             Some(0),
@@ -1762,10 +1748,8 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     // A manifest kind's locus stays `manifest_write_findings`'s: `.mcp.json` is not
     // emit-owned in this lock (no registration rows), and the `collection_address`
     // exclusion keeps the locus binding off `mcp-server`, so the write is allowed.
-    let (manifest_code, manifest_stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".mcp.json\"}}",
-    );
+    let (manifest_code, manifest_stderr) =
+        common::run_guard(&root, &common::guard_write_payload(".mcp.json"));
     assert_eq!(
         manifest_code,
         Some(0),
@@ -1776,10 +1760,8 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     // `.claude/settings.json` is the other side of that exclusion: the `settings`
     // container governs the file and carries no collection address, so its locus binds
     // like any other — the guard saying what `check` already says about the same file.
-    let (settings_code, settings_stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
-    );
+    let (settings_code, settings_stderr) =
+        common::run_guard(&root, &common::guard_write_payload(".claude/settings.json"));
     assert_eq!(
         settings_code,
         Some(2),
@@ -1793,10 +1775,8 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     // `memory` governs `.` with `**/CLAUDE.md`, and the guard has no ignore reader where
     // discovery prunes by the repo's ignore rules — so the `.`-rooted locus is excluded
     // by construction rather than judging every CLAUDE.md in the tree.
-    let (memory_code, memory_stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"vendor/dep/CLAUDE.md\"}}",
-    );
+    let (memory_code, memory_stderr) =
+        common::run_guard(&root, &common::guard_write_payload("vendor/dep/CLAUDE.md"));
     assert_eq!(
         memory_code,
         Some(0),
@@ -1810,20 +1790,15 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     let bare_root = common::tmpdir("guard-locus-no-lock");
     fs::create_dir_all(&bare_root).unwrap();
     for bound in [".claude/rules/stray.md", ".claude/settings.local.json"] {
-        let (code, stderr) = common::run_guard(
-            &bare_root,
-            &format!("{{\"tool_name\":\"Write\",\"tool_input\":{{\"file_path\":\"{bound}\"}}}}"),
-        );
+        let (code, stderr) = common::run_guard(&bare_root, &common::guard_write_payload(bound));
         assert_eq!(code, Some(0), "the no-lock default mode is warn ({bound})");
         assert!(
             stderr.contains("temper-managed projection"),
             "the no-lock fallback binds any `.claude/` path ({bound}), got: {stderr}"
         );
     }
-    let (outside_code, outside_stderr) = common::run_guard(
-        &bare_root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"specs/intent.md\"}}",
-    );
+    let (outside_code, outside_stderr) =
+        common::run_guard(&bare_root, &common::guard_write_payload("specs/intent.md"));
     assert_eq!(outside_code, Some(0));
     assert!(
         outside_stderr.is_empty(),
@@ -1849,10 +1824,8 @@ fn guard_binds_settings_json_when_registration_members_compose() {
 
     // A pending write to .claude/settings.json should be bound by the guard
     // (not silently allowed), since the hook member composes into it.
-    let (code, stderr) = common::run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
-    );
+    let (code, stderr) =
+        common::run_guard(&root, &common::guard_write_payload(".claude/settings.json"));
     assert_eq!(
         code,
         Some(2),
@@ -1875,7 +1848,7 @@ fn guard_binds_settings_json_when_registration_members_compose() {
 
     let (warn_code, warn_output) = common::run_guard(
         &warn_root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
+        &common::guard_write_payload(".claude/settings.json"),
     );
     assert_eq!(
         warn_code,
@@ -1907,16 +1880,11 @@ fn guard_matches_a_projection_by_path_equality_not_suffix() {
     )
     .unwrap();
 
-    let payload_for = |path: &Path| {
-        serde_json::json!({
-            "tool_name": "Write",
-            "tool_input": { "file_path": path.to_string_lossy().as_ref() }
-        })
-        .to_string()
-    };
-
     // A write to the actual root CLAUDE.md projection (absolute path) should be blocked.
-    let (code, stderr) = common::run_guard(&root, &payload_for(&root.join("CLAUDE.md")));
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload(&root.join("CLAUDE.md").to_string_lossy()),
+    );
     assert_eq!(
         code,
         Some(2),
@@ -1927,7 +1895,10 @@ fn guard_matches_a_projection_by_path_equality_not_suffix() {
     // Every other path ending in `CLAUDE.md` is a different file, not the projection:
     // neither one deeper in the tree nor one a single segment over may be blocked.
     for unrelated in [".temper/memory/CLAUDE.md", "reference/CLAUDE.md"] {
-        let (code, stderr) = common::run_guard(&root, &payload_for(&root.join(unrelated)));
+        let (code, stderr) = common::run_guard(
+            &root,
+            &common::guard_write_payload(&root.join(unrelated).to_string_lossy()),
+        );
         assert_eq!(
             code,
             Some(0),
@@ -1996,11 +1967,7 @@ fn guard_reaches_the_same_verdict_from_a_dot_root_as_from_an_absolute_root() {
     ];
 
     for (file_path, expected) in cases {
-        let payload = serde_json::json!({
-            "tool_name": "Write",
-            "tool_input": { "file_path": &file_path }
-        })
-        .to_string();
+        let payload = common::guard_write_payload(&file_path);
         let (abs_code, abs_stderr) = common::run_guard(&root, &payload);
         let (dot_code, dot_stderr) = common::run_guard_from_root(&root, &payload);
         assert_eq!(
@@ -2023,19 +1990,8 @@ fn guard_reaches_the_same_verdict_from_a_dot_root_as_from_an_absolute_root() {
 // `.claude/`-projection-drift binding it extends
 // ---------------------------------------------------------------------------
 
-/// A `PreToolUse` `Write` payload landing whole-file `content` at `file_path` — the shape
-/// the manifest guard reads a pending manifest's members off (a partial `Edit` carries no
-/// full manifest, so the guard checks only a whole-file write).
-fn write_payload(file_path: &str, content: &str) -> String {
-    serde_json::json!({
-        "tool_name": "Write",
-        "tool_input": { "file_path": file_path, "content": content },
-    })
-    .to_string()
-}
-
-/// A `block` harness whose lock also declares the [`CLAUDE_WRITE_PAYLOAD`] target an
-/// emit-owned projection — so one lock exercises both bindings the guard now runs.
+/// A `block` harness whose lock also declares [`CLAUDE_WRITE_PATH`] an emit-owned
+/// projection — so one lock exercises both bindings the guard now runs.
 fn manifest_guard_harness(slug: &str) -> PathBuf {
     let root = common::tmpdir(slug);
     let temper_dir = root.join(".temper");
@@ -2056,7 +2012,7 @@ fn guard_flags_a_represented_manifest_whose_member_violates_its_contract() {
     // the `mcp-server` contract's `type` enum — flagged, and under `block` the write is denied.
     let (code, stderr) = common::run_guard(
         &root,
-        &write_payload(
+        &common::guard_write_payload_with_content(
             ".mcp.json",
             r#"{"mcpServers":{"gmail":{"type":"carrier-pigeon","command":"npx"}}}"#,
         ),
@@ -2079,7 +2035,7 @@ fn guard_flags_a_represented_manifest_whose_member_violates_its_contract() {
     // never blanket-blocking a manifest the way it does a `.claude/` projection.
     let (ok_code, ok_stderr) = common::run_guard(
         &root,
-        &write_payload(
+        &common::guard_write_payload_with_content(
             ".mcp.json",
             r#"{"mcpServers":{"gmail":{"type":"stdio","command":"npx"}}}"#,
         ),
@@ -2092,7 +2048,8 @@ fn guard_flags_a_represented_manifest_whose_member_violates_its_contract() {
 
     // The existing `.claude/` projection-drift binding is unaffected: a direct edit to a
     // projected path still blocks under the same lock, at the same enforcement mode.
-    let (proj_code, proj_stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    let (proj_code, proj_stderr) =
+        common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
     assert_eq!(
         proj_code,
         Some(2),
@@ -2118,7 +2075,7 @@ fn guard_follows_the_declared_mode_for_a_manifest_violation() {
 
         let (code, stderr) = common::run_guard(
             &root,
-            &write_payload(
+            &common::guard_write_payload_with_content(
                 ".mcp.json",
                 r#"{"mcpServers":{"gmail":{"type":"carrier-pigeon","command":"npx"}}}"#,
             ),
@@ -2152,8 +2109,10 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
 
     // A write to `.mcp.json` that omits the `gmail` server (empty mcpServers object)
     // must be flagged, even though what's there parses correctly.
-    let (code, stderr) =
-        common::run_guard(&root, &write_payload(".mcp.json", r#"{"mcpServers":{}}"#));
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload_with_content(".mcp.json", r#"{"mcpServers":{}}"#),
+    );
     assert_eq!(
         code,
         Some(2),
@@ -2181,7 +2140,7 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
 
     let (warn_code, warn_output) = common::run_guard(
         &warn_root,
-        &write_payload(".mcp.json", r#"{"mcpServers":{}}"#),
+        &common::guard_write_payload_with_content(".mcp.json", r#"{"mcpServers":{}}"#),
     );
     assert_eq!(
         warn_code,
@@ -2192,20 +2151,6 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
         common::guard_in_band(&warn_output, "PreToolUse").contains("lock declares member"),
         "the warning must be in-band"
     );
-}
-
-/// A `PreToolUse` `Edit` payload — the partial shape carrying replacement strings rather
-/// than the whole file, which the guard reconstructs against the on-disk manifest.
-fn edit_payload(file_path: &str, old_string: &str, new_string: &str) -> String {
-    serde_json::json!({
-        "tool_name": "Edit",
-        "tool_input": {
-            "file_path": file_path,
-            "old_string": old_string,
-            "new_string": new_string,
-        },
-    })
-    .to_string()
 }
 
 /// A `block` harness whose lock declares the `SessionStart` hook member — which makes
@@ -2248,7 +2193,7 @@ fn guard_allows_an_edit_touching_only_unmodeled_manifest_residue() {
 
     let (code, stderr) = common::run_guard(
         &root,
-        &edit_payload(
+        &common::guard_edit_payload(
             ".claude/settings.json",
             "\"autoMemoryEnabled\": false",
             "\"autoMemoryEnabled\": true",
@@ -2269,7 +2214,7 @@ fn guard_allows_an_edit_touching_only_unmodeled_manifest_residue() {
     // and `Edit` alike.
     let (dropped_code, dropped_stderr) = common::run_guard(
         &root,
-        &edit_payload(
+        &common::guard_edit_payload(
             ".claude/settings.json",
             "\"SessionStart\"",
             "\"NotARealEvent\"",
@@ -2349,7 +2294,7 @@ fn the_guards_enforcement_mode_decides_a_guarded_write_whatever_the_fresh_clause
          {findings:#?}"
     );
 
-    let (code, stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
     assert_eq!(
         code,
         Some(2),
@@ -2373,8 +2318,10 @@ fn guard_refuses_a_residue_only_write_to_a_container_owned_manifest() {
     let root = container_owned_settings_harness("guard-manifest-container-owned");
     let pending = CO_OWNED_SETTINGS.replace(": false", ": true");
 
-    let (code, stderr) =
-        common::run_guard(&root, &write_payload(".claude/settings.json", &pending));
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload_with_content(".claude/settings.json", &pending),
+    );
     assert_eq!(
         code,
         Some(2),
@@ -2398,8 +2345,10 @@ fn guard_refuses_a_residue_only_write_to_a_container_owned_manifest() {
     // emit-owned target in both locks. Only the container rows are gone, and the co-owned
     // verdict survives.
     let co_owned = settings_manifest_harness("guard-manifest-container-absent", CO_OWNED_SETTINGS);
-    let (ok_code, ok_stderr) =
-        common::run_guard(&co_owned, &write_payload(".claude/settings.json", &pending));
+    let (ok_code, ok_stderr) = common::run_guard(
+        &co_owned,
+        &common::guard_write_payload_with_content(".claude/settings.json", &pending),
+    );
     assert_eq!(
         ok_code,
         Some(0),
@@ -2414,7 +2363,7 @@ fn guard_refuses_a_residue_only_write_to_a_container_owned_manifest() {
     // registrations alone, so it stays co-owned whatever else the lock declares.
     let (mcp_code, mcp_stderr) = common::run_guard(
         &co_owned,
-        &write_payload(
+        &common::guard_write_payload_with_content(
             ".mcp.json",
             r#"{"mcpServers":{"gmail":{"type":"stdio","command":"npx"}},"someResidue":true}"#,
         ),
@@ -2441,7 +2390,7 @@ fn guard_denies_an_unreconstructable_manifest_edit_with_the_manifest_message() {
 
     let (code, stderr) = common::run_guard(
         &root,
-        &edit_payload(
+        &common::guard_edit_payload(
             ".claude/settings.json",
             "\"neverOnDisk\": 1",
             "\"neverOnDisk\": 2",
@@ -2474,7 +2423,7 @@ fn guard_denies_an_unreconstructable_manifest_edit_with_the_manifest_message() {
 
     let (absent_code, absent_stderr) = common::run_guard(
         &bare,
-        &edit_payload(".claude/settings.json", "\"a\": 1", "\"a\": 2"),
+        &common::guard_edit_payload(".claude/settings.json", "\"a\": 1", "\"a\": 2"),
     );
     assert_eq!(
         absent_code,
@@ -2514,7 +2463,7 @@ fn guard_refuses_a_write_that_would_leave_a_represented_manifest_unparseable() {
 
     let (code, stderr) = common::run_guard(
         &root,
-        &write_payload(".claude/settings.json", UNPARSEABLE_SETTINGS),
+        &common::guard_write_payload_with_content(".claude/settings.json", UNPARSEABLE_SETTINGS),
     );
     assert_eq!(
         code,
@@ -2554,7 +2503,10 @@ fn guard_follows_the_declared_mode_for_an_unparseable_manifest_write() {
 
         let (code, stderr) = common::run_guard(
             &root,
-            &write_payload(".claude/settings.json", UNPARSEABLE_SETTINGS),
+            &common::guard_write_payload_with_content(
+                ".claude/settings.json",
+                UNPARSEABLE_SETTINGS,
+            ),
         );
         assert_eq!(code, Some(0), "`{mode}` allows the write, never blocks");
         assert_eq!(
@@ -2576,7 +2528,7 @@ fn guard_reserves_the_unparseable_refusal_for_content_that_is_not_a_manifest() {
 
     let (ok_code, ok_stderr) = common::run_guard(
         &root,
-        &write_payload(".claude/settings.json", CO_OWNED_SETTINGS),
+        &common::guard_write_payload_with_content(".claude/settings.json", CO_OWNED_SETTINGS),
     );
     assert_eq!(
         ok_code,
@@ -2590,7 +2542,7 @@ fn guard_reserves_the_unparseable_refusal_for_content_that_is_not_a_manifest() {
 
     let (edit_code, edit_stderr) = common::run_guard(
         &root,
-        &edit_payload(
+        &common::guard_edit_payload(
             ".claude/settings.json",
             "\"neverOnDisk\": 1",
             "\"neverOnDisk\": 2",
@@ -3271,7 +3223,7 @@ fn guard_hook_fails_loud_when_temper_not_on_path() {
     fs::write(temper_dir.join("lock.toml"), "").unwrap();
 
     // Build a minimal guard payload.
-    let payload = r#"{"tool_name":"Write","tool_input":{"file_path":".claude/test.md"}}"#;
+    let payload = common::guard_write_payload(".claude/test.md");
 
     // Run the command through a shell with an empty PATH so temper cannot be found.
     let cmd = temper::install::GUARD_COMMAND;

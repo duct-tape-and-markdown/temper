@@ -524,18 +524,15 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     )
     .unwrap();
 
-    let (code, stderr) = common::run_guard(
-        &root,
-        "{\"tool_input\":{\"file_path\":\".claude/rules/rust.md\"}}",
-    );
+    let (code, stderr) =
+        common::run_guard(&root, &common::guard_write_payload(".claude/rules/rust.md"));
     assert_eq!(code, Some(2), "a block harness blocks a projection write");
     assert!(
         stderr.contains("temper-managed projection"),
         "the block states the managed-by message"
     );
 
-    let (code, _stderr) =
-        common::run_guard(&root, "{\"tool_input\":{\"file_path\":\"README.md\"}}");
+    let (code, _stderr) = common::run_guard(&root, &common::guard_write_payload("README.md"));
     assert_eq!(
         code,
         Some(0),
@@ -555,10 +552,8 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
         )
         .unwrap();
 
-        let (code, output) = common::run_guard(
-            &root,
-            "{\"tool_input\":{\"file_path\":\".claude/rules/rust.md\"}}",
-        );
+        let (code, output) =
+            common::run_guard(&root, &common::guard_write_payload(".claude/rules/rust.md"));
         assert_eq!(
             code,
             Some(0),
@@ -587,10 +582,8 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
 /// reuse the represented-lock fixture shape the posture case above writes.
 #[test]
 fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
-    let stray =
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}";
-    let declared =
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/safety.md\"}}";
+    let stray = common::guard_write_payload(".claude/rules/stray.md");
+    let declared = common::guard_write_payload(".claude/rules/safety.md");
 
     // Bound — the lock declares no clause row at all, so `compose::root_contract`'s
     // rows-or-default rule reinstates the embedded `root.locus-declared` and the stray
@@ -604,7 +597,7 @@ fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
          source_hash = \"abc\"\nemit_hash = \"abc\"\n",
     )
     .unwrap();
-    let (code, stderr) = common::run_guard(&bound, stray);
+    let (code, stderr) = common::run_guard(&bound, &stray);
     assert_eq!(
         code,
         Some(2),
@@ -626,7 +619,7 @@ fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
          source_hash = \"abc\"\nemit_hash = \"abc\"\n",
     )
     .unwrap();
-    let (code, stderr) = common::run_guard(&unbound, stray);
+    let (code, stderr) = common::run_guard(&unbound, &stray);
     assert_eq!(
         code,
         Some(0),
@@ -640,7 +633,7 @@ fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
 
     // The narrowing reaches the undeclared-document binding and nothing else: the same
     // unbound harness still blocks a write of its own declared projection.
-    let (code, stderr) = common::run_guard(&unbound, declared);
+    let (code, stderr) = common::run_guard(&unbound, &declared);
     assert_eq!(
         code,
         Some(2),
@@ -936,14 +929,14 @@ fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
     // block}` vocabulary — must reject loud, never silently degrade a declared `block`
     // to the default `warn` (LOCK-READ-SWALLOW-LOUD). A genuinely absent lock still
     // guards at the documented default `warn` (allow, exit 0).
-    let payload = "{\"tool_input\":{\"file_path\":\".claude/rules/rust.md\"}}";
+    let payload = common::guard_write_payload(".claude/rules/rust.md");
 
     // (1) Unparseable TOML → loud, never a silent default-warn allow.
     let bad_toml = common::tmpdir("guard-corrupt-toml");
     let temper_dir = bad_toml.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(temper_dir.join("lock.toml"), "this is not = = valid toml").unwrap();
-    let (code, _stderr) = common::run_guard(&bad_toml, payload);
+    let (code, _stderr) = common::run_guard(&bad_toml, &payload);
     assert!(
         code != Some(0),
         "a corrupt (unparseable) lock must reject loud, got exit {:?}",
@@ -959,7 +952,7 @@ fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
         "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"clobber\"\n",
     )
     .unwrap();
-    let (code, stderr) = common::run_guard(&bad_mode, payload);
+    let (code, stderr) = common::run_guard(&bad_mode, &payload);
     assert!(
         code != Some(0),
         "an out-of-vocabulary enforcement mode must reject loud, got exit {:?}",
@@ -974,7 +967,7 @@ fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
     // (3) A genuinely absent lock still guards at the default `warn` — a projection
     // write is allowed (exit 0), never blocked by the missing-lock read.
     let no_lock = common::tmpdir("guard-no-lock");
-    let (code, _stderr) = common::run_guard(&no_lock, payload);
+    let (code, _stderr) = common::run_guard(&no_lock, &payload);
     assert!(
         code == Some(0),
         "a missing lock keeps the default-warn allow, got exit {:?}",
