@@ -10,7 +10,7 @@
     "edit": [
       {
         "path": "src/contract.rs",
-        "description": "A new field-less `Predicate` variant for the engine check beside `Fresh`/`LocusDeclared` (:549), its wire label in both directions (:713 parse, :826 render), and its arm in the four classification chains (:864, :913, :966, :1017) — model the whole shape on `LocusDeclared`, which names no field either."
+        "description": "A new field-less `Predicate::EngineMatches` variant beside `Fresh`/`LocusDeclared` (:549), its wire label `engine-matches` in both directions (:713 parse, :826 render), and its arm in the four classification chains (:864, :913, :966, :1017) — model the whole shape on `LocusDeclared`, which names no field either."
       },
       {
         "path": "src/engine.rs",
@@ -18,35 +18,43 @@
       },
       {
         "path": "src/gate.rs",
-        "description": "Wire the judge beside the `locus-declared` (:699) and `fresh` (:742) root clauses: compare the committed lock's recorded engine against `crate::VERSION` and report at the clause's declared severity. Offline and lock-only — a lock recording no engine, and a run with no committed lock at all, report nothing."
+        "description": "Wire the judge beside the `locus-declared` (:717) and `fresh` (:760) root clauses: compare the committed lock's recorded engine against `crate::VERSION` and report at the clause's declared severity. Offline and lock-only — a lock recording no engine, and a run with no committed lock at all, report nothing."
       },
       {
         "path": "src/schema.rs",
-        "description": "The variant's arm in the predicate projection (:135-139), where `Fresh`/`LocusDeclared` already sit — a root predicate contributes no field schema."
+        "description": "The variant's arm in the predicate projection (:139), where `Fresh`/`LocusDeclared` already sit — a root predicate contributes no field schema."
       },
       {
         "path": "sdk/src/contract.ts",
-        "description": "The predicate constructor beside `fresh` (:262) and `locusDeclared` (:281), field-less, with the doc comment stating what it judges."
+        "description": "The `engineMatches` constructor beside `fresh` (:262) and `locusDeclared` (:281), field-less, with the doc comment stating what it judges."
       },
       {
         "path": "sdk/src/assembly.ts",
-        "description": "`rootDefaultContract` (:134) gains a fourth clause at `advisory`, with `guidance` and a `cite` like its three siblings — the doc comment above it says 'three clauses' and states why each is root-only; it moves with the addition."
+        "description": "`rootDefaultContract` (:134) gains a fourth clause at `advisory` with `guidance` and NO `cite` — two of its three siblings carry none for the same reason, and a URL for temper's own stamp would be invented. The doc comment above it (:120) says 'Three clauses' and enumerates the three; it moves with the addition."
       },
       {
         "path": "src/builtin_lock.toml",
         "description": "Regenerated data, never hand-edited: the root clause family gains the new row. Regenerate by the memberless emit its own header documents."
       },
       {
+        "path": "src/builtin_lock.rs",
+        "description": "The in-module census `the_embedded_lock_parses_into_kind_facts_and_floor_clauses_only` asserts `root_labels` is exactly the three (:119-124); extend the expected list, and the two prose spots that call it 'the trio' (the comment :90-94, the assertion message :121-124) — never widen the `None` arm, whose whole job is to catch an unowned row."
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "The shipped example's committed lock carries the root default's clause rows (:330 reachable, :337 fresh, :343 locus-declared); the fourth lands here too, and `tests/it/emit.rs::emit_program_runs_the_shipped_example_harness` (:2432) byte-compares the file against what the example's own program emits. Regenerate, never hand-edit: `ln -s $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` (gitignored), then `cargo run -- emit --into examples/base-harness/.temper`."
+      },
+      {
         "path": "tests/it/builtin_lock_frozen.rs",
-        "description": "The frozen lane's expected root clause list (:169, :195) gains the row — this is the byte-compare that proves the embedded lock was derived, not transcribed."
+        "description": "The frozen lane's expected root clause list (:191-193) and its lift-back predicate vector (:216-220) gain the row, and the cite assertion's prose (:200-206) — which names `fresh` and `locus-declared` as having nothing external — gains the new clause; pin that `reachable` stays the only cited root row."
       },
       {
         "path": "tests/it/root_contract.rs",
-        "description": "The root contract's clause census (:348) gains the fourth entry, plus a case that a lock recording a different engine yields the advisory finding and one recording this engine yields none."
+        "description": "The root contract's clause census (:347-352) gains the fourth entry and the `clauses[0].source` assertion's prose (:365-370) names it beside `fresh`/`locus-declared`, plus a case that a lock recording a different engine yields the advisory finding naming both versions and one recording this engine yields none."
       },
       {
         "path": "tests/it/manifest_schema_oracle.rs",
-        "description": "The oracle's exhaustive predicate match (:193) gains the variant."
+        "description": "The oracle's exhaustive predicate match (:194) gains the variant."
       },
       {
         "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
@@ -54,11 +62,11 @@
       },
       {
         "path": "sdk/test/contract.test.ts",
-        "description": "The `rootDefaultContract` census (:234) and the constructor's row round-trip (:277) gain the fourth predicate."
+        "description": "The `rootDefaultContract` census (:233-239) gains the fourth predicate, its prose (:230-232 'all three', :245-248) moves, and the constructor's row round-trip gets a case beside `fresh`'s (:254)."
       },
       {
         "path": "sdk/test/emit.test.ts",
-        "description": "The emitted clause-row expectation (:250-261) enumerates the root default's clauses positionally; it gains the fourth."
+        "description": "TWO positional clause-row censuses enumerate the root default, not one: :248-261 (the full-harness emit) and :348-366 (the defaulted-root case, which also equates length against `rootDefaultContract`). Both gain a fourth block indexing `rootDefaultContract[3]`."
       }
     ],
     "retire": []
@@ -75,13 +83,17 @@
     },
     {
       "path": "tests/it/builtin_lock_frozen.rs",
-      "asserts": "the embedded built-in lock's root clause family matches the SDK-derived one, the new clause included"
+      "asserts": "the embedded built-in lock's root clause family matches the SDK-derived one, the new clause included, and `reachable` is still the only cited root row"
+    },
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "the shipped example harness re-emits byte-identically — the regenerated examples/base-harness/.temper/lock.toml carries the fourth root row"
     },
     {
       "path": "sdk/test/contract.test.ts",
-      "asserts": "the shipped root default contract binds the new predicate at advisory with guidance and a cite"
+      "asserts": "the shipped root default contract binds the new predicate at advisory with guidance and no cite"
     }
   ],
-  "acceptance": "cargo test and pnpm --dir sdk test green, cargo clippy --all-targets -D warnings clean, and the regenerated src/builtin_lock.toml passing the frozen byte-compare.",
-  "notes": "Decision 0069, second consequence. Advisory because no adopter turns red on the upgrade — the same posture the root's three shipped clauses hold. Blocked on three tags for file overlap: the lock column it reads (its real dependency), src/gate.rs, and sdk/test/emit.test.ts. Widening a shared enumeration: the `Predicate` sites above are the full `rg Predicate::LocusDeclared` census at scoping. scoped at 1c049fae"
+  "acceptance": "cargo test and pnpm --dir sdk test green, cargo clippy --all-targets -D warnings clean, and both regenerated locks — src/builtin_lock.toml and examples/base-harness/.temper/lock.toml — passing their byte-compares.",
+  "notes": "Decision 0069, second consequence. Advisory: no adopter turns red on an upgrade, the posture the root's three shipped clauses hold. Spelling decided: `Predicate::EngineMatches` / `engine-matches` / `engineMatches()` / `root.engine-matches`. Guidance and NO cite — the verdict compares temper's own lock stamp against its own `VERSION`, nothing external. A widened root default moves label strings and emitted data too, so the census is `rg 'root\\.locus-declared'`. scoped at 794074b6"
 }
