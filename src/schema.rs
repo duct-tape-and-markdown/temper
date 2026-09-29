@@ -377,13 +377,7 @@ mod tests {
     /// schema is the validation channel — severity rides the diagnostic, not the
     /// squiggle), so every clause here is `Required`.
     fn clause(predicate: Predicate) -> Clause {
-        Clause {
-            label: crate::contract::clause_label(Some("skill"), predicate.key(), None),
-            source: None,
-            severity: Severity::Required,
-            guidance: None,
-            predicate,
-        }
+        crate::test_support::labelled_clause("skill", Severity::Required, predicate)
     }
 
     /// A contract exercising every *mappable* predicate, several piling onto the
@@ -618,11 +612,8 @@ mod tests {
     /// A field clause carrying `guidance` — the docs (hover) channel.
     fn guided(predicate: Predicate, guidance: &str) -> Clause {
         Clause {
-            label: crate::contract::clause_label(Some("skill"), predicate.key(), None),
-            source: None,
-            severity: Severity::Advisory,
             guidance: Some(guidance.to_string()),
-            predicate,
+            ..crate::test_support::labelled_clause("skill", Severity::Advisory, predicate)
         }
     }
 

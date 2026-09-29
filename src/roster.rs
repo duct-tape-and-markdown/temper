@@ -205,19 +205,15 @@ mod tests {
     }
 
     /// A required-severity clause wrapping `predicate` — the shape every set-scope
-    /// test case below attaches to a requirement's `clauses`.
-    fn required_clause(predicate: Predicate) -> Clause {
-        Clause {
-            label: crate::contract::clause_label(
-                Some(&crate::contract::requirement_owner("gate")),
-                predicate.key(),
-                None,
-            ),
-            severity: ClauseSeverity::Required,
+    /// test case below attaches to a requirement's `clauses`. `owner` is the name of
+    /// the requirement the clause attaches to, so the address is the one the stamper
+    /// writes for that requirement.
+    fn required_clause(owner: &str, predicate: Predicate) -> Clause {
+        crate::test_support::labelled_clause(
+            &crate::contract::requirement_owner(owner),
+            ClauseSeverity::Required,
             predicate,
-            guidance: None,
-            source: None,
-        }
+        )
     }
 
     /// A `Features` carrying a name (its `id`) and the requirements it opts into via
@@ -349,7 +345,7 @@ mod tests {
     fn count_band_requirement(min: usize, max: usize) -> Requirement {
         Requirement {
             kind: Some("skill".to_string()),
-            clauses: vec![required_clause(Predicate::Count { min, max })],
+            clauses: vec![required_clause("agents", Predicate::Count { min, max })],
             ..requirement("agents")
         }
     }
@@ -369,7 +365,7 @@ mod tests {
         let below = run(req.clone(), &[features("lint-rust", &[])]);
         assert_eq!(below.len(), 1);
         assert_eq!(below[0].severity, Severity::Error);
-        assert_eq!(below[0].rule, "requirement.gate.count");
+        assert_eq!(below[0].rule, "requirement.agents.count");
         assert_eq!(below[0].artifact, "agents");
         assert!(below[0].message.contains("[1, 2]"));
 
@@ -391,7 +387,7 @@ mod tests {
             &[features("agent-1", &["agents"])],
         );
         assert_eq!(one.len(), 1);
-        assert_eq!(one[0].rule, "requirement.gate.count");
+        assert_eq!(one[0].rule, "requirement.agents.count");
     }
 
     /// A requirement declaring `unique = ["model"]` over the `skill` kind — the
@@ -399,9 +395,12 @@ mod tests {
     fn unique_model_requirement() -> Requirement {
         Requirement {
             kind: Some("skill".to_string()),
-            clauses: vec![required_clause(Predicate::Unique {
-                field: "model".to_string(),
-            })],
+            clauses: vec![required_clause(
+                "agents",
+                Predicate::Unique {
+                    field: "model".to_string(),
+                },
+            )],
             ..requirement("agents")
         }
     }
@@ -440,7 +439,7 @@ mod tests {
         );
         assert_eq!(collide.len(), 1);
         assert_eq!(collide[0].severity, Severity::Error);
-        assert_eq!(collide[0].rule, "requirement.gate.unique");
+        assert_eq!(collide[0].rule, "requirement.agents.unique.model");
         assert_eq!(collide[0].artifact, "agents");
         assert!(collide[0].message.contains("model"));
         assert!(collide[0].message.contains("opus"));
@@ -498,10 +497,13 @@ mod tests {
     fn membership_roster(source_kind: &str) -> BTreeMap<String, Requirement> {
         let agents = Requirement {
             kind: Some("skill".to_string()),
-            clauses: vec![required_clause(Predicate::Membership {
-                field: "model".to_string(),
-                target: "approved-model".to_string(),
-            })],
+            clauses: vec![required_clause(
+                "agents",
+                Predicate::Membership {
+                    field: "model".to_string(),
+                    target: "approved-model".to_string(),
+                },
+            )],
             ..requirement("agents")
         };
         let approved = Requirement {
@@ -530,7 +532,7 @@ mod tests {
         let diags = judge_roster(&requirements, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, "requirement.gate.membership");
+        assert_eq!(diags[0].rule, "requirement.agents.membership.model");
         assert_eq!(diags[0].artifact, "agents");
         assert!(diags[0].message.contains("agent-2"));
         assert!(diags[0].message.contains("gpt"));
@@ -566,7 +568,7 @@ mod tests {
         let diags = judge_roster(&requirements, &by_kind);
         // Only `agent-2` (`gpt`) is outside the manifest-derived { opus, sonnet }.
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "requirement.gate.membership");
+        assert_eq!(diags[0].rule, "requirement.agents.membership.model");
         assert!(diags[0].message.contains("agent-2"));
         assert!(diags[0].message.contains("approved-model"));
     }
@@ -602,7 +604,7 @@ mod tests {
         assert!(
             diags
                 .iter()
-                .all(|d| d.rule == "requirement.gate.membership")
+                .all(|d| d.rule == "requirement.agents.membership.model")
         );
     }
 
@@ -614,10 +616,13 @@ mod tests {
         let mut requirements = BTreeMap::new();
         let agents = Requirement {
             kind: Some("skill".to_string()),
-            clauses: vec![required_clause(Predicate::Membership {
-                field: "model".to_string(),
-                target: "approved-model".to_string(),
-            })],
+            clauses: vec![required_clause(
+                "agents",
+                Predicate::Membership {
+                    field: "model".to_string(),
+                    target: "approved-model".to_string(),
+                },
+            )],
             ..requirement("agents")
         };
         requirements.insert(agents.name.clone(), agents);
@@ -625,7 +630,7 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let diags = judge_roster(&requirements, &by_kind);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "requirement.gate.membership");
+        assert_eq!(diags[0].rule, "requirement.agents.membership.model");
     }
 
     // ---- admissibility ----------------------------------------------------
@@ -739,7 +744,10 @@ mod tests {
         // `crate::engine::inadmissibilities`' `range`-mirroring `min > max` rule).
         let req = Requirement {
             kind: Some("skill".to_string()),
-            clauses: vec![required_clause(Predicate::Count { min: 3, max: 1 })],
+            clauses: vec![required_clause(
+                "agents",
+                Predicate::Count { min: 3, max: 1 },
+            )],
             ..requirement("agents")
         };
         let diags = run_admissibility(req, Path::new(""));
@@ -760,28 +768,43 @@ mod tests {
         // member-grain predicate is judged too, by `engine::judge_members` over the
         // same satisfiers, so a requirement declaring all six is admissible.
         let clauses = vec![
-            required_clause(Predicate::Count { min: 1, max: 3 }),
-            required_clause(Predicate::Unique {
-                field: "name".to_string(),
-            }),
-            required_clause(Predicate::Membership {
-                field: "model".to_string(),
-                target: "approved-models".to_string(),
-            }),
-            required_clause(Predicate::Degree {
-                incoming: Some(crate::contract::EdgeBound {
-                    min: Some(1),
-                    max: None,
-                }),
-                outgoing: None,
-                fields: None,
-            }),
-            required_clause(Predicate::Kind {
-                kind: "skill".to_string(),
-            }),
-            required_clause(Predicate::Required {
-                field: "model".to_string(),
-            }),
+            required_clause("agents", Predicate::Count { min: 1, max: 3 }),
+            required_clause(
+                "agents",
+                Predicate::Unique {
+                    field: "name".to_string(),
+                },
+            ),
+            required_clause(
+                "agents",
+                Predicate::Membership {
+                    field: "model".to_string(),
+                    target: "approved-models".to_string(),
+                },
+            ),
+            required_clause(
+                "agents",
+                Predicate::Degree {
+                    incoming: Some(crate::contract::EdgeBound {
+                        min: Some(1),
+                        max: None,
+                    }),
+                    outgoing: None,
+                    fields: None,
+                },
+            ),
+            required_clause(
+                "agents",
+                Predicate::Kind {
+                    kind: "skill".to_string(),
+                },
+            ),
+            required_clause(
+                "agents",
+                Predicate::Required {
+                    field: "model".to_string(),
+                },
+            ),
         ];
         let req = Requirement {
             kind: Some("skill".to_string()),
@@ -814,10 +837,7 @@ mod tests {
             "expected one `required` finding, got {diags:?}"
         );
         assert_eq!(diags[0].severity, Severity::Error);
-        // The helper stamps no field segment (it passes `None`), so the address here is
-        // the owner-plus-predicate stem; the full `…required.<field>` address emit
-        // writes is pinned end to end in `tests/requirement_roster.rs`.
-        assert_eq!(diags[0].rule, "requirement.gate.required");
+        assert_eq!(diags[0].rule, "requirement.agents.required.model");
         assert_eq!(diags[0].artifact, "bare");
         assert!(diags[0].message.contains("model"));
     }
@@ -828,7 +848,10 @@ mod tests {
         // satisfiable bound — nothing for admissibility to reject.
         let req = Requirement {
             kind: Some("skill".to_string()),
-            clauses: vec![required_clause(Predicate::Count { min: 1, max: 1 })],
+            clauses: vec![required_clause(
+                "agents",
+                Predicate::Count { min: 1, max: 1 },
+            )],
             ..requirement("agents")
         };
         assert!(run_admissibility(req, Path::new("")).is_empty());

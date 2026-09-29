@@ -1780,19 +1780,10 @@ mod tests {
     }
 
     /// A [`Clause`] over `predicate` at `severity`, addressed under `owner` exactly as
-    /// the shipped stamper addresses a lifted row — the predicate's own key and target
-    /// fill the label's trailing segments (`stamp_clause_label` in `crate::drift` reads
-    /// the row's `field` column for the same segment). The engine never derives a
-    /// label, so a fixture supplies it as a lifted row would, and a finding's `rule` is
-    /// the address a real lock stamps.
+    /// the shipped stamper addresses a lifted row — [`crate::test_support::labelled_clause`]
+    /// is the one home, kept behind this module-local name for the 36 call sites below.
     fn clause(owner: &str, severity: ClauseSeverity, predicate: Predicate) -> Clause {
-        Clause {
-            label: crate::contract::clause_label(Some(owner), predicate.key(), predicate.target()),
-            source: None,
-            severity,
-            predicate,
-            guidance: None,
-        }
+        crate::test_support::labelled_clause(owner, severity, predicate)
     }
 
     /// A one-clause contract carrying `predicate` at `severity`.

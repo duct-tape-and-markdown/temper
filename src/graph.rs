@@ -2355,7 +2355,7 @@ mod tests {
 
     use crate::check::Severity;
     use crate::compose::Edge;
-    use crate::contract::{Clause, Severity as ClauseSeverity};
+    use crate::contract::Severity as ClauseSeverity;
     use crate::roster;
 
     /// A `Features` carrying a name (its `id`) and, optionally, a `routes_to`
@@ -2823,16 +2823,12 @@ mod tests {
     ) -> BTreeMap<String, crate::compose::Requirement> {
         let clauses = degree
             .into_iter()
-            .map(|predicate| Clause {
-                label: crate::contract::clause_label(
-                    Some(&crate::contract::requirement_owner("gate")),
-                    predicate.key(),
-                    None,
-                ),
-                severity: ClauseSeverity::Required,
-                predicate,
-                guidance: None,
-                source: None,
+            .map(|predicate| {
+                crate::test_support::labelled_clause(
+                    &crate::contract::requirement_owner("gate"),
+                    ClauseSeverity::Required,
+                    predicate,
+                )
             })
             .collect();
         BTreeMap::from([(

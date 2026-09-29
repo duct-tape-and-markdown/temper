@@ -167,3 +167,62 @@ pub(crate) fn clause_row(predicate: &str, severity: &str) -> crate::drift::Claus
         body: None,
     }
 }
+
+/// An engine [`Clause`](crate::contract::Clause) on `predicate` at `severity`, owned by
+/// `owner` and addressed exactly as the shipped stamper addresses a lifted row: the
+/// predicate's own key and target fill the label's trailing segments
+/// (`drift::stamp_clause_labels` joins the same three), so a finding's `rule` is the
+/// address a real lock stamps. The engine never derives a label, so a fixture supplies
+/// it as a lifted row would.
+///
+/// `owner` is a parameter, not derived: a kind's clause takes the kind name, a
+/// requirement's takes [`requirement_owner`](crate::contract::requirement_owner) of the
+/// requirement it hangs off.
+///
+/// `guidance` and `source` are `None` — a case asserting over either struct-updates the
+/// result. The in-src twin of `tests/it/common::labelled_clause`, which the `it` crate
+/// cannot export back across the crate boundary.
+pub(crate) fn labelled_clause(
+    owner: &str,
+    severity: crate::contract::Severity,
+    predicate: crate::contract::Predicate,
+) -> crate::contract::Clause {
+    crate::contract::Clause {
+        label: crate::contract::clause_label(Some(owner), predicate.key(), predicate.target()),
+        severity,
+        predicate,
+        guidance: None,
+        source: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::contract::{Predicate, Severity, requirement_owner};
+
+    #[test]
+    fn a_labelled_clause_derives_both_trailing_segments_from_its_predicate() {
+        // A field-naming predicate fills all three segments: the owner it is handed,
+        // the predicate's own key, and the field `target()` names.
+        let clause = super::labelled_clause(
+            "skill",
+            Severity::Required,
+            Predicate::Required {
+                field: "model".to_string(),
+            },
+        );
+        assert_eq!(clause.label, "skill.required.model");
+
+        // A requirement's owner is the composed `requirement.<name>` segment, and a
+        // predicate naming no field stops at the stem.
+        let counted = super::labelled_clause(
+            &requirement_owner("agents"),
+            Severity::Advisory,
+            Predicate::Count { min: 1, max: 2 },
+        );
+        assert_eq!(counted.label, "requirement.agents.count");
+        assert_eq!(counted.severity, Severity::Advisory);
+        assert!(counted.guidance.is_none());
+        assert!(counted.source.is_none());
+    }
+}
