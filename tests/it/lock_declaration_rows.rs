@@ -2154,17 +2154,16 @@ fn check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default()
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), GOVERNS_WALK_SKILL).unwrap();
 
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.kind]]\n\
-         name = \"skill\"\n\
-         provider = \"claude-code\"\n\
-         governs_root = \"custom-locus/skills\"\n\
-         governs_glob = \"*/SKILL.md\"\n",
-    )
-    .unwrap();
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                provider: Some("claude-code".to_string()),
+                ..common::kind_facts("skill", "custom-locus/skills", "*/SKILL.md")
+            }],
+            ..Declarations::default()
+        },
+    );
 
     let (ok, output) = check_in(&root);
     assert!(
@@ -2266,24 +2265,33 @@ fn a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member() {
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join("uses-directive.md"), DIRECTIVE_TEMPLATED_RULE).unwrap();
 
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.kind]]\n\
-         name = \"rule\"\n\
-         provider = \"claude-code\"\n\
-         governs_root = \".claude/rules\"\n\
-         governs_glob = \"*.md\"\n\
-         templates = [{ kind = \"directive\" }]\n\
-         \n\
-         [[declaration.nested_member]]\n\
-         host = \"rule:uses-directive\"\n\
-         kind = \"directive\"\n\
-         key = \"at-import\"\n\
-         leaves = { target = \"declared/not-rendered.md\" }\n",
-    )
-    .unwrap();
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                provider: Some("claude-code".to_string()),
+                templates: vec![TemplateRow {
+                    kind: "directive".to_string(),
+                    path: None,
+                }],
+                ..common::kind_facts("rule", ".claude/rules", "*.md")
+            }],
+            nested_members: vec![NestedMemberRow {
+                host: "rule:uses-directive".to_string(),
+                kind: "directive".to_string(),
+                key: "at-import".to_string(),
+                leaves: BTreeMap::from([(
+                    "target".to_string(),
+                    "declared/not-rendered.md".to_string(),
+                )]),
+                collections: Vec::new(),
+                placed_edges: None,
+                rendered_lines: None,
+                rendered_chars: None,
+            }],
+            ..Declarations::default()
+        },
+    );
 
     let out = common::explain_in(&root, "uses-directive");
     assert!(
