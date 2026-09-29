@@ -48,6 +48,7 @@ mod lock_declaration_rows;
 mod manifest_adapter;
 mod manifest_schema_oracle;
 mod marketplace_kind;
+mod mcp_kind;
 mod mcp_server_kind;
 mod memory_contract;
 mod memory_gate;

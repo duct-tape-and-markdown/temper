@@ -1473,6 +1473,68 @@ export const settingsDefaultContract: readonly Clause[] = [
 ];
 
 /**
+ * Claude Code's committed MCP manifest — `.mcp.json`, the file a team checks in so
+ * everyone who clones the repository reaches the same MCP servers
+ * (code.claude.com/docs/en/mcp, retrieved 2026-09-29).
+ *
+ * The surface types **no** top-level key, and the emptiness is the format's rather than an
+ * omission: the docs document exactly one — `mcpServers` — and that key is the
+ * {@link mcpServer} kind's collection address, so a server registers there and this
+ * container never types it. Declaring it here would author the same segment twice, the
+ * ownership {@link Settings} gives `hooks`. Every other key a `.mcp.json` carries is
+ * unschematized residue, opaque and *named* through {@link Mcp.residue} — the
+ * partial-governance posture the settings pair already holds, with the typed half empty.
+ */
+export interface Mcp {
+  /**
+   * The opaque residue — every top-level key of the committed manifest that is not
+   * `mcpServers`, projected flat and key-sorted. `mcpServers` is not merely absent from the
+   * typed half above: it is a collection address, so it belongs in neither half, and a
+   * `.mcp.json` key of that name does not belong here either
+   * (code.claude.com/docs/en/mcp, retrieved 2026-09-29).
+   */
+  readonly residue?: Residue<Mcp>;
+}
+
+/**
+ * `mcp` — `.mcp.json`, a whole-file JSON document at the **committed** commitment class:
+ * the program authors every key, `emit` renders the file whole, and the member's byte
+ * fingerprint makes a hand edit to any part of it drift under the root `fresh` clause
+ * (decision 0050). Identity is the fixed singleton stem `.mcp` (the `file` unit shape — a
+ * project's committed MCP manifest is the one file at the repository root, so no declared
+ * key names it). Channel-less: configuration the harness reads, never surfaced to the
+ * model — the connections it carries reach the world as {@link mcpServer} members.
+ *
+ * It is the **container** of one registration collection address, `mcpServers`, which keeps
+ * its own kind ({@link mcpServer}). That segment and this member's opaque residue are one
+ * file: emit renders the declared segment first, then the residue — which the member itself
+ * authors through {@link Mcp.residue}, flat and key-sorted
+ * (code.claude.com/docs/en/mcp, retrieved 2026-09-29).
+ */
+export const mcp: KindDefinition<Mcp> = kind<Mcp>({
+  name: "mcp",
+  locus: { kind: "at", root: ".", glob: ".mcp.json" },
+  format: "json-document",
+  unitShape: "file",
+  registration: [],
+});
+
+/**
+ * The default contract for `mcp` — **deliberately empty**, and empty *by construction*
+ * rather than by omission. `.mcp.json` documents exactly one top-level key, `mcpServers`
+ * (code.claude.com/docs/en/mcp, retrieved 2026-09-29), and that key is
+ * {@link mcpServer}'s collection address: its shape is that kind's contract to hold,
+ * server by server, so gating it here would contract the same segment twice. Nothing else
+ * is left to range over — a format that documents almost no contract earns an almost-empty
+ * default contract, the honest encoding rather than a gap.
+ *
+ * No `closedKeys()` either: the remainder rides {@link Mcp.residue} opaque and named, so a
+ * key upstream adds is unmodeled rather than indicted, and a valid committed manifest is
+ * never stranded by temper's release cadence.
+ */
+export const mcpDefaultContract: readonly Clause[] = [];
+
+/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.

@@ -24,6 +24,8 @@ import {
   knownMarketplaceDefaultContract,
   marketplace,
   marketplaceDefaultContract,
+  mcp,
+  mcpDefaultContract,
   mcpServer,
   mcpServerDefaultContract,
   memory,
@@ -49,6 +51,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   commandDefaultContract,
   hookDefaultContract,
   installedPluginDefaultContract,
+  mcpDefaultContract,
   mcpServerDefaultContract,
   ruleDefaultContract,
   memoryAnthropicDefaultContract,
@@ -152,6 +155,46 @@ test("mcpServer is a fields-only manifest kind at the mcpServers.* collection ad
   });
 });
 
+test("mcp is the committed json-document container of the mcpServers collection address", () => {
+  assert.deepEqual(mcp.facts.locus, { kind: "at", root: ".", glob: ".mcp.json" });
+  // No `commitment` at all is the committed class — the default, and what makes this file
+  // an emit target rather than a read-in-place overlay.
+  assert.equal("commitment" in mcp.facts.locus, false);
+  // The whole-file JSON format routes it to the document reader, like the settings pair.
+  assert.equal(mcp.facts.format, "json-document");
+  // A singleton at the repository root: identity is the file stem, so no declared key names it.
+  assert.equal(mcp.facts.unitShape, "file");
+  assert.equal(mcp.facts.identityField, undefined);
+  // It is the *container* of the `mcpServers` collection address, not a member at it — so it
+  // declares no collection address of its own, and it reaches the model on no channel:
+  // configuration the harness reads, the connections surfacing as `mcp-server` members.
+  assert.equal(mcp.facts.collectionAddress, undefined);
+  assert.equal(mcp.facts.shape, undefined);
+  assert.deepEqual(mcp.facts.registration, []);
+  // Same file, two faces: the container governs the document, `mcpServer` keys inside it.
+  assert.equal(mcp.facts.locus.glob, mcpServer.facts.collectionAddress?.manifest);
+});
+
+test("mcpDefaultContract is empty by construction — the one documented key is a collection address", () => {
+  // `.mcp.json` documents exactly one top-level key, `mcpServers`
+  // (code.claude.com/docs/en/mcp, retrieved 2026-09-29), and that key is `mcpServer`'s
+  // collection address — contracted server by server by that kind, never twice here. So the
+  // container has nothing decidable left to range over: empty is a declared design choice,
+  // the honest encoding of a format that documents almost no contract.
+  assert.deepEqual(mcpDefaultContract, []);
+  assert.ok(mcpServerDefaultContract.length > 0, "the mcpServers segment is contracted by its own kind");
+  // And no `closedKeys()`: the remainder is opaque residue, named rather than indicted, so a
+  // key upstream adds leaves a valid committed manifest valid.
+  assert.equal(
+    mcpDefaultContract.some((c: Clause) => c.predicate.key === "forbidden_keys"),
+    false,
+  );
+  // The residue channel is opened by the surface's own type — spelled flat and key-sorted
+  // behind a typed half that is deliberately empty.
+  const manifest = mcp({ name: ".mcp", residue: { $schema: "https://example.com/mcp.json" } });
+  assert.deepEqual(manifest.fields, [["$schema", "https://example.com/mcp.json"]]);
+});
+
 test("installedPlugin is a fields-only manifest kind at the enabledPlugins.* collection address", () => {
   assert.equal(installedPlugin.facts.shape, "fields");
   assert.equal(installedPlugin.facts.unitShape, "file");
@@ -243,6 +286,7 @@ test("the default contracts ride alongside their kinds through the claude-code s
   assert.equal(typeof rule, "function");
   assert.equal(typeof memory, "function");
   assert.equal(typeof supportingDoc, "function");
+  assert.equal(typeof mcp, "function");
 });
 
 test("skill templates one file-child layer of supporting-doc at the directory's markdown", () => {
