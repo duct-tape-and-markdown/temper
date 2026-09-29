@@ -10,11 +10,11 @@
   sdk/src/builtins.ts, sdk/src/declarations.ts, tests/it/emit.rs,
   src/install.rs, src/placement.rs, tests/it/install.rs; open —
   src/compose.rs, src/drift.rs, src/glob.rs.
-- This tick: reconciled 2f95f0a1..535eda23 — both ships hold, and a
-  tree-wide grep found the hand-lock class's uncounted third slice.
-- Queue: 11 pending — 4 open, 0 blockedBy, 3 deferred, 4 parked. Pickable: 3
-  — the three file-disjoint lock-fixture slices; INSTALL-LIFTS stays
-  fork-held on `(hook-member-identity)`. Open forks: 18. Friction: 1 (human
-  channel). Amendments: 0. Refactor: 0. Inbox: 0.
+- This tick: drained the dial-resolution capture — the duplicate read is
+  real and folds, the third is load-bearing, so the entry is 19 to 18.
+- Queue: 10 pending — 3 open, 0 blockedBy, 3 deferred, 4 parked. Pickable: 2
+  — DIAL-IS-RESOLVED-ONCE-PER-RUN and the last lock-fixture slice, file-disjoint;
+  INSTALL-LIFTS stays fork-held on `(hook-member-identity)`. Open forks: 18.
+  Friction: 1 (human channel). Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture rotation resumes at src/compose.rs
+Plan continues: yes — the post-ship window 535eda23..ea365018 is unreconciled
