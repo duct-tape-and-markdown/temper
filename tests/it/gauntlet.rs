@@ -264,12 +264,33 @@ fn projection_tree(harness: &Path, report: &drift::EmitReport) -> String {
             continue;
         }
         out.push_str(&format!("\n=== {rel} ===\n"));
-        out.push_str(&String::from_utf8_lossy(&bytes));
+        let text = String::from_utf8_lossy(&bytes);
+        if rel.ends_with(".temper/lock.toml") {
+            out.push_str(&redact_engine_stamp(&text));
+        } else {
+            out.push_str(&text);
+        }
         if !out.ends_with('\n') {
             out.push('\n');
         }
     }
     out
+}
+
+/// The lock's engine stamp, rewritten to a fixed placeholder. The lock names the engine
+/// version that wrote it, and this tree is derived fresh on every run with nothing
+/// committed to regenerate — so the snapshot pins the key's presence, never the release,
+/// which would otherwise churn this face on every version bump.
+fn redact_engine_stamp(text: &str) -> String {
+    text.split_inclusive('\n')
+        .map(|line| {
+            if line.starts_with("engine = \"") {
+                "engine = \"<VERSION>\"\n"
+            } else {
+                line
+            }
+        })
+        .collect()
 }
 
 /// The check diagnostics, faced as `ok` plus every finding line, the transient

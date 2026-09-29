@@ -85,6 +85,8 @@ The standing bar every module holds.
 .claude/local/
 
 === .temper/lock.toml ===
+engine = "<VERSION>"
+
 [[guide]]
 name = "operate-the-gate"
 source_path = "docs/guides/operate-the-gate/GUIDE.md"

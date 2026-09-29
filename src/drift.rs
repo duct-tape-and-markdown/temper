@@ -565,9 +565,15 @@ pub(crate) struct RollupEntry {
 /// nothing, so a written-then-vanished section would break idempotence against a
 /// re-parse that never sees it.
 ///
+/// The file opens with the engine stamp — [`ENGINE_KEY`] carrying [`crate::VERSION`], the
+/// engine that wrote this lock. A root TOML key must precede every table, so the stamp is
+/// the file's first line by necessity, not by taste; the read side lifts it through
+/// [`read_engine`].
+///
 /// After the per-member sections come the program's **declaration rows** — kind facts,
-/// clauses, requirements, assembly facts under an implicit `[declaration]` table;
-/// the gate side reads them through [`read_declarations`]. The `nested_member` family
+/// clauses, requirements, assembly facts under an implicit `[declaration]` table; the
+/// gate side derives them from its one parsed document through [`declarations_from_doc`],
+/// and the other read verbs take [`read_declarations`]. The `nested_member` family
 /// carries the program's own embedded-member facts *and* the rows emit derives from
 /// layout sources in the same pass (`emit` merges them before this write), so a layout
 /// document's members reach the lock as declaration rows without a projection of their
@@ -587,6 +593,7 @@ pub(crate) fn write_rollup(
     layout_sources: &[LayoutSourceRow],
 ) -> Result<(), DriftError> {
     let mut doc = DocumentMut::new();
+    doc[ENGINE_KEY] = value(crate::VERSION);
     for (kind, rows) in rollups {
         doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(rows));
     }
@@ -3164,6 +3171,12 @@ pub(crate) struct SourceDeps<'a> {
     pub(crate) inputs: &'a [LayoutImportRow],
 }
 
+/// The root lock key naming the engine version that wrote the file. Root-level, not a
+/// `[declaration]` family: the stamp is a fact about the writer, not one of the program's
+/// erased declarations, and the declaration table is held byte-exact against the embedded
+/// built-in lock (`tests/it/builtin_lock_frozen.rs`).
+pub(crate) const ENGINE_KEY: &str = "engine";
+
 /// The lock family key layout imports fingerprint under.
 const LAYOUT_IMPORT_FAMILY: &str = "layout_import";
 /// The lock family key composed-prose includes fingerprint under.
@@ -4636,6 +4649,32 @@ pub fn read_lock_document(workspace_dir: &Path) -> miette::Result<DocumentMut> {
 pub fn read_declarations(workspace_dir: &Path) -> miette::Result<Declarations> {
     let doc = read_lock_document(workspace_dir)?;
     Ok(declarations_from_doc(&doc)?)
+}
+
+/// Read the engine version that wrote a workspace's lock — the stamp [`write_rollup`]
+/// lays down at the document root. `None` is *unknown*, never a verdict: a harness with no lock, and a lock written before the
+/// stamp existed, both read unknown, and the one consumer says so rather than reporting
+/// a mismatch it cannot substantiate.
+///
+/// Reads through the counted door ([`read_lock_document`]), so this face is visible to
+/// the `lock_read_count`/`lock_parse_count` pins; a caller already holding the parsed
+/// document takes [`engine_from_doc`] instead of paying a second read.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock exists but cannot be read or parsed as TOML.
+pub fn read_engine(workspace_dir: &Path) -> miette::Result<Option<String>> {
+    Ok(engine_from_doc(&read_lock_document(workspace_dir)?))
+}
+
+/// Lift the engine stamp off an already-parsed lock. The robust read an upgraded engine
+/// owes a committed lock: an absent key reads unknown, and so does a *present* key of the wrong
+/// TOML type — the stamp is one opaque string the engine only ever compares, so a
+/// malformed one carries no less information than none, and refusing the whole lock over
+/// it would turn an older or hand-corrupted spelling into a dead gate. The file is never
+/// patched; the next emit rewrites it whole in canonical form.
+pub(crate) fn engine_from_doc(doc: &DocumentMut) -> Option<String> {
+    Some(doc.get(ENGINE_KEY)?.as_str()?.to_string())
 }
 
 /// Parse a lock document's declaration-row family off already-read `text` — the face for

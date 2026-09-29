@@ -94,17 +94,27 @@ const program = harness({
 process.stdout.write(emit(program).seam);
 "#;
 
-/// The embedded lock's declaration rows, with its hand-authored provenance header
-/// comment stripped: that header explains the row family's provenance, but is not
-/// itself part of `drift::emit`'s row output, so it plays no part in the byte-compare.
-fn embedded_declaration_rows() -> String {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/builtin_lock.toml");
-    let text = fs::read_to_string(&path)
-        .unwrap_or_else(|err| panic!("the embedded built-in lock must exist at {path:?}: {err}"));
+/// A lock text split at the first declaration row: everything ahead of
+/// `[[declaration.kind]]`, then the rows themselves. Both sides of the byte-compare go
+/// through this one helper, so the compare holds exactly the rows it claims to and each
+/// side's prefix is asserted for what it is — the embedded file's hand-authored
+/// provenance header on one side, the engine stamp on the other. Neither prefix is part
+/// of the declaration family: the header is prose `drift::emit` never writes, and the
+/// stamp is a fact about the writer, not one of the program's erased declarations.
+fn split_at_declaration_rows(label: &str, text: &str) -> (String, String) {
     let start = text
         .find("[[declaration.kind]]")
-        .expect("the embedded lock carries declaration rows");
-    text[start..].to_string()
+        .unwrap_or_else(|| panic!("the {label} lock carries declaration rows"));
+    (text[..start].to_string(), text[start..].to_string())
+}
+
+/// The embedded lock's text, read whole — the frozen artifact the derived rows are held
+/// against. Deliberately unstamped: it is re-derived by the very compare below, so a live
+/// engine version in it would break on every release bump.
+fn embedded_lock_text() -> String {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/builtin_lock.toml");
+    fs::read_to_string(&path)
+        .unwrap_or_else(|err| panic!("the embedded built-in lock must exist at {path:?}: {err}"))
 }
 
 #[test]
@@ -117,15 +127,29 @@ fn the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit() {
          rather than silently skipping the comparison",
     );
 
-    let derived = fs::read_to_string(into.join("lock.toml"))
+    let derived_text = fs::read_to_string(into.join("lock.toml"))
         .expect("emit_program writes a lock.toml carrying the memberless declaration rows");
-    let embedded = embedded_declaration_rows();
+    let (derived_prefix, derived) = split_at_declaration_rows("derived", &derived_text);
+    let (_header, embedded) = split_at_declaration_rows("embedded", &embedded_lock_text());
 
     assert_eq!(
         derived, embedded,
         "src/builtin_lock.toml has drifted from @dtmd/temper/claude-code's own memberless \
          emit — regenerate it by re-running that emit and re-embedding the resulting rows \
          verbatim (src/builtin_lock.toml's own header), never by hand-editing a row"
+    );
+
+    // And the compare stays honest about what it dropped. A memberless emit writes no
+    // provenance rows, so the engine stamp — plus the blank line the first table carries
+    // as its own separator — is the whole of the derived prefix. Spelled out byte-exact
+    // so this lane keeps noticing any *other* root key emit grows, rather than silently
+    // widening the slice to swallow it.
+    assert_eq!(
+        derived_prefix,
+        format!("engine = \"{}\"\n\n", temper::VERSION),
+        "the only thing the derived side carries ahead of its declaration rows is the \
+         engine stamp; a new root key belongs in this lane's compare, not in the prefix \
+         it drops"
     );
 }
 

@@ -263,6 +263,61 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
 }
 
 #[test]
+fn the_lock_names_the_engine_that_wrote_it_and_an_unstamped_lock_reads_unknown() {
+    let (_harness, into) = workspace("engine-stamp");
+    let mut payload = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
+    payload.declarations.requirements.push(common::requirement(
+        "dev-standards",
+        true,
+        Some("rule"),
+    ));
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    assert_eq!(
+        drift::read_engine(&into).unwrap().as_deref(),
+        Some(temper::VERSION),
+        "an emitted lock names the engine version that wrote it"
+    );
+    let stamped = drift::read_declarations(&into).unwrap();
+
+    // The robust read an upgraded engine owes a committed lock. A lock written before
+    // the stamp existed simply has no key, and that absence is *unknown*: never a
+    // malformed-lock refusal, never a synthesized value, and never a row the
+    // declaration families lose — the whole set still lifts off the older text.
+    let lock = into.join("lock.toml");
+    let text = fs::read_to_string(&lock).unwrap();
+    let unstamped: String = text
+        .split_inclusive('\n')
+        .filter(|line| !line.starts_with("engine = "))
+        .collect();
+    assert!(
+        !unstamped.contains("engine = "),
+        "the older spelling under test carries no stamp at all:\n{unstamped}"
+    );
+    fs::write(&lock, &unstamped).unwrap();
+
+    assert_eq!(drift::read_engine(&into).unwrap(), None);
+    assert_eq!(
+        drift::read_declarations(&into).unwrap(),
+        stamped,
+        "an unstamped lock parses to the same declarations the stamped one did"
+    );
+
+    // A *present* key of the wrong TOML type reads unknown the same way: the stamp is
+    // one opaque string the engine only ever compares, so a malformed one carries no
+    // less than none, and refusing the lock over it would turn a corrupt spelling into
+    // a dead gate.
+    fs::write(&lock, format!("engine = 20\n{unstamped}")).unwrap();
+    assert_eq!(drift::read_engine(&into).unwrap(), None);
+    assert_eq!(drift::read_declarations(&into).unwrap(), stamped);
+}
+
+#[test]
 fn emit_is_idempotent_over_an_unchanged_payload() {
     let (harness, into) = workspace("idem");
     let payload = basic_payload(vec![common::rule_member(
@@ -2433,14 +2488,17 @@ fn emit_program_runs_the_shipped_example_harness() {
     }
 
     // The lock no projection row speaks for. Every path it records is root-relative
-    // (`source_path`/`governs_root` hold `.claude/rules/conduct.md`, `docs`, `src`, `.`)
-    // and no column stamps a version or a timestamp, so the copy's bytes and the
-    // checkout's are the same bytes — or the committed file is stale.
+    // (`source_path`/`governs_root` hold `.claude/rules/conduct.md`, `docs`, `src`, `.`),
+    // so the copy's bytes and the checkout's are the same bytes — or the committed file
+    // is stale. The engine stamp is compared like any other byte, deliberately: an
+    // adopter's committed lock takes this same one-line diff on every upgrade, and a
+    // normalization here would hide exactly the churn the release bump owes them.
     let derived = fs::read_to_string(&lock).expect("emit writes the example's lock into the copy");
     assert_eq!(
         derived, carried,
         "examples/base-harness/.temper/lock.toml has drifted from what the example's own \
-         program emits. Vendor the SDK into the example's root the way `vendor_sdk` does \
+         program emits — a version bump alone moves its `engine` stamp, and regenerating \
+         is the whole remedy. Vendor the SDK into the example's root the way `vendor_sdk` does \
          (`ln -s $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` — \
          gitignored, never committed; without it the program cannot resolve \
          `@dtmd/temper` and the emit fails to link), then re-run `cargo run -- emit \
