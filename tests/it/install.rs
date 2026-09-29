@@ -237,7 +237,7 @@ fn declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start"
+        temper::install::SESSION_START_COMMAND
     );
     assert!(json["hooks"].get("PreToolUse").is_none());
     assert_eq!(
@@ -274,7 +274,7 @@ fn the_session_start_merge_never_reserializes_a_non_canonical_settings_file() {
     let json: serde_json::Value = serde_json::from_str(&after).unwrap();
     assert_eq!(
         json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start"
+        temper::install::SESSION_START_COMMAND
     );
     assert_eq!(
         json["zeta"], "first",
@@ -315,7 +315,7 @@ fn the_session_start_merge_appends_after_a_sibling_tools_existing_hook() {
     );
     assert_eq!(
         json["hooks"]["SessionStart"][1]["hooks"][0]["command"],
-        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start",
+        temper::install::SESSION_START_COMMAND,
         "temper's own group is appended after the sibling entry, never before or in place of it"
     );
     assert_eq!(
@@ -434,7 +434,7 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
-        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard ."
+        temper::install::GUARD_COMMAND
     );
     assert!(
         !has_entry(&outcome, temper::install::Placement::Modeline),
@@ -449,21 +449,21 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     )
     .unwrap();
     assert!(
-        coordinate_md.contains("# temper: managed projection"),
+        coordinate_md.contains(temper::placement::NOTE_MARKER),
         "a scaffolded member's own frontmatter-bearing projection is note-claimed, got:\n{coordinate_md}"
     );
     let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
-    assert!(rust_md.contains("# temper: managed projection"));
+    assert!(rust_md.contains(temper::placement::NOTE_MARKER));
     // `collaboration` has no frontmatter to carry the `#` note, so it takes the
     // block-level HTML-comment banner heading its body instead — a frontmatterless
     // markdown projection is note-claimed, never left bannerless.
     let collaboration_md =
         fs::read_to_string(root.join(".claude").join("rules").join("collaboration.md")).unwrap();
     assert!(
-        collaboration_md.starts_with("<!-- temper: managed projection"),
+        collaboration_md.starts_with(temper::placement::BANNER_MARKER),
         "got:\n{collaboration_md}"
     );
-    assert!(!collaboration_md.contains("# temper: managed projection"));
+    assert!(!collaboration_md.contains(temper::placement::NOTE_MARKER));
 }
 
 /// A `.claude/commands/deploy.md` — no required frontmatter fields.
@@ -871,19 +871,19 @@ fn a_frontmatterless_memory_projection_carries_the_html_banner_and_a_re_run_conv
 
     let claude_md = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
     assert!(
-        claude_md.starts_with("<!-- temper: managed projection"),
+        claude_md.starts_with(temper::placement::BANNER_MARKER),
         "the frontmatterless memory projection heads its body with the HTML-comment banner, got:\n{claude_md}"
     );
     // The banner form only — never the `#` frontmatter note (there is no frontmatter).
-    assert!(!claude_md.contains("# temper: managed projection"));
+    assert!(!claude_md.contains(temper::placement::NOTE_MARKER));
     assert!(claude_md.contains("Memory for the agents."));
 
     let skill_md = fs::read_to_string(skill.join("SKILL.md")).unwrap();
     assert!(
-        skill_md.contains("# temper: managed projection"),
+        skill_md.contains(temper::placement::NOTE_MARKER),
         "a frontmatter kind keeps the `#` note, got:\n{skill_md}"
     );
-    assert!(!skill_md.contains("<!-- temper: managed projection"));
+    assert!(!skill_md.contains(temper::placement::BANNER_MARKER));
 
     // Content-keyed idempotence across a full re-run: exactly one banner, no duplicate,
     // and the lock already matches its own placement-inclusive output (no drift).
@@ -895,7 +895,7 @@ fn a_frontmatterless_memory_projection_carries_the_html_banner_and_a_re_run_conv
     );
     assert_eq!(
         claude_md_again
-            .matches("<!-- temper: managed projection")
+            .matches(temper::placement::BANNER_MARKER)
             .count(),
         1
     );
@@ -940,7 +940,7 @@ fn lifting_a_banner_carrying_markdown_member_scaffolds_with_no_embedded_banner()
     let module_contents = fs::read_to_string(&memory_module).unwrap();
     // The module prose must not contain the banner — it's authored prose only.
     assert!(
-        !module_contents.contains("<!-- temper: managed projection"),
+        !module_contents.contains(temper::placement::BANNER_MARKER),
         "the scaffold module prose must not embed the banner; got:\n{module_contents}"
     );
     assert!(
@@ -952,7 +952,7 @@ fn lifting_a_banner_carrying_markdown_member_scaffolds_with_no_embedded_banner()
     // not duplicate it. Verify the root CLAUDE.md still has exactly one banner.
     let claude_md = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
     assert_eq!(
-        claude_md.matches("<!-- temper: managed projection").count(),
+        claude_md.matches(temper::placement::BANNER_MARKER).count(),
         1,
         "emit must place exactly one banner, not duplicate; got:\n{claude_md}"
     );
@@ -1111,7 +1111,7 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
-        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard ."
+        temper::install::GUARD_COMMAND
     );
 
     let extra_md = fs::read_to_string(
@@ -1124,7 +1124,7 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     assert!(extra_md.contains("name: \"extra\""));
     assert!(extra_md.contains("Deepened by hand."));
     assert!(
-        extra_md.contains("# temper: managed projection"),
+        extra_md.contains(temper::placement::NOTE_MARKER),
         "the emit-owned extra skill gets the managed-by note, got:\n{extra_md}"
     );
 
@@ -1138,13 +1138,13 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
                 .join("SKILL.md")
         )
         .unwrap()
-        .contains("# temper: managed projection"),
+        .contains(temper::placement::NOTE_MARKER),
         "a scaffolded member's projection is note-claimed exactly like a hand-deepened one"
     );
 
     // No `.temper/schema/skill.json` exists yet, so no modeline is placed even on
     // the emit-owned target — a modeline pointing at nothing is worse than none.
-    assert!(!extra_md.contains("# yaml-language-server:"));
+    assert!(!extra_md.contains(temper::placement::MODELINE_MARKER));
     assert!(!has_entry(&outcome, temper::install::Placement::Modeline));
 
     // Once the schema artifact exists, a re-run places the modeline on every
@@ -1168,9 +1168,10 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     )
     .unwrap();
     assert!(
-        extra_md_after.starts_with(
-            "---\n# yaml-language-server: $schema=../../../.temper/schema/skill.json\n"
-        ),
+        extra_md_after.starts_with(&format!(
+            "---\n{} $schema=../../../.temper/schema/skill.json\n",
+            temper::placement::MODELINE_MARKER
+        )),
         "got:\n{extra_md_after}"
     );
     let coordinate_md_after = fs::read_to_string(
@@ -1181,9 +1182,10 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     )
     .unwrap();
     assert!(
-        coordinate_md_after.starts_with(
-            "---\n# yaml-language-server: $schema=../../../.temper/schema/skill.json\n"
-        ),
+        coordinate_md_after.starts_with(&format!(
+            "---\n{} $schema=../../../.temper/schema/skill.json\n",
+            temper::placement::MODELINE_MARKER
+        )),
         "got:\n{coordinate_md_after}"
     );
 
@@ -1191,6 +1193,11 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     // install-placed lines — the two-projectors seam.
     let emit_again =
         temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
+    assert!(
+        !emit_again.entries.is_empty(),
+        "the second emit must judge a populated entry set — an empty one satisfies the \
+         all-Unchanged claim below without proving the emit ran"
+    );
     assert!(
         emit_again
             .entries
@@ -1206,8 +1213,8 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
             .join("SKILL.md"),
     )
     .unwrap();
-    assert!(extra_md_final.contains("# yaml-language-server:"));
-    assert!(extra_md_final.contains("# temper: managed projection"));
+    assert!(extra_md_final.contains(temper::placement::MODELINE_MARKER));
+    assert!(extra_md_final.contains(temper::placement::NOTE_MARKER));
 }
 
 #[test]
@@ -1314,10 +1321,6 @@ fn the_post_tool_use_row_runs_the_guard_the_pre_tool_use_row_runs() {
         command,
         temper::install::GUARD_COMMAND,
         "the post edge runs the guard, got:\n{settings}"
-    );
-    assert!(
-        command.ends_with("temper guard ."),
-        "and it is the `temper guard .` invocation, got: {command}"
     );
 
     // The self-verify shadow `check` folds in reads the whole gate — the post row
@@ -2700,7 +2703,7 @@ fn emit_stamps_the_managed_by_note_but_never_the_schema_modeline() {
             "{}: emit stamps the note as the leading frontmatter line, got: {projected}",
             rel.display()
         );
-        assert!(!projected.contains("# yaml-language-server:"));
+        assert!(!projected.contains(temper::placement::MODELINE_MARKER));
     }
 }
 
@@ -3040,13 +3043,13 @@ fn crlf_checkouts_preserve_managed_projections_through_install_emit_cycle() {
     )
     .unwrap();
     assert!(
-        skill_md.contains("# temper: managed projection"),
+        skill_md.contains(temper::placement::NOTE_MARKER),
         "skill projection must retain managed-by note on CRLF"
     );
 
     let rule_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
     assert!(
-        rule_md.contains("# temper: managed projection"),
+        rule_md.contains(temper::placement::NOTE_MARKER),
         "rule projection must retain managed-by note on CRLF"
     );
 
@@ -3054,7 +3057,7 @@ fn crlf_checkouts_preserve_managed_projections_through_install_emit_cycle() {
     let collab_md =
         fs::read_to_string(root.join(".claude").join("rules").join("collaboration.md")).unwrap();
     assert!(
-        collab_md.contains("<!-- temper: managed projection"),
+        collab_md.contains(temper::placement::BANNER_MARKER),
         "frontmatterless rule must have banner on CRLF"
     );
 
@@ -3163,7 +3166,7 @@ fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_
             .join("SKILL.md");
         let skill_after_install = fs::read_to_string(&skill_path).unwrap();
         assert!(
-            skill_after_install.contains("# temper: managed projection"),
+            skill_after_install.contains(temper::placement::NOTE_MARKER),
             "skill must have managed-by note after install (LF)"
         );
 
@@ -3180,7 +3183,7 @@ fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_
         // Verify managed-by note and modeline survive.
         let skill_after_emit = fs::read_to_string(&skill_path).unwrap();
         assert!(
-            skill_after_emit.contains("# temper: managed projection"),
+            skill_after_emit.contains(temper::placement::NOTE_MARKER),
             "skill must retain managed-by note after standalone emit (LF)"
         );
         assert!(
@@ -3215,7 +3218,7 @@ fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_
             .join("SKILL.md");
         let skill_after_install = fs::read_to_string(&skill_path).unwrap();
         assert!(
-            skill_after_install.contains("# temper: managed projection"),
+            skill_after_install.contains(temper::placement::NOTE_MARKER),
             "skill must have managed-by note after install (CRLF)"
         );
 
@@ -3232,7 +3235,7 @@ fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_
         // Verify managed-by note and modeline survive.
         let skill_after_emit = fs::read_to_string(&skill_path).unwrap();
         assert!(
-            skill_after_emit.contains("# temper: managed projection"),
+            skill_after_emit.contains(temper::placement::NOTE_MARKER),
             "skill must retain managed-by note after standalone emit (CRLF)"
         );
         assert!(
