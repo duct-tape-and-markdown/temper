@@ -9,15 +9,12 @@
 //! way `tests/emit.rs` drives the seam — `node` running the built
 //! `@dtmd/temper/claude-code` against a fixture program, since the kind ships there.
 //!
-//! What 0050 buys is one fact stated four ways below: the file is a whole projection,
+//! What 0050 buys is one fact stated several ways below: the file is a whole projection,
 //! so it carries a rollup row, so a hand edit to *any* part of it — segment or residue
-//! — is drift under the root `fresh` clause, and the unmodeled-surface advisory retires
-//! because a kind now governs every key. The contrast case holds the same bytes under
+//! — is drift under the root `fresh` clause. The contrast case holds the same bytes under
 //! the pre-0050 posture (the residue riding the harness-level `settings` option, no
 //! container kind) and shows both halves absent: no rollup row, and the file left
-//! undeclared at the
-//! kind's own governed locus — the built-in ships for every harness now, so an ownerless
-//! settings.json is an undeclared member rather than an unmodeled surface.
+//! undeclared at the kind's own governed locus.
 //!
 //! Every format fact here is the live settings docs' (code.claude.com/docs/en/settings
 //! and code.claude.com/docs/en/settings-reference, retrieved 2026-09-22).
@@ -262,26 +259,6 @@ fn a_hand_edit_to_either_the_segment_or_the_residue_reports_config_stale() {
 }
 
 #[test]
-fn the_unmodeled_surface_advisory_retires_once_the_settings_kind_governs_the_file_whole() {
-    let (harness, into) = common::wire_sdk_harness("settings-governed", SETTINGS_MEMBER_PROGRAM);
-    drift::emit_program(&into, EmitOptions::default()).unwrap();
-
-    let (findings, ok) = common::check_harness(&harness);
-    assert!(ok, "a governed settings file gates clean: {findings:?}");
-    assert!(
-        common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
-        "every key of the file is governed — the segment by its own kind, the residue by \
-         the container — so there is no gap left to name: {findings:?}"
-    );
-    // Silence here is truthful only because the container really is checked: the note
-    // says so by name.
-    assert!(
-        findings.iter().any(|f| f.contains("settings (1)")),
-        "the container member is announced as checked, never silently skipped: {findings:?}"
-    );
-}
-
-#[test]
 fn the_same_bytes_under_the_pre_0050_posture_carry_no_rollup_row_and_go_undeclared() {
     let (harness, into) = common::wire_sdk_harness("settings-ungoverned", SETTINGS_RESIDUE_PROGRAM);
     drift::emit_program(&into, EmitOptions::default()).unwrap();
@@ -299,14 +276,10 @@ fn the_same_bytes_under_the_pre_0050_posture_carry_no_rollup_row_and_go_undeclar
         "an ownerless manifest gets no container rollup row"
     );
 
-    // The built-in kind ships for every harness, so the file is no longer an unmodeled
-    // surface — it is a document at a governed locus the program declares no member for,
-    // which is the finding an ownerless settings.json draws now.
+    // The built-in kind ships for every harness, so the file is a document at a governed
+    // locus the program declares no member for — the finding an ownerless settings.json
+    // draws now.
     let (findings, _ok) = common::check_harness(&harness);
-    assert!(
-        common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
-        "a governing kind retires the unmodeled-surface advisory: {findings:?}"
-    );
     let undeclared = common::findings_for(&findings, "root.locus-declared");
     assert_eq!(undeclared.len(), 1, "{findings:?}");
     assert!(

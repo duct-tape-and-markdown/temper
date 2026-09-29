@@ -431,18 +431,12 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
 
     let harness = tmpdir("coverage-note-lock-parse-hoist");
 
-    // Create a harness with a `.claude/settings.json` and a lock that declares a custom
-    // `widget` kind governing that file.
+    // Create a harness with a `.claude/widgets/` locus no built-in kind governs and a lock
+    // that declares a custom `widget` kind rooted there — an entry the stray scan names
+    // unless the hoisted rows reach it.
     common::write_skill(&harness, "test-skill", "# Test\n\nBody.");
-    std::fs::create_dir_all(harness.join(".claude")).unwrap();
-    // One residue key no built-in segment kind governs, so the finding has something to
-    // fire on: an empty manifest names no ungoverned segment and the suppression below
-    // would read as vacuous.
-    std::fs::write(
-        harness.join(".claude/settings.json"),
-        r#"{ "permissions": { "allow": [] } }"#,
-    )
-    .unwrap();
+    std::fs::create_dir_all(harness.join(".claude/widgets")).unwrap();
+    std::fs::write(harness.join(".claude/widgets/panel.json"), "{}\n").unwrap();
 
     // Written by the real lock writer (`drift::emit`) off a `KindFactRow`, the row this
     // family's one producer emits — never a hand-spelled `[[declaration.kind]]` table.
@@ -451,7 +445,7 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
         drift::Declarations {
             kinds: vec![drift::KindFactRow {
                 unit_shape: Some("file".to_string()),
-                ..common::kind_facts("widget", ".claude", "settings.json")
+                ..common::kind_facts("widget", ".claude/widgets", "*.json")
             }],
             ..drift::Declarations::default()
         },
@@ -469,12 +463,11 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
         "lock should declare widget kind"
     );
 
-    // Call coverage_note::check with the pre-parsed kind rows (the new API). The in-scope
-    // set is the built-ins with the `settings` container withheld: it governs the file
-    // whole, and under it a locked kind's own contribution would be unobservable.
+    // Call coverage_note::check with the pre-parsed kind rows (the new API), the whole
+    // built-in set in scope: no built-in governs `.claude/widgets`, so the locked kind's
+    // own contribution is the only thing that can exclude it.
     let member_counts = BTreeMap::from([("skill".to_string(), 1usize)]);
-    let mut in_scope = temper::builtin_kind::definitions();
-    in_scope.remove("settings");
+    let in_scope = temper::builtin_kind::definitions();
     let check = |locked: &[temper::drift::KindFactRow]| {
         coverage_note::check(
             &harness,
@@ -486,25 +479,24 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
         )
         .expect("coverage_note::check should succeed")
     };
-    let names_settings = |diagnostics: &[temper::check::Diagnostic]| {
-        diagnostics.iter().any(|d| {
-            d.rule == "coverage.unmodeled-surface" && d.artifact == ".claude/settings.json"
-        })
+    let names_widgets = |diagnostics: &[temper::check::Diagnostic]| {
+        diagnostics
+            .iter()
+            .any(|d| d.rule == "coverage.unclaimed-entry" && d.artifact == ".claude/widgets")
     };
 
-    // Non-vacuity: with no locked rows handed in, the residue key is flagged.
+    // Non-vacuity: with no locked rows handed in, the entry is named a stray.
     assert!(
-        names_settings(&check(&[])),
-        "without the locked rows the ungoverned residue is flagged"
+        names_widgets(&check(&[])),
+        "without the locked rows the unclaimed entry is named"
     );
 
-    // Verify: the custom widget kind was used to suppress the settings.json finding
-    // because it governs the file. This proves the hoisted kind rows are being used
-    // correctly to suppress the finding, just as if they had been read internally.
+    // Verify: the custom widget kind's governed locus excludes the entry. This proves the
+    // hoisted kind rows are being used just as if they had been read internally.
     let diagnostics = check(&committed.kinds);
     assert!(
-        !names_settings(&diagnostics),
-        "the locked widget kind should suppress the settings.json finding, got: {diagnostics:#?}"
+        !names_widgets(&diagnostics),
+        "the locked widget kind should claim its own locus, got: {diagnostics:#?}"
     );
 }
 

@@ -296,9 +296,9 @@ impl CollectionKeyPath {
     /// `mcpServers` map (code.claude.com/docs/en/mcp, retrieved 2026-07-10), so an
     /// `mcp-server` kind governs the file outright; `settings.json` carries permissions,
     /// env, and more alongside its `hooks`, so a `hook` kind covers only that one segment
-    /// and the container stays unmodeled until every segment is (code.claude.com/docs/en/settings,
-    /// retrieved 2026-07-10). The coverage note reads this to decide whether a manifest
-    /// kind retires its host file's `coverage.unmodeled-surface` finding.
+    /// and the file's own document is the `settings` container's
+    /// (code.claude.com/docs/en/settings, retrieved 2026-07-10). The coverage note reads
+    /// this to decide whether a manifest kind's locus claims its host path at all.
     #[must_use]
     pub fn spans_whole_manifest(self) -> bool {
         match self {

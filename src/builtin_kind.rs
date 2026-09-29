@@ -9,9 +9,8 @@
 //! name is its whole identity, so the kinds below never collide.
 //!
 //! This module is also the home for known Claude Code surfaces — the curated registry
-//! of documented surfaces (`.claude/settings.json`, `.mcp.json`) a harness's in-scope
-//! kinds may leave ungoverned, used by the coverage note to flag gaps in harness
-//! coverage.
+//! of documented `.claude/` paths the coverage note's stray-entry scan passes over, so a
+//! surface Claude Code itself owns never reads as an unclaimed entry.
 
 use std::collections::BTreeMap;
 
@@ -36,91 +35,20 @@ pub const CLAUDE_ROOT: &str = ".claude";
 /// deeper than this loads nothing at runtime and cannot carry liveness either.
 pub const MAX_IMPORT_HOPS: usize = 4;
 
-/// A known Claude Code harness surface the coverage note reasons about — an
-/// external fact carrying its citation at the point of claim
-/// (.claude/rules/collaboration.md, "External facts are cited").
-pub struct KnownSurface {
-    /// The surface's path relative to the harness root (slash-separated).
-    pub path: &'static str,
-    /// Whether the path is a directory (`.claude/agents/`) or a single file
-    /// (`.claude/settings.json`) — fixes both the on-disk probe and the governance test.
-    pub is_dir: bool,
-    /// A one-line description of what the surface holds, for the advisory message.
-    pub holds: &'static str,
-    /// The Claude Code docs the surface's existence and locus are claimed from.
-    pub source: &'static str,
-    /// The manifest's named top-level segments, when it is a manifest a segment kind can
-    /// govern a slice of. Each names its display word and the manifest collection key a
-    /// kind governs it under (`None` for a segment no kind ever models — the perpetual
-    /// opaque residue). Empty for a surface with no segment model: `.mcp.json` is wholly
-    /// one collection, so its governance is binary (whole-manifest kind or nothing).
-    pub segments: &'static [Segment],
-}
-
-/// One named top-level segment of a manifest — the unit a partial-governance finding
-/// reasons over.
-pub struct Segment {
-    /// The segment's display word, named in the advisory message.
-    pub name: &'static str,
-    /// The manifest collection key a kind governs this segment under, or `None` when no
-    /// kind ever models it (permissions, env — genuinely unschematized residue).
-    pub collection_key: Option<&'static str>,
-}
-
-/// The Claude Code settings docs, retrieved 2026-07-16 — the shared citation for the
-/// curated surfaces below, each of which is documented there.
-const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-16)";
-
-/// The curated known-surface list: each entry is a documented Claude Code surface
-/// (verified against the settings docs, [`SETTINGS_DOC`]) whose governance the note
-/// reports on, so a harness whose in-scope kinds leave one uncovered reads it as a gap
-/// rather than as silence. A locus a kind always governs is deliberately absent —
-/// skills under `.claude/skills/`, commands under `.claude/commands/`, subagents under
-/// `.claude/agents/`, rules under `.claude/rules/`, memory at `CLAUDE.md`: naming them
-/// would report coverage nothing can lack.
-/// Hooks are **not** a directory: they are configured inside
-/// `settings.json`, so the settings entry covers them and no invented `.claude/hooks/`
-/// locus appears (a false locus would be the exact uncited guess collaboration.md
-/// forbids). A `specs/` corpus is likewise absent: it is not a Claude Code surface,
-/// and temper models it with *custom* kinds (`intent`/`architecture`/`process`), so
-/// hardcoding it as ungoverned would fire a false positive on temper's own harness.
-pub const KNOWN_SURFACES: &[KnownSurface] = &[
-    KnownSurface {
-        path: ".claude/settings.json",
-        is_dir: false,
-        holds: "Claude Code project settings — permissions, env, hooks, and enabled plugins",
-        source: SETTINGS_DOC,
-        segments: &[
-            Segment {
-                name: "permissions",
-                collection_key: None,
-            },
-            Segment {
-                name: "env",
-                collection_key: None,
-            },
-            Segment {
-                name: "hooks",
-                collection_key: Some("hooks"),
-            },
-            Segment {
-                name: "enabledPlugins",
-                collection_key: Some("enabledPlugins"),
-            },
-            Segment {
-                name: "extraKnownMarketplaces",
-                collection_key: Some("extraKnownMarketplaces"),
-            },
-        ],
-    },
-    KnownSurface {
-        path: ".mcp.json",
-        is_dir: false,
-        holds: "Claude Code project MCP server configuration",
-        source: SETTINGS_DOC,
-        segments: &[],
-    },
-];
+/// The curated exclusion list for the coverage note's stray-entry scan: each entry is a
+/// documented Claude Code path directly under `.claude/` (verified against the settings
+/// docs, code.claude.com/docs/en/settings, retrieved 2026-07-16 — an external fact cited
+/// at its point of claim), so a surface Claude Code itself owns is never reported as an
+/// unclaimed entry even where no in-scope kind governs it.
+///
+/// A locus a kind always governs is deliberately absent — skills under
+/// `.claude/skills/`, commands under `.claude/commands/`, subagents under
+/// `.claude/agents/`, rules under `.claude/rules/`: governance already excludes them.
+/// So is any path outside `.claude/` (`.mcp.json`, `CLAUDE.md`): the scan never walks
+/// there, so a row for one would exclude nothing. Hooks are **not** a directory — they
+/// are configured inside `settings.json`, so no invented `.claude/hooks/` locus appears
+/// (a false locus would be the exact uncited guess collaboration.md forbids).
+pub const KNOWN_SURFACES: &[&str] = &[".claude/settings.json"];
 
 /// The skill surface's field schema — the documented frontmatter fields plus the
 /// markdown-structure primitives, shared verbatim by `skill` and `command`

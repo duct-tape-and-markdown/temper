@@ -1,7 +1,6 @@
-//! Acceptance for the wedge's advisory coverage note: the `check` gate states which
-//! kinds checked how many members and names the known Claude Code surfaces present on
-//! disk that no kind — built-in or locked custom — governs, so the gate's silence
-//! about an unmodeled surface never reads as "checked".
+//! Acceptance for the wedge's coverage note's two finding classes: the disclosure of
+//! which kinds checked how many members, and each entry directly under `.claude/` that no
+//! kind — built-in or locked custom — governs and no known Claude Code surface names.
 //!
 //! The whole-harness arms drive the real process boundary through the one-shot
 //! `check --harness` verb (the route session-start takes), over harness-dir fixtures
@@ -10,14 +9,8 @@
 //! `::<level> title=<rule>::<artifact>: …` line, so the coverage note's levels are
 //! asserted exactly. Nothing here gates or injects a session-start verdict: the checked
 //! summary is a `::notice` disclosure (no clause behind it, so `--deny-advisories` never
-//! promotes it) and each ungoverned-surface flag is a `::warning` advisory — a gap the
-//! corpus can close.
-//!
-//! The narrowing arms call the note directly, because the kind set is the variable they
-//! turn: under the whole built-in set every known surface is governed whole —
-//! `.claude/settings.json` by the `settings` container, `.mcp.json` by `mcp-server` — so
-//! partial governance and locked-kind suppression are only observable with a container
-//! kind withheld from scope.
+//! promotes it) and each stray-entry flag is a `::warning` advisory — a gap the corpus
+//! can close.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -27,7 +20,6 @@ use crate::common;
 
 use crate::common::check_harness;
 
-use temper::check::{Diagnostic, Severity};
 use temper::coverage_note;
 use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 use temper::kind::CustomKind;
@@ -87,192 +79,43 @@ fn lock_widget_kind(root: &Path) {
     drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
-/// The built-in kind set with the `settings` container withheld — a harness whose
-/// in-scope kinds carry the three `settings.json` segment kinds and nothing that governs
-/// the file itself, the one shape the partial-governance narrowing still reasons over.
-fn builtins_without_the_settings_container() -> BTreeMap<String, CustomKind> {
-    let mut kinds = temper::builtin_kind::definitions();
-    kinds
-        .remove("settings")
-        .expect("the settings container ships among the built-in kinds");
-    kinds
-}
-
 #[test]
-fn a_settings_json_no_container_kind_governs_names_only_the_present_ungoverned_residue() {
-    // A `.claude/settings.json` whose top-level keys are exactly
-    // `{permissions, enabledPlugins, extraKnownMarketplaces, hooks}`: the `hook`,
-    // `installed-plugin` and `known-marketplace` built-ins govern the last three, and
-    // `permissions` is a present-but-unmodeled key no kind governs. The advisory must
-    // classify the file's ACTUAL keys — naming `permissions` as residue and never `env`,
-    // which is absent from the file (the field defect this closes).
-    let harness = common::tmpdir("with-settings-json");
-    common::write_settings(
-        &harness,
-        r#"{
-  "permissions": { "allow": ["Bash(git status)"] },
-  "enabledPlugins": { "formatter@acme": true },
-  "extraKnownMarketplaces": { "acme": { "source": { "source": "github", "repo": "acme/mk" } } },
-  "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "echo hi" } ] } ] }
-}"#,
-    );
-
-    // (1) With the segment kinds alone in scope, the surface is flagged exactly once and
-    // the finding states only true things: it names the ungoverned `permissions` residue,
-    // never claiming the whole file is ungoverned.
-    let partial = coverage_note::check(
-        &harness,
-        &builtins_without_the_settings_container(),
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &[],
-    )
-    .unwrap();
-    let settings: Vec<&Diagnostic> = partial
-        .iter()
-        .filter(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".claude/settings.json")
-        .collect();
-    assert_eq!(
-        settings.len(),
-        1,
-        "expected exactly one flag on .claude/settings.json, got: {partial:#?}"
-    );
-    let finding = settings[0];
-    assert_eq!(
-        finding.severity,
-        Severity::Warn,
-        "the unmodeled-surface flag is advisory, never a violation, got: {finding:#?}"
-    );
-    assert!(
-        finding.message.contains("partially governed") && finding.message.contains("permissions"),
-        "the flag names the present ungoverned residue, got: {}",
-        finding.message
-    );
-    // An absent segment is NEVER asserted — the advisory classifies the file's actual keys,
-    // so `env` (which this settings.json does not carry) must not appear anywhere in the
-    // finding. `extraKnownMarketplaces` legitimately appears among the *checked* segments
-    // now that known-marketplace governs it, so it is no counter-example.
-    assert!(
-        !finding.message.contains("env"),
-        "the flag must not name a key absent from the file, got: {}",
-        finding.message
-    );
-    assert!(
-        !finding.message.contains("no kind governs it")
-            && !finding
-                .message
-                .contains("temper checks none of its members"),
-        "a partially-governed manifest must not claim it is wholly ungoverned, got: {}",
-        finding.message
-    );
-    assert!(
-        finding.message.contains("code.claude.com/docs/en/settings"),
-        "the flag cites the Claude Code docs at the point of claim, got: {}",
-        finding.message
-    );
-
-    // (2) The same bytes under the whole built-in set: the `settings` container governs the
-    // file whole — its segment kinds' collections and its permissions residue alike — so no
-    // residue is left to name and the finding retires outright.
-    let whole = coverage_note::check(
-        &harness,
-        &temper::builtin_kind::definitions(),
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &[],
-    )
-    .unwrap();
-    assert!(
-        whole
-            .iter()
-            .all(|d| !(d.rule == "coverage.unmodeled-surface"
-                && d.artifact == ".claude/settings.json")),
-        "the settings built-in governs the file whole and retires its finding, got: {whole:#?}"
-    );
-    // The two levels stay apart under either kind set: what was checked is a disclosure
-    // note, what is ungoverned is an advisory — and neither is ever an error.
-    assert!(
-        whole
-            .iter()
-            .filter(|d| d.rule == "coverage.checked")
-            .all(|d| d.severity == Severity::Note),
-        "the checked summary is disclosure, got: {whole:#?}"
-    );
-    assert!(
-        partial
-            .iter()
-            .chain(whole.iter())
-            .all(|d| d.severity != Severity::Error),
-        "no coverage finding gates the run, got: {partial:#?} {whole:#?}"
-    );
-}
-
-#[test]
-fn a_fully_represented_settings_json_retires_its_unmodeled_surface_finding() {
-    // The write side's terminal state, and the one auto-adoption now hands every harness:
-    // the `settings` built-in governs `.claude/settings.json` whole — its `hooks`,
-    // `enabledPlugins` and `extraKnownMarketplaces` collections through the segment kinds,
-    // its permissions/env residue as the container's own opaque fields. With every segment
-    // covered no residue remains to name, so the partial-governance finding retires
-    // entirely and the file is no longer a gap the note must flag.
-    let harness = common::tmpdir("fully-represented-settings");
+fn the_note_reports_exactly_the_disclosure_and_the_unclaimed_entry() {
+    // The note's whole surface, over a harness carrying a governed member, the one known
+    // Claude Code surface the built-ins govern whole, and a stray nothing claims: the
+    // disclosure of what was checked and that one stray, and no third `coverage.` class.
+    let harness = common::tmpdir("note-two-classes");
     write_skill(&harness, "coordinate");
-    common::write_settings(&harness, "{}");
+    common::write_settings(&harness, r#"{ "permissions": { "allow": [] } }"#);
+    fs::write(harness.join(".claude/stray.md"), "").unwrap();
 
     let (findings, success) = check_harness(&harness);
 
-    // Neither the partial-governance flag nor the full wholly-ungoverned finding survives:
-    // a fully-represented manifest reports no coverage.unmodeled-surface at all.
-    let settings: Vec<&String> = common::findings_for(&findings, "coverage.unmodeled-surface")
-        .into_iter()
-        .filter(|line| line.contains("::.claude/settings.json:"))
+    let coverage: Vec<&String> = findings
+        .iter()
+        .filter(|line| line.contains("title=coverage."))
         .collect();
-    assert!(
-        settings.is_empty(),
-        "a fully-represented settings.json flags no unmodeled surface, got: {settings:#?}"
-    );
-    // And the disclosure counts the container member the governing kind discovered, so the
-    // retirement reads as coverage rather than as silence.
-    let checked = common::findings_for(&findings, "coverage.checked");
     assert_eq!(
-        checked.len(),
-        1,
-        "expected exactly one checked summary, got: {findings:#?}"
+        coverage.len(),
+        2,
+        "the note reports exactly its two classes, got: {findings:#?}"
     );
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(checked.len(), 1, "{findings:#?}");
     assert!(
-        checked[0].contains("settings (1)"),
-        "the summary counts the settings container it checked, got: {}",
+        checked[0].starts_with("::notice ") && checked[0].contains("skill (1)"),
+        "the disclosure is a note naming what it checked, got: {}",
         checked[0]
     );
+    let unclaimed = common::findings_for(&findings, "coverage.unclaimed-entry");
+    assert_eq!(unclaimed.len(), 1, "{findings:#?}");
     assert!(
-        success,
-        "the advisory coverage note must not fail the run, got: {findings:#?}"
+        unclaimed[0].starts_with("::warning ") && unclaimed[0].contains(".claude/stray.md"),
+        "the one stray is an advisory naming its path, and it is not \
+         `.claude/settings.json` — the built-ins govern that, got: {}",
+        unclaimed[0]
     );
-}
-
-#[test]
-fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
-    let harness = common::tmpdir("all-modeled");
-    // Only a `.claude/skills/` surface — modeled by the `skill` kind. No
-    // settings.json, no .mcp.json, so no known ungoverned surface is present.
-    write_skill(&harness, "coordinate");
-
-    let (findings, success) = check_harness(&harness);
-
-    // The checked summary still fires — the gate states what it checked.
-    assert_eq!(
-        common::findings_for(&findings, "coverage.checked").len(),
-        1,
-        "the checked summary fires even with no gaps, got: {findings:#?}"
-    );
-    // But nothing is flagged unmodeled: every present surface is governed.
-    assert!(
-        common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
-        "a fully-modeled harness flags no unmodeled surface, got: {findings:#?}"
-    );
-    assert!(success, "the clean run exits success, got: {findings:#?}");
+    assert!(success, "neither class gates the run, got: {findings:#?}");
 }
 
 #[test]
@@ -300,9 +143,10 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
     );
 
     // (2) A genuinely missing lock still degrades to an empty slice — the note succeeds
-    // with just the built-in kinds and still flags an ungoverned present surface.
+    // with just the kinds it was handed and still names the stray it finds.
     let missing = common::tmpdir("coverage-note-missing-lock");
-    common::write_mcp_json(&missing, "{}");
+    fs::create_dir_all(missing.join(".claude")).unwrap();
+    fs::write(missing.join(".claude/stray.md"), "").unwrap();
     let diagnostics = coverage_note::check(
         &missing,
         &empty_kinds,
@@ -315,107 +159,8 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
     assert!(
         diagnostics
             .iter()
-            .any(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json"),
-        "a missing lock still flags the ungoverned surface, got: {diagnostics:#?}"
-    );
-}
-
-#[test]
-fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it() {
-    // The partial-governance narrowing must not soften the two ends it brackets: a
-    // manifest no kind governs at all still reads the full wholly-ungoverned finding, and
-    // one a whole-manifest kind governs still retires it entirely. `.mcp.json` is the
-    // probe — wholly its `mcpServers` map, so the `mcp-server` built-in covers it outright.
-
-    // (1) No `mcp-server` kind in scope: the full finding fires, naming the whole file.
-    let ungoverned = common::tmpdir("mcp-wholly-ungoverned");
-    common::write_mcp_json(&ungoverned, "{}");
-    let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
-    let bare = coverage_note::check(
-        &ungoverned,
-        &empty_kinds,
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &[],
-    )
-    .unwrap();
-    let mcp = bare
-        .iter()
-        .find(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json")
-        .expect("a wholly-ungoverned .mcp.json is still flagged");
-    assert!(
-        mcp.message.contains("no kind governs it")
-            && mcp.message.contains("temper checks none of its members"),
-        "a wholly-ungoverned manifest keeps the full finding, got: {}",
-        mcp.message
-    );
-
-    // (2) The `mcp-server` built-in governs `.mcp.json` whole (its collection spans the
-    // manifest), so no finding survives — partial narrowing never reaches a governed file.
-    let governed = common::tmpdir("mcp-wholly-governed");
-    common::write_mcp_json(&governed, "{}");
-    let builtins = temper::builtin_kind::definitions();
-    let full = coverage_note::check(
-        &governed,
-        &builtins,
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &[],
-    )
-    .unwrap();
-    assert!(
-        full.iter()
-            .all(|d| !(d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json")),
-        "the mcp-server built-in governs .mcp.json whole and retires its finding, got: {full:#?}"
-    );
-}
-
-#[test]
-fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
-    // The suppression leg, asked of the note directly: a known surface no *in-scope* kind
-    // governs is still suppressed when a kind the committed lock declares governs it. The
-    // built-in set is withheld here because every known surface it carries a kind for is
-    // already governed whole — `settings.json` by the `settings` container, `.mcp.json` by
-    // `mcp-server` — so a locked kind's own contribution would be unobservable beneath it.
-    let harness = common::tmpdir("locked-widget-suppresses");
-    // One residue key, so the bare arm has something to flag: an empty manifest names no
-    // ungoverned segment at all, and the suppression would read as vacuous.
-    common::write_settings(&harness, r#"{ "permissions": { "allow": [] } }"#);
-    let no_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
-
-    let bare = coverage_note::check(
-        &harness,
-        &no_kinds,
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &[],
-    )
-    .unwrap();
-    assert!(
-        bare.iter().any(
-            |d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".claude/settings.json"
-        ),
-        "with nothing in scope the surface is flagged, got: {bare:#?}"
-    );
-
-    let suppressed = coverage_note::check(
-        &harness,
-        &no_kinds,
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &BTreeMap::new(),
-        &[widget_kind_facts(".claude", "settings.json")],
-    )
-    .unwrap();
-    assert!(
-        suppressed
-            .iter()
-            .all(|d| !(d.rule == "coverage.unmodeled-surface"
-                && d.artifact == ".claude/settings.json")),
-        "a locked custom kind governing .claude/settings.json suppresses the finding, got: {suppressed:#?}"
+            .any(|d| d.rule == "coverage.unclaimed-entry" && d.artifact == ".claude/stray.md"),
+        "a missing lock still names the unclaimed entry, got: {diagnostics:#?}"
     );
 }
 

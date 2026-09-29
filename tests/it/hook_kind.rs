@@ -406,9 +406,7 @@ fn the_hook_kind_checks_its_segment_while_the_container_governs_the_whole_file()
     // The hook kind governs the `hooks` segment of `settings.json` and never the file:
     // whole-file governance is the `settings` container's, and it shipping does not absorb
     // the segment — the registration members are still discovered and checked as hooks,
-    // beside the one container member. With every segment of the file covered, nothing is
-    // left ungoverned to flag. (How a *partial* verdict reads when no container kind is in
-    // scope is `tests/coverage_note.rs`'s case, not this kind's.)
+    // beside the one container member.
     let harness = common::tmpdir("settings-container-governed");
     write_settings(
         &harness,
@@ -424,13 +422,6 @@ fn the_hook_kind_checks_its_segment_while_the_container_governs_the_whole_file()
 
     let (findings, _ok) = check_harness(&harness);
 
-    let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
-    assert!(
-        unmodeled
-            .iter()
-            .all(|line| !line.contains(".claude/settings.json")),
-        "the settings container governs the file whole, got: {findings:#?}"
-    );
     let checked = common::findings_for(&findings, "coverage.checked");
     assert_eq!(
         checked.len(),
