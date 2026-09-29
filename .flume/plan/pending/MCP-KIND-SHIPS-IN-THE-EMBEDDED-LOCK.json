@@ -1,0 +1,77 @@
+{
+  "tag": "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "MCP-KIND-SHIPS-IN-THE-SDK",
+      "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE",
+      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "`claude_code_mcp()` beside `claude_code_settings()`, joined to `all_kinds()` (:632) — the read-side twin of the SDK kind: `Governs` at `.mcp.json`, `Format::JsonDocument`, file unit, no registration, no extraction primitives, with the `.mcp.json` key fact cited at the point of claim. The `mcpServers` collection address stays `mcp-server`'s alone (:376); the container declares none. A definition unit test beside the `mcp-server` one (:1112) pins the facts."
+      },
+      {
+        "path": "src/builtin_lock.rs",
+        "description": "The unit test's closed kind-name list (:102, where `settings` joined) gains `mcp`."
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "Regenerated data, never hand-edited — the memberless SDK emit over the whole shipped std-lib its own header documents: one kind-fact row for `mcp` and no clause row (its default contract is empty). The header's prose counts move with it: the fourteen-kind roster at :16 and the kinds-carrying-contracts arithmetic at :55, which names the kinds contributing a kind fact and no clause row — `mcp` joins that list."
+      },
+      {
+        "path": "tests/it/builtin_lock_frozen.rs",
+        "description": "The frozen lane's SDK-side program binds `mcp`/`mcpDefaultContract` (:55-:88 pattern) so the byte-compare covers the new row — the derived-not-transcribed proof for this kind."
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "The engine kind census (:2745, `declarations.kinds.len()`) goes to 16, and the comment above it (:2741) is rewritten to today's corpus count — it still says `specs/builtins.md` enumerates thirteen, and the corpus now says fourteen plus this kind."
+      },
+      {
+        "path": "tests/it/mcp_server_kind.rs",
+        "description": "Re-baseline the file's premise: its header (:11) and the advisory case (:133) rest on `mcp-server` governing `.mcp.json` whole and on the unmodeled-surface finding as the observable. With the container auto-adopted for every harness, an `.mcp.json` no program declares draws `locus.undeclared-member` instead — the settings analogue 9fcf7521 landed — so the case states what now holds rather than asserting the retiring advisory."
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "The guard arms that use `.mcp.json` as the co-owned manifest: the locus-exclusion arm (:2008), the contract-finding arms over a `.mcp.json` write (:2245-:2361) and the container-less conformance arm (:2568). Their premise — 'the manifest no container member can project at all' — is lock-relative, not kind-relative: these fixtures' locks declare registration rows only, so the wording restates that, and any arm whose write now draws the undeclared-locus finding moves to a manifest its own lock leaves undeclared."
+      },
+      {
+        "path": "tests/it/gauntlet.rs",
+        "description": "The corpus itself authors no `.mcp.json` (its diagnostics snapshot lists `mcp-server (0)`), so the expected change is the coverage line's kind census alone — no new corpus member. Touch only if the snapshot re-baseline needs the renderer to move."
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__check_diagnostics.snap",
+        "description": "The `coverage.checked` disclosure's kind count and per-kind list gain `mcp (0)`."
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
+        "description": "The corpus's emitted lock renders here; a built-in kind the corpus declares no member for adds no row, so the expected diff is none — declared so the fence does not fail the tick if the regenerated projection moves a byte."
+      },
+      {
+        "path": "tests/it/snapshots/it__builtin_contract_matrix__builtin_contract_matrix.snap",
+        "description": "The matrix derives its rows from the embedded lock's kinds, so `mcp` joins as a row with no cell filled — the same shape `installed-plugin` and `known-marketplace` hold."
+      }
+    ]
+  },
+  "summary": "The engine embeds the `mcp` kind: a bare harness gets `.mcp.json` governed whole, so its residue reaches a row and a hand edit to any part of it is drift.",
+  "per": { "path": "specs/builtins.md", "section": "The shipped kinds" },
+  "tests": [
+    {
+      "path": "tests/it/builtin_lock_frozen.rs",
+      "asserts": "the embedded lock's `mcp` kind row byte-matches the one a live SDK emit over the shipped std-lib writes"
+    },
+    {
+      "path": "tests/it/mcp_server_kind.rs",
+      "asserts": "an unadopted harness carrying `.mcp.json` reads it as the container kind's undeclared member, not as an ungoverned surface"
+    },
+    {
+      "path": "tests/it/lock_declaration_rows.rs",
+      "asserts": "the engine's embedded kind set carries sixteen kinds, `mcp` among them"
+    }
+  ],
+  "acceptance": "cargo test green (the three snapshots accepted), cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean, and the regenerated src/builtin_lock.toml passing the frozen byte-compare.",
+  "notes": "Decision 0071, the engine half; 9fcf7521 (the settings twin) is the template for both the regeneration and the fixture re-baseline. Blocked on three tags for file overlap: the SDK kind it embeds, and the two lock-column entries that own src/builtin_lock.toml, the frozen lane and the gauntlet snapshots. The unmodeled-surface advisory goes quiet here but retires in its own entry — this one must not delete it. scoped at 3070b747"
+}

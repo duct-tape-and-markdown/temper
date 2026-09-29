@@ -1,0 +1,44 @@
+{
+  "tag": "MCP-KIND-SHIPS-IN-THE-SDK",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [
+      {
+        "path": "tests/it/mcp_kind.rs",
+        "description": "The Rust suite driving the kind by import, before the embedded lock carries it — `tests/it/settings_kind.rs` is the shape. A program declaring the container over a `.mcp.json` that holds `mcpServers` plus an undocumented top-level key: emit round-trips the file byte-faithfully with the residue intact, the member's rollup fingerprint makes a hand edit to any part of the file drift under the root `fresh` clause, and the `mcpServers` entries stay `mcp-server` members rather than becoming the container's fields."
+      }
+    ],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "An `Mcp` interface, the `mcp` kind, and `mcpDefaultContract`, modeled on `settings` (:1427) and `settingsDefaultContract` (:1454): locus `{ kind: \"at\", root: \".\", glob: \".mcp.json\" }` (the spelling `mcpServer` already uses, :535), `format: \"json-document\"`, `unitShape: \"file\"`, `registration: []`. `mcpServers` is neither typed nor gated here — it is `mcpServer`'s collection address (:539), exactly the ownership `settings` gives `hooks`; every other key is opaque residue, no `closedKeys()`. `.mcp.json` documents that one key, so the contract is empty by construction, which is the honest encoding `specs/builtins.md` names ('a format that documents almost no contract gets an almost-empty default contract') — re-verify the key set against code.claude.com/docs/en/mcp at pick-up and carry the retrieved date in the kind's own doc comment."
+      },
+      {
+        "path": "sdk/src/claude-code.ts",
+        "description": "The provider face's two sorted census lists: `Mcp` joins the type exports (:11), `mcp` and `mcpDefaultContract` join the value exports (:28). The root export stays untouched — a built-in reaches an author through this subpath alone (`specs/builtins.md`, opening paragraph)."
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "The import census (:35) and the 'default contracts ride alongside their kinds through the claude-code subpath' case (:239) gain the kind; a new case pins its locus/format/unit-shape/registration facts the way the `mcpServer` case does (:236) and states that the empty contract is a declared design choice, not an omission — `mcpServers` is the collection address, the residue is opaque. The two blanket cases (:63 well-formed arrays, :73 every clause cited) already range over the new export."
+      },
+      {
+        "path": "tests/it/main.rs",
+        "description": "Register the new `mcp_kind` module in the integration harness's module list."
+      }
+    ]
+  },
+  "summary": "The SDK ships `mcp`: a container kind over the committed `.mcp.json`, `mcpServers` left to the mcp-server collection address, every other key opaque residue.",
+  "per": { "path": "specs/builtins.md", "section": "The shipped kinds" },
+  "tests": [
+    {
+      "path": "tests/it/mcp_kind.rs",
+      "asserts": "a program declaring the container over a `.mcp.json` carrying `mcpServers` plus an unknown key emits byte-faithfully, fingerprints the whole file, and keeps its servers as `mcp-server` members"
+    },
+    {
+      "path": "sdk/test/builtins.test.ts",
+      "asserts": "the `mcp` kind and its (empty) default contract export from the claude-code subpath with the documented locus, json-document format, file unit shape and no registration"
+    }
+  ],
+  "acceptance": "cargo test and `pnpm --dir sdk test` green (strict tsc included), cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean.",
+  "notes": "Decision 0071, the SDK half — the split `settings` took: a2081d84 shipped the SDK kind plus its Rust suite, 9fcf7521 the embedded lock. MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK is the filed successor that earns this export its engine-side consumer; adoption here is by import only, so no fixture outside this entry changes yet. scoped at 3070b747"
+}

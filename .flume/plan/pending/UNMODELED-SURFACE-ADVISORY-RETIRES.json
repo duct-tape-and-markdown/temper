@@ -1,0 +1,56 @@
+{
+  "tag": "UNMODELED-SURFACE-ADVISORY-RETIRES",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK",
+      "DIRECTIVE-BACKING-RESOLVES-BY-STAT"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/coverage_note.rs",
+        "description": "Retire the advisory and the segment model behind it: `UNMODELED_RULE` (:31), step (2)'s whole `KNOWN_SURFACES` loop (:122-:171) with both verdict branches (`SegmentCoverage::Partial`, `SegmentCoverage::Wholly`), and the machinery only that loop reaches — `present` (:250), `governed_by_any` (:261), `governs_segment` (:311), `SegmentCoverage` (:321), `manifest_top_level_keys` (:346), `segment_coverage` (:364), `verb` (:404) — plus the unit tests driving them (:546, :565, :583, :630, :657, :682, :730). What survives is the disclosure note (1) and the unclaimed-entry scan (3) with `with_locked_kinds` (:234), `governed_by_any_path`, `governs` and its helpers; the governance unit tests that still earn their keep re-point at `governed_by_any_path`. The module header's opening paragraph states the surviving two finding classes."
+      },
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "`KNOWN_SURFACES` shrinks to the unclaimed-entry exclusion list: the `.mcp.json` row goes (the scan walks `.claude/` only, so a row outside it excludes nothing), `Segment` (:63) and the `segments` column go with the advisory, and every `KnownSurface` column the exclusion test does not read — `is_dir`, `holds`, `source`, and `SETTINGS_DOC` if it loses its last reader — goes with them. The module header (:11-:14) names the registry's one surviving job."
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "The doc comment at :301 promises that a governing kind 'retires its host file's `coverage.unmodeled-surface` finding' — the finding no longer exists, so the sentence states what governance actually buys now."
+      },
+      {
+        "path": "tests/it/coverage_note.rs",
+        "description": "The integration suite's advisory cases retire: the partial-governance case (:106-:145), the fully-represented case (:213), the only-modeled-surfaces case (:256), and the `.mcp.json` arms (:318, :345, :370, :399) — including the two that withhold a built-in from the kind set to observe the advisory at all, the fixtures decision 0071 retires with the rule. The disclosure-note cases and the four unclaimed-entry cases stay, and the file's header states the two classes it still covers."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "The suppression case at :491 asserts a `coverage.unmodeled-surface` finding for `.claude/settings.json` with the container withheld — it retires with the rule; keep whatever cost assertion the case carries beside it by re-pointing at a surviving finding class."
+      },
+      {
+        "path": "tests/it/settings_kind.rs",
+        "description": "The two advisory-retirement cases (:265, :302-:308) assert the absence of a finding class that no longer exists — vacuous once the rule is gone, so they retire, and the file header's claim (:14) drops with them. The rollup-fingerprint and undeclared-member halves of the same narrative stay."
+      },
+      {
+        "path": "tests/it/hook_kind.rs",
+        "description": "The case reading `coverage.unmodeled-surface` at :427 states what still holds — the hook's segment is checked beside the container's member — without naming the retired rule."
+      }
+    ]
+  },
+  "summary": "`coverage.unmodeled-surface` retires with the segment model behind it: both config files are governed whole, so the advisory has no subject left to name.",
+  "per": { "path": "specs/intent.md", "section": "Invariants" },
+  "tests": [
+    {
+      "path": "tests/it/coverage_note.rs",
+      "asserts": "the coverage note reports exactly two classes — the checked disclosure and the unclaimed `.claude/` entry — and no run names an unmodeled surface"
+    },
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "the note's cost claim holds against a surviving finding class, with no fixture withholding a built-in kind"
+    }
+  ],
+  "acceptance": "cargo test green with no test withholding a built-in kind to observe a finding, cargo clippy --all-targets -D warnings clean (no dead code behind the retired rule), cargo fmt --all --check clean.",
+  "notes": "Decision 0071's retirement half — the subject is gone once `mcp` governs `.mcp.json` whole, which is why this waits on that entry rather than shipping beside it. Symbol-scope blast radius: the census above is the whole `rg unmodeled` set outside `specs/decisions/`. Blocked on DIRECTIVE-BACKING-RESOLVES-BY-STAT for tests/it/check_cost.rs alone. Invariant 6 is served by the kinds now: every key reaches a row. scoped at 3070b747"
+}
