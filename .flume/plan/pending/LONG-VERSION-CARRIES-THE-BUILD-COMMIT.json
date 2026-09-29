@@ -1,7 +1,12 @@
 {
   "tag": "LONG-VERSION-CARRIES-THE-BUILD-COMMIT",
-  "gate": { "kind": "blockedBy", "tags": ["CHECK-ANNOUNCES-A-RE-ROOTED-HARNESS"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "build.rs",
@@ -15,10 +20,14 @@
         "path": "tests/it/cli.rs",
         "description": "The first version assertions on this surface — the file carries none today."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "Build provenance rides the long `--version` form alone: the short version string stays the release tag's, byte-identical across builds of one tag.",
-  "per": { "path": "specs/distribution.md", "section": "What ships — three channels" },
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "What ships — three channels"
+  },
   "tests": [
     {
       "path": "tests/it/cli.rs",
