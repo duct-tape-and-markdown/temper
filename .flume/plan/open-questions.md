@@ -642,7 +642,20 @@ condition arrives, it is the next break. If work touches one, surface it.
   24b22045 added the flag and fixed the 8 sites it surfaced, draining
   `.flume/friction/plan-private-item-doc-link-gate.md`). The
   `rustdoc::private_intra_doc_links` lint (a public doc linking to a private
-  item) stays advisory, unchanged. Prose staleness no linter can check — a
+  item) stays advisory, unchanged. **Its scale, measured 2026-09-28 (this
+  tick, both sides run on disk): 98 before `cc6eb974`, 103 after** — the
+  record has carried no number until now, and the choice reads differently at
+  103 than at the single digits a reader would assume. The growth is
+  *structural*, not drift: narrowing an unearned `pub` (`engineering.md`, "An
+  export earns its consumer") mints one warning per public doc that linked the
+  name, so the visibility campaign and this asymmetry are coupled — every
+  future narrow adds to the count, and `cc6eb974`'s own body mis-stated the
+  baseline as seven. The gate is unaffected (advisory, `exit 0`) and the
+  links stay navigable, which is the choice; what is new is that its cost
+  grows monotonically with work the queue actively wants done. The condition
+  for the next break: a reader who cannot find a real broken link among the
+  advisory ones, or a decision to spell these links `crate::…`-qualified at
+  the narrow rather than leave them. Prose staleness no linter can check — a
   "sole consumer" claim, a line-number pointer, a stale invariant paragraph —
   **rides** the next entry that opens the file and discharges when that entry
   names it (never a standalone entry), and is tracked **nowhere**: the
