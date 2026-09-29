@@ -547,6 +547,49 @@ tax.
   `(surface-carriage-clause)`, from the same audit: a fact part with no
   carriage clause carries the same silence that fork names. No dependents.
 
+- `(directive-backing-set-scope)` — OPEN, live driver (posture sweep at
+  `src/compose.rs`, measured on disk this tick). What set answers "is this
+  path a repository file" is unstated intent: `rg 'repo file|backed' specs/`
+  returns one unrelated hit, yet the answer decides findings. Two consumers
+  read it — `graph::classify_directives` (`graph.rs:1524`), where a resolved
+  `@import` target absent from the set fires `graph.directive-unbacked`, and
+  `dead_registration` (`:1377`), where a `paths-match` channel dies if no
+  file in the set matches its glob. Today's answer is `compose::repo_file_set`
+  (`compose.rs:1357`): a **second** whole-tree walk, on a second crate
+  (`walkdir::WalkDir`, beside `import::discoverable_paths`'s `ignore`
+  `WalkBuilder`), un-memoized, unfenced, and paid unconditionally on the
+  floor. Measured in this worktree: 1409 files walked, of which 995 (71%) are
+  gitignored build output under `target/`; a normal clone adds `.git/` and
+  `node_modules/`, neither fenced. The raw semantics is deliberate — the site
+  says "over-collected so an extra file can only suppress a finding, never
+  forge one", and a unit test pins that a gitignored target counts as backed —
+  but `Discovery`'s `local_governs = true` flavor already waives **both**
+  presumptions (gitignore and `.temper/`) and is cached per run, so the two
+  walkers differ only by the two fences `discoverable_paths`'s own narration
+  declares hold "for every walk": `.git/`, and a nested governed root.
+  Candidates. (a) Fold onto the cached local flavor — one walker, one home,
+  memoized, already counted; the set loses `.git/` and sub-corpus files, so an
+  `@import` into either becomes an unbacked-pointer finding and a glob
+  matching only there dies. (b) Keep the raw walk and state in the corpus that
+  the backing set is raw disk — then `discoverable_paths`'s "every walk" is
+  wrong and must be re-scoped, and the unconditional unfenced walk stands at
+  every session-open `check`. (c) Split by consumer grain: the directive half
+  needs only k membership tests (`repo.contains` over the handful of cited
+  targets), and the whole-set half is reached only where a root `reachable`
+  clause binds (`live_members_count`'s doc: "at zero where no root `reachable`
+  clause binds"), so the floor's whole-tree walk buys nothing for a harness
+  declaring none. Session recommendation: **(c)**, then (a) for the surviving
+  whole-set half — (c) removes an unconditional tree-scale cost for every
+  adopter and is finding-neutral for a regular-file target, though a
+  directory or symlink target differs (the walk keeps `is_file()` entries
+  only, where `Path::is_file()` follows a symlink) and must be spelled. The
+  objection (c) must answer: `(lazy-grounds)` already parks "resolve an
+  address by stat rather than materialize a set" under the 0035 evidence bar,
+  so ruling (c) here rules half of that fork's mechanism with no field driver
+  — the two are ruled together or (c) waits. No dependents:
+  DIRECTIVE-BACKING-WALK-IS-PINNED-BY-COUNT ships the missing count pin under
+  today's shape either way, and makes any ruling's effect on the walk visible.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its

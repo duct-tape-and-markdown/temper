@@ -1,0 +1,34 @@
+{
+  "tag": "DIRECTIVE-BACKING-WALK-IS-PINNED-BY-COUNT",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/compose.rs",
+        "description": "`repo_file_set` (:1357) is a whole-tree `walkdir::WalkDir` over the harness root — the directive backing set and the `paths-match` channel-liveness set — hoisted by hand to one call site per verb (`gate.rs:382`, `read.rs:2479`) and counted by nothing. Every sibling whole-input hoist in this module already carries its thread-local count and `#[must_use]` accessor at the top of the file: `RESOLVE_KIND_UNITS_COUNT`/`resolve_kind_units_count` (:39, :46) and `OVERLAY_BUILTIN_KIND_COUNT`/`overlay_builtin_kind_count` (:40, :52), with `import::walk_count` (`import.rs:142`) and `glob::glob_compile_count` the same shape. Add a third thread-local beside them, increment it as the walk's first statement (the shape `discoverable_paths` uses, `import.rs:437`), and expose `repo_file_set_count()` with the same doc form — the walk is single-threaded on its caller's thread, so a per-thread delta is one run's alone. No call site changes and no set change: the counter is additive. `repo_file_set`'s own doc comment already claims the hoist (\"walked once per run to avoid re-reading per-kind\") — the prose shrinks to name the pin that now holds it, per the narration section's promoted-scaffolding rung."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "The count-pin home. `a_full_check_run_walks_each_consulted_flavor_once` (:773) already drives a real `gate::gate` over a two-kind tmp harness and asserts `import::walk_count()` delta == 2, with its own message promising \"one shared cache threaded through the run, never a per-kind or per-call re-walk\" — a promise a third, uncounted whole-tree walk rides outside. Add the sibling pin over the same real run: the `compose::repo_file_set_count()` delta across one `gate::gate` is exactly 1. Either extend that test or add one beside it; the module header (:1) enumerates the pins this file holds, so it gains the new one. Whichever shape, the run must be the real verb's, never a direct `repo_file_set` call — a pin over its own call proves nothing about the run."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The directive backing-set tree walk is the one whole-input hoist in the run with no count pin — give `repo_file_set` the counter every sibling carries.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "Cost scale is hoisted, and pinned by count"
+  },
+  "tests": [
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "one real `gate::gate` run calls `repo_file_set` exactly once — the delta of `compose::repo_file_set_count()` across the run is 1, so a per-kind or per-call re-walk of the consumer's whole tree fails the pin"
+    }
+  ],
+  "acceptance": "`cargo test` green with the new pin asserting a `compose::repo_file_set_count()` delta of exactly 1 across one real `gate::gate` invocation, and `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "Verified on disk this tick: `rg repo_file_set` finds no counter, and one `gate` runs per CLI invocation (`main.rs:895-897`), so the pin is exactly 1. The walk's *shape* — raw disk, unfenced, un-memoized — is the open fork `(directive-backing-set-scope)`, not this entry; the pin holds under every candidate there and makes any ruling's effect on the count visible. scoped at 78baf855"
+}
