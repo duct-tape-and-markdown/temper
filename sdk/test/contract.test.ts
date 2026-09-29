@@ -12,6 +12,7 @@ import {
   clause,
   count,
   degree,
+  engineMatches,
   enumOf,
   extent,
   formatPlacesEdges,
@@ -227,15 +228,17 @@ test("reachable composes a field-less graph-scope predicate lowering to a kind-l
   assert.equal(rows[0]!.field, undefined);
   assert.equal(rows[0]!.severity, "advisory");
 
-  // And the shipped default binds this clause, `fresh` and `locus-declared`, all three at
-  // advisory — the tool never decides that a dead registration, a drifted projection or an
-  // undeclared document blocks.
+  // And the shipped default binds this clause, `fresh`, `locus-declared` and
+  // `engine-matches`, all four at advisory — the tool never decides that a dead
+  // registration, a drifted projection, an undeclared document or a lock another engine
+  // wrote blocks.
   assert.deepEqual(
     rootDefaultContract.map((c) => [c.predicate.key, c.severity]),
     [
       ["reachable", "advisory"],
       ["fresh", "advisory"],
       ["locus-declared", "advisory"],
+      ["engine-matches", "advisory"],
     ],
   );
   assert.ok(
@@ -244,11 +247,17 @@ test("reachable composes a field-less graph-scope predicate lowering to a kind-l
   );
   // And cites where its verdict rests on an external fact: `reachable`'s dead-channel
   // criteria are Claude Code's documented behaviour. `fresh` and `locusDeclared` compare
-  // temper's own lock against disk, so there is no external fact for either to cite and a
-  // URL here would be invented.
+  // temper's own lock against disk and `engineMatches` its stamp against temper's own
+  // version, so there is no external fact for any of the three to cite and a URL here
+  // would be invented.
   assert.ok(
     rootDefaultContract.find((c) => c.predicate.key === "reachable")?.cite,
     "`reachable` cites the docs its dead-channel criteria read off",
+  );
+  assert.deepEqual(
+    rootDefaultContract.filter((c) => c.cite).map((c) => c.predicate.key),
+    ["reachable"],
+    "`reachable` is the only cited root clause",
   );
 });
 
@@ -287,6 +296,26 @@ test("locusDeclared composes a field-less walk-vs-lock predicate lowering to a k
   assert.equal(rows[0]!.field, undefined);
   // Severity is the author's, and it is its own dial: hardening an undeclared document to
   // blocking leaves `fresh`'s stale pins exactly where the author left them.
+  assert.equal(rows[0]!.severity, "required");
+});
+
+test("engineMatches composes a field-less stamp predicate lowering to a kind-less root row", () => {
+  // Argument-free like `locusDeclared()`: the comparison is the lock's own engine stamp
+  // against the running binary's version, so there is no member field, target or gate
+  // for it to carry.
+  assert.deepEqual(engineMatches(), { key: "engine-matches" });
+
+  // Lowered off the root's own `contract`, it takes neither a `kind` column (the
+  // discriminator that makes the row the root's) nor a `field` one.
+  const rows = compileDeclarations(
+    harness({ members: [], contract: [clause(engineMatches(), { severity: "required" })] }),
+  ).clauses;
+  assert.equal(rows.length, 1, `exactly one root row, got ${JSON.stringify(rows)}`);
+  assert.equal(rows[0]!.predicate, "engine-matches");
+  assert.equal(rows[0]!.kind, undefined);
+  assert.equal(rows[0]!.field, undefined);
+  // Severity is the author's: refusing a lock this engine did not compile is a posture a
+  // CI author composes, never one the tool pre-decides for every adopter's upgrade.
   assert.equal(rows[0]!.severity, "required");
 });
 

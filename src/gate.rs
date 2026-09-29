@@ -802,6 +802,38 @@ pub fn gate(
         )?);
     }
 
+    // The lock's own engine stamp against the binary reading it — the root member's
+    // `engine-matches` clause, located through the same door `fresh` and
+    // `locus-declared` above take: the one `selections` list already in hand, past the
+    // dial so a dialed severity is the one a finding carries, and where none binds no
+    // comparison runs. Offline and lock-only, so it needs neither the site walk nor a
+    // second read: `engine_from_doc` lifts the stamp off the already-parsed document.
+    //
+    // Two absences are *unknown* rather than mismatched, and both stay silent. A lock
+    // recording no stamp — one written before the stamp existed, or carrying a
+    // malformed one — reads `None`, and reporting there would substantiate a verdict
+    // from absent evidence. A harness with no committed lock at all has no stamp to
+    // compare either: `read_lock_document` cannot tell an absent lock from an empty one,
+    // so the question is the lock's presence, exactly as it is for the undeclared-member
+    // facts above.
+    if let Some(clause) = engine::root_clause(&selections, &contract::Predicate::EngineMatches)
+        .filter(|_| represented)
+        && let Some(recorded) = drift::engine_from_doc(&lock_doc)
+        && recorded != crate::VERSION
+    {
+        diagnostics.push(crate::check::Diagnostic::from_clause(
+            clause,
+            crate::LOCK_FILENAME,
+            format!(
+                "the committed lock records engine version {recorded}, but this gate is \
+                 running engine version {}: the declaration rows being read were compiled \
+                 by a compiler this binary is not. Re-run `emit` to rewrite the lock whole \
+                 in this engine's canonical form",
+                crate::VERSION
+            ),
+        ));
+    }
+
     Ok((diagnostics, announcement))
 }
 

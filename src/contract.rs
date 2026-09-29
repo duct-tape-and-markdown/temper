@@ -547,6 +547,27 @@ pub enum Predicate {
     /// selection, like [`Predicate::Fresh`]: what is governed is a locus, not a
     /// population, and a per-kind binding would have no member to hang off.
     LocusDeclared,
+    /// `engine-matches`: the engine version the committed lock records is the one running
+    /// the gate. The lock names the version that wrote it (`specs/model/pipeline.md`,
+    /// "The lock"), and a run by a different engine says so: the declaration rows being
+    /// read were compiled by a compiler this binary is not, so a normalized older
+    /// spelling and a genuine change in what a row *means* read alike from the inside.
+    /// One `emit` rewrites the lock whole in the running engine's canonical form; the
+    /// file itself is never patched.
+    ///
+    /// Carries **no field argument**, exactly as [`Predicate::LocusDeclared`] carries
+    /// none: its argument is the lock's own stamp compared against [`crate::VERSION`],
+    /// never a column of the clause.
+    ///
+    /// Judged in [`crate::gate`] off the already-parsed lock document, offline and
+    /// lock-only: a lock recording no stamp reads *unknown* rather than mismatched
+    /// (`crate::drift::engine_from_doc`, whose robust read an absent or malformed key
+    /// both reach), and a harness with no committed lock has no stamp to compare — both
+    /// report nothing rather than substantiate a verdict from
+    /// absent evidence. Bound to the **root member's** selection, like
+    /// [`Predicate::Fresh`]: one lock carries one stamp, so a per-kind binding beside
+    /// the root's would report the same fact once per kind.
+    EngineMatches,
     /// `format-places-edges`: the edge scope, at the **each** grain — the selection is
     /// the edges incident on the member, and every one of them must be placed by the
     /// format that renders the member. A format that omits an edge its kind declares
@@ -711,6 +732,9 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         // And the discovery walk read against the lock's declarations is
         // `locus-declared`'s, for the same absence of a column.
         "locus-declared" => Predicate::LocusDeclared,
+        // And the lock's own engine stamp read against `crate::VERSION` is
+        // `engine-matches`'s, for the same absence of a column.
+        "engine-matches" => Predicate::EngineMatches,
         "format-places-edges" => Predicate::FormatPlacesEdges,
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
@@ -824,6 +848,7 @@ impl Predicate {
             Predicate::Reachable => "reachable",
             Predicate::Fresh => "fresh",
             Predicate::LocusDeclared => "locus-declared",
+            Predicate::EngineMatches => "engine-matches",
             Predicate::FormatPlacesEdges => "format-places-edges",
             Predicate::When { .. } => "when",
         }
@@ -832,7 +857,7 @@ impl Predicate {
     /// Whether this predicate ranges over the **selection** a clause binds to rather
     /// than one member's own features — `count`/`unique`/`membership` at the whole
     /// grain, `degree`/`reached-from`/`kind`/`mention-reachable` at the each grain, and
-    /// the root-bound `reachable`/`fresh`/`locus-declared` trio.
+    /// the root-bound `reachable`/`fresh`/`locus-declared`/`engine-matches` family.
     /// Judged by
     /// [`crate::engine::judge`], [`crate::graph::degree`],
     /// [`crate::graph::reached_from`],
@@ -862,6 +887,7 @@ impl Predicate {
                 | Predicate::Reachable
                 | Predicate::Fresh
                 | Predicate::LocusDeclared
+                | Predicate::EngineMatches
                 | Predicate::Extent { whole: true, .. }
         )
     }
@@ -907,10 +933,12 @@ impl Predicate {
             | Predicate::MentionReachable { .. }
             // The graph is its argument, so there is no field for it to name — and the
             // lock read against disk is `fresh`'s, the discovery walk read against it
-            // `locus-declared`'s, for the same silence.
+            // `locus-declared`'s, and the lock's own engine stamp `engine-matches`'s, for
+            // the same silence.
             | Predicate::Reachable
             | Predicate::Fresh
             | Predicate::LocusDeclared
+            | Predicate::EngineMatches
             | Predicate::FormatPlacesEdges
             // Guard and body carry no field or schema key of their own.
             | Predicate::When { .. } => None,
@@ -964,6 +992,7 @@ impl Predicate {
             | Predicate::Reachable
             | Predicate::Fresh
             | Predicate::LocusDeclared
+            | Predicate::EngineMatches
             | Predicate::FormatPlacesEdges
             // Guard and body carry no frontmatter field to document.
             | Predicate::When { .. } => None,
@@ -1015,6 +1044,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::Reachable
             | Predicate::Fresh
             | Predicate::LocusDeclared
+            | Predicate::EngineMatches
             | Predicate::FormatPlacesEdges
             | Predicate::When { .. } => None,
         })

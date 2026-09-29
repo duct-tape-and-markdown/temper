@@ -215,8 +215,8 @@ pub(crate) fn inadmissibilities(
 /// The admissible root vocabulary is therefore exactly the selection grain
 /// ([`Predicate::ranges_over_selection`]): `count`/`unique`/`membership`/`degree`/`kind`
 /// over the forest, `mention-reachable` and `reachable` over the graph, `fresh` over the
-/// committed lock against disk, and `locus-declared` over the discovery walk against the
-/// lock's declarations.
+/// committed lock against disk, `locus-declared` over the discovery walk against the
+/// lock's declarations, and `engine-matches` over the lock's own engine stamp.
 fn rootless(predicate: &Predicate, locus: &Locus) -> Option<String> {
     if !matches!(locus, Locus::Root) || predicate.ranges_over_selection() {
         return None;
@@ -348,6 +348,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::Reachable
         | Predicate::Fresh
         | Predicate::LocusDeclared
+        | Predicate::EngineMatches
         | Predicate::FormatPlacesEdges
         // Guard and body carry no field to address.
         | Predicate::When { .. } => None,
@@ -408,6 +409,7 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         | Predicate::Reachable
         | Predicate::Fresh
         | Predicate::LocusDeclared
+        | Predicate::EngineMatches
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => return None,
     };
@@ -459,6 +461,7 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         | Predicate::Reachable
         | Predicate::Fresh
         | Predicate::LocusDeclared
+        | Predicate::EngineMatches
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => None,
     }
@@ -634,11 +637,13 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         | Predicate::GlobValid { .. }
         // An argument-free root predicate has no clause-level argument to be empty or
         // inverted: `reachable` admits whatever the graph says, `fresh` whatever the
-        // lock-versus-disk read says and `locus-declared` whatever the discovery walk
-        // turns up, so there is nothing here the author could have spelled vacuously.
+        // lock-versus-disk read says, `locus-declared` whatever the discovery walk turns
+        // up and `engine-matches` whatever stamp the lock carries, so there is nothing
+        // here the author could have spelled vacuously.
         | Predicate::Reachable
         | Predicate::Fresh
         | Predicate::LocusDeclared
+        | Predicate::EngineMatches
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => Vec::new(),
     }
@@ -747,7 +752,8 @@ impl Selection<'_> {
 ///
 /// Read **after** the dial's pass over this same `selections` list ([`crate::gate`]), so
 /// a dialed severity is the one the finding carries. Matched on the predicate by value:
-/// the root vocabulary is argument-free (`reachable`, `fresh`, `locus-declared`), so a
+/// the root vocabulary is argument-free (`reachable`, `fresh`, `locus-declared`,
+/// `engine-matches`), so a
 /// predicate value is its own address here and no caller re-spells which selection a
 /// root clause rides.
 #[must_use]
@@ -834,6 +840,7 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                 | Predicate::Reachable
                 | Predicate::Fresh
                 | Predicate::LocusDeclared
+                | Predicate::EngineMatches
                 | Predicate::FormatPlacesEdges
                 | Predicate::When { .. } => {}
             }
@@ -1561,6 +1568,10 @@ fn decide(
         // that is no member at all — so `crate::drift`'s two undeclared-member judges
         // decide it, over the discovery walk this table never sees.
         | Predicate::LocusDeclared
+        // `engine-matches` rides it too, and its verdict compares the committed lock's
+        // own stamp against `crate::VERSION` — neither is on the member in hand — so
+        // `crate::gate` decides it off the parsed lock document.
+        | Predicate::EngineMatches
         // Whole-grain `extent` sums the selection; [`judge`] decides it, not this
         // per-member table.
         | Predicate::Extent { whole: true, .. } => Outcome::Indeterminate,
@@ -2163,6 +2174,7 @@ mod tests {
             Predicate::Reachable,
             Predicate::Fresh,
             Predicate::LocusDeclared,
+            Predicate::EngineMatches,
             Predicate::Extent {
                 unit: ExtentUnit::Lines,
                 max: 40,
@@ -3674,7 +3686,8 @@ mod tests {
             | Predicate::MentionReachable { .. }
             | Predicate::Reachable
             | Predicate::Fresh
-            | Predicate::LocusDeclared => true,
+            | Predicate::LocusDeclared
+            | Predicate::EngineMatches => true,
             // The one predicate carrying its own grain: the whole-grain budget sums the
             // selection, the each-grain one reads the member in hand.
             Predicate::Extent { whole, .. } => *whole,

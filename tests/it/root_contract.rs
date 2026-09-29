@@ -327,7 +327,7 @@ fn a_harness_declaring_no_root_reachable_clause_asks_the_graph_nothing() {
 }
 
 #[test]
-fn the_shipped_root_default_binds_the_three_root_predicates_and_rides_a_harness_that_declares_none()
+fn the_shipped_root_default_binds_the_four_root_predicates_and_rides_a_harness_that_declares_none()
 {
     // The default is shipped, not merely reachable through an authored clause: a lock
     // carrying no root row at all takes the rows-or-default fallback to the embedded
@@ -351,6 +351,11 @@ fn the_shipped_root_default_binds_the_three_root_predicates_and_rides_a_harness_
                 Predicate::LocusDeclared,
                 Severity::Advisory
             ),
+            (
+                "root.engine-matches",
+                Predicate::EngineMatches,
+                Severity::Advisory
+            ),
         ],
         "the emitted default's kind-less rows lift back into the root contract"
     );
@@ -366,8 +371,16 @@ fn the_shipped_root_default_binds_the_three_root_predicates_and_rides_a_harness_
         contract.clauses[0].source.is_some(),
         "and cites where its verdict rests on an external fact — `reachable`'s \
          dead-channel criteria are Claude Code's, while `fresh` and `locus-declared` \
-         compare temper's own lock against disk and have nothing external to cite, got {:?}",
+         compare temper's own lock against disk and `engine-matches` its stamp against \
+         temper's own version, so none of the three has anything external to cite, got {:?}",
         contract.clauses[0]
+    );
+    assert!(
+        contract.clauses[1..]
+            .iter()
+            .all(|clause| clause.source.is_none()),
+        "and `reachable` is the only cited root clause, got {:?}",
+        contract.clauses
     );
 
     // End to end: the same dead registration the opt-in case above silences now reports,
@@ -443,4 +456,115 @@ fn a_member_grain_root_clause_is_refused_at_admissibility_while_reachable_is_adm
             .any(|finding| finding.starts_with("::error") && finding.contains("root.reachable")),
         "`reachable` is admissible at the root, got:\n{findings:#?}"
     );
+}
+
+/// The root member's `engine-matches` clause row at `severity`. `kind` stays `None`,
+/// like [`root_reachable`]'s, and no argument column is spelled: the comparison is the
+/// lock's own stamp against `temper::VERSION`, never a field of the clause.
+fn root_engine_matches(severity: &str) -> ClauseRow {
+    common::clause("engine-matches", severity)
+}
+
+/// Rewrite the engine stamp on the lock `common::write_lock` just emitted — `Some` to
+/// record `recorded`, `None` to drop the key entirely (the lock written before the stamp
+/// existed). The only way to stand a checkout written by a *different* engine up
+/// offline, and it edits the emitted file rather than authoring one beside it, so the
+/// judge still reads a lock the pipeline really produced.
+fn restamp_engine(root: &Path, recorded: Option<&str>) {
+    let path = root.join(".temper").join(temper::LOCK_FILENAME);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let (first, rest) = text
+        .split_once('\n')
+        .expect("the emitted lock opens with its engine stamp");
+    assert!(
+        first.starts_with("engine = "),
+        "the stamp is the lock's first line, got: {first}"
+    );
+    let head = match recorded {
+        Some(version) => format!("engine = \"{version}\"\n"),
+        None => String::new(),
+    };
+    std::fs::write(&path, format!("{head}{rest}")).unwrap();
+}
+
+#[test]
+fn a_root_engine_matches_clause_reports_a_lock_another_engine_wrote_and_stays_silent_otherwise() {
+    // The mismatch: a committed lock recording a version this binary is not. The finding
+    // names *both* ends — the recorded stamp and the running one — because the remedy
+    // (re-emit) is only legible once the author can see which direction the gap runs.
+    let root = dead_registration_harness("root-engine-mismatch");
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![root_engine_matches("advisory")],
+            ..Declarations::default()
+        },
+    );
+    restamp_engine(&root, Some("0.0.1"));
+
+    let (findings, ok) = common::check_harness(&root);
+    let reported = common::findings_for(&findings, "root.engine-matches");
+    assert_eq!(
+        reported.len(),
+        1,
+        "one lock carries one stamp, so the fact reports once whatever the member count \
+         is, got:\n{findings:#?}"
+    );
+    assert!(
+        reported[0].contains("0.0.1") && reported[0].contains(temper::VERSION),
+        "and the finding names the recorded version and the running one, got: {}",
+        reported[0]
+    );
+    assert!(
+        reported[0].starts_with("::warning"),
+        "the shipped posture is advisory, so no adopter turns red on an upgrade, got: {}",
+        reported[0]
+    );
+    assert!(ok, "and the run passes, got:\n{findings:#?}");
+
+    // The matching lock: `write_lock` stamps this very engine, so nothing is restamped
+    // and the clause has nothing to report.
+    let matching = dead_registration_harness("root-engine-matching");
+    common::write_lock(
+        &matching,
+        Declarations {
+            clauses: vec![root_engine_matches("required")],
+            ..Declarations::default()
+        },
+    );
+    let (findings, ok) = common::check_harness(&matching);
+    assert!(
+        common::findings_for(&findings, "root.engine-matches").is_empty(),
+        "an agreeing stamp is no finding, got:\n{findings:#?}"
+    );
+    assert!(ok, "and the run passes, got:\n{findings:#?}");
+
+    // Unknown, not mismatched: a lock recording no stamp at all. Reporting here would
+    // substantiate a verdict from absent evidence, so the clause is silent — and it is
+    // silent at `required`, which is where the distinction would otherwise bite.
+    let unstamped = dead_registration_harness("root-engine-unstamped");
+    common::write_lock(
+        &unstamped,
+        Declarations {
+            clauses: vec![root_engine_matches("required")],
+            ..Declarations::default()
+        },
+    );
+    restamp_engine(&unstamped, None);
+    let (findings, ok) = common::check_harness(&unstamped);
+    assert!(
+        common::findings_for(&findings, "root.engine-matches").is_empty(),
+        "a lock recording no stamp reads unknown, never mismatched, got:\n{findings:#?}"
+    );
+    assert!(ok, "and the run passes, got:\n{findings:#?}");
+
+    // And the stranger gate: no committed lock at all, so the shipped default's own
+    // `engine-matches` clause rides the embedded lock — with no stamp to compare against.
+    let strangerless = dead_registration_harness("root-engine-no-lock");
+    let (findings, ok) = common::check_harness(&strangerless);
+    assert!(
+        common::findings_for(&findings, "root.engine-matches").is_empty(),
+        "a harness with no lock has no stamp to compare, got:\n{findings:#?}"
+    );
+    assert!(ok, "and the run passes, got:\n{findings:#?}");
 }

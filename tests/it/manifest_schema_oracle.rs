@@ -192,6 +192,7 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
         // a manifest's values either.
         | Predicate::Fresh
         | Predicate::LocusDeclared
+        | Predicate::EngineMatches
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => return None,
     })

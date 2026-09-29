@@ -8,7 +8,7 @@
  */
 
 import type { Member, KindDefinition } from "./kind.js";
-import { clause, fresh, locusDeclared, reachable } from "./contract.js";
+import { clause, engineMatches, fresh, locusDeclared, reachable } from "./contract.js";
 import type { Clause, Requirement } from "./contract.js";
 
 /**
@@ -117,19 +117,21 @@ export function harness(init: {
  * Homed beside the root member's other fields, the precedent `dialDefaultContract` sets
  * in `dial.ts`: a default contract lives with the surface it governs.
  *
- * Three clauses, all predicates only the root can bind: their selection is the whole
+ * Four clauses, all predicates only the root can bind: their selection is the whole
  * forest and their judges read the reference graph, the committed lock and the discovery
  * walk, none of which any one kind's population carries. `reachable` is the one check
  * that catches authored configuration the harness never loads at all; `fresh` is the one
  * that catches a projection or a fingerprinted source dependency that has moved out from
  * under its lock row; `locus-declared` is the one that catches a document sitting at a
- * governed locus that the program never declared.
+ * governed locus that the program never declared; `engine-matches` is the one that
+ * catches a lock compiled by an engine other than the one now reading it.
  *
  * All advisory — today's posture for each, so no adopter turns red on the upgrade. A
  * dead registration is often deliberate work-in-progress, a drifted projection is usually
- * a re-emit away, and an undeclared document is often a surface mid-adoption; whether any
- * of them gates is the adopting author's call, dialed or re-declared rather than
- * tool-decided.
+ * a re-emit away, an undeclared document is often a surface mid-adoption, and a stale
+ * engine stamp is the ordinary state of every checkout between an upgrade and the next
+ * `emit`; whether any of them gates is the adopting author's call, dialed or re-declared
+ * rather than tool-decided.
  */
 export const rootDefaultContract: readonly Clause[] = [
   clause(reachable(), {
@@ -148,5 +150,10 @@ export const rootDefaultContract: readonly Clause[] = [
     severity: "advisory",
     guidance:
       "A document sits at a governed locus that your program declares no member for. Claude Code loads it, but temper maintains nothing about it: `emit` never writes or reaps it, `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared.",
+  }),
+  clause(engineMatches(), {
+    severity: "advisory",
+    guidance:
+      "Your committed lock records a different temper version than the one running this gate. The rows being read were compiled by a compiler this binary is not, so every verdict below rests on a translation: an older spelling normalizes at read time, but a genuine change in what a row means reads the same from the inside. Re-run `emit` — it rewrites the lock whole in this engine's canonical form, and the stamp goes back to matching. Advisory because a lagging stamp is the ordinary state of every checkout between an upgrade and the next emit, and blocking there would make an upgrade a hard stop; dial this label to `required` — or re-declare the clause — once your CI should refuse a lock it did not compile.",
   }),
 ];

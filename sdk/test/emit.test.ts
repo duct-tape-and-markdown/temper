@@ -260,6 +260,11 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       guidance: rootDefaultContract[2]!.guidance,
       cite: rootDefaultContract[2]!.cite,
  },
+ {
+      ...clauseRow("engine-matches", "advisory"),
+      guidance: rootDefaultContract[3]!.guidance,
+      cite: rootDefaultContract[3]!.cite,
+ },
   ]);
   assert.deepEqual(declarations.requirements, [
  {
@@ -361,6 +366,11 @@ test("the root member's contract lowers to kind-less top-level rows, defaulted a
       ...clauseRow("locus-declared", "advisory"),
       guidance: rootDefaultContract[2]!.guidance,
       cite: rootDefaultContract[2]!.cite,
+    },
+    {
+      ...clauseRow("engine-matches", "advisory"),
+      guidance: rootDefaultContract[3]!.guidance,
+      cite: rootDefaultContract[3]!.cite,
     },
   ]);
   assert.equal(defaulted.length, rootDefaultContract.length);

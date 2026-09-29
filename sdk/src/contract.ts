@@ -280,6 +280,24 @@ export const fresh = (): Predicate => ({ key: "fresh" });
  */
 export const locusDeclared = (): Predicate => ({ key: "locus-declared" });
 /**
+ * The engine that wrote the committed lock is the engine running the gate. The lock
+ * names the version that laid it down (`specs/model/pipeline.md`, "The lock"), and a
+ * run by a different one says so: the rows it is reading were compiled by a compiler it
+ * is not, so a normalized older spelling and a genuine behaviour change read alike from
+ * the inside. The remedy is one `emit`, which rewrites the lock whole in the running
+ * engine's canonical form.
+ *
+ * Names **no field**, like {@link locusDeclared}: the comparison is the lock's own
+ * stamp against the running binary's version, never any member's fields. So it composes
+ * into a root `contract` — the stamp is one fact about the whole harness, and there is
+ * no per-kind population for it to range over.
+ *
+ * Lock-only and offline, like {@link fresh}: a lock recording no stamp reads *unknown*
+ * rather than mismatched, and a harness with no committed lock has nothing to compare,
+ * so both are silent.
+ */
+export const engineMatches = (): Predicate => ({ key: "engine-matches" });
+/**
  * Every edge the member's kind declares is placed by the format that renders the member
  * — a format that omits one renders a contract the prose does not represent. Names no
  * field: the selection is the member's whole incident edge set, at the `each` grain.

@@ -31,6 +31,7 @@ export {
   count,
   degree,
   deny,
+  engineMatches,
   enumOf,
   extent,
   forbiddenKeys,

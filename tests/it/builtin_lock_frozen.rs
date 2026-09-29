@@ -191,6 +191,7 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
             (Some("root.reachable"), "reachable", "advisory"),
             (Some("root.fresh"), "fresh", "advisory"),
             (Some("root.locus-declared"), "locus-declared", "advisory"),
+            (Some("root.engine-matches"), "engine-matches", "advisory"),
         ],
         "the memberless emit contributes the root default's rows, got {root:#?}"
     );
@@ -202,7 +203,12 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
         root[0].cite.is_some(),
         "and cites where its verdict rests on an external fact — `reachable`'s dead-channel \
          criteria are Claude Code's. `fresh` and `locus-declared` compare temper's own lock \
-         against disk, so there is nothing external for either to cite"
+         against disk and `engine-matches` its stamp against temper's own version, so there \
+         is nothing external for any of the three to cite"
+    );
+    assert!(
+        root.iter().skip(1).all(|row| row.cite.is_none()),
+        "and `reachable` is the only cited root row, got {root:#?}"
     );
 
     // And they lift back through the engine's own root-contract reader, so what ships is
@@ -217,7 +223,8 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
         vec![
             contract::Predicate::Reachable,
             contract::Predicate::Fresh,
-            contract::Predicate::LocusDeclared
+            contract::Predicate::LocusDeclared,
+            contract::Predicate::EngineMatches
         ]
     );
 }

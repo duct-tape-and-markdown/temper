@@ -137,6 +137,10 @@ pub fn emit(contract: &Contract) -> Value {
             // all — a fact about the lock and the discovery walk, never about anything
             // inside the buffer, so the same silence.
             | Predicate::LocusDeclared
+            // `engine-matches` compares the lock's own stamp against the running
+            // binary's version — a fact about the two ends of the toolchain, with no
+            // document in it at all, so the same silence.
+            | Predicate::EngineMatches
             | Predicate::GlobValid { .. }
             // `when` is a guard conditioning a body; the guard and body are evaluated
             // at the engine level, not expressed as schema constraints. Any frontmatter
