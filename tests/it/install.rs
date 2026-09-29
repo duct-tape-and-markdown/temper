@@ -14,6 +14,9 @@
 //!   plus `harness.ts`, and the first real `emit` (over the built SDK, `node` and
 //!   all) regenerates every composed kind's artifact as a canonical projection
 //!   and produces a lock;
+//! - **registration members** — a host manifest's collection entries are the
+//!   members discovery counts and the lift converts, one module per entry beside
+//!   the container member holding the file — never the file standing in for them;
 //! - **no own-path** — every scaffolded member is emit-owned from its first
 //!   emit, so the guard/managed-by note claim it immediately — never an
 //!   own-path passthrough;
@@ -29,7 +32,7 @@ use std::process::Command;
 
 use temper::compose::{self, EnforcementMode};
 use temper::drift::{self, ApplyOutcome, ClauseRow, KindFactRow};
-use temper::install::{self, InstallOutcome, Represent};
+use temper::install::{self, InstallOutcome, KindMembers, Represent};
 
 use crate::common;
 use crate::common::fresh_clause;
@@ -156,8 +159,8 @@ fn has_entry(outcome: &InstallOutcome, placement: temper::install::Placement) ->
 fn discover_reports_member_counts_by_kind() {
     let root = write_harness("discover", false);
     let report = install::discover(&root).unwrap();
-    assert_eq!(report.members.get("skill").map(Vec::len), Some(1));
-    assert_eq!(report.members.get("rule").map(Vec::len), Some(2));
+    assert_eq!(report.members.get("skill").map(KindMembers::len), Some(1));
+    assert_eq!(report.members.get("rule").map(KindMembers::len), Some(2));
     assert_eq!(report.total(), 3);
 
     let rendered = install::render_discovery(&report, None);
@@ -187,8 +190,8 @@ fn discovery_skips_claude_md_under_the_surface_workspace() {
     fs::write(root.join(".temper").join("CLAUDE.md"), "# Surface\n").unwrap();
 
     let report = install::discover(&root).unwrap();
-    assert_eq!(report.members.get("memory").map(Vec::len), Some(2));
-    let memory = report.members.get("memory").unwrap();
+    assert_eq!(report.members.get("memory").map(KindMembers::len), Some(2));
+    let memory = report.members.get("memory").unwrap().files();
     assert!(!memory.iter().any(|p| p.starts_with(root.join(".temper"))));
 }
 
@@ -206,8 +209,8 @@ fn discovery_fences_a_nested_governed_root() {
     fs::write(vendored.join("CLAUDE.md"), "# Vendored\n").unwrap();
 
     let report = install::discover(&root).unwrap();
-    assert_eq!(report.members.get("memory").map(Vec::len), Some(1));
-    let memory = report.members.get("memory").unwrap();
+    assert_eq!(report.members.get("memory").map(KindMembers::len), Some(1));
+    let memory = report.members.get("memory").unwrap().files();
     assert!(!memory.iter().any(|p| p.starts_with(root.join("vendor"))));
 }
 
@@ -783,7 +786,10 @@ fn a_local_commitment_artifact_is_counted_in_discovery_and_converted_into_nothin
     let (root, temper_dir) = write_document_harness("lift-local-skip");
     let discovery = install::discover(&root).unwrap();
     assert_eq!(
-        discovery.members.get("settings-local").map(Vec::len),
+        discovery
+            .members
+            .get("settings-local")
+            .map(KindMembers::len),
         Some(1),
         "the report counts what the walk found"
     );
@@ -1330,6 +1336,228 @@ fn the_post_tool_use_row_runs_the_guard_the_pre_tool_use_row_runs() {
     assert!(
         findings.is_empty(),
         "the wired gate must read as installed, got: {findings:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// registration members — a manifest's collection entries, not the file holding them
+// ---------------------------------------------------------------------------
+
+/// A `.claude/settings.json` carrying all three of its registration segments beside the
+/// container member's own keys: a `hooks.SessionStart` matcher group running a command
+/// of the author's own (never temper's gate command), an `enabledPlugins` enablement,
+/// and the `extraKnownMarketplaces` entry that enablement's `<plugin>@<marketplace>` key
+/// names.
+const REGISTERING_SETTINGS: &str = r#"{
+  "model": "opus",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "echo authored" } ] }
+    ]
+  },
+  "enabledPlugins": {
+    "formatter@acme": true
+  },
+  "extraKnownMarketplaces": {
+    "acme": { "source": "acme/market" }
+  }
+}
+"#;
+
+/// The registration-entry count a kind reports, or `None` when the kind is missing from
+/// the report entirely — the two failures a bare `unwrap()` would conflate.
+fn reported(discovery: &install::DiscoveryReport, kind: &str) -> Option<usize> {
+    discovery.members.get(kind).map(KindMembers::len)
+}
+
+#[test]
+fn a_manifests_registration_entries_each_lift_to_their_own_module_and_survive_the_first_emit() {
+    common::ensure_sdk_built();
+    let root = common::tmpdir("lift-registration-members");
+    common::write_settings(&root, REGISTERING_SETTINGS);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    // Discovery counts the *entries* at each kind's collection address. The count used to
+    // be the host manifest's file count, so every one of these read `1` no matter what the
+    // file carried — and the one `settings` container was reported four times over.
+    let discovery = install::discover(&root).unwrap();
+    assert_eq!(reported(&discovery, "hook"), Some(1));
+    assert_eq!(reported(&discovery, "installed-plugin"), Some(1));
+    assert_eq!(reported(&discovery, "known-marketplace"), Some(1));
+    assert_eq!(
+        reported(&discovery, "settings"),
+        Some(1),
+        "the file itself is still the container member's"
+    );
+
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(
+        outcome.scaffolded, 4,
+        "the settings container plus one module per registration entry"
+    );
+
+    // One module per registration member, each named by its registration key and carrying
+    // that key as its `name` — the entry's own fields hoisted beside it.
+    let hook_module =
+        fs::read_to_string(temper_dir.join("hooks").join("SessionStart-2.ts")).unwrap();
+    assert!(
+        hook_module.contains("name: \"SessionStart\","),
+        "got:\n{hook_module}"
+    );
+    assert!(
+        hook_module.contains("command: \"echo authored\","),
+        "got:\n{hook_module}"
+    );
+
+    let plugin_module = fs::read_to_string(
+        temper_dir
+            .join("installed-plugin")
+            .join("formatter@acme.ts"),
+    )
+    .unwrap();
+    assert!(
+        plugin_module.contains("import { installedPlugin } from \"@dtmd/temper/claude-code\";"),
+        "got:\n{plugin_module}"
+    );
+    assert!(
+        plugin_module.contains("name: \"formatter@acme\","),
+        "got:\n{plugin_module}"
+    );
+    assert!(
+        plugin_module.contains("enabled: true,"),
+        "the scalar entry's value rides its declared field, got:\n{plugin_module}"
+    );
+
+    // And the container member stops at its *own* keys: a segment a registration kind
+    // claims is that kind's members' to carry, so the container lifting it too would have
+    // emit write the segment twice — landing a manifest with the key repeated and the
+    // gate's own groups shadowed by the duplicate.
+    let container = fs::read_to_string(temper_dir.join("settings").join("settings.ts")).unwrap();
+    assert!(container.contains("model: \"opus\","), "got:\n{container}");
+    for claimed in ["hooks:", "enabledPlugins:", "extraKnownMarketplaces:"] {
+        assert!(
+            !container.contains(claimed),
+            "`{claimed}` is a registration kind's collection, not the container's field, got:\n{container}"
+        );
+    }
+
+    let marketplace_module =
+        fs::read_to_string(temper_dir.join("known-marketplace").join("acme.ts")).unwrap();
+    assert!(
+        marketplace_module.contains("name: \"acme\","),
+        "got:\n{marketplace_module}"
+    );
+    assert!(
+        marketplace_module.contains("source: \"acme/market\","),
+        "got:\n{marketplace_module}"
+    );
+
+    // The first emit re-renders the manifest from the program with every segment intact —
+    // the container's own keys, and each registration segment beside them. Dropped by the
+    // lift, a segment reached no member and the container's first emit shed it.
+    let projected: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join(".claude").join("settings.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(projected["model"], "opus");
+    assert_eq!(projected["enabledPlugins"]["formatter@acme"], true);
+    assert_eq!(
+        projected["extraKnownMarketplaces"]["acme"]["source"],
+        "acme/market"
+    );
+
+    // The author's own group survives the round trip, and temper's gate is wired beside
+    // it — two members on one event, two groups in the projected array.
+    let commands: Vec<&str> = projected["hooks"]["SessionStart"]
+        .as_array()
+        .expect("the SessionStart collection is an array of matcher groups")
+        .iter()
+        .filter_map(|group| group["hooks"][0]["command"].as_str())
+        .collect();
+    assert!(
+        commands.contains(&"echo authored"),
+        "the author's own group survives, got: {commands:?}"
+    );
+    assert!(
+        commands.contains(&temper::install::SESSION_START_COMMAND),
+        "temper's gate is wired beside it, got: {commands:?}"
+    );
+    assert_gate_hooks_wired(&root, "after install");
+}
+
+#[test]
+fn an_authored_group_on_a_gate_event_never_overwrites_the_gate_hooks_own_module() {
+    common::ensure_sdk_built();
+    let root = common::tmpdir("lift-registration-no-clobber");
+    common::write_settings(&root, REGISTERING_SETTINGS);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // Two writers, one kind directory, one lifecycle event. `GATE_HOOKS` keeps the fixed
+    // `hooks/<Event>.ts` name its remedy can cite; the authored group takes the next free
+    // one. Sharing a stem, whichever ran second silently erased the other.
+    let gate_module = fs::read_to_string(temper_dir.join("hooks").join("SessionStart.ts")).unwrap();
+    // The command reaches the module as a TS literal, so the claim is read against the
+    // writer's own constant through the writer's own renderer, never a hand copy.
+    let gate_command = serde_json::to_string(temper::install::SESSION_START_COMMAND).unwrap();
+    assert!(
+        gate_module.contains(&gate_command),
+        "temper's own gate module is still the gate's, got:\n{gate_module}"
+    );
+    let authored_module =
+        fs::read_to_string(temper_dir.join("hooks").join("SessionStart-2.ts")).unwrap();
+    assert!(
+        authored_module.contains("echo authored"),
+        "the authored group has a module of its own, got:\n{authored_module}"
+    );
+
+    // Distinct modules mean distinct exported identifiers: `harness.ts` imports both, and
+    // one name declared twice is a TS redeclaration the emit could never run.
+    let harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
+    for (ident, module) in [
+        ("hook_SessionStart", "./hooks/SessionStart.ts"),
+        ("hook_SessionStart_2", "./hooks/SessionStart-2.ts"),
+    ] {
+        assert!(
+            harness.contains(&format!("import {{ {ident} }} from \"{module}\";")),
+            "`{ident}` is imported from its own module, got:\n{harness}"
+        );
+        assert!(
+            harness.contains(&format!("{ident}, ")),
+            "`{ident}` is composed into the program, got:\n{harness}"
+        );
+    }
+}
+
+#[test]
+fn a_manifest_carrying_no_registration_segment_reports_zero_for_those_kinds() {
+    // The vacuity guard on the count above: the manifest is found, read, and reported —
+    // and every registration kind whose segment it does not carry reports zero. A file
+    // count would read `1` for each of the three, over a file holding none of them.
+    let root = common::tmpdir("discover-registration-empty");
+    common::write_settings(&root, SETTINGS_DOCUMENT);
+
+    let discovery = install::discover(&root).unwrap();
+    assert_eq!(reported(&discovery, "settings"), Some(1));
+    for kind in ["hook", "installed-plugin", "known-marketplace"] {
+        assert_eq!(
+            reported(&discovery, kind),
+            Some(0),
+            "`{kind}` has no entry in a settings.json carrying no such segment"
+        );
+    }
+
+    let rendered = install::render_discovery(&discovery, None);
+    assert!(rendered.contains("settings"), "got:\n{rendered}");
+    assert!(
+        !rendered.contains("hook"),
+        "an empty kind prints no row at all, got:\n{rendered}"
     );
 }
 

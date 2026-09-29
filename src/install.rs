@@ -16,7 +16,10 @@
 //!   program once if none exists yet — the lift ([`scaffold`]): a whole
 //!   conversion (0016), never an intermediate state — every present frontmatter
 //!   field hoists into a typed property and prose moves module-side (inline for
-//!   a short body, a module-adjacent file for a document) — plus a `harness.ts`
+//!   a short body, a module-adjacent file for a document), and a host manifest's
+//!   **registration** entries convert beside the container member holding them,
+//!   one module per entry, so no segment reaches the first emit unowned — plus a
+//!   `harness.ts`
 //!   skeleton, and temper's own gate as three `hook` members ([`GATE_HOOKS`]) —
 //!   runs the first `emit` (the adoption moment,
 //!   [`drift::emit_program`]), which regenerates every composed kind's artifact as a
@@ -467,6 +470,24 @@ enum InstallError {
         source: std::io::Error,
     },
 
+    /// A discovered member's id cannot name a module file inside its kind's directory
+    /// under `.temper/` — a registration key carrying a path separator, say.
+    #[error("the {kind} member {id:?} cannot name a module file in {dir}")]
+    #[diagnostic(
+        code(temper::install::member_file_name),
+        help(
+            "a member's module is one file in its kind's directory; rename the entry so its key names one"
+        )
+    )]
+    MemberFileName {
+        /// The kind row label of the member whose module could not be placed.
+        kind: String,
+        /// The id that cannot name a file there.
+        id: String,
+        /// The module directory the file would have had to land in.
+        dir: PathBuf,
+    },
+
     /// `npm install` exited non-zero while ensuring the `@dtmd/temper` dependency.
     #[error("\"npm install\" failed in {path}:\n{stderr}")]
     #[diagnostic(code(temper::install::dependency_install))]
@@ -488,22 +509,78 @@ pub enum Represent {
     No,
 }
 
+/// One kind's discovered members, in the flavor that kind's own declaration decides. A
+/// file-locus kind's members are the artifact files the walk found; a **registration**
+/// kind owns no file at all — the walk finds its host manifest, and its members are the
+/// entries at its declared [`CollectionAddress`] inside it (a `hooks.<Event>` matcher
+/// group, an `enabledPlugins` enablement).
+///
+/// The two flavors never mix on one kind, so the report's per-kind count is one length
+/// either way. Counting the manifest file instead reported `hook 1` for a
+/// `settings.json` carrying no `hooks` key at all, and handed the lift a file with no
+/// member of that kind in it to convert.
+#[derive(Debug, Clone, PartialEq)]
+pub enum KindMembers {
+    /// A file-locus kind's members: one source file apiece.
+    Files(Vec<PathBuf>),
+    /// A registration kind's members: one collection entry apiece, read off its host
+    /// manifests through the one manifest read face ([`json_manifest::Manifest`]).
+    Registrations {
+        /// The host manifests the walk found for this kind — the files its collection
+        /// address is read at, carried whether or not one holds an entry, because the
+        /// address claims its key in the manifest either way ([`scaffold`] keeps that
+        /// key off the container member that owns the file).
+        manifests: Vec<PathBuf>,
+        /// The entries found at that address, across every one of them.
+        entries: Vec<json_manifest::RegistrationMember>,
+    },
+}
+
+impl KindMembers {
+    /// How many members this kind contributes to the report's count.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Files(files) => files.len(),
+            Self::Registrations { entries, .. } => entries.len(),
+        }
+    }
+
+    /// Whether this kind contributed no member at all — the row [`render_discovery`]
+    /// leaves unprinted.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The artifact files these members were read from: a file kind's own sources, and
+    /// empty for a registration kind, whose entries surface inside a member of another
+    /// kind's file rather than one of its own.
+    #[must_use]
+    pub fn files(&self) -> &[PathBuf] {
+        match self {
+            Self::Files(files) => files,
+            Self::Registrations { .. } => &[],
+        }
+    }
+}
+
 /// The discovery walk's findings — "what the walk found (members by kind...)",
 /// reported before
 /// the one question and reused by the yes-path's scaffold so the lift lifts exactly
 /// what was reported, never a re-walked, possibly-differing set.
 #[derive(Debug, Clone, Default)]
 pub struct DiscoveryReport {
-    /// Discovered member source files, keyed by the kind's bare row label
-    /// — every embedded built-in kind.
-    pub members: BTreeMap<String, Vec<PathBuf>>,
+    /// Discovered members, keyed by the kind's bare row label — every embedded built-in
+    /// kind, each in the flavor its declaration decides ([`KindMembers`]).
+    pub members: BTreeMap<String, KindMembers>,
 }
 
 impl DiscoveryReport {
     /// The total member count across every discovered kind.
     #[must_use]
     pub fn total(&self) -> usize {
-        self.members.values().map(Vec::len).sum()
+        self.members.values().map(KindMembers::len).sum()
     }
 }
 
@@ -519,8 +596,15 @@ impl DiscoveryReport {
 /// its authored home never moves. So the ignore rules and the workspace skip stand here
 /// whatever a kind declares.
 ///
+/// A kind declaring a [`CollectionAddress`] is walked for its **host manifest** and then
+/// read at that address: its members are the collection's entries, never the file
+/// carrying them ([`KindMembers`]). The read is one per (kind, manifest) pair and so
+/// bounded by the kind set — the walk is the tree-scale cost here, not this.
+///
 /// # Errors
-/// Returns a [`miette::Report`] if a kind's discovery walk fails to read a directory.
+/// Returns a [`miette::Report`] if a kind's discovery walk fails to read a directory, or
+/// if a discovered host manifest cannot be read as JSON — a manifest install cannot parse
+/// is one it could neither report nor lift, so it refuses loud rather than reporting zero.
 pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     let mut members = BTreeMap::new();
     let kinds = builtin_kind::definitions();
@@ -529,7 +613,20 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     let disc = import::Discovery::new(root);
     for kind in kinds.values() {
         let files = import::discover_builtin(&disc, kind, &kinds, import::LocalOverride::Withheld);
-        members.insert(kind.name.clone(), files);
+        let found = match &kind.collection_address {
+            Some(address) => KindMembers::Registrations {
+                entries: files
+                    .iter()
+                    .map(|file| json_manifest::Manifest::read(file, &[address]))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .flat_map(|manifest| manifest.members)
+                    .collect(),
+                manifests: files,
+            },
+            None => KindMembers::Files(files),
+        };
+        members.insert(kind.name.clone(), found);
     }
     Ok(DiscoveryReport { members })
 }
@@ -552,11 +649,11 @@ pub fn render_discovery(report: &DiscoveryReport, lock: Option<&Path>) -> String
         out.push_str("  no members found under this project's known kinds\n");
         return out;
     }
-    for (kind, files) in &report.members {
-        if files.is_empty() {
+    for (kind, found) in &report.members {
+        if found.is_empty() {
             continue;
         }
-        out.push_str(&format!("  {kind:<20} {}\n", files.len()));
+        out.push_str(&format!("  {kind:<20} {}\n", found.len()));
     }
     out
 }
@@ -1961,12 +2058,14 @@ struct ScaffoldedMember {
 /// literal; a longer one is a document, written to a module-adjacent file.
 const INLINE_PROSE_LINE_LIMIT: usize = 3;
 
-/// One discovered artifact read for the lift, normalized across the read adapters so the
+/// One discovered member read for the lift, normalized across the read adapters so the
 /// scaffold writes one module shape whatever grammar the source was authored in — the
 /// same one adapter dispatch the check side's file read takes, narrowed to the file
-/// formats the lift converts.
+/// formats the lift converts, plus the manifest face a registration member is read
+/// through ([`lifted_registration`]).
 struct LiftedMember {
-    /// The member id — the module's file stem and its `name` property.
+    /// The member id — its `name` property, and the module's file stem where that stem
+    /// is free ([`module_stems`]).
     id: String,
     /// The fields to hoist into typed properties, in projection order.
     fields: Vec<(String, JsonValue)>,
@@ -2014,33 +2113,135 @@ fn read_lifted_member(kind: &CustomKind, file: &Path) -> miette::Result<LiftedMe
     }
 }
 
+/// One registration entry read for the lift: its collection key is the member's id, its
+/// own fields are the whole member, and it carries no body — a fields-shape kind has no
+/// prose slot to move module-side ([`kind::Content::Fields`]). The manifest read already
+/// flattened the entry to the shape the SDK's own constructor types: a hook's handler
+/// keys with its group's `matcher` lifted beside them, an enablement's declared field
+/// ([`json_manifest`]'s read face).
+fn lifted_registration(entry: &json_manifest::RegistrationMember) -> LiftedMember {
+    LiftedMember {
+        id: entry.key.clone(),
+        fields: entry.fields.clone().into_iter().collect(),
+        body: None,
+    }
+}
+
+/// Every collection key a registration kind claims, keyed by the host manifest it claims
+/// it in. A claimed key is that kind's members' to carry, so the **container** member
+/// owning the file must not lift it as one of its own fields: the check side already
+/// keeps a claimed key out of a manifest's opaque residue
+/// ([`json_manifest::Manifest::parse`]), and a container that lifted one anyway would
+/// have emit write that segment twice — once from the registration members and once from
+/// the container's field — landing a manifest with the key repeated.
+///
+/// The claim follows the **address**, not the entries found at it: an empty `hooks: {}`
+/// is still the `hook` kind's collection, and reading it as container residue would put
+/// the two writers back in contention the moment an entry appears.
+fn claimed_collection_keys(discovery: &DiscoveryReport) -> BTreeMap<&Path, Vec<&str>> {
+    let mut claimed: BTreeMap<&Path, Vec<&str>> = BTreeMap::new();
+    let kinds = builtin_kind::definitions();
+    for (name, found) in &discovery.members {
+        let KindMembers::Registrations { manifests, .. } = found else {
+            continue;
+        };
+        let Some(collection) = kinds
+            .get(name)
+            .and_then(|kind| kind.collection_address.as_ref())
+            .map(|address| address.key_path.collection_key())
+        else {
+            continue;
+        };
+        for manifest in manifests {
+            claimed
+                .entry(manifest.as_path())
+                .or_default()
+                .push(collection);
+        }
+    }
+    claimed
+}
+
+/// Allocate one module file stem per lifted member, in the order they will be written.
+///
+/// A member's stem is its own id. That is the whole story for a file kind, whose ids come
+/// off disk — but two members can share one id: Claude Code nests several matcher groups
+/// under one lifecycle event and each is its own member (0063), and every `CLAUDE.md` on
+/// the tree folds to the same `memory` id. Their *identity* is not the id alone, and the
+/// address grammar does not yet spell the rest of it, so this allocates a distinct **file
+/// name** — the id, then the id with the next free ordinal — rather than inventing a
+/// spelling the ruling withheld. The module's `name` property stays the id either way.
+///
+/// [`GATE_HOOKS`]' stems are reserved before any of them, so temper's own gate modules
+/// keep the fixed `hooks/<Event>.ts` names whatever the adopted project's `settings.json`
+/// carries, and [`scaffold`]'s two writers never land on one path.
+///
+/// # Errors
+/// Returns [`InstallError::MemberFileName`] for an id that cannot name a file inside its
+/// kind's module directory. A registration key is read off a manifest — the one id the
+/// lift does not get from the filesystem — so a key carrying a path separator would seat
+/// the module somewhere other than that directory, or outside `.temper/` entirely.
+fn module_stems(
+    temper_dir: &Path,
+    lifted: &[(String, LiftedMember)],
+) -> Result<Vec<String>, InstallError> {
+    let mut taken: std::collections::BTreeSet<(String, String)> = GATE_HOOKS
+        .iter()
+        .map(|hook| (member_dir(GATE_HOOK_KIND), hook.event.to_string()))
+        .collect();
+    let mut stems = Vec::with_capacity(lifted.len());
+    for (kind, member) in lifted {
+        let module_dir = member_dir(kind);
+        let dir = temper_dir.join(&module_dir);
+        // The judgment is the platform's own — join the path and read its parent back —
+        // rather than a character list invented here. An ordinal suffix introduces no
+        // separator, so clearing the id clears every stem derived from it.
+        if dir.join(format!("{}.ts", member.id)).parent() != Some(dir.as_path()) {
+            return Err(InstallError::MemberFileName {
+                kind: kind.clone(),
+                id: member.id.clone(),
+                dir,
+            });
+        }
+        let mut stem = member.id.clone();
+        let mut ordinal = 1usize;
+        while !taken.insert((module_dir.clone(), stem.clone())) {
+            ordinal += 1;
+            stem = format!("{}-{ordinal}", member.id);
+        }
+        stems.push(stem);
+    }
+    Ok(stems)
+}
+
 /// Scaffold the SDK program from `discovery`'s findings — the lift's whole
 /// output, a **whole conversion** (0016), never an intermediate state: a member
-/// module per discovered artifact hoisting every present field into a typed
+/// module per discovered member hoisting every present field into a typed
 /// property ([`member_module_source`]) and moving its prose module-side, plus
 /// a `harness.ts` skeleton importing them all. Writes nothing
 /// under `dry_run`, returning only the count a real run would scaffold.
 ///
+/// The conversion covers a manifest's **registration** segments as well as the container
+/// member holding them: a `settings.json` hook group and an `enabledPlugins` entry each
+/// reach their own module, so the container's first emit re-renders every segment it
+/// arrived with rather than shedding the ones no member declares.
+///
 /// # Errors
-/// Returns a [`miette::Report`] if a member's source cannot be parsed or a
-/// scaffold file cannot be written.
+/// Returns a [`miette::Report`] if a member's source cannot be parsed, an id cannot name
+/// a module file ([`module_stems`]), or a scaffold file cannot be written.
 fn scaffold(
     temper_dir: &Path,
     discovery: &DiscoveryReport,
     dry_run: bool,
 ) -> miette::Result<usize> {
     let kinds = builtin_kind::definitions();
+    let claimed = claimed_collection_keys(discovery);
 
     let mut lifted: Vec<(String, LiftedMember)> = Vec::new();
-    for (name, files) in &discovery.members {
+    for (name, found) in &discovery.members {
         let Some(kind) = kinds.get(name) else {
             continue;
         };
-        // A layout kind's document is a source, not a projection — its authored home
-        // never moves, so the lift never converts it into a member module.
-        if kind.content != kind::Content::File {
-            continue;
-        }
         // A local-locus kind's document is per-machine and uncommitted: read in place at
         // check, never an `emit` input or target. The lift converts an artifact into a
         // committed member module whose artifact is a projection, and a local document is
@@ -2048,36 +2249,61 @@ fn scaffold(
         if kind.commitment == Some(kind::Commitment::Local) {
             continue;
         }
-        for file in files {
-            lifted.push((name.clone(), read_lifted_member(kind, file)?));
+        match found {
+            KindMembers::Files(files) => {
+                // A layout kind's document is a source, not a projection — its authored
+                // home never moves, so the lift never converts it into a member module.
+                if kind.content != kind::Content::File {
+                    continue;
+                }
+                for file in files {
+                    let mut member = read_lifted_member(kind, file)?;
+                    if let Some(claimed) = claimed.get(file.as_path()) {
+                        member
+                            .fields
+                            .retain(|(key, _)| !claimed.contains(&key.as_str()));
+                    }
+                    lifted.push((name.clone(), member));
+                }
+            }
+            KindMembers::Registrations { entries, .. } => {
+                for entry in entries {
+                    lifted.push((name.clone(), lifted_registration(entry)));
+                }
+            }
         }
     }
     lifted.sort_by(|(a_kind, a), (b_kind, b)| (a_kind, &a.id).cmp(&(b_kind, &b.id)));
+
+    // Allocated before the preview returns, so an id that cannot name a module file
+    // refuses identically whether or not this run writes.
+    let stems = module_stems(temper_dir, &lifted)?;
 
     if dry_run {
         return Ok(lifted.len());
     }
 
     let mut scaffolded = Vec::with_capacity(lifted.len());
-    for (kind, member) in &lifted {
-        let ident = member_ident(kind, &member.id);
+    for ((kind, member), stem) in lifted.iter().zip(&stems) {
+        let ident = member_ident(kind, stem);
         let dir = temper_dir.join(member_dir(kind));
         write_scaffold_file(
-            &dir.join(format!("{}.ts", member.id)),
+            &dir.join(format!("{stem}.ts")),
             &member_module_source(
                 kind,
                 &member.id,
+                stem,
                 &ident,
                 &member.fields,
                 member.body.as_deref(),
             ),
         )?;
         if let Some(body) = member.body.as_deref().filter(|body| !fits_inline(body)) {
-            write_scaffold_file(&dir.join(format!("{}.md", member.id)), body)?;
+            write_scaffold_file(&dir.join(format!("{stem}.md")), body)?;
         }
         scaffolded.push(ScaffoldedMember {
             ident,
-            import_path: format!("./{}/{}.ts", member_dir(kind), member.id),
+            import_path: format!("./{}/{stem}.ts", member_dir(kind)),
         });
     }
 
@@ -2097,6 +2323,7 @@ fn scaffold(
                 .join(format!("{}.ts", hook.event)),
             &member_module_source(
                 GATE_HOOK_KIND,
+                hook.event,
                 hook.event,
                 &ident,
                 &gate_hook_fields(hook),
@@ -2196,8 +2423,10 @@ fn fits_inline(body: &str) -> bool {
 /// into its own typed TS property via [`json_to_ts_literal`], in the order
 /// [`read_lifted_member`] carries them; `body`
 /// moves module-side — inline as a `` text`…` `` literal ([`fits_inline`]) or,
-/// for a document, a `file()` reference to the module-adjacent `<name>.md`
-/// [`scaffold`] writes beside this module. Replaces the retired own-path lift:
+/// for a document, a `file()` reference to the module-adjacent `<stem>.md`
+/// [`scaffold`] writes beside this module. `name` is the member's identity and
+/// `stem` its module file name, which part company only where two members share
+/// one id ([`module_stems`]). Replaces the retired own-path lift:
 /// the projected artifact is never this module's own `file()` source.
 ///
 /// A `body` of [`None`] is a whole-document format's member ([`read_lifted_member`]): its
@@ -2207,6 +2436,7 @@ fn fits_inline(body: &str) -> bool {
 fn member_module_source(
     kind: &str,
     name: &str,
+    stem: &str,
     ident: &str,
     fields: &[(String, JsonValue)],
     body: Option<&str>,
@@ -2232,7 +2462,7 @@ fn member_module_source(
         ),
         Some(_) => (
             format!("file, text, {constructor}"),
-            format!("  prose: file(import.meta.url, \"./{name}.md\"),\n"),
+            format!("  prose: file(import.meta.url, \"./{stem}.md\"),\n"),
         ),
     };
 
@@ -2702,6 +2932,7 @@ mod tests {
         let source = member_module_source(
             "skill",
             "coordinate",
+            "coordinate",
             "skill_coordinate",
             &fields,
             Some(body),
@@ -2721,7 +2952,14 @@ mod tests {
     #[test]
     fn member_module_source_carries_a_hoisted_array_field_and_no_description() {
         let fields = vec![("paths".to_string(), serde_json::json!(["src/**/*.rs"]))];
-        let source = member_module_source("rule", "rust", "rule_rust", &fields, Some("# Rust\n"));
+        let source = member_module_source(
+            "rule",
+            "rust",
+            "rust",
+            "rule_rust",
+            &fields,
+            Some("# Rust\n"),
+        );
         assert_eq!(
             source,
             "import { file, text, rule } from \"@dtmd/temper/claude-code\";\n\n\
@@ -2744,7 +2982,14 @@ mod tests {
                 serde_json::json!("Reviews pull requests."),
             ),
         ];
-        let source = member_module_source("agent", "reviewer", "agent_reviewer", &fields, Some(""));
+        let source = member_module_source(
+            "agent",
+            "reviewer",
+            "reviewer",
+            "agent_reviewer",
+            &fields,
+            Some(""),
+        );
         assert_eq!(source.matches("name:").count(), 1);
     }
 
@@ -2759,8 +3004,14 @@ mod tests {
                 serde_json::json!({ "allow": ["Bash(cargo test:*)"] }),
             ),
         ];
-        let source =
-            member_module_source("settings", "settings", "settings_settings", &fields, None);
+        let source = member_module_source(
+            "settings",
+            "settings",
+            "settings",
+            "settings_settings",
+            &fields,
+            None,
+        );
         assert_eq!(
             source,
             "import { settings } from \"@dtmd/temper/claude-code\";\n\n\
@@ -2776,6 +3027,7 @@ mod tests {
         let fields = vec![("version".to_string(), serde_json::json!("1.2.3"))];
         let source = member_module_source(
             "plugin-manifest",
+            "demo-pack",
             "demo-pack",
             "plugin_manifest_demo_pack",
             &fields,
