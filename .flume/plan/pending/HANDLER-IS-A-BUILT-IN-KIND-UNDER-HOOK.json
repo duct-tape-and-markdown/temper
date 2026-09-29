@@ -10,27 +10,39 @@
     "edit": [
       {
         "path": "sdk/src/builtins.ts",
-        "description": "A `Handler` interface, the `handler` kind and `handlerDefaultContract`. `Handler` holds the documented handler-table fields `Hook` carries today (:398-:442) minus the group's own `matcher` — `type`, `if`, `timeout`, `statusMessage`, `command`, `args`, `async`, `asyncRewake`, `shell`, `url`, `headers`, `allowedEnvVars`, `server`, `tool`, `input`, `prompt`, `model` — each cite moving with its field. The kind takes the embedded facts variant (`sdk/src/kind.ts`:257-300): `locus: { kind: \"embedded\" }`, `registration: []`, `shape: \"fields\"`. `handlerDefaultContract` holds the six handler-level clauses verbatim off `hookDefaultContract` (:1816-:1881 — `required(\"type\")`, `enumOf(\"type\", …)` and the four `when` bodies); `hookDefaultContract` (:1809) becomes the event clause followed by a SPREAD of `handlerDefaultContract`, so the six have one source home while `hook` keeps gating them and today's coverage never dips. `hook` (:463) gains `templates: [{ kind: handler }]` — an embedded layer carries no `path` (`kind.ts`'s `Template`, :178; `skill`'s file-child twin is at :193). `Hook`'s own fields do NOT narrow here and `tapHookRegistration` (:482) is untouched: both are the grain entry's."
+        "description": "A `Handler` interface, the `handler` kind and `handlerDefaultContract`. `Handler` holds the documented handler-table fields `Hook` (:392) carries today minus the group's own `matcher` — `type`, `if`, `timeout`, `statusMessage`, `command`, `args`, `async`, `asyncRewake`, `shell`, `url`, `headers`, `allowedEnvVars`, `server`, `tool`, `input`, `prompt`, `model` — each cite moving with its field. The kind takes the embedded facts variant (`sdk/src/kind.ts`:275): `locus: { kind: \"embedded\" }`, `registration: []`, `shape: \"fields\"`, `unitShape: \"file\"` (the variant makes `unitShape` required; every embedded kind in the suite spells `file`). It MUST also carry a `cite` — `kindFactKindsInPlay` (`sdk/src/declarations.ts`:560) gives an embedded kind a kind-fact row only where it declares `guidance`, `cite` or `leaves`, and without a row `src/builtin_lock.rs`'s name-set compare against `builtin_kind::definitions()` fails. The cite is the one `specs/builtins.md`, \"The shipped kinds\" already demands of this kind: `https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)`, the `hooks`-array and positional-key fact. `handlerDefaultContract` holds the six handler-level clauses verbatim off `hookDefaultContract` (:1879-:1943 — `required(\"type\")`, `enumOf(\"type\", …)` and the four `when` bodies); `hookDefaultContract` (:1871) becomes its event clause (:1872) followed by a SPREAD of `handlerDefaultContract`, so the six have one source home while `hook` keeps gating them and today's coverage never dips. `hook` (:463) gains `templates: [{ kind: handler }]` — an embedded layer carries no `path` (`kind.ts`'s `Template`, :178, `path` optional at :182; `skill`'s file-child twin is the counter-example). `Hook`'s own fields do NOT narrow here and `tapHookRegistration` (:480) is untouched: both are the grain entry's (HOOK-AUTHORS-ITS-HANDLERS)."
       },
       {
         "path": "sdk/src/claude-code.ts",
-        "description": "The provider face's two sorted census lists: `Handler` joins the type exports (:11-:26, beside `Hook`), `handler` and `handlerDefaultContract` the value exports (:28-, beside `hook`). The root export stays untouched — a built-in reaches an author through this subpath alone (`specs/builtins.md`, opening paragraph)."
+        "description": "The provider face's two sorted census lists: `Handler` joins the type exports (beside `Hook`, :13), `handler` and `handlerDefaultContract` the value exports (beside `hook`/`hookDefaultContract`, :34-:35). The root export stays untouched — a built-in reaches an author through this subpath alone (`specs/builtins.md`, opening paragraph)."
       },
       {
         "path": "sdk/test/builtins.test.ts",
-        "description": "The two import censuses (:20/:50) gain the pair. A facts case modeled on the `supportingDoc` one (:245-:271) pins `handler`'s embedded locus, empty registration, fields shape and absent format, and pins `hook.facts.templates` naming it with NO `path` — the distinction between an embedded layer and `skill`'s file-child layer. The `hookDefaultContract guards every documented handler kind` case (:667) moves to `handlerDefaultContract`; the `the hooks segment is contracted by its own kind` assertion (:657) states what now holds — `hook`'s contract is the event clause plus the handler contract it spreads."
+        "description": "The two import censuses (:19-:20, :52) gain the pair. A facts case modeled on the `supportingDoc` one (:288-:318) pins `handler`'s locus as `{ kind: \"embedded\" }` — distinct from `supportingDoc`'s `{ kind: \"nested-file\" }` (:305), the two no-glob spellings `specs/model/representation.md`, \"locus\" separates — plus its empty registration, fields shape, absent format and its `cite`; and pins `hook.facts.templates` naming it with NO `path`, the distinction between an embedded layer and `skill`'s file-child layer. The `hookDefaultContract guards every documented handler kind` case (:711) moves to `handlerDefaultContract`; the `the hooks segment is contracted by its own kind` assertion (:701) states what now holds — `hook`'s contract is the event clause plus the handler contract it spreads."
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "`CustomKind::nested_file` (:486) is renamed `host_composed` and re-documented. Its doc today (:481-:484) says its members \"own files whose paths compose from their host member's unit\" — true of `supporting-doc`, its only built-in caller so far, and FALSE of `handler`, which owns no file at all; the Rust type collapses both no-glob loci into `governs: None` (`with_locus`, :492) while the SDK spells them apart (`nested-file` vs `embedded`). So the honest name is the locus-neutral one that doc already uses (\"the host-composed spelling of the locus\", :481): governs no glob, nothing discovers it at one, and which of the two spellings its members take is the HOST's fact, carried by the host kind's `Template.path` (`Some` for a file layer, `None` for an embedded one — its doc, :462-:467). One constructor, not a second identical-bodied sibling (`specs/process/engineering.md`, \"One job, one home\"); no doc link cites the old name."
+      },
+      {
+        "path": "src/import.rs",
+        "description": "The renamed constructor's two other call sites, both in this module's own tests (:912, :949 — `discover_builtin_routes_a_nested_file_kind_through_its_hosts_template` and its sibling). Mechanical; the free function `discover_nested_file` (:207) keeps its name, which is accurate — it discovers file children."
       },
       {
         "path": "src/builtin_kind.rs",
-        "description": "`claude_code_handler()` beside `claude_code_supporting_doc()` (:209), joined to `all_kinds()` (:632) — the read-side twin: no `governs` (today's only locus-less constructor is `CustomKind::nested_file`, `src/kind.rs`:486, named for the file case; a handler owns no unit at all, so either that constructor is renamed to the locus it actually spells or an embedded sibling joins it — name the choice in the commit body), `Content::Fields`, empty `registration`, no extraction primitives, with the `hooks`-array fact cited at the point of claim. `claude_code_hook()` (:343) gains the `templates` entry naming it — the column `CustomKind` already carries (`src/kind.rs`:455-:468) and `claude_code_skill()` already fills. A definition unit test beside the `mcp-server` one (:1112) pins the facts."
+        "description": "`claude_code_handler()` beside `claude_code_supporting_doc()` (:137), joined to `all_kinds()` (:589) — the read-side twin: `..CustomKind::host_composed(\"handler\", Extraction::new(Vec::new()))` (no governs, no extraction primitives), `content: Content::Fields`, empty `registration`, and `unit_shape: Some(UnitShape::File)` so the definition agrees with the row the SDK writes. Its doc comment carries the `hooks`-array/positional-key cite at the point of claim (`specs/builtins.md`, \"The shipped kinds\": each kind's format facts are cited in the kind's own source). `claude_code_hook()` (:271) gains the `templates` entry naming it — the column `CustomKind` already carries and `claude_code_skill()` already fills (:114-:117, with a `path`; this one without). A definition unit test beside the `mcp-server` one (:1071) pins the facts."
       },
       {
         "path": "src/builtin_lock.rs",
-        "description": "The unit test's closed kind-name list (:102-:107) gains `handler` — it carries clause rows, so an unlisted name would surface as a stray root label."
+        "description": "The unit test's closed clause-kind list (the match arm at :111-:113) gains `handler` — it carries clause rows, so an unlisted name would surface as a stray root label. The `supporting-doc` alone rides the nested-file locus block (:69-:88) stays true and stays as it is: `handler` is at the embedded locus, not the nested-file one."
       },
       {
         "path": "src/builtin_lock.toml",
-        "description": "Regenerated data, never hand-edited — the memberless SDK emit over the whole shipped std-lib. `hook`'s kind row gains `templates = [{ kind = \"handler\" }]` (the `skill` row at :193 is the shape, minus `path`), a kind-fact row for `handler` joins, and six clause rows keyed `handler` join. `hook`'s own seven clause rows are UNCHANGED — the SDK still spreads the same six — so the shipped lock carries them under both kinds until the grain entry drops the spread: a named, transitional double *binding*, harmless because `handler` has no members yet, and not a second source. The header's prose counts move: the kind roster at :16-:19 and the contract arithmetic at :55-:60."
+        "description": "Regenerated data, never hand-edited — the memberless SDK emit over the whole shipped std-lib. `hook`'s kind row gains `templates = [{ kind = \"handler\" }]` (`skill`'s row is the shape, minus `path`), a kind-fact row for `handler` joins, six clause rows keyed `handler` join, and a nineteenth assembly fact row joins — the `contract` declaredness marker for the new `expect`-bound kind. `hook`'s own seven clause rows are UNCHANGED — the SDK still spreads the same six — so the shipped lock carries them under both kinds until the grain entry drops the spread: a named, transitional double *binding*, harmless because `handler` has no members yet, and not a second source. The header's count phrases move, by name: \"the sixteen built-in kinds' facts\" (:3), \"eighteen assembly facts\" (:6), the declaredness-marker parenthetical \"(sixteen, each naming its kind in `from`…\" (:9), the `claude-code` enumeration \"fifteen built-in kinds\" and its bracketed list (:19-:22, which `handler` joins — it ships from that subpath), and \"sixteen kinds carry thirteen contracts' clauses\" (:58, where `handler` adds both a kind and a contract)."
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "The derived example lock — the path that made the first attempt fence-short (`.flume/refactor/build-handler-kind-fence-short-example-lock.md`, drained this tick). The example composes two `hook` members (`hook:PreToolUse`, `hook:SessionStart`, :442/:446), so its own emitted lock carries the `hook` kind row (:88) and gains the same derived lines `src/builtin_lock.toml` does: a `handler` kind-fact row, six `handler` clause rows, `templates` on `hook`'s row, and the `handler` declaredness marker. `tests/it/emit.rs`'s `emit_program_runs_the_shipped_example_harness` byte-compares the committed file against a live emit, so a stale byte here is the one red test. Never hand-edited — regenerate with the recipe that test's own failure message spells: `ln -sfn $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` (gitignored, never committed), then `cargo run -- emit --into examples/base-harness/.temper`."
       },
       {
         "path": "tests/it/builtin_lock_frozen.rs",
@@ -38,19 +50,19 @@
       },
       {
         "path": "tests/it/lock_declaration_rows.rs",
-        "description": "The engine kind census (:2745) goes to 17 — 15 today, 16 once `mcp` lands — and the comment above it (:2741-:2744) gains `handler` beside `supporting-doc` as a kind that ships without joining `specs/builtins.md`'s roster, which is exactly how decision 0075 words it."
+        "description": "The engine kind census (:2854) goes from 16 to 17, and the comment above it (:2850) gains `handler` beside `supporting-doc` as a kind that ships without joining `specs/builtins.md`'s roster — which is exactly how that section words it (\"Like `supporting-doc`, `handler` ships without joining this enumeration\")."
       },
       {
         "path": "tests/it/snapshots/it__builtin_contract_matrix__builtin_contract_matrix.snap",
-        "description": "The matrix derives its rows from the embedded lock's kinds, so `handler` joins as a row carrying the six clauses; `hook`'s row is unchanged until the grain entry."
+        "description": "The matrix derives its rows from the embedded lock's kinds, so `handler` joins as a row carrying the six clauses; `hook`'s row is unchanged until the grain entry. Re-bless with `INSTA_UPDATE=always`."
       },
       {
         "path": "tests/it/snapshots/it__gauntlet__check_diagnostics.snap",
-        "description": "Declared for the fence, not for an expected diff: `handler` has no members yet, and the coverage line's kind set is built from member counts plus nested-member counts (`src/coverage_note.rs`:80-:82), so a memberless embedded kind adds no row. Re-baseline only if the run proves otherwise."
+        "description": "The coverage line moves: `22 kinds` → `23 kinds` with `handler (0)` joining. `src/gate.rs` seeds `member_counts` per ITERATED built-in kind (:281), not per discovered member — which is why `agent (0)` and `supporting-doc (0)` already render — so a memberless new built-in does add a row (the first attempt predicted no diff and was wrong on this, verified on the run at dbef8c68). Re-bless with `INSTA_UPDATE=always`."
       },
       {
         "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
-        "description": "Declared for the fence: the corpus's emitted lock renders here and its `hook` kind row gains the templates column. Re-baseline if the run moves a byte."
+        "description": "Declared for the fence: the gauntlet corpus's emitted lock renders here and its `hook` kind row gains the templates column. Re-bless if the run moves a byte."
       }
     ],
     "retire": []
@@ -63,13 +75,17 @@
   "tests": [
     {
       "path": "sdk/test/builtins.test.ts",
-      "asserts": "`handler` and `handlerDefaultContract` export from the claude-code subpath with an embedded locus, no registration and a fields shape; `hook` templates it with no path; the six handler clauses are `handler`'s and `hook`'s contract spells the event clause then those six"
+      "asserts": "`handler` and `handlerDefaultContract` export from the claude-code subpath with an embedded locus, no registration, a fields shape and a cite; `hook` templates it with no path; the six handler clauses are `handler`'s and `hook`'s contract spells the event clause then those six"
     },
     {
       "path": "tests/it/builtin_lock_frozen.rs",
       "asserts": "the embedded lock's `handler` kind row, its six clause rows and `hook`'s templates column byte-match a live SDK emit over the shipped std-lib"
+    },
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "unchanged test — `emit_program_runs_the_shipped_example_harness` stays green, which it does only once the regenerated examples/base-harness/.temper/lock.toml is committed"
     }
   ],
-  "acceptance": "`pnpm --dir sdk test` green (strict tsc included), cargo test green with the regenerated src/builtin_lock.toml passing the frozen byte-compare, cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean.",
-  "notes": "Decision 0075's kind, both halves in one commit because they are one: `hook.templates` is a lock column (src/builtin_lock.toml:193 is `skill`'s), so the SDK fact and the regenerated embedded lock cannot be separated the way `mcp`'s were. Blocked on the last unshipped entry that regenerates src/builtin_lock.toml and its frozen lane — e1bba76b's gate named the other three and missed it. It ships the kind and its clauses, never a member. scoped at 2d9f5088"
+  "acceptance": "`pnpm --dir sdk test` green (strict tsc included); cargo test green with BOTH regenerated locks committed — src/builtin_lock.toml past the frozen byte-compare and examples/base-harness/.temper/lock.toml past tests/it/emit.rs's example byte-compare; cargo clippy --all-targets -D warnings clean; cargo fmt --all --check clean.",
+  "notes": "Decision 0075's kind; it ships the kind and its clauses, never a member. Retry of the fence-short attempt at dbef8c68 (capture drained this tick): everything else reached green, so the delta is the example lock, the `cite`, and the constructor rename. Ripple reconciled — src/kind.rs and src/import.rs are in the fence for the rename; sdk/src/declarations.ts and src/coverage_note.rs are untouched, only a snapshot moves. scoped at dbef8c68"
 }

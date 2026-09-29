@@ -1,17 +1,16 @@
 # Plan state
 
 - Spec derived through: f26213a0 — copied forward; the specs delta is empty.
-- Audited through: dca24238 — three ships verified on disk this tick.
-- Residue swept through: dca24238 — swept in the same motion.
-- Posture swept through: 7d695577 — copied forward; the rotation is now the
-  only live plan job, and its forward window is 185 commits wide.
-- This tick: reconciled 039eb92b..HEAD — all three ships verified on disk, no
-  entry dropped, every stale gate re-tested still true, and EMPTY-CONTRACT's
-  ripple closed by folding the example lock's byte-compare (tests/it/emit.rs)
-  into its fence.
-- Queue: 16 pending — 2 open, 8 blockedBy, 3 parked, 3 deferred. Pickable: 2 —
-  EMPTY-CONTRACT-IS-A-DECLARED-CONTRACT and NO-TEST-JUDGES-A-RETIRED-FINDING-CLASS,
-  file-disjoint. Open forks: 1. Friction: 3 (human channel; the snapshot-glob
-  capture is discharged by b7b55457). Amendments: 0. Refactor: 0. Inbox: 0.
+- Audited through: dca24238 — copied forward; dca24238..HEAD is unreconciled.
+- Residue swept through: dca24238 — copied forward.
+- Posture swept through: 7d695577 — copied forward; its forward window is
+  186 commits wide.
+- This tick: drained the one refactor capture — HANDLER-IS-A-BUILT-IN-KIND-UNDER-HOOK
+  rewritten with the derived example lock in its fence, and the standing-path
+  class fix filed as friction for the human channel.
+- Queue: 14 pending — 1 open, 7 blockedBy, 3 parked, 3 deferred. Pickable: 1 —
+  HANDLER-IS-A-BUILT-IN-KIND-UNDER-HOOK, head of the 7-deep hook spine. Open
+  forks: 1. Friction: 4 (human channel; the snapshot-glob capture is discharged
+  by b7b55457). Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture sweep, behind two pickable entries
+Plan continues: yes — post-ship reconciliation of dca24238..HEAD
