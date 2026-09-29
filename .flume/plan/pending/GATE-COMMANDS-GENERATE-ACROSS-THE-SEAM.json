@@ -1,0 +1,52 @@
+{
+  "tag": "GATE-COMMANDS-GENERATE-ACROSS-THE-SEAM",
+  "gate": { "kind": "blockedBy", "tags": ["HOOK-NAME-JOINS-ITS-MATCHER"] },
+  "files": {
+    "new": [
+      {
+        "path": "sdk/src/generated/gate-commands.ts",
+        "description": "Generated data, never hand-edited: the TS module carrying temper's two gate commands, written from `src/install.rs`'s `SESSION_START_COMMAND` (:128) and `GUARD_COMMAND` (:191) — both already `pub`. Hyphen-cased on purpose: every other name under this directory is a ts-rs type file, and this one exports VALUES, so the barrel cannot spell it `export type`."
+      }
+    ],
+    "edit": [
+      {
+        "path": "tests/it/seam_bindings_current.rs",
+        "description": "The generator widens past ts-rs types to the constants file (decision 0073's own consequence). `fresh_bindings` (:60) composes the module's bytes from the two Rust constants and inserts it beside the exported types; the barrel loop (:116-:122) walks `files.keys()` and emits one `export type {stem}` per key, so the value module must be held out of that loop and given its own `export { … }` line — a BTreeMap key `gate-commands.ts` otherwise sorts into it and renders `export type { gate-commands }`, which is not TS. `committed_files` (:126) already flags an orphan, so the byte-compare and the `BLESS_SEAM_BINDINGS=1` bless path (:147-:161) cover the new file once it is in the map."
+      },
+      {
+        "path": "sdk/src/generated/index.ts",
+        "description": "Generated barrel: one value re-export line for the constants module beside the `export type` lines."
+      },
+      {
+        "path": "sdk/src/claude-code.ts",
+        "description": "Re-export the two constants from the provider face. This subpath is the one a scaffolded member module already imports (`member_module_source` writes `from \"@dtmd/temper/claude-code\"`, `src/install.rs`:2470), so the import the scaffold writes stays a single specifier. Join the sorted value-export census (:28-) beside `hook`."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "The engine stays the one home — the constants do not move — but the scaffold stops spelling them as literals. `gate_hook_fields` (:2355) hands `command` through as an identifier expression rather than a JSON string, and `member_module_source` (:2436) grows the one path that renders a field as a bare binding plus the import that names it: today every field goes through `json_to_ts_literal` (:2496) and the import list is the constructor plus the prose helpers (:2457-:2467). Extend that renderer rather than adding a second module writer beside it. The lift comment at :2311-:2314 asserts \"there is no SDK twin for them to drift against\" — false after this entry; rewrite it to name the generated binding and the seam gate that holds it."
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "`:1278` pins the scaffolded guard module as `command: \"<GUARD_COMMAND literal>\"` — it re-baselines to the imported binding, and the module's import line is asserted with it. The other arms read the projected `.claude/settings.json` (`:244`, `:281`, `:322`, `:441`, `:623`-:631, `:1121`, `:1329`, `:1484`, `:1508`) and compare against `temper::install::SESSION_START_COMMAND`/`GUARD_COMMAND` — the projected bytes do not move, so these are re-verify, not rewrite."
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "The claude-code import census (:14-:43) gains the two constants, with an assertion that each is a non-empty string the subpath exports — the SDK-side presence pin. The byte-agreement claim is the Rust seam gate's, not a second copy here (`specs/process/engineering.md`, \"A seam gate reads what the real writer wrote\")."
+      }
+    ]
+  },
+  "summary": "The gate commands have one home, the engine's: they generate across the sdk/src/generated/ seam under the seam gate, and a scaffolded gate-hook module imports the binding.",
+  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "tests": [
+    {
+      "path": "tests/it/seam_bindings_current.rs",
+      "asserts": "the committed constants module byte-matches a fresh generation from `SESSION_START_COMMAND`/`GUARD_COMMAND`, and a hand-edited copy of it fails the gate the same way a stale ts-rs binding does"
+    },
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "a scaffolded gate-hook module imports the command binding from `@dtmd/temper/claude-code` and spells no command literal, and the emitted `.claude/settings.json` still carries the exact engine constant"
+    }
+  ],
+  "acceptance": "cargo test green (the seam gate included, with the committed sdk/src/generated/ regenerated), `pnpm --dir sdk test` green, cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean.",
+  "notes": "Decision 0073's second ruling and its first consequence. Blocked on the hook chain: HOOK-NAME-JOINS-ITS-MATCHER reshapes the same scaffold surfaces (member name, module stem, gate_hook_fields). Out of scope, named: GUARD_MATCHER/BASH_MATCHER stay engine-only literals — the decision says commands. The dogfood's hand-mirror (.temper/hooks.ts) is the harness's to absorb in a human chore(harness) commit, never this entry. scoped at e1bba76b"
+}
