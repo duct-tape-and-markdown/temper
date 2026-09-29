@@ -1,0 +1,30 @@
+{
+  "tag": "GUARD-LIMIT-SPOKEN-ONCE-GATE-DERIVES-ITS-HEAD",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "`every_pending_write_guard_message_closes_on_the_matchers_binding_limit` (:2571) is the gate whose own stated claim is that no guard message re-spells the binding limit instead of composing it — and it holds a hand-typed copy of that sentence's opening words to make the claim: `message.matches(\"This guard binds only\").count()` (:2599), a fragment of the one `format!` at :236 that `binding_limit()` (:233) owns. Rename the head and the count answers 0, so the gate turns red under a message meaning \"the limit is spoken once, not re-spelled\" — the same wrong-reason red 932228f9 just removed from the surface pin one file over. The test already binds the writer's value (`let tail = binding_limit();`, :2574) and the matcher's rendered tool list (`tools`, :2572), so the head is derivable from what is in hand: split `tail` on `({tools})` and count the leading segment instead of a literal. That derivation subsumes the separate `tail.contains(&format!(\"({tools})\"))` assert above it (:2576) — a `split_once` that succeeds IS that claim — so the two collapse to one, keeping its message about the limit naming the matcher's tools. Detection strength must not drop: counting the head, not `tail` itself, is what catches a hand-respelled variant standing beside the composed tail, which is the failure the gate exists for. The module's two sanctioned matcher value pins are out of scope and must not be touched — `GUARD_MATCHER`'s own doc (:146) narrates the constant directly beneath it, and the scaffolded guard module's `matcher:` field pins the wire value Claude Code reads."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The gate proving the binding limit is spoken once counts a hand-typed copy of the sentence's opening words, so renaming the head turns it red for the wrong reason.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "src/install.rs",
+      "asserts": "every pending-write guard message closes on `binding_limit()` and speaks its head exactly once, with the head derived from the writer's own bytes — no literal fragment of the sentence left in the test module"
+    }
+  ],
+  "acceptance": "`cargo test` green with `rg -n 'This guard binds only' src/ tests/` returning exactly one line — the `format!` inside `binding_limit()` — plus `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check`.",
+  "notes": "Residue of b817cb25, the fold that made `binding_limit()` the one home: it added this gate and typed the prefix by hand. The sibling surface-pin copy shipped at 932228f9; this is the last copy in the tree, inside the gate whose own claim is that the sentence is not re-spelled. Deliberately not folded to `matches(tail)` — that weakens it: a near-copy beside the composed tail would still count one. scoped at 512c6b98"
+}
