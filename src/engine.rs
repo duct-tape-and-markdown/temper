@@ -1779,12 +1779,15 @@ mod tests {
         JsonValue::String(text.to_string())
     }
 
-    /// A [`Clause`] over `predicate` at `severity`, addressed under `owner` — the
-    /// `<owner>.<predicate>` spelling emit stamps a fieldless row with. The engine
-    /// never derives a label, so a fixture supplies it exactly as a lifted row would.
+    /// A [`Clause`] over `predicate` at `severity`, addressed under `owner` exactly as
+    /// the shipped stamper addresses a lifted row — the predicate's own key and target
+    /// fill the label's trailing segments (`stamp_clause_label` in `crate::drift` reads
+    /// the row's `field` column for the same segment). The engine never derives a
+    /// label, so a fixture supplies it as a lifted row would, and a finding's `rule` is
+    /// the address a real lock stamps.
     fn clause(owner: &str, severity: ClauseSeverity, predicate: Predicate) -> Clause {
         Clause {
-            label: crate::contract::clause_label(Some(owner), predicate.key(), None),
+            label: crate::contract::clause_label(Some(owner), predicate.key(), predicate.target()),
             source: None,
             severity,
             predicate,
@@ -1828,7 +1831,7 @@ mod tests {
             absent,
         );
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.required");
+        assert_eq!(diags[0].rule, "skill.required.name");
         assert_eq!(diags[0].artifact, "demo");
 
         let present = features("demo", &[("name", scalar("demo"))], 1, None);
@@ -1868,7 +1871,7 @@ mod tests {
         let mismatch = features("demo", &[("count", json!("7"))], 1, None);
         let diags = run(predicate(), mismatch);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.type");
+        assert_eq!(diags[0].rule, "skill.type.count");
         // The message names both the actual and the declared lattice kind.
         assert!(diags[0].message.contains("string"));
         assert!(diags[0].message.contains("integer"));
@@ -1949,7 +1952,7 @@ mod tests {
         let over = features("demo", &[("name", scalar("toolong"))], 1, None);
         let diags = run(predicate(), over);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.max_len");
+        assert_eq!(diags[0].rule, "skill.max_len.name");
 
         let within = features("demo", &[("name", scalar("ok"))], 1, None);
         assert!(run(predicate(), within).is_empty());
@@ -1970,7 +1973,7 @@ mod tests {
         let over = features("demo", &[("score", json!(150))], 1, None);
         let diags = run(predicate(), over);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.range");
+        assert_eq!(diags[0].rule, "skill.range.score");
 
         // Below the lower bound fires too — a fractional `number` is in scope.
         let under = features("demo", &[("score", json!(-0.5))], 1, None);
@@ -2008,7 +2011,7 @@ mod tests {
         );
         let diags = admissibility(&inverted, &Locus::Document);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.range");
+        assert_eq!(diags[0].rule, "skill.range.score");
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].artifact, "skill");
         assert!(any_error(&diags));
@@ -2318,10 +2321,17 @@ mod tests {
             Predicate::NameMatchesDir,
         ] {
             let key = predicate.key();
-            let diags = admissibility(
-                &contract(ClauseSeverity::Required, predicate.clone()),
-                &embedded,
-            );
+            // Two of these three are among the four predicates whose emitted `field`
+            // column the SDK synthesizes from the row's arguments instead of reading
+            // the predicate's own target (`clauseField`, sdk/src/declarations.ts:188):
+            // `section_contains` stamps `<heading>.<marker>`, `require_sections` the
+            // `+`-joined section list. `target()` reproduces neither, so the label
+            // stays fieldless here rather than spell a third address — the shipped
+            // ones are pinned against a live SDK emit in
+            // `tests/it/lock_declaration_rows.rs`.
+            let mut host = contract(ClauseSeverity::Required, predicate.clone());
+            host.clauses[0].label = crate::contract::clause_label(Some("skill"), key, None);
+            let diags = admissibility(&host, &embedded);
             assert_eq!(diags.len(), 1, "`{key}` must be fenced, got: {diags:?}");
             assert_eq!(
                 diags[0].rule,
@@ -2505,7 +2515,7 @@ mod tests {
             },
         )]);
         assert_eq!(diags.len(), 1, "one finding per shared value");
-        assert_eq!(diags[0].rule, "skill.unique");
+        assert_eq!(diags[0].rule, "skill.unique.model");
         assert!(diags[0].message.contains("opus"));
         assert!(diags[0].message.contains("plan") && diags[0].message.contains("ship"));
 
@@ -2549,7 +2559,7 @@ mod tests {
             2,
             "one finding per list-carrying member, got: {diags:?}"
         );
-        assert!(diags.iter().all(|d| d.rule == "skill.unique"));
+        assert!(diags.iter().all(|d| d.rule == "skill.unique.model"));
         assert!(
             diags
                 .iter()
@@ -2634,7 +2644,7 @@ mod tests {
         ];
         let diags = judge(&selections);
         assert_eq!(diags.len(), 1, "only `gpt` is outside the derived set");
-        assert_eq!(diags[0].rule, "skill.membership");
+        assert_eq!(diags[0].rule, "skill.membership.model");
         assert_eq!(diags[0].artifact, "skill");
         assert!(diags[0].message.contains("ship") && diags[0].message.contains("gpt"));
     }
@@ -2687,7 +2697,7 @@ mod tests {
         assert!(
             diags
                 .iter()
-                .all(|d| d.rule == "skill.membership" && d.message.contains("plan")),
+                .all(|d| d.rule == "skill.membership.models" && d.message.contains("plan")),
             "each finding names the member carrying the element"
         );
         assert!(diags[0].message.contains("gpt") && diags[1].message.contains("llama"));
@@ -2910,7 +2920,7 @@ mod tests {
         let shouty = features("Demo_1", &[("name", scalar("Demo_1"))], 1, None);
         let diags = run(predicate(), shouty);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.allowed_chars");
+        assert_eq!(diags[0].rule, "skill.allowed_chars.name");
         // The offending characters, deduped and sorted, ride in the message.
         assert!(diags[0].message.contains('D'));
         assert!(diags[0].message.contains('_'));
@@ -2935,7 +2945,7 @@ mod tests {
         );
         let diags = run(predicate(), broken);
         assert_eq!(diags.len(), 2, "one finding per unparseable glob");
-        assert!(diags.iter().all(|d| d.rule == "skill.glob-valid"));
+        assert!(diags.iter().all(|d| d.rule == "skill.glob-valid.paths"));
 
         // Brace expansion is in scope — a valid `{a,b}` alternation passes.
         let valid = features(
@@ -3089,7 +3099,7 @@ mod tests {
         );
         let diags = admissibility(&empty_enum, &Locus::Document);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.enum");
+        assert_eq!(diags[0].rule, "skill.enum.status");
         assert_eq!(diags[0].severity, Severity::Error);
         // The finding names the contract it indicts.
         assert_eq!(diags[0].artifact, "skill");
@@ -3099,14 +3109,15 @@ mod tests {
     #[test]
     fn an_empty_list_clause_of_every_list_kind_is_inadmissible() {
         // Each list-bearing predicate is inadmissible when its list is empty; the
-        // finding's `rule` names the offending clause.
-        for (predicate, key) in [
+        // finding's `rule` names the offending clause under the address a real lock
+        // stamps it with — the field segment included, where the predicate names one.
+        for (predicate, address) in [
             (
                 Predicate::Deny {
                     field: "name".to_string(),
                     values: Vec::new(),
                 },
-                "deny",
+                "deny.name",
             ),
             (
                 Predicate::ForbiddenKeys { keys: Vec::new() },
@@ -3125,15 +3136,19 @@ mod tests {
                     field: "keywords".to_string(),
                     kinds: BTreeSet::new(),
                 },
-                "type",
+                "type.keywords",
             ),
         ] {
             let diags = admissibility(
                 &contract(ClauseSeverity::Required, predicate),
                 &Locus::Document,
             );
-            assert_eq!(diags.len(), 1, "{key} with an empty list should fire once");
-            assert_eq!(diags[0].rule, format!("skill.{key}"));
+            assert_eq!(
+                diags.len(),
+                1,
+                "{address} with an empty list should fire once"
+            );
+            assert_eq!(diags[0].rule, format!("skill.{address}"));
             assert_eq!(diags[0].severity, Severity::Error);
         }
     }

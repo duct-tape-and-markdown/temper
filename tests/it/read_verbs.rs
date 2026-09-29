@@ -806,7 +806,7 @@ mod containment_narration {
 fn explain_narrates_kind_guidance_in_governing_contract() {
     // A kind's authored guidance in its contract rides the governing contract
     // narration, visible at the moment of authoring via `explain`.
-    use temper::contract::{Clause, Contract, Predicate, Severity};
+    use temper::contract::{Contract, Predicate, Severity};
     let custom = [CustomMember {
         kind: "spec".to_string(),
         id: "myspec".to_string(),
@@ -816,22 +816,18 @@ fn explain_narrates_kind_guidance_in_governing_contract() {
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
     let roster: BTreeMap<String, Requirement> = BTreeMap::new();
     let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
-    contracts.insert(
-        "spec".to_string(),
-        Contract {
-            name: "spec".to_string(),
-            guidance: Some("A spec documents the harness's shape.".to_string()),
-            clauses: vec![Clause {
-                label: "spec.required".to_string(),
-                severity: Severity::Required,
-                guidance: None,
-                source: None,
-                predicate: Predicate::Required {
-                    field: "name".to_string(),
-                },
-            }],
-        },
+    let mut governing = common::clause_contract(
+        "spec",
+        vec![common::labelled_clause(
+            "spec",
+            Severity::Required,
+            Predicate::Required {
+                field: "name".to_string(),
+            },
+        )],
     );
+    governing.guidance = Some("A spec documents the harness's shape.".to_string());
+    contracts.insert("spec".to_string(), governing);
 
     let registrations = BTreeMap::new();
     let out = temper::read::explain(
@@ -856,8 +852,8 @@ fn explain_narrates_kind_guidance_in_governing_contract() {
         "guidance appears in the governing contract narration: {out}"
     );
     assert!(
-        out.contains("spec.required"),
-        "clauses still appear alongside guidance: {out}"
+        out.contains("  • `spec.required.name`"),
+        "clauses still appear alongside guidance, under the address a lock stamps: {out}"
     );
 }
 
@@ -938,7 +934,7 @@ fn explain_lists_a_when_bodys_address_under_its_host_clauses() {
 fn explain_omits_governing_contract_guidance_when_absent() {
     // A kind with no guidance emits no guidance line in the governing contract
     // narration, but still narrates the clauses normally.
-    use temper::contract::{Clause, Contract, Predicate, Severity};
+    use temper::contract::{Contract, Predicate, Severity};
     let custom = [CustomMember {
         kind: "spec".to_string(),
         id: "myspec".to_string(),
@@ -950,19 +946,16 @@ fn explain_omits_governing_contract_guidance_when_absent() {
     let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
     contracts.insert(
         "spec".to_string(),
-        Contract {
-            name: "spec".to_string(),
-            guidance: None,
-            clauses: vec![Clause {
-                label: "spec.required".to_string(),
-                severity: Severity::Required,
-                guidance: None,
-                source: None,
-                predicate: Predicate::Required {
+        common::clause_contract(
+            "spec",
+            vec![common::labelled_clause(
+                "spec",
+                Severity::Required,
+                Predicate::Required {
                     field: "name".to_string(),
                 },
-            }],
-        },
+            )],
+        ),
     );
 
     let registrations = BTreeMap::new();
@@ -989,8 +982,8 @@ fn explain_omits_governing_contract_guidance_when_absent() {
         "no guidance marker appears when guidance is absent: {out}"
     );
     assert!(
-        out.contains("spec.required"),
-        "clauses still narrate normally: {out}"
+        out.contains("  • `spec.required.name`"),
+        "clauses still narrate normally, under the address a lock stamps: {out}"
     );
 }
 
