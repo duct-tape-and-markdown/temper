@@ -64,6 +64,26 @@ use crate::kind::{self, CollectionAddress, CustomKind};
 use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER};
 use crate::toml_document;
 
+thread_local! {
+    /// Per-thread count of the guard shell edge's locus walks: every [`WalkDir`] this
+    /// module builds bumps it once ([`locus_member_sites`]). The walk is single-threaded
+    /// on its caller's thread, so this counts one call's walks in isolation — a
+    /// concurrent run on another test thread cannot perturb it.
+    ///
+    /// [`WalkDir`]: walkdir::WalkDir
+    static LOCUS_MEMBER_SITE_WALKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// This thread's cumulative count of guard locus-root walks. Read before and after a
+/// [`shell_edge_findings`] call and compare the delta to the locus roots the caller
+/// declared, pinning that the shell edge's per-tool-call cost is one bounded walk per
+/// root — never a re-walk per candidate file or glob, and never a widening to one
+/// whole-tree walk.
+#[must_use]
+pub fn locus_member_site_walk_count() -> usize {
+    LOCUS_MEMBER_SITE_WALKS.with(std::cell::Cell::get)
+}
+
 /// The SDK program's entry file — scaffolded once by the lift, run by every
 /// subsequent `emit`.
 const HARNESS_ENTRY: &str = "harness.ts";
@@ -1060,11 +1080,11 @@ pub fn shell_edge_findings(
 /// file under it matched against the same [`crate::glob::compile_glob`] pattern — the post
 /// edge binds exactly the paths the pre edge would have tested, and no others.
 ///
-/// A bounded walk, one per locus root, never the whole tree: a per-tool-call cost is paid
-/// on every call a session makes. That bound is also why `import`'s own locus scan is the
-/// wrong reuse — it reads an index built from a whole-tree ignore-honoring walk — and
-/// why the caller's locus set carries no `.`-rooted locus: the guard has no ignore reader,
-/// so a root-rooted glob would judge vendored documents discovery prunes.
+/// The walk's bound is pinned by [`locus_member_site_walk_count`]. That bound is why
+/// `import`'s own locus scan is the wrong reuse — it reads an index built from a
+/// whole-tree ignore-honoring walk — and why the caller's locus set carries no `.`-rooted
+/// locus: the guard has no ignore reader, so a root-rooted glob would judge vendored
+/// documents discovery prunes.
 ///
 /// Sorted by path within each locus ([`walkdir::WalkDir::sort_by_file_name`]), so the
 /// findings a call surfaces read in one order on every platform.
@@ -1074,6 +1094,7 @@ fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::
         let Some(matcher) = crate::glob::compile_glob(&locus.pattern) else {
             continue;
         };
+        LOCUS_MEMBER_SITE_WALKS.with(|c| c.set(c.get() + 1));
         let walk = walkdir::WalkDir::new(harness_root.join(&locus.root))
             .min_depth(1)
             .sort_by_file_name();

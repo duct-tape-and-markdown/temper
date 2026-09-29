@@ -1,5 +1,7 @@
-//! Measure-first cost diagnosis for `check` at consumer scale
-//! (`specs/process/engineering.md`, "Cost scale is hoisted, and pinned by count").
+//! Measure-first cost diagnosis at consumer scale, for every verb whose work scales with
+//! the consumer's input (`specs/process/engineering.md`, "Cost scale is hoisted, and
+//! pinned by count") — `check`'s walks and reads, `emit`'s lock parse and manifest reads,
+//! and `guard`'s per-tool-call shell edge.
 //!
 //! A synthetic harness the size of a real consumer's tree is generated in a tempdir at
 //! test time and never committed. Discovery — the phase `check` opens with, walking the
@@ -8,8 +10,9 @@
 //! the test asserts the work-count pins the cuts earn — decided by counts, independent of
 //! tree size: the shared walk runs once per flavor, the directive backing set's
 //! whole-tree walk runs once per run, glob compilation is hoisted per distinct glob
-//! rather than per candidate file, and the per-kind glob scan reads its members from
-//! that one walk's index, opening no directory of its own.
+//! rather than per candidate file, the per-kind glob scan reads its members from
+//! that one walk's index, opening no directory of its own, and the guard's shell edge
+//! walks once per declared locus root, never the whole tree.
 
 use crate::common;
 
@@ -1150,5 +1153,84 @@ fn gate_reachability_closure_runs_once_per_invocation_and_only_when_a_root_claus
         graph::live_members_count() - before,
         1,
         "the reachability closure is hoisted per gate invocation, never per member",
+    );
+}
+
+/// The per-tool-call count-pin for the **guard's shell edge** (`engineering.md`, "Cost
+/// scale is hoisted, and pinned by count"): `install::locus_member_sites` walks once per
+/// declared locus root, and a `PostToolUse` call pays that cost on every tool call a
+/// session makes — the hottest path any pin in this file covers. Two declared roots, so
+/// the delta is exactly 2: a re-walk per candidate file or per glob overshoots, and a
+/// widening to one `.`-rooted whole-tree walk undershoots at 1, so the count catches the
+/// regression in both directions. The count is per-thread and the walk single-threaded on
+/// its caller's thread, so the delta is this call's alone whatever else runs concurrently.
+#[test]
+fn a_guard_shell_edge_walks_each_declared_locus_root_once() {
+    use temper::drift::{self, Declarations};
+    use temper::install::{self, GuardedLocus};
+
+    let harness = tmpdir("guard-locus-walk-pin");
+
+    // A document at each governed locus root, neither of them declared by the lock below
+    // — the stray the locus half of `locus-declared` exists to name.
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: coordinate\ndescription: Drive a task across a team of agents.\n---\n# Coordinate\n",
+    )
+    .unwrap();
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
+
+    // A represented harness whose root contract binds `locus-declared` and nothing else:
+    // rows-or-default reads these rows, so the locus half opts in and the projection half
+    // stays silent. The lock declares no provenance row, so every site below is a stray.
+    common::write_lock(
+        &harness,
+        Declarations {
+            clauses: vec![common::clause("locus-declared", "required")],
+            ..Declarations::default()
+        },
+    );
+    let workspace = harness.join(".temper");
+    let declarations = drift::read_declarations(&workspace).unwrap();
+
+    // The two loci `guarded_loci` would assemble for these kinds — distinct roots, the
+    // quantity the walk count is pinned against.
+    let loci = vec![
+        GuardedLocus {
+            kind: "rule".to_string(),
+            root: ".claude/rules".to_string(),
+            pattern: ".claude/rules/*.md".to_string(),
+            custom: false,
+        },
+        GuardedLocus {
+            kind: "skill".to_string(),
+            root: ".claude/skills".to_string(),
+            pattern: ".claude/skills/*/SKILL.md".to_string(),
+            custom: false,
+        },
+    ];
+
+    let before = install::locus_member_site_walk_count();
+    let report = install::shell_edge_findings(&workspace, &declarations, &loci).unwrap();
+    let walks = install::locus_member_site_walk_count() - before;
+
+    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a call whose
+    // walk found nothing would pin its cost over an empty subject, so the report must name
+    // the stray under each root before the count is asserted.
+    let report = report.expect("two undeclared documents at governed loci must report");
+    assert!(
+        report.contains(".claude/rules/rust.md")
+            && report.contains(".claude/skills/coordinate/SKILL.md"),
+        "the shell edge must name the stray under each declared locus root, got: {report}",
+    );
+
+    assert_eq!(
+        walks, 2,
+        "a shell-edge call must walk exactly once per declared locus root — a per-file or \
+         per-glob re-walk overshoots, and a widened whole-tree walk undershoots",
     );
 }
