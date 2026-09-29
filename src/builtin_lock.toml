@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the fifteen built-in kinds' facts and their default contract clauses, the **root
+# the sixteen built-in kinds' facts and their default contract clauses, the **root
 # member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the four
 # clause rows here naming no kind, that absence being what makes them the root's), plus two
 # assembly facts — the unconditional `mode = "warn"` (the root member's own enforcement
@@ -13,13 +13,13 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over the whole shipped std-lib:
-# `@dtmd/temper/claude-code`'s fourteen
+# `@dtmd/temper/claude-code`'s fifteen
 # built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `known-marketplace`,
-# `marketplace`, `mcp-server`, `plugin-manifest`, `settings`, `settings-local`, `skill`,
-# `supporting-doc`, `rule`, `memory`) and their
+# `marketplace`, `mcp`, `mcp-server`, `plugin-manifest`, `settings`, `settings-local`,
+# `skill`, `supporting-doc`, `rule`, `memory`) and their
 # default contracts (`agentDefaultContract`, `commandDefaultContract`,
 # `hookDefaultContract`, `installedPluginDefaultContract`, `knownMarketplaceDefaultContract`,
-# `marketplaceDefaultContract`, `mcpServerDefaultContract`,
+# `marketplaceDefaultContract`, `mcpDefaultContract`, `mcpServerDefaultContract`,
 # `pluginManifestDefaultContract`, `settingsDefaultContract`,
 # `settingsLocalDefaultContract`, `skillDefaultContract`,
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
@@ -34,7 +34,7 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's fifteen kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's sixteen kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -51,16 +51,18 @@
 # one clause — the format documents no schema to gate, so the only decidable fact left is
 # the graph one: a supporting file no edge from its host skill reaches is never read.
 #
-# `installed-plugin` and `known-marketplace` are the two kinds here contributing a kind fact
-# and no clause row at all: each default contract is empty, so fifteen kinds carry thirteen
-# contracts' clauses. Neither format documents a gateable schema the member's own type does
-# not already hold — an installed plugin is one scalar under an identity key, a known
-# marketplace a `source`/`autoUpdate` object under a marketplace-name key — and the absence
-# is the honest encoding, not a row lost in regeneration.
+# `installed-plugin`, `known-marketplace` and `mcp` are the three kinds here contributing a
+# kind fact and no clause row at all: each default contract is empty, so sixteen kinds carry
+# thirteen contracts' clauses. No format among them documents a gateable schema the member's
+# own type does not already hold — an installed plugin is one scalar under an identity key, a
+# known marketplace a `source`/`autoUpdate` object under a marketplace-name key, and `.mcp.json`
+# exactly one top-level key, `mcpServers`, which is `mcp-server`'s collection address and that
+# kind's to contract server by server (code.claude.com/docs/en/mcp, retrieved 2026-09-29) — so
+# in each case the absence is the honest encoding, not a row lost in regeneration.
 #
-# Four kinds here sit at the `json-document` format, where the whole artifact is one JSON
+# Five kinds here sit at the `json-document` format, where the whole artifact is one JSON
 # object and a kind's top-level keys are the fields its clauses range over: `marketplace`,
-# `plugin-manifest`, and the `settings`/`settings-local` pair. `plugin-manifest` alone
+# `plugin-manifest`, `mcp`, and the `settings`/`settings-local` pair. `plugin-manifest` alone
 # closes its key set — `closed-keys` indicts an undocumented top-level field and
 # `forbidden_keys` the `themes`/`monitors` spellings the experimental migration retires —
 # because that format documents one.
@@ -73,6 +75,12 @@
 # `hooks` — that segment is the `hook` kind's collection address, so its shape is that
 # kind's contract to hold, member by member, while in the local overlay no kind reads it
 # and it rides as residue.
+#
+# `mcp` is the same posture carried to its limit: `.mcp.json` documents one top-level key and
+# that key is `mcp-server`'s collection address, so the container types nothing, gates nothing,
+# and closes no key set — the whole remainder rides as opaque residue. Its row below is a kind
+# fact alone, and the file is still governed whole: the member's byte fingerprint makes a hand
+# edit to either half drift (decision 0050).
 
 [[declaration.kind]]
 name = "agent"
@@ -133,6 +141,13 @@ governs_glob = "marketplace.json"
 format = "json-document"
 unit_shape = "named-field(name)"
 guidance = "a relative-path `source` resolves against a *local copy* of the marketplace, so it silently fails to resolve for users who added the marketplace by direct URL to `marketplace.json` — only that one file is downloaded. Reach for `github`, `url`, or `npm` when the catalog is distributed by URL. Where a git source pins both `ref` and `sha`, the `sha` is the effective pin. A marketplace entry's `defaultEnabled` beats the same field in the plugin's own `plugin.json`, while `version` runs the other way — `plugin.json` wins."
+
+[[declaration.kind]]
+name = "mcp"
+governs_root = "."
+governs_glob = ".mcp.json"
+format = "json-document"
+unit_shape = "file"
 
 [[declaration.kind]]
 name = "mcp-server"

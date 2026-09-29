@@ -10,8 +10,12 @@
 //! The engine's container machinery is generic (`src/drift.rs` recognizes a container by
 //! its projection path); these cases pin it to the shipped kind, driven over the real SDK
 //! the way `tests/it/settings_kind.rs` drives it — `node` running the built
-//! `@dtmd/temper/claude-code` against a fixture program, since the kind ships there and
-//! the embedded lock does not carry it yet.
+//! `@dtmd/temper/claude-code` against a fixture program. The kind's embedded home is
+//! `src/builtin_lock.toml`, so every harness gets `.mcp.json` governed whether or not it
+//! carries a program; what these cases drive over the seam is the *authoring* half — a
+//! program declaring the container, and the projection and rollup row that follow. The
+//! two halves must agree, or `kind.admissibility` refuses the fixture's own `mcp` for
+//! colliding with the built-in rather than relocating it.
 //!
 //! One fact stated three ways: the file is a whole projection, so the residue survives
 //! byte-faithfully beside the declared segment, the container's rollup row fingerprints

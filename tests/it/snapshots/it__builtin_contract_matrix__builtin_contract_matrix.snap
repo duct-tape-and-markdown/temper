@@ -11,6 +11,7 @@ hook |  |  |  |  | error |  |  |  |  |  |  |  |  | error |  |  |  | error
 installed-plugin |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 known-marketplace |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 marketplace | error |  |  | error |  |  |  |  |  |  | error |  |  | error |  |  |  | error
+mcp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 mcp-server |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  | error
 memory |  |  |  |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  | 
 plugin-manifest | error | error |  |  |  |  | error |  |  |  | error |  | error | error |  | error |  | 

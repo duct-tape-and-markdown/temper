@@ -2737,12 +2737,32 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     // Channel-less: machine configuration read by the harness, never surfaced to the model.
     assert_eq!(settings_local.registration, Vec::<String>::new());
 
+    // `mcp` is `settings`'s twin one file over: the container of `.mcp.json`'s one
+    // collection address, governing the file whole and declaring no address of its own —
+    // `mcpServers` is `mcp-server`'s (code.claude.com/docs/en/mcp, retrieved 2026-09-29).
+    let mcp = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "mcp")
+        .expect("the mcp kind fact is embedded");
+    assert_eq!(mcp.governs_root.as_deref(), Some("."));
+    assert_eq!(mcp.governs_glob.as_deref(), Some(".mcp.json"));
+    assert_eq!(mcp.format.as_deref(), Some("json-document"));
+    assert_eq!(mcp.unit_shape.as_deref(), Some("file"));
+    // Committed: emit renders the manifest whole and fingerprints it.
+    assert_eq!(mcp.commitment, None);
+    assert_eq!(mcp.shape, None);
+    assert_eq!(mcp.collection_address, None);
+    // Channel-less: the harness reads the manifest; its connections reach the world as
+    // `mcp-server` members.
+    assert_eq!(mcp.registration, Vec::<String>::new());
+
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    // Fifteen, not the thirteen `specs/builtins.md` enumerates: `supporting-doc` ships
-    // beside that roster without joining it (as `requirement` does), and `dial` is temper's
-    // own rather than a provider's, so the engine's kind set runs two above the corpus's
-    // count. Every number is right; none checks another.
-    assert_eq!(declarations.kinds.len(), 15);
+    // Sixteen, not the fourteen `specs/builtins.md` enumerates: `supporting-doc` ships
+    // beside that roster without joining it (as `requirement` and `handler` do), and `dial`
+    // is temper's own rather than a provider's, so the engine's kind set runs two above the
+    // corpus's count. Every number is right; none checks another.
+    assert_eq!(declarations.kinds.len(), 16);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

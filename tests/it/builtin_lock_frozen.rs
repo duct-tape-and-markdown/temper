@@ -52,6 +52,8 @@ import {
   knownMarketplaceDefaultContract,
   marketplace,
   marketplaceDefaultContract,
+  mcp,
+  mcpDefaultContract,
   mcpServer,
   mcpServerDefaultContract,
   memory,
@@ -80,6 +82,7 @@ const program = harness({
     { kind: installedPlugin, clauses: installedPluginDefaultContract },
     { kind: knownMarketplace, clauses: knownMarketplaceDefaultContract },
     { kind: marketplace, clauses: marketplaceDefaultContract },
+    { kind: mcp, clauses: mcpDefaultContract },
     { kind: mcpServer, clauses: mcpServerDefaultContract },
     { kind: memory, clauses: memoryAnthropicDefaultContract },
     { kind: pluginManifest, clauses: pluginManifestDefaultContract },
@@ -246,8 +249,8 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
 
     assert_eq!(
         declarations.kinds.len(),
-        15,
-        "the derived lock carries all 15 built-in kind facts"
+        16,
+        "the derived lock carries all 16 built-in kind facts"
     );
 
     for kind_row in &declarations.kinds {

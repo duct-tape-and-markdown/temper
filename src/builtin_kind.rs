@@ -591,6 +591,35 @@ fn claude_code_settings_local() -> CustomKind {
     .local()
 }
 
+/// Anthropic's documented `.mcp.json` kind: the project's committed MCP manifest, the whole
+/// file one JSON document at the committed commitment class
+/// (`code.claude.com/docs/en/mcp`, retrieved 2026-09-29) — the program authors every key,
+/// emit renders the file whole, and a hand edit to any part of it is drift.
+///
+/// Identity is the fixed singleton stem `.mcp` (the `file` unit shape): a project's
+/// committed MCP manifest is the one file at the repository root, so no declared key names
+/// it. It is the **container** of one registration collection address, `mcpServers`, which
+/// keeps its own kind ([`claude_code_mcp_server`]); that segment and this member's opaque
+/// residue are one file. The container declares no collection address of its own — the
+/// address is the member kind's, and a container that claimed it too would route every
+/// server into both member sets. Channel-less: configuration the harness reads, never
+/// surfaced to the model — the connections it carries reach the world as `mcp-server`
+/// members.
+fn claude_code_mcp() -> CustomKind {
+    CustomKind {
+        format: Some(Format::JsonDocument),
+        unit_shape: Some(crate::kind::UnitShape::File),
+        ..CustomKind::new(
+            "mcp",
+            Governs {
+                root: ".".to_string(),
+                glob: ".mcp.json".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+}
+
 /// temper's own **dial** kind: `.temper/dial.toml`, a local file locus whose entries name
 /// a clause by its compiled address and declare the severity this machine reads it at.
 ///
@@ -638,6 +667,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_installed_plugin(),
         claude_code_known_marketplace(),
         claude_code_marketplace(),
+        claude_code_mcp(),
         claude_code_mcp_server(),
         claude_code_plugin_manifest(),
         claude_code_settings(),
@@ -940,6 +970,7 @@ mod tests {
                 "installed-plugin",
                 "known-marketplace",
                 "marketplace",
+                "mcp",
                 "mcp-server",
                 "memory",
                 "plugin-manifest",
@@ -1138,6 +1169,36 @@ mod tests {
         assert_eq!(mcp.registration, vec![Registration::Connection]);
         // `mcpServers.*` names no key field, so a server carries only its own object
         // fields, folded in at read time — no declared frontmatter primitives.
+        assert_eq!(mcp.extraction.primitives(), &[]);
+    }
+
+    #[test]
+    fn the_mcp_definition_is_a_committed_json_document_governing_the_whole_manifest() {
+        let mcp = definition("mcp").expect("mcp is embedded");
+
+        assert_eq!(mcp.name, "mcp");
+        // The whole file at the documented root path, one JSON document
+        // (code.claude.com/docs/en/mcp, retrieved 2026-09-29).
+        assert_eq!(
+            mcp.governs,
+            Some(Governs {
+                root: ".".to_string(),
+                glob: ".mcp.json".to_string(),
+            })
+        );
+        assert_eq!(mcp.format, Some(Format::JsonDocument));
+        // Singleton identity: the file itself, so no declared key names it.
+        assert_eq!(mcp.unit_shape, Some(crate::kind::UnitShape::File));
+        // Committed, unlike `settings-local`/`dial` — no declared class is the committed
+        // one, so emit writes the file and its rows land in the lock.
+        assert_eq!(mcp.commitment, None);
+        // Channel-less: the harness reads the manifest, it never reaches the model. The
+        // connections do, as `mcp-server` members.
+        assert!(mcp.registration.is_empty());
+        // The container of `mcpServers`, never a member at it: the address belongs to
+        // `mcp-server` alone, so the container declares none.
+        assert_eq!(mcp.collection_address, None);
+        // Every key is a field of the member; nothing is lifted by a declared primitive.
         assert_eq!(mcp.extraction.primitives(), &[]);
     }
 

@@ -8,8 +8,17 @@
 //! top level is `mcpServers`, per `.claude/rules/rust.md`): the read that turns a server
 //! entry into a member, and the shipped default contract's one decidable clause — the
 //! transport `type` must be documented — firing on a broken server and passing clean ones,
-//! end to end through the `check --harness` gate. `.mcp.json` is wholly this manifest, so
-//! modelling it retires the whole-file `coverage.unmodeled-surface` finding.
+//! end to end through the `check --harness` gate.
+//!
+//! This kind's reach is its segment, never the file: `mcpServers` is the address it keys
+//! at, and the document around it belongs to the `mcp` container kind
+//! (`tests/it/mcp_kind.rs`). Both ship embedded, so a `.mcp.json` is governed whole for
+//! every harness — which makes the ungoverned-surface reading gone and an ownerless
+//! manifest the container's *undeclared* member instead, the last case below.
+
+use std::path::Path;
+
+use temper::drift::{self, EmitOptions};
 
 use crate::common;
 
@@ -129,11 +138,27 @@ fn the_mcp_server_default_contract_passes_documented_and_absent_transports() {
     );
 }
 
+/// A program declaring the connection and nothing else — no container member, so the
+/// document `emit` writes is owned by no member of the kind that governs it.
+const SERVER_ONLY_PROGRAM: &str = r#"
+import { emit, harness } from "@dtmd/temper";
+import { mcpServer } from "@dtmd/temper/claude-code";
+
+const docs = mcpServer({
+  name: "docs",
+  type: "http",
+  url: "https://mcp.example.com/mcp",
+});
+
+process.stdout.write(emit(harness({ members: [docs] })).seam);
+"#;
+
 #[test]
-fn a_mcp_json_no_longer_fires_the_unmodeled_surface_finding() {
-    // `.mcp.json` is wholly its `mcpServers` map, so the mcp-server kind governs the whole
-    // file — modelling it retires the coverage note's whole-file finding cleanly, unlike a
-    // settings.json segment kind (a hook) which leaves its container flagged.
+fn a_mcp_json_is_governed_whole_by_the_container_rather_than_by_this_segment_kind() {
+    // This kind reaches its segment, so on its own it would leave the document around
+    // `mcpServers` ungoverned — the shape a `settings.json` hook leaves its container in.
+    // The `mcp` container kind ships embedded beside it, so the file is governed whole for
+    // every harness, program or not, and the coverage note names both members apart.
     let harness = common::tmpdir("mcp-modeled-surface");
     common::write_mcp_json(&harness, CLEAN_MCP);
 
@@ -142,7 +167,54 @@ fn a_mcp_json_no_longer_fires_the_unmodeled_surface_finding() {
     let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
     assert!(
         unmodeled.iter().all(|line| !line.contains(".mcp.json")),
-        "the mcp-server kind governs .mcp.json outright — no unmodeled-surface finding, got: {findings:#?}"
+        "the embedded `mcp` kind governs .mcp.json whole — no unmodeled-surface finding, got: {findings:#?}"
+    );
+    // Silence above is truthful only because the container really is read: the note says so
+    // by name, one container member beside the two connections.
+    assert!(
+        findings.iter().any(|line| line.contains("mcp (1)")),
+        "the container member is announced as checked, never silently skipped, got: {findings:#?}"
+    );
+    assert!(
+        findings.iter().any(|line| line.contains("mcp-server (2)")),
+        "and the connections stay members of this kind, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_program_declaring_only_servers_leaves_the_containers_document_undeclared() {
+    // The consequence of the split reach, stated where it bites: a program that declares
+    // the connections alone still writes a whole `.mcp.json`, and that document sits at the
+    // `mcp` kind's governed locus with no member of that kind naming it. The advisory it
+    // draws is `root.locus-declared` — a document temper maintains nothing about — never
+    // the ungoverned-surface reading, which the embedded container retired.
+    let (harness, into) = common::wire_sdk_harness("mcp-server-only", SERVER_ONLY_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+    assert!(
+        Path::new(&harness).join(".mcp.json").is_file(),
+        "the server's own registration projects the manifest"
+    );
+
+    let (findings, _ok) = check_harness(&harness);
+
+    assert!(
+        common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
+        "a governing kind retires the unmodeled-surface advisory, got: {findings:#?}"
+    );
+    let undeclared = common::findings_for(&findings, "root.locus-declared");
+    assert_eq!(undeclared.len(), 1, "{findings:#?}");
+    assert!(
+        undeclared[0].contains(".mcp.json") && undeclared[0].contains("`mcp`"),
+        "the finding names the undeclared document and the container kind whose locus it \
+         sits at, got: {}",
+        undeclared[0]
+    );
+    // And the note discloses the same member as undeclared rather than counting it read.
+    assert!(
+        findings
+            .iter()
+            .any(|line| line.contains("mcp (1: 0 declared, 1 undeclared)")),
+        "the coverage note states the undeclared container apart, got: {findings:#?}"
     );
 }
 

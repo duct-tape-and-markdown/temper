@@ -1972,9 +1972,10 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
 
 /// The arms the governed-locus binding must leave exactly where they were: a declared
 /// projection keeps the projection wording, a `local`-commitment locus is never bound by
-/// it, a collection-address manifest locus stays the manifest arm's, and an unrepresented
-/// harness keeps the `.claude/` fallback. Its neighbour: a container kind's own locus
-/// binds, `.claude/settings.json` included.
+/// it, a manifest locus at the harness root stays the manifest arm's — excluded twice over,
+/// by `collection_address` and by `.`-rooting — and an unrepresented harness keeps the
+/// `.claude/` fallback. Its neighbour: a container kind's own locus binds where it is
+/// rooted under a directory, `.claude/settings.json` included.
 #[test]
 fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     let root = represented_rule_harness("guard-locus-neighbours", "block");
@@ -2006,8 +2007,10 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     }
 
     // A manifest kind's locus stays `manifest_write_findings`'s: `.mcp.json` is not
-    // emit-owned in this lock (no registration rows), and the `collection_address`
-    // exclusion keeps the locus binding off `mcp-server`, so the write is allowed.
+    // emit-owned in this lock (no registration rows), and two exclusions keep the locus
+    // binding off it — the `collection_address` one off `mcp-server`, and the `.`-rooted
+    // one off the `mcp` container, which governs the file but sits at the harness root
+    // where the guard has no ignore reader to prune with. So the write is allowed.
     let (manifest_code, manifest_stderr) =
         common::run_guard(&root, &common::guard_write_payload(".mcp.json"));
     assert_eq!(
@@ -2565,8 +2568,10 @@ fn guard_refuses_a_residue_only_write_to_a_container_owned_manifest() {
         "a conforming co-owned write surfaces nothing: {ok_stderr}"
     );
 
-    // And the manifest no container member can project at all: `.mcp.json` is composed from
-    // registrations alone, so it stays co-owned whatever else the lock declares.
+    // And the same discriminator read off a second manifest, to show it is the **lock's**
+    // rows and not the kind vocabulary that decides: the `mcp` container kind ships embedded
+    // and could project `.mcp.json` whole, but this lock declares no member of it, so the
+    // file is composed from registrations alone here and stays co-owned.
     let (mcp_code, mcp_stderr) = common::run_guard(
         &co_owned,
         &common::guard_write_payload_with_content(

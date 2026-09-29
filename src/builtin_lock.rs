@@ -1,8 +1,9 @@
 //! The embedded built-in lock. `src/builtin_lock.toml` is the real `[declaration.*]` family
 //! `drift::emit` writes for a memberless `Payload` compiled from a memberless
 //! harness over `@dtmd/temper/claude-code`'s built-in kinds and floors — embedded
-//! as data (`include_str!`) and parsed once here into the [`Declarations`] IR the
-//! gate already reads off a committed lock ([`crate::drift::read_declarations`]).
+//! as data (`include_str!`) and parsed once here into the [`Declarations`] IR
+//! [`crate::gate`] lifts off a committed lock with `drift::declarations_from_doc` — the
+//! same IR by the same lift, off embedded bytes instead of a disk read.
 //!
 //! [`crate::builtin`] projects each built-in kind's floor `Contract` straight off
 //! [`declarations`]'s clause rows; [`crate::builtin_kind`] still carries its own
@@ -87,15 +88,21 @@ mod tests {
             }]
         );
 
-        // Floor clauses: every row names one of the built-in kinds — or names no kind at
-        // all, which is the **root member's** own row and nothing else. The assertion's
-        // job is to catch a row nobody declared, so the kind-less case is pinned as the
-        // root's (exactly the four the shipped default binds, `root.reachable`,
-        // `root.fresh`, `root.locus-declared` and `root.engine-matches`) rather than
-        // widened to "any `None`": a stray unowned row would then slip through the very
-        // check that exists to catch it. Every row carries a
-        // declared severity, and there are no requirements, satisfies, provenance or
+        // Floor clauses: every row names one of the built-in kinds *whose default contract
+        // carries clauses* — or names no kind at all, which is the **root member's** own row
+        // and nothing else. The assertion's job is to catch a row nobody declared, so the
+        // kind-less case is pinned as the root's (exactly the four the shipped default
+        // binds, `root.reachable`, `root.fresh`, `root.locus-declared` and
+        // `root.engine-matches`) rather than widened to "any `None`": a stray unowned row
+        // would then slip through the very check that exists to catch it. Every row carries
+        // a declared severity, and there are no requirements, satisfies, provenance or
         // emit-fingerprint rows (nothing was emitted; there are no members).
+        //
+        // The three kinds shipping an empty default contract — `installed-plugin`,
+        // `known-marketplace`, `mcp` — are deliberately *absent* from the list below, so
+        // their emptiness is checked here rather than assumed: a clause appearing under one
+        // of those names panics as unowned, which is the signal that the contract grew and
+        // the lock's own header arithmetic needs re-reading.
         assert!(!declarations.clauses.is_empty());
         let mut root_labels: Vec<&str> = Vec::new();
         for clause in &declarations.clauses {
