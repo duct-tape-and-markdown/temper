@@ -1,0 +1,38 @@
+{
+  "tag": "GUARD-BINDING-LIMIT-FOLDS-INTO-ONE-HOME",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "Five copies of one sentence. `GUARD_MESSAGE` (:229), `undeclared_locus_message` (:239), `GUARD_MANIFEST_MESSAGE` (:253), `GUARD_MANIFEST_EDIT_MESSAGE` (:259) and `GUARD_MANIFEST_UNPARSEABLE_MESSAGE` (:267) each end with the byte-identical tail 'This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.', and four of the five doc comments say so in prose ('States the same binding limit', 'one fact must not be spoken two ways at two placements'). Worse, the parenthesised tool list re-spells `GUARD_MATCHER` (:149) — the constant that carries the cited provider fact (code.claude.com/docs/en/hooks, retrieved 2026-07-24) and the value the `PreToolUse` row actually binds — so widening the matcher leaves five messages lying. Give the sentence one home: a module constant for the wording with the tool list derived from `GUARD_MATCHER` (`|` rendered `/`), composed as each message's tail. The derivation needs a `LazyLock<String>` per message; `sdk_version_range()` (:82) is this module's own precedent for exactly that shape, so the five become `&'static str` accessors and the three call sites in `guard` (:1192, :1194, :1204) plus the three in `render_manifest_findings` (:1678-1682) read them. Output stays byte-identical: same bodies, same tail, same order — the owner line still follows the limit at :1192. Rider on the same declaration: `GUARD_MESSAGE` is `pub` on the strength of a doc claim disproven on disk ('Public so the `guard` subcommand (`main`) prints it') — `main.rs` prints `decision.message`, and `rg -a GUARD_MESSAGE` across the repo finds no reader outside this module, so it drops to private with the stale sentence (`specs/process/engineering.md`, 'An export earns its consumer')."
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "The guard suite asserts the message prefixes ('temper-managed projection' at :1560, :1598, :1732; 'temper-governed manifest' at :2062, :2444) and nothing asserts the binding-limit sentence reaches the user at all, so today the tail could vanish silently. Add one surface assertion on an existing guard fixture: the in-band stderr carries the limit sentence with the tool list `GUARD_MATCHER` declares."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "One sentence, five copies: every pre-edge guard message re-spells the binding limit, and its tool list re-spells GUARD_MATCHER's cited value.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "src/install.rs",
+      "asserts": "each of the five pre-edge guard messages ends with the one binding-limit tail, and the tail's tool list equals GUARD_MATCHER's alternation rewritten — so widening the matcher without the prose fails"
+    },
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "a guard run's in-band stderr carries the binding-limit sentence naming the matcher's tools"
+    }
+  ],
+  "acceptance": "`cargo test` green with every existing guard message assertion unchanged (the rendered bytes do not move), plus the new equality pin between the binding-limit tail's tool list and `GUARD_MATCHER`, and `GUARD_MESSAGE` no longer `pub`.",
+  "notes": "Posture sweep at src/install.rs. Verified this tick: `rg -an 'This guard binds only Claude Code tool-mediated writes'` returns 5 matches, all here; `rg -a GUARD_MESSAGE` finds no reader outside this module. The post-edge pair carries no limit — the write has landed — and stays untouched. INSTALL-LIFTS-A-REGISTRATION-MEMBER shares both paths but is fork-held, so not concurrently pickable. scoped at 2fc9bed3"
+}
