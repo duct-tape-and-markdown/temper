@@ -28,6 +28,11 @@ hard.
 
 ## Next session's one focus (09-23, post-cut)
 
+- **Rotation-close focus (09-28, John):** a paragraph in
+  `.flume/prompts/plan.md` limits audit follow-ups to correctness gaps until
+  the posture rotation closes (`src/drift.rs`, `src/glob.rs` left); remove
+  it when `Posture swept through:` names a commit. The run is capped
+  (`--max 12`).
 - **09-25 session (this machine):** loop set up here and ran; the report
   work shipped and the sweep hold came and went. Stopped with the stop flag
   on a usage cap; remove it to relaunch. Open: the cross-program member
