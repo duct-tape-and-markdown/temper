@@ -1,0 +1,45 @@
+{
+  "tag": "EMBEDDED-EDGE-TARGET-DEFERS-TO-CHECK",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "`edgeTargetFacts` (sdk/src/emit.ts:280) today throws on every unresolved address; it must refuse only as far as the program's own universe reaches. An address `prose.ts`'s `defersToGate` admits against `options.deferrableKinds` — a host address of a declared `at`-locus kind — contributes no entry to `targets` instead, exactly as a dangling mention defers; anything else (no declared kind, a segmented embedded address, a bare name) still refuses. `ResolveOptions.members`'s doc (sdk/src/emit.ts:83) asserts the claim being reversed (\"An edge target never defers to the gate the way a bare mention may\") and is rewritten to the universe rule. Named consequence: a deferred field carries no facts, so `placedEdges` (sdk/src/emit.ts:483), which keys its obligation off `Object.keys(resolved.targets)`, leaves it out of the `format-places-edges` set — there is nothing to place, and `check`'s route verdict is what covers it."
+      },
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "`ResolvedEmbeddedMemberValue.targets`'s doc (sdk/src/kind.ts:875) names two absent cases (an unfilled field, a bare-kind value); it gains the third: a filled edge whose target defers to `check` carries no entry, so a `render` hook spelling a reference off `targets[field]` must handle the absent key. The default TOML view is unaffected — it writes the authored address leaf."
+      },
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "description": "The `rule:ghost` case (sdk/test/refusals.test.ts:291) asserts today's unconditional refusal and its comment spells the old rule (\"a *mention* of `rule:ghost` would defer to check — an edge target cannot\"); it inverts to a deferral: emit succeeds and the authored address rides the `nested_member` row's leaf. The section header comment above it (sdk/test/refusals.test.ts:260) restates the same claim. Keep a refusal case whose address names no declared kind — the universe rule's other side."
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "The segmented-address refusals (sdk/test/emit.test.ts:1568) and the bare-name case (sdk/test/emit.test.ts:1495) stay refusals — `defersToGate` answers false for an address its host-address reader cannot parse — and their comments name the deferral boundary rather than a blanket \"an edge target cannot defer\"."
+      },
+      {
+        "path": "tests/it/graph.rs",
+        "description": "The check-side twin of `a_deferred_mention_to_an_absent_member_fires_a_route_finding` (tests/it/graph.rs:1256): a lock whose `nested_member` row carries an edge-field leaf naming an absent member of a declared kind fires `graph.route`. The wiring already exists — `compose::embedded_member_features` (src/compose.rs:1317) lifts each leaf into the member's fields and `graph::check` resolves the `edge` assembly row over them — so this is the non-vacuity proof that the deferral hands a real verdict over, not a dropped one."
+      }
+    ]
+  },
+  "summary": "An embedded edge target naming a declared at-locus kind's uncomposed member defers to `check` instead of refusing at emit.",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "Emit"
+  },
+  "tests": [
+    {
+      "path": "sdk/test/refusals.test.ts",
+      "asserts": "an edge field naming a declared at-locus kind's uncomposed member emits and rides the lock, while one naming no declared kind still refuses before a byte is written"
+    },
+    {
+      "path": "tests/it/graph.rs",
+      "asserts": "check fires `graph.route` on that deferred edge, naming the citing embedded member and the dangling target — the verdict emit handed over"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`) with the inverted refusal case, and `cargo test` green with the new route case.",
+  "notes": "Ruled by John 2026-09-29 (`(embedded-edge-dangling-judgment)`, via inbox): `pipeline.md` \"Refusing\" already answers it — refusal reaches exactly as far as the program's own universe. The render-selection candidate (refuse only when a hook selected the target) is rejected as a second rule for one question. Standing objection: a hook reading `targets[f].path` for a deferred edge sees `undefined`; the ruled answer is the documented absent key. scoped at e9573d2e"
+}
