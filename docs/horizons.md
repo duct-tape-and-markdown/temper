@@ -267,6 +267,28 @@ that evidence, not preference, is the bite condition.
   discovered members (blocks the script-edge demo), and `emit --into`
   re-root reaping live projections.
 
+- `(multi-harness-projection)` — **One gate, other agents' harnesses.**
+  Moved from the fork board 2026-09-29: it has no driver, and its read face
+  is already settled by `specs/process/architecture.md` ("The provider face
+  is data" — a second provider is a new data set, never a new engine). The
+  read face's next step is a falsification spike: declare a `cursor-rule`
+  custom kind in a testbed and `check` a real Cursor repo; zero `src/`
+  changes proves the thesis. First provider when demand shows: AGENTS.md.
+  The write face — one member projected to N harnesses — stays parked with
+  its four open faces (capability mismatch, which harness is authoritative,
+  lossy projection as verdict or error, counterpart drift), designed only
+  against a real two-tool adopter. *Bite condition:* a portability tool
+  growing a checker, or a real two-tool adopter.
+
+- `(lazy-grounds)` — **Resolve a cited address without materializing the
+  ground.** Moved from the fork board 2026-09-29: its driver withdrew. An
+  eager read-only ground materialized 2250 members to resolve seven
+  mention addresses (+45s). The wants: lazy grounds, and an optional
+  content needle the gate asserts the resolved file still contains. Lazy
+  grounds change coverage and narration semantics, so they are a model
+  choice, not an optimization. *Bite condition:* a real driver, such as a
+  base-harness implemented-by mapping.
+
 - `(field-reach)` — RATIFIED 2026-09-22; current home
   `specs/decisions/0056` (a predicate; the corpus does not enumerate the
   vocabulary).
