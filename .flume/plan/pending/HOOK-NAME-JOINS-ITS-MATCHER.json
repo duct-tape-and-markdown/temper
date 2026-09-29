@@ -10,11 +10,19 @@
     "edit": [
       {
         "path": "src/json_manifest.rs",
-        "description": "A registration member's NAME parts company with its registration KEY. `to_unit` (:100) sets `Unit.id` from `self.key` today; for a group-array collection the id becomes the event, then `:` and the matcher's authored bytes when the group carries one (`PostToolUse:Edit|Write`), while the key stays the bare event \u2014 `hooks.<Event>` is where the group still writes. The matcher is verbatim, never normalized: `Edit|Write` and `Edit, Write` are two groups and two members. The `event` field the key-field branch (:102-:106) surfaces stays the bare event, so the `hook.enum.event` clause still ranges over a documented value. 0063's one refusal lands here: a matcher carrying `/` is refused loud, since the name is a host-address segment and `/` is the nesting separator."
+        "description": "A registration member's NAME parts company with its registration KEY. `to_unit` (:100) sets `Unit.id` from `self.key` today; for a group-array collection the id becomes the event, then `:` and the matcher's authored bytes when the group carries one (`PostToolUse:Edit|Write`), while the key stays the bare event — `hooks.<Event>` is where the group still writes. The matcher is verbatim, never normalized: `Edit|Write` and `Edit, Write` are two groups and two members. The `event` field the key-field branch (:102-:106) surfaces stays the bare event, so the `hook.enum.event` clause still ranges over a documented value. 0063's one refusal lands here: a matcher carrying `/` is refused loud, since the name is a host-address segment and `/` is the nesting separator."
       },
       {
         "path": "src/member_address.rs",
-        "description": "The grammar is UNCHANGED and this entry proves it rather than moving it: `parse_host_address` (:45) already splits at the first colon and the unit test at :252 already pins `rule:a:b` \u2192 `(\"rule\", \"a:b\")`. What lands is the module's own account of the name that now carries one \u2014 the doc at :38-:46 names `hook:<Event>:<matcher>` as the real carrier \u2014 and the `/`-refusal predicate the manifest writer judges a matcher by, beside `is_one_segment` (:75) rather than as a `contains('/')` at the caller."
+        "description": "The grammar is UNCHANGED and this entry proves it rather than moving it: `parse_host_address` (:45) already splits at the first colon and the unit test at :252 already pins `rule:a:b` → `(\"rule\", \"a:b\")`. What lands is the module's own account of the name that now carries one — the doc at :38-:46 names `hook:<Event>:<matcher>` as the real carrier — and the `/`-refusal predicate the manifest writer judges a matcher by, beside `is_one_segment` (:75) rather than as a `contains('/')` at the caller."
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "Where the joined name lands on a composed member: `manifest_units` (:733) builds every registration member's `Unit` through the changed `to_unit`, so the check side's address for a matcher-bearing hook is the joined one. Declared to re-verify and for the fence — no behavior of its own moves. Two members resolving to one address is HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL's, this entry's blocked successor, not this entry's."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "The lift's id and the member's NAME part company here. `lifted_registration` (:2122) sets `LiftedMember.id` off `entry.key`, and `LiftedMember`'s doc (:2067) declares that id both the module's `name` property and its file stem — 0074 makes those two facts: the `name` property carries the joined name, the file stem stays the collection key. Keep the stem on the key. `module_stems` (:2184) already allocates `<key>-2` for a second group on one event, and the `GATE_HOOKS` reservation (:2188) keys on `hook.event`, so temper's own modules hold the fixed `hooks/<Event>.ts` paths 0073's remedy cites. A stem off the joined name would write `.temper/hooks/PostToolUse:Bash.ts`: `:` and `|` are reserved characters in a Windows file name (learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file, retrieved 2026-09-29), `module_stems`' legality check is the platform's own parent-readback (:2196) and passes both on unix, temper ships a win32-x64 engine (`.github/workflows/release.yml`), and the scaffold is committed — so one adopter's emit would not check out on another's machine. What does move beside the stem: `GateHook.event`'s doc (:210) calls the event \"the member's identity\", now the key alone; `hook_claimed_events` (:1059) claims by EVENT and keeps doing so — a claim is per collection key — so the read feeding it comes off the key, not the member name. Out of scope, named not fixed: a manifest key legal on unix and reserved on Windows (an `.mcp.json` server named `a|b`) reaches the same hole with no driver behind it."
       },
       {
         "path": "sdk/src/member-address.ts",
@@ -22,15 +30,15 @@
       },
       {
         "path": "sdk/src/declarations.ts",
-        "description": "`registrationRows` (:936) spells `key: member.name` \u2014 the conflation 0074 breaks. The row's `key` becomes the collection key (the event) while the member's own address keeps the joined name, so `satisfies`/`mention` rows naming a hook re-emit with the matcher and the manifest still writes under `hooks.<Event>`. `tapHookRows` (:975) already dedupes on the (event, matcher) pair, so its rows gain distinct names with no second pass."
+        "description": "`registrationRows` (:936) spells `key: member.name` — the conflation 0074 breaks. The row's `key` becomes the collection key (the event) while the member's own address keeps the joined name, so `satisfies`/`mention` rows naming a hook re-emit with the matcher and the manifest still writes under `hooks.<Event>`. `tapHookRows` (:975) already dedupes on the (event, matcher) pair, so its rows gain distinct names with no second pass."
       },
       {
         "path": "sdk/src/builtins.ts",
-        "description": "`hook()` composes the member's name from its event and matcher rather than taking the event as the whole name, and `tapHookRegistration` (:482) follows. This is what makes the two `PostToolUse` taps (`Skill`, `.*`) two members instead of one address twice \u2014 the self-host collision decision 0063's Context names."
+        "description": "`hook()` composes the member's name from its event and matcher rather than taking the event as the whole name, and `tapHookRegistration` (:482) follows. This is what makes the two `PostToolUse` taps (`Skill`, `.*`) two members instead of one address twice — the self-host collision decision 0063's Context names."
       },
       {
-        "path": "src/install.rs",
-        "description": "`hook_claimed_events` (:1059) claims by EVENT and must keep doing so \u2014 a claim is per collection key, not per member \u2014 so the read that feeds it moves off the member name. `GATE_HOOKS` (:226) and the module stems `module_stems` (:2184) reserves now derive from joined names; the two matcher-bearing gate hooks stop sharing `PostToolUse`."
+        "path": "sdk/src/emit.ts",
+        "description": "`registrationFacts` (:712, imports at :36) folds `registrationRows` and `tapHookRows` into the public `RegistrationFact` view and spells `key: row.key`. The split has to survive that map: the facts keep reporting the collection key (`hooks.<Event>`) while the members behind them carry joined names. Re-verify; the map moves only if the row shape does."
       },
       {
         "path": "examples/base-harness/.temper/lock.toml",
@@ -41,8 +49,20 @@
         "description": "Identity arms: two groups on one event with distinct matchers are two members at distinct addresses; a matcher-less group keeps the bare event; a matcher carrying `/` refuses loud naming the member; the address round-trips through `parse_host_address` with the matcher intact."
       },
       {
+        "path": "tests/it/emit.rs",
+        "description": "`a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_loop` (:695) hand-builds the tap `RegistrationRow` (:706) with `key: \"PostToolUse\"` and a `matcher` field — the arm pinning the row shape the SDK derives. It holds under the split: a hook's joined name is derivable from the row's key plus its `matcher` field, so the wire row gains NO field and neither `sdk/src/generated/RegistrationRow.ts` nor `tests/it/seam_bindings_current.rs` moves. If that derivation does not hold, the entry is mis-derived — leave it and raise an open question rather than widening the seam under an entry that never declared it."
+      },
+      {
+        "path": "tests/it/settings_kind.rs",
+        "description": "Its embedded programs author `hook({ name: \"SessionStart\", … })` (:42, :64) — a matcher-less group, so the name is unchanged; declared because any arm asserting the member's address must now read the joined form where a matcher is present."
+      },
+      {
         "path": "sdk/test/member-address.test.ts",
         "description": "The SDK twin's cases for a `:`-bearing name, mirroring the engine's."
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "The two `PostToolUse` hooks with distinct matchers (:2193-:2194) are the case that stops colliding: assert two distinctly-named members whose registration rows both key `PostToolUse`."
       },
       {
         "path": "tests/it/gauntlet.rs",
@@ -55,14 +75,6 @@
       {
         "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
         "description": "The corpus's emitted lock renders here; rows naming a hook member re-baseline."
-      },
-      {
-        "path": "tests/it/settings_kind.rs",
-        "description": "Its embedded programs author `hook({ name: \"SessionStart\", \u2026 })` (:42, :64) \u2014 a matcher-less group, so the name is unchanged; declared because any arm asserting the member's address must now read the joined form where a matcher is present."
-      },
-      {
-        "path": "sdk/test/emit.test.ts",
-        "description": "The two `PostToolUse` hooks with distinct matchers (:2193-:2194) are the case that stops colliding: assert two distinctly-named members whose registration rows both key `PostToolUse`."
       }
     ]
   },
@@ -78,9 +90,9 @@
     },
     {
       "path": "tests/it/cli.rs",
-      "asserts": "the self-host check stays clean \u2014 this repo's six groups become six distinctly-named members and its committed lock names no hook member, so no `.temper/` re-emit is owed"
+      "asserts": "the self-host check stays clean — this repo's six groups become six distinctly-named members and its committed lock names no hook member, so no `.temper/` re-emit is owed"
     }
   ],
   "acceptance": "cargo test green (the gauntlet snapshots and the regenerated base-harness fixture accepted), `pnpm --dir sdk test` green, cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean.",
-  "notes": "Decision 0074. DATUM against its re-emit consequence: this repo's `.temper/lock.toml` names NO hook member (only 6 event-keyed registration rows, all matchers `/`-free), so nothing here is owed a human `chore(harness):` re-emit \u2014 the only lock that re-emits is the in-fence `examples/base-harness` fixture. Verify that still holds at pick-up. scoped at 079c105e"
+  "notes": "Decision 0074. DATUM: this repo's `.temper/lock.toml` names NO hook member (6 event-keyed registration rows, all matchers `/`-free), so no human `chore(harness):` re-emit is owed — only the in-fence `examples/base-harness` fixture re-emits. Re-cut at the 5866aea3..e9573d2e audit: the install.rs half read `GATE_HOOKS` wrong (its three events are distinct) and would have put a `:` in a module file name. scoped at a60d6a27"
 }

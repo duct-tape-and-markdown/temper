@@ -1,11 +1,13 @@
 {
   "tag": "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT",
-  "gate": { "kind": "open" },
+  "gate": {
+    "kind": "open"
+  },
   "files": {
     "edit": [
       {
         "path": "src/drift.rs",
-        "description": "Emit stamps the engine version that wrote the lock: `write_rollup` (the sole lock writer, :582) writes `crate::VERSION` into the document, and the read side lifts it back. Spell it OUTSIDE the `[declaration]` table — `declarations_from_doc` (:4675) and the embedded `src/builtin_lock.toml` are declaration rows only, and the frozen lane byte-compares exactly those rows. Per 0024's robust read: an older lock carrying no engine key is legitimate absence — `Option`, never a `LockRowError`, never a synthesized value."
+        "description": "Emit stamps the engine version that wrote the lock: `write_rollup` (the sole lock writer, :582) writes `crate::VERSION` into the document, and the read side lifts it back. Spell it OUTSIDE the `[declaration]` table — `declarations_from_doc` (:4675) and the embedded `src/builtin_lock.toml` are declaration rows only, and the frozen lane byte-compares exactly those rows. Per 0024's robust read: an older lock carrying no engine key is legitimate absence — `Option`, never a `LockRowError`, never a synthesized value. Riding this entry, since it opens `write_rollup`'s own doc: that doc (:570) still says the gate side reads the declaration rows \"through [`read_declarations`]\", which stopped being true at 5866aea3 — `gate` derives them from its one parsed document through `declarations_from_doc`, and `read_declarations` is now the other verbs' door (`src/main.rs`, `src/install.rs`, `src/read.rs`, `src/coverage_note.rs`). Correct the cite while in the file."
       },
       {
         "path": "tests/it/emit.rs",
@@ -22,7 +24,10 @@
     ]
   },
   "summary": "The committed lock names the engine version that wrote it; a lock without the key reads as unknown, never as an error.",
-  "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "The lock"
+  },
   "tests": [
     {
       "path": "tests/it/emit.rs",
@@ -34,5 +39,5 @@
     }
   ],
   "acceptance": "cargo test green (the gauntlet snapshot accepted), cargo clippy --all-targets -D warnings clean, and `cargo fmt --all --check` clean.",
-  "notes": "Decision 0069, first consequence. The read face's one consumer is ENGINE-MISMATCH-IS-A-ROOT-CLAUSE, filed with this entry as its blocked successor — the chain is declared up front rather than shipping an export that earns its consumer a tick later. Do not touch `.temper/lock.toml`: the dogfood's lock is harness territory, and its missing key is exactly the legitimate absence this entry must tolerate. scoped at 1c049fae"
+  "notes": "Decision 0069, first consequence. The read face's one consumer is ENGINE-MISMATCH-IS-A-ROOT-CLAUSE, filed with this entry as its blocked successor — the chain is declared up front rather than shipping an export that earns its consumer a tick later. Do not touch `.temper/lock.toml`: the dogfood's lock is harness territory, and its missing key is exactly the legitimate absence this entry must tolerate. scoped at a60d6a27"
 }

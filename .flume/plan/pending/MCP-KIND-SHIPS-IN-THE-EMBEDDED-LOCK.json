@@ -16,7 +16,7 @@
       },
       {
         "path": "src/builtin_lock.rs",
-        "description": "The unit test's closed kind-name list (:102, where `settings` joined) gains `mcp`."
+        "description": "The unit test's closed kind-name list (:102, where `settings` joined) gains `mcp`. Riding this entry as the next opener of the file: the module doc (:5) cites [`crate::drift::read_declarations`] as the door \"the gate already reads\" a committed lock through, which 5866aea3 moved — `gate` reads one parsed document and lifts its rows with `declarations_from_doc`. Name the current door."
       },
       {
         "path": "src/builtin_lock.toml",
@@ -57,7 +57,10 @@
     ]
   },
   "summary": "The engine embeds the `mcp` kind: a bare harness gets `.mcp.json` governed whole, so its residue reaches a row and a hand edit to any part of it is drift.",
-  "per": { "path": "specs/builtins.md", "section": "The shipped kinds" },
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
   "tests": [
     {
       "path": "tests/it/builtin_lock_frozen.rs",
@@ -73,5 +76,5 @@
     }
   ],
   "acceptance": "cargo test green (the three snapshots accepted), cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean, and the regenerated src/builtin_lock.toml passing the frozen byte-compare.",
-  "notes": "Decision 0071, the engine half; 9fcf7521 (the settings twin) is the template for both the regeneration and the fixture re-baseline. Blocked on three tags for file overlap: the SDK kind it embeds, and the two lock-column entries that own src/builtin_lock.toml, the frozen lane and the gauntlet snapshots. The unmodeled-surface advisory goes quiet here but retires in its own entry — this one must not delete it. scoped at 3070b747"
+  "notes": "Decision 0071, the engine half; 9fcf7521 (the settings twin) is the template for both the regeneration and the fixture re-baseline. Blocked on three tags for file overlap: the SDK kind it embeds, and the two lock-column entries that own src/builtin_lock.toml, the frozen lane and the gauntlet snapshots. The unmodeled-surface advisory goes quiet here but retires in its own entry — this one must not delete it. scoped at a60d6a27"
 }
