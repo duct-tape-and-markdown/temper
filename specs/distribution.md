@@ -23,7 +23,9 @@ program, riding the lock or embedded in the engine — none can drift.
    re-derives it from the module and byte-compares. The normative property
    is **no-runtime checking**: every placement consumes committed artifacts
    plus the lock, offline, with no language runtime — the implementation
-   language (Rust today) is non-normative.
+   language (Rust today) is non-normative. Its version string is the release
+   tag's, identical in every build of that tag and in every artifact it
+   stamps; build provenance rides the long `--version` form alone.
 3. **The plugin** — a bundle produced by `temper bundle`, publishable with a
    `marketplace.json`: the **skill** plus the **`SessionStart` hook**. The
    skill teaches mechanics — when to `install` / `emit` / `check`, how to

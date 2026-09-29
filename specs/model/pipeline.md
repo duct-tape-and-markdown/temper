@@ -55,7 +55,9 @@ declares, and the locks the invocation joins; no verb compiles a committed
 declaration row anywhere else. Two row families: **provenance** — per member,
 source path plus content hash, and the byte hash of each emitted artifact:
 the fingerprints drift compares — and **declaration rows** — the program's
-erased declarations and the rows emit derives from layout sources. In
+erased declarations and the rows emit derives from layout sources. The
+lock also names the engine version that wrote it, and a gate run by a
+different engine says so, at its clause's declared severity. In
 declaration rows, identity is a compiled label written once at emit; the
 engine treats labels as opaque and never resolves a collision — two rows
 wearing one label is a malformed lock, rejected at admissibility.

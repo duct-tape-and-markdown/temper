@@ -33,10 +33,12 @@ The type of a member. A kind declares
   contents, fingerprinted and refusing when dangling), a field section (a
   heading whose span fills a named slot — intent among them), and a member
   collection (a heading whose child headings are each one member of a named
-  kind; identity is the slugged heading, an explicit key survives
-  retitling). A field section the kind marks as an edge field declares the
-  member's edges — `satisfies` among them — and its entries are addresses.
-  A layout admits no syntax beyond markdown's own and has one
+  kind; identity is the slugged heading, so a retitle without an explicit
+  key is a delete and a create). A field section the kind marks as an edge
+  field declares the member's edges — `satisfies` among them — and its
+  entries are addresses. A lone leading heading is the document's title:
+  its span is the document's own `prose`, and the regions bind to its child
+  headings. A layout admits no syntax beyond markdown's own and has one
   face — the reader: the document is the authored home, read, never
   regenerated. What does not fit the three primitives is two kinds, or it
   is prose. A layout's regions state what may appear, never what must: a
@@ -67,15 +69,15 @@ The type of a member. A kind declares
   reference is true by construction, and instance prose never spells its
   target. A format that omits an edge its kind declares renders a contract
   the prose does not represent; that check is a clause. A member embedded
-  in a layout document has
-  no format of its own: it is read off the host's declared layout — source,
-  never projection.
+  in a layout document has no format of its own: it is read off the host's
+  declared layout — source, never projection.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
 
 A kind is data, never code; its extractor is composed from that data. Kind
 identity travels by import, never by string. Built-in and user-declared kinds
-are the same construct — ownership, not privilege (`../builtins.md`).
+are the same construct — ownership, not privilege (`../builtins.md`): a
+corpus kind of a built-in's name replaces the built-in in that harness.
 
 ## locus
 
@@ -87,8 +89,7 @@ Where a member serializes. Three spellings:
   are not. A local member is read-side only (the document is the governed
   source, read at check under whatever format its kind declares; it is
   never an emit input or target — emit's codomain is the committed tree,
-  `pipeline.md`) and its members' rows never enter the lock, deriving at
-  read time instead (decisions 0032, 0034),
+  `pipeline.md`) and its rows never enter the lock, deriving at read time,
 - **embedded** — the member lives inside its parent's body, addressed per
   the parent's format; like any locus with no file of its own, an embedded
   member loads through its host, never on its own, so it registers
@@ -125,10 +126,9 @@ declaration (`../builtins.md`).
 
 The harness itself is a member — the root of the forest. Its kind's template
 names the top layers (`.claude/`, the memory files, settings), and the
-contract attaches to it the way a contract attaches to any member. Harness-
-wide declarations are its fields — the enforcement mode among them —
-overridable per member. There is no container above the forest; it is
-members all the way down.
+contract attaches to it as to any member. Harness-wide declarations are its
+fields — the enforcement mode among them — overridable per member. There is
+no container above the forest: it is members all the way down.
 
 ## Reach
 
@@ -142,9 +142,9 @@ members all the way down.
 - Claude Code's artifact levels — user, project, project-local, enterprise —
   are peer forests of one shape, merged at runtime by the surface per
   documented, cited per-kind precedence. temper governs the project forest,
-  including the local-locus members its committed kinds declare (decision
-  0034, and `adoption.md` for the discovery override); another level is
-  another target path, never a model change.
+  including the local-locus members its committed kinds declare
+  (`adoption.md`, the discovery override); another level is another target
+  path, never a model change.
 - The engine is corpus-generic — any corpus of authored artifacts can be
   modeled as members and gated — but exactly one governed corpus ships: the
   harness. A second corpus is a feature, never a founding assumption.

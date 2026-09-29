@@ -27,7 +27,9 @@ fingerprints. Both are declared edges (`contract.md`), a path reference
 resolves relative to the module that states it, never the workspace, and
 every other word is just a word. A member may also declare **inputs**:
 files its claims rest on, fingerprinted by the lock like an include's
-target and moved nowhere — no bytes reach the projection.
+target and moved nowhere — no bytes reach the projection. A committed file
+temper does not write joins the roster this way: a member whose record
+temper writes, declaring the file as its input.
 
 ## Layers
 
@@ -59,4 +61,5 @@ travel by name, the joined clauses range over the host's selections, and the
 lock stays the one interchange. Whoever owns the invocation owns the top of
 the stack; org authority is the org's pipeline definition. A joined lock that
 fails admissibility fails the check, fail-closed. `check` announces every
-active local member, every dialed clause, and every joined lock.
+active local member, every dialed clause, every joined lock, and the
+harness root it resolved where that differs from the path it was given.

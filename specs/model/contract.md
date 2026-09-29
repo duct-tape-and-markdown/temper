@@ -15,7 +15,8 @@ of three loci:
   multi-element set requires the kind-qualified address always — resolution
   depends on the written text, never the member population,
 - an **import directive** — a reference the target format itself executes
-  (a memory file's `@path` import), resolved by path,
+  (a memory file's `@path` import), resolved by path; a file an import
+  reaches carries the directives its format executes, whatever its kind,
 - a **satisfies entry** — an edge whose target is a requirement member.
 
 A field-declared edge may also claim a **rendered position** in its member's
@@ -137,8 +138,7 @@ The only fixed checks — preconditions of judging, never opinions:
 - **acyclicity** — the import relation is well-founded; a cyclic graph makes
   evaluation itself ill-defined.
 
-The boundary is sharp: if anyone could ever want to dial a check's severity,
-it is a clause, not well-formedness.
+If anyone could ever want to dial a check's severity, it is a clause.
 
 ## Read verbs
 

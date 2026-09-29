@@ -7,11 +7,13 @@ uses: ownership, not privilege. temper maintains them because the formats are
 external and evolving — a skill's shape is the harness's truth, not the
 author's to invent — and the author adopts them by import. Kind identity
 travels by import, never by string: two providers are two modules, so
-collision is impossible and no name-qualification scheme exists.
+collision is impossible and no name-qualification scheme exists. One
+harness holds one kind per name: a corpus kind of a built-in's name
+replaces the built-in there.
 
 ## The shipped kinds
 
-Thirteen kinds ship. Nine are file members:
+Fourteen kinds ship. Ten are file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. Its
@@ -24,7 +26,7 @@ Thirteen kinds ship. Nine are file members:
   admission where richer typing is wanted. The template claims the
   directory's markdown documents — the honest subset the prose-only kind
   can hold; supporting files of other types remain unmodeled and are named
-  as such, the `settings.json` partial-governance posture.
+  as such.
 - **command** — the skill surface's legacy file placement (Claude Code
   merged commands into skills; code.claude.com/docs/en/skills, retrieved
   2026-07-07): a lone markdown file, the skill's field schema by import,
@@ -74,7 +76,14 @@ Thirteen kinds ship. Nine are file members:
   renders whole (code.claude.com/docs/en/settings, retrieved 2026-09-22;
   decision 0050).
 
-The two manifest kinds, `settings`, and `settings-local` sit outside the
+- **mcp** — the committed `.mcp.json` as a whole, a JSON document at the
+  committed commitment class, singleton identity from its documented path.
+  `mcpServers`, its one documented key, is the **mcp-server** collection
+  address; any other key is residue, opaque and named, and the member's
+  byte fingerprint makes a hand edit to any part of the file drift
+  (code.claude.com/docs/en/mcp, retrieved 2026-09-29).
+
+The two manifest kinds, `settings`, `mcp`, and `settings-local` sit outside the
 domain partition below: distribution metadata and machine configuration,
 never authored session content (decisions 0031, 0036, 0050).
 
@@ -82,8 +91,11 @@ Four are registration members — fields-only entries a manifest carries at
 a collection address, never files of their own (`model/representation.md`,
 "Reach"):
 
-- **hook** — one handler registration under `settings.json`'s
-  `hooks.<Event>`; its channel is the documented event.
+- **hook** — one matcher group under `settings.json`'s `hooks.<Event>`,
+  carrying one or more handlers; identity is the event plus the matcher,
+  a matcher-less group taking the bare event, so two members with one
+  identity are a malformed lock; its channel is the documented event
+  (code.claude.com/docs/en/hooks, retrieved 2026-09-29).
 - **mcp-server** — one connection under `.mcp.json`'s `mcpServers`; its
   channel is the connection.
 - **installed-plugin** — one enablement entry under `settings.json`'s
@@ -166,7 +178,9 @@ clause set adopted by the same import that adopts the kind. Adoption is a
 choice, extension is a spread, overriding is array surgery in the language
 the author already writes — no layering rules, no precedence table. A
 project's clause array is the same type as the shipped one; the built-ins are
-first-party instances of it, never a privileged form.
+first-party instances of it, never a privileged form. An empty array is a
+declared contract with no clauses: the default applies only where nothing
+is declared.
 
 The stance every shipped default contract holds:
 
