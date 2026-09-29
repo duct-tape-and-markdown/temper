@@ -586,9 +586,11 @@ tax.
   objection (c) must answer: `(lazy-grounds)` already parks "resolve an
   address by stat rather than materialize a set" under the 0035 evidence bar,
   so ruling (c) here rules half of that fork's mechanism with no field driver
-  — the two are ruled together or (c) waits. No dependents:
-  DIRECTIVE-BACKING-WALK-IS-PINNED-BY-COUNT ships the missing count pin under
-  today's shape either way, and makes any ruling's effect on the walk visible.
+  — the two are ruled together or (c) waits. No dependents: the count pin
+  shipped (c4a99757), so the walk's invocation count is now pinned at 1 per
+  run — every candidate here moves that pinned number ((c) takes it to 0 where
+  no root `reachable` clause binds), and the pin is what makes the move
+  visible.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
