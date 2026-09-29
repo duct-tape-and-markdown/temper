@@ -28,11 +28,12 @@ hard.
 
 ## Next session's one focus (09-23, post-cut)
 
-- **Rotation-close focus (09-28, John):** a paragraph in
-  `.flume/prompts/plan.md` limits audit follow-ups to correctness gaps until
-  the posture rotation closes (`src/drift.rs`, `src/glob.rs` left); remove
-  it when `Posture swept through:` names a commit. The run is capped
-  (`--max 12`).
+- **Rotation closed (09-28):** the posture rotation armed at 7d695577
+  closed at dbbb62e1; the loop was stopped after that wave rather than let
+  the sweep re-arm over 7d695577..HEAD. Relaunching starts that new
+  rotation — a choice, not a default. Next human work: the 19 open forks
+  (INSTALL-LIFTS waits on `(hook-member-identity)`), the consumer's
+  cross-program join, the harness migration.
 - **09-25 session (this machine):** loop set up here and ran; the report
   work shipped and the sweep hold came and went. Stopped with the stop flag
   on a usage cap; remove it to relaunch. Open: the cross-program member

@@ -164,14 +164,6 @@ rule on a digest line.
    administering discipline is the `posture-sweep` rule, loading when
    you read the posture pages — this prompt remembers nothing.
 
-**Operator focus — close the rotation.** While this paragraph stands, the
-audit motion files an entry only for a correctness gap: a wrong verdict or
-message, a test that asserts nothing, a guard or check lost, a measured cost
-regression. Any other residue it finds (visibility, a leftover copy, naming)
-is recorded as `debt` in the commit body and not filed. The residue sweep and
-the posture sweep file as usual. A human removes this paragraph when
-`Posture swept through:` names a commit.
-
 **Closing the tick.** Every job ends, in the same tick, with the closing
 checklist its commit rides on: the queue is disjoint, every gate reason
 still true, `state.md` re-derived. Quiet is a verdict, never a job — when a
