@@ -1,0 +1,58 @@
+{
+  "tag": "HOOK-AUTHORS-ITS-HANDLERS",
+  "gate": { "kind": "blockedBy", "tags": ["HOOK-GROUP-IS-ONE-MEMBER-WITH-HANDLERS"] },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "`hook()` composes handler members: the authored value carries the group's own fields plus its ordered handlers, so one call mints one group however many handlers it fires. `tapHookRegistration` (:482) composes a single-`command` handler instead of a flat field triple — its `type`/`command` move inside the handler, its `matcher` stays the group's. The `Hook`/`Handler` split the predecessor landed is what this consumes; neither interface moves again."
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "`tapHookRows` (:975) and `registrationRows` stop being two independent row sources at one collection address: a tap hook whose (event, matcher) an authored group already claims JOINS that group as a further handler rather than minting a second registration row — decision 0075's own consequence, and the fix for this repo's two `PostToolUse` taps (`Skill` and `.*`). The existing dedupe key (:976, :981) already keys on the pair, so the join is over the merged set, not a second pass."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "The gate lift mints temper's own gate as `hook` members (`GATE_HOOKS`, :226, three groups): `gate_hook_fields` (:2355) now returns a group's fields plus its one handler, the `harness.ts` composition (:2311-:2320) writes the handler shape, and `module_stems` (:2184) reserves stems against the group grain. `gate_hooks_wired` (:905) and `event_has_command` (:2004) already walk each event's matcher groups, so re-verify rather than rewrite them; `hook_claimed_events` (:1059) claims by event and is unaffected until the address entry."
+      },
+      {
+        "path": "src/tap.rs",
+        "description": "Re-verify only, and fix what moved: the tap reads a live Claude Code payload (`classify_claude_code_hook_payload`, :252) rather than a member, so nothing here depends on the grain — declared so the entry may correct a doc-comment or a fixture that spells the old per-handler member shape."
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "The lift's arms assert the projected `.claude/settings.json` and the composed `harness.ts`; both re-baseline to one group carrying one handler per `GATE_HOOKS` entry."
+      },
+      {
+        "path": "tests/it/hook_kind.rs",
+        "description": "The authoring half's twin of the read arms: a `hook()` authoring two handlers emits one registration row and projects one group carrying both."
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "The `hook()` authoring cases and the tap-registration case move to the handler-composing shape."
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "The registration-row cases: one row per group, and a tap hook joining an authored group at the same (event, matcher) rather than appearing twice."
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
+        "description": "Declared for the fence — the corpus's projected settings.json and lock render here. Re-baseline if the run moves a byte."
+      }
+    ]
+  },
+  "summary": "The SDK authors a hook as a group of handlers, and tap synthesis joins an authored group at the same (event, matcher) instead of minting a second.",
+  "per": { "path": "specs/model/authoring.md", "section": "The SDK" },
+  "tests": [
+    {
+      "path": "sdk/test/emit.test.ts",
+      "asserts": "a `hook()` carrying two handlers emits one registration row, and a tap hook whose (event, matcher) an authored group already claims joins it as a further handler rather than emitting a second row"
+    },
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "the gate lift projects each of temper's three gate hooks as one matcher group carrying one handler, and re-running install is still idempotent"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` green (strict tsc included), cargo test green, cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean.",
+  "notes": "Decision 0075's second consequence bullet, the authoring side. Split from the engine grain because the two are independently coherent: while the SDK still emits one single-handler group per row, the engine reads exactly that back. 0073 (a gate hook is the author's member) is unrouted and lands on these same install.rs surfaces — route it onto this entry, not beside it. scoped at 079c105e"
+}
