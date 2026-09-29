@@ -18,6 +18,7 @@ use std::process::Command;
 use crate::common;
 
 use temper::check::{Announcement, Diagnostic};
+use temper::drift::{BoundRow, ClauseRow, Declarations, SatisfiesRow};
 use temper::reporter::{self, ADDITIONAL_CONTEXT_CAP};
 
 /// The binary under test, located by Cargo at compile time.
@@ -59,6 +60,25 @@ fn run_session_start(harness: &Path) -> (bool, serde_json::Value) {
         )
     });
     (run.ok, payload)
+}
+
+/// The `additionalContext` of a gate run that must stay quiet, asserted non-vacuous
+/// first: `tally` is the coverage note's own per-kind count (`"rule (1"`), so a test
+/// whose verdict is an *absence* proves the member it judged was walked at all.
+/// Without it the negative assertions below pass over an empty corpus — the vacuity
+/// class `specs/process/engineering.md`, "A green verdict is proven non-vacuous",
+/// names, and the one a lock declaring nothing lands the gate in.
+fn checked(hook: &serde_json::Value, tally: &str) -> String {
+    let context = hook["additionalContext"]
+        .as_str()
+        .expect("the coverage note rides additionalContext on every run")
+        .to_string();
+    assert!(
+        context.contains(tally),
+        "the gate must have judged the member this case rests on ({tally}) — a quiet \
+         verdict over zero members proves nothing; got:\n{context}"
+    );
+    context
 }
 
 #[test]
@@ -115,12 +135,11 @@ fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
 
 #[test]
 fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
-    // The inbox false positive, repro'd: a harness carrying the lock's declared
-    // `required` requirement plus a `[[declaration.satisfies]]` row hand-edited onto
-    // the committed lock (the real SDK-emit shape a converted harness carries) must
-    // emit ZERO blocking findings at session-start — session-start itself never
-    // re-imports, so the lock-declared row is the sole source naming the member as a
-    // filler.
+    // The inbox false positive, repro'd: a harness whose committed lock declares a
+    // `required` requirement plus the `satisfies` row filling it (the real SDK-emit
+    // shape a converted harness carries) must emit ZERO blocking findings at
+    // session-start — session-start itself never re-imports, so the lock-declared row
+    // is the sole source naming the member as a filler.
     let harness = common::tmpdir("authored-surface-src");
 
     // The committed landscape file a prior `import` would have discovered — the gate
@@ -143,20 +162,21 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     // The gate reads the assembly's requirements, and each member's `satisfies` fill,
     // off the lock's declaration rows — the fixture stands in for a prior `import`
     // having already written both — session-start itself still never re-imports.
-    let temper_dir = harness.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.requirement]]\n\
-         name = \"engineering-standards\"\n\
-         kind = \"rule\"\n\
-         required = true\n\
- \n\
-         [[declaration.satisfies]]\n\
-         member = \"rust\"\n\
-         requirement = \"engineering-standards\"\n",
-    )
-    .unwrap();
+    common::write_lock(
+        &harness,
+        Declarations {
+            requirements: vec![common::requirement(
+                "engineering-standards",
+                true,
+                Some("rule"),
+            )],
+            satisfies: vec![SatisfiesRow {
+                member: "rust".to_string(),
+                requirement: "engineering-standards".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
 
     let (ok, payload) = run_session_start(&harness);
 
@@ -165,13 +185,11 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     assert!(ok, "the session-start gate must exit zero");
     let hook = &payload["hookSpecificOutput"];
     assert_eq!(hook["hookEventName"], "SessionStart");
-    let context = hook["additionalContext"].as_str();
-    if let Some(ctx) = context {
-        assert!(
-            !ctx.contains("approval before continuing"),
-            "the lock-declared `satisfies` must fill the requirement ⇒ no blocking verdict, got: {ctx}"
-        );
-    }
+    let context = checked(hook, "rule (1");
+    assert!(
+        !context.contains("approval before continuing"),
+        "the lock-declared `satisfies` must fill the requirement ⇒ no blocking verdict, got: {context}"
+    );
 }
 
 #[test]
@@ -185,33 +203,27 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
     // member is walked and counted, and the run stays quiet.
     let harness = common::tmpdir("custom-kind-lock-src");
 
-    let temper_dir = harness.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.kind]]\n\
-         name = \"spec\"\n\
-         governs_root = \"specs\"\n\
-         governs_glob = \"*.md\"\n\
- \n\
-         [[declaration.clause]]\n\
-         label = \"spec.extent\"\n\
-         kind = \"spec\"\n\
-         predicate = \"extent\"\n\
-         severity = \"advisory\"\n\
-         bound = { max = 20 }\n\
-         unit = \"lines\"\n\
- \n\
-         [[declaration.requirement]]\n\
-         name = \"spec-coverage\"\n\
-         kind = \"spec\"\n\
-         required = true\n\
- \n\
-         [[declaration.satisfies]]\n\
-         member = \"00-intent\"\n\
-         requirement = \"spec-coverage\"\n",
-    )
-    .unwrap();
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            clauses: vec![ClauseRow {
+                kind: Some("spec".to_string()),
+                bound: Some(BoundRow {
+                    min: None,
+                    max: Some(20),
+                }),
+                unit: Some("lines".to_string()),
+                ..common::clause("extent", "advisory")
+            }],
+            requirements: vec![common::requirement("spec-coverage", true, Some("spec"))],
+            satisfies: vec![SatisfiesRow {
+                member: "00-intent".to_string(),
+                requirement: "spec-coverage".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
 
     // The real member on disk, at the lock-declared `governs` locus — the gate walks
     // this straight off the harness, exactly as it does a built-in's members. Its
@@ -226,14 +238,12 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
     assert!(ok, "the session-start gate must exit zero");
     let hook = &payload["hookSpecificOutput"];
     assert_eq!(hook["hookEventName"], "SessionStart");
-    let context = hook["additionalContext"].as_str();
-    if let Some(ctx) = context {
-        assert!(
-            !ctx.contains("approval before continuing"),
-            "a lock-synthesized custom kind's requirement must resolve with no blocking \
-             finding, got: {ctx}"
-        );
-    }
+    let context = checked(hook, "spec (1");
+    assert!(
+        !context.contains("approval before continuing"),
+        "a lock-synthesized custom kind's requirement must resolve with no blocking \
+         finding, got: {context}"
+    );
 }
 
 #[test]
@@ -244,23 +254,18 @@ fn a_custom_kinds_required_floor_clause_blocks_a_violating_member() {
     // blocking finding — proof that conformance runs, not just that resolution does.
     let harness = common::tmpdir("custom-kind-floor-src");
 
-    let temper_dir = harness.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.kind]]\n\
-         name = \"spec\"\n\
-         governs_root = \"specs\"\n\
-         governs_glob = \"*.md\"\n\
- \n\
-         [[declaration.clause]]\n\
-         label = \"spec.required.owner\"\n\
-         kind = \"spec\"\n\
-         predicate = \"required\"\n\
-         field = \"owner\"\n\
-         severity = \"required\"\n",
-    )
-    .unwrap();
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            clauses: vec![ClauseRow {
+                kind: Some("spec".to_string()),
+                field: Some("owner".to_string()),
+                ..common::clause("required", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
 
     // The on-disk member never declares `owner` — a real violation of the lock's own
     // custom-kind floor clause.
@@ -294,16 +299,17 @@ fn the_install_wired_session_start_command_gates_the_full_declared_model() {
     let harness = common::tmpdir("install-wired-src");
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
 
-    let temper_dir = harness.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.requirement]]\n\
-         name = \"engineering-standards\"\n\
-         kind = \"skill\"\n\
-         required = true\n",
-    )
-    .unwrap();
+    common::write_lock(
+        &harness,
+        Declarations {
+            requirements: vec![common::requirement(
+                "engineering-standards",
+                true,
+                Some("skill"),
+            )],
+            ..Declarations::default()
+        },
+    );
 
     // Drive the exact command `install` wires into the SessionStart hook, from the
     // harness root Claude Code runs it in. The command includes shell syntax (for the
