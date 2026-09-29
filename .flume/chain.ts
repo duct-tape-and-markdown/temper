@@ -529,6 +529,10 @@ const BUILD_SURFACE_PATHS = [
   // tests/it/seam_bindings_current.rs, re-blessed by a build that changes the
   // source they derive from. One fence miss on 2026-09-07 was these alone.
   "sdk/src/generated/**",
+  // A shipped example's committed lock is the same shape again: emitted, then
+  // byte-compared against the example's own emit, so any change to what emit
+  // writes re-blesses it. Four fence misses on 2026-09-29 were this path.
+  "examples/*/.temper/lock.toml",
 ];
 
 /** Prefix forms of the channel globs, for the ship predicate's path test. */
