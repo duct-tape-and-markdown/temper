@@ -546,8 +546,11 @@ pub fn gate(
 
     // Every dial site has run, so `dialed` is final and the three thirds are all in hand:
     // what judged this run beyond the committed harness, assembled here rather than
-    // re-derived by whichever reporter renders it.
+    // re-derived by whichever reporter renders it. The resolved root is left empty — the
+    // gate is handed the workspace and the harness root, never the spelling the
+    // invocation used, so divergence is the caller's to judge (`main::harness_diagnostics`).
     let announcement = check::Announcement {
+        harness_root: None,
         local_members,
         dialed_clauses: dialed.into_iter().collect(),
         joined_locks,

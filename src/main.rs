@@ -880,6 +880,12 @@ fn resolve_harness_path(path: &Path) -> miette::Result<HarnessPath> {
 /// corpus that lives beside it — declared requirements arriving with nothing behind
 /// them, so every one of them false-fires `requirement.unfilled`.
 ///
+/// That re-rooting is the one answer whose root is not the path the invocation gave, so
+/// it is the one that reaches [`check::Announcement::harness_root`]: this is the only
+/// site holding both spellings, and the comparison lives here rather than in the gate,
+/// which is handed the resolved pair and cannot see what it diverged from
+/// (`specs/model/authoring.md`, "Layers").
+///
 /// # Errors
 ///
 /// As [`resolve_harness_path`].
@@ -891,9 +897,14 @@ fn harness_diagnostics(
     harness_path: &Path,
     layers: &[PathBuf],
 ) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
-    match resolve_harness_path(harness_path)? {
-        HarnessPath::Root { workspace, .. } => gate::gate(&workspace, harness_path, layers),
-        HarnessPath::Workspace { enclosing } => gate::gate(harness_path, &enclosing, layers),
-        HarnessPath::Raw => gate::gate(harness_path, harness_path, layers),
+    let (workspace, root) = match resolve_harness_path(harness_path)? {
+        HarnessPath::Root { workspace, .. } => (workspace, harness_path.to_path_buf()),
+        HarnessPath::Workspace { enclosing } => (harness_path.to_path_buf(), enclosing),
+        HarnessPath::Raw => (harness_path.to_path_buf(), harness_path.to_path_buf()),
+    };
+    let (diagnostics, mut announcement) = gate::gate(&workspace, &root, layers)?;
+    if root != harness_path {
+        announcement.harness_root = Some(root.display().to_string());
     }
+    Ok((diagnostics, announcement))
 }

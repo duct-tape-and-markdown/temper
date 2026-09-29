@@ -217,9 +217,9 @@ fn context(diagnostics: &[Diagnostic], announcement: &Announcement) -> Option<St
         ));
     }
     if !announcement.is_empty() {
-        // "temper judged by inputs the committed harness does not carry:" — the
-        // heading is written to take a subject, so the block reads as a sentence to
-        // the agent this lands in front of.
+        // "temper judged this run by more than the committed harness the invocation
+        // named:" — the heading is written to take a subject, so the block reads as a
+        // sentence to the agent this lands in front of.
         out.push_str("temper ");
         out.push_str(announcement.render().trim_end());
         out.push_str("\n\n");
@@ -279,9 +279,8 @@ fn cap(text: &str) -> String {
 /// (docs.oasis-open.org/sarif/sarif/v2.1.0/os/sarif-v2.1.0-os.html, retrieved 2026-07-20).
 const SARIF_VERSION: &str = "2.1.0";
 
-/// The `title=` an announcement's `::notice` line carries — the one title for all
-/// three families, so a workflow filtering the announcement out of its log spells
-/// one name.
+/// The `title=` an announcement's `::notice` line carries — the one title for every
+/// family, so a workflow filtering the announcement out of its log spells one name.
 const ANNOUNCE_TITLE: &str = "temper.announce";
 
 /// Render the diagnostic set as GitHub Actions workflow-command lines — one
@@ -332,8 +331,10 @@ pub fn github(diagnostics: &[Diagnostic], announcement: &Announcement) -> String
 /// [`Severity`] to `level` (`error` / `warning` / `note`), and the artifact to a
 /// `locations` `artifactLocation.uri`. The [`Announcement`] rides the run's
 /// `properties` bag — SARIF's own home for a tool-specific fact about the run,
-/// which is what an announced input is: it names what judged these results rather
-/// than being one. The bag is absent entirely when there is nothing to announce.
+/// which is what an announcement is: it names what judged these results rather
+/// than being one. The bag is absent entirely when there is nothing to announce, and
+/// `harnessRoot` is absent from it unless the run resolved a root the invocation did
+/// not name.
 /// Built through `serde_json`, so every field is escaped correctly and the log is
 /// valid JSON by construction. Purely a presentation of the shared diagnostic set
 /// — it re-judges nothing, so the gate's verdict is untouched.
@@ -367,11 +368,18 @@ pub fn sarif(diagnostics: &[Diagnostic], announcement: &Announcement) -> String 
         "results": results,
     });
     if !announcement.is_empty() {
-        run["properties"] = json!({
+        let mut properties = json!({
             "localMembers": announcement.local_members,
             "dialedClauses": announcement.dialed_clauses,
             "joinedLocks": announcement.joined_locks,
         });
+        // The root keys in only when the run re-rooted. A `null` under the key would be
+        // a claim of its own — that the fact was looked for and came back empty — where
+        // the ordinary run simply read the root it was handed.
+        if let Some(root) = &announcement.harness_root {
+            properties["harnessRoot"] = json!(root);
+        }
+        run["properties"] = properties;
     }
 
     let log = json!({
@@ -558,6 +566,7 @@ mod tests {
     #[test]
     fn a_clean_run_still_announces_what_judged_it() {
         let announcement = Announcement {
+            harness_root: Some("/repo".to_string()),
             local_members: vec!["dial:workstation".to_string()],
             dialed_clauses: vec!["skill.extent".to_string()],
             joined_locks: vec!["/org/lock.toml".to_string()],
@@ -567,6 +576,7 @@ mod tests {
             .as_str()
             .expect("an announced run carries additionalContext whatever its verdict");
 
+        assert!(context.contains("harness root: /repo"));
         assert!(context.contains("local member: dial:workstation"));
         assert!(context.contains("dialed clause: skill.extent"));
         assert!(context.contains("joined lock: /org/lock.toml"));

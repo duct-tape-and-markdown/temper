@@ -16,7 +16,8 @@
 //! Third, also at the CLI, the **announcement**: a run judged by an input the
 //! committed harness does not carry names it — every active local member, every
 //! dialed clause, every joined lock — and a run judged by the committed harness
-//! alone says nothing extra.
+//! alone says nothing extra. The resolved harness root rides the same channel where
+//! it is not the path the invocation named, keyed as its own family on every face.
 
 use crate::common;
 
@@ -149,6 +150,38 @@ fn both_reporters_are_pure_presentations_of_the_diagnostic_set() {
             .len(),
         0,
         "no diagnostics ⇒ no results"
+    );
+}
+
+#[test]
+fn sarif_keys_the_resolved_harness_root_and_omits_it_when_the_run_stayed_put() {
+    let announcement = Announcement {
+        harness_root: Some("/repo".to_string()),
+        joined_locks: vec!["/org/lock.toml".to_string()],
+        ..Default::default()
+    };
+    let log: serde_json::Value = serde_json::from_str(&reporter::sarif(&[], &announcement))
+        .expect("an announced SARIF log is valid JSON");
+    let properties = &log["runs"][0]["properties"];
+    assert_eq!(
+        properties["harnessRoot"], "/repo",
+        "the resolved root rides its own properties key, never folded into another \
+         family; got:\n{properties}"
+    );
+    assert_eq!(properties["joinedLocks"][0], "/org/lock.toml");
+
+    // The same bag over a run that read the root it was given: the key is absent, not
+    // null — an announcement is only ever something to say.
+    let announcement = Announcement {
+        joined_locks: vec!["/org/lock.toml".to_string()],
+        ..Default::default()
+    };
+    let log: serde_json::Value =
+        serde_json::from_str(&reporter::sarif(&[], &announcement)).unwrap();
+    let properties = &log["runs"][0]["properties"];
+    assert!(
+        properties.get("harnessRoot").is_none(),
+        "no re-rooting ⇒ no key; got:\n{properties}"
     );
 }
 

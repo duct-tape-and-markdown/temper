@@ -238,15 +238,22 @@ impl miette::Diagnostic for Diagnostic {
     }
 }
 
-/// The inputs that judged a run beyond the committed harness — the three uncommitted-or-
-/// joined families, named so a verdict can never rest on something content review never
-/// saw without saying so.
+/// What judged a run beyond the committed harness the invocation named — the three
+/// uncommitted-or-joined families, plus the harness root when that is not the path the
+/// invocation gave. Named so a verdict can never rest on something content review never
+/// saw, nor on a tree other than the one it was asked about, without saying so.
 ///
 /// Assembled once by the gate and rendered by every reporter. Empty is the ordinary case:
 /// a harness with no local member, no dial entry that reached a clause, and no joined
-/// lock was judged by its committed lock alone, and there is nothing to announce.
+/// lock, addressed by the root it was given, was judged by its committed lock alone, and
+/// there is nothing to announce.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Announcement {
+    /// The harness root the run resolved, when that is **not** the path the invocation
+    /// gave — a workspace argument gates against the root enclosing it, so the verdict
+    /// came from a tree the argument never spelled. `None` is the ordinary case: the
+    /// path given *is* the root read, and a root nobody re-rooted is nothing to say.
+    pub harness_root: Option<String>,
     /// Every active local member, by the `<kind>:<id>` address its findings name it by.
     pub local_members: Vec<String>,
     /// Every clause the dial re-weighed, by the address the dial entry spelled. An entry
@@ -258,6 +265,9 @@ pub struct Announcement {
     pub joined_locks: Vec<String>,
 }
 
+/// The family label of the announced [`Announcement::harness_root`].
+const HARNESS_ROOT: &str = "harness root";
+
 /// The family label of an announced [`Announcement::local_members`] entry.
 const LOCAL_MEMBER: &str = "local member";
 
@@ -268,31 +278,39 @@ const DIALED_CLAUSE: &str = "dialed clause";
 const JOINED_LOCK: &str = "joined lock";
 
 /// The sentence that leads a rendered announcement.
-const ANNOUNCEMENT_HEADING: &str = "judged by inputs the committed harness does not carry:";
+const ANNOUNCEMENT_HEADING: &str =
+    "judged this run by more than the committed harness the invocation named:";
 
 impl Announcement {
     /// Whether nothing was announced — the run was judged by the committed harness alone.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.local_members.is_empty()
+        self.harness_root.is_none()
+            && self.local_members.is_empty()
             && self.dialed_clauses.is_empty()
             && self.joined_locks.is_empty()
     }
 
-    /// Every announced input as a `(family, name)` pair, in layer-stack order: the members
-    /// this machine holds, the clauses its dial re-weighed, then the locks the invocation
-    /// joined on top. The one vocabulary every reporter names these inputs by — each
+    /// Every announcement as a `(family, name)` pair: the resolved root first — not a
+    /// layer, but the tree every line under it was read from — then layer-stack order,
+    /// the members this machine holds, the clauses its dial re-weighed, and the locks the
+    /// invocation joined on top. The one vocabulary every reporter names these by — each
     /// reporter chooses the envelope, never the words.
     #[must_use]
     pub fn entries(&self) -> Vec<(&'static str, &str)> {
-        [
-            (LOCAL_MEMBER, &self.local_members),
-            (DIALED_CLAUSE, &self.dialed_clauses),
-            (JOINED_LOCK, &self.joined_locks),
-        ]
-        .into_iter()
-        .flat_map(|(family, names)| names.iter().map(move |name| (family, name.as_str())))
-        .collect()
+        self.harness_root
+            .iter()
+            .map(|root| (HARNESS_ROOT, root.as_str()))
+            .chain(
+                [
+                    (LOCAL_MEMBER, &self.local_members),
+                    (DIALED_CLAUSE, &self.dialed_clauses),
+                    (JOINED_LOCK, &self.joined_locks),
+                ]
+                .into_iter()
+                .flat_map(|(family, names)| names.iter().map(move |name| (family, name.as_str()))),
+            )
+            .collect()
     }
 
     /// The plain-text block: [`ANNOUNCEMENT_HEADING`], then one indented `<family>: <name>`
@@ -374,6 +392,7 @@ mod tests {
     #[test]
     fn render_leads_with_the_announced_inputs() {
         let announcement = Announcement {
+            harness_root: Some("/repo".to_string()),
             local_members: vec!["dial:workstation".to_string()],
             dialed_clauses: vec!["skill.extent".to_string()],
             joined_locks: vec!["/org/lock.toml".to_string()],
@@ -381,6 +400,13 @@ mod tests {
         let rendered = render(&[], &announcement);
 
         assert!(rendered.starts_with(ANNOUNCEMENT_HEADING));
+        // The root leads: every line under it was read from that tree.
+        assert!(
+            rendered
+                .lines()
+                .nth(1)
+                .is_some_and(|line| line.trim() == "harness root: /repo")
+        );
         assert!(rendered.contains("local member: dial:workstation"));
         assert!(rendered.contains("dialed clause: skill.extent"));
         assert!(rendered.contains("joined lock: /org/lock.toml"));
@@ -390,6 +416,12 @@ mod tests {
     fn an_announcement_is_empty_only_when_every_family_is() {
         assert!(Announcement::default().is_empty());
         for announcement in [
+            // A re-rooted run announces that and nothing else, and still renders: the
+            // root is a family of its own, not a decoration on the other three.
+            Announcement {
+                harness_root: Some("/repo".to_string()),
+                ..Default::default()
+            },
             Announcement {
                 local_members: vec!["dial:workstation".to_string()],
                 ..Default::default()
@@ -405,6 +437,7 @@ mod tests {
         ] {
             assert!(!announcement.is_empty());
             assert_eq!(announcement.entries().len(), 1);
+            assert!(announcement.render().starts_with(ANNOUNCEMENT_HEADING));
         }
     }
 }

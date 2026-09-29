@@ -16,7 +16,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use temper::drift::ClauseRow;
+use temper::drift::{ClauseRow, Declarations};
 
 use crate::common;
 
@@ -289,6 +289,39 @@ fn check_resolves_the_nested_temper_for_an_explicit_harness_root() {
     assert!(
         !bare.ok,
         "a bare `check` from the harness root must fail on the same unfilled requirement"
+    );
+}
+
+#[test]
+fn check_announces_the_harness_root_it_resolved_and_stays_quiet_when_it_did_not_move() {
+    // The workspace spelling gates against the root *enclosing* it, never the path it
+    // was handed — so the run says which tree it read, and nobody reads a verdict
+    // without knowing what it was a verdict about. The root spelling of the very same
+    // harness resolves to itself: the common run is the quiet one.
+    let harness = common::tmpdir("announce-resolved-root");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    common::write_lock(&harness, Declarations::default());
+    let workspace = harness.join(".temper");
+
+    let rerooted = common::check_in(
+        Path::new(env!("CARGO_MANIFEST_DIR")),
+        &["--harness", workspace.to_str().unwrap()],
+        None,
+    );
+    let announced = format!("harness root: {}", harness.display());
+    assert!(
+        rerooted.stdout.contains(&announced),
+        "check --harness <root>/.temper gates against the enclosing root, so it must \
+         announce `{announced}`; got:\n{}",
+        rerooted.stdout
+    );
+
+    let at_root = common::check_harness_in(&harness, None);
+    assert!(
+        !at_root.output.contains("harness root:"),
+        "the path given is the root read, so there is no re-rooting to announce; \
+         got:\n{}",
+        at_root.output
     );
 }
 
