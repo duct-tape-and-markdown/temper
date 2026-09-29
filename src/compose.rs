@@ -448,15 +448,15 @@ pub fn kind_narrowing_clause(requirement: &str, kind: &str) -> contract::Clause 
 /// produces, returned together because it all comes off the one read of the one document
 /// set. The rows are the layout reading's half that is not the unit's: a caller deriving
 /// them from the returned units instead would parse every document a second time.
-pub struct KindUnits {
+struct KindUnits {
     /// The kind's members resolved live off disk, in member-id order.
-    pub units: Vec<Unit>,
+    units: Vec<Unit>,
     /// Frontmatter load faults collected during member discovery, rather than aborting.
-    pub load_faults: Vec<crate::check::Diagnostic>,
+    load_faults: Vec<crate::check::Diagnostic>,
     /// The rows the members' documents declare, in the same member-id order — empty for
     /// every kind but a layout one, whose members' collections, verbatim prose regions and
     /// `satisfies` claims lower here ([`drift::lower_layout_reading`]).
-    pub layout_rows: drift::LayoutDocumentRows,
+    layout_rows: drift::LayoutDocumentRows,
 }
 
 /// A kind's resolved units and their extracted features — the corpus of members every
@@ -799,7 +799,7 @@ fn frontmatter_fault_diagnostic(
 /// Returns an error if a source file is unreadable or malformed (non-frontmatter errors),
 /// or a governed directory cannot be enumerated. Frontmatter-specific errors (NoId,
 /// NoNamedFieldId, Malformed) are collected as diagnostics, not propagated.
-pub fn resolve_kind_units(
+fn resolve_kind_units(
     kind: &CustomKind,
     disc: &import::Discovery,
     declarations: &drift::Declarations,

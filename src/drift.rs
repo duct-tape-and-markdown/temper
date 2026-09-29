@@ -2085,7 +2085,7 @@ pub struct LayoutDocumentRows {
 /// # Errors
 /// Returns a [`DriftError`] when the document cannot be read or is not UTF-8, or a
 /// `LayoutError` (as a [`miette::Report`]) when it does not fit its declared layout.
-pub fn read_layout_document(
+fn read_layout_document(
     layout: &Layout,
     kind: &str,
     name: &str,
@@ -2656,7 +2656,7 @@ fn emit_one(
 /// this predicate and [`emit_one`] picks the marker form by it, so the writer and the
 /// marker can never disagree about which artifacts carry frontmatter.
 #[must_use]
-pub fn renders_frontmatter(format: Option<Format>, fields: &[(String, JsonValue)]) -> bool {
+fn renders_frontmatter(format: Option<Format>, fields: &[(String, JsonValue)]) -> bool {
     matches!(format, Some(Format::YamlFrontmatter) | None) && !fields.is_empty()
 }
 
@@ -3489,7 +3489,7 @@ fn layout_source_row(row: &Table) -> Result<LayoutSourceRow, RowError> {
 /// # Errors
 ///
 /// Returns a [`DriftError::LockRow`] if a present row is malformed.
-pub fn layout_sources_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutSourceRow>, DriftError> {
+fn layout_sources_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutSourceRow>, DriftError> {
     let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
         return Ok(Vec::new());
     };
