@@ -1149,19 +1149,52 @@ pub fn messages(diagnostics: &[Diagnostic]) -> Vec<&str> {
     diagnostics.iter().map(|d| d.message.as_str()).collect()
 }
 
+/// An engine [`temper::engine::Selection`] over `selector` binding exactly one clause
+/// on `predicate` at `severity`, optionally teaching through `guidance`, resolved to
+/// `members` — the host every proof that drives a *set* judge over one declared clause
+/// builds. The clause is labelled through [`labelled_clause`], with the owner segment
+/// derived from the selector rather than hand-spelled: [`temper::engine::Selector::Root`]
+/// owns [`temper::contract::ROOT_OWNER`], `Kind(k)` owns `k`.
+///
+/// # Panics
+///
+/// On [`temper::engine::Selector::OptIn`]: a requirement's clause owner is
+/// [`temper::contract::requirement_owner`], a different join, and no proof here binds a
+/// clause to an opt-in selection. A proof needing that owner builds its own selection,
+/// the same fence [`one_clause_admissibility`] states for its locus.
+pub fn one_clause_selection<'a>(
+    selector: temper::engine::Selector,
+    severity: temper::contract::Severity,
+    predicate: temper::contract::Predicate,
+    guidance: Option<&str>,
+    members: Vec<(&'a str, &'a Features)>,
+) -> temper::engine::Selection<'a> {
+    let owner = match &selector {
+        temper::engine::Selector::Kind(kind) => kind.clone(),
+        temper::engine::Selector::Root => temper::contract::ROOT_OWNER.to_string(),
+        temper::engine::Selector::OptIn(requirement) => {
+            panic!("a clause on requirement `{requirement}` owns a different label join")
+        }
+    };
+    temper::engine::Selection {
+        selector,
+        clauses: vec![temper::contract::Clause {
+            guidance: guidance.map(str::to_string),
+            ..labelled_clause(&owner, severity, predicate)
+        }],
+        members,
+    }
+}
+
 /// The root selection binding one `reachable` clause at `required` — the opt-in the
 /// judge locates before it walks anything, and the declaration its findings report
 /// under. `members` stays empty: the predicate ranges over `by_kind`.
 pub fn root_reachable_binding() -> Vec<temper::engine::Selection<'static>> {
-    vec![temper::engine::Selection {
-        selector: temper::engine::Selector::Root,
-        clauses: vec![temper::contract::Clause {
-            label: "root.reachable".to_string(),
-            severity: temper::contract::Severity::Required,
-            predicate: temper::contract::Predicate::Reachable,
-            guidance: None,
-            source: None,
-        }],
-        members: Vec::new(),
-    }]
+    vec![one_clause_selection(
+        temper::engine::Selector::Root,
+        temper::contract::Severity::Required,
+        temper::contract::Predicate::Reachable,
+        None,
+        Vec::new(),
+    )]
 }

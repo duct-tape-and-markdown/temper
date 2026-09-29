@@ -536,7 +536,7 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
 fn the_reached_from_closure_is_opt_in_and_walks_once_per_root_and_via_pair() {
     use std::collections::BTreeMap;
     use temper::compose;
-    use temper::contract::{Clause, Predicate, Severity};
+    use temper::contract::{Predicate, Severity};
     use temper::engine::{Selection, Selector};
     use temper::extract::Features;
     use temper::graph;
@@ -572,20 +572,16 @@ fn the_reached_from_closure_is_opt_in_and_walks_once_per_root_and_via_pair() {
 
     // No `reached-from` clause anywhere: a `count` bound is a selection clause that is
     // not this predicate, so the judge returns on its opt-in guard having walked nothing.
-    let quiet = [Selection {
-        selector: Selector::Kind("skill".to_string()),
-        clauses: vec![Clause {
-            label: "skill.count".to_string(),
-            severity: Severity::Advisory,
-            predicate: Predicate::Count {
-                min: 0,
-                max: usize::MAX,
-            },
-            guidance: None,
-            source: None,
-        }],
-        members: members.clone(),
-    }];
+    let quiet = [common::one_clause_selection(
+        Selector::Kind("skill".to_string()),
+        Severity::Advisory,
+        Predicate::Count {
+            min: 0,
+            max: usize::MAX,
+        },
+        None,
+        members.clone(),
+    )];
     assert!(
         graph::reached_from(&quiet, &resolved, &[], &by_kind).is_empty(),
         "a corpus declaring no reached-from clause walks no closure and finds nothing",
@@ -599,20 +595,16 @@ fn the_reached_from_closure_is_opt_in_and_walks_once_per_root_and_via_pair() {
             clauses: Vec::new(),
             members: roots,
         },
-        Selection {
-            selector: Selector::Kind("skill".to_string()),
-            clauses: vec![Clause {
-                label: "skill.reached-from".to_string(),
-                severity: Severity::Required,
-                predicate: Predicate::ReachedFrom {
-                    roots: "entrypoint".to_string(),
-                    via: Some(vec!["routes_to".to_string()]),
-                },
-                guidance: None,
-                source: None,
-            }],
+        common::one_clause_selection(
+            Selector::Kind("skill".to_string()),
+            Severity::Required,
+            Predicate::ReachedFrom {
+                roots: "entrypoint".to_string(),
+                via: Some(vec!["routes_to".to_string()]),
+            },
+            None,
             members,
-        },
+        ),
     ];
     let diagnostics = graph::reached_from(&declared, &resolved, &[], &by_kind);
     assert_eq!(

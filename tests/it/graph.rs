@@ -2216,7 +2216,7 @@ mod reachability {
 
     use serde_json::Value as JsonValue;
     use temper::check::Severity;
-    use temper::contract::{Clause, Predicate, Severity as Declared};
+    use temper::contract::{Predicate, Severity as Declared};
     use temper::engine::{Selection, Selector};
     use temper::extract::Features;
     use temper::graph::{ResolvedEdge, reachable};
@@ -2227,17 +2227,13 @@ mod reachability {
     /// channels its findings report. `members` stays empty: the predicate ranges over
     /// `by_kind`, never the selection's own member list.
     fn bound(severity: Declared, guidance: Option<&str>) -> Vec<Selection<'static>> {
-        vec![Selection {
-            selector: Selector::Root,
-            clauses: vec![Clause {
-                label: "root.reachable".to_string(),
-                severity,
-                predicate: Predicate::Reachable,
-                guidance: guidance.map(str::to_string),
-                source: None,
-            }],
-            members: Vec::new(),
-        }]
+        vec![crate::common::one_clause_selection(
+            Selector::Root,
+            severity,
+            Predicate::Reachable,
+            guidance,
+            Vec::new(),
+        )]
     }
 
     /// A member carrying an id and, optionally, one frontmatter field — the only inputs
@@ -2638,20 +2634,16 @@ mod reachability {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations = BTreeMap::from([("skill", vec![description_trigger("description")])]);
 
-        let other = vec![Selection {
-            selector: Selector::Root,
-            clauses: vec![Clause {
-                label: "root.count".to_string(),
-                severity: Declared::Advisory,
-                predicate: Predicate::Count {
-                    min: 0,
-                    max: usize::MAX,
-                },
-                guidance: None,
-                source: None,
-            }],
-            members: Vec::new(),
-        }];
+        let other = vec![crate::common::one_clause_selection(
+            Selector::Root,
+            Declared::Advisory,
+            Predicate::Count {
+                min: 0,
+                max: usize::MAX,
+            },
+            None,
+            Vec::new(),
+        )];
         assert!(reachable(&other, &registrations, &by_kind, &[], &[], &[]).is_empty());
         assert!(reachable(&[], &registrations, &by_kind, &[], &[], &[]).is_empty());
     }

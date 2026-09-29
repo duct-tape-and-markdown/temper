@@ -45,11 +45,17 @@ fn contract(unit: ExtentUnit, max: usize, whole: bool) -> Contract {
 /// A kind selection over `members`, carrying the one whole-grain `extent` clause `judge`
 /// decides.
 fn selection<'a>(unit: ExtentUnit, max: usize, members: &'a [Features]) -> Selection<'a> {
-    Selection {
-        selector: Selector::Kind("skill".to_string()),
-        clauses: vec![clause(unit, max, true)],
-        members: members.iter().map(|f| ("skill", f)).collect(),
-    }
+    common::one_clause_selection(
+        Selector::Kind("skill".to_string()),
+        ClauseSeverity::Advisory,
+        Predicate::Extent {
+            unit,
+            max,
+            whole: true,
+        },
+        None,
+        members.iter().map(|f| ("skill", f)).collect(),
+    )
 }
 
 #[test]
