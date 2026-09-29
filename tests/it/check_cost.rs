@@ -1234,3 +1234,69 @@ fn a_guard_shell_edge_walks_each_declared_locus_root_once() {
          per-glob re-walk overshoots, and a widened whole-tree walk undershoots",
     );
 }
+
+/// The per-pass count-pin for a **local layout kind's documents** (`engineering.md`, "Cost
+/// scale is hoisted, and pinned by count"): a local member's rows are derived at read time
+/// rather than read back off the lock, and `assemble_lock_family` is the pass that derives
+/// them — so each member's document is read exactly once there, off the text the unit
+/// resolution already loaded. Two members, so the delta is exactly 2: the derivation
+/// handing a `source_path` back to disk after the unit already carried the bytes doubles it
+/// to 4, which is what this pass cost before the hoist. The count is per-thread and both
+/// reads single-threaded on their caller's thread, so the delta is this pass's alone
+/// whatever else runs concurrently.
+///
+/// Pass granularity, not run: the gate's own per-kind resolution is a separate reader of
+/// the same documents (one more read apiece, hoisted no further by this pin), so the count
+/// is taken around `assemble_lock_family` itself rather than around `gate::gate`.
+#[test]
+fn a_local_layout_members_document_is_read_once_per_assembly_pass() {
+    use std::collections::BTreeMap;
+    use temper::compose;
+    use temper::drift::{self, Declarations};
+
+    let harness = tmpdir("local-layout-doc-read-pin");
+    fs::create_dir_all(harness.join(".temper")).unwrap();
+
+    // Two members of the `knob` local layout kind — the suite's shared local-locus fixture
+    // (`common`), whose document carries a member collection, so the derivation this pin
+    // counts has rows to yield.
+    common::write_sibling(&harness, ".claude/local/knob-a.md", common::KNOB_DOC);
+    common::write_sibling(&harness, ".claude/local/knob-b.md", common::KNOB_DOC);
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![common::knob_kind_facts()],
+            ..Declarations::default()
+        },
+    );
+
+    let workspace = harness.join(".temper");
+    let committed = drift::read_declarations(&workspace).unwrap();
+    let discovery = import::Discovery::new(&harness);
+    let cache: compose::ManifestCache = BTreeMap::new();
+
+    let before = drift::layout_document_read_count();
+    let family = compose::assemble_lock_family(&discovery, &committed, &[], &cache).unwrap();
+    let reads = drift::layout_document_read_count() - before;
+
+    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a pass that
+    // derived nothing would read nothing and pass any count, so the rows the derivation
+    // exists to yield are asserted present first — both members' collections, off the
+    // documents this pin says were read once each.
+    let hosts: Vec<&str> = family
+        .declarations
+        .nested_members
+        .iter()
+        .map(|row| row.host.as_str())
+        .collect();
+    assert!(
+        hosts.contains(&"knob:knob-a") && hosts.contains(&"knob:knob-b"),
+        "both local members' documents must have lowered their collection rows, got: {hosts:?}"
+    );
+
+    assert_eq!(
+        reads, 2,
+        "each local layout member's document is read once per assembly pass, not once per \
+         reader of it; got {reads} reads for two members"
+    );
+}

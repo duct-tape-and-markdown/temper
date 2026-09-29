@@ -1233,6 +1233,68 @@ pub fn field_region(slot: &str) -> LayoutRegionRow {
     }
 }
 
+/// A `knob` document: a lead prose region, a `mode` field section, an `overrides` member
+/// collection, and a `satisfies` edge section — every primitive a local member's read has
+/// to carry through, in one document.
+pub const KNOB_DOC: &str = "The machine's own knob, uncommitted.\n\
+\n\
+# Mode\n\
+advisory\n\
+\n\
+# Satisfies\n\
+- knob-is-governed\n\
+\n\
+# Overrides\n\
+\n\
+## Skip The Slow Gate\n\
+the local override's body.\n\
+\n\
+## Widen The Line Bound\n\
+the second override's body.\n";
+
+/// The `knob` layout in wire form — the regions the kind's `content` column declares.
+///
+/// The `knob` is the local-locus fixture kind: a lock-declared layout kind of the suite's
+/// own rather than the shipped `dial`, so a case over it falsifies the *class*. It lives
+/// here because two suites read it — `local_locus.rs` for the class's four faces, and
+/// `check_cost.rs` for the class's document-read count-pin.
+pub fn knob_layout_row() -> LayoutRow {
+    LayoutRow {
+        regions: vec![
+            LayoutRegionRow {
+                region: "prose".to_string(),
+                import: None,
+                slot: None,
+                member_kind: None,
+                key: None,
+            },
+            field_region("mode"),
+            field_region("satisfies"),
+            LayoutRegionRow {
+                region: "collection".to_string(),
+                import: None,
+                slot: None,
+                member_kind: Some("override".to_string()),
+                key: None,
+            },
+        ],
+    }
+}
+
+/// The `knob` kind's fact row: a **local**-locus layout kind governing
+/// `.claude/local/*.md`, templating an embedded `override` layer.
+pub fn knob_kind_facts() -> KindFactRow {
+    KindFactRow {
+        commitment: Some("local".to_string()),
+        content: Some(knob_layout_row()),
+        templates: vec![drift::TemplateRow {
+            kind: "override".to_string(),
+            path: None,
+        }],
+        ..kind_facts("knob", ".claude/local", "*.md")
+    }
+}
+
 /// The `intent` layout's regions in wire form — a leading verbatim prose region, an
 /// `intent` field section, and an `invariant` member collection. The `_row` suffix is
 /// load-bearing: a suite's own `intent_layout` builds the engine

@@ -559,8 +559,10 @@ fn layout_unit(
     base: &Path,
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<Unit> {
-    let raw = std::fs::read_to_string(file)
-        .map_err(|e| miette::miette!("failed to read layout document {}: {e}", file.display()))?;
+    // Through the counted door, not a bare `read_to_string`: this and the row lowering's
+    // own reach are the two sites that load a layout document, and a count taken at one of
+    // them would pin a share of the cost rather than the cost.
+    let raw = drift::read_layout_document_text(file)?;
     let reading = layout.read(&raw, file, edge_fields)?;
     let id = frontmatter::fold_file_id(base, file)?;
     let mut frontmatter: BTreeMap<String, serde_json::Value> = reading
@@ -882,14 +884,16 @@ pub fn builtin_units_and_features_by_kind(
 /// A local-locus kind's members' declaration rows, derived off their own documents —
 /// what the lock would carry for a committed kind, and never does for this one.
 ///
-/// The rows go through the same reader `emit` lowers a committed layout host's source
-/// with ([`drift::read_layout_document`]), so a local member's rows are the rows its
-/// document declares, not a second interpretation of it.
+/// The rows go through the same lowering `emit` reduces a committed layout host's source
+/// with ([`drift::lower_layout_document`]), so a local member's rows are the rows its
+/// document declares, not a second interpretation of it. They lower off the text
+/// [`layout_unit`] already read into `Unit::body` — the same discipline
+/// [`assemble_lock_family`] states for the units it retains beside these rows: a
+/// document this pass has already read is never handed back to disk.
 ///
 /// # Errors
 ///
-/// Returns an error when a member's document cannot be read or does not fit the kind's
-/// declared layout.
+/// Returns an error when a member's document does not fit the kind's declared layout.
 fn local_document_rows(
     kind: &CustomKind,
     units: &[Unit],
@@ -915,10 +919,11 @@ fn local_document_rows(
 
     let mut rows = drift::LayoutDocumentRows::default();
     for unit in units {
-        let document = drift::read_layout_document(
+        let document = drift::lower_layout_document(
             layout,
             &kind.name,
             &unit.id,
+            &unit.body,
             &unit.source_path,
             &edge_fields,
         )?;

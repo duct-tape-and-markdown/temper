@@ -22,85 +22,14 @@
 //! The fixture kind is a `knob` — a lock-declared kind of the suite's own, never the
 //! shipped `dial`, so these cases falsify the *class* rather than one kind's use of it
 //! (`tests/dial_kind.rs` owns the dial's own face). It sits at `.claude/local/*.md` where
-//! the locus is not what a case is about, and under the workspace where it is.
+//! the locus is not what a case is about, and under the workspace where it is. Its rows
+//! and document live in `common` — `check_cost.rs` reads them too.
 
 use std::fs;
 
-use temper::drift::{
-    self, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, Payload,
-    PayloadMember,
-};
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 
 use crate::common;
-
-/// A `knob` document: a lead prose region, a `mode` field section, an `overrides` member
-/// collection, and a `satisfies` edge section — every primitive a local member's read has
-/// to carry through, in one document.
-const KNOB_DOC: &str = "The machine's own knob, uncommitted.\n\
-\n\
-# Mode\n\
-advisory\n\
-\n\
-# Satisfies\n\
-- knob-is-governed\n\
-\n\
-# Overrides\n\
-\n\
-## Skip The Slow Gate\n\
-the local override's body.\n\
-\n\
-## Widen The Line Bound\n\
-the second override's body.\n";
-
-/// The `knob` layout in wire form — the regions the kind's `content` column declares.
-fn knob_layout_row() -> LayoutRow {
-    LayoutRow {
-        regions: vec![
-            LayoutRegionRow {
-                region: "prose".to_string(),
-                import: None,
-                slot: None,
-                member_kind: None,
-                key: None,
-            },
-            LayoutRegionRow {
-                region: "field".to_string(),
-                import: None,
-                slot: Some("mode".to_string()),
-                member_kind: None,
-                key: None,
-            },
-            LayoutRegionRow {
-                region: "field".to_string(),
-                import: None,
-                slot: Some("satisfies".to_string()),
-                member_kind: None,
-                key: None,
-            },
-            LayoutRegionRow {
-                region: "collection".to_string(),
-                import: None,
-                slot: None,
-                member_kind: Some("override".to_string()),
-                key: None,
-            },
-        ],
-    }
-}
-
-/// The `knob` kind's fact row: a **local**-locus layout kind governing
-/// `.claude/local/*.md`, templating an embedded `override` layer.
-fn knob_kind_facts() -> KindFactRow {
-    KindFactRow {
-        commitment: Some("local".to_string()),
-        content: Some(knob_layout_row()),
-        templates: vec![drift::TemplateRow {
-            kind: "override".to_string(),
-            path: None,
-        }],
-        ..common::kind_facts("knob", ".claude/local", "*.md")
-    }
-}
 
 fn knob_payload(kind: KindFactRow) -> Payload {
     Payload {
@@ -125,7 +54,7 @@ fn knob_payload(kind: KindFactRow) -> Payload {
 fn scaffold(slug: &str, lock: Declarations) -> std::path::PathBuf {
     let harness = common::tmpdir(slug);
     fs::create_dir_all(harness.join(".temper")).unwrap();
-    common::write_sibling(&harness, ".claude/local/knob.md", KNOB_DOC);
+    common::write_sibling(&harness, ".claude/local/knob.md", common::KNOB_DOC);
     common::write_lock(&harness, lock);
     harness
 }
@@ -136,17 +65,17 @@ fn emit_writes_nothing_at_a_local_members_path_and_rows_none_of_it() {
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     let doc_path = harness.join(".claude").join("local").join("knob.md");
-    common::write_sibling(&harness, ".claude/local/knob.md", KNOB_DOC);
+    common::write_sibling(&harness, ".claude/local/knob.md", common::KNOB_DOC);
 
     let report = drift::emit(
-        &knob_payload(knob_kind_facts()),
+        &knob_payload(common::knob_kind_facts()),
         &into,
         EmitOptions::default(),
     )
     .unwrap();
 
     // The document is the author's own: byte-untouched, and no entry projects or reaps it.
-    assert_eq!(fs::read_to_string(&doc_path).unwrap(), KNOB_DOC);
+    assert_eq!(fs::read_to_string(&doc_path).unwrap(), common::KNOB_DOC);
     assert!(
         report.entries.iter().all(|entry| entry.name != "knob"),
         "a local member is neither projected nor reaped: {:?}",
@@ -210,9 +139,9 @@ fn emit_never_reaps_a_document_whose_kind_turns_local() {
     // Now the kind is declared local and the author owns the document. The prior rollup
     // row still names the path and this pass projects no member onto it — the reap must
     // not read it as an orphan and delete an author's uncommitted file.
-    fs::write(&doc_path, KNOB_DOC).unwrap();
+    fs::write(&doc_path, common::KNOB_DOC).unwrap();
     let report = drift::emit(
-        &knob_payload(knob_kind_facts()),
+        &knob_payload(common::knob_kind_facts()),
         &into,
         EmitOptions::default(),
     )
@@ -220,7 +149,7 @@ fn emit_never_reaps_a_document_whose_kind_turns_local() {
 
     assert_eq!(
         fs::read_to_string(&doc_path).unwrap(),
-        KNOB_DOC,
+        common::KNOB_DOC,
         "the local document survives the transition byte-identical: {:?}",
         report.entries
     );
@@ -234,7 +163,7 @@ fn check_derives_a_local_members_rows_at_read_time_under_the_declared_kind() {
     let harness = scaffold(
         "local-check",
         Declarations {
-            kinds: vec![knob_kind_facts()],
+            kinds: vec![common::knob_kind_facts()],
             requirements: vec![common::requirement("knob-is-governed", true, None)],
             ..Default::default()
         },
@@ -264,7 +193,7 @@ fn explain_narrates_a_local_members_captured_prose_region() {
     let harness = scaffold(
         "local-explain-prose",
         Declarations {
-            kinds: vec![knob_kind_facts()],
+            kinds: vec![common::knob_kind_facts()],
             requirements: vec![common::requirement("knob-is-governed", true, None)],
             ..Default::default()
         },
@@ -272,7 +201,7 @@ fn explain_narrates_a_local_members_captured_prose_region() {
 
     // The span the document's lead prose region captures, taken off the document itself
     // so the assertion below cannot drift from what the fixture declares.
-    let preamble = KNOB_DOC.lines().next().unwrap();
+    let preamble = common::KNOB_DOC.lines().next().unwrap();
     assert!(
         !preamble.is_empty(),
         "the case is vacuous unless the document opens on a span"
@@ -307,7 +236,7 @@ fn check_reads_a_local_members_document_under_the_declared_layout() {
     let harness = scaffold(
         "local-nonfit",
         Declarations {
-            kinds: vec![knob_kind_facts()],
+            kinds: vec![common::knob_kind_facts()],
             ..Default::default()
         },
     );
@@ -342,7 +271,7 @@ fn check_derives_a_local_members_collection_members_off_its_document() {
     let harness = scaffold(
         "local-collection",
         Declarations {
-            kinds: vec![knob_kind_facts()],
+            kinds: vec![common::knob_kind_facts()],
             requirements: vec![common::requirement("knob-is-governed", true, Some("knob"))],
             clauses: vec![drift::ClauseRow {
                 unit: None,
@@ -593,7 +522,7 @@ fn a_local_class_on_a_kind_governing_no_glob_is_inadmissible() {
                 governs_root: None,
                 governs_glob: None,
                 commitment: Some("local".to_string()),
-                content: Some(knob_layout_row()),
+                content: Some(common::knob_layout_row()),
                 ..common::kind_facts("knob", ".claude/local", "*.md")
             }],
             ..Default::default()
@@ -617,7 +546,7 @@ fn a_commitment_label_outside_the_closed_vocabulary_refuses_at_load() {
         Declarations {
             kinds: vec![KindFactRow {
                 commitment: Some("per-machine".to_string()),
-                content: Some(knob_layout_row()),
+                content: Some(common::knob_layout_row()),
                 ..common::kind_facts("knob", ".claude/local", "*.md")
             }],
             ..Default::default()
