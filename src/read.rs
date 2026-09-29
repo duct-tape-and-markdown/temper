@@ -2476,12 +2476,18 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         }
     }
 
+    // The whole file-set stays: `graph::reachability_orphaned` below reads it entire,
+    // through `live_members`, and the read verb binds no clause to gate the walk behind.
     let repo_files = compose::repo_file_set(Path::new("."));
     let directive_members = compose::directive_members_from_resolved(
         &builtin_units_and_features,
         &custom_units_and_features,
     );
-    let directive_edges = crate::graph::classify_directives(&directive_members, &repo_files).edges;
+    let directive_edges = crate::graph::classify_directives(
+        &directive_members,
+        &compose::backed_on_disk(Path::new(".")),
+    )
+    .edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
     // producer yet, so the set is empty.

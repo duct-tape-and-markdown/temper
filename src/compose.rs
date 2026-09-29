@@ -1390,12 +1390,13 @@ pub fn directive_members_from_resolved(
     members
 }
 
-/// Every represented manifest file on disk as a raw [`Vec<String>`] of paths,
-/// hoisted to one walk per run ([`repo_file_set_count`] pins it). Paths are normalized
-/// (`.`/`..` segments resolved) to match the format `graph::classify_directives`'s
-/// index uses: when root is absolute, entries are absolute; when root is relative,
-/// entries are relative. This ensures the backing check's path-domain join holds
-/// regardless of the harness root's spelling.
+/// Every file on disk under `root` as a raw [`Vec<String>`] of paths, hoisted to at most
+/// one walk per run ([`repo_file_set_count`] pins it). `graph::reachable`'s `paths-match`
+/// channel is the whole set's consumer, so the gate takes the walk only where a root
+/// `reachable` clause binds — a cited `@import`'s backing resolves per target through
+/// [`backed_on_disk`] instead. Paths are normalized (`.`/`..` segments resolved): an
+/// absolute root yields absolute entries and a relative root relative ones, so the
+/// path-domain join holds regardless of the harness root's spelling.
 pub fn repo_file_set(root: &Path) -> Vec<String> {
     REPO_FILE_SET_COUNT.with(|c| c.set(c.get() + 1));
     let mut files = Vec::new();
@@ -1407,6 +1408,66 @@ pub fn repo_file_set(root: &Path) -> Vec<String> {
         }
     }
     files
+}
+
+/// The **disk** [`graph::BackingResolver`]: is one cited `@import` target backed by a
+/// repository file under `root`? The per-target flavor of [`repo_file_set`] — the same
+/// predicate, resolved by stat where the set materializes the whole tree, so a corpus
+/// whose only consumer is the backing check pays for its own imports rather than for
+/// the consumer's checkout.
+///
+/// The walk's verdicts are **spelled here, not inherited** — `walkdir` with
+/// `follow_links` off, collecting `file_type().is_file()` entries under `root`, decides
+/// three cases this resolver must reproduce:
+///
+/// - a **directory** target is unbacked: the walk collects files only;
+/// - a **symlink** target is unbacked: with links unfollowed the walk sees a symlink's
+///   own file type, never the file behind it — so every path segment is stat'd with
+///   [`fs::symlink_metadata`] (lstat), and a symlink anywhere from `root` down stops the
+///   descent exactly as the walk's does;
+/// - a target resolving **outside** `root` is unbacked: the walk starts at `root`, so a
+///   target that is not under it is not in the set, whatever stands at that path.
+pub fn backed_on_disk(root: &Path) -> impl Fn(&Path) -> bool + use<> {
+    let root = crate::path::normalize_path(root);
+    move |target| {
+        let target = crate::path::normalize_path(target);
+        // Same path domain, or the descent below would read `root`'s spelling onto a
+        // target of the other kind (a relative root strips to nothing, which every
+        // absolute target would otherwise appear to sit under).
+        if target.is_absolute() != root.is_absolute() {
+            return false;
+        }
+        let Ok(rest) = target.strip_prefix(&root) else {
+            return false;
+        };
+        let mut descended = root.clone();
+        let mut segments = rest.components().peekable();
+        // `root` itself is the walk's `min_depth(1)` exclusion — a directory either way.
+        if segments.peek().is_none() {
+            return false;
+        }
+        while let Some(segment) = segments.next() {
+            // A `..` the normalization had nothing to pop climbs above `root`; anything
+            // else non-`Normal` is a second path prefix. Neither is under the walk.
+            let std::path::Component::Normal(name) = segment else {
+                return false;
+            };
+            descended.push(name);
+            let Ok(file_type) = fs::symlink_metadata(&descended).map(|meta| meta.file_type())
+            else {
+                return false;
+            };
+            let descends = if segments.peek().is_none() {
+                file_type.is_file()
+            } else {
+                file_type.is_dir()
+            };
+            if !descends {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 /// Build a shared manifest cache for a single gate/explain invocation, grouping manifest

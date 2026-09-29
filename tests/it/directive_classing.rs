@@ -20,10 +20,10 @@
 //! boundary at the bottom of this file — an unbacked pointer still warns without
 //! failing the run, a member↔member ring reaches `graph.acyclic` and does.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use temper::check::Severity;
-use temper::graph::{DirectiveMember, classify_directives};
+use temper::graph::{DirectiveMember, backing_in_set, classify_directives};
 
 use crate::common;
 
@@ -38,10 +38,13 @@ fn member(kind: &str, id: &str, source_path: &str, directives: &[&str]) -> Direc
     }
 }
 
-/// The repo file-set the backing class joins against — relative slash paths, as
-/// `repo_file_set` collects them.
-fn repo(files: &[&str]) -> Vec<String> {
-    files.iter().map(|s| (*s).to_string()).collect()
+/// The fixed-set backing flavor the classing asks about each cited target — relative
+/// slash paths, as `repo_file_set` spells them. The stat flavor
+/// (`compose::backed_on_disk`) is what a run resolves through; the cases at the bottom
+/// of this file pin that the two agree verdict for verdict.
+fn repo(files: &[&str]) -> impl Fn(&Path) -> bool + use<> {
+    let files: Vec<String> = files.iter().map(|s| (*s).to_string()).collect();
+    backing_in_set(&files)
 }
 
 #[test]
@@ -210,12 +213,18 @@ fn the_three_verdicts_partition_one_members_occurrences() {
     assert!(classing.findings[0].message.contains("ghost.md"));
 }
 
+/// A `memory` member at `dir/CLAUDE.md` importing `target` — the shape every stat-flavor
+/// case below drives, spelling the importing file's absolute path so the resolution joins
+/// the absolute harness root the resolver is built over.
+fn importer_in(dir: &Path, target: &str) -> [DirectiveMember; 1] {
+    let source = dir.join("CLAUDE.md").to_string_lossy().replace('\\', "/");
+    [member("memory", "root", &source, &[target])]
+}
+
 #[test]
-fn a_backing_repo_file_is_found_with_absolute_harness_root() {
+fn a_backing_repo_file_is_found_by_stat_with_an_absolute_harness_root() {
     use std::fs;
-    use std::path::Path;
     use temper::compose;
-    use temper::path;
 
     let temp_dir = tempfile::tempdir().expect("create temp dir");
     let root = temp_dir.path();
@@ -224,33 +233,152 @@ fn a_backing_repo_file_is_found_with_absolute_harness_root() {
     fs::write(root.join("CLAUDE.md"), "root").expect("write root file");
     fs::write(subdir.join("helper.md"), "helper").expect("write helper file");
 
-    // Member imports a repo file using a relative path.
-    let member_path = subdir
-        .join("CLAUDE.md")
-        .to_string_lossy()
-        .replace('\\', "/");
-    let members = [member("memory", "root", &member_path, &["./helper.md"])];
-
-    // repo_file_set with absolute root produces absolute paths.
-    let repo_files = compose::repo_file_set(root);
-
-    // Normalize the repo files in the same way classify_directives does.
-    let repo_files_normalized: Vec<String> = repo_files
-        .iter()
-        .map(|f| {
-            path::normalize_path(Path::new(f))
-                .to_string_lossy()
-                .replace('\\', "/")
-                .to_string()
-        })
-        .collect();
-
-    let classing = classify_directives(&members, &repo_files_normalized);
+    // The resolved target is absolute (the importing file's is), so the resolver's own
+    // root must be — the path-domain join the walk's normalization used to make.
+    let classing = classify_directives(
+        &importer_in(&subdir, "./helper.md"),
+        &compose::backed_on_disk(root),
+    );
 
     assert!(
         classing.findings.is_empty(),
         "an absolute-root backed repo-file import is no finding, got: {:?}",
         classing.findings
+    );
+}
+
+#[test]
+fn a_gitignored_sibling_is_backed_by_stat() {
+    use std::fs;
+    use temper::compose;
+
+    // The backing set is **raw disk**, never the discovery view: a path-resolved edge
+    // reads what is there (`specs/model/contract.md`, "edge"), so an ignored file backs
+    // its import exactly as a tracked one does. Resolution by stat keeps that ruling —
+    // `fs::symlink_metadata` knows nothing of `.gitignore`.
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let root = temp_dir.path();
+    fs::write(root.join(".gitignore"), "notes.md\n").expect("write gitignore");
+    fs::write(root.join("notes.md"), "private").expect("write ignored sibling");
+
+    let classing = classify_directives(
+        &importer_in(root, "./notes.md"),
+        &compose::backed_on_disk(root),
+    );
+
+    assert!(
+        classing.findings.is_empty(),
+        "a gitignored sibling backs its import, got: {:?}",
+        classing.findings
+    );
+}
+
+#[test]
+fn a_directory_target_is_unbacked_by_stat() {
+    use std::fs;
+    use temper::compose;
+
+    // The walk collects `file_type().is_file()` entries only, so a directory was never in
+    // the set — an `@docs` import loads nothing and says so.
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let root = temp_dir.path();
+    fs::create_dir_all(root.join("docs")).expect("create dir target");
+    fs::write(root.join("docs").join("page.md"), "page").expect("write file under it");
+
+    let classing =
+        classify_directives(&importer_in(root, "./docs"), &compose::backed_on_disk(root));
+
+    assert_eq!(
+        classing.findings.len(),
+        1,
+        "a directory target is unbacked, got: {:?}",
+        classing.findings
+    );
+    assert_eq!(classing.findings[0].rule, "graph.directive-unbacked");
+}
+
+/// Unix only: the verdict under test is what a symlink's *own* file type decides, and
+/// Windows needs `SeCreateSymbolicLinkPrivilege` to create one at all (`common::vendor_sdk`
+/// carries the same split).
+#[cfg(unix)]
+#[test]
+fn a_symlink_target_is_unbacked_by_stat() {
+    use std::fs;
+    use temper::compose;
+
+    // The walk runs with `follow_links` off, so it sees a symlink's own file type and
+    // collects neither the link nor anything under a linked directory. The stat flavor
+    // lstats every segment for exactly that reason.
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let root = temp_dir.path();
+    fs::write(root.join("real.md"), "real").expect("write link target");
+    std::os::unix::fs::symlink(root.join("real.md"), root.join("link.md")).expect("link file");
+    fs::create_dir_all(root.join("real-dir")).expect("create linked dir");
+    fs::write(root.join("real-dir").join("page.md"), "page").expect("write under linked dir");
+    std::os::unix::fs::symlink(root.join("real-dir"), root.join("link-dir")).expect("link dir");
+
+    for target in ["./link.md", "./link-dir/page.md"] {
+        let classing =
+            classify_directives(&importer_in(root, target), &compose::backed_on_disk(root));
+        assert_eq!(
+            classing.findings.len(),
+            1,
+            "`{target}` resolves through a symlink the walk never entered, got: {:?}",
+            classing.findings
+        );
+        assert_eq!(classing.findings[0].rule, "graph.directive-unbacked");
+    }
+
+    // Non-vacuity: the same corpus over the real file the links point at is backed, so
+    // the two findings above are the symlink's verdict and not a broken fixture.
+    let real = classify_directives(
+        &importer_in(root, "./real.md"),
+        &compose::backed_on_disk(root),
+    );
+    assert!(
+        real.findings.is_empty(),
+        "the link's own target is backed, got: {:?}",
+        real.findings
+    );
+}
+
+#[test]
+fn a_target_outside_the_harness_root_is_unbacked_by_stat() {
+    use std::fs;
+    use temper::compose;
+
+    // The walk starts at the harness root, so a file above it was never in the set
+    // whatever stands at that path — a `../` import out of the harness loads nothing the
+    // harness can answer for.
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let outside = temp_dir.path();
+    let root = outside.join("harness");
+    fs::create_dir_all(&root).expect("create harness root");
+    fs::write(outside.join("elsewhere.md"), "elsewhere").expect("write file above the root");
+    fs::write(root.join("inside.md"), "inside").expect("write file under the root");
+
+    let classing = classify_directives(
+        &importer_in(&root, "../elsewhere.md"),
+        &compose::backed_on_disk(&root),
+    );
+
+    assert_eq!(
+        classing.findings.len(),
+        1,
+        "a target above the harness root is unbacked, got: {:?}",
+        classing.findings
+    );
+    assert_eq!(classing.findings[0].rule, "graph.directive-unbacked");
+
+    // Non-vacuity: the sibling *under* the root, written by the same fixture, is backed.
+    let inside = classify_directives(
+        &importer_in(&root, "./inside.md"),
+        &compose::backed_on_disk(&root),
+    );
+    assert!(
+        inside.findings.is_empty(),
+        "a target under the root is backed, got: {:?}",
+        inside.findings
     );
 }
 

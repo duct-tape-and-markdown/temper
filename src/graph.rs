@@ -1489,25 +1489,47 @@ pub struct DirectiveClassing {
     pub findings: Vec<Diagnostic>,
 }
 
+/// Resolves whether one cited `@import` target is **backed** — given the resolved,
+/// [`crate::path::normalize_path`]-normalized target path, does a repository file stand
+/// behind it? A parameter rather than a graph dependency, in two flavors: the disk stat
+/// ([`crate::compose::backed_on_disk`]) for a run, and [`backing_in_set`] over a fixed
+/// path set for a test, so the classing is exercised with no disk underneath it.
+pub type BackingResolver<'a> = &'a dyn Fn(&Path) -> bool;
+
+/// The fixed-set backing flavor: a target is backed when it lands in `files`, which are
+/// normalized the identical way the resolved target is so the two join.
+///
+/// The test flavor of [`BackingResolver`] — a corpus's real backing is resolved by stat
+/// ([`crate::compose::backed_on_disk`]), which needs the files to exist.
+pub fn backing_in_set(files: &[String]) -> impl Fn(&Path) -> bool + use<> {
+    let set: BTreeSet<PathBuf> = files
+        .iter()
+        .map(|file| crate::path::normalize_path(Path::new(file)))
+        .collect();
+    move |resolved| set.contains(resolved)
+}
+
 /// Classify each member's extracted `at-import` directive occurrences against the
 /// landscape: resolve every target
 /// relative to the importing member's file directory (an absolute target as-is;
 /// code.claude.com/docs/en/memory, retrieved 2026-07-16) and sort it into one of three
 /// classes — a **member** (the resolved path is another member's provenance
 /// `source_path`, yielding a member→member [`ResolvedEdge`]), a **backed repo file**
-/// (the path is present in `repo_files`, a one-way boundary edge that neither errors
+/// (`backed` answers yes, a one-way boundary edge that neither errors
 /// nor enters the member graph), or **nothing** (an *unbacked pointer* — the importing
 /// member's finding, the silent-context-loss failure class made author-time).
 ///
 /// `members` carries every member so the provenance index is complete — a target may
-/// point at a member that imports nothing. `repo_files` is the repo file-set
-/// [`reachable`] also reads. Members and their targets iterate in the caller's order,
+/// point at a member that imports nothing. `backed` is asked once per cited target
+/// rather than handed the whole repository file-set, so the classing costs the imports
+/// the corpus authored, never the consumer's tree. Members and their targets iterate in
+/// the caller's order,
 /// so the edge and finding sets are stable. Member class beats repo-file class: a
 /// member *is* a repo file, and the stronger classification (it enters the graph) wins.
 #[must_use]
 pub fn classify_directives(
     members: &[DirectiveMember],
-    repo_files: &[String],
+    backed: BackingResolver<'_>,
 ) -> DirectiveClassing {
     // The provenance index — normalized `source_path` → node — the join between a
     // resolved target path and the member it names.
@@ -1519,11 +1541,6 @@ pub fn classify_directives(
                 (member.kind.clone(), member.id.clone()),
             )
         })
-        .collect();
-    // The repo file-set, normalized the identical way so a resolved target joins it.
-    let repo: BTreeSet<PathBuf> = repo_files
-        .iter()
-        .map(|file| crate::path::normalize_path(Path::new(file)))
         .collect();
 
     let mut edges = Vec::new();
@@ -1537,7 +1554,7 @@ pub fn classify_directives(
                     field: DIRECTIVE_FIELD.to_string(),
                     to: to.clone(),
                 });
-            } else if !repo.contains(&resolved) {
+            } else if !backed(&resolved) {
                 // Neither a member nor a repo file: an unbacked pointer that loads
                 // nothing. A backed repo file is a one-way boundary edge — no finding,
                 // no member edge.
@@ -2696,9 +2713,11 @@ mod tests {
         }
     }
 
-    /// The repo file-set the classing joins the backed class against.
-    fn backing(files: &[&str]) -> Vec<String> {
-        files.iter().map(|f| (*f).to_string()).collect()
+    /// The backing resolver the classing asks about each cited target — the fixed-set
+    /// flavor, so the module's own tests need no disk.
+    fn backing(files: &[&str]) -> impl Fn(&Path) -> bool + use<> {
+        let files: Vec<String> = files.iter().map(|f| (*f).to_string()).collect();
+        backing_in_set(&files)
     }
 
     #[test]

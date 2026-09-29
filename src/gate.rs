@@ -377,11 +377,6 @@ pub fn gate(
         custom_units_and_features.push((custom_kind, uaf));
     }
 
-    // The directive backing-set file-set: every file under the harness root, over-collected so an extra
-    // file can only suppress a finding, never forge one. Computed once on the FLOOR
-    // and read by the directive classing below.
-    let repo_files = compose::repo_file_set(harness_root);
-
     // Directive-target classing on the FLOOR tier: an unbacked `@import` is a **pure fact** about the importing member —
     // the silent-context-loss failure class made author-time — so it surfaces with zero
     // config. Over the built-in kinds' members (empty custom slice), the unbacked findings
@@ -398,7 +393,11 @@ pub fn gate(
             &builtin_units_and_features,
             &custom_units_and_features,
         ),
-        &repo_files,
+        // Backing resolved by stat per cited target, over-collected the same way the
+        // whole-tree walk was — an extra file can only suppress a finding, never forge
+        // one — but costing the imports the corpus authored rather than the consumer's
+        // tree.
+        &compose::backed_on_disk(harness_root),
     );
     diagnostics.extend(unbacked_pointers.into_iter().map(|mut finding| {
         finding.severity = Severity::Warn;
@@ -625,6 +624,18 @@ pub fn gate(
         &mention_edges,
         &by_kind,
     ));
+
+    // The whole-tree walk's one remaining consumer is `reachable`'s `paths-match`
+    // channel, so the walk is taken only where that judge has a clause to judge under:
+    // the gate decides whether to walk, off the same `selections` list and the same
+    // `root_clause` door the judge itself opens, leaving the judge a pure function of
+    // what it is handed.
+    let repo_files = if engine::root_clause(&selections, &contract::Predicate::Reachable).is_some()
+    {
+        compose::repo_file_set(harness_root)
+    } else {
+        Vec::new()
+    };
 
     // `reachable`: the root member's own graph-scope clause — every governed member's
     // inbound registration edge from the world node must be live, or a reachable member

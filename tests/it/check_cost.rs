@@ -873,16 +873,22 @@ fn a_full_check_run_walks_each_consulted_flavor_once() {
 }
 
 /// The run-level count-pin for the *directive backing set* (`engineering.md`, "Cost
-/// scale is hoisted, and pinned by count"): `compose::repo_file_set` is a whole-tree
-/// walk over the consumer's harness root, hoisted by hand to one call site per verb, and
-/// the sibling flavor pin above says nothing about it — it rides `walkdir`, not the
-/// shared `Discovery` cache. One `gate` runs per CLI invocation, so the run's delta is
-/// exactly 1: a per-kind or per-call re-walk of the whole tree fails here. The count is
-/// per-thread and the walk single-threaded on its caller's thread, so the delta is this
-/// run's alone whatever else runs concurrently.
+/// scale is hoisted, and pinned by count"): `compose::repo_file_set` is a whole-tree walk
+/// over the consumer's harness root, and the sibling flavor pin above says nothing about
+/// it — it rides `walkdir`, not the shared `Discovery` cache. Two-sided, because the walk
+/// is now opt-in: an `@import`'s backing is resolved by stat per cited target, leaving
+/// `reachable`'s `paths-match` channel the set's one consumer, so a run binding no root
+/// `reachable` clause walks the tree **not at all** and one binding a clause walks it
+/// exactly once — never once per kind, member, or call site.
+///
+/// What opts in is the **clause**, never the root selection's existence: the shipped root
+/// default binds `reachable`, so the zero-walk half is stated over a lock declaring a root
+/// contract of its own naming some other predicate, exactly as the reachability-closure
+/// pin below states its own zero half.
 #[test]
-fn a_full_check_run_walks_the_directive_backing_set_once() {
+fn a_full_check_run_walks_the_directive_backing_set_only_where_a_root_clause_binds() {
     use temper::compose;
+    use temper::drift::{ClauseRow, CountBoundRow, Declarations};
     use temper::gate;
 
     let harness = tmpdir("backing-set-walk-pin");
@@ -897,28 +903,69 @@ fn a_full_check_run_walks_the_directive_backing_set_once() {
     std::fs::create_dir_all(&rules).unwrap();
     std::fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
 
-    // The raw-harness gate, exactly as `harness_diagnostics` dispatches a bare harness.
-    let before = compose::repo_file_set_count();
-    let (diagnostics, _) = gate::gate(&harness, &harness, &[]).unwrap();
-    let walks = compose::repo_file_set_count() - before;
-
-    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a run that
-    // classed no directive-bearing member would walk the tree for nothing, so the pin
-    // names the members the run actually checked before pinning the walk count.
-    let summary = &diagnostics
-        .iter()
-        .find(|diagnostic| diagnostic.rule == "coverage.checked")
-        .expect("the run discloses what it checked")
-        .message;
-    assert!(
-        summary.contains("skill (1") && summary.contains("rule (1"),
-        "the run must have checked the fixture's members, got: {summary}",
+    // A root contract binding some other predicate. The `count` bound is satisfied by any
+    // corpus size and decides nothing here — its whole job is to be a root row that is not
+    // `reachable`, so rows-or-default answers with it and the walk has no consumer.
+    common::write_lock(
+        &harness,
+        Declarations {
+            clauses: vec![ClauseRow {
+                count: Some(CountBoundRow {
+                    min: 0,
+                    max: usize::MAX,
+                }),
+                ..common::clause("count", "advisory")
+            }],
+            ..Declarations::default()
+        },
     );
 
+    let before = compose::repo_file_set_count();
+    let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
+    let unbound_walks = compose::repo_file_set_count() - before;
+
+    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a run that
+    // classed no directive-bearing member would have nothing to resolve backing for, so
+    // the pin names the members the run actually checked before either count is read.
+    let checked = |diagnostics: &[temper::check::Diagnostic]| {
+        let summary = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.rule == "coverage.checked")
+            .expect("the run discloses what it checked")
+            .message
+            .clone();
+        assert!(
+            summary.contains("skill (1") && summary.contains("rule (1"),
+            "the run must have checked the fixture's members, got: {summary}",
+        );
+    };
+    checked(&diagnostics);
+
     assert_eq!(
-        walks, 1,
-        "a whole run must walk the directive backing set exactly once — one hoisted \
-         whole-tree walk per run, never a per-kind or per-call re-walk",
+        unbound_walks, 0,
+        "a run binding no root `reachable` clause must not walk the tree at all — an          `@import`'s backing resolves by stat per cited target, and the set's one          remaining consumer never asks",
+    );
+
+    // The same corpus, one root `reachable` row: the set's consumer is back, and the walk
+    // it needs is hoisted to exactly one for the whole run.
+    let opted_in = tmpdir("backing-set-walk-pin-opted-in");
+    common::copy_tree(&harness.join(".claude"), &opted_in.join(".claude"));
+    common::write_lock(
+        &opted_in,
+        Declarations {
+            clauses: vec![common::clause("reachable", "advisory")],
+            ..Declarations::default()
+        },
+    );
+
+    let before = compose::repo_file_set_count();
+    let (diagnostics, _) = gate::gate(&opted_in.join(".temper"), &opted_in, &[]).unwrap();
+    let bound_walks = compose::repo_file_set_count() - before;
+    checked(&diagnostics);
+
+    assert_eq!(
+        bound_walks, 1,
+        "a bound root `reachable` clause walks the directive backing set exactly once —          one hoisted whole-tree walk per run, never a per-kind or per-call re-walk",
     );
 }
 
