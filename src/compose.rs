@@ -31,7 +31,7 @@ use crate::graph;
 use crate::import;
 use crate::json_manifest;
 use crate::kind::{self, CollectionAddress, CustomKind, Unit};
-use crate::layout::Layout;
+use crate::layout::{Layout, LayoutError};
 use crate::member_address;
 use crate::toml_document;
 use walkdir;
@@ -552,7 +552,8 @@ pub fn overlay_builtin_kind(
 ///
 /// # Errors
 ///
-/// Returns an error if the document is unreadable or does not fit its declared layout.
+/// Returns a [`LayoutError`] if the document is unreadable, is not UTF-8, or does not fit
+/// its declared layout.
 fn layout_unit(
     layout: &Layout,
     file: &Path,
@@ -561,8 +562,10 @@ fn layout_unit(
 ) -> miette::Result<Unit> {
     // Through the counted door, not a bare `read_to_string`: this and the row lowering's
     // own reach are the two sites that load a layout document, and a count taken at one of
-    // them would pin a share of the cost rather than the cost.
-    let raw = drift::read_layout_document_text(file)?;
+    // them would pin a share of the cost rather than the cost. The door reads through the
+    // shared read+decode primitive and hands its error back unmapped, so the refusal takes
+    // this adapter's own vocabulary — the way every other adapter source load does.
+    let raw = drift::read_layout_document_text(file).map_err(LayoutError::from)?;
     let reading = layout.read(&raw, file, edge_fields)?;
     let id = frontmatter::fold_file_id(base, file)?;
     let mut frontmatter: BTreeMap<String, serde_json::Value> = reading

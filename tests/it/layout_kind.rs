@@ -453,6 +453,28 @@ fn emit_refuses_a_non_fitting_layout_document() {
     assert!(rendered.contains("intent.md"), "names file: {rendered}");
 }
 
+#[test]
+fn emit_refuses_an_undecodable_layout_document_by_name() {
+    // The lowering half of the same read. `compose` refuses in the layout vocabulary;
+    // emit reaches the document through `read_layout_document`, so its decode failure
+    // must name itself too rather than arriving as an `InvalidData` I/O string under
+    // the generic source-read code.
+    let harness = common::tmpdir("layout-not-utf8-emit");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    let doc_path = harness.join("specs").join("intent.md");
+    fs::create_dir_all(doc_path.parent().unwrap()).unwrap();
+    fs::write(&doc_path, b"lead\n\n# Intent\nthe intent \xff\n".as_slice()).unwrap();
+
+    let err = drift::emit(&intent_payload(), &into, EmitOptions::default()).unwrap_err();
+    let rendered = format!("{err:?}");
+    assert!(
+        rendered.contains("temper::drift::read_not_utf8"),
+        "the decode failure carries its own code: {rendered}"
+    );
+    assert!(rendered.contains("intent.md"), "names file: {rendered}");
+}
+
 /// A lock row that **relocates the built-in `rule`** to a `decisions/*.md` locus and
 /// declares the `intent_layout` as its body — every fact besides `governs`/`content`
 /// deferring to the built-in, so `row_relocates_builtin` admits it. The overlay must carry
@@ -535,6 +557,48 @@ fn check_refuses_a_non_fitting_relocated_builtin_layout_document() {
     assert!(
         run.output.contains("Stray"),
         "the refusal must name the unadmitted heading, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_layout_document_that_is_not_utf8_refuses_in_the_layout_vocabulary() {
+    let root = common::tmpdir("relocated-rule-not-utf8");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![relocated_rule_with_layout()],
+            ..Default::default()
+        },
+    );
+    let decisions = root.join("decisions");
+    fs::create_dir_all(&decisions).unwrap();
+    // A lone `0xFF`: no UTF-8 sequence begins with it, so the bytes decode to nothing —
+    // there is no heading tree to cut, let alone a region to place it in.
+    fs::write(
+        decisions.join("0001.md"),
+        b"lead\n\n# Intent\nthe intent \xff\n".as_slice(),
+    )
+    .unwrap();
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "an undecodable layout document must make check exit non-zero, got:\n{}",
+        run.output
+    );
+    // The code, not the prose: the read goes through the shared read+decode primitive
+    // and the layout adapter maps it into its own vocabulary, so the refusal is coded
+    // the way every other adapter's load fault is — never an uncoded read string.
+    let not_utf8_code = "temper::layout::not_utf8".replace(':', "%3A");
+    assert!(
+        run.output.contains(&not_utf8_code),
+        "the refusal carries the layout not-UTF-8 code, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("0001.md"),
+        "the refusal names the undecodable document, got:\n{}",
         run.output
     );
 }

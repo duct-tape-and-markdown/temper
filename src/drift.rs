@@ -117,6 +117,19 @@ pub enum DriftError {
         source: std::io::Error,
     },
 
+    /// A source read for its text — a layout document lowered into rows — is not valid
+    /// UTF-8. Named for itself rather than arriving as an `InvalidData` I/O string under
+    /// [`Read`](DriftError::Read), so the decode failure carries its own code.
+    #[error("{path} is not valid UTF-8")]
+    #[diagnostic(code(temper::drift::read_not_utf8))]
+    ReadNotUtf8 {
+        /// The offending file.
+        path: PathBuf,
+        /// The decode error.
+        #[source]
+        source: std::string::FromUtf8Error,
+    },
+
     /// A re-emitted projection could not be written back to the harness during `emit`.
     #[error("failed to write source {path}")]
     #[diagnostic(code(temper::drift::write))]
@@ -488,6 +501,17 @@ pub enum DriftError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     LockRow(#[from] LockRowError),
+}
+
+impl From<crate::hash::ReadUtf8Error> for DriftError {
+    fn from(err: crate::hash::ReadUtf8Error) -> Self {
+        match err {
+            crate::hash::ReadUtf8Error::Io { path, source } => Self::Read { path, source },
+            crate::hash::ReadUtf8Error::NotUtf8 { path, source } => {
+                Self::ReadNotUtf8 { path, source }
+            }
+        }
+    }
 }
 
 /// One row of the `lock.toml` roll-up index: an artifact's identity, its source
@@ -2037,8 +2061,8 @@ pub struct LayoutDocumentRows {
 /// that does lowers it directly ([`lower_layout_document`]) rather than reading it twice.
 ///
 /// # Errors
-/// Returns a [`DriftError`] when the document cannot be read, or a `LayoutError` (as a
-/// [`miette::Report`]) when it does not fit its declared layout.
+/// Returns a [`DriftError`] when the document cannot be read or is not UTF-8, or a
+/// `LayoutError` (as a [`miette::Report`]) when it does not fit its declared layout.
 pub fn read_layout_document(
     layout: &Layout,
     kind: &str,
@@ -2046,7 +2070,7 @@ pub fn read_layout_document(
     disk_path: &Path,
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<LayoutDocumentRows> {
-    let body = read_layout_document_text(disk_path)?;
+    let body = read_layout_document_text(disk_path).map_err(DriftError::from)?;
     lower_layout_document(layout, kind, name, &body, disk_path, edge_fields)
 }
 
@@ -2057,13 +2081,19 @@ pub fn read_layout_document(
 /// [`layout_document_read_count`] the pass's true disk-read total, which is what lets a
 /// count pin catch a document read a second time.
 ///
+/// The bytes come through [`crate::hash::read_utf8`], the read+decode primitive every
+/// other adapter source load shares, and the door hands its error back unmapped: the
+/// two callers sit in different vocabularies (a unit adapter refuses as a
+/// [`LayoutError`](crate::layout::LayoutError), the row lowering as a [`DriftError`]),
+/// so each maps at its own call site rather than translating twice through one.
+///
 /// # Errors
-/// Returns [`DriftError::Read`] when the document cannot be read.
-pub fn read_layout_document_text(disk_path: &Path) -> Result<String, DriftError> {
-    let body = fs::read_to_string(disk_path).map_err(|source| DriftError::Read {
-        path: disk_path.to_path_buf(),
-        source,
-    })?;
+/// Returns a [`crate::hash::ReadUtf8Error`] when the document cannot be read or is not
+/// valid UTF-8.
+pub(crate) fn read_layout_document_text(
+    disk_path: &Path,
+) -> Result<String, crate::hash::ReadUtf8Error> {
+    let body = crate::hash::read_utf8(disk_path)?;
     increment_layout_document_reads();
     Ok(body)
 }

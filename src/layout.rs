@@ -98,12 +98,37 @@ pub struct LayoutMember {
     pub leaves: BTreeMap<String, String>,
 }
 
-/// The failures a layout read surfaces loud — each naming the file and the heading at
-/// fault, never a degraded empty reading (invariant 6: loud or nothing). An unfilled
-/// region is not among them: a region states what may appear, never what must, so it
-/// reads empty. What refuses is malformed structure the reader cannot place.
+/// The failures a layout read surfaces loud — each naming the file, and the heading at
+/// fault where the fault is structural, never a degraded empty reading (invariant 6:
+/// loud or nothing). An unfilled region is not among them: a region states what may
+/// appear, never what must, so it reads empty. What refuses is a document the reader
+/// cannot load at all, or malformed structure it cannot place.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum LayoutError {
+    /// A layout document could not be read off disk.
+    #[error("failed to read {path}")]
+    #[diagnostic(code(temper::layout::io))]
+    Io {
+        /// The path that failed to read.
+        path: PathBuf,
+        /// The underlying I/O error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// A layout document's bytes are not valid UTF-8, so no heading tree can be cut
+    /// from them — the document refuses in the layout vocabulary rather than as an
+    /// uncoded I/O string.
+    #[error("{path} is not valid UTF-8")]
+    #[diagnostic(code(temper::layout::not_utf8))]
+    NotUtf8 {
+        /// The offending file.
+        path: PathBuf,
+        /// The decode error.
+        #[source]
+        source: std::string::FromUtf8Error,
+    },
+
     /// A collection declares an explicit identity `key`, but a member carries no
     /// sub-heading of that name to read the key from.
     #[error(
@@ -166,6 +191,15 @@ pub enum LayoutError {
         /// The field or collection slot left unbound because its heading was consumed.
         starved_slot: String,
     },
+}
+
+impl From<crate::hash::ReadUtf8Error> for LayoutError {
+    fn from(err: crate::hash::ReadUtf8Error) -> Self {
+        match err {
+            crate::hash::ReadUtf8Error::Io { path, source } => Self::Io { path, source },
+            crate::hash::ReadUtf8Error::NotUtf8 { path, source } => Self::NotUtf8 { path, source },
+        }
+    }
 }
 
 impl Layout {
