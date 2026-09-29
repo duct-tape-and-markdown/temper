@@ -1,8 +1,11 @@
 //! Shared content hashing — the single home for the SHA-256 hex that anchors
 //! provenance and drift. Also home to the shared read+UTF-8-decode primitive all
 //! formats use to load source files, with each format mapping the error to its own
-//! vocabulary, and to `canonicalize_eol`, which the drift engine applies before
-//! re-hashing so a CRLF-filtered checkout reads clean against an LF baseline.
+//! vocabulary, and to `canonicalize_eol` — the one EOL normalizer — which the drift
+//! engine applies before re-hashing so a CRLF-filtered checkout reads clean against
+//! an LF baseline, and which the projection writer applies through
+//! [`canonicalize_eol_str`] so emitted bytes are LF-uniform whatever the source's
+//! own convention.
 //! Every caller computes the same lowercase hex here, over raw `&[u8]`, so the
 //! hash stays kind-agnostic — no artifact typing is lost by sharing it.
 
@@ -46,6 +49,15 @@ pub fn canonicalize_eol(bytes: &[u8]) -> Vec<u8> {
     out
 }
 
+/// [`canonicalize_eol`] over text, for callers holding a `&str` rather than raw bytes —
+/// the projection writer, which writes LF uniformly regardless of the source's own
+/// convention. The decode back cannot fail: CR and LF are ASCII, so rewriting them
+/// touches no multi-byte sequence and UTF-8 validity carries through byte-for-byte.
+pub fn canonicalize_eol_str(text: &str) -> String {
+    String::from_utf8(canonicalize_eol(text.as_bytes()))
+        .expect("canonicalizing ASCII line endings preserves UTF-8 validity")
+}
+
 /// Errors from reading a file and decoding it as UTF-8.
 #[derive(Debug)]
 pub(crate) enum ReadUtf8Error {
@@ -76,4 +88,36 @@ pub(crate) fn read_utf8(path: &Path) -> Result<String, ReadUtf8Error> {
         path: path.to_path_buf(),
         source,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canonicalize_eol_folds_every_convention_onto_lf() {
+        // The one rule, over both faces: a CRLF pair collapses to a single LF, and a
+        // lone CR (old Mac style) becomes LF too.
+        assert_eq!(canonicalize_eol(b"a\r\nb\rc\n"), b"a\nb\nc\n");
+        assert_eq!(canonicalize_eol_str("a\r\nb\rc\n"), "a\nb\nc\n");
+
+        // A trailing lone CR has no successor to inspect and still folds.
+        assert_eq!(canonicalize_eol_str("a\r"), "a\n");
+    }
+
+    #[test]
+    fn canonicalize_eol_leaves_lf_text_identical() {
+        let lf = "---\ntitle: t\n---\n\nBody.\n";
+        assert_eq!(canonicalize_eol(lf.as_bytes()), lf.as_bytes());
+        assert_eq!(canonicalize_eol_str(lf), lf);
+    }
+
+    #[test]
+    fn canonicalize_eol_preserves_multi_byte_utf8_around_a_cr() {
+        // The `&str` face's decode-back rests on CR being ASCII: multi-byte scalars on
+        // either side of a folded line ending survive intact.
+        let crlf = "é—\r\n日本\rπ";
+        assert_eq!(canonicalize_eol_str(crlf), "é—\n日本\nπ");
+        assert_eq!(canonicalize_eol(crlf.as_bytes()), "é—\n日本\nπ".as_bytes());
+    }
 }

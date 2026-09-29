@@ -27,7 +27,7 @@ use toml_edit::{
 use crate::compose;
 use crate::contract;
 use crate::graph;
-use crate::hash::{canonicalize_eol, sha256_hex};
+use crate::hash::{canonicalize_eol, canonicalize_eol_str, sha256_hex};
 use crate::kind::{
     CollectionAddress, Commitment, Content, Format, collection_address_from_row,
     commitment_from_row, content_from_row, format_from_row,
@@ -2521,25 +2521,6 @@ fn classify_orphan(disk_path: &Path, emit_hash: &str) -> Result<Option<EmitOutco
     }
 }
 
-/// Normalize line endings to LF: a CRLF pair collapses to one `\n`, and a lone
-/// CR (old Mac style) becomes `\n` too — projections are written LF uniformly
-/// regardless of the source's own convention.
-fn normalize_lf(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\r' {
-            if chars.peek() == Some(&'\n') {
-                chars.next();
-            }
-            out.push('\n');
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
 /// Re-emit one projection whole, returning its [`EmitEntry`] and the SHA-256 of the
 /// bytes now on disk (or that would be, under `--dry-run`) — the fresh rollup row's
 /// `source_hash`/`emit_hash`, always equal for a payload-compiled member (there is no
@@ -2618,7 +2599,7 @@ fn emit_one(
             &projection.body,
             &placements,
         )
-        .map(|bytes| normalize_lf(&bytes))
+        .map(|bytes| canonicalize_eol_str(&bytes))
         .ok_or_else(|| DriftError::FormatHasNoWriteFace {
             member: host_address(&projection.kind, &projection.name),
             format: projection
