@@ -1,22 +1,20 @@
 {
   "tag": "SESSION-START-LOCK-FIXTURES-FOLD-INTO-ONE-HOME",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "GUARD-CLAUSE-ROW-APPENDS-FOLD-INTO-ONE-HOME"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "priority": 0,
   "files": {
     "new": [],
     "edit": [
       {
         "path": "tests/it/common/mod.rs",
-        "description": "Generalize the hand-authored-lock home past guard fixtures. Three changes to `GuardLock` (:459). (1) Rename it for the job it does \u2014 a hand-rendered lock read back through the engine's own reader \u2014 since a session-start fixture is not a guard fixture; `LockFixture` unless a better name presents itself. (2) The mode becomes optional: `declaring(mode)` (:470) always pushes an `[[declaration.assembly]]` `mode` fact, and the four fixtures this entry routes declare none, so add a mode-less constructor and fire `write`'s (:540) mode assertion only where a mode was declared. (3) Widen the renderer with the families and columns those fixtures spell: the `requirement` and `satisfies` families (`Declarations::requirements`/`satisfies`, src/drift.rs:3714/:3721, rendered beside the existing four in `render` (:585) through `insert_declaration_family`), and the `bound`/`unit` columns on `clause_table` (:674). Every addition rides the same read-back backstop the existing families do \u2014 the rendered bytes must lift to exactly the declared rows."
+        "description": "Generalize the hand-authored-lock home past guard fixtures. Three changes to `GuardLock` (:459). (1) Rename it for the job it does — a hand-rendered lock read back through the engine's own reader — since a session-start fixture is not a guard fixture; `LockFixture` unless a better name presents itself. (2) The mode becomes optional: `declaring(mode)` (:470) always pushes an `[[declaration.assembly]]` `mode` fact, and the four fixtures this entry routes declare none, so add a mode-less constructor and fire `write`'s (:540) mode assertion only where a mode was declared. (3) Widen the renderer with the families and columns those fixtures spell: the `requirement` and `satisfies` families (`Declarations::requirements`/`satisfies`, src/drift.rs:3714/:3721, rendered beside the existing four in `render` (:585) through `insert_declaration_family`), and the `bound`/`unit` columns on `clause_table` (:674). Every addition rides the same read-back backstop the existing families do — the rendered bytes must lift to exactly the declared rows."
       },
       {
         "path": "tests/it/session_start.rs",
-        "description": "Four raw `fs::write` lock fixtures route through the shared home: :149 (a `requirement` + `satisfies` pair standing in for a prior import), :191 (kind + clause with `bound`/`unit` + requirement + satisfies), :250 (kind + a `required` field clause), :300 (a lone unfilled `requirement`). Each is bytes today, so nothing checks that the spelling still matches `src/`: `family()` (src/drift.rs:4636) answers an empty vec for an absent family key, so a renamed `requirement` family makes the :149 fixture declare no requirement at all while its assertions \u2014 exit zero, no blocking verdict \u2014 stay green over a lock that demands nothing. That is the vacuity class `specs/process/engineering.md`, \"A green verdict is proven non-vacuous\" names, and the read-back is what closes it."
+        "description": "Four raw `fs::write` lock fixtures route through the shared home: :149 (a `requirement` + `satisfies` pair standing in for a prior import), :191 (kind + clause with `bound`/`unit` + requirement + satisfies), :250 (kind + a `required` field clause), :300 (a lone unfilled `requirement`). Each is bytes today, so nothing checks that the spelling still matches `src/`: `family()` (src/drift.rs:4636) answers an empty vec for an absent family key, so a renamed `requirement` family makes the :149 fixture declare no requirement at all while its assertions — exit zero, no blocking verdict — stay green over a lock that demands nothing. That is the vacuity class `specs/process/engineering.md`, \"A green verdict is proven non-vacuous\" names, and the read-back is what closes it."
       },
       {
         "path": "tests/it/cli.rs",
@@ -24,7 +22,7 @@
       },
       {
         "path": "tests/it/install.rs",
-        "description": "Rename ripple only: 13 `GuardLock` call sites follow the type's new name, including the fixture pin `a_guard_fixtures_lock_declares_its_enforcement_mode_rather_than_inheriting_the_default`, whose subject is now one constructor of two \u2014 it keeps asserting the declared mode row and the mode read back off it."
+        "description": "Rename ripple only: 13 `GuardLock` call sites follow the type's new name, including the fixture pin `a_guard_fixtures_lock_declares_its_enforcement_mode_rather_than_inheriting_the_default`, whose subject is now one constructor of two — it keeps asserting the declared mode row and the mode read back off it."
       }
     ],
     "retire": []
@@ -41,5 +39,5 @@
     }
   ],
   "acceptance": "`cargo test` green, no `[[declaration.` text left in tests/it/session_start.rs, and the satisfies case red under a renamed `requirement` family in `src/`.",
-  "notes": "Slice 2 of the hand-spelled-lock class 890db08a left out of scope. Blocked on the cli.rs slice, not on intent \u2014 both touch tests/it/cli.rs. The tests/it/install.rs overlap with INSTALL-LIFTS-A-REGISTRATION-MEMBER is rename-only and that entry is fork-held, so no wave carries both. Remainder, filed once this home is general: acceptance.rs (6), check_cost.rs (3), hook_kind.rs, coverage_note.rs, cli.rs:263. scoped at 2f95f0a1"
+  "notes": "Slice 2 of the hand-spelled-lock class 890db08a left out of scope. Blocked on the cli.rs slice, not on intent — both touch tests/it/cli.rs. The tests/it/install.rs overlap with INSTALL-LIFTS-A-REGISTRATION-MEMBER is rename-only and that entry is fork-held, so no wave carries both. Remainder, filed once this home is general: acceptance.rs (6), check_cost.rs (3), hook_kind.rs, coverage_note.rs, cli.rs:263. scoped at 2f95f0a1"
 }
