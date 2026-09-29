@@ -1,0 +1,85 @@
+{
+  "tag": "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT",
+      "DIRECTIVE-BACKING-RESOLVES-BY-STAT",
+      "EMBEDDED-EDGE-TARGET-DEFERS-TO-CHECK"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/contract.rs",
+        "description": "A new field-less `Predicate` variant for the engine check beside `Fresh`/`LocusDeclared` (:549), its wire label in both directions (:713 parse, :826 render), and its arm in the four classification chains (:864, :913, :966, :1017) — model the whole shape on `LocusDeclared`, which names no field either."
+      },
+      {
+        "path": "src/engine.rs",
+        "description": "The variant's arms in the eight exhaustive matches that already list `Fresh | LocusDeclared` (:350, :410, :461, :641, :836, :1563, :2165, :3677) — selection, admissibility, field-lessness, root-only binding — and `root_clause` (:754) is the lookup the gate resolves it through."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "Wire the judge beside the `locus-declared` (:699) and `fresh` (:742) root clauses: compare the committed lock's recorded engine against `crate::VERSION` and report at the clause's declared severity. Offline and lock-only — a lock recording no engine, and a run with no committed lock at all, report nothing."
+      },
+      {
+        "path": "src/schema.rs",
+        "description": "The variant's arm in the predicate projection (:135-139), where `Fresh`/`LocusDeclared` already sit — a root predicate contributes no field schema."
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "The predicate constructor beside `fresh` (:262) and `locusDeclared` (:281), field-less, with the doc comment stating what it judges."
+      },
+      {
+        "path": "sdk/src/assembly.ts",
+        "description": "`rootDefaultContract` (:134) gains a fourth clause at `advisory`, with `guidance` and a `cite` like its three siblings — the doc comment above it says 'three clauses' and states why each is root-only; it moves with the addition."
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "Regenerated data, never hand-edited: the root clause family gains the new row. Regenerate by the memberless emit its own header documents."
+      },
+      {
+        "path": "tests/it/builtin_lock_frozen.rs",
+        "description": "The frozen lane's expected root clause list (:169, :195) gains the row — this is the byte-compare that proves the embedded lock was derived, not transcribed."
+      },
+      {
+        "path": "tests/it/root_contract.rs",
+        "description": "The root contract's clause census (:348) gains the fourth entry, plus a case that a lock recording a different engine yields the advisory finding and one recording this engine yields none."
+      },
+      {
+        "path": "tests/it/manifest_schema_oracle.rs",
+        "description": "The oracle's exhaustive predicate match (:193) gains the variant."
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
+        "description": "The emitted lock's root clause rows in the snapshot gain the new row."
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "description": "The `rootDefaultContract` census (:234) and the constructor's row round-trip (:277) gain the fourth predicate."
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "The emitted clause-row expectation (:250-261) enumerates the root default's clauses positionally; it gains the fourth."
+      }
+    ]
+  },
+  "summary": "A root default clause, advisory, reports when the committed lock records an engine version other than the one running the gate.",
+  "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+  "tests": [
+    {
+      "path": "tests/it/root_contract.rs",
+      "asserts": "a lock recording a different engine version reports the advisory finding naming both versions; a matching lock, a lock recording none, and a run with no lock report nothing"
+    },
+    {
+      "path": "tests/it/builtin_lock_frozen.rs",
+      "asserts": "the embedded built-in lock's root clause family matches the SDK-derived one, the new clause included"
+    },
+    {
+      "path": "sdk/test/contract.test.ts",
+      "asserts": "the shipped root default contract binds the new predicate at advisory with guidance and a cite"
+    }
+  ],
+  "acceptance": "cargo test and pnpm --dir sdk test green, cargo clippy --all-targets -D warnings clean, and the regenerated src/builtin_lock.toml passing the frozen byte-compare.",
+  "notes": "Decision 0069, second consequence. Advisory because no adopter turns red on the upgrade — the same posture the root's three shipped clauses hold. Blocked on three tags for file overlap: the lock column it reads (its real dependency), src/gate.rs, and sdk/test/emit.test.ts. Widening a shared enumeration: the `Predicate` sites above are the full `rg Predicate::LocusDeclared` census at scoping. scoped at 1c049fae"
+}

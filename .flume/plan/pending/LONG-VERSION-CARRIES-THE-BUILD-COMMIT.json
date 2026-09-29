@@ -1,0 +1,30 @@
+{
+  "tag": "LONG-VERSION-CARRIES-THE-BUILD-COMMIT",
+  "gate": { "kind": "blockedBy", "tags": ["CHECK-ANNOUNCES-A-RE-ROOTED-HARNESS"] },
+  "files": {
+    "edit": [
+      {
+        "path": "build.rs",
+        "description": "The script does nothing today and exists only because Cargo auto-detects it — give it the one job: stamp the build's commit into an env var for the long version form, emitting nothing when the source tree carries no git metadata (a crates.io tarball must still build). Declare the rerun-if-changed inputs so the stamp is not silently stale."
+      },
+      {
+        "path": "src/main.rs",
+        "description": "`#[command(..., version, ...)]` (:47) makes both version forms one string. Add the long form carrying the build commit beside the short one, which stays exactly `crate::VERSION` — the release tag's string, unchanged in every build of that tag. Verify clap 4's own short/long version split against its current docs before wiring it, and cite the doc in the attribute's comment; this entry does not assert which flag prints which."
+      },
+      {
+        "path": "tests/it/cli.rs",
+        "description": "The first version assertions on this surface — the file carries none today."
+      }
+    ]
+  },
+  "summary": "Build provenance rides the long `--version` form alone: the short version string stays the release tag's, byte-identical across builds of one tag.",
+  "per": { "path": "specs/distribution.md", "section": "What ships — three channels" },
+  "tests": [
+    {
+      "path": "tests/it/cli.rs",
+      "asserts": "the short version form is exactly the crate version with no suffix; the long form contains it and, when the build stamped a commit, that commit — read through the same env var the binary was built with, so a tarball build asserts the omission rather than failing"
+    }
+  ],
+  "acceptance": "cargo test green including the new CLI version cases, and cargo clippy --all-targets -D warnings clean.",
+  "notes": "Decision 0069, third consequence, and the guard on its rejected alternative: a `git describe` suffix on the version string itself would make a tarball build and a git build of one tag disagree, so the commit must never reach the short form or the artifacts that stamp it (`src/bundle.rs:248`, `src/reporter.rs:364`, both verified carrying bare `crate::VERSION` at scoping). Blocked for file overlap on src/main.rs and tests/it/cli.rs alone. scoped at 1c049fae"
+}

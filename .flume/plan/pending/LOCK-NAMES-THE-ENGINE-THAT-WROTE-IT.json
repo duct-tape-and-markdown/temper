@@ -1,0 +1,38 @@
+{
+  "tag": "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "Emit stamps the engine version that wrote the lock: `write_rollup` (the sole lock writer, :582) writes `crate::VERSION` into the document, and the read side lifts it back. Spell it OUTSIDE the `[declaration]` table — `declarations_from_doc` (:4675) and the embedded `src/builtin_lock.toml` are declaration rows only, and the frozen lane byte-compares exactly those rows. Per 0024's robust read: an older lock carrying no engine key is legitimate absence — `Option`, never a `LockRowError`, never a synthesized value."
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "The round-trip pin: an emitted lock names this engine's version, and a lock text with the key absent still parses to the same declarations with the engine unknown."
+      },
+      {
+        "path": "tests/it/gauntlet.rs",
+        "description": "`projection_tree` (:241) renders `.temper/lock.toml` verbatim into the snapshot, so a bare version line would churn the snapshot on every release bump — normalize the stamped line (insta filter or a redaction in the renderer) so the snapshot pins the key's presence, not the release."
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
+        "description": "The embedded `.temper/lock.toml` (:87) gains the engine line in whatever normalized spelling the renderer above settles on."
+      }
+    ]
+  },
+  "summary": "The committed lock names the engine version that wrote it; a lock without the key reads as unknown, never as an error.",
+  "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+  "tests": [
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "an emitted lock carries the running engine's version; a lock text lacking the key parses with the engine absent and every declaration family intact"
+    },
+    {
+      "path": "tests/it/gauntlet.rs",
+      "asserts": "the projection-tree snapshot stays stable across a version bump — the rendered lock's engine line is normalized, not the literal string"
+    }
+  ],
+  "acceptance": "cargo test green (the gauntlet snapshot accepted), cargo clippy --all-targets -D warnings clean, and `cargo fmt --all --check` clean.",
+  "notes": "Decision 0069, first consequence. The read face's one consumer is ENGINE-MISMATCH-IS-A-ROOT-CLAUSE, filed with this entry as its blocked successor — the chain is declared up front rather than shipping an export that earns its consumer a tick later. Do not touch `.temper/lock.toml`: the dogfood's lock is harness territory, and its missing key is exactly the legitimate absence this entry must tolerate. scoped at 1c049fae"
+}
