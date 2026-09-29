@@ -1,0 +1,31 @@
+{
+  "tag": "GOVERNS-AND-NESTED-ROW-LOCK-FIXTURES-FOLD-INTO-ONE-HOME",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "The suite already writes 18 of its locks through `common::write_lock` and builds its rows with `common::kind_facts`, yet two fixtures still hand-render TOML the real writer produces. (1) :2159, inside `check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default` — a `[[declaration.kind]]` row relocating the built-in `skill` locus, which is `KindFactRow { provider: Some(\"claude-code\"), ..common::kind_facts(\"skill\", \"custom-locus/skills\", \"*/SKILL.md\") }`; every column the hand row omits is already that helper's default, so the written bytes match. (2) :2271, inside `a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member` — a `[[declaration.kind]]` row carrying `templates = [{ kind = \"directive\" }]` plus its `[[declaration.nested_member]]` row, i.e. a `KindFactRow` with one path-less `TemplateRow` and a `NestedMemberRow`; both types are already imported here (:26, :27) and both families round-trip through `drift::emit`. Route both through `common::write_lock`. The suite's other four raw writes stay: :1949 (a lock with NO `[declaration]` table — the absence is the fixture), :1971 (`read_raw`, the malformed-column refusal inputs), and :2038/:2054 (the `layout_source` family, which rides `drift::layout_sources` and has no field on `drift::Declarations`)."
+      }
+    ]
+  },
+  "summary": "Route lock_declaration_rows' last two hand-spelled locks — a governs relocation and a nested-member overlay — through `common::write_lock`.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "tests/it/lock_declaration_rows.rs",
+      "asserts": "`check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default` still exits non-zero with a `forbidden_keys` finding, so the writer-produced row still relocated the walk off `.claude/skills`"
+    },
+    {
+      "path": "tests/it/lock_declaration_rows.rs",
+      "asserts": "`a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member` still narrates `` `directive` member `at-import` `` and still never surfaces the rendered fence's `rendered-key`"
+    }
+  ],
+  "acceptance": "cargo test green, and the suite's raw `fs::write(…lock.toml…)` call sites drop from six to the four this entry names as writer-unproducible.",
+  "notes": "Third slice of the hand-lock class, found by the tree-wide `[[declaration.` grep the drained capture's enumeration missed. Driver is duplicate-surface only: both cases assert a positive verdict, so a renamed family already turns them red — no vacuity here, unlike cli.rs at e0033edb. Chain rule, set at 0c507f6c: `common::write_lock` for any lock whose rows the real writer produces. File-disjoint from its two siblings; needs no tests/it/common change. scoped at 8a14916d"
+}
