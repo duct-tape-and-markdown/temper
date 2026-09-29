@@ -1,10 +1,7 @@
 {
   "tag": "UNMODELED-SURFACE-ADVISORY-RETIRES",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,
