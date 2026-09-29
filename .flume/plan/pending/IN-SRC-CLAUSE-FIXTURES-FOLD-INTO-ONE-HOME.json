@@ -1,0 +1,50 @@
+{
+  "tag": "IN-SRC-CLAUSE-FIXTURES-FOLD-INTO-ONE-HOME",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/test_support.rs",
+        "description": "The in-src shared fixture home (`#[cfg(test)] pub(crate) mod`, src/lib.rs:73), already holding the row-shaped `clause_row` (:142). Add its engine-typed sibling — new `labelled_clause(owner, severity, predicate) -> contract::Clause`, label = `contract::clause_label(Some(owner), predicate.key(), predicate.target())`, `guidance`/`source` None — the in-src twin of `tests/it/common::labelled_clause` (tests/it/common/mod.rs:1056), which the `it` crate cannot export across the crate boundary. `owner` is a parameter, not derived: a kind clause takes the kind, a requirement's takes `contract::requirement_owner(<the requirement's own name>)`, which is exactly what the shipped stamper joins (`drift::stamp_clause_labels`, :1619)."
+      },
+      {
+        "path": "src/roster.rs",
+        "description": "`required_clause` (:209) is the false-address case, wrong in both segments. It hard-codes owner `requirement_owner(\"gate\")` while every requirement it hangs off is named `agents` (:352, :402, :501, :617, :742, :763-782, :831 all struct-update `requirement(\"agents\")`), and it passes `None` for the field where `predicate.target()` names one. A finding's `rule` echoes the label verbatim, so `requirement.gate.unique` is pinned at :443 for a clause the stamper addresses `requirement.agents.unique.model` — and the same assertion's `artifact` already says `agents`. Route it through the new home, taking the owner from the requirement the clause attaches to; the pinned addresses move for `unique` (:443), `membership` (:533, :569, :605, :628) and `required` (:820). `count` (:372, :394) and the `Degree`/`Kind` clauses keep their bare join — `target()` is None for them — but their owner segment moves with the rest."
+      },
+      {
+        "path": "src/engine.rs",
+        "description": "`clause` (:1788) already spells the home's body exactly after 0a4f90b7 — it is the second home, not a defect. Delegate it to `test_support::labelled_clause`; its signature and all 36 call sites stand. The one deliberate override stays: the embedded-fence loop re-labels fieldless at :2333 because `section_contains` and `require_sections` are among the four predicates whose emitted `field` column the SDK synthesizes from the row's arguments (`clauseField`, sdk/src/declarations.ts:188 — the other two being `degree` and `reached-from`), and its reason is already stated at the site."
+      },
+      {
+        "path": "src/schema.rs",
+        "description": "Two builders for one job inside one test module: `clause` (:379) and `guided` (:618) differ only in severity and a guidance string, and both pass `None` for a field every predicate they carry names (`Required`/`Type`/`MaxLen`/`MinLen` over `name`, `skills`, `description`). Fold both onto the home, `guided` adding its string by struct update over the result — the shape `common::one_clause_selection` (tests/it/common/mod.rs:1181) already uses for the same guidance-over-a-labelled-clause case. No assertion in this module reads a label (schema emission maps predicates to keywords and never touches it), so this corrects an inert-but-false address and removes the duplicate builder; nothing pinned moves."
+      },
+      {
+        "path": "src/graph.rs",
+        "description": "`gate_requirement` (:2820) builds its clause inline with the same `requirement_owner(\"gate\")` + `None` spelling as roster's. Here the owner is correct — the requirement it builds really is named `gate` — and every degree fixture under it passes `fields: None` (:2871, :2904, :2940, :2972, :3006, :3040, :3131, :3164), so `target()` yields None and the three pinned `requirement.gate.degree` addresses (:2921, :2988, :3022) are reproduced byte-for-byte. Delegate to the home so the fifth spelling goes with the other four."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Four in-src clause fixtures hand-build a label; roster's addresses requirement.gate.unique where the stamper writes requirement.agents.unique.model.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "src/roster.rs",
+      "asserts": "each set-scope finding's `rule` is the address the stamper writes for the requirement it hangs off — owner from the requirement's own name, field from the predicate's target"
+    },
+    {
+      "path": "src/test_support.rs",
+      "asserts": "one in-src builder labels an engine clause, deriving both trailing segments from the predicate as `tests/it/common::labelled_clause` does"
+    }
+  ],
+  "acceptance": "`cargo test` green with one in-src labelled-clause builder in `test_support`, the four hand-rolled spellings delegating to it, and roster's six pinned `rule` assertions reading the address a real lock stamps.",
+  "notes": "The last census after 18c81f2d (the `it` crate) and 0a4f90b7 (engine.rs): the in-src crate held four more spellings, and `src/test_support.rs` is the home both those commits lacked a way to reach. Only roster's addresses move; schema's labels are inert, graph's and engine's reproduce byte-for-byte. scoped at 0939127c"
+}
