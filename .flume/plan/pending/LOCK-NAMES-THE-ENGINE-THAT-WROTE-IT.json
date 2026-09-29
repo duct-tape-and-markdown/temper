@@ -7,15 +7,23 @@
     "edit": [
       {
         "path": "src/drift.rs",
-        "description": "Emit stamps the engine version that wrote the lock: `write_rollup` (the sole lock writer, :582) writes `crate::VERSION` into the document, and the read side lifts it back. Spell it OUTSIDE the `[declaration]` table — `declarations_from_doc` (:4675) and the embedded `src/builtin_lock.toml` are declaration rows only, and the frozen lane byte-compares exactly those rows. Per 0024's robust read: an older lock carrying no engine key is legitimate absence — `Option`, never a `LockRowError`, never a synthesized value. Riding this entry, since it opens `write_rollup`'s own doc: that doc (:570) still says the gate side reads the declaration rows \"through [`read_declarations`]\", which stopped being true at 5866aea3 — `gate` derives them from its one parsed document through `declarations_from_doc`, and `read_declarations` is now the other verbs' door (`src/main.rs`, `src/install.rs`, `src/read.rs`, `src/coverage_note.rs`). Correct the cite while in the file."
+        "description": "Emit stamps the engine version that wrote the lock: `write_rollup` (:581, the sole lock writer) writes `crate::VERSION` at the document root, and the read side lifts it back as `Option<String>` behind one counted door. Per 0024's robust read: an older lock carrying no engine key — and a present non-string — both read unknown, never a `LockRowError` and never a synthesized value. A root TOML key must precede every table, so the stamp lands as the file's first line; the frozen lane below is what makes that survivable, and the declaration rows `declarations_from_doc` (:4675) lifts are unchanged. Riding this entry, since it opens `write_rollup`'s own doc: that doc (:570) still says the gate side reads the declaration rows \"through [`read_declarations`]\", which stopped being true at 5866aea3 — `gate` derives them from its one parsed document through `declarations_from_doc`, and `read_declarations` (:4636) is now the other verbs' door (`src/main.rs`, `src/install.rs`, `src/read.rs`, `src/coverage_note.rs`). Correct the cite while in the file."
+      },
+      {
+        "path": "tests/it/builtin_lock_frozen.rs",
+        "description": "The one path the 3b397826 attempt could not reach from inside its fence. The frozen lane's compare is asymmetric: `embedded_declaration_rows` (:100) slices `src/builtin_lock.toml` from `[[declaration.kind]]`, while `derived` (:120) is the emitted `lock.toml` read whole — it passes today only because a memberless emit writes nothing ahead of that header, so the root-level stamp lands as a prefix on the derived side alone and fails the compare on that prefix. Slice both texts through one shared helper, so the compare holds exactly the declaration rows it claims to; then assert the derived side's dropped prefix is exactly the engine line, so the lane keeps noticing any *other* root key emit might grow. Do NOT stamp `src/builtin_lock.toml`: it is a frozen artifact re-derived by this very compare, and a live version line in it would break on every release bump."
       },
       {
         "path": "tests/it/emit.rs",
-        "description": "The round-trip pin: an emitted lock names this engine's version, and a lock text with the key absent still parses to the same declarations with the engine unknown."
+        "description": "The round-trip pin: an emitted lock names this engine's version, and a lock text with the key absent still parses to the same declarations with the engine unknown. `emit_program_runs_the_shipped_example_harness` (:2377) byte-compares the example's regenerated lock against the committed one — that compare stays byte-exact, with no normalization and no dropped stamp. The example is the adopter shape temper ships, an adopter's lock takes this same one-line diff on every upgrade, and a per-instance exemption would hide exactly the churn adopters will see (`engineering.md`, \"The fix lands at the mechanism\")."
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "The shipped example's committed lock gains the engine line as its first byte, ahead of today's leading `[[decision]]` table. Regenerate it, never hand-edit a byte: vendor the SDK the way the emit test's own failure message spells (`ln -s $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` — gitignored, never committed), then `cargo run -- emit --into examples/base-harness/.temper` and commit what moves."
       },
       {
         "path": "tests/it/gauntlet.rs",
-        "description": "`projection_tree` (:241) renders `.temper/lock.toml` verbatim into the snapshot, so a bare version line would churn the snapshot on every release bump — normalize the stamped line (insta filter or a redaction in the renderer) so the snapshot pins the key's presence, not the release."
+        "description": "`projection_tree` (:241) renders `.temper/lock.toml` verbatim into the snapshot, and unlike the example's committed lock this one is derived fresh per run, so a bare version line would churn the snapshot on every release bump with nothing committed to regenerate. Normalize the stamped line (insta filter or a redaction in the renderer) so the snapshot pins the key's presence, not the release."
       },
       {
         "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
@@ -31,7 +39,11 @@
   "tests": [
     {
       "path": "tests/it/emit.rs",
-      "asserts": "an emitted lock carries the running engine's version; a lock text lacking the key parses with the engine absent and every declaration family intact"
+      "asserts": "an emitted lock carries the running engine's version; a lock text lacking the key parses with the engine absent and every declaration family intact; the shipped example's committed lock byte-equals its own emit, engine line included"
+    },
+    {
+      "path": "tests/it/builtin_lock_frozen.rs",
+      "asserts": "the embedded lock byte-equals the memberless emit's declaration rows with both sides sliced the same way, and the derived side carries the engine stamp and nothing else ahead of them"
     },
     {
       "path": "tests/it/gauntlet.rs",
@@ -39,5 +51,5 @@
     }
   ],
   "acceptance": "cargo test green (the gauntlet snapshot accepted), cargo clippy --all-targets -D warnings clean, and `cargo fmt --all --check` clean.",
-  "notes": "Decision 0069, first consequence. The read face's one consumer is ENGINE-MISMATCH-IS-A-ROOT-CLAUSE, filed with this entry as its blocked successor — the chain is declared up front rather than shipping an export that earns its consumer a tick later. Do not touch `.temper/lock.toml`: the dogfood's lock is harness territory, and its missing key is exactly the legitimate absence this entry must tolerate. scoped at a60d6a27"
+  "notes": "Decision 0069, first consequence; re-scoped after 3b397826's capture proved the frozen lane's compare — not the stamp's spelling — is what blocks green. The example-lock exemption that capture proposed is rejected (John 2026-09-29, inbox). The read face's one consumer is ENGINE-MISMATCH-IS-A-ROOT-CLAUSE. Do not touch `.temper/lock.toml`: the dogfood's lock is harness territory, its absent key the legitimate absence this must tolerate. scoped at 19481cfa"
 }

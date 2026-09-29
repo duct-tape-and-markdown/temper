@@ -1,0 +1,35 @@
+{
+  "tag": "DEFERRED-EDGE-READ-REFUSES-BY-NAME",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "`edgeTargetFacts` (:286) drops a deferred field on the floor: :305 `continue`s when `defersToGate` accepts the authored address, so the field is simply absent from the returned record, and a hook spelling `targets[field].path` throws `TypeError: Cannot read properties of undefined` — loud, but unnamed, and pointing at the author's template rather than at the reference. Have `edgeTargetFacts` report the deferred field names alongside the facts, and have `resolveMemberLeaves` (:378, :404) wrap `targets` in a view whose `get` on one of those names throws the named refusal instead: the host member, the embedded value's kind and key, the edge field, the authored address, and that the target is judged at `check` (`pipeline.md`, \"Emit\", the \"Refusing\" bullet, which already spells the deferral itself). Guard the trap to `typeof property === \"string\"` and membership in the deferred set, so a symbol get (inspection, `then`) is untouched. One wrap covers both render call sites: `renderMemberBlock` (:443) hands `resolved` straight to the hook, and `placedEdges` (:494) hands it through `recordingView` (:460), whose `get` already forwards by `Reflect.get` into whatever it wraps. Leave `ownKeys` untrapped — `placedEdges`'s `Object.keys(resolved.targets)` (:503) must keep seeing the resolved fields alone, which is what keeps a deferred field out of the `format-places-edges` obligation."
+      },
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "`ResolvedEmbeddedMemberValue.targets`'s doc (:860-:879) enumerates three cases that carry no entry and tells a hook author that a hook spelling a reference off a key \"must therefore handle its absence\". That stops being true of the third: an unfilled field and a kind declaring no edge fields still read absent, but a filled field whose target defers to `check` now refuses on read. Correct the paragraph; `EdgeTargetFacts`'s own closed five-fact set (:841) is untouched."
+      },
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "description": "Beside `emit defers an edge field naming a declared at-locus kind's uncomposed member` (:293) — which drives a `rule:ghost` citing harness and already pins `placed_edges === undefined` (:315) — add the two halves of the ruling over that same program: a citation kind whose `render` spells `value.targets.source.path` refuses by name (assert the message carries the member, the edge field and the authored address, not a `TypeError`), and one whose `render` never names the field emits clean with `rule:ghost` riding the `nested_member` row's leaves. The existing `placed_edges` pin stays as the third assertion — a deferred field is still no placement obligation."
+      }
+    ]
+  },
+  "summary": "A render hook reading a deferred edge field's facts refuses by name at emit, rather than throwing a raw TypeError off an absent key.",
+  "per": {
+    "path": "specs/intent.md",
+    "section": "Invariants"
+  },
+  "tests": [
+    {
+      "path": "sdk/test/refusals.test.ts",
+      "asserts": "a render reading a deferred edge field's facts refuses by name at emit; a render that ignores the field emits clean with the authored address on the nested_member row; `placed_edges` still omits the deferred field"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`), and `cargo test` green — the Rust integration lanes drive real emits through this SDK.",
+  "notes": "Ruling John 2026-09-29, routed from the inbox (observed at 3e808020), after EMBEDDED-EDGE-TARGET-DEFERS-TO-CHECK (25890939) shipped the deferral. Rejected: the render-selection rule — a render that never reads the field still emits and defers to `check`. Rejected: a partial fact (name/address/kind off the address, no path) — it reopens the closed five-fact set. Invariant 6, \"Loud or nothing\": a surface without a refusal is a gap. scoped at 19481cfa"
+}
