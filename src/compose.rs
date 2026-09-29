@@ -1458,9 +1458,11 @@ pub fn repo_file_set(root: &Path) -> Vec<String> {
 /// whose only consumer is the backing check pays for its own imports rather than for
 /// the consumer's checkout.
 ///
-/// The walk's verdicts are **spelled here, not inherited** — `walkdir` with
-/// `follow_links` off, collecting `file_type().is_file()` entries under `root`, decides
-/// three cases this resolver must reproduce:
+/// The agreement is pinned, not narrated: this module's
+/// `backed_on_disk_agrees_with_the_walk_over_every_shape_the_fold_decides` drives the
+/// real walk's output through this resolver. What stays below is the *mechanism* —
+/// `walkdir` with `follow_links` off, collecting `file_type().is_file()` entries under
+/// `root`, decides three cases, and each is reproduced here by a different move:
 ///
 /// - a **directory** target is unbacked: the walk collects files only;
 /// - a **symlink** target is unbacked: with links unfollowed the walk sees a symlink's
@@ -1799,6 +1801,106 @@ mod tests {
         );
 
         let _ = fs::remove_file(cleanup);
+    }
+
+    /// The two backing faces agree, with the **real walk as the oracle**: `repo_file_set`
+    /// materializes the whole tree for `graph::reachable`'s paths-match channel and
+    /// [`backed_on_disk`] stats one cited target at a time, and until this pin only the
+    /// latter's doc comment held them together — every other case asserts a single face
+    /// against hand-authored expectations, where a one-sided respell ships green
+    /// (`specs/process/engineering.md`, "A seam gate reads what the real writer wrote").
+    /// So one tree carries every shape the fold decides, the real walk runs over it, and
+    /// its output drives the real predicate: each path the walk collected is backed, and
+    /// each shape it excluded is not. A later change to the walk — `min_depth`,
+    /// `follow_links`, an `ignore`-based reuse — fails here instead of diverging
+    /// silently.
+    #[test]
+    fn backed_on_disk_agrees_with_the_walk_over_every_shape_the_fold_decides() {
+        use crate::test_support::tmpdir;
+        use std::fs;
+
+        /// The walk's own spelling of a path — normalized, `/`-separated — so the
+        /// set face and the stat face join on one string domain.
+        fn walk_spelling(path: &Path) -> String {
+            crate::path::normalize_path(path)
+                .to_string_lossy()
+                .replace('\\', "/")
+        }
+
+        let outer = tmpdir("backing-agreement");
+        let root = outer.join("harness");
+        let ignored = root.join("node_modules").join("dep");
+        fs::create_dir_all(&ignored).unwrap();
+        fs::create_dir_all(root.join("docs")).unwrap();
+        fs::write(root.join(".gitignore"), "node_modules/\n").unwrap();
+        fs::write(root.join("CLAUDE.md"), "# root\n").unwrap();
+        fs::write(root.join("docs").join("page.md"), "page\n").unwrap();
+        // Raw disk, never the discovery view: an ignored file backs its import exactly
+        // as a tracked one does, on both faces.
+        fs::write(ignored.join("SHARED.md"), "shared\n").unwrap();
+        // Above the root: the walk starts at `root`, so this was never in the set.
+        fs::write(outer.join("elsewhere.md"), "elsewhere\n").unwrap();
+
+        // Files the fixture put where the walk must see them — the vacuity pin, so an
+        // emptied set cannot pass the oracle loop below by collecting nothing.
+        let mut collected = vec![
+            root.join(".gitignore"),
+            root.join("CLAUDE.md"),
+            root.join("docs").join("page.md"),
+            ignored.join("SHARED.md"),
+        ];
+        // Shapes the walk leaves out, each excluded for its own reason.
+        let mut excluded = vec![
+            root.clone(),               // `min_depth(1)` drops the root itself
+            root.join("docs"),          // a directory: the walk collects files only
+            outer.join("elsewhere.md"), // above the root the walk starts at
+        ];
+
+        // Unix only: the verdict under test is what a symlink's *own* file type decides,
+        // and Windows needs `SeCreateSymbolicLinkPrivilege` to create one at all
+        // (`tests/it/directive_classing.rs` carries the same split).
+        #[cfg(unix)]
+        {
+            fs::write(root.join("real.md"), "real\n").unwrap();
+            std::os::unix::fs::symlink(root.join("real.md"), root.join("link.md")).unwrap();
+            fs::create_dir_all(root.join("real-dir")).unwrap();
+            fs::write(root.join("real-dir").join("inner.md"), "inner\n").unwrap();
+            std::os::unix::fs::symlink(root.join("real-dir"), root.join("link-dir")).unwrap();
+            collected.push(root.join("real.md"));
+            collected.push(root.join("real-dir").join("inner.md"));
+            excluded.push(root.join("link.md")); // a link's own file type is not a file
+            excluded.push(root.join("link-dir").join("inner.md")); // under an unentered link
+        }
+
+        let files = repo_file_set(&root);
+        let backed = backed_on_disk(&root);
+
+        for path in &collected {
+            let spelling = walk_spelling(path);
+            assert!(
+                files.contains(&spelling),
+                "fixture drift: the walk must have collected `{spelling}`, got: {files:?}"
+            );
+        }
+
+        for entry in &files {
+            assert!(
+                backed(Path::new(entry)),
+                "the walk collected `{entry}`, so the stat resolver must back it"
+            );
+        }
+
+        for path in &excluded {
+            let spelling = walk_spelling(path);
+            assert!(
+                !files.contains(&spelling),
+                "fixture drift: the walk collected `{spelling}`, which this case excludes"
+            );
+            assert!(
+                !backed(path),
+                "the walk excluded `{spelling}`, so the stat resolver must not back it"
+            );
+        }
     }
 
     /// One `nested_member` row of a `citation` kind declaring the edges `edges` names,
