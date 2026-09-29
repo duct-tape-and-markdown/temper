@@ -3,8 +3,7 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK",
-      "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE"
+      "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK"
     ]
   },
   "dependsOnForks": [],
