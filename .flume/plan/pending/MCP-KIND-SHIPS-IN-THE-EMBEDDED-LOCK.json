@@ -28,6 +28,10 @@
         "description": "The frozen lane's SDK-side program binds `mcp`/`mcpDefaultContract` (:55-:88 pattern) so the byte-compare covers the new row — the derived-not-transcribed proof for this kind."
       },
       {
+        "path": "tests/it/mcp_kind.rs",
+        "description": "Shipped by 7a23f814, after this entry was scoped. Its module doc (:10-:14) rests the whole file on the kind crossing the seam \"since the kind ships there and the embedded lock does not carry it yet\" — that clause is what this entry makes false, so the header states the embedded home instead. The four cases author `mcp` in their own program, so the embedded copy must agree with the SDK's or `kind.admissibility` refuses them: re-verify, and the `coverage.unmodeled-surface` assertion (:282) stays as-is — the advisory retires in UNMODELED-SURFACE-ADVISORY-RETIRES, not here."
+      },
+      {
         "path": "tests/it/lock_declaration_rows.rs",
         "description": "The engine kind census (:2745, `declarations.kinds.len()`) goes to 16, and the comment above it (:2741) is rewritten to today's corpus count — it still says `specs/builtins.md` enumerates thirteen, and the corpus now says fourteen plus this kind."
       },
@@ -78,5 +82,5 @@
     }
   ],
   "acceptance": "cargo test green (the three snapshots accepted), cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean, and the regenerated src/builtin_lock.toml passing the frozen byte-compare.",
-  "notes": "Decision 0071, the engine half; 9fcf7521 (the settings twin) is the template for both the regeneration and the fixture re-baseline. Blocked on three tags for file overlap: the SDK kind it embeds, and the two lock-column entries that own src/builtin_lock.toml, the frozen lane and the gauntlet snapshots. The unmodeled-surface advisory goes quiet here but retires in its own entry — this one must not delete it. scoped at a60d6a27"
+  "notes": "Decision 0071, the engine half; 9fcf7521 (the settings twin) is the template for both the regeneration and the fixture re-baseline. Blocked on the one lock-column entry left that owns src/builtin_lock.toml — the SDK kind it embeds shipped at 7a23f814, and its suite (tests/it/mcp_kind.rs) joins files[] here. The unmodeled-surface advisory goes quiet here but retires in its own entry — this one must not delete it. scoped at 039eb92b"
 }
