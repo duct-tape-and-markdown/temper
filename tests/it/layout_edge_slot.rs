@@ -126,7 +126,8 @@ fn a_dangling_satisfies_edge_slot_entry_refuses_through_the_existing_coverage_re
     // The edge slot names a requirement no roster declares — a dangling fill.
     fs::write(
         harness.join("specs/guide.md"),
-        "# Satisfies\n- no-such-requirement\n",
+        "# Purpose\nA worked layout carrying an edge slot.\n\
+         \n# Satisfies\n- no-such-requirement\n",
     )
     .unwrap();
 
@@ -135,7 +136,7 @@ fn a_dangling_satisfies_edge_slot_entry_refuses_through_the_existing_coverage_re
         declarations: Declarations {
             kinds: vec![common::layout_kind_facts(
                 "guide",
-                vec![field_region("satisfies")],
+                vec![field_region("purpose"), field_region("satisfies")],
             )],
             ..Default::default()
         },

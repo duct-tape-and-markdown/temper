@@ -88,7 +88,8 @@ pub struct LayoutMember {
     /// when the collection declares a `key` (stable across a heading retitle).
     pub key: String,
     /// The authored child heading this member was read from — its identity source when
-    /// no explicit key overrides, kept so a rename surfaces as a move.
+    /// no explicit key overrides, so a retitle without an explicit key is a delete and a
+    /// create, never a rename the reader reconciles.
     pub heading: String,
     /// The member's own prose leaves — its immediate deeper sub-headings' spans, keyed
     /// by the slug of each sub-heading, plus the member's **own span** under the
@@ -174,9 +175,10 @@ pub enum LayoutError {
 
     /// A field or collection region bound a heading with children, while a later
     /// heading-bound region stayed unbound — the heading's structure was swallowed
-    /// by the wrong region, shifting every later binding by one heading. Covers both
-    /// the title-swallow shape (an extra leading heading) and a missing-section shift
-    /// (a declared section absent, so its position consumed an unrelated heading).
+    /// by the wrong region, shifting every later binding by one heading — a
+    /// missing-section shift: a declared section is absent, so its position consumes an
+    /// unrelated heading. It takes two top-level headings to reach; a lone leading one
+    /// is the document's title, which binds one level down rather than shifting.
     #[error(
         "{path}: heading `{swallowed}` has children but was consumed by {consumed_slot}, leaving {starved_slot} unbound"
     )]
@@ -214,6 +216,13 @@ impl Layout {
     /// tree ranging from prose-only to fully membered. An explicit key with no sub-heading,
     /// or a top-level heading no region admits, still refuses loud ([`LayoutError`]).
     ///
+    /// A **lone leading heading is the document's title**: one top-level heading with
+    /// nothing before it binds the regions to its *children*, and its own span — cut at
+    /// its first child heading — is what a verbatim prose region takes in place of the
+    /// blank preamble, dropped like any preamble when the layout declares no such
+    /// region. Every other shape leaves the top level as the regions' ground: prose
+    /// before the heading, two or more top-level headings, or no heading at all.
+    ///
     /// # Errors
     ///
     /// Returns a [`LayoutError`] naming the file and heading when the document carries
@@ -228,7 +237,20 @@ impl Layout {
         // pass's true parse total (`drift::layout_document_parse_count`) — counted here
         // rather than per caller for the reason the read count is counted at its own door.
         crate::drift::increment_layout_document_parses();
-        let tree = extract::body_heading_tree(body);
+        let top = extract::body_heading_tree(body);
+        let preamble = extract::body_preamble(body);
+        // `leading` is the load-bearing half of the title rule: prose before the heading
+        // means the author wrote a preamble under a section heading, not a title, and
+        // binding one level down there would lose the section's every member.
+        let title = (top.len() == 1 && preamble.trim().is_empty()).then(|| &top[0]);
+        let tree: &[extract::HeadingNode] = match title {
+            Some(node) => &node.children,
+            None => &top,
+        };
+        let prose_span = match title {
+            Some(node) => extract::body_preamble(&node.body),
+            None => preamble,
+        };
         let mut reading = LayoutReading::default();
         let mut cursor = 0;
         let mut preamble_taken = false;
@@ -242,7 +264,7 @@ impl Layout {
                     last_swallowed = None;
                     let span = if import.is_none() && !preamble_taken {
                         preamble_taken = true;
-                        extract::body_preamble(body).trim().to_string()
+                        prose_span.trim().to_string()
                     } else {
                         String::new()
                     };
@@ -250,7 +272,7 @@ impl Layout {
                 }
                 LayoutRegion::Field { slot } => {
                     // No heading left for the slot: it reads absent, not loud.
-                    let Some(node) = next_heading(&tree, &mut cursor) else {
+                    let Some(node) = next_heading(tree, &mut cursor) else {
                         // If the last region swallowed a heading with children, and this
                         // field is now unbound, the structure is misaligned.
                         if let Some((swallowed, consumed)) = last_swallowed {
@@ -281,7 +303,7 @@ impl Layout {
                 }
                 LayoutRegion::Collection { member_kind, key } => {
                     // No heading left for the collection: it reads with zero members.
-                    let Some(node) = next_heading(&tree, &mut cursor) else {
+                    let Some(node) = next_heading(tree, &mut cursor) else {
                         // If the last region swallowed a heading with children, and this
                         // collection is now unbound, the structure is misaligned.
                         if let Some((swallowed, consumed)) = last_swallowed {

@@ -97,8 +97,12 @@ fn an_explicit_key_survives_a_heading_retitle() {
             key: Some("id".to_string()),
         }],
     };
+    // A lone leading heading is the document's title, so the collection binds one level
+    // down: `## Invariants` is the collection heading whose children are its members.
     let doc = |heading: &str| {
-        format!("# Invariants\n\n## {heading}\nthe member body.\n### id\nloud-or-nothing\n")
+        format!(
+            "# The product intent\n\n## Invariants\n\n### {heading}\nthe member body.\n#### id\nloud-or-nothing\n"
+        )
     };
 
     let first = layout
@@ -131,7 +135,8 @@ fn a_collection_member_missing_its_declared_explicit_key_fires_loud() {
             key: Some("id".to_string()),
         }],
     };
-    let doc = "# Invariants\n\n## Loud or nothing\nthe member body without id subheading\n";
+    let doc = "# The product intent\n\n## Invariants\n\n\
+### Loud or nothing\nthe member body without id subheading\n";
 
     let err = layout
         .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
@@ -195,7 +200,8 @@ fn a_collection_members_own_span_lands_under_the_reserved_prose_leaf() {
             key: None,
         }],
     };
-    let doc = "## Invariants\n\n\
+    let doc = "# The product intent\n\n\
+## Invariants\n\n\
 ### Loud or nothing\n\
 A failure temper can detect is an error message at author-time.\n\
 \n\
@@ -238,7 +244,8 @@ fn a_collection_members_own_span_cuts_at_its_first_sub_heading() {
             key: None,
         }],
     };
-    let doc = "## Invariants\n\n\
+    let doc = "# The product intent\n\n\
+## Invariants\n\n\
 ### Loud or nothing\n\
 the member's own words\n\
 \n\
@@ -271,7 +278,8 @@ nested under the rationale\n";
     // nothing to conserve, not an empty string to store.
     let spanless = layout
         .read(
-            "## Invariants\n\n### Loud or nothing\n#### Rationale\nonly the sub-heading\n",
+            "# The product intent\n\n## Invariants\n\n\
+### Loud or nothing\n#### Rationale\nonly the sub-heading\n",
             std::path::Path::new("specs/intent.md"),
             &no_edges(),
         )
@@ -295,7 +303,8 @@ fn a_sub_heading_slugging_to_the_reserved_leaf_refuses_loud() {
             key: None,
         }],
     };
-    let doc = "## Invariants\n\n\
+    let doc = "# The product intent\n\n\
+## Invariants\n\n\
 ### Loud or nothing\n\
 the member's own words\n\
 \n\
@@ -603,34 +612,149 @@ fn a_layout_document_that_is_not_utf8_refuses_in_the_layout_vocabulary() {
     );
 }
 
+/// The titled shape of [`INTENT_DOC`]: one top-level heading naming the document, its
+/// own paragraph beneath it, and the layout's sections as its children.
+const TITLED_INTENT_DOC: &str = "# The representation model\n\
+The product intent, authored in prose.\n\
+\n\
+## Intent\n\
+temper makes a harness good.\n\
+\n\
+## Invariants\n\
+\n\
+### Loud or nothing\n\
+A gate never fabricates absence.\n\
+\n\
+### The projection is not the database\n\
+Facts are declared, never mined back.\n";
+
 #[test]
-fn a_heading_with_children_swallowed_by_field_leaving_collection_unbound_refuses_loud() {
-    // A document with a leading title heading that has subsections, followed by no
-    // other top-level sections. The layout expects field(intent), collection(invariant).
-    // The field region consumes the title heading (with children), leaving the collection
-    // unbound — a heading-count mismatch that silently shifts all later regions.
-    let layout = intent_layout();
-    let doc = "# Title\n\n## Loud or nothing\nA description\n\n## The projection is not the database\nAnother description\n";
+fn a_lone_leading_heading_is_the_title_binding_the_regions_to_its_children() {
+    // A lone leading heading is the document's title: its span is the document's own
+    // prose, and the regions bind to its child headings — never to the title itself,
+    // which would shift every later region by one heading.
+    let reading = intent_layout()
+        .read(
+            TITLED_INTENT_DOC,
+            std::path::Path::new("specs/intent.md"),
+            &no_edges(),
+        )
+        .unwrap();
 
-    let err = layout
-        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
-        .unwrap_err();
+    // The title's own span — cut at its first child heading, 0051's cut one level up —
+    // is what the verbatim prose region takes, in place of the (blank) preamble.
+    assert_eq!(
+        reading.prose,
+        vec!["The product intent, authored in prose.".to_string()]
+    );
 
-    assert!(matches!(err, LayoutError::SwallowedHeading { .. }));
-    assert!(
-        err.to_string().contains("Title"),
-        "must name the swallowed heading: {}",
-        err
+    // The regions bind one level down: the field section and the collection are the
+    // title's children, not the title itself.
+    assert_eq!(
+        reading.fields.get("intent").map(String::as_str),
+        Some("temper makes a harness good.")
+    );
+    let ids: Vec<&str> = reading.members.iter().map(|m| m.key.as_str()).collect();
+    assert_eq!(
+        ids,
+        vec!["loud-or-nothing", "the-projection-is-not-the-database"]
+    );
+
+    // The title's span follows the preamble's standing rule: a layout declaring no
+    // verbatim prose region drops it rather than parking it in a field slot.
+    let proseless = Layout {
+        regions: vec![
+            LayoutRegion::Field {
+                slot: "intent".to_string(),
+            },
+            LayoutRegion::Collection {
+                member_kind: "invariant".to_string(),
+                key: None,
+            },
+        ],
+    }
+    .read(
+        TITLED_INTENT_DOC,
+        std::path::Path::new("specs/intent.md"),
+        &no_edges(),
+    )
+    .unwrap();
+    assert!(proseless.prose.is_empty(), "prose: {:?}", proseless.prose);
+    assert_eq!(
+        proseless.fields.get("intent").map(String::as_str),
+        Some("temper makes a harness good.")
     );
 }
 
 #[test]
-fn a_heading_with_children_swallowed_as_field_when_collection_section_missing_refuses_loud() {
-    // A document where the declared field section is missing entirely, so the next
-    // top-level heading (which has children and was meant to be the collection) gets
-    // consumed by the field region, leaving the collection unbound.
-    let layout = intent_layout();
-    let doc = "# Invariants\n\n## Loud or nothing\nA description\n\n## The projection is not the database\nAnother description\n";
+fn a_heading_that_is_not_a_lone_leading_one_binds_as_it_reads() {
+    // The title rule turns on `leading`: prose before the heading means the author wrote
+    // a preamble, not a title, so the heading stays the regions' ground. This is the
+    // `examples/base-harness/docs/glossary.md` shape — lose it and every term member goes
+    // with it.
+    let glossary = Layout {
+        regions: vec![
+            LayoutRegion::Prose { import: None },
+            LayoutRegion::Collection {
+                member_kind: "term".to_string(),
+                key: None,
+            },
+        ],
+    };
+    let reading = glossary
+        .read(
+            "The words this harness uses.\n\n## Terms\n\n### Member\nOne authored unit.\n",
+            std::path::Path::new("docs/glossary.md"),
+            &no_edges(),
+        )
+        .unwrap();
+    assert_eq!(
+        reading.prose,
+        vec!["The words this harness uses.".to_string()]
+    );
+    let ids: Vec<&str> = reading.members.iter().map(|m| m.key.as_str()).collect();
+    assert_eq!(ids, vec!["member"], "the collection keeps its members");
+
+    // And two top-level headings are the rule's other named exclusion: neither is a
+    // title, so they bind in document order at the top level.
+    let flat = intent_layout()
+        .read(
+            INTENT_DOC,
+            std::path::Path::new("specs/intent.md"),
+            &no_edges(),
+        )
+        .unwrap();
+    assert_eq!(
+        flat.fields.get("intent").map(String::as_str),
+        Some("temper makes a harness good.")
+    );
+    assert_eq!(flat.members.len(), 2);
+}
+
+#[test]
+fn a_heading_with_children_swallowed_as_field_when_a_section_is_missing_refuses_loud() {
+    // A document whose declared middle section is absent, so the field region in its
+    // position consumes the next top-level heading — one carrying children, meant for the
+    // collection — leaving the collection unbound and every later binding shifted by one.
+    // Two top-level headings, so the title rule does not reach it.
+    let layout = Layout {
+        regions: vec![
+            LayoutRegion::Field {
+                slot: "summary".to_string(),
+            },
+            LayoutRegion::Field {
+                slot: "intent".to_string(),
+            },
+            LayoutRegion::Collection {
+                member_kind: "invariant".to_string(),
+                key: None,
+            },
+        ],
+    };
+    let doc = "# Summary\nthe summary\n\n\
+# Invariants\n\n\
+## Loud or nothing\nA description\n\n\
+## The projection is not the database\nAnother description\n";
 
     let err = layout
         .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
@@ -640,6 +764,11 @@ fn a_heading_with_children_swallowed_as_field_when_collection_section_missing_re
     assert!(
         err.to_string().contains("Invariants"),
         "must name the swallowed heading: {}",
+        err
+    );
+    assert!(
+        err.to_string().contains("intent") && err.to_string().contains("invariant"),
+        "must name the region that consumed it and the one it starved: {}",
         err
     );
 }
