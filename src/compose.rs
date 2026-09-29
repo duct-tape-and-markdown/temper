@@ -443,6 +443,22 @@ pub fn kind_narrowing_clause(requirement: &str, kind: &str) -> contract::Clause 
     }
 }
 
+/// A kind's resolved units, the load faults its read collected, and the declaration rows
+/// its layout members' documents declared — everything one [`resolve_kind_units`] pass
+/// produces, returned together because it all comes off the one read of the one document
+/// set. The rows are the layout reading's half that is not the unit's: a caller deriving
+/// them from the returned units instead would parse every document a second time.
+pub struct KindUnits {
+    /// The kind's members resolved live off disk, in member-id order.
+    pub units: Vec<Unit>,
+    /// Frontmatter load faults collected during member discovery, rather than aborting.
+    pub load_faults: Vec<crate::check::Diagnostic>,
+    /// The rows the members' documents declare, in the same member-id order — empty for
+    /// every kind but a layout one, whose members' collections, verbatim prose regions and
+    /// `satisfies` claims lower here ([`drift::lower_layout_reading`]).
+    pub layout_rows: drift::LayoutDocumentRows,
+}
+
 /// A kind's resolved units and their extracted features — the corpus of members every
 /// validator and reader consumes. Paired together to hoist the single `resolve_kind_units`
 /// call per kind: both gate/explain and collect_directive_members use this data, and
@@ -538,17 +554,25 @@ pub fn overlay_builtin_kind(
     Ok(overlaid)
 }
 
-/// Read one layout-content document at `file` into a [`Unit`], off the kind's declared
-/// `layout`: the whole file is the body's heading tree, the field sections fill the
-/// unit's fields (each slot's verbatim span, so a clause ranges over it as a field). A
-/// declared-relationship edge slot is the exception: its entries are addresses, folded
-/// onto the unit as a list field the reference graph resolves live off the host's
-/// features — like a file member's frontmatter reference list — while `satisfies` reaches
-/// the unit off the lock's own family, keyed by member id, not off the document here. The
-/// id folds the file's placement under `base` the same way a file-content member's does.
-/// A document that does not fit the layout — a section missing, structure
-/// no primitive admits — refuses loud through [`crate::layout::LayoutError`], naming the file and
-/// heading.
+/// Read one layout-content document at `file` into a [`Unit`] **and the declaration rows
+/// it declares**, off the kind's declared `layout`: the whole file is the body's heading
+/// tree, the field sections fill the unit's fields (each slot's verbatim span, so a clause
+/// ranges over it as a field). A declared-relationship edge slot is the exception: its
+/// entries are addresses, folded onto the unit as a list field the reference graph resolves
+/// live off the host's features — like a file member's frontmatter reference list — while
+/// `satisfies` reaches the unit off the lock's own family, keyed by member id, not off the
+/// document here. The id folds the file's placement under `base` the same way a
+/// file-content member's does. A document that does not fit the layout — a section missing,
+/// structure no primitive admits — refuses loud through [`crate::layout::LayoutError`],
+/// naming the file and heading.
+///
+/// The rows ride out beside the unit because they are the *other half of the one reading*:
+/// a member's collections, prose regions and fill claims come off the same parse its fields
+/// do, and a caller that wanted them separately would have to hand the text back to
+/// [`crate::layout::Layout::read`] a second time. A local-locus kind's rows are derived at
+/// read time ([`assemble_lock_family`]) precisely because they never enter the lock, and
+/// that derivation reads them from here; a committed kind's are the lock's, and its rows
+/// here are simply unconsumed.
 ///
 /// # Errors
 ///
@@ -556,49 +580,64 @@ pub fn overlay_builtin_kind(
 /// its declared layout.
 fn layout_unit(
     layout: &Layout,
+    kind_name: &str,
     file: &Path,
     base: &Path,
     edge_fields: &BTreeSet<String>,
-) -> miette::Result<Unit> {
-    // Through the counted door, not a bare `read_to_string`: this and the row lowering's
+) -> miette::Result<(Unit, drift::LayoutDocumentRows)> {
+    // Through the counted door, not a bare `read_to_string`: this and the row derivation's
     // own reach are the two sites that load a layout document, and a count taken at one of
     // them would pin a share of the cost rather than the cost. The door reads through the
     // shared read+decode primitive and hands its error back unmapped, so the refusal takes
     // this adapter's own vocabulary — the way every other adapter source load does.
     let raw = drift::read_layout_document_text(file).map_err(LayoutError::from)?;
-    let reading = layout.read(&raw, file, edge_fields)?;
+    let mut reading = layout.read(&raw, file, edge_fields)?;
     let id = frontmatter::fold_file_id(base, file)?;
-    let mut frontmatter: BTreeMap<String, serde_json::Value> = reading
-        .fields
+    // The one parse, split **by move** between its two consumers: the unit takes the
+    // reading's field half, the rows take its member/prose/`satisfies` half. Neither copies
+    // what the other holds, and neither goes back through `Layout::read` for it.
+    let fields = std::mem::take(&mut reading.fields);
+    let mut unit_edges = std::mem::take(&mut reading.edges);
+    // `satisfies` is no unit field — it reaches the unit off the run's assembled family,
+    // keyed by member id — so its entries stay with the half the rows lower from.
+    if let Some(entries) = unit_edges.remove(kind::SATISFIES_EDGE_FIELD) {
+        reading
+            .edges
+            .insert(kind::SATISFIES_EDGE_FIELD.to_string(), entries);
+    }
+    let mut frontmatter: BTreeMap<String, serde_json::Value> = fields
         .into_iter()
         .map(|(slot, span)| (slot, serde_json::Value::String(span)))
         .collect();
-    for (slot, entries) in reading.edges {
-        if slot == kind::SATISFIES_EDGE_FIELD {
-            continue;
-        }
+    for (slot, entries) in unit_edges {
         frontmatter.insert(
             slot,
             serde_json::Value::Array(entries.into_iter().map(serde_json::Value::String).collect()),
         );
     }
-    Ok(Unit {
-        id,
-        frontmatter,
-        body: raw,
-        source_path: file.to_path_buf(),
-        satisfies: Vec::new(),
-        satisfies_clauses: Vec::new(),
-    })
+    let rows = drift::lower_layout_reading(layout, kind_name, &id, reading);
+    Ok((
+        Unit {
+            id,
+            frontmatter,
+            body: raw,
+            source_path: file.to_path_buf(),
+            satisfies: Vec::new(),
+            satisfies_clauses: Vec::new(),
+        },
+        rows,
+    ))
 }
 
 /// One discovered source file as a raw [`Unit`], its id folded against `base` — the read
 /// both file loci share, so a nested file child and a `governs`-scanned member differ only
 /// in the base each composes under. **The one adapter dispatch**: a layout kind's document
-/// is read under its declared layout — its field sections fill the unit's fields, a
-/// non-fitting document refusing loud; a kind declaring the `json-document` or
-/// `toml-document` format reads its whole artifact as one structured document through that
-/// grammar's adapter; every other file kind reads through the generic frontmatter adapter.
+/// is read under its declared layout — its field sections fill the unit's fields and its
+/// remaining regions lower into the declaration rows returned beside it, a non-fitting
+/// document refusing loud; a kind declaring the `json-document` or `toml-document` format
+/// reads its whole artifact as one structured document through that grammar's adapter;
+/// every other file kind reads through the generic frontmatter adapter. Only the layout
+/// adapter declares rows — every other document's are the lock's — so the rest return none.
 ///
 /// # Errors
 ///
@@ -609,28 +648,35 @@ fn read_file_unit(
     file: &Path,
     base: &Path,
     edge_fields: &BTreeSet<String>,
-) -> miette::Result<Unit> {
+) -> miette::Result<(Unit, drift::LayoutDocumentRows)> {
     match (&kind.content, &kind.format) {
-        (kind::Content::Layout(layout), _) => layout_unit(layout, file, base, edge_fields),
-        (kind::Content::File | kind::Content::Fields, Some(kind::Format::JsonDocument)) => {
-            Ok(json_manifest::DocumentMember::read(kind, file)?.to_unit())
+        (kind::Content::Layout(layout), _) => {
+            layout_unit(layout, &kind.name, file, base, edge_fields)
         }
-        (kind::Content::File | kind::Content::Fields, Some(kind::Format::TomlDocument)) => {
-            Ok(toml_document::read(kind, file)?.to_unit())
-        }
+        (kind::Content::File | kind::Content::Fields, Some(kind::Format::JsonDocument)) => Ok((
+            json_manifest::DocumentMember::read(kind, file)?.to_unit(),
+            drift::LayoutDocumentRows::default(),
+        )),
+        (kind::Content::File | kind::Content::Fields, Some(kind::Format::TomlDocument)) => Ok((
+            toml_document::read(kind, file)?.to_unit(),
+            drift::LayoutDocumentRows::default(),
+        )),
         (
             kind::Content::File | kind::Content::Fields,
             Some(kind::Format::YamlFrontmatter) | None,
         ) => {
             let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
-            Ok(Unit {
-                id: source.id.clone(),
-                frontmatter: source.fields.iter().cloned().collect(),
-                body: source.body.clone(),
-                source_path: source.provenance.source_path.clone(),
-                satisfies: Vec::new(),
-                satisfies_clauses: Vec::new(),
-            })
+            Ok((
+                Unit {
+                    id: source.id.clone(),
+                    frontmatter: source.fields.iter().cloned().collect(),
+                    body: source.body.clone(),
+                    source_path: source.provenance.source_path.clone(),
+                    satisfies: Vec::new(),
+                    satisfies_clauses: Vec::new(),
+                },
+                drift::LayoutDocumentRows::default(),
+            ))
         }
     }
 }
@@ -743,6 +789,11 @@ fn frontmatter_fault_diagnostic(
 /// diagnostics rather than aborting the read, so remaining members are still
 /// discovered and checked.
 ///
+/// A layout kind's members also yield the declaration rows their documents declare
+/// ([`KindUnits::layout_rows`]) — the other half of the reading their fields came off,
+/// carried out rather than re-derived, since deriving them again means parsing every
+/// document a second time.
+///
 /// # Errors
 ///
 /// Returns an error if a source file is unreadable or malformed (non-frontmatter errors),
@@ -754,7 +805,7 @@ pub fn resolve_kind_units(
     declarations: &drift::Declarations,
     cache: &ManifestCache,
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-) -> miette::Result<(Vec<Unit>, Vec<crate::check::Diagnostic>)> {
+) -> miette::Result<KindUnits> {
     RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
     let overlaid = kind.clone();
     let governs = overlaid.governs.clone();
@@ -765,48 +816,55 @@ pub fn resolve_kind_units(
     )?);
     let mut load_fault_diagnostics = Vec::new();
 
-    let mut units = match (&overlaid.content, &overlaid.collection_address, &governs) {
-        (kind::Content::Fields, Some(address), _) => {
-            manifest_units(disc, &overlaid, address, cache)?
-        }
-        (_, _, None) => {
-            let kinds = declared_kinds_with_overlaid(overlaid_builtin_kinds, declarations)?;
-            let mut child_units = Vec::new();
-            for found in import::discover_nested_file(
-                disc,
-                &overlaid,
-                &kinds,
-                import::LocalOverride::Honored,
-            ) {
-                match read_file_unit(&overlaid, &found.file, &found.host_unit, &edge_fields) {
-                    Ok(unit) => child_units.push(unit),
-                    Err(err) => match frontmatter_fault_diagnostic(err) {
-                        Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
-                        Err(err) => return Err(err),
-                    },
-                }
+    // Each read member paired with the rows its own document declared, so the two travel
+    // together through the sort below and the rows come out in member-id order — the order
+    // a second pass over the sorted units would have produced.
+    let mut read: Vec<(Unit, drift::LayoutDocumentRows)> =
+        match (&overlaid.content, &overlaid.collection_address, &governs) {
+            (kind::Content::Fields, Some(address), _) => {
+                manifest_units(disc, &overlaid, address, cache)?
+                    .into_iter()
+                    .map(|unit| (unit, drift::LayoutDocumentRows::default()))
+                    .collect()
             }
-            child_units
-        }
-        (_, _, Some(governs)) => {
-            let base = crate::path::normalize_path(&disc.harness().join(&governs.root));
-            let mut file_units = Vec::new();
-            for file in
-                import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
-            {
-                match read_file_unit(&overlaid, &file, &base, &edge_fields) {
-                    Ok(unit) => file_units.push(unit),
-                    Err(err) => match frontmatter_fault_diagnostic(err) {
-                        Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
-                        Err(err) => return Err(err),
-                    },
+            (_, _, None) => {
+                let kinds = declared_kinds_with_overlaid(overlaid_builtin_kinds, declarations)?;
+                let mut child_units = Vec::new();
+                for found in import::discover_nested_file(
+                    disc,
+                    &overlaid,
+                    &kinds,
+                    import::LocalOverride::Honored,
+                ) {
+                    match read_file_unit(&overlaid, &found.file, &found.host_unit, &edge_fields) {
+                        Ok(read) => child_units.push(read),
+                        Err(err) => match frontmatter_fault_diagnostic(err) {
+                            Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
+                            Err(err) => return Err(err),
+                        },
+                    }
                 }
+                child_units
             }
-            file_units
-        }
-    };
+            (_, _, Some(governs)) => {
+                let base = crate::path::normalize_path(&disc.harness().join(&governs.root));
+                let mut file_units = Vec::new();
+                for file in
+                    import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
+                {
+                    match read_file_unit(&overlaid, &file, &base, &edge_fields) {
+                        Ok(read) => file_units.push(read),
+                        Err(err) => match frontmatter_fault_diagnostic(err) {
+                            Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
+                            Err(err) => return Err(err),
+                        },
+                    }
+                }
+                file_units
+            }
+        };
 
-    for unit in &mut units {
+    for (unit, _) in &mut read {
         let address = member_address::host_address(&kind.name, &unit.id);
         for row in &declarations.satisfies {
             if row.member != address && row.member != unit.id {
@@ -826,8 +884,20 @@ pub fn resolve_kind_units(
         }
     }
 
-    units.sort_by(|a, b| a.id.cmp(&b.id));
-    Ok((units, load_fault_diagnostics))
+    read.sort_by(|a, b| a.0.id.cmp(&b.0.id));
+    let mut units = Vec::with_capacity(read.len());
+    let mut layout_rows = drift::LayoutDocumentRows::default();
+    for (unit, rows) in read {
+        layout_rows.nested.extend(rows.nested);
+        layout_rows.satisfies.extend(rows.satisfies);
+        layout_rows.prose.extend(rows.prose);
+        units.push(unit);
+    }
+    Ok(KindUnits {
+        units,
+        load_faults: load_fault_diagnostics,
+        layout_rows,
+    })
 }
 
 /// A kind's members' extracted [`extract::Features`] — [`resolve_kind_units`]
@@ -847,8 +917,13 @@ pub fn kind_units_and_features(
     cache: &ManifestCache,
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<KindUnitsAndFeatures> {
-    let (units, load_faults) =
-        resolve_kind_units(kind, disc, declarations, cache, overlaid_builtin_kinds)?;
+    let KindUnits {
+        units,
+        load_faults,
+        // The rows are the assembly pass's to consume ([`assemble_lock_family`]); a
+        // feature read ranges over the family that pass already assembled.
+        layout_rows: _,
+    } = resolve_kind_units(kind, disc, declarations, cache, overlaid_builtin_kinds)?;
     let features = units
         .iter()
         .map(|unit| builtin_kind::features(kind, unit, &declarations.nested_members))
@@ -882,59 +957,6 @@ pub fn builtin_units_and_features_by_kind(
         );
     }
     Ok(by_kind)
-}
-
-/// A local-locus kind's members' declaration rows, derived off their own documents —
-/// what the lock would carry for a committed kind, and never does for this one.
-///
-/// The rows go through the same lowering `emit` reduces a committed layout host's source
-/// with ([`drift::lower_layout_document`]), so a local member's rows are the rows its
-/// document declares, not a second interpretation of it. They lower off the text
-/// [`layout_unit`] already read into `Unit::body` — the same discipline
-/// [`assemble_lock_family`] states for the units it retains beside these rows: a
-/// document this pass has already read is never handed back to disk.
-///
-/// # Errors
-///
-/// Returns an error when a member's document does not fit the kind's declared layout.
-fn local_document_rows(
-    kind: &CustomKind,
-    units: &[Unit],
-    declarations: &drift::Declarations,
-) -> miette::Result<drift::LayoutDocumentRows> {
-    let layout = match (&kind.content, &kind.format) {
-        (kind::Content::Layout(layout), _) => layout,
-        (
-            kind::Content::File | kind::Content::Fields,
-            Some(
-                kind::Format::YamlFrontmatter
-                | kind::Format::JsonDocument
-                | kind::Format::TomlDocument,
-            )
-            | None,
-        ) => return Ok(drift::LayoutDocumentRows::default()),
-    };
-    let mut edge_fields = kind.edge_field_slots();
-    edge_fields.extend(drift::layout_edge_fields(
-        &declarations.assembly,
-        &kind.name,
-    )?);
-
-    let mut rows = drift::LayoutDocumentRows::default();
-    for unit in units {
-        let document = drift::lower_layout_document(
-            layout,
-            &kind.name,
-            &unit.id,
-            &unit.body,
-            &unit.source_path,
-            &edge_fields,
-        )?;
-        rows.nested.extend(document.nested);
-        rows.satisfies.extend(document.satisfies);
-        rows.prose.extend(document.prose);
-    }
-    Ok(rows)
 }
 
 /// The lock file a `--layer` argument names: the path itself, or the lock inside it when
@@ -1064,11 +1086,13 @@ fn read_dial(
 }
 
 /// The run's whole declaration family: the committed lock, every local-locus kind's
-/// read-time derived rows ([`local_document_rows`]), and the clause rows of the locks
+/// read-time derived rows ([`KindUnits::layout_rows`]), and the clause rows of the locks
 /// `layers` names.
 ///
 /// A local kind is committed but its members' documents are not, so the lock carries no
-/// row of theirs. Deriving them *here* — once, before any consumer reads — is what lets
+/// row of theirs. They come off the very read that resolved the members' units — one
+/// parse per document, its field half the unit's and its row half these — never a second
+/// reading of the same text. Deriving them *here* — once, before any consumer reads — is what lets
 /// every consumer below read one family: a clause bound to an embedded kind selects a
 /// local host's members exactly as it selects a committed host's, and a local member's
 /// fills reach the roster on the same read. A consumer re-deciding which of two sources it
@@ -1087,7 +1111,7 @@ fn read_dial(
 ///
 /// # Errors
 ///
-/// As [`resolve_kind_units`], [`local_document_rows`] and [`read_layer_clauses`].
+/// As [`resolve_kind_units`] and [`read_layer_clauses`].
 pub fn assemble_lock_family(
     disc: &import::Discovery,
     committed: &drift::Declarations,
@@ -1113,8 +1137,11 @@ pub fn assemble_lock_family(
         if kind.commitment != Some(kind::Commitment::Local) {
             continue;
         }
-        let (units, _) = resolve_kind_units(kind, disc, committed, cache, &overlaid_builtin_kinds)?;
-        let rows = local_document_rows(kind, &units, committed)?;
+        let KindUnits {
+            units,
+            load_faults: _,
+            layout_rows: rows,
+        } = resolve_kind_units(kind, disc, committed, cache, &overlaid_builtin_kinds)?;
         local_members.extend(
             units
                 .iter()
@@ -1822,14 +1849,15 @@ mod tests {
         )]);
 
         // Resolve units for the memory kind with unnormalized harness root.
-        let (units, _) = resolve_kind_units(
+        let units = resolve_kind_units(
             &memory_kind,
             &disc,
             &declarations,
             &cache,
             &overlaid_builtin_kinds,
         )
-        .expect("resolve_kind_units succeeds");
+        .expect("resolve_kind_units succeeds")
+        .units;
 
         // Both files should be discovered with distinct ids (placement preserved).
         assert_eq!(units.len(), 2, "both CLAUDE.md files should be found");

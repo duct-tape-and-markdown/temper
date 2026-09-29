@@ -1300,3 +1300,63 @@ fn a_local_layout_members_document_is_read_once_per_assembly_pass() {
          reader of it; got {reads} reads for two members"
     );
 }
+
+/// The per-pass count-pin for the **parse** half of the same documents (`engineering.md`,
+/// "Cost scale is hoisted, and pinned by count"): holding a document's text is not holding
+/// its reading, and the reading is the expensive half — the heading tree, the region match,
+/// the span splits. One parse per member per pass, its field half filling the unit and its
+/// member/prose/`satisfies` half lowering into the derived rows, is what this counts: the
+/// unit adapter keeping only the fields and the row derivation re-reading the identical
+/// text doubles it to 4, which is what this pass cost before the fold.
+///
+/// Paired with the read pin above on the same fixture, the way `LOCK_READS`/`LOCK_PARSES`
+/// pair: a fold that hoisted the read alone still leaves this one red.
+#[test]
+fn a_local_layout_members_document_is_parsed_once_per_assembly_pass() {
+    use std::collections::BTreeMap;
+    use temper::compose;
+    use temper::drift::{self, Declarations};
+
+    let harness = tmpdir("local-layout-doc-parse-pin");
+    fs::create_dir_all(harness.join(".temper")).unwrap();
+
+    common::write_sibling(&harness, ".claude/local/knob-a.md", common::KNOB_DOC);
+    common::write_sibling(&harness, ".claude/local/knob-b.md", common::KNOB_DOC);
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![common::knob_kind_facts()],
+            ..Declarations::default()
+        },
+    );
+
+    let workspace = harness.join(".temper");
+    let committed = drift::read_declarations(&workspace).unwrap();
+    let discovery = import::Discovery::new(&harness);
+    let cache: compose::ManifestCache = BTreeMap::new();
+
+    let before = drift::layout_document_parse_count();
+    let family = compose::assemble_lock_family(&discovery, &committed, &[], &cache).unwrap();
+    let parses = drift::layout_document_parse_count() - before;
+
+    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): the rows the
+    // parse exists to yield are asserted present before the count, so a pass that derived
+    // nothing cannot parse nothing and pass.
+    let hosts: Vec<&str> = family
+        .declarations
+        .nested_members
+        .iter()
+        .map(|row| row.host.as_str())
+        .collect();
+    assert!(
+        hosts.contains(&"knob:knob-a") && hosts.contains(&"knob:knob-b"),
+        "both local members' documents must have lowered their collection rows, got: {hosts:?}"
+    );
+
+    assert_eq!(
+        parses, 2,
+        "each local layout member's document is parsed once per assembly pass — the unit's \
+         fields and the derived rows come off the one reading; got {parses} parses for two \
+         members"
+    );
+}

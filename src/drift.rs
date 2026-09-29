@@ -32,7 +32,7 @@ use crate::kind::{
     CollectionAddress, Commitment, Content, Format, collection_address_from_row,
     commitment_from_row, content_from_row, format_from_row,
 };
-use crate::layout::{Layout, LayoutRegion};
+use crate::layout::{Layout, LayoutReading, LayoutRegion};
 use crate::member_address::{host_address, parse_host_address};
 use crate::path::HarnessRelativePath;
 use std::cell::Cell;
@@ -53,8 +53,15 @@ thread_local! {
     /// Per-thread count of layout document file reads. Incremented by the one counted
     /// door onto a layout document's bytes ([`read_layout_document_text`]), pinning that
     /// each document is read once per pass — a member's already-read text lowers through
-    /// [`lower_layout_document`] rather than going back to disk.
+    /// [`lower_layout_reading`] rather than going back to disk.
     static LAYOUT_DOCUMENT_READS: Cell<usize> = const { Cell::new(0) };
+    /// Per-thread count of layout document parses. Incremented by
+    /// [`Layout::read`](crate::layout::Layout::read), the one door every parse comes
+    /// through, pinning that a document's heading tree is read into a
+    /// [`LayoutReading`] once per pass — the two consumers of that reading, a member's
+    /// unit fields and its declaration rows, share the one parse the way
+    /// `LOCK_READS`/`LOCK_PARSES` already pair a read with its parse.
+    static LAYOUT_DOCUMENT_PARSES: Cell<usize> = const { Cell::new(0) };
 }
 
 /// This thread's cumulative count of lock.toml file reads. Read before and after an
@@ -85,6 +92,13 @@ pub fn layout_document_read_count() -> usize {
     LAYOUT_DOCUMENT_READS.with(Cell::get)
 }
 
+/// This thread's cumulative count of layout document parses. Read before and after a
+/// pass to pin that each layout member's document is parsed exactly once.
+#[must_use]
+pub fn layout_document_parse_count() -> usize {
+    LAYOUT_DOCUMENT_PARSES.with(Cell::get)
+}
+
 fn increment_lock_reads() {
     LOCK_READS.with(|c| c.set(c.get() + 1));
 }
@@ -99,6 +113,12 @@ fn increment_manifest_reads() {
 
 fn increment_layout_document_reads() {
     LAYOUT_DOCUMENT_READS.with(|c| c.set(c.get() + 1));
+}
+
+/// Count one layout document parse. Called by [`Layout::read`](crate::layout::Layout::read)
+/// itself, so the count is the pass's true parse total whichever module holds the reader.
+pub(crate) fn increment_layout_document_parses() {
+    LAYOUT_DOCUMENT_PARSES.with(|c| c.set(c.get() + 1));
 }
 
 /// Errors raised by `emit`, `place`, and the lock-reading helpers in this module —
@@ -2037,14 +2057,15 @@ fn derive_layout_rows(
 /// layout source's lowering that is the document's alone, with no dependency on how the
 /// reader reached it.
 ///
-/// Both faces of a layout document share the one lowering ([`lower_layout_document`]).
+/// Both faces of a layout document share the one lowering ([`lower_layout_reading`]).
 /// `emit` lowers a committed layout host's source into the rows it writes to the lock
 /// ([`derive_layout_rows`], which adds the prose imports it also fingerprints); `check`
 /// derives a **local**-locus member's rows at read time, because a local locus's rows
 /// never enter the lock to be read back. One lowering means the two faces can never
 /// disagree about what a document declares — the same posture `layout_edge_fields`
-/// takes for the slots this read is handed. Only the *reach* differs: `emit` comes
-/// through [`read_layout_document`], `check` hands the text its unit already carries.
+/// takes for the slots this read is handed. Only the *reach* differs: `emit` reads and
+/// parses the document ([`read_layout_document`]), `check` lowers the reading its unit
+/// adapter already parsed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LayoutDocumentRows {
     /// The collection members, lowered into `nested_member` rows.
@@ -2056,9 +2077,10 @@ pub struct LayoutDocumentRows {
     pub prose: Vec<LayoutProseRow>,
 }
 
-/// Read the layout document at `disk_path` and lower it into the rows it declares — the
-/// reaching half, for a caller that does not already hold the document's text; a caller
-/// that does lowers it directly ([`lower_layout_document`]) rather than reading it twice.
+/// Read the layout document at `disk_path`, parse it under `layout`, and lower the
+/// reading into the rows it declares — the reaching half, for a caller that does not
+/// already hold the document. A caller that has already parsed one lowers its reading
+/// directly ([`lower_layout_reading`]) rather than reading and parsing it twice.
 ///
 /// # Errors
 /// Returns a [`DriftError`] when the document cannot be read or is not UTF-8, or a
@@ -2071,13 +2093,14 @@ pub fn read_layout_document(
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<LayoutDocumentRows> {
     let body = read_layout_document_text(disk_path).map_err(DriftError::from)?;
-    lower_layout_document(layout, kind, name, &body, disk_path, edge_fields)
+    let reading = layout.read(&body, disk_path, edge_fields)?;
+    Ok(lower_layout_reading(layout, kind, name, reading))
 }
 
 /// Read one layout document's text off disk — the **one counted door** onto a layout
 /// document's bytes. Both sites that load one come through here: the unit adapter that
 /// fills a member's fields off its sections (`compose::layout_unit`) and the reaching half
-/// of the row lowering above. Counting at the door rather than per caller makes
+/// of the row derivation above. Counting at the door rather than per caller makes
 /// [`layout_document_read_count`] the pass's true disk-read total, which is what lets a
 /// count pin catch a document read a second time.
 ///
@@ -2098,25 +2121,22 @@ pub(crate) fn read_layout_document_text(
     Ok(body)
 }
 
-/// Lower the layout document whose text is `body` into the rows it declares — the member
-/// collections' embedded members, the `satisfies` edge slot's fill claims, and what each
-/// verbatim prose region captured, each keyed by the host's `kind:name` address.
+/// Lower an already-parsed [`LayoutReading`] into the rows its document declares — the
+/// member collections' embedded members, the `satisfies` edge slot's fill claims, and
+/// what each verbatim prose region captured, each keyed by the host's `kind:name`
+/// address.
 ///
-/// `disk_path` is the document's path for diagnostics alone: nothing here reaches disk, so
-/// the caller that already holds the text pays no second read for it.
-///
-/// # Errors
-/// Returns a `LayoutError` (as a [`miette::Report`]) when the document does not fit its
-/// declared layout.
-pub fn lower_layout_document(
+/// Nothing here reaches disk or re-reads the document's heading tree: the reading is the
+/// parse, taken by value, so the caller that already holds one pays neither a second read
+/// nor a second parse for the rows. The reading's field half is the unit adapter's
+/// (`compose::layout_unit`); this half is the rows'.
+#[must_use]
+pub fn lower_layout_reading(
     layout: &Layout,
     kind: &str,
     name: &str,
-    body: &str,
-    disk_path: &Path,
-    edge_fields: &BTreeSet<String>,
-) -> miette::Result<LayoutDocumentRows> {
-    let reading = layout.read(body, disk_path, edge_fields)?;
+    reading: LayoutReading,
+) -> LayoutDocumentRows {
     let host = host_address(kind, name);
 
     // A `satisfies` edge slot's entries are the host's own fill claims, keyed by its
@@ -2172,11 +2192,11 @@ pub fn lower_layout_document(
             rendered_chars: None,
         })
         .collect();
-    Ok(LayoutDocumentRows {
+    LayoutDocumentRows {
         nested,
         satisfies,
         prose,
-    })
+    }
 }
 
 /// Resolve one prose reference — a layout region's `import` or a composed-prose

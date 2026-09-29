@@ -224,6 +224,10 @@ impl Layout {
         source_path: &Path,
         edge_fields: &BTreeSet<String>,
     ) -> Result<LayoutReading, LayoutError> {
+        // The one door every parse of a layout document comes through, so the count is the
+        // pass's true parse total (`drift::layout_document_parse_count`) — counted here
+        // rather than per caller for the reason the read count is counted at its own door.
+        crate::drift::increment_layout_document_parses();
         let tree = extract::body_heading_tree(body);
         let mut reading = LayoutReading::default();
         let mut cursor = 0;
