@@ -1,7 +1,12 @@
 {
   "tag": "DIRECTIVE-FOLLOWS-THE-IMPORT",
-  "gate": { "kind": "blockedBy", "tags": ["DIRECTIVE-BACKING-RESOLVES-BY-STAT"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/kind.rs",
@@ -27,7 +32,8 @@
         "path": "tests/it/directive_classing.rs",
         "description": "The `member()` fixture helper (tests/it/directive_classing.rs:32) gains the declaring flag so its call sites stay legible, and the three existing verdict tests declare their memory members as seeds. New cases pin the ruling: a non-declaring member reached by an import carries its own occurrences (the middle hop yields an edge); the same member unreached carries none (no edge, no unbacked finding); a chain longer than `MAX_IMPORT_HOPS` stops at the cap. The end-to-end ring assertion at the bottom of the file re-spells over `CLAUDE.md -> rule -> CLAUDE.md` — the ring 0070's Context names as reported green — and must now fail the run through `graph.acyclic`."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "A file an import reaches carries the directives its format executes, whatever kind governs it — hop-capped, so a cross-kind import ring stops reading green.",
   "per": {

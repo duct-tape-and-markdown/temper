@@ -3,12 +3,13 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT",
-      "DIRECTIVE-BACKING-RESOLVES-BY-STAT",
-      "EMBEDDED-EDGE-TARGET-DEFERS-TO-CHECK"
+      "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT"
     ]
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/contract.rs",
@@ -62,10 +63,14 @@
         "path": "sdk/test/emit.test.ts",
         "description": "The emitted clause-row expectation (:250-261) enumerates the root default's clauses positionally; it gains the fourth."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "A root default clause, advisory, reports when the committed lock records an engine version other than the one running the gate.",
-  "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "The lock"
+  },
   "tests": [
     {
       "path": "tests/it/root_contract.rs",

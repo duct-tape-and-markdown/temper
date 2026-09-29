@@ -1,6 +1,10 @@
 {
   "tag": "CHECK-ANNOUNCES-A-RE-ROOTED-HARNESS",
-  "gate": { "kind": "blockedBy", "tags": ["DIRECTIVE-BACKING-RESOLVES-BY-STAT"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
@@ -32,7 +36,10 @@
     "retire": []
   },
   "summary": "`check` announces the harness root it resolved when that root differs from the path it was given; the common run stays quiet.",
-  "per": { "path": "specs/model/authoring.md", "section": "Layers" },
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "Layers"
+  },
   "tests": [
     {
       "path": "tests/it/cli.rs",

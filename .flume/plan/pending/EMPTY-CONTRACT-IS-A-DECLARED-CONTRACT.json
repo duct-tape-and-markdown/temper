@@ -3,12 +3,14 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "DIRECTIVE-BACKING-RESOLVES-BY-STAT",
       "LOCK-NAMES-THE-ENGINE-THAT-WROTE-IT",
       "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK"
     ]
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "sdk/src/assembly.ts",
@@ -46,7 +48,8 @@
         "path": "sdk/test/emit.test.ts",
         "description": "The emitted declaration rows carry the marker for an authored contract — empty or not, per kind and at the root — and omit it where the author declared none."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "An authored empty clause array is a declared contract: the lock marks declaredness per kind and at the root, and a default applies only where nothing is declared.",
   "per": {

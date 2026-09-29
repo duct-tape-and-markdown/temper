@@ -3,11 +3,13 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK",
-      "DIRECTIVE-BACKING-RESOLVES-BY-STAT"
+      "MCP-KIND-SHIPS-IN-THE-EMBEDDED-LOCK"
     ]
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/coverage_note.rs",
@@ -37,10 +39,14 @@
         "path": "tests/it/hook_kind.rs",
         "description": "The case reading `coverage.unmodeled-surface` at :427 states what still holds — the hook's segment is checked beside the container's member — without naming the retired rule."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`coverage.unmodeled-surface` retires with the segment model behind it: both config files are governed whole, so the advisory has no subject left to name.",
-  "per": { "path": "specs/intent.md", "section": "Invariants" },
+  "per": {
+    "path": "specs/intent.md",
+    "section": "Invariants"
+  },
   "tests": [
     {
       "path": "tests/it/coverage_note.rs",
