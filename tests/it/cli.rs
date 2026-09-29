@@ -637,7 +637,12 @@ fn guard_judges_the_tree_a_shell_call_left_at_the_post_edge() {
         // A projection the lock fingerprinted and a shell call left behind — the lock's
         // `emit_hash` cannot match any bytes, so the row is drifted by construction rather
         // than by an emit this test would have to drive.
-        let drifted = post_edge_harness(&format!("guard-post-{mode}-drifted"), mode, UNMATCHABLE);
+        let drifted = post_edge_harness(
+            &format!("guard-post-{mode}-drifted"),
+            mode,
+            UNMATCHABLE,
+            None,
+        );
         let (code, output) = common::run_guard(&drifted, POST_TOOL_USE_PAYLOAD);
         assert_eq!(
             code,
@@ -680,6 +685,7 @@ fn guard_judges_the_tree_a_shell_call_left_at_the_post_edge() {
             &format!("guard-post-{mode}-clean"),
             mode,
             &sha256_hex(PROJECTION.as_bytes()),
+            None,
         );
         let (code, output) = common::run_guard(&clean, POST_TOOL_USE_PAYLOAD);
         assert_eq!(code, Some(0), "a clean tree allows the call, got: {output}");
@@ -705,6 +711,7 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
             &format!("guard-post-{mode}-stray"),
             mode,
             &sha256_hex(PROJECTION.as_bytes()),
+            None,
         );
         fs::write(
             root.join(".claude").join("rules").join("stray.md"),
@@ -763,7 +770,7 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
     // Both halves at once: a drifted projection *and* a stray beside it. Each speaks under
     // its own preamble in one report — the shared surface joins the halves, never merges
     // their claims.
-    let both = post_edge_harness("guard-post-both-halves", "warn", UNMATCHABLE);
+    let both = post_edge_harness("guard-post-both-halves", "warn", UNMATCHABLE, None);
     fs::write(
         both.join(".claude").join("rules").join("stray.md"),
         "---\nname: stray\n---\n\n# Stray\n",
@@ -789,26 +796,22 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
 /// otherwise refuse the call's result.
 #[test]
 fn the_post_edge_stays_silent_where_no_locus_declared_clause_binds() {
+    // One real clause row answers the root contract, so the shipped default no longer
+    // does and `locus-declared` simply does not bind.
     let root = post_edge_harness(
         "guard-post-locus-unbound",
         "block",
         &sha256_hex(PROJECTION.as_bytes()),
+        Some(ClauseRow {
+            label: Some("root.fresh".to_string()),
+            ..common::clause("fresh", "advisory")
+        }),
     );
     fs::write(
         root.join(".claude").join("rules").join("stray.md"),
         "---\nname: stray\n---\n\n# Stray\n",
     )
     .unwrap();
-
-    // One real clause row answers the root contract, so the shipped default no longer
-    // does and `locus-declared` simply does not bind.
-    let lock = root.join(".temper").join("lock.toml");
-    let declared = format!(
-        "{}\n[[declaration.clause]]\nlabel = \"root.fresh\"\n\
-         predicate = \"fresh\"\nseverity = \"advisory\"\n",
-        fs::read_to_string(&lock).unwrap()
-    );
-    fs::write(&lock, declared).unwrap();
 
     let (code, output) = common::run_guard(&root, POST_TOOL_USE_PAYLOAD);
     assert_eq!(code, Some(0), "got: {output}");
@@ -825,14 +828,17 @@ fn the_post_edge_stays_silent_where_no_locus_declared_clause_binds() {
 /// otherwise refuse the call's result.
 #[test]
 fn the_post_edge_stays_silent_where_no_fresh_clause_binds() {
-    let root = post_edge_harness("guard-post-fresh-unbound", "block", UNMATCHABLE);
-    let lock = root.join(".temper").join("lock.toml");
-    let declared = format!(
-        "{}\n[[declaration.clause]]\nlabel = \"root.reachable\"\n\
-         predicate = \"reachable\"\nseverity = \"advisory\"\n",
-        fs::read_to_string(&lock).unwrap()
+    // One real clause row answers the root contract, so the shipped default no longer
+    // does and `fresh` simply does not bind.
+    let root = post_edge_harness(
+        "guard-post-fresh-unbound",
+        "block",
+        UNMATCHABLE,
+        Some(ClauseRow {
+            label: Some("root.reachable".to_string()),
+            ..common::clause("reachable", "advisory")
+        }),
     );
-    fs::write(&lock, declared).unwrap();
 
     let (code, output) = common::run_guard(&root, POST_TOOL_USE_PAYLOAD);
     assert_eq!(code, Some(0), "got: {output}");
@@ -862,21 +868,32 @@ const UNMATCHABLE: &str = "00000000000000000000000000000000000000000000000000000
 /// A harness at `mode` whose lock declares one committed projection at `emit_hash` — the
 /// whole fixture the shell edge needs: the enforcement mode it acts at, and one
 /// fingerprinted row to re-hash against the file on disk.
-fn post_edge_harness(label: &str, mode: &str, emit_hash: &str) -> std::path::PathBuf {
+///
+/// `clause` is the root contract's one real row where a case needs the rows-or-default
+/// rule to answer from the lock rather than the shipped default; `None` leaves the
+/// default binding, which is what the drift and locus halves are judged under.
+fn post_edge_harness(
+    label: &str,
+    mode: &str,
+    emit_hash: &str,
+    clause: Option<ClauseRow>,
+) -> std::path::PathBuf {
     let root = common::tmpdir(label);
     let rules = root.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join("rust.md"), PROJECTION).unwrap();
 
-    common::GuardLock::declaring(mode)
-        .member(
-            "rule",
-            "rust",
-            ".claude/rules/rust.md",
-            emit_hash,
-            emit_hash,
-        )
-        .write(&root);
+    let mut lock = common::GuardLock::declaring(mode).member(
+        "rule",
+        "rust",
+        ".claude/rules/rust.md",
+        emit_hash,
+        emit_hash,
+    );
+    if let Some(row) = clause {
+        lock = lock.clause_row(row);
+    }
+    lock.write(&root);
     root
 }
 
