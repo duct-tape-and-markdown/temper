@@ -21,7 +21,7 @@ import type {
   ResolvedEmbeddedMemberValue,
 } from "./kind.js";
 import type { MentionScope, Text } from "./prose.js";
-import { checkMentions, isTextSpan, renderText, resolveLeaf } from "./prose.js";
+import { checkMentions, defersToGate, isTextSpan, renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations, RenderedExtent } from "./declarations.js";
 import {
@@ -71,8 +71,9 @@ export interface ResolveOptions {
   /** The addresses a mention may name — resolution-checked; a mention cannot dangle. */
   readonly mentionable?: ReadonlySet<string>;
   /**
-   * The discoverable (`at`-locus) kinds the program declares. A mention naming one of
-   * these whose member is not composed defers to `check` rather than refusing at emit.
+   * The discoverable (`at`-locus) kinds the program declares. A reference naming one of
+   * these whose member is not composed defers to `check` rather than refusing at emit —
+   * a mention and an embedded value's edge target alike.
    */
   readonly deferrableKinds?: ReadonlySet<string>;
   /**
@@ -80,8 +81,10 @@ export interface ResolveOptions {
    * resolves against to derive its target facts. Top-level members index at their
    * `kind:name` address, and each composed embedded value at both of its own spellings:
    * its full `<host-address>/<kind>/<key>` address and its bare `kind:key`.
-   * An edge target never defers to the gate the way a bare mention may: the facts are
-   * rendered into the projection now, so an unresolved one has nothing true to place.
+   * Refusal reaches exactly as far as the program's own universe, the one rule a mention
+   * and an edge target share: an address this table misses refuses, unless it names a kind
+   * {@link deferrableKinds} carries — then the member may be discovered on disk, and the
+   * field defers to `check` with no facts derived.
    */
   readonly members?: ReadonlyMap<string, EdgeTarget>;
 }
@@ -269,13 +272,16 @@ function relativeProjection(from: string, to: string): string {
  * selects them renders a reference true by construction; the four are the whole set.
  *
  * An unfilled leaf is no edge, so it contributes no entry: requiredness is the kind's
- * own field schema, which fails in the author's program at compose time.
+ * own field schema, which fails in the author's program at compose time. A filled leaf
+ * whose address {@link defersToGate} admits contributes none either — the program's own
+ * universe does not reach it, so the address rides the lock as authored and `check` owns
+ * its route verdict, exactly as a dangling mention defers (`pipeline.md`, "Emit", the
+ * "Refusing" bullet).
  *
  * # Throws
- * If a filled leaf names no composed member, names one that owns no projection to
- * point at, or names a bare nested key several hosts carry
- * ({@link resolvedTargetFacts}). An edge target cannot defer to the gate the way a bare
- * mention may: the reference is written now, and there is nothing true to write.
+ * If a filled leaf names no composed member and no declared `at`-locus kind either, names
+ * one that owns no projection to point at, or names a bare nested key several hosts carry
+ * ({@link resolvedTargetFacts}).
  */
 function edgeTargetFacts(
   host: Member,
@@ -284,6 +290,7 @@ function edgeTargetFacts(
   options: ResolveOptions,
 ): Record<string, EdgeTargetFacts> {
   const targets: Record<string, EdgeTargetFacts> = {};
+  const { deferrableKinds } = scopeOf(options);
   const context = `member \`${host.name}\`: embedded value \`${value.key}\` of kind \`${value.kind}\``;
   for (const edge of value.edgeFields ?? []) {
     const address = leaves[edge.field];
@@ -292,6 +299,10 @@ function edgeTargetFacts(
     const target = options.members?.get(lookup);
     const reference = `${context}: edge field \`${edge.field}\` names \`${address}\``;
     if (target === undefined) {
+      // Judged on the address the author wrote, never `lookup`: the one-element-`to` lift
+      // spells a bare name as a host address for the member table alone, and a bare name
+      // names no discoverable member.
+      if (defersToGate(address, deferrableKinds)) continue;
       throw new Error(
         `${reference}, which resolves to no composed member — an edge target's facts are ` +
           `derived, never fabricated (specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
@@ -469,10 +480,12 @@ function recordingView(
  * declares one runs the hook against a {@link recordingView} and reports what it
  * selected.
  *
- * The obligation ranges over the edges this value *fills*, never its kind's whole
- * declared set: an unfilled field is no edge, so a format cannot omit it. `undefined`
- * when the value fills none — there is nothing to place, so the row records nothing
- * rather than an empty column on every ordinary value.
+ * The obligation ranges over the edges this value *fills and resolves*, never its kind's
+ * whole declared set: an unfilled field is no edge, so a format cannot omit it, and a
+ * field whose target defers to `check` carries no facts to place — the route verdict is
+ * the gate's, not this clause's. `undefined` when the value leaves the set empty — there
+ * is nothing to place, so the row records nothing rather than an empty column on every
+ * ordinary value.
  *
  * This renders the value a second time, the way `nestedMemberRow` reads its leaves a
  * second time: a hook is pure (emit double-verifies its own bytes), so the observing
@@ -485,7 +498,8 @@ function placedEdges(
 ): string[] | undefined {
   if ((value.edgeFields ?? []).length === 0) return undefined;
   const resolved = resolveMemberLeaves(host, value, options);
-  // `targets` carries exactly the filled edge fields — an unfilled one derives no facts.
+  // `targets` carries exactly the filled, resolved edge fields — an unfilled one and a
+  // deferred one each derive no facts.
   const edgeFields = new Set(Object.keys(resolved.targets));
   if (edgeFields.size === 0) return undefined;
   if (value.render === undefined) return [...edgeFields].sort(compareStrings);

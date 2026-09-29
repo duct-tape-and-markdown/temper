@@ -1490,7 +1490,9 @@ test("a multi-element `to` set still demands the kind-qualified address — a ba
     );
 
   // The qualified address resolves; the bare one names no `kind:name` member and refuses,
-  // since a two-kind set can never infer which kind a bare name lives in.
+  // since a two-kind set can never infer which kind a bare name lives in. A bare name is
+  // also outside the deferral boundary: it spells no host address, so it names no member a
+  // consumer's tree could carry either, and `check` has nothing to be handed.
   assert.equal(build("rule:rust").members.find((m) => m.name === "CLAUDE")!.body, "See `rule:rust`.\n");
   assert.throws(() => build("rust"), /resolves to no composed member/);
 });
@@ -1564,7 +1566,10 @@ test("an edge field resolves an embedded target by either spelling — the bare 
   assert.equal(build("rule:surface/invariant/law-5"), rendered);
 
   // Non-vacuity: an unresolvable nested address still refuses, so the two above passed on
-  // a real resolution rather than an index that answers everything.
+  // a real resolution rather than an index that answers everything. A segmented address is
+  // outside the deferral boundary whichever segment is wrong — the embedded member it names
+  // composes through a host in *this* program, so nothing discovered on disk can supply it,
+  // and the refusal stands however deferrable the leading `rule:` reads.
   assert.throws(() => build("rule:surface/invariant/law-6"), /resolves to no composed member/);
   assert.throws(() => build("rule:ghost/invariant/law-5"), /resolves to no composed member/);
 });

@@ -260,9 +260,10 @@ test("blocks() admits a bare prose span", () => {
 
 // ---------------------------------------------------------------------------
 // (5) Dangling edge target — an embedded value's edge field naming a member the
-//     program does not resolve. Unlike a bare mention, an edge target never defers
-//     to the gate: its facts are rendered into the projection now, so an
-//     unresolved one has nothing true to place.
+//     program does not resolve. Refusal reaches exactly as far as the program's own
+//     universe, the same boundary a bare mention draws: an address naming a declared
+//     `at`-locus kind may name a member discovered on disk, so it defers to `check`;
+//     an address naming no declared kind refuses before a byte is written.
 // ---------------------------------------------------------------------------
 
 /** An embedded kind whose `source` field is a declared edge to a `rule`. */
@@ -289,12 +290,37 @@ function citingHarness(citation: ReturnType<typeof citationKind>, address: strin
   });
 }
 
-test("emit refuses an edge field whose target the program does not resolve", () => {
-  // `rule` is a declared at-locus kind, so a *mention* of `rule:ghost` would defer to
-  // check — an edge target cannot: the reference is written now. The case is true
-  // absence: an embedded target the program *did* compose resolves off the member
-  // table's nested spellings (emit.test.ts, "either spelling"), never here.
-  assert.throws(() => emit(citingHarness(citationKind(), "rule:ghost")), /resolves to no composed member/);
+test("emit defers an edge field naming a declared at-locus kind's uncomposed member", () => {
+  // The program declares `rule` (it composes `rust`) but not `ghost`, which a consumer's
+  // own tree may still carry: the address is inside the kind's universe and outside the
+  // program's, so emit derives no facts and `check` owns the route verdict — the same
+  // deferral a *mention* of `rule:ghost` takes. The case is true absence of the member:
+  // an embedded target the program *did* compose resolves off the member table's nested
+  // spellings (emit.test.ts, "either spelling"), never here.
+  const citation = citationKind();
+  const h = harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust` }),
+      ...citingHarness(citation, "rule:ghost").members,
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+
+  const result = emit(h);
+  // The authored address rides the lock's `nested_member` row as written — the leaf the
+  // engine lifts into the member's fields and route-resolves against the discovered
+  // corpus (tests/it/graph.rs, the `graph.route` twin).
+  assert.deepEqual(result.declarations.nested_members[0].leaves, { source: "rule:ghost" });
+  // A deferred field carries no facts, so it is no `format-places-edges` obligation:
+  // there is nothing to place, and the route verdict is the gate's.
+  assert.deepEqual(result.declarations.nested_members[0].placed_edges, undefined);
+});
+
+test("emit refuses an edge field whose address names no declared kind", () => {
+  // The universe rule's other side. No `journal` kind is in play, so no member of that
+  // kind can be discovered on disk either: nothing downstream could ever resolve the
+  // address, and the fault is the program's to answer now.
+  assert.throws(() => emit(citingHarness(citationKind(), "journal:ghost")), /resolves to no composed member/);
 });
 
 test("emit refuses an edge field naming a target that owns no projection", () => {

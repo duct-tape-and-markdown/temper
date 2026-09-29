@@ -58,10 +58,10 @@ export interface Include {
 export type Reference = Mentionable | Include;
 
 /**
- * The resolution universe a mention is checked against at emit: the addresses that
- * resolve here and now ({@link mentionable}), and the kinds whose members the program
- * declares but does not compose ({@link deferrableKinds}) — a mention naming one of
- * those defers to `check` rather than refusing at emit.
+ * The resolution universe an authored reference is checked against at emit: the addresses
+ * that resolve here and now ({@link mentionable}), and the kinds whose members the program
+ * declares but does not compose ({@link deferrableKinds}) — a reference naming one of those
+ * defers to `check` rather than refusing at emit.
  */
 export interface MentionScope {
   /** Every address a mention may resolve against in the program's own universe. */
@@ -71,12 +71,17 @@ export interface MentionScope {
 }
 
 /**
- * Whether a mention's unresolved address **defers to the gate** rather than refusing at
- * emit: a host address ({@link parseHostAddress}) whose kind is one the program declares
- * at a discovery locus (an `at`-locus kind) may name a member discovered on disk, so
- * `check` owns the verdict. Anything the grammar's reader answers `undefined` for — a
- * segmented embedded address, a bare requirement name, a name-less `kind:` — names no
- * discoverable member, and stays a dangling refusal however deferrable its head reads.
+ * Whether an unresolved address **defers to the gate** rather than refusing at emit: a
+ * host address ({@link parseHostAddress}) whose kind is one the program declares at a
+ * discovery locus (an `at`-locus kind) may name a member discovered on disk, so `check`
+ * owns the verdict. Anything the grammar's reader answers `undefined` for — a segmented
+ * embedded address, a bare requirement name, a name-less `kind:` — names no discoverable
+ * member, and stays a dangling refusal however deferrable its head reads.
+ *
+ * The predicate reads an address, never the reference that carries it: refusal reaches
+ * exactly as far as the program's own universe (`pipeline.md`, "Emit", the "Refusing"
+ * bullet), so a mention ({@link checkMentions}) and an embedded value's edge target
+ * (`emit.ts`'s `edgeTargetFacts`) draw the same boundary at the same place.
  */
 export function defersToGate(address: string, deferrableKinds: ReadonlySet<string>): boolean {
   const host = parseHostAddress(address);

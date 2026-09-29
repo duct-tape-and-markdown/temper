@@ -867,10 +867,14 @@ export interface ResolvedEmbeddedMemberValue {
   /** Sibling collections, each entry's leaves already resolved. */
   readonly collections: Readonly<Record<string, readonly ResolvedEmbeddedMemberCollectionEntry[]>>;
   /**
-   * The target facts of each edge field this value *fills*, keyed by the edge field's
-   * own name — the data a `render` hook selects to spell a reference. An unfilled
-   * field is no edge and carries no entry; a kind declaring no edge fields (or a value
-   * composed off a bare kind name, which carries none) has an empty map.
+   * The target facts of each edge field this value *fills and resolves*, keyed by the edge
+   * field's own name — the data a `render` hook selects to spell a reference. Three cases
+   * carry no entry: an unfilled field (no edge at all), a kind declaring no edge fields —
+   * or a value composed off a bare kind name, which carries none — and a filled field
+   * whose target defers to `check`, naming a declared `at`-locus kind's uncomposed member
+   * (`pipeline.md`, "Emit", the "Refusing" bullet). A hook spelling a reference off a key
+   * must therefore handle its absence; the default TOML view is unaffected, writing the
+   * authored address leaf whether the program resolves it or the gate does.
    */
   readonly targets: Readonly<Record<string, EdgeTargetFacts>>;
 }

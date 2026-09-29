@@ -2050,6 +2050,42 @@ mod embedded_edge_sources {
     }
 
     #[test]
+    fn an_embedded_edge_leaf_naming_an_absent_member_fires_a_route_finding() {
+        let root = common::scaffold("embedded-edge-source-deferred");
+        write_cited_harness(&root);
+        // The check-side twin of `a_deferred_mention_to_an_absent_member_fires_a_route_finding`,
+        // and the non-vacuity proof that emit's deferral hands a real verdict over rather
+        // than dropping one: `skill:ghost` names the edge's own target kind, so emit derived
+        // no facts and wrote the address through (`sdk/src/emit.ts`'s `edgeTargetFacts`).
+        // No skill named `ghost` is discovered here, so the lifted edge dangles and
+        // `graph.route` fires — no degree clause needed to opt the reference into counting.
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![article_kind()],
+                assembly: vec![common::edge("citation", "source", "skill")],
+                nested_members: vec![citation_row("skill:ghost")],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "an embedded member's edge leaf naming an absent member dangles ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("graph.route")
+                && run.output.contains("article:article/citation/the-standard")
+                && run.output.contains("ghost"),
+            "the route finding names the citing embedded member at nested-address grain and \
+             the dangling target, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
     fn an_embedded_edge_leaf_addressing_another_kind_stays_dangling() {
         let root = common::scaffold("embedded-edge-source-cross-kind");
         write_cited_harness(&root);
