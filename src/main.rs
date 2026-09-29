@@ -42,9 +42,40 @@ use temper::tap;
 /// its one home for.
 static DEFAULT_WORKSPACE: LazyLock<String> = LazyLock::new(temper::default_workspace);
 
+/// The long version form: the release tag's string plus the commit `build.rs` stamped,
+/// when the source tree it was built from carried git metadata.
+///
+/// Build provenance rides this form alone: the short form stays [`temper::VERSION`]
+/// byte-for-byte, so every build of one tag — tarball or git checkout — agrees with it and
+/// with every artifact that stamps it (`bundle`'s plugin manifest, the SARIF driver).
+///
+/// A `LazyLock` because the stamp is read at runtime from an optional env var, which no
+/// `concat!` of literals can splice. Borrowing it out of a `static` is what makes the
+/// `&'static str` clap wants.
+static LONG_VERSION: LazyLock<String> =
+    LazyLock::new(|| match option_env!("TEMPER_BUILD_COMMIT") {
+        Some(commit) => format!("{} ({commit})", temper::VERSION),
+        None => temper::VERSION.to_string(),
+    });
+
 /// A typed maintenance surface for the Claude Code harness.
+//
+// `version` feeds the short form (`-V`) and `long_version` the long one (`--version`);
+// each falls back to the other when only one is set — clap's own documented split
+// (`Command::version` / `Command::long_version`,
+// <https://docs.rs/clap/4.6.1/clap/builder/struct.Command.html#method.long_version>,
+// retrieved 2026-09-29; verified against the vendored clap_builder 4.6.0 source).
+// `version` is spelled to `temper::VERSION` rather than left to the derive's
+// `CARGO_PKG_VERSION` magic so the one const naming the release tag's string is visibly
+// the thing the short form carries.
 #[derive(Parser)]
-#[command(name = "temper", version, about, long_about = None)]
+#[command(
+    name = "temper",
+    version = temper::VERSION,
+    long_version = LONG_VERSION.as_str(),
+    about,
+    long_about = None
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

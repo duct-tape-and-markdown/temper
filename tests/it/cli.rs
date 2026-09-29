@@ -1056,3 +1056,55 @@ fn help_text_speaks_the_current_enforcement_vocabulary_and_layout() {
         "`temper schema --help` must not hardcode the retired closed `skill`/`rule` kind pair, got:\n{schema_stdout}"
     );
 }
+
+/// The commit `build.rs` stamped for the build under test, read through the same env var
+/// the binary was built with — so a crates.io tarball build, which carries no git
+/// metadata, asserts the omission rather than failing on a commit never stamped.
+const BUILD_COMMIT: Option<&str> = option_env!("TEMPER_BUILD_COMMIT");
+
+#[test]
+fn the_short_version_is_the_release_tag_and_only_the_long_form_carries_the_commit() {
+    // The engine's version string is the release tag's, identical in every build of that
+    // tag and in every artifact it stamps; build provenance rides the long `--version`
+    // form alone. A suffix on the string itself would make a tarball build and a git build
+    // of one tag disagree, so the commit reaches neither the short form nor
+    // `temper::VERSION`.
+    let short = version_output("-V");
+    assert_eq!(
+        short,
+        format!("temper {}", temper::VERSION),
+        "the short version form must be exactly the crate version, carrying no suffix"
+    );
+
+    let long = version_output("--version");
+    assert!(
+        long.contains(temper::VERSION),
+        "the long version form must still carry the crate version, got: {long}"
+    );
+
+    match BUILD_COMMIT {
+        Some(commit) => {
+            assert!(
+                long.contains(commit),
+                "a build with git metadata stamps its commit into the long form, got: {long}"
+            );
+            assert!(
+                !short.contains(commit),
+                "the stamped commit must never reach the short form, got: {short}"
+            );
+        }
+        // Nothing stamped (a released tarball): the long form carries no commit at all and
+        // degrades to the short one, byte for byte.
+        None => assert_eq!(
+            long, short,
+            "with no commit stamped the long form must degrade to the short one"
+        ),
+    }
+}
+
+/// `temper <flag>`'s trimmed stdout. Both version flags print and exit zero.
+fn version_output(flag: &str) -> String {
+    let out = Command::new(BIN).arg(flag).output().unwrap();
+    assert!(out.status.success(), "`temper {flag}` must exit zero");
+    String::from_utf8(out.stdout).unwrap().trim().to_string()
+}
