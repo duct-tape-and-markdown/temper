@@ -1,0 +1,41 @@
+{
+  "tag": "LAYOUT-TITLE-IS-THE-DOCUMENTS-OWN-SPAN",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/layout.rs",
+        "description": "`Layout::read` (src/layout.rs:220) binds its regions beneath a lone leading heading: when `extract::body_heading_tree` yields exactly one top-level node and nothing precedes it (`extract::body_preamble(body)` is blank), that node is the document's title — the regions bind to its `children`, and the document's own span, cut at the first child heading (`extract::body_preamble(&node.body)`, 0051's cut one level up), is what a verbatim prose region takes in place of the empty preamble. Every other shape — a preamble before the heading, two or more top-level headings, no heading at all — binds exactly as today, and the title's span follows the preamble's standing rule: dropped when the layout declares no verbatim prose region. `SwallowedHeading`'s doc comment (src/layout.rs:175) drops its title-swallow half — the diagnostic survives for the missing-section shift, which needs two top-level headings. Riding residue (0066): `LayoutMember::heading`'s doc (src/layout.rs:91) still says the authored heading is \"kept so a rename surfaces as a move\" — 0019's struck promise; re-word to the ruled identity story, a retitle without an explicit key being a delete and a create."
+      },
+      {
+        "path": "tests/it/layout_kind.rs",
+        "description": "The suite's fixture documents are mostly lone-leading-heading shapes, so their binding moves one level down and each re-cuts to keep the case it owns. The two swallow tests (tests/it/layout_kind.rs:607 and :628) both author `# Title` over `##` children and now bind rather than refuse: the title-swallow case becomes the ruled binding, and the missing-section shift keeps its refusal by carrying two top-level headings. The explicit-key retitle suite (tests/it/layout_kind.rs:100, `# Invariants\\n## {heading}\\n### id`) re-cuts so the collection still binds the heading whose children are its members, and any `Unadmitted` case resting on a single unadmitted top-level heading re-cuts against a second heading."
+      },
+      {
+        "path": "tests/it/layout_edge_slot.rs",
+        "description": "The dangling-requirement fixture (tests/it/layout_edge_slot.rs:129) is `\"# Satisfies\\n- no-such-requirement\\n\"` — a lone leading heading, so the edge slot would read empty and the refusal it pins would stop firing; re-cut to the two-top-level-heading shape its sibling fixtures (tests/it/layout_edge_slot.rs:66, :174) already carry. Same check for the relationship-edge fixture at tests/it/layout_edge_slot.rs:216."
+      },
+      {
+        "path": "tests/it/layout_prose_import.rs",
+        "description": "The `guide` documents (`\"# Intent\\ntemper makes a harness good.\\n\"`, tests/it/layout_prose_import.rs:41, :94, :136, :194, :199) become title-plus-prose, so their declared `intent` field section reads empty. The import assertions do not read that field, so re-cut only what a failing assertion names — the file is declared because the flip reaches it."
+      }
+    ]
+  },
+  "summary": "A lone leading heading is the document's title: the layout's regions bind to its child headings and its own span fills the prose region.",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "kind"
+  },
+  "tests": [
+    {
+      "path": "tests/it/layout_kind.rs",
+      "asserts": "a lone leading heading over child headings binds the regions to those children and lands its own span — cut at the first child heading — in the verbatim prose region, where today it was consumed by the first region"
+    },
+    {
+      "path": "tests/it/layout_kind.rs",
+      "asserts": "the shapes that are not a title still bind as they do today: preamble prose before a single top-level heading (the `examples/base-harness/docs/glossary.md` shape, whose `## Terms` collection must keep its members), and two top-level headings — where a field consuming a heading with children while a later region starves still fires `SwallowedHeading`"
+    }
+  ],
+  "acceptance": "`cargo test` green with the re-cut layout suite and the new title cases; `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "0065's two mechanical derivations: `leading` means no preamble before the heading — else examples/base-harness/docs/glossary.md (prose, then a lone `## Terms`) loses every term member; a childless lone heading is still a title, two top-level headings being the decision's only named exclusion. tests/it/graph.rs:1683, the other lone-heading fixture, reads lock rows not fields, so it stays out of files[]. scoped at ed3380d8"
+}
