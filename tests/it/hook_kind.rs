@@ -15,12 +15,11 @@
 
 use crate::common;
 
-use std::fs;
-
 use crate::common::{check_harness, write_rule, write_settings};
 
 use temper::builtin_kind;
 use temper::builtin_lock;
+use temper::drift::{CollectionAddressRow, Declarations, KindFactRow};
 use temper::kind::{CollectionAddress, CollectionKeyPath, Content, Registration};
 
 /// A `.claude/settings.json` carrying two hooks — one under the documented `PreToolUse`
@@ -478,6 +477,23 @@ fn the_embedded_builtin_lock_carries_the_hook_kind_and_its_event_clause() {
     );
 }
 
+/// A fields-only kind row keyed at `settings.json#hooks.<Event>` and governing no file
+/// locus of its own — the shape the collision case needs on both sides of the collision,
+/// diverging only on the name and the declared `entry_shape`.
+fn collides_at_hooks_event(name: &str, entry_shape: Option<&str>) -> KindFactRow {
+    KindFactRow {
+        governs_root: None,
+        governs_glob: None,
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            entry_shape: entry_shape.map(str::to_string),
+        }),
+        ..common::kind_facts(name, "", "")
+    }
+}
+
 #[test]
 fn two_kinds_at_the_same_collection_address_trip_collision_loud() {
     // Regression: two fields-only kinds declaring the same collectionAddress are
@@ -493,22 +509,20 @@ fn two_kinds_at_the_same_collection_address_trip_collision_loud() {
 
     // Write a lock that declares two kinds at the same collection address. The first is
     // the built-in `hook` kind at `settings.json#hooks.<Event>`; the second is a custom
-    // kind also at that same address.
-    let lock = r#"[declaration]
-
-[[declaration.kind]]
-name = "hook"
-shape = "fields"
-collection_address = { manifest = "settings.json", key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }
-
-[[declaration.kind]]
-name = "custom_hook"
-shape = "fields"
-collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
-"#;
-    let workspace = harness.join(".temper");
-    fs::create_dir_all(&workspace).expect("create workspace");
-    fs::write(workspace.join("lock.toml"), lock).expect("write lock");
+    // kind also at that same address. Both rows are spelled here rather than off
+    // `common::hook_kind_facts`, which declares the real kind's `.claude/settings.json`
+    // file locus: the collision this case judges is the *collection* address alone, and a
+    // governed glob beside it would hand the gate a second, unrelated locus fact.
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![
+                collides_at_hooks_event("hook", Some("group-array(hooks;matcher)")),
+                collides_at_hooks_event("custom_hook", None),
+            ],
+            ..Declarations::default()
+        },
+    );
 
     let (findings, ok) = check_harness(&harness);
 

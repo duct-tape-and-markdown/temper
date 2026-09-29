@@ -24,7 +24,7 @@ use crate::common;
 
 use temper::builtin_kind;
 use temper::check::{self, Diagnostic, Severity};
-use temper::drift::{self, Declarations, EmitOptions, Payload, PayloadMember};
+use temper::drift::{self, BoundRow, ClauseRow, Declarations, EmitOptions, Payload, PayloadMember};
 use temper::engine;
 use temper::frontmatter::Member;
 
@@ -144,10 +144,15 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
     );
 }
 
-/// Write `<corpus>/.temper/lock.toml` verbatim — the SDK-emitted lock a converted
-/// harness carries, stood in for directly so a test declares the exact clause rows a
-/// built-in kind's `expect` binding erases to (`sdk/src/declarations.ts`).
-fn write_lock(corpus: &Path, contents: &str) {
+/// Write `<corpus>/.temper/lock.toml` verbatim — the one lock shape `drift::emit` cannot
+/// produce, so [`common::write_lock`] is not its home. Its two callers
+/// ([`drifted_corpus`], [`undeclared_corpus`]) render a `[[skill]]` provenance row at
+/// [`UNMATCHABLE_HASH`] beside the `layout_import` and `include` families: the first has
+/// no field on `drift::Declarations` at all, and the second is seam-inbound (emit lowers
+/// it to a source dependency, so a lock round-trip reads it empty). Neither family
+/// survives a write, so both builders' locks stay hand-rendered whole, the root clause
+/// rows their callers hand them included.
+fn write_drifted_lock(corpus: &Path, contents: &str) {
     let temper = corpus.join(".temper");
     fs::create_dir_all(&temper).unwrap();
     fs::write(temper.join("lock.toml"), contents).unwrap();
@@ -202,22 +207,24 @@ fn builtin_skill_declared_rows_are_the_whole_contract() {
         "anthropic",
         &skill_with_tier("anthropic", "experimental"),
     );
-    write_lock(
+    common::write_lock(
         &corpus,
-        "[[declaration.clause]]\n\
-         label = \"skill.required.description\"\n\
-         kind = \"skill\"\n\
-         predicate = \"required\"\n\
-         field = \"description\"\n\
-         severity = \"required\"\n\
-         \n\
-         [[declaration.clause]]\n\
-         label = \"skill.enum.tier\"\n\
-         kind = \"skill\"\n\
-         predicate = \"enum\"\n\
-         field = \"tier\"\n\
-         severity = \"required\"\n\
-         values = [\"core\", \"extra\"]\n",
+        Declarations {
+            clauses: vec![
+                ClauseRow {
+                    kind: Some("skill".to_string()),
+                    field: Some("description".to_string()),
+                    ..common::clause("required", "required")
+                },
+                ClauseRow {
+                    kind: Some("skill".to_string()),
+                    field: Some("tier".to_string()),
+                    values: Some(vec!["core".to_string(), "extra".to_string()]),
+                    ..common::clause("enum", "required")
+                },
+            ],
+            ..Declarations::default()
+        },
     );
 
     let run = common::check_in(&corpus, &[], None);
@@ -246,13 +253,15 @@ fn builtin_skill_declared_rows_are_the_whole_contract() {
 fn builtin_skill_out_of_vocabulary_row_is_a_load_error() {
     let corpus = common::tmpdir("skill-bad-row");
     common::write_skill(&corpus, "widget", &common::clean_skill("widget"));
-    write_lock(
+    common::write_lock(
         &corpus,
-        "[[declaration.clause]]\n\
-         label = \"skill.not_a_predicate\"\n\
-         kind = \"skill\"\n\
-         predicate = \"not_a_predicate\"\n\
-         severity = \"required\"\n",
+        Declarations {
+            clauses: vec![ClauseRow {
+                kind: Some("skill".to_string()),
+                ..common::clause("not_a_predicate", "required")
+            }],
+            ..Declarations::default()
+        },
     );
 
     let run = common::check_in(&corpus, &[], None);
@@ -268,34 +277,29 @@ fn builtin_skill_out_of_vocabulary_row_is_a_load_error() {
     );
 }
 
-/// Author a custom kind's `lock.toml` declaration row pair — one
-/// `[[declaration.kind]]` naming its `governs` root/glob, one
-/// `[[declaration.clause]]` binding an advisory `extent` budget to it — the
-/// live authoring surface (`tests/session_start.rs`'s
+/// Author a custom kind's `lock.toml` declaration row pair through the real lock writer —
+/// a `KindFactRow` naming its `governs` root/glob, a `ClauseRow` binding an advisory
+/// `extent` budget to it — the live authoring surface (`tests/session_start.rs`'s
 /// `a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_false_admissibility_finding`
 /// uses the identical shape). `extent` is the fixture's small 10-line budget so a
 /// short over-length body trips it without a real spec-sized corpus.
 fn author_custom_kind_lock(corpus: &Path, name: &str, governs_root: &str) {
-    let temper = corpus.join(".temper");
-    fs::create_dir_all(&temper).unwrap();
-    fs::write(
-        temper.join("lock.toml"),
-        format!(
-            "[[declaration.kind]]\n\
-             name = \"{name}\"\n\
-             governs_root = \"{governs_root}\"\n\
-             governs_glob = \"*.md\"\n\
-             \n\
-             [[declaration.clause]]\n\
-             label = \"{name}.extent\"\n\
-             kind = \"{name}\"\n\
-             predicate = \"extent\"\n\
-             severity = \"advisory\"\n\
-             bound = {{ max = 10 }}\n\
-             unit = \"lines\"\n"
-        ),
-    )
-    .unwrap();
+    common::write_lock(
+        corpus,
+        Declarations {
+            kinds: vec![common::kind_facts(name, governs_root, "*.md")],
+            clauses: vec![ClauseRow {
+                kind: Some(name.to_string()),
+                bound: Some(BoundRow {
+                    min: None,
+                    max: Some(10),
+                }),
+                unit: Some("lines".to_string()),
+                ..common::clause("extent", "advisory")
+            }],
+            ..Declarations::default()
+        },
+    );
 }
 
 /// A body over the fixture's 10-line `extent` budget — used to prove the
@@ -493,7 +497,7 @@ fn drifted_corpus(label: &str, root_rows: &str) -> PathBuf {
     fs::write(corpus.join("included.md"), "included prose.\n").unwrap();
     // `[[skill]]` leads: a top-level provenance row written after `[declaration]` would
     // nest under it.
-    write_lock(
+    write_drifted_lock(
         &corpus,
         &format!(
             "[[skill]]\n\
@@ -615,7 +619,7 @@ fn undeclared_corpus(label: &str, root_rows: &str) -> PathBuf {
         "specs/intent.md",
         "The product intent, authored in prose.\n",
     );
-    write_lock(
+    write_drifted_lock(
         &corpus,
         &format!(
             "[[skill]]\n\

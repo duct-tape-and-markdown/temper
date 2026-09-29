@@ -256,16 +256,14 @@ fn check_resolves_the_nested_temper_for_an_explicit_harness_root() {
     // An adopted lock beside the harness root declaring a `required` requirement no
     // member satisfies: the full model must fail loud, a half-gate that drops the lock
     // stays (wrongly) green.
-    let temper_dir = harness.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.requirement]]\n\
-         name = \"engineering-standards\"\n\
-         kind = \"skill\"\n\
-         required = true\n",
-    )
-    .unwrap();
+    common::write_requirements(
+        &harness,
+        vec![common::requirement(
+            "engineering-standards",
+            true,
+            Some("skill"),
+        )],
+    );
 
     // The explicit harness-root argument (terminal reporter): resolves `<root>/.temper`,
     // so the unfilled required requirement fires and the run exits non-zero.
