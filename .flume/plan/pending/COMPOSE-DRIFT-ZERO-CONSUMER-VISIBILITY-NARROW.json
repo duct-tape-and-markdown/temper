@@ -1,0 +1,29 @@
+{
+  "tag": "COMPOSE-DRIFT-ZERO-CONSUMER-VISIBILITY-NARROW",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/compose.rs",
+        "description": "Two items, one seam. `pub fn resolve_kind_units` (:802) and the `pub struct KindUnits` it returns (:451, introduced by a860bd4e) have no reference outside this module: the production callers are `kind_units_and_features` (:926) and `assemble_lock_family` (:1144), the only other caller is the file's own `#[cfg(test)] mod tests` (:1852), and a child module already sees its parent's private items — so `pub` buys nothing for the test either. Narrow the fn to plain `fn` and the struct (with its three fields) to private. `resolve_kind_units_count` (:47) keeps its `pub`: tests/it/check_cost.rs:930 calls it. Both intra-doc links to the narrowed names — the module header's list (:9) and `assemble_lock_family`'s `[KindUnits::layout_rows]` (:1089) — resolve either way, since the doc gate runs `cargo doc --no-deps --document-private-items` (.flume/chain.ts:664). Nothing else here narrows: `kind_units_and_features`, `KindUnitsAndFeatures` and `assemble_lock_family` each have callers in gate.rs or read.rs, and the module's other internal helpers (`manifest_units` :716, `read_dial`, `declared_kinds_with_overlaid`) are already plain `fn`."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "Three `pub fn`s whose only callers sit in this same module. (1) `read_layout_document` (:2088) — one caller, `derive_layout_rows` (:2032); the window's fold made `lower_layout_reading` (:2134) the outside-facing half of this seam (compose.rs:618 calls it) while the reaching half kept a `pub` it never earned (no outside caller back to a487f056, when the prior sweep of this class ran). (2) `renders_frontmatter` (:2659) — callers `emit_one` (:2596) and `project_bytes` (:2707). (3) `layout_sources_from_doc` (:3492) — callers `declared_member_addresses` (:2994) and the workspace-path wrapper `layout_sources` (:3507), which does have an outside caller (tests/it/lock_declaration_rows.rs:2044) and stays `pub`; its two `*_from_doc` siblings `layout_imports_from_doc` (:3311) and `includes_from_doc` (:3333) also stay `pub` (tests/it/check_cost.rs:322,324), so visibility here follows callers, not family symmetry. Narrow all three to plain `fn`. `read_layout_document_text` (:2116) stays `pub(crate)` (compose.rs:593 is its second door); `layout_document_read_count`/`layout_document_parse_count` (:91,:98) stay `pub` (tests/it/check_cost.rs reads both); `DriftError`, `EmitEntry`, `LayoutImportRow` and `LayoutSourceRow` stay `pub` — each is the signature or field type of public API consumed outside (`EmitEntry` rides `EmitReport::entries` :803), so narrowing them would put a private type in a public interface."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Five `pub` items across src/compose.rs and src/drift.rs have no caller outside their own module — narrow each to the visibility its real callers need.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "An export earns its consumer"
+  },
+  "tests": [],
+  "acceptance": "cargo build, cargo test, cargo clippy --all-targets -- -D warnings and cargo doc --no-deps --document-private-items stay green with all five narrowed and no call site changed — the compiler is the pin for a visibility cut, so this ships no new test (the named exception to 'A fix ships the test that would have caught it': an unearned `pub` has no decidable regression assertion).",
+  "notes": "Census, not a sample: every `pub fn`/`struct`/`enum`/`const` in both files was rg'd for a reference outside its own file, comment and string hits excluded — these five are the whole zero-consumer set. tests/it/layout_kind.rs:459 and tests/it/check_cost.rs:930 name two of them in a comment and an assertion message only, so neither file is in the ripple. scoped at 0e602ab0"
+}
