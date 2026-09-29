@@ -1,0 +1,39 @@
+{
+  "tag": "LOCAL-LAYOUT-DOCUMENT-IS-PARSED-ONCE-PER-ASSEMBLY-PASS",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/compose.rs",
+        "description": "`layout_unit` (:557) parses the document into a `LayoutReading` and keeps only `fields`/`edges`; `local_document_rows` (:901) then re-parses the identical text through `drift::lower_layout_document` for `members`/`satisfies`/`prose`, recomputing the same `edge_fields` at :917 that `resolve_kind_units` already built at :761. Thread the one reading (or its lowered rows) out of `resolve_kind_units` to `assemble_lock_family` (:1116) instead \u2014 its three call sites (:851, :1116, :1825) all sit in this file."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "`lower_layout_document` (:2111) splits so the `layout.read` parse and the row lowering are separable for a caller that already holds a reading; the new parse count joins the existing count family (`LAYOUT_DOCUMENT_READS` :57, and the `LOCK_READS`/`LOCK_PARSES` read-vs-parse pairing :44 that is this pin's precedent)."
+      },
+      {
+        "path": "src/layout.rs",
+        "description": "`Layout::read` (:221) is the one door every parse comes through \u2014 the increment sits here so the count is the pass's true parse total, whichever module owns the accessor."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "The parse pin, beside `a_local_layout_members_document_is_read_once_per_assembly_pass` (:1252) on the same two-member `knob` fixture."
+      }
+    ]
+  },
+  "summary": "A local-locus layout member's document is parsed twice per assembly pass \u2014 `layout_unit` keeps only the reading's fields, then `local_document_rows` re-parses the identical text.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "Cost scale is hoisted, and pinned by count"
+  },
+  "tests": [
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "`assemble_lock_family` over a two-member `knob` harness parses two layout documents, not four, with the derived `nested` rows asserted present first so the count cannot pass over an empty derivation"
+    }
+  ],
+  "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, with the new parse-count pin verified red (4, not 2) on the pre-fix tree.",
+  "notes": "Both parses take provably identical inputs \u2014 same kind, same text, `edge_fields` built by the same two calls (:761 vs :917) \u2014 so the fold is semantics-preserving. Do not widen `Unit` to carry the reading: derived state is computed, never stored beside its source (engineering.md). The disk-read half is already hoisted (7e28b11f); this is the parse half that commit's own body named as left standing. scoped at 380a926a"
+}
