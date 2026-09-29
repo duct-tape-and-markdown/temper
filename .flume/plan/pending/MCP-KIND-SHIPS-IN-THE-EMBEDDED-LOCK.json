@@ -3,7 +3,6 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "MCP-KIND-SHIPS-IN-THE-SDK",
       "ENGINE-MISMATCH-IS-A-ROOT-CLAUSE"
     ]
   },
