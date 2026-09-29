@@ -1,0 +1,38 @@
+{
+  "tag": "INSTALL-TEST-PROJECTION-PINS-READ-THE-WRITERS-CONSTANTS",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "tests/it/install.rs",
+        "description": "Every expected-projection literal reads the constant its writer places, the shape this file already holds at four sites (`temper::placement::BANNER` :917, `NOTE_COMMENT` :1406/:1409/:2699) and `assert_gate_hooks_wired` (:615) holds for the commands. Three families, all verified on disk: (1) 21 hand copies of the marker prefixes — `\"# temper: managed projection\"` at :452, :456, :466, :878, :883, :1127, :1141, :1210, :3043, :3049, :3166, :3183, :3218, :3235 and `\"<!-- temper: managed projection\"` at :463, :874, :886, :898, :943, :955, :3057 — fold onto `placement::NOTE_MARKER` (src/placement.rs:10) and `placement::BANNER_MARKER` (:24), both already `pub`; (2) 4 copies of `\"# yaml-language-server:\"` (:1147, :1172, :1185, :1209) fold onto `placement::MODELINE_MARKER` (:38) — the `$schema=` tail is a per-projection relative path, not a constant, and stays spelled; (3) 5 copies of the gate commands — `SESSION_START_COMMAND` at :240, :277, :318 and `GUARD_COMMAND` at :437, :1114 — read `temper::install::SESSION_START_COMMAND` / `GUARD_COMMAND` (src/install.rs:105, :168, both `pub`), each site keeping its own JSON-address claim (`hooks.SessionStart[0]` vs `[1]` after a sibling append, `hooks.PreToolUse[0]`). Hand-authored fixtures that must NOT fold, since they are inputs or deliberately-retired wordings rather than expectations: `RETIRED_NOTE` (:1404), `NON_CANONICAL_SETTINGS_WITH_SIBLING_HOOK`'s `other-tool check` (:80), `CO_OWNED_SETTINGS`'s bare `temper check . --reporter session-start` (:2231). Rider, one line, same file and same posture page (`specs/process/engineering.md`, \"A green verdict is proven non-vacuous\"): the re-emit preservation claim at :1194 asserts `emit_again.entries.iter().all(|e| e.outcome == Unchanged)` — an emit that returned zero entries satisfies it, and the two `contains` asserts below it pass on bytes install already placed, so nothing in the test proves the second emit ran; add the populated-set pin beside it."
+      },
+      {
+        "path": "tests/it/bundle.rs",
+        "description": "One more copy of the same sentence: :64 asserts `hooks_json[\"hooks\"][\"SessionStart\"][0][\"hooks\"][0][\"command\"]` against the full command literal, while the unit test over the same writer (`src/bundle.rs:425`) already reads `crate::install::SESSION_START_COMMAND`. Read the constant here too, keeping the JSON-address claim."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The install and bundle suites hand-spell the banner, note, modeline and gate-command constants their writers export — 31 copies that stay green over bytes temper no longer writes.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "the projection, modeline and gate-command expectations are the writer's own constants, so re-wording one turns this suite red rather than leaving it green over retired bytes; the re-emit preservation claim additionally pins that its judged entry set was populated"
+    },
+    {
+      "path": "tests/it/bundle.rs",
+      "asserts": "the bundled hooks.json command is `install::SESSION_START_COMMAND`, matching the unit test over the same writer"
+    }
+  ],
+  "acceptance": "`cargo test` green, and `rg -an 'temper: managed projection|yaml-language-server|reporter session-start|temper guard \\.' tests/it/install.rs tests/it/bundle.rs` returns only the three named hand-authored fixtures and the constant-reading call sites — no expectation spelling the writer's bytes by hand. Mutation-checked: re-wording `NOTE_MARKER`, `MODELINE_MARKER` or `SESSION_START_COMMAND` turns the suite red, and stubbing the second emit to return no entries fails the new populated-set pin.",
+  "notes": "Counted on disk this tick; the precedent is this file's own neighborhood — 4ad957e3 (banner round-trip reads BANNER) and 932228f9 (the guard's limit pin reads its writer), both per the same section. Shares `tests/it/install.rs` with GUARD-PAYLOAD-FIXTURES-FOLD-INTO-ONE-HOME (serialized behind this) and with INSTALL-LIFTS-A-REGISTRATION-MEMBER (fork-held on `(hook-member-identity)`, so not concurrently pickable). scoped at e32e3cad"
+}
