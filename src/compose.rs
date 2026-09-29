@@ -6,9 +6,10 @@
 //! friends) live in [`crate::contract`], not here.
 //!
 //! Member composition functions that resolve kinds and units live here too:
-//! [`resolve_kind_units`], [`manifest_units`], [`kind_features`], [`assemble_lock_family`],
-//! and [`assemble_by_kind`], along with their supporting functions. These are the corpus-assembly
-//! functions that discover and resolve a harness's members off disk.
+//! [`resolve_kind_units`], [`manifest_units`], [`kind_units_and_features`],
+//! [`assemble_lock_family`] and [`assemble_by_kind`], along with their supporting
+//! functions. These are the corpus-assembly functions that discover and resolve a
+//! harness's members off disk.
 //!
 //! There is no reader in this module: every value here is populated from the lock's
 //! declaration rows (`crate::drift::Declarations`), the sole producer since `emit`
@@ -871,26 +872,6 @@ pub fn builtin_units_and_features_by_kind(
     Ok(by_kind)
 }
 
-/// A kind's members' extracted [`extract::Features`] — [`resolve_kind_units`]
-/// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
-/// each member's nested-member facts resolved off the run's assembled `nested_members`
-/// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
-/// The `overlaid_builtin_kinds` should come from [`LockFamily::overlaid_builtin_kinds`].
-///
-/// # Errors
-///
-/// As [`resolve_kind_units`].
-pub fn kind_features(
-    kind: &CustomKind,
-    disc: &import::Discovery,
-    declarations: &drift::Declarations,
-    cache: &ManifestCache,
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-) -> miette::Result<Vec<extract::Features>> {
-    kind_units_and_features(kind, disc, declarations, cache, overlaid_builtin_kinds)
-        .map(|uaf| uaf.features)
-}
-
 /// A local-locus kind's members' declaration rows, derived off their own documents —
 /// what the lock would carry for a committed kind, and never does for this one.
 ///
@@ -1043,39 +1024,28 @@ fn qualify_one_label(row: &mut drift::ClauseRow, layer: &str) {
     }
 }
 
-/// This machine's [`dial::Dial`], read off the shipped `dial` kind's own members.
+/// This machine's [`dial::Dial`], read off the `dial` kind's units the local-locus
+/// pre-pass above already resolved.
 ///
-/// The kind is embedded rather than lock-declared, so it is the definition that is
-/// reached for here rather than the loop above's declared set — a harness gets its dial
-/// from adopting temper at all, never from declaring one. The read is the same
-/// [`kind_features`] the gate's own dispatcher runs over the kind, which is what keeps
-/// the entries this returns and the document the contract judges from ever being two
-/// different reads of one file.
-///
-/// # Errors
-///
-/// As [`kind_features`] — a malformed dial document fails the run rather than reading as
-/// an empty dial, since a dial silently applying nothing is the fail-open case.
+/// The kind is embedded rather than lock-declared — a harness gets its dial from adopting
+/// temper at all, never from declaring one — and it is embedded at
+/// [`Commitment::Local`](kind::Commitment::Local), which [`overlay_builtin_kind`] never
+/// overlays. So the pre-pass always visits it and its entry is always here: the `None`
+/// arm is the unreachable degenerate, not a live fail-open. Extracting from those units
+/// is what keeps the entries this returns and the document the contract judges from ever
+/// being two different reads of one file.
 fn read_dial(
-    disc: &import::Discovery,
     declarations: &drift::Declarations,
-    cache: &ManifestCache,
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-) -> miette::Result<dial::Dial> {
-    let Some(kind) = overlaid_builtin_kinds
-        .get(dial::KIND)
-        .cloned()
-        .or_else(|| builtin_kind::definition(dial::KIND))
-    else {
-        return Ok(dial::Dial::default());
+    local_units: &BTreeMap<&str, (&CustomKind, Vec<Unit>)>,
+) -> dial::Dial {
+    let Some((kind, units)) = local_units.get(dial::KIND) else {
+        return dial::Dial::default();
     };
-    Ok(dial::Dial::from_features(&kind_features(
-        &kind,
-        disc,
-        declarations,
-        cache,
-        overlaid_builtin_kinds,
-    )?))
+    let features: Vec<extract::Features> = units
+        .iter()
+        .map(|unit| builtin_kind::features(kind, unit, &declarations.nested_members))
+        .collect();
+    dial::Dial::from_features(&features)
 }
 
 /// The run's whole declaration family: the committed lock, every local-locus kind's
@@ -1092,7 +1062,13 @@ fn read_dial(
 ///
 /// A joined lock and this machine's dial are read here for the same reason: one read,
 /// before any consumer, so no call site below re-opens a layered input and re-decides
-/// what it says.
+/// what it says — the dial off the very units this derivation resolved
+/// ([`read_dial`]), never a second resolution of that kind.
+///
+/// The judging pass below resolves a local kind once more, and that read is load-bearing
+/// rather than a removable third: it ranges over the *assembled* family this pass
+/// produces, so its members' `satisfies` and nested rows are facts no unit resolved here
+/// could yet carry.
 ///
 /// # Errors
 ///
@@ -1114,6 +1090,10 @@ pub fn assemble_lock_family(
     }
 
     let all_declared = declared_kinds_with_overlaid(&overlaid_builtin_kinds, committed)?;
+    // Each local kind's resolved units, retained beside the rows derived from them, so a
+    // consumer of this pass's own read needs no second resolution of the same kind over
+    // the same discovery: [`read_dial`] is that consumer.
+    let mut local_units: BTreeMap<&str, (&CustomKind, Vec<Unit>)> = BTreeMap::new();
     for kind in all_declared.values() {
         if kind.commitment != Some(kind::Commitment::Local) {
             continue;
@@ -1131,10 +1111,11 @@ pub fn assemble_lock_family(
         // output, and `Declarations` is the SDK→engine seam payload, which has never
         // carried it.
         local_layout_prose.extend(rows.prose);
+        local_units.insert(kind.name.as_str(), (kind, units));
     }
     let joined = read_layer_clauses(layers)?;
     Ok(LockFamily {
-        dial: read_dial(disc, committed, cache, &overlaid_builtin_kinds)?,
+        dial: read_dial(committed, &local_units),
         declarations: assembled,
         joined_clauses: joined.clauses,
         joined_locks: joined.locks,

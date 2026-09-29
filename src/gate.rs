@@ -202,7 +202,7 @@ pub fn gate(
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
     // label: each kind's members — resolved by
-    // [`kind_features`] straight off harness disk, shared with `explain`
+    // [`compose::kind_units_and_features`] straight off harness disk, shared with `explain`
     // (READ-EDGE-UNIFY) so a read cannot disagree with the gate about which members
     // exist — are dispatched to its default contract and validated, so a discovered `CLAUDE.md`
     // memory member fires its `memory` clauses exactly as a skill/rule does — no

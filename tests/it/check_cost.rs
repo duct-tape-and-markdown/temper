@@ -799,9 +799,8 @@ fn a_full_check_run_walks_each_consulted_flavor_once() {
 }
 
 /// The per-kind resolution count-pin: every kind's members are read from disk and
-/// parsed exactly once per gate/explain invocation. The test verifies that no kind is
-/// resolved more than once — before the fix, kinds were resolved twice (once through
-/// kind_features for validation and again through collect_directive_members).
+/// parsed exactly once per gate/explain invocation, so no consulted kind is resolved
+/// twice.
 #[test]
 fn resolve_kind_units_runs_once_per_kind_not_twice() {
     use temper::builtin_kind;
@@ -859,29 +858,23 @@ fn resolve_kind_units_runs_once_per_kind_not_twice() {
         "the locked custom kind must have resolved its own member, got: {summary}",
     );
 
-    // Before the fix, resolve_kind_units was called twice per kind: once through
-    // kind_features and again through collect_directive_members. After the fix the
-    // judging pass runs it once per consulted kind — every built-in plus the one locked
-    // `custom-kind`. Spelled as an equality off the real sets rather than a ceiling, so
-    // a re-doubled call site fails hard instead of fitting under a loose bound; the two
-    // pre-passes `assemble_lock_family` makes before that pass are named, not folded
-    // into slack:
-    //   - one per local-locus kind, whose read-time rows the family is assembled from;
-    //   - one more for `dial` alone, which `read_dial` resolves to build the dial off.
-    // The `dial` term is the run's third resolution of that one kind — captured in
-    // .flume/refactor/, and pinned rather than hidden so the count moves when it lands.
+    // The judging pass runs it once per consulted kind — every built-in plus the one
+    // locked `custom-kind`. Spelled as an equality off the real sets rather than a ceiling, so
+    // a re-doubled call site fails hard instead of fitting under a loose bound; the only
+    // reads before that pass are `assemble_lock_family`'s one pre-pass per local-locus
+    // kind, whose read-time rows the family is assembled from — named here, never folded
+    // into slack.
     let builtins = builtin_kind::definitions();
     let locals = builtins
         .values()
         .filter(|kind| kind.commitment == Some(Commitment::Local))
         .count();
-    let expected = builtins.len() + 1 + locals + 1;
+    let expected = builtins.len() + 1 + locals;
     assert_eq!(
         resolves,
         expected,
         "resolve_kind_units must run once per consulted kind ({} built-ins plus the \
-         locked `custom-kind`), plus the {locals} local-locus pre-passes and the one \
-         `dial` read; got {resolves}",
+         locked `custom-kind`), plus the {locals} local-locus pre-passes; got {resolves}",
         builtins.len(),
     );
 }
