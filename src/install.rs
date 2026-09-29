@@ -227,7 +227,10 @@ const GATE_HOOKS: [GateHook; GATE_HOOK_COUNT] = [
 /// (`|` as `/`), so widening the row widens the sentence with it. The post edge carries
 /// no limit at all ([`GUARD_SHELL_EDGE_MESSAGE`]) — the write has landed, and there is
 /// nothing left to refuse.
-fn binding_limit() -> &'static str {
+///
+/// Public so the block-mode guard surface pin can assert the tail reaches the user
+/// against the writer's own bytes rather than a hand copy of them.
+pub fn binding_limit() -> &'static str {
     static LIMIT: LazyLock<String> = LazyLock::new(|| {
         format!(
             "This guard binds only Claude Code tool-mediated writes ({}); direct Bash/PowerShell writes are not bound by it.",
@@ -1201,10 +1204,8 @@ pub struct GuardDecision {
 /// absent evidence must never silently suppress the guard, and `loci` is not consulted
 /// there because an unrepresented harness declares no member anywhere.
 ///
-/// **Binding scope**: This guard binds only Claude Code's tool-mediated writes
-/// (Write, Edit, MultiEdit tools). Direct Bash or PowerShell writes are not
-/// instrumented by this guard and bypass it entirely — CI or manual review
-/// must catch drift from those paths.
+/// **Binding scope**: every surfacing verdict closes on [`binding_limit`], which names
+/// the tools this guard's row binds and the writes that bypass it.
 ///
 /// Two bindings under a lock, in order: the `file_path` names a declared projection (a
 /// direct edit to an emit-owned file — drift), else it falls inside a governed locus

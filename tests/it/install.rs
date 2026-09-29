@@ -1544,9 +1544,7 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
     // The in-band surface carries the binding limit whole, naming the tools the guard's
     // `PreToolUse` row binds — the sentence reaches the user, tool list included.
     assert!(
-        stderr.contains(
-            "This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it."
-        ),
+        stderr.contains(install::binding_limit()),
         "the guard's in-band message must carry the binding limit, got: {stderr}"
     );
 }
