@@ -1110,7 +1110,7 @@ fn render_shell_edge_report(drifted: &[Diagnostic], strays: &[Diagnostic]) -> Op
     ]
     .into_iter()
     .filter(|(_, findings)| !findings.is_empty())
-    .map(|(preamble, findings)| render_shell_edge_findings(preamble, findings))
+    .map(|(preamble, findings)| render_guard_findings(preamble, findings))
     .collect();
     if sections.is_empty() {
         None
@@ -1119,11 +1119,13 @@ fn render_shell_edge_report(drifted: &[Diagnostic], strays: &[Diagnostic]) -> Op
     }
 }
 
-/// Render one post-edge half: its `preamble`, then one `<rule>: <finding>` line per
-/// finding — the same shape [`render_manifest_findings`] gives a manifest's, so the guard's
-/// one surface reads one way whichever edge speaks. The per-finding lines are the judge's
-/// own words, the same ones `check` prints.
-fn render_shell_edge_findings(preamble: &str, findings: &[Diagnostic]) -> String {
+/// Render one stretch of the guard's in-band surface: its `preamble`, then one
+/// `<rule>: <finding>` line per finding. The one encoder both edges speak through — a post
+/// edge's half ([`render_shell_edge_report`]) and a manifest's findings under the header
+/// they earn ([`render_manifest_findings`]) — so the guard's one surface reads one way
+/// whichever edge speaks. The per-finding lines are the judge's own words, the same ones
+/// `check` prints.
+fn render_guard_findings(preamble: &str, findings: &[Diagnostic]) -> String {
     let mut out = String::from(preamble);
     for finding in findings {
         out.push_str(&format!("\n  {}: {}", finding.rule, finding.message));
@@ -1335,8 +1337,8 @@ fn matched_projection<'a>(
 /// finding names the member that owns the bytes, the side that moved, and the remedy
 /// (`model/pipeline.md`, "Drift"), and [`guard_message`] alone names only the side and the
 /// remedy. Rendered as one indented line under the header, the shape
-/// [`render_manifest_findings`] already gives a manifest's findings, so the guard's one
-/// surface reads one way. The no-lock fallback appends nothing: with no declared set there is
+/// [`render_guard_findings`] already gives a finding, so the guard's one surface reads one
+/// way. The no-lock fallback appends nothing: with no declared set there is
 /// no member to name.
 fn projection_owner_line(owner: &drift::EmitOwnedEntry) -> String {
     format!(
@@ -1714,22 +1716,20 @@ pub fn manifest_write_findings(
 /// findings earn — [`guard_manifest_unparseable_message`] for a write that would leave the
 /// manifest unparseable, [`guard_manifest_edit_message`] for an edit that could not be
 /// reconstructed and so checked nothing, [`guard_manifest_message`] for a member that broke
-/// its contract — then one `<rule>: <finding>` line per finding. The two "nothing was
-/// checked" headers outrank the contract wording, which would misname the fault.
+/// its contract — then [`render_guard_findings`] under it. The two "nothing was checked"
+/// headers outrank the contract wording, which would misname the fault; picking between
+/// them is the whole job this half has that the post edge's does not.
 #[must_use]
 pub fn render_manifest_findings(findings: &[Diagnostic]) -> String {
     let carries = |rule: &str| findings.iter().any(|finding| finding.rule == rule);
-    let mut out = String::from(if carries(GUARD_MANIFEST_UNPARSEABLE_RULE) {
+    let preamble = if carries(GUARD_MANIFEST_UNPARSEABLE_RULE) {
         guard_manifest_unparseable_message()
     } else if carries(GUARD_MANIFEST_EDIT_RULE) {
         guard_manifest_edit_message()
     } else {
         guard_manifest_message()
-    });
-    for finding in findings {
-        out.push_str(&format!("\n  {}: {}", finding.rule, finding.message));
-    }
-    out
+    };
+    render_guard_findings(preamble, findings)
 }
 
 /// Map "was this placement already in its desired state" onto the settings outcomes for
@@ -2599,6 +2599,63 @@ mod tests {
                 1,
                 "the limit is spoken once, not re-spelled, in: {message}"
             );
+        }
+    }
+
+    /// The guard's in-band surface encodes a finding one way whichever edge speaks: the
+    /// post edge's half and a manifest's findings both run through [`render_guard_findings`],
+    /// so a respelled line cannot move one edge and leave the other behind. The manifest
+    /// half keeps only the job the post edge's does not have — picking the header its
+    /// findings earn, unparseable outranking unreconstructable-edit outranking contract.
+    #[test]
+    fn both_guard_edges_encode_one_finding_line_under_their_own_preamble() {
+        let contract = Diagnostic::error("skill.max_len.description", "review", "1 over 200");
+        let line = "\n  skill.max_len.description: 1 over 200";
+        let findings = std::slice::from_ref(&contract);
+        assert!(!findings.is_empty(), "the encoder is judged over a finding");
+
+        for preamble in [GUARD_SHELL_EDGE_MESSAGE, GUARD_SHELL_EDGE_LOCUS_MESSAGE] {
+            assert_eq!(
+                render_guard_findings(preamble, findings),
+                format!("{preamble}{line}"),
+            );
+        }
+        assert_eq!(
+            render_manifest_findings(findings),
+            format!("{}{line}", guard_manifest_message()),
+        );
+
+        let edit = Diagnostic::error(GUARD_MANIFEST_EDIT_RULE, "manifest", "unreconstructable");
+        let unparseable =
+            Diagnostic::error(GUARD_MANIFEST_UNPARSEABLE_RULE, "manifest", "not JSON");
+        for (set, header) in [
+            (vec![contract.clone()], guard_manifest_message()),
+            (
+                vec![contract.clone(), edit.clone()],
+                guard_manifest_edit_message(),
+            ),
+            (
+                vec![contract.clone(), edit.clone(), unparseable.clone()],
+                guard_manifest_unparseable_message(),
+            ),
+            (
+                vec![unparseable.clone(), edit.clone(), contract.clone()],
+                guard_manifest_unparseable_message(),
+            ),
+        ] {
+            assert!(!set.is_empty(), "the header is judged over findings");
+            let rendered = render_manifest_findings(&set);
+            assert!(
+                rendered.starts_with(header),
+                "the header its findings earn, got: {rendered}"
+            );
+            for finding in &set {
+                let encoded = format!("\n  {}: {}", finding.rule, finding.message);
+                assert!(
+                    rendered.contains(&encoded),
+                    "every finding rides under the header, missing: {encoded}"
+                );
+            }
         }
     }
 
