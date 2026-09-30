@@ -1,7 +1,12 @@
 {
   "tag": "INSTALL-NAMES-A-GATE-HOOKS-REMEDY",
-  "gate": { "kind": "blockedBy", "tags": ["GATE-COMMANDS-GENERATE-ACROSS-THE-SEAM"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/install.rs",
@@ -35,10 +40,14 @@
         "path": "tests/it/emit.rs",
         "description": ":200-:216 drives `gate_installed` over a harness with a bare `harness.ts` and no lock — exactly the represented-but-lockless shape this entry touches. Re-verify; the arm filters on \"managed-by note\" and should not move."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "Install never re-adds a gate hook to a represented harness, and `gate_installed` names a missing OR stale one with its remedy: the member module and the harness.ts import line.",
-  "per": { "path": "specs/model/adoption.md", "section": "Install" },
+  "per": {
+    "path": "specs/model/adoption.md",
+    "section": "Install"
+  },
   "tests": [
     {
       "path": "tests/it/install.rs",

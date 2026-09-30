@@ -3,8 +3,7 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "INSTALL-NAMES-A-GATE-HOOKS-REMEDY",
-      "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL"
+      "INSTALL-NAMES-A-GATE-HOOKS-REMEDY"
     ]
   },
   "dependsOnForks": [],
