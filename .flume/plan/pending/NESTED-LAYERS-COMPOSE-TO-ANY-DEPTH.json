@@ -1,9 +1,12 @@
 {
   "tag": "NESTED-LAYERS-COMPOSE-TO-ANY-DEPTH",
-  "gate": { "kind": "blockedBy", "tags": ["NESTED-FILE-CHILD-IS-HOST-KEYED-SDK"] },
-  "summary": "A nested-file member can host a further nested layer: the host's unit composes recursively, so nesting reaches arbitrary depth instead of stopping at one level",
-  "per": { "path": "specs/model/representation.md", "section": "nesting" },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/drift.rs",
@@ -37,12 +40,27 @@
         "path": "tests/it/check_cost.rs",
         "description": "The cost harness walks `discover_nested_file` per kind (121) and pins glob compilation per distinct glob; a descent per nested layer changes the walk, so the pinned counts and the helper's `(kind, unit.file, unit.host_unit)` read are re-derived against the recursion."
       }
-    ]
+    ],
+    "retire": []
+  },
+  "summary": "A nested-file member can host a further nested layer: the host's unit composes recursively, so nesting reaches arbitrary depth instead of stopping at one level",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "nesting"
   },
   "tests": [
-    { "path": "tests/it/nested_member.rs", "asserts": "a child two layers down emits at its composed path, carries the two-host-composed address, and a template cycle refuses loud" },
-    { "path": "tests/it/read_verbs.rs", "asserts": "`explain` resolves `<host-kind>:<a>/<mid-kind>/<b>/<leaf-kind>/<key>`" },
-    { "path": "tests/it/projection_path_seam.rs", "asserts": "both derivations agree on a two-layer child's path" }
+    {
+      "path": "tests/it/nested_member.rs",
+      "asserts": "a child two layers down emits at its composed path, carries the two-host-composed address, and a template cycle refuses loud"
+    },
+    {
+      "path": "tests/it/read_verbs.rs",
+      "asserts": "`explain` resolves `<host-kind>:<a>/<mid-kind>/<b>/<leaf-kind>/<key>`"
+    },
+    {
+      "path": "tests/it/projection_path_seam.rs",
+      "asserts": "both derivations agree on a two-layer child's path"
+    }
   ],
   "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with a two-layer corpus emitting, discovering and resolving at both layers, and a self-templating kind refused rather than looping.",
   "notes": "Routed from the inbox: note 5 (observed at 022477c4). A multi-segment host name is not the answer — a name is one segment and `/` is the address separator. No new kind fact is needed: a `nested-file` locus already declares `unitShape`, so an intermediate layer owning a directory is expressible today; what refuses is the path composition and the discovery walk. Serialized last: it reshapes the same splice and host-identity surfaces as the four entries before it. scoped at 96c3bdf2"
