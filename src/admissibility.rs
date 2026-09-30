@@ -1,6 +1,6 @@
 //! Admissibility judges for declared-program well-formedness.
 //!
-//! Eight judges cluster by one job: validating declared kinds, clauses, members,
+//! The judges here cluster by one job: validating declared kinds, clauses, members,
 //! and collisions before the corpus is trusted to model the harness. Each judge
 //! answers one narrow question about the lock's coherence, running in the assembly
 //! tier before any member is read.
@@ -174,6 +174,64 @@ pub fn nested_member_coincidence(declarations: &drift::Declarations) -> Vec<chec
             )
         })
         .collect()
+}
+
+/// The diagnostic `rule` id a kind whose own members coincide on one address reports
+/// under — the top-member grain's counterpart to
+/// [`NESTED_MEMBER_ADMISSIBILITY_RULE`], decided at the same tier and for the same
+/// reason.
+const MEMBER_ADMISSIBILITY_RULE: &str = "member.admissibility";
+
+/// Reject a kind **two of whose own members compose to one member address**. The subject
+/// is member identity — `<kind>:<name>` ([`member_address::host_address`]) — and not the
+/// key a member happens to register at: `representation.md` ("member") makes resolution
+/// total and coincident addresses a malformed lock, so a name two members of one kind
+/// both wear leaves a clause finding, an edge target and the lock's own row each answering
+/// with whichever was read last. Refused here naming the address and every member that
+/// spells it, the same malformed-lock class as [`nested_member_coincidence`] one grain
+/// down.
+///
+/// What can coincide follows the kind's shape, and the distinction is the whole reason
+/// this judges names rather than keys. A `GroupArray` collection is
+/// many-members-per-key by construction (0063, 0074): a hook member is one matcher group,
+/// its name is its event joined to its matcher, and three groups keyed `PostToolUse` are
+/// three legal members — only an identical (event, matcher) pair coincides, and that pair
+/// *is* one Claude Code group. The 09-03 refusal that keyed on the event alone failed this
+/// repo's own self-host gate for exactly that reason. For an `Object` or `Scalar` entry
+/// shape, and for a file locus, one key is one member, so a repeated key is a repeated
+/// identity and refuses here directly.
+///
+/// Ranges over the **at-locus** corpus alone — the built-in and lock-declared kinds'
+/// members. An embedded kind's members are addressed by their whole
+/// `<host>/<kind>/<key>` address rather than by a name under a kind, and their
+/// coincidence is [`nested_member_coincidence`]'s to refuse, over the rows themselves.
+pub fn member_address_coincidence(
+    by_kind: &BTreeMap<&str, &[extract::Features]>,
+) -> Vec<check::Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for (kind, members) in by_kind {
+        let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+        for features in *members {
+            *counts.entry(features.id.as_str()).or_default() += 1;
+        }
+        diagnostics.extend(counts.into_iter().filter(|(_, count)| *count > 1).map(
+            |(id, count)| {
+                let address = member_address::host_address(kind, id);
+                check::Diagnostic::error(
+                    MEMBER_ADMISSIBILITY_RULE,
+                    &address,
+                    format!(
+                        "kind `{kind}` declares {count} members that compose to the one address \
+                         `{address}` — a coincidence no reader can resolve, so every clause \
+                         finding, every edge target and the lock's own row would answer with \
+                         whichever was read last; give each of them a name of its own, or author \
+                         the one member they already spell",
+                    ),
+                )
+            },
+        ));
+    }
+    diagnostics
 }
 
 /// Reject a bare `satisfies` label a same-named member of two kinds both carry. A

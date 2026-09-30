@@ -942,3 +942,122 @@ fn two_kinds_at_the_same_collection_address_trip_collision_loud() {
         checked[0]
     );
 }
+
+/// A `.claude/settings.json` whose one `PostToolUse` event carries **two groups wearing
+/// the same authored matcher** — the shape Claude Code would load as two groups and the
+/// address grammar can only spell once (`hook:PostToolUse:Edit`). Both handlers are
+/// well-formed, so the only thing the gate can have to say is the coincidence itself.
+const DUPLICATE_MATCHER_SETTINGS: &str = r#"{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit", "hooks": [ { "type": "command", "command": "echo first" } ] },
+      { "matcher": "Edit", "hooks": [ { "type": "command", "command": "echo second" } ] }
+    ]
+  }
+}"#;
+
+/// A `.claude/settings.json` whose one `PostToolUse` event carries **three groups with
+/// distinct identities** — two distinct matchers and one matcher-less group — the legal
+/// harness this repo's own `.claude/settings.json` is an instance of. Every handler is
+/// well-formed, so a clean run is the claim.
+const DISTINCT_MATCHER_SETTINGS: &str = r#"{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit", "hooks": [ { "type": "command", "command": "echo edit" } ] },
+      { "matcher": "Write", "hooks": [ { "type": "command", "command": "echo write" } ] },
+      { "hooks": [ { "type": "command", "command": "echo any" } ] }
+    ]
+  }
+}"#;
+
+#[test]
+fn two_groups_on_one_event_wearing_one_matcher_refuse_loud_naming_the_address_and_both() {
+    // The refusal's subject is MEMBER IDENTITY, not the registration key: these two groups
+    // both compose to `hook:PostToolUse:Edit`, so a clause finding, an edge target and the
+    // lock's own row would each answer with whichever was read last. 0063 rules that a
+    // coincidence here is one Claude Code group authored twice.
+    let harness = common::tmpdir("hook-duplicate-matcher");
+    write_settings(&harness, DUPLICATE_MATCHER_SETTINGS);
+
+    let (findings, ok) = check_harness(&harness);
+
+    let coincidences = common::findings_for(&findings, "member.admissibility");
+    assert_eq!(
+        coincidences.len(),
+        1,
+        "the coincidence is one finding over the one address, got: {findings:#?}"
+    );
+    let coincidence = &coincidences[0];
+    assert!(
+        coincidence.contains("hook:PostToolUse:Edit"),
+        "the finding names the address the two groups share, got: {coincidence}"
+    );
+    assert!(
+        coincidence.contains('2'),
+        "the finding accounts for every member wearing it, got: {coincidence}"
+    );
+    assert!(
+        !ok,
+        "a coincident member address is a malformed harness — the run fails, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn three_groups_on_one_event_with_distinct_matchers_compose_clean() {
+    // The twin, and the reason the refusal keys on the name rather than the event: the
+    // 09-03 event-keyed refusal was built, failed this repo's own self-host gate on exactly
+    // this harness, and was reverted. Distinct matchers are distinct groups to Claude Code
+    // and distinct members here, so three rows under one event are legal.
+    let harness = common::tmpdir("hook-distinct-matchers");
+    write_settings(&harness, DISTINCT_MATCHER_SETTINGS);
+
+    let (findings, ok) = check_harness(&harness);
+
+    // The vacuity pin: all three groups were read as members, so the silence below is a
+    // verdict over a populated selection rather than an empty one.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("hook (3)"),
+        "each group is its own member, got: {}",
+        checked[0]
+    );
+    assert!(
+        common::findings_for(&findings, "member.admissibility").is_empty(),
+        "three distinct names are three distinct addresses, got: {findings:#?}"
+    );
+    assert!(
+        ok,
+        "the legal harness the 09-03 revert proved must be admitted stays green, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_duplicate_key_in_an_object_shaped_collection_still_refuses() {
+    // The judge reads names, and for an `Object` entry shape one key still IS one member —
+    // so the `GroupArray` allowance that lets three groups key at `PostToolUse` buys an
+    // `mcp-server` nothing: two members at one key spell one address and refuse. Driven
+    // straight at the judge because `.mcp.json` is one file whose parse collapses a
+    // repeated key before a reader ever sees two — the corpus this pins is the one an
+    // engine holds, not a document an author can write.
+    let members = vec![common::features("audit"), common::features("audit")];
+    let by_kind = BTreeMap::from([("mcp-server", members.as_slice())]);
+
+    let findings = temper::admissibility::member_address_coincidence(&by_kind);
+
+    assert_eq!(
+        findings.len(),
+        1,
+        "one address, one finding, got: {findings:#?}"
+    );
+    assert_eq!(findings[0].rule, "member.admissibility");
+    assert!(
+        findings[0].message.contains("mcp-server:audit"),
+        "the finding names the coincident address, got: {}",
+        findings[0].message
+    );
+}

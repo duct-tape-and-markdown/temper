@@ -438,6 +438,19 @@ pub fn gate(
     // blind to it (the two triples differ), so it is refused on its own.
     diagnostics.extend(admissibility::nested_member_key_segment(&declarations));
 
+    // And the same tier one grain up: two members of ONE kind composing to one
+    // `<kind>:<name>` address. The registration key is no part of the subject — a
+    // `hooks.<Event>` collection is many-members-per-key by construction (0063/0074), so
+    // three groups keyed `PostToolUse` are three legal members and only an identical
+    // (event, matcher) pair coincides — which is why the 09-03 event-keyed refusal failed
+    // the self-host gate and this one does not. Over the at-locus corpus alone: an
+    // embedded member's coincidence is the row-grain judge's above, and reporting it here
+    // too would say one fault twice.
+    let no_embedded_features = BTreeMap::new();
+    diagnostics.extend(admissibility::member_address_coincidence(
+        &compose::assemble_by_kind(&builtin_features, &custom_kinds, &no_embedded_features),
+    ));
+
     // The by-kind corpus every set-scope and graph predicate ranges over,
     // assembled through the same helper the read arm uses — over both its contributors:
     // the lock's own `nested_member` rows, and the embedded members each host kind's read
