@@ -598,8 +598,8 @@ fn plain_member(kind: &str, name: &str) -> PayloadMember {
 }
 
 #[test]
-fn a_flat_file_kind_with_a_multi_segment_glob_refuses_naming_the_depth_shapes() {
-    let (_harness, into) = workspace("flat-glob-multi-segment");
+fn a_flat_glob_with_a_literal_leading_segment_places_under_it() {
+    let (harness, into) = workspace("flat-glob-literal-segment");
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
@@ -609,15 +609,16 @@ fn a_flat_file_kind_with_a_multi_segment_glob_refuses_naming_the_depth_shapes() 
         members: vec![plain_member("spec", "intent")],
     };
 
-    // A multi-segment glob would splice the name into the `*` and leave a literal
-    // `docs/` segment: no one path to project onto, so emit refuses before writing.
-    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
-    let msg = format!("{err}");
-    assert!(msg.contains("spec"), "names the offending kind: {msg}");
-    assert!(msg.contains("skill"), "names the skill depth shape: {msg}");
+    // A literal leading segment is fixed placement, not depth the splice cannot carry:
+    // the name takes the final segment's lone `*` and `docs/` is spliced verbatim.
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "intent"), EmitOutcome::Emitted);
     assert!(
-        msg.contains("nesting kind"),
-        "names the nesting-kind shape: {msg}"
+        harness
+            .join(".claude")
+            .join("docs")
+            .join("intent.md")
+            .is_file()
     );
 }
 
@@ -639,6 +640,29 @@ fn a_flat_file_kind_with_a_multi_star_glob_refuses() {
 }
 
 #[test]
+fn a_flat_file_kind_whose_star_sits_above_the_leaf_refuses() {
+    let (_harness, into) = workspace("flat-glob-star-above-leaf");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![flat_file_kind_facts("spec", ".claude", "*/NOTES.md")],
+            ..Default::default()
+        },
+        members: vec![plain_member("spec", "intent")],
+    };
+
+    // The one `*` stars a directory the member name does not identify — that reading is
+    // the starred-segment unit shape's, which this `file`-shaped kind does not declare.
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("spec"), "names the offending kind: {msg}");
+    assert!(
+        msg.contains("above the leaf"),
+        "states the narrowed rule: {msg}"
+    );
+}
+
+#[test]
 fn a_single_star_and_any_depth_glob_project_to_the_expected_paths() {
     let (harness, into) = workspace("flat-glob-project-unchanged");
     let payload = Payload {
@@ -652,18 +676,60 @@ fn a_single_star_and_any_depth_glob_project_to_the_expected_paths() {
         },
         members: vec![
             plain_member("spec", "intent"),
-            plain_member("memory", "root"),
+            plain_member("memory", "CLAUDE"),
         ],
     };
 
     let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     assert_eq!(outcome(&report, "intent"), EmitOutcome::Emitted);
-    assert_eq!(outcome(&report, "root"), EmitOutcome::Emitted);
+    assert_eq!(outcome(&report, "CLAUDE"), EmitOutcome::Emitted);
 
-    // The single-`*` glob splices the name into its one segment; the any-depth `**`
-    // glob lands the root `<name>.md` — both unchanged by the depth refusal.
+    // The single-`*` glob splices the name into its one segment. The `**/CLAUDE.md` glob
+    // collapses its any-depth prefix to nothing and carries no `*` at all: it is the
+    // fixed-path class, landing the root `CLAUDE.md` rather than a `<name>.md` the glob
+    // never spelled.
     assert!(harness.join("specs").join("intent.md").is_file());
-    assert!(harness.join("root.md").is_file());
+    assert!(harness.join("CLAUDE.md").is_file());
+}
+
+#[test]
+fn an_any_depth_glob_places_its_own_formats_leaf_never_a_hardcoded_md() {
+    let (harness, into) = workspace("any-depth-own-format");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![KindFactRow {
+                format: Some("json-document".to_string()),
+                ..flat_file_kind_facts("catalog", ".claude", "**/sub/*.json")
+            }],
+            ..Default::default()
+        },
+        members: vec![PayloadMember {
+            kind: "catalog".to_string(),
+            name: "tools".to_string(),
+            host: None,
+            fields: vec![("name".to_string(), serde_json::json!("tools"))],
+            body: String::new(),
+            source_path: None,
+        }],
+    };
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "tools"), EmitOutcome::Emitted);
+
+    // The any-depth prefix names where the glob *matches*, never where a projection
+    // *lands*: what remains places the member under its literal `sub/` segment in its
+    // own format's extension. The retired arm hardcoded `<name>.md`, which handed a
+    // JSON kind a markdown path no format of its could read back.
+    assert!(
+        harness
+            .join(".claude")
+            .join("sub")
+            .join("tools.json")
+            .is_file(),
+        "the `**/sub/*.json` kind lands `sub/tools.json`"
+    );
+    assert!(!harness.join(".claude").join("tools.md").exists());
 }
 
 // ---------------------------------------------------------------------------

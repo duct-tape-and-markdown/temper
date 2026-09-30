@@ -34,8 +34,10 @@ use crate::common;
 /// spelled off the derived target facts alone (`value.targets`), and whose targets cover
 /// every unit shape a member can project at: `skill` (a directory unit), `rule` and
 /// `command` (a single-segment single-`*` flat glob), `agent` and `memory` (an any-depth
-/// `**` glob — `agent`'s locus is `.claude/agents/**\/*.md`, so it splices through the
-/// any-depth branch, not the flat one), `supporting-doc` (a nested file child, whose
+/// `**\/` prefix, which collapses to zero segments before the splice — `agent`'s
+/// `.claude/agents/**\/*.md` takes the name in its leaf, `memory`'s `**\/CLAUDE.md`
+/// carries no `*` and is wholly fixed), `note-doc` (a literal leading segment, fixed
+/// placement the splice carries verbatim), `supporting-doc` (a nested file child, whose
 /// path composes from its `guide` host's unit and that host's template pattern rather
 /// than from a glob of its own), and `conventions` (a starred-segment lone file, keyed by
 /// the directory segment its `*/conventions.md` glob stars and seated inside the skill's
@@ -51,6 +53,13 @@ import { agent, command, memory, rule, skill } from "@dtmd/temper/claude-code";
 const supportingDoc = kind<object>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+const noteDoc = kind<object>({
+  name: "note-doc",
+  locus: { kind: "at", root: ".claude", glob: "notes/*.md" },
   unitShape: "file",
   registration: [],
 });
@@ -86,6 +95,7 @@ const waypoint = kind<object>(
       { field: "to_memory", to: ["memory"] },
       { field: "to_doc", to: ["supporting-doc"] },
       { field: "to_conventions", to: ["conventions"] },
+      { field: "to_note", to: ["note-doc"] },
     ],
   },
   {
@@ -113,6 +123,7 @@ const program = harness({
             to_memory: "memory:CLAUDE",
             to_doc: "supporting-doc:checklist",
             to_conventions: "conventions:coordinate",
+            to_note: "note-doc:cadence",
           },
         }),
       ),
@@ -125,6 +136,7 @@ const program = harness({
       prose: text`# Coordinate`,
     }),
     conventions({ name: "coordinate", prose: text`# Conventions` }),
+    noteDoc({ name: "cadence", prose: text`# Cadence` }),
     rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
     agent({ name: "explore", description: "Use when a broad read-only sweep is the task.", prose: text`# Explore` }),
     command({ name: "review", description: "Use when reviewing the working diff.", prose: text`# Review` }),
@@ -146,6 +158,7 @@ const EDGES: &[(&str, &str, &str)] = &[
     ("to_memory", "memory", "CLAUDE"),
     ("to_doc", "supporting-doc", "checklist"),
     ("to_conventions", "conventions", "coordinate"),
+    ("to_note", "note-doc", "cadence"),
 ];
 
 /// The path `emit` wrote the `kind`/`name` member to, as the engine itself reported it —

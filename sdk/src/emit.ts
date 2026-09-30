@@ -139,17 +139,21 @@ function joinSlash(...parts: string[]): string {
 }
 
 /**
- * `name` spliced through `pattern`'s single `*` — the one name-through-a-glob map, shared
- * by a flat `at` glob and a host template's path pattern. A `*`-free pattern is a fixed
- * path, left verbatim. `starredSegment` admits a single-`*` segment glob whose one `*` stars
- * a whole leading directory segment (a starred-segment kind's locus), landing `<name>/<file>`;
- * every other caller passes `false`, where a `/` beside the `*` is a stray directory the
- * splice cannot place.
+ * `name` spliced through `pattern`'s lone `*` — the one name-through-a-glob rule, and the
+ * only one: every flat `at` glob and every host template's path pattern places through it.
+ *
+ * A leading `**\/` collapses to zero segments, because an any-depth prefix names where the
+ * glob *matches*, never where a projection *lands*. What remains is placement: literal
+ * segments verbatim, the name into the final segment's lone `*` (`**\/CLAUDE.md` → the
+ * fixed `CLAUDE.md`, `**\/sub/*.json` → `sub/<name>.json`), and a `*`-free pattern wholly
+ * fixed. `starredSegment` is the one admission on top: a `*\/<file>` glob whose `*` stars a
+ * whole leading directory segment, landing `<name>/<file>` — there the name identifies the
+ * directory, not the leaf. Every other caller passes `false`.
  *
  * # Throws
- * If `pattern` carries a `*` yet is neither single-star nor single-segment (and not the
- * admitted leading-segment case): the splice would leave a stray literal `*` or directory
- * segment behind.
+ * If what remains after the collapse carries more than one `*`, or its one `*` sits above
+ * the final segment and is not the admitted starred-segment case: the splice would leave a
+ * stray literal `*` behind, or star a directory the member name does not identify.
  */
 function spliceName(
   kindName: string,
@@ -157,15 +161,19 @@ function spliceName(
   name: string,
   starredSegment: boolean,
 ): string {
-  const stars = pattern.split("*").length - 1;
-  const leadingSegment = starredSegment && stars === 1 && pattern.startsWith("*/");
-  if (stars > 0 && !leadingSegment && (stars > 1 || pattern.includes("/"))) {
+  const placed = pattern.startsWith("**/") ? pattern.slice(3) : pattern;
+  const stars = placed.split("*").length - 1;
+  const starInLeaf = placed.lastIndexOf("*") > placed.lastIndexOf("/");
+  const leadingSegment = starredSegment && stars === 1 && placed.startsWith("*/");
+  if (stars > 0 && !leadingSegment && (stars > 1 || !starInLeaf)) {
     throw new Error(
-      `kind \`${kindName}\`: glob \`${pattern}\` is neither a single-segment single-\`*\` ` +
-        `pattern nor an any-depth \`**\` glob — a member name splices through neither.`,
+      `kind \`${kindName}\`: glob \`${pattern}\` maps its member name onto no one path — a ` +
+        `name splices through exactly one \`*\`, confined to the glob's final segment (a ` +
+        `leading \`**/\` collapses to nothing, and literal leading segments are fixed ` +
+        `placement); this glob carries more than one \`*\`, or a \`*\` above the leaf.`,
     );
   }
-  return pattern.replace("*", name);
+  return placed.replace("*", name);
 }
 
 /**
@@ -217,12 +225,12 @@ function nestedFilePath(member: Member): string {
 
 /**
  * The harness-relative locus `member` projects onto: a directory unit lands its entry
- * file under `<root>/<name>/`; a lone file splices the name through the glob's single
- * `*` (an any-depth glob — a memory kind's `**\/CLAUDE.md` — lands the root `<name>.md`,
- * and a `*`-free glob is a fixed path left verbatim); a nested file child composes its
- * path under its host's unit ({@link nestedFilePath}). The engine derives the same locus
- * from the same facts (`src/drift.rs`'s `member_projection_path`); the two must agree,
- * since a hook's rendered link is written from this side and reaped from that one.
+ * file under `<root>/<name>/`; every other file member places its glob through the one
+ * splice rule ({@link spliceName}), a starred-segment kind's `*\/<file>` included; a nested
+ * file child composes its path under its host's unit ({@link nestedFilePath}). The engine
+ * derives the same locus from the same facts (`src/drift.rs`'s `member_projection_path`);
+ * the two must agree, since a hook's rendered link is written from this side and reaped
+ * from that one.
  *
  * # Throws
  * If the kind is embedded (no standalone projection), or the member's glob or host
@@ -243,7 +251,6 @@ function projectionPath(member: Member): string {
     const slash = glob.indexOf("/");
     return joinSlash(root, member.name, slash < 0 ? glob : glob.slice(slash + 1));
   }
-  if (glob.includes("**")) return joinSlash(root, `${member.name}.md`);
   const starredSegment = facts.unitShape === "starred-segment";
   return joinSlash(root, spliceName(facts.name, glob, member.name, starredSegment));
 }

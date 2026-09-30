@@ -258,6 +258,38 @@ process.stdout.write(
 );
 "#;
 
+/// The same composition with a **literal leading segment** in the host template's path
+/// pattern (`notes/*.md`): the child still composes under the host's own unit, with
+/// `notes/` carried verbatim and the name taking the pattern's final segment.
+const NESTED_FILE_SUBDIRECTORY_PROGRAM: &str = r#"
+import { emit, harness, kind, text } from "@dtmd/temper";
+
+const supportingDoc = kind<object>({
+  name: "supporting-doc",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+const guide = kind<object>({
+  name: "guide",
+  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: supportingDoc, path: "notes/*.md" }],
+});
+
+const operating = guide({ name: "operate-the-gate", prose: text`# Operate the gate` });
+
+process.stdout.write(
+  emit(
+    harness({
+      members: [operating, supportingDoc({ name: "checklist", host: operating, prose: text`# Checklist` })],
+    }),
+  ).seam,
+);
+"#;
+
 /// A `skill` that both admits its own embedded `note` kind over its composed body **and**
 /// hosts a `supporting-doc` file child under the same unit — the field defect's exact
 /// shape (centercode). Admission is a declaration over the host kind, but it names only a
@@ -387,6 +419,30 @@ fn a_file_childs_projection_composes_from_its_hosts_unit_and_the_templates_patte
             path: Some("*.md".to_string()),
         }]
     );
+}
+
+#[test]
+fn a_template_pattern_carrying_a_literal_directory_composes_under_the_hosts_unit() {
+    // A host template's pattern places through the same one splice rule a flat glob does,
+    // so a literal leading segment is fixed placement rather than depth the splice
+    // refuses: the child lands inside the host's unit, one directory deeper.
+    let (harness, into) =
+        common::wire_sdk_harness("nested-file-subdirectory", NESTED_FILE_SUBDIRECTORY_PROGRAM);
+
+    let report = temper::drift::emit_program(&into, temper::drift::EmitOptions::default()).expect(
+        "a template pattern with a literal directory segment composes rather than refusing",
+    );
+
+    let child = report
+        .entries
+        .iter()
+        .find(|entry| entry.kind == "supporting-doc" && entry.name == "checklist")
+        .expect("the file child projects under the host's unit");
+    assert_eq!(
+        child.source_path,
+        harness.join(".claude/guides/operate-the-gate/notes/checklist.md")
+    );
+    assert!(child.source_path.is_file());
 }
 
 #[test]
