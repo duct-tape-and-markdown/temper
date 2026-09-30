@@ -1,10 +1,7 @@
 {
   "tag": "RESERVED-LOCK-ROOT-KEY-REFUSES-A-KIND-NAME",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "INSTALL-NAMES-A-GATE-HOOKS-REMEDY"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,

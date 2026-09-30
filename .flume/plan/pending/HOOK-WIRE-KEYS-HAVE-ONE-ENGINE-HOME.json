@@ -1,10 +1,7 @@
 {
   "tag": "HOOK-WIRE-KEYS-HAVE-ONE-ENGINE-HOME",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "INSTALL-NAMES-A-GATE-HOOKS-REMEDY"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,
