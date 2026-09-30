@@ -2773,11 +2773,11 @@ pub enum ApplyOutcome {
     /// The placement drifted from its recorded baseline *and* differs from `desired`
     /// — a human changed it out from under temper, surfaced rather than clobbered.
     Conflicted,
-    /// The placement was re-claimed by an authored `hook` member whose collection
-    /// address matches this placement's event — the synthesized placement was applied
-    /// then immediately dropped by emit's re-projection of the authored member.
-    /// Author the hook as a `hook` kind member instead of relying on the synthesized
-    /// placement.
+    /// A `hook` member is seated at this placement's own `(event, matcher)` address and
+    /// runs something other than the placement's command — so the projection carries the
+    /// member's bytes, not temper's. The placement is *stale*, not settled: this is the
+    /// shape a respelled gate command leaves behind, and it is reported with the remedy
+    /// its module owes rather than passed over.
     SupersededByMember,
 }
 

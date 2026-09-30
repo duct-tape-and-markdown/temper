@@ -151,6 +151,18 @@ fn has_entry(outcome: &InstallOutcome, placement: temper::install::Placement) ->
     outcome.entries.iter().any(|e| e.placement == placement)
 }
 
+/// The message of the one advisory `gate_installed` folds every unplaced placement into,
+/// asserting it really is one: a second diagnostic would let an arm below match a needle in
+/// a finding it was not reasoning about.
+fn one_gate_finding(findings: &[temper::check::Diagnostic]) -> &str {
+    assert_eq!(
+        findings.len(),
+        1,
+        "the self-verify folds into exactly one advisory, got: {findings:?}"
+    );
+    &findings[0].message
+}
+
 // ---------------------------------------------------------------------------
 // discovery
 // ---------------------------------------------------------------------------
@@ -1636,14 +1648,33 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
     // Decline: the hook lands, the gate is clean, still unrepresented.
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert!(install::represented_by(&root).is_none());
     assert!(install::gate_installed(&root).is_empty());
 
-    // Represent for real: the gate stays clean immediately after (no emit-owned
-    // targets to nudge for a pure lift).
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    // A workspace dir and no program is still unrepresented, and there the session-start
+    // hook is install's own write — so the remedy the advisory names is the verb, never a
+    // member module in a program the harness does not have.
+    let settings_path = root.join(".claude").join("settings.json");
+    fs::write(&settings_path, "{}\n").unwrap();
+    let message = one_gate_finding(&install::gate_installed(&root)).to_string();
+    assert!(
+        message.contains("session-start hook missing: run `temper install`"),
+        "an unrepresented harness's gate is the verb's to place, got: {message}"
+    );
+    assert!(
+        !message.contains("harness.ts"),
+        "and there is no program for it to import a member into, got: {message}"
+    );
+    fs::remove_file(&settings_path).unwrap();
+
+    // Represent for real: the gate stays clean immediately after (no emit-owned
+    // targets to nudge for a pure lift).
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert!(install::represented_by(&root).is_some());
     assert!(
         install::gate_installed(&root).is_empty(),
         "got: {:?}",
@@ -1711,17 +1742,22 @@ fn gate_installed_names_stale_noted_files() {
     );
 }
 
+/// A retired spelling of temper's session-start command: the bytes before the
+/// PATH-resolvability guard joined them. Exactly the shape 0073's Context describes — a
+/// scaffolded module froze a literal, the command was respelled, and the member kept
+/// running yesterday's bytes.
+const RETIRED_SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
+
 #[test]
-fn gate_installed_does_not_report_superseded_by_member() {
-    // `gate_installed` must exclude `SupersededByMember` from its tally, so an authored
-    // hook member that owns a gate event is not nagged about as a missing install.
+fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() {
+    // The member holds temper's gate address — `(SessionStart, no matcher)` — and runs
+    // something else. That is a *stale* gate hook, not a settled one: skipping it is what
+    // let a represented harness run a retired command spelling and read green forever
+    // (0073), so the advisory names it and names the module to fix.
     //
-    // Supersession is what it means now that the gate itself is a set of `hook` members:
-    // not "a splice was overwritten" — nothing splices this file any more — but "the
-    // program declares a hook at this event and temper's command is not among the groups
-    // it projects". So the fixture rewrites the scaffolded `SessionStart` module rather
-    // than adding a second member beside it: a hook authored *alongside* temper's leaves
-    // the gate wired, which is the unchanged case, not this one.
+    // The fixture rewrites the scaffolded `SessionStart` module rather than adding a second
+    // member beside it: a hook authored *alongside* temper's leaves the gate wired, which is
+    // the unchanged case, not this one.
     common::ensure_sdk_built();
     let root = write_harness("hook-supersede", false);
     let temper_dir = root.join(".temper");
@@ -1740,16 +1776,17 @@ fn gate_installed_does_not_report_superseded_by_member() {
         "gate must be clean after a successful install"
     );
 
-    // Author over the scaffolded module: the same member identity and event, a command
-    // of the author's own. `harness.ts` already composes this identifier, so nothing
-    // else has to move.
+    // Author over the scaffolded module: the same member identity and address, the retired
+    // command spelling. `harness.ts` already composes this identifier, so nothing else moves.
     fs::write(
         temper_dir.join("hooks").join("SessionStart.ts"),
-        "import { hook } from \"@dtmd/temper/claude-code\";\n\n\
-         export const hook_SessionStart = hook({\n  \
-         name: \"SessionStart\",\n  \
-         hooks: [{ type: \"command\", command: \"echo test\" }],\n\
-         });\n",
+        format!(
+            "import {{ hook }} from \"@dtmd/temper/claude-code\";\n\n\
+             export const hook_SessionStart = hook({{\n  \
+             name: \"SessionStart\",\n  \
+             hooks: [{{ type: \"command\", command: {RETIRED_SESSION_START_COMMAND:?} }}],\n\
+             }});\n"
+        ),
     )
     .unwrap();
 
@@ -1757,10 +1794,10 @@ fn gate_installed_does_not_report_superseded_by_member() {
     assert_eq!(
         outcome_of(&second, temper::install::Placement::SessionStart),
         ApplyOutcome::SupersededByMember,
-        "an authored hook member owning the event supersedes temper's own gate hook"
+        "a member seated at the gate hook's own address, running something else, is stale"
     );
     // The guard and the post-tool-use hook are untouched members, so they stay wired —
-    // the vacuity guard on the claim above: supersession is per-event, not a whole-file
+    // the vacuity guard on the claim above: staleness is per-address, not a whole-file
     // verdict that would pass over an empty `hooks` collection.
     for placement in [
         temper::install::Placement::GuardHook,
@@ -1772,21 +1809,99 @@ fn gate_installed_does_not_report_superseded_by_member() {
             "{placement} is still projected by its own member"
         );
     }
-    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let settings_path = root.join(".claude").join("settings.json");
+    let settings = fs::read_to_string(&settings_path).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
-        json["hooks"]["SessionStart"][0]["hooks"][0]["command"], "echo test",
-        "the authored member is what the projection carries, got:\n{settings}"
+        json["hooks"]["SessionStart"][0]["hooks"][0]["command"], RETIRED_SESSION_START_COMMAND,
+        "install never re-adds the gate hook — the member's own bytes are what emit projects, \
+         got:\n{settings}"
     );
 
-    // The superseded placement is skipped in the tally, so `check`'s self-verify does
-    // not name it as missing or drifted.
-    let gate_findings = install::gate_installed(&root);
+    // And `check`'s self-verify says so, with the remedy the author owes: the module, and
+    // the binding its handler should run instead of a literal that can go stale again.
+    let findings = install::gate_installed(&root);
+    let message = one_gate_finding(&findings);
+    for needle in [
+        "session-start hook stale",
+        ".temper/hooks/SessionStart.ts",
+        "SESSION_START_COMMAND",
+    ] {
+        assert!(
+            message.contains(needle),
+            "the stale report must name `{needle}`, got: {message}"
+        );
+    }
+    assert_eq!(
+        fs::read_to_string(&settings_path).unwrap(),
+        settings,
+        "the self-verify is read-only — it never writes the projection"
+    );
+}
+
+#[test]
+fn gate_installed_names_a_deleted_gate_hook_member_with_its_module_and_import_line() {
+    // The author deleted the member — install never re-adds it (0073), so the advisory is
+    // the whole intervention and owes both halves of the remedy: the module to author *and*
+    // the `harness.ts` import line that reaches it. Naming only the module would have the
+    // author write the unreached member `reached-from` indicts.
+    common::ensure_sdk_built();
+    let root = write_harness("hook-deleted", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert!(install::gate_installed(&root).is_empty());
+
+    // Delete the guard's member whole — the module and both lines of `harness.ts` that
+    // reach it — so the program declares no hook at `(PreToolUse, Write|Edit|MultiEdit)`.
+    fs::remove_file(temper_dir.join("hooks").join("PreToolUse.ts")).unwrap();
+    let harness_entry = temper_dir.join("harness.ts");
+    let harness = fs::read_to_string(&harness_entry).unwrap();
+    fs::write(
+        &harness_entry,
+        harness
+            .replace(
+                "import { hook_PreToolUse } from \"./hooks/PreToolUse.ts\";\n",
+                "",
+            )
+            .replace("hook_PreToolUse, ", ""),
+    )
+    .unwrap();
+
+    let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(
+        outcome_of(&second, temper::install::Placement::GuardHook),
+        ApplyOutcome::Conflicted,
+        "nothing is seated at the guard hook's address, so the member is missing"
+    );
+    let settings_path = root.join(".claude").join("settings.json");
+    let settings = fs::read_to_string(&settings_path).unwrap();
     assert!(
-        !gate_findings
-            .iter()
-            .any(|d| d.message.contains("session-start hook")),
-        "a superseded SessionStart must not be reported as missing/drifted, got: {gate_findings:?}"
+        !settings.contains("Write|Edit|MultiEdit"),
+        "install never re-adds the deleted gate hook — the author may have dropped it on \
+         purpose, got:\n{settings}"
+    );
+
+    let findings = install::gate_installed(&root);
+    let message = one_gate_finding(&findings);
+    for needle in [
+        "guard hook missing",
+        "author `.temper/hooks/PreToolUse.ts`",
+        "import { hook_PreToolUse } from \"./hooks/PreToolUse.ts\";",
+        ".temper/harness.ts",
+    ] {
+        assert!(
+            message.contains(needle),
+            "the missing report must name `{needle}`, got: {message}"
+        );
+    }
+    assert_eq!(
+        fs::read_to_string(&settings_path).unwrap(),
+        settings,
+        "the self-verify is read-only — it never writes the projection"
     );
 }
 
@@ -3074,6 +3189,43 @@ fn no_represent_against_a_represented_root_refuses_loud() {
     assert!(
         stderr.contains("lock.toml") && stderr.contains("--no-represent"),
         "the refusal names the lock that settled the fork: {stderr}"
+    );
+}
+
+#[test]
+fn no_represent_against_a_program_that_has_never_been_emitted_refuses_loud() {
+    // A harness carrying an authored program and no lock is represented — never emitted.
+    // Reading the fork off the lock alone let this shape answer No, and the unrepresented
+    // writer then spliced the `SessionStart` row into a file the program owns whole: install
+    // re-adding a gate hook to a represented harness, which 0073 forbids outright.
+    let root = write_harness("cli-program-no-lock", true);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(temper_dir.join("harness.ts"), "export default {};\n").unwrap();
+    assert!(!temper_dir.join("lock.toml").exists());
+
+    let settings_path = root.join(".claude").join("settings.json");
+    let before = fs::read_to_string(&settings_path).unwrap();
+
+    let output = Command::new(BIN)
+        .arg("install")
+        .arg(&root)
+        .arg("--no-represent")
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "asserting the false half of a settled fork is a usage error"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("harness.ts") && stderr.contains("--no-represent"),
+        "the refusal names the program that settled the fork: {stderr}"
+    );
+    assert_eq!(
+        fs::read_to_string(&settings_path).unwrap(),
+        before,
+        "and nothing is spliced into the projection the program owns"
     );
 }
 

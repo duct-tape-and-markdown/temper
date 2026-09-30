@@ -207,6 +207,12 @@ fn a_freshly_emitted_frontmatter_projection_carries_its_note_with_no_install_run
     // The gate agrees: with the harness represented and no `install` run behind it,
     // `check`'s self-verify names no missing managed-by note.
     fs::write(into.join("harness.ts"), "export default {};\n").unwrap();
+    // The program alone is what marks this harness represented, and both install's faces
+    // read it there: the lock only records an emit, and this one has never been installed.
+    assert!(
+        temper::install::represented_by(&harness).is_some(),
+        "an authored program is the represent answer, whatever the lock says"
+    );
     let findings = temper::install::gate_installed(&harness);
     assert!(
         !findings

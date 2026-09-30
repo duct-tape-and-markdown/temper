@@ -533,18 +533,30 @@ fn main() -> miette::Result<ExitCode> {
                 HarnessPath::Workspace { .. } | HarnessPath::Raw => None,
             };
 
-            let discovery = install::discover(&path)?;
-            print!("{}", install::render_discovery(&discovery, lock.as_deref()));
+            // Which mark already settled the represent fork on disk. The authored program
+            // comes first, and it is the reading `check`'s self-verify shares
+            // (`install::represented_by`): a harness carrying a program it has never
+            // emitted carries no lock, and answering No there would send `install` down the
+            // unrepresented writer to splice `.claude/settings.json` — re-adding a gate hook
+            // to a file the program owns whole, which 0073 forbids. The lock settles it too,
+            // for a harness whose program was emitted and then deleted from under it.
+            let settled = install::represented_by(&path).or(lock);
 
-            // A lock on disk has already answered the one question, so neither the
-            // prompt nor `ask_represent`'s conservative unattended default applies:
-            // converge on the lock. `--no-represent` there asserts the false half of a
-            // settled fork — refuse rather than place less than the lock justifies.
-            let represent = match (&lock, yes, no_represent) {
-                (Some(lock), _, true) => {
+            let discovery = install::discover(&path)?;
+            print!(
+                "{}",
+                install::render_discovery(&discovery, settled.as_deref())
+            );
+
+            // A settled fork skips both the prompt and `ask_represent`'s conservative
+            // unattended default: converge on what is already on disk. `--no-represent`
+            // there asserts the false half of a settled fork — refuse rather than place
+            // less than the program justifies.
+            let represent = match (&settled, yes, no_represent) {
+                (Some(mark), _, true) => {
                     return Err(miette::miette!(
-                        "`--no-represent` contradicts `{}`: this project is already represented, and a represented harness's placements follow its lock. Re-run without the flag.",
-                        lock.display()
+                        "`--no-represent` contradicts `{}`: this project is already represented, and a represented harness's placements follow its own program. Re-run without the flag.",
+                        mark.display()
                     ));
                 }
                 (Some(_), _, false) => install::Represent::Yes,
@@ -860,8 +872,8 @@ enum HarnessPath {
     Root {
         /// The authored workspace beside the root — the lock's home.
         workspace: PathBuf,
-        /// The workspace's `lock.toml` when it is on disk: the root is represented, and
-        /// the represent fork is answered here rather than by a question.
+        /// The workspace's `lock.toml` when it is on disk — the record of an emit, and so
+        /// one of the two marks that settle the represent fork ahead of the question.
         lock: Option<PathBuf>,
     },
     /// `<path>/lock.toml` is a file ⇒ `<path>` *is* the workspace, addressed directly,

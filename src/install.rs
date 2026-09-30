@@ -661,17 +661,17 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
 }
 
 /// Render the discovery report for the terminal — findings first, ceremony after:
-/// `lock`, when the caller's path resolution found one, naming the root that already
-/// answered the represent question on disk — the question below the report is skipped,
-/// so the answer is stated rather than left invisible — then member counts by kind, or
-/// a plain statement that nothing was found.
+/// `mark`, the file [`represented_by`] found if any, naming what already answered the
+/// represent question on disk — the question below the report is skipped, so the answer is
+/// stated rather than left invisible — then member counts by kind, or a plain statement
+/// that nothing was found.
 #[must_use]
-pub fn render_discovery(report: &DiscoveryReport, lock: Option<&Path>) -> String {
+pub fn render_discovery(report: &DiscoveryReport, mark: Option<&Path>) -> String {
     let mut out = String::from("discovery:\n");
-    if let Some(lock) = lock {
+    if let Some(mark) = mark {
         out.push_str(&format!(
             "  already represented — {} answers the represent question\n",
-            lock.display()
+            mark.display()
         ));
     }
     if report.total() == 0 {
@@ -759,7 +759,7 @@ fn run_represented(
     // What the settings document wired before this run touched anything — the only
     // reading of "before" the emit below cannot destroy, and the split between a gate
     // hook this run wired ([`ApplyOutcome::Applied`]) and one already in place.
-    let gate_before = gate_hooks_wired(&settings_path(root))?;
+    let gate_before = gate_hooks_state(&settings_path(root))?.map(|state| state.wired);
 
     // Assured before the lift writes a single member module: "no half-scaffolded
     // state" — a dependency spawn failure must never leave a partial `.temper/`
@@ -828,22 +828,41 @@ fn run_represented(
     })
 }
 
+/// The authored program marking the harness at `root` **represented** —
+/// `.temper/harness.ts` on disk — or `None` where there is none.
+///
+/// **The one reading every face takes**, so no two of them can disagree about which fork a
+/// harness is on. The lock is not it: a harness carrying a program it has never emitted
+/// carries no lock and is represented all the same, and reading the lock alone there lets
+/// `--no-represent` be accepted and [`place_settings_only`] splice `.claude/settings.json`
+/// — install re-adding a gate hook to a file the program owns whole, which 0073 forbids.
+#[must_use]
+pub fn represented_by(root: &Path) -> Option<PathBuf> {
+    let entry = root.join(crate::WORKSPACE_DIR).join(HARNESS_ENTRY);
+    entry.is_file().then_some(entry)
+}
+
 /// Report whether temper's own gate is installed and undrifted at `root` — the
 /// `check` self-verify.
 ///
 /// Never scaffolds, installs a dependency, or emits — only [`run`] adopts.
-/// Evaluates the placements a *represented* project's current lock justifies, or —
-/// on an unrepresented project (no `.temper/harness.ts`) — the session-start hook
-/// alone, both dry-run, folded into **one advisory** [`Diagnostic`] carrying the
-/// missing/drifted counts. Always `warn`, never `error`; empty when every placement
-/// is already in place.
+/// Evaluates the placements a *represented* project's current lock justifies
+/// ([`represented_by`]), or — unrepresented — the session-start hook alone, both dry-run,
+/// folded into **one advisory** [`Diagnostic`]. Always `warn`, never `error`; empty when
+/// every placement is already in place.
+///
+/// Each reported placement carries **its own remedy**, because they are not all install's
+/// to converge. On a represented harness a gate hook is a member the author owns and
+/// install never re-adds it (0073), so a missing or stale one names the module to author
+/// and the `harness.ts` import line that reaches it ([`gate_hook_clause`]); the notes and
+/// modelines really are install's write, so they share the one `temper install` clause.
 #[must_use]
 pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     let temper_dir = root.join(crate::WORKSPACE_DIR);
     if !temper_dir.is_dir() {
         return Vec::new();
     }
-    let represented = temper_dir.join(HARNESS_ENTRY).is_file();
+    let represented = represented_by(root).is_some();
     let Ok(entries) = (if represented {
         evaluate_placements(root, &temper_dir, true, None)
     } else {
@@ -852,58 +871,96 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
         return Vec::new();
     };
 
-    // Tally the missing/drifted placements by kind. The hook and guard are single
-    // placements; modelines and managed-by notes are one per modeled artifact, so
-    // they're retained for detailed reporting.
-    let (mut hook, mut guard, mut post_tool_use, mut modelines, mut notes) =
-        (false, false, false, Vec::new(), Vec::new());
+    // Only `Unchanged` is silence. A gate hook a member superseded is *stale*, not settled:
+    // skipping it here is what let a member running a retired command spelling read green
+    // forever while every tool call fired the wrong bytes (0073's Context). Modelines and
+    // notes are one per modeled artifact, so each names its own file.
+    let mut gate = Vec::new();
+    let (mut modelines, mut notes) = (Vec::new(), Vec::new());
     for entry in &entries {
-        if entry.outcome == ApplyOutcome::Unchanged
-            || entry.outcome == ApplyOutcome::SupersededByMember
-        {
+        if entry.outcome == ApplyOutcome::Unchanged {
             continue;
         }
         match entry.placement {
-            Placement::SessionStart => hook = true,
-            Placement::GuardHook => guard = true,
-            Placement::PostToolUseHook => post_tool_use = true,
-            Placement::Note => notes.push(entry.path.clone()),
-            Placement::Modeline => modelines.push(entry.path.clone()),
+            Placement::Modeline => {
+                modelines.push(format!("schema modeline {}", entry.path.display()));
+            }
+            Placement::Note => notes.push(format!("managed-by note {}", entry.path.display())),
+            // The rest are the gate hooks, and [`GATE_HOOKS`] is the authority on which:
+            // a placement with no row there has no member module to name a remedy in.
+            placement => {
+                if let Some(hook) = gate_hook_at(placement) {
+                    gate.push(gate_hook_clause(hook, entry.outcome, represented));
+                }
+            }
         }
     }
-    if !hook && !guard && !post_tool_use && modelines.is_empty() && notes.is_empty() {
+    if gate.is_empty() && modelines.is_empty() && notes.is_empty() {
         return Vec::new();
     }
 
-    let mut parts = Vec::new();
-    if hook {
-        parts.push(Placement::SessionStart.to_string());
-    }
-    if guard {
-        parts.push(Placement::GuardHook.to_string());
-    }
-    if post_tool_use {
-        parts.push(Placement::PostToolUseHook.to_string());
-    }
-    if !modelines.is_empty() {
-        for path in &modelines {
-            parts.push(format!("schema modeline: {}", path.display()));
-        }
-    }
-    if !notes.is_empty() {
-        for path in &notes {
-            parts.push(format!("managed-by note: {}", path.display()));
-        }
+    let mut clauses = gate;
+    let install_owned: Vec<String> = modelines.into_iter().chain(notes).collect();
+    if !install_owned.is_empty() {
+        clauses.push(format!(
+            "run `temper install` to converge {}",
+            install_owned.join(", ")
+        ));
     }
 
     vec![Diagnostic::warn(
         GATE_RULE,
         root.to_string_lossy().into_owned(),
         format!(
-            "temper's gate is not installed or has drifted — run `temper install` (missing or drifted: {})",
-            parts.join(", ")
+            "temper's gate is not installed or has drifted — {}",
+            clauses.join("; ")
         ),
     )]
+}
+
+/// The gate hook riding `placement`, when one does — how a reported [`InstallEntry`] gets
+/// back to the member whose module names its remedy.
+fn gate_hook_at(placement: Placement) -> Option<&'static GateHook> {
+    GATE_HOOKS.iter().find(|hook| hook.placement == placement)
+}
+
+/// One gate hook that is not in place, named with the remedy for it.
+///
+/// On a represented harness the remedy is the **author's**, never the verb's: install
+/// never re-adds a gate hook there (0073) — the author may have deleted one on purpose —
+/// so `gate_installed`'s advisory is the whole intervention, and it has to say what to
+/// write.
+///
+/// - **missing** ([`ApplyOutcome::Conflicted`]) — nothing is seated at the hook's
+///   `(event, matcher)` address, so both halves are owed: the member module and the
+///   `harness.ts` import line that reaches it. An unimported module is the unreached
+///   member `reached-from` indicts, so naming only the module would author a second defect.
+/// - **stale** ([`ApplyOutcome::SupersededByMember`]) — a member *is* seated there,
+///   running something other than temper's command. The module exists and is imported, so
+///   the remedy is the handler alone, pointed at the [`GATE_COMMAND_BINDINGS`] binding
+///   rather than a literal that can go stale again.
+///
+/// Unrepresented, the session-start hook is install's own write
+/// ([`place_settings_only`]), so the remedy there is the verb.
+fn gate_hook_clause(hook: &GateHook, outcome: ApplyOutcome, represented: bool) -> String {
+    let label = hook.placement.label();
+    if !represented {
+        return format!("{label} missing: run `temper install`");
+    }
+    let module = gate_hook_module(hook);
+    if outcome == ApplyOutcome::SupersededByMember {
+        let binding = gate_command_binding(hook.command)
+            .expect("every gate hook's command is one of `GATE_COMMAND_BINDINGS`");
+        return format!(
+            "{label} stale: `{workspace}/{module}` runs something else, so point its handler at `{binding}` from `{SDK_PACKAGE}/claude-code`",
+            workspace = crate::WORKSPACE_DIR
+        );
+    }
+    format!(
+        "{label} missing: author `{workspace}/{module}`, then add `import {{ {ident} }} from \"./{module}\";` to `{workspace}/{HARNESS_ENTRY}`",
+        workspace = crate::WORKSPACE_DIR,
+        ident = member_ident(GATE_HOOK_KIND, hook.event),
+    )
 }
 
 /// Resolves the settings document every `install` placement writes under a project root.
@@ -915,6 +972,13 @@ fn settings_path(root: &Path) -> PathBuf {
 /// whole write, and the only writer that merges this file. No guard, no note, no
 /// modeline: those bind only paths a lock declares emit-owned, and an unrepresented
 /// project has no lock.
+///
+/// **Never reached on a represented harness.** There the settings document is a
+/// projection the program owns whole and this splice would be install re-adding a gate
+/// hook to it, which 0073 forbids outright. [`run`] executes the fork it is handed, so the
+/// one decider is the dispatch that answers it (`src/main.rs`) — and it answers on
+/// [`represented_by`], the same reading [`gate_installed`] takes, so neither face can send
+/// a represented harness down this path.
 fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<InstallEntry>> {
     let settings_path = settings_path(root);
     let existing = read_optional(&settings_path)?;
@@ -927,16 +991,36 @@ fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<Install
     }])
 }
 
-/// Which of [`GATE_HOOKS`] `.claude/settings.json` wires right now, in `GATE_HOOKS`
-/// order — read straight off the file, which on the represented path is `emit`'s
-/// projection of the gate hook members. An absent or empty document wires none; an
-/// unparseable one is an [`InstallError`], never a silent "none".
-fn gate_hooks_wired(path: &Path) -> Result<[bool; GATE_HOOK_COUNT], InstallError> {
+/// What `.claude/settings.json` says about one of [`GATE_HOOKS`] right now. Both readings
+/// come off the same document, and the split between them is the whole missing/stale
+/// distinction.
+#[derive(Debug, Clone, Copy)]
+struct GateHookState {
+    /// Some group under this hook's event runs its command — the gate is wired here.
+    wired: bool,
+    /// Some group is seated at this hook's `(event, matcher)` address, whatever it runs.
+    seated: bool,
+}
+
+/// Every one of [`GATE_HOOKS`] read off `.claude/settings.json`, in `GATE_HOOKS` order —
+/// straight off the file, which on the represented path is `emit`'s projection of the gate
+/// hook members. An absent or empty document wires and seats none; an unparseable one is
+/// an [`InstallError`], never a silent "none".
+///
+/// The projection is the *only* place the seated reading can come from: a lock row's
+/// `fields` are seam-inbound and dropped, and 0074 keys a hook registration on the bare
+/// event, so the matcher — the other half of a gate hook member's identity — survives
+/// nowhere else.
+fn gate_hooks_state(path: &Path) -> Result<[GateHookState; GATE_HOOK_COUNT], InstallError> {
+    const ABSENT: GateHookState = GateHookState {
+        wired: false,
+        seated: false,
+    };
     let Some(text) = read_optional(path)? else {
-        return Ok([false; GATE_HOOK_COUNT]);
+        return Ok([ABSENT; GATE_HOOK_COUNT]);
     };
     if text.trim().is_empty() {
-        return Ok([false; GATE_HOOK_COUNT]);
+        return Ok([ABSENT; GATE_HOOK_COUNT]);
     }
     let root: JsonValue = serde_json::from_str(&text).map_err(|source| InstallError::Settings {
         path: path.to_path_buf(),
@@ -947,7 +1031,14 @@ fn gate_hooks_wired(path: &Path) -> Result<[bool; GATE_HOOK_COUNT], InstallError
         .ok_or_else(|| InstallError::SettingsShape {
             path: path.to_path_buf(),
         })?;
-    Ok(GATE_HOOKS.map(|hook| event_has_command(object, hook.event, hook.command)))
+    Ok(GATE_HOOKS.map(|hook| GateHookState {
+        wired: event_has_group(object, hook.event, |group| {
+            group_has_command(group, hook.command)
+        }),
+        seated: event_has_group(object, hook.event, |group| {
+            group_binds_matcher(group, hook.matcher)
+        }),
+    }))
 }
 
 /// One gate hook's reported outcome, read off the projection rather than off a write
@@ -955,15 +1046,18 @@ fn gate_hooks_wired(path: &Path) -> Result<[bool; GATE_HOOK_COUNT], InstallError
 ///
 /// - wired now, not before → [`Applied`](ApplyOutcome::Applied): this run wired it.
 /// - wired now and before → [`Unchanged`](ApplyOutcome::Unchanged).
-/// - not wired, its event claimed by a `hook` member →
-///   [`SupersededByMember`](ApplyOutcome::SupersededByMember): an authored member owns
-///   the event and temper's command is not among the groups it projects.
-/// - not wired and unclaimed → [`Conflicted`](ApplyOutcome::Conflicted): the program
-///   declares no hook at this event at all, so nothing projects temper's gate there.
-///   Surfaced rather than clobbered — `install` scaffolds the gate hook members with the
-///   rest of the lift and never edits an authored `harness.ts` afterwards.
-fn gate_outcome(before: bool, after: bool, claimed: bool) -> ApplyOutcome {
-    match (after, before, claimed) {
+/// - not wired, a member seated at its `(event, matcher)` address →
+///   [`SupersededByMember`](ApplyOutcome::SupersededByMember): the member is *stale* —
+///   it holds temper's gate address and runs something else, which is exactly the shape a
+///   respelled command leaves behind.
+/// - not wired, nothing seated there → [`Conflicted`](ApplyOutcome::Conflicted): the
+///   member is *missing*. Surfaced rather than clobbered — `install` scaffolds the gate
+///   hook members with the rest of the lift and never edits an authored `harness.ts`
+///   afterwards (0073).
+///
+/// The seated half is read off the projection, never off the lock: see [`gate_hooks_state`].
+fn gate_outcome(before: bool, now: GateHookState) -> ApplyOutcome {
+    match (now.wired, before, now.seated) {
         (true, true, _) => ApplyOutcome::Unchanged,
         (true, false, _) => ApplyOutcome::Applied,
         (false, _, true) => ApplyOutcome::SupersededByMember,
@@ -992,19 +1086,12 @@ fn evaluate_placements(
 
     let mut entries = Vec::new();
     let settings_path = settings_path(root);
-    let wired = gate_hooks_wired(&settings_path)?;
-    let before = gate_before.unwrap_or(wired);
-    // Read once, and only when some gate hook is missing — the answer is only ever
-    // consulted to tell an authored member's claim from a program that declares none.
-    let claimed = if wired.iter().all(|wired| *wired) {
-        std::collections::BTreeSet::new()
-    } else {
-        hook_claimed_events(temper_dir)?
-    };
+    let now = gate_hooks_state(&settings_path)?;
+    let before = gate_before.unwrap_or_else(|| now.map(|state| state.wired));
     for (index, hook) in GATE_HOOKS.iter().enumerate() {
         entries.push(InstallEntry {
             placement: hook.placement,
-            outcome: gate_outcome(before[index], wired[index], claimed.contains(hook.event)),
+            outcome: gate_outcome(before[index], now[index]),
             path: settings_path.clone(),
         });
     }
@@ -1074,32 +1161,6 @@ fn schema_artifact_exists(root: &Path, kind: &str) -> bool {
         .join("schema")
         .join(format!("{kind}.json"))
         .is_file()
-}
-
-/// The lifecycle events the program's own `hook` members claim — every `hooks.<Event>`
-/// key the lock carries a registration row for. A claim is per **collection key**, so it
-/// reads the row's key and never the member's own name, which joins the matcher onto it:
-/// two groups on one event are two members and one claimed event.
-///
-/// Since the lift mints temper's gate as `hook` members ([`GATE_HOOKS`]), temper's own
-/// rows are in here too, so a claim alone no longer means supersession: the caller reads
-/// this set only for an event whose gate command the projection does **not** carry, where
-/// a claim means some *other* member owns the event ([`gate_outcome`]). A lock row's
-/// `fields` are seam-inbound and dropped from the lock, so the command is read off the
-/// projected manifest rather than from here.
-fn hook_claimed_events(temper_dir: &Path) -> miette::Result<std::collections::BTreeSet<String>> {
-    use std::collections::BTreeSet;
-
-    let declarations = drift::read_declarations(temper_dir)?;
-    let mut claimed_events = BTreeSet::new();
-
-    for registration in &declarations.registrations {
-        if registration.kind == "hook" {
-            claimed_events.insert(registration.key.clone());
-        }
-    }
-
-    Ok(claimed_events)
 }
 
 /// Which edge of a tool call fired `temper guard`, and so which judge answers: the
@@ -1975,7 +2036,9 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
             path: path.to_path_buf(),
         })?;
 
-    let hook_present = event_has_command(object, "SessionStart", SESSION_START_COMMAND);
+    let hook_present = event_has_group(object, "SessionStart", |group| {
+        group_has_command(group, SESSION_START_COMMAND)
+    });
     if hook_present {
         return Ok(SettingsProjection {
             desired: text.to_string(),
@@ -2027,25 +2090,40 @@ pub(crate) fn session_start_group() -> JsonValue {
     json!({ "hooks": [ { "type": "command", "command": SESSION_START_COMMAND } ] })
 }
 
-/// Whether a group carrying `command` verbatim is already registered under `event` —
-/// the one presence read both faces take. The unrepresented merge asks it of the human's
-/// document (its idempotence check), and [`gate_hooks_wired`] asks it of the projected
-/// one about each of [`GATE_HOOKS`]; a differing command reads `false`, since a hook that
-/// runs something else is not temper's gate.
-fn event_has_command(
+/// Whether some group registered under `event` satisfies `test` — the one walk over a
+/// lifecycle event's matcher groups, and so the one home for the `hooks.<Event>` shape
+/// (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24).
+///
+/// Two questions ride it, and the gate needs both:
+///
+/// - [`group_has_command`] — *is temper's gate wired here*. The unrepresented merge asks
+///   it of the human's document (its idempotence check), and [`gate_hooks_state`] asks it
+///   of the projected one about each of [`GATE_HOOKS`].
+/// - [`group_binds_matcher`] — *is a member seated at this gate hook's address at all*,
+///   which is the missing/stale split ([`gate_outcome`]).
+fn event_has_group(
     object: &serde_json::Map<String, JsonValue>,
     event: &str,
-    command: &str,
+    test: impl Fn(&JsonValue) -> bool,
 ) -> bool {
     object
         .get("hooks")
         .and_then(|hooks| hooks.get(event))
         .and_then(JsonValue::as_array)
-        .is_some_and(|groups| groups.iter().any(|group| group_has_command(group, command)))
+        .is_some_and(|groups| groups.iter().any(test))
 }
 
-/// Whether a hook group carries `command` verbatim on one of its handlers — the shared
-/// spine [`event_has_command`] walks each of an event's matcher groups with.
+/// Whether a hook group binds exactly `matcher` — `None` matching a group carrying no
+/// `matcher` key, the shape a group on an unconditional event takes
+/// ([`json_manifest::hook_matcher_group`] writes the field only where the member carries
+/// it). A group's identity is the `(event, matcher)` pair (0074), so with the event already
+/// fixed by [`event_has_group`] this is the rest of a gate hook's address.
+fn group_binds_matcher(group: &JsonValue, matcher: Option<&str>) -> bool {
+    group.is_object() && group.get("matcher").and_then(JsonValue::as_str) == matcher
+}
+
+/// Whether a hook group carries `command` verbatim on one of its handlers. A differing
+/// command reads `false`, since a hook that runs something else is not temper's gate.
 fn group_has_command(group: &JsonValue, command: &str) -> bool {
     group
         .get("hooks")
@@ -2373,10 +2451,9 @@ fn scaffold(
     // and these are members temper authors.
     for hook in &GATE_HOOKS {
         let ident = member_ident(GATE_HOOK_KIND, hook.event);
+        let module = gate_hook_module(hook);
         write_scaffold_file(
-            &temper_dir
-                .join(member_dir(GATE_HOOK_KIND))
-                .join(format!("{}.ts", hook.event)),
+            &temper_dir.join(&module),
             &member_module_source(
                 GATE_HOOK_KIND,
                 hook.event,
@@ -2388,7 +2465,7 @@ fn scaffold(
         )?;
         scaffolded.push(ScaffoldedMember {
             ident,
-            import_path: format!("./{}/{}.ts", member_dir(GATE_HOOK_KIND), hook.event),
+            import_path: format!("./{module}"),
         });
     }
 
@@ -2403,6 +2480,14 @@ fn scaffold(
 /// The kind row label temper's own gate hooks scaffold under — the same `hook` kind any
 /// authored `hooks.<Event>` member takes.
 const GATE_HOOK_KIND: &str = "hook";
+
+/// Where one gate hook's member module sits under the workspace dir — also, prefixed
+/// `./`, the `harness.ts` import specifier that reaches it. One home for both, so the
+/// remedy [`gate_hook_clause`] tells an author to write names the module [`scaffold`]
+/// actually writes.
+fn gate_hook_module(hook: &GateHook) -> String {
+    format!("{}/{}.ts", member_dir(GATE_HOOK_KIND), hook.event)
+}
 
 /// The typed fields one gate hook's member module carries: its matcher where the event
 /// binds one, then the single `command` handler it fires, inside the `hooks` array a
