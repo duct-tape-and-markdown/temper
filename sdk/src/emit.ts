@@ -36,7 +36,7 @@ import {
   uniqueMap,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
-import { bareLookupKey, edgeLookupKey, hostAddress, nestedAddress } from "./member-address.js";
+import { bareLookupKey, edgeLookupKey, hostAddress, isOneSegment, nestedAddress } from "./member-address.js";
 
 // The projected-member shape is the generated `ts-rs` binding, re-exported so the
 // public face keeps the name — a Rust-side member-column rename is a compile
@@ -231,6 +231,16 @@ function nestedFilePath(member: Member): string {
  * derives the same locus from the same facts (`src/drift.rs`'s `member_projection_path`);
  * the two must agree, since a hook's rendered link is written from this side and reaped
  * from that one.
+ *
+ * The property both derivations owe is a **round trip**: the path a member is placed at is
+ * one the kind's own glob finds again when `check` walks the locus, so placement and
+ * discovery are one agreement rather than two spellings that happen to coincide. A path
+ * outside its glob is written and locked yet ungoverned — the kind counted `(0)` with no
+ * finding to name it. The engine holds the round trip with the glob engine it already has
+ * (`UngovernedProjection`); this side has no matcher, so what it holds is the half a
+ * matcher is not needed for — a member name carrying the `/` a path is placed with
+ * ({@link refuseSegmentedName}) — and `tests/projection_path_seam.rs` gates the property
+ * itself, per unit shape, over what emit actually wrote.
  *
  * # Throws
  * If the kind is embedded (no standalone projection), or the member's glob or host
@@ -870,21 +880,53 @@ function nestedTargets(harness: Harness): Array<[string, EdgeTarget]> {
   return [...qualified, ...bare];
 }
 
+/**
+ * Refuse a projected member whose **name** carries the `/` an address is cut at
+ * ({@link isOneSegment}) — the bar `kind.ts`'s `refuseSegmentedKey` already holds one grain
+ * down, for an embedded member's key.
+ *
+ * A member's name is its own first address segment and, at every `at` locus, the identity a
+ * projection path is spliced from: a file stem, or the one directory segment the kind's glob
+ * stars. A `/` in it therefore does two things at once — it shifts every address beneath the
+ * member by a segment, and it places the projection outside the glob the kind declares, so
+ * the file is written where no discovery walk looks. The engine refuses the same name
+ * (`src/drift.rs`'s `MemberNameSeparator`), and this half is the loud one: at compose time
+ * the author can still rename.
+ *
+ * Total over the projected set rather than inside {@link spliceName}, which a directory-unit
+ * member's path never reaches.
+ *
+ * # Throws
+ * If `name` is empty or carries `/`.
+ */
+function refuseSegmentedName(kind: string, name: string): void {
+  if (isOneSegment(name)) return;
+  throw new Error(
+    `member \`${name}\` of kind \`${kind}\`: a member's name is one address segment — ` +
+      `non-empty and carrying no \`/\`, the separator its address is cut at and the one a ` +
+      `projection path is placed with; a name carrying it addresses another member's leaf ` +
+      `and places outside the kind's own glob`,
+  );
+}
+
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */
 function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMember[] {
   return [...harness.members]
     .filter(isProjected)
     .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.name, b.name))
-    .map((member) => ({
-      kind: member.kind,
-      name: member.name,
-      host: member.host && hostAddress(member.host.kind, member.host.name),
-      // The generated row carries a mutable field list; the member's is read-only,
-      // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
-      fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
-      body: resolveBody(member, options),
-      source_path: fileSourcePath(member),
-    }));
+    .map((member) => {
+      refuseSegmentedName(member.kind, member.name);
+      return {
+        kind: member.kind,
+        name: member.name,
+        host: member.host && hostAddress(member.host.kind, member.host.name),
+        // The generated row carries a mutable field list; the member's is read-only,
+        // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
+        fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
+        body: resolveBody(member, options),
+        source_path: fileSourcePath(member),
+      };
+    });
 }
 
 /**

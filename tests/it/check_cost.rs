@@ -1,7 +1,7 @@
 //! Measure-first cost diagnosis at consumer scale, for every verb whose work scales with
 //! the consumer's input (`specs/process/engineering.md`, "Cost scale is hoisted, and
-//! pinned by count") — `check`'s walks and reads, `emit`'s lock parse and manifest reads,
-//! and `guard`'s per-tool-call shell edge.
+//! pinned by count") — `check`'s walks and reads, `emit`'s lock parse, manifest reads and
+//! per-glob placement round trip, and `guard`'s per-tool-call shell edge.
 //!
 //! A synthetic harness the size of a real consumer's tree is generated in a tempdir at
 //! test time and never committed. Discovery — the phase `check` opens with, walking the
@@ -22,6 +22,7 @@ use std::time::Instant;
 
 use crate::common::{fresh_clause, tmpdir};
 use temper::builtin_kind;
+use temper::drift::{self, Declarations, EmitOptions, Payload, PayloadMember};
 use temper::frontmatter::Member;
 use temper::glob;
 use temper::import::{self, Discovery, LocalOverride};
@@ -1603,5 +1604,57 @@ fn a_local_layout_members_document_is_parsed_once_per_assembly_pass() {
         "each local layout member's document is parsed once per assembly pass — the unit's \
          fields and the derived rows come off the one reading; got {parses} parses for two \
          members"
+    );
+}
+
+/// The per-distinct-glob count-pin for **emit's placement round trip**
+/// (`engineering.md`, "Cost scale is hoisted, and pinned by count"): every member's
+/// derived path is matched back through its own kind's glob before a byte is written, so
+/// the matcher build is per *glob*, never per member. Two kinds over 400 members, so the
+/// delta is exactly 2 — a rebuild per member overshoots to 400, and a cache that went
+/// stale between the two kinds' loci undershoots.
+///
+/// Distinct from the discovery pin at the top of this file, whose window is the walk emit
+/// never enters: this one measures the write side, where the same glob engine now serves
+/// placement. Each kind's glob is compiled on its first member and hit from the cache for
+/// every one after, including the second pass `member_path_index` makes over the same set.
+/// The count is per-thread and emit single-threaded on its caller's thread, so the delta is
+/// this call's alone whatever else runs concurrently.
+#[test]
+fn emit_compiles_each_kinds_glob_once_however_many_members_it_places() {
+    let (_harness, into) = common::workspace("emit-round-trip-cost");
+    let members: Vec<PayloadMember> = (0..200)
+        .flat_map(|i| {
+            [
+                common::rule_member(&format!("rule-{i}"), None, "# Rule\n"),
+                common::skill_member(
+                    &format!("skill-{i}"),
+                    "Use when the cost fixture needs one more member.",
+                    "# Skill\n",
+                ),
+            ]
+        })
+        .collect();
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                common::rule_kind_facts(None, &[]),
+                common::skill_kind_facts(None, &[]),
+            ],
+            ..Default::default()
+        },
+        members,
+    };
+
+    let before = glob::glob_compile_count();
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let compiles = glob::glob_compile_count() - before;
+
+    assert_eq!(report.entries.len(), 400, "the fixture places every member");
+    assert_eq!(
+        compiles, 2,
+        "emit places 400 members across 2 kinds, so it builds exactly 2 glob matchers — one \
+         per distinct glob, hoisted out of the per-member round trip; got {compiles}",
     );
 }

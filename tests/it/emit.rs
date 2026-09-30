@@ -663,6 +663,67 @@ fn a_flat_file_kind_whose_star_sits_above_the_leaf_refuses() {
 }
 
 #[test]
+fn a_member_name_carrying_the_address_separator_refuses_before_placing_outside_its_glob() {
+    let (harness, into) = workspace("member-name-separator");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![flat_file_kind_facts("spec", "docs", "*.json")],
+            ..Default::default()
+        },
+        members: vec![plain_member("spec", "a/b/sub/x")],
+    };
+
+    // A flat `*.json` glob reaches exactly one segment under its root; splicing a slashed
+    // name through it would land `docs/a/b/sub/x.json`, three levels past anything the
+    // glob can find — so the name is refused, not the path repaired.
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("a/b/sub/x"), "names the offending name: {msg}");
+    assert!(
+        msg.contains("separator"),
+        "names the separator fault: {msg}"
+    );
+    assert!(
+        !harness.join("docs").exists(),
+        "the refusal lands before a byte is written",
+    );
+}
+
+#[test]
+fn a_derived_path_its_own_kinds_glob_cannot_find_refuses_rather_than_emitting() {
+    let (harness, into) = workspace("ungoverned-projection");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![KindFactRow {
+                unit_shape: Some("directory".to_string()),
+                ..common::kind_facts("guide", ".claude/guides", "GUIDE.md")
+            }],
+            ..Default::default()
+        },
+        members: vec![plain_member("guide", "operate-the-gate")],
+    };
+
+    // A directory unit lands its entry file one segment deep, so this kind projects
+    // `.claude/guides/operate-the-gate/GUIDE.md` — a path its own bare `GUIDE.md` glob
+    // never reaches, since discovery matches a glob segment by segment from the locus
+    // root. Emitted, that projection is written and locked yet ungoverned; the declared
+    // shape is `*/GUIDE.md`.
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("operate-the-gate/GUIDE.md"),
+        "names the derived path: {msg}",
+    );
+    assert!(msg.contains("`GUIDE.md`"), "names the glob: {msg}");
+    assert!(
+        !harness.join(".claude").join("guides").exists(),
+        "the refusal lands before a byte is written",
+    );
+}
+
+#[test]
 fn a_single_star_and_any_depth_glob_project_to_the_expected_paths() {
     let (harness, into) = workspace("flat-glob-project-unchanged");
     let payload = Payload {

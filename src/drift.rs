@@ -33,7 +33,7 @@ use crate::kind::{
     commitment_from_row, content_from_row, format_from_row,
 };
 use crate::layout::{Layout, LayoutReading, LayoutRegion};
-use crate::member_address::{host_address, parse_host_address};
+use crate::member_address::{host_address, is_one_segment, parse_host_address};
 use crate::path::HarnessRelativePath;
 use std::cell::Cell;
 
@@ -496,6 +496,48 @@ pub enum DriftError {
         member: String,
         /// Which half of the composition is missing.
         detail: String,
+    },
+
+    /// A member's name carries the `/` an address is cut at. A member's identity is a file
+    /// stem or the one directory segment its glob stars — one address segment either way
+    /// ([`crate::member_address::is_one_segment`]) — so a name carrying the separator
+    /// shifts every address beneath the member by one segment, and splices a path the
+    /// kind's own glob was never spelled to reach. Refused before either locus branch
+    /// derives a path from it (invariant 6), never narrowed to the splice: a directory
+    /// unit composes `<name>/<entry>` without splicing at all, so a splice-side guard
+    /// would admit the slashed name for that one shape.
+    #[error(
+        "member name `{name}` of kind `{kind}` is not one address segment — a member's name is a file stem or the one directory segment its glob stars, so it is non-empty and carries no `/`, the separator an address is cut at and the one a projection path is placed with; a name carrying it addresses another member's leaf and places outside the kind's own glob"
+    )]
+    #[diagnostic(code(temper::drift::member_name_separator))]
+    MemberNameSeparator {
+        /// The kind the offending member declares.
+        kind: String,
+        /// The member name, verbatim.
+        name: String,
+    },
+
+    /// A derived projection path the deriving kind's **own glob cannot find**. Placement
+    /// and discovery are one round trip: emit splices a member's name through the glob
+    /// `check` later walks, so a path outside that glob is written and locked yet
+    /// ungoverned — the next `check` discovers nothing there, counts the kind `(0)`, and
+    /// reports no finding to name the hole (invariant 6: no path silently degrades, and
+    /// every declared fact reaches a row or a finding). Refused before a byte is written;
+    /// the repair is the declaration's — a directory-unit kind lands its entry one segment
+    /// deep, so its glob is `*/<entry>`, never the bare `<entry>`.
+    #[error(
+        "member `{member}` projects to `{path}`, which kind `{kind}`'s own glob `{glob}` cannot find — placement and discovery are one round trip, so this projection would be written and locked yet never discovered, leaving the kind counted `(0)` with no finding to name it"
+    )]
+    #[diagnostic(code(temper::drift::ungoverned_projection))]
+    UngovernedProjection {
+        /// The kind whose glob cannot find its own member's projection.
+        kind: String,
+        /// The member's `kind:name` address.
+        member: String,
+        /// The derived path, relative to the locus the glob is rooted at.
+        path: String,
+        /// The glob that cannot find it, verbatim.
+        glob: String,
     },
 
     /// An `at` locus member's root path falls under the workspace directory. The workspace
@@ -964,6 +1006,36 @@ fn splice_name(
     Ok(placed.replacen('*', name, 1))
 }
 
+/// The round trip placement owes discovery: `relative` — a derived projection path as
+/// spelled beneath the very locus `glob` is rooted at — matched back through the glob that
+/// has to find it, on the one glob engine every other membership test rides
+/// ([`crate::glob::compile_glob`], `literal_separator` on, so `*` stays inside a segment
+/// and `**` crosses exactly as `import`'s per-segment walk descends).
+///
+/// Emit splices a name through the same glob `check` later walks, so the two are one round
+/// trip and a path outside it is a projection nobody governs. An uncompilable glob is no
+/// match here — the polarity every segment-level caller takes, and a glob temper cannot
+/// understand can find nothing.
+///
+/// # Errors
+/// Returns [`DriftError::UngovernedProjection`] when the glob does not match `relative`.
+fn refuse_ungoverned(
+    kind: &str,
+    member: &str,
+    glob: &str,
+    relative: &str,
+) -> Result<(), DriftError> {
+    if crate::glob::compile_glob(glob).is_some_and(|matcher| matcher.is_match(relative)) {
+        return Ok(());
+    }
+    Err(DriftError::UngovernedProjection {
+        kind: kind.to_string(),
+        member: host_address(kind, member),
+        path: relative.to_string(),
+        glob: glob.to_string(),
+    })
+}
+
 /// A nested file child's harness-relative locus: its host member's unit joined with the
 /// host kind's template pattern for this child kind, the child's name spliced through the
 /// pattern. The pattern is the host's declared fact — one home — so the child kind governs
@@ -1011,6 +1083,10 @@ fn nested_file_path(
         )));
     };
     let leaf = splice_name(&facts.name, pattern, name, false)?;
+    // The host's unit is the locus the template pattern is rooted at — `import`'s own
+    // per-host scan walks the pattern from exactly there — so the leaf is what the pattern
+    // has to find.
+    refuse_ungoverned(&facts.name, name, pattern, &leaf)?;
     Ok(join_locus(host_root, &format!("{host_name}/{leaf}")))
 }
 
@@ -1022,16 +1098,32 @@ fn nested_file_path(
 /// (`sdk/src/emit.ts`) derives the same locus from the same facts, and
 /// `tests/projection_path_seam.rs` gates the two into agreement.
 ///
+/// Whichever branch derives it, the path round-trips: it is matched back through the very
+/// glob that has to find it ([`refuse_ungoverned`]) before it is returned, so placement and
+/// discovery stay one agreement rather than two derivations that happen to coincide.
+///
 /// # Errors
-/// Returns [`DriftError::FlatGlobDepth`] when a glob maps its member name to no one path
-/// ([`splice_name`]), or [`DriftError::NestedFileLocus`] when a nested file child's host
-/// supplies no unit and pattern to compose against.
+/// Returns [`DriftError::MemberNameSeparator`] when the name carries the `/` an address is
+/// cut at, [`DriftError::FlatGlobDepth`] when a glob maps its member name to no one path
+/// ([`splice_name`]), [`DriftError::NestedFileLocus`] when a nested file child's host
+/// supplies no unit and pattern to compose against, or
+/// [`DriftError::UngovernedProjection`] when the derived path is one the deriving glob
+/// cannot find.
 fn member_projection_path(
     facts: &KindFactRow,
     name: &str,
     host: Option<&str>,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
 ) -> Result<PathBuf, DriftError> {
+    // Ahead of the locus dispatch, so the bar is total: the directory-unit branch below
+    // composes `<name>/<entry>` and never reaches the splice, so a splice-side guard would
+    // leave a slashed name admitted for exactly that shape.
+    if !is_one_segment(name) {
+        return Err(DriftError::MemberNameSeparator {
+            kind: facts.name.clone(),
+            name: name.to_string(),
+        });
+    }
     // The two governs columns are one spelling: present together at an `at` locus, absent
     // together for a nested file kind, whose path composes from its host instead.
     let (Some(root), Some(glob)) = (facts.governs_root.as_deref(), facts.governs_glob.as_deref())
@@ -1045,6 +1137,9 @@ fn member_projection_path(
         let starred_segment = facts.unit_shape.as_deref() == Some("starred-segment");
         splice_name(&facts.name, glob, name, starred_segment)?
     };
+    // `governs_root` is the locus the glob is rooted at, so the relative path is what the
+    // glob has to find — the same spelling `import`'s walk matches segment by segment.
+    refuse_ungoverned(&facts.name, name, glob, &relative)?;
     Ok(join_locus(root, &relative))
 }
 

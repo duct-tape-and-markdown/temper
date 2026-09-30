@@ -17,6 +17,12 @@
 //! SDK-internal export — so the lane fails exactly when the two disagree, and passes
 //! however either spells its own internals.
 //!
+//! The same harness carries a second property over the same targets: **placement
+//! round-trips through discovery**. Emit splices a name through the very glob `check`
+//! later walks, so every path emit wrote must be one that glob finds again — a path
+//! outside it is written and locked yet ungoverned, the kind counted `(0)` with no
+//! finding to name it.
+//!
 //! Driven on the pattern `tests/builtin_lock_frozen.rs` sets: a real `node` subprocess
 //! running the built SDK through `drift::emit_program`, exactly as `tests/emit.rs`
 //! drives the seam.
@@ -73,7 +79,7 @@ const conventions = kind<object>({
 
 const guide = kind<object>({
   name: "guide",
-  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  locus: { kind: "at", root: ".claude/guides", glob: "*/GUIDE.md" },
   unitShape: "directory",
   registration: [],
   templates: [{ kind: supportingDoc, path: "*.md" }],
@@ -159,6 +165,37 @@ const EDGES: &[(&str, &str, &str)] = &[
     ("to_doc", "supporting-doc", "checklist"),
     ("to_conventions", "conventions", "coordinate"),
     ("to_note", "note-doc", "cadence"),
+];
+
+/// Every member the fixture projects — the edge targets, the `skill` host that carries
+/// them, and the `guide` that hosts the nested file child — paired with the locus its own
+/// glob is rooted at and that glob, verbatim as the program above declares them.
+///
+/// For an `at` locus the root is the kind's `governs` root; for the nested file child,
+/// whose kind governs no glob at all, it is the **host's unit** — the base its host kind's
+/// template pattern is spelled against, and the base `import`'s own per-host scan walks
+/// that pattern from.
+const GOVERNED: &[(&str, &str, &str, &str)] = &[
+    ("skill", "citing", ".claude/skills", "*/SKILL.md"),
+    ("skill", "coordinate", ".claude/skills", "*/SKILL.md"),
+    ("rule", "rust", ".claude/rules", "*.md"),
+    ("agent", "explore", ".claude/agents", "**/*.md"),
+    ("command", "review", ".claude/commands", "*.md"),
+    ("memory", "CLAUDE", ".", "**/CLAUDE.md"),
+    ("guide", "operate-the-gate", ".claude/guides", "*/GUIDE.md"),
+    (
+        "supporting-doc",
+        "checklist",
+        ".claude/guides/operate-the-gate",
+        "*.md",
+    ),
+    (
+        "conventions",
+        "coordinate",
+        ".claude/skills",
+        "*/conventions.md",
+    ),
+    ("note-doc", "cadence", ".claude", "notes/*.md"),
 ];
 
 /// The path `emit` wrote the `kind`/`name` member to, as the engine itself reported it —
@@ -247,4 +284,60 @@ fn every_rendered_edge_link_resolves_to_the_projection_emit_wrote_for_its_target
          file kind's unit shape only while all {} are present",
         EDGES.len(),
     );
+}
+
+#[test]
+fn every_emitted_projection_is_one_its_own_kinds_glob_finds_again() {
+    let (harness, into) = common::wire_sdk_harness("projection-round-trip", WAYPOINT_PROGRAM);
+
+    let report = drift::emit_program(&into, EmitOptions::default()).expect(
+        "gating the placement round trip requires a working node + the built @dtmd/temper \
+         module — the lane fails loud here rather than silently skipping the comparison",
+    );
+
+    for (kind, name, root, glob) in GOVERNED {
+        let wrote = projection_of(&report, kind, name);
+        let relative = wrote.strip_prefix(&harness).unwrap_or_else(|_| {
+            panic!(
+                "emit reports `{kind}:{name}` at `{}`, which is not under the harness root `{}`",
+                wrote.display(),
+                harness.display(),
+            )
+        });
+        // The glob is spelled against its locus, so the candidate is the path beneath it —
+        // exactly the spelling `import`'s walk matches segment by segment from there. A
+        // `.` root names the harness root itself and prefixes nothing.
+        let candidate =
+            if *root == "." {
+                relative.to_path_buf()
+            } else {
+                relative.strip_prefix(root).unwrap_or_else(|_| {
+                panic!(
+                    "emit wrote `{kind}:{name}` to `{}`, which does not even sit under its own \
+                     locus root `{root}`",
+                    relative.display(),
+                )
+            }).to_path_buf()
+            };
+
+        // Built here rather than reached for through the engine's own matcher: the lane
+        // exists to catch the engine agreeing with itself, so the glob semantics are
+        // re-stated from `globset` directly, `literal_separator` on as every caller
+        // compiles it (`*` inside one segment, `**` across them).
+        let matcher = globset::GlobBuilder::new(glob)
+            .literal_separator(true)
+            .build()
+            .unwrap_or_else(|err| panic!("the fixture's `{kind}` glob `{glob}` compiles: {err}"))
+            .compile_matcher();
+
+        assert!(
+            matcher.is_match(&candidate),
+            "emit wrote `{kind}:{name}` to `{}`, but kind `{kind}`'s own glob `{glob}` (rooted \
+             at `{root}`) does not find `{}` — placement and discovery are one round trip, so \
+             this projection would be committed and locked yet never discovered, leaving the \
+             kind counted `(0)` with no finding to name it; fix whichever of the two moved",
+            relative.display(),
+            candidate.display(),
+        );
+    }
 }

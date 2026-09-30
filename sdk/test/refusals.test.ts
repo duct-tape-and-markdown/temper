@@ -564,6 +564,47 @@ test("embeddedMemberValue admits a well-formed key, dots and a collection path i
 });
 
 // ---------------------------------------------------------------------------
+// A projected member's own NAME, one grain up from the key above: it is the member's
+//     first address segment and, at every `at` locus, the identity its projection path
+//     is spliced from — a file stem, or the one directory segment the kind's glob
+//     stars. A `/` in it shifts every address beneath the member by one segment AND
+//     places the file where no discovery walk looks. Refused at compose, where the
+//     author can still rename; the engine refuses the same name over the payload.
+// ---------------------------------------------------------------------------
+
+test("emit refuses a member name carrying the address separator", () => {
+  const h = harness({
+    members: [rule({ name: "lang/rust", prose: text`# Rust` })],
+  });
+  assert.throws(
+    () => emit(h),
+    (error: Error) => {
+      // The name the author wrote is named back, and so is the separator that breaks it.
+      assert.match(error.message, /member `lang\/rust` of kind `rule`:/);
+      assert.match(error.message, /one address segment/);
+      assert.match(error.message, /`\/`/);
+      return true;
+    },
+  );
+});
+
+test("emit refuses a slashed member name on a directory-unit kind too", () => {
+  // Total over the projected set, not narrowed to the splice: a directory unit composes
+  // `<root>/<name>/<entry>` without splicing a glob at all, so a splice-side guard would
+  // admit exactly this shape.
+  const h = harness({
+    members: [
+      skill({
+        name: "team/coordinate",
+        description: "Use when driving a complex task across a team of agents.",
+        prose: text`# Coordinate`,
+      }),
+    ],
+  });
+  assert.throws(() => emit(h), /member `team\/coordinate` of kind `skill`/);
+});
+
+// ---------------------------------------------------------------------------
 // A clean harness — every join resolves, every required requirement filled.
 // ---------------------------------------------------------------------------
 

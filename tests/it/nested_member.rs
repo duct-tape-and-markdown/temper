@@ -241,7 +241,7 @@ const supportingDoc = kind<object>({
 
 const guide = kind<object>({
   name: "guide",
-  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  locus: { kind: "at", root: ".claude/guides", glob: "*/GUIDE.md" },
   unitShape: "directory",
   registration: [],
   templates: [{ kind: supportingDoc, path: "*.md" }],
@@ -273,7 +273,7 @@ const supportingDoc = kind<object>({
 
 const guide = kind<object>({
   name: "guide",
-  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  locus: { kind: "at", root: ".claude/guides", glob: "*/GUIDE.md" },
   unitShape: "directory",
   registration: [],
   templates: [{ kind: supportingDoc, path: "notes/*.md" }],

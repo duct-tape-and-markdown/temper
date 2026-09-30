@@ -816,7 +816,7 @@ const supportingDoc = kind<Record<never, never>>({
  * relative to the host's own unit. */
 const guide = kind<Record<never, never>>({
   name: "guide",
-  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  locus: { kind: "at", root: ".claude/guides", glob: "*/GUIDE.md" },
   format: "yaml-frontmatter",
   unitShape: "directory",
   identityField: "name",
