@@ -19,6 +19,10 @@
       {
         "path": "examples/base-harness/.temper/hooks.ts",
         "description": "The shipped example — the most adopter-visible copy of the refused spelling, and the reason this entry is not merely fixture hygiene: `hook_sessionStart` (:8) and `hook_guard` (:16) both author the flat triple, and the file's own header calls them \"fields-only registration members\". Re-emit the example's lock after the re-spell: `examples/*/.temper/lock.toml` is a standing build surface in chain.ts, so it needs no declaration, and `tests/it/emit.rs`'s own failure message spells the recipe — `ln -s $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` (gitignored, never committed), then `cargo run -- emit --into examples/base-harness/.temper` and commit what moves."
+      },
+      {
+        "path": "src/json_manifest.rs",
+        "description": "Two claims about the authoring surface are false at HEAD and ride this entry — the corpus re-spell is what makes them legible. `hook_matcher_group`'s doc (:727-:730) says the flat-residue arm is \"what the SDK's `hook()` authors today — the surface HOOK-AUTHORS-ITS-HANDLERS moves onto the array — and until it moves, both spellings reach this one face\"; `hook()` authors the array (`sdk/src/builtins.ts`:556) and `Hook` types no handler key at all (:485, `hooks: readonly Handler[]`, required). The unit test's comment at :1166 repeats the same forward reference. Restate both as the standing rule the arm carries — a group-array member whose fields spell a handler flat, carrying no member-array key, nests into the one handler it means — with no pointer at shipped work. The arm itself stays: it is generic over any group-array kind's `member_key`, its own unit test (:1163-:1188) keeps it non-vacuous after the three fixtures re-spell, and dropping residue silently (or refusing it) is intent the corpus body does not carry."
       }
     ],
     "retire": []
@@ -38,6 +42,6 @@
       "asserts": "`emit_program_runs_the_shipped_example_harness` stays green — the re-spelled example program links, and its re-emitted `lock.toml` byte-matches the committed one"
     }
   ],
-  "acceptance": "cargo test green, `pnpm --dir sdk test` green, clippy/fmt clean, and an `rg` for `hook({` across the tree finds no call passing `type`/`command` outside a `hooks:` array, save the one site named in notes.",
-  "notes": "The staleness half of the HOOK-AUTHORS fence capture, held back so the queue's critical-path entry stays narrow: these three stay GREEN on the flat spelling (their programs are type-stripped by node, never tsc'd, and the write face nests flat residue into one handler), so they are a corpus authoring a shape its own types refuse, not breakage. Fourth site, outside every build fence: `.temper/hooks.ts`:18,25,37,45 — the dogfood's own, a human `chore(harness):` commit. scoped at 6d33492f"
+  "acceptance": "cargo test green, `pnpm --dir sdk test` green, clippy/fmt clean, and an `rg` for `hook({` across the tree finds no call passing `type`/`command` outside a `hooks:` array, save the one file named in notes.",
+  "notes": "The staleness half of the HOOK-AUTHORS fence capture, kept narrow so the hook spine's head stays small: the three programs are GREEN on the flat spelling today (node type-strips them; the write face nests residue into one handler), so this is a corpus authoring a shape its own types refuse, not breakage. Fourth site, outside every build fence: `.temper/hooks.ts`:18,25,37,45 — the dogfood's own, a human `chore(harness):` commit. scoped at 55af999f"
 }
