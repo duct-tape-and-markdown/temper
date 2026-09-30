@@ -172,6 +172,27 @@ const LOAD_FAULT_RULE: &str = "gate.load-fault";
 const LOAD_FAULT_MESSAGE: &str =
     "the harness could not be loaded, so the contract gate did not run";
 
+/// The sentence a lowered load fault **leads** with when the lock names an engine other
+/// than the one running — the one place the engine-skew fact can be said over a harness
+/// that never loaded, because the
+/// [`engine-matches`](crate::contract::Predicate::EngineMatches) clause that ordinarily
+/// says it is judged inside a gate this run never reached (`specs/model/pipeline.md`,
+/// "The lock": a gate run by a different engine says so).
+///
+/// Names **both** stamps and no ordering between them: nothing in the sanctioned crate
+/// set does semver, so the sentence never claims which is newer — honest whichever
+/// direction the skew runs. The remedy differs from the clause's for a reason: where the
+/// gate ran, the rows read fine and one `emit` rewrites the lock in this engine's
+/// canonical form, but here *this* engine could not read them at all, so the only engine
+/// known to be able to is the one the lock names.
+fn engine_skew_lead(lock_engine: &str) -> String {
+    format!(
+        "the committed lock was written by engine version {lock_engine}, and this gate is \
+         running engine version {} — read it with the engine it names",
+        crate::VERSION
+    )
+}
+
 /// Lower a load failure — the [`miette::Report`] raised while resolving the harness root
 /// or gating it — to the single `error` [`Diagnostic`] the run reports instead of
 /// aborting on.
@@ -185,7 +206,7 @@ const LOAD_FAULT_MESSAGE: &str =
 /// fault, and the exit-code verdict is unchanged: one `error` diagnostic keeps
 /// [`any_error`] true.
 ///
-/// Two mechanics, neither cosmetic:
+/// Three mechanics, none cosmetic:
 ///
 /// - The **rule** is the report's own [`code`](miette::Diagnostic::code) when it carries
 ///   one, so a load fault keeps the single name it is already addressed by
@@ -195,6 +216,15 @@ const LOAD_FAULT_MESSAGE: &str =
 ///   `Display`. The crate's error vocabulary puts its detail in `#[source]` fields —
 ///   `{path} is not valid UTF-8` names the file and nothing about the decode — and
 ///   `Display` alone drops every one of them.
+/// - `lock_engine` is the committed lock's engine stamp as the caller read it, and where
+///   it disagrees with [`crate::VERSION`] the message leads with
+///   [`engine_skew_lead`]: a rejection of rows a *different* compiler wrote is a
+///   different diagnosis from a rejection of this engine's own, and the author cannot
+///   tell them apart from a closed-vocabulary complaint alone. `None` is **unknown**, never
+///   a verdict — an absent lock, a stamp-less older lock, and a workspace that would not
+///   resolve all reach it, and each keeps the bare detail chain, exactly as the
+///   `engine-matches` clause stays silent on absent evidence. A same-stamp lock is the
+///   ordinary case and reads identically to `None`.
 ///
 /// The peer of `compose::frontmatter_fault_diagnostic`, which lowers three *named*
 /// frontmatter faults to `member.load-fault` and re-raises the rest. That one is a
@@ -203,16 +233,21 @@ const LOAD_FAULT_MESSAGE: &str =
 /// was raised, and its whole purpose is to have a reporter to hand it to — so it lives
 /// here, beside [`Diagnostic`] and the reporters that render it.
 #[must_use]
-pub fn load_fault(report: &miette::Report, artifact: impl Into<String>) -> Diagnostic {
+pub fn load_fault(
+    report: &miette::Report,
+    artifact: impl Into<String>,
+    lock_engine: Option<&str>,
+) -> Diagnostic {
     let rule = report
         .code()
         .map_or_else(|| LOAD_FAULT_RULE.to_string(), |code| code.to_string());
     let detail: Vec<String> = report.chain().map(ToString::to_string).collect();
-    Diagnostic::error(
-        rule,
-        artifact,
-        format!("{LOAD_FAULT_MESSAGE}: {}", detail.join(": ")),
-    )
+    let fault = format!("{LOAD_FAULT_MESSAGE}: {}", detail.join(": "));
+    let message = match lock_engine.filter(|stamp| *stamp != crate::VERSION) {
+        Some(stamp) => format!("{}: {fault}", engine_skew_lead(stamp)),
+        None => fault,
+    };
+    Diagnostic::error(rule, artifact, message)
 }
 
 impl miette::Diagnostic for Diagnostic {
@@ -373,6 +408,26 @@ mod tests {
         assert!(!any_error(std::slice::from_ref(&warn)));
         // A warn alongside an error still fails the run.
         assert!(any_error(&[warn, error]));
+    }
+
+    #[test]
+    fn a_load_fault_leads_with_the_skew_only_when_the_stamps_disagree() {
+        let report = miette::miette!("lock clause row names predicate `not_a_predicate`");
+        let bare = load_fault(&report, "/repo", None);
+        // A same-stamp lock is the ordinary case, and reads identically to unknown: the
+        // lead is the whole difference between the two messages, never a reshuffle of
+        // the detail chain.
+        assert_eq!(load_fault(&report, "/repo", Some(crate::VERSION)), bare);
+        assert!(bare.message.starts_with(LOAD_FAULT_MESSAGE));
+
+        let skewed = load_fault(&report, "/repo", Some("0.0.0-elsewhere"));
+        // Both stamps, and the detail the bare fault already carried underneath.
+        assert!(skewed.message.contains("0.0.0-elsewhere"));
+        assert!(skewed.message.contains(crate::VERSION));
+        assert!(skewed.message.ends_with(&bare.message));
+        // One diagnostic either way, under the same rule and severity: the skew is a
+        // diagnosis the fault leads with, never a second finding.
+        assert_eq!((skewed.rule, skewed.severity), (bare.rule, bare.severity));
     }
 
     #[test]

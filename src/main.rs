@@ -284,13 +284,35 @@ fn main() -> miette::Result<ExitCode> {
             // exit rule below is unchanged: the hard placements still exit non-zero.
             let (diagnostics, announced) = match harness_diagnostics(&harness_path, &layers) {
                 Ok(gated) => gated,
-                Err(report) => (
-                    vec![check::load_fault(
-                        &report,
-                        harness_path.display().to_string(),
-                    )],
-                    check::Announcement::default(),
-                ),
+                Err(report) => {
+                    // A load fault over a lock *another* engine wrote leads with the
+                    // skew: the `engine-matches` clause that ordinarily says so is
+                    // judged inside a gate this run never reached, so without this the
+                    // author reads a closed-vocabulary rejection of rows their own
+                    // engine never wrote (`specs/model/pipeline.md`, "The lock").
+                    //
+                    // A failure-path-only second lock read — the healthy run below
+                    // never takes it, so the `lock_read_count` pins
+                    // (`tests/check_cost.rs`) are untouched. Both reads are
+                    // best-effort: a workspace that will not resolve, and a lock that
+                    // will not parse, pass `None` — *unknown*, never a forged stamp,
+                    // and never a second fault stacked on the one being reported.
+                    let lock_engine = resolve_harness_path(&harness_path)
+                        .ok()
+                        .and_then(|resolved| {
+                            let (workspace, _) = resolved.gate_pair(&harness_path);
+                            drift::read_engine(&workspace).ok()
+                        })
+                        .flatten();
+                    (
+                        vec![check::load_fault(
+                            &report,
+                            harness_path.display().to_string(),
+                            lock_engine.as_deref(),
+                        )],
+                        check::Announcement::default(),
+                    )
+                }
             };
 
             match reporter {
@@ -888,6 +910,22 @@ enum HarnessPath {
     Raw,
 }
 
+impl HarnessPath {
+    /// The `(workspace, root)` pair this answer gates through, given the path argument it
+    /// was resolved from — the one home for "which workspace does this spelling read its
+    /// lock from, and which tree does it walk". Two callers read it: the gate itself
+    /// ([`harness_diagnostics`]) and, on the failure path alone, the lock-stamp read that
+    /// lets a load fault name the engine that wrote the lock. A second copy of the match
+    /// is exactly how the two could come to disagree about which lock a spelling names.
+    fn gate_pair(self, harness_path: &Path) -> (PathBuf, PathBuf) {
+        match self {
+            Self::Root { workspace, .. } => (workspace, harness_path.to_path_buf()),
+            Self::Workspace { enclosing } => (harness_path.to_path_buf(), enclosing),
+            Self::Raw => (harness_path.to_path_buf(), harness_path.to_path_buf()),
+        }
+    }
+}
+
 /// Resolve a path argument to the harness it names, and resolve it *whole*: a
 /// workspace and the harness root its corpus is discovered from always name the same
 /// harness.
@@ -949,11 +987,7 @@ fn harness_diagnostics(
     harness_path: &Path,
     layers: &[PathBuf],
 ) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
-    let (workspace, root) = match resolve_harness_path(harness_path)? {
-        HarnessPath::Root { workspace, .. } => (workspace, harness_path.to_path_buf()),
-        HarnessPath::Workspace { enclosing } => (harness_path.to_path_buf(), enclosing),
-        HarnessPath::Raw => (harness_path.to_path_buf(), harness_path.to_path_buf()),
-    };
+    let (workspace, root) = resolve_harness_path(harness_path)?.gate_pair(harness_path);
     let (diagnostics, mut announcement) = gate::gate(&workspace, &root, layers)?;
     if root != harness_path {
         announcement.harness_root = Some(root.display().to_string());

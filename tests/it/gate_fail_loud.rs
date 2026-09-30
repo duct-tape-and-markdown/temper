@@ -11,6 +11,8 @@ use std::path::Path;
 
 use crate::common;
 
+use temper::drift::{ClauseRow, Declarations};
+
 /// A skill clean against the floor (lowercase `name` matching its directory, a present
 /// short description) — the real Claude Code locus (`.claude/skills/<name>/SKILL.md`),
 /// never a layout invented for the test.
@@ -542,5 +544,103 @@ fn a_lock_carrying_two_requirement_rows_with_the_same_name_refuses_loud() {
     assert!(
         load_faults[0].contains("docs"),
         "the refusal names the colliding key, got: {findings:#?}"
+    );
+}
+
+/// The stamp the skewed arm rewrites its lock's engine key to — a version string no
+/// build of this crate carries, so the arm cannot pass by coincidence, and deliberately
+/// unordered against [`temper::VERSION`]: the message names both stamps without claiming
+/// which is newer, because nothing in the sanctioned crate set does semver.
+const OTHER_ENGINE: &str = "0.0.0-elsewhere";
+
+/// Write `root`'s lock carrying one clause row whose predicate is outside the closed
+/// vocabulary — the corruption the gate refuses at load, before any clause is judged —
+/// and return the lock's path so a caller can restamp it.
+fn write_unliftable_lock(root: &Path) -> std::path::PathBuf {
+    common::write_lock(
+        root,
+        Declarations {
+            clauses: vec![ClauseRow {
+                kind: Some("skill".to_string()),
+                ..common::clause("not_a_predicate", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+    root.join(temper::WORKSPACE_DIR).join(temper::LOCK_FILENAME)
+}
+
+#[test]
+fn a_load_fault_over_another_engines_lock_names_both_versions_and_the_remedy() {
+    // The gap the `engine-matches` clause cannot cover: that clause is judged *inside*
+    // the gate, so a lock this engine cannot even lift its rows off never reaches it.
+    // Read bare, the author gets a closed-vocabulary complaint about rows their own
+    // engine never wrote — the one reading that sends them hunting a corruption that
+    // isn't there. `specs/model/pipeline.md`, "The lock": a gate run by a different
+    // engine says so.
+    let root = common::tmpdir("engine-skew-load-fault");
+    common::write_skill(&root, "coordinate", CLEAN_SKILL);
+    let lock = write_unliftable_lock(&root);
+
+    // The same lock, twice, differing in exactly one byte-range: its engine stamp. Emit
+    // is the lock's sole writer and stamps this engine, so the skew is authored by
+    // restamping the file the writer produced — the shape a real cross-engine lock has.
+    let same_stamp = fs::read_to_string(&lock).unwrap();
+    assert!(
+        same_stamp.contains(&format!("engine = \"{}\"", temper::VERSION)),
+        "emit must stamp the lock it writes with this engine, got:\n{same_stamp}"
+    );
+    let skewed = same_stamp.replace(temper::VERSION, OTHER_ENGINE);
+
+    fs::write(&lock, &skewed).unwrap();
+    let (skew_findings, skew_ok) = check_in(&root, &["."]);
+    fs::write(&lock, &same_stamp).unwrap();
+    let (same_findings, same_ok) = check_in(&root, &["."]);
+
+    // Both arms are the same verdict on the same corruption: one fatal load fault, no
+    // exit-zero. The skew is a diagnosis the fault leads with, never a second finding
+    // and never a changed verdict.
+    for (findings, ok, arm) in [
+        (&skew_findings, skew_ok, "skewed"),
+        (&same_findings, same_ok, "same-stamp"),
+    ] {
+        assert!(
+            !ok,
+            "the {arm} lock's out-of-vocabulary row must exit non-zero, got: {findings:#?}"
+        );
+        assert_eq!(
+            common::findings_for(findings, "gate.load-fault").len(),
+            1,
+            "the {arm} lock's fatal row is the run's one finding, got: {findings:#?}"
+        );
+    }
+
+    let skew_fault = &common::findings_for(&skew_findings, "gate.load-fault")[0];
+    assert!(
+        skew_fault.contains(OTHER_ENGINE) && skew_fault.contains(temper::VERSION),
+        "the skewed lock's fault must name both engine versions, got: {skew_fault}"
+    );
+    assert!(
+        skew_fault.contains("read it with the engine it names"),
+        "the skewed lock's fault must carry the remedy, got: {skew_fault}"
+    );
+    // The rejection itself survives underneath the lead: the skew explains the fault, it
+    // does not replace it.
+    assert!(
+        skew_fault.contains("not_a_predicate"),
+        "the skewed lock's fault must still name the offending predicate, got: {skew_fault}"
+    );
+
+    // The same lock written by *this* engine keeps the plain vocabulary rejection — no
+    // version sentence, so a same-stamp corruption is never dressed as a skew.
+    let same_fault = &common::findings_for(&same_findings, "gate.load-fault")[0];
+    assert!(
+        same_fault.contains("not_a_predicate"),
+        "the same-stamp lock's fault must name the offending predicate, got: {same_fault}"
+    );
+    assert!(
+        !same_fault.contains("read it with the engine it names")
+            && !same_fault.contains(OTHER_ENGINE),
+        "a same-stamp lock's fault must carry no engine-skew sentence, got: {same_fault}"
     );
 }
