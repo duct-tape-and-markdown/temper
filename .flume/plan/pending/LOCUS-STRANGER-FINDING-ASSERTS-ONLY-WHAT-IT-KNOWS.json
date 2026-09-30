@@ -1,0 +1,58 @@
+{
+  "tag": "LOCUS-STRANGER-FINDING-ASSERTS-ONLY-WHAT-IT-KNOWS",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "`undeclared_locus_members_from_doc`'s finding (the `yet Claude Code loads it` tail) appends the loader clause only where `!site.custom` — the fact is already threaded as `LocusMemberSite::custom`. The doc paragraph above it states the same claim and moves with it."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "`undeclared_locus_message` (pre edge) takes the matched `GuardedLocus`'s `custom` and drops the loader clause for a custom kind — its doc already requires the three placements speak one fact in one wording. `GUARD_SHELL_EDGE_LOCUS_MESSAGE` and `GUARD_SHELL_EDGE_MESSAGE` (post edge) drop `this call left …`: the post edge enumerates the tree, so it states the tree's condition and never the call's authorship."
+      },
+      {
+        "path": "sdk/src/assembly.ts",
+        "description": "`rootDefaultContract`'s `locus-declared` guidance is kind-agnostic, so it cannot drop the teaching: qualify the loader sentence to the kinds the harness ships rather than asserting it of every governed locus."
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "Regenerated, never hand-edited: re-run the memberless emit and re-embed the declaration rows verbatim (this file's own header). Only `root.locus-declared`'s `guidance` moves; `tests/it/builtin_lock_frozen.rs` byte-compares."
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "The fixture harness's committed lock carries the same guidance row — re-emitted with the SDK change."
+      },
+      {
+        "path": "tests/it/cli.rs",
+        "description": "The post-edge guard assertions keep the `temper-governed locus` / `temper-managed projection drift` keys and gain the negative: neither preamble claims the call wrote what it names."
+      },
+      {
+        "path": "tests/it/coverage_note.rs",
+        "description": "New test, the one that would have caught this: its `widget` custom kind's locus stray asserts no loader claim while the built-in `rule`/`skill` stray in the same file still carries it — both arms pinned non-vacuously."
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
+        "description": "Carries the emitted `root.locus-declared` guidance row; accepted with the SDK wording change."
+      }
+    ]
+  },
+  "summary": "The stray-at-a-governed-locus message family drops two claims temper cannot substantiate: a loader claim for a custom kind, and authorship at the post edge.",
+  "per": { "path": "specs/distribution.md", "section": "The placements and their enforcement modes" },
+  "tests": [
+    {
+      "path": "tests/it/coverage_note.rs",
+      "asserts": "a custom kind's locus stray names no loader; a built-in kind's still does"
+    },
+    {
+      "path": "tests/it/cli.rs",
+      "asserts": "the post edge's two preambles name the tree's condition, never the call as the writer"
+    },
+    {
+      "path": "tests/it/builtin_lock_frozen.rs",
+      "asserts": "the regenerated builtin lock still byte-matches the SDK module's own rows"
+    }
+  ],
+  "acceptance": "cargo test green (including the two new assertions and the accepted gauntlet snapshot) and pnpm --dir sdk test green.",
+  "notes": "Stance: `custom` is the exact discriminator — `dial` and `settings-local`, the two shipped kinds Claude Code does not load, both declare a `local` commitment class, so their documents derive rows at read time and can never reach this finding. Root `.temper/lock.toml` goes stale until a human `chore(harness)` re-emit, the standing pattern (b0665cae shipped this guidance the same way). scoped at 44d4db77"
+}

@@ -1,17 +1,18 @@
 # Plan state
 
 - Spec derived through: 86a4b214 — copied forward; the delta past it is empty.
-- Audited through: e9c6820b — four ships verified on disk, every gate re-tested.
-- Residue swept through: e9c6820b — one duplicate-surface gap filed.
+- Audited through: e9c6820b — copied forward.
+- Residue swept through: e9c6820b — copied forward.
 - Posture swept through: 7d695577 — copied forward; its forward window is
-  198 commits wide.
-- This tick: reconciled 2cbe66ac..HEAD — four ships and the 0.0.21 wave
-  verified, one residue entry filed, one deferred entry's cites refreshed.
+  202 commits wide.
+- This tick: drained the inbox — three notes routed into two open entries,
+  both reproduced on disk before scoping.
 - Queue: 8 pending — 2 open, 3 parked, 3 deferred. Pickable: 2 —
-  ENGINE-AND-SDK-CARRY-ONE-VERSION and LOCK-READ-COUNTS-HAVE-ONE-HOME,
-  mutually disjoint; LOCK-READ shares src/install.rs only with a deferred
-  entry, never picked. Open forks: 1. Friction: 2 (both live). Amendments: 0.
-  Refactor: 0. Inbox: 0.
+  LOCUS-STRANGER-FINDING-ASSERTS-ONLY-WHAT-IT-KNOWS and
+  LOCK-ENGINE-SKEW-NAMES-BOTH-VERSIONS, file-disjoint and on different
+  seams (message text vs. load-fault lowering). LOCUS-STRANGER shares
+  src/install.rs only with a deferred entry, never picked. Open forks: 1.
+  Friction: 2 (both live). Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture sweep is the one remaining live
-input and two pickable entries ship first.
+Plan continues: yes — post-ship reconciliation of e9c6820b..HEAD, two ships
+(26b5798d, d48ce8c7) unaudited and unswept.
