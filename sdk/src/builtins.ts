@@ -11,7 +11,8 @@
  */
 
 import { kind } from "./kind.js";
-import type { KindDefinition, Residue } from "./kind.js";
+import type { KindDefinition, Member, MemberInit, Residue } from "./kind.js";
+import { isNameQualifier } from "./member-address.js";
 import type { Prose } from "./prose.js";
 import {
   allowedChars,
@@ -510,6 +511,33 @@ export const HOOK_HANDLER_KEY = "hooks";
 export const HOOK_MATCHER_KEY = "matcher";
 
 /**
+ * A hook member's **name** — its lifecycle `event`, then `:` and the matcher's authored
+ * bytes; the bare event where the group binds no matcher
+ * (`hook:PostToolUse:Edit|Write`, `hook:SessionStart`).
+ *
+ * Name and collection key part company because the **group** is the member and the event
+ * keys them all: Claude Code nests several matcher groups under one event, and two
+ * members at one address is a malformed lock. The matcher is joined verbatim, never
+ * normalized — `Edit|Write` and `Edit, Write` are two groups on the wire and two members
+ * here — which is also why an authored empty matcher joins as the empty bytes it is.
+ */
+export function hookMemberName(event: string, matcher: string | undefined): string {
+  return matcher === undefined ? event : `${event}:${matcher}`;
+}
+
+/**
+ * The `hooks.<Event>` collection key a hook member's name was joined onto — its text
+ * before its own first `:`. The inverse of {@link hookMemberName} for the one reader that
+ * needs the key back: a registration row keys where the group writes, and the group still
+ * writes under `hooks.<Event>` (`declarations.ts`). No documented lifecycle event carries
+ * a colon, so the first one is the join's.
+ */
+export function hookCollectionKey(name: string): string {
+  const colon = name.indexOf(":");
+  return colon < 0 ? name : name.slice(0, colon);
+}
+
+/**
  * `hook` — a `settings.json` `hooks.<Event>` registration member: a fields-only kind (no
  * body slot), its members discovered off the `.claude/settings.json` manifest at the
  * `hooks.<Event>` collection address, keyed by lifecycle event; registers on the `event`
@@ -520,7 +548,7 @@ export const HOOK_MATCHER_KEY = "matcher";
  * group's `hooks` array. An embedded layer, so it carries no `path` — a handler owns no
  * unit of its own, unlike `skill`'s file-child twin.
  */
-export const hook: KindDefinition<Hook> = kind<Hook>({
+const hookGroup: KindDefinition<Hook> = kind<Hook>({
   name: "hook",
   locus: { kind: "at", root: ".claude", glob: SETTINGS_MANIFEST },
   unitShape: "file",
@@ -534,6 +562,39 @@ export const hook: KindDefinition<Hook> = kind<Hook>({
   templates: [{ kind: handler }],
   guidance:
     "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings).",
+});
+
+/**
+ * The one kind whose member name is not the `name` the author wrote: the author names the
+ * lifecycle **event**, and the member's identity is that event joined with its matcher
+ * ({@link hookMemberName}), because the event keys every group under it and two members
+ * at one address is a malformed lock. The authored property keeps the event, so the
+ * module the lift scaffolds and the row the emit writes both spell the key the wire uses;
+ * the composition happens here, once, rather than at every reader of a hook's address.
+ *
+ * # Throws
+ * If the matcher carries a `/` — the separator the member-address grammar cuts an
+ * address at, which in a name truncates the member and re-seats every handler beneath it
+ * ({@link isNameQualifier}).
+ */
+function hookMember(init: MemberInit<Hook>): Member {
+  if (init.matcher !== undefined && !isNameQualifier(init.matcher)) {
+    throw new Error(
+      `hook \`${init.name}\`: matcher \`${init.matcher}\` carries a \`/\`, and a hook's name ` +
+        `joins its matcher after a \`:\` (\`hook:${init.name}:${init.matcher}\`) — the \`/\` is ` +
+        `the separator an address is cut at, so the member and its handlers would answer to ` +
+        `an address naming something else (specs/model/representation.md, "member").`,
+    );
+  }
+  return hookGroup({ ...init, name: hookMemberName(init.name, init.matcher) });
+}
+
+/** The authored `hook` constructor — {@link hookGroup}'s facts over {@link hookMember}'s
+ * name composition. */
+export const hook: KindDefinition<Hook> = Object.assign(hookMember, {
+  facts: hookGroup.facts,
+  key: hookGroup.key,
+  render: hookGroup.render,
 });
 
 /**

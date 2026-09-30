@@ -251,8 +251,8 @@ fn a_two_handler_group_is_one_hook_member_with_a_handler_child_per_position() {
         "exactly the second handler, missing its `url`, fires, got: {findings:#?}"
     );
     assert!(
-        no_url[0].contains("hook:PreToolUse/handler/1"),
-        "the finding names the handler's own address, got: {}",
+        no_url[0].contains("hook:PreToolUse:Bash/handler/1"),
+        "the finding names the handler's own address, host name and all, got: {}",
         no_url[0]
     );
     assert!(
@@ -407,6 +407,163 @@ fn an_unrepresented_settings_json_still_infers_its_hook_members() {
     assert!(!reads[0].opaque_fields.contains_key("hooks"));
 }
 
+/// A `.claude/settings.json` whose `PostToolUse` event carries **two** matcher groups —
+/// the shape the bare-event name read as one address twice — beside a matcher-less
+/// `Stop` group. Each group's one handler is an `http` with nowhere to POST, so every
+/// group raises exactly one finding and the finding's address is what names the group.
+const TWO_GROUP_SETTINGS: &str = r#"{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit|Write", "hooks": [ { "type": "http" } ] },
+      { "matcher": "Bash", "hooks": [ { "type": "http" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "http" } ] }
+    ]
+  }
+}"#;
+
+#[test]
+fn two_groups_on_one_event_are_two_members_at_distinct_addresses() {
+    // A member's name is its event, then `:` and the matcher's authored bytes; a group
+    // binding no matcher keeps the bare event. The event alone named all three members
+    // here, and two of them at one address.
+    let harness = common::tmpdir("hook-two-groups-one-event");
+    write_settings(&harness, TWO_GROUP_SETTINGS);
+
+    let address = hook_kind().collection_address.unwrap();
+    let reads = common::manifest_members(&harness, &hook_kind());
+    let names: Vec<(String, String)> = reads[0]
+        .members
+        .iter()
+        .map(|member| (member.key.clone(), member.name(&address)))
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            (
+                "PostToolUse".to_string(),
+                "PostToolUse:Edit|Write".to_string()
+            ),
+            ("PostToolUse".to_string(), "PostToolUse:Bash".to_string()),
+            ("Stop".to_string(), "Stop".to_string()),
+        ],
+        "the key stays the bare event — `hooks.<Event>` is where the group still writes"
+    );
+
+    // The name is the unit's id, and the key-field value stays the bare event, so the
+    // `hook.enum.event` clause still ranges over a documented value.
+    let unit = reads[0].members[0].to_unit(&address, &reads[0].provenance.source_path);
+    assert_eq!(unit.id, "PostToolUse:Edit|Write");
+    assert_eq!(
+        unit.frontmatter.get("event"),
+        Some(&serde_json::json!("PostToolUse"))
+    );
+
+    // And the address the name spells round-trips: the grammar splits at the *first*
+    // colon, so the kind comes off and the matcher rides on inside the name.
+    let host = temper::member_address::host_address("hook", &unit.id);
+    assert_eq!(
+        temper::member_address::parse_host_address(&host),
+        Some(("hook", "PostToolUse:Edit|Write"))
+    );
+}
+
+#[test]
+fn each_group_on_one_event_is_judged_and_addressed_as_its_own_member() {
+    // The same three groups end to end through the gate: three `hook` members, three
+    // `handler` members, and three findings whose addresses tell the two `PostToolUse`
+    // groups apart. On the bare-event name the two of them shared one address.
+    let harness = common::tmpdir("hook-two-groups-gate");
+    write_settings(&harness, TWO_GROUP_SETTINGS);
+
+    let (findings, ok) = check_harness(&harness);
+
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("hook (3)") && checked[0].contains("handler (3 embedded)"),
+        "each group is its own member, got: {}",
+        checked[0]
+    );
+
+    let no_url = common::findings_for(&findings, "handler.when.type=http.required.url");
+    for address in [
+        "hook:PostToolUse:Edit|Write/handler/0",
+        "hook:PostToolUse:Bash/handler/0",
+        "hook:Stop/handler/0",
+    ] {
+        assert_eq!(
+            no_url
+                .iter()
+                .filter(|finding| finding.contains(address))
+                .count(),
+            1,
+            "exactly one finding names `{address}`, got: {findings:#?}"
+        );
+    }
+    assert_eq!(
+        no_url.len(),
+        3,
+        "three groups, three handler findings, got: {findings:#?}"
+    );
+    assert!(
+        common::findings_for(&findings, "hook.enum.event").is_empty(),
+        "both events are documented — the matcher rides the name, never the key, got: {findings:#?}"
+    );
+    assert!(
+        !ok,
+        "a handler missing its `url` fails the run, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_matcher_carrying_the_address_separator_refuses_loud() {
+    // The name is the first segment of every address beneath the member, so a `/` in it
+    // re-seats the group's handlers under an address naming nothing. Refused at the read,
+    // where `to_unit` is still infallible for every caller below it.
+    let address = hook_kind().collection_address.unwrap();
+    let err = json_manifest::Manifest::parse(
+        std::path::Path::new(".claude/settings.json"),
+        r#"{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit/Write", "hooks": [ { "type": "command", "command": "echo hi" } ] }
+    ]
+  }
+}"#,
+        &[&address],
+    )
+    .expect_err("a matcher carrying the address separator is refused");
+
+    let rendered = err.to_string();
+    assert!(
+        rendered.contains("PostToolUse:Edit/Write") && rendered.contains("matcher"),
+        "the refusal names the member the join would have spelled and the field it came \
+         from, got: {rendered}"
+    );
+
+    // And the sibling group is not collateral: a `/`-free matcher reads as it always did.
+    assert!(
+        json_manifest::Manifest::parse(
+            std::path::Path::new(".claude/settings.json"),
+            r#"{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit|Write", "hooks": [ { "type": "command", "command": "echo hi" } ] }
+    ]
+  }
+}"#,
+            &[&address],
+        )
+        .is_ok()
+    );
+}
+
 #[test]
 fn the_hook_default_contract_fires_on_an_undocumented_event() {
     let harness = common::tmpdir("hook-broken-event");
@@ -531,7 +688,7 @@ fn the_handler_default_contract_fires_on_a_handler_breaking_its_kinds_documented
         "exactly the command handler missing its `command` fires, got: {findings:#?}"
     );
     assert!(
-        no_command[0].contains("hook:PreToolUse/handler/0"),
+        no_command[0].contains("hook:PreToolUse:Bash/handler/0"),
         "the finding names the handler, not its host hook, got: {}",
         no_command[0]
     );

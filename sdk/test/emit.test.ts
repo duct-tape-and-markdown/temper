@@ -2269,6 +2269,61 @@ test("a tap hook joins an authored group at the same (event, matcher) as a furth
   assert.deepEqual(emit(h).registrations, result.registrations);
 });
 
+test("two matcher groups on one event are two members at one collection key", () => {
+  // 0074's split. The group is the member, and one event keys every group under it, so
+  // the member's name joins the matcher's authored bytes onto the event while the row
+  // keeps keying `hooks.<Event>` — where the group still writes. On the bare-event name
+  // these two were one address twice.
+  const onWrite = hook({
+    name: "PostToolUse",
+    matcher: "Edit|Write",
+    hooks: [{ type: "command", command: "cargo fmt --quiet" }],
+  });
+  const onShell = hook({
+    name: "PostToolUse",
+    matcher: "Bash",
+    hooks: [{ type: "command", command: "temper guard ." }],
+  });
+  const onOpen = hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper check ." }] });
+
+  assert.deepEqual(
+    [onWrite.name, onShell.name, onOpen.name],
+    ["PostToolUse:Edit|Write", "PostToolUse:Bash", "SessionStart"],
+    "the matcher rides the name verbatim; a group binding none keeps the bare event",
+  );
+
+  // The rows key the event, and the two `PostToolUse` groups stay in authored order —
+  // the order Claude Code loads the event's array in.
+  const result = emit(harness({ members: [onWrite, onShell, onOpen] }));
+  assert.deepEqual(
+    result.registrations.map((r) => [r.key, r.fields.find(([f]) => f === "matcher")?.[1]]),
+    [
+      ["PostToolUse", "Edit|Write"],
+      ["PostToolUse", "Bash"],
+      ["SessionStart", undefined],
+    ],
+  );
+});
+
+test("hook() refuses a matcher carrying the address grammar's separator", () => {
+  // The name is the first segment of every address beneath the member, so a `/` in the
+  // matcher re-seats the group's handlers under an address naming something else.
+  assert.throws(
+    () =>
+      hook({
+        name: "PostToolUse",
+        matcher: "Edit/Write",
+        hooks: [{ type: "command", command: "cargo fmt --quiet" }],
+      }),
+    /matcher `Edit\/Write` carries a `\//,
+  );
+  // A `/`-free matcher is untouched — `|` and `,` are ordinary bytes in a name.
+  assert.equal(
+    hook({ name: "PostToolUse", matcher: "Edit, Write", hooks: [{ type: "command", command: "x" }] }).name,
+    "PostToolUse:Edit, Write",
+  );
+});
+
 test("a script verifier synthesizes no tap hook", () => {
   const result = emit(fullHarness());
   assert.deepEqual(result.registrations, []);

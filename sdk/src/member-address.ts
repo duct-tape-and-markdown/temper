@@ -81,6 +81,25 @@ export function isOneSegment(spelling: string): boolean {
 }
 
 /**
+ * Whether `spelling` may be joined onto a member's name as a **qualifier** — the text a
+ * name carries after its own `:` to tell two members apart that share a collection key (a
+ * hook's matcher: `PostToolUse:Edit|Write`).
+ *
+ * The bar is {@link isOneSegment}'s, less its non-emptiness: a qualifier joins a non-empty
+ * key, so the joined name is non-empty whatever the qualifier is, and an **empty**
+ * qualifier is a real authored spelling — a group whose `matcher` is `""` is its own group
+ * on the wire, and a matcher is carried verbatim, never normalized. What it may not carry
+ * is the `/` {@link segment} cuts an address at: the joined name is the first segment of
+ * every address beneath the member, so a `/` in it shifts every segment below by one and
+ * the member's own handler answers to an address naming no member at all.
+ *
+ * The engine's `is_name_qualifier` is the same predicate at the seam's other end.
+ */
+export function isNameQualifier(spelling: string): boolean {
+  return !spelling.includes("/");
+}
+
+/**
  * Spell one leaf's address beneath a nested member. `member` is carried verbatim, so a
  * writer holding the bare member id spells the short form the lock already commits
  * ({@link LeafAddress.member}).
@@ -121,6 +140,13 @@ export function edgeLookupKey(address: string, to: readonly string[]): string {
  * ({@link parseNestedAddress}, {@link parseLeafAddress}) and no host address at all. The
  * refusal lives here rather than at each caller, so a reader that asks "is this a host
  * address?" never has to re-spell the separator to get the answer right.
+ *
+ * A name carrying a colon is not hypothetical: a hook's name is its lifecycle event, then
+ * `:` and its matcher's authored bytes (`hook:PostToolUse:Edit|Write`), because the
+ * matcher group — not the event — is the member. The grammar is unchanged by it: the
+ * split is at the first colon, so the kind comes off and the rest stays one name, and the
+ * qualifier joined onto it is judged by {@link isNameQualifier} rather than given a third
+ * segment.
  */
 export function parseHostAddress(address: string): HostAddress | undefined {
   if (address.includes("/")) return undefined;

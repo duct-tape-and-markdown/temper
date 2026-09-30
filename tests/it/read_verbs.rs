@@ -1609,7 +1609,7 @@ fn explain_narrates_a_composed_handler_member_the_gate_judged() {
         checked[0]
     );
 
-    let out = common::explain_in(&harness, "member:hook:PreToolUse/handler/0");
+    let out = common::explain_in(&harness, "member:hook:PreToolUse:Bash/handler/0");
     assert!(
         !out.contains("is in the surface"),
         "the member the gate judged resolves through `explain`, never as absent: {out}"
@@ -1635,7 +1635,7 @@ fn explain_narrates_a_composed_handler_member_the_gate_judged() {
          under: {out}"
     );
     assert!(
-        out.contains("`PreToolUse` (hook) contains it"),
+        out.contains("`PreToolUse:Bash` (hook) contains it"),
         "and reads as its host hook's composed child: {out}"
     );
 }

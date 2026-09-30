@@ -41,6 +41,15 @@ pub fn host_address(kind: &str, id: &str) -> String {
 /// Both halves are non-empty: an address names exactly one thing or the verb refuses, so
 /// `:name` and `kind:` name nothing rather than a member under an anonymous kind. Splits
 /// at the **first** colon, so a name carrying one stays whole.
+///
+/// A name carrying a colon is not hypothetical: a hook's name is its lifecycle event,
+/// then `:` and its matcher's authored bytes (`hook:PostToolUse:Edit|Write`, decision
+/// 0074), because the matcher group — not the event — is the member
+/// (`specs/model/representation.md`, "member"). That name is still **one** name: the
+/// split here is at the first colon, so the kind comes off and the rest stays whole,
+/// and no documented lifecycle event carries a colon of its own for the two to be
+/// confused over. The grammar is unchanged by it — which is why the qualifier the name
+/// joins is judged by [`is_name_qualifier`] rather than given a third segment.
 #[must_use]
 pub fn parse_host_address(address: &str) -> Option<AddressPair<'_>> {
     let (kind, name) = address.split_once(':')?;
@@ -74,6 +83,26 @@ pub fn nested_address(host: &str, kind: &str, key: &str) -> String {
 #[must_use]
 pub fn is_one_segment(spelling: &str) -> bool {
     !spelling.is_empty() && !spelling.contains('/')
+}
+
+/// Whether `spelling` may be joined onto a member's name as a **qualifier** — the text a
+/// name carries after its own `:` to tell two members apart that share a collection key
+/// (a hook's matcher: `PostToolUse:Edit|Write`, decision 0074).
+///
+/// The bar is the one [`is_one_segment`] enforces for a key, less its non-emptiness: a
+/// qualifier joins a non-empty key, so the joined name is non-empty whatever the
+/// qualifier is, and an **empty** qualifier is a real authored spelling — a group whose
+/// `matcher` is `""` is its own group on the wire, and a matcher is carried verbatim,
+/// never normalized. What it may not carry is the `/` [`segment`] cuts an address at:
+/// the joined name is the first segment of every address beneath the member, so a `/`
+/// in it shifts every segment below by one and the member's own handler answers to an
+/// address naming no member at all.
+///
+/// It lives here, beside the writer and the reader that must agree with it, rather than
+/// as a `contains('/')` at each refusing caller — the reason [`is_one_segment`] does.
+#[must_use]
+pub fn is_name_qualifier(spelling: &str) -> bool {
+    !spelling.contains('/')
 }
 
 /// One parsed **nested-member address** — `<host-address>/<kind>/<key>`
@@ -329,6 +358,53 @@ mod tests {
         assert_eq!(
             parse_leaf_address(&shifted).map(|leaf| (leaf.key, leaf.child_path)),
             Some(("authority", "rejected"))
+        );
+    }
+
+    #[test]
+    fn a_name_qualifier_admits_the_empty_spelling_and_refuses_the_separator() {
+        // The qualifier bar is `is_one_segment`'s, less its non-emptiness: a hook whose
+        // `matcher` is `""` is its own group on the wire, and the name it joins onto is
+        // non-empty whatever the qualifier holds.
+        for spelling in ["", "Edit|Write", "Edit, Write", "*", ".*", "a:b"] {
+            assert!(is_name_qualifier(spelling), "`{spelling}` qualifies a name");
+        }
+        assert!(!is_one_segment(""), "the empty spelling is no key");
+
+        // The one refusal: a `/` in the qualifier is a `/` in the name, and the name is
+        // the first segment of every address beneath the member.
+        for spelling in ["a/b", "/", "Edit|Write/"] {
+            assert!(
+                !is_name_qualifier(spelling),
+                "`{spelling}` carries the separator"
+            );
+        }
+
+        // Why: the joined name round-trips as one name, and its handler addresses beneath
+        // it — but only while the qualifier carries no separator.
+        let joined = host_address("hook", "PostToolUse:Edit|Write");
+        assert_eq!(
+            parse_host_address(&joined),
+            Some(("hook", "PostToolUse:Edit|Write"))
+        );
+        let handler = nested_address(&joined, "handler", "0");
+        assert_eq!(
+            parse_nested_address(&handler).map(|nested| (nested.host, nested.kind, nested.key)),
+            Some((joined.as_str(), "handler", "0"))
+        );
+
+        // And with one, every segment below shifts: the address the handler was written
+        // for reads at *leaf* grain instead, naming no member at all.
+        let shifted = nested_address(&host_address("hook", "PostToolUse:a/b"), "handler", "0");
+        assert!(parse_nested_address(&shifted).is_none());
+        assert_eq!(
+            parse_leaf_address(&shifted).map(|leaf| (
+                leaf.member,
+                leaf.kind,
+                leaf.key,
+                leaf.child_path
+            )),
+            Some(("hook:PostToolUse:a", "b", "handler", "0"))
         );
     }
 

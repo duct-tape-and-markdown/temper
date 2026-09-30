@@ -761,18 +761,23 @@ fn declared_kinds_with_overlaid(
 /// A manifest `kind`'s registration members as raw [`Unit`]s — every `hooks.<Event>` (or
 /// `mcpServers.*`) entry the host manifest carries at the kind's declared collection
 /// `address`, read from the pre-populated [`ManifestCache`] built once per manifest path.
-/// A member's id is its collection key, and that key surfaces under the address's key
-/// field when it names one (`hooks.<Event>` → `event`), so a clause can range over the
-/// lifecycle event a hook keys at. `satisfies` is left empty here — the caller folds it in
-/// off the lock, exactly as for a file member.
+/// A member's id is its [`name`](json_manifest::RegistrationMember::name) — its
+/// collection key plus whatever the entry shape lifts onto it — while the bare key
+/// surfaces under the address's key field when it names one (`hooks.<Event>` → `event`),
+/// so a clause can range over the lifecycle event a hook keys at. `satisfies` is left
+/// empty here — the caller folds it in off the lock, exactly as for a file member.
 ///
 /// Beside the units, the **embedded members** each entry nests: a matcher group's handlers
 /// arrive from the read kind-less ([`json_manifest::RegistrationMember::members`]), and
 /// this is the one site that knows the host kind, so this is where they become members of
 /// the child kind the host's `templates` column names — keyed
-/// `<host-address>/<kind>/<position>`. A host kind templating no embedded layer nests
-/// nothing, so its entries' nested column, if any, composes no member: the child kind is
-/// the host's declared fact, never a name this read invents.
+/// `<host-address>/<kind>/<position>`. The host segment is the member's own name and
+/// nothing shorter (`hook:PostToolUse:Edit|Write/handler/0`): a handler under a
+/// matcher-bearing group whose host segment were the bare key would name no member at
+/// all, and where two groups share an event, both handlers would name one address. A
+/// host kind templating no embedded layer nests nothing, so its entries' nested column,
+/// if any, composes no member: the child kind is the host's declared fact, never a name
+/// this read invents.
 ///
 /// # Errors
 ///

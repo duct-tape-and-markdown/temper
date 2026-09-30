@@ -446,7 +446,7 @@ field = "implemented-by"
 to = ["source"]
 
 [[declaration.satisfies]]
-member = "hook:PreToolUse"
+member = "hook:PreToolUse:Write|Edit|MultiEdit"
 requirement = "governance"
 
 [[declaration.satisfies]]

@@ -20,6 +20,7 @@ import {
   parseHostAddress,
   parseLeafAddress,
   parseNestedAddress,
+  isNameQualifier,
   isOneSegment,
 } from "../src/member-address.js";
 
@@ -59,6 +60,39 @@ test("one segment is non-empty and carries no separator", () => {
     kind: "decision",
     key: "authority",
     childPath: "rejected",
+  });
+});
+
+test("a name qualifier admits the empty spelling and refuses the separator", () => {
+  // The qualifier bar is `isOneSegment`'s, less its non-emptiness: a hook whose `matcher`
+  // is `""` is its own group on the wire, and the name it joins onto is non-empty
+  // whatever the qualifier holds.
+  for (const spelling of ["", "Edit|Write", "Edit, Write", "*", ".*", "a:b"]) {
+    assert.equal(isNameQualifier(spelling), true, `\`${spelling}\` qualifies a name`);
+  }
+  assert.equal(isOneSegment(""), false, "the empty spelling is no key");
+  for (const spelling of ["a/b", "/", "Edit|Write/"]) {
+    assert.equal(isNameQualifier(spelling), false, `\`${spelling}\` carries the separator`);
+  }
+
+  // Why: the joined name round-trips as one name, and its handlers address beneath it.
+  const joined = hostAddress("hook", "PostToolUse:Edit|Write");
+  assert.deepEqual(parseHostAddress(joined), { kind: "hook", name: "PostToolUse:Edit|Write" });
+  assert.deepEqual(parseNestedAddress(nestedAddress(joined, "handler", "0")), {
+    host: joined,
+    kind: "handler",
+    key: "0",
+  });
+
+  // With a separator in it, every segment below shifts and the handler's address reads at
+  // leaf grain, naming no member at all.
+  const shifted = nestedAddress(hostAddress("hook", "PostToolUse:a/b"), "handler", "0");
+  assert.equal(parseNestedAddress(shifted), undefined);
+  assert.deepEqual(parseLeafAddress(shifted), {
+    member: "hook:PostToolUse:a",
+    kind: "b",
+    key: "handler",
+    childPath: "0",
   });
 });
 

@@ -23,6 +23,7 @@ import {
   SETTINGS_MANIFEST,
   TELEMETRY_EVENT_HOOKS,
   hook,
+  hookCollectionKey,
   tapHookRegistration,
 } from "./builtins.js";
 import { hostAddress, leafAddress, nestedAddress } from "./member-address.js";
@@ -932,11 +933,17 @@ function nestedMemberRows(
 /**
  * The `registration` rows — every fields-only registration member (a hook, an MCP server)
  * erased for the manifest write face, kind-then-key sorted so double emit is byte-stable.
- * Each carries its identity (`kind`/`key`), its collection address (`manifest`/`keyPath`,
- * the wire's snake_case `key_path`), and its folded typed fields — the entry value the
- * engine's write face places under `key`. The authored half alone: the synthesized tap
- * hooks join these rows in {@link mergedRegistrationRows}, which is what both readers of
- * the family take.
+ * Each carries its **collection key** (`kind`/`key`), its collection address
+ * (`manifest`/`keyPath`, the wire's snake_case `key_path`), and its folded typed fields —
+ * the entry value the engine's write face places under `key`. The authored half alone:
+ * the synthesized tap hooks join these rows in {@link mergedRegistrationRows}, which is
+ * what both readers of the family take.
+ *
+ * The row's `key` is where the entry **writes**, which for every kind but one is the
+ * member's own name. A hook's name joins its matcher onto the event because the group is
+ * the member, while the group still writes under `hooks.<Event>` — so the row keys the
+ * event back off the name ({@link hookCollectionKey}) and the member's address keeps the
+ * join.
  *
  * # Throws
  * If a fields-only member declares no collection address — it surfaces in no host manifest.
@@ -954,7 +961,7 @@ export function registrationRows(harness: Harness): RegistrationRow[] {
       }
       return {
         kind: member.kind,
-        key: member.name,
+        key: member.kind === hook.key ? hookCollectionKey(member.name) : member.name,
         manifest: address.manifest,
         key_path: address.keyPath,
         // The generated row carries a mutable field list; the member's is read-only, so

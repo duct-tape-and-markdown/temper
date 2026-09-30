@@ -105,6 +105,32 @@ pub struct RegistrationMember {
 }
 
 impl RegistrationMember {
+    /// This member's **name** — its collection key, then a `:` and each lifted value the
+    /// entry shape declares, in declared order (`PostToolUse:Edit|Write`).
+    ///
+    /// Name and key part company for one reason: an entry shape that lifts fields keys
+    /// several members at one collection key — Claude Code nests a matcher group per
+    /// entry of `hooks.<Event>`, and the group is the member — so the key alone names
+    /// them all and the address grammar demands exactly one thing per address. The
+    /// lifted values are the rest of the identity, joined verbatim and never normalized:
+    /// two groups the wire keeps apart stay two members here.
+    ///
+    /// Generic over the declared lifted fields, so no field name is spelled in this
+    /// module. A lifted field the entry does not carry contributes nothing (the bare key
+    /// is the whole name), and one carrying a non-string value contributes nothing
+    /// either — a name is text, and inventing one from a number or an object would name
+    /// a member by a rendering no author wrote. The `/` refusal the joined name rests on
+    /// is [`Manifest::parse`]'s, taken at the read, because this is infallible.
+    #[must_use]
+    pub fn name(&self, address: &CollectionAddress) -> String {
+        let mut name = self.key.clone();
+        for (_, qualifier) in name_qualifiers(&self.fields, &address.entry_shape) {
+            name.push(':');
+            name.push_str(qualifier);
+        }
+        name
+    }
+
     /// This registration member as a raw [`Unit`] for the shared extraction: its own object
     /// fields become the unit's frontmatter, and the collection key surfaces under the
     /// address's key field where it names one (`hooks.<Event>` → `event`), never
@@ -112,6 +138,11 @@ impl RegistrationMember {
     /// manifest read and the write guard both run, so neither can disagree about the fields
     /// a clause ranges over. `body`/`satisfies` are empty — a fields-only member carries
     /// neither, and the caller folds any `satisfies` off the lock.
+    ///
+    /// The unit's id is the member's [`name`](Self::name), not its key: the id is the
+    /// member's identity and several members may share one key. The key-field value is
+    /// the bare key, so a clause over the lifecycle event still ranges over the
+    /// documented value the wire carries.
     #[must_use]
     pub fn to_unit(&self, address: &CollectionAddress, source_path: &Path) -> Unit {
         let mut frontmatter = self.fields.clone();
@@ -130,7 +161,7 @@ impl RegistrationMember {
                 .or_insert_with(|| JsonValue::String(value));
         }
         Unit {
-            id: self.key.clone(),
+            id: self.name(address),
             frontmatter,
             body: String::new(),
             source_path: source_path.to_path_buf(),
@@ -307,6 +338,34 @@ pub enum JsonManifestError {
         path: PathBuf,
     },
 
+    /// A registration member's name would carry a `/` — a lifted value an entry shape
+    /// joins onto the collection key holds the separator the member-address grammar cuts
+    /// an address at, so the member and every member beneath it would answer to an
+    /// address naming something else. Refused at the read, loud: the name is the
+    /// member's identity, and a truncated one is a silently wrong answer from every verb
+    /// downstream.
+    #[error(
+        "{path}: `{collection}.{key}` names the member `{name}`, whose `{field}` carries a `/`"
+    )]
+    #[diagnostic(
+        code(temper::json_manifest::separator_in_member_name),
+        help(
+            "a lifted field joins the member's name after a `:`, so it may not carry the `/` an address is cut at — respell the value, or split the entry"
+        )
+    )]
+    SeparatorInMemberName {
+        /// The manifest the entry was read from.
+        path: PathBuf,
+        /// The collection the entry surfaces in (`hooks`).
+        collection: String,
+        /// The collection key the entry is filed under (the lifecycle event).
+        key: String,
+        /// The lifted field whose value carries the separator (`matcher`).
+        field: String,
+        /// The name the join would have spelled.
+        name: String,
+    },
+
     /// A JSON document carries no string value at its kind's declared identity key — the
     /// [`DocumentMember`] peer of [`crate::frontmatter::FrontmatterError::NoNamedFieldId`].
     #[error("{path} has no `{field}` key to name it")]
@@ -405,11 +464,23 @@ impl Manifest {
         for address in addresses {
             let collection = address.key_path.collection_key();
             consumed.insert(collection);
-            members.extend(manifest_members(
-                &manifest,
-                collection,
-                &address.entry_shape,
-            ));
+            for member in manifest_members(&manifest, collection, &address.entry_shape) {
+                // The one refusal the joined name rests on, taken here because
+                // `to_unit` is infallible and every consumer of a member's identity is
+                // downstream of this read.
+                for (field, qualifier) in name_qualifiers(&member.fields, &address.entry_shape) {
+                    if !crate::member_address::is_name_qualifier(qualifier) {
+                        return Err(JsonManifestError::SeparatorInMemberName {
+                            path: source_file.to_path_buf(),
+                            collection: member.collection.clone(),
+                            key: member.key.clone(),
+                            field: field.to_string(),
+                            name: member.name(address),
+                        });
+                    }
+                }
+                members.push(member);
+            }
         }
 
         let opaque_fields = manifest
@@ -639,6 +710,30 @@ pub(crate) fn enablement_entry_value(fields: &[(String, JsonValue)], field: &str
         .iter()
         .find(|(key, _)| key == field)
         .map_or(JsonValue::Bool(true), |(_, value)| value.clone())
+}
+
+/// The lifted `(field, value)` pairs a member's name joins onto its collection key — the
+/// declared lifted fields of a group-array entry shape, in declared order, each present in
+/// `fields` with a string value. Every other entry shape yields none: its key names one
+/// member, so the name is the key.
+///
+/// The one home both the join ([`RegistrationMember::name`]) and its `/` refusal
+/// ([`Manifest::parse`]) read, so the name a verb resolves and the name the read judged
+/// cannot come apart.
+fn name_qualifiers<'a>(
+    fields: &'a BTreeMap<String, JsonValue>,
+    entry_shape: &'a crate::kind::EntryShape,
+) -> Vec<(&'a str, &'a str)> {
+    let crate::kind::EntryShape::GroupArray { lifted_fields, .. } = entry_shape else {
+        return Vec::new();
+    };
+    lifted_fields
+        .iter()
+        .filter_map(|field| {
+            let value = fields.get(field)?.as_str()?;
+            Some((field.as_str(), value))
+        })
+        .collect()
 }
 
 /// One group a group-array read yields: the member's own fields (its lifted fields plus

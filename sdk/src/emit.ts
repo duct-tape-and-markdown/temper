@@ -751,7 +751,8 @@ function fileSourcePath(member: Member): string | undefined {
 export interface RegistrationFact {
   /** The erased registration kind — `hook`, `mcp-server` — joining `declarations.kinds`. */
   readonly kind: string;
-  /** The member's key among its collection's entries — a hook's event, a server's name. */
+  /** The collection key the entry writes under — a hook's event, a server's name. Not
+   * the member's own name where the two differ: a hook's name joins its matcher. */
   readonly key: string;
   /** The manifest collection address the registration surfaces at. */
   readonly collectionAddress: { readonly manifest: string; readonly keyPath: string };

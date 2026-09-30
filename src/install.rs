@@ -207,7 +207,8 @@ const GATE_HOOK_COUNT: usize = 3;
 struct GateHook {
     /// The placement row [`run`] and [`gate_installed`] report this hook under.
     placement: Placement,
-    /// The `hooks.<Event>` key — and the member's identity, since a hook's id is its event.
+    /// The `hooks.<Event>` key — the member's `name` property and its module stem, while
+    /// the member's own identity joins this with [`matcher`](Self::matcher).
     event: &'static str,
     /// The tool-name filter, absent on an event that fires unconditionally.
     matcher: Option<&'static str>,
@@ -1048,7 +1049,9 @@ fn schema_artifact_exists(root: &Path, kind: &str) -> bool {
 }
 
 /// The lifecycle events the program's own `hook` members claim — every `hooks.<Event>`
-/// key the lock carries a registration row for.
+/// key the lock carries a registration row for. A claim is per **collection key**, so it
+/// reads the row's key and never the member's own name, which joins the matcher onto it:
+/// two groups on one event are two members and one claimed event.
 ///
 /// Since the lift mints temper's gate as `hook` members ([`GATE_HOOKS`]), temper's own
 /// rows are in here too, so a claim alone no longer means supersession: the caller reads
@@ -2066,6 +2069,18 @@ const INLINE_PROSE_LINE_LIMIT: usize = 3;
 struct LiftedMember {
     /// The member id — its `name` property, and the module's file stem where that stem
     /// is free ([`module_stems`]).
+    ///
+    /// For a registration member this is the **collection key**, never the member's own
+    /// name: a hook's name joins its matcher, and the SDK's `hook()` composes that name
+    /// from the `name` property and the `matcher` field the module already spells. Both
+    /// facts this id serves want the key. The `name` property wants it because the SDK
+    /// composes the rest; the file stem wants it because `:` and `|` are reserved
+    /// characters in a Windows file name
+    /// (learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file, retrieved
+    /// 2026-09-29), [`module_stems`]' legality check is the platform's own parent
+    /// readback and passes both on unix, and the scaffold is committed — so a stem off
+    /// the joined name would write a `.temper/hooks/PostToolUse:Bash.ts` one adopter's
+    /// emit produced and another's machine could not check out.
     id: String,
     /// The fields to hoist into typed properties, in projection order.
     fields: Vec<(String, JsonValue)>,
@@ -2176,11 +2191,11 @@ fn claimed_collection_keys(discovery: &DiscoveryReport) -> BTreeMap<&Path, Vec<&
 ///
 /// A member's stem is its own id. That is the whole story for a file kind, whose ids come
 /// off disk — but two members can share one id: Claude Code nests several matcher groups
-/// under one lifecycle event and each is its own member (0063), and every `CLAUDE.md` on
-/// the tree folds to the same `memory` id. Their *identity* is not the id alone, and the
-/// address grammar does not yet spell the rest of it, so this allocates a distinct **file
-/// name** — the id, then the id with the next free ordinal — rather than inventing a
-/// spelling the ruling withheld. The module's `name` property stays the id either way.
+/// under one lifecycle event and each is its own member, and every `CLAUDE.md` on the
+/// tree folds to the same `memory` id. This allocates a distinct **file name** — the id,
+/// then the id with the next free ordinal. Deriving the stem from the member's own name
+/// instead is ruled out by [`LiftedMember::id`]: the joined name is not a portable file
+/// name. The module's `name` property stays the id either way.
 ///
 /// [`GATE_HOOKS`]' stems are reserved before any of them, so temper's own gate modules
 /// keep the fixed `hooks/<Event>.ts` names whatever the adopted project's `settings.json`
