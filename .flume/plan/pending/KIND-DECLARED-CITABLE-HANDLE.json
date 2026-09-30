@@ -2,7 +2,7 @@
   "tag": "KIND-DECLARED-CITABLE-HANDLE",
   "gate": {
     "kind": "deferred",
-    "reason": "An idea, not a defect (the raw note's own framing) — a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path, repo-rooted path) can't already express cleanly."
+    "reason": "An idea, not a defect (the raw note's own framing): no consumer exists. `EdgeTargetFacts` (sdk/src/kind.ts:841) declares the closed set as exactly five engine-derived facts and its doc says 'no convenience additions beyond'; no `handle` fact appears anywhere in `src/` or `sdk/src/`. Revive when a render hook wants a spelling those five (name, address, kind, host-relative path, repo-rooted path) cannot already express cleanly — the demand has to come from a hook author, not from the surface's own symmetry."
   },
   "dependsOnForks": [],
   "files": {
@@ -10,7 +10,7 @@
     "edit": [
       {
         "path": "sdk/src/kind.ts",
-        "description": "Anticipated: a `handle` fact on KindFacts, read by a render hook branching on target.kind, alongside the existing closed engine-derived target-fact set."
+        "description": "Anticipated: a `handle` fact on the kind declaration, surfaced to a render hook as a sixth member of `EdgeTargetFacts` (841) beside the five it closes over today. It is the one fact of the six read off the *target kind's* declaration rather than derived from the resolved target member, so admitting it widens what 'derived at emit, never authored at the instance' means — the argument the consumer must carry."
       }
     ],
     "retire": []
@@ -22,5 +22,5 @@
   },
   "tests": [],
   "acceptance": "A kind declaring `handle` lets a reference render hook spell a member of that kind without hand-rolling the branch on target.kind — provable once a real render hook wants one.",
-  "notes": "observed at ad10e8cb (cascade, idea). Compatible with the closed-set rule as a fifth engine-derived fact read off the target kind's declaration; the raw note itself calls this lower priority and not a defect. scoped at e1b26728"
+  "notes": "observed at ad10e8cb (cascade, idea). Gate re-tested this audit and rewritten: the closed set is five on disk, so a handle would be the sixth fact, not the fifth the prior spelling claimed. The reason's second clause — the containment-selection family as a live higher-priority fork — is retired: Decision 0052 resolved that fork, and no open question names it. scoped at 13b3d9b5"
 }
