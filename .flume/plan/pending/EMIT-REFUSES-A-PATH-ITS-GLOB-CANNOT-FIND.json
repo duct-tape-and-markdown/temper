@@ -1,0 +1,41 @@
+{
+  "tag": "EMIT-REFUSES-A-PATH-ITS-GLOB-CANNOT-FIND",
+  "gate": { "kind": "blockedBy", "tags": ["ONE-SPLICE-RULE-PLACES-EVERY-GLOB"] },
+  "summary": "Placement round-trips through discovery: refuse loud when a derived projection path is one its own kind's glob cannot find — a slashed member name among them",
+  "per": { "path": "specs/intent.md", "section": "Invariants" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "After `member_projection_path` derives a path, match it against the deriving kind's own glob through `crate::glob::compile_glob` (the one glob engine) — the path relative to `governs_root` for an `at` locus, relative to the host's unit for a nested file child — and refuse before a byte is written when it fails: a projection its glob cannot find is written yet ungoverned, counted `(0)` with no finding (invariant 6). New `DriftError` variants name the member, the derived path and the glob; a member name carrying a `/` gets its own refusal naming why — identity is a file stem or one starred segment, and `/` is the address separator — rather than the generic round-trip message."
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "`spliceName` refuses a member name carrying `/` with the same reason, so the SDK's link derivation fails at the author's program instead of handing the engine a name it will refuse; `projectionPath`'s doc comment names the round trip as the property the two derivations share."
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "The inbox reproduction as a test: a flat `*.json` kind with a member named `a/b/sub/x` refuses naming the separator rather than writing `docs/a/b/sub/x.json` outside its glob; and a derived path that fails its kind's glob refuses rather than emitting."
+      },
+      {
+        "path": "tests/it/projection_path_seam.rs",
+        "description": "The lane's harness covers every unit shape; assert each target's emitted `source_path` is matched by its own kind's glob, so agreement and discoverability are both frozen."
+      },
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "description": "The SDK half: a member name carrying `/` refuses at compose time, naming the address separator."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "The glob-compile count pin, if the round-trip match adds a distinct compile to the window the pin reads (the matcher is memoized per glob, so the expected delta is zero)."
+      }
+    ]
+  },
+  "tests": [
+    { "path": "tests/it/emit.rs", "asserts": "a name carrying `/` and a derived path its glob cannot match both refuse loud, before any byte is written" },
+    { "path": "tests/it/projection_path_seam.rs", "asserts": "every emitted member's path is discovered by its own kind's glob" },
+    { "path": "sdk/test/refusals.test.ts", "asserts": "the SDK refuses a `/`-carrying member name with the separator named" }
+  ],
+  "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with the two new refusals covered and every existing projection still round-tripping (the seam lane's per-target glob assertion passes for every unit shape it covers).",
+  "notes": "Routed from the inbox: notes 2 and 4 (observed at 040e2d1c / 022477c4). Discovery already descends multi-segment globs (`import::scan_locus`), so the round trip is a real property, not a new capability. Serialized behind the splice-rule entry: both rewrite `splice_name`/`member_projection_path` and their SDK twins. scoped at 6184091f"
+}

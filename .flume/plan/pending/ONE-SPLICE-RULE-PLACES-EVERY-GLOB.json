@@ -1,0 +1,37 @@
+{
+  "tag": "ONE-SPLICE-RULE-PLACES-EVERY-GLOB",
+  "gate": { "kind": "open" },
+  "summary": "One splice rule places every member: a leading `**/` collapses to zero segments and literal leading segments are fixed placement, so the `.md` hardcode goes",
+  "per": { "path": "specs/model/representation.md", "section": "locus" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "`splice_name` becomes the one name-through-a-glob rule: strip a leading `**/` to zero segments, then admit exactly one `*` confined to the final segment (the existing `*/<file>` starred-segment admission unchanged) and treat literal leading segments as fixed placement; `member_projection_path` loses its `glob.contains(\"**\")` → `format!(\"{name}.md\")` arm, so a `json-document`/`toml-document` kind at `**/sub/*.json` lands `sub/<name>.json` rather than `<name>.md`. `FlatGlobDepth`'s doc comment and message restate the narrowed rule (multi-star, or a `*` outside the final segment) instead of the retired 'single-segment or any-depth' one."
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "The forced twin of the same rule: `spliceName` gains the `**/` collapse and the literal-leading-segment admission, `projectionPath` loses its `glob.includes(\"**\")` → `${name}.md` branch, and `nestedFilePath`'s pattern splice stops refusing a multi-segment template path. The seam comment already states 'the two must agree'."
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "`a_single_star_and_any_depth_glob_project_to_the_expected_paths` asserts the `**/CLAUDE.md` member lands `CLAUDE.md` (the fixed-path class) rather than `<name>.md`; new cases cover the inbox reproduction (a `**/sub/*.json` kind's members landing `sub/<name>.json`) and a flat `sub/*.json` glob placing instead of refusing `FlatGlobDepth`."
+      },
+      {
+        "path": "tests/it/projection_path_seam.rs",
+        "description": "The frozen-agreement lane's target set and its doc comment name the any-depth branch that no longer exists; add a target whose glob carries a literal leading segment so both derivations are gated on the widened rule."
+      },
+      {
+        "path": "tests/it/nested_member.rs",
+        "description": "A host template path with a literal leading segment (`notes/*.md`) now composes under the host's unit instead of refusing `FlatGlobDepth` — the case whose own error text told the author to use a nesting kind."
+      }
+    ]
+  },
+  "tests": [
+    { "path": "tests/it/emit.rs", "asserts": "a `**`-glob kind projects its own format's path (`sub/<name>.json`), `**/CLAUDE.md` lands the fixed `CLAUDE.md`, and a literal leading segment places rather than refusing" },
+    { "path": "tests/it/projection_path_seam.rs", "asserts": "the SDK's `projectionPath` and the engine's `member_projection_path` still agree over every unit shape, now including a literal-leading-segment glob" },
+    { "path": "tests/it/nested_member.rs", "asserts": "a host template path carrying a leading literal directory composes `<host unit>/notes/<name>.md`" }
+  ],
+  "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with the projection-path seam lane passing over the widened rule; every built-in kind's projection is byte-unchanged (`memory`'s `CLAUDE.md`, `agent`'s `<name>.md`), so `temper emit` over `.temper/` rewrites nothing.",
+  "notes": "Routed from the inbox: notes 1 and 4 (observed at 040e2d1c / 022477c4). Shipped harnesses are unaffected — the only `**` kinds are `memory` (member `CLAUDE`) and `agent` (0 members), both landing exactly where they land today. A `*`-free derived path admits one member and two members of such a kind already coincide unrefused (pre-existing, `settings.json`'s class) — not this entry's. scoped at 6184091f"
+}

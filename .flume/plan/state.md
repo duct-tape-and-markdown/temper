@@ -1,19 +1,18 @@
 # Plan state
 
 - Spec derived through: 86a4b214 — copied forward; the delta past it is empty.
-- Audited through: 040e2d1c — e9c6820b..HEAD reconciled, both motions.
-- Residue swept through: 040e2d1c — one gap filed, one candidate cleared.
+- Audited through: 040e2d1c — copied forward; three ships past it, unreconciled.
+- Residue swept through: 040e2d1c — copied forward with the audit cursor.
 - Posture swept through: 7d695577 — copied forward; its forward window is
-  202 commits wide.
-- This tick: reconciled e9c6820b..HEAD — two ships verified on disk, and the
-  lock's last two hand-rolled readers filed as one fold.
-- Queue: 9 pending — 2 open, 1 blockedBy, 3 parked, 3 deferred. Pickable: 2 —
-  LOCUS-STRANGER-FINDING-ASSERTS-ONLY-WHAT-IT-KNOWS and
-  LOCK-ENGINE-SKEW-NAMES-BOTH-VERSIONS, file-disjoint and on different
-  seams (message text vs. load-fault lowering); both ripples reconciled as
-  noise this tick. SOURCE-DEP-LOCK-READS-HAVE-ONE-HOME waits on LOCUS-STRANGER
-  over src/drift.rs. Open forks: 1. Friction: 2 (both live). Amendments: 0.
-  Refactor: 0. Inbox: 0.
+  205 commits wide.
+- This tick: drained the inbox — five placement notes routed into one
+  five-entry spine over the member-placement seam.
+- Queue: 11 pending — 1 open, 4 blockedBy, 3 parked, 3 deferred. Pickable: 1 —
+  ONE-SPLICE-RULE-PLACES-EVERY-GLOB, the head of the spine
+  (splice rule → round-trip refusal → host-keyed identity, engine then SDK →
+  arbitrary depth); every link shares `src/drift.rs`, `sdk/src/emit.ts` or the
+  nested-file surfaces, so the chain is serialized on files and on seam.
+  Open forks: 1. Friction: 2 (both live). Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture sweep is the only live plan job and
-two entries are pickable, so the wave ships first.
+Plan continues: yes — post-ship reconciliation of 040e2d1c..HEAD: three ships
+(722b034c, ad4e6da9, 0b0357e1) landed in src/ past both cursors.

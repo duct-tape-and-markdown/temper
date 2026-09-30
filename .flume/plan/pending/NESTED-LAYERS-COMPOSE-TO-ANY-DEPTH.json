@@ -1,0 +1,41 @@
+{
+  "tag": "NESTED-LAYERS-COMPOSE-TO-ANY-DEPTH",
+  "gate": { "kind": "blockedBy", "tags": ["NESTED-FILE-CHILD-IS-HOST-KEYED-SDK"] },
+  "summary": "A nested-file member can host a further nested layer: the host's unit composes recursively, so nesting reaches arbitrary depth instead of stopping at one level",
+  "per": { "path": "specs/model/representation.md", "section": "nesting" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "`nested_file_path` stops demanding the host kind's `governs_root`: it composes the host's own unit through the same derivation (`member_projection_path`), so a host that is itself a nested-file member with a directory unit supplies an interior and depth is unbounded. A directory-unit child's template path names its entry file the way a directory kind's glob does, and a template cycle in the declared kind graph refuses loud rather than recursing (invariant 6)."
+      },
+      {
+        "path": "src/import.rs",
+        "description": "`discover_nested_file` recurses: a nested-file host owning a directory unit is itself scanned for the layers it templates, so a child two layers down is discovered rather than invisible; the declared-governed-path carve-out and the host-identity carry (from the host-keying entry) travel down with it."
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "`hostUnit` composes a `nested-file`-locus host's unit from its own host rather than refusing every locus but `at`, keeping the SDK's path derivation in agreement with the engine's at depth."
+      },
+      {
+        "path": "tests/it/nested_member.rs",
+        "description": "A two-layer corpus: an `area` directory-unit host templating a `page` directory-unit file child, itself templating a leaf child — projections at `<root>/<a>/<b>/<dir>/<key>.<ext>`, addresses `area:<a>/page/<b>/<kind>/<key>`, and a declared template cycle refusing."
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "`explain` resolves the two-layer address, composing through both hosts."
+      },
+      {
+        "path": "tests/it/projection_path_seam.rs",
+        "description": "The frozen-agreement lane gains a two-layer target, so the SDK and engine derivations are gated into agreement at depth, not only at one level."
+      }
+    ]
+  },
+  "tests": [
+    { "path": "tests/it/nested_member.rs", "asserts": "a child two layers down emits at its composed path, carries the two-host-composed address, and a template cycle refuses loud" },
+    { "path": "tests/it/read_verbs.rs", "asserts": "`explain` resolves `<host-kind>:<a>/<mid-kind>/<b>/<leaf-kind>/<key>`" },
+    { "path": "tests/it/projection_path_seam.rs", "asserts": "both derivations agree on a two-layer child's path" }
+  ],
+  "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with a two-layer corpus emitting, discovering and resolving at both layers, and a self-templating kind refused rather than looping.",
+  "notes": "Routed from the inbox: note 5 (observed at 022477c4). A multi-segment host name is not the answer — a name is one segment and `/` is the address separator. No new kind fact is needed: a `nested-file` locus already declares `unitShape`, so an intermediate layer owning a directory is expressible today; what refuses is the path composition and the discovery walk. Serialized last: it reshapes the same splice and host-identity surfaces as the four entries before it. scoped at 6184091f"
+}
