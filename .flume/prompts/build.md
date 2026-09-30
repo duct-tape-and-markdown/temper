@@ -49,9 +49,13 @@ alongside the code (`entry.tests[]` names what must turn green).
 # OUTPUT
 
 One commit on this worktree's branch, prefixed `build:`. Imperative subject;
-the body explains *why*. Never commit anywhere else — merging onto the trunk
-is the dispatcher's job, and a commit made off this branch is lost to ship
-bookkeeping.
+the body explains *why*. When the change breaks what an adopter authored or
+relied on — a CLI flag or output, an SDK export or signature, a lock or
+address spelling, a verdict an unchanged harness now receives — the body
+carries a line starting `BREAKING:` that names the break and its remedy;
+the release draft is mined from it. Never commit anywhere else — merging
+onto the trunk is the dispatcher's job, and a commit made off this branch is
+lost to ship bookkeeping.
 
 Gates run automatically against your commit and are the definition of done —
 run their commands and reach green before committing:
