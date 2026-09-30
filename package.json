@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "flume": "flume",
+    "changelog": "node scripts/build-changelog.mjs",
     "typecheck:chain": "tsc -p tsconfig.json"
   },
   "dependencies": {
