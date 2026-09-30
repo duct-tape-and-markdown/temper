@@ -1,9 +1,12 @@
 {
   "tag": "EMIT-REFUSES-A-PATH-ITS-GLOB-CANNOT-FIND",
-  "gate": { "kind": "blockedBy", "tags": ["ONE-SPLICE-RULE-PLACES-EVERY-GLOB"] },
-  "summary": "Placement round-trips through discovery: refuse loud when a derived projection path is one its own kind's glob cannot find — a slashed member name among them",
-  "per": { "path": "specs/intent.md", "section": "Invariants" },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/drift.rs",
@@ -29,12 +32,27 @@
         "path": "tests/it/check_cost.rs",
         "description": "The glob-compile count pin, if the round-trip match adds a distinct compile to the window the pin reads (the matcher is memoized per glob, so the expected delta is zero)."
       }
-    ]
+    ],
+    "retire": []
+  },
+  "summary": "Placement round-trips through discovery: refuse loud when a derived projection path is one its own kind's glob cannot find — a slashed member name among them",
+  "per": {
+    "path": "specs/intent.md",
+    "section": "Invariants"
   },
   "tests": [
-    { "path": "tests/it/emit.rs", "asserts": "a name carrying `/` and a derived path its glob cannot match both refuse loud, before any byte is written" },
-    { "path": "tests/it/projection_path_seam.rs", "asserts": "every emitted member's path is discovered by its own kind's glob" },
-    { "path": "sdk/test/refusals.test.ts", "asserts": "the SDK refuses a `/`-carrying member name with the separator named" }
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "a name carrying `/` and a derived path its glob cannot match both refuse loud, before any byte is written"
+    },
+    {
+      "path": "tests/it/projection_path_seam.rs",
+      "asserts": "every emitted member's path is discovered by its own kind's glob"
+    },
+    {
+      "path": "sdk/test/refusals.test.ts",
+      "asserts": "the SDK refuses a `/`-carrying member name with the separator named"
+    }
   ],
   "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with the two new refusals covered and every existing projection still round-tripping (the seam lane's per-target glob assertion passes for every unit shape it covers).",
   "notes": "Routed from the inbox: notes 2 and 4 (observed at 040e2d1c / 022477c4). Discovery already descends multi-segment globs (`import::scan_locus`), so the round trip is a real property, not a new capability. Serialized behind the splice-rule entry: both rewrite `splice_name`/`member_projection_path` and their SDK twins. scoped at 6184091f"
