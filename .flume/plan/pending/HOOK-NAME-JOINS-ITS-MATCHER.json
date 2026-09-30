@@ -1,10 +1,7 @@
 {
   "tag": "HOOK-NAME-JOINS-ITS-MATCHER",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "EVERY-AUTHORED-HOOK-SPELLS-ITS-HANDLERS"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,
