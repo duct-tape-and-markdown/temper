@@ -30,9 +30,11 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 
 /// Compute the wedge's coverage note over the harness at `root`.
 ///
-/// `member_counts` is the per-kind checked-member count the gate already loaded,
+/// `member_counts` is the per-kind count of members discovered at a `governs` locus,
 /// keyed by each kind's bare row label; `nested_member_counts` is the per-kind
-/// embedded-member count grouped from the lock's nested_member rows;
+/// embedded-member count over both sources a nested member reaches the run through —
+/// the lock's own `nested_member` rows and the members a host kind's read composed
+/// ([`crate::gate`]). Both maps are checked members, so both are counted;
 /// `undeclared_counts` is how many of each kind's discovered members no lock row
 /// declares, disclosed apart so the one line stating what was checked cannot silently
 /// absorb a document the program does not declare — a **disclosure**, never the
@@ -66,30 +68,42 @@ pub fn check(
     // `BTreeMap`, so the summary is stable. `member_counts` already folds in every
     // locked custom kind's members alongside the built-ins, so the message names no
     // "built-in" qualifier that would misdescribe a custom-kind count.
-    // Embedded kinds are those appearing only in nested_member_counts, rendered with
-    // "embedded" marker; the fallback is to omit them if they carry no discovered members.
-    let total: usize = member_counts.values().sum();
+    // The total sums BOTH maps, because an embedded member is a checked member: the
+    // embedded dispatcher runs it through the same two greens an at-locus member takes.
+    // Count and enumeration are one fact, so a kind carrying both a discovered and an
+    // embedded count renders both parts below rather than hiding one from the arithmetic.
+    let total: usize =
+        member_counts.values().sum::<usize>() + nested_member_counts.values().sum::<usize>();
     let mut all_kinds: BTreeSet<&String> = member_counts.keys().collect();
     all_kinds.extend(nested_member_counts.keys());
     let per_kind: Vec<String> = all_kinds
         .iter()
         .map(|kind| {
             let discovered_count = member_counts.get(*kind).copied().unwrap_or(0);
-            let embedded_count = nested_member_counts.get(*kind).copied();
+            let embedded_count = nested_member_counts.get(*kind).copied().unwrap_or(0);
             let undeclared = undeclared_counts.get(*kind).copied().unwrap_or(0);
-            match (discovered_count, embedded_count) {
-                (0, Some(n)) => format!("{} ({} embedded)", kind, n),
-                // The mark appends only where there IS an undeclared member, so a kind
-                // whose members are all declared renders exactly as it always has.
-                (n, _) if undeclared > 0 => format!(
-                    "{} ({}: {} declared, {} undeclared)",
-                    kind,
-                    n,
-                    n.saturating_sub(undeclared),
-                    undeclared
-                ),
-                (n, _) => format!("{} ({})", kind, n),
+            let mut parts = Vec::new();
+            // A purely embedded kind contributes no discovered segment at all — a bare
+            // `(0)` beside its embedded count would read as dead.
+            if discovered_count > 0 || embedded_count == 0 {
+                // The undeclared split appends only where there IS an undeclared member,
+                // so a kind whose members are all declared renders exactly as it always
+                // has.
+                parts.push(if undeclared > 0 {
+                    format!(
+                        "{}: {} declared, {} undeclared",
+                        discovered_count,
+                        discovered_count.saturating_sub(undeclared),
+                        undeclared
+                    )
+                } else {
+                    discovered_count.to_string()
+                });
             }
+            if embedded_count > 0 {
+                parts.push(format!("{embedded_count} embedded"));
+            }
+            format!("{} ({})", kind, parts.join(", "))
         })
         .collect();
     let kind_count = all_kinds.len();
@@ -339,6 +353,66 @@ mod tests {
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("command (2)"));
         assert!(!summary.message.contains("built-in"));
+    }
+
+    #[test]
+    fn the_checked_total_counts_embedded_members_alongside_discovered_ones() {
+        // An embedded member is checked — the embedded dispatcher runs it through the same
+        // two greens — so the one line stating what was checked counts it.
+        let counts = BTreeMap::from([("skill".to_string(), 1usize)]);
+        let nested = BTreeMap::from([("supporting-doc".to_string(), 2usize)]);
+        let diagnostics = check(
+            Path::new("/nonexistent-harness-root"),
+            &builtin_set(),
+            &counts,
+            &nested,
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
+        let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
+        assert!(
+            summary.message.contains("checked 3 members across 2 kinds"),
+            "the total must sum both maps, got: {}",
+            summary.message
+        );
+        // Non-vacuity: the embedded half is populated and enumerated, so the 3 is the
+        // 1 + 2 the sentence goes on to name.
+        assert!(summary.message.contains("skill (1)"), "{}", summary.message);
+        assert!(
+            summary.message.contains("supporting-doc (2 embedded)"),
+            "{}",
+            summary.message
+        );
+    }
+
+    #[test]
+    fn a_kind_carrying_both_a_discovered_and_an_embedded_count_renders_both() {
+        // The total sums both maps unconditionally, so a kind appearing in both must
+        // disclose both segments — a hidden embedded half is the count and the
+        // enumeration disagreeing.
+        let counts = BTreeMap::from([("skill".to_string(), 2usize)]);
+        let nested = BTreeMap::from([("skill".to_string(), 1usize)]);
+        let diagnostics = check(
+            Path::new("/nonexistent-harness-root"),
+            &builtin_set(),
+            &counts,
+            &nested,
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
+        let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
+        assert!(
+            summary.message.contains("skill (2, 1 embedded)"),
+            "{}",
+            summary.message
+        );
+        assert!(
+            summary.message.contains("checked 3 members across 1 kind"),
+            "{}",
+            summary.message
+        );
     }
 
     #[test]

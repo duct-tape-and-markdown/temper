@@ -267,6 +267,14 @@ fn an_embedded_kind_with_nested_members_renders_a_nonzero_embedded_marked_count(
         "the summary should also include the discovered skill kind, marked undeclared \
          where no lock row declares it, got: {summary}"
     );
+    // And the headline counts that embedded member too: two members were checked here —
+    // the skill on disk and the `supporting-doc` row the embedded dispatcher judges — so
+    // the one line stating what was checked may not say `checked 1 member` over them.
+    assert!(
+        summary.contains("checked 2 members across"),
+        "the total must count the embedded member alongside the discovered skill, got: \
+         {summary}"
+    );
 }
 
 /// Commit a lock at `<root>/.temper/lock.toml` declaring the `rule` built-in and
