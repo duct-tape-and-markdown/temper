@@ -276,6 +276,66 @@ name = "nested-1"
 }
 
 #[test]
+fn emit_over_a_lockless_harness_reads_and_parses_once() {
+    use temper::drift::{self, Declarations, EmitOptions, Payload};
+
+    // The sibling pin above runs over a lock that exists, so it never exercises emit's
+    // other state: the fresh adopter's harness, where `.temper/lock.toml` is absent. This
+    // fixture writes none — on the pre-fold tree emit's read of a missing lock counted
+    // neither read nor parse, so both deltas read 0 here and the once-per-run pin was
+    // blind on this path; the fold makes them 1/1.
+    let harness = tmpdir("emit-lockless-lock-parse-cost");
+    let into = harness.join(".temper");
+    std::fs::create_dir_all(&into).unwrap();
+    common::write_skill(&harness, "test-skill", "# Test\n\nBody.");
+    assert!(
+        !into.join("lock.toml").exists(),
+        "the lockless pin is vacuous unless the harness carries no lock",
+    );
+
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::skill_kind_facts(None, &[])],
+            ..Default::default()
+        },
+        members: vec![common::skill_member(
+            "test-skill",
+            "Test skill.",
+            "# Test\n\nBody.",
+        )],
+    };
+
+    let reads_before = drift::lock_read_count();
+    let parses_before = drift::lock_parse_count();
+
+    let _ = drift::emit(
+        &payload,
+        &into,
+        EmitOptions {
+            dry_run: true,
+            frozen: false,
+            teardown: false,
+        },
+    );
+
+    let reads = drift::lock_read_count() - reads_before;
+    let parses = drift::lock_parse_count() - parses_before;
+
+    // One home for the lookup means one count, whatever the file's state: an absent lock
+    // is read and parsed exactly once, the same as a present one, so a per-phase re-read
+    // regression on this path is visible to the pin instead of hiding behind a zero.
+    assert_eq!(
+        reads, 1,
+        "emit over a lockless harness must count exactly one lock read: {reads} reads",
+    );
+    assert_eq!(
+        parses, 1,
+        "emit over a lockless harness must count exactly one lock parse: {parses} parses",
+    );
+}
+
+#[test]
 fn gate_lock_parse_is_hoisted_with_source_dependencies() {
     let workspace = tmpdir("gate-lock-parse-cost");
 

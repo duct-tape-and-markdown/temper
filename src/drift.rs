@@ -1510,7 +1510,9 @@ pub fn emit(
     // Read and parse the lock document once for reuse across the reap-diff and
     // layer-drop checks below — whole-input work hoists parsing per run, never
     // recomputed per phase (engineering.md, "Cost scale is hoisted").
-    let lock_doc = read_lock_document_for_emit(workspace_dir);
+    // A lock that exists but will not parse is tolerated as empty: emit heals a corrupt
+    // lock by rewriting it, so the pass that would fix it must not abort on it.
+    let lock_doc = read_lock_document(workspace_dir).unwrap_or_default();
 
     // Classify every prior projection the payload no longer owns without touching
     // disk. Both sides normalized: `owned_paths` came through `to_lock_path`, and
@@ -2454,27 +2456,6 @@ struct ProvenanceRow {
     emit_hash: String,
 }
 
-/// Read and parse the lock document once for emit, returning it for reuse across emit's phases.
-/// A missing lock or read/parse failure yields an empty document that will produce
-/// empty results when queried, matching the tolerant-read behavior of the helpers
-/// that consume lock data.
-fn read_lock_document_for_emit(workspace_dir: &Path) -> DocumentMut {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    match fs::read_to_string(&path) {
-        Ok(text) => {
-            increment_lock_reads();
-            match text.parse::<DocumentMut>() {
-                Ok(doc) => {
-                    increment_lock_parses();
-                    doc
-                }
-                Err(_) => DocumentMut::new(),
-            }
-        }
-        Err(_) => DocumentMut::new(),
-    }
-}
-
 /// Every provenance row the lock document carries, across every kind (built-in and
 /// custom) — the anchor [`emit`]'s reap step diffs the current payload's owned paths
 /// against to find a lock-known projection with no current owner. A row missing a
@@ -2908,7 +2889,9 @@ pub fn config_stale(
     workspace_dir: &Path,
     clause: &contract::Clause,
 ) -> Vec<crate::check::Diagnostic> {
-    let doc = read_lock_document_for_emit(workspace_dir);
+    // A lock that exists but will not parse is tolerated as empty — absent evidence
+    // forges no finding, the tolerance this judge's doc comment states above.
+    let doc = read_lock_document(workspace_dir).unwrap_or_default();
     config_stale_from_doc(&doc, workspace_dir, clause)
 }
 
@@ -3749,7 +3732,9 @@ pub struct EmitOwnedEntry {
 /// takes the `_from_doc` face instead of paying a read at all.
 #[must_use]
 pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
-    emit_owned_targets_from_doc(&read_lock_document_for_emit(workspace_dir))
+    // A lock that exists but will not parse is tolerated as empty — "no lock, nothing
+    // to bind", as documented above.
+    emit_owned_targets_from_doc(&read_lock_document(workspace_dir).unwrap_or_default())
 }
 
 /// Every emit-owned path an already-parsed lock declares ([`emit_owned_targets`]).
@@ -4627,6 +4612,10 @@ impl Declarations {
 /// hoisting (once per run, shared across all call sites). A missing lock yields an empty
 /// document; a malformed lock is an error. The parsed document can be passed to
 /// `*_from_doc` functions to avoid re-reading the lock.
+///
+/// The one door onto the lock file, so a lookup costs the same count whatever the file's
+/// state. A caller that tolerates a malformed lock spells that at its own call site
+/// (`.unwrap_or_default()`), rather than owning a second read-and-count body.
 ///
 /// # Errors
 ///
