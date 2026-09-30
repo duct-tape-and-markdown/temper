@@ -9,25 +9,105 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
-### Upgrading
+## [0.0.21] — 2026-09-30
 
+### Upgrading from 0.0.20
+
+Each line is what a 0.0.20 harness may see first, then what to do.
+[`docs/MIGRATING-0.0.21.md`](docs/MIGRATING-0.0.21.md) walks each one with
+before and after.
+
+- **Your lock changes on the next `emit`.** It gains an `engine = "..."`
+  line naming the temper version that wrote it, and rows for the new
+  `handler` and `mcp` kinds. Re-emit once and commit the lock. From now on
+  the `engine` line moves with every upgrade.
+- **`hook()` no longer type-checks with a flat handler.** Write the handlers
+  in a `hooks` array: `hook({ name: "PreToolUse", matcher: "Bash", hooks: [{
+  type: "command", command: "..." }] })`. The emitted `settings.json` is the
+  same.
+- **An edge or mention naming a hook by its event alone may now dangle.** A
+  hook with a matcher is addressed as `hook:<Event>:<matcher>`, so
+  `hook:PreToolUse` becomes `hook:PreToolUse:Write|Edit|MultiEdit`. A hook
+  with no matcher keeps `hook:<Event>`.
+- **A root `locus-declared` finding on `.mcp.json`.** The file now belongs
+  to the `mcp` kind. A program that authors `mcpServer()` members but not
+  the file itself leaves it undeclared; add an `mcp()` member.
+- **A gate hook advisory on a represented harness now says what to write.**
+  When a gate hook is missing or runs an old command, `check` names the hook
+  and the command its module should carry, where it used to suggest `temper
+  install`, which writes no settings on that path. Fire the SDK's
+  `GUARD_COMMAND` or `SESSION_START_COMMAND` from the hook and re-emit.
 - **The `PostToolUse` gate row runs the guard now, not `check`.** A harness
-  scaffolded before this ships still wires `temper check . --reporter
-  session-start` at `PostToolUse` in `.claude/settings.json` — a command whose
-  reporter stamps `SessionStart`, the wrong event's name, so that row has never
-  been able to carry a finding. Re-run `temper install` to rewire it; for a
-  represented harness, change that one command in the `PostToolUse` hook module
-  to the guard's and re-emit. The row then judges the tree a shell call left for
-  projection drift, at your declared enforcement mode.
+  scaffolded earlier wires `temper check . --reporter session-start` at
+  `PostToolUse`, a row that could never carry a finding. Re-run `temper
+  install` to rewire it, or, for a represented harness, fire
+  `GUARD_COMMAND` from that hook and re-emit.
+
+### Breaking
+
+- **A hook member is one matcher group.** Its name is the event joined to
+  its matcher with `:`, and each entry of its `hooks` array is a nested
+  `handler` member, addressed `hook:<Event>:<matcher>/handler/<n>`. The
+  `Hook` type carries `matcher` and `hooks`; the flat `type`, `command` and
+  `timeout` fields moved to `Handler`.
+- **Two members of one kind at one address are refused** as a malformed
+  lock, instead of one silently winning. This includes two hook groups with
+  the same event and matcher.
+- **An empty contract is a declared contract.** An `expect` binding with `clauses: []`
+  and a root `contract: []` now mean "no clauses". They used to fall back to the
+  default contract.
+- **Some names are refused.** A kind named `engine` or `declaration`
+  collides with the lock's own keys and is refused. A nested member key
+  containing `/` or empty is refused, since it would spell another member's
+  address.
+
+### Added
+
+- **The `mcp` kind** governs `.mcp.json` as a whole, as `settings` governs
+  `.claude/settings.json`: a hand edit anywhere in the file is drift.
+- **The `handler` kind** types each entry of a hook group, with
+  `handlerDefaultContract` checking its `type` and the field each type
+  requires (`command`, `url`, `server` and `tool`, or `prompt`).
+- **The lock names the engine that wrote it**, and the root clause
+  `engine-matches` reports, as advisory, a lock written by a different
+  temper version. A lock with no `engine` line stays silent.
+- **`temper --version` names the build commit**; `-V` stays the bare
+  version.
+- **The SDK exports `GUARD_COMMAND` and `SESSION_START_COMMAND`**, generated
+  from the engine's own gate commands.
 
 ### Changed
 
 - **`temper guard` runs at both edges of a tool call.** Before a file-writing
-  tool it judges the pending write, as it did. After a shell tool — whose writes
-  no payload names — it judges the tree the call left for projection drift. A
-  pass prints nothing; `warn` surfaces the finding in-band; `block` refuses the
-  call's result and names the restore, since a write already made cannot be
-  denied.
+  tool it judges the pending write, as before. After a shell tool, whose
+  writes no payload names, it judges the tree the call left for projection
+  drift. In `warn` mode the finding now reaches the session's context,
+  where before it went to stderr, which Claude Code shows nowhere.
+- **A lone heading at the very top of a layout document is its title.** Its
+  span is the document's own prose, and the regions bind to its child
+  headings.
+- **A file reached by an `@import` carries the directives its format runs,
+  whatever its kind**, so an import cycle through a rule is now seen.
+- **An embedded edge whose target the program does not compose is judged by
+  `check`**, not refused by `emit`. A `render` that reads such a target's
+  facts is refused by name.
+- **`check` names the harness root it resolved** when that differs from the
+  path it was given.
+- **The coverage note's total counts every checked member**, nested ones
+  included, and `explain` resolves composed members such as
+  `hook:PreToolUse:Bash/handler/0`.
+- **The `coverage.unmodeled-surface` note is retired.** Both config files
+  now belong to a kind.
+
+### Fixed
+
+- **`DirectoryAdded`, `PreModelSwitch` and `PostModelSwitch` hooks** no
+  longer draw a false `hook.enum.event` finding.
+- **A handler with no `type`** is now a finding; it used to pass.
+- **Tap records written from a linked worktree** record paths relative to
+  the root the tap ran from, so one rule no longer reads as one member per
+  worktree.
+- **A dangling mention of a leaf** names the missing leaf, not its member.
 
 ## [0.0.20] — 2026-09-23
 
