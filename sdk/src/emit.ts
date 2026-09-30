@@ -36,7 +36,14 @@ import {
   uniqueMap,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
-import { bareLookupKey, edgeLookupKey, hostAddress, isOneSegment, nestedAddress } from "./member-address.js";
+import {
+  bareLookupKey,
+  edgeLookupKey,
+  hostAddress,
+  isOneSegment,
+  memberAddress,
+  nestedAddress,
+} from "./member-address.js";
 
 // The projected-member shape is the generated `ts-rs` binding, re-exported so the
 // public face keeps the name — a Rust-side member-column rename is a compile
@@ -330,7 +337,7 @@ function edgeTargetFacts(
           `derived, never fabricated (specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
       );
     }
-    facts[edge.field] = resolvedTargetFacts(host, target, lookup, reference);
+    facts[edge.field] = resolvedTargetFacts(host, target, reference);
   }
   return { facts, deferred };
 }
@@ -383,25 +390,26 @@ function isNested(target: EdgeTarget): target is readonly EmbeddedTarget[] {
 
 /**
  * The four derived facts one resolved edge target contributes, read off the target
- * itself and never off the citing instance. A top-level member answers with its own
- * identity and its own projection; an embedded value answers with its own kind and key,
- * its canonical `<host-address>/<kind>/<key>` address (whichever spelling the leaf
- * authored), and its *host's* projection — an embedded member owns no file, so the file
- * its rendering lands in is the host's.
+ * itself and never off the citing instance. A member answers with its own identity, its own
+ * {@link memberAddress} — the canonical one, whichever of its spellings the leaf authored,
+ * so a file child cited by its bare key still renders the host-qualified address it
+ * resolves at — and its own projection; an embedded value answers with its own kind and
+ * key, its canonical `<host-address>/<kind>/<key>` address, and its *host's* projection —
+ * an embedded member owns no file, so the file its rendering lands in is the host's.
  *
  * # Throws
  * If a bare `kind:key` is carried by more than one host — an ambiguous address names
  * nothing, and the full spelling is what tells the carriers apart — or if the target,
  * or the host carrying it, owns no projection to point at.
  */
-function resolvedTargetFacts(host: Member, target: EdgeTarget, lookup: string, reference: string): EdgeTargetFacts {
+function resolvedTargetFacts(host: Member, target: EdgeTarget, reference: string): EdgeTargetFacts {
   const noProjection = (): Error =>
     new Error(`${reference}, which owns no projection to reference (specs/model/representation.md, "locus").`);
   if (!isNested(target)) {
     if (!isProjected(target)) throw noProjection();
     return {
       name: target.name,
-      address: lookup,
+      address: memberAddress(target),
       kind: target.kind,
       path: relativeProjection(projectionPath(host), projectionPath(target)),
       repoRootedPath: projectionPath(target),
@@ -420,7 +428,7 @@ function resolvedTargetFacts(host: Member, target: EdgeTarget, lookup: string, r
   const carrierPath = projectionPath(carrier);
   return {
     name: value.key,
-    address: nestedAddress(hostAddress(carrier.kind, carrier.name), value.kind, value.key),
+    address: nestedAddress(memberAddress(carrier), value.kind, value.key),
     kind: value.kind,
     path: relativeProjection(projectionPath(host), carrierPath),
     repoRootedPath: carrierPath,
@@ -585,7 +593,7 @@ function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, 
       if (isTextSpan(value)) continue;
       const placed = placedEdges(member, value, options);
       if (placed !== undefined) {
-        entries.push([nestedAddress(hostAddress(member.kind, member.name), value.kind, value.key), placed]);
+        entries.push([nestedAddress(memberAddress(member), value.kind, value.key), placed]);
       }
     }
   }
@@ -625,7 +633,7 @@ function renderedExtents(harness: Harness, options: ResolveOptions): Map<string,
       if (isTextSpan(value)) continue;
       const block = renderMemberBlock(member, value, options);
       entries.push([
-        nestedAddress(hostAddress(member.kind, member.name), value.kind, value.key),
+        nestedAddress(memberAddress(member), value.kind, value.key),
         {
           lines: renderedLineCount(block),
           // Unicode scalar values, matching Rust's `chars().count()` — iterating a string
@@ -825,31 +833,62 @@ function settingsResidue(harness: Harness): SettingsResidue[] {
 
 /**
  * The harness's composed members by address — the table an embedded value's edge field
- * resolves its target against. A top-level member keys the identical way
- * {@link declaredAddresses} spells a member address, so an edge field and a mention name
- * a member the same way; a nested member keys under both of its own spellings
- * ({@link nestedTargets}), so an embedded edge target resolves at emit as a top-level one
- * does.
+ * resolves its target against. Every member keys by its own address ({@link memberAddress}),
+ * the identical way {@link declaredAddresses} spells one, so an edge field and a mention
+ * name a member the same way; a nested member keys under both of its own spellings — an
+ * embedded value through {@link nestedTargets}, a file child through its own address here
+ * and {@link bareFileChildTargets} — so a nested edge target resolves at emit as a
+ * top-level one does.
  *
  * A projected member's address is its file, so two at one address are a collision and
- * refuse loud. A registration member's address is its *group key* — a `hook` registers on
- * its event, and Claude Code admits any number of matcher groups per event — so several
- * legitimately share one address and the table keeps the last composed (the pre-0.0.16
- * reading; an edge targeting that shared address resolves ambiguously, the open fork
- * `(hook-member-identity)` in `.flume/plan/open-questions.md`). Refusing them broke
- * `emit` on every harness with two hooks on one event (0.0.16).
+ * refuse loud. A nested file child's address carries its host, so two hosts each carrying a
+ * `home` are two addresses rather than one name twice — the collision a corpus-wide
+ * `<kind>:<name>` keying raised for a corpus that is perfectly well-formed. A registration
+ * member's address is its *group key* — a `hook` registers on its event, and Claude Code
+ * admits any number of matcher groups per event — so several legitimately share one address
+ * and the table keeps the last composed (the pre-0.0.16 reading; an edge targeting that
+ * shared address resolves ambiguously, the open fork `(hook-member-identity)` in
+ * `.flume/plan/open-questions.md`). Refusing them broke `emit` on every harness with two
+ * hooks on one event (0.0.16).
  */
 function memberTable(harness: Harness): Map<string, EdgeTarget> {
   const table = uniqueMap([
     ...harness.members
       .filter((member) => !isRegistration(member))
-      .map((member) => [hostAddress(member.kind, member.name), member] as [string, EdgeTarget]),
+      .map((member) => [memberAddress(member), member] as [string, EdgeTarget]),
+    ...bareFileChildTargets(harness),
     ...nestedTargets(harness),
   ]);
   for (const member of harness.members.filter(isRegistration)) {
-    table.set(hostAddress(member.kind, member.name), member);
+    table.set(memberAddress(member), member);
   }
   return table;
+}
+
+/**
+ * Every nested **file** child under the bare `<kind>:<name>` short form as well as its own
+ * host-qualified address — the same second spelling {@link nestedTargets} gives an embedded
+ * member, so the two nested grains resolve alike.
+ *
+ * A bare key names a nested member only while a single host carries it, so a name several
+ * hosts spell enters under no bare key at all and an edge citing it refuses as an address
+ * resolving to no composed member ({@link edgeTargetFacts}) — loud, with the whole
+ * `<host-address>/<kind>/<key>` spelling always available to tell the carriers apart. The
+ * ambiguity is not refused *here*, because uniqueness is the resolver's bar and not the
+ * corpus's: one name two hosts carry and nothing cites still composes.
+ */
+function bareFileChildTargets(harness: Harness): Array<[string, EdgeTarget]> {
+  const carriers = new Map<string, Member[]>();
+  for (const member of harness.members) {
+    if (member.host === undefined || isRegistration(member)) continue;
+    const key = bareLookupKey(member.kind, member.name);
+    const carried = carriers.get(key);
+    if (carried === undefined) carriers.set(key, [member]);
+    else carried.push(member);
+  }
+  return [...carriers]
+    .filter(([, carried]) => carried.length === 1)
+    .map(([key, carried]) => [key, carried[0]!] as [string, EdgeTarget]);
 }
 
 /**
@@ -870,7 +909,7 @@ function nestedTargets(harness: Harness): Array<[string, EdgeTarget]> {
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
       const target: EmbeddedTarget = { host: member, value };
-      qualified.push([nestedAddress(hostAddress(member.kind, member.name), value.kind, value.key), [target]]);
+      qualified.push([nestedAddress(memberAddress(member), value.kind, value.key), [target]]);
       const key = bareLookupKey(value.kind, value.key);
       const carriers = bare.get(key);
       if (carriers === undefined) bare.set(key, [target]);

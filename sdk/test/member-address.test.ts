@@ -16,6 +16,7 @@ import {
   edgeLookupKey,
   hostAddress,
   leafAddress,
+  memberAddress,
   nestedAddress,
   parseHostAddress,
   parseLeafAddress,
@@ -198,4 +199,25 @@ test("the member table, declaredAddresses and an edge's target facts spell one n
   // own `address` verbatim — three producers, one spelling, compared as bytes.
   const body = emit(h).members.find((member) => member.name === "CLAUDE")?.body;
   assert.equal(body, `See \`${address}\`.\n`);
+});
+
+test("a member's own address takes its host when it has one, and its kind alone when it does not", () => {
+  // A top-level member's identity is its bare name, so its address is its kind joined on.
+  assert.equal(memberAddress({ kind: "rule", name: "collaboration" }), "rule:collaboration");
+
+  // A nested **file** child's identity *is* its whole `<host-address>/<kind>/<key>`
+  // address, exactly as an embedded member's is — the host segment is the whole of what
+  // tells two same-named children under different hosts apart.
+  const alpha = memberAddress({ kind: "supporting-doc", name: "home", host: { kind: "skill", name: "alpha" } });
+  const beta = memberAddress({ kind: "supporting-doc", name: "home", host: { kind: "skill", name: "beta" } });
+  assert.equal(alpha, nestedAddress(hostAddress("skill", "alpha"), "supporting-doc", "home"));
+  assert.notEqual(alpha, beta, "two hosts carrying one name is two addresses, never one twice");
+
+  // And what it composes is the nested grain the one parser reads back — never a fourth
+  // segment, and never a bare `kind:name` a sibling host also spells.
+  assert.deepEqual(parseNestedAddress(alpha), {
+    host: "skill:alpha",
+    kind: "supporting-doc",
+    key: "home",
+  });
 });

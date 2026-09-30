@@ -1395,3 +1395,111 @@ mod host_keyed_file_children {
         assert!(ok, "the corpus checks clean: {findings:#?}");
     }
 }
+
+/// **Host-keyed file children, through the authoring face.** The SDK keys a nested file
+/// child by the same host-qualified address the engine resolves it at, so two hosts each
+/// carrying a `home` child are two members rather than one identity twice. Driven through
+/// the real seam — `node` runs the authored program, the engine compiles every projection
+/// — because the keying is a claim about what the two faces agree on.
+mod host_keyed_file_children_through_the_sdk {
+    use temper::drift::{self, EmitOptions};
+
+    use crate::common;
+
+    /// The inbox reproduction as an authored program: a directory-unit `unit` host
+    /// templating a `note` file child at `*.json`, with one child named `home` under each
+    /// of two hosts. Corpus-wide `<kind>:<name>` keying refused this at
+    /// `duplicate identity key 'note:home'` — a corpus that is perfectly well-formed.
+    ///
+    /// `alpha`'s body cites `beta`'s child, so the address the authoring face spells for a
+    /// file child rides the lock: emit resolves the mention against its own declared set
+    /// before writing a byte, and the row it writes is asserted below.
+    const TWO_HOSTS_ONE_CHILD_NAME: &str = r#"
+import { emit, harness, kind, mentionOf, text } from "@dtmd/temper";
+
+const note = kind<{ title: string }>({
+  name: "note",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  format: "json-document",
+  registration: [],
+});
+
+const unit = kind<object>({
+  name: "unit",
+  locus: { kind: "at", root: "docs", glob: "*/UNIT.md" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: note, path: "*.json" }],
+});
+
+const beta = unit({ name: "beta", prose: text`# Beta` });
+const betaHome = note({ name: "home", host: beta, title: "Beta's home" });
+const alpha = unit({ name: "alpha", prose: text`# Alpha\n\nBeta keeps ${mentionOf(betaHome)}.` });
+
+process.stdout.write(
+  emit(
+    harness({
+      members: [
+        alpha,
+        beta,
+        note({ name: "home", host: alpha, title: "Alpha's home" }),
+        betaHome,
+      ],
+    }),
+  ).seam,
+);
+"#;
+
+    #[test]
+    fn two_hosts_each_carrying_a_home_child_emit_both_files_and_check_counts_both() {
+        let (harness, into) =
+            common::wire_sdk_harness("sdk-file-child-host-keyed", TWO_HOSTS_ONE_CHILD_NAME);
+
+        let report = drift::emit_program(&into, EmitOptions::default()).expect(
+            "two hosts each carrying a `home` child is two addresses, so the program emits",
+        );
+
+        // Both children project, each under its own host's unit — the host segment of the
+        // address is the whole of what tells them apart, and it is what the path composes
+        // from too.
+        for host in ["alpha", "beta"] {
+            let projection = harness.join("docs").join(host).join("home.json");
+            assert!(
+                report
+                    .entries
+                    .iter()
+                    .any(|entry| entry.kind == "note" && entry.source_path == projection),
+                "`{host}`'s child is its own emit entry: {:#?}",
+                report.entries
+            );
+            assert!(projection.is_file(), "emit wrote {}", projection.display());
+        }
+
+        // The mention rode the child's own address across the seam, and the host's body
+        // renders the bare display text the one corpus-wide rule gives it.
+        let cite = std::fs::read_to_string(harness.join("docs").join("alpha").join("UNIT.md"))
+            .expect("alpha's own projection");
+        assert!(cite.contains("Beta keeps home."), "rendered body: {cite}");
+        let mentions = drift::read_declarations(&into)
+            .expect("the emitted lock exists and is valid")
+            .mentions;
+        assert_eq!(
+            mentions
+                .iter()
+                .map(|row| (row.member.as_str(), row.target.as_str()))
+                .collect::<Vec<_>>(),
+            vec![("unit:alpha", "unit:beta/note/home")],
+        );
+
+        // And the gate reads both back off disk: two members of the child kind, nothing
+        // refused.
+        let (findings, ok) = common::check_harness(&harness);
+        let checked = common::findings_for(&findings, "coverage.checked");
+        assert!(
+            checked.iter().any(|line| line.contains("note (2)")),
+            "both file children are checked members: {findings:#?}"
+        );
+        assert!(ok, "the corpus checks clean: {findings:#?}");
+    }
+}

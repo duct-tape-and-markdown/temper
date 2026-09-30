@@ -62,6 +62,49 @@ export function nestedAddress(host: string, kind: string, key: string): string {
 }
 
 /**
+ * The three facts a member's own address composes from — its kind, its name, and the host
+ * member a nested-file child sits under. Structurally what a composed `Member` carries, so
+ * {@link memberAddress} takes one without this module depending on `kind.ts`: the grammar
+ * is the bottom of the tree and owes the member model nothing.
+ */
+export interface AddressedMember {
+  /** The member's kind. */
+  readonly kind: string;
+  /** The member's name among its kind — its key where it sits beneath a host. */
+  readonly name: string;
+  /** The host a nested-file child composes under; absent at every other locus. */
+  readonly host?: { readonly kind: string; readonly name: string } | undefined;
+}
+
+/**
+ * A member's **own address** — the one home for the discrimination between the two forms a
+ * composed member's identity takes, and the twin of the engine's `payload_member_address`
+ * over the same member arriving on the seam ({@link AddressedMember.host} is the payload's
+ * own `host` column).
+ *
+ * A top-level member's address is its kind joined onto its name ({@link hostAddress}). A
+ * nested **file** child's identity *is* its whole `<host-address>/<kind>/<key>` address,
+ * exactly as an embedded member's is: the host segment is the whole of what tells two
+ * same-named children under different hosts apart, so two hosts may each carry a `home`
+ * and neither claims the other's. Keying one by `<kind>:<name>` alone made a child's name
+ * corpus-wide at a grain the grammar scopes to a host.
+ *
+ * The host segment is a **host** address, never a nested one: a nested-file child composes
+ * under a host that owns a directory unit at an `at` locus, which a nested-file kind never
+ * does — both faces refuse a deeper host before an address is spelled (`emit.ts`'s
+ * `hostUnit`, the engine's `nested_file_path`) — so one level is the whole grammar here.
+ *
+ * Every site naming "the address of this member" reads the rule here rather than deciding
+ * the join again, so the rows a member is declared, cited and mentioned under cannot come
+ * to disagree with the address it resolves at.
+ */
+export function memberAddress(member: AddressedMember): string {
+  const { host } = member;
+  if (host === undefined) return hostAddress(member.kind, member.name);
+  return nestedAddress(hostAddress(host.kind, host.name), member.kind, member.name);
+}
+
+/**
  * Whether `spelling` is exactly **one segment** of this grammar — non-empty, and carrying
  * none of the `/` {@link segment} cuts an address at.
  *

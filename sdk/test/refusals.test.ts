@@ -605,6 +605,60 @@ test("emit refuses a slashed member name on a directory-unit kind too", () => {
 });
 
 // ---------------------------------------------------------------------------
+// (9) Two members at one address — the coincidence a nested file child's identity
+//     scopes to its host. A file child's address carries its host, so the refusal
+//     narrows to what is actually coincident: one host carrying the same
+//     `(kind, key)` twice, never two hosts each carrying the name once.
+// ---------------------------------------------------------------------------
+
+/** A nested-file child kind: it governs no glob, its path being its host's declared fact. */
+const supportingDoc = kind<Record<never, never>>({
+  name: "supporting-doc",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+/** A directory-unit host templating one `supporting-doc` file layer at `*.md`. */
+const guide = kind<Record<never, never>>({
+  name: "guide",
+  locus: { kind: "at", root: ".claude/guides", glob: "*/GUIDE.md" },
+  unitShape: "directory",
+  registration: [{ via: "always" }],
+  templates: [{ kind: supportingDoc, path: "*.md" }],
+});
+
+test("emit refuses two file children of one kind under one host — one address, twice", () => {
+  const alpha = guide({ name: "alpha" });
+  const h = harness({
+    members: [
+      alpha,
+      supportingDoc({ name: "home", host: alpha, prose: text`# Home` }),
+      supportingDoc({ name: "home", host: alpha, prose: text`# Home again` }),
+    ],
+  });
+  // Coincident addresses are a malformed lock, and here they truly coincide: one host,
+  // one key, twice — the two would project onto the very same file.
+  assert.throws(() => emit(h), /duplicate identity key `guide:alpha\/supporting-doc\/home`/);
+});
+
+test("two hosts each carrying the same child name is two members, and emits", () => {
+  const alpha = guide({ name: "alpha" });
+  const beta = guide({ name: "beta" });
+  const h = harness({
+    members: [
+      alpha,
+      beta,
+      supportingDoc({ name: "home", host: alpha, prose: text`# Alpha's home` }),
+      supportingDoc({ name: "home", host: beta, prose: text`# Beta's home` }),
+    ],
+  });
+  // The refusal a corpus-wide `supporting-doc:home` keying raised for a corpus that is
+  // perfectly well-formed: the host segment tells the two apart, and both files project.
+  assert.doesNotThrow(() => emit(h));
+});
+
+// ---------------------------------------------------------------------------
 // A clean harness — every join resolves, every required requirement filled.
 // ---------------------------------------------------------------------------
 

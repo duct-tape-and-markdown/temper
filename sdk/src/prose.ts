@@ -15,7 +15,7 @@
  */
 
 import type { EmbeddedMemberValue, Member } from "./kind.js";
-import { hostAddress, parseHostAddress } from "./member-address.js";
+import { memberAddress, parseHostAddress } from "./member-address.js";
 
 /** A declared value a mention may name — the target of the one-way citation edge. */
 export interface Mentionable {
@@ -26,12 +26,13 @@ export interface Mentionable {
 }
 
 /**
- * Spell a top-level member as the {@link Mentionable} a mention carries: its
- * {@link hostAddress}, its bare name the display text — the convention every corpus
- * repeats to cite a member from prose.
+ * Spell a member as the {@link Mentionable} a mention carries: its own
+ * {@link memberAddress}, its bare name the display text — the convention every corpus
+ * repeats to cite a member from prose. A nested file child spells the host-qualified
+ * address it resolves at, exactly as its declaration rows key by it.
  */
 export function mentionOf(member: Member): Mentionable {
-  return { address: hostAddress(member.kind, member.name), display: member.name };
+  return { address: memberAddress(member), display: member.name };
 }
 
 /** One authored interpolation: position in the template plus its target. */

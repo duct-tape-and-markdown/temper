@@ -873,6 +873,73 @@ test("a host's file child emits at its host's unit joined with the template's pa
   );
 });
 
+/**
+ * An embedded kind whose `home` field is an edge to a `supporting-doc` file child, its
+ * render spelling the reference off the derived target facts alone — so what the member
+ * table keyed the child under is readable as bytes.
+ */
+function homeCitationKind() {
+  return kind<object>(
+    {
+      name: "home-citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "home", to: ["supporting-doc"] }],
+    },
+    { render: (value) => `See [${value.targets.home.name}](${value.targets.home.path}) at \`${value.targets.home.address}\`.` },
+  );
+}
+
+test("two hosts each carrying a same-named file child project both, each at its host-qualified address", () => {
+  // The inbox reproduction: a file child's identity *is* its `<host-address>/<kind>/<key>`
+  // address, so `home` under `alpha` and `home` under `beta` are two members — never one
+  // `supporting-doc:home` twice, the collision a corpus-wide keying raised for a corpus
+  // that is perfectly well-formed.
+  const alpha = guide({ name: "alpha" });
+  const beta = guide({ name: "beta" });
+  const homeCitation = homeCitationKind();
+  const result = emit(
+    harness({
+      members: [
+        alpha,
+        beta,
+        supportingDoc({ name: "home", host: alpha, prose: text`# Alpha's home` }),
+        supportingDoc({ name: "home", host: beta, prose: text`# Beta's home` }),
+        memory({
+          name: "CLAUDE",
+          prose: blocks(
+            embeddedMemberValue({
+              kind: homeCitation,
+              key: "the-home",
+              leaves: { home: "guide:beta/supporting-doc/home" },
+            }),
+          ),
+        }),
+      ],
+      admit: [{ host: memory, admits: [homeCitation] }],
+    }),
+  );
+
+  // Both children project, each under its own host's unit — neither claims the other's.
+  const children = result.members.filter((m) => m.kind === "supporting-doc");
+  assert.deepEqual(
+    children.map((child) => [child.host, child.body]),
+    [
+      ["guide:alpha", "# Alpha's home"],
+      ["guide:beta", "# Beta's home"],
+    ],
+  );
+
+  // And each is reachable in the member table at its host-qualified address: the edge
+  // above resolves only because the table keyed beta's child under this exact string, and
+  // the rendered reference is that address verbatim, pointing at beta's file.
+  assert.equal(
+    result.members.find((m) => m.name === "CLAUDE")!.body,
+    "See [home](.claude/guides/beta/home.md) at `guide:beta/supporting-doc/home`.\n",
+  );
+});
+
 test("a nested file child names its host, and every other locus names none", () => {
   const gate = guide({ name: "operate-the-gate" });
   assert.throws(
