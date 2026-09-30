@@ -1,10 +1,7 @@
 {
   "tag": "LIFT-MODULE-STEM-IS-ONE-PORTABLE-NAME",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "GATE-INSTALLED-READS-THE-HOISTED-LOCK"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,
@@ -13,16 +10,16 @@
     "edit": [
       {
         "path": "src/install.rs",
-        "description": "`module_stems` (:2315) judges a stem by joining the path and reading its parent back (:2330) \u2014 a purely lexical test, so a registration key carrying `|` or `:` passes on unix AND on Windows, where the failure then lands at the write instead. `LiftedMember::id`'s own doc (:2183-:2187) already names the hole with its cite (learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file, retrieved 2026-09-29). Stance: refuse the documented Windows reserved set on EVERY platform \u2014 the reserved characters `< > : \" / \\ | ? *`, control characters, a trailing space or dot, and the reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9) \u2014 because the scaffold is committed source: a member module unwritable on a teammate's Windows checkout is the same defect as one unwritable here, and `run_represented`'s deliberate pre-flight order (:764-:768, \"no half-scaffolded state\") only holds if the legality check is total on the host that runs it. `InstallError::MemberFileName` (:511) stays the one refusal \u2014 no enum widening, its message already generalizes \u2014 and its `help` (:507) widens to name the rule beside the rename remedy. The comment at :2327-:2329 states the new judgment's reason in place of the old one."
+        "description": "`module_stems` (:2315) judges a stem by joining the path and reading its parent back (:2330) — a purely lexical test, so a registration key carrying `|` or `:` passes on unix AND on Windows, where the failure then lands at the write instead. `LiftedMember::id`'s own doc (:2183-:2187) already names the hole with its cite (learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file, retrieved 2026-09-29). Stance: refuse the documented Windows reserved set on EVERY platform — the reserved characters `< > : \" / \\ | ? *`, control characters, a trailing space or dot, and the reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9) — because the scaffold is committed source: a member module unwritable on a teammate's Windows checkout is the same defect as one unwritable here, and `run_represented`'s deliberate pre-flight order (:764-:768, \"no half-scaffolded state\") only holds if the legality check is total on the host that runs it. `InstallError::MemberFileName` (:511) stays the one refusal — no enum widening, its message already generalizes — and its `help` (:507) widens to name the rule beside the rename remedy. The comment at :2327-:2329 states the new judgment's reason in place of the old one."
       },
       {
         "path": "tests/it/install.rs",
-        "description": "The refusal's first test at the integration grain. `REGISTERING_SETTINGS` (:1412) already lifts all three registration segments, and `a_manifests_registration_entries_each_lift_to_their_own_module_and_survive_the_first_emit` (:1434) is the arm's model: one new arm whose `extraKnownMarketplaces` (or `enabledPlugins`) key carries a reserved character makes `install::run(&root, &discovery, Represent::Yes, false)` fail with `temper::install::member_file_name`, and asserts no member module and no `harness.ts` under `.temper/` \u2014 the refusal lands before the lift writes, which is the invariant it serves. `common::ensure_sdk_built` + `common::vendor_sdk` are the file's own yes-path setup."
+        "description": "The refusal's first test at the integration grain. `REGISTERING_SETTINGS` (:1412) already lifts all three registration segments, and `a_manifests_registration_entries_each_lift_to_their_own_module_and_survive_the_first_emit` (:1434) is the arm's model: one new arm whose `extraKnownMarketplaces` (or `enabledPlugins`) key carries a reserved character makes `install::run(&root, &discovery, Represent::Yes, false)` fail with `temper::install::member_file_name`, and asserts no member module and no `harness.ts` under `.temper/` — the refusal lands before the lift writes, which is the invariant it serves. `common::ensure_sdk_built` + `common::vendor_sdk` are the file's own yes-path setup."
       }
     ],
     "retire": []
   },
-  "summary": "The lift's module-stem legality check is the host platform's own, so a manifest key carrying `|` scaffolds on unix and fails the write on Windows \u2014 and the refusal has no test.",
+  "summary": "The lift's module-stem legality check is the host platform's own, so a manifest key carrying `|` scaffolds on unix and fails the write on Windows — and the refusal has no test.",
   "per": {
     "path": "specs/model/adoption.md",
     "section": "Install"
@@ -30,13 +27,13 @@
   "tests": [
     {
       "path": "src/install.rs",
-      "asserts": "`module_stems` refuses each reserved shape \u2014 a reserved character, a control character, a trailing dot or space, a device name \u2014 and accepts an ordinary key, one in-crate unit test over the table"
+      "asserts": "`module_stems` refuses each reserved shape — a reserved character, a control character, a trailing dot or space, a device name — and accepts an ordinary key, one in-crate unit test over the table"
     },
     {
       "path": "tests/it/install.rs",
       "asserts": "a registration key carrying a reserved character fails the yes-path lift with `temper::install::member_file_name`, leaving no member module and no `harness.ts` behind"
     }
   ],
-  "acceptance": "cargo test green (the new unit table plus the integration arm, which fails today on linux by scaffolding the module instead of refusing), clippy -D warnings clean, fmt clean, and `rg MemberFileName tests/` resolving \u2014 the variant has no test at all today.",
-  "notes": "Named out of scope in 53a891da's body and in `LiftedMember::id`'s doc; temper ships a win32-x64 binary (`specs/distribution.md`). Rejected: a `cfg(windows)` check \u2014 it leaves a unix author scaffolding a tree their Windows teammate cannot check out. Rejected: sanitizing the stem \u2014 it silently renames the author's member. Both overturn the comment at :2327 (\"rather than a character list invented here\"): the list is a cited external fact, not invented. scoped at 2cbe66ac"
+  "acceptance": "cargo test green (the new unit table plus the integration arm, which fails today on linux by scaffolding the module instead of refusing), clippy -D warnings clean, fmt clean, and `rg MemberFileName tests/` resolving — the variant has no test at all today.",
+  "notes": "Named out of scope in 53a891da's body and in `LiftedMember::id`'s doc; temper ships a win32-x64 binary (`specs/distribution.md`). Rejected: a `cfg(windows)` check — it leaves a unix author scaffolding a tree their Windows teammate cannot check out. Rejected: sanitizing the stem — it silently renames the author's member. Both overturn the comment at :2327 (\"rather than a character list invented here\"): the list is a cited external fact, not invented. scoped at 2cbe66ac"
 }
