@@ -2,7 +2,7 @@
   "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
   "gate": {
     "kind": "deferred",
-    "reason": "project_modeline (src/install.rs:2719) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent \u2014 surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+    "reason": "project_modeline (src/install.rs:2973) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent \u2014 surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
   },
   "dependsOnForks": [],
   "files": {
@@ -10,7 +10,7 @@
     "edit": [
       {
         "path": "src/install.rs",
-        "description": "Anticipated: `project_modeline`/`schema_ref` (:2683-:2714) grow a JSON-document and/or TOML-document variant once a design exists \u2014 a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
+        "description": "Anticipated: `project_modeline`/`schema_ref` (:2956-:2983) grow a JSON-document and/or TOML-document variant once a design exists \u2014 a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
       }
     ],
     "retire": []
@@ -22,5 +22,5 @@
   },
   "tests": [],
   "acceptance": "A JSON- or TOML-document kind (settings-local, plugin-manifest, marketplace, dial, or a declared kind sharing one of those formats) gets keystroke schema validation wired by `install`, once a modeline-equivalent mechanism is designed for its format.",
-  "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. Gate re-tested on disk at the 839589ee..HEAD audit: `project_modeline` still opens with `frontmatter::frontmatter_matter(source)?` and returns `None` for a source with no YAML block, so no JSON/TOML kind has a modeline path; its cite moved 2704->2719 under c9a73aec's install.rs edit. scoped at 152fed1a"
+  "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. Gate re-tested on disk at the 2cbe66ac..HEAD audit: `project_modeline` still opens with `frontmatter::frontmatter_matter(source)?` and returns `None` for a source with no YAML block, so no JSON/TOML kind has a modeline path. Cites refreshed from the 2719/2683-2714 spelling. scoped at e9c6820b"
 }

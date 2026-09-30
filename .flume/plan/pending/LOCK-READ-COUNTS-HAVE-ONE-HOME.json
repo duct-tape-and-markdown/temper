@@ -1,0 +1,43 @@
+{
+  "tag": "LOCK-READ-COUNTS-HAVE-ONE-HOME",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "Retire `read_lock_document_for_emit` (`src/drift.rs:2461`) as a second read-and-parse body for one document: its three one-read wrappers — emit's hoisted read (`:1513`), `config_stale` (`:2911`), and `emit_owned_targets` (`:3752`) — route through `read_lock_document` (`:4634`), the pub reader `gate`/`read`/`install` already take. `increment_lock_reads` (`:102`) and `increment_lock_parses` (`:106`) then fire from one place, so a lock lookup counts the same whatever the file's state. Tolerance is kept explicit at each of the three calls, not dropped: a malformed lock must still yield an empty document there — emit heals a corrupt lock by rewriting it, and `config_stale`'s doc-comment states it forges no finding from absent evidence. The malformed-lock counts already agree between the two bodies; only the missing-lock case moves."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "New pin beside `emit_lock_parse_is_hoisted_and_pinned_once_per_run` (`:199`), which runs over a lock that exists and so never exercises the uncounted path: emit over a harness with no `.temper/lock.toml` must read and parse exactly once. It reads 0/0 on the pre-fold tree — the vacuity the fold closes — and must be stated as such at the site."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "`read_lock_document` call site (`:149`). Touched only if the fold spells the tolerance as a parameter on the one reader rather than at the three call sites; untouched if the signature holds."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "`read_lock_document` call site (`:2371`), same condition as `src/gate.rs`."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "`read_lock_document` call sites (`:804`, `:1261`), same condition as `src/gate.rs`."
+      }
+    ]
+  },
+  "summary": "Fold the lock's second read-and-count body into one home, so a lockless harness's emit read is counted and the once-per-run pin stops being blind there.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "emit over a harness carrying no `.temper/lock.toml` moves `lock_read_count()` and `lock_parse_count()` by exactly one each; the existing pin over a present lock still reads 1/1."
+    }
+  ],
+  "acceptance": "`cargo test` green, no `read_lock_document_for_emit` left in `src/drift.rs`, and the new lockless pin reads 1/1 where the pre-fold tree reads 0/0.",
+  "notes": "The two bodies diverge only on a missing lock: `read_lock_document` counts one read and one parse, `read_lock_document_for_emit` counts neither. So emit over a fresh lockless harness touches the disk invisibly to `lock_read_count()`, and a per-phase re-read regression on that path leaves the once-per-run pin green — the vacuity bar this cost pin exists to hold. Surfaced by 1d183eb6, which hoisted the neighbouring face onto the gate's already-read document. scoped at e9c6820b"
+}
