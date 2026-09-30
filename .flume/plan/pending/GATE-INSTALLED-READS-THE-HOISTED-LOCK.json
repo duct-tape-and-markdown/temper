@@ -1,11 +1,7 @@
 {
   "tag": "GATE-INSTALLED-READS-THE-HOISTED-LOCK",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "HOOK-WIRE-KEYS-HAVE-ONE-ENGINE-HOME",
-      "RESERVED-LOCK-ROOT-KEY-REFUSES-A-KIND-NAME"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,
