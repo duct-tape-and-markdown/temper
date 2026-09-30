@@ -8,7 +8,7 @@ agent | error |  |  |  |  |  |  |  |  |  |  |  |  | error |  |  | error |
 command |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 dial |  | error |  |  | error |  |  |  |  |  |  |  |  | error |  | error |  | 
 handler |  |  |  |  | error |  |  |  |  |  |  |  |  | error |  |  |  | error
-hook |  |  |  |  | error |  |  |  |  |  |  |  |  | error |  |  |  | error
+hook |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  | 
 installed-plugin |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 known-marketplace |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 marketplace | error |  |  | error |  |  |  |  |  |  | error |  |  | error |  |  |  | error

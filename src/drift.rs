@@ -1283,9 +1283,11 @@ pub fn emit(
                 lifted_fields,
             } => {
                 // A group-array entry value is Claude Code's array of matcher groups, not a
-                // lone entry object: nest this member's fields into one group and append it
-                // under the key, so members sharing a key accumulate into the one array (the
-                // flat object a naive insert would write is silently ignored).
+                // lone entry object, and one registration row is one whole GROUP: nest this
+                // member's fields — its lifted fields beside its handler array — into that
+                // group and append it, so two rows sharing a lifecycle event accumulate as
+                // the two groups they are (the flat object a naive insert would write is
+                // silently ignored).
                 let group = crate::json_manifest::hook_matcher_group(
                     &registration.fields,
                     &member_key,

@@ -455,11 +455,14 @@ export const handler: KindDefinition<Handler> = kind<Handler>({
  * documented common fields. Authoring `hook(...)` builds a member whose typed fields fold
  * into its manifest entry; emit erases it into a registration write fact (`emit.ts`).
  *
- * The fields are the documented handler table's own — the common row every handler kind
- * carries, then each kind's — each cited where it is claimed. They address by bare name
- * because the group-array read flattens a handler object's keys onto the member and lifts
- * the group's `matcher` beside them (`hook_member_fields`, `src/json_manifest.rs`), which
- * is what lets {@link hookDefaultContract} judge them.
+ * `matcher` is the matcher group's own field. Every other field here is the documented
+ * handler table's — the common row every handler kind carries, then each kind's, each
+ * cited where it is claimed — and they are **{@link Handler}'s fields**, duplicated onto
+ * this surface only because `hook()` still authors one handler flat: emit nests them as the
+ * group's single handler, and the read gives them back as a `handler` member at
+ * `<hook-address>/handler/0`, which is where {@link handlerDefaultContract} judges them.
+ * {@link hookDefaultContract} judges the group's own field alone. HOOK-AUTHORS-ITS-HANDLERS
+ * moves the authoring onto `Handler` and this duplication goes with it.
  *
  * `once` is deliberately untyped: the docs honor it only on a hook declared in skill
  * frontmatter and ignore it in settings files, and this kind's locus *is* a settings file
@@ -1921,25 +1924,25 @@ const DOCUMENTED_HOOK_EVENTS = [
  * The allowlist {@link handlerDefaultContract}'s enum ranges over, and the guard values
  * its per-kind `when` clauses partition; the update ritual when the docs add a handler
  * kind is to re-fetch, extend this set, widen {@link Handler}'s `type` (and {@link
- * Hook}'s, which carries the same union until the two collapse), and give the new kind
- * its own guarded clause — never to re-derive from memory.
+ * Hook}'s, which carries the same union until `hook()`'s authoring moves onto `Handler`),
+ * and give the new kind its own guarded clause — never to re-derive from memory.
  */
 const DOCUMENTED_HOOK_HANDLER_TYPES = ["command", "http", "mcp_tool", "prompt", "agent"] as const;
 
 /**
  * The default contract for `handler` — the handler-level half of Anthropic's documented
- * hooks contract (code.claude.com/docs/en/hooks, retrieved 2026-09-25), and the one home
- * those six clauses have. {@link hookDefaultContract} spreads them beside its own event
- * clause, so a hook member keeps being gated by them while `handler` owns them.
+ * hooks contract (code.claude.com/docs/en/hooks, retrieved 2026-09-25), and the only home
+ * and the only binding those six clauses have.
  *
- * The handler's schema is addressable off its host member. The group-array read flattens
- * each handler object's keys onto the member and lifts the group's `matcher` beside them
- * (`hook_member_fields`, `src/json_manifest.rs`), so `type`, `command`, `url`, `server`,
- * `tool` and `prompt` all address by bare name — no path into the handler array is ever
- * spelled, and none needs to be. The documented per-kind requirements therefore gate as
- * `when` clauses in the shape {@link mcpServerDefaultContract} already holds: a guard over
- * `type`, a body carrying that kind's required fields. `prompt` and `agent` share one
- * guard because the docs give them one table and one required field.
+ * The clauses address by bare name because a handler is a member: the group-array read
+ * gives each entry of a group's `hooks` array its own member at
+ * `<hook-address>/handler/<position>`, carrying that entry's own keys
+ * (`hook_group_members`, `src/json_manifest.rs`), so `type`, `command`, `url`, `server`,
+ * `tool` and `prompt` are its fields — no path into the handler array is ever spelled, and
+ * none needs to be. The documented per-kind requirements therefore gate as `when` clauses
+ * in the shape {@link mcpServerDefaultContract} already holds: a guard over `type`, a body
+ * carrying that kind's required fields. `prompt` and `agent` share one guard because the
+ * docs give them one table and one required field.
  *
  * The enum settles which values are legal, never that a value is present, and an absent
  * `type` enters no guard — so presence is its own clause beside the enum. The docs'
@@ -2025,10 +2028,12 @@ export const handlerDefaultContract: readonly Clause[] = [
  * hook under an unrecognized event, so the strictest documented profile is that the event
  * is one temper's cited docs name.
  *
- * The handler-level clauses are {@link handlerDefaultContract}'s, spread in below: they
- * are the `handler` kind's own, and `hook` adopts them because the group-array read
- * flattens each handler object's keys onto the member, so the hook member itself is what
- * they judge today.
+ * The event clause is the whole of it. The handler-level clauses are
+ * {@link handlerDefaultContract}'s and bind under `handler` alone: a hook member is its
+ * whole matcher group, and each entry of the group's `hooks` array is a `handler` member
+ * keyed by its position there — so `type`, `command` and `url` are fields of a member this
+ * contract does not range over. The transitional double binding is retired with this: the
+ * six clauses have one binding, under the kind whose members carry the fields they judge.
  */
 export const hookDefaultContract: readonly Clause[] = [
   clause(enumOf("event", DOCUMENTED_HOOK_EVENTS), {
@@ -2037,7 +2042,6 @@ export const hookDefaultContract: readonly Clause[] = [
       "A hook keys under its lifecycle event; an event outside the documented set is dead configuration — Claude Code silently never fires a hook under an unrecognized event. If this is a newly-documented event, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding.",
     cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-09-25)",
   }),
-  ...handlerDefaultContract,
 ];
 
 /**

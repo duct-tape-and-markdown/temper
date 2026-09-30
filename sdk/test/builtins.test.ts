@@ -733,11 +733,22 @@ test("settingsDefaultContract types the committed file's structural keys and ced
     settingsDefaultContract.some((c) => c.predicate.field === "hooks"),
     false,
   );
-  // The `hook` kind holds it, and its contract is the event clause plus the handler
-  // contract it spreads — the six handler-level clauses live under `handler` now.
-  assert.deepEqual(hookDefaultContract, [hookDefaultContract[0], ...handlerDefaultContract]);
+  // The `hook` kind holds it, and its contract is the group's own event clause and nothing
+  // else: a hook member is its whole matcher group, and the six handler-level clauses bind
+  // under `handler` alone — the members whose fields they judge.
+  assert.equal(hookDefaultContract.length, 1);
   assert.equal(hookDefaultContract[0].predicate.field, "event");
   assert.equal(handlerDefaultContract.length, 6);
+  // The split is exhaustive: no handler-level clause is left behind under `hook`, and no
+  // event clause leaked into `handler`.
+  assert.equal(
+    handlerDefaultContract.some((c) => c.predicate.field === "event"),
+    false,
+  );
+  assert.deepEqual(
+    handlerDefaultContract.map((c) => c.predicate.key),
+    ["required", "enum", "when", "when", "when", "when"],
+  );
   // Cited and dated, every one — to the live settings reference.
   for (const entry of settingsDefaultContract) {
     assert.match(

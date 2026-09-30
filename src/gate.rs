@@ -439,24 +439,40 @@ pub fn gate(
     diagnostics.extend(admissibility::nested_member_key_segment(&declarations));
 
     // The by-kind corpus every set-scope and graph predicate ranges over,
-    // assembled through the same helper the read arm uses.
-    let embedded_features = compose::embedded_features_by_kind(&declarations);
+    // assembled through the same helper the read arm uses — over both its contributors:
+    // the lock's own `nested_member` rows, and the embedded members each host kind's read
+    // composed. A hook matcher group's handlers are the second: a registration row drops
+    // its `fields` at the lock (0018), so the manifest carrying the group is the only place
+    // its handlers' values exist to be read back from.
+    let composed_embedded: Vec<compose::ComposedEmbeddedMember> = builtin_units_and_features
+        .values()
+        .chain(custom_units_and_features.iter().map(|(_, uaf)| uaf))
+        .flat_map(|uaf| uaf.composed_embedded.iter().cloned())
+        .collect();
+    let embedded_features =
+        compose::embedded_features_by_kind_with_composed(&declarations, &composed_embedded);
 
     // The third dispatcher: an embedded kind's members through the identical two greens
     // the two at-locus loops above run, so a clause bound to an embedded kind is judged
     // rather than silently no-opped. Ordered here because the embedded corpus is what a
-    // host's `templates` column yields, which is only assembled above. Like a custom
-    // kind, an embedded kind carries no embedded default — its whole contract is the
-    // committed lock's own clause rows naming it. Its member counts stay out of the
-    // coverage note's summary: that map is keyed by kind-fact row label, which an
-    // embedded kind has none of, and an embedded member's host file is already counted
-    // under its own kind.
+    // host's `templates` column yields, which is only assembled above. A *custom*
+    // embedded kind carries no embedded default — its whole contract is the committed
+    // lock's own clause rows naming it. A **built-in** one ships a default like any other
+    // built-in (`handler`, the kind `hook` templates), so it takes the identical
+    // declared-else-embedded fallback the at-locus built-in loop above takes; the
+    // lock-rows-only reader would silently drop the contract such a kind ships with.
     for (kind, features) in &embedded_features {
-        let contract = compose::with_joined_clauses(
-            compose::default_contract_from_rows(&declarations.clauses, &declarations.kinds, kind)?,
-            &joined_clauses,
-            kind,
-        )?;
+        let default = if builtin_defs.contains_key(kind) {
+            compose::builtin_contract(
+                &declarations.clauses,
+                &declarations.kinds,
+                &declarations.assembly,
+                kind,
+            )?
+        } else {
+            compose::default_contract_from_rows(&declarations.clauses, &declarations.kinds, kind)?
+        };
+        let contract = compose::with_joined_clauses(default, &joined_clauses, kind)?;
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             contract,
@@ -740,9 +756,19 @@ pub fn gate(
     // already-parsed `committed.kinds` to avoid a redundant lock re-parse
     // (COVERAGE-NOTE-LOCK-PARSE-HOIST), and the undeclared counts so the one line that
     // says what was checked cannot silently absorb an undeclared member.
+    // Counted off BOTH sources a nested member reaches this run through, the two the
+    // embedded corpus above is assembled from: the lock's own rows, and the members a host
+    // kind's read composed. A manifest-composed handler owns no `nested_member` row, so
+    // rows alone would disclose `(0 embedded)` over a harness whose hooks carry handlers —
+    // the gate's silence reading as "checked" being exactly what this line exists to
+    // prevent. Rows are counted whatever their kind's locus, so a nested-FILE kind's
+    // members are still disclosed here as they always were.
     let mut nested_member_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in &committed.nested_members {
         *nested_member_counts.entry(row.kind.clone()).or_default() += 1;
+    }
+    for member in &composed_embedded {
+        *nested_member_counts.entry(member.kind.clone()).or_default() += 1;
     }
     diagnostics.extend(coverage_note::check(
         harness_root,

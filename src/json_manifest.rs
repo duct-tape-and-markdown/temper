@@ -82,10 +82,26 @@ pub struct RegistrationMember {
     /// types them exactly as a frontmatter member's fields, never a second projector.
     /// Declared and opaque keys alike surface here: a fields-only member keeps every entry
     /// key, the same permissive read the frontmatter face gives unknown keys. A hook's
-    /// event value is an array, so its member carries no fields; an MCP server's entry is
-    /// an object, so its fields fold in; an installed plugin's entry is a bare scalar, so
-    /// its member carries that one value as its declared `enabled` field.
+    /// event value is an array of matcher groups, so its member carries the group's own
+    /// lifted fields; an MCP server's entry is an object, so its fields fold in; an
+    /// installed plugin's entry is a bare scalar, so its member carries that one value as
+    /// its declared `enabled` field.
     pub fields: BTreeMap<String, JsonValue>,
+    /// The member's **nested entries** — a matcher group's `hooks` handlers, each paired
+    /// with its position in the array it was read from and carrying its own raw
+    /// [`JsonValue`] fields. Empty for every entry shape whose value nests nothing.
+    ///
+    /// The position rides along rather than being re-derived by the consumer's own
+    /// enumeration: an entry the read passes over (a handler that is not an object — a
+    /// shape Claude Code would itself ignore) would otherwise shift every later entry's
+    /// key by one, and that key is the member's identity.
+    ///
+    /// Carried **kind-less**: this read sees collection addresses and never a kind, so
+    /// nothing here can name the child kind these entries are members of. The caller that
+    /// does know the host kind keys them under the child kind its `templates` column
+    /// names ([`crate::compose`]), which is also what keeps the read's entry shape from
+    /// having to grow a kind column it could only ever carry for one of its three arms.
+    pub members: Vec<(usize, BTreeMap<String, JsonValue>)>,
 }
 
 impl RegistrationMember {
@@ -389,13 +405,11 @@ impl Manifest {
         for address in addresses {
             let collection = address.key_path.collection_key();
             consumed.insert(collection);
-            for (key, fields) in manifest_members(&manifest, collection, &address.entry_shape) {
-                members.push(RegistrationMember {
-                    collection: collection.to_string(),
-                    key,
-                    fields,
-                });
-            }
+            members.extend(manifest_members(
+                &manifest,
+                collection,
+                &address.entry_shape,
+            ));
         }
 
         let opaque_fields = manifest
@@ -526,8 +540,9 @@ fn render_object(members: &[(&str, JsonValue)]) -> String {
 ///   (via [`entry_fields`]); a non-object entry passes no fields.
 /// - **Scalar shape** — each entry's value is a bare scalar — lifts it as one declared
 ///   field (via [`enablement_member_fields`]).
-/// - **GroupArray shape** — an array of matcher groups — decomposes each group into flat
-///   lifted fields plus handler fields, one member per handler (via [`hook_member_fields`]).
+/// - **GroupArray shape** — an array of matcher groups — reads each group as one member
+///   carrying its lifted fields and its positioned handler entries (via
+///   [`hook_group_members`]).
 ///
 /// The read and write faces ride this grammar — that invariant is the answer to the
 /// lock-row lifter's contract-edge challenge (decision 0040): the grammar is the one
@@ -536,9 +551,15 @@ fn manifest_members(
     manifest: &JsonMap<String, JsonValue>,
     collection_key: &str,
     entry_shape: &crate::kind::EntryShape,
-) -> Vec<(String, BTreeMap<String, JsonValue>)> {
+) -> Vec<RegistrationMember> {
     let Some(JsonValue::Object(collection)) = manifest.get(collection_key) else {
         return Vec::new();
+    };
+    let flat = |key: &String, fields: BTreeMap<String, JsonValue>| RegistrationMember {
+        collection: collection_key.to_string(),
+        key: key.clone(),
+        fields,
+        members: Vec::new(),
     };
     match entry_shape {
         crate::kind::EntryShape::GroupArray {
@@ -547,18 +568,23 @@ fn manifest_members(
         } => collection
             .iter()
             .flat_map(|(event, value)| {
-                hook_member_fields(value, member_key, lifted_fields)
+                hook_group_members(value, member_key, lifted_fields)
                     .into_iter()
-                    .map(move |fields| (event.clone(), fields))
+                    .map(move |(fields, members)| RegistrationMember {
+                        collection: collection_key.to_string(),
+                        key: event.clone(),
+                        fields,
+                        members,
+                    })
             })
             .collect(),
         crate::kind::EntryShape::Scalar { field } => collection
             .iter()
-            .map(|(plugin, value)| (plugin.clone(), enablement_member_fields(value, field)))
+            .map(|(plugin, value)| flat(plugin, enablement_member_fields(value, field)))
             .collect(),
         crate::kind::EntryShape::Object => collection
             .iter()
-            .map(|(key, value)| (key.clone(), entry_fields(value)))
+            .map(|(key, value)| flat(key, entry_fields(value)))
             .collect(),
     }
 }
@@ -615,21 +641,36 @@ pub(crate) fn enablement_entry_value(fields: &[(String, JsonValue)], field: &str
         .map_or(JsonValue::Bool(true), |(_, value)| value.clone())
 }
 
+/// One group a group-array read yields: the member's own fields (its lifted fields plus
+/// the handler array they sit beside) and its positioned nested entries — the pair
+/// [`hook_group_members`] returns per group, named so the read's shape is one word rather
+/// than a nested tuple at every mention of it.
+type GroupRead = (
+    BTreeMap<String, JsonValue>,
+    Vec<(usize, BTreeMap<String, JsonValue>)>,
+);
+
 /// Decompose one group-array entry value — Claude Code's array of matcher groups
-/// (`[{matcher?, hooks:[{type, command}]}]`, code.claude.com/docs/en/hooks) — into the
-/// flat fields a fields-only member carries, one per handler: each group's lifted fields
-/// (when present) alongside each handler object's own keys (`type`, `command`, …). The
-/// `member_key` is the key of the handler array within each group (e.g., `"hooks"`), and
-/// `lifted_fields` are the names of fields to lift from the group level to each handler's
-/// flat representation (e.g., `["matcher"]`). The inverse of [`hook_matcher_group`], so
-/// an entry read back off `settings.json` re-nests to the identical bytes on write. A value
-/// that is not an array, a group that is not an object, or an entry with no handler array
-/// yields no member — a shape Claude Code would itself ignore infers nothing.
-fn hook_member_fields(
+/// (`[{matcher?, hooks:[{type, command}]}]`, code.claude.com/docs/en/hooks) — into one
+/// member per **group**: the group's own lifted fields (when present), plus its handler
+/// array's entries in wire order as the member's nested entries. The `member_key` is the
+/// key of the handler array within each group (e.g., `"hooks"`), and `lifted_fields` are
+/// the names of the group-level fields the member carries as its own (e.g.,
+/// `["matcher"]`). The inverse of [`hook_matcher_group`], so an entry read back off
+/// `settings.json` re-nests to the identical bytes on write. A value that is not an array,
+/// a group that is not an object, or an entry with no handler array yields no member — a
+/// shape Claude Code would itself ignore infers nothing.
+///
+/// The group is the member grain because the group is what the wire addresses: its
+/// `matcher` scopes every handler under it, and its handlers are a collection keyed by
+/// position, not a member each at the group's own address
+/// (`specs/model/representation.md`, "nesting"). The entries come back kind-less for the
+/// reason [`RegistrationMember::members`] states.
+fn hook_group_members(
     event_value: &JsonValue,
     member_key: &str,
     lifted_fields: &[String],
-) -> Vec<BTreeMap<String, JsonValue>> {
+) -> Vec<GroupRead> {
     let JsonValue::Array(groups) = event_value else {
         return Vec::new();
     };
@@ -641,56 +682,75 @@ fn hook_member_fields(
         let Some(JsonValue::Array(handlers)) = group.get(member_key) else {
             continue;
         };
-        for handler in handlers {
-            let JsonValue::Object(handler) = handler else {
-                continue;
-            };
-            let mut fields = BTreeMap::new();
-            for lifted_field in lifted_fields {
-                if let Some(value) = group.get(lifted_field) {
-                    fields.insert(lifted_field.clone(), value.clone());
-                }
+        let mut fields = BTreeMap::new();
+        for lifted_field in lifted_fields {
+            if let Some(value) = group.get(lifted_field) {
+                fields.insert(lifted_field.clone(), value.clone());
             }
-            for (key, value) in handler {
-                fields.insert(key.clone(), value.clone());
-            }
-            members.push(fields);
         }
+        // The handler array is the member's own field too: it is what the write face nests
+        // back, and a clause over the group may range over it exactly as over `matcher`.
+        fields.insert(member_key.to_string(), JsonValue::Array(handlers.clone()));
+        let nested = handlers
+            .iter()
+            .enumerate()
+            .filter_map(|(position, handler)| match handler {
+                JsonValue::Object(handler) => Some((
+                    position,
+                    handler
+                        .iter()
+                        .map(|(key, value)| (key.clone(), value.clone()))
+                        .collect(),
+                )),
+                _ => None,
+            })
+            .collect();
+        members.push((fields, nested));
     }
     members
 }
 
-/// Nest one group-array member's flat fields back into its entry value — a matcher group
-/// `{lifted?, member_key:[{...handler}]}`: each lifted field lifts to the group level
-/// (when present), every other field becomes the single handler's own. The `member_key` is
-/// the key of the handler array within each group (e.g., `"hooks"`), and `lifted_fields`
-/// are the names of fields to lift to the group level (e.g., `["matcher"]`). The inverse
-/// of [`hook_member_fields`], and the reason emit writes the array-of-groups shape Claude
+/// Nest one group-array member's fields back into its entry value — a matcher group
+/// `{lifted?, member_key:[{...handler}, …]}`. Each lifted field lifts to the group level
+/// (when present); the group's handlers are its `member_key` array, extended by the one
+/// handler the member's remaining fields spell. The `member_key` is the key of the handler
+/// array within each group (e.g., `"hooks"`), and `lifted_fields` are the names of fields
+/// that sit at the group level (e.g., `["matcher"]`). The inverse of
+/// [`hook_group_members`], and the reason emit writes the array-of-groups shape Claude
 /// Code loads rather than the flat object form it silently ignores. `pub(crate)` so the
 /// write face (`crate::drift`) nests through the one shape this module's read face
 /// decomposes.
+///
+/// The two contributors to the handler array are one rule, not two spellings: a member
+/// read off a manifest carries its whole `member_key` array and no residue, so the write
+/// is the read's exact inverse; a member whose program spells the handler's own fields
+/// flat carries no array and exactly that residue, so it nests into the single handler it
+/// means. The second is what the SDK's `hook()` authors today — the surface
+/// HOOK-AUTHORS-ITS-HANDLERS moves onto the array — and until it moves, both spellings
+/// reach this one face.
 pub(crate) fn hook_matcher_group(
     fields: &[(String, JsonValue)],
     member_key: &str,
     lifted_fields: &[String],
 ) -> JsonValue {
-    let mut lifted = BTreeMap::new();
-    let mut handler = JsonMap::new();
+    let mut group = JsonMap::new();
+    let mut handlers = Vec::new();
+    let mut residue = JsonMap::new();
     for (key, value) in fields {
         if lifted_fields.contains(key) {
-            lifted.insert(key.clone(), value.clone());
+            group.insert(key.clone(), value.clone());
+        } else if key == member_key {
+            if let JsonValue::Array(entries) = value {
+                handlers.extend(entries.iter().cloned());
+            }
         } else {
-            handler.insert(key.clone(), value.clone());
+            residue.insert(key.clone(), value.clone());
         }
     }
-    let mut group = JsonMap::new();
-    for (key, value) in lifted {
-        group.insert(key, value);
+    if !residue.is_empty() {
+        handlers.push(JsonValue::Object(residue));
     }
-    group.insert(
-        member_key.to_string(),
-        JsonValue::Array(vec![JsonValue::Object(handler)]),
-    );
+    group.insert(member_key.to_string(), JsonValue::Array(handlers));
     JsonValue::Object(group)
 }
 
@@ -968,14 +1028,16 @@ mod tests {
         let manifest = manifest.as_object().unwrap();
 
         let members = manifest_members(manifest, "mcpServers", &crate::kind::EntryShape::Object);
-        let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
+        let keys: Vec<&str> = members.iter().map(|member| member.key.as_str()).collect();
         assert_eq!(keys, vec!["gmail", "opaque"]);
 
-        let gmail = &members[0].1;
+        let gmail = &members[0].fields;
         assert_eq!(gmail.get("command"), Some(&JsonValue::from("npx")));
         assert_eq!(gmail.get("timeout"), Some(&JsonValue::from(30)));
         // The string-valued entry has no object fields to read.
-        assert!(members[1].1.is_empty());
+        assert!(members[1].fields.is_empty());
+        // An object entry nests nothing: the nested column is the group-array arm's alone.
+        assert!(members.iter().all(|member| member.members.is_empty()));
 
         // An absent collection key yields no members — absent, never errored.
         assert!(manifest_members(manifest, "hooks", &crate::kind::EntryShape::Object).is_empty());
@@ -1001,14 +1063,14 @@ mod tests {
                 field: "enabled".to_string(),
             },
         );
-        let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
+        let keys: Vec<&str> = members.iter().map(|member| member.key.as_str()).collect();
         assert_eq!(
             keys,
             vec!["formatter@my-marketplace", "legacy@my-marketplace"]
         );
 
         for (index, expected) in [true, false].into_iter().enumerate() {
-            let fields = &members[index].1;
+            let fields = &members[index].fields;
             assert_eq!(fields.len(), 1, "one field, off the scalar value");
             assert_eq!(fields.get("enabled"), Some(&JsonValue::Bool(expected)));
 
@@ -1037,14 +1099,18 @@ mod tests {
     }
 
     #[test]
-    fn hook_members_decompose_the_matcher_group_array_and_re_nest_identically() {
-        // A `hooks.<Event>` value is the array of matcher groups Claude Code loads, not a
-        // lone entry object: each handler decomposes into flat {matcher?, type, command}
-        // fields, and re-nesting one such member reproduces the group byte-for-byte.
+    fn a_matcher_group_reads_as_one_member_with_its_handlers_and_re_nests_identically() {
+        // A `hooks.<Event>` value is the array of matcher groups Claude Code loads: each
+        // group is ONE member — its lifted `matcher` plus the whole handler array — and its
+        // handlers are that member's positioned nested entries. A group carrying two
+        // handlers is one member with two entries, never two members at one address.
         let manifest = serde_json::json!({
             "hooks": {
                 "PreToolUse": [
-                    { "matcher": "Bash", "hooks": [ { "type": "command", "command": "echo guard" } ] }
+                    { "matcher": "Bash", "hooks": [
+                        { "type": "command", "command": "echo guard" },
+                        { "type": "http", "url": "https://example.test/audit", "timeout": 30 }
+                    ] }
                 ],
                 "SessionStart": [
                     { "hooks": [ { "type": "command", "command": "echo hi" } ] }
@@ -1061,22 +1127,68 @@ mod tests {
                 lifted_fields: vec!["matcher".to_string()],
             },
         );
-        let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
+        let keys: Vec<&str> = members.iter().map(|member| member.key.as_str()).collect();
         assert_eq!(keys, vec!["PreToolUse", "SessionStart"]);
 
-        // The tool-scoped event lifts its group `matcher` alongside the handler fields; the
-        // event with no matcher carries only the handler's own.
-        let pre = &members[0].1;
-        assert_eq!(pre.get("matcher"), Some(&JsonValue::from("Bash")));
-        assert_eq!(pre.get("command"), Some(&JsonValue::from("echo guard")));
-        assert_eq!(pre.get("type"), Some(&JsonValue::from("command")));
-        assert!(!members[1].1.contains_key("matcher"));
+        // The tool-scoped group lifts its own `matcher` and carries its handler array; the
+        // group with no matcher carries the array alone. Neither carries a handler's keys.
+        let pre = &members[0];
+        assert_eq!(pre.fields.get("matcher"), Some(&JsonValue::from("Bash")));
+        assert!(!pre.fields.contains_key("type"));
+        assert!(!pre.fields.contains_key("command"));
+        assert!(!members[1].fields.contains_key("matcher"));
 
-        // Re-nesting a decomposed member is the inverse of the read — byte-for-byte the
-        // group it came from.
-        let fields: Vec<(String, JsonValue)> = pre.clone().into_iter().collect();
-        let regrouped = hook_matcher_group(&fields, "hooks", &["matcher".to_string()]);
-        let source_group = manifest["hooks"]["PreToolUse"].as_array().unwrap()[0].clone();
-        assert_eq!(regrouped, source_group);
+        // Two handlers, keyed by their position in the group's array, each carrying its own
+        // keys with their JSON types intact — `timeout` stays a number.
+        let positions: Vec<usize> = pre.members.iter().map(|(at, _)| *at).collect();
+        assert_eq!(positions, vec![0, 1]);
+        assert_eq!(
+            pre.members[0].1.get("command"),
+            Some(&JsonValue::from("echo guard"))
+        );
+        assert_eq!(pre.members[1].1.get("timeout"), Some(&JsonValue::from(30)));
+        assert_eq!(members[1].members.len(), 1);
+
+        // Re-nesting a read member is the inverse of the read — byte-for-byte the group it
+        // came from, handler count and order included.
+        for member in &members {
+            let fields: Vec<(String, JsonValue)> = member.fields.clone().into_iter().collect();
+            let regrouped = hook_matcher_group(&fields, "hooks", &["matcher".to_string()]);
+            let source_group = manifest["hooks"][&member.key].as_array().unwrap()[0].clone();
+            assert_eq!(regrouped, source_group);
+        }
+    }
+
+    #[test]
+    fn a_flat_authored_group_row_nests_into_the_single_handler_it_spells() {
+        // The write face's other contributor: a member whose program spelled the handler's
+        // own fields flat carries no handler array, so they nest as the one handler they
+        // mean — the shape `hook()` authors until HOOK-AUTHORS-ITS-HANDLERS moves it.
+        let group = hook_matcher_group(
+            &[
+                ("matcher".to_string(), JsonValue::from("Bash")),
+                ("type".to_string(), JsonValue::from("command")),
+                ("command".to_string(), JsonValue::from("echo guard")),
+            ],
+            "hooks",
+            &["matcher".to_string()],
+        );
+        assert_eq!(
+            group,
+            serde_json::json!({
+                "matcher": "Bash",
+                "hooks": [ { "type": "command", "command": "echo guard" } ]
+            })
+        );
+    }
+
+    #[test]
+    fn a_group_row_carrying_neither_an_array_nor_a_residue_writes_an_empty_handler_list() {
+        // The degenerate: a group with nothing under it renders the empty array Claude Code
+        // reads as "no handler here", never a synthesized one or a missing key.
+        assert_eq!(
+            hook_matcher_group(&[], "hooks", &["matcher".to_string()]),
+            serde_json::json!({ "hooks": [] })
+        );
     }
 }

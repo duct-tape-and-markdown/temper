@@ -2115,14 +2115,42 @@ fn read_lifted_member(kind: &CustomKind, file: &Path) -> miette::Result<LiftedMe
 
 /// One registration entry read for the lift: its collection key is the member's id, its
 /// own fields are the whole member, and it carries no body — a fields-shape kind has no
-/// prose slot to move module-side ([`kind::Content::Fields`]). The manifest read already
-/// flattened the entry to the shape the SDK's own constructor types: a hook's handler
-/// keys with its group's `matcher` lifted beside them, an enablement's declared field
-/// ([`json_manifest`]'s read face).
-fn lifted_registration(entry: &json_manifest::RegistrationMember) -> LiftedMember {
+/// prose slot to move module-side ([`kind::Content::Fields`]).
+///
+/// What the lift writes is a module its author then owns, so the fields are spelled on the
+/// **authoring surface** — a module carrying a field the shipped kind does not type is one
+/// an adopter's own `tsc` refuses. For a group-array entry that surface types the group's
+/// `matcher` beside exactly one handler's own keys (`Hook`, `sdk/src/builtins.ts`), so a
+/// group carrying exactly one handler hoists its keys and drops the array they came in.
+/// Any other count keeps the array as read: lossless, and the spelling the handler-grain
+/// authoring surface takes over (HOOK-AUTHORS-ITS-HANDLERS, which retires this hoist with
+/// it). Either way the group re-nests to the bytes it was read from — the write face takes
+/// both spellings ([`json_manifest::hook_matcher_group`]).
+///
+/// The group's handlers are not lifted as members of their own, for the same reason: the
+/// authoring surface has no handler member to mint one onto yet.
+fn lifted_registration(
+    kind: &kind::CustomKind,
+    entry: &json_manifest::RegistrationMember,
+) -> LiftedMember {
+    let mut fields: Vec<(String, serde_json::Value)> = entry.fields.clone().into_iter().collect();
+    if let Some(kind::EntryShape::GroupArray { member_key, .. }) = kind
+        .collection_address
+        .as_ref()
+        .map(|address| &address.entry_shape)
+        && let [(_, handler)] = entry.members.as_slice()
+    {
+        fields.retain(|(key, _)| key != member_key);
+        fields.extend(
+            handler
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
+        );
+        fields.sort_by(|(a, _), (b, _)| a.cmp(b));
+    }
     LiftedMember {
         id: entry.key.clone(),
-        fields: entry.fields.clone().into_iter().collect(),
+        fields,
         body: None,
     }
 }
@@ -2268,7 +2296,7 @@ fn scaffold(
             }
             KindMembers::Registrations { entries, .. } => {
                 for entry in entries {
-                    lifted.push((name.clone(), lifted_registration(entry)));
+                    lifted.push((name.clone(), lifted_registration(kind, entry)));
                 }
             }
         }

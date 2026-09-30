@@ -481,6 +481,34 @@ struct KindUnits {
     /// every kind but a layout one, whose members' collections, verbatim prose regions and
     /// `satisfies` claims lower here ([`drift::lower_layout_reading`]).
     layout_rows: drift::LayoutDocumentRows,
+    /// The embedded members this kind's own read composed — a hook matcher group's
+    /// handlers, keyed under the child kind this kind's `templates` column names. Empty for
+    /// every kind whose members carry no nested entry of their own.
+    composed_embedded: Vec<ComposedEmbeddedMember>,
+}
+
+/// One embedded member composed off its **host's own read**, rather than lifted from a
+/// `nested_member` lock row: a hook matcher group's handler, read back out of the manifest
+/// the group was read from.
+///
+/// The two sources are two, not one, because a registration row drops its `fields` at the
+/// lock (0018, "the projection is not the database"): a handler's values live in the
+/// projected `settings.json` and nowhere else, exactly as its host hook's own fields
+/// already do, so the manifest read is the only place they can come from. What the two
+/// sources share is where they land — the one by-kind embedded corpus
+/// ([`embedded_features_by_kind`]) every clause and edge ranges over.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComposedEmbeddedMember {
+    /// The embedded kind these fields are a member of — the child kind the host kind's
+    /// `templates` column names, the one place that fact lives.
+    pub kind: String,
+    /// The member's identity: its `<host-address>/<kind>/<key>` nested address
+    /// ([`member_address::nested_address`]).
+    pub address: String,
+    /// The member's own fields, **raw** JSON as the host's read surfaced them — never
+    /// stringified, so a handler's `timeout`, `args` and `headers` keep the types a `type`
+    /// clause over them needs.
+    pub fields: BTreeMap<String, serde_json::Value>,
 }
 
 /// A kind's resolved units and their extracted features — the corpus of members every
@@ -494,6 +522,10 @@ pub struct KindUnitsAndFeatures {
     pub features: Vec<extract::Features>,
     /// Frontmatter load faults collected during member discovery, rather than aborting.
     pub load_faults: Vec<crate::check::Diagnostic>,
+    /// The embedded members this kind's own read composed ([`ComposedEmbeddedMember`]),
+    /// carried out beside the units so the by-kind embedded corpus is assembled from the
+    /// one read that produced the hosts rather than a second walk of the same manifests.
+    pub composed_embedded: Vec<ComposedEmbeddedMember>,
 }
 
 /// The run's whole declaration family, assembled once for every consumer below.
@@ -734,6 +766,14 @@ fn declared_kinds_with_overlaid(
 /// lifecycle event a hook keys at. `satisfies` is left empty here — the caller folds it in
 /// off the lock, exactly as for a file member.
 ///
+/// Beside the units, the **embedded members** each entry nests: a matcher group's handlers
+/// arrive from the read kind-less ([`json_manifest::RegistrationMember::members`]), and
+/// this is the one site that knows the host kind, so this is where they become members of
+/// the child kind the host's `templates` column names — keyed
+/// `<host-address>/<kind>/<position>`. A host kind templating no embedded layer nests
+/// nothing, so its entries' nested column, if any, composes no member: the child kind is
+/// the host's declared fact, never a name this read invents.
+///
 /// # Errors
 ///
 /// Returns an error if the manifest cannot be discovered or read.
@@ -742,24 +782,48 @@ fn manifest_units(
     kind: &CustomKind,
     address: &CollectionAddress,
     cache: &ManifestCache,
-) -> miette::Result<Vec<Unit>> {
+) -> miette::Result<(Vec<Unit>, Vec<ComposedEmbeddedMember>)> {
     let (Some(governs),) = (&kind.governs,) else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), Vec::new()));
     };
+    // The embedded layer's child kind, when this kind templates one. An embedded template
+    // carries no `path` — that spelling is the file-child layer's (`kind::Template::path`).
+    let embedded_kind = kind
+        .templates
+        .iter()
+        .find(|template| template.path.is_none())
+        .map(|template| template.kind.clone());
     let files = import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored);
     let mut units = Vec::new();
+    let mut composed = Vec::new();
     let collection = address.key_path.collection_key();
     for file in files {
         if let Some((manifest, _)) = cache.get(&file) {
             let source_path = manifest.provenance.source_path.clone();
             for member in &manifest.members {
-                if member.collection == collection {
-                    units.push(member.to_unit(address, &source_path));
+                if member.collection != collection {
+                    continue;
                 }
+                let unit = member.to_unit(address, &source_path);
+                if let Some(embedded_kind) = &embedded_kind {
+                    let host = member_address::host_address(&kind.name, &unit.id);
+                    for (position, fields) in &member.members {
+                        composed.push(ComposedEmbeddedMember {
+                            kind: embedded_kind.clone(),
+                            address: member_address::nested_address(
+                                &host,
+                                embedded_kind,
+                                &position.to_string(),
+                            ),
+                            fields: fields.clone(),
+                        });
+                    }
+                }
+                units.push(unit);
             }
         }
     }
-    Ok(units)
+    Ok((units, composed))
 }
 
 /// Map a frontmatter load fault to a diagnostic, or return the error to propagate.
@@ -843,10 +907,13 @@ fn resolve_kind_units(
     // Each read member paired with the rows its own document declared, so the two travel
     // together through the sort below and the rows come out in member-id order — the order
     // a second pass over the sorted units would have produced.
+    let mut composed_embedded = Vec::new();
     let mut read: Vec<(Unit, drift::LayoutDocumentRows)> =
         match (&overlaid.content, &overlaid.collection_address, &governs) {
             (kind::Content::Fields, Some(address), _) => {
-                manifest_units(disc, &overlaid, address, cache)?
+                let (units, composed) = manifest_units(disc, &overlaid, address, cache)?;
+                composed_embedded = composed;
+                units
                     .into_iter()
                     .map(|unit| (unit, drift::LayoutDocumentRows::default()))
                     .collect()
@@ -921,6 +988,7 @@ fn resolve_kind_units(
         units,
         load_faults: load_fault_diagnostics,
         layout_rows,
+        composed_embedded,
     })
 }
 
@@ -947,6 +1015,7 @@ pub fn kind_units_and_features(
         // The rows are the assembly pass's to consume ([`assemble_lock_family`]); a
         // feature read ranges over the family that pass already assembled.
         layout_rows: _,
+        composed_embedded,
     } = resolve_kind_units(kind, disc, declarations, cache, overlaid_builtin_kinds)?;
     let features = units
         .iter()
@@ -956,6 +1025,7 @@ pub fn kind_units_and_features(
         units,
         features,
         load_faults,
+        composed_embedded,
     })
 }
 
@@ -1165,6 +1235,10 @@ pub fn assemble_lock_family(
             units,
             load_faults: _,
             layout_rows: rows,
+            // This pass assembles declaration ROWS; a composed embedded member declares
+            // none — its values never reach a lock (0018) — and the corpus that judges it
+            // is assembled off the same read in [`kind_units_and_features`].
+            composed_embedded: _,
         } = resolve_kind_units(kind, disc, committed, cache, &overlaid_builtin_kinds)?;
         local_members.extend(
             units
@@ -1276,8 +1350,32 @@ pub fn partition_kind_rows<'a>(
 /// declares is absent, so an edge targeting it stays an admissibility finding. Depth is
 /// one layer: a `nested_member` row's own sibling collections are the leaf grain the read
 /// family addresses, not a second embedded kind's member set.
+///
+/// The declarations are one of the corpus's **two** contributors; the other is
+/// [`embedded_features_by_kind_with_composed`]. This arity is the lock-only read — every
+/// caller with no manifest corpus in hand.
+#[must_use]
 pub fn embedded_features_by_kind(
     declarations: &drift::Declarations,
+) -> BTreeMap<String, Vec<extract::Features>> {
+    embedded_features_by_kind_with_composed(declarations, &[])
+}
+
+/// [`embedded_features_by_kind`] over **both** contributors: the lock's `nested_member`
+/// rows, then the `composed` members a host's own read produced
+/// ([`ComposedEmbeddedMember`]) — a hook matcher group's handlers, whose values reach no
+/// lock row to be lifted from.
+///
+/// A composed member's fields are carried **as read**, raw JSON, never through
+/// [`embedded_member_features`]: that lifter stringifies a row's leaves because a leaf IS
+/// authored prose, while a handler's `timeout` is a number, its `args` an array and its
+/// `headers` an object — types a clause over them would lose to a `String`. It carries no
+/// rendered span and no edge placements for the reason a layout host's members carry
+/// none: nothing rendered it, so there is no projection to measure or to indict.
+#[must_use]
+pub fn embedded_features_by_kind_with_composed(
+    declarations: &drift::Declarations,
+    composed: &[ComposedEmbeddedMember],
 ) -> BTreeMap<String, Vec<extract::Features>> {
     let mut by_kind: BTreeMap<String, Vec<extract::Features>> =
         crate::admissibility::declared_embedded_kinds(declarations)
@@ -1298,7 +1396,40 @@ pub fn embedded_features_by_kind(
             ));
         }
     }
+    // A composed member's kind is its host kind's `templates` entry, which is what
+    // `declared_embedded_kinds` reads off a kind-fact row — but a built-in host's templates
+    // reach no such row, so `entry` rather than `get_mut`: the kind is modeled by the host
+    // that named it, whether or not the lock spells the host out.
+    for member in composed {
+        by_kind
+            .entry(member.kind.clone())
+            .or_default()
+            .push(composed_embedded_features(member));
+    }
     by_kind
+}
+
+/// Lift one [`ComposedEmbeddedMember`] into the [`extract::Features`] a clause and an edge
+/// range over: its address is its identity and its raw fields are its fields. Every
+/// document-derived feature is empty — an embedded member has no document of its own — and
+/// so is every projection-derived one, which is what keeps an `extent` clause over it
+/// undecidable rather than reading a zero as a pass.
+fn composed_embedded_features(member: &ComposedEmbeddedMember) -> extract::Features {
+    extract::Features {
+        id: member.address.clone(),
+        fields: member.fields.clone(),
+        body_lines: 0,
+        rendered_lines: None,
+        rendered_chars: None,
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+        edge_placements: None,
+    }
 }
 
 /// The edge fields each kind declares, off the lock's `assembly` `edge` facts — the
