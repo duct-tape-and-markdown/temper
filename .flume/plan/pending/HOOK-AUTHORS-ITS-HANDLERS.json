@@ -1,7 +1,12 @@
 {
   "tag": "HOOK-AUTHORS-ITS-HANDLERS",
-  "gate": { "kind": "blockedBy", "tags": ["HOOK-GROUP-IS-ONE-MEMBER-WITH-HANDLERS"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "sdk/src/builtins.ts",
@@ -39,10 +44,14 @@
         "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
         "description": "Declared for the fence — the corpus's projected settings.json and lock render here. Re-baseline if the run moves a byte."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "The SDK authors a hook as a group of handlers, and tap synthesis joins an authored group at the same (event, matcher) instead of minting a second.",
-  "per": { "path": "specs/model/authoring.md", "section": "The SDK" },
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
   "tests": [
     {
       "path": "sdk/test/emit.test.ts",
