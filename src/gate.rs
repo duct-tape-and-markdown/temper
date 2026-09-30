@@ -116,7 +116,7 @@ fn committed_member_sites(
             };
             match class {
                 SiteClass::Layout => sites.layout.push(drift::LayoutMemberSite {
-                    member: member_address::host_address(&kind.name, &unit.id),
+                    member: member_address::address_of(&kind.name, &unit.id),
                     source_path,
                 }),
                 SiteClass::File => sites.file.push(drift::LocusMemberSite {

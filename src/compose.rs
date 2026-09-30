@@ -640,6 +640,7 @@ fn layout_unit(
     file: &Path,
     base: &Path,
     edge_fields: &BTreeSet<String>,
+    host: Option<&str>,
 ) -> miette::Result<(Unit, drift::LayoutDocumentRows)> {
     // Through the counted door, not a bare `read_to_string`: this and the row derivation's
     // own reach are the two sites that load a layout document, and a count taken at one of
@@ -648,7 +649,11 @@ fn layout_unit(
     // this adapter's own vocabulary — the way every other adapter source load does.
     let raw = drift::read_layout_document_text(file).map_err(LayoutError::from)?;
     let mut reading = layout.read(&raw, file, edge_fields)?;
-    let id = frontmatter::fold_file_id(base, file)?;
+    let id = host_qualified(host, kind_name, frontmatter::fold_file_id(base, file)?);
+    // The key every row below lowers under, spelled off the id just folded through the
+    // grammar's one home: a top-level member's `<kind>:<name>`, a file child's whole
+    // host-qualified address, which its id already is.
+    let address = member_address::address_of(kind_name, &id);
     // The one parse, split **by move** between its two consumers: the unit takes the
     // reading's field half, the rows take its member/prose/`satisfies` half. Neither copies
     // what the other holds, and neither goes back through `Layout::read` for it.
@@ -671,7 +676,7 @@ fn layout_unit(
             serde_json::Value::Array(entries.into_iter().map(serde_json::Value::String).collect()),
         );
     }
-    let rows = drift::lower_layout_reading(layout, kind_name, &id, reading);
+    let rows = drift::lower_layout_reading(layout, &address, reading);
     Ok((
         Unit {
             id,
@@ -704,36 +709,48 @@ fn read_file_unit(
     file: &Path,
     base: &Path,
     edge_fields: &BTreeSet<String>,
+    host: Option<&str>,
 ) -> miette::Result<(Unit, drift::LayoutDocumentRows)> {
-    match (&kind.content, &kind.format) {
-        (kind::Content::Layout(layout), _) => {
-            layout_unit(layout, &kind.name, file, base, edge_fields)
+    // The layout adapter qualifies its own id: the rows it lowers beside the unit key by
+    // the member's address, so the host must be in hand before the lowering, not folded on
+    // after it. Every other adapter yields the unit alone and qualifies below.
+    if let kind::Content::Layout(layout) = &kind.content {
+        return layout_unit(layout, &kind.name, file, base, edge_fields, host);
+    }
+    let mut unit = match &kind.format {
+        Some(kind::Format::JsonDocument) => {
+            json_manifest::DocumentMember::read(kind, file)?.to_unit()
         }
-        (kind::Content::File | kind::Content::Fields, Some(kind::Format::JsonDocument)) => Ok((
-            json_manifest::DocumentMember::read(kind, file)?.to_unit(),
-            drift::LayoutDocumentRows::default(),
-        )),
-        (kind::Content::File | kind::Content::Fields, Some(kind::Format::TomlDocument)) => Ok((
-            toml_document::read(kind, file)?.to_unit(),
-            drift::LayoutDocumentRows::default(),
-        )),
-        (
-            kind::Content::File | kind::Content::Fields,
-            Some(kind::Format::YamlFrontmatter) | None,
-        ) => {
+        Some(kind::Format::TomlDocument) => toml_document::read(kind, file)?.to_unit(),
+        Some(kind::Format::YamlFrontmatter) | None => {
             let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
-            Ok((
-                Unit {
-                    id: source.id.clone(),
-                    frontmatter: source.fields.iter().cloned().collect(),
-                    body: source.body.clone(),
-                    source_path: source.provenance.source_path.clone(),
-                    satisfies: Vec::new(),
-                    satisfies_clauses: Vec::new(),
-                },
-                drift::LayoutDocumentRows::default(),
-            ))
+            Unit {
+                id: source.id.clone(),
+                frontmatter: source.fields.iter().cloned().collect(),
+                body: source.body.clone(),
+                source_path: source.provenance.source_path.clone(),
+                satisfies: Vec::new(),
+                satisfies_clauses: Vec::new(),
+            }
         }
+    };
+    unit.id = host_qualified(host, &kind.name, unit.id);
+    Ok((unit, drift::LayoutDocumentRows::default()))
+}
+
+/// This unit's **identity**: the whole `<host-address>/<kind>/<key>` address when the file
+/// composed under a host's unit, the folded id itself when it is its own kind's top-level
+/// member.
+///
+/// A nested member's identity *is* its address, and the file-child grain is no exception —
+/// two hosts may each carry a `checklist`, and only the host segment tells them apart. The
+/// key is the id the child's placement under its host's unit folded, so the template
+/// pattern's shape is what keys the child, exactly as a `governs` scan's placement keys a
+/// top-level member.
+fn host_qualified(host: Option<&str>, kind: &str, id: String) -> String {
+    match host {
+        Some(host) => member_address::nested_address(host, kind, &id),
+        None => id,
     }
 }
 
@@ -811,7 +828,7 @@ fn manifest_units(
                 }
                 let unit = member.to_unit(address, &source_path);
                 if let Some(embedded_kind) = &embedded_kind {
-                    let host = member_address::host_address(&kind.name, &unit.id);
+                    let host = member_address::address_of(&kind.name, &unit.id);
                     for (position, fields) in &member.members {
                         composed.push(ComposedEmbeddedMember {
                             kind: embedded_kind.clone(),
@@ -932,7 +949,17 @@ fn resolve_kind_units(
                     &kinds,
                     import::LocalOverride::Honored,
                 ) {
-                    match read_file_unit(&overlaid, &found.file, &found.host_unit, &edge_fields) {
+                    // Host-scoped identity, never corpus-wide by name: the host's address
+                    // is the first segment of the address this child wears, so two hosts
+                    // may each carry a same-named child and each still names one member.
+                    let host = member_address::host_address(&found.host_kind, &found.host_name);
+                    match read_file_unit(
+                        &overlaid,
+                        &found.file,
+                        &found.host_unit,
+                        &edge_fields,
+                        Some(&host),
+                    ) {
                         Ok(read) => child_units.push(read),
                         Err(err) => match frontmatter_fault_diagnostic(err) {
                             Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
@@ -948,7 +975,7 @@ fn resolve_kind_units(
                 for file in
                     import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
                 {
-                    match read_file_unit(&overlaid, &file, &base, &edge_fields) {
+                    match read_file_unit(&overlaid, &file, &base, &edge_fields, None) {
                         Ok(read) => file_units.push(read),
                         Err(err) => match frontmatter_fault_diagnostic(err) {
                             Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
@@ -961,7 +988,7 @@ fn resolve_kind_units(
         };
 
     for (unit, _) in &mut read {
-        let address = member_address::host_address(&kind.name, &unit.id);
+        let address = member_address::address_of(&kind.name, &unit.id);
         for row in &declarations.satisfies {
             if row.member != address && row.member != unit.id {
                 continue;
@@ -1248,7 +1275,7 @@ pub fn assemble_lock_family(
         local_members.extend(
             units
                 .iter()
-                .map(|unit| member_address::host_address(&kind.name, &unit.id)),
+                .map(|unit| member_address::address_of(&kind.name, &unit.id)),
         );
         assembled.nested_members.extend(rows.nested);
         assembled.satisfies.extend(rows.satisfies);

@@ -33,7 +33,7 @@ use crate::kind::{
     commitment_from_row, content_from_row, format_from_row,
 };
 use crate::layout::{Layout, LayoutReading, LayoutRegion};
-use crate::member_address::{host_address, is_one_segment, parse_host_address};
+use crate::member_address::{host_address, is_one_segment, nested_address, parse_host_address};
 use crate::path::HarnessRelativePath;
 use std::cell::Cell;
 
@@ -1489,7 +1489,7 @@ pub fn emit(
             layout_prose_rows.extend(derivation.prose);
             layout_satisfies.extend(derivation.satisfies);
             layout_source_rows.push(LayoutSourceRow {
-                member: host_address(&member.kind, &member.name),
+                member: payload_member_address(member),
                 source_path: to_lock_path(&source_path),
             });
             layout_paths.insert(to_lock_path(&source_path));
@@ -2117,10 +2117,27 @@ pub fn layout_edge_fields(
     Ok(slots)
 }
 
+/// The member address `member` wears — [`crate::member_address::address_of`]'s **emit-side
+/// twin**, over a payload member whose host arrives as its own `host` column rather than
+/// already folded into its identity.
+///
+/// A nested **file** child's identity is its whole `<host-address>/<kind>/<key>` address,
+/// so two hosts may each carry a `checklist` and each one still names exactly one member.
+/// Every emit-side spelling of a member's address that `check` reads back against the
+/// corpus goes through here — the `layout_source` record the root's `locus-declared`
+/// clause asks about, and the rows a layout document lowers into — so the two faces
+/// cannot key one member two ways.
+fn payload_member_address(member: &PayloadMember) -> String {
+    match &member.host {
+        Some(host) => nested_address(host, &member.kind, &member.name),
+        None => host_address(&member.kind, &member.name),
+    }
+}
+
 /// Read one layout member's document off disk and lower it into declaration rows — the
-/// rows emit derives from a layout source (`pipeline.md`, "The lock"). The host address
-/// is the layout member's own `kind:name`; each collection member becomes one embedded
-/// member of its declared child kind, keyed by its slugged-heading (or explicit-key)
+/// rows emit derives from a layout source (`pipeline.md`, "The lock"). The host address is
+/// the layout member's own ([`payload_member_address`]); each collection member becomes one
+/// embedded member of its declared child kind, keyed by its slugged-heading (or explicit-key)
 /// identity, carrying its own sub-heading spans as leaves. Each prose region declared as
 /// an import resolves against raw disk to the file's contents ([`resolve_source_dependency`]),
 /// fingerprinted so a moved target is drift; a dangling target refuses loud before a byte
@@ -2139,9 +2156,8 @@ fn derive_layout_rows(
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<LayoutDerivation> {
     let disk_path = harness_root.join(source_path);
-    let host = host_address(&member.kind, &member.name);
-    let document =
-        read_layout_document(layout, &member.kind, &member.name, &disk_path, edge_fields)?;
+    let host = payload_member_address(member);
+    let document = read_layout_document(layout, &host, &disk_path, edge_fields)?;
 
     let mut imports = Vec::new();
     for region in &layout.regions {
@@ -2199,14 +2215,13 @@ pub struct LayoutDocumentRows {
 /// `LayoutError` (as a [`miette::Report`]) when it does not fit its declared layout.
 fn read_layout_document(
     layout: &Layout,
-    kind: &str,
-    name: &str,
+    host: &str,
     disk_path: &Path,
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<LayoutDocumentRows> {
     let body = read_layout_document_text(disk_path).map_err(DriftError::from)?;
     let reading = layout.read(&body, disk_path, edge_fields)?;
-    Ok(lower_layout_reading(layout, kind, name, reading))
+    Ok(lower_layout_reading(layout, host, reading))
 }
 
 /// Read one layout document's text off disk — the **one counted door** onto a layout
@@ -2235,8 +2250,16 @@ pub(crate) fn read_layout_document_text(
 
 /// Lower an already-parsed [`LayoutReading`] into the rows its document declares — the
 /// member collections' embedded members, the `satisfies` edge slot's fill claims, and
-/// what each verbatim prose region captured, each keyed by the host's `kind:name`
-/// address.
+/// what each verbatim prose region captured, each keyed by the host member's own
+/// **address**.
+///
+/// `host` is that address, already spelled: a top-level member's `<kind>:<name>`, and a
+/// nested **file** child's whole `<host-address>/<kind>/<key>` — so neither face spells the
+/// grammar here. Both hand it in through [`crate::member_address`], the grammar's one home
+/// (emit through [`payload_member_address`], check through
+/// [`crate::member_address::address_of`] over the unit's own id), because a file child's
+/// identity *is* host-scoped and a kind colon-joined onto it a second time would key its
+/// rows under an address no member resolves.
 ///
 /// Nothing here reaches disk or re-reads the document's heading tree: the reading is the
 /// parse, taken by value, so the caller that already holds one pays neither a second read
@@ -2245,16 +2268,14 @@ pub(crate) fn read_layout_document_text(
 #[must_use]
 pub fn lower_layout_reading(
     layout: &Layout,
-    kind: &str,
-    name: &str,
+    host: &str,
     reading: LayoutReading,
 ) -> LayoutDocumentRows {
-    let host = host_address(kind, name);
+    let host = host.to_string();
 
-    // A `satisfies` edge slot's entries are the host's own fill claims, keyed by its
-    // own `kind:name` address (the label `resolve_kind_units` folds them back onto) — a
-    // dangling one is the gate's existing `requirement.dangling` refusal to catch, never
-    // a new one.
+    // A `satisfies` edge slot's entries are the host's own fill claims, keyed by its own
+    // member address (the label `resolve_kind_units` folds them back onto) — a dangling
+    // one is the gate's existing `requirement.dangling` refusal to catch, never a new one.
     let satisfies = reading
         .edges
         .get(crate::kind::SATISFIES_EDGE_FIELD)
@@ -3041,7 +3062,8 @@ pub fn config_stale_from_doc(
 /// One discovered committed layout-kind member, as the gate found it on disk — the
 /// address the lock is asked about and the path a finding names.
 pub struct LayoutMemberSite {
-    /// The member's own `kind:name` address.
+    /// The member's own address — `<kind>:<name>` for a top-level member, the whole
+    /// `<host-address>/<kind>/<key>` for a nested **file** child.
     pub member: String,
     /// The document's path, harness-relative, as the finding reports it.
     pub source_path: String,

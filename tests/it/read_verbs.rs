@@ -2115,3 +2115,94 @@ fn a_bare_name_in_multiple_kinds_is_ambiguous() {
         "the ambiguity names the second qualified form: {out}"
     );
 }
+
+/// A skill at its real Claude Code locus carrying one `home.md` companion — the shipped
+/// `skill` kind templates `supporting-doc` at its unit's `*.md`, so the companion is that
+/// skill's nested **file** child by the shipped facts alone, with no fixture-invented
+/// template.
+fn write_host_with_home(harness: &std::path::Path, name: &str) {
+    common::write_skill(
+        harness,
+        name,
+        &format!("---\nname: {name}\ndescription: A host skill.\n---\n# {name}\n"),
+    );
+    common::write_sibling(
+        harness,
+        &format!(".claude/skills/{name}/home.md"),
+        "# Home\n",
+    );
+}
+
+#[test]
+fn explain_resolves_a_nested_file_child_at_its_host_qualified_address() {
+    // A nested file child's identity is its whole `<host-address>/<kind>/<key>` address,
+    // so that is the spelling `explain` answers — the same one an embedded member already
+    // resolved at, over one grammar.
+    let harness = common::tmpdir("explain-file-child-address");
+    write_host_with_home(&harness, "alpha");
+    write_host_with_home(&harness, "beta");
+
+    // Non-vacuity, on the check side of this very fixture (engineering.md, "A green
+    // verdict is proven non-vacuous"): both children are members the gate judged, so the
+    // narrations below are read against a live corpus rather than agreeing with an
+    // absence twice.
+    let (findings, ok) = common::check_harness(&harness);
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert!(
+        checked
+            .iter()
+            .any(|line| line.contains("supporting-doc (2)")),
+        "the gate checks both file children as members: {findings:#?}"
+    );
+    assert!(
+        ok,
+        "two hosts each carrying a `home` checks clean: {findings:#?}"
+    );
+
+    let out = common::explain_in(&harness, "skill:alpha/supporting-doc/home");
+    assert!(
+        out.contains("Member `skill:alpha/supporting-doc/home` (supporting-doc)"),
+        "the file child resolves at its host-qualified address: {out}"
+    );
+    // And it resolves under the host its address names, never the other carrier's.
+    assert!(
+        out.contains("`alpha` (skill) contains it"),
+        "the host segment is what the child resolves under: {out}"
+    );
+    assert!(
+        !out.contains("beta"),
+        "the same key under another host is a different member: {out}"
+    );
+}
+
+#[test]
+fn explain_refuses_a_bare_file_child_key_two_hosts_carry_by_naming_both() {
+    // Resolution is total: an address names exactly one thing or the verb refuses. The
+    // bare key is the short form, and it resolves only while one host carries it — carried
+    // by two it names nothing, and every carrier's full address comes back as the spelling
+    // to retry with.
+    let harness = common::tmpdir("explain-file-child-bare-key");
+    write_host_with_home(&harness, "alpha");
+
+    let only = common::explain_in(&harness, "home");
+    assert!(
+        only.contains("Member `skill:alpha/supporting-doc/home` (supporting-doc)"),
+        "one carrier: the bare key resolves to the member it can only mean: {only}"
+    );
+
+    write_host_with_home(&harness, "beta");
+    let both = common::explain_in(&harness, "home");
+    assert!(
+        both.contains("`home` names more than one thing in the surface"),
+        "two carriers: the bare key names nothing, and `explain` never guesses: {both}"
+    );
+    for carrier in [
+        "`skill:alpha/supporting-doc/home`",
+        "`skill:beta/supporting-doc/home`",
+    ] {
+        assert!(
+            both.contains(carrier),
+            "every carrier is named as the spelling to retry with — {carrier} missing: {both}"
+        );
+    }
+}

@@ -56,6 +56,27 @@ pub fn parse_host_address(address: &str) -> Option<AddressPair<'_>> {
     (!kind.is_empty() && !name.is_empty()).then_some((kind, name))
 }
 
+/// The member address an identity spells — the **one** home for the discrimination
+/// between the two forms a member's id may already hold.
+///
+/// A top-level member's identity is its bare name, so its address is its kind joined onto
+/// it ([`host_address`]). A **nested** member's identity *is* its whole
+/// `<host-address>/<kind>/<key>` address — the host segment is the whole of what tells two
+/// same-keyed children under different hosts apart — so joining a kind onto it a second
+/// time spells an address no member wears and no reader resolves.
+///
+/// Every site that must name "the address of the member this id belongs to" reads the rule
+/// here rather than deciding the split again: an embedded member, a nested **file** child,
+/// and a top-level member all reach it through one call.
+#[must_use]
+pub fn address_of(kind: &str, id: &str) -> String {
+    if parse_nested_address(id).is_some() {
+        id.to_string()
+    } else {
+        host_address(kind, id)
+    }
+}
+
 /// Spell a nested member's address from its host address, kind and key — the writer beside
 /// [`parse_nested_address`], so the grammar has one home rather than a `format!` per
 /// producer.
@@ -284,6 +305,43 @@ mod tests {
         assert_eq!(parse_host_address("collaboration"), None);
         assert_eq!(parse_host_address(":collaboration"), None);
         assert_eq!(parse_host_address("rule:"), None);
+    }
+
+    #[test]
+    fn an_identity_already_holding_a_whole_address_is_never_joined_onto_twice() {
+        // A top-level member's id is a bare name: the address is its kind joined onto it.
+        assert_eq!(
+            address_of("rule", "collaboration"),
+            "rule:collaboration",
+            "a bare identity takes its kind"
+        );
+
+        // A nested member's id — an embedded value's or a nested **file** child's alike —
+        // is already the whole address, so it comes back verbatim. Joining the kind on
+        // again would spell `supporting-doc:skill:coordinate/supporting-doc/checklist`,
+        // an address no member wears and neither membership lookup resolves.
+        let nested = nested_address(
+            &host_address("skill", "coordinate"),
+            "supporting-doc",
+            "checklist",
+        );
+        assert_eq!(address_of("supporting-doc", &nested), nested);
+        assert_eq!(
+            parse_nested_address(&address_of("supporting-doc", &nested)).map(|parsed| (
+                parsed.host,
+                parsed.kind,
+                parsed.key
+            )),
+            Some(("skill:coordinate", "supporting-doc", "checklist"))
+        );
+
+        // A leaf address is no member address, so it takes the bare-identity branch: the
+        // discrimination is the member-grain parser's verdict, never a `contains('/')`.
+        let leaf = nested_address(&nested, "prose", "body");
+        assert_eq!(
+            address_of("supporting-doc", &leaf),
+            host_address("supporting-doc", &leaf)
+        );
     }
 
     #[test]

@@ -1290,3 +1290,108 @@ mod host_qualified_addresses {
         }
     }
 }
+
+/// **Host-keyed file children** — a nested *file* child's identity is the whole
+/// `<host-address>/<kind>/<key>` address the grammar gives a nested member, exactly as an
+/// embedded member's is. So a child's name is host-scoped rather than corpus-wide: two
+/// hosts may each carry a `home`, and neither claims the other's.
+mod host_keyed_file_children {
+    use std::collections::BTreeMap;
+    use std::fs;
+    use std::path::Path;
+
+    use temper::extract::Features;
+    use temper::{admissibility, compose, drift, import};
+
+    use crate::common;
+
+    /// A skill at its real Claude Code locus, carrying one `home.md` companion — the
+    /// shipped `skill` kind templates `supporting-doc` at its unit's `*.md`, so the
+    /// companion is that skill's file child by the shipped facts alone.
+    fn write_host_with_home(harness: &Path, name: &str) {
+        common::write_skill(
+            harness,
+            name,
+            &format!("---\nname: {name}\ndescription: A host skill.\n---\n# {name}\n"),
+        );
+        fs::write(
+            harness
+                .join(".claude")
+                .join("skills")
+                .join(name)
+                .join("home.md"),
+            "# Home\n",
+        )
+        .unwrap();
+    }
+
+    /// The whole live corpus, composed the way `check` composes it: the committed lock's
+    /// rows assembled, then every built-in kind's members resolved off harness disk.
+    fn compose_corpus(harness: &Path) -> BTreeMap<String, compose::KindUnitsAndFeatures> {
+        common::write_lock(harness, drift::Declarations::default());
+        let committed = drift::read_declarations(&harness.join(temper::WORKSPACE_DIR)).unwrap();
+        let disc = import::Discovery::new(harness);
+        let cache: compose::ManifestCache = BTreeMap::new();
+        let family = compose::assemble_lock_family(&disc, &committed, &[], &cache).unwrap();
+        compose::builtin_units_and_features_by_kind(
+            &family.overlaid_builtin_kinds,
+            &disc,
+            &family.declarations,
+            &cache,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn two_hosts_each_carrying_a_home_compose_two_addresses_and_no_coincidence() {
+        let harness = common::tmpdir("file-child-host-keyed");
+        write_host_with_home(&harness, "alpha");
+        write_host_with_home(&harness, "beta");
+
+        let corpus = compose_corpus(&harness);
+        let children = &corpus
+            .get("supporting-doc")
+            .expect("`supporting-doc` ships as a built-in kind")
+            .features;
+
+        // Each child is named by its whole address: the host segment is what tells the two
+        // apart, and it is the only thing that differs between them.
+        assert_eq!(
+            children
+                .iter()
+                .map(|features| features.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "skill:alpha/supporting-doc/home",
+                "skill:beta/supporting-doc/home",
+            ],
+        );
+
+        // So the member-grain coincidence check sees two addresses rather than one name
+        // twice — the `member.admissibility` refusal a corpus-wide `kind:name` keying
+        // raised for a corpus that is perfectly well-formed.
+        let by_kind: BTreeMap<&str, &[Features]> = corpus
+            .iter()
+            .map(|(kind, uaf)| (kind.as_str(), uaf.features.as_slice()))
+            .collect();
+        assert!(
+            admissibility::member_address_coincidence(&by_kind).is_empty(),
+            "two hosts carrying a same-named child is two members, never a coincidence"
+        );
+
+        // And the gate agrees end to end: both children are checked, and nothing refuses.
+        let (findings, ok) = common::check_harness(&harness);
+        assert!(
+            common::findings_for(&findings, "member.admissibility").is_empty(),
+            "no coincidence is reported: {findings:#?}"
+        );
+        let checked = common::findings_for(&findings, "coverage.checked");
+        assert!(
+            checked
+                .iter()
+                .any(|line| line.contains("supporting-doc (2)")),
+            "both file children are checked members: {findings:#?}"
+        );
+        assert!(ok, "the corpus checks clean: {findings:#?}");
+    }
+}

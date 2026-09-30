@@ -177,14 +177,26 @@ pub(crate) fn discover_builtin(
     }
 }
 
-/// One discovered nested file member: the child's source file, plus the host unit
-/// directory its path composed under. The file alone cannot name that directory — a
-/// `*`-free pattern may seat the child levels below it — and the id a `file` unit shape
-/// folds is the file's placement under it, so both halves travel together.
+/// One discovered nested file member: the child's source file, the host unit directory
+/// its path composed under, and the **host member's own identity**. The file alone cannot
+/// name that directory — a `*`-free pattern may seat the child levels below it — and the
+/// id a `file` unit shape folds is the file's placement under it, so the halves travel
+/// together.
+///
+/// The host's identity travels beside them because a nested member's identity *is* its
+/// `<host-address>/<kind>/<key>` address, and this scan is the one place that knows which
+/// host a child composed under: the child kind governs no locus of its own, so nothing
+/// downstream could recover the host from the file's path alone.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NestedFileUnit {
     /// The host member's unit directory.
     pub host_unit: PathBuf,
+    /// The host member's kind — the kind whose template placed this child.
+    pub host_kind: String,
+    /// The host member's own name. A host qualifies only at a **directory** unit shape
+    /// (the guard below), whose id is its unit directory's name, so this is
+    /// [`host_unit`](NestedFileUnit::host_unit)'s final component.
+    pub host_name: String,
     /// The child's source file, under `host_unit` at the host template's pattern.
     pub file: PathBuf,
 }
@@ -233,10 +245,19 @@ pub fn discover_nested_file(
             let Some(host_unit) = unit_dir(&root, &entry) else {
                 continue;
             };
+            // The host's own name: its unit directory's final component, which is exactly
+            // the id a `directory` unit shape folds — and a directory shape is the only one
+            // the guard above admits as a host.
+            let Some(host_name) = host_unit.file_name().and_then(OsStr::to_str) else {
+                continue;
+            };
+            let host_name = host_name.to_string();
             for file in scan_locus(&host_unit, pattern, discoverable) {
                 if file != entry && !claimed.contains(&file) {
                     found.push(NestedFileUnit {
                         host_unit: host_unit.clone(),
+                        host_kind: host.name.clone(),
+                        host_name: host_name.clone(),
                         file,
                     });
                 }

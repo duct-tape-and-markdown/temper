@@ -201,10 +201,11 @@ const MEMBER_ADMISSIBILITY_RULE: &str = "member.admissibility";
 /// shape, and for a file locus, one key is one member, so a repeated key is a repeated
 /// identity and refuses here directly.
 ///
-/// Ranges over the **at-locus** corpus alone — the built-in and lock-declared kinds'
-/// members. An embedded kind's members are addressed by their whole
-/// `<host>/<kind>/<key>` address rather than by a name under a kind, and their
-/// coincidence is [`nested_member_coincidence`]'s to refuse, over the rows themselves.
+/// Counts [`extract::Features::id`] — the member's own identity — per kind, so the subject
+/// is addresses rather than names: two hosts each carrying a same-named nested **file**
+/// child are two members at two `<host-address>/<kind>/<key>` addresses, and no coincidence
+/// at all. An embedded kind's members are addressed the same way, and their coincidence is
+/// [`nested_member_coincidence`]'s to refuse, over the rows themselves.
 pub fn member_address_coincidence(
     by_kind: &BTreeMap<&str, &[extract::Features]>,
 ) -> Vec<check::Diagnostic> {
@@ -216,7 +217,7 @@ pub fn member_address_coincidence(
         }
         diagnostics.extend(counts.into_iter().filter(|(_, count)| *count > 1).map(
             |(id, count)| {
-                let address = member_address::host_address(kind, id);
+                let address = member_address::address_of(kind, id);
                 check::Diagnostic::error(
                     MEMBER_ADMISSIBILITY_RULE,
                     &address,

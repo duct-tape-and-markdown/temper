@@ -30,8 +30,7 @@ use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
 use crate::member_address::{
-    embedded_source_host, host_address, parse_host_address, parse_leaf_address,
-    parse_nested_address,
+    address_of, embedded_source_host, parse_host_address, parse_leaf_address, parse_nested_address,
 };
 use crate::read::resolve_leaf;
 
@@ -2349,19 +2348,19 @@ fn ambiguous_route(edge: &Edge, source: &str, target: &str, hosts: &[&str]) -> D
     )
 }
 
-/// Render a [`Node`] — either endpoint of a mention — as the author wrote it: a top-level
-/// member as its `kind:name` [`host_address`], a requirement as its bare name, and a nested
-/// member — or an embedded leaf — as the whole address that is already its id. The one home
-/// for spelling a node back out, so no mention finding names a nested member by colon-joining
-/// its kind onto an id that is already a whole address.
+/// Render a [`Node`] — either endpoint of a mention — as the author wrote it: a requirement
+/// as its bare name, an embedded leaf as the address that is already its id, and a member
+/// through [`address_of`], which spells a top-level member's `kind:name` and hands a nested
+/// member's own whole address back verbatim.
+///
+/// The member discrimination is [`crate::member_address`]'s, not a second reading here: an
+/// embedded member and a nested **file** child alike carry their whole address as their id,
+/// so no mention finding names one by colon-joining its kind onto an address.
 fn render_node(node: &Node) -> String {
     let (kind, name) = node;
     match node_species(node) {
         NodeSpecies::Requirement | NodeSpecies::EmbeddedLeaf => name.clone(),
-        // A nested member's id is already its whole address; only a top-level member's
-        // node splits back into `kind:name`.
-        NodeSpecies::Member if parse_nested_address(name).is_some() => name.clone(),
-        NodeSpecies::Member => host_address(kind, name),
+        NodeSpecies::Member => address_of(kind, name),
     }
 }
 

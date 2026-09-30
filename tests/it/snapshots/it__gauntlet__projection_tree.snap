@@ -259,13 +259,13 @@ rendered_lines = 1
 rendered_chars = 34
 
 [[declaration.nested_member]]
-host = "spec:representation"
+host = "guide:operate-the-gate/spec/representation"
 kind = "invariant"
 key = "loud-or-nothing"
 leaves = { prose = "A gate never fabricates absence." }
 
 [[declaration.nested_member]]
-host = "spec:representation"
+host = "guide:operate-the-gate/spec/representation"
 kind = "invariant"
 key = "the-projection-is-not-the-database"
 leaves = { prose = "Facts are declared, never mined back." }
@@ -295,12 +295,12 @@ manifest = "settings.json"
 key_path = "extraKnownMarketplaces.*"
 
 [[declaration.layout_prose]]
-member = "spec:representation"
+member = "guide:operate-the-gate/spec/representation"
 region_index = 0
 prose = "The representation model, authored in prose."
 
 [[declaration.layout_source]]
-member = "spec:representation"
+member = "guide:operate-the-gate/spec/representation"
 source_path = "docs/guides/operate-the-gate/representation.md"
 
 === docs/guides/operate-the-gate/GUIDE.md ===
