@@ -3767,3 +3767,56 @@ fn two_section_clauses_of_one_predicate_carry_distinct_labels_and_gate_independe
         "the satisfied `section_contains` sibling stays silent, got:\n{output}"
     );
 }
+
+/// A kind named for one of the lock's own root keys — `engine` or `declaration` — refuses
+/// at the gate. Emit writes each kind's roll-up rows at the root key its name spells, then
+/// writes the engine stamp and the `[declaration]` table over the top, so such a kind
+/// erases the stamp or loses its whole roll-up array without a word. The hand-built row is
+/// the only way to reach the state: emit's own producer would write a lock the next read
+/// silently mis-lifts.
+#[test]
+fn a_kind_named_for_a_reserved_lock_root_key_is_refused_and_any_other_name_is_not() {
+    for reserved in ["engine", "declaration"] {
+        let root = common::tmpdir(&format!("reserved-lock-key-{reserved}"));
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![common::kind_facts(reserved, "docs", "*.md")],
+                ..Declarations::default()
+            },
+        );
+
+        let (ok, output) = check_in(&root);
+        assert!(
+            !ok,
+            "a kind named for the reserved `{reserved}` root key must block ⇒ non-zero, got:\n{output}"
+        );
+        assert!(
+            output.contains("kind.reserved-lock-key"),
+            "the finding names the reserved-lock-key rule, got:\n{output}"
+        );
+        assert!(
+            output.contains(&format!("`{reserved}`")) && output.contains("rename the kind"),
+            "the finding names the key and the rename remedy, got:\n{output}"
+        );
+    }
+
+    // A kind name that merely neighbours a reserved key in the root namespace is free.
+    let root = common::tmpdir("reserved-lock-key-free");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("declarations", "docs", "*.md")],
+            ..Declarations::default()
+        },
+    );
+    let (ok, output) = check_in(&root);
+    assert!(
+        ok,
+        "a kind named for no reserved root key must stay clean ⇒ zero, got:\n{output}"
+    );
+    assert!(
+        !output.contains("kind.reserved-lock-key"),
+        "the reserved-lock-key rule must stay silent, got:\n{output}"
+    );
+}

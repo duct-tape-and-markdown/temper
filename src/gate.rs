@@ -318,6 +318,14 @@ pub fn gate(
         &custom_rows,
         &declarations,
     )?);
+    // A kind named for one of the lock's own root keys would have its roll-up rows
+    // written at that key and then overwritten — the engine stamp erased, or the whole
+    // roll-up array lost — so the name refuses loud here, beside the two collisions
+    // between kinds.
+    diagnostics.extend(admissibility::reserved_kind_name_diagnostics(
+        &overlaid_builtin_kinds,
+        &custom_rows,
+    ));
     // A declared commitment class the locus cannot carry is decided here, beside the
     // locus's other coherence check, before any member is read under a kind whose own
     // declaration does not hold together.

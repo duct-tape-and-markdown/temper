@@ -3179,6 +3179,21 @@ pub(crate) struct SourceDeps<'a> {
 /// built-in lock (`tests/it/builtin_lock_frozen.rs`).
 pub(crate) const ENGINE_KEY: &str = "engine";
 
+/// The root lock key the `[declaration]` family table rides under.
+pub(crate) const DECLARATION_TABLE: &str = "declaration";
+
+/// Every root key [`write_rollup`] writes outside its per-kind roll-up loop, each with
+/// what the lock keeps there. A kind bearing one of these names would have its roll-up
+/// array written at the same root key the stamp or the declaration table then overwrites
+/// — the stamp erased, or a whole roll-up array lost, both silently — so a kind wearing
+/// one is refused at the gate (`admissibility::reserved_kind_name_diagnostics`). Pinned
+/// against the real writer, so a future root key joins the set by construction, carrying
+/// the purpose the refusal names.
+pub(crate) const RESERVED_LOCK_ROOT_KEYS: [(&str, &str); 2] = [
+    (ENGINE_KEY, "the engine version that wrote the lock"),
+    (DECLARATION_TABLE, "the program's declaration-row families"),
+];
+
 /// The lock family key layout imports fingerprint under.
 const LAYOUT_IMPORT_FAMILY: &str = "layout_import";
 /// The lock family key composed-prose includes fingerprint under.
@@ -3200,7 +3215,7 @@ const INPUT_REMEDY: &str = "re-verify the member's claims against the input, the
 /// key is already held by something that is not a table, which no lock writer produces.
 fn declaration_table_mut(doc: &mut DocumentMut) -> Option<&mut Table> {
     doc.as_table_mut()
-        .entry("declaration")
+        .entry(DECLARATION_TABLE)
         .or_insert_with(|| Item::Table(Table::new()))
         .as_table_mut()
 }
@@ -3255,7 +3270,7 @@ pub(crate) fn source_deps_from_doc(
     doc: &DocumentMut,
     family_key: &str,
 ) -> Result<Vec<LayoutImportRow>, DriftError> {
-    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+    let Some(table) = doc.get(DECLARATION_TABLE).and_then(Item::as_table_like) else {
         return Ok(Vec::new());
     };
     Ok(family(table, family_key, source_dep_row)?)
@@ -3407,7 +3422,7 @@ fn layout_prose_row(row: &Table) -> Result<LayoutProseRow, RowError> {
 ///
 /// Returns a [`DriftError::LockRow`] if a present row is malformed.
 pub fn layout_prose_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutProseRow>, DriftError> {
-    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+    let Some(table) = doc.get(DECLARATION_TABLE).and_then(Item::as_table_like) else {
         return Ok(Vec::new());
     };
     Ok(family(table, LAYOUT_PROSE_FAMILY, layout_prose_row)?)
@@ -3486,7 +3501,7 @@ fn layout_source_row(row: &Table) -> Result<LayoutSourceRow, RowError> {
 ///
 /// Returns a [`DriftError::LockRow`] if a present row is malformed.
 fn layout_sources_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutSourceRow>, DriftError> {
-    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+    let Some(table) = doc.get(DECLARATION_TABLE).and_then(Item::as_table_like) else {
         return Ok(Vec::new());
     };
     Ok(family(table, LAYOUT_SOURCE_FAMILY, layout_source_row)?)
@@ -4600,7 +4615,7 @@ impl Declarations {
             self.registrations.iter().map(RegistrationRow::to_table),
         );
         if !table.is_empty() {
-            doc["declaration"] = Item::Table(table);
+            doc[DECLARATION_TABLE] = Item::Table(table);
         }
     }
 }
@@ -4716,7 +4731,7 @@ pub fn parse_declarations(path: &Path, text: &str) -> Result<Declarations, Drift
 ///
 /// Returns a [`LockRowError`] naming the family of the first present-but-malformed row.
 pub(crate) fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, LockRowError> {
-    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+    let Some(table) = doc.get(DECLARATION_TABLE).and_then(Item::as_table_like) else {
         return Ok(Declarations::default());
     };
     Ok(Declarations {
@@ -6147,5 +6162,62 @@ mod tests {
         let err = peek_and_validate_seam_version(json).unwrap_err();
         assert!(format!("{err}").contains("999"));
         assert!(format!("{err}").contains(&SEAM_VERSION.to_string()));
+    }
+
+    #[test]
+    fn reserved_root_keys_are_exactly_what_the_real_writer_writes_beside_the_rollups() {
+        // The set `admissibility::reserved_kind_name_diagnostics` refuses kind names
+        // against is derived from the writer, never hand-listed: drive the real
+        // `write_rollup` over an empty roll-up map — so every root key it lands is one
+        // written *outside* the per-kind loop — with every other family non-empty so each
+        // writer fires, then re-parse and compare. A future root key that joins the lock
+        // without joining `RESERVED_LOCK_ROOT_KEYS` fails here.
+        let dir = tmpdir("reserved-root-keys");
+        let import = [LayoutImportRow {
+            member: "spec:intent".to_string(),
+            target: String::new(),
+            source_path: "specs/intent.md".to_string(),
+            import_hash: "abc".to_string(),
+        }];
+        write_rollup(
+            &dir,
+            &BTreeMap::new(),
+            &Declarations {
+                kinds: vec![crate::test_support::kind_fact_row("skill")],
+                ..Declarations::default()
+            },
+            &SourceDeps {
+                layout_imports: &import,
+                includes: &import,
+                inputs: &import,
+            },
+            &[LayoutProseRow {
+                member: "spec:intent".to_string(),
+                region_index: 0,
+                prose: "Body.".to_string(),
+            }],
+            &[LayoutSourceRow {
+                member: "spec:intent".to_string(),
+                source_path: "specs/intent.md".to_string(),
+            }],
+        )
+        .unwrap();
+
+        let doc: DocumentMut = fs::read_to_string(dir.join(crate::LOCK_FILENAME))
+            .unwrap()
+            .parse()
+            .unwrap();
+        let written: Vec<&str> = doc.as_table().iter().map(|(key, _)| key).collect();
+        let mut reserved: Vec<&str> = RESERVED_LOCK_ROOT_KEYS
+            .iter()
+            .map(|(key, _)| *key)
+            .collect();
+        reserved.sort_unstable();
+        let mut written_sorted = written.clone();
+        written_sorted.sort_unstable();
+        assert_eq!(
+            written_sorted, reserved,
+            "every root key the writer lands beside the roll-ups must be reserved, got: {written:?}"
+        );
     }
 }

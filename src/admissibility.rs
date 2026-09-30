@@ -657,6 +657,51 @@ const GOVERNS_COLLISION_RULE: &str = "kind.governs-collision";
 /// address register members ambiguously, each silently union-selecting the other's members.
 const COLLECTION_ADDRESS_COLLISION_RULE: &str = "kind.collection-address-collision";
 
+/// The diagnostic `rule` id for a kind named for a root key the lock itself writes.
+/// Sibling of [`GOVERNS_COLLISION_RULE`] and [`COLLECTION_ADDRESS_COLLISION_RULE`], which
+/// guard collisions *between* kinds; this one guards the collision between a kind and the
+/// lock's own root namespace — every kind's roll-up rows ride at a root key spelled with
+/// the kind's name, so a kind wearing a reserved one silently overwrites what the lock
+/// keeps there.
+const RESERVED_LOCK_KEY_RULE: &str = "kind.reserved-lock-key";
+
+/// Reserved-lock-root-key findings over the **effective** kind set: the overlaid built-in
+/// definitions plus the genuinely-custom rows, the same set
+/// [`governs_collision_diagnostics`] judges. Emit writes each kind's roll-up rows at a
+/// root lock key spelled with the kind's name, then writes its own root keys over the top
+/// — the engine stamp and the `[declaration]` table (`drift::RESERVED_LOCK_ROOT_KEYS`) —
+/// so a kind named `engine` erases the stamp and a kind named `declaration` loses its
+/// whole roll-up array, each without a word. One error per kind wearing a reserved name,
+/// naming the key, what the lock keeps there, and the one exit: rename the kind.
+pub fn reserved_kind_name_diagnostics(
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    custom_rows: &[&drift::KindFactRow],
+) -> Vec<check::Diagnostic> {
+    let names = overlaid_builtin_kinds
+        .values()
+        .map(|kind| kind.name.as_str())
+        .chain(custom_rows.iter().map(|row| row.name.as_str()));
+    let mut diagnostics = Vec::new();
+    for name in names {
+        let Some((_, held)) = drift::RESERVED_LOCK_ROOT_KEYS
+            .iter()
+            .find(|(key, _)| *key == name)
+        else {
+            continue;
+        };
+        diagnostics.push(check::Diagnostic::error(
+            RESERVED_LOCK_KEY_RULE,
+            name,
+            format!(
+                "kind `{name}` is a reserved lock root key — the lock keeps {held} there, and \
+                 every kind's roll-up rows ride at the root key its name spells, so this kind's \
+                 rows and that value would overwrite one another silently; rename the kind",
+            ),
+        ));
+    }
+    diagnostics
+}
+
 /// Governs-glob-collision findings over the **effective** kind set: the built-in
 /// definitions, each overlaid with any `row_relocates_builtin` row that moves its
 /// locus, plus the genuinely-custom rows. Two distinct kinds resolving to the same
@@ -978,6 +1023,34 @@ mod tests {
             !message.contains("`format`"),
             "a fact matching the built-in's is no part of the edit: {message}"
         );
+    }
+
+    #[test]
+    fn a_reserved_lock_key_kind_name_names_the_key_its_holder_and_the_rename() {
+        let engine = test_support::kind_fact_row("engine");
+        let declaration = test_support::kind_fact_row("declaration");
+        let message = only_message(&reserved_kind_name_diagnostics(
+            &BTreeMap::new(),
+            &[&engine],
+        ))
+        .to_string();
+        assert!(
+            message.contains("`engine`") && message.contains("engine version"),
+            "the key and what the lock keeps there must be named: {message}"
+        );
+        assert!(
+            message.contains("rename the kind"),
+            "the one exit must be named: {message}"
+        );
+        assert_eq!(
+            reserved_kind_name_diagnostics(&BTreeMap::new(), &[&engine, &declaration]).len(),
+            2,
+            "one error per kind wearing a reserved name"
+        );
+
+        // A kind named anything else is no collision with the lock's root namespace.
+        let free = test_support::kind_fact_row("engineer");
+        assert!(reserved_kind_name_diagnostics(&BTreeMap::new(), &[&free]).is_empty());
     }
 
     #[test]
