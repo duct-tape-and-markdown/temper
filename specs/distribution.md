@@ -92,6 +92,28 @@ each cited at its enforcement site in the engine (`reporter.rs`, the
 guard, `install`), never asserted bare here (the `builtins.md` discipline,
 placement facts held to the same bar as kind-format facts).
 
+## Versioning
+
+- The engine and the SDK carry one version and move together. Interim
+  cuts stay on `0.0.x`; `0.1.0` is the launch tag, staked only when the
+  launch gate below is met. Before `1.0` any cut may break.
+- Every break an adopter meets — a CLI flag or output, an SDK export or
+  signature, a lock or address spelling, a verdict an unchanged harness now
+  receives — lands under `### Breaking` in `CHANGELOG.md`, naming its
+  remedy. A cut with a `### Breaking` section ships a migration note,
+  `docs/MIGRATING-<version>.md`, walking each break before and after; it
+  opens by naming the note before it, so an adopter skipping cuts reads
+  them in order.
+- The changelog is a release artifact mined from git history at the cut,
+  never a per-commit obligation: `build:` commits are the source, and a
+  body line starting `BREAKING:` routes an entry under `### Breaking`. A
+  file every entry must touch serializes the build queue, and asserting
+  that a commit touched it proves nothing about what it says.
+- The version bump, the curation, the release commit and the tag are
+  human-performed. Pushing a `v*` tag publishes the engines and the SDK,
+  skipping any version the registry already holds; a cut is shipped only
+  when the registry install round-trips `install`, `emit` and `check`.
+
 ## The offering — terms and the road to a stranger
 
 The README is the landing page: ~800 words, a tagline naming category and
