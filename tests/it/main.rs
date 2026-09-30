@@ -71,6 +71,7 @@ mod shape_predicate;
 mod tap;
 mod toml_document;
 mod type_predicate;
+mod version_parity;
 
 /// Every `tests/it/*.rs` suite beside this file is declared as a module above.
 /// An undeclared suite is a suite that stopped running: nothing compiles it, so
