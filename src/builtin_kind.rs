@@ -21,7 +21,7 @@ use crate::drift::NestedMemberRow;
 use crate::extract::Features;
 use crate::kind::{
     CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Format, Governs,
-    Primitive, Registration, Template, Unit,
+    HOOK_HANDLER_KEY, HOOK_MATCHER_KEY, Primitive, Registration, Template, Unit,
 };
 use crate::member_address;
 use crate::tap::TapEvent;
@@ -297,8 +297,8 @@ fn claude_code_hook() -> CustomKind {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::HooksEvent,
             entry_shape: crate::kind::EntryShape::GroupArray {
-                member_key: "hooks".to_string(),
-                lifted_fields: vec!["matcher".to_string()],
+                member_key: HOOK_HANDLER_KEY.to_string(),
+                lifted_fields: vec![HOOK_MATCHER_KEY.to_string()],
             },
         }),
         templates: vec![Template {

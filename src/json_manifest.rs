@@ -854,7 +854,7 @@ mod tests {
 
     use super::*;
     use crate::extract::ValueType;
-    use crate::kind::{CollectionKeyPath, Extraction, Governs};
+    use crate::kind::{CollectionKeyPath, Extraction, Governs, HOOK_HANDLER_KEY, HOOK_MATCHER_KEY};
     use crate::test_support::tmpdir;
 
     fn mcp_address() -> CollectionAddress {
@@ -1134,7 +1134,14 @@ mod tests {
         assert!(members.iter().all(|member| member.members.is_empty()));
 
         // An absent collection key yields no members — absent, never errored.
-        assert!(manifest_members(manifest, "hooks", &crate::kind::EntryShape::Object).is_empty());
+        assert!(
+            manifest_members(
+                manifest,
+                CollectionKeyPath::HooksEvent.collection_key(),
+                &crate::kind::EntryShape::Object
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -1179,7 +1186,14 @@ mod tests {
         }
 
         // An absent collection key yields no members — absent, never errored.
-        assert!(manifest_members(manifest, "hooks", &crate::kind::EntryShape::Object).is_empty());
+        assert!(
+            manifest_members(
+                manifest,
+                CollectionKeyPath::HooksEvent.collection_key(),
+                &crate::kind::EntryShape::Object
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -1215,10 +1229,10 @@ mod tests {
 
         let members = manifest_members(
             manifest,
-            "hooks",
+            CollectionKeyPath::HooksEvent.collection_key(),
             &crate::kind::EntryShape::GroupArray {
-                member_key: "hooks".to_string(),
-                lifted_fields: vec!["matcher".to_string()],
+                member_key: HOOK_HANDLER_KEY.to_string(),
+                lifted_fields: vec![HOOK_MATCHER_KEY.to_string()],
             },
         );
         let keys: Vec<&str> = members.iter().map(|member| member.key.as_str()).collect();
@@ -1247,7 +1261,8 @@ mod tests {
         // came from, handler count and order included.
         for member in &members {
             let fields: Vec<(String, JsonValue)> = member.fields.clone().into_iter().collect();
-            let regrouped = hook_matcher_group(&fields, "hooks", &["matcher".to_string()]);
+            let regrouped =
+                hook_matcher_group(&fields, HOOK_HANDLER_KEY, &[HOOK_MATCHER_KEY.to_string()]);
             let source_group = manifest["hooks"][&member.key].as_array().unwrap()[0].clone();
             assert_eq!(regrouped, source_group);
         }
@@ -1263,8 +1278,8 @@ mod tests {
                 ("type".to_string(), JsonValue::from("command")),
                 ("command".to_string(), JsonValue::from("echo guard")),
             ],
-            "hooks",
-            &["matcher".to_string()],
+            HOOK_HANDLER_KEY,
+            &[HOOK_MATCHER_KEY.to_string()],
         );
         assert_eq!(
             group,
@@ -1280,7 +1295,7 @@ mod tests {
         // The degenerate: a group with nothing under it renders the empty array Claude Code
         // reads as "no handler here", never a synthesized one or a missing key.
         assert_eq!(
-            hook_matcher_group(&[], "hooks", &["matcher".to_string()]),
+            hook_matcher_group(&[], HOOK_HANDLER_KEY, &[HOOK_MATCHER_KEY.to_string()]),
             serde_json::json!({ "hooks": [] })
         );
     }

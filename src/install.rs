@@ -63,7 +63,9 @@ use crate::frontmatter;
 use crate::import;
 use crate::json_manifest;
 use crate::json_splice;
-use crate::kind::{self, CollectionAddress, CustomKind};
+use crate::kind::{
+    self, CollectionAddress, CollectionKeyPath, CustomKind, HOOK_HANDLER_KEY, HOOK_MATCHER_KEY,
+};
 use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER};
 use crate::toml_document;
 
@@ -2007,7 +2009,8 @@ fn project_settings(
 /// A fresh canonical `.claude/settings.json` — there is no existing document to
 /// preserve, so a plain pretty re-serialize is exactly the right shape.
 fn fresh_settings(path: &Path) -> Result<SettingsProjection, InstallError> {
-    let root = json!({ "hooks": { "SessionStart": [session_start_group()] } });
+    let hooks_key = CollectionKeyPath::HooksEvent.collection_key();
+    let root = json!({ hooks_key: { "SessionStart": [session_start_group()] } });
     let desired = format!(
         "{}\n",
         serde_json::to_string_pretty(&root).map_err(|source| InstallError::Settings {
@@ -2053,7 +2056,8 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
             })?;
     let root_shape = json_splice::object_shape(text, root_start);
 
-    let edit = match root_shape.members.iter().find(|m| m.key == "hooks") {
+    let hooks_key = CollectionKeyPath::HooksEvent.collection_key();
+    let edit = match root_shape.members.iter().find(|m| m.key == hooks_key) {
         Some(hooks_member) => {
             let hooks_shape = json_splice::object_shape(text, hooks_member.value_span.0);
             match hooks_shape.members.iter().find(|m| m.key == "SessionStart") {
@@ -2071,7 +2075,7 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
         }
         None => json_splice::insert_member(
             &root_shape,
-            "hooks",
+            hooks_key,
             &json!({ "SessionStart": [session_start_group()] }),
             1,
         ),
@@ -2087,7 +2091,7 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
 /// Shape: `{hooks: [{type, command}]}` (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24);
 /// `matcher` is optional for `SessionStart` (fires on every session start).
 pub(crate) fn session_start_group() -> JsonValue {
-    json!({ "hooks": [ { "type": "command", "command": SESSION_START_COMMAND } ] })
+    json!({ HOOK_HANDLER_KEY: [ { "type": "command", "command": SESSION_START_COMMAND } ] })
 }
 
 /// Whether some group registered under `event` satisfies `test` — the one walk over a
@@ -2107,7 +2111,7 @@ fn event_has_group(
     test: impl Fn(&JsonValue) -> bool,
 ) -> bool {
     object
-        .get("hooks")
+        .get(CollectionKeyPath::HooksEvent.collection_key())
         .and_then(|hooks| hooks.get(event))
         .and_then(JsonValue::as_array)
         .is_some_and(|groups| groups.iter().any(test))
@@ -2119,14 +2123,14 @@ fn event_has_group(
 /// it). A group's identity is the `(event, matcher)` pair (0074), so with the event already
 /// fixed by [`event_has_group`] this is the rest of a gate hook's address.
 fn group_binds_matcher(group: &JsonValue, matcher: Option<&str>) -> bool {
-    group.is_object() && group.get("matcher").and_then(JsonValue::as_str) == matcher
+    group.is_object() && group.get(HOOK_MATCHER_KEY).and_then(JsonValue::as_str) == matcher
 }
 
 /// Whether a hook group carries `command` verbatim on one of its handlers. A differing
 /// command reads `false`, since a hook that runs something else is not temper's gate.
 fn group_has_command(group: &JsonValue, command: &str) -> bool {
     group
-        .get("hooks")
+        .get(HOOK_HANDLER_KEY)
         .and_then(JsonValue::as_array)
         .is_some_and(|hooks| {
             hooks.iter().any(|hook| {
@@ -2504,10 +2508,10 @@ fn gate_hook_module(hook: &GateHook) -> String {
 fn gate_hook_fields(hook: &GateHook) -> Vec<(String, JsonValue)> {
     let mut fields = Vec::new();
     if let Some(matcher) = hook.matcher {
-        fields.push(("matcher".to_string(), json!(matcher)));
+        fields.push((HOOK_MATCHER_KEY.to_string(), json!(matcher)));
     }
     fields.push((
-        "hooks".to_string(),
+        HOOK_HANDLER_KEY.to_string(),
         json!([{ "type": "command", "command": hook.command }]),
     ));
     fields

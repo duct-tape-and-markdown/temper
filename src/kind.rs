@@ -222,6 +222,19 @@ pub enum CollectionKeyPath {
 /// drift apart.
 pub(crate) const MARKETPLACE_FIELD: &str = "marketplace";
 
+/// The key a matcher group carries its **handler array** under — the `member_key` of the
+/// `hook` kind's group-array entry shape, the field an authored group spells its handlers
+/// in, and the key the settings adapter nests them back under. One home the SDK's
+/// declaration (`sdk/src/builtins.ts`'s `HOOK_HANDLER_KEY`) and every engine site that
+/// reads it both name, so the wire key and the shape that walks it cannot drift apart
+/// (code.claude.com/docs/en/hooks, "Matcher patterns", retrieved 2026-09-29).
+pub(crate) const HOOK_HANDLER_KEY: &str = "hooks";
+
+/// The one group-level field a matcher group **lifts** beside its handlers — the other
+/// half of a group's `(event, matcher)` identity, paired with [`HOOK_HANDLER_KEY`] on the
+/// same declaration (`sdk/src/builtins.ts`'s `HOOK_MATCHER_KEY`, same source).
+pub(crate) const HOOK_MATCHER_KEY: &str = "matcher";
+
 impl CollectionKeyPath {
     /// The manifest's **top-level collection key** this key path walks into — the object
     /// whose entries are the registration members. `hooks.<Event>` reads the `hooks`
@@ -929,8 +942,8 @@ pub(crate) fn collection_address_from_row(
                 // its key path had at that spelling, rather than patch the file.
                 match key_path {
                     CollectionKeyPath::HooksEvent => EntryShape::GroupArray {
-                        member_key: "hooks".to_string(),
-                        lifted_fields: vec!["matcher".to_string()],
+                        member_key: HOOK_HANDLER_KEY.to_string(),
+                        lifted_fields: vec![HOOK_MATCHER_KEY.to_string()],
                     },
                     CollectionKeyPath::McpServers => EntryShape::Object,
                     CollectionKeyPath::EnabledPlugins => EntryShape::Scalar {
