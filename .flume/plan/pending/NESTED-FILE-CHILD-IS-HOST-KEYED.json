@@ -1,9 +1,12 @@
 {
   "tag": "NESTED-FILE-CHILD-IS-HOST-KEYED",
-  "gate": { "kind": "blockedBy", "tags": ["EMIT-REFUSES-A-PATH-ITS-GLOB-CANNOT-FIND"] },
-  "summary": "A nested-file child's identity is its host-qualified address, not a corpus-wide `kind:name` — so two hosts may each carry a `home`, and it resolves where the grammar says",
-  "per": { "path": "specs/model/representation.md", "section": "member" },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/import.rs",
@@ -49,11 +52,23 @@
         "path": "tests/it/read_verbs.rs",
         "description": "`explain '<host-kind>:<host>/<child-kind>/<key>'` resolves a nested file child; the bare key resolves only while one host carries it."
       }
-    ]
+    ],
+    "retire": []
+  },
+  "summary": "A nested-file child's identity is its host-qualified address, not a corpus-wide `kind:name` — so two hosts may each carry a `home`, and it resolves where the grammar says",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "member"
   },
   "tests": [
-    { "path": "tests/it/nested_member.rs", "asserts": "two hosts each carrying a `home` file child compose two distinct addresses and report no coincidence" },
-    { "path": "tests/it/read_verbs.rs", "asserts": "`explain` resolves a file child at its host-qualified address, and refuses a bare key several hosts carry by naming them" }
+    {
+      "path": "tests/it/nested_member.rs",
+      "asserts": "two hosts each carrying a `home` file child compose two distinct addresses and report no coincidence"
+    },
+    {
+      "path": "tests/it/read_verbs.rs",
+      "asserts": "`explain` resolves a file child at its host-qualified address, and refuses a bare key several hosts carry by naming them"
+    }
   ],
   "acceptance": "`cargo test` green, with the two hosts/one child-name corpus checking clean instead of reporting a `member.admissibility` coincidence, and `explain` resolving the host-qualified address.",
   "notes": "Routed from the inbox: note 3 (observed at 040e2d1c). The engine half; emit still refuses two same-named children until the SDK entry lands, so the intermediate state is loud, never silent. `Features::id` already holds a whole nested address for embedded members — `member_lookup`, `render_node` and `node_from_address` read that shape today — so this widens one representation rather than adding a second. scoped at 96c3bdf2"
