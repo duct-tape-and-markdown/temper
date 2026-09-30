@@ -1,10 +1,7 @@
 {
   "tag": "EVERY-AUTHORED-HOOK-SPELLS-ITS-HANDLERS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "HOOK-AUTHORS-ITS-HANDLERS"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,

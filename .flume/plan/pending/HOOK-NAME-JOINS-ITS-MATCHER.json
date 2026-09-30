@@ -3,11 +3,13 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "HOOK-AUTHORS-ITS-HANDLERS",
       "EVERY-AUTHORED-HOOK-SPELLS-ITS-HANDLERS"
     ]
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/json_manifest.rs",
@@ -77,7 +79,8 @@
         "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
         "description": "The corpus's emitted lock renders here; rows naming a hook member re-baseline."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "A hook member's name is its event, then `:` and the matcher's authored bytes; the registration key stays the bare event.",
   "per": {
