@@ -22,7 +22,7 @@
       },
       {
         "path": "src/install.rs",
-        "description": "The gate lift mints temper's own gate as `hook` members (`GATE_HOOKS`, :226, three groups): `gate_hook_fields` (:2383) now returns a group's fields plus its one handler, the `harness.ts` composition loop (:2339-:2346) writes the handler shape, and `module_stems` (:2212) reserves stems against the group grain. `gate_hooks_wired` (:905) and `event_has_command` (:2004) already walk each event's matcher groups, so re-verify rather than rewrite them; `hook_claimed_events` (:1059) claims by event and is unaffected until the address entry."
+        "description": "The gate lift mints temper's own gate as `hook` members (`GATE_HOOKS`, :226, three groups): `gate_hook_fields` (:2383) now returns a group's fields plus its one handler, the `harness.ts` composition loop (:2339-:2346) writes the handler shape, and `module_stems` (:2212) reserves stems against the group grain. `gate_hooks_wired` (:905) and `event_has_command` (:2004) already walk each event's matcher groups, so re-verify rather than rewrite them; `hook_claimed_events` (:1059) claims by event and is unaffected until the address entry. Second site in the same file, named in its own doc as this entry's to retire: `lifted_registration` (:2132) drops a single-handler group's `hooks:` array and hoists that handler's keys onto the lifted member (doc :2116-:2131), a hoist that exists only because today's authoring surface types one handler's keys flat — once `Hook` carries `hooks`, the lift writes the array as read at every handler count, lossless and one branch rather than two."
       },
       {
         "path": "src/tap.rs",
@@ -71,5 +71,5 @@
     }
   ],
   "acceptance": "`pnpm --dir sdk test` green (strict tsc included), cargo test green, cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean. Snapshots need no declaration — `tests/**/snapshots/**` is a standing build surface in chain.ts; the measured run moves none of them.",
-  "notes": "Decision 0075's second consequence bullet, the authoring side. Split from the engine grain because the two are independently coherent. 0073 (a gate hook is the author's member) is unrouted and lands on these same install.rs surfaces — route it onto this entry, not beside it. Three corpus programs keep the flat spelling and stay green (node type-strips them); they retire in EVERY-AUTHORED-HOOK-SPELLS-ITS-HANDLERS, not here. scoped at 6d33492f"
+  "notes": "Decision 0075's second consequence bullet, the authoring side. Split from the engine grain because the two are independently coherent. 0073 (a gate hook is the author's member) is unrouted and lands on these same install.rs surfaces — route it onto this entry, not beside it. Three corpus programs keep the flat spelling and stay green (node type-strips them); they retire in EVERY-AUTHORED-HOOK-SPELLS-ITS-HANDLERS, not here. scoped at 839589ee"
 }

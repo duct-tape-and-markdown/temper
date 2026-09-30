@@ -1,0 +1,34 @@
+{
+  "tag": "EXPLAIN-READS-THE-COMPOSED-EMBEDDED-CORPUS",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/read.rs",
+        "description": "The read verb's embedded corpus takes ONE of its two contributors: `:2456` calls the lock-only `compose::embedded_features_by_kind`, so `by_kind` — the member-existence oracle `resolve` (:217, doc :205-:212) reads, and the corpus `why`/`impact`/`context` walk — holds the lock's `nested_member` rows and not one member a host's own read composed. Both maps the fix needs are already in hand: `builtin_units_and_features` (:2393) and `custom_units_and_features` (pushed at :2454), each carrying `compose::KindUnitsAndFeatures::composed_embedded` (`compose.rs`:528, `ComposedEmbeddedMember` pub at :501). The change is the three lines `gate.rs`:447-453 already spells — flat_map both, call `embedded_features_by_kind_with_composed` — which is also why it belongs here rather than in a helper: the assembly at `:2457` is the read's own. Stale prose rides the edit: `narrate_hosted_kinds`' doc (:1054-:1062) calls the fallback corpus's embedded entries \"the lock's `nested_member` rows lifted leaf-by-leaf into fields\", true of one contributor only. The lock-only arity stays — nine callers with no manifest corpus keep it earned."
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "The end-to-end arm over the real binary through `common::explain_in` (already used three times here): a harness whose `.claude/settings.json` carries a hook matcher group with a handler narrates that handler's own member address (`hook:<Event>/handler/0`) rather than answering \"No member named ... is in the surface\" three times over. The vacuity pin is the check side of the same fixture — `coverage.checked` disclosing `handler (1 embedded)` (or the composed set asserted non-empty) before the narration is judged, per `engineering.md`, \"A green verdict is proven non-vacuous\"."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "`explain` ranges over the same embedded corpus the gate does, so a composed handler member narrates instead of reading as absent.",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "Read verbs"
+  },
+  "tests": [
+    {
+      "path": "tests/it/read_verbs.rs",
+      "asserts": "a composed handler member resolves through `explain` and its three strands narrate it, over a fixture whose own `check` run discloses the handler as checked"
+    }
+  ],
+  "acceptance": "cargo test green, cargo clippy --all-targets -D warnings clean, cargo fmt --all --check clean, and `temper explain member:hook:<Event>/handler/0` over a harness whose hook carries a handler narrates the member instead of the three not-found lines.",
+  "notes": "The deliberate gap 6f8d2eab's body named: \"a composed handler is judged by the gate and not yet narrated\". DATUM at HEAD, both sides run on disk: `check` discloses `handler (6 embedded)` here while `explain member:hook:PreToolUse/handler/0` answers \"No member named ... is in the surface\" from why, impact and context. The lock-only arity keeps nine hand-built-declarations callers (tests/it/nested_member.rs, closed_keys.rs). scoped at 839589ee"
+}
