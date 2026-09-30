@@ -3,7 +3,8 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "HOOK-AUTHORS-ITS-HANDLERS"
+      "HOOK-AUTHORS-ITS-HANDLERS",
+      "EVERY-AUTHORED-HOOK-SPELLS-ITS-HANDLERS"
     ]
   },
   "files": {

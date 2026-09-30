@@ -1,0 +1,46 @@
+{
+  "tag": "EVERY-AUTHORED-HOOK-SPELLS-ITS-HANDLERS",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "HOOK-AUTHORS-ITS-HANDLERS"
+    ]
+  },
+  "dependsOnForks": [],
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "tests/it/gauntlet.rs",
+        "description": "The kitchen-sink corpus's two hooks re-spell onto handlers: `sessionHook` (:132, a one-line flat `hook({ name, type, command })`) and `auditHook` (:141, the `http` handler carrying its `url`). The surrounding comment (:135-:140) is stale at HEAD already and rides this edit — it says `hook`'s \"per-handler-kind `when` guards fire on the member's own `type`\", but the six guards moved to `handlerDefaultContract` (`sdk/src/builtins.ts`:1952) and bind under `handler` alone (:2032); `hookDefaultContract` (:2038) is now the event enum alone. What the cell exercises is unchanged — a guard composing over a group-array registration beside the object-shape and scalar-shape ones — but it now composes over the handler child, and the comment must say so."
+      },
+      {
+        "path": "tests/it/settings_kind.rs",
+        "description": "Both Rust string-fixture programs author the same flat `sessionStart` hook — `SETTINGS_MEMBER_PROGRAM` (:39, the 0050 container posture) and `SETTINGS_RESIDUE_PROGRAM` (:61, the pre-0050 contrast). The hook is scaffolding in both (the cell is about which member governs `.claude/settings.json` whole), so the re-spell is mechanical; the arms' member tallies move if a handler child now counts."
+      },
+      {
+        "path": "examples/base-harness/.temper/hooks.ts",
+        "description": "The shipped example — the most adopter-visible copy of the refused spelling, and the reason this entry is not merely fixture hygiene: `hook_sessionStart` (:8) and `hook_guard` (:16) both author the flat triple, and the file's own header calls them \"fields-only registration members\". Re-emit the example's lock after the re-spell: `examples/*/.temper/lock.toml` is a standing build surface in chain.ts, so it needs no declaration, and `tests/it/emit.rs`'s own failure message spells the recipe — `ln -s $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` (gitignored, never committed), then `cargo run -- emit --into examples/base-harness/.temper` and commit what moves."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Every authored hook in the corpus spells its handlers — the three programs still authoring the flat field triple the SDK's types no longer accept.",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "tests": [
+    {
+      "path": "tests/it/gauntlet.rs",
+      "asserts": "the corpus's `check`/`emit` snapshots re-baseline with the two hooks' handler children in the member tally, and the `http` handler's guard still fires where it now binds"
+    },
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "`emit_program_runs_the_shipped_example_harness` stays green — the re-spelled example program links, and its re-emitted `lock.toml` byte-matches the committed one"
+    }
+  ],
+  "acceptance": "cargo test green, `pnpm --dir sdk test` green, clippy/fmt clean, and an `rg` for `hook({` across the tree finds no call passing `type`/`command` outside a `hooks:` array, save the one site named in notes.",
+  "notes": "The staleness half of the HOOK-AUTHORS fence capture, held back so the queue's critical-path entry stays narrow: these three stay GREEN on the flat spelling (their programs are type-stripped by node, never tsc'd, and the write face nests flat residue into one handler), so they are a corpus authoring a shape its own types refuse, not breakage. Fourth site, outside every build fence: `.temper/hooks.ts`:18,25,37,45 — the dogfood's own, a human `chore(harness):` commit. scoped at 6d33492f"
+}
