@@ -25,7 +25,11 @@
       },
       {
         "path": "src/json_manifest.rs",
-        "description": "The read/write face takes `member_key` and `lifted_fields` as parameters and names no literal of its own — already correct, and the shape the rest folds toward. Only its unit-test fixture restates the pair (:1126-:1127) to drive `manifest_members`; name the constants in that fixture and in the `hook_matcher_group` call arguments (:1156,:1174,:1190), and keep the wire-shaped `assert_eq!` expectations (:1110,:1179) literal for the same reason as the built-in's test."
+        "description": "The read/write face takes `member_key` and `lifted_fields` as parameters and names no literal of its own — already correct, and the shape the rest folds toward. Only its unit-test fixture restates the pair (:1125-:1126) to drive `manifest_members`; name the constants in that fixture and in the `hook_matcher_group` call arguments (:1155,:1165,:1188), and keep the wire-shaped `assert_eq!` expectations (:1109,:1177) literal for the same reason as the built-in's test."
+      },
+      {
+        "path": "src/bundle.rs",
+        "description": "Two `\"hooks\"` spellings, both expected untouched and both declared here so the acceptance census closes: `hooks_manifest` (:285) keys the plugin's own `hooks/hooks.json` top-level object — a different manifest's schema, not this key — and the unit test at :424 walks `hooks[\"hooks\"][\"SessionStart\"][0][\"hooks\"][0]`, whose INNER key is this entry's handler-array one. Unlike `tests/it/**`, an in-crate unit test can see a `pub(crate)` const, so the ruling is declared rather than left to the fence: a wire-pinning assertion stays literal, the same reason as the built-in's test."
       },
       {
         "path": "tests/it/install.rs",
@@ -51,8 +55,12 @@
     {
       "path": "tests/it/hook_kind.rs",
       "asserts": "the hook read/write round-trip over a real manifest stays green"
+    },
+    {
+      "path": "src/bundle.rs",
+      "asserts": "the plugin's `hooks/hooks.json` manifest still carries the engine's SessionStart command inside its handler array, the assertion spelled literally"
     }
   ],
-  "acceptance": "cargo test green, clippy/fmt clean, and `rg '\"hooks\"|\"matcher\"' src/` resolves to the two constants' definitions plus only the named non-identities: `src/bundle.rs`'s plugin `hooks/hooks.json` top-level key (a different manifest's schema, not this key), and the wire-pinning assertions in the two unit tests.",
-  "notes": "The second half of the HOOK-AUTHORS fence capture, drained from `.flume/refactor/` this tick. Gated at the tail of the install.rs chain not for size — it is small — but because GATE-COMMANDS-GENERATE-ACROSS-THE-SEAM and INSTALL-NAMES-A-GATE-HOOKS-REMEDY both reshape `gate_hook_fields` and its neighbours; folding a literal under a caller about to move is churn. scoped at 55af999f"
+  "acceptance": "cargo test green, clippy/fmt clean, and `rg '\"hooks\"|\"matcher\"' src/` resolves to the two constants' definitions plus only the named non-identities: `src/bundle.rs`:285's plugin `hooks/hooks.json` top-level key (a different manifest's schema), the wire-pinning assertions in three unit tests (`src/builtin_kind.rs`, `src/json_manifest.rs`, `src/bundle.rs`:424), and `src/builtin_lock.toml`'s three `field = \"hooks\"` clause rows (:763, :897, :1081 — plugin-manifest's path field twice and settings-local's hooks object, none of them this key; that file is byte-derived from the SDK under `tests/it/builtin_lock_frozen.rs`, never a hand-spelled site).",
+  "notes": "The second half of the HOOK-AUTHORS fence capture. Gated at the tail of the install.rs chain not for size — it is small — but because GATE-COMMANDS-GENERATE-ACROSS-THE-SEAM and INSTALL-NAMES-A-GATE-HOOKS-REMEDY both reshape `gate_hook_fields` and its neighbours; folding a literal under a caller about to move is churn. `json_manifest.rs` cites refreshed under ac1bac67; `compose.rs`/`drift.rs` spell no literal (census run), so the ripple is `bundle.rs` alone. scoped at 35b923ae"
 }
