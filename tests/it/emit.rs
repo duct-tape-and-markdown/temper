@@ -752,10 +752,11 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
     let (harness, into) = workspace("tap-hook-matcher-group");
 
     // A synthesized tap-hook row — the shape the SDK derives from a telemetry verifier
-    // (`sdk/src/declarations.ts`'s `tapHookRows`): `kind` hook, a `matcher` field, the
-    // `temper tap` command. The engine projects it through the same registration loop a
-    // hook member rides, no engine change — a `Skill` invocation is surfaced under
-    // `PostToolUse` with the tool-name matcher.
+    // (`sdk/src/declarations.ts`'s `tapHookRows`): `kind` hook, the group's own `matcher`
+    // field, and the `temper tap` command inside the single `command` handler of its
+    // `hooks` array, since a tap hook is one ordinary matcher group (0075). The engine
+    // projects it through the same registration loop a hook member rides, no engine change
+    // — a `Skill` invocation is surfaced under `PostToolUse` with the tool-name matcher.
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
@@ -766,12 +767,13 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
                 manifest: "settings.json".to_string(),
                 key_path: "hooks.<Event>".to_string(),
                 fields: vec![
-                    ("type".to_string(), serde_json::json!("command")),
-                    (
-                        "command".to_string(),
-                        serde_json::json!("temper tap \"$CLAUDE_PROJECT_DIR\""),
-                    ),
                     ("matcher".to_string(), serde_json::json!("Skill")),
+                    (
+                        "hooks".to_string(),
+                        serde_json::json!([
+                            { "type": "command", "command": "temper tap \"$CLAUDE_PROJECT_DIR\"" }
+                        ]),
+                    ),
                 ],
             }],
             ..Default::default()
@@ -781,9 +783,10 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
 
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
-    // The `matcher` field lifts to the group level — `hooks.PostToolUse` is the array of
-    // matcher groups Claude Code loads, each `{matcher, hooks:[{…handler}]}` — proving the
-    // engine projects the SDK-synthesized row unchanged.
+    // The `matcher` field lifts to the group level and the handler array rides through as
+    // read — `hooks.PostToolUse` is the array of matcher groups Claude Code loads, each
+    // `{matcher, hooks:[{…handler}]}` — proving the engine projects the SDK-synthesized row
+    // unchanged.
     let mut entries = std::collections::BTreeMap::new();
     entries.insert(
         "PostToolUse".to_string(),

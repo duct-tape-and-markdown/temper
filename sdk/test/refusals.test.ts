@@ -377,7 +377,7 @@ test("emit refuses an edge field naming a target that owns no projection", () =>
           embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "hook:PreToolUse" } }),
         ),
       }),
-      hook({ name: "PreToolUse", type: "command", command: "temper guard" }),
+      hook({ name: "PreToolUse", hooks: [{ type: "command", command: "temper guard" }] }),
     ],
     admit: [{ host: memory, admits: [citation] }],
   });

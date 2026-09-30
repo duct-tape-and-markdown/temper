@@ -31,9 +31,8 @@ import {
   declaredAtLocusKinds,
   declaredRequirements,
   encodeSeam,
-  registrationRows,
+  mergedRegistrationRows,
   settingsRows,
-  tapHookRows,
   uniqueMap,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
@@ -764,15 +763,16 @@ export interface RegistrationFact {
  * The harness's registration write facts as the public {@link RegistrationFact} view —
  * the seam's own `registration` rows mapped to the nested `collectionAddress` shape the
  * `EmitResult` sibling exposes, so the two cannot disagree on what a manifest carries.
- * The fields-only registration members ({@link registrationRows}) and the memberless tap
- * hooks a telemetry verifier synthesizes ({@link tapHookRows}) fold in together, the same
- * union `compileDeclarations` writes into `declarations.registrations`.
+ * The rows are {@link mergedRegistrationRows}' — the fields-only registration members
+ * with the memberless tap hooks a telemetry verifier synthesizes joined into them — the
+ * one home `compileDeclarations` also reads for `declarations.registrations`, so a tap
+ * that joined an authored group did so for both faces or for neither.
  *
  * # Throws
  * If a fields-only member declares no collection address — it surfaces in no manifest.
  */
 function registrationFacts(harness: Harness): RegistrationFact[] {
-  return [...registrationRows(harness), ...tapHookRows(harness)].map((row) => ({
+  return mergedRegistrationRows(harness).map((row) => ({
     kind: row.kind,
     key: row.key,
     collectionAddress: { manifest: row.manifest, keyPath: row.key_path },

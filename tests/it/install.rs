@@ -614,8 +614,11 @@ fn write_document_harness(label: &str) -> (PathBuf, PathBuf) {
 
 /// Assert `.claude/settings.json` under `root` wires all three of temper's gate hook
 /// groups — the whole gate, read the way Claude Code reads it: a `hooks.<Event>` matcher
-/// group whose handler carries the exact command `install` declares. `context` names the
-/// moment being asserted, since the same claim is made before and after a re-emit.
+/// group whose handler carries the exact command `install` declares. The grain is asserted
+/// with it: exactly one group per event runs temper's command, carrying exactly one
+/// handler, which is what a gate `hook` member now authors (`gate_hook_fields`). `context`
+/// names the moment being asserted, since the same claim is made before and after a
+/// re-emit.
 fn assert_gate_hooks_wired(root: &Path, context: &str) {
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
@@ -633,16 +636,25 @@ fn assert_gate_hooks_wired(root: &Path, context: &str) {
         let groups = json["hooks"][event]
             .as_array()
             .unwrap_or_else(|| panic!("{context}: no `hooks.{event}` array, got:\n{settings}"));
-        let group = groups
+        let running: Vec<&serde_json::Value> = groups
             .iter()
-            .find(|group| {
+            .filter(|group| {
                 group["hooks"]
                     .as_array()
                     .is_some_and(|handlers| handlers.iter().any(|h| h["command"] == command))
             })
-            .unwrap_or_else(|| {
-                panic!("{context}: no `{event}` group runs temper's command, got:\n{settings}")
-            });
+            .collect();
+        assert_eq!(
+            running.len(),
+            1,
+            "{context}: exactly one `{event}` group runs temper's command, got:\n{settings}"
+        );
+        let group = running[0];
+        assert_eq!(
+            group["hooks"].as_array().map(Vec::len),
+            Some(1),
+            "{context}: the `{event}` gate group fires its one handler, got:\n{settings}"
+        );
         match matcher {
             Some(matcher) => assert_eq!(
                 group["matcher"], matcher,
@@ -1269,13 +1281,19 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
         );
         assert!(harness.contains(ident), "got:\n{harness}");
     }
+    // One matcher group carrying one handler: the `matcher` is the group's own field and
+    // the `command` sits inside the `hooks` array, the grain the authoring surface types
+    // (`Hook`, `sdk/src/builtins.ts`) — a handler's keys never land flat on the module.
     let guard_module = fs::read_to_string(temper_dir.join("hooks").join("PreToolUse.ts")).unwrap();
     assert!(
         guard_module.contains("matcher: \"Write|Edit|MultiEdit\","),
         "got:\n{guard_module}"
     );
     assert!(
-        guard_module.contains(&format!("command: {:?},", temper::install::GUARD_COMMAND)),
+        guard_module.contains(&format!(
+            "hooks: [{{\"command\":{:?},\"type\":\"command\"}}],",
+            temper::install::GUARD_COMMAND
+        )),
         "got:\n{guard_module}"
     );
 
@@ -1406,8 +1424,11 @@ fn a_manifests_registration_entries_each_lift_to_their_own_module_and_survive_th
         hook_module.contains("name: \"SessionStart\","),
         "got:\n{hook_module}"
     );
+    // The group's handler array survives the lift as read, at every handler count: the
+    // single-handler hoist that used to flatten these keys onto the module retired with
+    // the authoring surface that demanded it (0075).
     assert!(
-        hook_module.contains("command: \"echo authored\","),
+        hook_module.contains("hooks: [{\"command\":\"echo authored\",\"type\":\"command\"}],"),
         "got:\n{hook_module}"
     );
 

@@ -10,6 +10,9 @@ import { test } from "node:test";
 import type { Clause, Harness } from "../src/index.js";
 import { embeddedMemberValue, emit, harness, kind, relocate } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
+// The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
+// is its one caller), so the test reaches the module rather than the public subpath.
+import { tapHookRegistration } from "../src/builtins.js";
 import type { Handler, Hook, Rule } from "../src/claude-code.js";
 import {
   agent,
@@ -349,6 +352,50 @@ test("hook templates one embedded layer of handler — no path, unlike skill's f
   // unit. `skill`'s `*.md` supporting-doc layer is the file-child counter-example.
   assert.equal(entry.path, undefined);
   assert.equal(skill.facts.templates?.[0]?.path, "*.md");
+});
+
+test("hook() mints one matcher group however many handlers it fires — the group's field beside its array", () => {
+  // One call, one group (0075): the `matcher` is the group's own key and the handlers are
+  // its ordered `hooks` array, so a two-handler group is one member with two positions
+  // rather than two members at one address.
+  const guard = hook({
+    name: "PreToolUse",
+    matcher: "Write|Edit",
+    hooks: [
+      { type: "command", command: "temper guard ." },
+      { type: "http", url: "https://example.com/audit", timeout: 5 },
+    ],
+  });
+
+  assert.deepEqual(guard.fields, [
+    ["matcher", "Write|Edit"],
+    [
+      "hooks",
+      [
+        { type: "command", command: "temper guard ." },
+        { type: "http", url: "https://example.com/audit", timeout: 5 },
+      ],
+    ],
+  ]);
+
+  // A group needs no matcher — an event carrying no tool filters nothing — and the array
+  // is the whole member then.
+  assert.deepEqual(hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper check ." }] }).fields, [
+    ["hooks", [{ type: "command", command: "temper check ." }]],
+  ]);
+});
+
+test("tapHookRegistration composes the tap's one command handler inside its matcher group", () => {
+  // The provider fact `tapHookRows` fills: a synthesized tap hook is an ordinary matcher
+  // group, so its `type`/`command` sit inside the single handler and only the `matcher`
+  // lifts — the same shape an authored `hook()` builds, which is what lets the join in
+  // `declarations.ts` merge one into the other.
+  const { keyPath, fields } = tapHookRegistration("temper tap .", "Skill");
+  assert.equal(keyPath, "hooks.<Event>");
+  assert.deepEqual(fields, [
+    ["matcher", "Skill"],
+    ["hooks", [{ type: "command", command: "temper tap ." }]],
+  ]);
 });
 
 test("supportingDocDefaultContract is one advisory reach clause — the format's one decidable fact", () => {
@@ -771,15 +818,15 @@ test("handlerDefaultContract guards every documented handler kind with that kind
   };
   const handlerKinds = Object.keys(documentedHandlerKinds).sort();
 
-  // `Hook` still spells the same union until the grain entry collapses its fields into
-  // `Handler`'s, and `tsc` is what holds the two together meanwhile: widening one alone
-  // makes this annotation unsatisfiable.
-  const bothTypeUnionsAgree: Hook["type"] extends Handler["type"]
-    ? Handler["type"] extends Hook["type"]
+  // `Hook` spells no handler union of its own: a group authors the handlers it fires, so
+  // `Handler` is the union's one home and `tsc` pins the group's array to that exact type
+  // — a second spelling of the union on `Hook` could not satisfy this annotation.
+  const groupCarriesHandlers: Hook["hooks"][number] extends Handler
+    ? Handler extends Hook["hooks"][number]
       ? true
       : never
     : never = true;
-  assert.equal(bothTypeUnionsAgree, true);
+  assert.equal(groupCarriesHandlers, true);
 
   // The enum ranges over exactly those kinds — one allowlist, not two transcriptions.
   const handlerEnum = handlerDefaultContract.find(

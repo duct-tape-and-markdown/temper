@@ -2120,37 +2120,19 @@ fn read_lifted_member(kind: &CustomKind, file: &Path) -> miette::Result<LiftedMe
 /// What the lift writes is a module its author then owns, so the fields are spelled on the
 /// **authoring surface** — a module carrying a field the shipped kind does not type is one
 /// an adopter's own `tsc` refuses. For a group-array entry that surface types the group's
-/// `matcher` beside exactly one handler's own keys (`Hook`, `sdk/src/builtins.ts`), so a
-/// group carrying exactly one handler hoists its keys and drops the array they came in.
-/// Any other count keeps the array as read: lossless, and the spelling the handler-grain
-/// authoring surface takes over (HOOK-AUTHORS-ITS-HANDLERS, which retires this hoist with
-/// it). Either way the group re-nests to the bytes it was read from — the write face takes
-/// both spellings ([`json_manifest::hook_matcher_group`]).
+/// own field beside the `hooks` array it carries its handlers in (`Hook`,
+/// `sdk/src/builtins.ts`), which is exactly what the read gives back — the group-array read
+/// keeps that array as one of the group's own fields — so the fields pass through as read,
+/// at every handler count, and the group re-nests to the bytes it was read from
+/// ([`json_manifest::hook_matcher_group`]).
 ///
-/// The group's handlers are not lifted as members of their own, for the same reason: the
-/// authoring surface has no handler member to mint one onto yet.
-fn lifted_registration(
-    kind: &kind::CustomKind,
-    entry: &json_manifest::RegistrationMember,
-) -> LiftedMember {
-    let mut fields: Vec<(String, serde_json::Value)> = entry.fields.clone().into_iter().collect();
-    if let Some(kind::EntryShape::GroupArray { member_key, .. }) = kind
-        .collection_address
-        .as_ref()
-        .map(|address| &address.entry_shape)
-        && let [(_, handler)] = entry.members.as_slice()
-    {
-        fields.retain(|(key, _)| key != member_key);
-        fields.extend(
-            handler
-                .iter()
-                .map(|(key, value)| (key.clone(), value.clone())),
-        );
-        fields.sort_by(|(a, _), (b, _)| a.cmp(b));
-    }
+/// The group's handlers are not lifted as members of their own: a handler is an embedded
+/// member with no module of its own to be written to, composed inside its host group's
+/// `hooks` array and keyed by its position there (0075).
+fn lifted_registration(entry: &json_manifest::RegistrationMember) -> LiftedMember {
     LiftedMember {
         id: entry.key.clone(),
-        fields,
+        fields: entry.fields.clone().into_iter().collect(),
         body: None,
     }
 }
@@ -2296,7 +2278,7 @@ fn scaffold(
             }
             KindMembers::Registrations { entries, .. } => {
                 for entry in entries {
-                    lifted.push((name.clone(), lifted_registration(kind, entry)));
+                    lifted.push((name.clone(), lifted_registration(entry)));
                 }
             }
         }
@@ -2377,16 +2359,21 @@ fn scaffold(
 const GATE_HOOK_KIND: &str = "hook";
 
 /// The typed fields one gate hook's member module carries: its matcher where the event
-/// binds one, then the `command` handler pair Claude Code documents
-/// (`code.claude.com/docs/en/hooks`, retrieved 2026-09-03). `name` is the event, already
-/// the module's identity property, so it is not repeated here.
+/// binds one, then the single `command` handler it fires, inside the `hooks` array a
+/// matcher group carries its handlers in (`code.claude.com/docs/en/hooks`, retrieved
+/// 2026-09-29). The grain is the group's, matching the authoring surface the module is
+/// written against (`Hook`, `sdk/src/builtins.ts`): a handler's own keys never sit flat
+/// beside the group's. `name` is the event, already the module's identity property, so it
+/// is not repeated here.
 fn gate_hook_fields(hook: &GateHook) -> Vec<(String, JsonValue)> {
     let mut fields = Vec::new();
     if let Some(matcher) = hook.matcher {
         fields.push(("matcher".to_string(), json!(matcher)));
     }
-    fields.push(("type".to_string(), json!("command")));
-    fields.push(("command".to_string(), json!(hook.command)));
+    fields.push((
+        "hooks".to_string(),
+        json!([{ "type": "command", "command": hook.command }]),
+    ));
     fields
 }
 

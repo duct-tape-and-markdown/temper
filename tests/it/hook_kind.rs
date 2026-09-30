@@ -332,6 +332,68 @@ fn a_two_handler_group_re_nests_to_the_settings_json_it_was_read_from() {
     );
 }
 
+/// A program authoring ONE `hook` member whose group fires two handlers — the authoring
+/// twin of the read fixtures above. `hook()` types the **group**: the `matcher` is the
+/// group's own field and the handlers are its ordered `hooks` array, so one call mints one
+/// group whatever the handler count (0075).
+const TWO_HANDLER_PROGRAM: &str = r#"
+import { emit, harness } from "@dtmd/temper";
+import { hook } from "@dtmd/temper/claude-code";
+
+const guard = hook({
+  name: "PreToolUse",
+  matcher: "Bash",
+  hooks: [
+    { type: "command", command: "echo guard" },
+    { type: "http", url: "https://example.test/audit", timeout: 30 },
+  ],
+});
+
+process.stdout.write(emit(harness({ members: [guard] })).seam);
+"#;
+
+#[test]
+fn a_hook_authoring_two_handlers_is_one_registration_row_and_one_projected_group() {
+    // The write side of the grain, driven over the real SDK: two handlers under one matcher
+    // are one member's array, so the program emits ONE `hooks.<Event>` registration and the
+    // projection carries one group holding both — never a row or a group per handler.
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("hook-authors-handlers", TWO_HANDLER_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert_eq!(
+        lock.matches("[[declaration.registration]]").count(),
+        1,
+        "one call, one registration row: {lock}"
+    );
+
+    // The bytes Claude Code loads, compared against the canonical write face's own output
+    // so the assertion pins the shape rather than a hand-typed document's formatting.
+    let expected = json_manifest::write_manifest(
+        &[CollectionSegment {
+            collection_key: "hooks".to_string(),
+            entries: BTreeMap::from([(
+                "PreToolUse".to_string(),
+                serde_json::json!([{
+                    "matcher": "Bash",
+                    "hooks": [
+                        { "type": "command", "command": "echo guard" },
+                        { "type": "http", "url": "https://example.test/audit", "timeout": 30 }
+                    ]
+                }]),
+            )]),
+        }],
+        &BTreeMap::new(),
+    );
+    assert_eq!(
+        fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap(),
+        expected,
+        "one matcher group carrying both handlers, in authored order"
+    );
+}
+
 #[test]
 fn an_unrepresented_settings_json_still_infers_its_hook_members() {
     // The read is driven by the address, not by the manifest being modeled as a member:

@@ -450,19 +450,17 @@ export const handler: KindDefinition<Handler> = kind<Handler>({
 
 /**
  * A Claude Code hook — a fields-only registration member surfacing inside
- * `settings.json`, keyed under its lifecycle event. It owns no artifact of its own; a
- * handler names how it fires (`command`/`http`/`mcp_tool`/`prompt`/`agent`) plus the
- * documented common fields. Authoring `hook(...)` builds a member whose typed fields fold
- * into its manifest entry; emit erases it into a registration write fact (`emit.ts`).
+ * `settings.json`, keyed under its lifecycle event. It owns no artifact of its own: one
+ * `hook(...)` call mints one **matcher group**, carrying the group's own `matcher` beside
+ * the ordered {@link Handler}s it fires, however many that is. The typed fields fold into
+ * its manifest entry; emit erases it into a registration write fact (`emit.ts`).
  *
- * `matcher` is the matcher group's own field. Every other field here is the documented
- * handler table's — the common row every handler kind carries, then each kind's, each
- * cited where it is claimed — and they are **{@link Handler}'s fields**, duplicated onto
- * this surface only because `hook()` still authors one handler flat: emit nests them as the
- * group's single handler, and the read gives them back as a `handler` member at
- * `<hook-address>/handler/0`, which is where {@link handlerDefaultContract} judges them.
- * {@link hookDefaultContract} judges the group's own field alone. HOOK-AUTHORS-ITS-HANDLERS
- * moves the authoring onto `Handler` and this duplication goes with it.
+ * The two levels are two surfaces, with nothing duplicated across them: the group's own
+ * field is `matcher`, and every handler field — the documented common row plus each
+ * handler kind's, each cited where it is claimed — belongs to {@link Handler} alone. The
+ * read gives each entry of `hooks` back as a `handler` member at
+ * `<hook-address>/handler/<position>`, which is where {@link handlerDefaultContract}
+ * judges it; {@link hookDefaultContract} judges the group's own field alone.
  *
  * `once` is deliberately untyped: the docs honor it only on a hook declared in skill
  * frontmatter and ignore it in settings files, and this kind's locus *is* a settings file
@@ -471,55 +469,20 @@ export const handler: KindDefinition<Handler> = kind<Handler>({
  */
 export interface Hook {
   /**
-   * The handler kind — how the hook fires when its event matches. Required and
-   * default-less: a handler naming no `type` is a registration Claude Code has no way to
-   * run (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25).
-   */
-  readonly type: "command" | "http" | "mcp_tool" | "prompt" | "agent";
-  /**
-   * One permission rule scoping the fire (`"Bash(git *)"`, `"Edit(*.ts)"`). Holds exactly
-   * one rule — there is no `&&`/`||`/list syntax — and is evaluated only on the tool
-   * events; on any other event a hook carrying it never runs
-   * (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25).
-   */
-  readonly if?: string;
-  /** Seconds before the handler is canceled; the default varies by handler kind and event (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25). */
-  readonly timeout?: number;
-  /** The spinner message shown while the handler runs (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25). */
-  readonly statusMessage?: string;
-  /**
-   * The tool-name filter a tool-scoped event fires on (`"*"`/`""`/absent = all). Authored
-   * per handler and lifted to its matcher group on the wire, since Claude Code carries the
+   * The tool-name filter a tool-scoped event fires on (`"*"`/`""`/absent = all) — the
+   * matcher group's own key, scoping every handler under it, since Claude Code carries the
    * matcher at the group level (code.claude.com/docs/en/hooks, "Matcher patterns",
    * retrieved 2026-09-25).
    */
   readonly matcher?: string;
-  /** The shell command a `command` handler runs, or — beside `args` — the executable it spawns (code.claude.com/docs/en/hooks, "Command hook fields", retrieved 2026-09-25). */
-  readonly command?: string;
-  /** A `command` handler's argument vector; its presence spawns `command` directly, with no shell (same source). */
-  readonly args?: readonly string[];
-  /** A `command` handler runs in the background without blocking (same source). */
-  readonly async?: boolean;
-  /** A `command` handler runs in the background and wakes Claude on exit code 2 (same source). */
-  readonly asyncRewake?: boolean;
-  /** The shell a `command` handler runs under; ignored when `args` is set (same source). */
-  readonly shell?: "bash" | "powershell";
-  /** The endpoint an `http` handler POSTs the event's JSON input to (code.claude.com/docs/en/hooks, "HTTP hook fields", retrieved 2026-09-25). */
-  readonly url?: string;
-  /** Extra headers on an `http` handler's request; values interpolate `$VAR` names drawn from `allowedEnvVars` (same source). */
-  readonly headers?: Readonly<Record<string, string>>;
-  /** The environment variable names an `http` handler's headers may interpolate; unlisted references resolve empty (same source). */
-  readonly allowedEnvVars?: readonly string[];
-  /** The already-connected MCP server an `mcp_tool` handler calls — the scoped `plugin:<plugin>:<server>` name for a plugin-bundled one (code.claude.com/docs/en/hooks, "MCP tool hook fields", retrieved 2026-09-25). */
-  readonly server?: string;
-  /** The tool an `mcp_tool` handler calls on that server (same source). */
-  readonly tool?: string;
-  /** The arguments an `mcp_tool` handler passes; string values substitute `${path}` from the hook's JSON input (same source). */
-  readonly input?: Readonly<Record<string, unknown>>;
-  /** The prompt text a `prompt` or `agent` handler sends to the model; `$ARGUMENTS` stands for the hook input JSON (code.claude.com/docs/en/hooks, "Prompt and agent hook fields", retrieved 2026-09-25). */
-  readonly prompt?: string;
-  /** The model a `prompt` or `agent` handler evaluates under; absent means a fast default (same source). */
-  readonly model?: string;
+  /**
+   * The handlers this group fires, in wire order — the group's `hooks` array, each entry
+   * addressed by its position (`…/handler/0`). Required: the handlers are what the group
+   * does, and a group carrying no handler array is a shape Claude Code itself ignores.
+   * Matching handlers run in parallel, so the order is an address and carries no runtime
+   * meaning (code.claude.com/docs/en/hooks, "Matcher patterns", retrieved 2026-09-29).
+   */
+  readonly hooks: readonly Handler[];
 }
 
 /**
@@ -532,6 +495,19 @@ export const SETTINGS_MANIFEST = "settings.json";
 /** The `hooks.<Event>` collection address's key-path — the `hook` kind's own address, and
  * the tap hook registration's, since a tap hook is an ordinary `hook` entry. */
 const HOOK_KEY_PATH = "hooks.<Event>";
+
+/**
+ * The key a matcher group carries its handler array under — {@link Hook}'s `hooks` field,
+ * the `member_key` of the kind's group-array entry shape, and the field name the join in
+ * `declarations.ts` reads to merge a synthesized tap hook into an authored group. One
+ * home, so the authored surface, the declared entry shape and the join cannot drift
+ * (code.claude.com/docs/en/hooks, "Matcher patterns", retrieved 2026-09-29).
+ */
+export const HOOK_HANDLER_KEY = "hooks";
+
+/** The one group-level field a matcher group lifts beside its handlers — {@link Hook}'s
+ * `matcher`, and the other half of the group's identity the join keys on (same source). */
+export const HOOK_MATCHER_KEY = "matcher";
 
 /**
  * `hook` — a `settings.json` `hooks.<Event>` registration member: a fields-only kind (no
@@ -550,28 +526,34 @@ export const hook: KindDefinition<Hook> = kind<Hook>({
   unitShape: "file",
   registration: [{ via: "event", field: "event" }],
   shape: "fields",
-  collectionAddress: { manifest: SETTINGS_MANIFEST, keyPath: HOOK_KEY_PATH, entryShape: "group-array(hooks;matcher)" },
+  collectionAddress: {
+    manifest: SETTINGS_MANIFEST,
+    keyPath: HOOK_KEY_PATH,
+    entryShape: `group-array(${HOOK_HANDLER_KEY};${HOOK_MATCHER_KEY})`,
+  },
   templates: [{ kind: handler }],
   guidance:
     "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings).",
 });
 
 /**
- * The tap hook registration's `hooks.<Event>` key-path and `Hook` field triple — the
+ * The tap hook registration's `hooks.<Event>` key-path and {@link Hook} fields — the
  * provider fact {@link tapHookRows} (`declarations.ts`) fills rather than authors inline.
- * A tap hook always fires a `command` handler (`type` fixed), so only the tap's own
- * `command` string and the per-event `matcher` {@link TELEMETRY_EVENT_HOOKS} names vary.
+ * One matcher group like any authored one: the per-event `matcher`
+ * {@link TELEMETRY_EVENT_HOOKS} names lifted beside a single `command` handler carrying
+ * the tap's own command, so a synthesized row and an authored one are the same shape and
+ * the join in `declarations.ts` can merge one into the other.
  */
 export function tapHookRegistration(
   command: string,
   matcher: string,
 ): { readonly keyPath: string; readonly fields: Array<[string, unknown]> } {
+  const handler: Handler = { type: "command", command };
   return {
     keyPath: HOOK_KEY_PATH,
     fields: [
-      ["type", "command"],
-      ["command", command],
-      ["matcher", matcher],
+      [HOOK_MATCHER_KEY, matcher],
+      [HOOK_HANDLER_KEY, [handler]],
     ],
   };
 }
@@ -1923,9 +1905,9 @@ const DOCUMENTED_HOOK_EVENTS = [
  * drawn from (code.claude.com/docs/en/hooks, "Hook handler fields", retrieved 2026-09-25).
  * The allowlist {@link handlerDefaultContract}'s enum ranges over, and the guard values
  * its per-kind `when` clauses partition; the update ritual when the docs add a handler
- * kind is to re-fetch, extend this set, widen {@link Handler}'s `type` (and {@link
- * Hook}'s, which carries the same union until `hook()`'s authoring moves onto `Handler`),
- * and give the new kind its own guarded clause — never to re-derive from memory.
+ * kind is to re-fetch, extend this set, widen {@link Handler}'s `type` — its one home,
+ * since a group authors its handlers rather than one handler's keys — and give the new
+ * kind its own guarded clause, never to re-derive from memory.
  */
 const DOCUMENTED_HOOK_HANDLER_TYPES = ["command", "http", "mcp_tool", "prompt", "agent"] as const;
 

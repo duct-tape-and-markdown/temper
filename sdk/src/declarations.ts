@@ -17,7 +17,14 @@ import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kin
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveLeaf } from "./prose.js";
-import { SETTINGS_MANIFEST, TELEMETRY_EVENT_HOOKS, hook, tapHookRegistration } from "./builtins.js";
+import {
+  HOOK_HANDLER_KEY,
+  HOOK_MATCHER_KEY,
+  SETTINGS_MANIFEST,
+  TELEMETRY_EVENT_HOOKS,
+  hook,
+  tapHookRegistration,
+} from "./builtins.js";
 import { hostAddress, leafAddress, nestedAddress } from "./member-address.js";
 
 import type {
@@ -927,9 +934,9 @@ function nestedMemberRows(
  * erased for the manifest write face, kind-then-key sorted so double emit is byte-stable.
  * Each carries its identity (`kind`/`key`), its collection address (`manifest`/`keyPath`,
  * the wire's snake_case `key_path`), and its folded typed fields — the entry value the
- * engine's write face places under `key`. The one source `emit.ts`'s public
- * {@link RegistrationFact} view also maps from, so the seam and the `EmitResult` sibling
- * cannot disagree on what a manifest carries.
+ * engine's write face places under `key`. The authored half alone: the synthesized tap
+ * hooks join these rows in {@link mergedRegistrationRows}, which is what both readers of
+ * the family take.
  *
  * # Throws
  * If a fields-only member declares no collection address — it surfaces in no host manifest.
@@ -980,11 +987,14 @@ export function buildTapHookDedupeKey(event: string, matcher: string): string {
  * unions the lifecycle events they name into one dumb registration apiece: the tap
  * records every fire and read time joins raw events to members, so however many
  * verifiers name an event it takes exactly one hook — the derived-aggregate precedent
- * the permission union sets ({@link permissionUnion}). Each row runs {@link TAP_COMMAND}
- * under the event's documented matcher ({@link TELEMETRY_EVENT_HOOKS}), its key-path and
- * field triple sourced from the provider face ({@link tapHookRegistration},
- * `builtins.ts`); an event-name outside that table is the roster's inadmissibility
- * finding, never a row.
+ * the permission union sets ({@link permissionUnion}). Each row is one matcher group
+ * running {@link TAP_COMMAND} under the event's documented matcher
+ * ({@link TELEMETRY_EVENT_HOOKS}), its key-path and fields sourced from the provider face
+ * ({@link tapHookRegistration}, `builtins.ts`); an event-name outside that table is the
+ * roster's inadmissibility finding, never a row. Synthesized in isolation here — whether a
+ * row stands alone or joins an authored group at the same pair is
+ * {@link mergedRegistrationRows}'s call, so this pass need not know what the program
+ * authored.
  */
 export function tapHookRows(harness: Harness): RegistrationRow[] {
   const deduped = new Map<string, { readonly event: string; readonly matcher: string }>();
@@ -1011,6 +1021,80 @@ export function tapHookRows(harness: Harness): RegistrationRow[] {
         fields,
       };
     });
+}
+
+/** A hook registration row's matcher — the group-level half of its identity, an omitted
+ * one read as the empty matcher it means (`"*"`/`""`/absent all name every tool). */
+function groupMatcher(row: RegistrationRow): string {
+  const found = row.fields.find(([name]) => name === HOOK_MATCHER_KEY)?.[1];
+  return typeof found === "string" ? found : "";
+}
+
+/** A hook registration row's handlers — the entries of its `hooks` array, or none where the
+ * row spells no array at all. */
+function groupHandlers(row: RegistrationRow): readonly unknown[] {
+  const found = row.fields.find(([name]) => name === HOOK_HANDLER_KEY)?.[1];
+  return Array.isArray(found) ? found : [];
+}
+
+/** `row` with `extra` appended to its handler array — a fresh row over a fresh array, never
+ * a mutation: the authored array is the composing program's own value, and `emit` must be
+ * callable twice on one harness for the same bytes. */
+function withHandlers(row: RegistrationRow, extra: readonly unknown[]): RegistrationRow {
+  const handlers = [...groupHandlers(row), ...extra];
+  const carried = row.fields.some(([name]) => name === HOOK_HANDLER_KEY);
+  const fields = row.fields.map(([name, value]): [string, unknown] =>
+    name === HOOK_HANDLER_KEY ? [name, handlers] : [name, value],
+  );
+  return { ...row, fields: carried ? fields : [...fields, [HOOK_HANDLER_KEY, handlers]] };
+}
+
+/**
+ * Every `registration` row the program carries — the authored fields-only members
+ * ({@link registrationRows}) with the synthesized tap hooks ({@link tapHookRows}) **joined
+ * in**, and the one home both readers take: `compileDeclarations` writes it to
+ * `declarations.registrations` and `emit.ts`'s public {@link RegistrationFact} view maps
+ * from it, so the seam payload and the `EmitResult` sibling cannot disagree on whether a
+ * tap joined an authored group (`specs/process/engineering.md`, "One job, one home").
+ *
+ * A tap hook is an ordinary matcher group, so a tap whose (event, matcher) an authored
+ * group already claims **is** that group's further handler rather than a second group at
+ * the same key (0075): its handlers append to the claimant's `hooks` array in tap order,
+ * and only an unclaimed pair mints a row of its own. The claimant is the first authored
+ * row at the pair — a repeated pair joins one group rather than fanning the tap across
+ * every one of them. Authored rows keep their own order and position, so the merge moves
+ * no byte that did not need to move.
+ *
+ * # Throws
+ * If a fields-only member declares no collection address ({@link registrationRows}).
+ */
+export function mergedRegistrationRows(harness: Harness): RegistrationRow[] {
+  const authored = registrationRows(harness);
+  const claimant = new Map<string, number>();
+  authored.forEach((row, index) => {
+    if (row.kind !== hook.key) return;
+    const key = buildTapHookDedupeKey(row.key, groupMatcher(row));
+    if (!claimant.has(key)) claimant.set(key, index);
+  });
+
+  const joined = new Map<number, unknown[]>();
+  const unclaimed: RegistrationRow[] = [];
+  for (const tap of tapHookRows(harness)) {
+    const index = claimant.get(buildTapHookDedupeKey(tap.key, groupMatcher(tap)));
+    if (index === undefined) {
+      unclaimed.push(tap);
+      continue;
+    }
+    const handlers = joined.get(index) ?? [];
+    handlers.push(...groupHandlers(tap));
+    joined.set(index, handlers);
+  }
+
+  const rows = authored.map((row, index) => {
+    const extra = joined.get(index);
+    return extra === undefined ? row : withHandlers(row, extra);
+  });
+  return [...rows, ...unclaimed];
 }
 
 /**
@@ -1116,7 +1200,7 @@ export function compileDeclarations(
     includes: includeRows(harness),
     inputs: inputRows(harness),
     nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements, extents),
-    registrations: [...registrationRows(harness), ...tapHookRows(harness)],
+    registrations: mergedRegistrationRows(harness),
     settings: settingsRows(harness),
   };
 }

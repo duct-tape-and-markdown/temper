@@ -1931,7 +1931,7 @@ test("a composed body interleaves prose spans and embedded values in authored or
 test("a hook and an mcp-server member each erase into a registration write fact — name-keyed at their collection address, fields folded", () => {
   const h = harness({
     members: [
-      hook({ name: "SessionStart", type: "command", command: "temper reporter", timeout: 5 }),
+      hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper reporter", timeout: 5 }] }),
       mcpServer({ name: "gmail", type: "stdio", command: "npx", args: ["gmail-mcp"] }),
     ],
   });
@@ -1950,11 +1950,9 @@ test("a hook and an mcp-server member each erase into a registration write fact 
       kind: "hook",
       key: "SessionStart",
       collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
-      fields: [
-        ["type", "command"],
-        ["command", "temper reporter"],
-        ["timeout", 5],
-      ],
+      // One group, one handler: the handler's own keys ride the `hooks` array, never the
+      // group's field list — a matcher group's only own field is its `matcher`.
+      fields: [["hooks", [{ type: "command", command: "temper reporter", timeout: 5 }]]],
     },
     {
       kind: "mcp-server",
@@ -1971,7 +1969,7 @@ test("a hook and an mcp-server member each erase into a registration write fact 
 
 test("the assembly's residual settings erase into settings.json residue rows, key-sorted, carried beside the hooks segment", () => {
   const h = harness({
-    members: [hook({ name: "SessionStart", type: "command", command: "temper reporter" })],
+    members: [hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper reporter" }] })],
     settings: { worktree: true, autoMemoryEnabled: false },
   });
 
@@ -2123,9 +2121,8 @@ test("a telemetry verifier projects one tap hook per lifecycle event, deduped ac
       key: "InstructionsLoaded",
       collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
       fields: [
-        ["type", "command"],
-        ["command", "temper tap \"$CLAUDE_PROJECT_DIR\""],
         ["matcher", ".*"],
+        ["hooks", [{ type: "command", command: "temper tap \"$CLAUDE_PROJECT_DIR\"" }]],
       ],
     },
     {
@@ -2133,9 +2130,8 @@ test("a telemetry verifier projects one tap hook per lifecycle event, deduped ac
       key: "PostToolUse",
       collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
       fields: [
-        ["type", "command"],
-        ["command", "temper tap \"$CLAUDE_PROJECT_DIR\""],
         ["matcher", "Skill"],
+        ["hooks", [{ type: "command", command: "temper tap \"$CLAUDE_PROJECT_DIR\"" }]],
       ],
     },
   ]);
@@ -2172,6 +2168,105 @@ test("a telemetry verifier naming every documented event synthesizes each event'
       ["UserPromptExpansion", ".*"],
     ],
   );
+});
+
+test("a hook() carrying two handlers is one registration row — one call, one matcher group", () => {
+  // The group is the member grain (0075): however many handlers a group fires, it is one
+  // row at one address, and the handlers are its `hooks` array keyed by position.
+  const h = harness({
+    members: [
+      hook({
+        name: "PostToolUse",
+        matcher: "Edit|Write",
+        hooks: [
+          { type: "command", command: "cargo fmt --quiet" },
+          { type: "command", command: "temper check ." },
+        ],
+      }),
+    ],
+  });
+
+  assert.deepEqual(emit(h).registrations, [
+    {
+      kind: "hook",
+      key: "PostToolUse",
+      collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
+      fields: [
+        ["matcher", "Edit|Write"],
+        [
+          "hooks",
+          [
+            { type: "command", command: "cargo fmt --quiet" },
+            { type: "command", command: "temper check ." },
+          ],
+        ],
+      ],
+    },
+  ]);
+});
+
+test("a tap hook joins an authored group at the same (event, matcher) as a further handler, never a second row", () => {
+  // 0075's second consequence. `SkillInvoked` taps `PostToolUse`/`Skill`; the program
+  // already authors a group at exactly that pair, so the synthesized handler appends to it
+  // — one group on the wire, two handlers — while the `InstructionsLoaded` tap, whose pair
+  // nothing claims, still mints a row of its own.
+  const h = harness({
+    members: [
+      hook({ name: "PostToolUse", matcher: "Skill", hooks: [{ type: "command", command: "note the skill" }] }),
+    ],
+    require: {
+      "skills-fire": {
+        prose: "the coordinate skill fires and the rules load",
+        verifier: telemetry(["SkillInvoked", "InstructionsLoaded"]),
+      },
+    },
+  });
+
+  const result = emit(h);
+  assert.deepEqual(result.registrations, [
+    {
+      kind: "hook",
+      key: "PostToolUse",
+      collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
+      fields: [
+        ["matcher", "Skill"],
+        [
+          "hooks",
+          [
+            { type: "command", command: "note the skill" },
+            { type: "command", command: "temper tap \"$CLAUDE_PROJECT_DIR\"" },
+          ],
+        ],
+      ],
+    },
+    {
+      kind: "hook",
+      key: "InstructionsLoaded",
+      collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
+      fields: [
+        ["matcher", ".*"],
+        ["hooks", [{ type: "command", command: "temper tap \"$CLAUDE_PROJECT_DIR\"" }]],
+      ],
+    },
+  ]);
+
+  // The seam payload carries the joined rows, not a second `PostToolUse` group — the
+  // public view and the wire read one merged home (`declarations.ts`).
+  const seam = JSON.parse(result.seam);
+  assert.deepEqual(
+    seam.declarations.registrations.map((r: { key: string; fields: [string, unknown][] }) => [
+      r.key,
+      (Object.fromEntries(r.fields).hooks as unknown[]).length,
+    ]),
+    [
+      ["PostToolUse", 2],
+      ["InstructionsLoaded", 1],
+    ],
+  );
+
+  // Emitting the same harness twice is byte-identical: the join copies the authored array
+  // rather than appending into the composing program's own value.
+  assert.deepEqual(emit(h).registrations, result.registrations);
 });
 
 test("a script verifier synthesizes no tap hook", () => {
@@ -2265,8 +2360,8 @@ test("two hook members on one event share an address and both emit — a registr
   // last composed member (the `(hook-member-identity)` fork owns the rest).
   const h = harness({
     members: [
-      hook({ name: "PostToolUse", matcher: "Edit|Write", type: "command", command: "cargo fmt" }),
-      hook({ name: "PostToolUse", matcher: "Bash", type: "command", command: "temper check ." }),
+      hook({ name: "PostToolUse", matcher: "Edit|Write", hooks: [{ type: "command", command: "cargo fmt" }] }),
+      hook({ name: "PostToolUse", matcher: "Bash", hooks: [{ type: "command", command: "temper check ." }] }),
     ],
   });
 
