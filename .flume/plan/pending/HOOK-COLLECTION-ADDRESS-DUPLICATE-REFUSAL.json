@@ -1,6 +1,10 @@
 {
   "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
-  "gate": { "kind": "blockedBy", "tags": ["HOOK-NAME-JOINS-ITS-MATCHER"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
@@ -20,7 +24,10 @@
     "retire": []
   },
   "summary": "Two members of one kind composing to one member address are refused loud, rather than silently resolving to whichever was read last.",
-  "per": { "path": "specs/model/representation.md", "section": "Reach" },
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "Reach"
+  },
   "tests": [
     {
       "path": "tests/it/hook_kind.rs",

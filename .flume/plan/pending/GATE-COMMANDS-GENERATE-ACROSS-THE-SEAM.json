@@ -1,6 +1,10 @@
 {
   "tag": "GATE-COMMANDS-GENERATE-ACROSS-THE-SEAM",
-  "gate": { "kind": "blockedBy", "tags": ["HOOK-NAME-JOINS-ITS-MATCHER"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [
       {
@@ -33,10 +37,14 @@
         "path": "sdk/test/builtins.test.ts",
         "description": "The claude-code import census (:14-:43) gains the two constants, with an assertion that each is a non-empty string the subpath exports — the SDK-side presence pin. The byte-agreement claim is the Rust seam gate's, not a second copy here (`specs/process/engineering.md`, \"A seam gate reads what the real writer wrote\")."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "The gate commands have one home, the engine's: they generate across the sdk/src/generated/ seam under the seam gate, and a scaffolded gate-hook module imports the binding.",
-  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
   "tests": [
     {
       "path": "tests/it/seam_bindings_current.rs",
