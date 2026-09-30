@@ -1,7 +1,8 @@
 /**
  * The built-in default contracts: every default contract exported from `claude-code.ts` is a
  * well-formed clause array, and every clause carries a non-empty `cite` — the
- * auditability guarantee a maintained default contract exists to keep.
+ * auditability guarantee a maintained default contract exists to keep. The provider face's
+ * non-kind exports are pinned present here too, the gate commands included.
  */
 
 import assert from "node:assert/strict";
@@ -19,6 +20,7 @@ import {
   agentDefaultContract,
   command,
   commandDefaultContract,
+  GUARD_COMMAND,
   handler,
   handlerDefaultContract,
   hook,
@@ -39,6 +41,7 @@ import {
   pluginManifestDefaultContract,
   rule,
   ruleDefaultContract,
+  SESSION_START_COMMAND,
   settings,
   settingsDefaultContract,
   settingsLocal,
@@ -85,6 +88,18 @@ test("every default contract clause carries a non-empty cite", () => {
       assert.ok(typeof entry.cite === "string" && entry.cite.length > 0, `clause \`${entry.predicate.key}\` is uncited`);
  }
  }
+});
+
+test("the provider face exports temper's gate commands as non-empty, distinct strings", () => {
+  // Presence only. The engine is these commands' one home (`src/install.rs`) and the Rust
+  // seam gate (`tests/it/seam_bindings_current.rs`) is what holds the generated copy
+  // byte-equal to it; a copy of the bytes asserted here would be the drift the generation
+  // exists to end.
+  for (const gateCommand of [GUARD_COMMAND, SESSION_START_COMMAND]) {
+    assert.equal(typeof gateCommand, "string");
+    assert.ok(gateCommand.length > 0);
+  }
+  assert.notEqual(GUARD_COMMAND, SESSION_START_COMMAND);
 });
 
 test("skillDefaultContract carries the skill kind's decidable clauses, name-first", () => {

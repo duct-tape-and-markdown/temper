@@ -44,7 +44,7 @@
 //! cannot complete is a hard [`InstallError`] / propagated [`miette::Report`], never
 //! a silent skip.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -189,6 +189,34 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 ///
 /// Public so the guard-hook acceptance can drive the exact wired command.
 pub const GUARD_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
+
+/// temper's gate commands paired with the TS binding each is exported under across the
+/// SDK seam. The engine is the one home for the *bytes* — above — and this table is the
+/// one home for the *names*: the seam gate (`tests/it/seam_bindings_current.rs`)
+/// generates `sdk/src/generated/gate-commands.ts` from these pairs, the SDK re-exports
+/// them from `@dtmd/temper/claude-code`, and a scaffolded gate-hook module imports the
+/// binding instead of copying the bytes. So a command respelled here cannot leave a
+/// represented harness running yesterday's spelling, and it cannot go stale on the SDK
+/// side without the seam gate failing loud (0073).
+///
+/// Sorted by binding name: the generated module's export order, the barrel's re-export
+/// line and a scaffolded module's import list are all read off this order.
+///
+/// Public so the seam gate writes that module from the same pairs the scaffold imports —
+/// a second table beside this one is exactly the drift the generation exists to end.
+pub const GATE_COMMAND_BINDINGS: [(&str, &str); 2] = [
+    ("GUARD_COMMAND", GUARD_COMMAND),
+    ("SESSION_START_COMMAND", SESSION_START_COMMAND),
+];
+
+/// The binding naming `value` where `value` is one of temper's own gate commands — the
+/// spelling a scaffolded module imports in place of those bytes.
+fn gate_command_binding(value: &str) -> Option<&'static str> {
+    GATE_COMMAND_BINDINGS
+        .iter()
+        .find(|(_, command)| *command == value)
+        .map(|(binding, _)| *binding)
+}
 
 /// The tool-name matcher the guard's `PostToolUse` row binds — direct Bash tool
 /// invocations. A shell tool's writes name no path in the payload, so the `PreToolUse`
@@ -2335,8 +2363,11 @@ fn scaffold(
     // temper's own gate rides the program like any other member: one `hook` module per
     // group in [`GATE_HOOKS`], composed into `harness.ts` below, so `emit` projects all
     // three into `.claude/settings.json`'s `hooks` collection and nothing splices that
-    // file behind emit's back. The commands stay this module's constants — there is no
-    // SDK twin for them to drift against.
+    // file behind emit's back. The commands stay this module's constants and reach the
+    // module as the SDK binding generated from them ([`GATE_COMMAND_BINDINGS`] →
+    // `sdk/src/generated/gate-commands.ts`), never a literal: a respelling here follows
+    // into every represented harness on its next `npm install`, and the seam gate
+    // (`tests/it/seam_bindings_current.rs`) holds the SDK copy byte-equal to these bytes.
     //
     // They are not counted in the lift's total: the lift converts *discovered artifacts*,
     // and these are members temper authors.
@@ -2380,6 +2411,11 @@ const GATE_HOOK_KIND: &str = "hook";
 /// written against (`Hook`, `sdk/src/builtins.ts`): a handler's own keys never sit flat
 /// beside the group's. `name` is the event, already the module's identity property, so it
 /// is not repeated here.
+///
+/// The command travels as its own bytes — [`json_to_ts_literal`] is what renders them as
+/// the imported [`GATE_COMMAND_BINDINGS`] binding rather than a literal, wherever in the
+/// value they sit. The matchers have no such binding and stay engine-only literals: they
+/// are wiring facts about Claude Code's tool surface, not bytes a member runs.
 fn gate_hook_fields(hook: &GateHook) -> Vec<(String, JsonValue)> {
     let mut fields = Vec::new();
     if let Some(matcher) = hook.matcher {
@@ -2462,7 +2498,10 @@ fn fits_inline(body: &str) -> bool {
 /// A `body` of [`None`] is a whole-document format's member ([`read_lifted_member`]): its
 /// fields are the whole member, so the module carries no `prose:` property and imports
 /// neither prose constructor. The kind reaches the module as the SDK binding its
-/// constructor is exported under ([`sdk_constructor`]), never the row label.
+/// constructor is exported under ([`sdk_constructor`]), never the row label — and so does
+/// a field whose value is one of temper's own gate commands: the binding the renderer
+/// spelled joins the import list beside the constructor, so the module names the command
+/// and never copies it.
 fn member_module_source(
     kind: &str,
     name: &str,
@@ -2472,6 +2511,7 @@ fn member_module_source(
     body: Option<&str>,
 ) -> String {
     let constructor = sdk_constructor(kind);
+    let mut bindings = BTreeSet::new();
     let mut fields_src = String::new();
     for (key, value) in fields {
         if key == "name" {
@@ -2480,11 +2520,11 @@ fn member_module_source(
         fields_src.push_str(&format!(
             "  {}: {},\n",
             ts_property_key(key),
-            json_to_ts_literal(value)
+            json_to_ts_literal(value, &mut bindings)
         ));
     }
 
-    let (imports, prose_src) = match body {
+    let (mut imports, prose_src) = match body {
         None => (constructor.clone(), String::new()),
         Some(body) if fits_inline(body) => (
             format!("file, text, {constructor}"),
@@ -2495,6 +2535,10 @@ fn member_module_source(
             format!("  prose: file(import.meta.url, \"./{stem}.md\"),\n"),
         ),
     };
+    for binding in &bindings {
+        imports.push_str(", ");
+        imports.push_str(binding);
+    }
 
     format!(
         "import {{ {imports} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {constructor}({{\n  name: {name:?},\n{fields_src}{prose_src}}});\n"
@@ -2517,13 +2561,56 @@ fn ts_property_key(key: &str) -> String {
     }
 }
 
-/// Render a JSON frontmatter value as a TS literal. JSON's grammar is a
-/// syntactic subset of TS/JS object- and array-literal syntax, so serializing
-/// the value as JSON already renders it as a TS literal — one renderer generic
-/// over every JSON shape a scaffolded field carries (string, number, bool,
-/// array, object), replacing the description-only special case the lift used
-/// to carry.
-fn json_to_ts_literal(value: &JsonValue) -> String {
+/// Render a JSON frontmatter value as a TS literal, collecting into `bindings` every
+/// gate-command binding the value names. JSON's grammar is a syntactic subset of TS/JS
+/// object- and array-literal syntax, so a JSON leaf already reads as a TS literal — one
+/// renderer generic over every JSON shape a scaffolded field carries (string, number,
+/// bool, array, object), replacing the description-only special case the lift used to
+/// carry.
+///
+/// Containers are walked rather than serialized whole for one reason: a string whose
+/// bytes *are* one of temper's own gate commands renders as the binding that names them
+/// ([`GATE_COMMAND_BINDINGS`]) instead of a second copy, and the command a gate hook
+/// fires sits inside its handler array, not flat on the member. The rule is a property of
+/// the bytes, so it holds at any depth and for any field — never a carve-out on the
+/// gate-hook path. Escaping stays `serde_json`'s ([`json_leaf`]); only the container
+/// punctuation is this function's, and it is JSON's compact form byte for byte.
+fn json_to_ts_literal(value: &JsonValue, bindings: &mut BTreeSet<&'static str>) -> String {
+    match value {
+        JsonValue::String(text) => match gate_command_binding(text) {
+            Some(binding) => {
+                bindings.insert(binding);
+                binding.to_owned()
+            }
+            None => json_leaf(value),
+        },
+        JsonValue::Array(items) => {
+            let rendered: Vec<String> = items
+                .iter()
+                .map(|item| json_to_ts_literal(item, bindings))
+                .collect();
+            format!("[{}]", rendered.join(","))
+        }
+        JsonValue::Object(entries) => {
+            let rendered: Vec<String> = entries
+                .iter()
+                .map(|(key, value)| {
+                    format!(
+                        "{}:{}",
+                        json_leaf(&JsonValue::String(key.clone())),
+                        json_to_ts_literal(value, bindings)
+                    )
+                })
+                .collect();
+            format!("{{{}}}", rendered.join(","))
+        }
+        _ => json_leaf(value),
+    }
+}
+
+/// One JSON value serialized — the encoder [`json_to_ts_literal`] delegates every
+/// non-container value and every object key to, so no escaping is ever hand-rolled here.
+fn json_leaf(value: &JsonValue) -> String {
     serde_json::to_string(value).expect("a JSON value serializes infallibly")
 }
 
@@ -3129,12 +3216,67 @@ mod tests {
 
     #[test]
     fn json_to_ts_literal_renders_every_json_shape_as_valid_ts() {
-        assert_eq!(json_to_ts_literal(&serde_json::json!("x")), "\"x\"");
-        assert_eq!(json_to_ts_literal(&serde_json::json!(true)), "true");
-        assert_eq!(json_to_ts_literal(&serde_json::json!(7)), "7");
+        let mut bindings = BTreeSet::new();
+        let render = |value: JsonValue, bindings: &mut BTreeSet<&'static str>| {
+            json_to_ts_literal(&value, bindings)
+        };
+        assert_eq!(render(json!("x"), &mut bindings), "\"x\"");
+        assert_eq!(render(json!(true), &mut bindings), "true");
+        assert_eq!(render(json!(7), &mut bindings), "7");
+        assert_eq!(render(json!(null), &mut bindings), "null");
+        assert_eq!(render(json!(["a", "b"]), &mut bindings), "[\"a\",\"b\"]");
+        // The walked container punctuation is JSON's compact form byte for byte, escaping
+        // included — a nested object and a quote-bearing key render as `serde_json` would.
         assert_eq!(
-            json_to_ts_literal(&serde_json::json!(["a", "b"])),
-            "[\"a\",\"b\"]"
+            render(json!({ "a\"b": { "c": [1, false] } }), &mut bindings),
+            "{\"a\\\"b\":{\"c\":[1,false]}}"
+        );
+        assert!(
+            bindings.is_empty(),
+            "no ordinary field names a gate command, got: {bindings:?}"
+        );
+    }
+
+    #[test]
+    fn json_to_ts_literal_spells_a_gate_command_as_its_binding_at_any_depth() {
+        // The rule is a property of the bytes, not of the field: the command a gate hook
+        // fires sits inside its handler array, so a leaf-level substitution is the only
+        // one that reaches it.
+        let mut bindings = BTreeSet::new();
+        assert_eq!(
+            json_to_ts_literal(
+                &json!([{ "type": "command", "command": GUARD_COMMAND }]),
+                &mut bindings
+            ),
+            "[{\"command\":GUARD_COMMAND,\"type\":\"command\"}]"
+        );
+        assert_eq!(
+            json_to_ts_literal(&json!(SESSION_START_COMMAND), &mut bindings),
+            "SESSION_START_COMMAND"
+        );
+        assert_eq!(
+            bindings.iter().copied().collect::<Vec<_>>(),
+            ["GUARD_COMMAND", "SESSION_START_COMMAND"],
+            "every binding the render named joins the import list, in table order"
+        );
+    }
+
+    #[test]
+    fn every_gate_command_binding_names_a_distinct_command() {
+        // The table is the one home for the names, so a duplicated binding or a
+        // duplicated command would make [`gate_command_binding`] pick by position.
+        let names: BTreeSet<&str> = GATE_COMMAND_BINDINGS.iter().map(|(n, _)| *n).collect();
+        let commands: BTreeSet<&str> = GATE_COMMAND_BINDINGS.iter().map(|(_, c)| *c).collect();
+        assert_eq!(names.len(), GATE_COMMAND_BINDINGS.len());
+        assert_eq!(commands.len(), GATE_COMMAND_BINDINGS.len());
+        for (name, command) in GATE_COMMAND_BINDINGS {
+            assert_eq!(gate_command_binding(command), Some(name));
+        }
+        // Sorted by binding name — the order the generated module and every import list
+        // read off it.
+        assert!(
+            GATE_COMMAND_BINDINGS.is_sorted_by_key(|(name, _)| *name),
+            "got: {GATE_COMMAND_BINDINGS:?}"
         );
     }
 

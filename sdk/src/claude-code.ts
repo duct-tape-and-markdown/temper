@@ -62,6 +62,14 @@ export {
   supportingDocDefaultContract,
 } from "./builtins.js";
 
+// temper's own gate commands — the exec-form strings its `SessionStart` and guard hook
+// members run. The engine is their one home (`src/install.rs`); these bindings are
+// machine-written across the `generated/` seam from those constants and held byte-equal by
+// the seam gate (`tests/it/seam_bindings_current.rs`), so a scaffolded gate-hook member
+// imports the command it fires rather than spelling a literal that goes stale the day the
+// command changes (decision 0073).
+export { GUARD_COMMAND, SESSION_START_COMMAND } from "./generated/index.js";
+
 // The prose constructors ride along so a harness author targeting Claude Code
 // never reaches back to the root package mid-member.
 export type { Blocks, File, Prose, Text } from "./prose.js";

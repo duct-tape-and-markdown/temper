@@ -722,11 +722,19 @@ fn a_settings_document_lifts_into_a_fields_bearing_member_whose_emit_re_renders_
     // beside emit reported `applied` and was erased by the very next re-render, leaving
     // this file with no `hooks` key at all.
     assert_gate_hooks_wired(&root, "after install");
-    for hook in ["SessionStart", "PreToolUse", "PostToolUse"] {
+    // Each module imports the constructor plus the binding naming the command it fires —
+    // the generated spelling, never a literal (0073).
+    for (hook, binding) in [
+        ("SessionStart", "SESSION_START_COMMAND"),
+        ("PreToolUse", "GUARD_COMMAND"),
+        ("PostToolUse", "GUARD_COMMAND"),
+    ] {
         let module = fs::read_to_string(temper_dir.join("hooks").join(format!("{hook}.ts")))
             .unwrap_or_else(|_| panic!("the lift scaffolds a `hook` module for {hook}"));
         assert!(
-            module.contains("import { hook } from \"@dtmd/temper/claude-code\";"),
+            module.contains(&format!(
+                "import {{ hook, {binding} }} from \"@dtmd/temper/claude-code\";"
+            )),
             "got:\n{module}"
         );
         assert!(
@@ -1265,7 +1273,8 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
     assert_gate_hooks_wired(&root, "after install");
 
     // The lift minted one member module per group, all three composed into the entry
-    // point — the commands stay `install`'s own constants, with no SDK twin.
+    // point — the commands stay `install`'s own constants, reaching the module as the
+    // binding generated from them.
     let harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
     for (event, ident) in [
         ("SessionStart", "hook_SessionStart"),
@@ -1284,17 +1293,39 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
     // One matcher group carrying one handler: the `matcher` is the group's own field and
     // the `command` sits inside the `hooks` array, the grain the authoring surface types
     // (`Hook`, `sdk/src/builtins.ts`) — a handler's keys never land flat on the module.
+    // The command itself is the imported binding, never a literal: a scaffolded member
+    // spelling the bytes goes stale the day the command changes (0073), so the module
+    // names `GUARD_COMMAND` and the import line that brings it in is asserted with it.
     let guard_module = fs::read_to_string(temper_dir.join("hooks").join("PreToolUse.ts")).unwrap();
     assert!(
         guard_module.contains("matcher: \"Write|Edit|MultiEdit\","),
         "got:\n{guard_module}"
     );
     assert!(
-        guard_module.contains(&format!(
-            "hooks: [{{\"command\":{:?},\"type\":\"command\"}}],",
-            temper::install::GUARD_COMMAND
-        )),
+        guard_module.contains("import { hook, GUARD_COMMAND } from \"@dtmd/temper/claude-code\";"),
         "got:\n{guard_module}"
+    );
+    assert!(
+        guard_module.contains("hooks: [{\"command\":GUARD_COMMAND,\"type\":\"command\"}],"),
+        "got:\n{guard_module}"
+    );
+    assert!(
+        !guard_module.contains(temper::install::GUARD_COMMAND),
+        "the module spells no command literal, got:\n{guard_module}"
+    );
+
+    // The session-start module takes the same treatment under its own binding — the rule
+    // is the command's, not one hook's.
+    let session_module =
+        fs::read_to_string(temper_dir.join("hooks").join("SessionStart.ts")).unwrap();
+    assert!(
+        session_module
+            .contains("import { hook, SESSION_START_COMMAND } from \"@dtmd/temper/claude-code\";"),
+        "got:\n{session_module}"
+    );
+    assert!(
+        !session_module.contains(temper::install::SESSION_START_COMMAND),
+        "the module spells no command literal, got:\n{session_module}"
     );
 
     // Strip the guard group by hand, the drift the `PreToolUse` guard itself exists to
@@ -1524,11 +1555,11 @@ fn an_authored_group_on_a_gate_event_never_overwrites_the_gate_hooks_own_module(
     // `hooks/<Event>.ts` name its remedy can cite; the authored group takes the next free
     // one. Sharing a stem, whichever ran second silently erased the other.
     let gate_module = fs::read_to_string(temper_dir.join("hooks").join("SessionStart.ts")).unwrap();
-    // The command reaches the module as a TS literal, so the claim is read against the
-    // writer's own constant through the writer's own renderer, never a hand copy.
-    let gate_command = serde_json::to_string(temper::install::SESSION_START_COMMAND).unwrap();
+    // The gate's command reaches the module as the generated binding, never a literal
+    // (0073), so what identifies this module as the gate's is the binding it imports —
+    // the authored group's own command is a string it spells inline.
     assert!(
-        gate_module.contains(&gate_command),
+        gate_module.contains("SESSION_START_COMMAND"),
         "temper's own gate module is still the gate's, got:\n{gate_module}"
     );
     let authored_module =
