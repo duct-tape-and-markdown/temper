@@ -508,7 +508,7 @@ enum InstallError {
     #[diagnostic(
         code(temper::install::member_file_name),
         help(
-            "a member's module is one file in its kind's directory; rename the entry so its key names one"
+            "a member's module is one file in its kind's directory, named portably: no `< > : \" / \\ | ? *`, no control character, no trailing space or dot, and not a reserved device name (CON, PRN, AUX, NUL, COM1-9, LPT1-9); rename the entry so its key names one"
         )
     )]
     MemberFileName {
@@ -2197,10 +2197,9 @@ struct LiftedMember {
     /// composes the rest; the file stem wants it because `:` and `|` are reserved
     /// characters in a Windows file name
     /// (learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file, retrieved
-    /// 2026-09-29), [`module_stems`]' legality check is the platform's own parent
-    /// readback and passes both on unix, and the scaffold is committed — so a stem off
-    /// the joined name would write a `.temper/hooks/PostToolUse:Bash.ts` one adopter's
-    /// emit produced and another's machine could not check out.
+    /// 2026-09-29) and the scaffold is committed — so a stem off the joined name would
+    /// have every adopter's emit refused at [`is_portable_file_stem`], over a name the
+    /// SDK composes anyway.
     id: String,
     /// The fields to hoist into typed properties, in projection order.
     fields: Vec<(String, JsonValue)>,
@@ -2307,6 +2306,58 @@ fn claimed_collection_keys(discovery: &DiscoveryReport) -> BTreeMap<&Path, Vec<&
     claimed
 }
 
+/// The characters Windows reserves in a file name, the strictest of the platforms a
+/// committed scaffold has to check out on
+/// (learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file, retrieved 2026-09-29).
+/// Both path separators are in the set, so this subsumes the readback judgment the host
+/// platform used to make.
+const RESERVED_FILE_NAME_CHARS: &[char] = &['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
+
+/// The extensionless device names Windows reserves, from the same page. `COM1`-`COM9` and
+/// `LPT1`-`LPT9` are judged by shape ([`is_reserved_device_name`]) rather than listed.
+const RESERVED_DEVICE_NAMES: &[&str] = &["CON", "PRN", "AUX", "NUL"];
+
+/// Whether `stem` can name a file on every platform temper ships a binary for
+/// (`specs/distribution.md`), judged against the Windows reserved set — the strictest of
+/// them, and a cited external fact rather than a list invented here.
+///
+/// The check is total on whatever host runs it, on purpose: the lift's output is
+/// committed source, so a member module a unix author scaffolds and a Windows teammate
+/// cannot check out is the same defect as one unwritable here, and [`run_represented`]'s
+/// "no half-scaffolded state" only holds if the refusal lands before the first write.
+fn is_portable_file_stem(stem: &str) -> bool {
+    if stem.is_empty() {
+        return false;
+    }
+    if stem
+        .chars()
+        .any(|ch| RESERVED_FILE_NAME_CHARS.contains(&ch) || ch.is_control())
+    {
+        return false;
+    }
+    // A trailing space or dot is silently stripped rather than refused, so the name the
+    // author wrote and the file that appears are two different names.
+    if stem.ends_with(' ') || stem.ends_with('.') {
+        return false;
+    }
+    // A device name is reserved through any extension — `NUL.txt` is `NUL` — and the
+    // stem reaches disk with `.ts` appended, so the head before the first dot is judged.
+    !is_reserved_device_name(stem.split('.').next().unwrap_or(stem))
+}
+
+/// Whether `head` is one of Windows' reserved device names, case-insensitively.
+fn is_reserved_device_name(head: &str) -> bool {
+    let upper = head.to_ascii_uppercase();
+    if RESERVED_DEVICE_NAMES.contains(&upper.as_str()) {
+        return true;
+    }
+    ["COM", "LPT"].iter().any(|port| {
+        upper
+            .strip_prefix(port)
+            .is_some_and(|slot| matches!(slot.as_bytes(), [b'1'..=b'9']))
+    })
+}
+
 /// Allocate one module file stem per lifted member, in the order they will be written.
 ///
 /// A member's stem is its own id. That is the whole story for a file kind, whose ids come
@@ -2322,8 +2373,8 @@ fn claimed_collection_keys(discovery: &DiscoveryReport) -> BTreeMap<&Path, Vec<&
 /// carries, and [`scaffold`]'s two writers never land on one path.
 ///
 /// # Errors
-/// Returns [`InstallError::MemberFileName`] for an id that cannot name a file inside its
-/// kind's module directory. A registration key is read off a manifest — the one id the
+/// Returns [`InstallError::MemberFileName`] for an id that is not a portable file name
+/// ([`is_portable_file_stem`]). A registration key is read off a manifest — the one id the
 /// lift does not get from the filesystem — so a key carrying a path separator would seat
 /// the module somewhere other than that directory, or outside `.temper/` entirely.
 fn module_stems(
@@ -2338,10 +2389,12 @@ fn module_stems(
     for (kind, member) in lifted {
         let module_dir = member_dir(kind);
         let dir = temper_dir.join(&module_dir);
-        // The judgment is the platform's own — join the path and read its parent back —
-        // rather than a character list invented here. An ordinal suffix introduces no
-        // separator, so clearing the id clears every stem derived from it.
-        if dir.join(format!("{}.ts", member.id)).parent() != Some(dir.as_path()) {
+        // The judgment is every platform's, not the host's: the scaffold is committed
+        // source, so a module this machine can write but a teammate's Windows checkout
+        // cannot is the same defect as one unwritable here. An ordinal suffix appends
+        // `-<digit>` — no reserved character, no trailing dot or space, and no device
+        // name — so clearing the id clears every stem derived from it.
+        if !is_portable_file_stem(&member.id) {
             return Err(InstallError::MemberFileName {
                 kind: kind.clone(),
                 id: member.id.clone(),
@@ -3424,5 +3477,89 @@ mod tests {
         // This is not actual frontmatter (no closing delimiter), so banner is NOT present.
         // converge_banner_wording returns None — emit will place the banner.
         assert_eq!(converge_banner_wording(unterminated), None);
+    }
+    /// The stem legality check is the committed scaffold's, not the host's: every shape
+    /// Windows reserves is refused here, on linux, because a member module a unix author
+    /// scaffolds is a file a Windows teammate has to check out
+    /// (learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file, retrieved
+    /// 2026-09-29). The accepted column is the vacuity guard — a check that refused
+    /// everything would pass the refusal column alone.
+    #[test]
+    fn a_module_stem_is_judged_against_every_platforms_reserved_set() {
+        for reserved in [
+            // Each reserved character, in a key a manifest could plausibly carry.
+            "PostToolUse:Bash",
+            "Edit|Write",
+            "plugin<acme",
+            "plugin>acme",
+            "quoted\"key",
+            "path/sep",
+            "path\\sep",
+            "glob?key",
+            "glob*key",
+            // A control character, including the one a JSON string can carry escaped.
+            "line\nbreak",
+            "nul\u{0}byte",
+            // A trailing space or dot is stripped rather than refused, so the authored
+            // name and the file that appears diverge.
+            "trailing ",
+            "trailing.",
+            ".",
+            "..",
+            // The device names, through any extension and in any case.
+            "CON",
+            "nul",
+            "Aux",
+            "PRN",
+            "COM1",
+            "com9",
+            "LPT1",
+            "lpt9",
+            "NUL.md",
+            // Nothing at all names no file.
+            "",
+        ] {
+            assert!(
+                !is_portable_file_stem(reserved),
+                "{reserved:?} is not a portable file name"
+            );
+        }
+
+        for ordinary in [
+            "SessionStart",
+            "formatter@acme",
+            "acme",
+            "rust",
+            "CLAUDE.md",
+            "settings",
+            "COM",
+            "COM10",
+            "CONSOLE",
+            "con-fig",
+            "my.module",
+            "a space inside",
+        ] {
+            assert!(
+                is_portable_file_stem(ordinary),
+                "{ordinary:?} names a file everywhere"
+            );
+        }
+    }
+
+    /// The stem allocator's ordinal suffix appends `-<digit>` — no reserved character, no
+    /// trailing dot or space, and no device name — so an id that clears the check clears
+    /// every stem derived from it, which is what lets [`module_stems`] judge the id once.
+    #[test]
+    fn an_ordinal_suffix_never_makes_a_cleared_id_unportable() {
+        for id in ["SessionStart", "memory", "COM", "LPT", "a.b"] {
+            assert!(is_portable_file_stem(id), "{id:?} is the cleared id");
+            for ordinal in 2..=10usize {
+                let stem = format!("{id}-{ordinal}");
+                assert!(
+                    is_portable_file_stem(&stem),
+                    "{stem:?} is derived from a cleared id"
+                );
+            }
+        }
     }
 }

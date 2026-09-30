@@ -1559,6 +1559,78 @@ fn a_manifests_registration_entries_each_lift_to_their_own_module_and_survive_th
     assert_gate_hooks_wired(&root, "after install");
 }
 
+/// The same manifest, with the marketplace key carrying `|` — a character Windows
+/// reserves in a file name. Every other segment is unchanged, so the lift's refusal is
+/// the only difference between this run and the arm above.
+const UNPORTABLY_REGISTERING_SETTINGS: &str = r#"{
+  "model": "opus",
+  "enabledPlugins": {
+    "formatter@ac|me": true
+  },
+  "extraKnownMarketplaces": {
+    "ac|me": { "source": "acme/market" }
+  }
+}
+"#;
+
+#[test]
+fn a_registration_key_windows_reserves_refuses_the_lift_before_it_writes_a_module() {
+    common::ensure_sdk_built();
+    let root = common::tmpdir("lift-unportable-registration-key");
+    common::write_settings(&root, UNPORTABLY_REGISTERING_SETTINGS);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    // Discovery reads the keys off the manifest like any others — the judgment is the
+    // lift's, at the one point a key becomes a file name.
+    let discovery = install::discover(&root).unwrap();
+    assert_eq!(reported(&discovery, "known-marketplace"), Some(1));
+
+    // `InstallError::MemberFileName`, by the code an adopter reads rather than the
+    // variant's Rust name.
+    let err = install::run(&root, &discovery, Represent::Yes, false).unwrap_err();
+    assert_eq!(
+        err.code().map(|code| code.to_string()).as_deref(),
+        Some("temper::install::member_file_name"),
+        "the lift refuses a key that cannot name a module file, got: {err}"
+    );
+    // The remedy states the rule as well as the rename, so an author hits the refusal
+    // once rather than per reserved character.
+    let help = err
+        .help()
+        .expect("the refusal carries its remedy")
+        .to_string();
+    for stated in [
+        "rename the entry",
+        "control character",
+        "trailing space or dot",
+    ] {
+        assert!(
+            help.contains(stated),
+            "the help states `{stated}`, got: {help}"
+        );
+    }
+
+    // The invariant the refusal serves: `run_represented` pre-flights before the lift
+    // writes, so a refused key leaves no half-scaffolded program — not the offending
+    // module, not the portable ones beside it, not the entry point importing them.
+    for module in [
+        temper_dir.join("harness.ts"),
+        temper_dir.join("known-marketplace").join("ac|me.ts"),
+        temper_dir
+            .join("installed-plugin")
+            .join("formatter@ac|me.ts"),
+        temper_dir.join("settings").join("settings.ts"),
+    ] {
+        assert!(
+            !module.exists(),
+            "the refusal lands before the lift writes, got: {}",
+            module.display()
+        );
+    }
+}
+
 #[test]
 fn an_authored_group_on_a_gate_event_never_overwrites_the_gate_hooks_own_module() {
     common::ensure_sdk_built();
