@@ -336,6 +336,55 @@ fn emit_over_a_lockless_harness_reads_and_parses_once() {
 }
 
 #[test]
+fn source_dep_faces_over_a_lockless_harness_read_and_parse_once() {
+    use temper::drift;
+
+    // The source-dep faces hand-rolled their own read of the very file the counted door
+    // opens, and diverged from it on exactly one state: a missing lock returned early
+    // counting neither read nor parse, where the door counts one of each. This fixture
+    // writes no lock, so both deltas read 0/0 on the pre-fold tree and 1/1 with the fold.
+    let harness = tmpdir("source-dep-lockless-lock-parse-cost");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    assert!(
+        !into.join("lock.toml").exists(),
+        "the lockless pin is vacuous unless the harness carries no lock",
+    );
+
+    let reads_before = drift::lock_read_count();
+    let parses_before = drift::lock_parse_count();
+    drift::includes(&into).unwrap();
+    let reads = drift::lock_read_count() - reads_before;
+    let parses = drift::lock_parse_count() - parses_before;
+
+    // One home for the lookup means one count, whatever the file's state — the count the
+    // counted door already charged every other face over this lock.
+    assert_eq!(
+        reads, 1,
+        "a source-dep face over a lockless harness must count exactly one lock read: {reads} reads",
+    );
+    assert_eq!(
+        parses, 1,
+        "a source-dep face over a lockless harness must count exactly one lock parse: {parses} parses",
+    );
+
+    let reads_before = drift::lock_read_count();
+    let parses_before = drift::lock_parse_count();
+    drift::include_stale(&into, &fresh_clause()).unwrap();
+    let reads = drift::lock_read_count() - reads_before;
+    let parses = drift::lock_parse_count() - parses_before;
+
+    assert_eq!(
+        reads, 1,
+        "a source-dep stale face over a lockless harness must count exactly one lock read: {reads} reads",
+    );
+    assert_eq!(
+        parses, 1,
+        "a source-dep stale face over a lockless harness must count exactly one lock parse: {parses} parses",
+    );
+}
+
+#[test]
 fn gate_lock_parse_is_hoisted_with_source_dependencies() {
     let workspace = tmpdir("gate-lock-parse-cost");
 

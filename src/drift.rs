@@ -3268,26 +3268,19 @@ pub(crate) fn source_deps_from_doc(
 /// the reference-edge lift. A missing lock or an absent family yields none; a present
 /// row missing a required column, or the wrong type in one, is surfaced loud.
 ///
+/// Reads through the counted door ([`read_lock_document`]), so every face over it costs
+/// the same count whatever the file's state; a caller already holding the parsed document
+/// takes [`source_deps_from_doc`] instead of paying a second read.
+///
 /// # Errors
 ///
 /// Returns a [`DriftError`] if the lock exists but cannot be read or parsed, or if a
 /// present dependency row is malformed.
-fn source_deps(workspace_dir: &Path, family_key: &str) -> Result<Vec<LayoutImportRow>, DriftError> {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let text = match fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(source) => return Err(DriftError::LockRead { path, source }),
-    };
-    increment_lock_reads();
-    let doc = text
-        .parse::<DocumentMut>()
-        .map_err(|source| DriftError::LockParse {
-            path: path.clone(),
-            source,
-        })?;
-    increment_lock_parses();
-    source_deps_from_doc(&doc, family_key)
+fn source_deps(workspace_dir: &Path, family_key: &str) -> miette::Result<Vec<LayoutImportRow>> {
+    Ok(source_deps_from_doc(
+        &read_lock_document(workspace_dir)?,
+        family_key,
+    )?)
 }
 
 /// Every layout-import row a lock at `workspace_dir` carries — the layout sources'
@@ -3296,7 +3289,7 @@ fn source_deps(workspace_dir: &Path, family_key: &str) -> Result<Vec<LayoutImpor
 /// # Errors
 ///
 /// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
-pub fn layout_imports(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError> {
+pub fn layout_imports(workspace_dir: &Path) -> miette::Result<Vec<LayoutImportRow>> {
     source_deps(workspace_dir, LAYOUT_IMPORT_FAMILY)
 }
 
@@ -3317,7 +3310,7 @@ pub fn layout_imports_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutImportRow>
 /// # Errors
 ///
 /// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
-pub fn includes(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError> {
+pub fn includes(workspace_dir: &Path) -> miette::Result<Vec<LayoutImportRow>> {
     source_deps(workspace_dir, INCLUDE_FAMILY)
 }
 
@@ -3339,7 +3332,7 @@ pub fn includes_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutImportRow>, Drif
 /// # Errors
 ///
 /// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
-pub fn inputs(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError> {
+pub fn inputs(workspace_dir: &Path) -> miette::Result<Vec<LayoutImportRow>> {
     source_deps(workspace_dir, INPUT_FAMILY)
 }
 
@@ -3568,23 +3561,15 @@ fn source_dep_stale(
     noun: &str,
     remedy: &str,
     clause: &contract::Clause,
-) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let text = match fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(source) => return Err(DriftError::LockRead { path, source }),
-    };
-    increment_lock_reads();
-    let doc = text
-        .parse::<DocumentMut>()
-        .map_err(|source| DriftError::LockParse {
-            path: path.clone(),
-            source,
-        })?;
-    increment_lock_parses();
-    let harness_root = harness_root_of(workspace_dir);
-    source_dep_stale_from_doc(&doc, &harness_root, family, noun, remedy, clause)
+) -> miette::Result<Vec<crate::check::Diagnostic>> {
+    Ok(source_dep_stale_from_doc(
+        &read_lock_document(workspace_dir)?,
+        &harness_root_of(workspace_dir),
+        family,
+        noun,
+        remedy,
+        clause,
+    )?)
 }
 
 /// The drift findings for a workspace's layout imports — a moved or unreadable import
@@ -3596,7 +3581,7 @@ fn source_dep_stale(
 pub fn layout_import_stale(
     workspace_dir: &Path,
     clause: &contract::Clause,
-) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+) -> miette::Result<Vec<crate::check::Diagnostic>> {
     source_dep_stale(
         workspace_dir,
         LAYOUT_IMPORT_FAMILY,
@@ -3637,7 +3622,7 @@ pub fn layout_import_stale_from_doc(
 pub fn include_stale(
     workspace_dir: &Path,
     clause: &contract::Clause,
-) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+) -> miette::Result<Vec<crate::check::Diagnostic>> {
     source_dep_stale(
         workspace_dir,
         INCLUDE_FAMILY,
@@ -3680,7 +3665,7 @@ pub fn include_stale_from_doc(
 pub fn input_stale(
     workspace_dir: &Path,
     clause: &contract::Clause,
-) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+) -> miette::Result<Vec<crate::check::Diagnostic>> {
     source_dep_stale(
         workspace_dir,
         INPUT_FAMILY,
