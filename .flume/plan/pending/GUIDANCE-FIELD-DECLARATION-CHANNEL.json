@@ -10,7 +10,7 @@
     "edit": [
       {
         "path": "sdk/src/kind.ts",
-        "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
+        "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField` (56) and the per-variant `edgeFields` lists it keys (232, 294, 356) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
       },
       {
         "path": "src/drift.rs",
@@ -18,11 +18,11 @@
       },
       {
         "path": "src/schema.rs",
-        "description": "Anticipated: `emit()`'s per-property `description` (156-172) folds field-declaration guidance in alongside a clause's, the same 'join into one description' discipline `push_description` (316-329) already runs for several guided clauses on one field."
+        "description": "Anticipated: `emit()`'s per-property `description` (154-167) folds field-declaration guidance in alongside a clause's, the same 'join into one description' discipline `push_description` (323-329) already runs for several guided clauses on one field."
       },
       {
         "path": "src/read.rs",
-        "description": "Anticipated: field-level narration extends `narrate_governing_contract` (374-402) or a sibling to print a field's declared guidance."
+        "description": "Anticipated: field-level narration extends `narrate_governing_contract` (540-581) or a sibling to print a field's declared guidance."
       }
     ],
     "retire": []
@@ -34,5 +34,5 @@
   },
   "tests": [],
   "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
-  "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
+  "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. Gate re-tested this audit: `kind.ts` carries per-field metadata only as `edgeFields` and a clause's `field:` target. Cites refreshed from the 196/156-172/316-329/374-402 spelling. scoped at 96c3bdf2"
 }

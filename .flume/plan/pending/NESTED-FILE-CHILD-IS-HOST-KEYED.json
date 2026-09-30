@@ -18,6 +18,10 @@
         "description": "One home for 'the member address this identity spells': the id verbatim when it already parses as a nested address, `host_address(kind, id)` otherwise. The discrimination exists today inside `graph::render_node`; lifting it here gives every caller the one rule (`specs/process/engineering.md`, 'One job, one home')."
       },
       {
+        "path": "src/drift.rs",
+        "description": "`lower_layout_reading`'s `let host = host_address(kind, name)` (2151) is the emit-side twin of the same decision — `compose.rs:674` calls it with a unit id, so a host-qualified id goes through the one address home rather than being colon-joined a second time; the `satisfies`-slot comment above it (2153-2156) states the corpus-wide `kind:name` keying this entry retires for a file child."
+      },
+      {
         "path": "src/graph.rs",
         "description": "`render_node` calls the lifted home rather than re-deciding the same split; `member_lookup`'s bare-key fallback now also reaches a nested *file* child, which is the behavior the grammar asks for — a bare key resolves only when one host carries it."
       },
@@ -52,5 +56,5 @@
     { "path": "tests/it/read_verbs.rs", "asserts": "`explain` resolves a file child at its host-qualified address, and refuses a bare key several hosts carry by naming them" }
   ],
   "acceptance": "`cargo test` green, with the two hosts/one child-name corpus checking clean instead of reporting a `member.admissibility` coincidence, and `explain` resolving the host-qualified address.",
-  "notes": "Routed from the inbox: note 3 (observed at 040e2d1c). The engine half; emit still refuses two same-named children until the SDK entry lands, so the intermediate state is loud, never silent. `Features::id` already holds a whole nested address for embedded members — `member_lookup`, `render_node` and `node_from_address` read that shape today — so this widens one representation rather than adding a second. scoped at 6184091f"
+  "notes": "Routed from the inbox: note 3 (observed at 040e2d1c). The engine half; emit still refuses two same-named children until the SDK entry lands, so the intermediate state is loud, never silent. `Features::id` already holds a whole nested address for embedded members — `member_lookup`, `render_node` and `node_from_address` read that shape today — so this widens one representation rather than adding a second. scoped at 96c3bdf2"
 }
