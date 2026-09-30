@@ -1,17 +1,19 @@
 # Plan state
 
 - Spec derived through: f26213a0 — copied forward; the specs delta is empty.
-- Audited through: 35b923ae — 152fed1a..HEAD reconciled; its one ship
-  (ac1bac67) verified on disk.
-- Residue swept through: 35b923ae — same window, nothing fileable.
+- Audited through: 35b923ae — copied forward; 50b7d6cf..HEAD carries three
+  unreconciled ships.
+- Residue swept through: 35b923ae — copied forward, same window.
 - Posture swept through: 7d695577 — copied forward; its forward window is
   192 commits wide.
-- This tick: reconciled 152fed1a..HEAD, both motions — the flat-hook census
-  closes in-fence, and HOOK-WIRE-KEYS got its cites and ripple refreshed.
-- Queue: 12 pending — 1 open, 5 blockedBy, 3 parked, 3 deferred. Pickable: 1 —
-  HOOK-NAME-JOINS-ITS-MATCHER, the hook spine's head and all 5 blockedBy
-  entries' root. Open forks: 1. Friction: 2 (both live). Amendments: 0.
+- This tick: drained the last refactor capture — the install self-verify's two
+  extra lock doors, and the vacuous pin that cannot see them.
+- Queue: 9 pending — 2 open, 1 blockedBy, 3 parked, 3 deferred. Pickable: 2 —
+  HOOK-WIRE-KEYS-HAVE-ONE-ENGINE-HOME and
+  RESERVED-LOCK-ROOT-KEY-REFUSES-A-KIND-NAME, disjoint, and jointly the new
+  entry's root. Open forks: 1. Friction: 2 (both live). Amendments: 0.
   Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture sweep is the only live job left and
-its rotation is open, but a pickable entry ships first.
+Plan continues: yes — post-ship reconciliation over 50b7d6cf..HEAD (three
+ships: HOOK-NAME-JOINS-ITS-MATCHER, the gate-commands/collection-address pair,
+INSTALL-NAMES-A-GATE-HOOKS-REMEDY), then the open posture rotation.

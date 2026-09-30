@@ -1,0 +1,67 @@
+{
+  "tag": "GATE-INSTALLED-READS-THE-HOISTED-LOCK",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "HOOK-WIRE-KEYS-HAVE-ONE-ENGINE-HOME",
+      "RESERVED-LOCK-ROOT-KEY-REFUSES-A-KIND-NAME"
+    ]
+  },
+  "dependsOnForks": [],
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "`emit_owned_targets` (:3744) opens two doors of its own — `walk_lock_rows` (:2443 → `read_lock_document_for_emit`, :2468) and `read_declarations` (:4653 → `read_lock_document`, :4616), both counted. Add the `*_from_doc` twin this module's convention already carries (`walk_lock_rows_from_doc` :2413, `declarations_from_doc` :4718 are both in hand): a new `emit_owned_targets_from_doc(&DocumentMut)` holding the body, with `emit_owned_targets(workspace_dir)` kept as the one-read wrapper over it. That alone collapses this face from 2 reads to 1 for every caller."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "`gate_installed` (:860) takes the parsed lock as a parameter and threads it into `evaluate_placements` (:1079), which calls `emit_owned_targets_from_doc` instead of `emit_owned_targets` (:1085). Stance: the document is **required**, not `Option` — an optional doc leaves the un-hoisted door open for the next in-engine caller, which is the shape this entry exists to close. `install::run`'s call (:799) reads it via `drift::read_lock_document` — and reads it **after** `emit_program` (:788) rewrote the lock, never before, or placements bind to the previous run's rows."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "The one caller inside the counted run: `install::gate_installed(harness_root)` (:729) passes the document `gate` already read and parsed at the top, the same hand its other tiers take. The comment above it states the advisory's shape; it gains the read it no longer pays."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "`gate_reads_and_parses_the_lock_once` (:368) is green vacuously: its fixture writes a lock and no `.temper/harness.ts`, so `represented_by` (`src/install.rs`:840) reads `None` and `gate_installed` takes the `place_settings_only` branch, never reaching either door. Write a stub `.temper/harness.ts` into the fixture — `represented_by` only asks `is_file()`, so no SDK vendoring is needed — and the pin counts the represented branch: 3/3 before the fix, 1/1 after. `common::write_lock` passes `members: Vec::new()`, so the lock carries no provenance rows and `evaluate_placements` reads no target files; the counter delta is exactly the two lock doors. The doctrine comment on the test says which branch it now counts."
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "Twelve `install::gate_installed(&root)` call sites (:1396, :1637, :1652, :1663, :1679, :1681, :1705, :1728, :1775, :1823, :1856, :1888) follow the signature. Fold them through one local helper beside `one_gate_finding` (:157) that reads the lock and calls the face, so the churn is one function and not twelve expressions."
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "The one call site outside the install suite: `temper::install::gate_installed(&harness)` (:216), in the arm that asserts `represented_by` sees the fixture's `harness.ts`. Same signature follow."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "Listed for the fence, expected untouched: `drift::emit_owned_targets(&workspace)` (:2529) builds the tap strand's path-to-id map and keeps the wrapper's name and signature — it silently drops from 2 reads to 1. Only a decision to retire the wrapper outright reaches here."
+      },
+      {
+        "path": "src/main.rs",
+        "description": "Listed for the fence, expected untouched, same reason as `src/read.rs`: the `guard` verb's `drift::emit_owned_targets(&workspace_dir)` (:440) keeps the wrapper. That verb holds `declarations` already and so carries a second door of its own — out of this entry's scope, which is the `check` run the pin counts."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The install self-verify reopens the lock twice inside a check run: `gate_installed` takes no document, so a represented harness pays 3 reads where the pin claims 1.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "Cost scale is hoisted, and pinned by count"
+  },
+  "tests": [
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "a check run over a *represented* harness reads and parses lock.toml exactly once — the pin's fixture carries a `harness.ts`, so the install self-verify's branch is inside the count"
+    },
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "the self-verify's verdicts are unchanged by the threading — clean on a wired gate, one advisory naming a stale note, a retired command spelling, and a deleted gate-hook member"
+    }
+  ],
+  "acceptance": "cargo test green (the re-pointed check_cost pin reading 1/1 over the represented branch, and failing at 3/3 if the doc threading is reverted), clippy -D warnings clean, fmt clean.",
+  "notes": "Drained from `.flume/refactor/build-gate-installed-opens-a-second-lock-door.md` (observed 1f666731; re-verified at HEAD — only d96975bb touched the four files and the three doors all stand). Blocked on both open entries purely for file disjointness: HOOK-WIRE-KEYS holds src/install.rs + tests/it/install.rs, RESERVED-LOCK-ROOT-KEY holds src/drift.rs + src/gate.rs. scoped at feb5e09a"
+}
