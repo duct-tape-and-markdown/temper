@@ -909,7 +909,7 @@ Last line, no newline.";
                 path: Some("*.md".to_string()),
             }]);
         let kinds = BTreeMap::from([("skill".to_string(), host)]);
-        let child = CustomKind::nested_file("reference-doc", Extraction::new(Vec::new()));
+        let child = CustomKind::host_composed("reference-doc", Extraction::new(Vec::new()));
 
         // `coordinate`'s companion doc, and nothing from `demo` (which carries none) or the
         // hosts' own `SKILL.md` entry files.
@@ -946,7 +946,7 @@ Last line, no newline.";
                 path: Some("*.md".to_string()),
             }]);
         let hosts = BTreeMap::from([("skill".to_string(), host)]);
-        let child = CustomKind::nested_file("reference-doc", Extraction::new(Vec::new()));
+        let child = CustomKind::host_composed("reference-doc", Extraction::new(Vec::new()));
 
         // Two governs kinds plus a nested-file host, all threaded through one cache.
         let shared = Discovery::new(&harness);

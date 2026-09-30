@@ -36,7 +36,10 @@ use crate::common;
 /// contracts). `expect` is also the one surface a kind reaches the lock through, so
 /// `supporting-doc` — whose members compose under a host rather than at a locus of their
 /// own, and whose one default clause bounds their place in the graph rather than their
-/// bytes — is bound here like any other, contributing its kind fact and that clause.
+/// bytes — is bound here like any other, contributing its kind fact and that clause. So is
+/// `handler`, the embedded kind `hook` templates: its six handler-level clauses are its
+/// own, and `hookDefaultContract` spreads them, so the byte-compare below covers the new
+/// kind row, those six rows under it, and `hook`'s new `templates` column.
 const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
 import { dial, dialDefaultContract, emit, harness } from "@dtmd/temper";
 import {
@@ -44,6 +47,8 @@ import {
   agentDefaultContract,
   command,
   commandDefaultContract,
+  handler,
+  handlerDefaultContract,
   hook,
   hookDefaultContract,
   installedPlugin,
@@ -78,6 +83,7 @@ const program = harness({
     { kind: agent, clauses: agentDefaultContract },
     { kind: command, clauses: commandDefaultContract },
     { kind: dial, clauses: dialDefaultContract },
+    { kind: handler, clauses: handlerDefaultContract },
     { kind: hook, clauses: hookDefaultContract },
     { kind: installedPlugin, clauses: installedPluginDefaultContract },
     { kind: knownMarketplace, clauses: knownMarketplaceDefaultContract },
@@ -249,8 +255,8 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
 
     assert_eq!(
         declarations.kinds.len(),
-        16,
-        "the derived lock carries all 16 built-in kind facts"
+        17,
+        "the derived lock carries all 17 built-in kind facts"
     );
 
     for kind_row in &declarations.kinds {

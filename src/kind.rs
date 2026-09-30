@@ -478,12 +478,16 @@ impl CustomKind {
         Self::with_locus(name, Some(governs), extraction)
     }
 
-    /// Construct a **nested file** kind's declared definition — the host-composed spelling
-    /// of the locus: its members own files whose paths compose from their host member's
-    /// unit and the host kind's template pattern, so the kind governs no glob and nothing
-    /// discovers it at one.
+    /// Construct a **host-composed** kind's declared definition — the no-glob spelling of
+    /// the locus: the kind governs nothing and nothing discovers it at a glob, because its
+    /// members reach the corpus through a host member instead. *Which* of the two
+    /// host-composed spellings the SDK draws them apart as — a nested file whose path
+    /// composes from its host's unit, or an embedded value that owns no file at all — is
+    /// the **host's** fact, not this kind's, and it is carried by the host kind's
+    /// [`Template::path`]: `Some` for a file layer, [`None`] for an embedded one. Both
+    /// collapse to `governs: None` here, so one constructor serves both.
     #[must_use]
-    pub fn nested_file(name: impl Into<String>, extraction: Extraction) -> Self {
+    pub fn host_composed(name: impl Into<String>, extraction: Extraction) -> Self {
         Self::with_locus(name, None, extraction)
     }
 

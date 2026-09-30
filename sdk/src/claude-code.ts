@@ -10,6 +10,7 @@
 
 export type {
   Agent,
+  Handler,
   Hook,
   InstalledPlugin,
   KnownMarketplace,
@@ -31,6 +32,8 @@ export {
   agentDefaultContract,
   command,
   commandDefaultContract,
+  handler,
+  handlerDefaultContract,
   hook,
   hookDefaultContract,
   installedPlugin,

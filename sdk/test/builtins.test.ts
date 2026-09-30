@@ -10,12 +10,14 @@ import { test } from "node:test";
 import type { Clause, Harness } from "../src/index.js";
 import { embeddedMemberValue, emit, harness, kind, relocate } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
-import type { Hook, Rule } from "../src/claude-code.js";
+import type { Handler, Hook, Rule } from "../src/claude-code.js";
 import {
   agent,
   agentDefaultContract,
   command,
   commandDefaultContract,
+  handler,
+  handlerDefaultContract,
   hook,
   hookDefaultContract,
   installedPlugin,
@@ -49,6 +51,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   agentDefaultContract,
   skillDefaultContract,
   commandDefaultContract,
+  handlerDefaultContract,
   hookDefaultContract,
   installedPluginDefaultContract,
   mcpDefaultContract,
@@ -314,6 +317,38 @@ test("supporting-doc is a nested-file kind: fields-free, prose-only, channel-les
   assert.equal(supportingDoc.facts.shape, undefined);
   const member = supportingDoc({ name: "reference", host: skill({ name: "demo", description: "A host." }) });
   assert.deepEqual(member.fields, []);
+});
+
+test("handler is an embedded kind under hook's template — fields-only, channel-less, cited", () => {
+  // The embedded locus, not `supporting-doc`'s `nested-file` one: the two no-glob
+  // spellings `specs/model/representation.md`'s "locus" separates. A handler owns no file
+  // at all; a supporting doc owns one whose path composes from its host's unit.
+  assert.deepEqual(handler.facts.locus, { kind: "embedded" });
+  assert.notDeepEqual(handler.facts.locus, supportingDoc.facts.locus);
+  // Channel-less: a handler reaches the world only through the hook whose event fires it.
+  assert.deepEqual(handler.facts.registration, []);
+  // Fields-only — no body slot, like its host hook.
+  assert.equal(handler.facts.shape, "fields");
+  // No declared artifact format: a handler is a JSON object inside its host's manifest,
+  // never a document of its own.
+  assert.equal(handler.facts.format, undefined);
+  assert.equal(handler.facts.unitShape, "file");
+  // And it cites, which is also what earns it a kind-fact row at emit: an embedded kind
+  // reaches the lock only where it declares `guidance`, `cite` or `leaves`
+  // (`declarations.ts`'s `kindFactKindsInPlay`).
+  assert.equal(handler.facts.cite, "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)");
+});
+
+test("hook templates one embedded layer of handler — no path, unlike skill's file child", () => {
+  assert.equal(hook.facts.templates?.length, 1);
+  const [entry] = hook.facts.templates ?? [];
+  // The child travels by import, never by string.
+  assert.equal(entry.kind, handler);
+  assert.equal(entry.kind.key, "handler");
+  // An embedded layer carries no `path`: its children live in the host's body and own no
+  // unit. `skill`'s `*.md` supporting-doc layer is the file-child counter-example.
+  assert.equal(entry.path, undefined);
+  assert.equal(skill.facts.templates?.[0]?.path, "*.md");
 });
 
 test("supportingDocDefaultContract is one advisory reach clause — the format's one decidable fact", () => {
@@ -698,7 +733,11 @@ test("settingsDefaultContract types the committed file's structural keys and ced
     settingsDefaultContract.some((c) => c.predicate.field === "hooks"),
     false,
   );
-  assert.ok(hookDefaultContract.length > 0, "the hooks segment is contracted by its own kind");
+  // The `hook` kind holds it, and its contract is the event clause plus the handler
+  // contract it spreads — the six handler-level clauses live under `handler` now.
+  assert.deepEqual(hookDefaultContract, [hookDefaultContract[0], ...handlerDefaultContract]);
+  assert.equal(hookDefaultContract[0].predicate.field, "event");
+  assert.equal(handlerDefaultContract.length, 6);
   // Cited and dated, every one — to the live settings reference.
   for (const entry of settingsDefaultContract) {
     assert.match(
@@ -708,11 +747,11 @@ test("settingsDefaultContract types the committed file's structural keys and ced
   }
 });
 
-test("hookDefaultContract guards every documented handler kind with that kind's required fields", () => {
+test("handlerDefaultContract guards every documented handler kind with that kind's required fields", () => {
   // The compile-time half. A `Record` keyed by the union demands a row per handler kind
-  // and refuses one that is not a kind, so widening `Hook["type"]` without widening the
+  // and refuses one that is not a kind, so widening `Handler["type"]` without widening the
   // contract fails `tsc` here — in TypeScript's own suite, not only in the Rust matrix.
-  const documentedHandlerKinds: Record<NonNullable<Hook["type"]>, true> = {
+  const documentedHandlerKinds: Record<NonNullable<Handler["type"]>, true> = {
     command: true,
     http: true,
     mcp_tool: true,
@@ -721,8 +760,18 @@ test("hookDefaultContract guards every documented handler kind with that kind's 
   };
   const handlerKinds = Object.keys(documentedHandlerKinds).sort();
 
+  // `Hook` still spells the same union until the grain entry collapses its fields into
+  // `Handler`'s, and `tsc` is what holds the two together meanwhile: widening one alone
+  // makes this annotation unsatisfiable.
+  const bothTypeUnionsAgree: Hook["type"] extends Handler["type"]
+    ? Handler["type"] extends Hook["type"]
+      ? true
+      : never
+    : never = true;
+  assert.equal(bothTypeUnionsAgree, true);
+
   // The enum ranges over exactly those kinds — one allowlist, not two transcriptions.
-  const handlerEnum = hookDefaultContract.find(
+  const handlerEnum = handlerDefaultContract.find(
     (c) => c.predicate.key === "enum" && c.predicate.field === "type",
   );
   assert.deepEqual([...(handlerEnum?.predicate.values ?? [])].sort(), handlerKinds);
@@ -731,7 +780,7 @@ test("hookDefaultContract guards every documented handler kind with that kind's 
   // legal, the presence clause that a value is there at all. `type` is documented required
   // with no default, so an absent one is dead configuration the enum alone cannot see —
   // an allowlist has nothing to refuse when the field is missing.
-  const handlerPresence = hookDefaultContract.find(
+  const handlerPresence = handlerDefaultContract.find(
     (c) => c.predicate.key === "required" && c.predicate.field === "type",
   );
   assert.ok(handlerPresence, "`type` is presence-gated beside its enum");
@@ -744,7 +793,7 @@ test("hookDefaultContract guards every documented handler kind with that kind's 
   // The runtime half: each kind is guarded exactly once, and its body is the required
   // fields the docs name for it.
   const requiredByKind = new Map<string, readonly string[]>();
-  const guards = hookDefaultContract.filter((c) => c.predicate.key === "when");
+  const guards = handlerDefaultContract.filter((c) => c.predicate.key === "when");
   for (const guarded of guards) {
     assert.equal(guarded.when_guard?.key, "enum");
     assert.equal(guarded.when_guard?.field, "type");

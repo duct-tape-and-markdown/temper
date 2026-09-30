@@ -85,11 +85,18 @@ registration = ["always"]
 content = { regions = [{ region = "prose" }, { region = "collection", member_kind = "term" }] }
 
 [[declaration.kind]]
+name = "handler"
+unit_shape = "file"
+shape = "fields"
+cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)"
+
+[[declaration.kind]]
 name = "hook"
 governs_root = ".claude"
 governs_glob = "settings.json"
 unit_shape = "file"
 registration = ["event(event)"]
+templates = [{ kind = "handler" }]
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }
 guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings)."

@@ -137,7 +137,7 @@ fn claude_code_skill() -> CustomKind {
 fn claude_code_supporting_doc() -> CustomKind {
     CustomKind {
         unit_shape: Some(crate::kind::UnitShape::File),
-        ..CustomKind::nested_file(
+        ..CustomKind::host_composed(
             "supporting-doc",
             Extraction::new(vec![
                 Primitive::LineCount,
@@ -146,6 +146,22 @@ fn claude_code_supporting_doc() -> CustomKind {
                 Primitive::Placement,
             ]),
         )
+    }
+}
+
+/// Anthropic's documented hook-handler kind: one entry in a matcher group's `hooks`
+/// array, at the **embedded** locus — it owns no file and no glob, living inside its host
+/// hook member and keyed by its position there (`…/handler/0`). Matching handlers run in
+/// parallel, so the position is an address and carries no runtime meaning
+/// (`code.claude.com/docs/en/hooks`, retrieved 2026-09-29). Fields-only
+/// ([`Content::Fields`]) and channel-less: a handler reaches the world only through the
+/// hook whose event fires it. Its path fact lives in `hook`'s own `templates` entry, which
+/// carries no `path` — the spelling that parts an embedded layer from `skill`'s file child.
+fn claude_code_handler() -> CustomKind {
+    CustomKind {
+        unit_shape: Some(crate::kind::UnitShape::File),
+        content: Content::Fields,
+        ..CustomKind::host_composed("handler", Extraction::new(Vec::new()))
     }
 }
 
@@ -267,7 +283,9 @@ fn claude_code_memory() -> CustomKind {
 /// each `hooks.<Event>` entry read as a member — carries no body (`Content::Fields`), and
 /// registers on the `event` channel, its event surfaced as a field off the collection key.
 /// Its value is a group-array: an array of matcher groups, each carrying lifted fields
-/// (`matcher`) and a member array of handlers (`hooks`).
+/// (`matcher`) and a member array of handlers (`hooks`). Its one template layer names
+/// `handler`, the embedded kind of each of those entries — no `path`, since an embedded
+/// child owns no unit.
 fn claude_code_hook() -> CustomKind {
     CustomKind {
         unit_shape: Some(crate::kind::UnitShape::File),
@@ -283,6 +301,10 @@ fn claude_code_hook() -> CustomKind {
                 lifted_fields: vec!["matcher".to_string()],
             },
         }),
+        templates: vec![Template {
+            kind: "handler".to_string(),
+            path: None,
+        }],
         ..CustomKind::new(
             "hook",
             Governs {
@@ -591,6 +613,7 @@ fn all_kinds() -> Vec<CustomKind> {
         temper_dial(),
         claude_code_agent(),
         claude_code_command(),
+        claude_code_handler(),
         claude_code_hook(),
         claude_code_installed_plugin(),
         claude_code_known_marketplace(),
@@ -894,6 +917,7 @@ mod tests {
                 "agent",
                 "command",
                 "dial",
+                "handler",
                 "hook",
                 "installed-plugin",
                 "known-marketplace",
@@ -1098,6 +1122,46 @@ mod tests {
         // `mcpServers.*` names no key field, so a server carries only its own object
         // fields, folded in at read time — no declared frontmatter primitives.
         assert_eq!(mcp.extraction.primitives(), &[]);
+    }
+
+    #[test]
+    fn handler_definition_is_a_fields_only_embedded_kind_hook_templates() {
+        use crate::kind::{Content, Template};
+
+        let handler = definition("handler").expect("handler is embedded");
+
+        assert_eq!(handler.name, "handler");
+        // The host-composed locus: a handler lives inside its host hook member, so nothing
+        // discovers it at a glob and it owns no surface subdirectory of its own.
+        assert_eq!(handler.governs, None);
+        assert_eq!(handler.surface_subdir(), None);
+        // A lone entry in its host's `hooks` array — fields-only, no body slot, and no
+        // artifact format: it is a JSON object inside the host's manifest, never a document.
+        assert_eq!(handler.content, Content::Fields);
+        assert_eq!(handler.format, None);
+        assert_eq!(handler.unit_shape, Some(crate::kind::UnitShape::File));
+        // Channel-less: it reaches the world only through the hook whose event fires it,
+        // and it is no collection address of its own — the group's `hooks` key is its host's.
+        assert_eq!(handler.registration, Vec::new());
+        assert_eq!(handler.collection_address, None);
+        // No declared frontmatter primitives: its fields fold in off the host's group array.
+        assert_eq!(handler.extraction.primitives(), &[]);
+
+        // And the path fact is the host's. `hook` templates it with no `path` — the
+        // spelling that parts an embedded layer from `skill`'s file-child one.
+        let hook = definition("hook").expect("hook is embedded");
+        assert_eq!(
+            hook.templates,
+            vec![Template {
+                kind: "handler".to_string(),
+                path: None,
+            }]
+        );
+        let skill = definition("skill").expect("skill is embedded");
+        assert_eq!(
+            skill.templates.first().map(|t| t.path.as_deref()),
+            Some(Some("*.md"))
+        );
     }
 
     #[test]

@@ -1,12 +1,12 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the sixteen built-in kinds' facts and their default contract clauses, the **root
+# the seventeen built-in kinds' facts and their default contract clauses, the **root
 # member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the four
 # clause rows here naming no kind, that absence being what makes them the root's), plus
-# eighteen assembly facts — the unconditional `mode = "warn"` (the root member's own
+# nineteen assembly facts — the unconditional `mode = "warn"` (the root member's own
 # enforcement mode, specs/model/representation.md, "The root member", every harness carries
 # absent an authored mode), one `contract` declaredness marker per `expect`-bound kind
-# (sixteen, each naming its kind in `from`; no marker names no kind, because the program
+# (seventeen, each naming its kind in `from`; no marker names no kind, because the program
 # declares no root `contract` of its own and an undeclared contract writes none), and the
 # `installed-plugin` → `known-marketplace` edge, the marketplace
 # half of an enablement's `<plugin>@<marketplace>` key (decision 0039). No requirements,
@@ -16,12 +16,13 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over the whole shipped std-lib:
-# `@dtmd/temper/claude-code`'s fifteen
-# built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `known-marketplace`,
+# `@dtmd/temper/claude-code`'s sixteen
+# built-in kinds (`agent`, `command`, `handler`, `hook`, `installed-plugin`, `known-marketplace`,
 # `marketplace`, `mcp`, `mcp-server`, `plugin-manifest`, `settings`, `settings-local`,
 # `skill`, `supporting-doc`, `rule`, `memory`) and their
 # default contracts (`agentDefaultContract`, `commandDefaultContract`,
-# `hookDefaultContract`, `installedPluginDefaultContract`, `knownMarketplaceDefaultContract`,
+# `handlerDefaultContract`, `hookDefaultContract`, `installedPluginDefaultContract`,
+# `knownMarketplaceDefaultContract`,
 # `marketplaceDefaultContract`, `mcpDefaultContract`, `mcpServerDefaultContract`,
 # `pluginManifestDefaultContract`, `settingsDefaultContract`,
 # `settingsLocalDefaultContract`, `skillDefaultContract`,
@@ -37,7 +38,7 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's sixteen kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's seventeen kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -48,15 +49,21 @@
 # `json-document` does have one, but the local class keeps emit away from the machine's own
 # overlay just the same.
 #
-# `supporting-doc` is the one kind here at the nested-file locus, so its row alone
-# carries no `governs` pair: its members' paths compose from their host skill's unit and
-# `skill`'s own `templates` pattern, the only home that fact has. Its default contract is
-# one clause — the format documents no schema to gate, so the only decidable fact left is
-# the graph one: a supporting file no edge from its host skill reaches is never read.
+# `supporting-doc` and `handler` are the two host-composed kinds here, so their two rows
+# alone carry no `governs` pair — one spelling each of the two no-glob loci.
+# `supporting-doc` is the nested-file one: its members' paths compose from their host
+# skill's unit and `skill`'s own `templates` pattern, the only home that fact has. Its
+# default contract is one clause — the format documents no schema to gate, so the only
+# decidable fact left is the graph one: a supporting file no edge from its host skill
+# reaches is never read. `handler` is the embedded one: its members own no file at all,
+# living inside their host hook's `hooks` array and keyed by position, which is why
+# `hook`'s `templates` entry naming it carries no `path`. Its six clauses are the
+# handler-level half of the hooks contract, and `hookDefaultContract` spreads them, so the
+# same six ride under both kinds until a hook's handlers become members of their own.
 #
 # `installed-plugin`, `known-marketplace` and `mcp` are the three kinds here contributing a
-# kind fact and no clause row at all: each default contract is empty, so sixteen kinds carry
-# thirteen contracts' clauses. No format among them documents a gateable schema the member's
+# kind fact and no clause row at all: each default contract is empty, so seventeen kinds
+# carry fourteen contracts' clauses. No format among them documents a gateable schema the member's
 # own type does not already hold — an installed plugin is one scalar under an identity key, a
 # known marketplace a `source`/`autoUpdate` object under a marketplace-name key, and `.mcp.json`
 # exactly one top-level key, `mcpServers`, which is `mcp-server`'s collection address and that
@@ -110,11 +117,18 @@ format = "toml-document"
 unit_shape = "named-field(name)"
 
 [[declaration.kind]]
+name = "handler"
+unit_shape = "file"
+shape = "fields"
+cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)"
+
+[[declaration.kind]]
 name = "hook"
 governs_root = ".claude"
 governs_glob = "settings.json"
 unit_shape = "file"
 registration = ["event(event)"]
+templates = [{ kind = "handler" }]
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }
 guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings)."
@@ -315,6 +329,105 @@ kind = "dial"
 predicate = "closed-keys"
 severity = "required"
 guidance = "The dial's key set is exhaustive: `name` and `clause`, nothing else. A key outside it is a verb this schema does not have — most likely an attempt to spell deletion, which it cannot."
+
+[[declaration.clause]]
+label = "handler.required.type"
+kind = "handler"
+predicate = "required"
+field = "type"
+severity = "required"
+guidance = "A handler names how it fires, and the documented common-fields table gives `type` no default — so a handler carrying none is dead configuration: nothing to run, and no per-kind requirement for temper to hold it to either. Name one of the documented five (`command`, `http`, `mcp_tool`, `prompt`, `agent`)."
+cite = "https://code.claude.com/docs/en/hooks#common-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
+label = "handler.enum.type"
+kind = "handler"
+predicate = "enum"
+field = "type"
+severity = "required"
+guidance = "A handler's `type` names how the hook fires; a value outside the documented five (`command`, `http`, `mcp_tool`, `prompt`, `agent`) is a handler Claude Code cannot run. If this is a newly-documented handler kind, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding."
+cite = "https://code.claude.com/docs/en/hooks#common-fields (retrieved 2026-09-25)"
+values = ["command", "http", "mcp_tool", "prompt", "agent"]
+
+[[declaration.clause]]
+label = "handler.when.type=command"
+kind = "handler"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)"
+values = ["command"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "handler.when.type=command.required.command"
+predicate = "required"
+field = "command"
+severity = "required"
+guidance = "A `command` handler runs a shell command, so it must carry one — the command line to execute, or, beside `args`, the executable to spawn directly. Without it the handler registers and does nothing."
+cite = "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
+label = "handler.when.type=http"
+kind = "handler"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)"
+values = ["http"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "handler.when.type=http.required.url"
+predicate = "required"
+field = "url"
+severity = "required"
+guidance = "An `http` handler POSTs the event's JSON input to a URL, so it must carry one. Without it there is no endpoint to call."
+cite = "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
+label = "handler.when.type=mcp_tool"
+kind = "handler"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)"
+values = ["mcp_tool"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "handler.when.type=mcp_tool.required.server"
+predicate = "required"
+field = "server"
+severity = "required"
+guidance = "An `mcp_tool` handler names the already-connected MCP server it calls. For a plugin-bundled server that is the scoped `plugin:<plugin-name>:<server-name>` name, not the bare server key."
+cite = "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause.body]]
+label = "handler.when.type=mcp_tool.required.tool"
+predicate = "required"
+field = "tool"
+severity = "required"
+guidance = "An `mcp_tool` handler names the tool it calls on its server; the server alone does not say what to invoke."
+cite = "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)"
+
+[[declaration.clause]]
+label = "handler.when.type=agent+prompt"
+kind = "handler"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)"
+values = ["prompt", "agent"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "handler.when.type=agent+prompt.required.prompt"
+predicate = "required"
+field = "prompt"
+severity = "required"
+guidance = "A `prompt` or `agent` handler sends prompt text to a model, so it must carry one; `$ARGUMENTS` stands for the hook input JSON. The two kinds share this requirement — the docs give them one field table."
+cite = "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)"
 
 [[declaration.clause]]
 label = "hook.enum.event"
@@ -1273,6 +1386,10 @@ from = "command"
 [[declaration.assembly]]
 fact = "contract"
 from = "dial"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "handler"
 
 [[declaration.assembly]]
 fact = "contract"

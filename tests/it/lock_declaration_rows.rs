@@ -2847,11 +2847,11 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(mcp.registration, Vec::<String>::new());
 
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    // Sixteen, not the fourteen `specs/builtins.md` enumerates: `supporting-doc` ships
-    // beside that roster without joining it (as `requirement` and `handler` do), and `dial`
-    // is temper's own rather than a provider's, so the engine's kind set runs two above the
-    // corpus's count. Every number is right; none checks another.
-    assert_eq!(declarations.kinds.len(), 16);
+    // Seventeen, not the fourteen `specs/builtins.md` enumerates: `supporting-doc` and
+    // `handler` both ship beside that roster without joining it (as `requirement` does), and
+    // `dial` is temper's own rather than a provider's, so the engine's kind set runs three
+    // above the corpus's count. Every number is right; none checks another.
+    assert_eq!(declarations.kinds.len(), 17);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

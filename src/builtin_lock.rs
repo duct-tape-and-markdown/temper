@@ -108,8 +108,8 @@ mod tests {
         for clause in &declarations.clauses {
             match clause.kind.as_deref() {
                 Some(
-                    "agent" | "command" | "dial" | "hook" | "marketplace" | "mcp-server"
-                    | "plugin-manifest" | "settings" | "settings-local" | "skill"
+                    "agent" | "command" | "dial" | "handler" | "hook" | "marketplace"
+                    | "mcp-server" | "plugin-manifest" | "settings" | "settings-local" | "skill"
                     | "supporting-doc" | "rule" | "memory",
                 ) => {}
                 None => root_labels.push(

@@ -7,6 +7,7 @@ kind | allowed_chars | closed-keys | degree | deny | enum | extent | forbidden_k
 agent | error |  |  |  |  |  |  |  |  |  |  |  |  | error |  |  | error | 
 command |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 dial |  | error |  |  | error |  |  |  |  |  |  |  |  | error |  | error |  | 
+handler |  |  |  |  | error |  |  |  |  |  |  |  |  | error |  |  |  | error
 hook |  |  |  |  | error |  |  |  |  |  |  |  |  | error |  |  |  | error
 installed-plugin |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 known-marketplace |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
