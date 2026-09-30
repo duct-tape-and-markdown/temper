@@ -1,58 +1,60 @@
 # Release — cutting a temper version
 
-A release is interactive, never a build tick. The tag is the trigger and the
-published pair is the gate, not the local tree.
+A release is interactive, never a build tick. The versioning policy is
+`specs/distribution.md`, "Versioning"; this rule is the recipe. The tag is
+the trigger and the published pair is the gate, not the local tree.
 
-## The version moves in lockstep across every home
+## The cut, in order
 
-A cut bumps three homes together, and a partial bump fails the gate:
+1. **Mine the draft.** `pnpm changelog` prints an `[Unreleased]` draft from
+   the `build:` commits since the last recorded version, breaks first. It is
+   raw material, never pasted as is.
+2. **Curate.** Fold it into `CHANGELOG.md` as `## [X.Y.Z] — <date>` in the
+   `public-prose` register: `### Upgrading` and `### Breaking` lead, then
+   Added / Changed / Fixed. Drop internal refactors and test work. A break
+   the draft missed (a body with no `BREAKING:` line) is still a break —
+   read the bodies of anything touching the CLI, the SDK surface, the lock
+   or addresses.
+3. **Migration note.** If the entry has `### Breaking`, write
+   `docs/MIGRATING-X.Y.Z.md`: each break before and after, opening with a
+   link to the note before it.
+4. **Bump the version in every home together** — a partial bump fails the
+   gate:
+   - `Cargo.toml`, the version `temper --version` reports;
+   - `sdk/package.json`, its own `version` **and** the
+     `optionalDependencies` engine pins (`@dtmd/temper-<platform>`).
+5. **Re-emit every committed lock.** Each lock records the engine version
+   that wrote it, so the bump moves them: `cargo run -- emit` for this
+   repo's `.temper/`, and the shipped example with the recipe its
+   byte-compare test prints on failure. CI's `emit --frozen` plus
+   `git diff --exit-code` fails any lock left behind.
+6. **Gates green**: `cargo test`, `cargo clippy --all-targets -- -D
+   warnings`, `cargo fmt --all --check`, `pnpm --dir sdk test`,
+   `cargo run -- check`.
+7. **Commit `chore(release): cut X.Y.Z`**, tag `vX.Y.Z`, push `main` and the
+   tag. The tag push publishes (`release.yml`).
+8. **Watch the release run.** The cut is shipped only when its smoke job —
+   installing the published pair from the registry and round-tripping
+   `install` → `emit` → `check` — is green. Green build jobs and provenance
+   do not prove the pair works together.
+9. **Sync the SDK lock** once the engines are live: `npm --prefix sdk
+   install`, commit `chore(release): sync the SDK lock to X.Y.Z`.
 
-- `Cargo.toml` — the crate version `temper --version` reports.
-- `sdk/package.json` — the npm driver: its own `version` **and** the
-  `optionalDependencies` engine pins (`@dtmd/temper-<platform>`).
-- The lockfiles — `Cargo.lock` (cargo re-syncs it on `build`) and
-  `sdk/package-lock.json`.
+## Why the SDK lock trails the tag
 
-**Never hand-edit `sdk/package-lock.json`'s version fields.** Regenerate it
-with `npm --prefix sdk install`. The main gate runs `npm --prefix sdk ci`,
-which fails `EUSAGE` the moment the lock's engine pins disagree with
-`package.json`; a hand-bumped version field leaves the resolved pins stale and
-reddens `main`.
-
-## The lock regenerates only after the engines publish
-
-The new-version platform packages do not exist on the registry until the
-release publishes them, so `npm install` cannot resolve them before the tag.
-The order is fixed:
-
-1. Bump `Cargo.toml` and `sdk/package.json` (version + pins), write the
-   CHANGELOG entry, commit.
-2. Tag `vX.Y.Z` and push it — `release.yml` builds the engines and publishes.
-3. Once the engines are live, `npm --prefix sdk install` regenerates the lock
-   at the new version; commit the sync.
-
-`main` is red on the lock mismatch between steps 1 and 3. That is expected and
-does not block the release.
-
-## Publish tolerates lock drift; the gate does not
-
-`release.yml` publishes with `npm install` — it regenerates the lock on the
-runner and stamps the engine pins to the tag — so a lagging committed lock
-never blocks a release. The main gate uses `npm ci`, which is strict. A red
-`main` never blocks the release, and a green release never proves `main`;
-reconcile both.
-
-## A cut is shipped only when smoke passes
-
-The release's smoke job installs the published pair from the registry and
-round-trips `install` → `emit` → `check`. Green build jobs and provenance do
-not prove the pair works together; only smoke does.
+The new platform packages do not exist on the registry until the release
+publishes them, so `npm install` cannot resolve them before step 9.
+`release.yml` publishes with `npm install`, regenerating the lock on the
+runner, so a lagging committed lock never blocks a release; the main gate
+uses `npm --prefix sdk ci`, which fails `EUSAGE` on the mismatch. `main` is
+red between steps 7 and 9, which is expected — a red `main` never blocks the
+release, and a green release never proves `main`; reconcile both. **Never
+hand-edit `sdk/package-lock.json`'s version fields** — a hand-bumped field
+leaves the resolved pins stale.
 
 ## Standing constraints
 
-- **`0.1.0` is the launch tag's to stake.** Interim cuts stay on `0.0.x`. A
-  bump to `0.1.0` is the launch, gated on `specs/distribution.md`'s launch
-  gate, not a routine cut — do not stake it until that gate is met.
+- **`0.1.0` is the launch tag's to stake.** Interim cuts stay on `0.0.x`;
+  the launch waits on `specs/distribution.md`'s launch gate.
 - **`NPM_TOKEN`** is the repo secret the publish authenticates with. Never
   paste it into a transcript; rotate at the registry, then `gh secret set`.
-- Every cut carries a `CHANGELOG.md` entry, in the `public-prose` register.

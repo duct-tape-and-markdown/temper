@@ -90,6 +90,17 @@ read, not a bar the pipeline holds; nothing reverts on either):
 - `cargo machete --with-metadata` — unused-dependency scan.
 - `cargo llvm-cov --summary-only` — coverage, no threshold enforced.
 
+## Release cut
+
+Interactive, never a build tick: mine the draft (`pnpm changelog`), curate
+it into `CHANGELOG.md`, write the migration note a break owes, bump every
+version home, re-emit every committed lock, then commit `chore(release): cut
+X.Y.Z`, tag `vX.Y.Z`, and push with the tag — **the tag push publishes**.
+The cut is done when the release run's registry smoke is green. The full
+recipe is `.claude/rules/release.md` (path-scoped to the version homes and
+the changelog; read it before starting); the policy is
+`specs/distribution.md`, "Versioning".
+
 ## Quality standard
 
 Engineering: **correct, clear, well-tested.** Member files are tiny, but
