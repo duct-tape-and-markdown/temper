@@ -1569,6 +1569,77 @@ fn explain_narrates_a_custom_embedded_kinds_guidance_after_a_full_sdk_round_trip
     );
 }
 
+/// A `.claude/settings.json` whose one `PreToolUse` matcher group carries one clean
+/// `command` handler — the smallest harness where an embedded member exists **only**
+/// because a host kind's own read composed it. A registration row drops its `fields` at
+/// the lock (0018), so no `nested_member` row carries this handler: the lock-only corpus
+/// cannot see it, and the gate's two-contributor one can.
+const ONE_HANDLER_SETTINGS: &str = r#"{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "echo guard" } ] }
+    ]
+  }
+}"#;
+
+#[test]
+fn explain_narrates_a_composed_handler_member_the_gate_judged() {
+    // The read ranges over the same embedded corpus the gate does (contract.md, "Read
+    // verbs": "Every reading is a projection over the same resolved edges the gate
+    // uses"). A handler composed off its host hook's manifest read reaches no
+    // `nested_member` row, so a lock-only corpus answered "No member named …" from all
+    // three strands about a member `check` had just judged.
+    let harness = common::tmpdir("explain-composed-handler");
+    common::write_settings(&harness, ONE_HANDLER_SETTINGS);
+
+    // The vacuity pin, on the check side of this very fixture: the handler is a member
+    // the gate checked, so the narration below is judged against a non-empty corpus
+    // rather than agreeing with an absence twice (engineering.md, "A green verdict is
+    // proven non-vacuous").
+    let (findings, _ok) = common::check_harness(&harness);
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("handler (1 embedded)"),
+        "the gate checks the composed handler as a member: {}",
+        checked[0]
+    );
+
+    let out = common::explain_in(&harness, "member:hook:PreToolUse/handler/0");
+    assert!(
+        !out.contains("is in the surface"),
+        "the member the gate judged resolves through `explain`, never as absent: {out}"
+    );
+    // All three strands narrate it, each by the line only that strand prints.
+    assert!(
+        out.contains("everything that holds it in place"),
+        "the `why` strand narrates the composed member: {out}"
+    );
+    assert!(
+        out.contains("the blast radius if it is removed or renamed"),
+        "the `impact` strand narrates the composed member: {out}"
+    );
+    assert!(
+        out.contains("its declared neighborhood"),
+        "the `context` strand narrates the composed member: {out}"
+    );
+    // And it narrates it as a `handler`, under its host's containment — the two facts
+    // the composed corpus is what carries.
+    assert!(
+        out.contains("`handler` kind binds the `handler` default contract"),
+        "the composed member takes its kind's contract, the one the gate judged it \
+         under: {out}"
+    );
+    assert!(
+        out.contains("`PreToolUse` (hook) contains it"),
+        "and reads as its host hook's composed child: {out}"
+    );
+}
+
 #[test]
 fn explain_narrates_a_builtin_kinds_floor_facts_on_a_harness_carrying_no_member_of_it() {
     // `emit` writes a `kind` row only for a kind the assembly declares a member of, so a

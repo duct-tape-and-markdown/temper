@@ -1057,9 +1057,11 @@ fn layout_skeleton(regions: &[drift::LayoutRegionRow]) -> Vec<String> {
 /// whether or not a member exists, which is the whole point: an adopter reads what a
 /// child carries before authoring one. Where the row declares none, the fallback is the
 /// union of what the members of it in this surface carry today, read off `by_kind` — the
-/// same corpus the gate ranges over, whose embedded entries are the lock's
-/// `nested_member` rows lifted leaf-by-leaf into fields
-/// ([`crate::compose::embedded_features_by_kind`]), never a second read of the lock.
+/// same corpus the gate ranges over, whose embedded entries are both of that corpus's
+/// contributors: the lock's `nested_member` rows lifted leaf-by-leaf into fields, and the
+/// members a host kind's own read composed
+/// ([`crate::compose::embedded_features_by_kind_with_composed`]), never a second read of
+/// the lock.
 fn narrate_hosted_kinds(
     out: &mut String,
     name: &str,
@@ -2453,7 +2455,21 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         custom_kinds.push((custom_kind.clone(), features.clone()));
         custom_units_and_features.push((custom_kind, uaf));
     }
-    let embedded_features = compose::embedded_features_by_kind(&declarations);
+    // The embedded corpus over **both** its contributors, exactly as the gate assembles it
+    // (READ-EDGE-UNIFY): the lock's own `nested_member` rows, and the embedded members each
+    // host kind's read composed. A hook matcher group's handlers are the second — a
+    // registration row drops its `fields` at the lock (0018), so the manifest carrying the
+    // group is the only place its handlers' values exist to be read back from, and a read
+    // that took the lock alone would answer "no member by that name" about a member the
+    // gate just judged. Assembled here rather than behind a helper because both maps are
+    // this read's own, and `by_kind` below is what they are for.
+    let composed_embedded: Vec<compose::ComposedEmbeddedMember> = builtin_units_and_features
+        .values()
+        .chain(custom_units_and_features.iter().map(|(_, uaf)| uaf))
+        .flat_map(|uaf| uaf.composed_embedded.iter().cloned())
+        .collect();
+    let embedded_features =
+        compose::embedded_features_by_kind_with_composed(&declarations, &composed_embedded);
     let by_kind = compose::assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
     // The one requirement namespace: the assembly's declared `[requirement.*]`
