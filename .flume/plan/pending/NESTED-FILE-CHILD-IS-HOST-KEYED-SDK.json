@@ -1,9 +1,12 @@
 {
   "tag": "NESTED-FILE-CHILD-IS-HOST-KEYED-SDK",
-  "gate": { "kind": "blockedBy", "tags": ["NESTED-FILE-CHILD-IS-HOST-KEYED"] },
-  "summary": "The SDK keys a nested-file child by its host-qualified address too, so two hosts each carrying a `home` child emit instead of colliding on `duplicate identity key`",
-  "per": { "path": "specs/model/representation.md", "section": "member" },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "sdk/src/member-address.ts",
@@ -37,12 +40,27 @@
         "path": "tests/it/nested_member.rs",
         "description": "End to end through a real `node` program: a corpus whose two directory-unit hosts each carry a `home` file child emits both files and `check` counts two members of the child kind."
       }
-    ]
+    ],
+    "retire": []
+  },
+  "summary": "The SDK keys a nested-file child by its host-qualified address too, so two hosts each carrying a `home` child emit instead of colliding on `duplicate identity key`",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "member"
   },
   "tests": [
-    { "path": "sdk/test/emit.test.ts", "asserts": "two hosts, one child name: emit produces both projections and neither collides" },
-    { "path": "sdk/test/member-address.test.ts", "asserts": "the one home composes the nested form for a hosted member and `kind:name` otherwise" },
-    { "path": "tests/it/nested_member.rs", "asserts": "the two-host corpus emits and checks clean, counting both children" }
+    {
+      "path": "sdk/test/emit.test.ts",
+      "asserts": "two hosts, one child name: emit produces both projections and neither collides"
+    },
+    {
+      "path": "sdk/test/member-address.test.ts",
+      "asserts": "the one home composes the nested form for a hosted member and `kind:name` otherwise"
+    },
+    {
+      "path": "tests/it/nested_member.rs",
+      "asserts": "the two-host corpus emits and checks clean, counting both children"
+    }
   ],
   "acceptance": "`pnpm --dir sdk test` and `cargo test` green, with the inbox reproduction — a directory-unit host kind templating `{kind: note, path: \"*.json\"}` over hosts `alpha` and `beta`, one `home` child each — emitting rather than failing `duplicate identity key 'note:home'`.",
   "notes": "Routed from the inbox: note 3 (observed at 040e2d1c). The SDK half, serialized behind the engine half so the address the SDK starts writing is one the engine already resolves. Widens a shared enumeration's spelling: every site that colon-joins `member.kind`/`member.name` is a consumer, which is why the one home lands first. scoped at 6184091f"
