@@ -52,6 +52,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 use serde_json::{Value as JsonValue, json};
+use toml_edit::DocumentMut;
 
 use crate::builtin_kind;
 use crate::check::{Diagnostic, Severity};
@@ -798,7 +799,10 @@ fn run_represented(
     };
 
     let entries = if emit.is_some() {
-        evaluate_placements(root, &temper_dir, dry_run, Some(gate_before))?
+        // Read *after* the emit above rewrote the lock: placements bind to the rows this
+        // run just wrote, never to the previous run's.
+        let lock = drift::read_lock_document(&temper_dir)?;
+        evaluate_placements(root, dry_run, Some(gate_before), &lock)?
     } else {
         Vec::new()
     };
@@ -853,20 +857,25 @@ pub fn represented_by(root: &Path) -> Option<PathBuf> {
 /// folded into **one advisory** [`Diagnostic`]. Always `warn`, never `error`; empty when
 /// every placement is already in place.
 ///
+/// `lock` is the caller's already-parsed `.temper/lock.toml`, **required rather than
+/// optional**: this face runs inside `check`, which reads the lock once for every tier,
+/// and an `Option` here would leave a second door onto the same file open for the next
+/// in-engine caller to take by accident.
+///
 /// Each reported placement carries **its own remedy**, because they are not all install's
 /// to converge. On a represented harness a gate hook is a member the author owns and
 /// install never re-adds it (0073), so a missing or stale one names the module to author
 /// and the `harness.ts` import line that reaches it ([`gate_hook_clause`]); the notes and
 /// modelines really are install's write, so they share the one `temper install` clause.
 #[must_use]
-pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
+pub fn gate_installed(root: &Path, lock: &DocumentMut) -> Vec<Diagnostic> {
     let temper_dir = root.join(crate::WORKSPACE_DIR);
     if !temper_dir.is_dir() {
         return Vec::new();
     }
     let represented = represented_by(root).is_some();
     let Ok(entries) = (if represented {
-        evaluate_placements(root, &temper_dir, true, None)
+        evaluate_placements(root, true, None, lock)
     } else {
         place_settings_only(root, true)
     }) else {
@@ -1068,8 +1077,9 @@ fn gate_outcome(before: bool, now: GateHookState) -> ApplyOutcome {
 }
 
 /// Report the three gate hooks and place each emit-owned target's managed-by note +
-/// schema modeline — the represented project's whole placement set, lock-grounded via
-/// [`drift::emit_owned_targets`] rather than a raw discovery walk.
+/// schema modeline — the represented project's whole placement set, grounded in the
+/// caller's parsed `lock` ([`drift::emit_owned_targets_from_doc`]) rather than a raw
+/// discovery walk.
 ///
 /// The gate hooks are **read, never written**: on this path `.claude/settings.json` is a
 /// projection the program owns whole, and [`GATE_HOOKS`] reach it as the `hook` members
@@ -1080,11 +1090,11 @@ fn gate_outcome(before: bool, now: GateHookState) -> ApplyOutcome {
 /// reads `Unchanged`.
 fn evaluate_placements(
     root: &Path,
-    temper_dir: &Path,
     dry_run: bool,
     gate_before: Option<[bool; GATE_HOOK_COUNT]>,
+    lock: &DocumentMut,
 ) -> miette::Result<Vec<InstallEntry>> {
-    let targets = drift::emit_owned_targets(temper_dir);
+    let targets = drift::emit_owned_targets_from_doc(lock);
 
     let mut entries = Vec::new();
     let settings_path = settings_path(root);

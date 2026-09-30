@@ -213,7 +213,8 @@ fn a_freshly_emitted_frontmatter_projection_carries_its_note_with_no_install_run
         temper::install::represented_by(&harness).is_some(),
         "an authored program is the represent answer, whatever the lock says"
     );
-    let findings = temper::install::gate_installed(&harness);
+    let lock = temper::drift::read_lock_document(&into).unwrap();
+    let findings = temper::install::gate_installed(&harness, &lock);
     assert!(
         !findings
             .iter()

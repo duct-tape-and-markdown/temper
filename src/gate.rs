@@ -733,8 +733,10 @@ pub fn gate(
     // The install self-verify: temper checking its
     // *own* gate is wired. Advisory (warn) only — a not-yet-installed gate nudges
     // without failing the run, and the session-start reporter ignores warn
-    // severity.
-    diagnostics.extend(install::gate_installed(harness_root));
+    // severity. It reads the hoisted `lock_doc` like every tier above it: the
+    // placements it judges are the rows this workspace's lock declares emit-owned,
+    // and `harness_root`'s workspace is the one `lock_doc` came off.
+    diagnostics.extend(install::gate_installed(harness_root, &lock_doc));
 
     // The one site walk over every discovered kind, feeding both disk-vs-lock facts
     // below and the coverage note's undeclared disclosure above them.

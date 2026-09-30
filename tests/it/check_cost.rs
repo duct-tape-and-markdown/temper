@@ -361,9 +361,13 @@ import_hash = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 /// door onto the same file is a per-tick disk read and a per-tick TOML parse.
 ///
 /// The two pins beside this one drive `emit` and a hand-assembled stand-in for the gate;
-/// neither runs `gate()`, so neither saw the second door it opened — `read_declarations`
-/// read and parsed the lock past both counters. Counting the real run is what closes that:
-/// the pin reads 2/2 on the pre-fix tree once that face counts, 1/1 with the read hoisted.
+/// neither runs `gate()`, so neither saw the doors it opened past both counters.
+///
+/// The fixture is deliberately **represented** — it carries a `.temper/harness.ts`, all
+/// `install::represented_by` asks for — so the install self-verify takes its
+/// `evaluate_placements` branch rather than the settings-only one. That branch is where
+/// the two extra doors were: this pin reads 3/3 on a tree where `gate_installed` reads
+/// the lock itself, and 1/1 with the gate's one document threaded in.
 #[test]
 fn gate_reads_and_parses_the_lock_once() {
     use temper::drift::{self, Declarations};
@@ -390,6 +394,14 @@ fn gate_reads_and_parses_the_lock_once() {
             ..Declarations::default()
         },
     );
+    // Represented: a stub program is enough, since `represented_by` only asks whether the
+    // entry file is there. The lock carries no provenance rows, so the represented branch
+    // reads no target files and the counter delta is exactly the lock doors.
+    fs::write(
+        harness.join(".temper").join("harness.ts"),
+        "export default {};\n",
+    )
+    .unwrap();
 
     let reads_before = drift::lock_read_count();
     let parses_before = drift::lock_parse_count();
@@ -409,6 +421,21 @@ fn gate_reads_and_parses_the_lock_once() {
     assert!(
         summary.contains("skill (1"),
         "the run must have judged the harness's one skill member, got: {summary}",
+    );
+
+    // Non-vacuity for the branch this pin exists to count: the self-verify's advisory
+    // names the gate hook module an *author* owes, which only the represented branch
+    // spells — the settings-only branch says `run \`temper install\`` instead. Without
+    // this the fixture could silently drift back off the branch and the count would go
+    // green over the door it never opened.
+    let self_verify = &diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.rule == "install.gate-installed")
+        .expect("the represented harness's self-verify reports its unwired gate")
+        .message;
+    assert!(
+        self_verify.contains("author `.temper/"),
+        "the self-verify must have taken the represented branch, got: {self_verify}",
     );
 
     assert_eq!(

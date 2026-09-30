@@ -151,6 +151,14 @@ fn has_entry(outcome: &InstallOutcome, placement: temper::install::Placement) ->
     outcome.entries.iter().any(|e| e.placement == placement)
 }
 
+/// The self-verify driven the way `check` drives it: the harness's parsed lock read once
+/// and threaded into the face, so the twelve arms below carry one expression rather than
+/// twelve copies of the read.
+fn gate_installed(root: &Path) -> Vec<temper::check::Diagnostic> {
+    let lock = drift::read_lock_document(&root.join(".temper")).unwrap();
+    install::gate_installed(root, &lock)
+}
+
 /// The message of the one advisory `gate_installed` folds every unplaced placement into,
 /// asserting it really is one: a second diagnostic would let an arm below match a needle in
 /// a finding it was not reasoning about.
@@ -1393,7 +1401,7 @@ fn the_post_tool_use_row_runs_the_guard_the_pre_tool_use_row_runs() {
 
     // The self-verify shadow `check` folds in reads the whole gate — the post row
     // included — as installed and undrifted.
-    let findings = install::gate_installed(&root);
+    let findings = gate_installed(&root);
     assert!(
         findings.is_empty(),
         "the wired gate must read as installed, got: {findings:?}"
@@ -1634,7 +1642,7 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
     let root = write_harness("gate", false);
 
     // Foreign harness with no .temper/ directory: gate_installed is silent.
-    let before = install::gate_installed(&root);
+    let before = gate_installed(&root);
     assert_eq!(
         before.len(),
         0,
@@ -1649,7 +1657,7 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::No, false).unwrap();
     assert!(install::represented_by(&root).is_none());
-    assert!(install::gate_installed(&root).is_empty());
+    assert!(gate_installed(&root).is_empty());
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
@@ -1660,7 +1668,7 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
     // member module in a program the harness does not have.
     let settings_path = root.join(".claude").join("settings.json");
     fs::write(&settings_path, "{}\n").unwrap();
-    let message = one_gate_finding(&install::gate_installed(&root)).to_string();
+    let message = one_gate_finding(&gate_installed(&root)).to_string();
     assert!(
         message.contains("session-start hook missing: run `temper install`"),
         "an unrepresented harness's gate is the verb's to place, got: {message}"
@@ -1676,9 +1684,9 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert!(install::represented_by(&root).is_some());
     assert!(
-        install::gate_installed(&root).is_empty(),
+        gate_installed(&root).is_empty(),
         "got: {:?}",
-        install::gate_installed(&root)
+        gate_installed(&root)
     );
 }
 
@@ -1702,7 +1710,7 @@ fn gate_installed_names_stale_noted_files() {
 
     // Verify gate is clean after initial install.
     assert!(
-        install::gate_installed(&root).is_empty(),
+        gate_installed(&root).is_empty(),
         "gate_installed must be clean after successful install"
     );
 
@@ -1725,7 +1733,7 @@ fn gate_installed_names_stale_noted_files() {
     fs::write(&skill_file, modified).unwrap();
 
     // gate_installed should now report the stale placement.
-    let findings = install::gate_installed(&root);
+    let findings = gate_installed(&root);
     assert_eq!(
         findings.len(),
         1,
@@ -1772,7 +1780,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
         "the lift wires the SessionStart hook through the program"
     );
     assert!(
-        install::gate_installed(&root).is_empty(),
+        gate_installed(&root).is_empty(),
         "gate must be clean after a successful install"
     );
 
@@ -1820,7 +1828,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
 
     // And `check`'s self-verify says so, with the remedy the author owes: the module, and
     // the binding its handler should run instead of a literal that can go stale again.
-    let findings = install::gate_installed(&root);
+    let findings = gate_installed(&root);
     let message = one_gate_finding(&findings);
     for needle in [
         "session-start hook stale",
@@ -1853,7 +1861,7 @@ fn gate_installed_names_a_deleted_gate_hook_member_with_its_module_and_import_li
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
-    assert!(install::gate_installed(&root).is_empty());
+    assert!(gate_installed(&root).is_empty());
 
     // Delete the guard's member whole — the module and both lines of `harness.ts` that
     // reach it — so the program declares no hook at `(PreToolUse, Write|Edit|MultiEdit)`.
@@ -1885,7 +1893,7 @@ fn gate_installed_names_a_deleted_gate_hook_member_with_its_module_and_import_li
          purpose, got:\n{settings}"
     );
 
-    let findings = install::gate_installed(&root);
+    let findings = gate_installed(&root);
     let message = one_gate_finding(&findings);
     for needle in [
         "guard hook missing",

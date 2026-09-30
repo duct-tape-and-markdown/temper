@@ -2392,10 +2392,11 @@ fn member_path_index(
 }
 
 /// One raw row from the lock's declaration table — all fields as Options, since
-/// [`read_prior_provenance_from_doc`], [`config_stale`], and [`emit_owned_targets`] each
+/// [`read_prior_provenance_from_doc`], [`config_stale`], and
+/// [`emit_owned_targets_from_doc`] each
 /// require different subsets of the columns (name+source_path+emit_hash,
 /// name+source_path+emit_hash, and name+source_path respectively). A single
-/// `walk_lock_rows` does the file read and lock parse once; each consumer
+/// `walk_lock_rows_from_doc` walks the already-parsed lock once; each consumer
 /// filter_maps over rows to extract its required columns.
 struct RawLockRow {
     /// The member's kind (bare name — `"skill"`, `"rule"`, …).
@@ -2435,14 +2436,6 @@ fn walk_lock_rows_from_doc(doc: &DocumentMut) -> Vec<RawLockRow> {
         }
     }
     rows
-}
-
-/// Walk the committed lock's declaration rows once, reading the lock file and
-/// parsing every `[[<kind>]]` array-of-tables entry — returns all columns
-/// (as Options) for each row. A missing or malformed lock yields no rows.
-fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow> {
-    let doc = read_lock_document_for_emit(workspace_dir);
-    walk_lock_rows_from_doc(&doc)
 }
 
 /// One provenance row read back off a workspace's prior `lock.toml` — the same
@@ -3751,13 +3744,23 @@ pub struct EmitOwnedEntry {
 /// A missing or malformed lock yields no targets — the same "no lock, nothing to
 /// bind" absence [`config_stale`] treats identically.
 ///
+/// The one-read wrapper over [`emit_owned_targets_from_doc`]: it opens the lock once
+/// and answers both halves off that document. A caller already holding the parsed lock
+/// takes the `_from_doc` face instead of paying a read at all.
+#[must_use]
+pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
+    emit_owned_targets_from_doc(&read_lock_document_for_emit(workspace_dir))
+}
+
+/// Every emit-owned path an already-parsed lock declares ([`emit_owned_targets`]).
+///
 /// Includes `.claude/settings.json` when any registration-member kind
 /// (hook, installed-plugin, known-marketplace) has members in the lock:
 /// these kinds compose into the spliced settings.json artifact, making it
 /// emit-owned and subject to the guard.
 #[must_use]
-pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
-    let rows = walk_lock_rows(workspace_dir);
+pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
+    let rows = walk_lock_rows_from_doc(doc);
     let mut targets: Vec<EmitOwnedEntry> = rows
         .into_iter()
         .filter_map(|raw| {
@@ -3774,7 +3777,7 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
 
     // Check if any registration-member kind exists (hook, installed-plugin, known-marketplace).
     // If so, .claude/settings.json becomes an emit-owned target since it's composed from them.
-    let has_registration_members = read_declarations(workspace_dir)
+    let has_registration_members = declarations_from_doc(doc)
         .ok()
         .map(|decls| {
             decls.registrations.iter().any(|reg| {
