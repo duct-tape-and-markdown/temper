@@ -108,7 +108,7 @@ hard.
 
 ## Standing discipline (mechanical, paid for)
 
-- Loop on flume 0.19.0 (09-24; queue is `plan/pending/<TAG>.json`), Opus both phases, `maxParallel: 2`;
+- Loop on flume 0.21.0 (09-30; queue is `plan/pending/<TAG>.json`, tick branches `flume/<checkout>/<slug>`, log lines ISO-stamped), Opus both phases, `maxParallel: 2`;
   worktrees off-repo via the chain's `worktreesBase`. Relaunch:
   `CARGO_BUILD_JOBS=4 setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`
   (the cap is load-bearing: default cargo on 20 cores linking ~60 test
