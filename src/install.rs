@@ -315,9 +315,19 @@ fn guard_message() -> &'static str {
 /// [`guard_message`], the file is not a projection the author edited: it is a document
 /// the program declares nothing about, so the finding names the governing kind rather
 /// than an owning module.
-fn undeclared_locus_message(kind: &str) -> String {
+///
+/// `custom` is the governing kind's own ([`GuardedLocus::custom`]), and it decides the
+/// loader claim exactly as it does in `check`'s finding: Claude Code loads a built-in
+/// kind's locus, and who reads a locus the author's own kind declares is not temper's to
+/// assert.
+fn undeclared_locus_message(kind: &str, custom: bool) -> String {
+    let loader_claim = if custom {
+        ""
+    } else {
+        ", yet Claude Code loads it"
+    };
     format!(
-        "temper-governed locus: this write lands a document at the `{kind}` kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared, yet Claude Code loads it; declare the member in the program and re-emit. {}",
+        "temper-governed locus: this write lands a document at the `{kind}` kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared{loader_claim}; declare the member in the program and re-emit. {}",
         binding_limit()
     )
 }
@@ -375,7 +385,11 @@ fn guard_manifest_unparseable_message() -> &'static str {
 /// ([`shell_edge_findings`]) follow it, one per line, each already naming the projection
 /// that moved and the member that owns it. It states the restore rather than a limit: the
 /// write has landed, so there is nothing left to refuse but the call's result.
-const GUARD_SHELL_EDGE_MESSAGE: &str = "temper-managed projection drift: this call left a committed projection out of sync with the .temper/ surface the lock fingerprinted — edit the owning .temper/ module or document and re-run `temper emit` to restore it. A shell tool's writes name no path in the hook payload, so this edge judges the projection set the lock declares rather than one file.";
+///
+/// It states the **tree's condition**, never the call's authorship: the edge enumerates
+/// the lock's declared set rather than reading a path off the payload, so a projection it
+/// finds drifted may have been moved by any earlier call, or by no call at all.
+const GUARD_SHELL_EDGE_MESSAGE: &str = "temper-managed projection drift: a committed projection is out of sync with the .temper/ surface the lock fingerprinted — edit the owning .temper/ module or document and re-run `temper emit` to restore it. A shell tool's writes name no path in the hook payload, so this edge judges the projection set the lock declares rather than one file, and cannot say which call moved it.";
 
 /// The header `temper guard` prints at the **post** edge over its **locus** half: a document
 /// the call left at a represented kind's governed locus that the lock declares no member
@@ -385,7 +399,12 @@ const GUARD_SHELL_EDGE_MESSAGE: &str = "temper-managed projection drift: this ca
 /// Names the governing kind's locus rather than an owning member, the same split
 /// [`undeclared_locus_message`] makes at the pending-write edge, and states the restore
 /// rather than a limit for the same reason its drift sibling does.
-const GUARD_SHELL_EDGE_LOCUS_MESSAGE: &str = "temper-governed locus: this call left a document at a represented kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared, yet Claude Code loads it; declare the member in the program and re-emit, or remove the file. A shell tool's writes name no path in the hook payload, so this edge enumerates the loci the lock's kinds govern rather than one file.";
+///
+/// Like its drift sibling it states the tree's condition and never the call's authorship.
+/// It also carries no loader claim: it heads a set of strays from any number of kinds, and
+/// whether Claude Code loads one turns on whose kind governs its locus — a per-kind fact
+/// each finding under it already speaks ([`drift::undeclared_locus_members_from_doc`]).
+const GUARD_SHELL_EDGE_LOCUS_MESSAGE: &str = "temper-governed locus: a document sits at a represented kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared; declare the member in the program and re-emit, or remove the file. A shell tool's writes name no path in the hook payload, so this edge enumerates the loci the lock's kinds govern rather than one file, and cannot say which call left it.";
 
 /// The extended-regex `temper guard` greps the payload for the firing event's own
 /// `hook_event_name`, the field that says which edge of the tool call this is. The same
@@ -1461,7 +1480,7 @@ pub fn guard(
         if let Some(owner) = matched_projection(&file_path, root, targets) {
             format!("{}{}", guard_message(), projection_owner_line(owner))
         } else if let Some(locus) = matches_governed_locus(&file_path, root, loci) {
-            undeclared_locus_message(&locus.kind)
+            undeclared_locus_message(&locus.kind, locus.custom)
         } else {
             return allow();
         }
@@ -3096,17 +3115,21 @@ mod tests {
             .split_once(&format!("({tools})"))
             .unwrap_or_else(|| panic!("the limit names the matcher's tools, got: {tail}"));
 
-        let undeclared = undeclared_locus_message("skill");
-        let messages: [&str; 5] = [
+        // Both spellings of the locus message: the loader claim moves with the kind's
+        // `custom`, and the limit is owed by either tail.
+        let undeclared = undeclared_locus_message("skill", false);
+        let undeclared_custom = undeclared_locus_message("widget", true);
+        let messages: [&str; 6] = [
             guard_message(),
             &undeclared,
+            &undeclared_custom,
             guard_manifest_message(),
             guard_manifest_edit_message(),
             guard_manifest_unparseable_message(),
         ];
         assert_eq!(
             messages.len(),
-            5,
+            6,
             "every pending-write guard message is judged here"
         );
         for message in messages {

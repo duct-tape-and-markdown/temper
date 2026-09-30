@@ -767,7 +767,7 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
                 );
                 assert!(
                     context.contains(".claude/rules/stray.md"),
-                    "and names the document the call left, got: {context}"
+                    "and names the stray document it found, got: {context}"
                 );
                 assert!(
                     !context.contains("temper-managed projection drift"),
@@ -788,7 +788,7 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
                 );
                 assert!(
                     reason.contains(".claude/rules/stray.md"),
-                    "and names the document the call left, got: {reason}"
+                    "and names the stray document it found, got: {reason}"
                 );
             }
             _ => assert!(
@@ -819,6 +819,18 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
         context.contains("temper-governed locus") && context.contains(".claude/rules/stray.md"),
         "and the locus half beside it, got: {context}"
     );
+    // Neither preamble claims the call wrote what it names. This edge enumerates the
+    // lock's projection set and the loci its kinds govern — it never reads a path off
+    // the payload — so a drifted projection or a stray it finds may be any earlier
+    // call's, or no call's at all. Asserted over the report both preambles share, so
+    // one half cannot regain the authorship the other dropped.
+    for claim in ["this call left", "this write", "this call wrote"] {
+        assert!(
+            !context.contains(claim),
+            "the post edge states the tree's condition, never the call's authorship, but \
+             it claims `{claim}`, got: {context}"
+        );
+    }
 }
 
 /// The locus half is opt-in at the post edge exactly as it is at the pending-write edge: a

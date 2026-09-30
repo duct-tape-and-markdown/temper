@@ -462,3 +462,85 @@ fn an_unrepresented_harness_reports_no_undeclared_member_however_many_it_finds()
         "an unrepresented harness names no undeclared member, got: {findings:#?}"
     );
 }
+
+/// Commit a lock declaring both the `widget` custom kind and the `rule` built-in, each
+/// with one projected member — the two-kind represented harness the loader-claim arms
+/// need, since the claim's discriminator is whose kind governs the locus.
+fn lock_widget_and_rule(root: &Path) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                widget_kind_facts(".claude/widgets", "*.json"),
+                common::rule_kind_facts(None, &[]),
+            ],
+            ..Declarations::default()
+        },
+        members: vec![
+            PayloadMember {
+                kind: "widget".to_string(),
+                name: "panel".to_string(),
+                host: None,
+                fields: Vec::new(),
+                body: "{}\n".to_string(),
+                source_path: None,
+            },
+            common::rule_member("declared", None, "# declared\n\nBody.\n"),
+        ],
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+/// The stray-at-a-governed-locus finding asserts only what temper knows about who reads
+/// the document. Claude Code's own loci are the built-in kinds', so a stray under one is
+/// context Claude Code loads and the finding says so; a custom kind's locus is the
+/// author's, and nothing temper holds says what reads it — so the claim is dropped there,
+/// exactly where the `local` remedy is offered instead.
+///
+/// Both arms in one harness, each pinned positively and negatively: an arm that simply
+/// stopped producing a finding would otherwise read as clean.
+#[test]
+fn a_custom_kinds_locus_stray_names_no_loader_while_a_built_ins_does() {
+    let harness = common::tmpdir("locus-stray-loader-claim");
+    lock_widget_and_rule(&harness);
+    common::write_sibling(&harness, ".claude/widgets/stray.json", "{}\n");
+    common::write_rule(&harness, "stranger");
+
+    let (findings, success) = check_harness(&harness);
+
+    let undeclared = common::findings_for(&findings, "root.locus-declared");
+    assert_eq!(
+        undeclared.len(),
+        2,
+        "one stray at each kind's locus is named, got: {findings:#?}"
+    );
+    let custom = undeclared
+        .iter()
+        .find(|f| f.contains(".claude/widgets/stray.json"))
+        .unwrap_or_else(|| panic!("the custom kind's stray is named, got: {undeclared:#?}"));
+    let built_in = undeclared
+        .iter()
+        .find(|f| f.contains(".claude/rules/stranger.md"))
+        .unwrap_or_else(|| panic!("the built-in kind's stray is named, got: {undeclared:#?}"));
+
+    assert!(
+        custom.contains("`widget`") && custom.contains("declare its kind `local`"),
+        "the custom arm names its kind and offers the remedy only it can take, got: {custom}"
+    );
+    assert!(
+        !custom.contains("Claude Code"),
+        "and claims nothing about who loads a locus the author's own kind governs, got: \
+         {custom}"
+    );
+
+    assert!(
+        built_in.contains("`rule`") && built_in.contains("yet Claude Code loads it"),
+        "the built-in arm still says Claude Code loads its locus, got: {built_in}"
+    );
+    assert!(
+        !built_in.contains("declare its kind `local`"),
+        "and still offers no remedy a built-in's commitment refuses, got: {built_in}"
+    );
+
+    assert!(success, "both findings stay advisory, got: {findings:#?}");
+}

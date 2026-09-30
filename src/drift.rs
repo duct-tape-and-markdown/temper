@@ -3062,8 +3062,13 @@ pub struct UndeclaredLocusMembers {
 /// A document at a represented kind's locus that no row names is the file-locus twin of
 /// the layout stranger: `emit` will never maintain it — orphan classification iterates
 /// *lock rows*, so a disk file with no row is never classified and no orphan-drift is
-/// reported over it — and `guard` never bound it, yet Claude Code loads it. Remedy named
-/// first is to declare the member and re-emit.
+/// reported over it — and `guard` never bound it. Remedy named first is to declare the
+/// member and re-emit.
+///
+/// The loader claim rides [`LocusMemberSite::custom`], the same discriminator the `local`
+/// remedy does: a built-in kind's locus is Claude Code's own, so the finding says Claude
+/// Code loads the document; a custom kind's locus is the author's, and who reads it is
+/// not temper's to assert.
 ///
 /// `clause` is the root member's own [`contract::Predicate::LocusDeclared`] clause, read
 /// for all three channels exactly as [`undeclared_layout_members_from_doc`] reads it:
@@ -3091,18 +3096,24 @@ pub fn undeclared_locus_members_from_doc(
             continue;
         }
         *verdict.counts.entry(site.kind.clone()).or_default() += 1;
-        // The `local` remedy is a custom kind's alone; a built-in's commitment is not
-        // the author's to respell, so offering it there would name a move that refuses.
-        let local_remedy = if site.custom {
-            ", or declare its kind `local` so `check` derives its rows at read time"
+        // Both tails turn on the same fact. The `local` remedy is a custom kind's alone;
+        // a built-in's commitment is not the author's to respell, so offering it there
+        // would name a move that refuses. The loader claim is a built-in kind's alone:
+        // Claude Code loads its locus, and nothing temper holds says who reads a locus
+        // the author's own kind declares.
+        let (loader_claim, local_remedy) = if site.custom {
+            (
+                "",
+                ", or declare its kind `local` so `check` derives its rows at read time",
+            )
         } else {
-            ""
+            (", yet Claude Code loads it", "")
         };
         verdict.findings.push(crate::check::Diagnostic::from_clause(
             clause,
             site.source_path.as_str(),
             format!(
-                "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it, yet Claude Code loads it; declare the member in the program and re-emit{local_remedy}",
+                "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it{loader_claim}; declare the member in the program and re-emit{local_remedy}",
                 site.source_path, site.kind
             ),
         ));
