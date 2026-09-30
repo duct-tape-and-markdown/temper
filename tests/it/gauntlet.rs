@@ -129,20 +129,23 @@ const authoring = rule({
 // plugin's `<plugin>@<marketplace>` key names `acme-marketplace`, and the
 // known-marketplace declares it, so the marketplace-half edge resolves on the
 // reference graph (0039).
-const sessionHook = hook({ name: "SessionStart", type: "command", command: "temper reporter" });
-// The second hook is a *non-command* handler: an `http` one carrying its documented `url`.
-// It is the corpus's one guarded clause over a manifest member — `hook`'s per-handler-kind
-// `when` guards fire on the member's own `type`, so this entry exercises a guard composing
-// over a group-array registration beside the object-shape (`known-marketplace`) and
-// scalar-shape (`installed-plugin`) ones. Legal, so the only verdict it moves is the
-// member tally. `PostToolUseFailure` is deliberate: the three events temper's own gate
-// places at (`SessionStart`, `PreToolUse`, `PostToolUse`) would additionally supersede a
-// gate placement, and this cell is about the guard, not about that.
+const sessionHook = hook({
+  name: "SessionStart",
+  hooks: [{ type: "command", command: "temper reporter" }],
+});
+// The second hook fires a *non-command* handler: an `http` one carrying its documented
+// `url`. It is the corpus's one guarded clause over a manifest member — the per-handler-kind
+// `when` guards live in `handler`'s default contract and fire on the handler child's own
+// `type`, so this entry exercises a guard composing over the handler child of a group-array
+// registration, beside the object-shape (`known-marketplace`) and scalar-shape
+// (`installed-plugin`) ones. Legal, so the only verdict it moves is the member tally — which
+// now counts the handler child too. `PostToolUseFailure` is deliberate: the three events
+// temper's own gate places at (`SessionStart`, `PreToolUse`, `PostToolUse`) would
+// additionally supersede a gate placement, and this cell is about the guard, not about that.
 const auditHook = hook({
   name: "PostToolUseFailure",
   matcher: "Write",
-  type: "http",
-  url: "https://hooks.example.com/audit",
+  hooks: [{ type: "http", url: "https://hooks.example.com/audit" }],
 });
 const formatterPlugin = installedPlugin({ name: "formatter@acme-marketplace", enabled: true });
 const acmeMarketplace = knownMarketplace({ name: "acme-marketplace", source: "./vendor/acme-marketplace" });

@@ -723,11 +723,10 @@ fn hook_group_members(
 ///
 /// The two contributors to the handler array are one rule, not two spellings: a member
 /// read off a manifest carries its whole `member_key` array and no residue, so the write
-/// is the read's exact inverse; a member whose program spells the handler's own fields
-/// flat carries no array and exactly that residue, so it nests into the single handler it
-/// means. The second is what the SDK's `hook()` authors today — the surface
-/// HOOK-AUTHORS-ITS-HANDLERS moves onto the array — and until it moves, both spellings
-/// reach this one face.
+/// is the read's exact inverse; a group-array member whose fields spell a handler flat,
+/// carrying no `member_key` array, nests into the one handler it means. Both reach this one
+/// face, and neither is privileged — the residue arm is the standing rule for any
+/// group-array kind, not a transitional read of one kind's authoring surface.
 pub(crate) fn hook_matcher_group(
     fields: &[(String, JsonValue)],
     member_key: &str,
@@ -1161,9 +1160,8 @@ mod tests {
 
     #[test]
     fn a_flat_authored_group_row_nests_into_the_single_handler_it_spells() {
-        // The write face's other contributor: a member whose program spelled the handler's
-        // own fields flat carries no handler array, so they nest as the one handler they
-        // mean — the shape `hook()` authors until HOOK-AUTHORS-ITS-HANDLERS moves it.
+        // The write face's other contributor: a member whose fields spell the handler's own
+        // fields flat carries no handler array, so they nest as the one handler they mean.
         let group = hook_matcher_group(
             &[
                 ("matcher".to_string(), JsonValue::from("Bash")),

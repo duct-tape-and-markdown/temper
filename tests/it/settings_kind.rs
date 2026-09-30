@@ -38,8 +38,7 @@ import { hook, settings } from "@dtmd/temper/claude-code";
 
 const sessionStart = hook({
   name: "SessionStart",
-  type: "command",
-  command: "temper reporter",
+  hooks: [{ type: "command", command: "temper reporter" }],
 });
 
 const projectSettings = settings({
@@ -60,8 +59,7 @@ import { hook } from "@dtmd/temper/claude-code";
 
 const sessionStart = hook({
   name: "SessionStart",
-  type: "command",
-  command: "temper reporter",
+  hooks: [{ type: "command", command: "temper reporter" }],
 });
 
 process.stdout.write(

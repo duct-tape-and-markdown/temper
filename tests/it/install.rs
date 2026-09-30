@@ -1717,8 +1717,7 @@ fn gate_installed_does_not_report_superseded_by_member() {
         "import { hook } from \"@dtmd/temper/claude-code\";\n\n\
          export const hook_SessionStart = hook({\n  \
          name: \"SessionStart\",\n  \
-         type: \"command\",\n  \
-         command: \"echo test\",\n\
+         hooks: [{ type: \"command\", command: \"echo test\" }],\n\
          });\n",
     )
     .unwrap();
