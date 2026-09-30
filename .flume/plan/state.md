@@ -1,16 +1,17 @@
 # Plan state
 
 - Spec derived through: f26213a0 — copied forward; the specs delta is empty.
-- Audited through: 152fed1a — 839589ee..152fed1a reconciled, both motions.
-- Residue swept through: 152fed1a — same window, same tick.
+- Audited through: 152fed1a — copied forward; 152fed1a..HEAD carries one ship
+  (ac1bac67) and is unreconciled.
+- Residue swept through: 152fed1a — copied forward, same window.
 - Posture swept through: 7d695577 — copied forward; its forward window is
-  191 commits wide and is now the only live plan input.
-- This tick: reconciled 839589ee..HEAD — three ships verified on disk, twelve
-  gates re-tested, and the flat-hook census widened by the site it missed.
-- Queue: 13 pending — 1 open, 6 blockedBy, 3 parked, 3 deferred. Pickable: 1 —
-  EVERY-AUTHORED-HOOK-SPELLS-ITS-HANDLERS, the hook spine's head and 6
-  entries' gate. Open forks: 1. Friction: 2 (both live). Amendments: 0.
+  191 commits wide.
+- This tick: drained the read-verbs fence capture — HOOK-NAME-JOINS-ITS-MATCHER
+  re-cut, one arm added and four verified-no-churn paths dropped.
+- Queue: 12 pending — 1 open, 5 blockedBy, 3 parked, 3 deferred. Pickable: 1 —
+  HOOK-NAME-JOINS-ITS-MATCHER, the hook spine's head and all 5 blockedBy
+  entries' root. Open forks: 1. Friction: 2 (both live). Amendments: 0.
   Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture sweep's forward window
-(7d695577..HEAD), which waits behind the one pickable entry.
+Plan continues: yes — post-ship reconciliation of 152fed1a..HEAD (ac1bac67's
+ship, both motions).
