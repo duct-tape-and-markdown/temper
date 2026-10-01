@@ -2256,8 +2256,12 @@ fn requirement_detail(
 /// its rationale) is not duplicated from `by_kind`, whose decidable `Features::satisfies`
 /// carries none.
 ///
-/// If the requirement has a declared `kind`, only members of that kind are included
-/// — a member of a different kind is a finding, never a silent member of the satisfier set.
+/// The opt-in join is the **only** filter: a requirement's `kind` facet never narrows
+/// this set (selectors do not compose — `contract.md`, "selection"). The facet sources an
+/// each-grain clause over exactly this kind-blind set ([`compose::kind_narrowing_clause`]),
+/// so a wrong-kind opt-in is narrated as a satisfier the gate will indict, never dropped
+/// before it can be seen. This set and [`count_satisfiers`] therefore agree, and both
+/// agree with [`coverage::check`](crate::coverage::check).
 fn satisfiers_of(
     members: &[Member],
     by_kind: &BTreeMap<&str, &[Features]>,
@@ -2270,14 +2274,7 @@ fn satisfiers_of(
                 .satisfies
                 .iter()
                 .find(|satisfies| satisfies.requirement == requirement.name)
-                .and_then(|satisfies| {
-                    if let Some(required_kind) = &requirement.kind
-                        && member.kind != *required_kind
-                    {
-                        return None;
-                    }
-                    Some((member.clone(), satisfies.rationale.clone()))
-                })
+                .map(|satisfies| (member.clone(), satisfies.rationale.clone()))
         })
         .collect();
 
@@ -2288,11 +2285,6 @@ fn satisfiers_of(
                     .iter()
                     .any(|(member, _)| member.kind == kind && member.id == features.id)
             {
-                if let Some(required_kind) = &requirement.kind
-                    && kind != required_kind
-                {
-                    continue;
-                }
                 satisfiers.push((
                     Member {
                         kind: kind.to_string(),

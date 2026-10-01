@@ -12,6 +12,7 @@
 use std::collections::BTreeMap;
 
 use temper::compose::Requirement;
+use temper::coverage;
 use temper::drift::{self, CollectionAddressRow, LayoutRegionRow, LayoutRow, TemplateRow};
 use temper::extract::{EmbeddedMember, Features};
 use temper::read::{self, CustomMember};
@@ -173,6 +174,49 @@ fn a_requirement_targets_authored_prose_narrates_verbatim() {
     assert!(
         out.contains("the corpus carries a north-star intent spec"),
         "explain must narrate the requirement's authored prose verbatim: {out}"
+    );
+}
+
+#[test]
+fn a_requirements_kind_facet_never_narrows_its_satisfier_set() {
+    // The requirement's `kind` facet is not a second selector: selectors are atomic and
+    // do not compose, so narrowing is an each-grain clause over the opt-in selection and
+    // never a filter on it (contract.md, "selection"). Here the sole opt-in member is of
+    // the *other* kind — a `skill` opting into a `kind: rule` requirement — which is the
+    // case the two sides must agree on: the gate counts it (`coverage::check` is
+    // kind-blind by construction) so the read must narrate it, and the wrong kind is then
+    // the narrowing clause's finding to raise, never a member silently absent from the set.
+    let members = [feature("quickstart", &["rules-documented"])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &members[..])]);
+    let roster = BTreeMap::from([(
+        "rules-documented".to_string(),
+        Requirement {
+            kind: Some("rule".to_string()),
+            ..req("rules-documented", true)
+        },
+    )]);
+
+    let out = explain(&[], &by_kind, &roster, "requirement:rules-documented");
+    assert!(
+        out.contains("required, filled by 1 member(s)"),
+        "the wrong-kind opt-in fills the requirement, exactly as the gate counts it: {out}"
+    );
+    assert!(
+        out.contains("Satisfied by:") && out.contains("`quickstart` (skill)"),
+        "and the satisfier is named, with its own kind, rather than dropped: {out}"
+    );
+
+    // The same corpus through the gate: no `requirement.unfilled`, so read and verdict
+    // state one fact between them.
+    let unfilled: Vec<String> = coverage::check(&roster, &members)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.rule == "requirement.unfilled")
+        .map(|diagnostic| diagnostic.artifact)
+        .collect();
+    assert!(
+        unfilled.is_empty(),
+        "the gate reports nothing unfilled over the same stream the read narrated as \
+         filled: {unfilled:?}"
     );
 }
 
