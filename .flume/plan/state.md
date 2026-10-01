@@ -6,10 +6,11 @@
 - Posture swept through: mid-rotation — frontier armed at ee7de9f9 (the
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`. `src/install.rs` next.
-- This tick: swept the drift.rs neighborhood — filed
-  EMIT-OWNED-MANIFEST-DERIVES-FROM-DECLARED-FACTS and one cohesion capture.
-- Queue: 7 pending — 1 open, 3 parked, 3 deferred. Pickable: 1. Open forks: 1.
-  Friction: 2. Amendments: 0. Refactor: 1. Inbox: 0.
+- This tick: drained the drift.rs cohesion capture into parked
+  LOCK-DECLARATION-CODEC-GETS-ITS-OWN-MODULE and reconciled the open entry's
+  ripple (`src/install.rs` widened in).
+- Queue: 8 pending — 1 open, 4 parked, 3 deferred. Pickable: 1. Open forks: 1.
+  Friction: 2. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the refactor capture this tick filed drains ahead of the
-open rotation's next neighborhood.
+Plan continues: after-build — the posture rotation resumes on `src/install.rs`
+once the wave hands back; nothing else is queue-shaping.
