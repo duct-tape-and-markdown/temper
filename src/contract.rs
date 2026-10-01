@@ -10,6 +10,7 @@
 //! change, never a per-contract escape hatch.
 
 use std::collections::BTreeSet;
+use std::sync::LazyLock;
 
 use crate::drift::{CharsetRow, ClauseRow};
 use crate::extract::ValueType;
@@ -1124,29 +1125,15 @@ const NO_XML_TAGS_PATTERN: &str = r#"</?[A-Za-z_:][-A-Za-z0-9._:]*(\s+[A-Za-z_:]
 /// `leading-dot-slash`'s expression: the value starts with `./`.
 const LEADING_DOT_SLASH_PATTERN: &str = r"^\.\/.*";
 
-/// Every shape's compiled expression, built once. Compilation cannot fail — the patterns
-/// are crate constants, exercised by the standalone `tests/shape_predicate.rs` — so the
-/// shape's own judge never reaches for a fallible path at check time.
-static SHAPE_PATTERNS: std::sync::LazyLock<[(Shape, regex::Regex); 3]> =
-    std::sync::LazyLock::new(|| {
-        [
-            (
-                Shape::HyphenPlacement,
-                regex::Regex::new(HYPHEN_PLACEMENT_PATTERN)
-                    .expect("HYPHEN_PLACEMENT_PATTERN is a valid regex"),
-            ),
-            (
-                Shape::NoXmlTags,
-                regex::Regex::new(NO_XML_TAGS_PATTERN)
-                    .expect("NO_XML_TAGS_PATTERN is a valid regex"),
-            ),
-            (
-                Shape::LeadingDotSlash,
-                regex::Regex::new(LEADING_DOT_SLASH_PATTERN)
-                    .expect("LEADING_DOT_SLASH_PATTERN is a valid regex"),
-            ),
-        ]
-    });
+/// Compile one shape's [`pattern`](Shape::pattern) — the one home of the
+/// name-to-expression mapping, so a compiled form can never pair a shape with another's
+/// expression. Compilation cannot fail: the patterns are crate constants, exercised by
+/// `tests/it/shape_predicate.rs`, so the shape's own judge never reaches for a fallible
+/// path at check time.
+fn compile_shape_pattern(shape: Shape) -> regex::Regex {
+    regex::Regex::new(shape.pattern())
+        .unwrap_or_else(|error| panic!("`{}`'s pattern is a valid regex: {error}", shape.name()))
+}
 
 impl Shape {
     /// This shape's declared name — the spelling the lock's `shape` column carries and
@@ -1198,13 +1185,24 @@ impl Shape {
     }
 
     /// Whether `value` holds this shape.
+    ///
+    /// One compiled static per variant, selected by an exhaustive match: a fourth shape
+    /// stops compiling here rather than resolving to no expression and reading as held.
     #[must_use]
     pub fn admits(self, value: &str) -> bool {
-        let matched = SHAPE_PATTERNS
-            .iter()
-            .find(|(shape, _)| *shape == self)
-            .is_some_and(|(_, pattern)| pattern.is_match(value));
-        matched == self.match_holds()
+        static HYPHEN_PLACEMENT: LazyLock<regex::Regex> =
+            LazyLock::new(|| compile_shape_pattern(Shape::HyphenPlacement));
+        static NO_XML_TAGS: LazyLock<regex::Regex> =
+            LazyLock::new(|| compile_shape_pattern(Shape::NoXmlTags));
+        static LEADING_DOT_SLASH: LazyLock<regex::Regex> =
+            LazyLock::new(|| compile_shape_pattern(Shape::LeadingDotSlash));
+
+        let pattern: &regex::Regex = match self {
+            Shape::HyphenPlacement => &HYPHEN_PLACEMENT,
+            Shape::NoXmlTags => &NO_XML_TAGS,
+            Shape::LeadingDotSlash => &LEADING_DOT_SLASH,
+        };
+        pattern.is_match(value) == self.match_holds()
     }
 
     /// What this shape demands, in the prose a finding quotes — the teaching a clause's
