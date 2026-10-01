@@ -1,0 +1,38 @@
+{
+  "tag": "EMIT-OWNED-MANIFEST-DERIVES-FROM-DECLARED-FACTS",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "`emit_owned_targets_from_doc` (4234) drops the hard-coded `matches!(reg.kind, \"hook\" | \"installed-plugin\" | \"known-marketplace\")` test and the `\"settings\"` / `\".claude/settings.json\"` literals it pushes (4252-4270). Instead: for each `RegistrationRow` the lock carries, resolve `reg.manifest` to a path through the kind facts — `manifest_path_for` (2141) over `manifest_target_path` (2131), the same pair `emit` derives its represented-manifest set with (1848) — and push one `EmitOwnedEntry` per distinct resolved path **no already-collected row covers**, so a container member's own row keeps the path under its own name. The synthetic entry's `kind` is the kind governing that path that carries no `collection_address` (the container: `settings`, `mcp`), falling back to `emit_manifest`'s own ownerless label (`\"manifest\"` + filename, 2191-2198) — never a literal. The rows it resolves against are the committed `declarations.kinds` with `builtin_lock::declarations().kinds` laid underneath, name-keyed, committed winning: hoist that merge out of `read.rs` (2556-2568) into one `pub fn` here beside the manifest-path pair, so this derivation is not its second copy. A represented manifest is a file `emit` always writes (1848), so `install`'s placement read of the new target is safe on a real tree; a fixture that declares registrations without the manifest on disk would surface it at `evaluate_placements`."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "The committed-wins kind-fact merge at 2556-2568 calls the one home in `drift` instead of spelling it; the narration-specific half of its comment (2544-2555 — why `explain kind:agent` needs the floor) stays at the call site, the merge rule itself moving with the code."
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "`guard_binds_settings_json_when_registration_members_compose` (2321) keeps its claim off the derived path — its doc comment (2318-2320) stops enumerating the three kind names — and the suite gains the two cases the literal could not express: the `.mcp.json` constituency, and the container-row dedupe."
+      }
+    ]
+  },
+  "summary": "emit_owned_targets_from_doc derives its registration-manifest targets from the lock's declared facts, not three hard-coded kind names and a .claude/settings.json literal",
+  "per": { "path": "specs/process/architecture.md", "section": "The provider face is data" },
+  "tests": [
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "a lock carrying a `settings` container row for `.claude/settings.json` beside hook registrations yields that path exactly ONCE among `emit_owned_targets_from_doc`, under the container member's own name — the duplicate that let a synthetic `settings.json` label win `read.rs`'s path-to-id map for the path"
+    },
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "a lock whose registrations are `mcp-server` rows puts `.mcp.json` among the emit-owned targets, and `block` mode binds a pending write to it as a projection — the path the three-kind literal never reached"
+    },
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "`guard_binds_settings_json_when_registration_members_compose` stays green with the literals gone — a `hook` registration still makes `.claude/settings.json` emit-owned, resolved off the built-in floor when the fixture declares no kind row"
+    }
+  ],
+  "acceptance": "cargo test and cargo clippy --all-targets -- -D warnings green, the three install cases above passing, and no Claude Code kind name or manifest path literal left in `emit_owned_targets_from_doc`.",
+  "notes": "Verified at ee7de9f9: the literal names 3 of the 4 registration kinds, so `.mcp.json` never enters the constituency; and the push never dedupes, so this repo's own lock (a `settings` container row beside 6 hook registrations) yields `.claude/settings.json` twice — the synthetic `name = \"settings.json\"` winning `read.rs:2540`'s path-to-id map over the member's real name. scoped at ee7de9f9"
+}
