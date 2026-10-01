@@ -9,6 +9,114 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+## [0.0.22] — 2026-10-01
+
+### Upgrading from 0.0.21
+
+Each line is what a 0.0.21 harness may see first, then what to do.
+[`docs/MIGRATING-0.0.22.md`](docs/MIGRATING-0.0.22.md) walks each one with
+before and after.
+
+- **Your lock changes on the next `emit`.** The `engine` line moves to
+  `0.0.22`, and a nested file child's rows are keyed by its full address
+  (`skill:alpha/supporting-doc/home`, not `supporting-doc:home`). Re-emit
+  once and commit the lock.
+- **`emit` refuses a projection its own kind cannot find.** The usual cause
+  is a `unitShape: "directory"` kind whose glob is the bare entry file:
+  spell `GUIDE.md` as `*/GUIDE.md`.
+- **`emit` refuses a member name containing `/`.** A name is one address
+  segment. Rename it, and express depth with a nested kind.
+- **A nested child under a template with a literal directory is keyed by
+  its file stem.** Under `notes/*.md`, `notes/checklist.md` is `checklist`,
+  where it was `notes-checklist`. Respell any address that used the old key.
+- **A mention written as a bare `supporting-doc:home` string for a nested
+  file child now dangles.** Build it with `mentionOf(child)`, or spell the
+  full address.
+- **A corpus kind whose glob starts with `**/` places by its own pattern.**
+  `**/sub/*.json` lands `sub/<name>.json`, where it landed `<name>.md`.
+  Re-emit, and delete the old file if it is still on disk.
+- **A `when` body may fail `check` where it passed.** Its `closed-keys` now
+  reads the body's own `required`/`optional` rows, and `require_sections`,
+  `section_contains`, `name-matches-dir`, `format-places-edges` and
+  each-grain `extent` are refused there. Declare the element's keys in the
+  body, and move the refused clauses to the kind's own `expect`.
+- **The guard blocks writes to `.mcp.json`** when your lock declares
+  `mcp-server` members. It is a projection like any other: edit the owning
+  module and re-emit.
+- **A CI step that greps temper's output may stop matching.** Findings and
+  refusals now name members by address, `emit` prints `overwritten` for a
+  hand-edited projection it replaced, and the `root.locus-declared` and
+  guard messages are reworded. Codes, severities and exit codes are
+  unchanged.
+
+### Breaking
+
+- **Nested file children are keyed by their host-qualified address** in
+  every lock row and in the SDK (`mentionOf`). A hard-coded
+  `<kind>:<name>` mention of one is dangling.
+- **A projection path must match its own kind's glob**, and a member name
+  is one segment. Both were emitted before to files no discovery walk could
+  find.
+- **A template's literal leading directory is no longer folded into a
+  nested child's key.**
+- **A `**/` prefix names where a glob matches, never where a projection
+  lands.** A corpus kind's projection path can move; every built-in
+  projection is byte-for-byte unchanged.
+- **An address with an odd number of segments reads as a member**, at any
+  depth. A leaf's child path is joined with `.`; a leaf address whose child
+  path carried `/` now resolves as a member and is refused as not found.
+- **`when` bodies:** `closed-keys` reads the body's own rows, and clauses
+  that need the member's document are refused inside the body.
+- **`temper guard` exits 1 when stdin is not a hook payload**, where it
+  exited 0. Invoke it only from a `PreToolUse` or `PostToolUse` hook row.
+- **`.mcp.json` is emit-owned** when the lock declares `mcp-server`
+  members.
+- **`temper install --yes` refuses a registration key with a
+  Windows-reserved shape** (`:`, `|`, a trailing dot, a device name), where
+  it scaffolded the member on Unix.
+- **`emit`'s report** marks a replaced hand-edit `overwritten`, and the
+  tally gains an `overwritten` count after `emitted`.
+- **Message text:** `root.fresh` and the placement refusals name members by
+  address; `root.locus-declared`, the guard's governed-locus message and
+  the `PostToolUse` preambles are reworded; `explain` over a requirement
+  with a `kind` facet names wrong-kind satisfiers;
+  `JsonManifestError::NoDeclaredIdentity` is replaced by `NoPathIdentity`.
+
+### Added
+
+- **Nesting to any depth.** A nested file child can host a layer of its
+  own, so `area` → `page` → `intents/*.json` composes, discovers and
+  resolves, and each child is addressed through every host
+  (`area:ops/page/gate/leaf/home`).
+- **Literal directories in globs and template patterns.** `docs/*.md` and
+  `notes/*.md` place under the directory, where they were refused.
+- **`json-document` kinds can take their identity from a directory**, as a
+  markdown kind does (`*/area.json`).
+- **`emit` names a hand-edit it replaced**: `overwritten    intent  home`.
+
+### Changed
+
+- **One address grammar at every depth.** Findings, refusals, lock rows and
+  `explain` spell a member by its full address.
+- **A lock written by another temper version that this one cannot load**
+  names both versions and the remedy, instead of rejecting rows the reader
+  never wrote.
+- **`check` makes fewer whole-corpus passes per run**: the resolved edges
+  and the containment family are each derived once.
+
+### Fixed
+
+- **A `**/` glob projected `<name>.md` whatever the kind's format.**
+- **Two hosts each carrying a same-named nested file child** (two skills
+  with a `home.md`) drew a false `member.admissibility` refusal, and
+  `explain` could name neither child.
+- **A `when` row naming `when` as its own guard** crashed `check` with a
+  stack overflow. It is now refused at load.
+- **`explain address:<leaf>`** answered as if asked for a member.
+- **`install` scaffolded member modules a Windows checkout cannot write.**
+- **A `closed-keys` clause in a `when` body** flagged element keys the host
+  never declared.
+
 ## [0.0.21] — 2026-09-30
 
 ### Upgrading from 0.0.20
