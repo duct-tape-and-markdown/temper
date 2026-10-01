@@ -8,8 +8,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { blocks, embeddedMemberValue, emit, harness, kind } from "../src/index.js";
-import { memory, rule } from "../src/claude-code.js";
+import { blocks, embeddedMemberValue, emit, harness, kind, text } from "../src/index.js";
+import { memory, rule, skill, supportingDoc } from "../src/claude-code.js";
 import { declaredAddresses } from "../src/declarations.js";
 import {
   bareLookupKey,
@@ -122,10 +122,11 @@ test("a leaf address is the nested address it is a tail of, plus its leaf", () =
   });
   assert.equal(parseNestedAddress(written), undefined, "a leaf tail is no member address");
 
-  // The leaf path is the whole remainder after the third slash — its dots and its deeper
-  // slashes intact, never re-cut into a fifth segment.
+  // The leaf path is the address's final segment, its own dots intact — a child path
+  // joins its layers with `.`, so a further `/` is a further segment and the count reads
+  // the whole as a member address instead.
   assert.equal(parseLeafAddress("spec:20/decision/authority/rejected.baked.because")?.childPath, "rejected.baked.because");
-  assert.equal(parseLeafAddress("spec:20/decision/authority/a/b")?.childPath, "a/b");
+  assert.equal(parseLeafAddress("spec:20/decision/authority/a/b"), undefined, "five segments is member grain");
 
   // The bare member head this SDK's own leaf writer spells parses at leaf grain.
   assert.equal(parseLeafAddress(leafAddress("CLAUDE", "decision", "authority", "chosen"))?.member, "CLAUDE");
@@ -211,6 +212,7 @@ test("a member's own address takes its host when it has one, and its kind alone 
   const alpha = memberAddress({ kind: "supporting-doc", name: "home", host: { kind: "skill", name: "alpha" } });
   const beta = memberAddress({ kind: "supporting-doc", name: "home", host: { kind: "skill", name: "beta" } });
   assert.equal(alpha, nestedAddress(hostAddress("skill", "alpha"), "supporting-doc", "home"));
+  assert.equal(alpha, "skill:alpha/supporting-doc/home", "one layer is spelled byte for byte as it was");
   assert.notEqual(alpha, beta, "two hosts carrying one name is two addresses, never one twice");
 
   // And what it composes is the nested grain the one parser reads back — never a fourth
@@ -220,4 +222,64 @@ test("a member's own address takes its host when it has one, and its kind alone 
     kind: "supporting-doc",
     key: "home",
   });
+});
+
+test("a member's own address composes its host's, to whatever depth the model nests", () => {
+  // The host contributes its *own whole address*, so a two-layer child carries both hosts
+  // and the grandparent survives. Composed members satisfy the shape recursively, which is
+  // the only reason a depth the SDK's own factories already build can be addressed at all.
+  const demo = skill({ name: "demo", description: "Use when demonstrating." });
+  const outer = supportingDoc({ name: "outer", host: demo, prose: text`# Outer` });
+  const inner = supportingDoc({ name: "inner", host: outer, prose: text`# Inner` });
+
+  assert.equal(memberAddress(outer), "skill:demo/supporting-doc/outer");
+  assert.equal(memberAddress(inner), "skill:demo/supporting-doc/outer/supporting-doc/inner");
+
+  // Flattening the host to `<kind>:<name>` lost the grandparent, and keyed two cousins —
+  // one name under each of two outers — as one member.
+  const sibling = supportingDoc({ name: "other", host: demo, prose: text`# Other` });
+  const cousin = supportingDoc({ name: "inner", host: sibling, prose: text`# Cousin` });
+  assert.notEqual(memberAddress(cousin), memberAddress(inner), "two hosts, two addresses");
+
+  // The declaration rows key by this very address: the mention-resolution set is where the
+  // engine's reader meets it, and it spells both layers.
+  const addresses = declaredAddresses(harness({ members: [demo, outer, inner, sibling, cousin] }));
+  for (const member of [demo, outer, inner, sibling, cousin]) {
+    assert.ok(addresses.has(memberAddress(member)), `declaredAddresses spells \`${memberAddress(member)}\``);
+  }
+});
+
+test("the segment count decides the grain at any depth, host carried verbatim", () => {
+  // Odd is member grain, even is leaf grain — the one discrimination, and the two grains
+  // are disjoint by construction rather than by a reader's precedence.
+  const grains = [
+    ["skill:a/hook/on-enter", "member"],
+    ["skill:a/hook/on-enter/command", "leaf"],
+    ["area:a/page/b/leaf/k", "member"],
+    ["area:a/page/b/leaf/k/body", "leaf"],
+    ["area:a/page/b/leaf/k/deep/d", "member"],
+  ] as const;
+  for (const [address, grain] of grains) {
+    assert.equal(parseNestedAddress(address) !== undefined, grain === "member", `\`${address}\` is ${grain} grain`);
+    assert.equal(parseLeafAddress(address) !== undefined, grain === "leaf", `\`${address}\` is ${grain} grain`);
+  }
+
+  // Two layers down, each grain hands back the host whole: never re-split at a first
+  // colon, which would take `area` / `a/page/b` out of `area:a/page/b`.
+  assert.deepEqual(parseNestedAddress("area:a/page/b/leaf/k"), {
+    host: "area:a/page/b",
+    kind: "leaf",
+    key: "k",
+  });
+  assert.deepEqual(parseLeafAddress("area:a/page/b/leaf/k/body"), {
+    member: "area:a/page/b",
+    kind: "leaf",
+    key: "k",
+    childPath: "body",
+  });
+
+  // The host is itself a member address all the way down, so a deep spelling whose
+  // innermost head is no host address names nothing at either grain.
+  assert.equal(parseNestedAddress("a/b/c/d/e"), undefined);
+  assert.equal(parseLeafAddress("a/b/c/d/e"), undefined);
 });
