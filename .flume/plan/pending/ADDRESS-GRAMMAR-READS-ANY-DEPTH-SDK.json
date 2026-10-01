@@ -1,0 +1,38 @@
+{
+  "tag": "ADDRESS-GRAMMAR-READS-ANY-DEPTH-SDK",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "ADDRESS-GRAMMAR-READS-ANY-DEPTH"
+    ]
+  },
+  "dependsOnForks": [],
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/member-address.ts",
+        "description": "`memberAddress` (101) spells `nestedAddress(hostAddress(host.kind, host.name), …)`, flattening a nested host to `kind:name`, so a two-layer child is keyed `page:b/leaf/k` and the grandparent is lost the moment depth 2 emits. It composes its host's address through **itself** instead, and `AddressedMember.host` takes the same shape recursively (a composed `Member` already satisfies it structurally). The doc comment's standing invariant — \"The host segment is a host address, never a nested one … one level is the whole grammar here\" — is what this entry removes, and is restated as the parity rule. `segment` (215), `parseNestedAddress` (232) and `parseLeafAddress` (244) are re-cut on the engine's segment-count parity, the same discrimination at the seam's other end."
+      },
+      {
+        "path": "sdk/test/member-address.test.ts",
+        "description": "The grammar's own lane: a two-layer child's address carries both hosts, a depth-1 child's spelling is byte-identical to today's (the generalization is behaviour-preserving at one level), and the parity discrimination answers both grains."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The SDK's address reader is the engine's twin at depth: a member's host contributes its own whole address, and the parse reads the same segment-count parity",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "A shared concept is one type"
+  },
+  "tests": [
+    {
+      "path": "sdk/test/member-address.test.ts",
+      "asserts": "a child under a nested host is keyed by the host's full address, a one-layer child's address is unchanged, and the parity rule answers member and leaf grains"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` green (strict tsc + node --test), with the SDK's declaration rows spelling the address the engine composes at two layers, not a flattened host.",
+  "notes": "Serialized behind the engine face so one grammar lands once and the seam never holds two readings of it; the SDK's own consumers all reach the address through `memberAddress` (`declarations.ts`, `emit.ts`, `prose.ts`), so no call site changes. `sdk/src/emit.ts`'s `hostUnit` refusal is the depth entry's, not this one's. scoped at 9626a1a6"
+}

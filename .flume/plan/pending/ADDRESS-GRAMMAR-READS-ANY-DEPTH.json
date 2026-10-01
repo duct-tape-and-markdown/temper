@@ -1,0 +1,51 @@
+{
+  "tag": "ADDRESS-GRAMMAR-READS-ANY-DEPTH",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/member_address.rs",
+        "description": "`segment` (189) cuts on every `/` rather than `splitn(4, '/')`, and the **count** decides the grain: odd is a member address, even a leaf's, because every name, key and leaf is one segment. `parse_nested_address` (219) accepts any odd count \u2014 the host is every segment but the final two, carried verbatim and itself a member address, so its `(host_kind, host_name)` is read at the host's own grain (a nested host's identity *is* its whole address, which is exactly what `address_of` round-trips) rather than off a first-colon split that would take `area` / `a/page/b`. `parse_leaf_address` takes the final segment as the whole leaf: `ParsedLeaf::child_path` keeps its dots and carries no `/` (`extract.rs`'s `addressed_leaves` joins with `.`), so the doc comment's slash claim and the module header's fixed-three spelling move with the re-cut."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "`resolve` (217), the `Species` classifier, gates member-identity equality behind `nested_key(target).is_some()` (251) \u2014 three segments exactly \u2014 and then falls through to `parse_leaf_address`, so a five-segment member address answers \"No leaf \u2026 is in the surface's serialized nested-member leaves\" with no corpus consulted (the refactor capture's probe, verified at HEAD on a one-layer corpus). The member grain is tried at any odd count ahead of the leaf branch; the four-segment comment at 249 states the parity rule instead, and the `target.contains('/')` malformed fallthrough stays as the malformation's own voice."
+      },
+      {
+        "path": "src/graph.rs",
+        "description": "`node_from_address` (1770) tries leaf then nested on the ordering the parity rule replaces, and `edge_host` (656) / `embedded_hosts_by_key` (2213) read a nested host through `embedded_source_host`, whose pair must name a nested host's own kind and its whole address. The three-segment narration at 1762 and 2100 moves with the reader; `address_of` at 2363 is unchanged."
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "`explain` over a five-segment target answers at member grain \u2014 the probe the refactor capture ran at HEAD, inverted."
+      },
+      {
+        "path": "tests/it/graph.rs",
+        "description": "The node-species assertion's home if `node_from_address`'s re-cut needs one beyond the grammar's own unit tests: a five-segment address is a member node, a four-segment one a leaf node."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Segment count decides an address's grain \u2014 odd is a member, even a leaf \u2014 so the engine's one reader reads any depth instead of capping at three segments",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "member"
+  },
+  "tests": [
+    {
+      "path": "src/member_address.rs",
+      "asserts": "a member address reads at five and seven segments, a leaf address at four and six, and an empty segment still names nothing at either grain"
+    },
+    {
+      "path": "tests/it/read_verbs.rs",
+      "asserts": "`explain` on a five-segment target narrates the member-grain refusal, not the leaf reader's"
+    }
+  ],
+  "acceptance": "`cargo test` green, with the grammar's own tests reading both grains at any depth and `explain` answering a five-segment target at member grain rather than as a leaf.",
+  "notes": "Drained from the address-grammar refactor capture (deleted this tick) plus inbox note 1: parity is settled intent, not an open question \u2014 representation.md (\"member\") now states it, so no fork is keyed. Verify-only blast radius, each reaching an address through `address_of` and self-correcting once the reader reads any depth, none narrating the cap: `src/gate.rs:119`, `src/builtin_kind.rs:691`, `src/admissibility.rs:220`, `src/compose.rs`'s four callers. scoped at 9626a1a6"
+}

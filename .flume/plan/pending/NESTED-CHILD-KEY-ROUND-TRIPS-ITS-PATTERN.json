@@ -1,0 +1,43 @@
+{
+  "tag": "NESTED-CHILD-KEY-ROUND-TRIPS-ITS-PATTERN",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/frontmatter.rs",
+        "description": "`fold_file_id` (384) folds every directory between `base` and the file into the id, so a `notes/*.md` template's `notes/home.md` is keyed `notes-home` \u2014 a key no author declared, and the one `splice_name` would place back at `notes/notes-home.md`. Identity is a declared fact (file stem or starred segment), and a literal template segment is locus, never identity: folding earns its keep only for the directories a wildcard spans, where depth genuinely distinguishes same-named files (the `**/CLAUDE.md` nearest-wins nesting its own doc comment names). The fold strips what its pattern spells literally, leaving `**`-spanned placement folded exactly as today; uniqueness is unaffected, since every member under one pattern shares that literal prefix. The header's `import::wholefile_id` cite resolves to nothing at HEAD and rides this edit."
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "`read_file_unit`'s nested-file caller (956) hands `found.host_unit` as the fold base while the host template's pattern is the host kind's own declared fact, so the literal prefix is derivable at exactly the site that folds; the `governs`-scanned branch just below passes the kind's root against its own glob \u2014 the same (locus, pattern) pair, one rule for both. Whichever half holds the strip, both callers reach it."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "`splice_name` (988) is the inverse the fold has to agree with \u2014 it re-inserts the literal segments verbatim and splices the name into the final one. If the literal-prefix derivation belongs beside the one splice rule rather than inside the fold, it lands here; the splice's own behaviour is unchanged either way."
+      },
+      {
+        "path": "tests/it/nested_member.rs",
+        "description": "`NESTED_FILE_SUBDIRECTORY_PROGRAM` (264) emits `notes/checklist.md` and is never read back, so the disagreement is unpinned: the lane gains the check-side half \u2014 the discovered child's key is `checklist` and its address `guide:operate-the-gate/supporting-doc/checklist`, never `\u2026/notes-checklist`."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A nested child's key is its file stem, not its placement: the fold strips the directories its template already spells literally, so fold and splice are inverses",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "locus"
+  },
+  "tests": [
+    {
+      "path": "tests/it/nested_member.rs",
+      "asserts": "a child under a `notes/*.md` template is discovered under the key its author declared, and a `**`-spanned fold still distinguishes same-named files at different depths"
+    }
+  ],
+  "acceptance": "`cargo test` green, with the `notes/*.md` fixture's emitted child read back under the authored key and `tests/it/read_verbs.rs`'s `subdir-CLAUDE` memory fold untouched.",
+  "notes": "Routed from inbox note 2 (observed at b038eec9; the forward window touches specs/ only). Re-verified at HEAD: the fold and the splice are both as reported, but `refuse_ungoverned` does **not** fire \u2014 `notes/notes-home.md` still matches `notes/*.md` \u2014 so the verified gap is identity, not the glob round trip: the key a discovery reads is not the name its author declared. Independent of depth, hence its own entry. scoped at 9626a1a6"
+}
