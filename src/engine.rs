@@ -1287,22 +1287,70 @@ impl Outcome {
     }
 }
 
-/// Test whether a Type or Enum guard predicate admits the given value.
-/// Returns `true` if the value fails the membership test (i.e., the guard should reject it).
-fn guard_membership_fails(guard: &Predicate, value: &FeatureValue) -> bool {
+/// Whether `value` falls outside an `enum`'s declared `values` — the one membership test
+/// behind both the `enum` clause's verdict and an `enum` guard's.
+///
+/// A non-scalar value is a member of no value set, so it fails: a `list` equals none of
+/// the declared strings.
+fn enum_membership_fails(values: &[String], value: &FeatureValue) -> bool {
+    match value.as_scalar() {
+        Some(text) => !values.iter().any(|v| v == text),
+        None => true,
+    }
+}
+
+/// Whether `value`'s preserved source kind falls outside a `type`'s declared `kinds` —
+/// the one membership test behind both the `type` clause's verdict and a `type` guard's.
+fn type_membership_fails(kinds: &BTreeSet<ValueType>, value: &FeatureValue) -> bool {
+    !kinds.contains(&value.kind())
+}
+
+/// Whether a `when` guard admits the element value in hand — the gate on evaluating the
+/// body there.
+///
+/// A guard is an `enum` or a `type` and nothing else, since [`when_restrictions`] refuses
+/// every other predicate as a guard at admissibility. The refused variants are therefore
+/// **spelled** rather than wildcarded: a predicate the vocabulary later admits as a guard
+/// has to answer this test by hand instead of inheriting "admits nothing", which would
+/// silence every body clause under it without a finding anywhere.
+fn guard_admits(guard: &Predicate, value: &FeatureValue) -> bool {
     match guard {
-        Predicate::Enum { values, .. } => {
-            let text = match value.as_scalar() {
-                Some(t) => t,
-                None => return true,
-            };
-            !values.iter().any(|v| v == text)
-        }
-        Predicate::Type { kinds, .. } => {
-            let actual = value.kind();
-            !kinds.contains(&actual)
-        }
-        _ => true,
+        Predicate::Enum { values, .. } => !enum_membership_fails(values, value),
+        Predicate::Type { kinds, .. } => !type_membership_fails(kinds, value),
+
+        // No legal guard: admit no element, so a `when` whose guard admissibility has
+        // already refused evaluates nothing rather than deciding over a test it lacks.
+        Predicate::Required { .. }
+        | Predicate::Optional { .. }
+        | Predicate::MinLen { .. }
+        | Predicate::MaxLen { .. }
+        | Predicate::Range { .. }
+        | Predicate::Deny { .. }
+        | Predicate::ForbiddenKeys { .. }
+        | Predicate::ClosedKeys
+        | Predicate::AllowedChars { .. }
+        | Predicate::Shape { .. }
+        | Predicate::Extent { .. }
+        | Predicate::RequireSections { .. }
+        | Predicate::MustDefine { .. }
+        | Predicate::SectionContains { .. }
+        | Predicate::NameMatchesDir
+        | Predicate::UniqueName
+        | Predicate::DependencyExists
+        | Predicate::Count { .. }
+        | Predicate::Unique { .. }
+        | Predicate::Membership { .. }
+        | Predicate::Degree { .. }
+        | Predicate::ReachedFrom { .. }
+        | Predicate::Kind { .. }
+        | Predicate::GlobValid { .. }
+        | Predicate::MentionReachable { .. }
+        | Predicate::Reachable
+        | Predicate::Fresh
+        | Predicate::LocusDeclared
+        | Predicate::EngineMatches
+        | Predicate::FormatPlacesEdges
+        | Predicate::When { .. } => false,
     }
 }
 
@@ -1354,8 +1402,8 @@ fn decide(
         // `string|array` is gated by the set, never by picking one of the two. An
         // absent field is the `required` clause's concern, so `type` stays silent on
         // absence (like the other field predicates).
-        pred @ Predicate::Type { field, kinds } => addressed(features, field, |address, value| {
-            guard_membership_fails(pred, value).then(|| {
+        Predicate::Type { field, kinds } => addressed(features, field, |address, value| {
+            type_membership_fails(kinds, value).then(|| {
                 let actual = value.kind();
                 format!(
                     "field `{address}` is `{}` but the contract declares `{}`",
@@ -1391,9 +1439,9 @@ fn decide(
                 .then(|| format!("field `{address}` value {n} is outside the range [{min}, {max}]"))
         }),
 
-        pred @ Predicate::Enum { field, values } => addressed(features, field, |address, value| {
+        Predicate::Enum { field, values } => addressed(features, field, |address, value| {
             let text = value.as_scalar()?;
-            guard_membership_fails(pred, value).then(|| {
+            enum_membership_fails(values, value).then(|| {
                 format!(
                     "field `{address}` value `{text}` is not one of [{}]",
                     values.join(", ")
@@ -1687,7 +1735,7 @@ fn decide(
                     let root = features.root();
                     for (address, json_value) in path.locate(&root) {
                         let feature_value = json_to_feature(json_value);
-                        if guard_membership_fails(guard.as_ref(), &feature_value) {
+                        if !guard_admits(guard.as_ref(), &feature_value) {
                             continue;
                         }
                         // Use FieldPath's split_element to get the element scope and tail suffix.
