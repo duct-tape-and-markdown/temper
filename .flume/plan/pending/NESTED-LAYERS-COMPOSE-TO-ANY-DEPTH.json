@@ -1,10 +1,7 @@
 {
   "tag": "NESTED-LAYERS-COMPOSE-TO-ANY-DEPTH",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "NESTED-CHILD-KEY-ROUND-TRIPS-ITS-PATTERN"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,
