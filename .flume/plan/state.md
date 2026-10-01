@@ -10,8 +10,8 @@
   `src/read.rs`, `src/kind.rs`, `src/builtin.rs`, `src/builtin_kind.rs`,
   `src/builtin_lock.rs`, `sdk/src/emit.ts`, `sdk/src/declarations.ts`,
   `sdk/src/prose.ts`, `sdk/src/needs.ts`, `sdk/src/assembly.ts`.
-- This tick: posture sweep over the provider-face neighborhood — one finding,
-  `src/kind.rs`'s per-key-path entry-shape fabrication, filed.
+- This tick: drained the one refactor capture — the entry-shape column's fence
+  gains `tests/it/hook_kind.rs`, the path its first build attempt bailed on.
 - Queue: 9 pending — 1 open, 4 parked, 4 deferred. Pickable: 1. Open forks: 1.
   Friction: 2. Amendments: 0. Refactor: 0. Inbox: 0.
 
