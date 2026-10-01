@@ -1,6 +1,8 @@
 {
   "tag": "PAYLOAD-MEMBER-LITERAL-HAS-ONE-HOME",
-  "gate": { "kind": "open" },
+  "gate": {
+    "kind": "open"
+  },
   "priority": 0,
   "files": {
     "edit": [
@@ -39,7 +41,10 @@
     ]
   },
   "summary": "Fold every re-spelled bare PayloadMember literal in the test suite onto tests/it/common's payload_member — one home for the fixture builder",
-  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
   "tests": [
     {
       "path": "tests/it/emit.rs",
@@ -54,6 +59,6 @@
       "asserts": "`layout_member` delegates and its callers stay green; `payload_member` is the only `PayloadMember` struct literal left for the bare shape"
     }
   ],
-  "acceptance": "`cargo test` green with no assertion edited (the fold is fixture-shape only), `cargo clippy --all-targets -- -D warnings` clean, `cargo fmt --all --check` clean; `rg 'PayloadMember \\{' tests/` leaves only field-carrying builders (`skill_member`, `rule_member`, `plugin_member`, `knob_member`) and `common::payload_member` itself.",
+  "acceptance": "`cargo test` green with no assertion edited (the fold is fixture-shape only), `cargo clippy --all-targets -- -D warnings` clean, `cargo fmt --all --check` clean; `rg 'PayloadMember \\{' tests/` leaves only field-carrying spellings — the per-suite builders (`skill_member`, `rule_member`, `plugin_member`, `knob_member`) and the inline field-carrying literals in `acceptance.rs`, `check_cost.rs`, `install.rs`, `layout_prose_import.rs`, `emit.rs` (876/939/1154), `toml_document.rs` and `json_document_format.rs` (401/456), all outside this fold's bare shape — plus `common::payload_member` itself.",
   "notes": "Drained from .flume/refactor/build-payload-member-builder-has-three-homes.md (observed e82ea08b), verified at HEAD and widened by census: beyond the capture's two per-file builders, 9 inline bare literals across 6 more suites spell the same shape, each exactly `payload_member(kind, name, None, body)`. Field-carrying per-suite builders are out of scope — a different shape, not this job. scoped at 9e94b515"
 }
