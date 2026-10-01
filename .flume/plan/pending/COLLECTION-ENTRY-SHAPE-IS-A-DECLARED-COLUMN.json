@@ -1,0 +1,55 @@
+{
+  "tag": "COLLECTION-ENTRY-SHAPE-IS-A-DECLARED-COLUMN",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/kind.rs",
+        "description": "Delete the per-key-path `EntryShape` fabrication in `collection_address_from_row` (the `else` arm at 947-960, which hardwires `hooks.<Event>` -> group-array(HOOK_HANDLER_KEY;HOOK_MATCHER_KEY), `enabledPlugins.*` -> scalar(\"enabled\"), and both `object` shapes). Lift `entry_shape` through `kind_vocab`/`entry_shape_from_label` with no fallback. The three cited provider constants at 223/231/236 stay where they are; the duplicate mapping is what goes."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "`CollectionAddressRow::entry_shape` (4531-4533) becomes `String` and sheds `#[serde(default)]`, joining `manifest`/`key_path` as a required column: `collection_address_table` (5583) always writes it, `collection_address_from_table` (5596) reads it with `req_str`, and both doc headers lose the optional-presence wording."
+      },
+      {
+        "path": "sdk/src/generated/CollectionAddressRow.ts",
+        "description": "The re-blessed ts-rs binding \u2014 `entry_shape: string` in place of `string | null`. Regenerate with `BLESS_SEAM_BINDINGS=1`, never by hand."
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "Retire `shapeless_hook_kind_facts` (112) and the shapeless-row assertions it feeds (1734-1755); keep `timed_hook_kind_facts`'s divergent-shape round-trip, which is the column's real oracle. Add the refusal: a committed lock whose `collection_address` inline table omits `entry_shape` fails the row read loud."
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "The explain-a-registration-kind fixture at 1526 declares `group-array(hooks;matcher)` instead of `entry_shape: None`."
+      },
+      {
+        "path": "tests/it/common/mod.rs",
+        "description": "The shared hook kind-facts builder at 1227 sheds its `Some(...)` wrapper. Construction-site only \u2014 no signature moves, so no importer of the helper changes."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "Three collection-address constructions (1046, 1419, 1427) shed their `Some(...)` wrappers."
+      }
+    ]
+  },
+  "summary": "A collection address's entry shape becomes a required lock column \u2014 `src/kind.rs` stops fabricating one per key path, a second home for shapes the provider face declares.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "tests/it/lock_declaration_rows.rs",
+      "asserts": "a `collection_address` inline table omitting `entry_shape` refuses at the row read instead of normalizing to its key path's shape, and a declared shape diverging from its key path (`group-array(hooks;matcher,timeout)`) still round-trips through emit and the lift"
+    },
+    {
+      "path": "tests/it/seam_bindings_current.rs",
+      "asserts": "the committed `CollectionAddressRow` binding byte-matches a fresh ts-rs export after the column goes total"
+    }
+  ],
+  "acceptance": "`cargo test`, `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` green with the fabrication deleted and the re-blessed binding committed; `rg 'EntryShape::' src/kind.rs` shows no per-key-path mapping left outside `entry_shape_from_label`.",
+  "notes": "Only a hand-built payload can omit the column: `sdk/src/kind.ts:162` makes `entryShape` required, and every collection row in `src/builtin_lock.toml` and `.temper/lock.toml` carries it. A stale external lock now refuses rather than normalizing \u2014 pre-1.0 (`specs/distribution.md`, \"Versioning\"), so the commit body carries a `BREAKING:` line. scoped at e53cc63b"
+}

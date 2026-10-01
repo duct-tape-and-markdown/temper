@@ -7,12 +7,13 @@
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
   `src/contract.rs`, `src/compose.rs`, `src/graph.rs`, `src/glob.rs`,
-  `src/read.rs`, `src/kind.rs`, `sdk/src/emit.ts`, `sdk/src/declarations.ts`,
+  `src/read.rs`, `src/kind.rs`, `src/builtin.rs`, `src/builtin_kind.rs`,
+  `src/builtin_lock.rs`, `sdk/src/emit.ts`, `sdk/src/declarations.ts`,
   `sdk/src/prose.ts`, `sdk/src/needs.ts`, `sdk/src/assembly.ts`.
-- This tick: reconciled dcec6f98..27a6b6cf — the self-guarding `when` refusal
-  shipped as written, all four gates green, one cite refreshed, no residue.
-- Queue: 8 pending — 4 parked, 4 deferred. Pickable: 0. Open forks: 1.
+- This tick: posture sweep over the provider-face neighborhood — one finding,
+  `src/kind.rs`'s per-key-path entry-shape fabrication, filed.
+- Queue: 9 pending — 1 open, 4 parked, 4 deferred. Pickable: 1. Open forks: 1.
   Friction: 2. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the posture rotation is open with no pickable entry, so
-plan drives the next neighborhood itself.
+Plan continues: after-build — the posture rotation is open and a pickable
+entry exists, so the sweep resumes when the wave hands back.
