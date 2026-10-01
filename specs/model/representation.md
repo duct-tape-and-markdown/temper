@@ -10,10 +10,14 @@ everything the contract can reach, this layer must model.
 One authored unit: an instance of a kind. A member carries
 
 - an **identity**, spelled as an **address**: `<kind>:<name>` for a
-  top-level member, `<host-address>/<kind>/<key>` for a nested one and
-  `/<leaf>` beneath it — one grammar every row spells and every verb
-  accepts; resolution is total: an address names exactly one thing or
-  the verb refuses, and coincident addresses are a malformed lock,
+  top-level member, `<host-address>/<kind>/<key>` for a nested one —
+  any member's address may host, so the address nests as deep as the
+  model does — and `/<leaf>` beneath it; every name, key and leaf is
+  one segment (a leaf's child path joins with `.`, never `/`), so a
+  member address has an odd segment count and a leaf address an even
+  one — one grammar every row spells and every verb accepts;
+  resolution is total: an address names exactly one thing or the verb
+  refuses, and coincident addresses are a malformed lock,
 - typed **fields**, projected to frontmatter or structured config,
 - **prose** — its authored words, copied verbatim, byte-for-byte,
 - **edges** — its declared references (`contract.md`),
