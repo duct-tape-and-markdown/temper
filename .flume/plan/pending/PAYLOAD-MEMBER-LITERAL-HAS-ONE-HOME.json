@@ -1,0 +1,59 @@
+{
+  "tag": "PAYLOAD-MEMBER-LITERAL-HAS-ONE-HOME",
+  "gate": { "kind": "open" },
+  "priority": 0,
+  "files": {
+    "edit": [
+      {
+        "path": "tests/it/common/mod.rs",
+        "description": "`payload_member` (line 1124) is the one home for a bare `PayloadMember` literal — kind, name, optional host, body, no fields. `layout_member` (line 1341) re-spells that literal in the same file: rewrite it to delegate (`payload_member(kind, kind, None, \"\")` shape, its own doc comment kept). Widen `payload_member`'s doc comment to say the literal lives here and every other spelling delegates."
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "`plain_member` (line 697) re-spells the literal with `host: None` and a hardcoded `\"# Body\\n\"`: keep the wrapper for its 7 call sites but make its body one `common::payload_member(kind, name, None, \"# Body\\n\")` call. Two inline bare literals fold the same way: line 134 (`memory`/`root`, `MEMORY_BODY`) and line 664 (`ghost`/`phantom`, `\"boo\"`)."
+      },
+      {
+        "path": "tests/it/json_document_format.rs",
+        "description": "`titled_member` (line 557) re-spells the literal plus one `title` field: build off `common::payload_member(kind, name, host, \"\")` and push the `title` field onto the returned member. The inline bare literal at line 492 (`memory`/`CLAUDE`, `MEMORY_BODY`) folds to a `common::payload_member` call."
+      },
+      {
+        "path": "tests/it/local_locus.rs",
+        "description": "Two inline bare literals fold to `common::payload_member`: line 41 (`knob`/`knob`, empty body) and line 587 (`test_kind`/`test_member`, empty body). `crate::common` already imported (line 32)."
+      },
+      {
+        "path": "tests/it/memory_contract.rs",
+        "description": "One inline bare literal folds to `common::payload_member`: line 68 (`memory`/`CLAUDE`, `CLAUDE_MD` body). `crate::common` already imported (line 22)."
+      },
+      {
+        "path": "tests/it/layout_kind.rs",
+        "description": "One inline bare literal folds to `common::payload_member`: line 356 (`intent`/`intent`, empty body). `crate::common` already imported (line 23)."
+      },
+      {
+        "path": "tests/it/hook_kind.rs",
+        "description": "One inline bare literal folds to `common::payload_member`: line 316 (`settings`/`settings`, empty body). `crate::common` already imported (line 20)."
+      },
+      {
+        "path": "tests/it/coverage_note.rs",
+        "description": "Two inline bare literals fold to `common::payload_member`: line 70 and line 480, both (`widget`/`panel`, `\"{}\\n\"` body) — the second sits directly beside a `common::rule_member` call, the same home the fold reaches for."
+      }
+    ]
+  },
+  "summary": "Fold every re-spelled bare PayloadMember literal in the test suite onto tests/it/common's payload_member — one home for the fixture builder",
+  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "tests": [
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "every case still green through the delegating `plain_member` and the two folded inline literals — identical payloads, no assertion change"
+    },
+    {
+      "path": "tests/it/json_document_format.rs",
+      "asserts": "the path-shaped and memory cases still green — `titled_member` built off the common builder yields the same one-field member"
+    },
+    {
+      "path": "tests/it/common/mod.rs",
+      "asserts": "`layout_member` delegates and its callers stay green; `payload_member` is the only `PayloadMember` struct literal left for the bare shape"
+    }
+  ],
+  "acceptance": "`cargo test` green with no assertion edited (the fold is fixture-shape only), `cargo clippy --all-targets -- -D warnings` clean, `cargo fmt --all --check` clean; `rg 'PayloadMember \\{' tests/` leaves only field-carrying builders (`skill_member`, `rule_member`, `plugin_member`, `knob_member`) and `common::payload_member` itself.",
+  "notes": "Drained from .flume/refactor/build-payload-member-builder-has-three-homes.md (observed e82ea08b), verified at HEAD and widened by census: beyond the capture's two per-file builders, 9 inline bare literals across 6 more suites spell the same shape, each exactly `payload_member(kind, name, None, body)`. Field-carrying per-suite builders are out of scope — a different shape, not this job. scoped at 9e94b515"
+}
