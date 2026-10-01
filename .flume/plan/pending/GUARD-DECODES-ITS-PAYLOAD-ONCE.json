@@ -1,0 +1,34 @@
+{
+  "tag": "GUARD-DECODES-ITS-PAYLOAD-ONCE",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "One decode of the hook payload, structural. Retire `GUARD_HOOK_EVENT_MATCH` (416) and `GUARD_FILE_PATH_MATCH` (425) with the two `Regex::new` sites that compile them per call (`guard_edge`, 1224; `extract_file_path`, 1523) and the `use regex::Regex` import (55) they are install's only use of. `guard_edge`, `guard` and `manifest_write_findings` take the already-parsed `&JsonValue` instead of `&str`; `extract_file_path` reads `tool_input.file_path` the way `manifest_write_findings` (1865-1866) already does, so the two readings of one field cannot diverge. Three doc comments reference the retired constants (413, 1212, 1517) and the crate denies broken intra-doc links — rewrite them to state the structural read. The regex's cited rationale was conservatism about a write whose *content* mentions the field; the structural read satisfies that strictly better, and it drops the uncited external claim at 413-414 that Claude Code orders `hook_event_name` ahead of `tool_input` (JSON field order is not a documented guarantee). `is_claude_path` and the no-lock `.claude/` fallback are untouched."
+      },
+      {
+        "path": "src/main.rs",
+        "description": "The Guard arm (425-512) parses the stdin payload once, after the read, and hands the value to all three judges it currently hands the raw string: `guard_edge` (442), `manifest_write_findings` (473), `guard` (494). A payload that does not parse as JSON refuses loud here — a miette error on the existing error path, naming the mis-wired hook — rather than falling through to an allow; the regexes are what made silent scraping of non-JSON text possible, and invariant 6 forbids a silent degrade over an unresolved input. The `Tap` arm's own parse (`tap::record_from_payload`) is a different verb in a different process and stays as it is."
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "The two pins, in the shape the lock-fixture guard tests already use (`common::run_guard` + `common::guard_write_payload`, which is parameterized over `file_path` and JSON-escapes it, so no new builder is needed). The escape pin needs a fixture whose only binding is the projection compare — a lock declaring the row and no `locus-declared` clause — so the fall-through to the governed-locus arm cannot mask the miss."
+      }
+    ]
+  },
+  "summary": "`temper guard` decodes one hook payload three times in a run — two regex scrapes beside a serde parse; fold onto one structural read.",
+  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "tests": [
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "a pending write to a lock-declared projection whose `file_path` value carries a JSON-escaped character (an embedded quote) binds — the regex capture stopped at the escape, the compare missed, and the guard allowed the write"
+    },
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "a payload that is not JSON refuses loud — stderr names the mis-wired hook and no verdict is rendered, where the scrape read a `file_path` out of arbitrary text and judged it"
+    }
+  ],
+  "acceptance": "`cargo test` green with both pins; `src/install.rs` carries no `regex` import and no `Regex::new`; clippy -D warnings, fmt and the afterMerge rustdoc gate clean.",
+  "notes": "Not a relocation to `builtin_kind`: distribution.md's placements section licenses the hook-shape facts at their enforcement site (`reporter.rs`, the guard, `install`) when cited, so the field names stay in `install.rs` — what no section licenses is two readers of one payload. The unparseable-payload refusal is intent.md invariant 6, today hidden in `manifest_write_findings`'s `.ok()?`. scoped at 456a60c6"
+}
