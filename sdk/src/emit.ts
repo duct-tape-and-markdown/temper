@@ -18,11 +18,10 @@ import type {
   EmbeddedMemberValue,
   KindFacts,
   Member,
-  ResolvedEmbeddedMemberCollectionEntry,
   ResolvedEmbeddedMemberValue,
 } from "./kind.js";
 import type { MentionScope, Text } from "./prose.js";
-import { checkMentions, defersToGate, isTextSpan, renderText, resolveLeaf } from "./prose.js";
+import { checkMentions, defersToGate, isTextSpan, renderText, resolveEmbeddedLeaves } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations, RenderedExtent } from "./declarations.js";
 import {
@@ -472,37 +471,19 @@ function resolvedTargetFacts(host: Member, target: EdgeTarget, reference: string
 }
 
 /**
- * Resolve one embedded member's value's leaves — top-level and each
- * collection entry's — to their final stored strings, and derive its edge fields'
- * target facts off the resolved leaves: a `Text`-authored leaf
- * resolves the way `resolveBody` resolves a member-level `Text` body (mention
- * resolution-checked against `mentionable`, loud on a dangling address); a
- * bare-string leaf is unchanged. The one resolution point shared by the
- * default TOML view and a kind's own `render` hook, so refusing on a dangling
- * embedded-kind leaf mention never depends on whether the kind declares
- * `render` (`pipeline.md`, "Emit", the "Refusing" bullet).
+ * One embedded member value as a kind's `render` hook receives it: the shared leaf
+ * walk ({@link resolveEmbeddedLeaves}, scoped by {@link scopeOf}) plus this module's
+ * own job — the edge fields' target facts derived off the resolved top-level leaves.
+ * Called on both the default-TOML and the `render`-hook path before either reads a
+ * leaf, so refusing on a dangling embedded-kind leaf mention never depends on whether
+ * the kind declares `render` (`pipeline.md`, "Emit", the "Refusing" bullet).
  */
 function resolveMemberLeaves(
   host: Member,
   value: EmbeddedMemberValue,
   options: ResolveOptions,
 ): ResolvedEmbeddedMemberValue {
-  const scope = scopeOf(options);
-  const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
-  const leaves: Record<string, string> = {};
-  for (const [key, leaf] of Object.entries(value.leaves)) {
-    leaves[key] = resolveLeaf(leaf, scope, context(key));
-  }
-  const collections: Record<string, ResolvedEmbeddedMemberCollectionEntry[]> = {};
-  for (const [collection, entries] of Object.entries(value.collections)) {
-    collections[collection] = entries.map((entry) => {
-      const entryLeaves: Record<string, string> = {};
-      for (const [leaf, text] of Object.entries(entry.leaves)) {
-        entryLeaves[leaf] = resolveLeaf(text, scope, context(`${collection}.${entry.key}.${leaf}`));
-      }
-      return { key: entry.key, leaves: entryLeaves };
-    });
-  }
+  const { leaves, collections } = resolveEmbeddedLeaves(value, scopeOf(options));
   return {
     kind: value.kind,
     key: value.key,

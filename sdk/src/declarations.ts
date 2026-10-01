@@ -16,7 +16,7 @@ import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
-import { isTextSpan, resolveLeaf } from "./prose.js";
+import { isTextSpan, resolveEmbeddedLeaves } from "./prose.js";
 import {
   HOOK_HANDLER_KEY,
   HOOK_MATCHER_KEY,
@@ -32,7 +32,6 @@ import type {
   AssemblyFactRow,
   ClauseRow,
   CollectionAddressRow,
-  CollectionEntryWire,
   Declarations,
   IncludeRow,
   InputRow,
@@ -746,7 +745,7 @@ function embeddedLeafMentionRows(host: string, value: EmbeddedMemberValue): Ment
  * Member order stays authored (never target-sorted): the body's include slots ride the
  * same order, so the engine pairs the k-th slot with the k-th row. Includes ride a `text`
  * body and a composed body's prose spans alike, in authored order across the interleave; an
- * embedded leaf carries none (refused at {@link resolveLeaf}) and a `file()` body names none.
+ * embedded leaf carries none (refused at `prose.ts`'s `resolveLeaf`) and a `file()` body names none.
  */
 function includeRows(harness: Harness): IncludeRow[] {
   const rows: IncludeRow[] = [];
@@ -817,12 +816,12 @@ export interface RenderedExtent {
 export type RenderedExtents = ReadonlyMap<string, RenderedExtent>;
 
 /**
- * One host member's declared embedded-member value as its declaration row —
- * each `Text`-authored leaf resolved to its final stored string
- * ([`NestedMemberRow`]), mention-resolution-checked against `scope` the identical
- * way `emit.ts`'s `renderMemberToml` checks the same leaf on its way into the
- * rendered fence — plus the `placed_edges` record `emit` observed while rendering the
- * same value, which is the only way an edge's placement reaches the engine.
+ * One host member's declared embedded-member value as its declaration row
+ * ([`NestedMemberRow`]) — its leaves through the shared walk
+ * ({@link resolveEmbeddedLeaves}), the identical resolution `emit.ts` runs on the same
+ * leaf's way into the rendered fence — plus the `placed_edges` record `emit` observed
+ * while rendering the same value, which is the only way an edge's placement reaches
+ * the engine.
  */
 function nestedMemberRow(
   host: string,
@@ -831,21 +830,7 @@ function nestedMemberRow(
   placements: EdgePlacements | undefined,
   extents: RenderedExtents | undefined,
 ): NestedMemberRow {
-  const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
-  const leaves: Record<string, string> = {};
-  for (const [field, leaf] of Object.entries(value.leaves)) {
-    leaves[field] = resolveLeaf(leaf, scope, context(field));
- }
-  const collections: Record<string, CollectionEntryWire[]> = {};
-  for (const [collection, entries] of Object.entries(value.collections)) {
-    collections[collection] = entries.map((entry) => {
-      const entryLeaves: Record<string, string> = {};
-      for (const [field, leaf] of Object.entries(entry.leaves)) {
-        entryLeaves[field] = resolveLeaf(leaf, scope, context(`${collection}.${entry.key}.${field}`));
- }
-      return { key: entry.key, leaves: entryLeaves };
- });
- }
+  const { leaves, collections } = resolveEmbeddedLeaves(value, scope);
   const key = nestedAddress(host, value.kind, value.key);
   const placed = placements?.get(key);
   const extent = extents?.get(key);

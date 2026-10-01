@@ -353,3 +353,54 @@ export function resolveLeaf(value: string | Text, scope: MentionScope, context: 
   checkMentions(value.mentions, scope, context);
   return renderText(value);
 }
+
+/**
+ * One embedded member value's leaves after {@link resolveEmbeddedLeaves} — the
+ * top-level fields and each collection's entries, every `Text` already rendered to
+ * its final stored string. Both faces of a composed body spell this same pair:
+ * `kind.ts`'s `ResolvedEmbeddedMemberValue` (what a `render` hook receives) and the
+ * generated `NestedMemberRow` (what the engine reads), the entry shape theirs share
+ * as `ResolvedEmbeddedMemberCollectionEntry` and `CollectionEntryWire`.
+ */
+export interface ResolvedEmbeddedLeaves {
+  /** Top-level leaves, keyed by field name, in authored order. */
+  readonly leaves: Record<string, string>;
+  /** Sibling collections, each entry's leaves resolved, in authored order. */
+  readonly collections: Record<string, { readonly key: string; readonly leaves: Record<string, string> }[]>;
+}
+
+/**
+ * Resolve one embedded member value's leaves — the top-level fields and each
+ * collection entry's — to their final stored strings, each through
+ * {@link resolveLeaf} against `scope`, in authored order.
+ *
+ * The one walk behind both faces of a composed body: the `member.<kind> <key>`
+ * fence `emit` renders and the `nested_member` declaration row the engine reads.
+ * Each face still reads the authored value for itself (0018's second read), but
+ * off this one resolution, so a dangling leaf mention refuses identically
+ * whichever face runs — both name the leaf by the one context grammar
+ * ``member.<kind> <key>: leaf `<child-path>` ``, a collection entry's child path
+ * spelled `<collection>.<entry-key>.<field>`.
+ *
+ * # Throws
+ * If a leaf's mention names no declared value and has no discovery locus, or a
+ * leaf carries an include ({@link resolveLeaf}).
+ */
+export function resolveEmbeddedLeaves(value: EmbeddedMemberValue, scope: MentionScope): ResolvedEmbeddedLeaves {
+  const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
+  const leaves: Record<string, string> = {};
+  for (const [field, leaf] of Object.entries(value.leaves)) {
+    leaves[field] = resolveLeaf(leaf, scope, context(field));
+  }
+  const collections: ResolvedEmbeddedLeaves["collections"] = {};
+  for (const [collection, entries] of Object.entries(value.collections)) {
+    collections[collection] = entries.map((entry) => {
+      const entryLeaves: Record<string, string> = {};
+      for (const [field, leaf] of Object.entries(entry.leaves)) {
+        entryLeaves[field] = resolveLeaf(leaf, scope, context(`${collection}.${entry.key}.${field}`));
+      }
+      return { key: entry.key, leaves: entryLeaves };
+    });
+  }
+  return { leaves, collections };
+}
