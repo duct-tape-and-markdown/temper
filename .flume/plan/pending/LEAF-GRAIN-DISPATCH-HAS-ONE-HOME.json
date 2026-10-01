@@ -1,7 +1,12 @@
 {
   "tag": "LEAF-GRAIN-DISPATCH-HAS-ONE-HOME",
-  "gate": { "kind": "blockedBy", "tags": ["READ-SATISFIER-SET-IS-THE-KIND-BLIND-JOIN"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/read.rs",
@@ -11,10 +16,14 @@
         "path": "tests/it/read_verbs.rs",
         "description": "the `address:` qualifier's first test coverage: a slashless `address:` target reads the leaf reader's malformed-address refusal, and a well-formed `address:<member>/<kind>/<key>/<child-path>` still narrates the leaf at leaf grain."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`impact`/`context` re-decide member-vs-leaf grain with `contains('/')` beside `resolve`'s grammar reading, so a slashless `address:` target answers in the member voice.",
-  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
   "tests": [
     {
       "path": "tests/it/read_verbs.rs",
