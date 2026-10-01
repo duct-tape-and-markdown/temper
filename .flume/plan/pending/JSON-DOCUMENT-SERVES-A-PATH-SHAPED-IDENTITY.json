@@ -1,0 +1,40 @@
+{
+  "tag": "JSON-DOCUMENT-SERVES-A-PATH-SHAPED-IDENTITY",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 5,
+  "summary": "A json-document kind reads the directory / starred-segment identity its kind declares, instead of refusing the shape emit already places",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "kind"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/json_manifest.rs",
+        "description": "`DocumentMember::parse`'s identity match (src/json_manifest.rs:230-250) serves `UnitShape::Directory` and `UnitShape::StarredSegment` off the source path through the one hoisted derivation, as the frontmatter face does; `JsonManifestError::NoDeclaredIdentity` (line 325) and the `# Errors` sentence naming it (line 201) retire — once every declared shape is served there is no shape left to refuse. The variant has no consumer outside this file and the one test named below (`rg NoDeclaredIdentity`)."
+      },
+      {
+        "path": "src/frontmatter.rs",
+        "description": "`Member::from_source_rooted`'s `Directory` arm (lines 185-199) and `StarredSegment` arm (lines 209-218) call the hoisted derivation rather than spelling it inline, so the path-shaped identity has one home and the two faces cannot come to disagree about it (`specs/process/engineering.md`, \"One job, one home\"). `fold_file_id` and the `NamedField` arms are untouched — the named-field read is per-format by construction (frontmatter mapping vs top-level JSON key)."
+      },
+      {
+        "path": "src/extract.rs",
+        "description": "The hoisted derivation's home, beside `source_dir_name` (src/extract.rs:812) that the starred-segment half already calls — keeping it here means json_manifest gains no dependency on the frontmatter adapter to read a path fact."
+      },
+      {
+        "path": "tests/it/json_document_format.rs",
+        "description": "`a_json_document_kind_declaring_a_path_shaped_identity_refuses_loud` (line 158) inverts into the two reads it used to refuse, and gains the inbox's reported seam shape end to end."
+      }
+    ]
+  },
+  "tests": [
+    {
+      "path": "tests/it/json_document_format.rs",
+      "asserts": "a directory-shaped `json-document` kind reads its id off the owning directory name and a starred-segment one off the starred segment, identically to the frontmatter face over the same paths; and the seam closes — a kind at `{ at, root: \"docs\", glob: \"*/area.json\" }`, `json-document`, `unitShape: directory`, with a nested file child templated at `*/page.json`, emits every member to its derived path and then loads at check with no `identity shape it cannot serve` refusal"
+    }
+  ],
+  "acceptance": "cargo test green with the refusal test replaced by the two reads plus the emit-then-check seam; `cargo clippy --all-targets -- -D warnings` clean with `JsonManifestError::NoDeclaredIdentity` gone.",
+  "notes": "Routed from the inbox note observed at fca7b4f9, re-verified at HEAD: the refusal still stands (src/json_manifest.rs:243) and emit's half is format-blind — `placement_in_unit` (src/drift.rs:1129) branches on `unit_shape` alone, so emit places what check refuses. `toml-document` keeps its named-field-only narrowness: a read face with no write twin, so emit refuses such a member whole and the two sides cannot disagree. scoped at 43541de0"
+}
