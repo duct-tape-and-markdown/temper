@@ -1,12 +1,12 @@
 {
   "tag": "WHEN-BODY-CLOSED-KEYS-CLOSES-THE-ELEMENT",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "WHEN-BODY-FENCES-THE-FEATURES-AN-ELEMENT-LACKS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/engine.rs",
@@ -16,7 +16,8 @@
         "path": "tests/it/closed_keys.rs",
         "description": "The file's header names four properties as 'the whole bargain'; the element grain is the fifth. Add it: a `when` body declaring `closed_keys` beside its own body clauses closes the *element* to what the body declares, and the host's top-level declarations neither admit nor indict an element key. Extend the header's enumeration to five so the prose and the suite agree."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`closed-keys` in a `when` body closes the element against the host member's schema, indicting every element key the host never declared — the allow-list in scope is the body's own",
   "per": {
