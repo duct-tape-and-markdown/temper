@@ -1,7 +1,12 @@
 {
   "tag": "MEMBER-INDEX-COUNT-PIN-JOINS-ITS-HOME",
-  "gate": { "kind": "blockedBy", "tags": ["LEAF-GRAIN-DISPATCH-HAS-ONE-HOME"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/read.rs",
@@ -11,10 +16,14 @@
         "path": "tests/it/check_cost.rs",
         "description": "the pin joins the other fourteen count pins: drive `read::explain` over four `requirement:`-qualified targets — an undeclared name, a verifier-less requirement, a `Verifier::Script` one, and a `Verifier::Telemetry` one — asserting the `read::build_member_index_count` delta is 0, 0, 0 then exactly 1. The explicit `requirement:` qualifier is what reaches `requirement_detail` for a name the roster lacks (read.rs:228-230, which returns `Species::Requirement` without a namespace check); `tests/it/read_verbs.rs:41-81` is the roster/corpus wiring shape to follow."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`build_member_index_count` is `pub` for a caller inside its own module; the other fourteen count accessors are pinned from tests/it/check_cost.rs.",
-  "per": { "path": "specs/process/engineering.md", "section": "An export earns its consumer" },
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "An export earns its consumer"
+  },
   "tests": [
     {
       "path": "tests/it/check_cost.rs",
