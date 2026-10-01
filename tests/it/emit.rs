@@ -396,12 +396,120 @@ fn a_hand_edited_projection_is_overwritten_not_conflicted() {
     .unwrap();
 
     // Emit re-emits the projection whole: the hand edit is overwritten (drift routed
-    // to the source), never merged — there is no three-state conflict here.
+    // to the source), never merged — there is no three-state conflict here. The report
+    // names the replacement rather than riding the line a source-side re-emit takes, so
+    // bytes temper never wrote are never silently destroyed.
     let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
-    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Overwritten);
     assert_eq!(fs::read_to_string(&rule_path).unwrap(), canonical);
     // The untouched skill is already at its fixpoint.
     assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Unchanged);
+
+    let rendered = drift::render_emit(&report);
+    assert!(
+        rendered.contains("overwritten    rule   rust"),
+        "the report line names the member whose bytes were replaced: {rendered}"
+    );
+    assert!(
+        rendered.contains("0 emitted, 1 overwritten, 1 unchanged"),
+        "the tally counts the overwrite apart from a plain re-emit: {rendered}"
+    );
+}
+
+#[test]
+fn an_emit_over_bytes_no_lock_fingerprinted_is_a_plain_emit() {
+    // A first emit — adoption's included: the one reviewable adoption diff overwrites a
+    // hand-authored file on purpose, and with no prior row there is no fingerprint to
+    // have drifted from, so the outcome stays `Emitted`.
+    let (harness, into) = workspace("no-prior-row");
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    fs::create_dir_all(rule_path.parent().unwrap()).unwrap();
+    fs::write(
+        &rule_path,
+        "# Hand-authored
+
+Nothing temper wrote.
+",
+    )
+    .unwrap();
+
+    let payload = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
+    assert!(
+        fs::read_to_string(&rule_path).unwrap().contains(RUST_BODY),
+        "the first emit still regenerates the file whole"
+    );
+}
+
+#[test]
+fn a_crlf_filtered_checkout_re_emits_as_a_plain_emit() {
+    // Line endings are layout, never content, so the overwrite classification hashes
+    // EOL-canonicalized bytes: a checkout git filtered to CRLF is rewritten back to LF
+    // and reported `Emitted`, never as a hand edit it replaced.
+    let (harness, into) = workspace("crlf-rewrite");
+    let payload = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    let canonical = fs::read_to_string(&rule_path).unwrap();
+    fs::write(&rule_path, canonical.replace('\n', "\r\n")).unwrap();
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
+    assert_eq!(
+        fs::read_to_string(&rule_path).unwrap(),
+        canonical,
+        "the re-emit writes LF back"
+    );
+}
+
+#[test]
+fn dry_run_reports_the_overwrite_and_writes_nothing() {
+    let (harness, into) = workspace("dry-overwrite");
+    let payload = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    let hand_edited =
+        fs::read_to_string(&rule_path).unwrap() + "\nA line added straight to disk.\n";
+    fs::write(&rule_path, &hand_edited).unwrap();
+
+    let before_harness = common::tree_bytes(&harness);
+    let before_lock = fs::read(into.join("lock.toml")).unwrap();
+
+    let report = drift::emit(
+        &payload,
+        &into,
+        EmitOptions {
+            dry_run: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Overwritten);
+    assert_eq!(
+        before_harness,
+        common::tree_bytes(&harness),
+        "--dry-run must leave the hand edit on disk"
+    );
+    assert_eq!(
+        before_lock,
+        fs::read(into.join("lock.toml")).unwrap(),
+        "--dry-run must not touch the lock"
+    );
 }
 
 #[test]

@@ -822,10 +822,22 @@ pub struct EmitOptions {
 pub enum EmitOutcome {
     /// The projection was re-emitted whole to match the surface (or, under
     /// `--dry-run`, would have been): its bytes differed from disk, or the source
-    /// was absent. Emit regenerates from the authored source, so a hand-edited
-    /// projection is overwritten — that edit is drift routed to the source, never a
-    /// merge.
+    /// was absent. The source side moved — the bytes replaced were temper's own
+    /// (they hashed to the prior lock's `emit_hash`), or no prior lock row
+    /// fingerprinted them at all. Bytes that *did* differ from their fingerprint
+    /// report [`Overwritten`](EmitOutcome::Overwritten) instead.
     Emitted,
+    /// The projection was re-emitted whole over bytes that did not hash to the prior
+    /// lock's recorded `emit_hash` — a hand edit, or some other out-of-band change.
+    /// Regenerating is right (emit is total and write-only); the silence was not, so the
+    /// replaced bytes are named here instead of riding the same line a plain source-side
+    /// re-emit does. The owned-side sibling of [`OrphanDrift`](EmitOutcome::OrphanDrift),
+    /// off the same fingerprint column: there the bytes are ownerless and survive, here a
+    /// member owns them and they are replaced. Line-ending-blind, so a CRLF-filtered
+    /// checkout is plain [`Emitted`](EmitOutcome::Emitted); absent a prior row —
+    /// a first emit, adoption's included — so is overwriting bytes no lock ever
+    /// fingerprinted.
+    Overwritten,
     /// The re-emitted projection already sat on disk byte-for-byte; nothing to
     /// write. The idempotent no-op — a re-run of a clean emit lands here for every
     /// artifact.
@@ -856,6 +868,7 @@ impl EmitOutcome {
     fn label(self) -> &'static str {
         match self {
             EmitOutcome::Emitted => "emitted",
+            EmitOutcome::Overwritten => "overwritten",
             EmitOutcome::Unchanged => "unchanged",
             EmitOutcome::Reaped => "reaped",
             EmitOutcome::OrphanDrift => "orphan-drift",
@@ -1839,7 +1852,17 @@ pub fn emit(
     // `./`-prefixed row still joins its live projection.
     let mut orphans: Vec<(ProvenanceRow, PathBuf, EmitOutcome)> = Vec::new();
     let mut any_survivor = false;
-    for row in read_prior_provenance_from_doc(&lock_doc) {
+    let prior_rows = read_prior_provenance_from_doc(&lock_doc);
+    // The owned side of the very column the orphan classification reads: one
+    // path-to-`emit_hash` index off this same single walk, so `emit_one`/`emit_manifest`
+    // can tell a projection they overwrote a hand edit from a plain source-side re-emit
+    // without a second parse. Keyed through the same normalization the reap diff joins on,
+    // so an older lock's `./`-prefixed row still finds its live projection.
+    let prior_emit_hashes: PriorEmitHashes = prior_rows
+        .iter()
+        .map(|row| (normalize_lock_path(&row.source_path), row.emit_hash.clone()))
+        .collect();
+    for row in prior_rows {
         if owned_paths.contains(&normalize_lock_path(&row.source_path)) {
             any_survivor = true;
             continue;
@@ -1909,7 +1932,12 @@ pub fn emit(
     let mut entries = Vec::with_capacity(projections.len() + orphans.len() + segment_reaps.len());
     let mut rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     for projection in &projections {
-        let (entry, hash) = emit_one(projection, &harness_root, options.dry_run)?;
+        let (entry, hash) = emit_one(
+            projection,
+            &harness_root,
+            options.dry_run,
+            &prior_emit_hashes,
+        )?;
         rollups
             .entry(projection.kind.clone())
             .or_default()
@@ -1928,7 +1956,14 @@ pub fn emit(
     // fingerprint drift compares.
     for (path, build) in &manifests {
         let cached_raw = cached_manifest_raws.get(path).map(|s| s.as_str());
-        let (entry, hash) = emit_manifest(path, &harness_root, build, options.dry_run, cached_raw)?;
+        let (entry, hash) = emit_manifest(
+            path,
+            &harness_root,
+            build,
+            options.dry_run,
+            cached_raw,
+            &prior_emit_hashes,
+        )?;
         if let Some(container) = &build.container {
             rollups
                 .entry(container.kind.clone())
@@ -2114,10 +2149,11 @@ fn collection_key_of(key_path: &str) -> String {
 
 /// Regenerate one represented manifest whole through the canonical write face and write it
 /// like any other projection — its declared collection segments in sorted order, then the
-/// container's opaque residue. Returns the [`EmitEntry`] (Emitted vs the idempotent
-/// Unchanged) and the SHA-256 of the bytes now on disk. A pure function of the build, so a
-/// double-emit reproduces every byte; nothing is written under `dry_run`. An ownerless
-/// manifest (no container member) is labelled by its filename under a `manifest` kind.
+/// container's opaque residue. Returns the [`EmitEntry`] (the same three write outcomes
+/// [`emit_one`] reports, off the same [`write_outcome`] join) and the SHA-256 of the bytes
+/// now on disk. A pure function of the build, so a double-emit reproduces every byte;
+/// nothing is written under `dry_run`. An ownerless manifest (no container member) is
+/// labelled by its filename under a `manifest` kind.
 ///
 /// When `cached_raw` is `Some`, uses the pre-read file contents instead of reading again,
 /// hoisting the read cost outside this function's loop. When `None`, reads the file directly.
@@ -2127,6 +2163,7 @@ fn emit_manifest(
     build: &ManifestBuild,
     dry_run: bool,
     cached_raw: Option<&str>,
+    prior_emit_hashes: &PriorEmitHashes,
 ) -> Result<(EmitEntry, String), DriftError> {
     let path = &harness_root.join(locus);
     let segments: Vec<crate::json_manifest::CollectionSegment> = build
@@ -2175,10 +2212,43 @@ fn emit_manifest(
     if current.as_deref() == Some(desired.as_bytes()) {
         return Ok((row(EmitOutcome::Unchanged), hash));
     }
+    let outcome = write_outcome(prior_emit_hashes, locus, current.as_deref());
     if !dry_run {
         write_placement(path, &desired)?;
     }
-    Ok((row(EmitOutcome::Emitted), hash))
+    Ok((row(outcome), hash))
+}
+
+/// Every prior lock row's `emit_hash`, keyed by its [`normalize_lock_path`] spelling: the
+/// fingerprint column [`write_outcome`] joins a projection's on-disk bytes against to tell
+/// an overwritten hand edit from a plain source-side re-emit. Built once per [`emit`] off
+/// the single provenance walk the reap diff already makes.
+type PriorEmitHashes = BTreeMap<String, String>;
+
+/// Which outcome a re-emit over `current` reports for the projection at harness-relative
+/// `locus`: [`Overwritten`](EmitOutcome::Overwritten) when the prior lock fingerprinted
+/// this path and the bytes there no longer hash to that fingerprint, otherwise plain
+/// [`Emitted`](EmitOutcome::Emitted). Either way emit regenerates the file whole — the
+/// classification decides the report line alone.
+///
+/// The hash is taken over EOL-canonicalized bytes, the same comparator the drift family
+/// uses (line endings are layout, not content), so a CRLF-filtered checkout reads
+/// `Emitted`. Absent bytes or an absent prior row are `Emitted` too: a first emit —
+/// adoption's included, where the one reviewable diff overwrites a hand-authored file on
+/// purpose — replaces bytes no lock ever fingerprinted.
+#[must_use]
+fn write_outcome(
+    prior_emit_hashes: &PriorEmitHashes,
+    locus: &Path,
+    current: Option<&[u8]>,
+) -> EmitOutcome {
+    let Some(bytes) = current else {
+        return EmitOutcome::Emitted;
+    };
+    match prior_emit_hashes.get(&to_lock_path(locus)) {
+        Some(prior) if sha256_hex(&canonicalize_eol(bytes)) != *prior => EmitOutcome::Overwritten,
+        _ => EmitOutcome::Emitted,
+    }
 }
 
 /// The manifest segment reaps this emit performs: for each represented manifest, every
@@ -2898,12 +2968,16 @@ fn classify_orphan(disk_path: &Path, emit_hash: &str) -> Result<Option<EmitOutco
 /// The projection is regenerated from the payload — never merged against on-disk
 /// bytes — so a hand-edited projection is simply overwritten: a direct edit to
 /// emitted output is drift routed to the source (the root `fresh` clause/the guard
-/// surface it), not a mergeable conflict. The on-disk read decides only `Emitted` vs the
-/// idempotent `Unchanged`.
+/// surface it), not a mergeable conflict. The on-disk read decides the report line alone:
+/// the idempotent [`Unchanged`](EmitOutcome::Unchanged), or — joined against
+/// `prior_emit_hashes` through [`write_outcome`] — whether the bytes replaced were
+/// temper's own ([`Emitted`](EmitOutcome::Emitted)) or a hand edit
+/// ([`Overwritten`](EmitOutcome::Overwritten)).
 fn emit_one(
     projection: &Projection,
     harness_root: &Path,
     dry_run: bool,
+    prior_emit_hashes: &PriorEmitHashes,
 ) -> Result<(EmitEntry, String), DriftError> {
     // The projection path is harness-relative (the lock's vocabulary); disk is reached
     // under the root this emit targets, and the report names the file it actually wrote.
@@ -2999,10 +3073,15 @@ fn emit_one(
         return Ok((row(EmitOutcome::Unchanged), hash));
     }
 
+    let outcome = write_outcome(
+        prior_emit_hashes,
+        &projection.source_path,
+        current.as_deref(),
+    );
     if !dry_run {
         write_placement(&disk_path, &desired)?;
     }
-    Ok((row(EmitOutcome::Emitted), hash))
+    Ok((row(outcome), hash))
 }
 
 /// Whether `format` over `fields` renders a `---`-delimited frontmatter block — the one
@@ -3096,11 +3175,18 @@ fn render_field(key: &str, value: &JsonValue) -> String {
 #[must_use]
 pub fn render_emit(report: &EmitReport) -> String {
     let mut out = String::new();
-    let (mut emitted, mut unchanged, mut reaped, mut orphan_drift, mut member_reaped) =
-        (0u32, 0u32, 0u32, 0u32, 0u32);
+    let (
+        mut emitted,
+        mut overwritten,
+        mut unchanged,
+        mut reaped,
+        mut orphan_drift,
+        mut member_reaped,
+    ) = (0u32, 0u32, 0u32, 0u32, 0u32, 0u32);
     for entry in &report.entries {
         match entry.outcome {
             EmitOutcome::Emitted => emitted += 1,
+            EmitOutcome::Overwritten => overwritten += 1,
             EmitOutcome::Unchanged => unchanged += 1,
             EmitOutcome::Reaped => reaped += 1,
             EmitOutcome::OrphanDrift => orphan_drift += 1,
@@ -3114,7 +3200,7 @@ pub fn render_emit(report: &EmitReport) -> String {
         ));
     }
     out.push_str(&format!(
-        "\n{emitted} emitted, {unchanged} unchanged, {reaped} reaped, {orphan_drift} orphan-drift, {member_reaped} member-reaped\n"
+        "\n{emitted} emitted, {overwritten} overwritten, {unchanged} unchanged, {reaped} reaped, {orphan_drift} orphan-drift, {member_reaped} member-reaped\n"
     ));
     out
 }
