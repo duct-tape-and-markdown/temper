@@ -1,12 +1,14 @@
 //! `closed-keys` — the clause declaring a kind's already-declared key set exhaustive,
 //! judged through the engine that decides it.
 //!
-//! Four properties, and they are the whole bargain: an undeclared key is a finding at the
+//! Five properties, and they are the whole bargain: an undeclared key is a finding at the
 //! clause's declared severity; a member carrying only declared keys holds; a contract that
 //! declares no key at all is **inadmissible** rather than a clause indicting every key of
-//! every member; and the allow-list is *read* from the kind's own `required`/`optional`
+//! every member; the allow-list is *read* from the kind's own `required`/`optional`
 //! rows, so admitting a key is one row and never a second edit here — which is the
-//! difference between consuming the key set and authoring it twice.
+//! difference between consuming the key set and authoring it twice; and the rows it reads
+//! are the clause set in scope, so a clause inside a `when` body closes the element the
+//! guard locates to what the *body* declares.
 
 use serde_json::json;
 
@@ -297,4 +299,73 @@ fn the_writers_own_embedded_members_carry_no_key_for_a_closed_set_to_indict() {
     let diagnostics = engine::validate(&closed, &widened_members["hook"]);
     assert_eq!(diagnostics.len(), 1);
     assert!(messages(&diagnostics)[0].contains("`shell`"));
+}
+
+#[test]
+fn a_body_closed_keys_closes_the_element_the_guard_locates() {
+    // The element grain: the body binds at the element the guard locates, so the clause
+    // set in scope is the body's own. The host's top-level rows name a different grain
+    // entirely — they neither admit an element key nor indict one.
+    let body = vec![
+        clause(
+            ClauseSeverity::Required,
+            Predicate::Required {
+                field: "source".to_string(),
+            },
+        ),
+        declares("repo"),
+        closes(ClauseSeverity::Required),
+    ];
+    let contract = contract(vec![
+        declares_name(),
+        declares("plugins"),
+        clause(
+            ClauseSeverity::Required,
+            Predicate::When {
+                guard: Box::new(Predicate::Enum {
+                    field: "plugins[*].source".to_string(),
+                    values: vec!["github".to_string()],
+                }),
+                body,
+            },
+        ),
+    ]);
+    assert!(engine::admissibility(&contract, &Locus::Document).is_empty());
+
+    // An element carrying only keys the body declares holds — and neither key is one the
+    // host declares, so reading the host's set would indict both.
+    let conforming = common::parsed_features(json!({
+        "name": "acme-tools",
+        "plugins": [{"source": "github", "repo": "acme/tools"}],
+    }));
+    let diagnostics = engine::validate(&contract, std::slice::from_ref(&conforming));
+    assert!(
+        diagnostics.is_empty(),
+        "the body declares every element key: {:?}",
+        messages(&diagnostics)
+    );
+
+    // A key the body declares nowhere is one finding, at the element's own address.
+    let foreign = common::parsed_features(json!({
+        "name": "acme-tools",
+        "plugins": [{"source": "github", "ref": "main"}],
+    }));
+    let diagnostics = engine::validate(&contract, std::slice::from_ref(&foreign));
+    assert_eq!(
+        messages(&diagnostics),
+        vec![
+            "plugins[0]: key `ref` is not one of the keys this contract declares, and the \
+             declared set is exhaustive"
+        ]
+    );
+
+    // And the host's own declaration does not reach down: `name` is declared at the top
+    // level and is still an undeclared key on the element.
+    let host_keyed = common::parsed_features(json!({
+        "name": "acme-tools",
+        "plugins": [{"source": "github", "name": "inner"}],
+    }));
+    let diagnostics = engine::validate(&contract, std::slice::from_ref(&host_keyed));
+    assert_eq!(diagnostics.len(), 1);
+    assert!(messages(&diagnostics)[0].contains("`name`"));
 }

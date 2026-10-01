@@ -1674,6 +1674,15 @@ fn decide(
             match addressing(target_field) {
                 None => Outcome::Indeterminate,
                 Some(path) => {
+                    // The body binds at the element the guard locates, so the clause set
+                    // in scope is the body's own — a body `closed-keys` closes the element
+                    // to what the body declares, never to the host member's schema, whose
+                    // keys name a different grain entirely.
+                    let body_contract = Contract {
+                        name: contract.name.clone(),
+                        clauses: body.clone(),
+                        guidance: None,
+                    };
                     let mut violations = Vec::new();
                     let root = features.root();
                     for (address, json_value) in path.locate(&root) {
@@ -1701,7 +1710,7 @@ fn decide(
                                 .unwrap_or(JsonValue::Null);
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
-                                for mut violation in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
+                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all) {
                                     violation.message = format!("{element_address}: {}", violation.message);
                                     violation.attribute_to(body_clause);
                                     violations.push(violation);
@@ -1712,7 +1721,7 @@ fn decide(
                             let element_json = root.clone();
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
-                                for mut violation in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
+                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all) {
                                     violation.attribute_to(body_clause);
                                     violations.push(violation);
                                 }
