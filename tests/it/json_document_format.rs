@@ -24,7 +24,7 @@ use crate::common::{workspace, write_plugin_json};
 use serde_json::json;
 use temper::drift::{
     ClauseRow, Declarations, EmitOptions, EmitOutcome, IncludeRow, KindFactRow, Payload,
-    PayloadMember,
+    PayloadMember, TemplateRow,
 };
 use temper::json_manifest::{DocumentMember, write_document};
 use temper::kind::{CustomKind, Extraction, Governs, UnitShape};
@@ -154,22 +154,64 @@ fn a_file_shaped_json_document_names_itself_by_its_stem() {
     assert!(member.fields.contains_key("name"));
 }
 
-#[test]
-fn a_json_document_kind_declaring_a_path_shaped_identity_refuses_loud() {
-    let dir = common::tmpdir("json-document-undeclared-identity");
-    write_plugin_json(&dir, PLUGIN_JSON);
-
-    // A whole-JSON document carries no directory or glob segment, so a kind declaring one of
-    // those identity shapes leaves the engine nothing to read: the read refuses rather than
-    // inventing a rule. (The two shapes a document *can* serve — named-field and file — read
-    // above.)
-    let mut kind = plugin_kind();
-    kind.unit_shape = Some(UnitShape::Directory);
-    let err = DocumentMember::read(&kind, &dir.join(".claude-plugin/plugin.json")).unwrap_err();
-    assert!(
-        err.to_string().contains("identity shape it cannot serve"),
-        "{err}"
+/// A `json-document` kind at a path-shaped locus: `docs/<area>/area.json`, the shape
+/// `unitShape` varies over. One fixture serves both path-shaped reads — the two shapes
+/// differ in what owns the directory, never in the fact they read.
+fn area_kind(shape: UnitShape) -> CustomKind {
+    let mut kind = CustomKind::new(
+        "area",
+        Governs {
+            root: "docs".to_string(),
+            glob: "*/area.json".to_string(),
+        },
+        Extraction::new(Vec::new()),
     );
+    kind.format = Some(temper::kind::Format::JsonDocument);
+    kind.unit_shape = Some(shape);
+    kind
+}
+
+/// The frontmatter kind over the same locus, differing in format alone — the face the
+/// JSON read is held against below.
+fn area_markdown_kind(shape: UnitShape) -> CustomKind {
+    let mut kind = area_kind(shape);
+    kind.format = Some(temper::kind::Format::YamlFrontmatter);
+    kind
+}
+
+#[test]
+fn a_path_shaped_json_document_reads_the_id_its_frontmatter_peer_reads() {
+    let dir = common::tmpdir("json-document-path-shaped-identity");
+    common::write_sibling(&dir, "docs/handbook/area.json", PLUGIN_JSON);
+    common::write_sibling(&dir, "docs/handbook/area.md", "---\ntitle: Handbook\n---\n");
+
+    // A path-shaped identity is a fact about where the artifact sits, so the document's own
+    // grammar has no say in it: both shapes key the member by the directory it sits in, and
+    // the `name` the document plainly carries is not consulted.
+    for shape in [UnitShape::Directory, UnitShape::StarredSegment] {
+        let member = DocumentMember::read(
+            &area_kind(shape.clone()),
+            &dir.join("docs/handbook/area.json"),
+        )
+        .unwrap();
+        assert_eq!(member.id, "handbook");
+        assert_eq!(member.to_unit().id, "handbook");
+        assert_eq!(
+            member.fields.get("name"),
+            Some(&serde_json::Value::from("formatter")),
+            "the declared key stays an ordinary field when identity is path-shaped"
+        );
+
+        // And the two faces agree: the frontmatter peer over the sibling document in the
+        // same directory reads the very same id, so a corpus cannot get one answer by
+        // declaring `json-document` and another by declaring `yaml-frontmatter`.
+        let peer = temper::frontmatter::Member::from_source(
+            &area_markdown_kind(shape),
+            &dir.join("docs/handbook/area.md"),
+        )
+        .unwrap();
+        assert_eq!(peer.id, member.id);
+    }
 }
 
 #[test]
@@ -484,4 +526,92 @@ fn an_unknown_format_label_is_a_load_error_never_a_skip() {
     };
     let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
     assert!(err.to_string().contains("toml-frontmatter"), "{err}");
+}
+
+/// The seam's kind pair: an `area` owning a directory unit under `docs/`, its whole
+/// artifact one JSON document, templating a `page` child one layer in — a starred-segment
+/// unit, so the two path-shaped reads both ride the seam.
+fn area_kind_row() -> KindFactRow {
+    KindFactRow {
+        format: Some("json-document".to_string()),
+        unit_shape: Some("directory".to_string()),
+        templates: vec![TemplateRow {
+            kind: "page".to_string(),
+            path: Some("*/page.json".to_string()),
+        }],
+        ..common::kind_facts("area", "docs", "*/area.json")
+    }
+}
+
+fn page_kind_row() -> KindFactRow {
+    KindFactRow {
+        governs_root: None,
+        governs_glob: None,
+        format: Some("json-document".to_string()),
+        unit_shape: Some("starred-segment".to_string()),
+        ..common::kind_facts("page", "", "")
+    }
+}
+
+/// A document member of `kind` named `name`, carrying the one field its document spells.
+fn titled_member(kind: &str, name: &str, host: Option<&str>) -> PayloadMember {
+    PayloadMember {
+        kind: kind.to_string(),
+        name: name.to_string(),
+        host: host.map(str::to_string),
+        fields: vec![("title".to_string(), json!(name))],
+        body: String::new(),
+        source_path: None,
+    }
+}
+
+#[test]
+fn a_path_shaped_json_corpus_emits_to_its_derived_paths_and_loads_back_at_check() {
+    // The two halves closing on one corpus. `emit` places a member by its unit shape alone
+    // — the format has no say in where an artifact lands — so a path-shaped
+    // `json-document` kind projects a tree the read face must be able to walk back in.
+    let (harness, into) = workspace("json-document-path-shaped-seam");
+    let payload = Payload {
+        version: temper::drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![area_kind_row(), page_kind_row()],
+            ..Declarations::default()
+        },
+        members: vec![
+            titled_member("area", "handbook", None),
+            titled_member("page", "intro", Some("area:handbook")),
+        ],
+    };
+
+    temper::drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // The host's directory unit, and the child's starred segment inside it.
+    let area_json = harness.join("docs/handbook/area.json");
+    let page_json = harness.join("docs/handbook/intro/page.json");
+    assert_eq!(
+        fs::read_to_string(&area_json).unwrap(),
+        "{\n  \"title\": \"handbook\"\n}\n"
+    );
+    assert_eq!(
+        fs::read_to_string(&page_json).unwrap(),
+        "{\n  \"title\": \"intro\"\n}\n"
+    );
+
+    let run = common::check_harness_in(&harness, Some("github"));
+    assert!(
+        !run.output.contains("identity shape it cannot serve"),
+        "no shape emit places is a shape the read refuses: {}",
+        run.output
+    );
+    // The positive half: both members are checked, each under the id its path shape named
+    // — a silent load failure would count zero and assert nothing.
+    let findings = run.findings();
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert!(
+        checked
+            .iter()
+            .any(|line| line.contains("area (1)") && line.contains("page (1)")),
+        "both path-shaped documents load as members: {}",
+        run.output
+    );
 }

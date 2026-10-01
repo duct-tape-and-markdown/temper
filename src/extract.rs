@@ -817,6 +817,22 @@ pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
         .map(str::to_string)
 }
 
+/// The id a **path-shaped** unit carries — `directory` or `starred-segment`: the name of
+/// the directory its source file sits in.
+///
+/// The two shapes differ in what owns that directory — a `directory` unit owns it and
+/// hosts its companions, a `starred-segment` file only borrows the segment — never in the
+/// fact read, so one derivation serves both. Every authored face reads it here, so a
+/// frontmatter member and a whole-JSON document can never come to disagree about what a
+/// path-shaped id is; [`source_dir_name`] stays the bare path fact the `source_dir`
+/// feature reads.
+///
+/// [`None`] when the path names no directory to be keyed by — a bare filename, or a file
+/// at the filesystem root. Each face refuses that in its own error vocabulary.
+pub(crate) fn path_shaped_id(source_file: &Path) -> Option<String> {
+    source_dir_name(source_file)
+}
+
 /// Extract the `at-import` directive occurrences (`@path/to/file`) from a
 /// byte-faithful markdown body, in document order — the raw path strings, one per
 /// occurrence. An `@` opens an import only at a word boundary (start of line or after

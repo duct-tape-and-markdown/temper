@@ -181,44 +181,29 @@ impl Member {
             detail,
         })?;
 
-        let id = match &kind.unit_shape {
-            Some(UnitShape::Directory) => {
-                let dir = source_file
-                    .parent()
-                    .filter(|dir| !dir.as_os_str().is_empty())
+        let id =
+            match &kind.unit_shape {
+                Some(UnitShape::Directory) => crate::extract::path_shaped_id(source_file)
                     .ok_or_else(|| FrontmatterError::NoId {
                         path: source_file.to_path_buf(),
                         shape: "directory",
-                    })?;
-                dir.file_name()
-                    .and_then(OsStr::to_str)
-                    .ok_or_else(|| FrontmatterError::NoId {
+                    })?,
+                Some(UnitShape::NamedField { field }) => parsed
+                    .get(field)
+                    .and_then(JsonValue::as_str)
+                    .map(str::to_string)
+                    .ok_or_else(|| FrontmatterError::NoNamedFieldId {
                         path: source_file.to_path_buf(),
-                        shape: "directory",
-                    })?
-                    .to_string()
-            }
-            Some(UnitShape::NamedField { field }) => parsed
-                .get(field)
-                .and_then(JsonValue::as_str)
-                .map(str::to_string)
-                .ok_or_else(|| FrontmatterError::NoNamedFieldId {
-                    path: source_file.to_path_buf(),
-                    field: field.clone(),
-                })?,
-            Some(UnitShape::StarredSegment) => {
-                // A lone file keyed by its starred directory segment, coexisting inside
-                // another kind's directory: it borrows the segment for identity.
-                crate::extract::source_dir_name(source_file).ok_or_else(|| {
-                    FrontmatterError::NoId {
+                        field: field.clone(),
+                    })?,
+                Some(UnitShape::StarredSegment) => crate::extract::path_shaped_id(source_file)
+                    .ok_or_else(|| FrontmatterError::NoId {
                         path: source_file.to_path_buf(),
                         shape: "starred-segment",
-                    }
-                })?
-            }
-            // `file` shape, or an undeclared shape defaulting to a lone file.
-            Some(UnitShape::File) | None => fold_file_id(base, source_file)?,
-        };
+                    })?,
+                // `file` shape, or an undeclared shape defaulting to a lone file.
+                Some(UnitShape::File) | None => fold_file_id(base, source_file)?,
+            };
 
         let fields = order_fields(&kind.declared_fields(), parsed);
 
