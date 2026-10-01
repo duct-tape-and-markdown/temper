@@ -601,13 +601,22 @@ impl From<crate::hash::ReadUtf8Error> for DriftError {
 /// provenance, and its two freshness facts — disk-vs-lock drift's whole comparison.
 /// Shared by every kind —
 /// a `[[skill]]`, `[[rule]]`, and every custom `[[<kind>]]` row all carry the same
-/// four columns.
+/// columns.
 ///
 /// `pub(crate)` so `emit` can build the row for a freshly projected member and hand it
 /// to [`write_rollup`] rather than re-deriving the fingerprints.
 pub(crate) struct RollupEntry {
     /// Artifact name (and its `<kind>/<name>/` surface directory).
     pub(crate) name: String,
+    /// The host member's **own whole address**, carried straight from the payload's own
+    /// `host` column — present for a nested **file** child and absent at every other
+    /// locus. It is what lets a lock-row reader spell the row's member address by the
+    /// one grammar ([`member_address_under`]): a nested child's identity *is* its
+    /// `<host-address>/<kind>/<key>` address, so `name` alone names two same-keyed
+    /// children under different hosts the same way. Absent, `name` keeps meaning the
+    /// member's own key and the address is its kind joined onto it, so every reader of
+    /// `name` is unchanged.
+    pub(crate) host: Option<String>,
     /// Path to the original source file, as given relative to the harness arg.
     pub(crate) source_path: HarnessRelativePath,
     /// SHA-256 of the authored source bytes — the **source freshness fact**, the
@@ -622,11 +631,11 @@ pub(crate) struct RollupEntry {
 }
 
 /// Write the `<into>/lock.toml` roll-up: one `[[<kind>]]` table per emitted member,
-/// key-sorted, each with `name`, `source_path`, `source_hash`, and the `emit_hash`
-/// fingerprint. `emit` is the sole caller: a kind with no emitted member simply has
-/// no entry, matching the toml round-trip reality — an empty `ArrayOfTables` emits
-/// nothing, so a written-then-vanished section would break idempotence against a
-/// re-parse that never sees it.
+/// key-sorted, each with `name`, the `host` a nested child carries, `source_path`,
+/// `source_hash`, and the `emit_hash` fingerprint. `emit` is the sole caller: a kind
+/// with no emitted member simply has no entry, matching the toml round-trip reality —
+/// an empty `ArrayOfTables` emits nothing, so a written-then-vanished section would
+/// break idempotence against a re-parse that never sees it.
 ///
 /// The file opens with the engine stamp — [`ENGINE_KEY`] carrying [`crate::VERSION`], the
 /// engine that wrote this lock. A root TOML key must precede every table, so the stamp is
@@ -672,14 +681,21 @@ pub(crate) fn write_rollup(
         .map_err(|source| DriftError::Write { path, source })
 }
 
-/// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns
-/// (`name`, `source_path`, `source_hash`, `emit_hash`) in a fixed order, one
+/// Build the `ArrayOfTables` for one kind's roll-up rows — the shared columns
+/// (`name`, `host`, `source_path`, `source_hash`, `emit_hash`) in a fixed order, one
 /// table per entry.
+///
+/// `host` is written only where the member has one — a nested **file** child
+/// ([`RollupEntry::host`]). A top-level row is byte-identical to the one an engine
+/// before the column wrote, so no committed lock moves on this column's account.
 fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
     let mut tables = ArrayOfTables::new();
     for entry in rollup {
         let mut table = Table::new();
         table["name"] = value(entry.name.clone());
+        if let Some(host) = &entry.host {
+            table["host"] = value(host.clone());
+        }
         table["source_path"] = value(String::from(entry.source_path.clone()));
         table["source_hash"] = value(entry.source_hash.clone());
         table["emit_hash"] = value(entry.emit_hash.clone());
@@ -934,6 +950,11 @@ pub struct Payload {
 struct Projection {
     kind: String,
     name: String,
+    /// The host member's **own whole address**, carried from the payload's own `host`
+    /// column so the refusals raised at the write face name the member by its whole
+    /// address rather than by a `<kind>:<name>` no nested child wears. Absent at every
+    /// locus but a nested **file** child's.
+    host: Option<String>,
     /// The path the artifact projects to, relative to the harness root — the lock's own
     /// vocabulary. [`emit_one`] joins it onto the harness root to reach disk.
     source_path: PathBuf,
@@ -1615,7 +1636,7 @@ pub fn emit(
                 .get(member.kind.as_str())
                 .ok_or_else(|| DriftError::UnknownKind {
                     kind: member.kind.clone(),
-                    member: member.name.clone(),
+                    member: payload_member_address(member),
                 })?;
         let source_path =
             member_projection_path(facts, &member.name, member.host.as_deref(), &kind_facts)?;
@@ -1629,7 +1650,7 @@ pub fn emit(
             if root_path == workspace || root_path.starts_with(format!("{}/", crate::WORKSPACE_DIR))
             {
                 return Err(DriftError::AtLocusUnderWorkspace {
-                    member: host_address(&facts.name, &member.name),
+                    member: payload_member_address(member),
                     kind: member.kind.clone(),
                     root: root.to_string(),
                 }
@@ -1658,7 +1679,11 @@ pub fn emit(
         // projected as a frontmatter-and-body text artifact.
         if let Some(build) = manifests.get_mut(&source_path) {
             build.residue = member.fields.iter().cloned().collect();
-            build.container = Some((member.kind.clone(), member.name.clone()));
+            build.container = Some(ContainerMember {
+                kind: member.kind.clone(),
+                name: member.name.clone(),
+                host: member.host.clone(),
+            });
             continue;
         }
         if let Content::Layout(layout) = content_from_row(facts)? {
@@ -1682,7 +1707,12 @@ pub fn emit(
             layout_paths.insert(to_lock_path(&source_path));
             continue;
         }
-        let host = host_address(&member.kind, &member.name);
+        // The member's own whole address — the one spelling every refusal below names it
+        // by, and the key the SDK's own include rows are grouped under
+        // (`sdk/src/declarations.ts`'s `includeRows` writes `memberAddress`). A
+        // `<kind>:<name>` spelled here instead named no nested child and matched none of
+        // its include rows.
+        let address = payload_member_address(member);
         let format = format_from_row(facts)?;
         // A read-face-only format has no writer for this member to reach, so it is refused
         // whole — body or not — ahead of the include resolution below, for the reason that
@@ -1690,7 +1720,7 @@ pub fn emit(
         // projection that was never going to happen.
         if let Some(Format::TomlDocument) = format {
             return Err(DriftError::FormatHasNoWriteFace {
-                member: host,
+                member: address,
                 format: Format::TomlDocument.label().to_string(),
             }
             .into());
@@ -1704,7 +1734,7 @@ pub fn emit(
             && !member.body.is_empty()
         {
             return Err(DriftError::BodyHasNoHome {
-                member: host,
+                member: address,
                 format: Format::JsonDocument.label().to_string(),
             }
             .into());
@@ -1712,16 +1742,16 @@ pub fn emit(
         // A composed-prose member whose body declares includes: resolve each against
         // disk (refusing before any byte is written when it dangles), splice its bytes
         // into the body at the matching slot, and fingerprint the dependency.
-        let body = match includes_by_member.get(host.as_str()) {
+        let body = match includes_by_member.get(address.as_str()) {
             None => member.body.clone(),
             Some(includes) => {
                 let mut contents = Vec::with_capacity(includes.len());
                 for include in includes {
                     // The SDK resolves an include's target absolutely; the row is spelled
                     // against the harness root, so it resolves under a harness at any path.
-                    let relative = harness_relative(&host, &include.source_path, &harness_root)?;
+                    let relative = harness_relative(&address, &include.source_path, &harness_root)?;
                     let (row, bytes) = resolve_source_dependency(
-                        &host,
+                        &address,
                         &relative,
                         Path::new("."),
                         &harness_root,
@@ -1729,18 +1759,19 @@ pub fn emit(
                     )?;
                     contents.push(String::from_utf8(bytes).map_err(|_| {
                         DriftError::IncludeNotUtf8 {
-                            member: host.clone(),
+                            member: address.clone(),
                             path: row.source_path.clone(),
                         }
                     })?);
                     include_rows.push(row);
                 }
-                splice_includes(&host, &member.body, &contents)?
+                splice_includes(&address, &member.body, &contents)?
             }
         };
         projections.push(Projection {
             kind: member.kind.clone(),
             name: member.name.clone(),
+            host: member.host.clone(),
             source_path,
             format,
             fields: member.fields.clone(),
@@ -1884,6 +1915,7 @@ pub fn emit(
             .or_default()
             .push(RollupEntry {
                 name: projection.name.clone(),
+                host: projection.host.clone(),
                 source_path: HarnessRelativePath::new(to_lock_path(&projection.source_path)),
                 source_hash: hash.clone(),
                 emit_hash: hash,
@@ -1897,13 +1929,17 @@ pub fn emit(
     for (path, build) in &manifests {
         let cached_raw = cached_manifest_raws.get(path).map(|s| s.as_str());
         let (entry, hash) = emit_manifest(path, &harness_root, build, options.dry_run, cached_raw)?;
-        if let Some((kind, name)) = &build.container {
-            rollups.entry(kind.clone()).or_default().push(RollupEntry {
-                name: name.clone(),
-                source_path: HarnessRelativePath::new(to_lock_path(path)),
-                source_hash: hash.clone(),
-                emit_hash: hash,
-            });
+        if let Some(container) = &build.container {
+            rollups
+                .entry(container.kind.clone())
+                .or_default()
+                .push(RollupEntry {
+                    name: container.name.clone(),
+                    host: container.host.clone(),
+                    source_path: HarnessRelativePath::new(to_lock_path(path)),
+                    source_hash: hash.clone(),
+                    emit_hash: hash,
+                });
         }
         entries.push(entry);
     }
@@ -2025,8 +2061,21 @@ struct ManifestBuild {
     segments: BTreeMap<String, BTreeMap<String, JsonValue>>,
     /// The container member's opaque field residue — every top-level key no collection owns.
     residue: BTreeMap<String, JsonValue>,
-    /// The container member's `(kind, name)`, when one projects to the manifest's path.
-    container: Option<(String, String)>,
+    /// The container member, when one projects to the manifest's path.
+    container: Option<ContainerMember>,
+}
+
+/// The member whose own projection path is a represented manifest's — the identity its
+/// roll-up row is written under. The `host` column rides along from the payload rather
+/// than being assumed absent, so the row spells its member address by the one rule every
+/// other row does ([`member_address_under`]).
+struct ContainerMember {
+    /// The member's kind — the `[[<kind>]]` array its roll-up row lands in.
+    kind: String,
+    /// The member's own name.
+    name: String,
+    /// The host member's own whole address, or `None` for a top-level member.
+    host: Option<String>,
 }
 
 /// The harness-relative path a manifest kind's host file lives at — its `governs` locus. A
@@ -2092,14 +2141,15 @@ fn emit_manifest(
         .collect();
     let desired = crate::json_manifest::write_manifest(&segments, &build.residue);
 
-    let (kind, name) = build.container.clone().unwrap_or_else(|| {
-        (
+    let (kind, name) = match &build.container {
+        Some(container) => (container.kind.clone(), container.name.clone()),
+        None => (
             "manifest".to_string(),
             path.file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-        )
-    });
+        ),
+    };
     let row = |outcome| EmitEntry {
         kind: kind.clone(),
         name: name.clone(),
@@ -2315,9 +2365,22 @@ pub fn layout_edge_fields(
 /// clause asks about, and the rows a layout document lowers into — so the two faces
 /// cannot key one member two ways.
 fn payload_member_address(member: &PayloadMember) -> String {
-    match &member.host {
-        Some(host) => nested_address(host, &member.kind, &member.name),
-        None => host_address(&member.kind, &member.name),
+    member_address_under(member.host.as_deref(), &member.kind, &member.name)
+}
+
+/// The member address a `(kind, key)` pair wears beneath `host` — the one home for the
+/// discrimination [`crate::member_address::address_of`] draws, for the sites where the
+/// host arrives as a **column of its own** rather than already folded into the identity.
+///
+/// `host` carries the host member's own whole address, so the join nests as deep as the
+/// model does; absent, the pair is a top-level member's and its address is its kind joined
+/// onto its name. Both the payload side ([`payload_member_address`]) and the lock-row side
+/// ([`config_stale_from_doc`]) reach it, so a finding raised at emit and a finding raised
+/// at check cannot name one member two ways.
+fn member_address_under(host: Option<&str>, kind: &str, key: &str) -> String {
+    match host {
+        Some(host) => nested_address(host, kind, key),
+        None => host_address(kind, key),
     }
 }
 
@@ -2714,6 +2777,10 @@ struct RawLockRow {
     kind: String,
     /// The member's name, absent if the row's `name` column is missing or malformed.
     name: Option<String>,
+    /// The host member's own whole address, absent for a top-level member — the column
+    /// [`RollupEntry::host`] writes, and the whole of what lets a reader spell a nested
+    /// child's address rather than its bare key.
+    host: Option<String>,
     /// The projection's on-disk path as the lock recorded it, absent if missing or malformed.
     source_path: Option<HarnessRelativePath>,
     /// The projection's last-emitted fingerprint, absent if the row's `emit_hash` column is missing or malformed.
@@ -2733,6 +2800,10 @@ fn walk_lock_rows_from_doc(doc: &DocumentMut) -> Vec<RawLockRow> {
                 kind: kind.to_string(),
                 name: row
                     .get("name")
+                    .and_then(Item::as_str)
+                    .map(|s| s.to_string()),
+                host: row
+                    .get("host")
                     .and_then(Item::as_str)
                     .map(|s| s.to_string()),
                 source_path: row
@@ -2893,7 +2964,11 @@ fn emit_one(
         )
         .map(|bytes| canonicalize_eol_str(&bytes))
         .ok_or_else(|| DriftError::FormatHasNoWriteFace {
-            member: host_address(&projection.kind, &projection.name),
+            member: member_address_under(
+                projection.host.as_deref(),
+                &projection.kind,
+                &projection.name,
+            ),
             format: projection
                 .format
                 .map(|format| format.label().to_string())
@@ -3229,11 +3304,16 @@ pub fn config_stale_from_doc(
             continue;
         };
         if sha256_hex(&canonicalize_eol(&bytes)) != emit_hash {
+            // The member's own whole address, never its bare `name`: a nested file
+            // child's identity *is* its `<host-address>/<kind>/<key>` address, so two
+            // same-keyed children under different hosts are two findings a reader can
+            // tell apart (`specs/model/representation.md`, "member").
+            let member = member_address_under(raw.host.as_deref(), &raw.kind, &name);
             findings.push(crate::check::Diagnostic::from_clause(
                 clause,
                 &source_path as &str,
                 format!(
-                    "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
+                    "committed projection `{source_path}` (member `{member}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
                 ),
             ));
         }

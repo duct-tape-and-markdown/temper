@@ -1819,3 +1819,129 @@ process.stdout.write(
         );
     }
 }
+
+/// **A drift finding names its member by the one address grammar.** Two hosts each carry
+/// a `checklist`, which is exactly what a nested member's address is scoped to tell apart
+/// (`specs/model/representation.md`, "member") — so the `root.fresh` judge must name each
+/// child's whole `<host-address>/<kind>/<key>` address, never its bare key, and a
+/// top-level member's row must still read `<kind>:<name>`.
+mod a_fresh_finding_names_the_members_whole_address {
+    use std::fs;
+
+    use temper::drift::{self, EmitOptions};
+
+    use crate::common;
+
+    /// Two guides, each templating a `*.md` child, and each carrying a child keyed
+    /// `checklist` — the collision the host segment of the address resolves.
+    const TWO_HOSTS_ONE_KEY: &str = r#"
+import { emit, harness, kind, text } from "@dtmd/temper";
+
+const supportingDoc = kind<object>({
+  name: "supporting-doc",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+const guide = kind<object>({
+  name: "guide",
+  locus: { kind: "at", root: ".claude/guides", glob: "*/GUIDE.md" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: supportingDoc, path: "*.md" }],
+});
+
+const operating = guide({ name: "operate-the-gate", prose: text`# Operate the gate` });
+const adopting = guide({ name: "adopt-the-harness", prose: text`# Adopt the harness` });
+
+process.stdout.write(
+  emit(
+    harness({
+      members: [
+        operating,
+        adopting,
+        supportingDoc({ name: "checklist", host: operating, prose: text`# Operate checklist` }),
+        supportingDoc({ name: "checklist", host: adopting, prose: text`# Adopt checklist` }),
+      ],
+    }),
+  ).seam,
+);
+"#;
+
+    #[test]
+    fn a_hand_edited_childs_finding_names_its_host_and_a_top_levels_still_reads_kind_name() {
+        let (harness, into) = common::wire_sdk_harness("fresh-finding-address", TWO_HOSTS_ONE_KEY);
+        drift::emit_program(&into, EmitOptions::default())
+            .expect("two hosts each carrying a `checklist` is one address apiece, never a clash");
+
+        // The lock is the only place the host fact can reach the judge, so the column it
+        // writes is pinned here: a child's row carries its host's own whole address, and a
+        // top-level row carries no `host` key at all — the byte-level reason no committed
+        // lock of top-level members moves on this column's account.
+        let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+        assert!(
+            lock.contains("host = \"guide:operate-the-gate\"")
+                && lock.contains("host = \"guide:adopt-the-harness\""),
+            "each child's roll-up row carries its host's own address: {lock}"
+        );
+        assert_eq!(
+            lock.matches("host = ").count(),
+            2,
+            "and only the two children carry one — a top-level row keeps its four \
+             columns: {lock}"
+        );
+
+        // Hand-edit all four projections, so every row is drifted and the judge must name
+        // four distinct members rather than agree with an absence.
+        for relative in [
+            ".claude/guides/operate-the-gate/GUIDE.md",
+            ".claude/guides/adopt-the-harness/GUIDE.md",
+            ".claude/guides/operate-the-gate/checklist.md",
+            ".claude/guides/adopt-the-harness/checklist.md",
+        ] {
+            let path = harness.join(relative);
+            let edited = format!("{}\n\nhand-edited.\n", fs::read_to_string(&path).unwrap());
+            fs::write(&path, edited).unwrap();
+        }
+
+        let findings = drift::config_stale_from_doc(
+            &drift::read_lock_document(&into).unwrap(),
+            &into,
+            &common::fresh_clause(),
+        );
+        let messages = common::messages(&findings);
+        assert_eq!(
+            messages.len(),
+            4,
+            "one finding per drifted row — two hosts and their two children: {messages:#?}"
+        );
+
+        // Each child is named by its whole address, so the two same-keyed children are two
+        // findings a reader can tell apart; each host still reads `<kind>:<name>`.
+        for member in [
+            "guide:operate-the-gate",
+            "guide:adopt-the-harness",
+            "guide:operate-the-gate/supporting-doc/checklist",
+            "guide:adopt-the-harness/supporting-doc/checklist",
+        ] {
+            assert_eq!(
+                messages
+                    .iter()
+                    .filter(|line| line.contains(&format!("(member `{member}`)")))
+                    .count(),
+                1,
+                "`{member}` is named by exactly one finding: {messages:#?}"
+            );
+        }
+
+        // And the bare key is spelled nowhere: it names no member, and it named both
+        // children identically before the host fact reached the judge.
+        assert!(
+            !messages
+                .iter()
+                .any(|line| line.contains("(member `checklist`)")),
+            "a bare key spells an address no member wears: {messages:#?}"
+        );
+    }
+}
