@@ -884,9 +884,9 @@ fn frontmatter_fault_diagnostic(
 }
 
 /// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
-/// range over. Every member is discovered by walking this kind's [`overlay_builtin_kind`]-overlaid
-/// `governs` locus, read straight off harness disk so the corpus can never drift from a
-/// stale copy; its `satisfies` fill edges come from the run's assembled
+/// range over. The `kind` is the pre-overlaid form from [`LockFamily::overlaid_builtin_kinds`];
+/// every member is discovered by walking its `governs` locus, read straight off harness
+/// disk so the corpus can never drift from a stale copy; its `satisfies` fill edges come from the run's assembled
 /// [`drift::SatisfiesRow`] family, keyed by member id — a committed
 /// member's row off the lock, a local member's derived at
 /// [`assemble_lock_family`], so this read never re-decides which source it has. Its
@@ -917,8 +917,6 @@ fn resolve_kind_units(
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<KindUnits> {
     RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
-    let overlaid = kind.clone();
-    let governs = overlaid.governs.clone();
     let mut edge_fields = kind.edge_field_slots();
     edge_fields.extend(drift::layout_edge_fields(
         &declarations.assembly,
@@ -931,9 +929,9 @@ fn resolve_kind_units(
     // a second pass over the sorted units would have produced.
     let mut composed_embedded = Vec::new();
     let mut read: Vec<(Unit, drift::LayoutDocumentRows)> =
-        match (&overlaid.content, &overlaid.collection_address, &governs) {
+        match (&kind.content, &kind.collection_address, &kind.governs) {
             (kind::Content::Fields, Some(address), _) => {
-                let (units, composed) = manifest_units(disc, &overlaid, address, cache)?;
+                let (units, composed) = manifest_units(disc, kind, address, cache)?;
                 composed_embedded = composed;
                 units
                     .into_iter()
@@ -943,12 +941,9 @@ fn resolve_kind_units(
             (_, _, None) => {
                 let kinds = declared_kinds_with_overlaid(overlaid_builtin_kinds, declarations)?;
                 let mut child_units = Vec::new();
-                for found in import::discover_nested_file(
-                    disc,
-                    &overlaid,
-                    &kinds,
-                    import::LocalOverride::Honored,
-                ) {
+                for found in
+                    import::discover_nested_file(disc, kind, &kinds, import::LocalOverride::Honored)
+                {
                     // Host-scoped identity, never corpus-wide by name: the host's address
                     // is the first segment of the address this child wears, so two hosts
                     // may each carry a same-named child and each still names one member.
@@ -963,7 +958,7 @@ fn resolve_kind_units(
                     // the stem the author declared. The `governs` branch below reaches the
                     // same rule with its own (locus, pattern) pair.
                     let base = drift::fold_base(&found.host_unit, &found.pattern);
-                    match read_file_unit(&overlaid, &found.file, &base, &edge_fields, Some(&host)) {
+                    match read_file_unit(kind, &found.file, &base, &edge_fields, Some(&host)) {
                         Ok(read) => child_units.push(read),
                         Err(err) => match frontmatter_fault_diagnostic(err) {
                             Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
@@ -980,7 +975,7 @@ fn resolve_kind_units(
                 for file in
                     import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
                 {
-                    match read_file_unit(&overlaid, &file, &base, &edge_fields, None) {
+                    match read_file_unit(kind, &file, &base, &edge_fields, None) {
                         Ok(read) => file_units.push(read),
                         Err(err) => match frontmatter_fault_diagnostic(err) {
                             Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
@@ -1030,7 +1025,7 @@ fn resolve_kind_units(
 }
 
 /// A kind's members' extracted [`extract::Features`] — [`resolve_kind_units`]
-/// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
+/// run through the kind's own composed extraction,
 /// each member's nested-member facts resolved off the run's assembled `nested_members`
 /// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
 /// Both units and features are returned together to avoid a second resolution pass.
