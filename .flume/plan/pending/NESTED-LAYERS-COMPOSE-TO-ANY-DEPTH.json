@@ -72,5 +72,5 @@
     }
   ],
   "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with a two-layer corpus emitting, discovering and resolving at both layers, and a self-templating kind refused rather than looping.",
-  "notes": "Re-scoped off the address-grammar capture: the two address readers and the fold/splice inverse are its three parents, so this entry is composition only \u2014 `src/member_address.rs` and `sdk/src/member-address.ts` are the parents' files, and the inner layer may keep a directory-segment pattern because the fold lands first. A multi-segment host name is not the answer: a name is one segment, `/` the separator. No new kind fact \u2014 `nested-file` already declares `unitShape`. scoped at 9626a1a6"
+  "notes": "Re-scoped off the address-grammar capture: the two address readers and the fold/splice inverse are its three parents, so this entry is composition only. Its whole `address_of` ripple \u2014 `member_address.rs`, `sdk/member-address.ts`, `read.rs`, `graph.rs`, `admissibility.rs`, `builtin_kind.rs`, `gate.rs` \u2014 is either a parent's file or a verify-only read already reading any depth by pick-up. A multi-segment host name is not the answer: a name is one segment, `/` the separator. scoped at 640cb4fd"
 }

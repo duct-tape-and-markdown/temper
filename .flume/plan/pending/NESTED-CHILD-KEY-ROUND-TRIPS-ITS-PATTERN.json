@@ -23,6 +23,14 @@
       {
         "path": "tests/it/nested_member.rs",
         "description": "`NESTED_FILE_SUBDIRECTORY_PROGRAM` (264) emits `notes/checklist.md` and is never read back, so the disagreement is unpinned: the lane gains the check-side half \u2014 the discovered child's key is `checklist` and its address `guide:operate-the-gate/supporting-doc/checklist`, never `\u2026/notes-checklist`."
+      },
+      {
+        "path": "src/import.rs",
+        "description": "`NestedFileUnit` (193) is where the host template's `pattern` is in hand \u2014 `discover_nested_file` scans the locus with it (255) \u2014 while the fold's one production caller holds only `found.host_unit` as its base, so if the literal prefix travels on the unit rather than being re-derived at the fold, it lands here. `unit_dir` (245) is unchanged either way."
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "The `subdir-CLAUDE` memory fold (2001) is the `**`-spanned case the strip must leave exactly as it is \u2014 `**/CLAUDE.md` spells no literal directory, so the ids stand; verify rather than assume, which is what the acceptance names."
       }
     ],
     "retire": []
@@ -39,5 +47,5 @@
     }
   ],
   "acceptance": "`cargo test` green, with the `notes/*.md` fixture's emitted child read back under the authored key and `tests/it/read_verbs.rs`'s `subdir-CLAUDE` memory fold untouched.",
-  "notes": "Routed from inbox note 2 (observed at b038eec9; the forward window touches specs/ only). Re-verified at HEAD: the fold and the splice are both as reported, but `refuse_ungoverned` does **not** fire \u2014 `notes/notes-home.md` still matches `notes/*.md` \u2014 so the verified gap is identity, not the glob round trip: the key a discovery reads is not the name its author declared. Independent of depth, hence its own entry. scoped at 9626a1a6"
+  "notes": "Routed from inbox note 2 (observed at b038eec9; the forward window touches specs/ only). Re-verified at HEAD: the fold and the splice are both as reported, but `refuse_ungoverned` does **not** fire \u2014 `notes/notes-home.md` still matches `notes/*.md` \u2014 so the verified gap is identity, not the glob round trip: the key a discovery reads is not the name its author declared. Independent of depth, hence its own entry. scoped at 640cb4fd"
 }
