@@ -131,14 +131,7 @@ fn a_freshly_emitted_markdown_projection_carries_the_managed_projection_banner()
             ],
             ..Default::default()
         },
-        members: vec![PayloadMember {
-            kind: "memory".to_string(),
-            name: "root".to_string(),
-            host: None,
-            fields: Vec::new(),
-            body: MEMORY_BODY.to_string(),
-            source_path: None,
-        }],
+        members: vec![common::payload_member("memory", "root", None, MEMORY_BODY)],
     };
 
     let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
@@ -661,14 +654,9 @@ fn a_member_naming_an_undeclared_kind_is_a_clear_refusal() {
         Some(&["src/**/*.rs"]),
         RUST_BODY,
     )]);
-    payload.members.push(PayloadMember {
-        kind: "ghost".to_string(),
-        name: "phantom".to_string(),
-        host: None,
-        fields: Vec::new(),
-        body: "boo".to_string(),
-        source_path: None,
-    });
+    payload
+        .members
+        .push(common::payload_member("ghost", "phantom", None, "boo"));
 
     let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
     assert!(format!("{err}").contains("ghost"), "{err}");
@@ -695,14 +683,7 @@ fn flat_file_kind_facts(name: &str, root: &str, glob: &str) -> KindFactRow {
 
 /// A bare `PayloadMember` of `kind` named `name` — no fields, a one-line body.
 fn plain_member(kind: &str, name: &str) -> PayloadMember {
-    PayloadMember {
-        kind: kind.to_string(),
-        name: name.to_string(),
-        host: None,
-        fields: Vec::new(),
-        body: "# Body\n".to_string(),
-        source_path: None,
-    }
+    common::payload_member(kind, name, None, "# Body\n")
 }
 
 #[test]

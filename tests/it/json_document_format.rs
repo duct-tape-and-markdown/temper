@@ -489,14 +489,7 @@ fn the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_a
         },
         members: vec![
             common::rule_member("rust", Some(&["src/**/*.rs"]), RULE_BODY),
-            PayloadMember {
-                kind: "memory".to_string(),
-                name: "CLAUDE".to_string(),
-                host: None,
-                fields: Vec::new(),
-                body: MEMORY_BODY.to_string(),
-                source_path: None,
-            },
+            common::payload_member("memory", "CLAUDE", None, MEMORY_BODY),
         ],
     };
 
@@ -555,14 +548,9 @@ fn page_kind_row() -> KindFactRow {
 
 /// A document member of `kind` named `name`, carrying the one field its document spells.
 fn titled_member(kind: &str, name: &str, host: Option<&str>) -> PayloadMember {
-    PayloadMember {
-        kind: kind.to_string(),
-        name: name.to_string(),
-        host: host.map(str::to_string),
-        fields: vec![("title".to_string(), json!(name))],
-        body: String::new(),
-        source_path: None,
-    }
+    let mut member = common::payload_member(kind, name, host, "");
+    member.fields.push(("title".to_string(), json!(name)));
+    member
 }
 
 #[test]

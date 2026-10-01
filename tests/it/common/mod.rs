@@ -1121,6 +1121,10 @@ pub fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMem
 /// `host`, which carries the host member's own whole address. The general home beside the
 /// per-kind [`rule_member`]/[`skill_member`] builders, for the suites whose fixture needs
 /// a kind those two do not cover or a member nested under a host.
+///
+/// The bare-shape struct literal lives here and nowhere else: a suite wanting the fieldless
+/// member calls this, and a suite wanting it plus a field or two builds off this call and
+/// pushes onto `fields` rather than re-spelling the literal.
 pub fn payload_member(kind: &str, name: &str, host: Option<&str>, body: &str) -> PayloadMember {
     PayloadMember {
         kind: kind.to_string(),
@@ -1339,14 +1343,7 @@ pub fn intent_layout_row() -> LayoutRow {
 
 /// A layout member of `kind`, its document already on disk (a source, never projected).
 pub fn layout_member(kind: &str) -> PayloadMember {
-    PayloadMember {
-        kind: kind.to_string(),
-        name: kind.to_string(),
-        host: None,
-        fields: Vec::new(),
-        body: String::new(),
-        source_path: None,
-    }
+    payload_member(kind, kind, None, "")
 }
 
 /// The findings whose rule (the `title=<rule>` property) equals `rule` — the

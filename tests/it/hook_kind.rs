@@ -24,8 +24,7 @@ use crate::common::{check_harness, write_rule, write_settings};
 use temper::builtin_kind;
 use temper::builtin_lock;
 use temper::drift::{
-    self, CollectionAddressRow, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember,
-    RegistrationRow,
+    self, CollectionAddressRow, Declarations, EmitOptions, KindFactRow, Payload, RegistrationRow,
 };
 use temper::json_manifest::{self, CollectionSegment};
 use temper::kind::{CollectionAddress, CollectionKeyPath, Content, Registration};
@@ -313,14 +312,7 @@ fn a_two_handler_group_re_nests_to_the_settings_json_it_was_read_from() {
             }],
             ..Default::default()
         },
-        members: vec![PayloadMember {
-            kind: "settings".to_string(),
-            name: "settings".to_string(),
-            host: None,
-            fields: Vec::new(),
-            body: String::new(),
-            source_path: None,
-        }],
+        members: vec![common::payload_member("settings", "settings", None, "")],
     };
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 

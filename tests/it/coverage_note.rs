@@ -21,7 +21,7 @@ use crate::common;
 use crate::common::check_harness;
 
 use temper::coverage_note;
-use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload};
 use temper::kind::CustomKind;
 
 /// Write a clean one-skill surface at `<root>/.claude/skills/<name>/SKILL.md` — the
@@ -67,14 +67,7 @@ fn lock_widget_kind(root: &Path) {
             kinds: vec![widget_kind_facts(".claude/widgets", "*.json")],
             ..Declarations::default()
         },
-        members: vec![PayloadMember {
-            kind: "widget".to_string(),
-            name: "panel".to_string(),
-            host: None,
-            fields: Vec::new(),
-            body: "{}\n".to_string(),
-            source_path: None,
-        }],
+        members: vec![common::payload_member("widget", "panel", None, "{}\n")],
     };
     drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
@@ -477,14 +470,7 @@ fn lock_widget_and_rule(root: &Path) {
             ..Declarations::default()
         },
         members: vec![
-            PayloadMember {
-                kind: "widget".to_string(),
-                name: "panel".to_string(),
-                host: None,
-                fields: Vec::new(),
-                body: "{}\n".to_string(),
-                source_path: None,
-            },
+            common::payload_member("widget", "panel", None, "{}\n"),
             common::rule_member("declared", None, "# declared\n\nBody.\n"),
         ],
     };

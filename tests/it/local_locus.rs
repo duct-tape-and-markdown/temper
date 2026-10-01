@@ -27,7 +27,7 @@
 
 use std::fs;
 
-use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload};
 
 use crate::common;
 
@@ -38,14 +38,7 @@ fn knob_payload(kind: KindFactRow) -> Payload {
             kinds: vec![kind],
             ..Default::default()
         },
-        members: vec![PayloadMember {
-            kind: "knob".to_string(),
-            name: "knob".to_string(),
-            host: None,
-            fields: Vec::new(),
-            body: String::new(),
-            source_path: None,
-        }],
+        members: vec![common::payload_member("knob", "knob", None, "")],
     }
 }
 
@@ -584,14 +577,7 @@ fn an_at_locus_under_the_workspace_refuses_at_emit_and_check() {
             }],
             ..Default::default()
         },
-        members: vec![PayloadMember {
-            kind: "test_kind".to_string(),
-            name: "test_member".to_string(),
-            host: None,
-            fields: Vec::new(),
-            body: String::new(),
-            source_path: None,
-        }],
+        members: vec![common::payload_member("test_kind", "test_member", None, "")],
     };
 
     // Emit refuses at projection time.

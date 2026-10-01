@@ -16,7 +16,6 @@ use std::fs;
 
 use temper::drift::{
     self, ClauseRow, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, Payload,
-    PayloadMember,
 };
 use temper::layout::{Layout, LayoutError, LayoutRegion};
 
@@ -353,14 +352,7 @@ fn intent_payload() -> Payload {
             kinds: vec![intent_kind_facts()],
             ..Default::default()
         },
-        members: vec![PayloadMember {
-            kind: "intent".to_string(),
-            name: "intent".to_string(),
-            host: None,
-            fields: Vec::new(),
-            body: String::new(),
-            source_path: None,
-        }],
+        members: vec![common::payload_member("intent", "intent", None, "")],
     }
 }
 

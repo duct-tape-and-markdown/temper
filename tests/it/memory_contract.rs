@@ -22,7 +22,7 @@ use std::fs;
 use crate::common;
 
 use temper::builtin_kind;
-use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload};
 use temper::frontmatter::Member;
 
 /// A repo-root `CLAUDE.md` in exactly the `memory` kind's shape: **no YAML
@@ -65,14 +65,7 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
             kinds: vec![memory_kind_facts()],
             ..Declarations::default()
         },
-        members: vec![PayloadMember {
-            kind: "memory".to_string(),
-            name: "CLAUDE".to_string(),
-            host: None,
-            fields: Vec::new(),
-            body: CLAUDE_MD.to_string(),
-            source_path: None,
-        }],
+        members: vec![common::payload_member("memory", "CLAUDE", None, CLAUDE_MD)],
     };
 
     // Emit face: a frontmatterless member (no `fields`) projects as the byte-faithful
