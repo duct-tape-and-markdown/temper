@@ -421,8 +421,26 @@ fn main() -> miette::Result<ExitCode> {
             let workspace_dir = path.join(temper::WORKSPACE_DIR);
             let declarations = drift::read_declarations(&workspace_dir)?;
             let mode = compose::mode_from_declarations(&declarations)?;
-            let mut payload = String::new();
-            io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
+            let mut stdin_payload = String::new();
+            io::Read::read_to_string(&mut io::stdin(), &mut stdin_payload).into_diagnostic()?;
+
+            // One decode, before any judge reads a field: every binding below reads the
+            // payload structurally off this value, so no two of them can disagree about
+            // what one field says. A payload that is not JSON refuses loud rather than
+            // falling through to an allow (intent.md, invariant 6) — the guard reads a
+            // machine-written envelope, so arbitrary text on stdin means the hook row is
+            // mis-wired, and a silent zero would hide the one condition that disables the
+            // boundary wholesale.
+            let payload: serde_json::Value =
+                serde_json::from_str(&stdin_payload).map_err(|err| {
+                    miette::miette!(
+                        "`temper guard` read no hook payload on stdin ({err}) — this verb \
+                         runs from a Claude Code `PreToolUse`/`PostToolUse` hook row and \
+                         judges the JSON envelope that fires it. Re-run `temper install` \
+                         to re-wire the gate hooks, or invoke the verb the way the row \
+                         does."
+                    )
+                })?;
 
             // The governed loci, assembled once for both edges: the pending-write edge
             // tests its payload's one `file_path` against them, the shell edge enumerates

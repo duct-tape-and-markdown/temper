@@ -2474,6 +2474,104 @@ fn guard_matches_a_projection_by_path_equality_not_suffix() {
     }
 }
 
+/// A declared projection whose path needs a JSON escape to ride the payload is bound like
+/// any other. The guard reads `file_path` off the decoded payload, so the value it compares
+/// is the path the tool named; the retired field-scoped grep captured `[^"]*` and stopped at
+/// the escape's own quote, handing the compare a truncated prefix that matched no row — and
+/// the write through.
+///
+/// The fixture's root contract binds `reachable` alone, so `locus-declared` is unbound and
+/// the projection compare is the one binding in play: the governed-locus arm cannot catch
+/// what the compare misses. The allowed sibling below is that fact's own pin — with the
+/// locus binding live it would block, and this case would stay green over the wrong judge.
+#[test]
+fn guard_binds_a_projection_whose_file_path_value_carries_a_json_escape() {
+    // An embedded quote: legal in a POSIX path, and a two-character escape on the wire.
+    const ESCAPED_PATH: &str = ".claude/skills/x\"y/SKILL.md";
+
+    let root = common::tmpdir("guard-escaped-file-path");
+    common::GuardLock::declaring("block")
+        .member("skill", "x", ESCAPED_PATH, "abc", "abc")
+        .clause_row(ClauseRow {
+            label: Some("root.reachable".to_string()),
+            ..common::clause("reachable", "advisory")
+        })
+        .write(&root);
+
+    let payload = common::guard_write_payload(ESCAPED_PATH);
+    assert!(
+        payload.contains("x\\\"y"),
+        "the pin is vacuous unless the payload really escapes the path value: {payload}"
+    );
+
+    let (code, stderr) = common::run_guard(&root, &payload);
+    assert_eq!(
+        code,
+        Some(2),
+        "the declared projection must be bound however its path spells on the wire: {stderr}"
+    );
+    assert!(
+        stderr.contains("temper-managed projection"),
+        "and bound by the projection compare, which names the row's owner: {stderr}"
+    );
+
+    // No `locus-declared` clause ⇒ no governed locus to fall through to, so the arm above
+    // is the only one that could have blocked.
+    let (stray_code, stray_output) = common::run_guard(
+        &root,
+        &common::guard_write_payload(".claude/rules/stray.md"),
+    );
+    assert_eq!(
+        stray_code,
+        Some(0),
+        "the fixture binds no governed locus: {stray_output}"
+    );
+    assert!(
+        stray_output.is_empty(),
+        "and surfaces nothing: {stray_output}"
+    );
+}
+
+/// Stdin that is not a hook envelope refuses loud and judges nothing. The guard's input is
+/// machine-written, so arbitrary text means the hook row is mis-wired — a condition that
+/// disables the boundary wholesale, and so exactly what invariant 6 forbids degrading
+/// silently over. The retired grep instead scraped a `file_path` out of whatever text
+/// arrived and rendered a verdict on it, which is the shape pinned against here.
+#[test]
+fn guard_refuses_stdin_that_is_not_a_hook_payload() {
+    let root = common::tmpdir("guard-unparseable-payload");
+    claude_write_lock("block").write(&root);
+
+    // Prose that happens to mention the field, with the declared projection's path beside
+    // it — the grep read both and blocked a write no hook announced.
+    let payload = format!("mis-wired: \"file_path\": \"{CLAUDE_WRITE_PATH}\"\n");
+    let (code, output) = common::run_guard(&root, &payload);
+    assert_eq!(
+        code,
+        Some(1),
+        "a payload that is not JSON is a hard error, not a verdict: {output}"
+    );
+    assert!(
+        !output.contains("temper-managed projection"),
+        "no verdict is rendered over text the guard could not decode: {output}"
+    );
+
+    // miette word-wraps the rendered message across its own gutter, so a multi-word
+    // phrase never appears contiguously in the bytes: match against the render flattened
+    // back to one line rather than pinning the terminal width the wrap happened at.
+    let flattened = output
+        .replace(['│', '×'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    for named in ["`PreToolUse`/`PostToolUse` hook row", "`temper install`"] {
+        assert!(
+            flattened.contains(named),
+            "the refusal must name the mis-wired hook and its remedy ({named}): {output}"
+        );
+    }
+}
+
 /// `temper guard .` — the invocation shape `install` writes into every settings.json
 /// hook command — must reach the identical verdict as `temper guard <absolute root>`.
 /// A relative root that is never resolved against the working directory normalizes to

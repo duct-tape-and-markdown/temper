@@ -52,7 +52,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::LazyLock;
 
-use regex::Regex;
 use serde_json::{Value as JsonValue, json};
 use toml_edit::DocumentMut;
 
@@ -407,22 +406,6 @@ const GUARD_SHELL_EDGE_MESSAGE: &str = "temper-managed projection drift: a commi
 /// whether Claude Code loads one turns on whose kind governs its locus — a per-kind fact
 /// each finding under it already speaks ([`drift::undeclared_locus_members_from_doc`]).
 const GUARD_SHELL_EDGE_LOCUS_MESSAGE: &str = "temper-governed locus: a document sits at a represented kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared; declare the member in the program and re-emit, or remove the file. A shell tool's writes name no path in the hook payload, so this edge enumerates the loci the lock's kinds govern rather than one file, and cannot say which call left it.";
-
-/// The extended-regex `temper guard` greps the payload for the firing event's own
-/// `hook_event_name`, the field that says which edge of the tool call this is. The same
-/// conservative field-scoped shape as [`GUARD_FILE_PATH_MATCH`], and the first match is
-/// the one read: Claude Code's payload carries the event among its leading identity
-/// fields, ahead of the `tool_input` a write's content rides.
-const GUARD_HOOK_EVENT_MATCH: &str = r#""hook_event_name"[[:space:]]*:[[:space:]]*"([^"]*)""#;
-
-/// The extended-regex `temper guard` greps the `PreToolUse` payload for: any `file_path`
-/// value, captured so the guard can test it for lock-declared projection-set membership
-/// when targets are present, or fall back to the `.claude/` locus check when no lock
-/// exists. Matching the field (not the whole payload) keeps a write whose *content*
-/// merely mentions `file_path` from tripping the guard. Kept deliberately conservative —
-/// a false negative routes to CI (the backstop wall), a false positive would block honest
-/// work.
-const GUARD_FILE_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"([^"]*)""#;
 
 /// The one question `install` asks, exactly once, after the discovery report:
 /// there is one
@@ -1208,26 +1191,19 @@ pub enum GuardEdge {
     PostToolUse,
 }
 
-/// The edge `payload` fired at, read off its own `hook_event_name`
-/// ([`GUARD_HOOK_EVENT_MATCH`]).
+/// The edge `payload` fired at, read off the `hook_event_name` member of the decoded
+/// hook payload — the field naming which edge of the tool call this is, carried by every
+/// event's envelope (code.claude.com/docs/en/hooks, retrieved 2026-07-17, the same
+/// external fact `builtin_kind`'s tap classifier reads it as).
 ///
 /// Only `PostToolUse` answers [`GuardEdge::PostToolUse`]. A payload naming no event, or
 /// naming one the gate wires no row for, keeps the pending-write edge: that judge binds
-/// nothing a payload does not name a `file_path` in, so reading it at the wrong edge
-/// costs a regex and says nothing, where reading a *pre*-edge write as the post edge
-/// would drop the one binding that can still deny it.
+/// nothing a payload does not name a `file_path` in, so reading it at the wrong edge says
+/// nothing, where reading a *pre*-edge write as the post edge would drop the one binding
+/// that can still deny it.
 #[must_use]
-pub fn guard_edge(payload: &str) -> GuardEdge {
-    // A compile-time-constant pattern: the only failure is a malformed literal, a build
-    // invariant, so `expect` here can never fire on a real payload.
-    let event =
-        Regex::new(GUARD_HOOK_EVENT_MATCH).expect("GUARD_HOOK_EVENT_MATCH is a valid regex");
-    match event
-        .captures(payload)
-        .as_ref()
-        .and_then(|captures| captures.get(1))
-        .map(|value| value.as_str())
-    {
+pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
+    match payload.get("hook_event_name").and_then(JsonValue::as_str) {
         Some("PostToolUse") => GuardEdge::PostToolUse,
         _ => GuardEdge::PreToolUse,
     }
@@ -1438,7 +1414,7 @@ pub struct GuardDecision {
     pub message: String,
 }
 
-/// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `mode`'s
+/// Decide `temper guard`'s verdict over a decoded `PreToolUse` `payload` at `mode`'s
 /// enforcement mode, bound to `targets` — the lock's emit-owned projection set
 /// ([`drift::emit_owned_targets`]) — and to `loci`, the governed loci of the
 /// represented committed kinds ([`GuardedLocus`]). `targets` is `None` for a harness
@@ -1463,7 +1439,7 @@ pub struct GuardDecision {
 /// ([`GuardVerdict::Warn`]), `block` denies the call ([`GuardVerdict::Block`]).
 #[must_use]
 pub fn guard(
-    payload: &str,
+    payload: &JsonValue,
     mode: EnforcementMode,
     root: &Path,
     targets: Option<&[drift::EmitOwnedEntry]>,
@@ -1480,9 +1456,9 @@ pub fn guard(
     // When targets are declared, check the file_path against them, then against the
     // governed loci that declare no member for it.
     let message = if let Some(targets) = targets {
-        if let Some(owner) = matched_projection(&file_path, root, targets) {
+        if let Some(owner) = matched_projection(file_path, root, targets) {
             format!("{}{}", guard_message(), projection_owner_line(owner))
-        } else if let Some(locus) = matches_governed_locus(&file_path, root, loci) {
+        } else if let Some(locus) = matches_governed_locus(file_path, root, loci) {
             undeclared_locus_message(&locus.kind, locus.custom)
         } else {
             return allow();
@@ -1490,7 +1466,7 @@ pub fn guard(
     } else {
         // Fallback: with no lock, bind only `.claude/` paths (the documented no-lock
         // fallback behavior — absent evidence must never suppress the guard).
-        if !is_claude_path(&file_path) {
+        if !is_claude_path(file_path) {
             return allow();
         }
         guard_message().to_string()
@@ -1513,18 +1489,31 @@ pub fn guard(
     }
 }
 
-/// The `file_path` value a `PreToolUse` `payload` names, when present
-/// ([`GUARD_FILE_PATH_MATCH`]'s captured value). Extracts any path regardless of
-/// locus; the caller determines whether to bind it (against targets or the `.claude/`
-/// fallback).
-fn extract_file_path(payload: &str) -> Option<String> {
-    // A compile-time-constant pattern: the only failure is a malformed literal, a build
-    // invariant, so `expect` here can never fire on a real path.
-    Regex::new(GUARD_FILE_PATH_MATCH)
-        .expect("GUARD_FILE_PATH_MATCH is a valid regex")
-        .captures(payload)
-        .and_then(|captures| captures.get(1))
-        .map(|value| value.as_str().to_string())
+/// The `tool_input` object a hook payload carries the firing tool's own arguments in —
+/// one home for the field name, read by both judges a pending write faces
+/// ([`extract_file_path`] and [`manifest_write_findings`]), so neither can reach a
+/// different reading of it (code.claude.com/docs/en/hooks, "PreToolUse input", retrieved
+/// 2026-09-25).
+fn tool_input(payload: &JsonValue) -> Option<&JsonValue> {
+    payload.get("tool_input")
+}
+
+/// The `file_path` value a `PreToolUse` `payload` names, when present — the `file_path`
+/// member of the decoded payload's [`tool_input`] (an external fact:
+/// code.claude.com/docs/en/tools-reference, retrieved 2026-09-07).
+///
+/// Read structurally off the one decode, never scraped out of the payload's text: the
+/// field read is scoped to the write's own arguments, so a write whose *content* merely
+/// mentions `file_path` names nothing here — the conservatism a field-scoped grep was
+/// reaching for, held strictly, and with a JSON-escaped path value arriving whole rather
+/// than truncated at its first escape.
+///
+/// Extracts any path regardless of locus; the caller determines whether to bind it
+/// (against targets or the `.claude/` fallback).
+fn extract_file_path(payload: &JsonValue) -> Option<&str> {
+    tool_input(payload)?
+        .get("file_path")
+        .and_then(JsonValue::as_str)
 }
 
 /// Whether `file_path` names a `.claude/`-rooted artifact — the fallback binding
@@ -1857,13 +1846,12 @@ fn unparseable_manifest_finding(
 /// manifest never loads.
 #[must_use]
 pub fn manifest_write_findings(
-    payload: &str,
+    payload: &JsonValue,
     root: &Path,
     manifests: &[GuardedManifest],
 ) -> Option<Vec<Diagnostic>> {
-    let value: JsonValue = serde_json::from_str(payload).ok()?;
-    let input = value.get("tool_input")?;
-    let file_path = input.get("file_path").and_then(JsonValue::as_str)?;
+    let input = tool_input(payload)?;
+    let file_path = extract_file_path(payload)?;
 
     let matched: Vec<&GuardedManifest> = manifests
         .iter()
