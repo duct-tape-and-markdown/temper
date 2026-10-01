@@ -62,3 +62,11 @@ Third independent tick paying it, at b253d418: `798 passed; 64 failed` →
 `862 passed; 0 failed`. Same class, same silent signature. The recurrence is
 the argument for the mechanical alternative over the documentation one — three
 ticks have now read the capture's own advice too late to avoid the run.
+
+Fourth tick at 9ce49208: `801 passed; 64 failed`, same silent
+signature. Diagnosed this time without the install — `ls sdk/node_modules`
+plus `npm run build` in `sdk/` surfaces the real cause (`TS2688: Cannot find
+type definition file for 'node'`) in two calls, and the audit concluded on the
+56 non-SDK `read_verbs` tests plus all 23 `check_cost` ones. Cheaper, but the
+reader still pays the full suite run first — the capture is read after the
+cost, every time.
