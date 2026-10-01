@@ -950,7 +950,7 @@ function nestedMemberRows(
  * # Throws
  * If a fields-only member declares no collection address — it surfaces in no host manifest.
  */
-export function registrationRows(harness: Harness): RegistrationRow[] {
+function registrationRows(harness: Harness): RegistrationRow[] {
   return harness.members
     .filter((member) => member.facts.shape === "fields")
     .map((member): RegistrationRow => {
@@ -1005,7 +1005,7 @@ export function buildTapHookDedupeKey(event: string, matcher: string): string {
  * {@link mergedRegistrationRows}'s call, so this pass need not know what the program
  * authored.
  */
-export function tapHookRows(harness: Harness): RegistrationRow[] {
+function tapHookRows(harness: Harness): RegistrationRow[] {
   const deduped = new Map<string, { readonly event: string; readonly matcher: string }>();
   const collect = (requirement: Requirement): void => {
     if (requirement.verifier?.species !== "telemetry") return;
