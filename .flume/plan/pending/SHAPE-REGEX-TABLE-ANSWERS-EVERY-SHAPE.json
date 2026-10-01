@@ -1,0 +1,22 @@
+{
+  "tag": "SHAPE-REGEX-TABLE-ANSWERS-EVERY-SHAPE",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/contract.rs",
+        "description": "`SHAPE_PATTERNS` (line 1130) is a hand-listed `[(Shape, regex::Regex); 3]` beside the exhaustive `Shape::pattern` (1179) / `match_holds` (1192) matches — a private partial copy of the closed `Shape` set. Replace the array-plus-`find` lookup in `Shape::admits` (1202) with a per-variant `match` over one `LazyLock<regex::Regex>` static each, every static compiling `Shape::pattern()` so the name-to-expression mapping keeps its one home. While the file is open, the `SHAPE_PATTERNS` doc comment's stale cite `tests/shape_predicate.rs` corrects to `tests/it/shape_predicate.rs`."
+      }
+    ]
+  },
+  "summary": "The compiled shape-regex table hand-lists the `Shape` enum, so a fourth variant falls through `admits` instead of failing to compile.",
+  "per": { "path": "specs/process/engineering.md", "section": "A shared concept is one type" },
+  "tests": [
+    {
+      "path": "tests/it/shape_predicate.rs",
+      "asserts": "unchanged and green — each of the three shipped shapes still decides its documented rule in both directions, and an unknown shape name is still refused at load"
+    }
+  ],
+  "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, with the shape-to-regex lookup an exhaustive `match`: adding a `Shape` variant stops compiling rather than resolving to no pattern.",
+  "notes": "Verified on disk: `admits` looks its shape up with `.find().is_some_and(...)`, so an absent entry yields `matched = false`; a negative-polarity shape (`match_holds` false, like `no-xml-tags`) then reads as holding for every value — a silent green, the failure class 'A green verdict is proven non-vacuous' names. The regression pin is the type rather than a test: a per-variant match cannot be written incomplete, and no Rust test can add a variant. scoped at 2ae79534"
+}

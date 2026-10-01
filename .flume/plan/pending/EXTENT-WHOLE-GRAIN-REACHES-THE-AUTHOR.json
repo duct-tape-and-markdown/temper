@@ -1,0 +1,44 @@
+{
+  "tag": "EXTENT-WHOLE-GRAIN-REACHES-THE-AUTHOR",
+  "gate": { "kind": "deferred", "reason": "no consumer yet — no harness has asked for a summed-extent budget, so the engine half sits built and the authoring half unspelled" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/contract.rs",
+        "description": "`predicate_from_row`'s `extent` arm (line 678) hard-codes `whole: false`, so no lock row can ever lift the whole grain. Read the grain off the row's new column instead. Two extent clauses on one kind reduce to one `clause_label` today (`skill.extent`), so the grain must distinguish the label the way `when_label_field` composes its guard's value set into the `field` argument."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "`ClauseRow` (line 4590) carries no `whole` column; add it beside `unit`, with its write (around line 5706) and robust read (around line 5767) in the same codec."
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "`extent(unit, bound)` (line 154) is the only authoring spelling and offers no grain argument — the author cannot say 'the selection's summed extent'."
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "the clause-row synthesis (around line 151, where `unit` is written for an `extent` predicate) writes the new column."
+      },
+      {
+        "path": "sdk/src/generated/ClauseRow.ts",
+        "description": "ts-rs regeneration of the widened row — machine-written, re-emitted, never hand-edited."
+      },
+      {
+        "path": "tests/it/extent.rs",
+        "description": "the whole-grain cases (lines 45-87) construct `Predicate::Extent { whole: true }` by hand; they gain a round-trip through the real writer and reader, per the seam-gate bar."
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "the clause-row codec round-trip gains the new column."
+      }
+    ]
+  },
+  "summary": "`extent`'s whole grain is judged but unauthorable: no lock column and no SDK spelling carry it, so every decoded extent clause is each-grain.",
+  "per": { "path": "specs/model/contract.md", "section": "clause" },
+  "tests": [
+    { "path": "tests/it/extent.rs", "asserts": "a whole-grain extent clause authored through the SDK, written to a lock and read back by the engine sums the selection's rendered extent — the grain survives the round-trip rather than decoding to each-grain" },
+    { "path": "tests/it/lock_declaration_rows.rs", "asserts": "the clause row's grain column round-trips, and a row omitting it reads as each-grain" }
+  ],
+  "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with a whole-grain `extent` clause authorable in the SDK and lifted back out of the lock as `whole: true`.",
+  "notes": "Dead plumbing found by the posture sweep: `engine::judge`'s summed-extent path (src/engine.rs:890) and `ranges_over_selection`'s `Extent { whole: true }` arm (src/contract.rs:891) are reachable only from hand-built test clauses. 4bdb7960 built both grains routing 0035's amendment and wired only `each` across the lock. Deferred, not cut: the grain is the enum's, and contract.md makes the enum the vocabulary's authority. scoped at 2ae79534"
+}
