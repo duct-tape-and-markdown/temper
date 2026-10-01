@@ -1,18 +1,19 @@
 {
   "tag": "DIRECTIVE-MEMBERS-BUILD-IN-ONE-LOOP",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "KIND-READ-NAMES-THE-ONE-KIND-IT-WAS-HANDED"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/compose.rs",
         "description": "Fold `directive_members_from_resolved`'s two loops into one: the built-in branch (keyed by name, declared syntax read off `builtin_defs`) and the custom branch (name and syntax read off the `CustomKind`) build an identical `graph::DirectiveMember` over `uaf.units.iter().zip(&uaf.features)`. Chain the two sources into one iterator of (kind name, declared syntax, `&KindUnitsAndFeatures`) and keep one `DirectiveMember` literal in the function."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`directive_members_from_resolved` builds a `DirectiveMember` in two loops, and the custom-kind copy is the one no fixture covers.",
   "per": {
@@ -22,13 +23,13 @@
   "tests": [
     {
       "path": "tests/it/memory_gate.rs",
-      "asserts": "the built-in corpus's directive classing is unchanged \u2014 a `CLAUDE.md` `@import` still resolves to member, repo file, or one `graph.directive-unbacked` finding"
+      "asserts": "the built-in corpus's directive classing is unchanged — a `CLAUDE.md` `@import` still resolves to member, repo file, or one `graph.directive-unbacked` finding"
     },
     {
       "path": "tests/it/directive_classing.rs",
-      "asserts": "`an_unbacked_pointer_warns_without_failing_the_run` and `a_cross_kind_ring_reaches_the_acyclicity_gate` still pass \u2014 both drive a real run through the folded construction, the ring's middle hop being a kind that declares no directive syntax of its own"
+      "asserts": "`an_unbacked_pointer_warns_without_failing_the_run` and `a_cross_kind_ring_reaches_the_acyclicity_gate` still pass — both drive a real run through the folded construction, the ring's middle hop being a kind that declares no directive syntax of its own"
     }
   ],
   "acceptance": "`cargo test` green with no test edited, `cargo clippy --all-targets -- -D warnings` clean, and the `graph::DirectiveMember` literal appears exactly once in `src/compose.rs`.",
-  "notes": "Blocked on KIND-READ-NAMES-THE-ONE-KIND-IT-WAS-HANDED for file-disjointness only \u2014 both edit src/compose.rs. No fixture declares a custom kind carrying the `directives` primitive (rg over tests/it), so the custom copy is live-but-uncovered; the fold puts it on the built-in path's coverage instead of buying a second fixture. scoped at 5f93bd62"
+  "notes": "Blocked on KIND-READ-NAMES-THE-ONE-KIND-IT-WAS-HANDED for file-disjointness only — both edit src/compose.rs. No fixture declares a custom kind carrying the `directives` primitive (rg over tests/it), so the custom copy is live-but-uncovered; the fold puts it on the built-in path's coverage instead of buying a second fixture. scoped at 5f93bd62"
 }
