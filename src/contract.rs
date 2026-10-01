@@ -766,13 +766,18 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
                 fields: row.fields.clone(),
             }
         }
+        // The guard's row is this row minus the `when` clause's own columns — the mirror
+        // of the write side, which sets those columns over the guard's row. Clearing
+        // `guard_predicate` is what closes the no-nesting rule here: a row naming `when`
+        // as its own guard would otherwise rebuild itself and recurse forever, where it
+        // now decodes to `None` at the inner `guard_predicate` read and the caller
+        // refuses it as the corrupt lock it is.
         "when" => {
             let guard_predicate_key = row.guard_predicate.as_deref()?;
             let guard_row = ClauseRow {
                 predicate: guard_predicate_key.to_string(),
-                field: row.field.clone(),
-                value_type: row.value_type.clone(),
-                values: row.values.clone(),
+                guard_predicate: None,
+                body: None,
                 ..row.clone()
             };
             let guard = predicate_from_row(&guard_row)?;

@@ -1169,6 +1169,46 @@ fn check_rejects_a_lock_clause_row_the_closed_vocabulary_cannot_admit() {
     );
 }
 
+/// A `when` clause row naming `when` as its own guard predicate fails the run loud:
+/// guards do not nest, and the row format carries one `guard_predicate` column and one
+/// `body`, so this self-reference is the only nested guard a lock can spell at all.
+/// Refusing it at lift is what keeps the lift total — the guard row is the clause's row
+/// minus the `when` columns, so the inner decode finds no guard key and the corrupt-lock
+/// channel reports it, rather than the lift rebuilding its own input and recursing until
+/// the stack overflows.
+#[test]
+fn check_rejects_a_lock_when_row_naming_when_as_its_own_guard() {
+    let root = common::tmpdir("reject-self-guarding-when");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            clauses: vec![ClauseRow {
+                kind: Some("spec".to_string()),
+                field: Some("status".to_string()),
+                values: Some(vec!["draft".to_string()]),
+                guard_predicate: Some("when".to_string()),
+                body: Some(vec![ClauseRow {
+                    field: Some("owner".to_string()),
+                    ..common::clause("required", "required")
+                }]),
+                ..common::clause("when", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "a `when` row guarded by `when` must fail the run loud, got:\n{output}"
+    );
+    assert!(
+        output.contains("predicate `when`"),
+        "the load error names the offending predicate rather than aborting, got:\n{output}"
+    );
+}
+
 /// A payload with no requirements/satisfies/assembly facts at all still emits and
 /// round-trips: those families are simply empty, never an error or a malformed row —
 /// the bootstrap's tolerant-read discipline extends to the new facets exactly as it
