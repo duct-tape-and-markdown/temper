@@ -40,10 +40,15 @@ instructions to file.
 
 ## Challenge gaps, never paper over them
 
-- If a spec section is ambiguous, under-specified, or rests on an unsettled
-  decision, **stop and surface it** — do not invent intent to keep moving. In
-  `build`, leave the entry and raise an open question; in conversation, say so
-  plainly and ask.
+- **Derive before declaring a gap.** Most questions met mid-work are already
+  answered: entailed by a stated grammar, a Decision's ruling, an invariant or
+  intent. Work the answer out of the corpus and cite what entails it; the cited
+  answer is the move, not the question.
+- A question is open only when the corpus underdetermines it: two answers each
+  consistent with every source you checked, with nothing in intent to rank
+  them. Then **stop and surface it** — do not invent intent to keep moving. In
+  `build`, leave the entry and raise an open question naming what you checked;
+  in conversation, say so plainly and ask.
 - A derived layer never invents intent absent from its source. Plan does not
   invent requirements the spec doesn't carry; build does not invent behavior the
   entry doesn't name.

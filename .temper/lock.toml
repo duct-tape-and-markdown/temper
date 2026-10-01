@@ -9,8 +9,8 @@ emit_hash = "057ff4957a9e31a1cfefefff6e739e15dadfc7eeba12cb23e7f48305964aac25"
 [[rule]]
 name = "collaboration"
 source_path = ".claude/rules/collaboration.md"
-source_hash = "a8bb717defb4eb8743165841966293d60b9d267622647d112df25da8291c8207"
-emit_hash = "a8bb717defb4eb8743165841966293d60b9d267622647d112df25da8291c8207"
+source_hash = "283c85875b3603df13b6103abf7376cac9939d60ee5656b2df50fd0b74b04ada"
+emit_hash = "283c85875b3603df13b6103abf7376cac9939d60ee5656b2df50fd0b74b04ada"
 
 [[rule]]
 name = "fork-lifecycle"
@@ -140,7 +140,7 @@ guidance = "A lock row this member owns no longer matches disk: either its commi
 label = "root.locus-declared"
 predicate = "locus-declared"
 severity = "advisory"
-guidance = "A document sits at a governed locus that your program declares no member for. Claude Code loads it, but temper maintains nothing about it: `emit` never writes or reaps it, `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared."
+guidance = "A document sits at a governed locus that your program declares no member for. temper maintains nothing about it: `emit` never writes or reaps it, `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Where the locus is one the harness itself loads — a built-in kind's — it is live context on top of that; where the kind is your own, who reads it is yours to know and not temper's to claim. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared."
 
 [[declaration.clause]]
 label = "root.engine-matches"
