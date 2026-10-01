@@ -1,0 +1,37 @@
+{
+  "tag": "REGISTRATION-ROW-BUILDERS-LOSE-THEIR-UNEARNED-EXPORT",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "WHEN-GUARD-COLUMNS-RIDE-ONE-SPREAD"
+    ]
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "`registrationRows` (965) and `tapHookRows` (1020) are `export`ed with no caller outside this module: both are read only by `mergedRegistrationRows` (1092), which is the one home both faces take, and neither is re-exported from `sdk/src/index.ts` or reachable through `sdk/package.json`'s two `exports` entries (`.`, `./claude-code`). Verified with `rg -a` over `sdk/src`, `sdk/test` and `tests/`: every other hit is prose — `builtins.ts` 602 and `sdk/test/builtins.test.ts` 14/404 name `tapHookRows` in doc text, never call it. Narrow both to module-private `function`. Their sibling `buildTapHookDedupeKey` (999) keeps its export — `sdk/test/emit.test.ts` 45 imports it — as do the eight others this module exports, each with an `emit.ts` or test caller."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "declarations.ts exports registrationRows and tapHookRows to no caller — neither is re-exported from index.ts; both narrow to module-private.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "An export earns its consumer"
+  },
+  "tests": [
+    {
+      "path": "sdk/test/root_exports.test.ts",
+      "asserts": "the package's public face is unchanged — the narrow touches no root export, and the suite that pins that face stays green"
+    },
+    {
+      "path": "sdk/test/emit.test.ts",
+      "asserts": "the registration rows and the synthesized tap hooks are unchanged — `mergedRegistrationRows` reaches both builders exactly as before"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` green (strict `tsc` is the real gate here — an unreachable caller would fail to compile) and `rg -a \"registrationRows|tapHookRows\" sdk/src sdk/test` shows call sites inside `declarations.ts` alone.",
+  "notes": "Found by the posture sweep of the emit neighborhood. `sdk/package.json`'s `exports` is closed to `.` and `./claude-code`, so a module-level `export` here is intra-repo visibility only — the TS analogue of a widened `pub(crate)`. Serialized behind the other two sweep entries: all three edit `sdk/src/declarations.ts`. scoped at d6b5744f"
+}

@@ -1,0 +1,46 @@
+{
+  "tag": "EMBEDDED-LEAF-RESOLUTION-HAS-ONE-HOME",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/prose.ts",
+        "description": "The walk's one home: a resolver beside `resolveLeaf` (345) taking one `EmbeddedMemberValue` plus the `MentionScope` and returning the resolved `{ leaves, collections }` pair — top-level leaves keyed by field name in authored order, each collection's entries as `{ key, leaves }` in authored order, every leaf through `resolveLeaf` under the one context grammar ``member.<kind> <key>: leaf `<child-path>` `` and the one child-path spelling `<collection>.<entry-key>.<field>`. This module already owns `resolveLeaf`, `checkMentions` and `MentionScope`, and already imports `EmbeddedMemberValue` from `kind.ts`, so the fold adds no module edge; homing it in `declarations.ts` instead would point `emit`'s own resolver at the row compiler for a prose rule, and homing it in `emit.ts` is impossible — `declarations.ts` cannot import `emit.ts` without a cycle."
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "`resolveMemberLeaves` (485-513) drops its own copy of the walk (490-504) and keeps the two jobs that are its own: the `ResolveOptions`→`MentionScope` lift (`scopeOf`) and the `targets` derivation (`edgeTargetFacts` behind `deferringTargets`), which reads the resolved top-level `leaves` the walk returns. The pair satisfies `ResolvedEmbeddedMemberValue`'s `leaves`/`collections` fields unchanged — `ResolvedEmbeddedMemberCollectionEntry` (`kind.ts` 828) is that same `{ key, leaves }` shape."
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "`nestedMemberRow` (827-868) drops the second copy (834-848) — verbatim equal to emit's but for its loop identifiers and the collection element's type annotation — and calls the shared walk with the `MentionScope` it is already handed. The pair satisfies the row's `leaves`/`collections` columns as-is (`CollectionEntryWire` is the same `{ key, leaves }` shape), and the `placed_edges`/`rendered_lines`/`rendered_chars` omit-not-null tail is untouched. Census note: `embeddedLeafMentionRows` (719) keeps its own walk and is not a third copy of this job — it collects mentions off *unresolved* `Text` leaves, which a resolver returning strings cannot serve; the only thing it shares is the child-path spelling, one `${...}` template per site."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The embedded-value leaf walk is implemented twice — emit.ts's resolveMemberLeaves and declarations.ts's nestedMemberRow spell it line for line; it folds to one home in prose.ts.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "sdk/test/emit.test.ts",
+      "asserts": "every composed-body fixture's rendered fence and `nested_member` rows are byte-unchanged, and a dangling mention in an embedded leaf still refuses (1244, 1405) with the same leaf context — one walk now raises it for the fence face and the row face alike"
+    },
+    {
+      "path": "sdk/test/mention.test.ts",
+      "asserts": "the dangling-mention refusals over leaves and bodies are unchanged — the shared walk resolves through the same `resolveLeaf`/`checkMentions` path"
+    },
+    {
+      "path": "tests/it/builtin_lock_frozen.rs",
+      "asserts": "the live SDK emit still byte-matches the engine's embedded lock — the real-writer-through-real-reader gate over the rows this fold rewrites"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` and `cargo test` green with no assertion moved; one walk resolves an embedded value's leaves — `rg \"Object.entries\\(entry.leaves\\)\" sdk/src` finds the new home and `embeddedLeafMentionRows` alone — and `tests/it/builtin_lock_frozen.rs` byte-matches the embedded lock unchanged.",
+  "notes": "Found by the posture sweep of the emit neighborhood. The two loops are verbatim equals but for identifier names (emit.ts 490-504, declarations.ts 834-848): same `resolveLeaf` call, same context grammar, same child-path spelling. Behavior-neutral: the fold is of the implementation, not of the pass — the row still reads the value a second time (0018's second read, never a second copy), so both faces keep resolving independently off one walk. scoped at d6b5744f"
+}
