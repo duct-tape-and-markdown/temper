@@ -7,11 +7,11 @@
 - Posture swept through: mid-rotation — frontier armed at ee7de9f9 (the
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
-  `src/contract.rs`, `src/compose.rs`. `src/graph.rs` next.
-- This tick: reconcile eabe7d46..3167c3db — both compose.rs folds verified, all
-  eight gates re-tested true, nothing filed.
-- Queue: 8 pending — 4 parked, 4 deferred. Pickable: 0.
+  `src/contract.rs`, `src/compose.rs`, `src/graph.rs`, `src/glob.rs`.
+- This tick: posture sweep covers graph.rs — two cost-hoist violations filed
+  (the double resolution walk and its dishonest pin; the containment family).
+- Queue: 10 pending — 4 parked, 4 deferred, 1 open, 1 blocked. Pickable: 1.
   Open forks: 1. Friction: 2. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the queue holds no pickable entry, so the posture sweep
-takes `src/graph.rs` next tick.
+Plan continues: after-build — the sweep resumes on the next frontier module
+once the pickable entry's wave hands back.

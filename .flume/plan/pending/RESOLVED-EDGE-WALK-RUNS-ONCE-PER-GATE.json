@@ -1,0 +1,30 @@
+{
+  "tag": "RESOLVED-EDGE-WALK-RUNS-ONCE-PER-GATE",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/gate.rs",
+        "description": "gate() computes the whole-input edge-resolution walk twice: `graph::check(&edges, &by_kind)` at :621 is a thin wrapper over `graph::resolved_edges` (src/graph.rs:164), and :636 calls `graph::resolved_edges` again — both unconditional. Hoist the `resolved_edges_result` binding above the route-resolution extend and extend from its `dangling_diagnostics` in place of the `graph::check` call; `check` returns exactly that vec, so the diagnostic order is unmoved and no snapshot churns."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "`gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (:648) asserts `gate() must compute resolved_edges exactly once` while never invoking gate() — it hand-assembles the consumer calls and its own comment excludes `check` from the list, which is exactly the second walk the real gate makes. Re-pin over the real entry point: `gate::gate(&harness.join(\".temper\"), &harness, &[])` (the call shape already used at :525/:1060) with a corpus carrying at least one declared `edge` fact, asserting the `graph::resolved_edges_count()` delta is 1 and that the walk was non-vacuous (the corpus declares an edge whose route resolves)."
+      },
+      {
+        "path": "src/graph.rs",
+        "description": "Doc-only: `check`'s header (:159-165) and the once-per-gate claims in the module header (:13-15) and `resolved_edges`'s doc (:1644) describe a sharing gate.rs does not perform; after the fold, `check` is the standalone-caller convenience (its consumers are tests — tests/it/installed_plugin_kind.rs:263 and this module's own). Riding this entry per the staleness rule: `mention_reachable`'s doc (:779) still declares containment *literal* — 'every source glob must appear verbatim in the target's gate set' — which `is_scope_contained_in_gate` (:804) replaced with representative-witness synthesis; the leniency direction is unchanged, the wording is not."
+      }
+    ]
+  },
+  "summary": "gate() walks the whole-input edge resolution twice — `graph::check` plus the hoisted `resolved_edges` — and the count pin that would catch it never runs gate().",
+  "per": { "path": "specs/process/engineering.md", "section": "Cost scale is hoisted, and pinned by count" },
+  "tests": [
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "a real `gate::gate` run over a corpus with at least one declared edge computes the edge-resolution walk exactly once — `graph::resolved_edges_count()` delta == 1, with the walk proven non-vacuous"
+    }
+  ],
+  "acceptance": "cargo test green with the re-pinned cost test failing on the pre-fix tree (delta 2, not 1); cargo clippy --all-targets -- -D warnings clean; no snapshot churn, since the dangling findings keep their position in gate()'s diagnostic order.",
+  "notes": "Verified on disk this tick, not inferred: both gate.rs call sites are unguarded, and `graph::check`'s whole body is `resolved_edges(edges, by_kind).dangling_diagnostics`. The pin's own comment names the trap it then walks into. The fix ships the test that would have caught it (engineering.md, same page) — the old pin's shape is the defect's cause, so re-pinning over the real verb is the entry, not an extra. scoped at a27c3003"
+}
