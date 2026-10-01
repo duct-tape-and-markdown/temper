@@ -38,6 +38,11 @@ Then `pnpm -C sdk install && pnpm -C sdk build` (~450ms + tsc) and a re-run:
 unaffected, because the diagnosis landed before the audit concluded. The
 next tick that skips the diagnosis is the one that pays for real.
 
+Re-measured at 9ec9d1d1: the class is unchanged but the signature grew with
+the suite — `785 passed; 63 failed`, then `848 passed; 0 failed` after the
+install. So the count above is a snapshot, not the signature to match on; the
+signature is "every red is an SDK-seam test and no output names a cause".
+
 ## Suggested fix
 
 One line of operational knowledge somewhere an in-worktree agent will read it
