@@ -2,28 +2,28 @@
   "tag": "LOCK-DECLARATION-CODEC-GETS-ITS-OWN-MODULE",
   "gate": {
     "kind": "parked",
-    "reason": "Two human calls, neither of them authority \u2014 `architecture.md` puts the module list in the tree's hands, so plan does not need a Decision to name `src/lock.rs`. (1) Sequencing and cost: a behavior-neutral ~2060-line move whose fence spans 59 files (16 `src/`, 42 `tests/it/`, plus `drift.rs`) can share a wave with nothing, so it runs alone against a drained queue and buys churn against no test that could go red \u2014 whether to buy it at all is the human's. (2) Where the row\u2192model lifts land (`requirement_from_row` 6248, `clause_from_row` 6276, `edges_from_declarations` 6293, `mention_edges_from_declarations` 6333): recommended answer is beside the model type they produce \u2014 `compose`/`graph`, which is where `compose::clause_from_row` (407) already lives and what `drift::clause_from_row`'s thin delegation to it already implies \u2014 leaving `lock.rs` a codec with no model dependency. A ruling the other way (the lifts ride the codec) is one word in this entry."
+    "reason": "Two human calls, neither of them authority — `architecture.md` puts the module list in the tree's hands, so plan does not need a Decision to name `src/lock.rs`. (1) Sequencing and cost: a behavior-neutral ~2090-line move whose fence spans 59 existing files (15 `src/`, 42 `tests/it/`, `drift.rs`, and the one re-blessed `ts-rs` binding) beside the new `src/lock.rs` can share a wave with nothing, so it runs alone against a drained queue and buys churn against no test that could go red — whether to buy it at all is the human's. (2) Where the row→model lifts at the codec's tail land — `nested_members_from_rows` 6274 over `embedded_member_from_row` 6288, `requirement_from_row` 6311, `clause_from_row` 6339, `edges_from_declarations` 6356 over `edge_column` 6385, `mention_edges_from_declarations` 6396, `import_edges_from_doc` 6414: recommended answer is beside the model type they produce — `compose`/`graph`/`extract`, which is where `compose::clause_from_row` (407) already lives and what `drift::clause_from_row`'s thin delegation to it already implies — leaving `lock.rs` a codec with no model dependency. A ruling the other way (the lifts ride the codec) is one word in this entry."
   },
   "dependsOnForks": [],
   "files": {
     "new": [
       {
         "path": "src/lock.rs",
-        "description": "The flat module (`architecture.md`, \"The tree stays flat\": a split lands as a new flat module) owning the lock declaration codec moved verbatim from `src/drift.rs` 4298-6360 \u2014 `Declarations` and every `*Row` type, their `*_table`/`*_from_table` TOML round-trip pairs, the column readers, `LockRowError`/`RowError`, and the read/parse door (`read_lock_document`, `read_declarations`, `read_engine`, `parse_declarations`, `declarations_from_doc`). A pure move: no signature, no behavior, no row column changes, and `drift` imports it rather than re-exporting it \u2014 one door per name, never two (`engineering.md`, \"An export earns its consumer\")."
+        "description": "The flat module (`architecture.md`, \"The tree stays flat\": a split lands as a new flat module) owning the lock declaration codec moved from `src/drift.rs` 4338-6427 — its section banner (4338-4340), `Declarations` (4361) and every `*Row` type, their `*_table`/`*_from_table` TOML round-trip pairs, the column readers (`req_str` 5339, `opt_str` 5344, `opt_table` 5406), `LockRowError` (719)/`RowError`, and the read/parse door (`read_lock_document` 5174, `read_declarations` 5211, `read_engine` 5228, `engine_from_doc` 5238, `parse_declarations` 5254, `declarations_from_doc` 5276). A move, not a rewrite: no signature, no behavior, no row column changes, and `drift` imports it rather than re-exporting it — one door per name, never two (`engineering.md`, \"An export earns its consumer\"). One byte of prose is not verbatim: `Declarations`'s doc (4353) names `GATE-READ-LOCK-DEMOLITION` as \"next in the chain\", a tag retired at ce61d85c — the clause goes, the sentence keeping the fact that `import`'s extraction still writes this family for the `check` path it feeds."
       }
     ],
     "edit": [
       {
         "path": "src/drift.rs",
-        "description": "Keeps the emit compiler (`emit_program` 1380 \u2192 `emit` 1490 \u2192 `emit_one` 2986 / `emit_manifest` 2170 / `project_bytes` 3135), `place` (3287) and the lock read verbs (`config_stale` 3374, the five `*_stale_from_doc` faces 4011-4198, `undeclared_layout_members_from_doc` 3480, `undeclared_locus_members_from_doc` 3573, `emit_owned_targets` 4222, the source-dep families 3628-4010); the declaration codec (4298-6360: every `*Row` struct, the `*_table`/`*_from_table` round-trip pairs, the `req_str`/`opt_str`/`opt_table` column readers, `read_lock_document` 5111, `read_declarations`, `read_engine`, `parse_declarations` 5191, `declarations_from_doc` 5213, `LockRowError` 719) moves out, and the header doc (1-15) \u2014 which already describes emit alone \u2014 becomes true of the file."
+        "description": "Keeps the emit compiler (`emit_program` 1380 → `emit` 1490 → `emit_one` 3040 / `emit_manifest` 2229 / `project_bytes` 3189), the manifest-path and kind-fact helpers beside it (`manifest_target_path` 2131, `manifest_path_for` 2141, `manifest_owner_label` 2156, `ownerless_manifest_label` 2178, `kind_facts_over_floor` 2199 — facts→path resolution is emit-side, so they stay), `place` (3341) and the lock read verbs (`config_stale` 3428 over `config_stale_from_doc` 3442, `undeclared_layout_members_from_doc` 3534, `undeclared_locus_members_from_doc` 3627, the source-dep row families 3682-4064 and their four faces — `source_dep_stale_from_doc` 4065, `layout_import_stale_from_doc` 4147, `include_stale_from_doc` 4188, `input_stale_from_doc` 4231 — and `emit_owned_targets` 4276 over `emit_owned_targets_from_doc` 4287). The declaration codec (4338-6427) moves out, and the header doc (1-14) — which already describes emit, drift and place alone — becomes true of the file."
+      },
+      {
+        "path": "sdk/src/generated/Declarations.ts",
+        "description": "`ts-rs` projects `Declarations`'s Rust doc comment into this committed binding, so the retired-tag clause the move drops is mirrored here (26) and the file is re-blessed with it: `BLESS_SEAM_BINDINGS=1 cargo test --test it seam_bindings` (the header of `tests/it/seam_bindings_current.rs`), never a hand edit. The move itself changes no other generated byte — `ts-rs` keys a binding by type name, not module path."
       },
       {
         "path": "src/admissibility.rs",
         "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `Declarations`, `LockRowError`, and the `KindFactRow`/`LayoutRegionRow`/`ClauseRow`/`RequirementRow`/`SatisfiesRow`/`NestedMemberRow` row types."
-      },
-      {
-        "path": "src/builtin.rs",
-        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `ClauseRow` (the floor contracts it projects off the embedded lock)."
       },
       {
         "path": "src/builtin_kind.rs",
@@ -31,11 +31,11 @@
       },
       {
         "path": "src/builtin_lock.rs",
-        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `Declarations` + `parse_declarations` \u2014 the embedded lock's one parse door, and the clearest consumer of the codec alone."
+        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `Declarations` + `parse_declarations` — the embedded lock's one parse door, and the clearest consumer of the codec alone."
       },
       {
         "path": "src/compose.rs",
-        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: ten codec names, `clause_from_row`'s own home among them \u2014 the row\u2192model side of the judged half."
+        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: ten codec names, `clause_from_row`'s own home among them — the row→model side of the judged half."
       },
       {
         "path": "src/contract.rs",
@@ -51,7 +51,7 @@
       },
       {
         "path": "src/gate.rs",
-        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `read_lock_document` + `declarations_from_doc` \u2014 the gate's one lock read."
+        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `read_lock_document` + `declarations_from_doc` — the gate's one lock read."
       },
       {
         "path": "src/import.rs",
@@ -59,7 +59,7 @@
       },
       {
         "path": "src/install.rs",
-        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `Declarations`, `read_lock_document`."
+        "description": "Codec call sites re-point from `drift::` to `lock::` — `Declarations` (one site) and `read_lock_document` (three); the module keeps its `drift` import for the emit-side names it also calls (`place`, `emit_program`, `emit_owned_targets{,_from_doc}`, `config_stale_from_doc`, `undeclared_locus_members_from_doc`, `EmitOwnedEntry`)."
       },
       {
         "path": "src/kind.rs",
@@ -67,7 +67,7 @@
       },
       {
         "path": "src/main.rs",
-        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `Declarations`, `read_declarations`, `read_engine` \u2014 the CLI's lock door."
+        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `Declarations`, `read_declarations`, `read_engine` — the CLI's lock door."
       },
       {
         "path": "src/member_address.rs",
@@ -75,7 +75,7 @@
       },
       {
         "path": "src/read.rs",
-        "description": "Codec imports re-point from `crate::drift` to `crate::lock`: `read_declarations`, `read_lock_document`, `KindFactRow`, `TemplateRow`, `LayoutRegionRow`."
+        "description": "Codec call sites re-point from `drift::` to `lock::`: `read_declarations`, `read_lock_document`, `KindFactRow` (six sites), `TemplateRow`, `LayoutRegionRow`, `LayoutRow`, `requirement_from_row`, `edges_from_declarations`, `mention_edges_from_declarations`, `import_edges_from_doc`. The module keeps its `drift` import: `kind_facts_over_floor` (2fb6a3ce), `emit_owned_targets`, `join_locus`, `layout_prose_from_doc`/`LayoutProseRow` all stay on the emit side."
       },
       {
         "path": "src/test_support.rs",
@@ -83,176 +83,176 @@
       },
       {
         "path": "tests/it/acceptance.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/builtin_lock_frozen.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/check_cost.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/cli.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/closed_keys.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/common/mod.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/coverage.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/coverage_note.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/declared_input.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/dial_kind.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/emit.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/extent.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/gate_fail_loud.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/gauntlet.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/graph.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/hook_kind.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/install.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/json_document_format.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/layer_join.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/layout_edge_slot.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/layout_kind.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/layout_prose_import.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/local_locus.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/lock_declaration_rows.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/marketplace_kind.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/mcp_kind.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/memory_contract.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/nested_member.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/prose_include.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/read_verbs.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/registration_locus.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/reporters.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/requirement_roster.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/root_contract.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/rule_contract.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/seam_bindings_current.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/session_start.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/settings_kind.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/settings_local_kind.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/shape_predicate.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/toml_document.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       },
       {
         "path": "tests/it/type_predicate.rs",
-        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves \u2014 the split is behavior-neutral."
+        "description": "`temper::drift::` codec references re-point to `temper::lock::`; no assertion moves — the split is behavior-neutral."
       }
     ],
     "retire": []
   },
-  "summary": "src/drift.rs carries three jobs in 6703 lines; the lock declaration codec (~2060 of them) splits to a flat src/lock.rs, drift keeping emit + place",
+  "summary": "src/drift.rs carries three jobs in 6766 lines; the lock declaration codec (~2090 of them) splits to a flat src/lock.rs, drift keeping emit + place",
   "per": {
     "path": "specs/process/engineering.md",
     "section": "One job, one home"
@@ -260,13 +260,13 @@
   "tests": [
     {
       "path": "tests/it/lock_declaration_rows.rs",
-      "asserts": "the codec's own round-trip suite passes unchanged against `src/lock.rs` \u2014 the move's one proof, since nothing here is a behavior claim"
+      "asserts": "the codec's own round-trip suite passes unchanged against `src/lock.rs` — the move's one proof, since nothing here is a behavior claim"
     },
     {
       "path": "tests/it/seam_bindings_current.rs",
-      "asserts": "the ts-rs export byte-compare stays green with `sdk/src/generated/**` untouched \u2014 the bindings are keyed by type name, not module path, so the move stops at the Rust side"
+      "asserts": "the ts-rs export byte-compare is green after re-blessing, with `Declarations.ts`'s doc comment the only generated file to change — the bindings are keyed by type name, not module path, so the move itself stops at the Rust side"
     }
   ],
-  "acceptance": "cargo test, cargo clippy --all-targets -- -D warnings, cargo fmt --all --check and the rustdoc gate green; `src/lock.rs` owns the declaration codec, `src/drift.rs`'s header describes everything the file still holds, no consumer reaches a codec symbol through `drift`, and `git diff --stat` shows `sdk/src/generated/` unchanged.",
-  "notes": "Drained from .flume/refactor/plan-drift-module-carries-three-jobs.md (observed at ee7de9f9); re-verified at 244d6cae \u2014 no src/ commit in the window, drift.rs still 6703 lines, codec still 4298-6360. Fan-out counted on disk, not estimated: 16 src/ + 42 tests/it/ files name a codec symbol. The capture's own routing argument (a module list is a specs/decisions/ boundary call) does not survive its cite: architecture.md hands the module list to the tree. scoped at 244d6cae"
+  "acceptance": "cargo test, cargo clippy --all-targets -- -D warnings, cargo fmt --all --check and the rustdoc gate green; `src/lock.rs` owns the declaration codec, `src/drift.rs`'s header describes everything the file still holds, no consumer reaches a codec symbol through `drift`, and `git diff --stat` shows `sdk/src/generated/` changed in `Declarations.ts` alone.",
+  "notes": "Drained from .flume/refactor/plan-drift-module-carries-three-jobs.md (observed at ee7de9f9); every cite refreshed this audit — 2fb6a3ce added 63 lines above the codec, shifting the whole 244d6cae spelling. Codec now 4338-6427, drift.rs 6766. Census re-run on disk: 15 src/ + 42 tests/it/ — src/builtin.rs drops out, it reaches the codec only through `builtin_lock::declarations()`'s inferred type. scoped at 9f812edd"
 }
