@@ -16,6 +16,7 @@ import type { Harness } from "./assembly.js";
 import type {
   EdgeTargetFacts,
   EmbeddedMemberValue,
+  KindFacts,
   Member,
   ResolvedEmbeddedMemberCollectionEntry,
   ResolvedEmbeddedMemberValue,
@@ -184,28 +185,68 @@ function spliceName(
 }
 
 /**
+ * The placement a member of `facts` named `name` takes **inside the locus its pattern is
+ * rooted at** — the half an `at` kind and a nested file child derive identically, since a
+ * host template's path pattern stands to its host's unit exactly as an `at` kind's glob
+ * stands to its `governs` root (`specs/model/representation.md`, "locus").
+ *
+ * A **directory** unit owns a directory and seats its entry file inside it, so the pattern
+ * names that entry file and the member's own name is the directory: the leading segment
+ * drops and `<name>/` takes its place, which is what makes `*\/SKILL.md` and a template's
+ * `*\/PAGE.md` land the same shape. Every other shape places its name through the one
+ * splice rule ({@link spliceName}), a starred-segment kind's `*\/<file>` included.
+ *
+ * # Throws
+ * Whatever {@link spliceName} throws when the pattern maps the name onto no one path.
+ */
+function placementInUnit(facts: KindFacts, pattern: string, name: string): string {
+  if (facts.unitShape === "directory") {
+    const slash = pattern.indexOf("/");
+    return joinSlash(name, slash < 0 ? pattern : pattern.slice(slash + 1));
+  }
+  return spliceName(facts.name, pattern, name, facts.unitShape === "starred-segment");
+}
+
+/**
  * The unit `host`'s file children compose their paths under — a directory unit's own
  * directory, since a template's path pattern is relative to the parent's unit.
  *
+ * Composed from the host's **own projection**, never read off its locus columns: a
+ * directory unit seats its entry file inside the directory it owns, so the directory is
+ * that projection less its final segment. A host at an `at` locus supplies
+ * `<root>/<name>`; a host that is itself a nested file child supplies an interior under
+ * *its* own host's unit, so depth is unbounded and one rule composes every layer —
+ * exactly as the engine's `nested_file_path` (`src/drift.rs`) composes it.
+ *
  * # Throws
  * If the host owns no directory unit: a lone file has no interior for a child to sit in.
+ * Propagates every refusal the host's own path derivation raises.
  */
 function hostUnit(host: Member, context: string): string {
-  if (host.facts.locus.kind === "at" && host.facts.unitShape === "directory") {
-    return joinSlash(host.facts.locus.root, host.name);
+  if (host.facts.unitShape !== "directory") {
+    throw new Error(
+      `${context}: its host \`${memberAddress(host)}\` owns no directory unit — a template's ` +
+        `path pattern is relative to the host's unit, and a lone file has no interior for a ` +
+        `child to sit in (specs/model/representation.md, "locus").`,
+    );
   }
-  throw new Error(
-    `${context}: its host \`${hostAddress(host.kind, host.name)}\` owns no directory unit — a template's ` +
-      `path pattern is relative to the host's unit, and a lone file has no interior for a ` +
-      `child to sit in (specs/model/representation.md, "locus").`,
-  );
+  const projection = projectionPath(host);
+  const slash = projection.lastIndexOf("/");
+  if (slash < 0) {
+    throw new Error(
+      `${context}: its host \`${memberAddress(host)}\` projects to \`${projection}\`, which names ` +
+        `no directory for a child to sit in (specs/model/representation.md, "locus").`,
+    );
+  }
+  return projection.slice(0, slash);
 }
 
 /**
  * A nested file child's harness-relative locus: its host member's unit joined with the
- * host template's path pattern, its own name spliced through the pattern. The pattern is
- * the host kind's declared fact and the child kind governs no glob, so one home owns the
- * path and no child contends with its host's own locus.
+ * host template's path pattern, its own name placed through the pattern
+ * ({@link placementInUnit}). The pattern is the host kind's declared fact and the child
+ * kind governs no glob, so one home owns the path and no child contends with its host's
+ * own locus.
  *
  * # Throws
  * If the child names no host, or its host's kind templates no file layer for the child's
@@ -222,19 +263,19 @@ function nestedFilePath(member: Member): string {
   );
   if (template?.path === undefined) {
     throw new Error(
-      `${context}: its host \`${hostAddress(host.kind, host.name)}\` templates no file layer for kind ` +
+      `${context}: its host \`${memberAddress(host)}\` templates no file layer for kind ` +
         `\`${member.kind}\` — the path pattern is the host kind's declared fact, and there is ` +
         `none to compose against (specs/model/representation.md, "locus").`,
     );
   }
-  return joinSlash(hostUnit(host, context), spliceName(member.kind, template.path, member.name, false));
+  return joinSlash(hostUnit(host, context), placementInUnit(member.facts, template.path, member.name));
 }
 
 /**
- * The harness-relative locus `member` projects onto: a directory unit lands its entry
- * file under `<root>/<name>/`; every other file member places its glob through the one
- * splice rule ({@link spliceName}), a starred-segment kind's `*\/<file>` included; a nested
- * file child composes its path under its host's unit ({@link nestedFilePath}). The engine
+ * The harness-relative locus `member` projects onto: a file member places its name inside
+ * the locus its own `governs` glob is rooted at ({@link placementInUnit}); a nested file
+ * child places it inside its host's unit instead, through that same rule and its host
+ * kind's declared template pattern ({@link nestedFilePath}). The engine
  * derives the same locus from the same facts (`src/drift.rs`'s `member_projection_path`);
  * the two must agree, since a hook's rendered link is written from this side and reaped
  * from that one.
@@ -264,12 +305,7 @@ function projectionPath(member: Member): string {
   }
   if (facts.locus.kind === "nested-file") return nestedFilePath(member);
   const { root, glob } = facts.locus;
-  if (facts.unitShape === "directory") {
-    const slash = glob.indexOf("/");
-    return joinSlash(root, member.name, slash < 0 ? glob : glob.slice(slash + 1));
-  }
-  const starredSegment = facts.unitShape === "starred-segment";
-  return joinSlash(root, spliceName(facts.name, glob, member.name, starredSegment));
+  return joinSlash(root, placementInUnit(facts, glob, member.name));
 }
 
 /**
@@ -958,7 +994,10 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
       return {
         kind: member.kind,
         name: member.name,
-        host: member.host && hostAddress(member.host.kind, member.host.name),
+        // The host's **own whole address**, never its `kind:name` alone: the engine reads
+        // this column to find the host's host when it composes a child's path, so a
+        // flattened spelling would strand every layer above the nearest one.
+        host: member.host && memberAddress(member.host),
         // The generated row carries a mutable field list; the member's is read-only,
         // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
         fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),

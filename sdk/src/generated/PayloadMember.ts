@@ -16,9 +16,15 @@ kind: string,
  */
 name: string, 
 /**
- * The `kind:name` address of the host member this member's unit composes under —
- * carried by a **nested file** child, whose path is its host's unit joined with the
- * host template's pattern; absent at every other locus.
+ * The host member's **own whole address** — the member this one's unit composes
+ * under. Carried by a **nested file** child, whose path is its host's unit joined
+ * with the host template's pattern; absent at every other locus.
+ *
+ * `<kind>:<name>` for a top-level host, and the host's own
+ * `<host-address>/<kind>/<key>` when the host is itself nested: deriving this
+ * member's path means deriving its host's unit, which means knowing the host's own
+ * host, so the column carries the whole chain rather than the nearest link
+ * (`specs/model/representation.md`, "nesting").
  */
 host?: string, 
 /**

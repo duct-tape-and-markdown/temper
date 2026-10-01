@@ -33,7 +33,9 @@ use crate::kind::{
     commitment_from_row, content_from_row, format_from_row,
 };
 use crate::layout::{Layout, LayoutReading, LayoutRegion};
-use crate::member_address::{host_address, is_one_segment, nested_address, parse_host_address};
+use crate::member_address::{
+    host_address, is_one_segment, nested_address, parse_host_address, parse_nested_address,
+};
 use crate::path::HarnessRelativePath;
 use std::cell::Cell;
 
@@ -540,6 +542,24 @@ pub enum DriftError {
         glob: String,
     },
 
+    /// A **cycle** in the declared kind graph's file-template edges: a kind whose nested
+    /// file layer reaches, through its children's own layers, back to itself. A nested
+    /// file child's unit composes under its host's, so a cycle declares a member whose
+    /// locus is its own descendant's — a placement with no root to compose from, and a
+    /// discovery walk with no base case to terminate at. Arbitrary **depth** is the model's
+    /// (`specs/model/representation.md`, "nesting"); a kind containing itself is not depth
+    /// but a declaration that names no path, so it is refused where it is declared rather
+    /// than recursed into and silently truncated (invariant 6).
+    #[error(
+        "the declared kinds template a cycle of nested file layers: {cycle} — a nested file child's unit composes under its host's, so a kind reaching back to itself declares a locus with no root to compose from and a discovery walk with no base case; nesting reaches arbitrary depth through distinct declared layers, never through a kind containing itself"
+    )]
+    #[diagnostic(code(temper::drift::template_cycle))]
+    TemplateCycle {
+        /// The cycle, spelled host-to-child and closing on the kind it started at
+        /// (`page -> page`, `area -> page -> area`).
+        cycle: String,
+    },
+
     /// An `at` locus member's root path falls under the workspace directory. The workspace
     /// is discovery's own reserved territory and never a projection target; a member rooted
     /// there would emit and lock but stay undiscoverable, a silent divergence between
@@ -868,9 +888,15 @@ pub struct PayloadMember {
     pub kind: String,
     /// Identity within the kind.
     pub name: String,
-    /// The `kind:name` address of the host member this member's unit composes under —
-    /// carried by a **nested file** child, whose path is its host's unit joined with the
-    /// host template's pattern; absent at every other locus.
+    /// The host member's **own whole address** — the member this one's unit composes
+    /// under. Carried by a **nested file** child, whose path is its host's unit joined
+    /// with the host template's pattern; absent at every other locus.
+    ///
+    /// `<kind>:<name>` for a top-level host, and the host's own
+    /// `<host-address>/<kind>/<key>` when the host is itself nested: deriving this
+    /// member's path means deriving its host's unit, which means knowing the host's own
+    /// host, so the column carries the whole chain rather than the nearest link
+    /// (`specs/model/representation.md`, "nesting").
     #[serde(default)]
     pub host: Option<String>,
     /// The kind's typed fields, flat and ordered — the projected frontmatter. The
@@ -1073,17 +1099,68 @@ fn refuse_ungoverned(
     })
 }
 
+/// The grain a host address names, read through the one grammar's two public readers: the
+/// host's kind, the identity its own kind keys it by, and — when the host is **itself** a
+/// nested member — the address of the host *it* composes under.
+///
+/// The third half is what makes depth unbounded: composing a child's path needs its
+/// host's unit, and deriving that unit needs the host's own host, however many layers up
+/// the chain runs ([`nested_file_path`]). A top-level host ends the chain with [`None`].
+fn host_grain(address: &str) -> Option<(&str, &str, Option<&str>)> {
+    if let Some(nested) = parse_nested_address(address) {
+        return Some((nested.kind, nested.key, Some(nested.host)));
+    }
+    parse_host_address(address).map(|(kind, name)| (kind, name, None))
+}
+
+/// The placement a member of `facts` named `name` takes **inside the locus its pattern is
+/// rooted at** — the half an `at` kind and a nested file child derive identically, since a
+/// host template's path pattern stands to its host's unit exactly as an `at` kind's glob
+/// stands to its `governs` root (`specs/model/representation.md`, "locus").
+///
+/// A **directory** unit owns a directory and seats its entry file inside it, so the
+/// pattern names that entry file and the member's own name is the directory: the leading
+/// segment is dropped and `<name>/` put in its place, which is what makes `*/SKILL.md`
+/// and a template's `*/PAGE.md` land the same shape. Every other shape places its name
+/// through the one splice rule ([`splice_name`]), a starred-segment kind's `*/<file>`
+/// included.
+///
+/// # Errors
+/// Propagates [`DriftError::FlatGlobDepth`] from the splice.
+fn placement_in_unit(facts: &KindFactRow, pattern: &str, name: &str) -> Result<String, DriftError> {
+    if facts.unit_shape.as_deref() == Some("directory") {
+        let entry = pattern.split_once('/').map_or(pattern, |(_, rest)| rest);
+        return Ok(format!("{name}/{entry}"));
+    }
+    let starred_segment = facts.unit_shape.as_deref() == Some("starred-segment");
+    splice_name(&facts.name, pattern, name, starred_segment)
+}
+
 /// A nested file child's harness-relative locus: its host member's unit joined with the
-/// host kind's template pattern for this child kind, the child's name spliced through the
-/// pattern. The pattern is the host's declared fact — one home — so the child kind governs
-/// no glob and can never contend with its host's own.
+/// host kind's template pattern for this child kind, the child's name placed through the
+/// pattern ([`placement_in_unit`]). The pattern is the host's declared fact — one home —
+/// so the child kind governs no glob and can never contend with its host's own.
+///
+/// The host's unit is **composed, never read off its kind's `governs` columns**: it is the
+/// directory the host's own projection sits in, derived by running
+/// [`member_projection_path`] on the host. A host at an `at` locus lands
+/// `<root>/<name>/<entry>` and so supplies `<root>/<name>`; a host that is itself a nested
+/// file child lands under *its* host's unit and supplies an interior all the same. One
+/// rule composes every layer, so nesting reaches the arbitrary depth the model declares
+/// (`specs/model/representation.md`, "nesting") rather than stopping at one.
+///
+/// The recursion is bounded by the host **address**, not by the kind graph: each step
+/// strips the two trailing segments a nested address carries, so the chain is as long as
+/// the address is deep and no shorter. A cycle among the declared kinds is refused where
+/// it is declared ([`refuse_template_cycle`]), ahead of any member reaching here.
 ///
 /// # Errors
 /// Returns [`DriftError::NestedFileLocus`] when the host cannot supply both halves of the
 /// composition: no host address, an address naming no declared kind, a host kind
 /// templating no file layer for this child, or a host owning no directory unit (a
 /// template's pattern is relative to its unit, and a lone file has no interior).
-/// Propagates [`DriftError::FlatGlobDepth`] from the pattern's own name splice.
+/// Propagates [`DriftError::FlatGlobDepth`] from the pattern's own name splice, and every
+/// refusal the host's own composition raises.
 fn nested_file_path(
     facts: &KindFactRow,
     name: &str,
@@ -1096,8 +1173,8 @@ fn nested_file_path(
         detail,
     };
     let address = host.ok_or_else(|| refuse("it names no host member".to_string()))?;
-    let (host_kind, host_name) = parse_host_address(address)
-        .ok_or_else(|| refuse(format!("its host `{address}` is no `kind:name` address")))?;
+    let (host_kind, host_identity, host_host) = host_grain(address)
+        .ok_or_else(|| refuse(format!("its host `{address}` is no member address")))?;
     let host_facts = kind_facts
         .get(host_kind)
         .ok_or_else(|| refuse(format!("its host `{address}` names no declared kind")))?;
@@ -1111,27 +1188,100 @@ fn nested_file_path(
                 "its host kind `{host_kind}` templates no file layer for it"
             ))
         })?;
-    let (Some(host_root), Some("directory")) = (
-        host_facts.governs_root.as_deref(),
-        host_facts.unit_shape.as_deref(),
-    ) else {
+    if host_facts.unit_shape.as_deref() != Some("directory") {
         return Err(refuse(format!(
             "its host `{address}` owns no directory unit to compose under"
         )));
-    };
-    let leaf = splice_name(&facts.name, pattern, name, false)?;
+    }
+    let host_projection = member_projection_path(host_facts, host_identity, host_host, kind_facts)?;
+    let host_unit = host_projection.parent().ok_or_else(|| {
+        refuse(format!(
+            "its host `{address}` projects no directory for a child to sit in"
+        ))
+    })?;
+    let placed = placement_in_unit(facts, pattern, name)?;
     // The host's unit is the locus the template pattern is rooted at — `import`'s own
-    // per-host scan walks the pattern from exactly there — so the leaf is what the pattern
-    // has to find.
-    refuse_ungoverned(&facts.name, name, pattern, &leaf)?;
-    Ok(join_locus(host_root, &format!("{host_name}/{leaf}")))
+    // per-host scan walks the pattern from exactly there — so the placement is what the
+    // pattern has to find.
+    refuse_ungoverned(&facts.name, name, pattern, &placed)?;
+    Ok(host_unit.join(placed))
 }
 
-/// The harness-relative locus a member of `facts` named `name` projects onto: a directory
-/// unit lands its entry file under `<root>/<name>/`; every other file member places its
-/// glob through the one splice rule ([`splice_name`]), a starred-segment kind's `*/<file>`
-/// included; a nested file child — one governing no glob — composes its path under `host`'s
-/// own unit ([`nested_file_path`]). The SDK's `projectionPath`
+/// Refuse a **cycle** in the declared kind graph's nested-file composition edges — the
+/// well-formedness bar the whole composition rests on, checked once per emit over the
+/// declared facts rather than per member.
+///
+/// The edges are the ones that actually compose a locus: a host kind templating a **file**
+/// layer for a child that governs no glob of its own. A child with its own `at` locus is
+/// placed by its own glob however its host templates it, so that template carries no
+/// composition and is no edge here.
+///
+/// Depth is the model's to choose and is not what this refuses: `area` → `page` → `leaf`
+/// is three declared layers and composes fine, however deep the instances run. What it
+/// refuses is a kind reaching back to itself, which composes no path at all — the unit it
+/// would sit in is its own descendant's — and which `import`'s per-host descent would
+/// otherwise walk without a base case.
+///
+/// # Errors
+/// Returns [`DriftError::TemplateCycle`] naming the cycle, host-to-child and closing on
+/// the kind it started at.
+fn refuse_template_cycle(kind_facts: &BTreeMap<&str, &KindFactRow>) -> Result<(), DriftError> {
+    // Depth-first over the composition edges, carrying the descent path so a revisit of a
+    // kind *on the current path* is the cycle itself and the path spells it. `settled`
+    // keeps a kind reached by two hosts from being walked twice — a diamond is no cycle.
+    let mut settled: BTreeSet<&str> = BTreeSet::new();
+    for root in kind_facts.keys() {
+        let mut trail: Vec<&str> = Vec::new();
+        descend(root, kind_facts, &mut trail, &mut settled)?;
+    }
+    return Ok(());
+
+    fn descend<'a>(
+        kind: &'a str,
+        kind_facts: &BTreeMap<&'a str, &'a KindFactRow>,
+        trail: &mut Vec<&'a str>,
+        settled: &mut BTreeSet<&'a str>,
+    ) -> Result<(), DriftError> {
+        if let Some(at) = trail.iter().position(|seen| *seen == kind) {
+            let mut cycle: Vec<&str> = trail[at..].to_vec();
+            cycle.push(kind);
+            return Err(DriftError::TemplateCycle {
+                cycle: cycle.join(" -> "),
+            });
+        }
+        if settled.contains(kind) {
+            return Ok(());
+        }
+        let Some(facts) = kind_facts.get(kind) else {
+            return Ok(());
+        };
+        trail.push(kind);
+        for template in &facts.templates {
+            if template.path.is_none() {
+                continue;
+            }
+            let Some((child, child_facts)) = kind_facts.get_key_value(template.kind.as_str())
+            else {
+                continue;
+            };
+            // Only a child governing no glob composes under this host's unit; one with its
+            // own `at` locus is placed by its own glob and roots a chain of its own.
+            if child_facts.governs_root.is_some() || child_facts.governs_glob.is_some() {
+                continue;
+            }
+            descend(child, kind_facts, trail, settled)?;
+        }
+        trail.pop();
+        settled.insert(kind);
+        Ok(())
+    }
+}
+
+/// The harness-relative locus a member of `facts` named `name` projects onto: a file
+/// member places its name inside the locus its own `governs` glob is rooted at
+/// ([`placement_in_unit`]); a nested file child — one governing no glob — places it inside
+/// its host's unit instead, through that same rule and its host kind's declared template
+/// pattern ([`nested_file_path`]). The SDK's `projectionPath`
 /// (`sdk/src/emit.ts`) derives the same locus from the same facts, and
 /// `tests/projection_path_seam.rs` gates the two into agreement.
 ///
@@ -1167,13 +1317,7 @@ fn member_projection_path(
     else {
         return nested_file_path(facts, name, host, kind_facts);
     };
-    let relative = if facts.unit_shape.as_deref() == Some("directory") {
-        let entry = glob.split_once('/').map_or(glob, |(_, rest)| rest);
-        format!("{name}/{entry}")
-    } else {
-        let starred_segment = facts.unit_shape.as_deref() == Some("starred-segment");
-        splice_name(&facts.name, glob, name, starred_segment)?
-    };
+    let relative = placement_in_unit(facts, glob, name)?;
     // `governs_root` is the locus the glob is rooted at, so the relative path is what the
     // glob has to find — the same spelling `import`'s walk matches segment by segment.
     refuse_ungoverned(&facts.name, name, glob, &relative)?;
@@ -1323,6 +1467,12 @@ pub fn emit(
         .iter()
         .map(|row| (row.name.as_str(), row))
         .collect();
+
+    // Ahead of every path derivation: a nested file child's unit composes under its
+    // host's, so a kind graph that templates a cycle of file layers composes no path at
+    // all. Refused here, once over the declared facts, rather than discovered as a
+    // non-terminating descent on the read side.
+    refuse_template_cycle(&kind_facts)?;
 
     // The projection-path → `kind:name` index a layout import resolves its target
     // against, built over every member before any projection is derived: an import may

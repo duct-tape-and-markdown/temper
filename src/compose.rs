@@ -952,7 +952,11 @@ fn resolve_kind_units(
                     // Host-scoped identity, never corpus-wide by name: the host's address
                     // is the first segment of the address this child wears, so two hosts
                     // may each carry a same-named child and each still names one member.
-                    let host = member_address::host_address(&found.host_kind, &found.host_name);
+                    // The identity comes off the unit the recursive scan handed back, so a
+                    // host that is itself a nested file child contributes its **own whole
+                    // address** — `address_of` makes that discrimination once, and reads
+                    // it at whatever depth the walk descended to.
+                    let host = member_address::address_of(&found.host_kind, &found.host_name);
                     // The child's key folds against the locus its host template's pattern
                     // spells literally, not the bare unit: `notes/*.md` places every one of
                     // its members under `notes/`, so that segment is locus and the key is

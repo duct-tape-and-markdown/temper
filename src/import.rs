@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use ignore::WalkBuilder;
 
 use crate::kind::{Commitment, CustomKind, Governs, UnitShape};
+use crate::member_address;
 
 /// Whether a walk lets a committed local-locus kind's `governs` declaration override
 /// discovery's two presumptions — the repository's ignore rules and the workspace skip.
@@ -197,9 +198,14 @@ pub struct NestedFileUnit {
     pub host_unit: PathBuf,
     /// The host member's kind — the kind whose template placed this child.
     pub host_kind: String,
-    /// The host member's own name. A host qualifies only at a **directory** unit shape
-    /// (the guard below), whose id is its unit directory's name, so this is
-    /// [`host_unit`](NestedFileUnit::host_unit)'s final component.
+    /// The host member's **identity**, in the one form
+    /// [`crate::member_address::address_of`] reads: its bare name when the host is a
+    /// top-level member, and its whole `<host-address>/<kind>/<key>` address when the host
+    /// is itself a nested file child. A host qualifies only at a **directory** unit shape
+    /// (the guard below), whose key is its unit directory's name, so the final segment is
+    /// always [`host_unit`](NestedFileUnit::host_unit)'s final component — what runs ahead
+    /// of it is the chain of hosts above, carried so a child two layers down is addressed
+    /// under both of them rather than under the nearer one alone.
     pub host_name: String,
     /// The host template's path pattern this child's file matched — the host kind's own
     /// declared fact, carried beside the unit because the pair is what composes the path:
@@ -211,17 +217,32 @@ pub struct NestedFileUnit {
     pub file: PathBuf,
 }
 
+/// One unit a host kind owns, as the per-host scan below needs it: the directory a child's
+/// pattern is walked from, the host member's own identity ([`NestedFileUnit::host_name`]),
+/// and the host's entry file — which is that host's own member and never its own child, so
+/// a pattern matching it collects nothing.
+struct HostUnit {
+    dir: PathBuf,
+    identity: String,
+    entry: PathBuf,
+}
+
 /// Discover a nested file `kind`'s members on `harness`: under each host member's unit,
 /// every file matching the host template's pattern for this kind. The child kind carries
 /// neither half — the pattern is the host kind's declared `templates` fact and the units
-/// are the host kind's own `governs` scan — so `kinds`, the declared set keyed by bare
-/// name, is what the host is read out of. This is the read side of the composition emit
-/// writes a child's projection at: host unit joined with pattern, and nothing else.
+/// are the host kind's own — so `kinds`, the declared set keyed by bare name, is what the
+/// host is read out of. This is the read side of the composition emit writes a child's
+/// projection at: host unit joined with pattern, and nothing else.
 ///
-/// A host qualifies only where it owns a directory unit at a `governs` locus: a template's
-/// pattern is relative to its host's unit, and a lone file has no interior to seat a child
-/// in. A host's entry file is that host's own member and never its own child, so a pattern
-/// matching it collects nothing.
+/// The host's own units are **discovered through this same scan**, not read off a
+/// `governs` locus: a host at an `at` locus supplies them from its own glob walk, and a
+/// host that is *itself* a nested file child supplies them from its own host's unit, one
+/// layer further up ([`host_units`]). So a child two layers down is discovered rather than
+/// invisible, and nesting reads back at the arbitrary depth the model declares
+/// (`specs/model/representation.md`, "nesting").
+///
+/// A host qualifies only where it owns a **directory** unit: a template's pattern is
+/// relative to its host's unit, and a lone file has no interior to seat a child in.
 ///
 /// A child sits inside its host's unit, so the host's commitment class is what decides
 /// whether `over` lets discovery's presumptions be overridden here: the child kind
@@ -239,35 +260,45 @@ pub fn discover_nested_file(
     // and `degree` consumers would each then have to un-see. Position stays decidable at
     // this one seam instead.
     let claimed = disc.declared_governed_paths(kinds, over);
+    nested_file_members(disc, kind, kinds, over, claimed, &mut Vec::new())
+}
+
+/// [`discover_nested_file`] with the descent path it recurses along — the kinds whose
+/// units are already being resolved further down the stack.
+///
+/// A kind met twice on one descent is a template cycle, and a cycle composes no locus at
+/// all: the unit its members would sit in is their own descendant's. `emit` refuses such
+/// a declaration outright (`crate::drift`'s `TemplateCycle`), so the lock a read walks
+/// cannot carry one; the trail is what keeps *this* walk total regardless of what it is
+/// handed, since a `Vec` return has no channel to refuse down.
+fn nested_file_members(
+    disc: &Discovery,
+    kind: &CustomKind,
+    kinds: &BTreeMap<String, CustomKind>,
+    over: LocalOverride,
+    claimed: &BTreeSet<PathBuf>,
+    trail: &mut Vec<String>,
+) -> Vec<NestedFileUnit> {
     let mut found = Vec::new();
+    if trail.contains(&kind.name) {
+        return found;
+    }
+    trail.push(kind.name.clone());
     for host in kinds.values() {
-        let (Some(pattern), Some(governs)) =
-            (file_template(host, &kind.name), host.governs.as_ref())
-        else {
+        let Some(pattern) = file_template(host, &kind.name) else {
             continue;
         };
         if host.unit_shape != Some(UnitShape::Directory) {
             continue;
         }
         let discoverable = disc.discoverable(local_governs(host, over));
-        let root = crate::path::normalize_path(&disc.harness().join(&governs.root));
-        for entry in discover_kind_files(disc, host, governs, over) {
-            let Some(host_unit) = unit_dir(&root, &entry) else {
-                continue;
-            };
-            // The host's own name: its unit directory's final component, which is exactly
-            // the id a `directory` unit shape folds — and a directory shape is the only one
-            // the guard above admits as a host.
-            let Some(host_name) = host_unit.file_name().and_then(OsStr::to_str) else {
-                continue;
-            };
-            let host_name = host_name.to_string();
-            for file in scan_locus(&host_unit, pattern, discoverable) {
-                if file != entry && !claimed.contains(&file) {
+        for unit in host_units(disc, host, kinds, over, claimed, trail) {
+            for file in scan_locus(&unit.dir, pattern, discoverable) {
+                if file != unit.entry && !claimed.contains(&file) {
                     found.push(NestedFileUnit {
-                        host_unit: host_unit.clone(),
+                        host_unit: unit.dir.clone(),
                         host_kind: host.name.clone(),
-                        host_name: host_name.clone(),
+                        host_name: unit.identity.clone(),
                         pattern: pattern.to_string(),
                         file,
                     });
@@ -275,8 +306,62 @@ pub fn discover_nested_file(
             }
         }
     }
+    trail.pop();
     found.sort_by(|a, b| a.file.cmp(&b.file));
     found
+}
+
+/// Every unit `host` owns on disk, with the host member's own identity — the recursion's
+/// one step, and the read-side twin of the way emit derives a host's unit from the host's
+/// own projection (`crate::drift`'s `nested_file_path`).
+///
+/// A host at an `at` locus walks its own `governs` glob and keys each unit by its
+/// directory's name. A host that governs nothing is **itself** a nested file child: its
+/// own members are discovered one layer up, each entry file sitting inside the unit it
+/// owns, and its identity is its whole `<host-address>/<kind>/<key>` address — composed
+/// through [`member_address::address_of`], so the chain above it survives into every
+/// child it in turn hosts.
+///
+/// Only a **directory** unit shape reaches here (the caller's guard), so a host's key is
+/// its unit directory's final component either way — the id that shape folds.
+fn host_units(
+    disc: &Discovery,
+    host: &CustomKind,
+    kinds: &BTreeMap<String, CustomKind>,
+    over: LocalOverride,
+    claimed: &BTreeSet<PathBuf>,
+    trail: &mut Vec<String>,
+) -> Vec<HostUnit> {
+    let Some(governs) = host.governs.as_ref() else {
+        return nested_file_members(disc, host, kinds, over, claimed, trail)
+            .into_iter()
+            .filter_map(|found| {
+                let dir = found.file.parent()?.to_path_buf();
+                let key = dir.file_name().and_then(OsStr::to_str)?;
+                let above = member_address::address_of(&found.host_kind, &found.host_name);
+                Some(HostUnit {
+                    identity: member_address::nested_address(&above, &host.name, key),
+                    dir,
+                    entry: found.file,
+                })
+            })
+            .collect();
+    };
+    let root = crate::path::normalize_path(&disc.harness().join(&governs.root));
+    discover_kind_files(disc, host, governs, over)
+        .into_iter()
+        .filter_map(|entry| {
+            let dir = unit_dir(&root, &entry)?;
+            // The host's own name: its unit directory's final component, which is exactly
+            // the id a `directory` unit shape folds.
+            let identity = dir.file_name().and_then(OsStr::to_str)?.to_string();
+            Some(HostUnit {
+                dir,
+                identity,
+                entry,
+            })
+        })
+        .collect()
 }
 
 /// The path pattern `host` templates `child`'s file layer at, if it declares one — the

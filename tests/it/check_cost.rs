@@ -103,6 +103,12 @@ fn generate_harness(root: &Path, scale: usize) -> usize {
 /// [`Discovery`] threaded through a `governs` scan per kind and a per-host scan for the
 /// nested-file kinds — returning the discovered files paired with the base each folds
 /// against, for the read phase to consume.
+///
+/// The per-host scan **descends**: a host that is itself a nested-file child supplies its
+/// units from its own host's, one call per declared layer. The shipped set templates one
+/// layer, so that descent bottoms out immediately here; what the pins below hold is that
+/// a descent costs no *tree* walk and no fresh matcher — both ride the shared
+/// [`Discovery`] and the glob memo, so depth multiplies neither.
 fn discover_all(
     disc: &Discovery,
     harness: &Path,
@@ -180,8 +186,9 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
     // leaf glob against every candidate name at every level of a >10k-file tree — without
     // the memo the compile count scales with the file count (tens of thousands); with it,
     // the count is the number of distinct loci globs the built-in kinds declare, a small
-    // constant independent of tree size. A generous ceiling well below the file count
-    // states the invariant decidably and machine-independently.
+    // constant independent of tree size — and a *distinct* glob, so the nested-file
+    // descent reusing a host's pattern one layer down adds none. A generous ceiling well
+    // below the file count states the invariant decidably and machine-independently.
     assert!(
         compiles <= 32,
         "glob compilation must hoist per distinct glob, not per candidate file: \

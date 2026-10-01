@@ -1610,3 +1610,212 @@ process.stdout.write(
         assert!(ok, "the corpus checks clean: {findings:#?}");
     }
 }
+
+/// **Nesting reaches any depth.** A `page` is a nested file child *and* a host: it owns a
+/// directory unit under its `area`'s unit, and templates a `leaf` layer of its own under
+/// that. One rule composes every layer — a host's unit is the directory its own
+/// projection sits in, whatever derived that projection — so a corpus two layers deep
+/// emits, discovers and resolves exactly as a corpus one layer deep does
+/// (`specs/model/representation.md`, "nesting": a kind may template inner layers to
+/// arbitrary depth).
+mod nested_layers_compose_to_any_depth {
+    use std::fs;
+
+    use temper::drift::{self, EmitOptions};
+
+    use crate::common;
+
+    /// Three declared layers: an `area` at an `at` locus, a `page` nested under it with a
+    /// **directory** unit of its own, and a `leaf` nested under the page at a pattern
+    /// carrying a literal directory. The middle layer is the whole point — its template
+    /// pattern names its entry file the way a directory kind's glob does (`*/PAGE.md`),
+    /// and the layer beneath it composes against the unit that pattern seats, not against
+    /// any root.
+    const TWO_LAYER_PROGRAM: &str = r#"
+import { emit, harness, kind, text } from "@dtmd/temper";
+
+const leaf = kind<object>({
+  name: "leaf",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+const page = kind<object>({
+  name: "page",
+  locus: { kind: "nested-file" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: leaf, path: "notes/*.md" }],
+});
+
+const area = kind<object>({
+  name: "area",
+  locus: { kind: "at", root: ".claude/areas", glob: "*/AREA.md" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: page, path: "*/PAGE.md" }],
+});
+
+const ops = area({ name: "ops", prose: text`# Ops` });
+const gate = page({ name: "gate", host: ops, prose: text`# The gate` });
+
+process.stdout.write(
+  emit(
+    harness({
+      members: [ops, gate, leaf({ name: "home", host: gate, prose: text`# Home` })],
+    }),
+  ).seam,
+);
+"#;
+
+    #[test]
+    fn a_child_two_layers_down_emits_at_its_composed_path_and_reads_back_at_both_hosts() {
+        let (harness, into) = common::wire_sdk_harness("two-layer-nesting", TWO_LAYER_PROGRAM);
+
+        let report = drift::emit_program(&into, EmitOptions::default())
+            .expect("a two-layer corpus composes every layer's locus and emits");
+
+        let projection = |kind: &str, name: &str| {
+            report
+                .entries
+                .iter()
+                .find(|entry| entry.kind == kind && entry.name == name)
+                .unwrap_or_else(|| panic!("emit projects `{kind}:{name}`"))
+                .source_path
+                .clone()
+        };
+
+        // Layer by layer: the area's own `at` locus, the page's unit under it (its
+        // template's `*/PAGE.md` names the entry file the way a directory kind's glob
+        // does), and the leaf under *that* unit, through its own pattern's literal
+        // `notes/` segment.
+        assert_eq!(
+            projection("area", "ops"),
+            harness.join(".claude/areas/ops/AREA.md")
+        );
+        assert_eq!(
+            projection("page", "gate"),
+            harness.join(".claude/areas/ops/gate/PAGE.md")
+        );
+        assert_eq!(
+            projection("leaf", "home"),
+            harness.join(".claude/areas/ops/gate/notes/home.md")
+        );
+        for (kind, name) in [("area", "ops"), ("page", "gate"), ("leaf", "home")] {
+            assert!(
+                projection(kind, name).is_file(),
+                "`{kind}:{name}` is on disk"
+            );
+        }
+
+        // The read side finds all three — the per-host scan descends into a host that is
+        // itself a nested file child, so the deepest layer is discovered rather than
+        // invisible.
+        let (findings, ok) = common::check_harness(&harness);
+        let checked = common::findings_for(&findings, "coverage.checked");
+        assert!(
+            checked.iter().any(|line| line.contains("page (1)"))
+                && checked.iter().any(|line| line.contains("leaf (1)")),
+            "both nested layers are checked members: {findings:#?}"
+        );
+        assert!(ok, "the two-layer corpus checks clean: {findings:#?}");
+
+        // And the address composes through **both** hosts: five segments, the grandparent
+        // intact. The nearer-host-only spelling names nothing.
+        let deep = common::explain_in(&harness, "area:ops/page/gate/leaf/home");
+        assert!(
+            deep.contains("Member `area:ops/page/gate/leaf/home`"),
+            "the deep child resolves at its two-host-composed address: {deep}"
+        );
+        let flattened = common::explain_in(&harness, "page:gate/leaf/home");
+        assert!(
+            !flattened.contains("Member `page:gate/leaf/home`"),
+            "a host flattened to `kind:name` loses the grandparent and names nothing: \
+             {flattened}"
+        );
+    }
+
+    /// A kind whose file layer reaches back to itself composes **no** locus: the unit its
+    /// members would sit in is their own descendant's. Arbitrary depth is three declared
+    /// layers deep as above, never a kind containing itself — so the declaration is
+    /// refused where it is declared rather than recursed into (invariant 6).
+    #[test]
+    fn a_kind_templating_its_own_file_layer_is_refused_rather_than_recursed_into() {
+        use temper::drift::{Declarations, KindFactRow, Payload, TemplateRow};
+
+        let (_harness, into) = common::workspace("self-templating-kind");
+        let payload = Payload {
+            version: drift::SEAM_VERSION,
+            declarations: Declarations {
+                kinds: vec![KindFactRow {
+                    governs_root: None,
+                    governs_glob: None,
+                    unit_shape: Some("directory".to_string()),
+                    templates: vec![TemplateRow {
+                        kind: "page".to_string(),
+                        path: Some("*/PAGE.md".to_string()),
+                    }],
+                    ..common::kind_facts("page", "", "")
+                }],
+                ..Declarations::default()
+            },
+            members: Vec::new(),
+        };
+
+        let err = drift::emit(&payload, &into, EmitOptions::default())
+            .expect_err("a self-templating nested file kind composes no path and is refused");
+        let rendered = format!("{err:?}");
+        assert!(
+            rendered.contains("page -> page") && rendered.contains("cycle"),
+            "the refusal names the cycle it found: {rendered}"
+        );
+
+        // The refusal lands before a byte is written: emit is the sole writer of the lock,
+        // so a cyclic declaration never reaches a committed corpus for the read side to
+        // walk.
+        assert!(
+            !into.join("lock.toml").exists(),
+            "a refused emit writes no lock"
+        );
+    }
+
+    /// The same cycle, met from the **read** side: the per-host descent is handed a kind
+    /// graph with no base case and still terminates, finding nothing. Emit refuses such a
+    /// declaration outright, so this is the walk's own totality rather than a second
+    /// verdict on the corpus.
+    #[test]
+    fn the_per_host_descent_terminates_on_a_kind_graph_with_no_base_case() {
+        use std::collections::BTreeMap;
+
+        use temper::drift::{KindFactRow, TemplateRow};
+        use temper::kind::CustomKind;
+
+        let harness = common::tmpdir("self-templating-descent");
+        fs::create_dir_all(harness.join(".claude")).unwrap();
+
+        let page = CustomKind::from_kind_fact_row(&KindFactRow {
+            governs_root: None,
+            governs_glob: None,
+            unit_shape: Some("directory".to_string()),
+            templates: vec![TemplateRow {
+                kind: "page".to_string(),
+                path: Some("*/PAGE.md".to_string()),
+            }],
+            ..common::kind_facts("page", "", "")
+        })
+        .unwrap();
+        let kinds = BTreeMap::from([("page".to_string(), page.clone())]);
+
+        let found = temper::import::discover_nested_file(
+            &temper::import::Discovery::new(&harness),
+            &page,
+            &kinds,
+            temper::import::LocalOverride::Honored,
+        );
+        assert!(
+            found.is_empty(),
+            "a cycle roots no unit anywhere, so the descent finds nothing: {found:#?}"
+        );
+    }
+}

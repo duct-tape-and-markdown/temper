@@ -2262,3 +2262,117 @@ fn explain_refuses_a_bare_file_child_key_two_hosts_carry_by_naming_both() {
         );
     }
 }
+
+/// Three declared layers — an `area` at an `at` locus, a `page` nested under it owning a
+/// directory unit of its own, and a `leaf` nested under the page. The read side's own
+/// two-layer corpus: the grammar reads an address of any depth, and this is the corpus
+/// behind it.
+const TWO_LAYER_PROGRAM: &str = r#"
+import { emit, harness, kind, text } from "@dtmd/temper";
+
+const leaf = kind<object>({
+  name: "leaf",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+const page = kind<object>({
+  name: "page",
+  locus: { kind: "nested-file" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: leaf, path: "*.md" }],
+});
+
+const area = kind<object>({
+  name: "area",
+  locus: { kind: "at", root: ".claude/areas", glob: "*/AREA.md" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: page, path: "*/PAGE.md" }],
+});
+
+const ops = area({ name: "ops", prose: text`# Ops` });
+const gate = page({ name: "gate", host: ops, prose: text`# The gate` });
+const risk = page({ name: "risk", host: ops, prose: text`# Risk` });
+
+process.stdout.write(
+  emit(
+    harness({
+      members: [
+        ops,
+        gate,
+        risk,
+        leaf({ name: "home", host: gate, prose: text`# Gate home` }),
+        leaf({ name: "home", host: risk, prose: text`# Risk home` }),
+      ],
+    }),
+  ).seam,
+);
+"#;
+
+#[test]
+fn explain_resolves_a_two_layer_address_composing_through_both_hosts() {
+    // A nested member's identity *is* its address, and any member's address may host
+    // (`specs/model/representation.md`, "member"), so a child two layers down answers to
+    // five segments. The grammar already read that depth; this is the first corpus that
+    // actually wears one.
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("explain-two-layer", TWO_LAYER_PROGRAM);
+    temper::drift::emit_program(&into, temper::drift::EmitOptions::default())
+        .expect("the two-layer program emits every layer's projection");
+
+    // Non-vacuity on the check side of this very fixture: both layers are members the
+    // gate judged, so the narrations below read against a live corpus rather than
+    // agreeing with an absence.
+    let (findings, ok) = common::check_harness(&harness);
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert!(
+        checked.iter().any(|line| line.contains("page (2)"))
+            && checked.iter().any(|line| line.contains("leaf (2)")),
+        "both nested layers are checked members: {findings:#?}"
+    );
+    assert!(ok, "the two-layer corpus checks clean: {findings:#?}");
+
+    // The middle layer at its own three-segment address …
+    let middle = common::explain_in(&harness, "area:ops/page/gate");
+    assert!(
+        middle.contains("Member `area:ops/page/gate` (page)"),
+        "the middle layer resolves at its own address: {middle}"
+    );
+
+    // … and the layer beneath it at five, the grandparent intact.
+    let deep = common::explain_in(&harness, "area:ops/page/gate/leaf/home");
+    assert!(
+        deep.contains("Member `area:ops/page/gate/leaf/home` (leaf)"),
+        "the two-layer child resolves at its composed address: {deep}"
+    );
+    assert!(
+        deep.contains("`area:ops/page/gate` (page) contains it"),
+        "and the host it resolves under is the middle layer, at its own composed \
+         address — not the `area` two layers up, and not a `page:gate` with the \
+         grandparent dropped: {deep}"
+    );
+
+    // The host segment is the whole of what tells the two `home`s apart: one key, two
+    // sibling pages, two members.
+    let sibling = common::explain_in(&harness, "area:ops/page/risk/leaf/home");
+    assert!(
+        sibling.contains("`area:ops/page/risk` (page) contains it"),
+        "the sibling page's same-keyed child is a different member, under its own \
+         host: {sibling}"
+    );
+    assert!(
+        !sibling.contains("gate"),
+        "and nothing of the other carrier leaks into it: {sibling}"
+    );
+
+    // And a host flattened to `<kind>:<name>` names nothing: the grandparent is not
+    // optional decoration on the address, it is part of the identity.
+    let flattened = common::explain_in(&harness, "page:gate/leaf/home");
+    assert!(
+        !flattened.contains("Member `page:gate/leaf/home`"),
+        "a one-layer spelling of a two-layer member resolves to nothing: {flattened}"
+    );
+}

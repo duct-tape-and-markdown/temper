@@ -49,6 +49,12 @@ use crate::common;
 /// the directory segment its `*/conventions.md` glob stars and seated inside the skill's
 /// own directory).
 ///
+/// One target sits **two layers down**: `section` is itself a nested file child and owns
+/// a directory unit, so the `supporting-doc` beneath it composes against a unit that was
+/// itself composed. Depth is where the two derivations are most apt to part — each must
+/// find a host's unit by running its own derivation on the host — so the lane carries a
+/// two-layer target rather than gating agreement at one level and presuming it below.
+///
 /// The host is itself a `skill`, so its own projection lands two directories deep and
 /// every rendered link must climb out of it — a host at the root would let a broken
 /// relative derivation pass by accident.
@@ -77,15 +83,27 @@ const conventions = kind<object>({
   registration: [],
 });
 
-const guide = kind<object>({
-  name: "guide",
-  locus: { kind: "at", root: ".claude/guides", glob: "*/GUIDE.md" },
+const section = kind<object>({
+  name: "section",
+  locus: { kind: "nested-file" },
   unitShape: "directory",
   registration: [],
   templates: [{ kind: supportingDoc, path: "*.md" }],
 });
 
+const guide = kind<object>({
+  name: "guide",
+  locus: { kind: "at", root: ".claude/guides", glob: "*/GUIDE.md" },
+  unitShape: "directory",
+  registration: [],
+  templates: [
+    { kind: supportingDoc, path: "*.md" },
+    { kind: section, path: "*/SECTION.md" },
+  ],
+});
+
 const operating = guide({ name: "operate-the-gate", prose: text`# Operate the gate` });
+const closing = section({ name: "closing", host: operating, prose: text`# Closing` });
 
 const waypoint = kind<object>(
   {
@@ -100,6 +118,7 @@ const waypoint = kind<object>(
       { field: "to_command", to: ["command"] },
       { field: "to_memory", to: ["memory"] },
       { field: "to_doc", to: ["supporting-doc"] },
+      { field: "to_deep_doc", to: ["supporting-doc"] },
       { field: "to_conventions", to: ["conventions"] },
       { field: "to_note", to: ["note-doc"] },
     ],
@@ -128,6 +147,7 @@ const program = harness({
             to_command: "command:review",
             to_memory: "memory:CLAUDE",
             to_doc: "supporting-doc:checklist",
+            to_deep_doc: "guide:operate-the-gate/section/closing/supporting-doc/appendix",
             to_conventions: "conventions:coordinate",
             to_note: "note-doc:cadence",
           },
@@ -136,6 +156,8 @@ const program = harness({
     }),
     operating,
     supportingDoc({ name: "checklist", host: operating, prose: text`# Checklist` }),
+    closing,
+    supportingDoc({ name: "appendix", host: closing, prose: text`# Appendix` }),
     skill({
       name: "coordinate",
       description: "Use when driving a complex task across a team of agents.",
@@ -163,6 +185,7 @@ const EDGES: &[(&str, &str, &str)] = &[
     ("to_command", "command", "review"),
     ("to_memory", "memory", "CLAUDE"),
     ("to_doc", "supporting-doc", "checklist"),
+    ("to_deep_doc", "supporting-doc", "appendix"),
     ("to_conventions", "conventions", "coordinate"),
     ("to_note", "note-doc", "cadence"),
 ];
@@ -174,7 +197,9 @@ const EDGES: &[(&str, &str, &str)] = &[
 /// For an `at` locus the root is the kind's `governs` root; for the nested file child,
 /// whose kind governs no glob at all, it is the **host's unit** — the base its host kind's
 /// template pattern is spelled against, and the base `import`'s own per-host scan walks
-/// that pattern from.
+/// that pattern from. Two layers down that base is itself composed: `supporting-doc`'s
+/// `appendix` is rooted at the unit the `section` child owns, which is rooted at the
+/// `guide`'s.
 const GOVERNED: &[(&str, &str, &str, &str)] = &[
     ("skill", "citing", ".claude/skills", "*/SKILL.md"),
     ("skill", "coordinate", ".claude/skills", "*/SKILL.md"),
@@ -187,6 +212,18 @@ const GOVERNED: &[(&str, &str, &str, &str)] = &[
         "supporting-doc",
         "checklist",
         ".claude/guides/operate-the-gate",
+        "*.md",
+    ),
+    (
+        "section",
+        "closing",
+        ".claude/guides/operate-the-gate",
+        "*/SECTION.md",
+    ),
+    (
+        "supporting-doc",
+        "appendix",
+        ".claude/guides/operate-the-gate/closing",
         "*.md",
     ),
     (
