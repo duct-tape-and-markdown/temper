@@ -1,18 +1,17 @@
 # Plan state
 
 - Spec derived through: 9626a1a6 — copied forward; the delta past it is empty.
-- Audited through: 9ec9d1d1 — the 5737a3c2..HEAD window's one ship verified on
-  disk, both suites green after the known sdk/node_modules install.
-- Residue swept through: 9ec9d1d1 — same window, no new gap: the address-
-  spelling class's remaining sites are already FRESH-FINDING's.
+- Audited through: 61af7455 — the 9ec9d1d1..HEAD window's two ships verified on
+  disk; cargo test 850/0, clippy clean, sdk gate 234/0 after the known install.
+- Residue swept through: 61af7455 — same window, no new gap: address spelling
+  has one home, and the toml read face's refusal is principled, not residue.
 - Posture swept through: 7d695577 — copied forward; its forward window is
-  214 commits wide.
-- This tick: drained the inbox note and the one refactor capture — both claims
-  re-verified at HEAD and filed as a serialized src/drift.rs pair.
+  216 commits wide.
+- This tick: reconciled the 9ec9d1d1..HEAD window — both ships verified, no
+  entry dropped (both retired at ship), six gates re-tested and all still true.
 - Queue: 8 pending — 1 open, 1 blockedBy, 3 parked, 3 deferred. Pickable: 1 —
   MEMBER-INDEX-SPELLS-THE-NESTED-ADDRESS. Open forks: 1. Friction: 2.
   Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the 9ec9d1d1..HEAD window is unreconciled (two ships:
-the path-shaped json identity, the finding's member address), and the posture
-sweep still waits behind it.
+Plan continues: after-build — the posture sweep is the only live job left and
+MEMBER-INDEX-SPELLS-THE-NESTED-ADDRESS is pickable, so the wave ships first.
