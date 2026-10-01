@@ -8,11 +8,12 @@
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
   `src/contract.rs`, `src/compose.rs`, `src/graph.rs`, `src/glob.rs`,
-  `src/read.rs`.
-- This tick: reconciled b253d418..9ce49208 — the read.rs chain's three fixes
-  verified on disk, no residue, every surviving gate re-tested.
-- Queue: 8 pending — 4 parked, 4 deferred. Pickable: 0.
+  `src/read.rs`, `src/kind.rs`.
+- This tick: posture sweep covered `src/kind.rs` — one finding filed, the
+  `<name>(<args>)` label grammar split three times in one file.
+- Queue: 9 pending — 1 open, 4 parked, 4 deferred. Pickable: 1.
   Open forks: 1. Friction: 2. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the rotation is open with the rest of the domain unswept
-and no pickable entry for build, so plan drives the next neighborhood itself.
+Plan continues: after-build — the rotation is open with the rest of the domain
+unswept, and the filed entry is pickable now, so the wave ships first and the
+sweep resumes when it hands back.
