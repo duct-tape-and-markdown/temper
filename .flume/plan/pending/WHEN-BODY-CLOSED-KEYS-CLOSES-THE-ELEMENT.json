@@ -1,0 +1,34 @@
+{
+  "tag": "WHEN-BODY-CLOSED-KEYS-CLOSES-THE-ELEMENT",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "WHEN-BODY-FENCES-THE-FEATURES-AN-ELEMENT-LACKS"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/engine.rs",
+        "description": "A body clause's `closed-keys` reads the wrong clause set. `decide`'s ClosedKeys arm (src/engine.rs:1343) derives its allow-list from `contract::declared_keys(&contract.clauses)` — the *host* contract the `when` arm threads through unchanged (:1602) — while admissibility already judges that same body clause's vacuity against the body as its sibling set (`when_restrictions`, :258). Verified at HEAD: `declared_keys` (src/contract.rs:1014) collects the head segment of each top-level `required`/`optional` field and never recurses into a `When` body, so a body `closed_keys` compares the element's own keys against the host member's schema and indicts every element key the host happens not to declare. The body binds at the element the guard locates, so the clause set in scope is the body's — the shape `judge_members` already uses to judge an opt-in selection's `closed-keys` off its own siblings: build the body-scoped `Contract` the body clauses evaluate under, one home for 'the clause set in scope', never a second rule at this arm. `declared_keys` itself needs no change: its head-segment reading is already the element's grain."
+      },
+      {
+        "path": "tests/it/closed_keys.rs",
+        "description": "The file's header names four properties as 'the whole bargain'; the element grain is the fifth. Add it: a `when` body declaring `closed_keys` beside its own body clauses closes the *element* to what the body declares, and the host's top-level declarations neither admit nor indict an element key. Extend the header's enumeration to five so the prose and the suite agree."
+      }
+    ]
+  },
+  "summary": "`closed-keys` in a `when` body closes the element against the host member's schema, indicting every element key the host never declared — the allow-list in scope is the body's own",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "tests": [
+    {
+      "path": "tests/it/closed_keys.rs",
+      "asserts": "an element whose keys the body declares holds, an element key the body declares nowhere is one finding naming that key, and a key the host declares at top level does not admit the same key on the element — each failing on the pre-fix tree, where the host's set is the one read"
+    }
+  ],
+  "acceptance": "`cargo test` green with the element-grain allow-list pinned in `tests/it/closed_keys.rs`, and `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "Serialized behind WHEN-BODY-FENCES-THE-FEATURES-AN-ELEMENT-LACKS: both edit src/engine.rs and both reshape the `when`-body element grain, so they collide semantically as well as by path. Fencing `closed-keys` out of a body instead was considered and rejected — it is decidable at the element grain once the allow-list is the body's, and the honest bound refuses only what decides nothing. scoped at 20db3690"
+}

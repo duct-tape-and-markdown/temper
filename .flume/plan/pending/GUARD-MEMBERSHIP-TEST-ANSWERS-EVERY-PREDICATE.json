@@ -1,0 +1,25 @@
+{
+  "tag": "GUARD-MEMBERSHIP-TEST-ANSWERS-EVERY-PREDICATE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": ["WHEN-BODY-CLOSED-KEYS-CLOSES-THE-ELEMENT"]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/engine.rs",
+        "description": "`guard_membership_fails` (src/engine.rs:1206) matches `&Predicate` — the closed clause algebra — and answers it with `Enum`, `Type`, and `_ => true`: the one wildcard over that enumeration in the module, where `judge` (:793), `decide` (:1240) and the five admissibility judges all spell every variant. Its three call sites pass only the two it names (:1272 a top-level `type`, :1310 a top-level `enum`, :1595 a guard `when_restrictions` already fenced to those two, verified with `rg -a`), so the arm is unreachable today and the wildcard is what hides that: a future guard-legal variant would compile straight into `true` — reject every value — and silence every body clause under it rather than failing to build. Take the test off `&Predicate` and onto the two shapes that decide (the declared values, the declared kind set), so there is no variant left to answer; the name then stops claiming a guard it mostly is not — two of its three callers are top-level clauses."
+      }
+    ]
+  },
+  "summary": "The guard membership test answers the clause algebra with a `_` arm, so a future guard-legal predicate would compile into a silent reject instead of refusing to build",
+  "per": { "path": "specs/process/engineering.md", "section": "A shared concept is one type" },
+  "tests": [
+    {
+      "path": "src/engine.rs",
+      "asserts": "the existing enum/type guard and top-level enum/type cases stay green over the reshaped test (`when_guard_enum_matches_and_body_evaluates`, `when_guard_type_matches_and_body_evaluates`, `when_guard_non_enum_type_is_silent`, and the `enum`/`type` member-grain cases); the pin against a future variant is the compiler, which is the point of removing the arm"
+    }
+  ],
+  "acceptance": "`cargo test` green with no behavioural change, `cargo clippy --all-targets -- -D warnings` clean, and no `_` arm left over `Predicate` in src/engine.rs.",
+  "notes": "Found by the posture sweep's exhaustive-match lens over src/engine.rs; no behaviour changes, so there is no regression to pin beyond the compiler the wildcard was suppressing — the 'fix ships its test' exception, named here rather than left silent. Serialized behind the two `when`-body entries: same file, same mechanism. scoped at 20db3690"
+}

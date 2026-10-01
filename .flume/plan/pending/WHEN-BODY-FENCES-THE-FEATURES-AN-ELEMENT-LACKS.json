@@ -1,0 +1,22 @@
+{
+  "tag": "WHEN-BODY-FENCES-THE-FEATURES-AN-ELEMENT-LACKS",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/engine.rs",
+        "description": "The element binding admits predicates it cannot carry. `when_restrictions` (src/engine.rs:235) refuses only a nested `when` and a selection-ranging body clause, and `bodyless` (:377) keys on `Locus::Embedded` alone — so at `Locus::Document`, where every shipped guard lives, a body clause reading the member's own document is admissible and then decided against `scoped_element_features` (:1654), which zeroes `headings`, `sections`, `source_dir`, both rendered extents and `edge_placements`. Verified at HEAD over that projection: `section_contains` (:1470), `name-matches-dir` (:1490) and `format-places-edges` (:1519) each return `Outcome::Holds` — three greens over nothing; `require_sections` (:1447) reports every declared section absent at every matched element — a false cascade; and `extent` with `whole: false` (:1425) returns `Outcome::Indeterminate`, which falsifies `evaluate`'s standing claim (:1105) that no admissible contract reaches that arm. Fence the class at admissibility, where the sibling refusal already lives: `bodyless` is the one classifier naming the feature a binding does not carry, so extend it to the element binding rather than opening a second list, and shrink `evaluate`'s comment to what the fence then makes true."
+      }
+    ]
+  },
+  "summary": "A `when` body admits predicates whose features an element projection zeroes — three greens over nothing, one false cascade, one undecided arm — so fence the class at admissibility",
+  "per": { "path": "specs/process/engineering.md", "section": "A green verdict is proven non-vacuous" },
+  "tests": [
+    {
+      "path": "src/engine.rs",
+      "asserts": "the honest-bound pin covers the third projection: for every member-grain predicate that reads the body, the source directory, the rendered extent or the edge placements, `inadmissibilities` over a `when` whose body carries it refuses it by name (the shape `when_body_refuses_a_set_predicate` holds for the set predicates), and no admissible body clause reaches `Outcome::Indeterminate` or decides over a zeroed feature — a pin that fails on the pre-fix tree for each of the five"
+    }
+  ],
+  "acceptance": "`cargo test` green with the new refusals pinned per predicate, `cargo clippy --all-targets -- -D warnings` clean, and the built-in lock unchanged (no shipped `when` body declares a fenced predicate).",
+  "notes": "The fence is additive: every shipped `when` body carries `required` or `shape` only (sdk/src/builtins.ts:1316-1375, 2008-2060, 2145-2160), so no built-in contract becomes inadmissible. `unique-name` is deliberately out of the class — `scoped_element_features` keeps `id` and the peer slice, so it decides the host's fact correctly and merely reports it once per element, a multiplicity defect rather than a feature the element lacks. scoped at 20db3690"
+}
