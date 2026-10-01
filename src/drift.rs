@@ -980,6 +980,10 @@ pub fn join_locus(root: &str, relative: &str) -> PathBuf {
 /// leading directory segment, landing `<name>/<file>` — there the name identifies the
 /// directory, not the leaf. Every other caller passes `false`.
 ///
+/// [`fold_base`] is the inverse on the key side: the literal segments this splice
+/// re-inserts verbatim are the ones a read's fold strips back off, so a member places and
+/// reads under one name.
+///
 /// # Errors
 /// Returns [`DriftError::FlatGlobDepth`] when what remains after the collapse carries more
 /// than one `*`, or its one `*` sits above the final segment and is not the admitted
@@ -1004,6 +1008,39 @@ fn splice_name(
         });
     }
     Ok(placed.replacen('*', name, 1))
+}
+
+/// The locus a member's **key** is folded against: `locus` descended through the leading
+/// literal segments `pattern` spells. The fold's half of the one placement rule, and
+/// [`splice_name`]'s inverse — the splice re-inserts those very segments verbatim on the
+/// way out, so a child discovered under them reads back under the key its author declared
+/// rather than one its placement invented.
+///
+/// Identity is a declared fact (a file stem, a starred segment), and a literal pattern
+/// segment is **locus, never identity**: `notes/*.md` spells `notes/` for every member it
+/// places, so folding it in would key `notes/home.md` as `notes-home` — a name no author
+/// wrote, and the one the splice would then place back at `notes/notes-home.md`. Folding
+/// earns its keep only for the directories a wildcard spans, where depth genuinely
+/// distinguishes same-named files (the `**/CLAUDE.md` nearest-wins nesting
+/// [`crate::frontmatter::fold_file_id`] names). Uniqueness is untouched: every member under
+/// one pattern shares the literal prefix being stripped.
+///
+/// The leading run stops at the first segment carrying a `*` — `**` included, since an
+/// any-depth span spells no directory at a known position — and the pattern's final
+/// segment is its filename, never a directory to descend into. So `**/CLAUDE.md` descends
+/// nowhere and its placement folds exactly as before, while `sub/**/*.md` descends through
+/// `sub` and leaves the `**`-spanned depth folded.
+#[must_use]
+pub fn fold_base(locus: &Path, pattern: &str) -> PathBuf {
+    let mut base = locus.to_path_buf();
+    let mut segments = pattern.split('/').peekable();
+    while let Some(segment) = segments.next() {
+        if segments.peek().is_none() || segment.contains('*') {
+            break;
+        }
+        base.push(segment);
+    }
+    base
 }
 
 /// The round trip placement owes discovery: `relative` — a derived projection path as

@@ -183,6 +183,10 @@ pub(crate) fn discover_builtin(
 /// id a `file` unit shape folds is the file's placement under it, so the halves travel
 /// together.
 ///
+/// The host template's pattern travels with them for the same reason the unit does: the
+/// child's key folds against the locus the pattern's literal segments spell, and only this
+/// scan knows which pattern found the file.
+///
 /// The host's identity travels beside them because a nested member's identity *is* its
 /// `<host-address>/<kind>/<key>` address, and this scan is the one place that knows which
 /// host a child composed under: the child kind governs no locus of its own, so nothing
@@ -197,6 +201,12 @@ pub struct NestedFileUnit {
     /// (the guard below), whose id is its unit directory's name, so this is
     /// [`host_unit`](NestedFileUnit::host_unit)'s final component.
     pub host_name: String,
+    /// The host template's path pattern this child's file matched — the host kind's own
+    /// declared fact, carried beside the unit because the pair is what composes the path:
+    /// the literal segments the pattern spells are locus, so the key a read folds is
+    /// derived against [`host_unit`](NestedFileUnit::host_unit) descended through them
+    /// ([`crate::drift::fold_base`]), never against the bare unit.
+    pub pattern: String,
     /// The child's source file, under `host_unit` at the host template's pattern.
     pub file: PathBuf,
 }
@@ -258,6 +268,7 @@ pub fn discover_nested_file(
                         host_unit: host_unit.clone(),
                         host_kind: host.name.clone(),
                         host_name: host_name.clone(),
+                        pattern: pattern.to_string(),
                         file,
                     });
                 }

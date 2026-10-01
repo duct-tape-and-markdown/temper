@@ -953,13 +953,13 @@ fn resolve_kind_units(
                     // is the first segment of the address this child wears, so two hosts
                     // may each carry a same-named child and each still names one member.
                     let host = member_address::host_address(&found.host_kind, &found.host_name);
-                    match read_file_unit(
-                        &overlaid,
-                        &found.file,
-                        &found.host_unit,
-                        &edge_fields,
-                        Some(&host),
-                    ) {
+                    // The child's key folds against the locus its host template's pattern
+                    // spells literally, not the bare unit: `notes/*.md` places every one of
+                    // its members under `notes/`, so that segment is locus and the key is
+                    // the stem the author declared. The `governs` branch below reaches the
+                    // same rule with its own (locus, pattern) pair.
+                    let base = drift::fold_base(&found.host_unit, &found.pattern);
+                    match read_file_unit(&overlaid, &found.file, &base, &edge_fields, Some(&host)) {
                         Ok(read) => child_units.push(read),
                         Err(err) => match frontmatter_fault_diagnostic(err) {
                             Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
@@ -970,7 +970,8 @@ fn resolve_kind_units(
                 child_units
             }
             (_, _, Some(governs)) => {
-                let base = crate::path::normalize_path(&disc.harness().join(&governs.root));
+                let root = crate::path::normalize_path(&disc.harness().join(&governs.root));
+                let base = drift::fold_base(&root, &governs.glob);
                 let mut file_units = Vec::new();
                 for file in
                     import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)

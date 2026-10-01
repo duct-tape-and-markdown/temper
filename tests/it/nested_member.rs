@@ -445,6 +445,113 @@ fn a_template_pattern_carrying_a_literal_directory_composes_under_the_hosts_unit
     assert!(child.source_path.is_file());
 }
 
+/// **Literal template segments are locus, never identity.** A host template's pattern
+/// spells the same literal directories for every member it places, so a child reads back
+/// under the key its author declared — the fold strips them, exactly as the splice
+/// re-inserts them, and the two stay inverses. What a wildcard spans is the other half:
+/// there depth genuinely distinguishes same-named files, so it keeps folding.
+mod literal_template_segments_are_locus {
+    use std::collections::BTreeMap;
+    use std::fs;
+
+    use temper::drift::{self, EmitOptions};
+
+    use super::{NESTED_FILE_SUBDIRECTORY_PROGRAM, nested_file_kind, skill_templating};
+    use crate::common;
+
+    #[test]
+    fn a_child_under_a_literal_directory_pattern_reads_back_under_its_authored_key() {
+        // The emit half above lands `notes/checklist.md`; this is the read half of the same
+        // fixture. The author declared `checklist`, and `notes/` is placement the pattern
+        // spells for every child it places — so the key the check side folds is
+        // `checklist`, and the address is the host's with that key under it. Folding the
+        // literal segment in would key `notes-checklist`: a name no author wrote, and the
+        // one the splice would then place back at `notes/notes-checklist.md`.
+        let (harness, into) = common::wire_sdk_harness(
+            "nested-file-subdirectory-read",
+            NESTED_FILE_SUBDIRECTORY_PROGRAM,
+        );
+        drift::emit_program(&into, EmitOptions::default())
+            .expect("the literal-directory template emits its child");
+
+        // Non-vacuity first: the child is a member the gate judged, so the narration below
+        // is read against a live corpus rather than agreeing with an absence.
+        let (findings, ok) = common::check_harness(&harness);
+        let checked = common::findings_for(&findings, "coverage.checked");
+        assert!(
+            checked
+                .iter()
+                .any(|line| line.contains("supporting-doc (1)")),
+            "the emitted child is a checked member: {findings:#?}"
+        );
+        assert!(ok, "the emitted corpus checks clean: {findings:#?}");
+
+        let out = common::explain_in(&harness, "guide:operate-the-gate/supporting-doc/checklist");
+        assert!(
+            out.contains("Member `guide:operate-the-gate/supporting-doc/checklist`"),
+            "the child resolves at the key its author declared: {out}"
+        );
+
+        // And the placement-folded spelling names nothing: the fold strips what the pattern
+        // spells, so there is no second identity for the same file.
+        let folded = common::explain_in(
+            &harness,
+            "guide:operate-the-gate/supporting-doc/notes-checklist",
+        );
+        assert!(
+            !folded.contains("Member `guide:operate-the-gate/supporting-doc/notes-checklist`"),
+            "no key is invented from the literal segment the pattern spells: {folded}"
+        );
+    }
+
+    #[test]
+    fn a_wildcard_spanned_pattern_still_folds_depth_into_distinct_keys() {
+        // One pattern, both halves: `notes/` is literal, so it strips; the `**` spans
+        // directories no pattern spells, so what it crossed folds — two same-named files at
+        // different depths carry distinct keys rather than collapsing onto one.
+        let harness = common::tmpdir("nested-file-wildcard-depth");
+        let unit = harness.join(".claude").join("skills").join("coordinate");
+        fs::create_dir_all(unit.join("notes").join("deep")).unwrap();
+        fs::write(
+            unit.join("SKILL.md"),
+            "---\nname: coordinate\ndescription: A host skill.\n---\n# coordinate\n",
+        )
+        .unwrap();
+        fs::write(unit.join("notes").join("home.md"), "# Home\n").unwrap();
+        fs::write(unit.join("notes").join("deep").join("home.md"), "# Deep\n").unwrap();
+
+        let child = nested_file_kind("supporting-doc");
+        let kinds = BTreeMap::from([(
+            "skill".to_string(),
+            skill_templating("supporting-doc", "notes/**/*.md"),
+        )]);
+        let found = temper::import::discover_nested_file(
+            &temper::import::Discovery::new(&harness),
+            &child,
+            &kinds,
+            temper::import::LocalOverride::Honored,
+        );
+
+        // Each child's key, folded the way the composition folds it: the host's unit
+        // descended through the segments its pattern spells literally, then the file's
+        // remaining placement folded in.
+        let keys: Vec<String> = found
+            .iter()
+            .map(|found| {
+                let base = drift::fold_base(&found.host_unit, &found.pattern);
+                temper::frontmatter::Member::from_source_rooted(&child, &found.file, &base)
+                    .unwrap()
+                    .id
+            })
+            .collect();
+        assert_eq!(
+            keys,
+            vec!["deep-home".to_string(), "home".to_string()],
+            "the literal `notes/` strips and the `**`-spanned depth folds: {found:#?}"
+        );
+    }
+}
+
 #[test]
 fn a_declared_file_child_template_round_trips_off_the_lock_with_its_path_pattern() {
     // TEMPLATE-FILE-CHILD-FACT: a kind's nesting template is a declared kind-side fact —

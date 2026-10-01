@@ -160,7 +160,7 @@ impl Member {
     }
 
     /// Import a member as [`from_source`](Member::from_source), but resolve a
-    /// file-shaped unit's id against the `governs`-root directory `base`: a unit nested
+    /// file-shaped unit's id against the fold base `base` ([`fold_file_id`]): a unit nested
     /// below `base` folds its placement into the id, so two
     /// nested same-named files (`sub/AGENTS.md` and a root `AGENTS.md`) carry distinct
     /// surface ids rather than collapsing to one bare stem. A directory-shaped unit is
@@ -363,17 +363,23 @@ pub(crate) fn frontmatter_matter(source: &str) -> Option<(&str, &str)> {
     closing_delimiter(rest).map(|(matter, _)| (rest, matter))
 }
 
-/// Derive a **file-shaped** unit's surface id, folding the directory placement below
-/// the `governs`-root directory `base` into it. A unit
+/// Derive a **file-shaped** unit's surface id, folding the directory placement below the
+/// fold base `base` into it. A unit
 /// directly under `base` keeps its bare filename stem — the common flat case, unchanged
 /// — while a nested one prefixes its placement path, the placement components and the
 /// stem joined with `-` into one surface-directory component. This is what stops a
 /// nested nearest-wins hierarchy (agents.md / `CLAUDE.md` memory nesting) from
 /// collapsing two same-named files at different depths onto one clobbered surface entry.
 ///
+/// `base` is the **fold base**, not simply the kind's `governs` root: a caller that places
+/// members through a pattern descends the locus through the segments that pattern spells
+/// literally before folding against it ([`crate::drift::fold_base`]), because a literal
+/// segment is locus every member under the pattern shares, never identity. What reaches
+/// here is the placement a wildcard genuinely spans.
+///
 /// Both adapter faces share it — the frontmatter face
-/// ([`Member::from_source_rooted`]) and the whole-file face
-/// (`import::wholefile_id`) — so a nested unit is named identically whichever path
+/// ([`Member::from_source_rooted`]) and the layout face
+/// (`compose::layout_unit`) — so a nested unit is named identically whichever path
 /// imports it. A source not under `base` (a caller with no root context) folds no
 /// placement, degrading to the bare stem rather than erroring.
 ///
