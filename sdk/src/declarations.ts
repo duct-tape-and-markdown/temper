@@ -76,36 +76,39 @@ export type {
 function clauseRow(clause: Clause, kind?: string): ClauseRow {
   const { predicate } = clause;
 
-  // For a `when` clause, extract the guard predicate's key and arguments,
-  // then convert the body to nested rows.
   if (predicate.key === "when") {
     const guardPredicate = clause.when_guard;
     if (!guardPredicate) {
-      throw new Error("when clause missing guard predicate");
+      throw new Error(
+        `a \`when\` clause carries no guard predicate — a guarded clause is one guard plus ` +
+          `the body it gates (specs/model/contract.md, "clause").`,
+      );
     }
 
-    // Build a row for the guard predicate's arguments, then copy those fields
-    // into this row alongside the guard_predicate and body.
-    const guardRow = clauseRow({ predicate: guardPredicate, severity: clause.severity }, undefined);
+    // The guard's argument columns ride through *whole*: a `when` row is the guard's own
+    // row with the clause's seven columns set over it, so a column a newly-guardable
+    // predicate adds reaches a guard's row by construction rather than by maintaining a
+    // list here. `src/contract.rs` `predicate_from_row` is the total counterpart on the
+    // read side, rebuilding the guard row by the same spread.
+    const {
+      kind: _kind,
+      predicate: guardKey,
+      severity: _severity,
+      guidance: _guidance,
+      cite: _cite,
+      guard_predicate: _guardPredicate,
+      body: _body,
+      ...guardColumns
+    } = clauseRow({ predicate: guardPredicate, severity: clause.severity }, undefined);
 
     return {
+      ...guardColumns,
       kind,
       predicate: "when",
       severity: clause.severity,
       guidance: clause.guidance,
       cite: clause.cite,
-      field: guardRow.field,
-      guard_predicate: guardRow.predicate,
-      value_type: guardRow.value_type,
-      shape: guardRow.shape,
-      bound: guardRow.bound,
-      unit: guardRow.unit,
-      charset: guardRow.charset,
-      keys: guardRow.keys,
-      values: guardRow.values,
-      range: guardRow.range,
-      section: guardRow.section,
-      sections: guardRow.sections,
+      guard_predicate: guardKey,
       body: clause.when_body ? clause.when_body.map((c) => clauseRow(c, undefined)) : undefined,
     };
   }

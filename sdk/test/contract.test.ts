@@ -33,6 +33,7 @@ import {
   sectionContains,
   telemetry,
   text,
+  type as typeOf,
   unique,
   when,
 } from "../src/index.js";
@@ -519,6 +520,37 @@ test("when round-trips through compileDeclarations with the guard and body lande
   const row = rows[0]!;
   assert.equal(row.guard_predicate, "enum");
   assert.deepEqual(row.values, ["./path", "object"]);
+  assert.equal(row.body?.length, 1);
+  assert.equal(row.body?.[0]?.predicate, "required");
+  assert.equal(row.body?.[0]?.field, "url");
+});
+
+// The second guard the vocabulary admits spells a different argument column, so it is
+// the arm that fails when a column stops riding through to the `when` row.
+test("a type guard's own argument column rides the when row", () => {
+  const h = harness({
+    members: [skill({ name: "gate", description: "Use when gating the run.", prose: text`# Gate` })],
+    expect: [
+      {
+        kind: skill,
+        clauses: [
+          when(typeOf("source", ["string", "map"]), [
+            clause(required("url"), { severity: "required" }),
+          ]),
+        ],
+      },
+    ],
+  });
+
+  const rows = compileDeclarations(h).clauses.filter(
+    (row) => row.kind === "skill" && row.predicate === "when",
+  );
+  assert.equal(rows.length, 1, "exactly one when row");
+
+  const row = rows[0]!;
+  assert.equal(row.guard_predicate, "type");
+  assert.equal(row.field, "source");
+  assert.deepEqual(row.value_type, ["string", "map"]);
   assert.equal(row.body?.length, 1);
   assert.equal(row.body?.[0]?.predicate, "required");
   assert.equal(row.body?.[0]?.field, "url");
