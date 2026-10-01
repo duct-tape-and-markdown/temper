@@ -22,7 +22,7 @@
       },
       {
         "path": "src/read.rs",
-        "description": "`resolve_leaf`'s head comment (1510-1514) credits its bare-id branch to \"the short form the lock already commits\". With the SDK writing the canonical head at both grains, the `features.id == parsed.member` branch serves a **nested** host (whose id is its whole address) plus a lock written before this entry, and the `parse_host_address` branch (1515) carries the top-level case it used to share — which is what the comment should say. Behaviour is unchanged (both spellings already resolve); the in-file leaf test lane (2820, 2873) gains the pin."
+        "description": "`resolve_leaf`'s head comment (1510-1514) credits its bare-id branch to \"the short form the lock already commits\". With the SDK writing the canonical head at both grains, the `features.id == parsed.member` branch serves a **nested** host (whose id is its whole address) plus a lock written before this entry, and the `parse_host_address` branch (1515) carries the top-level case it used to share — which is what the comment should say. Behaviour is unchanged (both spellings already resolve); the in-file leaf test lane (2820, 2873) gains the pin. Out of this fence on purpose: `drift::MentionRow`'s and `graph::MentionDeclaration`'s `member` docs spell the column `kind:name`, which is stale against every leaf row at HEAD already — equally so before and after this change — so that sentence rides a later entry opening those files rather than pulling the `ts-rs`-generated `MentionRow.ts` byte-gate in for a doc line."
       },
       {
         "path": "sdk/test/mention.test.ts",
@@ -50,7 +50,7 @@
   "summary": "A prose leaf's address heads with its host's own address, never the host's bare name — the one row site that joins locally reads `memberAddress` like its siblings",
   "per": {
     "path": "specs/model/representation.md",
-    "section": "nesting"
+    "section": "member"
   },
   "tests": [
     {
