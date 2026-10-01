@@ -916,11 +916,10 @@ fn content_shape_from_label(label: &str) -> Option<Content> {
 /// [`CollectionAddress`]: absent for a file-locus kind, present for a registration member
 /// whose key path lifts through the closed [`CollectionKeyPath`] vocabulary.
 ///
-/// The row's own `entry_shape` column is the shape: a declared fact the kind carries and
-/// emit writes. A row omitting it is an **older spelling** — a lock written before the
-/// column was carried — normalized at read time to the shape its key path had then
-/// (`specs/model/pipeline.md`, "The lock": older spellings normalize at read, the file is
-/// never patched, and the next emit rewrites it whole in canonical form).
+/// The row's own `entry_shape` column is the shape — a declared fact the kind carries and
+/// emit writes, required like `manifest` and `key_path`. It is never reconstructed from
+/// the key path: two kinds keying at one path may declare different shapes, so a key-path
+/// mapping here would be a second home for what the provider face already declares.
 ///
 /// # Errors
 ///
@@ -938,27 +937,11 @@ pub(crate) fn collection_address_from_row(
                 "collection_address",
                 collection_key_path_from_label(&address.key_path),
             )?;
-            let entry_shape = if let Some(shape_label) = &address.entry_shape {
-                kind_vocab(
-                    shape_label,
-                    "collection_address.entry_shape",
-                    entry_shape_from_label(shape_label),
-                )?
-            } else {
-                // A lock written before the column was carried: normalize to the shape
-                // its key path had at that spelling, rather than patch the file.
-                match key_path {
-                    CollectionKeyPath::HooksEvent => EntryShape::GroupArray {
-                        member_key: HOOK_HANDLER_KEY.to_string(),
-                        lifted_fields: vec![HOOK_MATCHER_KEY.to_string()],
-                    },
-                    CollectionKeyPath::McpServers => EntryShape::Object,
-                    CollectionKeyPath::EnabledPlugins => EntryShape::Scalar {
-                        field: "enabled".to_string(),
-                    },
-                    CollectionKeyPath::ExtraKnownMarketplaces => EntryShape::Object,
-                }
-            };
+            let entry_shape = kind_vocab(
+                &address.entry_shape,
+                "collection_address.entry_shape",
+                entry_shape_from_label(&address.entry_shape),
+            )?;
             Ok(Some(CollectionAddress {
                 manifest: address.manifest.clone(),
                 key_path,

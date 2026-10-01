@@ -1043,7 +1043,7 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
                 collection_address: Some(CollectionAddressRow {
                     manifest: "settings.json".to_string(),
                     key_path: "hooks.<Event>".to_string(),
-                    entry_shape: Some("group-array(hooks;matcher)".to_string()),
+                    entry_shape: "group-array(hooks;matcher)".to_string(),
                 }),
                 ..common::kind_facts("hook", ".claude", "settings.json")
             }],
@@ -1416,7 +1416,7 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
             collection_address: Some(CollectionAddressRow {
                 manifest: "settings.json".to_string(),
                 key_path: "hooks.<Event>".to_string(),
-                entry_shape: Some("group-array(hooks;matcher)".to_string()),
+                entry_shape: "group-array(hooks;matcher)".to_string(),
             }),
             ..common::kind_facts("hook", ".claude", "settings.json")
         },
@@ -1424,7 +1424,7 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
             collection_address: Some(CollectionAddressRow {
                 manifest: "settings.json".to_string(),
                 key_path: "enabledPlugins.*".to_string(),
-                entry_shape: Some("scalar(enabled)".to_string()),
+                entry_shape: "scalar(enabled)".to_string(),
             }),
             ..common::kind_facts("installed-plugin", ".claude", "settings.json")
         },

@@ -2,9 +2,9 @@
 
 /**
  * A kind's declared **collection address** row — the manifest a registration member
- * surfaces in and the key path it keys at, the presence-coupled pair
- * [`KindFactRow::collection_address`] carries. Absent from a [`KindFactRow`] means the
- * kind owns its own file locus.
+ * surfaces in, the key path it keys at, and the shape its entry takes: the
+ * presence-coupled triple [`KindFactRow::collection_address`] carries. Absent from a
+ * [`KindFactRow`] means the kind owns its own file locus.
  */
 export type CollectionAddressRow = { 
 /**
@@ -17,6 +17,10 @@ manifest: string,
  */
 key_path: string, 
 /**
- * The entry's declared shape — whether it's an object, scalar, or group-array.
+ * The entry's declared shape — `object`, `scalar(field)`, or
+ * `group-array(member_key;lifted_fields)`, a closed vocabulary the engine's kind lift
+ * rejects an unknown value from. Required: the shape is the kind's own declared fact,
+ * never derivable from the key path (two kinds keying at `hooks.<Event>` may lift
+ * different group fields).
  */
-entry_shape: string | null, };
+entry_shape: string, };

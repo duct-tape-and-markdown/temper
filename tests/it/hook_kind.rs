@@ -844,8 +844,10 @@ fn the_embedded_builtin_lock_carries_the_hook_kind_and_its_event_clause() {
 
 /// A fields-only kind row keyed at `settings.json#hooks.<Event>` and governing no file
 /// locus of its own — the shape the collision case needs on both sides of the collision,
-/// diverging only on the name and the declared `entry_shape`.
-fn collides_at_hooks_event(name: &str, entry_shape: Option<&str>) -> KindFactRow {
+/// diverging only on the name. The judged collision is the address itself, so both sides
+/// declare the same `entry_shape`; the parameter stays so a case needing divergent shapes
+/// at one address can ask for it.
+fn collides_at_hooks_event(name: &str, entry_shape: &str) -> KindFactRow {
     KindFactRow {
         governs_root: None,
         governs_glob: None,
@@ -853,7 +855,7 @@ fn collides_at_hooks_event(name: &str, entry_shape: Option<&str>) -> KindFactRow
         collection_address: Some(CollectionAddressRow {
             manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
-            entry_shape: entry_shape.map(str::to_string),
+            entry_shape: entry_shape.to_string(),
         }),
         ..common::kind_facts(name, "", "")
     }
@@ -882,8 +884,8 @@ fn two_kinds_at_the_same_collection_address_trip_collision_loud() {
         &harness,
         Declarations {
             kinds: vec![
-                collides_at_hooks_event("hook", Some("group-array(hooks;matcher)")),
-                collides_at_hooks_event("custom_hook", None),
+                collides_at_hooks_event("hook", "group-array(hooks;matcher)"),
+                collides_at_hooks_event("custom_hook", "group-array(hooks;matcher)"),
             ],
             ..Declarations::default()
         },

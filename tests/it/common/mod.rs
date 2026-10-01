@@ -1224,7 +1224,7 @@ pub fn hook_kind_facts() -> KindFactRow {
         collection_address: Some(CollectionAddressRow {
             manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
-            entry_shape: Some("group-array(hooks;matcher)".to_string()),
+            entry_shape: "group-array(hooks;matcher)".to_string(),
         }),
         ..kind_facts("hook", ".claude", "settings.json")
     }

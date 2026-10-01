@@ -4518,9 +4518,9 @@ pub struct TemplateRow {
 }
 
 /// A kind's declared **collection address** row — the manifest a registration member
-/// surfaces in and the key path it keys at, the presence-coupled pair
-/// [`KindFactRow::collection_address`] carries. Absent from a [`KindFactRow`] means the
-/// kind owns its own file locus.
+/// surfaces in, the key path it keys at, and the shape its entry takes: the
+/// presence-coupled triple [`KindFactRow::collection_address`] carries. Absent from a
+/// [`KindFactRow`] means the kind owns its own file locus.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct CollectionAddressRow {
     /// The host manifest the registration surfaces in (`settings.json`, `.mcp.json`).
@@ -4528,9 +4528,12 @@ pub struct CollectionAddressRow {
     /// The manifest key path the registration keys at (`hooks.<Event>`, `mcpServers.*`), a
     /// closed vocabulary the engine's kind lift rejects an unknown value from.
     pub key_path: String,
-    /// The entry's declared shape — whether it's an object, scalar, or group-array.
-    #[serde(default)]
-    pub entry_shape: Option<String>,
+    /// The entry's declared shape — `object`, `scalar(field)`, or
+    /// `group-array(member_key;lifted_fields)`, a closed vocabulary the engine's kind lift
+    /// rejects an unknown value from. Required: the shape is the kind's own declared fact,
+    /// never derivable from the key path (two kinds keying at `hooks.<Event>` may lift
+    /// different group fields).
+    pub entry_shape: String,
 }
 
 /// A kind's declared **layout** — the ordered region rows a `layout`-content kind's body
@@ -5576,28 +5579,24 @@ fn edge_to_from_table(table: &dyn TableLike) -> Result<Option<Vec<String>>, RowE
 }
 
 /// Build a [`KindFactRow`]'s `collection_address` column's wire form: a `{ manifest =
-/// "…", key_path = "…", entry_shape = "…" }` inline table, the presence-coupled pair
-/// plus the entry shape carried as one column. `entry_shape` is optional on the row and
-/// rides the same presence discipline every optional column here takes — written when
-/// declared, absent when the row declares none.
+/// "…", key_path = "…", entry_shape = "…" }` inline table, all three columns of the
+/// presence-coupled triple written whenever the address is declared.
 fn collection_address_table(address: &CollectionAddressRow) -> InlineTable {
     let mut table = InlineTable::new();
     table.insert("manifest", Value::from(address.manifest.clone()));
     table.insert("key_path", Value::from(address.key_path.clone()));
-    if let Some(entry_shape) = &address.entry_shape {
-        table.insert("entry_shape", Value::from(entry_shape.clone()));
-    }
+    table.insert("entry_shape", Value::from(address.entry_shape.clone()));
     table
 }
 
-/// Read a `collection_address` column back off its inline table — a missing `manifest` or
-/// `key_path` is a [`RowError`], the same required-column discipline the rest of the row
-/// family holds.
+/// Read a `collection_address` column back off its inline table — a missing `manifest`,
+/// `key_path`, or `entry_shape` is a [`RowError`], the same required-column discipline the
+/// rest of the row family holds.
 fn collection_address_from_table(table: &dyn TableLike) -> Result<CollectionAddressRow, RowError> {
     Ok(CollectionAddressRow {
         manifest: req_str(table, "manifest")?,
         key_path: req_str(table, "key_path")?,
-        entry_shape: opt_str(table, "entry_shape")?,
+        entry_shape: req_str(table, "entry_shape")?,
     })
 }
 

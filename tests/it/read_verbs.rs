@@ -1523,7 +1523,7 @@ fn a_registration_kinds_locus_and_address_form_render_with_no_member_of_it_prese
         collection_address: Some(CollectionAddressRow {
             manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
-            entry_shape: None,
+            entry_shape: "group-array(hooks;matcher)".to_string(),
         }),
         ..common::kind_facts("hook", ".claude", "settings.json")
     }];
