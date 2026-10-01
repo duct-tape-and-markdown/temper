@@ -1,0 +1,36 @@
+{
+  "tag": "MEMBER-INDEX-SPELLS-THE-NESTED-ADDRESS",
+  "gate": {
+    "kind": "open"
+  },
+  "priority": 5,
+  "summary": "The member index keys a nested file child by its whole address, so an include or layout import resolving to one names a member that exists",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "`member_path_index` (line 2748) inserts `host_address(&member.kind, &member.name)` while deriving that path *through* `member.host` — a second implementation of the address-spelling job whose one home is `member_address_under` (line 2380), reached for a whole payload member by `payload_member_address` (line 2367). The value is not a label: `resolve_source_dependency` (line 2608) reads it straight into `LayoutImportRow.target`, for both families that pass the index — the composed-prose `include` resolve (line 1753) and the layout region's import (line 2422); `resolve_inputs` (line 2662) passes an empty index by design and stays empty. `import_edges_from_doc` (line 6249) then hands both families' targets to `graph::resolved_import_edges` (src/graph.rs:1945), which turns each into a node via `node_from_address` (src/graph.rs:1772). So an include or import whose target is a nested file child's projection records a bare `<kind>:<name>` — the one spelling `specs/model/representation.md` (\"member\") says no nested member wears — putting an edge to a member that does not exist into the graph, under an address two hosts' same-keyed children would collide on. A top-level member's value does not move: `member_address_under(None, kind, key)` IS `host_address(kind, key)`."
+      },
+      {
+        "path": "tests/it/prose_include.rs",
+        "description": "The nested twin of `an_include_edge_joins_the_resolved_enumeration_and_narrates` (line 179), which already pre-places a top-level member's file as an include target and asserts both `host_include.target == \"rule:shared\"` and the resolved `import` edge's endpoints. The nested fixture needs host kind facts carrying a `TemplateRow` (the shape `tests/it/nested_member.rs` line 380 exercises) plus a child `PayloadMember` with `host: Some(<host address>)`."
+      },
+      {
+        "path": "tests/it/common/mod.rs",
+        "description": "Only if the host-plus-file-child fixture wants a shared builder beside the existing `rule_member`/`bare_rule_kind_facts` helpers — test scaffolding lives in one home, never copy-pasted per file. No edit expected otherwise."
+      }
+    ]
+  },
+  "tests": [
+    {
+      "path": "tests/it/prose_include.rs",
+      "asserts": "an include whose target is a nested file child's projection records `target = \"<host-address>/<kind>/<key>\"`, its resolved `import` edge's `to` node is that child rather than a bare `<kind>:<key>`, and two same-keyed children under two different hosts yield two targets a reader can tell apart; a top-level member's target still reads `<kind>:<name>`"
+    }
+  ],
+  "acceptance": "cargo test green with every existing include/import target assertion unmoved (a top-level target is byte-identical through the new spelling); `cargo clippy --all-targets -- -D warnings` clean; `member_path_index` spells no address outside the `crate::member_address` grammar.",
+  "notes": "Drained from .flume/refactor/build-member-index-spells-a-bare-address.md, re-verified at HEAD: the bare insert stands and both consumers still read it into a graph node. Neither committed lock carries an `include` or `layout_import` family at all (both censused this tick), so no lock byte moves and `.temper/lock.toml` stays out of scope — the fence revert FRESH-FINDING took. scoped at 208c2316"
+}

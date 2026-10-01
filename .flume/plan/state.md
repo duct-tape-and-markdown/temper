@@ -7,12 +7,12 @@
   spelling class's remaining sites are already FRESH-FINDING's.
 - Posture swept through: 7d695577 — copied forward; its forward window is
   214 commits wide.
-- This tick: reconciled 5737a3c2..HEAD — LEAF-MENTION-ROW-HEADS-ITS-HOST-ADDRESS
-  verified shipped, all six gated entries re-tested, nothing dropped or filed.
-- Queue: 8 pending — 2 open, 0 blockedBy, 3 parked, 3 deferred. Pickable: 2 —
-  JSON-DOCUMENT-SERVES-A-PATH-SHAPED-IDENTITY,
-  FRESH-FINDING-NAMES-THE-MEMBERS-ADDRESS. Open forks: 1. Friction: 2.
+- This tick: drained the inbox note and the one refactor capture — both claims
+  re-verified at HEAD and filed as a serialized src/drift.rs pair.
+- Queue: 8 pending — 1 open, 1 blockedBy, 3 parked, 3 deferred. Pickable: 1 —
+  MEMBER-INDEX-SPELLS-THE-NESTED-ADDRESS. Open forks: 1. Friction: 2.
   Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the only live job left is the posture sweep
-(7d695577's window is 214 commits wide), and two pickable entries ship first.
+Plan continues: yes — the 9ec9d1d1..HEAD window is unreconciled (two ships:
+the path-shaped json identity, the finding's member address), and the posture
+sweep still waits behind it.
