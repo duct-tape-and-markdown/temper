@@ -48,7 +48,6 @@ use std::path::{Path, PathBuf};
 
 use crate::admissibility;
 use crate::builtin_kind;
-use crate::builtin_lock;
 use crate::compose::{self, Edge, Requirement};
 use crate::contract::{Contract, Predicate};
 use crate::document::Satisfies;
@@ -2542,30 +2541,11 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         .map(|entry| (entry.path.to_string_lossy().to_string(), entry.name))
         .collect();
 
-    // The kind fact rows a bare-kind narration reads: the committed lock's own rows with
-    // the embedded built-in lock's laid underneath, name-keyed, a committed row winning
-    // **wholesale** — it is the authored declaration for that kind, and half of it
-    // backfilled off the floor would narrate a locus the harness never declared.
-    // `emit` writes a `kind` row only for a kind the harness has a member of, so the
-    // committed family alone leaves `explain kind:agent` on an agent-less harness with no
-    // facts at all — the exact moment a bare-kind narration exists for (contract.md,
-    // "Read verbs"). A merge, not a lowering: `builtin_lock::declarations().kinds` is
-    // already the `KindFactRow` shape the committed family is, off the same document
-    // `crate::builtin` projects the floor contracts from. Appended rather than sorted, so
-    // a harness declaring every kind it narrates reads byte-identically to before.
-    let mut kind_facts = declarations.kinds.clone();
-    let committed: std::collections::BTreeSet<&str> = declarations
-        .kinds
-        .iter()
-        .map(|row| row.name.as_str())
-        .collect();
-    kind_facts.extend(
-        builtin_lock::declarations()
-            .kinds
-            .iter()
-            .filter(|row| !committed.contains(row.name.as_str()))
-            .cloned(),
-    );
+    // The floor under the committed rows is what a bare-kind narration rests on: `emit`
+    // writes a `kind` row only for a kind the harness has a member of, so the committed
+    // family alone leaves `explain kind:agent` on an agent-less harness with no facts at
+    // all — the exact moment such a narration exists for.
+    let kind_facts = drift::kind_facts_over_floor(&declarations.kinds);
 
     let mut narration = explain(
         &custom_members,

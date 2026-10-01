@@ -2315,9 +2315,10 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     );
 }
 
-/// .claude/settings.json is composed from registration-member kinds (hook,
-/// installed-plugin, known-marketplace) and becomes emit-owned when any of
-/// them exist in the lock. The guard must bind writes to it, not silently allow them.
+/// A manifest a lock's registration rows key inside is emit-owned — `emit` regenerates
+/// the file whole — so the guard must bind writes to it, not silently allow them. The
+/// fixture declares no kind row of its own: the path resolves off the built-in floor's
+/// facts for the registration kind the row names.
 #[test]
 fn guard_binds_settings_json_when_registration_members_compose() {
     let root = common::tmpdir("guard-settings-json-emit-owned");
@@ -2359,6 +2360,74 @@ fn guard_binds_settings_json_when_registration_members_compose() {
     assert!(
         common::guard_in_band(&warn_output, "PreToolUse").contains("temper-managed projection"),
         "the warning must be in-band"
+    );
+}
+
+/// `settings.json` is not the whole constituency: an `mcp-server` row keys inside
+/// `.mcp.json`, and that manifest is emit-owned on exactly the same ground — the kind
+/// facts resolve the registration's manifest to its governed path, whichever manifest it
+/// names.
+#[test]
+fn guard_binds_a_registration_s_own_manifest_outside_settings_json() {
+    let root = common::tmpdir("guard-mcp-json-emit-owned");
+
+    common::GuardLock::declaring("block")
+        .registration("mcp-server", "docs", ".mcp.json", "mcpServers.*")
+        .write(&root);
+
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload(".mcp.json"));
+    assert_eq!(
+        code,
+        Some(2),
+        "a pending write to the `.mcp.json` the lock's servers compose must be bound, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("temper-managed projection"),
+        "the finding names it a managed projection, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("`mcp` member") && stderr.contains(".mcp.json"),
+        "the owner line names the container kind governing the path, got: {stderr}"
+    );
+}
+
+/// A container member's own row already owns its manifest's path, so the derived set adds
+/// no second entry for it: the path appears exactly once, under the member's real name.
+/// Two entries would double the path's `install` placement and let the container label
+/// outrank the member in a path-keyed index.
+#[test]
+fn an_emit_owned_manifest_is_named_once_by_its_container_member() {
+    let root = common::tmpdir("emit-owned-manifest-dedupe");
+
+    common::GuardLock::declaring("block")
+        .member("settings", "project", ".claude/settings.json", "abc", "abc")
+        .registration("hook", "SessionStart", "settings.json", "hooks.<Event>")
+        .registration("hook", "PreToolUse", "settings.json", "hooks.<Event>")
+        .write(&root);
+
+    let targets = drift::emit_owned_targets(&root.join(temper::WORKSPACE_DIR));
+    let settings: Vec<&drift::EmitOwnedEntry> = targets
+        .iter()
+        .filter(|target| target.path == Path::new(".claude/settings.json"))
+        .collect();
+    assert_eq!(
+        settings.len(),
+        1,
+        "`.claude/settings.json` is one emit-owned target, not one per row that keys in it"
+    );
+    assert_eq!(
+        (settings[0].kind.as_str(), settings[0].name.as_str()),
+        ("settings", "project"),
+        "the container member's own row names the path, never a synthetic label"
+    );
+
+    // And the guard's refusal names that member — the owner a drift finding owes the author.
+    let (code, stderr) =
+        common::run_guard(&root, &common::guard_write_payload(".claude/settings.json"));
+    assert_eq!(code, Some(2), "block mode denies the write, got: {stderr}");
+    assert!(
+        stderr.contains("the `settings` member `project`"),
+        "the owner line names the container member, got: {stderr}"
     );
 }
 

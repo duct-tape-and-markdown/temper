@@ -2150,6 +2150,65 @@ fn manifest_path_for(manifest: &str, kind_facts: &BTreeMap<&str, &KindFactRow>) 
         .and_then(|facts| manifest_target_path(facts))
 }
 
+/// The `kind`/`name` label a represented manifest's path carries where no member row of
+/// its own names it — the same pair [`emit_manifest`] writes its roll-up row under: the
+/// kind that governs the path and declares no collection address inside it (the
+/// **container**), or the ownerless `manifest` label over the file's own name when the
+/// program declares no container kind for that path.
+fn manifest_owner_label(
+    path: &Path,
+    kind_facts: &BTreeMap<&str, &KindFactRow>,
+) -> (String, String) {
+    let (ownerless_kind, name) = ownerless_manifest_label(path);
+    let kind = kind_facts
+        .values()
+        .find(|facts| {
+            facts.collection_address.is_none()
+                && manifest_target_path(facts).as_deref() == Some(path)
+        })
+        .map_or(ownerless_kind, |facts| facts.name.clone());
+    (kind, name)
+}
+
+/// The `kind`/`name` label a manifest no member of the program owns is identified by: the
+/// `manifest` kind over the file's own name. The one home for that label — the write face
+/// labels its roll-up row with it ([`emit_manifest`]) and the emit-owned derivation falls
+/// back to it ([`manifest_owner_label`]), so the two can never disagree about what an
+/// ownerless manifest is called.
+fn ownerless_manifest_label(path: &Path) -> (String, String) {
+    (
+        "manifest".to_string(),
+        path.file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+    )
+}
+
+/// The kind facts a program reads: `committed` with the embedded built-in lock's rows laid
+/// underneath, name-keyed, a committed row winning **wholesale** — it is the authored
+/// declaration for that kind, and half of it backfilled off the floor would answer with a
+/// locus the harness never declared. [`emit`] writes a `kind` row only for a kind the
+/// harness has a member of, so the committed family alone leaves a shipped kind the
+/// harness holds no member of with no facts at all. Appended rather than sorted, so a
+/// harness declaring every kind it reads is unchanged by the floor.
+///
+/// A merge, not a lowering: [`builtin_lock::declarations`](crate::builtin_lock::declarations)
+/// is already the [`KindFactRow`] shape the committed family is, off the same document
+/// [`crate::builtin`] projects the floor contracts from.
+#[must_use]
+pub fn kind_facts_over_floor(committed: &[KindFactRow]) -> Vec<KindFactRow> {
+    let declared: BTreeSet<&str> = committed.iter().map(|row| row.name.as_str()).collect();
+    let mut facts = committed.to_vec();
+    facts.extend(
+        crate::builtin_lock::declarations()
+            .kinds
+            .iter()
+            .filter(|row| !declared.contains(row.name.as_str()))
+            .cloned(),
+    );
+    facts
+}
+
 /// The top-level manifest collection key a registration's key-path label names — the
 /// segment its entries land in. `hooks.<Event>` keys under `hooks`, `mcpServers.*` under
 /// `mcpServers`: the collection is the label's head, before the first `.`.
@@ -2190,12 +2249,7 @@ fn emit_manifest(
 
     let (kind, name) = match &build.container {
         Some(container) => (container.kind.clone(), container.name.clone()),
-        None => (
-            "manifest".to_string(),
-            path.file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_default(),
-        ),
+        None => ownerless_manifest_label(path),
     };
     let row = |outcome| EmitEntry {
         kind: kind.clone(),
@@ -4225,12 +4279,10 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
     emit_owned_targets_from_doc(&read_lock_document(workspace_dir).unwrap_or_default())
 }
 
-/// Every emit-owned path an already-parsed lock declares ([`emit_owned_targets`]).
-///
-/// Includes `.claude/settings.json` when any registration-member kind
-/// (hook, installed-plugin, known-marketplace) has members in the lock:
-/// these kinds compose into the spliced settings.json artifact, making it
-/// emit-owned and subject to the guard.
+/// Every emit-owned path an already-parsed lock declares ([`emit_owned_targets`]) — its
+/// member rows' own projections, plus every **represented manifest** its registration rows
+/// key inside: a manifest is a file [`emit`] regenerates whole, so the path is emit-owned
+/// once anything registers in it, whether or not a container member gives it a row.
 #[must_use]
 pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
     let rows = walk_lock_rows_from_doc(doc);
@@ -4248,25 +4300,36 @@ pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
         })
         .collect();
 
-    // Check if any registration-member kind exists (hook, installed-plugin, known-marketplace).
-    // If so, .claude/settings.json becomes an emit-owned target since it's composed from them.
-    let has_registration_members = declarations_from_doc(doc)
-        .ok()
-        .map(|decls| {
-            decls.registrations.iter().any(|reg| {
-                matches!(
-                    reg.kind.as_str(),
-                    "hook" | "installed-plugin" | "known-marketplace"
-                )
-            })
-        })
-        .unwrap_or(false);
-    if has_registration_members {
-        targets.push(EmitOwnedEntry {
-            kind: "settings".to_string(),
-            name: "settings.json".to_string(),
-            path: PathBuf::from(".claude/settings.json"),
-        });
+    // The manifests this lock's registration rows compose into. Which path a row's
+    // manifest names is the kind facts' answer, resolved through the same
+    // `manifest_path_for`/`manifest_target_path` pair `emit` derives its own
+    // represented-manifest set with — so every registration channel the program declares
+    // is in the constituency, and no filename or kind name is spelled here.
+    // A declaration family that will not lift leaves the member rows alone, the same
+    // "no lock, nothing to bind" tolerance the read above takes.
+    let Ok(declarations) = declarations_from_doc(doc) else {
+        return targets;
+    };
+    let facts = kind_facts_over_floor(&declarations.kinds);
+    let kind_facts: BTreeMap<&str, &KindFactRow> =
+        facts.iter().map(|row| (row.name.as_str(), row)).collect();
+    // Normalized on both sides, and extended as the loop pushes: a container member's own
+    // row already owns its manifest's path under its own identity, and a second entry for
+    // a path already collected would double the path's `install` placement and let the
+    // synthetic label outrank the member's real name in a path-keyed index.
+    let mut collected: BTreeSet<String> = targets
+        .iter()
+        .map(|target| to_lock_path(&target.path))
+        .collect();
+    for registration in &declarations.registrations {
+        let Some(path) = manifest_path_for(&registration.manifest, &kind_facts) else {
+            continue;
+        };
+        if !collected.insert(to_lock_path(&path)) {
+            continue;
+        }
+        let (kind, name) = manifest_owner_label(&path, &kind_facts);
+        targets.push(EmitOwnedEntry { kind, name, path });
     }
 
     targets

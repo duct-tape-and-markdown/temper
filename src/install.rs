@@ -29,8 +29,10 @@
 //!   ([`drift::emit_owned_targets`], [`evaluate_placements`]) — the first emit's
 //!   diff is the one reviewable adoption diff, never an own-path passthrough.
 //!
-//! **One writer per file.** On the yes-path `.claude/settings.json` is a projection the
-//! program owns whole, so the gate hooks reach it the way every other member reaches its
+//! **One writer per file.** On the yes-path every manifest the represented program
+//! registers inside — `.claude/settings.json`, `.mcp.json`, whichever the declared
+//! channels name — is a projection the program owns whole, so the gate hooks reach
+//! `settings.json` the way every other member reaches its
 //! artifact — through `emit`. Splicing them in beside `emit` reported `applied` and wired
 //! nothing: the re-stamp emit below re-rendered the file from the program and erased the
 //! splice in the same run. [`place_settings_only`] keeps the merge for the **no**-path,
@@ -1100,8 +1102,9 @@ fn gate_outcome(before: bool, now: GateHookState) -> ApplyOutcome {
 /// caller's parsed `lock` ([`drift::emit_owned_targets_from_doc`]) rather than a raw
 /// discovery walk.
 ///
-/// The gate hooks are **read, never written**: on this path `.claude/settings.json` is a
-/// projection the program owns whole, and [`GATE_HOOKS`] reach it as the `hook` members
+/// The gate hooks are **read, never written**: on this path the manifest they key inside
+/// is a represented manifest like any other the lock's registrations name, a projection
+/// the program owns whole, and [`GATE_HOOKS`] reach it as the `hook` members
 /// [`scaffold`] minted, so `emit` is its one writer. `gate_before` is what the file wired
 /// before this run's emit, which is what splits [`ApplyOutcome::Applied`] from
 /// [`ApplyOutcome::Unchanged`]; `None` — [`gate_installed`]'s read-only shadow, which
