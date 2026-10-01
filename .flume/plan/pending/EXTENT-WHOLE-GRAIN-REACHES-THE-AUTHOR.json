@@ -5,7 +5,7 @@
     "edit": [
       {
         "path": "src/contract.rs",
-        "description": "`predicate_from_row`'s `extent` arm (line 678) hard-codes `whole: false`, so no lock row can ever lift the whole grain. Read the grain off the row's new column instead. Two extent clauses on one kind reduce to one `clause_label` today (`skill.extent`), so the grain must distinguish the label the way `when_label_field` composes its guard's value set into the `field` argument."
+        "description": "`predicate_from_row`'s `extent` arm (line 679) hard-codes `whole: false`, so no lock row can ever lift the whole grain. Read the grain off the row's new column instead. Two extent clauses on one kind reduce to one `clause_label` today (`skill.extent`), so the grain must distinguish the label the way `when_label_field` composes its guard's value set into the `field` argument."
       },
       {
         "path": "src/drift.rs",
@@ -40,5 +40,5 @@
     { "path": "tests/it/lock_declaration_rows.rs", "asserts": "the clause row's grain column round-trips, and a row omitting it reads as each-grain" }
   ],
   "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with a whole-grain `extent` clause authorable in the SDK and lifted back out of the lock as `whole: true`.",
-  "notes": "Dead plumbing found by the posture sweep: `engine::judge`'s summed-extent path (src/engine.rs:890) and `ranges_over_selection`'s `Extent { whole: true }` arm (src/contract.rs:891) are reachable only from hand-built test clauses. 4bdb7960 built both grains routing 0035's amendment and wired only `each` across the lock. Deferred, not cut: the grain is the enum's, and contract.md makes the enum the vocabulary's authority. scoped at 2ae79534"
+  "notes": "Dead plumbing found by the posture sweep: `engine::judge`'s summed-extent path (src/engine.rs:890) and `ranges_over_selection`'s `Extent { whole: true }` arm (src/contract.rs:892) are reachable only from hand-built test clauses. 4bdb7960 built both grains routing 0035's amendment and wired only `each` across the lock. Deferred, not cut: the grain is the enum's, and contract.md makes the enum the vocabulary's authority. Both contract.rs cites refreshed, +1 at bb38e8a4. scoped at 3167c3db"
 }
