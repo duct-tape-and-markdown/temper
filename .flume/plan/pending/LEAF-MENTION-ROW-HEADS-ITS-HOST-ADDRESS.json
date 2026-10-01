@@ -1,0 +1,51 @@
+{
+  "tag": "LEAF-MENTION-ROW-HEADS-ITS-HOST-ADDRESS",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "ADDRESS-GRAMMAR-READS-ANY-DEPTH",
+      "ADDRESS-GRAMMAR-READS-ANY-DEPTH-SDK"
+    ]
+  },
+  "dependsOnForks": [],
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "Every row site in this file composes a host's address through `memberAddress` — `mentionRows` at 680, `includeRows` at 746, `inputRows` at 773, `nestedMemberRows`' `host` at 917, the placement/extent key at 838, `declaredAddresses` at 1149 — except the leaf branch at 693, which hands `embeddedLeafMentionRows` the bare `member.name`. It takes `memberAddress(member)` and the helper's `hostName` parameter (708) becomes the host's address. The defect the bare name leaves: since 00e61c77 a nested file child's `features.id` **is** its host-qualified address, so a leaf row headed `home/<kind>/<key>/<field>` matches no member at `read.rs`'s `resolve_leaf` (1510) and the leaf resolves nowhere — and two sibling children each named `home` head one string, the collision 1140's own comment (\"two hosts may each carry a `home`, and a mention names one\") names one grain up."
+      },
+      {
+        "path": "sdk/src/member-address.ts",
+        "description": "`leafAddress` (150) documents its `member` as carried verbatim \"so a writer holding the bare member id spells the short form the lock already commits\" — that justification is what this removes. The head is the host's own address at whatever grain the host sits: `kind:name` for a top-level host, the host's whole address under a nested one. The signature does not move; the contract its doc states does, and `isNameQualifier` (141) stays the guard that keeps the head one segment wide."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "`resolve_leaf`'s head comment (1502) credits the bare-id branch (1510) to \"the short form the lock already commits\". With the SDK writing the canonical head at both grains that branch serves a **nested** host (whose `features.id` is its whole address) plus a lock written before this entry, which is what the comment should say; the `parse_host_address` branch (1511) carries the top-level case it used to share. Behaviour is unchanged — both spellings already resolve — and the in-file test lane (2812, 2887) gains the pin."
+      },
+      {
+        "path": "sdk/test/mention.test.ts",
+        "description": "The file's addressing lane — 137's host-qualified target, 159's \"never a leaf-scoped `<host>/<kind>/<key>` address\" — gains the leaf row's own head, which nothing pins today (no test in `sdk/test/` reads a leaf mention row's `member` column). A top-level host's leaf row heads `kind:name`; a nested-file host's heads that host's whole address; two sibling children of one name head two distinct strings."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A prose leaf's address heads with its host's own address, never the host's bare name — the one row site that joins locally reads `memberAddress` like its siblings",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "nesting"
+  },
+  "tests": [
+    {
+      "path": "sdk/test/mention.test.ts",
+      "asserts": "a leaf mention row under a nested-file host heads that host's whole address, a top-level host's heads `kind:name`, and two sibling children of one name head two distinct strings"
+    },
+    {
+      "path": "src/read.rs",
+      "asserts": "`resolve_leaf` resolves a leaf whose head is a nested host's own address, and still resolves a bare-id head"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` and `cargo test` green, with the leaf mention row's member column reading `memberAddress`'s spelling at both grains and a nested host's leaf resolving rather than naming no member.",
+  "notes": "Swept out of the 13b3d9b5..HEAD window: e9c80335's body flagged this as out of its fence and no entry carried it. Blocked on both address readers — a leaf under a depth-1 host spells six segments, which `segment`'s `splitn(4, '/')` cannot read, and `memberAddress`'s own head is only right at depth 2 once the SDK parity entry lands. BREAKING once shipped: `[[declaration.mention]]`'s leaf rows respell, so re-run `temper emit`. scoped at 8b8fcdf0"
+}

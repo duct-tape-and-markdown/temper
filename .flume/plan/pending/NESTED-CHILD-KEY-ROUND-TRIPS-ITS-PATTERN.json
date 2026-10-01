@@ -10,27 +10,27 @@
     "edit": [
       {
         "path": "src/frontmatter.rs",
-        "description": "`fold_file_id` (384) folds every directory between `base` and the file into the id, so a `notes/*.md` template's `notes/home.md` is keyed `notes-home` \u2014 a key no author declared, and the one `splice_name` would place back at `notes/notes-home.md`. Identity is a declared fact (file stem or starred segment), and a literal template segment is locus, never identity: folding earns its keep only for the directories a wildcard spans, where depth genuinely distinguishes same-named files (the `**/CLAUDE.md` nearest-wins nesting its own doc comment names). The fold strips what its pattern spells literally, leaving `**`-spanned placement folded exactly as today; uniqueness is unaffected, since every member under one pattern shares that literal prefix. The header's `import::wholefile_id` cite resolves to nothing at HEAD and rides this edit."
+        "description": "`fold_file_id` (384) folds every directory between `base` and the file into the id, so a `notes/*.md` template's `notes/home.md` is keyed `notes-home` — a key no author declared, and the one `splice_name` would place back at `notes/notes-home.md`. Identity is a declared fact (file stem or starred segment), and a literal template segment is locus, never identity: folding earns its keep only for the directories a wildcard spans, where depth genuinely distinguishes same-named files (the `**/CLAUDE.md` nearest-wins nesting its own doc comment names). The fold strips what its pattern spells literally, leaving `**`-spanned placement folded exactly as today; uniqueness is unaffected, since every member under one pattern shares that literal prefix. The header's `import::wholefile_id` cite resolves to nothing at HEAD and rides this edit."
       },
       {
         "path": "src/compose.rs",
-        "description": "`read_file_unit`'s nested-file caller (956) hands `found.host_unit` as the fold base while the host template's pattern is the host kind's own declared fact, so the literal prefix is derivable at exactly the site that folds; the `governs`-scanned branch just below passes the kind's root against its own glob \u2014 the same (locus, pattern) pair, one rule for both. Whichever half holds the strip, both callers reach it."
+        "description": "`read_file_unit`'s nested-file caller (956) hands `found.host_unit` as the fold base while the host template's pattern is the host kind's own declared fact, so the literal prefix is derivable at exactly the site that folds; the `governs`-scanned branch just below passes the kind's root against its own glob — the same (locus, pattern) pair, one rule for both. Whichever half holds the strip, both callers reach it."
       },
       {
         "path": "src/drift.rs",
-        "description": "`splice_name` (988) is the inverse the fold has to agree with \u2014 it re-inserts the literal segments verbatim and splices the name into the final one. If the literal-prefix derivation belongs beside the one splice rule rather than inside the fold, it lands here; the splice's own behaviour is unchanged either way."
+        "description": "`splice_name` (988) is the inverse the fold has to agree with — it re-inserts the literal segments verbatim and splices the name into the final one. If the literal-prefix derivation belongs beside the one splice rule rather than inside the fold, it lands here; the splice's own behaviour is unchanged either way."
       },
       {
         "path": "tests/it/nested_member.rs",
-        "description": "`NESTED_FILE_SUBDIRECTORY_PROGRAM` (264) emits `notes/checklist.md` and is never read back, so the disagreement is unpinned: the lane gains the check-side half \u2014 the discovered child's key is `checklist` and its address `guide:operate-the-gate/supporting-doc/checklist`, never `\u2026/notes-checklist`."
+        "description": "`NESTED_FILE_SUBDIRECTORY_PROGRAM` (264) emits `notes/checklist.md` and is never read back, so the disagreement is unpinned: the lane gains the check-side half — the discovered child's key is `checklist` and its address `guide:operate-the-gate/supporting-doc/checklist`, never `…/notes-checklist`."
       },
       {
         "path": "src/import.rs",
-        "description": "`NestedFileUnit` (193) is where the host template's `pattern` is in hand \u2014 `discover_nested_file` scans the locus with it (255) \u2014 while the fold's one production caller holds only `found.host_unit` as its base, so if the literal prefix travels on the unit rather than being re-derived at the fold, it lands here. `unit_dir` (245) is unchanged either way."
+        "description": "`NestedFileUnit` (193) is where the host template's `pattern` is in hand — `discover_nested_file` scans the locus with it (255) — while the fold's one production caller holds only `found.host_unit` as its base, so if the literal prefix travels on the unit rather than being re-derived at the fold, it lands here. `unit_dir` (245) is unchanged either way. Ripple named as noise, not widened: `tests/it/check_cost.rs:122` reads `(kind, unit.file, unit.host_unit)` off `discover_nested_file`, which a field *addition* to the unit leaves compiling — widen only if the walk's own signature moves, which this entry does not ask for."
       },
       {
         "path": "tests/it/read_verbs.rs",
-        "description": "The `subdir-CLAUDE` memory fold (2001) is the `**`-spanned case the strip must leave exactly as it is \u2014 `**/CLAUDE.md` spells no literal directory, so the ids stand; verify rather than assume, which is what the acceptance names."
+        "description": "The `subdir-CLAUDE` memory fold (2001) is the `**`-spanned case the strip must leave exactly as it is — `**/CLAUDE.md` spells no literal directory, so the ids stand; verify rather than assume, which is what the acceptance names."
       }
     ],
     "retire": []
@@ -47,5 +47,5 @@
     }
   ],
   "acceptance": "`cargo test` green, with the `notes/*.md` fixture's emitted child read back under the authored key and `tests/it/read_verbs.rs`'s `subdir-CLAUDE` memory fold untouched.",
-  "notes": "Routed from inbox note 2 (observed at b038eec9; the forward window touches specs/ only). Re-verified at HEAD: the fold and the splice are both as reported, but `refuse_ungoverned` does **not** fire \u2014 `notes/notes-home.md` still matches `notes/*.md` \u2014 so the verified gap is identity, not the glob round trip: the key a discovery reads is not the name its author declared. Independent of depth, hence its own entry. scoped at 640cb4fd"
+  "notes": "Routed from inbox note 2 (observed at b038eec9; the forward window touches specs/ only). Re-verified at HEAD: the fold and the splice are both as reported, but `refuse_ungoverned` does **not** fire — `notes/notes-home.md` still matches `notes/*.md` — so the verified gap is identity, not the glob round trip: the key a discovery reads is not the name its author declared. Independent of depth, hence its own entry. scoped at 640cb4fd"
 }

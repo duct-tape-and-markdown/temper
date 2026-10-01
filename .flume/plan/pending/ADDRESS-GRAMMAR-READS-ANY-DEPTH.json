@@ -10,19 +10,19 @@
     "edit": [
       {
         "path": "src/member_address.rs",
-        "description": "`segment` (189) cuts on every `/` rather than `splitn(4, '/')`, and the **count** decides the grain: odd is a member address, even a leaf's, because every name, key and leaf is one segment. `parse_nested_address` (219) accepts any odd count \u2014 the host is every segment but the final two, carried verbatim and itself a member address, so its `(host_kind, host_name)` is read at the host's own grain (a nested host's identity *is* its whole address, which is exactly what `address_of` round-trips) rather than off a first-colon split that would take `area` / `a/page/b`. `parse_leaf_address` takes the final segment as the whole leaf: `ParsedLeaf::child_path` keeps its dots and carries no `/` (`extract.rs`'s `addressed_leaves` joins with `.`), so the doc comment's slash claim and the module header's fixed-three spelling move with the re-cut."
+        "description": "`segment` (189) cuts on every `/` rather than `splitn(4, '/')`, and the **count** decides the grain: odd is a member address, even a leaf's, because every name, key and leaf is one segment. `parse_nested_address` (219) accepts any odd count — the host is every segment but the final two, carried verbatim and itself a member address, so its `(host_kind, host_name)` is read at the host's own grain (a nested host's identity *is* its whole address, which is exactly what `address_of` round-trips) rather than off a first-colon split that would take `area` / `a/page/b`. `parse_leaf_address` takes the final segment as the whole leaf: `ParsedLeaf::child_path` keeps its dots and carries no `/` (`extract.rs`'s `addressed_leaves` joins with `.`), so the doc comment's slash claim and the module header's fixed-three spelling move with the re-cut. Riding this open of the file: `host_address`'s doc (29) calls `nestedMemberRows`' host column \"the identical `${kind}:${name}` form\", true only while the host is top-level since e9c80335 made the SDK's `memberAddress` host-qualify a nested one."
       },
       {
         "path": "src/read.rs",
-        "description": "`resolve` (217), the `Species` classifier, gates member-identity equality behind `nested_key(target).is_some()` (251) \u2014 three segments exactly \u2014 and then falls through to `parse_leaf_address`, so a five-segment member address answers \"No leaf \u2026 is in the surface's serialized nested-member leaves\" with no corpus consulted (the refactor capture's probe, verified at HEAD on a one-layer corpus). The member grain is tried at any odd count ahead of the leaf branch; the four-segment comment at 249 states the parity rule instead, and the `target.contains('/')` malformed fallthrough stays as the malformation's own voice."
+        "description": "`resolve` (217), the `Species` classifier, gates member-identity equality behind `nested_key(target).is_some()` (251) — three segments exactly — and then falls through to `parse_leaf_address`, so a five-segment member address answers \"No leaf … is in the surface's serialized nested-member leaves\" with no corpus consulted (the refactor capture's probe, verified at HEAD on a one-layer corpus). The member grain is tried at any odd count ahead of the leaf branch; the four-segment comment at 249 states the parity rule instead, and the `target.contains('/')` malformed fallthrough stays as the malformation's own voice."
       },
       {
         "path": "src/graph.rs",
-        "description": "`node_from_address` (1770) tries leaf then nested on the ordering the parity rule replaces, and `edge_host` (656) / `embedded_hosts_by_key` (2213) read a nested host through `embedded_source_host`, whose pair must name a nested host's own kind and its whole address. The three-segment narration at 1762 and 2100 moves with the reader; `address_of` at 2363 is unchanged."
+        "description": "`node_from_address` (1770) tries leaf then nested on the ordering the parity rule replaces, and `edge_host` (656) / `embedded_hosts_by_key` (2213) read a nested host through `embedded_source_host`, whose pair must name a nested host's own kind and its whole address. The three-segment narration at 1762 and 2100 moves with the reader; `address_of` at 2363 is unchanged. Ripple named as noise, not widened: `embedded_hosts_by_key`'s signature does not move, so its two callers (`src/gate.rs:720`, `tests/it/check_cost.rs:702`) stand, and `sdk/src/generated/EmbeddedMember.ts:13` is a ts-rs mirror of `src/extract.rs:204`'s doc — generated, and the leaf path it names is built, never parsed."
       },
       {
         "path": "tests/it/read_verbs.rs",
-        "description": "`explain` over a five-segment target answers at member grain \u2014 the probe the refactor capture ran at HEAD, inverted."
+        "description": "`explain` over a five-segment target answers at member grain — the probe the refactor capture ran at HEAD, inverted."
       },
       {
         "path": "tests/it/graph.rs",
@@ -30,7 +30,7 @@
       },
       {
         "path": "src/admissibility.rs",
-        "description": "`nested_member_key_segment` (118) is this parity rule's own refusal, and its doc comment (100) justifies it by *precedence* \u2014 \"leaf grain is what the readers try first (`crate::graph`'s `node_from_address`, `crate::read`'s species split)\" \u2014 the exact ordering this entry retires. Under parity a `/`-bearing key spells an even-count address, which is leaf grain by construction and no member address at all, so the rationale is restated as parity; the judge's behaviour and its diagnostic text are unchanged, and `address_of` at 220 is a verify-only read."
+        "description": "`nested_member_key_segment` (116) is this parity rule's own refusal, and its doc comment (100) justifies it by *precedence* — \"leaf grain is what the readers try first (`crate::graph`'s `node_from_address`, `crate::read`'s species split)\" — the exact ordering this entry retires. Under parity a `/`-bearing key spells an even-count address, which is leaf grain by construction and no member address at all, so the rationale is restated as parity; the judge's behaviour and its diagnostic text are unchanged, and `address_of` at 220 is a verify-only read."
       },
       {
         "path": "tests/it/nested_member.rs",
@@ -39,7 +39,7 @@
     ],
     "retire": []
   },
-  "summary": "Segment count decides an address's grain \u2014 odd is a member, even a leaf \u2014 so the engine's one reader reads any depth instead of capping at three segments",
+  "summary": "Segment count decides an address's grain — odd is a member, even a leaf — so the engine's one reader reads any depth instead of capping at three segments",
   "per": {
     "path": "specs/model/representation.md",
     "section": "member"
@@ -55,5 +55,5 @@
     }
   ],
   "acceptance": "`cargo test` green, with the grammar's own tests reading both grains at any depth and `explain` answering a five-segment target at member grain rather than as a leaf.",
-  "notes": "Drained from the address-grammar refactor capture plus inbox note 1: parity is settled intent, not an open question \u2014 representation.md (\"member\") states it, so no fork is keyed. Verify-only reaches, each getting an address through `address_of` and self-correcting once the reader reads any depth: `src/gate.rs:119`, `src/builtin_kind.rs:691`, `src/compose.rs`'s four callers, `src/drift.rs`; `display.rs` and `extract.rs` build dotted child paths and never parse one. scoped at 640cb4fd"
+  "notes": "Drained from the address-grammar refactor capture plus inbox note 1: parity is settled intent, not an open question — representation.md (\"member\") states it, so no fork is keyed. Verify-only reaches, each getting an address through `address_of` and self-correcting once the reader reads any depth: `src/gate.rs:119`, `src/builtin_kind.rs:691`, `src/compose.rs`'s four callers, `src/drift.rs`; `display.rs` and `extract.rs` build dotted child paths and never parse one. scoped at 640cb4fd"
 }
