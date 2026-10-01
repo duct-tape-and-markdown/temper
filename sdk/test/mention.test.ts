@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { blocks, embeddedMemberValue, emit, harness, kind, mentionOf, text } from "../src/index.js";
-import { memory, rule } from "../src/claude-code.js";
+import { memory, rule, skill, supportingDoc } from "../src/claude-code.js";
 
 /** The `decision` embedded kind the host below nests — host-free, admitted over `memory` per harness. */
 const memoryDecision = kind<Record<never, never>>({
@@ -184,6 +184,52 @@ test("a composed-body prose span's mention keys to the host kind:name and mints 
     result.declarations.nested_members.map((row) => `${row.kind}:${row.key}`),
     ["decision:done-is-exact"],
   );
+});
+
+test("a leaf mention row heads its host's own address, at whatever grain the host sits", () => {
+  // The leaf branch composes the same `memberAddress` every other row site does, so a
+  // top-level host heads `kind:name` and a nested-file host heads its whole address. A
+  // bare name would head a string no member answers to — a nested child's identity *is*
+  // its host-qualified address — and would collapse two sibling `home`s into one head.
+  const alpha = skill({ name: "alpha", description: "Use when alpha." });
+  const beta = skill({ name: "beta", description: "Use when beta." });
+  const cited = rule({ name: "rust", prose: text`# Rust` });
+  const leafMention = (key: string) =>
+    embeddedMemberValue({
+      kind: memoryDecision,
+      key,
+      leaves: { chosen: text`See ${{ address: "rule:rust", display: "rust" }}.` },
+    });
+
+  const result = emit(
+    harness({
+      members: [
+        cited,
+        alpha,
+        beta,
+        memory({ name: "CLAUDE", prose: blocks(leafMention("top")) }),
+        supportingDoc({ name: "home", host: alpha, prose: blocks(leafMention("under-alpha")) }),
+        supportingDoc({ name: "home", host: beta, prose: blocks(leafMention("under-beta")) }),
+      ],
+      admit: [admitDecision, { host: supportingDoc, admits: [memoryDecision] }],
+    }),
+  );
+
+  assert.deepEqual(
+    result.declarations.mentions.map((row) => row.member),
+    [
+      "memory:CLAUDE/decision/top/chosen",
+      "skill:alpha/supporting-doc/home/decision/under-alpha/chosen",
+      "skill:beta/supporting-doc/home/decision/under-beta/chosen",
+    ],
+  );
+
+  // Two sibling children of one name head two distinct strings — the host segment is the
+  // whole of what tells them apart, so neither leaf answers to the other's address.
+  const heads = result.declarations.mentions
+    .map((row) => row.member)
+    .filter((member) => member.includes("/supporting-doc/home/"));
+  assert.equal(new Set(heads).size, 2, `two hosts, two heads: ${heads.join(", ")}`);
 });
 
 test("a resolved edge target carries both host-relative and repo-rooted path facts", () => {

@@ -46,8 +46,8 @@ export interface LeafAddress {
   /**
    * The member the leaf lives under, verbatim as its author spelled it: the canonical
    * `<kind>:<name>` host address, that host's own whole address one layer down, or the
-   * bare member id this SDK's own leaf writer and the committed lock mention targets
-   * spell. Which spelling a head is, is resolution's question, not the grammar's.
+   * bare member id a lock committed before the writers spelled the canonical head.
+   * Which spelling a head is, is resolution's question, not the grammar's.
    */
   readonly member: string;
   /** The nested member's kind. */
@@ -164,9 +164,13 @@ export function isNameQualifier(spelling: string): boolean {
 }
 
 /**
- * Spell one leaf's address beneath a nested member. `member` is carried verbatim, so a
- * writer holding the bare member id spells the short form the lock already commits
- * ({@link LeafAddress.member}).
+ * Spell one leaf's address beneath a nested member. `member` is carried verbatim, and
+ * every writer hands it the hosting member's **own whole address** at whatever grain the
+ * host sits — `<kind>:<name>` top-level, the host's whole address under a nested one
+ * ({@link memberAddress}). A bare member id spells a head the reader still accepts for
+ * the locks that commit it ({@link LeafAddress.member}), never one to write: a nested
+ * file child's identity *is* its host-qualified address, so a bare head names no member
+ * at resolution and two sibling children of one name head one string.
  */
 export function leafAddress(member: string, kind: string, key: string, childPath: string): string {
   return `${nestedAddress(member, kind, key)}/${childPath}`;

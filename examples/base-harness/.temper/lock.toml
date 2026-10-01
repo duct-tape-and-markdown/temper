@@ -482,16 +482,16 @@ member = "system:scanner"
 requirement = "documented-spine"
 
 [[declaration.mention]]
-member = "skill:verify-summary"
-target = "source:main"
-
-[[declaration.mention]]
-member = "summarize/step/scan/in"
+member = "flow:summarize/step/scan/in"
 target = "system:scanner"
 
 [[declaration.mention]]
-member = "summarize/step/summarize/in"
+member = "flow:summarize/step/summarize/in"
 target = "system:renderer"
+
+[[declaration.mention]]
+member = "skill:verify-summary"
+target = "source:main"
 
 [[declaration.nested_member]]
 host = "decision:authority-arrow"

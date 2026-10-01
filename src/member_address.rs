@@ -167,10 +167,11 @@ pub struct NestedAddress<'a> {
 pub struct ParsedLeaf<'a> {
     /// The member the nested member carrying this leaf lives under, verbatim as its
     /// author spelled it: the canonical `<kind>:<name>` host address, that host's own
-    /// whole address one layer down, or the **bare** member id, the short form the SDK's
-    /// own leaf writer and the committed lock mention targets spell (0024 — a spelling the
-    /// corpus commits is never retired under a reader's feet). Resolution accepts all of
-    /// them (`crate::read`'s `resolve_leaf`).
+    /// whole address one layer down, or the **bare** member id a lock committed before
+    /// the writers spelled the canonical head (0024 — a spelling the corpus commits is
+    /// never retired under a reader's feet; the SDK's own leaf writer heads the host's
+    /// whole address now, `sdk/src/declarations.ts`'s `embeddedLeafMentionRows`).
+    /// Resolution accepts all of them (`crate::read`'s `resolve_leaf`).
     pub member: &'a str,
     /// The nested member's kind.
     pub kind: &'a str,

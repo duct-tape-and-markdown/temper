@@ -1507,11 +1507,14 @@ pub fn resolve_leaf<'a>(
     by_kind: &BTreeMap<&str, &'a [Features]>,
     parsed: &ParsedLeaf<'_>,
 ) -> Option<(String, &'a str)> {
-    // The head is a `<kind>:<name>` host address canonically and a bare member id in the
-    // short form the lock already commits, so both spellings resolve. Cut once, ahead of
-    // the scan — the head is the same for every member — and cut by the grammar's own
-    // reader, so which member a head names is the reading every other consumer of the
-    // address gets.
+    // Two head spellings resolve. A member's own id answers the `features.id` test: a
+    // **nested** member's id *is* its whole host-qualified address (`crate::compose`'s
+    // `host_qualified`), which is what the SDK's leaf writer heads today, and a lock
+    // committed before that writer heads a top-level member's bare id. The
+    // `parse_host_address` branch below carries the canonical top-level head
+    // `<kind>:<name>`, which that bare id used to share. Cut once, ahead of the scan —
+    // the head is the same for every member — and cut by the grammar's own reader, so
+    // which member a head names is the reading every other consumer of the address gets.
     let qualified = member_address::parse_host_address(parsed.member);
     for (&outer_kind, members) in by_kind {
         for features in *members {
@@ -2867,6 +2870,44 @@ mod impact_tests {
         // Obligation-free: the leaf carries no gating fallout and a rewrite is never blocked.
         assert!(out.contains("Fallout: none"), "{out}");
         assert!(out.contains("never blocked by its citations"), "{out}");
+    }
+
+    #[test]
+    fn a_leaf_head_resolves_at_a_nested_host_and_at_a_bare_id_alike() {
+        // Three head spellings name one leaf. A **nested** host's id *is* its whole
+        // host-qualified address, the head the SDK's leaf writer spells beneath one; a
+        // top-level host's is spelled `<kind>:<name>` by that same writer; and the bare
+        // id a lock committed before it still reads. All three go through the grammar's
+        // one reader, so none of them resolves by a second parse of its own.
+        let members = [
+            nested_member("20-surface"),
+            nested_member("spec:20-surface/page/intro"),
+        ];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+
+        for head in [
+            "spec:20-surface/page/intro",
+            "spec:20-surface",
+            "20-surface",
+        ] {
+            let address = format!("{head}/decision/surface-authority/chosen");
+            let parsed = parse_leaf_address(&address).expect("an even count is leaf grain");
+            assert_eq!(
+                resolve_leaf(&by_kind, &parsed),
+                Some(("spec".to_string(), "the surface is canonical")),
+                "`{address}` resolves"
+            );
+        }
+
+        // And a head naming no member resolves nowhere — the bare name of a nested host,
+        // which is exactly what a leaf row headed off `member.name` used to spell.
+        let orphan = "intro/decision/surface-authority/chosen";
+        let parsed = parse_leaf_address(orphan).expect("an even count is leaf grain");
+        assert_eq!(
+            resolve_leaf(&by_kind, &parsed),
+            None,
+            "`{orphan}` names nobody"
+        );
     }
 
     #[test]

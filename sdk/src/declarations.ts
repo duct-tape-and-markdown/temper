@@ -669,10 +669,13 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
  * member's own {@link memberAddress}. A `blocks()` composed body keys each child
  * to what it is: a prose span's mentions are host-level, keyed to the member's
  * own address like a `text` body; an embedded value's `Text`-leaf
- * mentions are keyed to that leaf's own `<member>/<kind>/<key>/<child-path>`
- * address ([`embeddedLeafMentionRows`]). A `file()` body names none. Recorded off
- * the raw authored address, unconditionally — resolution is `emit`'s own refusal
- * (`emit.ts`), not this row's concern.
+ * mentions are keyed to that leaf's own
+ * `<host-address>/<kind>/<key>/<child-path>` address
+ * ([`embeddedLeafMentionRows`]), headed by the very `address` computed here —
+ * every row site in this function composes a host's address through
+ * {@link memberAddress}, the leaf branch included. A `file()` body names none.
+ * Recorded off the raw authored address, unconditionally — resolution is
+ * `emit`'s own refusal (`emit.ts`), not this row's concern.
  */
 function mentionRows(harness: Harness): MentionRow[] {
   const rows: MentionRow[] = [];
@@ -690,7 +693,7 @@ function mentionRows(harness: Harness): MentionRow[] {
             rows.push({ member: address, target: mention.target.address });
  }
         } else {
-          rows.push(...embeddedLeafMentionRows(member.name, value));
+          rows.push(...embeddedLeafMentionRows(address, value));
  }
  }
  }
@@ -704,10 +707,18 @@ function mentionRows(harness: Harness): MentionRow[] {
  * collection entry's leaves addressed `<collection>.<entry>.<field>` (one layer
  * deep, matching the row's own shape) — each row keyed to the leaf's own
  * structural address ({@link leafAddress}). A bare-string leaf names no mention.
+ *
+ * `host` is the hosting member's **own whole address** ({@link memberAddress}), at
+ * whatever grain the host sits: `kind:name` for a top-level host, the host's whole
+ * `<host-address>/<kind>/<key>` address under a nested one. A nested file child's
+ * identity *is* its host-qualified address (`compose.rs`'s `host_qualified`), so a
+ * head spelled off the bare name alone would name no member at `read.rs`'s
+ * `resolve_leaf` — and two sibling children each keyed `home` would head one string
+ * where the grammar scopes them to their hosts.
  */
-function embeddedLeafMentionRows(hostName: string, value: EmbeddedMemberValue): MentionRow[] {
+function embeddedLeafMentionRows(host: string, value: EmbeddedMemberValue): MentionRow[] {
   const rows: MentionRow[] = [];
-  const addressed = (childPath: string): string => leafAddress(hostName, value.kind, value.key, childPath);
+  const addressed = (childPath: string): string => leafAddress(host, value.kind, value.key, childPath);
   for (const [field, leaf] of Object.entries(value.leaves)) {
     if (typeof leaf === "string") continue;
     for (const mention of leaf.mentions) {

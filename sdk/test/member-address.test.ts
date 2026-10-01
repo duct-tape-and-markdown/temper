@@ -128,7 +128,8 @@ test("a leaf address is the nested address it is a tail of, plus its leaf", () =
   assert.equal(parseLeafAddress("spec:20/decision/authority/rejected.baked.because")?.childPath, "rejected.baked.because");
   assert.equal(parseLeafAddress("spec:20/decision/authority/a/b"), undefined, "five segments is member grain");
 
-  // The bare member head this SDK's own leaf writer spells parses at leaf grain.
+  // The bare member head a lock committed before the writers spelled the canonical one
+  // still parses at leaf grain — the reader accepts it, nothing writes it.
   assert.equal(parseLeafAddress(leafAddress("CLAUDE", "decision", "authority", "chosen"))?.member, "CLAUDE");
 });
 

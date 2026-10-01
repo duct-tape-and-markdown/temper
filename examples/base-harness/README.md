@@ -87,13 +87,16 @@ temper explain scanner
 ```
 
 `explain scanner` narrates the member's place in the graph, including the
-outward edge and the step that points at it:
+outward edge, the invariants its own body composes, and the step's leaf that
+points at it:
 
 ```
-Edges out (the resolved references it declares, the exact set the gate ranges over):
+Edges out (the resolved references it declares and the members its body composes, the exact set the gate ranges over):
   • it points at `scan` (source) via its `implemented-by` field
-Edges in (the resolved references that point at it):
-  • `summarize/step/scan/in` (requirement) points at it via its `mention` field
+  • it contains `system:scanner/invariant/done-is-exact` (invariant) — an embedded member its body composes
+  • it contains `system:scanner/invariant/ignored-never-guessed` (invariant) — an embedded member its body composes
+Edges in (the resolved references that point at it and the host whose body composes it):
+  • leaf `flow:summarize/step/scan/in` points at it via its `mention` field
 ```
 
 Standalone (outside this repository), replace the `file:../../../sdk`

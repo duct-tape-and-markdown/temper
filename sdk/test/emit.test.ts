@@ -1430,9 +1430,11 @@ test("a leaf's mention contributes a mention row keyed to the leaf's own structu
     ],
     admit: [admitDecision],
   });
+  // The head is the host member's own address, never its bare name: the leaf row reads
+  // `memberAddress` like every other row site.
   assert.deepEqual(compileDeclarations(h).mentions, [
-    { member: "CLAUDE/decision/surface-authority/chosen", target: "rule:rust" },
-    { member: "CLAUDE/decision/surface-authority/rejected.baked-projection.because", target: "rule:rust" },
+    { member: "memory:CLAUDE/decision/surface-authority/chosen", target: "rule:rust" },
+    { member: "memory:CLAUDE/decision/surface-authority/rejected.baked-projection.because", target: "rule:rust" },
   ]);
 });
 
