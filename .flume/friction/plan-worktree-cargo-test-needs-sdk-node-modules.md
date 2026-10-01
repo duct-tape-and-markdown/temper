@@ -70,3 +70,10 @@ type definition file for 'node'`) in two calls, and the audit concluded on the
 56 non-SDK `read_verbs` tests plus all 23 `check_cost` ones. Cheaper, but the
 reader still pays the full suite run first — the capture is read after the
 cost, every time.
+
+Fifth tick at 27a6b6cf: `802 passed; 64 failed`, same silent signature, and
+this reader paid the full run before diagnosing it. Five ticks is the
+documentation option's own verdict — the advice has never been read in time,
+because it is not in the path of the one command that triggers the class. The
+mechanical option (install in `setupWorktree`) is the only one left that
+could.
