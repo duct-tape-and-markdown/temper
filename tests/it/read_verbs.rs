@@ -281,6 +281,62 @@ fn a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage(
 }
 
 #[test]
+fn a_deep_member_address_is_explained_at_member_grain_never_as_a_leaf() {
+    // The segment count decides the grain, so a nested member two layers down — five
+    // segments — is a member address and `explain` consults the corpus for it. Read as a
+    // leaf address it answered "no leaf" at a grain the address never named, with no
+    // corpus consulted at all.
+    let deep = "service:alpha/domain/common/decision/authority";
+    let members = [feature(deep, &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("decision", &members[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    let out = explain(&[], &by_kind, &roster, deep);
+    for strand in [
+        "everything that holds it in place",
+        "the blast radius if it is removed or renamed",
+        "its declared neighborhood",
+    ] {
+        assert!(
+            out.contains(&format!("Member `{deep}` (decision) — {strand}")),
+            "the `{strand}` strand narrates at member grain: {out}"
+        );
+    }
+    assert!(
+        !out.contains("No leaf") && !out.contains("is not a well-formed leaf address"),
+        "no strand re-reads a member address at leaf grain: {out}"
+    );
+
+    // The refusal is the member grain's too: a five-segment address no member bears is
+    // not found, never narrated as a missing leaf.
+    let ghost = "service:alpha/domain/common/decision/ghost";
+    let refusal = explain(&[], &by_kind, &roster, ghost);
+    assert!(
+        refusal.contains(&format!(
+            "No member, requirement, kind, or leaf address named `{ghost}`"
+        )),
+        "a member address no member bears refuses at member grain: {refusal}"
+    );
+    assert!(
+        !refusal.contains("No leaf"),
+        "the leaf reader has no voice at member grain: {refusal}"
+    );
+
+    // Non-vacuity at the other parity: one segment shorter is a leaf address, read
+    // against the serialized leaves exactly as it always was.
+    let leaf = explain(
+        &[],
+        &by_kind,
+        &roster,
+        "service:alpha/domain/common/purpose",
+    );
+    assert!(
+        leaf.contains("No leaf `service:alpha/domain/common/purpose`"),
+        "an even count is leaf grain: {leaf}"
+    );
+}
+
+#[test]
 fn a_member_vs_requirement_collision_errors_with_both_qualified_spellings() {
     // `shared` is both a member id and a requirement name — `explain` never guesses
     // which the author meant. Species resolution checks `by_kind` alone (never

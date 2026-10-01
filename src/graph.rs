@@ -1758,21 +1758,23 @@ const REQUIREMENT_KIND: &str = "requirement";
 const EMBEDDED_LEAF_KIND: &str = "embedded";
 
 /// Parse an address a mention may name into its graph [`Node`], reading the **grammar**
-/// rather than the characters: a four-segment leaf address
-/// (`<member>/<kind>/<key>/<child-path>`, [`parse_leaf_address`]) is an embedded leaf
-/// under the reserved [`EMBEDDED_LEAF_KIND`]; a three-segment nested-member address
-/// (`<host-address>/<kind>/<key>`, [`parse_nested_address`]) is that member's own node —
-/// kind read off the address's second segment, id the whole address, the identity
+/// rather than the characters: a nested-member address ([`parse_nested_address`]) is that
+/// member's own node — kind read off the address, id the whole address, the identity
 /// [`target_identity`] already binds a declared edge to, so the two reference families
-/// cannot disagree about which node one address names; otherwise `kind:name` parses into
-/// that member's node and a bare name (no `:`) addresses a requirement under the reserved
-/// [`REQUIREMENT_KIND`].
+/// cannot disagree about which node one address names; a leaf address
+/// ([`parse_leaf_address`]) is an embedded leaf under the reserved
+/// [`EMBEDDED_LEAF_KIND`]; otherwise `kind:name` parses into that member's node and a
+/// bare name (no `:`) addresses a requirement under the reserved [`REQUIREMENT_KIND`].
+///
+/// The two grains are disjoint by segment count — odd is a member address, even a leaf's
+/// — so neither reading can shadow the other and the order here is narration, never
+/// precedence. Depth is the model's: both readings hold at any.
 fn node_from_address(address: &str) -> Node {
-    if parse_leaf_address(address).is_some() {
-        return (EMBEDDED_LEAF_KIND.to_string(), address.to_string());
-    }
     if let Some(nested) = parse_nested_address(address) {
         return (nested.kind.to_string(), address.to_string());
+    }
+    if parse_leaf_address(address).is_some() {
+        return (EMBEDDED_LEAF_KIND.to_string(), address.to_string());
     }
     match parse_host_address(address) {
         Some((kind, name)) => (kind.to_string(), name.to_string()),
@@ -2094,11 +2096,11 @@ fn edge_targets(source: &Features, field: &str) -> Vec<String> {
 /// - a **multi-element** set resolves only a `kind:name` whose kind is one of its
 ///   elements. A bare name, or an address naming an undeclared kind, resolves to
 ///   nothing.
-/// - a **nested member's own address** — `<host-address>/<kind>/<key>` — names its kind
-///   in its second segment, so a multi-element set takes it exactly as it takes a
-///   `kind:name`: by the kind the address spells, with the whole address carried on as the
-///   identity [`resolve_target`] matches ([`parse_nested_address`] rules on the grammar, the
-///   `/<leaf>` tail included).
+/// - a **nested member's own address** — `<host-address>/<kind>/<key>`, to any depth —
+///   names its own kind in its second-from-last segment, so a multi-element set takes it
+///   exactly as it takes a `kind:name`: by the kind the address spells, with the whole
+///   address carried on as the identity [`resolve_target`] matches
+///   ([`parse_nested_address`] rules on the grammar, the `/<leaf>` tail included).
 fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'a str)> {
     if let [only] = to {
         let identity = target
@@ -2201,7 +2203,8 @@ fn member_named<'f>(members: &'f [Features], identity: &str) -> Option<&'f Featu
 ///
 /// Built off each member's own identity — an embedded member's `Features::id` **is** its
 /// `<host-address>/<kind>/<key>` address — so this index and the two membership lookups
-/// beside it read one grammar through one parser.
+/// beside it read one grammar through one parser. A host that is itself nested keys the
+/// index under its own kind and its whole address, the identity it resolves at.
 ///
 /// A `(kind, key)` **two different hosts carry** maps to no host: the short spelling is
 /// ambiguous between them, and an ambiguous address names nothing rather than whichever

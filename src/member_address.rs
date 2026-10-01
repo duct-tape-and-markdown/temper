@@ -2,19 +2,24 @@
 //! `specs/model/representation.md` ("member") gives a member's identity, and for every
 //! reader and writer of one.
 //!
-//! Three spellings, each a suffix of the one before it:
+//! Three spellings, each built on the one before it:
 //!
 //! - `<kind>:<name>` — a **host address**, a top-level member's own identity.
 //! - `<host-address>/<kind>/<key>` — a **nested-member address**, the identity a member
-//!   embedded in a host carries.
-//! - `<host-address>/<kind>/<key>/<leaf>` — a **leaf address**, one authored string
-//!   beneath a nested member. A grain of its own, and no member address at all.
+//!   beneath a host carries. Any member's address may host, so the host segment is itself
+//!   a member address and the spelling nests as deep as the model does.
+//! - `<member-address>/<leaf>` — a **leaf address**, one authored string beneath a nested
+//!   member. A grain of its own, and no member address at all.
 //!
-//! Because the third is the second plus a `/<leaf>` tail, the two are read by **one**
-//! segmentation ([`segment`]) rather than two independently-shaped parses that could come
-//! to disagree about what the first segment is. Every writer and every reader in the tree
-//! goes through this module: a `format!` or a `split_once(':')` spelling this grammar
-//! anywhere else is a second implementation of one job
+//! Every name, key and leaf is **one segment** — a leaf's child path joins its own layers
+//! with `.`, never `/` ([`crate::extract::EmbeddedMember::addressed_leaves`]) — so the
+//! segment **count** decides the grain: a member address has an odd count, a leaf address
+//! an even one (`specs/model/representation.md`, "member"). That parity is the whole
+//! discrimination, which is why both grains are read off **one** segmentation
+//! ([`segment`]) rather than two independently-shaped parses that could come to disagree
+//! about where the member ends. Every writer and every reader in the tree goes through
+//! this module: a `format!` or a `split_once(':')` spelling this grammar anywhere else is
+//! a second implementation of one job
 //! (`specs/process/engineering.md`, "One job, one home").
 //!
 //! Distinct from [`crate::address`], which is **field** addressing — the dotted path a
@@ -26,9 +31,14 @@
 /// nothing, so the callers that want a node own the halves themselves.
 pub type AddressPair<'a> = (&'a str, &'a str);
 
-/// This host member's own `kind:name` address — the key
-/// [`crate::drift::NestedMemberRow::host`] carries, the identical `${kind}:${name}` form
-/// `sdk/src/declarations.ts`'s `nestedMemberRows` writes it in.
+/// A **top-level** member's own `kind:name` address — the one-segment floor the nesting
+/// [`nested_address`] spells is built on, and the writer half of [`parse_host_address`].
+///
+/// It is what [`crate::drift::NestedMemberRow::host`] carries for a host that is itself
+/// top-level. A host may be nested, and then that column carries the host's own whole
+/// address instead — `sdk/src/declarations.ts`'s `nestedMemberRows` spells it through
+/// `memberAddress`, which host-qualifies a nested member — so the column's deeper
+/// spelling is [`nested_address`]'s, never this form with a `/` smuggled into `id`.
 #[must_use]
 pub fn host_address(kind: &str, id: &str) -> String {
     format!("{kind}:{id}")
@@ -91,10 +101,11 @@ pub fn nested_address(host: &str, kind: &str, key: &str) -> String {
 /// The predicate every writer's caller judges a key by, because [`nested_address`] is
 /// infallible and the reader beneath it is not. A key carrying a `/` shifts every segment
 /// below it by one: `nested_address("spec:alpha", "decision", "authority/rejected")` spells
-/// the very address the member keyed `authority` spells for its `rejected` leaf, and the
-/// leaf grain is what every reader tries first ([`crate::graph`]'s `node_from_address`,
-/// [`crate::read`]'s species split), so the member's own identity answers its sibling's
-/// leaf. An empty key spells an address [`segment`] admits at no grain at all.
+/// the very address the member keyed `authority` spells for its `rejected` leaf — and
+/// since the count decides the grain, that address is **even** and so a leaf's by
+/// construction, no member address at all. The member's own identity answers its sibling's
+/// leaf and nothing answers the member. An empty key spells an address [`segment`] admits
+/// at no grain at all.
 /// `specs/model/representation.md` ("member") makes both a malformed lock rather than a
 /// precedence rule: resolution is total, and coincident addresses are refused.
 ///
@@ -135,11 +146,13 @@ pub fn is_name_qualifier(spelling: &str) -> bool {
 /// to (`crate::graph`'s `target_identity`, `member_named` and `edge_host`) — so the
 /// readers cannot come to disagree about what an address is.
 pub struct NestedAddress<'a> {
-    /// The host member's own `<kind>:<name>` address — the segment before the first `/`.
+    /// The host member's own address — every segment but the final two, verbatim, and
+    /// itself a member address (`area:a`, or `area:a/page/b` one layer down).
     pub host: &'a str,
-    /// The host member's kind — the half of `host` before its `:`.
+    /// The host member's kind, read at the host's own grain ([`host_identity`]).
     host_kind: &'a str,
-    /// The host member's name — the half of `host` after its `:`.
+    /// The host member's identity: its name when the host is top-level, its whole address
+    /// when the host is itself nested — the form [`address_of`] hands back.
     host_name: &'a str,
     /// The nested member's kind.
     pub kind: &'a str,
@@ -147,35 +160,36 @@ pub struct NestedAddress<'a> {
     pub key: &'a str,
 }
 
-/// A parsed **leaf address** — the `<host-address>/<kind>/<key>/<leaf>` spelling `explain`
-/// accepts to name a single nested member's leaf. The three identity segments ahead of it
-/// are exactly a nested-member address, which is why both are read off [`segment`]: the
-/// leaf address is that address plus a tail, never a second grammar.
-///
-/// The leaf path keeps its own dots and slashes (`rejected.baked-projection.because`), so
-/// it is the whole remainder after the third slash — `splitn(4, '/')`, never a plain split
-/// that would mangle a dotted collection path.
+/// A parsed **leaf address** — the `<member-address>/<leaf>` spelling `explain` accepts to
+/// name a single nested member's leaf. The segments ahead of the leaf are exactly a
+/// member address, which is why both grains are read off [`segment`]: the leaf address is
+/// that address plus a tail, never a second grammar.
 pub struct ParsedLeaf<'a> {
-    /// The member the leaf lives under, verbatim as its author spelled it: the canonical
-    /// `<kind>:<name>` host address, or the **bare** member id, the short form the SDK's
+    /// The member the nested member carrying this leaf lives under, verbatim as its
+    /// author spelled it: the canonical `<kind>:<name>` host address, that host's own
+    /// whole address one layer down, or the **bare** member id, the short form the SDK's
     /// own leaf writer and the committed lock mention targets spell (0024 — a spelling the
-    /// corpus commits is never retired under a reader's feet). Resolution accepts both
-    /// (`crate::read`'s `resolve_leaf`).
+    /// corpus commits is never retired under a reader's feet). Resolution accepts all of
+    /// them (`crate::read`'s `resolve_leaf`).
     pub member: &'a str,
     /// The nested member's kind.
     pub kind: &'a str,
     /// The nested member's key among its host's members of that kind.
     pub key: &'a str,
-    /// The leaf's path within the nested member — the whole remainder after the third
-    /// slash, dots intact.
+    /// The leaf's path within the nested member — the address's **final segment**, dots
+    /// intact and carrying no `/`: a child path joins its own layers with `.`
+    /// (`crate::extract`'s `addressed_leaves`), so a further `/` is a further segment and
+    /// the count reads the whole as a member address instead.
     pub child_path: &'a str,
 }
 
-/// The three identity segments a member address beneath a host carries, and the `/<leaf>`
-/// tail that may follow them — the **one** segmentation both grains parse off, so a
-/// nested-member address and the leaf address beneath it can never disagree about where
-/// the member ends.
+/// The identity segments a member address beneath a host carries — its host address, and
+/// the nested kind and key the final two segments spell — plus the `/<leaf>` tail an
+/// even-count address ends with. The **one** segmentation both grains parse off, so a
+/// member address and the leaf address beneath it can never disagree about where the
+/// member ends.
 struct Segments<'a> {
+    /// Every segment but the final two of the member address: the host, verbatim.
     host: &'a str,
     kind: &'a str,
     key: &'a str,
@@ -186,15 +200,33 @@ struct Segments<'a> {
 /// Cut an address into its segments, or `None` when it carries fewer than three or a
 /// segment-shaped hole — an address names exactly one thing or the verb refuses, so an
 /// empty segment names nothing.
+///
+/// The cut is at **every** `/`, and the count decides the grain: every name, key and leaf
+/// is one segment, so an even count ends in a `/<leaf>` tail and an odd one stops at
+/// member grain (`specs/model/representation.md`, "member"). The tail is therefore the
+/// final segment alone, not the remainder past a fixed count.
+///
+/// Three is the cut's floor: the shallowest member address beneath a host is
+/// `<kind>:<name>/<kind>/<key>`, and the shallowest leaf address names a nested member's
+/// kind and key ahead of its leaf ([`ParsedLeaf`]), so it is four.
 fn segment(address: &str) -> Option<Segments<'_>> {
-    let mut parts = address.splitn(4, '/');
-    let host = parts.next()?;
-    let kind = parts.next()?;
-    let key = parts.next()?;
-    let tail = parts.next();
-    if host.is_empty() || kind.is_empty() || key.is_empty() || tail == Some("") {
+    let count = address.split('/').count();
+    if count < 3 || address.split('/').any(str::is_empty) {
         return None;
     }
+    // Even is leaf grain: the final segment is the whole leaf, and everything ahead of it
+    // is a member address of odd count — three segments at least, which is what the cut
+    // below takes apart.
+    let (member, tail) = if count.is_multiple_of(2) {
+        let (member, leaf) = address.rsplit_once('/')?;
+        (member, Some(leaf))
+    } else {
+        (address, None)
+    };
+    // A member address ends in its own kind and key; everything ahead of those two is the
+    // host address, carried whole however deep it runs.
+    let (rest, key) = member.rsplit_once('/')?;
+    let (host, kind) = rest.rsplit_once('/')?;
     Some(Segments {
         host,
         kind,
@@ -203,27 +235,51 @@ fn segment(address: &str) -> Option<Segments<'_>> {
     })
 }
 
+/// The `(kind, identity)` a **host** segment names, read at the host's own grain: a
+/// top-level host spells its kind and its name ([`parse_host_address`]), while a nested
+/// host's kind is its own and its identity *is* its whole address — the same
+/// discrimination [`address_of`] makes from the writer's side, so the pair round-trips
+/// back to the address it was read from.
+///
+/// Read through the one parser rather than off a first-colon split, which would take
+/// `area` / `a/page/b` out of `area:a/page/b` — a kind that host does not instantiate and
+/// a name no member bears. A host that is neither grain names nothing: the top-level
+/// split is refused unless the host is exactly one segment, since [`parse_host_address`]
+/// cuts at the first colon and would otherwise read `a/b:c/d` as one.
+fn host_identity(host: &str) -> Option<AddressPair<'_>> {
+    if let Some(nested) = parse_nested_address(host) {
+        return Some((nested.kind, host));
+    }
+    if !is_one_segment(host) {
+        return None;
+    }
+    parse_host_address(host)
+}
+
 /// Parse a nested-member address, or `None` when `address` is not one.
 ///
-/// The grammar is **exactly three** segments — a `<kind>:<name>` host address, the nested
-/// kind, the key — each of them non-empty.
+/// The grammar is an **odd** count of non-empty segments, three or more: a host address —
+/// every segment but the final two, itself a member address at any depth — then the nested
+/// kind and the key. Depth is the model's to choose, not the grammar's: any member's
+/// address may host (`representation.md`, "member"), so the reader reads what the model
+/// nests rather than capping at one layer.
 ///
-/// The **leaf tail is ruled out here, explicitly**: `representation.md` spells `/<leaf>`
-/// *beneath* a nested address, and a leaf is its own grain — one addressable authored
+/// The **leaf tail is ruled out by the count**: `representation.md` spells `/<leaf>`
+/// beneath a member address, and a leaf is its own grain — one addressable authored
 /// string, parsed by [`parse_leaf_address`] off this very segmentation and resolved
-/// against the serialized leaves. So a fourth segment is no member address: it resolves to
-/// no member and dangles under the name its author wrote, rather than truncating to the
+/// against the serialized leaves. So an even count is no member address: it resolves to no
+/// member and dangles under the name its author wrote, rather than truncating to the
 /// member that happens to contain the leaf — which would answer a leaf reference with a
 /// member and put an arc the author never wrote into the graph.
 #[must_use]
 pub fn parse_nested_address(address: &str) -> Option<NestedAddress<'_>> {
     let segments = segment(address)?;
-    // Three segments and no more: a fourth is the `/<leaf>` tail, a different grain.
+    // An odd count and no tail: an even count ends in a `/<leaf>`, a different grain.
     if segments.tail.is_some() {
         return None;
     }
-    // The host segment is itself a member address, so it carries a kind and a name.
-    let (host_kind, host_name) = parse_host_address(segments.host)?;
+    // The host is itself a member address, so its identity is read at its own grain.
+    let (host_kind, host_name) = host_identity(segments.host)?;
     Some(NestedAddress {
         host: segments.host,
         host_kind,
@@ -233,15 +289,15 @@ pub fn parse_nested_address(address: &str) -> Option<NestedAddress<'_>> {
     })
 }
 
-/// Parse a leaf address — a nested-member address plus its `/<leaf>` tail — or `None` when
-/// `target` carries no tail or a segment-shaped hole (a malformed address the caller
-/// reports as such). Keyed and structural: the address rides the shape the author already
-/// wrote, stable under content edits.
+/// Parse a leaf address — a member address plus its `/<leaf>` tail, so an **even** count
+/// of segments — or `None` when `target` carries an odd count or a segment-shaped hole (a
+/// malformed address the caller reports as such). Keyed and structural: the address rides
+/// the shape the author already wrote, stable under content edits.
 ///
-/// The head segment is the canonical `<kind>:<name>` host address the nested grain spells,
-/// and it is carried on **verbatim** rather than split here, because the bare member id is
-/// a live short form the lock already commits ([`ParsedLeaf::member`]). Which of the two a
-/// head is, is resolution's question, not the grammar's.
+/// The head is the host address the member grain spells, and it is carried on **verbatim**
+/// rather than split here, because the bare member id is a live short form the lock
+/// already commits ([`ParsedLeaf::member`]). Which spelling a head is, is resolution's
+/// question, not the grammar's.
 #[must_use]
 pub fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
     let segments = segment(target)?;
@@ -256,8 +312,9 @@ pub fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
 
 /// The two `(kind, name)` pairs an embedded member's own address names: its own
 /// `(kind, key)` — the short spelling a declaration row uses when it names an embedded
-/// member by key alone — and its **host**'s `(kind, name)`. `None` when `address` is no
-/// nested-member address.
+/// member by key alone — and its **host**'s, read at the host's own grain
+/// ([`host_identity`]): a top-level host's `(kind, name)`, or a nested host's own kind and
+/// its whole address. `None` when `address` is no nested-member address.
 ///
 /// The reader half of the grammar [`nested_address`] writes: every consumer that needs a
 /// nested member's host reads it here, off the member's own identity, rather than
@@ -337,7 +394,7 @@ mod tests {
 
         // A leaf address is no member address, so it takes the bare-identity branch: the
         // discrimination is the member-grain parser's verdict, never a `contains('/')`.
-        let leaf = nested_address(&nested, "prose", "body");
+        let leaf = format!("{nested}/body");
         assert_eq!(
             address_of("supporting-doc", &leaf),
             host_address("supporting-doc", &leaf)
@@ -372,17 +429,100 @@ mod tests {
     }
 
     #[test]
-    fn a_leaf_path_keeps_its_dots_and_its_deeper_slashes() {
+    fn a_leaf_path_keeps_its_dots_and_is_one_segment() {
         let parsed =
             parse_leaf_address("spec:20-surface/decision/authority/rejected.baked.because")
                 .expect("a dotted collection path is one leaf path");
         assert_eq!(parsed.child_path, "rejected.baked.because");
 
-        // Whatever follows the third slash is the leaf path, slashes included — the fourth
-        // segment is never re-cut into a fifth.
-        let deeper =
-            parse_leaf_address("spec:20-surface/decision/authority/a/b").expect("still a leaf");
-        assert_eq!(deeper.child_path, "a/b");
+        // A child path joins its own layers with `.`, never `/` (`crate::extract`'s
+        // `addressed_leaves`), so a further `/` is a further *segment* and the count reads
+        // the whole: five segments is a member address, not a leaf path carrying a slash.
+        let five = "spec:20-surface/decision/authority/a/b";
+        assert!(
+            parse_leaf_address(five).is_none(),
+            "an odd count is no leaf"
+        );
+        assert_eq!(
+            parse_nested_address(five).map(|member| (member.host, member.kind, member.key)),
+            Some(("spec:20-surface/decision/authority", "a", "b"))
+        );
+    }
+
+    #[test]
+    fn the_segment_count_decides_the_grain_at_any_depth() {
+        // Every name, key and leaf is one segment, so the count is the whole
+        // discrimination: odd is a member address, even a leaf's
+        // (`specs/model/representation.md`, "member"). Any member's address may host, so
+        // the reader reads what the model nests instead of capping at one layer.
+        let one = host_address("area", "a");
+        let three = nested_address(&one, "page", "b");
+        let five = nested_address(&three, "section", "c");
+        let seven = nested_address(&five, "note", "d");
+
+        for (address, host, kind, key) in [
+            (&three, one.as_str(), "page", "b"),
+            (&five, three.as_str(), "section", "c"),
+            (&seven, five.as_str(), "note", "d"),
+        ] {
+            let member = parse_nested_address(address).expect("an odd count is member grain");
+            assert_eq!((member.host, member.kind, member.key), (host, kind, key));
+            assert!(
+                parse_leaf_address(address).is_none(),
+                "`{address}` is member grain, never a leaf's"
+            );
+        }
+
+        // The leaf grain at those same depths, one segment further down each time: the
+        // leaf is the final segment, and the member it hangs under is read at its own
+        // grain ahead of it.
+        for (address, member, kind, key) in [
+            (format!("{three}/purpose"), one.as_str(), "page", "b"),
+            (format!("{five}/purpose"), three.as_str(), "section", "c"),
+        ] {
+            let leaf = parse_leaf_address(&address).expect("an even count is leaf grain");
+            assert_eq!(
+                (leaf.member, leaf.kind, leaf.key, leaf.child_path),
+                (member, kind, key, "purpose")
+            );
+            assert!(
+                parse_nested_address(&address).is_none(),
+                "`{address}` is leaf grain, never a member's"
+            );
+        }
+    }
+
+    #[test]
+    fn a_nested_hosts_identity_is_its_whole_address_and_never_a_first_colon_split() {
+        // The host of a deep member address is read at the *host's* own grain: its kind is
+        // its own (`page`, not `area`) and its identity is the whole address, which is
+        // exactly what `address_of` round-trips. A first-colon split would name the kind
+        // `area` and a member `a/page/b` that nothing bears.
+        let three = "area:a/page/b";
+        let five = "area:a/page/b/section/c";
+
+        assert_eq!(
+            embedded_source_host(three),
+            Some((("page", "b"), ("area", "a"))),
+            "a top-level host spells its kind and its name"
+        );
+        assert_eq!(
+            embedded_source_host(five),
+            Some((("section", "c"), ("page", three))),
+            "a nested host spells its own kind and its whole address"
+        );
+        assert_eq!(
+            address_of("page", three),
+            three,
+            "the host identity the pair carries is the address it came from"
+        );
+
+        // A host that is no member address at either depth names nothing: the bare short
+        // form is a leaf-grain spelling, and it never climbs to member grain.
+        assert!(parse_nested_address("note/requirement/my-req/hook/0").is_none());
+        // Nor does a colon smuggled past the segmentation make a host of a `/`-bearing
+        // head: a top-level host is exactly one segment.
+        assert!(parse_nested_address("a/b:c/d/e").is_none());
     }
 
     #[test]
@@ -484,6 +624,30 @@ mod tests {
             "skill:x//on-enter/command",
             "skill:x/hook//command",
             "skill:x/hook/on-enter/",
+        ] {
+            assert!(
+                parse_leaf_address(address).is_none(),
+                "`{address}` is no leaf address"
+            );
+        }
+
+        // Depth changes nothing: the hole is refused wherever the count puts it, so an
+        // empty segment names nothing at either grain however deep the address runs.
+        for address in [
+            "area:a/page//section/c",
+            "area:a//b/section/c",
+            "area:a/page/b/section/",
+            "area:a/page/b//c",
+        ] {
+            assert!(
+                parse_nested_address(address).is_none(),
+                "`{address}` is no member address"
+            );
+        }
+        for address in [
+            "area:a/page/b//c/purpose",
+            "area:a/page/b/section/c/",
+            "area:a//b/section/c/purpose",
         ] {
             assert!(
                 parse_leaf_address(address).is_none(),

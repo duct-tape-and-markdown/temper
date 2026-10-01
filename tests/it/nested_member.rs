@@ -1064,10 +1064,10 @@ mod host_qualified_addresses {
         // A member's identity *is* its address, so a key carrying the grammar's own `/`
         // spells one segment too many: `authority/rejected` under `service:alpha` spells
         // `service:alpha/domain/authority/rejected`, which is equally the `rejected` leaf
-        // of the sibling keyed `authority`. Both readers try leaf grain *first* and
-        // deliberately so (`graph::node_from_address`, `read`'s species split), so without
-        // this refusal an edge or an `explain` naming the member answers the sibling's
-        // leaf instead — silently, with no dangling finding to read.
+        // of the sibling keyed `authority`. The segment count decides the grain, so that
+        // address is even and a leaf's by construction — without this refusal an edge or
+        // an `explain` naming the member answers the sibling's leaf instead, silently and
+        // with no dangling finding to read.
         //
         // The coincidence judge is blind to it: `authority` and `authority/rejected` are
         // two distinct `(host, kind, key)` triples, and it counts triples.

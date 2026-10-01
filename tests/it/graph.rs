@@ -3311,3 +3311,65 @@ mod containment_incidence {
         );
     }
 }
+
+/// The **node species** an address binds, at the depth the model nests to: the segment
+/// count decides the grain, so a mention naming a nested member two layers down binds
+/// that member's node and resolves against the corpus, while the same spelling one
+/// segment shorter is a leaf address resolved against the serialized leaves.
+mod node_grain {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    use temper::extract::Features;
+    use temper::graph::MentionDeclaration;
+
+    /// The route-resolution findings one mention at `target` draws over a corpus holding
+    /// exactly `members` under `kind` — the verdict with the grain it searched at in its
+    /// own words.
+    fn route(kind: &str, members: &[Features], target: &str) -> Vec<String> {
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([(kind, members)]);
+        let edges = temper::graph::resolved_mention_edges(&[MentionDeclaration {
+            member: "rule:style".to_string(),
+            target: target.to_string(),
+        }]);
+        temper::graph::route_mentions(&edges, &by_kind, &BTreeMap::new())
+            .iter()
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect()
+    }
+
+    #[test]
+    fn a_five_segment_address_binds_a_member_node_and_a_four_segment_one_a_leaf() {
+        let deep = "service:alpha/domain/common/decision/authority";
+        let members = [common::features(deep)];
+
+        assert!(
+            route("decision", &members, deep).is_empty(),
+            "a five-segment address is the member's own identity and resolves to it"
+        );
+
+        // Non-vacuity, with the grain in its own words: a five-segment address no member
+        // bears dangles as a *member*, not as a leaf the corpus was never searched for.
+        let ghost = route(
+            "decision",
+            &members,
+            "service:alpha/domain/common/decision/ghost",
+        );
+        assert_eq!(ghost.len(), 1);
+        assert!(
+            ghost[0].contains("resolves to no member"),
+            "an odd count dangles at member grain, got: {}",
+            ghost[0]
+        );
+
+        // One segment shorter is the other parity: leaf grain, searched against the
+        // serialized leaves.
+        let leaf = route("decision", &members, "service:alpha/domain/common/purpose");
+        assert_eq!(leaf.len(), 1);
+        assert!(
+            leaf[0].contains("resolves to no leaf"),
+            "an even count dangles at leaf grain, got: {}",
+            leaf[0]
+        );
+    }
+}

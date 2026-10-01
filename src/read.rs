@@ -208,7 +208,10 @@ enum Species<'a> {
 /// existence, `contracts` (every kind's resolved default contract, built-in and
 /// custom/embedded alike) for kind existence. A bare name in both member and
 /// requirement is `Ambiguous`; a bare name in exactly one of the three resolves to it;
-/// a bare name in none, absent a `/`, is `NotFound`. A bare **nested-member key** is a
+/// a bare name in none, absent a `/`, is `NotFound`. A **member address** — any odd
+/// segment count — is settled at member grain alone, resolving against the corpus or
+/// refusing there, and an even-count leaf address is settled at leaf grain. A bare
+/// **nested-member key** is a
 /// fourth reading, matched through the address parser; it and the kind check run only
 /// once member and requirement both miss — a bare name already meaning something in this
 /// corpus keeps meaning that, so a later namespace can only claim a name that was
@@ -243,25 +246,30 @@ fn resolve<'a>(
         return Species::Leaf(address);
     }
 
-    // A nested member's own `<host-address>/<kind>/<key>` address is its identity, so it
-    // resolves by equality against the composed corpus — read before the `<kind>:<name>`
-    // split below, whose first `:` would take the *host*'s kind for the member's and miss.
-    // A four-segment leaf address is no member address ([`nested_key`] rules it
-    // out) and falls to the leaf branch directly below, its own grain.
-    if nested_key(target).is_some()
-        && by_kind
+    // A nested member's own address is its identity, so it resolves by equality against
+    // the composed corpus — at **any** depth, since the segment count decides the grain
+    // and an odd count is member grain however deep it runs. Read before the
+    // `<kind>:<name>` split below, whose first `:` would take the *host*'s kind for the
+    // member's and miss. Terminal: an even-count leaf address is the branch below's, and
+    // a member address no member bears refuses here rather than falling through to a leaf
+    // reader that would call a well-formed member address malformed.
+    if nested_key(target).is_some() {
+        return if by_kind
             .values()
             .flat_map(|members| members.iter())
             .any(|features| features.id == target)
-    {
-        return Species::Member(target);
+        {
+            Species::Member(target)
+        } else {
+            Species::NotFound(target)
+        };
     }
 
-    // The leaf grain, ahead of the `<kind>:<name>` split for the same reason: the
-    // canonical leaf address opens with a host address, whose first `:` the split below
-    // would take for the leaf's own and answer `NotFound` under a member's kind. A
-    // malformed `/`-bearing target still reaches the leaf branch further down, where the
-    // leaf reader narrates the malformation in its own voice.
+    // The leaf grain — an even count — ahead of the `<kind>:<name>` split for the same
+    // reason: the canonical leaf address opens with a host address, whose first `:` the
+    // split below would take for the leaf's own and answer `NotFound` under a member's
+    // kind. A malformed `/`-bearing target still reaches the leaf branch further down,
+    // where the leaf reader narrates the malformation in its own voice.
     if parse_leaf_address(target).is_some() {
         return Species::Leaf(target);
     }

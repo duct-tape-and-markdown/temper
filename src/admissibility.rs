@@ -101,12 +101,13 @@ pub fn nested_member_admissibility(declarations: &drift::Declarations) -> Vec<ch
 /// carrying the `/` the grammar cuts an address at
 /// ([`member_address::is_one_segment`]). A member's identity *is* its
 /// `<host-address>/<kind>/<key>` address, so a key carrying a separator spells an address
-/// one segment longer than the grammar's member grain: `authority/rejected` under
+/// one segment longer than the member it was written for: `authority/rejected` under
 /// `spec:alpha` spells `spec:alpha/decision/authority/rejected`, which is also the
-/// `rejected` leaf of the sibling keyed `authority` — and leaf grain is what the readers
-/// try first (`crate::graph`'s `node_from_address`, `crate::read`'s species split), so the
-/// member's own identity silently answers the sibling's leaf. An empty key spells an
-/// address that names nothing at any grain.
+/// `rejected` leaf of the sibling keyed `authority` — and the segment **count** decides
+/// the grain, so that address is even and reads as a leaf by construction, no member
+/// address at all. The member's own identity silently answers the sibling's leaf, and
+/// nothing answers the member. An empty key spells an address that names nothing at any
+/// grain.
 ///
 /// [`nested_member_coincidence`] cannot see this: it counts `(host, kind, key)` triples,
 /// and `authority` beside `authority/rejected` are two *distinct* triples whose spelled
