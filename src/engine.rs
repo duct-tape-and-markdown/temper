@@ -194,7 +194,7 @@ pub(crate) fn inadmissibilities(
     siblings: &[Clause],
 ) -> Vec<String> {
     let mut messages: Vec<String> = judgeless(predicate).into_iter().collect();
-    messages.extend(bodyless(predicate, locus));
+    messages.extend(bodyless(predicate, Binding::Member(locus)));
     messages.extend(rootless(predicate, locus));
     messages.extend(unaddressable(predicate));
     messages.extend(vacuities(predicate, siblings));
@@ -251,12 +251,14 @@ fn when_restrictions(predicate: &Predicate, locus: &Locus) -> Vec<String> {
         messages.extend(inadmissibilities(guard.as_ref(), locus, body));
     }
 
-    // Body clauses must not nest another `when`, and must not range over the
-    // selection: the body binds at the *element* the guard locates, and a selection
-    // predicate has no element to range over. Evaluating one under the guard would
-    // narrow a selection by a field value, and narrowing is an each-grain clause over
-    // a selection, never a second selector. Either refusal stands alone rather than
-    // recursing: one clause, one message naming what is wrong with it.
+    // Body clauses bind at the *element* the guard locates, which is three refusals.
+    // They must not nest another `when`; they must not range over the selection, which
+    // has no element to range over — evaluating one under the guard would narrow a
+    // selection by a field value, and narrowing is an each-grain clause over a
+    // selection, never a second selector; and they must not read a feature the element
+    // projection carries none of ([`bodyless`] at [`Binding::Element`]). Each refusal
+    // stands alone rather than recursing: one clause, one message naming what is wrong
+    // with it.
     for clause in body {
         if matches!(clause.predicate, Predicate::When { .. }) {
             messages.push("`when` guard body cannot nest another `when` clause".to_string());
@@ -268,6 +270,8 @@ fn when_restrictions(predicate: &Predicate, locus: &Locus) -> Vec<String> {
                  each-grain clause over that selection, never a second selector",
                 clause.predicate.key()
             ));
+        } else if let Some(message) = bodyless(&clause.predicate, Binding::Element) {
+            messages.push(message);
         } else {
             messages.extend(inadmissibilities(&clause.predicate, locus, body));
         }
@@ -355,34 +359,82 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
     }
 }
 
-/// The fence message when `predicate` reads a feature `locus` carries none of, else
-/// `None`.
+/// What a clause binds to — the projection whose features its judge reads, and the axis
+/// [`bodyless`] fences on. Two of the three carry less than a document.
+enum Binding<'a> {
+    /// A member of the selection at `locus`: its own document at [`Locus::Document`], a
+    /// leaf of its host's declared surface at [`Locus::Embedded`].
+    Member(&'a Locus),
+    /// One element inside a member's declared surface, located by a `when` guard — the
+    /// fields-only projection [`scoped_element_features`] builds.
+    Element,
+}
+
+/// A feature a member-grain judge reads off the thing its clause binds to — the one axis
+/// [`bodyless`] fences on, so a binding carrying none of it refuses the clause instead of
+/// deciding over the zero.
+enum Feature {
+    /// The body's extracted headings (`require_sections`).
+    Headings,
+    /// The body's extracted sections (`section_contains`).
+    Sections,
+    /// The directory the member's document sits in (`name-matches-dir`).
+    SourceDir,
+    /// The extent `emit` rendered for this member (`extent` at the each grain).
+    RenderedExtent,
+    /// The edge placements `emit` observed in the rendered value (`format-places-edges`).
+    EdgePlacements,
+}
+
+impl Feature {
+    /// The feature as a refusal names it to the author.
+    fn name(&self) -> &'static str {
+        match self {
+            Feature::Headings => "the body's headings",
+            Feature::Sections => "the body's sections",
+            Feature::SourceDir => "the member's source directory",
+            Feature::RenderedExtent => "the member's rendered extent",
+            Feature::EdgePlacements => "the edge placements `emit` observed",
+        }
+    }
+
+    /// Whether the feature is derived from a member's **own document** — its body text or
+    /// its place on disk — as against the render-side features `emit` captures and the
+    /// lock carries back.
+    ///
+    /// The distinction is what separates the two short bindings: an embedded member has no
+    /// document but does carry its rendered span and placed edges
+    /// (`crate::compose::embedded_member_features`), while a `when` guard's element
+    /// carries neither.
+    fn document_derived(&self) -> bool {
+        match self {
+            Feature::Headings | Feature::Sections | Feature::SourceDir => true,
+            Feature::RenderedExtent | Feature::EdgePlacements => false,
+        }
+    }
+}
+
+/// The [`Feature`] `predicate`'s judge reads off the member in hand, or `None` for the
+/// predicates that read only its fields, its identity, or the selection around it.
 ///
-/// An embedded member is lifted from its host's declared surface — its leaves become
-/// fields, and the body-derived headings/sections/source-directory are empty because there
-/// is no document to read them from. A predicate ranging over one of those features
-/// therefore returns the same answer over every member of the kind: `section_contains`
-/// finds no section to indict, `require_sections` misses every named heading,
-/// `name-matches-dir` has no directory to compare. Deciding nothing, they are inadmissible
-/// where they are bound, rather than degrading to a check that never ran.
+/// The match names every arm rather than defaulting: the next predicate to read a
+/// document- or render-derived feature answers the fencing question at compile time
+/// instead of shipping a green over a zero.
 ///
-/// `extent` is *not* fenced here: a composed embedded member's rendered span is captured at
-/// emit and rides its `nested_member` row, so the clause reads real data. A member no
-/// format rendered carries no span, and its each-grain verdict is [`Outcome::Indeterminate`]
-/// per member rather than a kind-wide fence.
-///
-/// The line is the feature read, not the predicate's family: `must_define` looks the
-/// part but resolves as field presence, which an embedded member's leaves answer, so it
-/// stays decidable and unfenced.
-fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
-    let Locus::Embedded(kind) = locus else {
-        return None;
-    };
-    let feature = match predicate {
-        Predicate::RequireSections { .. } => "the body's headings",
-        Predicate::SectionContains { .. } => "the body's sections",
-        Predicate::NameMatchesDir => "the member's source directory",
-        Predicate::Required { .. }
+/// The line is the feature read, not the predicate's family: `must_define` looks the part
+/// but resolves as field presence, which any projection's fields answer, and `unique-name`
+/// reads the member's identity against its peers — both stay decidable and unfenced.
+fn feature_read(predicate: &Predicate) -> Option<Feature> {
+    match predicate {
+        Predicate::RequireSections { .. } => Some(Feature::Headings),
+        Predicate::SectionContains { .. } => Some(Feature::Sections),
+        Predicate::NameMatchesDir => Some(Feature::SourceDir),
+        Predicate::FormatPlacesEdges => Some(Feature::EdgePlacements),
+        // Only the each grain reads this member's own span; the whole-grain form sums the
+        // selection and is judged by [`judge`], which no binding here stands in for.
+        Predicate::Extent { whole: false, .. } => Some(Feature::RenderedExtent),
+        Predicate::Extent { whole: true, .. }
+        | Predicate::Required { .. }
         | Predicate::Optional { .. }
         | Predicate::Type { .. }
         | Predicate::MinLen { .. }
@@ -394,7 +446,6 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         | Predicate::ClosedKeys
         | Predicate::AllowedChars { .. }
         | Predicate::Shape { .. }
-        | Predicate::Extent { .. }
         | Predicate::MustDefine { .. }
         | Predicate::UniqueName
         | Predicate::DependencyExists
@@ -410,14 +461,47 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         | Predicate::Fresh
         | Predicate::LocusDeclared
         | Predicate::EngineMatches
-        | Predicate::FormatPlacesEdges
-        | Predicate::When { .. } => return None,
+        | Predicate::When { .. } => None,
+    }
+}
+
+/// The fence message when `predicate` reads a feature `binding` carries none of, else
+/// `None`.
+///
+/// A predicate ranging over a feature its binding zeroes returns the same answer over
+/// every thing it is bound to: `section_contains` finds no section to indict,
+/// `require_sections` misses every named heading, `name-matches-dir` has no directory to
+/// compare, `format-places-edges` no format, `extent` no span. Deciding nothing — as a
+/// standing green, a blanket cascade, or [`Outcome::Indeterminate`] — they are
+/// inadmissible where they are bound, rather than degrading to a check that never ran.
+///
+/// Two bindings carry less than a document, and the split is [`Feature::document_derived`]:
+/// an embedded member is lifted off its host's declared surface and keeps its rendered
+/// span and placed edges, so only the document-derived three are fenced there; a `when`
+/// guard's element is that element's fields and nothing more, so all five are.
+fn bodyless(predicate: &Predicate, binding: Binding<'_>) -> Option<String> {
+    let feature = feature_read(predicate)?;
+    let projection = match binding {
+        Binding::Member(Locus::Embedded(kind)) if feature.document_derived() => format!(
+            "which no member of embedded kind `{kind}` has: an embedded member is read \
+             off its host's declared surface, never a document of its own, so the clause \
+             decides the same thing over every member"
+        ),
+        Binding::Element => "which a `when` guard's element does not carry: the body \
+             binds at the one element the guard locates, a projection of that element's \
+             own fields and nothing else, so the clause decides over the zero rather than \
+             over the member. Bind it to the kind's `expect`, where the member's document \
+             is in scope"
+            .to_string(),
+        // A member no format rendered is one member's undecidable, not a kind-wide
+        // fence: an embedded member's `extent` and `format-places-edges` read the span
+        // and placements its `nested_member` row carries.
+        Binding::Member(Locus::Document | Locus::Embedded(_) | Locus::Root) => return None,
     };
     Some(format!(
-        "`{}` ranges over {feature}, which no member of embedded kind `{kind}` has: an \
-         embedded member is read off its host's declared surface, never a document of \
-         its own, so the clause decides the same thing over every member",
-        predicate.key()
+        "`{}` ranges over {}, {projection}",
+        predicate.key(),
+        feature.name()
     ))
 }
 
@@ -1105,13 +1189,15 @@ fn evaluate(
     match decide(contract, predicate, features, all) {
         Outcome::Holds => Vec::new(),
         Outcome::Violated(violations) => violations,
-        // Unreachable on an admissible run, and pinned so it stays that way
-        // (`when_body_refuses_every_predicate_the_indeterminate_arm_answers`): every producer of
-        // that arm is fenced before conformance — `dependency-exists` by [`judgeless`],
-        // the set predicates by [`validate`]'s routing at the top grain and by
-        // [`when_restrictions`] inside a guard's body. Silence is right on the
-        // inadmissible run too: admissibility has already reported a blocking error
-        // naming the clause, so a second finding here would only double-report it.
+        // Silence, for the two cases this arm has left. No clause whose *binding* zeroes
+        // the feature it reads arrives here: admissibility fences that class per binding
+        // ([`judgeless`], [`rootless`], [`bodyless`], [`when_restrictions`]), pinned by
+        // `when_body_refuses_every_predicate_the_indeterminate_arm_answers` and
+        // `when_body_refuses_the_features_an_element_lacks`. What remains is the one
+        // per-member undecidable a projection owns — an embedded member no format
+        // rendered, whose `extent` is honestly unknown rather than a zero read as a pass
+        // — and the inadmissible run, where a blocking error already names the clause and
+        // a second finding here would only double-report it.
         Outcome::Indeterminate => Vec::new(),
     }
 }
@@ -3619,14 +3705,29 @@ mod tests {
     }
 
     /// The `when` predicate whose guard is a live `enum` over `model` and whose body is
-    /// the one clause under test — the shape the body fence ranges over.
+    /// the one clause under test beside an inert `optional` over the same key — the shape
+    /// the body fence ranges over.
+    ///
+    /// The sibling is there for `closed-keys` alone, whose allow-list is its siblings'
+    /// declared keys: alone in a body it would be the vacuous clause admissibility
+    /// refuses, which is a fact about the contract rather than the fence under test.
+    /// `optional` holds over every projection, so it is inert for every other predicate.
     fn when_over(body_predicate: Predicate) -> Predicate {
         Predicate::When {
             guard: Box::new(Predicate::Enum {
                 field: "model".to_string(),
                 values: vec!["opus".to_string()],
             }),
-            body: vec![clause("skill", ClauseSeverity::Required, body_predicate)],
+            body: vec![
+                clause("skill", ClauseSeverity::Required, body_predicate),
+                clause(
+                    "skill",
+                    ClauseSeverity::Required,
+                    Predicate::Optional {
+                        field: "model".to_string(),
+                    },
+                ),
+            ],
         }
     }
 
@@ -3751,5 +3852,137 @@ mod tests {
                 predicate.key()
             );
         }
+    }
+
+    /// Whether the element projection a `when` body binds at — the fields-only view
+    /// [`scoped_element_features`] builds — zeroes the feature `predicate`'s judge reads.
+    ///
+    /// The honest bound's third grain, beside [`Predicate::ranges_over_selection`] and
+    /// [`answered_by_the_indeterminate_arm`], and exhaustive for the same reason: a new
+    /// predicate does not compile until its author says which side of this line it falls
+    /// on, and the test below holds every `true` to a refusal naming it and every `false`
+    /// to a verdict over that projection.
+    fn reads_a_feature_the_element_lacks(predicate: &Predicate) -> bool {
+        match predicate {
+            Predicate::RequireSections { .. }
+            | Predicate::SectionContains { .. }
+            | Predicate::NameMatchesDir
+            | Predicate::FormatPlacesEdges => true,
+            // The each-grain budget reads the span the element has none of; the
+            // whole-grain one sums the selection, and is refused in a body as a
+            // selection predicate (`when_body_refuses_a_set_predicate`).
+            Predicate::Extent { whole, .. } => !*whole,
+            Predicate::Required { .. }
+            | Predicate::Optional { .. }
+            | Predicate::Type { .. }
+            | Predicate::MinLen { .. }
+            | Predicate::MaxLen { .. }
+            | Predicate::Range { .. }
+            | Predicate::Enum { .. }
+            | Predicate::Deny { .. }
+            | Predicate::ForbiddenKeys { .. }
+            | Predicate::ClosedKeys
+            | Predicate::AllowedChars { .. }
+            | Predicate::Shape { .. }
+            | Predicate::MustDefine { .. }
+            // The element keeps its host's identity and the peer slice, so the host's
+            // fact is decided correctly — reported once per element, which is a
+            // multiplicity question rather than a feature the element lacks.
+            | Predicate::UniqueName
+            | Predicate::GlobValid { .. }
+            | Predicate::DependencyExists
+            | Predicate::Count { .. }
+            | Predicate::Unique { .. }
+            | Predicate::Membership { .. }
+            | Predicate::Degree { .. }
+            | Predicate::ReachedFrom { .. }
+            | Predicate::Kind { .. }
+            | Predicate::MentionReachable { .. }
+            | Predicate::Reachable
+            | Predicate::Fresh
+            | Predicate::LocusDeclared
+            | Predicate::EngineMatches
+            | Predicate::When { .. } => false,
+        }
+    }
+
+    #[test]
+    fn when_body_refuses_the_features_an_element_lacks() {
+        // The honest bound's third projection. A `when` body binds at the element its
+        // guard locates, and `scoped_element_features` carries that element's fields and
+        // nothing else: a body clause reading the body, the source directory, the
+        // rendered extent or the edge placements decides over the zero — a standing green
+        // (`section_contains`, `name-matches-dir`, `format-places-edges`), a cascade
+        // indicting every declared section at every matched element (`require_sections`),
+        // or the indeterminate arm `evaluate` swallows (`extent`). All five are the same
+        // defect, so the fence is one classifier at admissibility: refused by name before
+        // any member is judged, while every clause the element *can* decide stays
+        // admissible and reaches a verdict there.
+        let member = features("demo", &[("model", scalar("opus"))], 1, Some("demo"));
+        let element = scoped_element_features(&member, &json!({ "model": "opus" }));
+        let mut fenced: Vec<&str> = Vec::new();
+        let mut decided: Vec<&str> = Vec::new();
+
+        for predicate in member_predicates() {
+            let key = predicate.key();
+            // A nested guard is refused one rung above this fence, by its own rule.
+            if matches!(predicate, Predicate::When { .. }) {
+                continue;
+            }
+            let refusals = inadmissibilities(&when_over(predicate.clone()), &Locus::Document, &[]);
+
+            if reads_a_feature_the_element_lacks(&predicate) {
+                fenced.push(key);
+                assert!(
+                    refusals
+                        .iter()
+                        .any(|message| message.contains(&format!("`{key}`"))),
+                    "`{key}` in a `when` body decides over a feature the element lacks \
+                     with no refusal naming it, got: {refusals:?}"
+                );
+                continue;
+            }
+
+            assert!(
+                refusals.is_empty(),
+                "`{key}` is decidable at the element binding and must stay admissible \
+                 there, got: {refusals:?}"
+            );
+            let mut carrier = contract(ClauseSeverity::Required, predicate.clone());
+            carrier.clauses.push(clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::Optional {
+                    field: "model".to_string(),
+                },
+            ));
+            assert!(
+                !matches!(
+                    decide(&carrier, &predicate, &element, &[&element]),
+                    Outcome::Indeterminate
+                ),
+                "`{key}` reached the element binding undecided — it would read as a green \
+                 pass over a feature nothing supplied"
+            );
+            decided.push(key);
+        }
+
+        // Both sides are populated, and the fenced side is the whole class by name: the
+        // vacuity bar this pin exists to hold is that neither loop ran over zero.
+        assert_eq!(
+            fenced,
+            vec![
+                "extent",
+                "require_sections",
+                "section_contains",
+                "name-matches-dir",
+                "format-places-edges",
+            ],
+            "the fenced class is exactly the features `scoped_element_features` zeroes"
+        );
+        assert!(
+            decided.len() > fenced.len(),
+            "the admissible body vocabulary must be the larger half, got: {decided:?}"
+        );
     }
 }
