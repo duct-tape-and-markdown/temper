@@ -1,0 +1,33 @@
+{
+  "tag": "WHEN-GUARD-NAMING-WHEN-REFUSES-AT-LIFT",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/contract.rs",
+        "description": "`predicate_from_row`'s `when` arm (769-778) rebuilds the guard's row as `ClauseRow { predicate: guard_predicate_key, field: row.field.clone(), value_type: row.value_type.clone(), values: row.values.clone(), ..row.clone() }`. The spread carries `guard_predicate` through unchanged, so a row whose `guard_predicate` is itself `\"when\"` builds a guard row *identical to its input* and `predicate_from_row(&guard_row)` recurses forever — `temper check` aborts on a stack overflow where `contract.md` demands a loud refusal (\"Guards do not nest\"; \"an unknown predicate is rejected at load, never skipped\") and `compose.rs`'s own lift doc (196-198) promises \"a corrupt lock rejected loud, never a clause silently dropped\". Fix at the mechanism: the guard row is this row minus the `when` clause's own columns — `predicate` set to the guard key, `guard_predicate: None`, `body: None` — the read-side mirror of the writer's spread (`sdk/src/declarations.ts`'s `when` branch sets the clause's seven columns over the guard's row). A `when` guard then decodes to `None` at the inner `row.guard_predicate.as_deref()?` and `compose::clause_from_row` (412) refuses with `ClauseRowError::Predicate`, the existing corrupt-lock channel — no new error variant. The row format carries one `guard_predicate` column and one `body`, so this degenerate self-reference is the only way a lock can spell a nested guard at all; refusing it at lift closes the grammar rule on the read face. Drop the three explicit columns (`field`, `value_type`, `values`) in the same edit: `..row.clone()` already supplies them byte-for-byte, and naming three of the row's argument columns where the spread is total reads as the guard's special set — the partial-enumeration shape the write side shed in 395b5d78. The comment above the arm states the no-nesting rule and cites `contract.md`, \"clause\"."
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "Add the refusal test beside `check_rejects_a_lock_clause_row_the_closed_vocabulary_cannot_admit` (1145), which is the same shape: a hand-built `Declarations` through `common::write_lock`, then `check_in`. Hand-authored input is correct here — a refusal test over a corruption the real writer cannot produce (`engineering.md`, \"A seam gate reads what the real writer wrote\": the real-writer bar scopes agreement claims only). The row is a `when` clause over a custom kind with `guard_predicate: Some(\"when\")`, one `body` row, built with `..common::clause(\"when\", \"required\")`. Assert the run fails and the output carries the corrupt-lock refusal naming the predicate — pre-fix the `check` child dies on SIGABRT (`check_in` spawns `CARGO_BIN_EXE_temper`, so the test binary survives), `ok` is false but the diagnostic assertion fails. The file's two existing guard-row sites need no change: `lock_quads` (2510-2519) reads a lifted `Predicate::When`'s guard target, and the 3527 lift builds its row with `predicate: \"enum\"` directly."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A lock `when` row naming `when` as its own guard recurses forever: `check` aborts on a stack overflow where the grammar demands a loud corrupt-lock refusal.",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "tests": [
+    {
+      "path": "tests/it/lock_declaration_rows.rs",
+      "asserts": "a committed lock whose `when` clause row names `when` as its own `guard_predicate` makes `check` fail loud with the corrupt-lock refusal naming the predicate, never abort"
+    }
+  ],
+  "acceptance": "`cargo test` green with the new refusal test — which fails on the pre-fix tree, where the `check` child aborts with `fatal runtime error: stack overflow` and prints no refusal; `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` clean.",
+  "notes": "Probed on disk this tick: a real harness lock plus one `when` row with `guard_predicate = \"when\"` makes `temper check` abort — `thread 'main' has overflowed its stack`, exit 134. `engine.rs`'s `when_restrictions` (236-262) already holds both grammar rules, guard set and no-nesting, and is simply downstream of the lift that dies. Found by the post-ship sweep of the read half of the seam 395b5d78 respelled. scoped at dcec6f98"
+}
