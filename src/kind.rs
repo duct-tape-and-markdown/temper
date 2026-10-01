@@ -788,10 +788,17 @@ fn format_from_label(label: &str) -> Option<Format> {
     }
 }
 
+/// Split a `<name>(<args>)` wire label into its name and its argument text — the one
+/// reader of the lock's call syntax, for every label vocabulary that spells it. `None`
+/// for a label carrying no terminated call. The argument text comes back verbatim, so
+/// each caller keeps its own vocabulary and its own rule on what arguments are legal.
+fn call_label(label: &str) -> Option<(&str, &str)> {
+    label.strip_suffix(')')?.split_once('(')
+}
+
 /// Parse a [`KindFactRow::unit_shape`] label into its typed [`UnitShape`] — `None`
-/// outside the closed vocabulary. `named-field(<field>)` is the third mode's wire
-/// form, the same `<name>(<field>)` call syntax [`registration_from_label`]'s
-/// field-carrying variants use.
+/// outside the closed vocabulary. `named-field(<field>)` is the third mode's wire form,
+/// read through [`call_label`].
 fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     match label {
         "file" => return Some(UnitShape::File),
@@ -799,7 +806,7 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
         "starred-segment" => return Some(UnitShape::StarredSegment),
         _ => {}
     }
-    let (name, field) = label.strip_suffix(')')?.split_once('(')?;
+    let (name, field) = call_label(label)?;
     (name == "named-field").then(|| UnitShape::NamedField {
         field: field.to_string(),
     })
@@ -965,41 +972,26 @@ pub(crate) fn collection_address_from_row(
 /// `object`, `scalar(field)`, or `group-array(member_key;lifted_field1,lifted_field2,...)`.
 fn entry_shape_from_label(label: &str) -> Option<EntryShape> {
     if label == "object" {
-        Some(EntryShape::Object)
-    } else if label.starts_with("scalar(") && label.ends_with(')') {
-        let field = label[7..label.len() - 1].to_string();
-        if !field.is_empty() {
-            Some(EntryShape::Scalar { field })
-        } else {
-            None
-        }
-    } else if label.starts_with("group-array(") && label.ends_with(')') {
-        let inner = &label[12..label.len() - 1];
-        let parts: Vec<&str> = inner.splitn(2, ';').collect();
-        if parts.len() == 2 {
-            let member_key = parts[0].to_string();
-            let lifted_fields = parts[1]
-                .split(',')
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>();
-            if !member_key.is_empty() && !lifted_fields.is_empty() {
-                Some(EntryShape::GroupArray {
-                    member_key,
-                    lifted_fields,
+        return Some(EntryShape::Object);
+    }
+    let (name, args) = call_label(label)?;
+    match name {
+        "scalar" => (!args.is_empty()).then(|| EntryShape::Scalar {
+            field: args.to_string(),
+        }),
+        "group-array" => match args.split_once(';') {
+            Some((member_key, lifted)) => {
+                (!member_key.is_empty()).then(|| EntryShape::GroupArray {
+                    member_key: member_key.to_string(),
+                    lifted_fields: lifted.split(',').map(str::to_string).collect(),
                 })
-            } else {
-                None
             }
-        } else if parts.len() == 1 && !parts[0].is_empty() {
-            Some(EntryShape::GroupArray {
-                member_key: parts[0].to_string(),
-                lifted_fields: vec![],
-            })
-        } else {
-            None
-        }
-    } else {
-        None
+            None => (!args.is_empty()).then(|| EntryShape::GroupArray {
+                member_key: args.to_string(),
+                lifted_fields: Vec::new(),
+            }),
+        },
+        _ => None,
     }
 }
 
@@ -1065,7 +1057,7 @@ fn layout_region_from_row(
 
 /// Parse one [`KindFactRow::registration`] wire label into its typed [`Registration`]
 /// channel — the closed vocabulary's compact wire form (`always`/`user-invoked`, or a
-/// `<name>(<field>)` call for the four field-carrying variants). `None` for a bare
+/// [`call_label`] call for the four field-carrying variants). `None` for a bare
 /// unrecognized name or a malformed `(field)` suffix. The row carries one label per
 /// declared channel; the caller folds each label of the set through this.
 fn registration_from_label(label: &str) -> Option<Registration> {
@@ -1076,7 +1068,7 @@ fn registration_from_label(label: &str) -> Option<Registration> {
         "registry" => return Some(Registration::Registry),
         _ => {}
     }
-    let (name, field) = label.strip_suffix(')')?.split_once('(')?;
+    let (name, field) = call_label(label)?;
     let field = field.to_string();
     match name {
         "description-trigger" => Some(Registration::DescriptionTrigger { field }),
@@ -1363,6 +1355,65 @@ mod tests {
             None
         );
         assert_eq!(CollectionKeyPath::HooksEvent.identity_edge("a@b"), None);
+    }
+
+    #[test]
+    fn every_call_syntax_vocabulary_decodes_through_the_one_split() {
+        let field = |name: &str| name.to_string();
+
+        assert_eq!(
+            unit_shape_from_label("named-field(name)"),
+            Some(UnitShape::NamedField {
+                field: field("name")
+            })
+        );
+        assert_eq!(
+            registration_from_label("description-trigger(description)"),
+            Some(Registration::DescriptionTrigger {
+                field: field("description")
+            })
+        );
+        assert_eq!(
+            registration_from_label("enablement(enabled)"),
+            Some(Registration::Enablement {
+                field: field("enabled")
+            })
+        );
+        assert_eq!(
+            registration_from_label("paths-match(paths)"),
+            Some(Registration::PathsMatch {
+                field: field("paths")
+            })
+        );
+        assert_eq!(
+            registration_from_label("event(event)"),
+            Some(Registration::Event {
+                field: field("event")
+            })
+        );
+        assert_eq!(
+            entry_shape_from_label("scalar(enabled)"),
+            Some(EntryShape::Scalar {
+                field: field("enabled")
+            })
+        );
+        assert_eq!(
+            entry_shape_from_label("group-array(hooks;matcher)"),
+            Some(EntryShape::GroupArray {
+                member_key: field("hooks"),
+                lifted_fields: vec![field("matcher")],
+            })
+        );
+
+        // A name that spells a call carries no meaning bare, an unterminated call is not
+        // a call, an empty argument is rejected where the vocabulary demands one, and the
+        // split alone never admits a name from outside the vocabulary it decodes.
+        assert_eq!(unit_shape_from_label("named-field"), None);
+        assert_eq!(entry_shape_from_label("scalar"), None);
+        assert_eq!(entry_shape_from_label("scalar(a"), None);
+        assert_eq!(entry_shape_from_label("scalar()"), None);
+        assert_eq!(entry_shape_from_label("group-array()"), None);
+        assert_eq!(entry_shape_from_label("object(x)"), None);
     }
 
     #[test]
