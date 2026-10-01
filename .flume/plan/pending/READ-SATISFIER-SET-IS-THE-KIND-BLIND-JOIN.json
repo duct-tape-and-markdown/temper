@@ -1,0 +1,26 @@
+{
+  "tag": "READ-SATISFIER-SET-IS-THE-KIND-BLIND-JOIN",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/read.rs",
+        "description": "`satisfiers_of` (2261) drops both `requirement.kind` filters — the custom-listing arm's `return None` (2287-2291) and the `by_kind` arm's `continue` (2306-2310) — so the read family's satisfier set is the kind-blind opt-in join `roster::selections` and `coverage::check` range over. Its doc comment's closing paragraph (\"only members of that kind are included\") inverts contract.md's rule and goes with the code; the replacement states the kind facet sources an each-grain clause (`compose::kind_narrowing_clause`), never a narrowing of the set. `count_satisfiers` (1961) is already the kind-blind count and stays as it is — after this the two agree."
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "the pin: a `required` requirement with `kind: Some(\"rule\")` whose only opt-in member is a skill, driven through both sides in one test — `read::explain` over `requirement:<name>` and `coverage::check` over the same `Features` stream."
+      }
+    ]
+  },
+  "summary": "explain's satisfier set filters on the requirement's `kind` facet — a second selector the gate never applies, so a read calls unfilled what `check` counts covered.",
+  "per": { "path": "specs/model/contract.md", "section": "selection" },
+  "tests": [
+    {
+      "path": "tests/it/read_verbs.rs",
+      "asserts": "a typed `required` requirement whose sole opt-in member is of another kind narrates as filled by that member (`Satisfied by:` naming it, coverage state `required, filled by 1 member(s)`), and `coverage::check` over the same corpus emits no `requirement.unfilled` finding — the read and the gate agreeing in one assertion pair rather than two hand-written expectations"
+    }
+  ],
+  "acceptance": "cargo test green, with the new read_verbs pin failing on the pre-fix tree: today the satisfier set is empty and the narration reads \"required, and unfilled — no member opts in, which `check` reports as an error\" while `check` is green.",
+  "notes": "Verified on disk this tick: `coverage::check` is kind-blind by construction (src/coverage.rs:70-77, its doc says so) and `roster::selections` sources the kind facet as a clause instead of a filter (src/roster.rs:43-51). No test pins the read family's narrowing — `rg 'kind: Some' tests/it/read_verbs.rs src/read.rs` is empty — so the behavior being deleted is untested as well as unsanctioned. scoped at 652fdcc5"
+}

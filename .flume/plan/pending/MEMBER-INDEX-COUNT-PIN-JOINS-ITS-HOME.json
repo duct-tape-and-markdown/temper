@@ -1,0 +1,26 @@
+{
+  "tag": "MEMBER-INDEX-COUNT-PIN-JOINS-ITS-HOME",
+  "gate": { "kind": "blockedBy", "tags": ["LEAF-GRAIN-DISPATCH-HAS-ONE-HOME"] },
+  "files": {
+    "edit": [
+      {
+        "path": "src/read.rs",
+        "description": "`mod impact_tests`'s `build_member_index_only_runs_for_telemetry_verified_requirements` (2954-3057) retires with the two helpers it alone uses — `requirement_with_verifier` (3046) and `build_members` (3062), both unreferenced after it, so leaving either behind trips the dead-code gate. `build_member_index_count` (73) and its thread-local keep their shape and their `pub`, which the relocated pin earns."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "the pin joins the other fourteen count pins: drive `read::explain` over four `requirement:`-qualified targets — an undeclared name, a verifier-less requirement, a `Verifier::Script` one, and a `Verifier::Telemetry` one — asserting the `read::build_member_index_count` delta is 0, 0, 0 then exactly 1. The explicit `requirement:` qualifier is what reaches `requirement_detail` for a name the roster lacks (read.rs:228-230, which returns `Species::Requirement` without a namespace check); `tests/it/read_verbs.rs:41-81` is the roster/corpus wiring shape to follow."
+      }
+    ]
+  },
+  "summary": "`build_member_index_count` is `pub` for a caller inside its own module; the other fourteen count accessors are pinned from tests/it/check_cost.rs.",
+  "per": { "path": "specs/process/engineering.md", "section": "An export earns its consumer" },
+  "tests": [
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "the member index builds zero times for an undeclared, a verifier-less, and a `Script`-verified requirement narration, and exactly once for a `Telemetry`-verified one — the same four-step delta the retiring in-module test pinned, now driven through the public `explain` entry"
+    }
+  ],
+  "acceptance": "cargo test green and `rg -a build_member_index_count` showing every consumer in tests/it/check_cost.rs — no caller left inside src/read.rs.",
+  "notes": "Verified this tick with `rg -a`: the accessor's only five callers are `mod impact_tests` (read.rs:2981-3037), while the other fourteen count accessors (install, json_manifest, drift x4, glob, compose x3, import, graph x3) are all read from tests/it/check_cost.rs. `compose::Verifier::Telemetry` is publicly constructible from an integration test (tests/it/read_verbs.rs:581 already does it). scoped at 652fdcc5"
+}
