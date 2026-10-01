@@ -57,3 +57,8 @@ adjacent `build-sdk-dist-race-across-test-binaries.md` race if it built
 `sdk/dist` once up front rather than leaving it to `ensure_sdk_built` racing
 across test binaries. That is the drainer's call — it trades a per-worktree
 install for a class of confusing failures.
+
+Third independent tick paying it, at b253d418: `798 passed; 64 failed` →
+`862 passed; 0 failed`. Same class, same silent signature. The recurrence is
+the argument for the mechanical alternative over the documentation one — three
+ticks have now read the capture's own advice too late to avoid the run.
