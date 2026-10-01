@@ -10,19 +10,39 @@
     "edit": [
       {
         "path": "sdk/src/declarations.ts",
-        "description": "Every row site in this file composes a host's address through `memberAddress` — `mentionRows` at 680, `includeRows` at 746, `inputRows` at 773, `nestedMemberRows`' `host` at 917, the placement/extent key at 838, `declaredAddresses` at 1149 — except the leaf branch at 693, which hands `embeddedLeafMentionRows` the bare `member.name`. It takes `memberAddress(member)` and the helper's `hostName` parameter (708) becomes the host's address. The defect the bare name leaves: since 00e61c77 a nested file child's `features.id` **is** its host-qualified address, so a leaf row headed `home/<kind>/<key>/<field>` matches no member at `read.rs`'s `resolve_leaf` (1510) and the leaf resolves nowhere — and two sibling children each named `home` head one string, the collision 1140's own comment (\"two hosts may each carry a `home`, and a mention names one\") names one grain up."
+        "description": "Every row site in this file composes a host's address through `memberAddress` — `mentionRows` at 680, `includeRows` at 746, `inputRows` at 773, `nestedMemberRows`' `host` at 917, `declaredAddresses` at 1145/1149 — except the leaf branch at 693, which hands `embeddedLeafMentionRows` the bare `member.name`. It takes the `address` already computed at 680, and the helper's `hostName` parameter (708) becomes the host's address. The defect the bare name leaves: a nested file child's `features.id` **is** its host-qualified address (`compose.rs`'s `host_qualified`), so a leaf row headed `<bare-name>/<kind>/<key>/<field>` matches no member at `read.rs`'s `resolve_leaf` and the leaf resolves nowhere — and two sibling children each named `home` head one string, the collision `declaredAddresses` keys one grain up."
       },
       {
         "path": "sdk/src/member-address.ts",
-        "description": "`leafAddress` (150) documents its `member` as carried verbatim \"so a writer holding the bare member id spells the short form the lock already commits\" — that justification is what this removes. The head is the host's own address at whatever grain the host sits: `kind:name` for a top-level host, the host's whole address under a nested one. The signature does not move; the contract its doc states does, and `isNameQualifier` (141) stays the guard that keeps the head one segment wide."
+        "description": "`leafAddress` (171) documents its `member` as carried verbatim \"so a writer holding the bare member id spells the short form the lock already commits\", and `LeafAddress.member` (45-52) names that bare id as the spelling \"this SDK's own leaf writer and the committed lock mention targets spell\" — both justifications are what this removes. The head becomes the host's own address at whatever grain the host sits: `kind:name` for a top-level host, the host's whole address under a nested one; the bare id demotes to a legacy-lock spelling the reader still accepts. No signature moves and `isNameQualifier` (162) stays the guard keeping the head's own first segment one segment wide."
+      },
+      {
+        "path": "src/member_address.rs",
+        "description": "`ParsedLeaf::member`'s doc (167-173) is the Rust twin of `LeafAddress.member`'s and carries the same now-false claim — the bare id is \"the short form the SDK's own leaf writer and the committed lock mention targets spell\". The seam bar is this module header's own (\"a spelling moves on both sides at once or the seam breaks\"), so the reader's doc re-credits the bare head to committed locks alone. Doc only: `parse_leaf_address`, `segment` and `host_identity` already read the canonical head at any depth (4a46402d)."
       },
       {
         "path": "src/read.rs",
-        "description": "`resolve_leaf`'s head comment (1502) credits the bare-id branch (1510) to \"the short form the lock already commits\". With the SDK writing the canonical head at both grains that branch serves a **nested** host (whose `features.id` is its whole address) plus a lock written before this entry, which is what the comment should say; the `parse_host_address` branch (1511) carries the top-level case it used to share. Behaviour is unchanged — both spellings already resolve — and the in-file test lane (2812, 2887) gains the pin."
+        "description": "`resolve_leaf`'s head comment (1510-1514) credits its bare-id branch to \"the short form the lock already commits\". With the SDK writing the canonical head at both grains, the `features.id == parsed.member` branch serves a **nested** host (whose id is its whole address) plus a lock written before this entry, and the `parse_host_address` branch (1515) carries the top-level case it used to share — which is what the comment should say. Behaviour is unchanged (both spellings already resolve); the in-file leaf test lane (2820, 2873) gains the pin."
       },
       {
         "path": "sdk/test/mention.test.ts",
-        "description": "The file's addressing lane — 137's host-qualified target, 159's \"never a leaf-scoped `<host>/<kind>/<key>` address\" — gains the leaf row's own head, which nothing pins today (no test in `sdk/test/` reads a leaf mention row's `member` column). A top-level host's leaf row heads `kind:name`; a nested-file host's heads that host's whole address; two sibling children of one name head two distinct strings."
+        "description": "The file's addressing lane — the refusal at 132 reading a host-qualified `<host>/<kind>/<key>` target, and \"a composed-body prose span's mention keys to the host kind:name and mints no nested member\" (159) — gains the leaf row's own head, which nothing in `sdk/test/` pins today. A top-level host's leaf row heads `kind:name`; a nested-file host's heads that host's whole address; two sibling children of one name head two distinct strings."
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "The pin the previous attempt died on, out of its fence then and named in `files` now. \"a leaf's mention contributes a mention row keyed to the leaf's own structural address\" (1408) asserts at 1434-1435 the bare heads `CLAUDE/decision/surface-authority/chosen` and `CLAUDE/decision/surface-authority/rejected.baked-projection.because`; both respell to `memory:CLAUDE/…`. The pin moving with the contract, not a regression — it is the one `sdk/test/` site that reads a leaf mention row's `member` column end to end."
+      },
+      {
+        "path": "sdk/test/member-address.test.ts",
+        "description": "The comment at 131 — \"The bare member head this SDK's own leaf writer spells parses at leaf grain\" — is false once the writer spells the canonical head. The assertion below it (132, `leafAddress(\"CLAUDE\", …)` parsing back to member `CLAUDE`) stands: the reader still accepts the bare head, and the comment re-credits it to the committed lock rather than to the writer."
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "Two `[[declaration.mention]]` leaf rows (489, 493) carry bare heads — `summarize/step/scan/in`, `summarize/step/summarize/in` — and respell to `flow:summarize/…` under the shipped example's host kind (513). Named here rather than left to the fence's glob, so the re-emit is part of the entry's text; `emit::emit_program_runs_the_shipped_example_harness` is the drift that fails until it lands. The repo's own `.temper/lock.toml` carries zero mention rows and does not move."
+      },
+      {
+        "path": "examples/base-harness/README.md",
+        "description": "The `temper explain scanner` transcript (92-97) quotes the mention row's member column, so it respells with the lock above. It is **already** stale at HEAD against real output, verified by running the verb this tick: the edges-in bullet reads \"• leaf `summarize/step/scan/in` points at it via its `mention` field\", not \"• `summarize/step/scan/in` (requirement) …\", and both headers have grown their composed-member half (\"…it declares and the members its body composes\", \"…point at it and the host whose body composes it\"). Prose staleness riding the entry that opens the file, discharged by naming it."
       }
     ],
     "retire": []
@@ -38,10 +58,18 @@
       "asserts": "a leaf mention row under a nested-file host heads that host's whole address, a top-level host's heads `kind:name`, and two sibling children of one name head two distinct strings"
     },
     {
+      "path": "sdk/test/emit.test.ts",
+      "asserts": "the leaf-row pin reads `memory:CLAUDE/decision/surface-authority/…` at both the leaf and the collection-entry leaf"
+    },
+    {
       "path": "src/read.rs",
       "asserts": "`resolve_leaf` resolves a leaf whose head is a nested host's own address, and still resolves a bare-id head"
+    },
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "`emit_program_runs_the_shipped_example_harness` is drift-free against the re-emitted example lock"
     }
   ],
-  "acceptance": "`pnpm --dir sdk test` and `cargo test` green, with the leaf mention row's member column reading `memberAddress`'s spelling at both grains and a nested host's leaf resolving rather than naming no member.",
-  "notes": "Swept out of the 13b3d9b5..HEAD window: e9c80335's body flagged this as out of its fence and no entry carried it. Blocked on both address readers — a leaf under a depth-1 host spells six segments, which `segment`'s `splitn(4, '/')` cannot read, and `memberAddress`'s own head is only right at depth 2 once the SDK parity entry lands. BREAKING once shipped: `[[declaration.mention]]`'s leaf rows respell, so re-run `temper emit`. scoped at 8b8fcdf0"
+  "acceptance": "`pnpm --dir sdk test` and `cargo test` green, with the leaf mention row's member column reading `memberAddress`'s spelling at both grains, a nested host's leaf resolving rather than naming no member, and the example's lock plus its README transcript re-emitted to match.",
+  "notes": "Rewritten off `.flume/refactor/build-leaf-mention-row-fence-misses-emit-test.md` (observed 0e419c2d, re-verified at HEAD): the three-file code half was proven green there, blocked only by the `emit.test.ts` pin and the example lock. Both address readers have since landed (91440c4f, 0e419c2d). BREAKING: `[[declaration.mention]]`'s leaf rows respell, so an adopter re-runs `temper emit`. scoped at fca7b4f9"
 }
