@@ -494,7 +494,11 @@ pub enum DriftError {
     NestedFileLocus {
         /// The nested file kind whose member cannot be placed.
         kind: String,
-        /// The member with no composable path.
+        /// The member with no composable path, by its **whole address** — a nested child's
+        /// `<host-address>/<kind>/<key>` when a host is named, its `<kind>:<name>` when
+        /// none is — so two hosts' same-keyed children are refused under two addresses a
+        /// reader can tell apart. A registration entry reaching here is a collection's,
+        /// not a host's, and names its own key.
         member: String,
         /// Which half of the composition is missing.
         detail: String,
@@ -534,7 +538,8 @@ pub enum DriftError {
     UngovernedProjection {
         /// The kind whose glob cannot find its own member's projection.
         kind: String,
-        /// The member's `kind:name` address.
+        /// The member's **whole address** — a nested file child's
+        /// `<host-address>/<kind>/<key>`, a top-level member's `<kind>:<name>`.
         member: String,
         /// The derived path, relative to the locus the glob is rooted at.
         path: String,
@@ -1114,10 +1119,15 @@ pub fn fold_base(locus: &Path, pattern: &str) -> PathBuf {
 /// match here — the polarity every segment-level caller takes, and a glob temper cannot
 /// understand can find nothing.
 ///
+/// `host` is the member's own host column, threaded from both callers so the refusal names
+/// the member by the whole address it wears ([`member_address_under`]) — a nested file
+/// child's `<host-address>/<kind>/<key>`, a top-level member's `<kind>:<name>`.
+///
 /// # Errors
 /// Returns [`DriftError::UngovernedProjection`] when the glob does not match `relative`.
 fn refuse_ungoverned(
     kind: &str,
+    host: Option<&str>,
     member: &str,
     glob: &str,
     relative: &str,
@@ -1127,7 +1137,7 @@ fn refuse_ungoverned(
     }
     Err(DriftError::UngovernedProjection {
         kind: kind.to_string(),
-        member: host_address(kind, member),
+        member: member_address_under(host, kind, member),
         path: relative.to_string(),
         glob: glob.to_string(),
     })
@@ -1203,7 +1213,7 @@ fn nested_file_path(
 ) -> Result<PathBuf, DriftError> {
     let refuse = |detail: String| DriftError::NestedFileLocus {
         kind: facts.name.clone(),
-        member: name.to_string(),
+        member: member_address_under(host, &facts.name, name),
         detail,
     };
     let address = host.ok_or_else(|| refuse("it names no host member".to_string()))?;
@@ -1237,7 +1247,7 @@ fn nested_file_path(
     // The host's unit is the locus the template pattern is rooted at — `import`'s own
     // per-host scan walks the pattern from exactly there — so the placement is what the
     // pattern has to find.
-    refuse_ungoverned(&facts.name, name, pattern, &placed)?;
+    refuse_ungoverned(&facts.name, host, name, pattern, &placed)?;
     Ok(host_unit.join(placed))
 }
 
@@ -1354,7 +1364,7 @@ fn member_projection_path(
     let relative = placement_in_unit(facts, glob, name)?;
     // `governs_root` is the locus the glob is rooted at, so the relative path is what the
     // glob has to find — the same spelling `import`'s walk matches segment by segment.
-    refuse_ungoverned(&facts.name, name, glob, &relative)?;
+    refuse_ungoverned(&facts.name, host, name, glob, &relative)?;
     Ok(join_locus(root, &relative))
 }
 

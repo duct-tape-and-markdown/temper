@@ -1945,3 +1945,170 @@ process.stdout.write(
         );
     }
 }
+
+/// **A placement refusal names its member by the one address grammar too.** The two
+/// refusals the write face raises before a byte is written — `NestedFileLocus`, when a
+/// host supplies no half of the composition, and `UngovernedProjection`, when the derived
+/// path is one the deriving pattern cannot find — are findings about a *nested* member, so
+/// each names the whole `<host-address>/<kind>/<key>` its subject wears
+/// (`specs/model/representation.md`, "member"). A bare key names no member, and names two
+/// same-keyed children under two hosts identically.
+///
+/// One emit per fixture: a refusal aborts the pass, so two addresses can never appear in
+/// one report — the pair is told apart by comparing the two reports.
+mod a_placement_refusal_names_the_members_whole_address {
+    use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
+
+    use crate::common;
+
+    /// A `guide` host at an `at` locus owning a directory unit, and templating **no** file
+    /// layer — the half of the composition a nested child cannot supply for itself.
+    fn kinds_templating_no_layer() -> Vec<KindFactRow> {
+        vec![
+            KindFactRow {
+                unit_shape: Some("directory".to_string()),
+                ..common::kind_facts("guide", ".claude/guides", "*/GUIDE.md")
+            },
+            KindFactRow {
+                governs_root: None,
+                governs_glob: None,
+                unit_shape: Some("file".to_string()),
+                ..common::kind_facts("supporting-doc", "", "")
+            },
+        ]
+    }
+
+    /// One `supporting-doc` member keyed `checklist`, under `host` (or under none).
+    fn checklist(host: Option<&str>) -> PayloadMember {
+        PayloadMember {
+            kind: "supporting-doc".to_string(),
+            name: "checklist".to_string(),
+            host: host.map(str::to_string),
+            fields: Vec::new(),
+            body: "# Checklist\n".to_string(),
+            source_path: None,
+        }
+    }
+
+    /// Emit the one-member corpus and render the refusal it raises.
+    fn refusal(label: &str, kinds: Vec<KindFactRow>, members: Vec<PayloadMember>) -> String {
+        let (_harness, into) = common::workspace(label);
+        let payload = Payload {
+            version: drift::SEAM_VERSION,
+            declarations: Declarations {
+                kinds,
+                ..Declarations::default()
+            },
+            members,
+        };
+        let err = drift::emit(&payload, &into, EmitOptions::default())
+            .expect_err("a child with no composable placement is refused, never guessed");
+        format!("{err:?}")
+    }
+
+    #[test]
+    fn a_nested_file_childs_locus_refusal_names_its_host_and_a_hostless_ones_reads_kind_name() {
+        let under_operating = refusal(
+            "locus-refusal-operating",
+            kinds_templating_no_layer(),
+            vec![checklist(Some("guide:operate-the-gate"))],
+        );
+        assert!(
+            under_operating.contains("`guide:operate-the-gate/supporting-doc/checklist`")
+                && under_operating.contains("has no path to compose"),
+            "the refusal names the child's whole address: {under_operating}"
+        );
+
+        // The second host's same-keyed child: a separate emit, because the refusal aborts
+        // the pass — so the pair is told apart across the two reports rather than within
+        // one.
+        let under_adopting = refusal(
+            "locus-refusal-adopting",
+            kinds_templating_no_layer(),
+            vec![checklist(Some("guide:adopt-the-harness"))],
+        );
+        assert!(
+            under_adopting.contains("`guide:adopt-the-harness/supporting-doc/checklist`"),
+            "and the other host's child is named under its own host: {under_adopting}"
+        );
+        assert_ne!(
+            under_operating, under_adopting,
+            "two same-keyed children under two hosts are two refusals a reader can tell \
+             apart"
+        );
+
+        // The bare key is spelled by neither: it names no member, and it named both of
+        // these identically before the host column reached the refusal.
+        for rendered in [&under_operating, &under_adopting] {
+            assert!(
+                !rendered.contains("`checklist`"),
+                "a bare key spells an address no member wears: {rendered}"
+            );
+        }
+
+        // And the arm that has no host at all still reads `<kind>:<name>` — the top-level
+        // floor of the same grammar, not a nested address with an empty host.
+        let hostless = refusal(
+            "locus-refusal-hostless",
+            kinds_templating_no_layer(),
+            vec![checklist(None)],
+        );
+        assert!(
+            hostless.contains("`supporting-doc:checklist`")
+                && hostless.contains("it names no host member"),
+            "a child naming no host is refused at its `<kind>:<name>` address: {hostless}"
+        );
+    }
+
+    #[test]
+    fn an_ungoverned_childs_projection_refusal_names_its_host_too() {
+        // An admissible declaration that reaches the round-trip refusal: the child owns a
+        // **directory** unit, so it places `<name>/<entry>` — one segment deep — while its
+        // host's pattern carries a literal directory prefix of its own, which that
+        // placement never lands under.
+        let kinds = vec![
+            KindFactRow {
+                unit_shape: Some("directory".to_string()),
+                templates: vec![temper::drift::TemplateRow {
+                    kind: "page".to_string(),
+                    path: Some("notes/PAGE.md".to_string()),
+                }],
+                ..common::kind_facts("area", ".claude/areas", "*/AREA.md")
+            },
+            KindFactRow {
+                governs_root: None,
+                governs_glob: None,
+                unit_shape: Some("directory".to_string()),
+                ..common::kind_facts("page", "", "")
+            },
+        ];
+        let members = vec![
+            PayloadMember {
+                kind: "area".to_string(),
+                name: "ops".to_string(),
+                host: None,
+                fields: Vec::new(),
+                body: "# Ops\n".to_string(),
+                source_path: None,
+            },
+            PayloadMember {
+                kind: "page".to_string(),
+                name: "gate".to_string(),
+                host: Some("area:ops".to_string()),
+                fields: Vec::new(),
+                body: "# The gate\n".to_string(),
+                source_path: None,
+            },
+        ];
+
+        let rendered = refusal("ungoverned-child-address", kinds, members);
+        assert!(
+            rendered.contains("`area:ops/page/gate`") && rendered.contains("`gate/PAGE.md`"),
+            "the ungoverned projection names the child's whole address: {rendered}"
+        );
+        assert!(
+            !rendered.contains("`page:gate`"),
+            "never the host-less `kind:name` a nested child does not wear: {rendered}"
+        );
+    }
+}
