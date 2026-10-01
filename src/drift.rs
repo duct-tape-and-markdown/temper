@@ -2736,10 +2736,16 @@ fn splice_includes(host: &str, body: &str, contents: &[String]) -> Result<String
     Ok(out)
 }
 
-/// The projection-path → `kind:name` index every member contributes, keyed by the
+/// The projection-path → member-address index every member contributes, keyed by the
 /// lexically-normalized harness-relative path so a resolved layout import joins it the way
 /// [`resolve_source_dependency`] resolves its target. A member whose kind the payload carries
 /// no fact for is skipped — the [`emit`] loop reports that fault where it dispatches.
+///
+/// The value is the member's own whole address ([`payload_member_address`]), not a label: a
+/// reference resolving to a nested file child's projection records that child's
+/// `<host-address>/<kind>/<key>` identity, so the edge it lifts into names a member that
+/// exists and two hosts' same-keyed children never collide. A top-level member's value is
+/// unmoved.
 ///
 /// # Errors
 /// Returns the refusals [`member_projection_path`] raises when a member maps to no one
@@ -2760,7 +2766,7 @@ fn member_path_index(
             member.host.as_deref(),
             kind_facts,
         )?);
-        index.insert(path, host_address(&member.kind, &member.name));
+        index.insert(path, payload_member_address(member));
     }
     Ok(index)
 }

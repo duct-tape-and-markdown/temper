@@ -1117,6 +1117,21 @@ pub fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMem
     }
 }
 
+/// A hand-built `PayloadMember` of any kind — body only, no fields — optionally beneath
+/// `host`, which carries the host member's own whole address. The general home beside the
+/// per-kind [`rule_member`]/[`skill_member`] builders, for the suites whose fixture needs
+/// a kind those two do not cover or a member nested under a host.
+pub fn payload_member(kind: &str, name: &str, host: Option<&str>, body: &str) -> PayloadMember {
+    PayloadMember {
+        kind: kind.to_string(),
+        name: name.to_string(),
+        host: host.map(str::to_string),
+        fields: Vec::new(),
+        body: body.to_string(),
+        source_path: None,
+    }
+}
+
 /// The `skill` built-in kind's declaration row, parameterized by the
 /// `provider`/`registration` values callers diverge on — the rest of the row
 /// (`governs`, `format`, `unit_shape`) is the kind's fixed shape.

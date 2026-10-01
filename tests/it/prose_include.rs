@@ -242,3 +242,159 @@ fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
         "the include edge is narrated: {narration}"
     );
 }
+
+/// **An include edge names a nested child by its whole address.** The projection-path
+/// index a reference resolves through keys every member, and a nested file child's identity
+/// is its `<host-address>/<kind>/<key>` address — so an include landing on one records that
+/// address, the edge it lifts into names a member that exists, and two hosts' same-keyed
+/// children stay two targets a reader can tell apart. A top-level target is unmoved.
+mod an_include_naming_a_nested_child_spells_its_whole_address {
+    use std::collections::BTreeMap;
+    use std::fs;
+
+    use temper::drift::{
+        self, Declarations, EmitOptions, IncludeRow, KindFactRow, Payload, TemplateRow,
+    };
+    use temper::graph::{self, ImportDeclaration};
+
+    use super::INCLUDE_SLOT;
+    use crate::common;
+
+    /// Two guides, each templating a `*.md` file child and each carrying a child keyed
+    /// `checklist` — the collision the host segment of the address resolves — plus a
+    /// top-level `rule` whose three include slots take both children and one plain
+    /// top-level member's file.
+    fn two_hosts_one_key(harness: &std::path::Path) -> Payload {
+        let guide = KindFactRow {
+            unit_shape: Some("directory".to_string()),
+            templates: vec![TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }],
+            ..common::kind_facts("guide", ".claude/guides", "*/GUIDE.md")
+        };
+        let supporting_doc = KindFactRow {
+            governs_root: None,
+            governs_glob: None,
+            unit_shape: Some("file".to_string()),
+            ..common::kind_facts("supporting-doc", "", "")
+        };
+        let host_body = format!("Intro.\n{INCLUDE_SLOT}{INCLUDE_SLOT}{INCLUDE_SLOT}Outro.\n");
+        let include = |relative: &str| IncludeRow {
+            member: "rule:host".to_string(),
+            source_path: harness.join(relative).to_string_lossy().into_owned(),
+        };
+        Payload {
+            version: drift::SEAM_VERSION,
+            declarations: Declarations {
+                kinds: vec![common::bare_rule_kind_facts(), guide, supporting_doc],
+                includes: vec![
+                    include(".claude/guides/operate-the-gate/checklist.md"),
+                    include(".claude/guides/adopt-the-harness/checklist.md"),
+                    include(".claude/rules/shared.md"),
+                ],
+                ..Default::default()
+            },
+            members: vec![
+                common::rule_member("host", None, &host_body),
+                common::rule_member("shared", None, "shared prose.\n"),
+                common::payload_member("guide", "operate-the-gate", None, "# Operate the gate\n"),
+                common::payload_member("guide", "adopt-the-harness", None, "# Adopt the harness\n"),
+                common::payload_member(
+                    "supporting-doc",
+                    "checklist",
+                    Some("guide:operate-the-gate"),
+                    "operate checklist.\n",
+                ),
+                common::payload_member(
+                    "supporting-doc",
+                    "checklist",
+                    Some("guide:adopt-the-harness"),
+                    "adopt checklist.\n",
+                ),
+            ],
+        }
+    }
+
+    #[test]
+    fn a_nested_childs_include_target_carries_its_host_and_a_top_levels_still_reads_kind_name() {
+        let harness = common::scaffold("prose-include-nested-target");
+        let into = harness.join(".temper");
+        // Every include target is pre-placed on disk, as an idempotent re-emit would find
+        // it: the resolve reads raw disk ahead of writing any projection.
+        for (relative, body) in [
+            (
+                ".claude/guides/operate-the-gate/checklist.md",
+                "operate checklist.\n",
+            ),
+            (
+                ".claude/guides/adopt-the-harness/checklist.md",
+                "adopt checklist.\n",
+            ),
+            (".claude/rules/shared.md", "shared prose.\n"),
+        ] {
+            let path = harness.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, body).unwrap();
+        }
+
+        drift::emit(&two_hosts_one_key(&harness), &into, EmitOptions::default())
+            .expect("two hosts each carrying a `checklist` is one address apiece, never a clash");
+
+        let includes = drift::includes(&into).unwrap();
+        let targets: Vec<&str> = includes.iter().map(|row| row.target.as_str()).collect();
+        assert_eq!(
+            targets,
+            vec![
+                "guide:operate-the-gate/supporting-doc/checklist",
+                "guide:adopt-the-harness/supporting-doc/checklist",
+                "rule:shared",
+            ],
+            "each child's target is its whole address, and the top-level target is \
+             byte-identical to the one spelling it always read: {includes:#?}"
+        );
+
+        // Lifted into the resolved-edge enumeration the gate and the read verbs range over:
+        // each nested target parses back to the child's own node, never a bare
+        // `supporting-doc:checklist` naming a member no corpus holds.
+        let edges = graph::resolved_import_edges(
+            &includes
+                .iter()
+                .map(|row| ImportDeclaration {
+                    member: row.member.clone(),
+                    target: row.target.clone(),
+                })
+                .collect::<Vec<_>>(),
+        );
+        let endpoints: Vec<(&str, &str, &str)> = edges
+            .iter()
+            .map(|edge| (edge.field.as_str(), edge.to.0.as_str(), edge.to.1.as_str()))
+            .collect();
+        assert_eq!(
+            endpoints,
+            vec![
+                (
+                    "import",
+                    "supporting-doc",
+                    "guide:operate-the-gate/supporting-doc/checklist"
+                ),
+                (
+                    "import",
+                    "supporting-doc",
+                    "guide:adopt-the-harness/supporting-doc/checklist"
+                ),
+                ("import", "rule", "shared"),
+            ],
+            "one edge per include, each nested endpoint the child's own node: {endpoints:#?}"
+        );
+
+        // The three `to` nodes really are distinct, so neither host's `checklist` shadows
+        // the other's in the one graph both land in.
+        let distinct: BTreeMap<_, _> = edges.iter().map(|edge| (&edge.to, ())).collect();
+        assert_eq!(
+            distinct.len(),
+            3,
+            "two same-keyed children collide on no address: {endpoints:#?}"
+        );
+    }
+}
