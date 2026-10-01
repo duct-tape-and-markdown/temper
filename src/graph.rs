@@ -49,6 +49,13 @@ thread_local! {
     /// that whole-corpus work at once per `gate()` invocation — and at zero where no
     /// root `reachable` clause binds.
     static LIVE_MEMBERS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+
+    /// Per-thread count of containment-family derivations. Incremented each time
+    /// [`containment_edges`] passes over the composed corpus, pinning that whole-corpus
+    /// work at once per `gate()` invocation — it rides [`resolved_edges`], so a corpus
+    /// declaring both the `degree` and the `reached-from` clause family derives it once
+    /// rather than once per opting-in predicate.
+    static CONTAINMENT_EDGES_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// Per-thread count of resolved-edge computations. The walk is single-threaded on
@@ -63,6 +70,13 @@ pub fn resolved_edges_count() -> usize {
 #[must_use]
 pub fn live_members_count() -> usize {
     LIVE_MEMBERS_COUNT.with(std::cell::Cell::get)
+}
+
+/// Per-thread count of containment-family derivations. The pass is single-threaded on
+/// its caller's thread, so this counts one run's derivations in isolation.
+#[must_use]
+pub fn containment_edges_count() -> usize {
+    CONTAINMENT_EDGES_COUNT.with(std::cell::Cell::get)
 }
 
 /// The diagnostic `rule` id every route-resolution finding reports under.
@@ -140,9 +154,9 @@ pub struct ResolvedEdge {
 }
 
 /// The outcome of computing the resolved edges over declared references: the arcs
-/// that form real member→member relationships and the dangling-route diagnostics
-/// for references that resolve to no artifact — both halves of one walk, computed once
-/// per `gate()` invocation.
+/// that form real member→member relationships, the dangling-route diagnostics
+/// for references that resolve to no artifact, and the derived containment family —
+/// all three halves of one walk, computed once per `gate()` invocation.
 #[derive(Clone)]
 pub struct ResolvedEdgesResult {
     /// The **resolved** references — each an arc from one member to another over a
@@ -151,6 +165,12 @@ pub struct ResolvedEdgesResult {
     /// The route-resolution findings — one per dangling reference, named to the
     /// importing member.
     pub dangling_diagnostics: Vec<Diagnostic>,
+    /// The derived **containment** family ([`containment_edges`]) — a host's incidence
+    /// on each embedded member its body composes. A whole-corpus pass like the
+    /// resolution walk itself, so it rides it: every consumer that ranges over
+    /// containment ([`degree`], [`reached_from`], `crate::read`'s narration) reads this
+    /// one field rather than deriving its own.
+    pub containment: Vec<ResolvedEdge>,
 }
 
 /// Check **route resolution** over the harness reference graph:
@@ -425,10 +445,10 @@ fn filtered_edges<'e>(
 /// authored `degree` clause may range over it exactly as it does a declared reference
 /// edge.
 ///
-/// `by_kind` is the composed corpus the **containment** family derives from
-/// ([`containment_edges`]) — a host's incidence on each embedded member its body
-/// composes. The family is derived *after* the opt-in early return, so a corpus whose
-/// selections declare no `degree` clause pays nothing for it, and it enters the
+/// `containment` is the derived **containment** family ([`containment_edges`]) — a
+/// host's incidence on each embedded member its body composes — taken pre-computed off
+/// [`ResolvedEdgesResult::containment`], a whole-corpus pass that rides the one
+/// resolution walk rather than being derived per opting-in predicate. It enters the
 /// adjacency only for a clause whose field filter names its `contains:` field: an
 /// unfiltered bound's verdict cannot move.
 #[must_use]
@@ -436,14 +456,13 @@ pub fn degree(
     selections: &[Selection],
     resolved: &[ResolvedEdge],
     mention_edges: &[ResolvedEdge],
-    by_kind: &BTreeMap<&str, &[Features]>,
+    containment: &[ResolvedEdge],
 ) -> Vec<Diagnostic> {
     if !any_clause_of(selections, |predicate| {
         matches!(predicate, Predicate::Degree { .. })
     }) {
         return Vec::new();
     }
-    let containment = containment_edges(by_kind);
 
     // One index per distinct filter, built on first sight and reused by every clause
     // declaring the same set — the unfiltered `None` key included.
@@ -461,7 +480,7 @@ pub fn degree(
                 continue;
             };
             let index = indexes.entry(fields.clone()).or_insert_with(|| {
-                DegreeIndex::build(resolved, mention_edges, &containment, fields.as_deref())
+                DegreeIndex::build(resolved, mention_edges, containment, fields.as_deref())
             });
             for (kind, features) in &selection.members {
                 let node = ((*kind).to_string(), features.id.clone());
@@ -527,8 +546,10 @@ pub fn degree(
 /// it terminates and moves no verdict.
 ///
 /// Opt-in exactly as [`degree`] and [`mention_reachable`] are: a corpus declaring no
-/// `reached-from` clause walks no closure, and the containment family is derived past
-/// that early return so it costs nothing either. Each distinct via set is walked once
+/// `reached-from` clause walks no closure. The `containment` family arrives
+/// pre-computed off [`ResolvedEdgesResult::containment`] — the same slice [`degree`]
+/// reads, derived once with the resolution walk rather than once per opting-in
+/// predicate. Each distinct via set is walked once
 /// per roots requirement and shared by every clause declaring the pair, so the cost is
 /// per closure rather than per clause.
 #[must_use]
@@ -536,14 +557,13 @@ pub fn reached_from(
     selections: &[Selection],
     resolved: &[ResolvedEdge],
     mention_edges: &[ResolvedEdge],
-    by_kind: &BTreeMap<&str, &[Features]>,
+    containment: &[ResolvedEdge],
 ) -> Vec<Diagnostic> {
     if !any_clause_of(selections, |predicate| {
         matches!(predicate, Predicate::ReachedFrom { .. })
     }) {
         return Vec::new();
     }
-    let containment = containment_edges(by_kind);
 
     // One closure per distinct `(roots, via)` pair, computed on first sight and reused
     // by every clause declaring the same pair.
@@ -560,7 +580,7 @@ pub fn reached_from(
                 .or_insert_with(|| {
                     forward_closure(
                         &root_nodes(selections, roots),
-                        &filtered_edges(resolved, mention_edges, &containment, via.as_deref()),
+                        &filtered_edges(resolved, mention_edges, containment, via.as_deref()),
                     )
                 });
             for (kind, features) in &selection.members {
@@ -1646,8 +1666,9 @@ fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
     )
 }
 
-/// Enumerate every **resolved** reference edge and the **dangling** routes that
-/// resolve to no artifact: the single arc-resolution pass computed once per `gate()`
+/// Enumerate every **resolved** reference edge, the **dangling** routes that
+/// resolve to no artifact, and the derived **containment** family: the single
+/// whole-corpus pass computed once per `gate()`
 /// invocation, its dangling half the run's route verdict and its resolved half shared
 /// across [`degree`], [`reached_from`], [`mention_reachable`] and [`reachable`]. For each
 /// admissible edge, each
@@ -1710,6 +1731,10 @@ pub fn resolved_edges(
     ResolvedEdgesResult {
         resolved,
         dangling_diagnostics,
+        // The derived containment family rides the walk rather than each opting-in
+        // predicate: both are whole-corpus passes, and deriving it per predicate made a
+        // corpus declaring two clause families pay for the corpus twice in one run.
+        containment: containment_edges(by_kind),
     }
 }
 
@@ -2274,8 +2299,13 @@ pub fn contains_field(kind: &str) -> String {
 /// embedded member's own `(kind, id)` node, where the id is its whole
 /// `<host-address>/<kind>/<key>` address — the identical node [`degree`] keys a selected
 /// embedded member by, so a bound over the family and a bound over the member agree.
+///
+/// A whole-corpus pass, so it is derived **once per run** on
+/// [`ResolvedEdgesResult::containment`] and shared by every consumer rather than
+/// re-derived per opting-in predicate; [`containment_edges_count`] pins that.
 #[must_use]
 pub fn containment_edges(by_kind: &BTreeMap<&str, &[Features]>) -> Vec<ResolvedEdge> {
+    CONTAINMENT_EDGES_COUNT.with(|c| c.set(c.get() + 1));
     let mut edges = Vec::new();
     for (kind, members) in by_kind {
         for features in members.iter() {
@@ -2948,13 +2978,13 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let walk = resolved_edges(&edges, &by_kind);
         assert!(
             degree(
                 &roster::selections(&requirements, &by_kind),
-                &resolved,
+                &walk.resolved,
                 &[],
-                &by_kind
+                &walk.containment
             )
             .is_empty()
         );
@@ -2981,12 +3011,12 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let walk = resolved_edges(&edges, &by_kind);
         let diags = degree(
             &roster::selections(&requirements, &by_kind),
-            &resolved,
+            &walk.resolved,
             &[],
-            &by_kind,
+            &walk.containment,
         );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
@@ -3017,13 +3047,13 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let walk = resolved_edges(&edges, &by_kind);
         assert!(
             degree(
                 &roster::selections(&requirements, &by_kind),
-                &resolved,
+                &walk.resolved,
                 &[],
-                &by_kind
+                &walk.containment
             )
             .is_empty()
         );
@@ -3049,12 +3079,12 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let walk = resolved_edges(&edges, &by_kind);
         let diags = degree(
             &roster::selections(&requirements, &by_kind),
-            &resolved,
+            &walk.resolved,
             &[],
-            &by_kind,
+            &walk.containment,
         );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "requirement.gate.degree");
@@ -3083,12 +3113,12 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let walk = resolved_edges(&edges, &by_kind);
         let diags = degree(
             &roster::selections(&requirements, &by_kind),
-            &resolved,
+            &walk.resolved,
             &[],
-            &by_kind,
+            &walk.containment,
         );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "requirement.gate.degree");
@@ -3117,12 +3147,12 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let walk = resolved_edges(&edges, &by_kind);
         let diags = degree(
             &roster::selections(&requirements, &by_kind),
-            &resolved,
+            &walk.resolved,
             &[],
-            &by_kind,
+            &walk.containment,
         );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "style");
@@ -3140,13 +3170,13 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let walk = resolved_edges(&edges, &by_kind);
         assert!(
             degree(
                 &roster::selections(&requirements, &by_kind),
-                &resolved,
+                &walk.resolved,
                 &[],
-                &by_kind
+                &walk.containment
             )
             .is_empty()
         );
@@ -3208,12 +3238,12 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let walk = resolved_edges(&edges, &by_kind);
         let diags = degree(
             &roster::selections(&requirements, &by_kind),
-            &resolved,
+            &walk.resolved,
             &[],
-            &by_kind,
+            &walk.containment,
         );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "standards");
@@ -3249,7 +3279,7 @@ mod tests {
                 &roster::selections(&requirements, &by_kind),
                 &[],
                 &mention_edges,
-                &by_kind
+                &[]
             )
             .is_empty()
         );

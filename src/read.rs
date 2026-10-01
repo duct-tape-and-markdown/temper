@@ -1165,15 +1165,16 @@ fn why_impl(
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     member: &str,
 ) -> String {
-    let mut resolved = graph::resolved_edges(edges, by_kind).resolved;
+    let walk = graph::resolved_edges(edges, by_kind);
+    let mut resolved = walk.resolved;
     let (resolved_mentions, dangling_mentions) =
         graph::partition_mentions(mention_edges, by_kind, roster);
     resolved.extend(resolved_mentions);
-    // The derived containment family, off the same enumeration the gate's `degree`
-    // counts (READ-EDGE-UNIFY) — kept beside the resolved set rather than folded into
-    // it, because containment is an incidence a body composes, never a reference field
-    // an author declared, and the two narrate in different voices.
-    let containment = graph::containment_edges(by_kind);
+    // The derived containment family, off the same walk the gate's `degree` counts
+    // (READ-EDGE-UNIFY) — kept beside the resolved set rather than folded into it,
+    // because containment is an incidence a body composes, never a reference field an
+    // author declared, and the two narrate in different voices.
+    let containment = walk.containment;
 
     let mut matches: Vec<Member> = members(custom)
         .into_iter()

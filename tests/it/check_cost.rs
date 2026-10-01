@@ -717,6 +717,150 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
     );
 }
 
+/// The **containment** incidence family is a whole-corpus pass over the composed corpus,
+/// so the cost doctrine puts it at once per run — not once per opting-in predicate.
+/// `degree` and `reached-from` each derived it for themselves past their own opt-in
+/// early return, so a corpus declaring both clause families paid for the corpus twice in
+/// one run. The pin is taken over `gate()` itself, like the edge walk's above: the
+/// derivation now rides the one resolution walk, and both counts are asserted so folding
+/// it in cannot have bought the family's single pass with a second walk.
+#[test]
+fn gate_derives_the_containment_family_once_per_run() {
+    use std::collections::BTreeMap;
+    use temper::drift::{
+        ClauseRow, DegreeBoundRow, EdgeBoundRow, KindFactRow, NestedMemberRow, RequirementRow,
+        TemplateRow,
+    };
+    use temper::{gate, graph};
+
+    /// One embedded `directive` member, keyed `key`, composed by the rule `host`.
+    fn composed(host: &str, key: &str) -> NestedMemberRow {
+        NestedMemberRow {
+            host: format!("rule:{host}"),
+            kind: "directive".to_string(),
+            key: key.to_string(),
+            leaves: BTreeMap::new(),
+            collections: Vec::new(),
+            placed_edges: None,
+            rendered_lines: None,
+            rendered_chars: None,
+        }
+    }
+
+    let root = tmpdir("gate-containment-family-pin");
+    // Three rules: `style` composes a directive and routes at `voice`, `voice` composes
+    // one and routes nowhere, `terse` composes nothing and routes nowhere.
+    for name in ["style", "voice", "terse"] {
+        common::write_rule(&root, name);
+    }
+    fs::write(
+        root.join(".claude/rules/style.md"),
+        common::scoped_routing_rule(None, Some("voice")),
+    )
+    .unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            // The `rule` kind admits the embedded `directive` the nested rows compose.
+            kinds: vec![KindFactRow {
+                templates: vec![TemplateRow {
+                    kind: "directive".to_string(),
+                    path: None,
+                }],
+                ..common::rule_kind_facts(None, &[])
+            }],
+            assembly: vec![common::edge("rule", "routes_to", "rule")],
+            nested_members: vec![
+                composed("style", "no-force-push"),
+                composed("voice", "rust"),
+            ],
+            // `gate`: a `degree` floor over the containment family's own `contains:`
+            // field. `entrypoint`: the role the `reached-from` closure roots at.
+            requirements: vec![
+                RequirementRow {
+                    clauses: vec![ClauseRow {
+                        fields: Some(vec!["contains:directive".to_string()]),
+                        ..common::required_clause_row(
+                            "degree",
+                            None,
+                            None,
+                            None,
+                            Some(DegreeBoundRow {
+                                incoming: None,
+                                outgoing: Some(EdgeBoundRow {
+                                    min: Some(1),
+                                    max: None,
+                                }),
+                            }),
+                        )
+                    }],
+                    ..common::requirement("gate", false, Some("rule"))
+                },
+                common::requirement("entrypoint", false, None),
+            ],
+            clauses: vec![ClauseRow {
+                kind: Some("rule".to_string()),
+                target: Some("entrypoint".to_string()),
+                fields: Some(vec!["routes_to".to_string()]),
+                ..common::clause("reached-from", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+    // Authored after the lock: `author_rule_satisfies` edits what `write_lock` wrote.
+    for name in ["style", "voice", "terse"] {
+        common::author_rule_satisfies(&root, name, &["gate"]);
+    }
+    common::author_rule_satisfies(&root, "style", &["gate", "entrypoint"]);
+
+    let containment_before = graph::containment_edges_count();
+    let walks_before = graph::resolved_edges_count();
+    let (diagnostics, _) = gate::gate(&root.join(".temper"), &root, &[]).unwrap();
+    let derivations = graph::containment_edges_count() - containment_before;
+    let walks = graph::resolved_edges_count() - walks_before;
+
+    let fired = |rule: &str| -> Vec<&str> {
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.rule == rule)
+            .map(|diagnostic| diagnostic.artifact.as_str())
+            .collect()
+    };
+
+    // Non-vacuity, the family's contents: the `degree` floor is filtered to
+    // `contains:directive`, so `style` and `voice` clear it only because the derived
+    // family really carries their arcs — a family that came back empty would indict all
+    // three. `terse` composes nothing and is the sole finding.
+    assert_eq!(
+        fired("requirement.gate.degree"),
+        vec!["terse"],
+        "the two composing rules clear the containment floor and `terse` alone fires: \
+         {diagnostics:#?}",
+    );
+
+    // Non-vacuity, the second clause family: `reached-from` must really have run past its
+    // own opt-in guard — the closure over `routes_to` from the `entrypoint` root `style`
+    // holds `voice` and leaves `terse` outside it.
+    assert_eq!(
+        fired("rule.reached-from"),
+        vec!["terse"],
+        "the closure holds the root and the rule it routes at; `terse` alone fires: \
+         {diagnostics:#?}",
+    );
+
+    assert_eq!(
+        derivations, 1,
+        "gate() must derive the containment family exactly once over a corpus declaring \
+         both clause families, not once per opting-in predicate: {derivations} passes",
+    );
+    assert_eq!(
+        walks, 1,
+        "the family rides the one resolution walk rather than adding a pass of its own: \
+         {walks} walks",
+    );
+}
+
 /// `reached-from` is **opt-in**: a corpus declaring no such clause walks no closure at
 /// all, and one declaring a clause walks it once per `(roots, via)` pair however many
 /// members the selection carries. The claim is pinned the way `degree`'s and
@@ -754,7 +898,7 @@ fn the_reached_from_closure_is_opt_in_and_walks_once_per_root_and_via_pair() {
         },
     ];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-    let resolved = graph::resolved_edges(&edges, &by_kind).resolved;
+    let walk = graph::resolved_edges(&edges, &by_kind);
 
     let members: Vec<(&str, &Features)> = skills.iter().map(|f| ("skill", f)).collect();
     let roots: Vec<(&str, &Features)> = vec![("skill", &skills[0])];
@@ -772,7 +916,7 @@ fn the_reached_from_closure_is_opt_in_and_walks_once_per_root_and_via_pair() {
         members.clone(),
     )];
     assert!(
-        graph::reached_from(&quiet, &resolved, &[], &by_kind).is_empty(),
+        graph::reached_from(&quiet, &walk.resolved, &[], &walk.containment).is_empty(),
         "a corpus declaring no reached-from clause walks no closure and finds nothing",
     );
 
@@ -795,7 +939,7 @@ fn the_reached_from_closure_is_opt_in_and_walks_once_per_root_and_via_pair() {
             members,
         ),
     ];
-    let diagnostics = graph::reached_from(&declared, &resolved, &[], &by_kind);
+    let diagnostics = graph::reached_from(&declared, &walk.resolved, &[], &walk.containment);
     assert_eq!(
         diagnostics.len(),
         1,

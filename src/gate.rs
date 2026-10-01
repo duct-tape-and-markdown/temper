@@ -621,10 +621,12 @@ pub fn gate(
 
     // The whole-input edge-resolution walk, computed once here for every consumer below:
     // its dangling half *is* the route verdict, its resolved half the arc set `degree`,
-    // reachability and mention-reachability range over.
+    // reachability and mention-reachability range over, and its containment half the
+    // derived family `degree` and `reached-from` count only under a `contains:` filter.
     let resolved_edges_result = graph::resolved_edges(&edges, &by_kind);
     diagnostics.extend(resolved_edges_result.dangling_diagnostics);
     let resolved_edges = &resolved_edges_result.resolved;
+    let containment_edges = &resolved_edges_result.containment;
 
     // Mention route resolution: `emit` defers a mention naming a declared kind with no
     // composed member — its row rides the lock — so `check` owns that verdict here,
@@ -656,9 +658,7 @@ pub fn gate(
         &selections,
         resolved_edges,
         &mention_edges,
-        // The composed corpus the derived containment family reads — counted only by a
-        // clause whose field filter names a `contains:` field (decision 0052).
-        &by_kind,
+        containment_edges,
     ));
 
     // `reached-from`: `degree`'s global counterpart — a clause demands each selected
@@ -672,7 +672,7 @@ pub fn gate(
         &selections,
         resolved_edges,
         &mention_edges,
-        &by_kind,
+        containment_edges,
     ));
 
     // The whole-tree walk's one remaining consumer is `reachable`'s `paths-match`
