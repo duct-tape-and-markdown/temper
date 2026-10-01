@@ -1791,3 +1791,139 @@ fn emit_compiles_each_kinds_glob_once_however_many_members_it_places() {
          per distinct glob, hoisted out of the per-member round trip; got {compiles}",
     );
 }
+
+/// The per-narration count-pin for **`explain`'s requirement strand** (`engineering.md`,
+/// "Cost scale is hoisted, and pinned by count"): the member-path index
+/// ([`temper::read::build_member_index_count`]'s subject) is whole-corpus work, so it is
+/// built only on the one narration that needs it — a `Telemetry`-verified requirement's
+/// field strand, which joins tap records to members through the lock. Three narrations
+/// that carry no field strand (an undeclared name, a verifier-less requirement, a
+/// `Script`-verified one) build it zero times; the `Telemetry` one builds it exactly once,
+/// never once per satisfier.
+///
+/// The `requirement:` qualifier is what carries the undeclared name here: it resolves to
+/// the requirement species without a roster check, so the narration reaches the strand
+/// that says "no requirement by this name" instead of falling through to another species.
+/// The count is per-thread and the narration single-threaded on its caller's thread, so
+/// the delta is this call's alone whatever else runs concurrently.
+#[test]
+fn explain_builds_the_member_index_only_for_a_telemetry_verified_requirement() {
+    use std::collections::BTreeMap;
+    use temper::compose::{Requirement, Verifier};
+    use temper::extract::Features;
+    use temper::kind::Registration;
+    use temper::read;
+
+    /// A requirement with the given verifier and everything else defaulted.
+    fn req(name: &str, required: bool, verifier: Option<Verifier>) -> Requirement {
+        Requirement {
+            name: name.to_string(),
+            prose: None,
+            kind: None,
+            required,
+            clauses: Vec::new(),
+            verifier,
+        }
+    }
+
+    // One satisfier of the telemetry-verified requirement, so the strand that builds the
+    // index has a member set to join against rather than short-circuiting on an empty one.
+    let skills = [Features {
+        satisfies: vec!["r_telemetry".to_string()],
+        ..common::features("s1")
+    }];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster = BTreeMap::from([
+        (
+            "r_telemetry".to_string(),
+            req(
+                "r_telemetry",
+                true,
+                Some(Verifier::Telemetry { events: vec![] }),
+            ),
+        ),
+        (
+            "r_no_verifier".to_string(),
+            req("r_no_verifier", true, None),
+        ),
+        (
+            "r_script".to_string(),
+            req(
+                "r_script",
+                false,
+                Some(Verifier::Script {
+                    path: "test.sh".to_string(),
+                }),
+            ),
+        ),
+    ]);
+    let registrations: BTreeMap<&str, Vec<Registration>> = BTreeMap::new();
+
+    let narrate = |target: &str| {
+        read::explain(
+            &[],
+            &roster,
+            &BTreeMap::new(),
+            &[],
+            &by_kind,
+            &[],
+            &[],
+            &registrations,
+            &[],
+            &[],
+            &[],
+            &[],
+            0,
+            target,
+            &BTreeMap::new(),
+        )
+    };
+
+    let before = read::build_member_index_count();
+
+    let undeclared = narrate("requirement:r_undeclared");
+    let after_undeclared = read::build_member_index_count();
+    assert!(
+        undeclared.contains("No requirement named `r_undeclared`"),
+        "the undeclared narration ran: {undeclared}"
+    );
+    assert_eq!(
+        after_undeclared, before,
+        "an undeclared requirement narrates without the member index",
+    );
+
+    let no_verifier = narrate("requirement:r_no_verifier");
+    let after_no_verifier = read::build_member_index_count();
+    assert!(
+        no_verifier.contains("Requirement `r_no_verifier`"),
+        "the verifier-less narration ran: {no_verifier}"
+    );
+    assert_eq!(
+        after_no_verifier, after_undeclared,
+        "a requirement with no verifier narrates without the member index",
+    );
+
+    let script = narrate("requirement:r_script");
+    let after_script = read::build_member_index_count();
+    assert!(
+        script.contains("Requirement `r_script`"),
+        "the Script-verified narration ran: {script}"
+    );
+    assert_eq!(
+        after_script, after_no_verifier,
+        "a `Script`-verified requirement narrates without the member index",
+    );
+
+    let telemetry = narrate("requirement:r_telemetry");
+    let after_telemetry = read::build_member_index_count();
+    assert!(
+        telemetry.contains("`s1`"),
+        "the telemetry narration reached its satisfier set: {telemetry}"
+    );
+    assert_eq!(
+        after_telemetry,
+        after_script + 1,
+        "a `Telemetry`-verified requirement builds the member index exactly once for the \
+         whole narration, never once per satisfier",
+    );
+}
