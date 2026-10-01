@@ -7,13 +7,15 @@
 //! species: [`why`] walks the edge **forward** (this member → the requirements it
 //! fills, with their authored rationale → the default contract its kind binds → its resolved
 //! edges in and out); [`requirements`] walks a named requirement in **reverse** (its satisfier set
-//! and coverage state, and the blast radius a removal would strand); [`impact`] narrates the **blast radius of a removal** — what
+//! and coverage state, and the blast radius a removal would strand); the **impact**
+//! traversal narrates the **blast radius of a removal** — what
 //! strands if a member is removed or renamed: the requirements it is the sole satisfier
 //! of (left unfilled), the `@import` directive edges that point at it (left unbacked),
-//! and the members whose reachability was carried only through it (gone dead) — or, at
-//! leaf grain, a leaf's citations reported separately from its (nonexistent) fallout;
-//! [`context`] emits the **declared neighborhood** — a member's nested members or a
-//! leaf's siblings, the citers, and the requirements satisfied. All are *projections* over the
+//! and the members whose reachability was carried only through it (gone dead)
+//! ([`impact_impl`]) — or, at leaf grain, a leaf's citations reported separately from
+//! its (nonexistent) fallout ([`impact_leaf`]); the **context** traversal emits the
+//! **declared neighborhood** — a member's nested members ([`context_member_impl`]) or a
+//! leaf's siblings ([`context_leaf`]), the citers, and the requirements satisfied. All are *projections* over the
 //! data `check` already computes — the opt-in `satisfies` bindings [`crate::coverage`]
 //! gates, and, for the edge walk, the **gate's own resolved edge set**
 //! ([`crate::graph::resolved_edges`], relationships over extracted features), never a
@@ -178,8 +180,9 @@ fn build_member_index<'a>(
 /// existing member or requirement of the same name, so widening the namespace here
 /// cannot retarget a bare name any existing corpus already resolves.
 enum Species<'a> {
-    /// A member id — dispatches to [`why`] (what holds it in place) and [`impact`] and
-    /// [`context`] at member grain (its blast radius and its neighborhood).
+    /// A member id — dispatches to [`why`] (what holds it in place) and to
+    /// [`impact_impl`] and [`context_member_impl`] at member grain (its blast radius and
+    /// its neighborhood).
     Member(&'a str),
     /// A requirement name — dispatches to [`requirements`] alone, whose reverse walk
     /// already carries coverage and blast radius.
@@ -189,8 +192,8 @@ enum Species<'a> {
     /// narration (`why`'s `narrate_governing_contract`, unchanged).
     Kind(&'a str),
     /// A leaf address (`<member>/<kind>/<key>/<child-path>`) — dispatches to
-    /// [`impact`] and [`context`] at leaf grain (citations vs. fallout, and the leaf's
-    /// neighborhood).
+    /// [`impact_leaf`] and [`context_leaf`] at leaf grain (citations vs. fallout, and the
+    /// leaf's neighborhood).
     Leaf(&'a str),
     /// The bare name matches both a member and a requirement — `explain` never
     /// guesses, so the caller must retry with one of the listed qualified spellings.
@@ -370,7 +373,7 @@ fn resolve<'a>(
 /// outgoing reference being a mention still narrates rather than reading "it points at
 /// no member"; `registrations`,
 /// `repo_files`, and `directive_edges` are the exact reachability/directive inputs
-/// [`impact`]'s blast radius ranges over; `citations` are the declared one-way edges a
+/// the blast-radius strand ([`impact_impl`]) ranges over; `citations` are the declared one-way edges a
 /// leaf-grain answer reports separately from fallout. Every one is the identical input
 /// the gate's own predicates range over (READ-EDGE-UNIFY), so `explain` cannot disagree
 /// with a green `check`.
@@ -460,17 +463,10 @@ pub fn explain(
         ),
         Species::Kind(name) => narrate_kind(name, contracts, kind_facts, by_kind),
         Species::Leaf(address) => {
-            let mut out = impact(
-                roster,
-                by_kind,
-                registrations,
-                repo_files,
-                directive_edges,
-                citations,
-                address,
-            );
+            let member_index = build_member_index(by_kind);
+            let mut out = impact_leaf(by_kind, citations, address);
             out.push('\n');
-            out.push_str(&context(by_kind, citations, address));
+            out.push_str(&context_leaf(by_kind, citations, &member_index, address));
             out
         }
         Species::Ambiguous(spellings) => format!(
@@ -1396,66 +1392,32 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
     }
 }
 
-/// `explain`'s **impact** strand — narrate the deterministic **blast radius** of removing or
-/// renaming `member`: the graph
+/// `explain`'s **impact** strand at **member grain** — narrate the deterministic **blast
+/// radius** of removing or renaming `target`: the graph
 /// payoff promised, given a verb. Three strands, each read off the graph
 /// data `check` already carries — no second build, no new engine semantics:
 ///
-/// 1. **Requirements left unfilled** — a requirement `member` satisfies whose *only*
-///    satisfier is `member`, so removing it drops coverage to zero (an error for a
+/// 1. **Requirements left unfilled** — a requirement `target` satisfies whose *only*
+///    satisfier is `target`, so removing it drops coverage to zero (an error for a
 ///    `required` one, silent for an advisory).
 /// 2. **Directive edges left unbacked** — an `@import` from another member that
-///    resolves to `member`'s file; removing the file leaves that import backing
+///    resolves to `target`'s file; removing the file leaves that import backing
 ///    nothing, the silent-context-loss class made author-time.
-/// 3. **Reachability that dies with it** — a member live now only because `member`
-///    imports it (its own registration dead); removing `member` unreaches it
+/// 3. **Reachability that dies with it** — a member live now only because `target`
+///    imports it (its own registration dead); removing `target` unreaches it
 ///    ([`graph::reachability_orphaned`], the same closure the gate's `reachable` runs).
 ///
-/// The family gains **leaf grain**: a `target` naming a nested member's leaf — the `<member>/<kind>/<key>/<child-path>`
-/// address — dispatches to [`impact_leaf`], which resolves the leaf against the lock's
-/// serialized nested-member leaves and reports its **citations separately from fallout**.
-/// This wrapper owns that dispatch: every other `target` is a member address — a bare
-/// name, or a nested member's own `<host-address>/<kind>/<key>` identity — and takes the
-/// member-grain path in [`impact_impl`], which narrates a member unconditionally.
+/// `target` is a member address — a bare name, or a nested member's own
+/// `<host-address>/<kind>/<key>` identity. [`resolve`] settles the grain by the address
+/// grammar, so a leaf address lands on [`impact_leaf`] and never arrives here; either
+/// member spelling resolves by one `member_index` lookup, the index keying on
+/// `Features::id`, which *is* the whole address.
 ///
 /// A read, never a gate: the caller prints this and exits zero on every input, a name no
-/// member or leaf bears included. `roster` is the namespace `check` gates; `by_kind`,
+/// member bears included. `roster` is the namespace `check` gates; `by_kind`,
 /// `registrations`, `repo_files`, and `directive_edges` are the exact graph inputs the
 /// gate's predicates range over (READ-EDGE-UNIFY), so the read cannot disagree with a
-/// green `check`. `by_kind` also carries each member's serialized nested-member leaves,
-/// the leaf-grain surface; `citations` are the declared one-way edges naming a leaf.
-#[must_use]
-#[allow(clippy::too_many_arguments)]
-fn impact(
-    roster: &BTreeMap<String, Requirement>,
-    by_kind: &BTreeMap<&str, &[Features]>,
-    registrations: &BTreeMap<&str, Vec<Registration>>,
-    repo_files: &[String],
-    directive_edges: &[ResolvedEdge],
-    citations: &[Citation],
-    target: &str,
-) -> String {
-    if target.contains('/') {
-        return impact_leaf(by_kind, citations, target);
-    }
-
-    let member_index = build_member_index(by_kind);
-    impact_impl(
-        roster,
-        by_kind,
-        registrations,
-        repo_files,
-        directive_edges,
-        &member_index,
-        target,
-    )
-}
-
-/// Implementation of [`impact`] at **member grain**, using a pre-built member index.
-/// `target` is a member address — its caller ([`impact`], or `explain`'s member branch)
-/// already settled the species, so a nested member's slashed identity resolves here by
-/// the same index lookup a bare name does: the index keys on `Features::id`, which *is*
-/// the whole address.
+/// green `check`.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 fn impact_impl(
@@ -1685,32 +1647,6 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
     );
 }
 
-/// `explain`'s **context** strand — emit the **declared neighborhood** of a member or a
-/// nested member's leaf:
-/// its nested-member slot, its siblings, the members that cite it, and the requirements
-/// its member satisfies — the pre-edit context bundle for the primary author. Consumes
-/// only the lock's serialized nested-member leaves (`by_kind`) and declared citations:
-/// offline, tier-1, no runtime.
-///
-/// A leaf `address` (`<member>/<kind>/<key>/<child-path>`) is reported at leaf grain
-/// ([`context_leaf`]); every other address is a member — a bare name, or a nested member's
-/// own `<host-address>/<kind>/<key>` identity — reported whole ([`context_member_impl`]).
-/// This wrapper owns that dispatch, the twin of [`impact`]'s: `explain` resolved the
-/// species already and calls the member arm directly. Both are
-/// leaf-grain answers, so both close with the shared [`disclose_coverage`] — a mixed-posture corpus
-/// is the standing state, and an answer hiding what it cannot see erodes the verb.
-///
-/// A read, never a gate: an unresolved or ill-formed address is narrated plainly and the caller
-/// still exits zero.
-#[must_use]
-fn context(by_kind: &BTreeMap<&str, &[Features]>, citations: &[Citation], address: &str) -> String {
-    let member_index = build_member_index(by_kind);
-    if address.contains('/') {
-        return context_leaf(by_kind, citations, &member_index, address);
-    }
-    context_member_impl(by_kind, citations, &member_index, address)
-}
-
 /// Narrate a nested member's leaf neighborhood: its nested-member slot and authored
 /// value, its **siblings** (the other leaves of the same nested member), the members
 /// that **cite** it, and the requirements its member **satisfies** — then the shared
@@ -1791,8 +1727,21 @@ fn context_leaf(
     out
 }
 
-/// Narrate the declared neighborhood of a member using a pre-built member index — the
-/// member-grain arm [`context`] and `explain`'s member branch both land on.
+/// `explain`'s **context** strand at **member grain** — emit the **declared
+/// neighborhood** of `member`: the nested members it carries, the members that cite any
+/// of its leaves, and the requirements it satisfies — the pre-edit context bundle for
+/// the primary author. Consumes only the lock's serialized nested-member leaves
+/// (`by_kind`) and declared citations: offline, tier-1, no runtime.
+///
+/// `member` is a member address — a bare name, or a nested member's own
+/// `<host-address>/<kind>/<key>` identity. [`resolve`] settles the grain by the address
+/// grammar, so a leaf address lands on [`context_leaf`] and never arrives here. Both
+/// arms are leaf-grain-aware answers, so both close with the shared
+/// [`disclose_coverage`] — a mixed-posture corpus is the standing state, and an answer
+/// hiding what it cannot see erodes the verb.
+///
+/// A read, never a gate: an unresolved address is narrated plainly and the caller still
+/// exits zero.
 fn context_member_impl(
     by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],
@@ -2650,8 +2599,9 @@ mod impact_tests {
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations = BTreeMap::new();
+        let index = build_member_index(&by_kind);
 
-        let solo = impact(&roster, &by_kind, &registrations, &[], &[], &[], "solo");
+        let solo = impact_impl(&roster, &by_kind, &registrations, &[], &[], &index, "solo");
         assert!(
             solo.contains("Requirements left unfilled (it is the only member filling them):"),
             "{solo}"
@@ -2659,7 +2609,15 @@ mod impact_tests {
         assert!(solo.contains("`r1` — required"), "{solo}");
         assert!(solo.contains("fails the gate"), "{solo}");
 
-        let pair = impact(&roster, &by_kind, &registrations, &[], &[], &[], "pair-a");
+        let pair = impact_impl(
+            &roster,
+            &by_kind,
+            &registrations,
+            &[],
+            &[],
+            &index,
+            "pair-a",
+        );
         assert!(
             pair.contains("Requirements left unfilled: none"),
             "a non-sole satisfier strands no requirement: {pair}"
@@ -2678,8 +2636,17 @@ mod impact_tests {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("doc", &docs[..])]);
         let registrations = BTreeMap::new();
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
+        let index = build_member_index(&by_kind);
 
-        let out = impact(&empty, &by_kind, &registrations, &[], &edges, &[], "leaf");
+        let out = impact_impl(
+            &empty,
+            &by_kind,
+            &registrations,
+            &[],
+            &edges,
+            &index,
+            "leaf",
+        );
         assert!(out.contains("Directive edges left unbacked"), "{out}");
         assert!(
             out.contains("`hub` (doc) imports it via `@at-import`"),
@@ -2687,7 +2654,7 @@ mod impact_tests {
         );
 
         // `hub` imports but is not imported, so nothing points *at* it.
-        let out = impact(&empty, &by_kind, &registrations, &[], &edges, &[], "hub");
+        let out = impact_impl(&empty, &by_kind, &registrations, &[], &edges, &index, "hub");
         assert!(out.contains("Directive edges left unbacked: none"), "{out}");
     }
 
@@ -2709,8 +2676,9 @@ mod impact_tests {
             }],
         )]);
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
+        let index = build_member_index(&by_kind);
 
-        let out = impact(&empty, &by_kind, &registrations, &[], &edges, &[], "hub");
+        let out = impact_impl(&empty, &by_kind, &registrations, &[], &edges, &index, "hub");
         assert!(out.contains("Reachability that dies with it"), "{out}");
         assert!(
             out.contains("`leaf` (doc) — its own registration is dead"),
@@ -2718,7 +2686,15 @@ mod impact_tests {
         );
 
         // Removing `leaf` orphans nobody — it imports nothing.
-        let out = impact(&empty, &by_kind, &registrations, &[], &edges, &[], "leaf");
+        let out = impact_impl(
+            &empty,
+            &by_kind,
+            &registrations,
+            &[],
+            &edges,
+            &index,
+            "leaf",
+        );
         assert!(
             out.contains("Reachability that dies with it: none"),
             "{out}"
@@ -2732,7 +2708,8 @@ mod impact_tests {
         let empty = BTreeMap::new();
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
         let registrations = BTreeMap::new();
-        let out = impact(&empty, &by_kind, &registrations, &[], &[], &[], "ghost");
+        let index = build_member_index(&by_kind);
+        let out = impact_impl(&empty, &by_kind, &registrations, &[], &[], &index, "ghost");
         assert!(
             out.contains("No member named `ghost` is in the surface"),
             "{out}"
@@ -2765,7 +2742,8 @@ mod impact_tests {
         // generically, without hardcoding `skill` or `rule`.
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
         let citations: Vec<Citation> = Vec::new();
-        let out = context(&by_kind, &citations, "ghost");
+        let index = build_member_index(&by_kind);
+        let out = context_member_impl(&by_kind, &citations, &index, "ghost");
         assert!(
             out.contains("No member named `ghost` is in the surface"),
             "{out}"
@@ -2798,8 +2776,6 @@ mod impact_tests {
         // nested-member leaves, reports the citing one-way edge under its own heading
         // (never fallout), and states the leaf is obligation-free — deleting or
         // rewording it is never blocked.
-        let empty = BTreeMap::new();
-        let registrations = BTreeMap::new();
         let members = [nested_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
         let citations = [Citation {
@@ -2813,12 +2789,8 @@ mod impact_tests {
             },
         }];
 
-        let out = impact(
-            &empty,
+        let out = impact_leaf(
             &by_kind,
-            &registrations,
-            &[],
-            &[],
             &citations,
             "20-surface/decision/surface-authority/chosen",
         );
@@ -2887,17 +2859,11 @@ mod impact_tests {
     fn a_leaf_with_no_citation_names_zero_citers() {
         // Absent any citing edge, the leaf still resolves and reports — the citations
         // heading names none, the floor's standing state (floor leaves carry no mentions).
-        let empty = BTreeMap::new();
-        let registrations = BTreeMap::new();
         let members = [nested_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
 
-        let out = impact(
-            &empty,
+        let out = impact_leaf(
             &by_kind,
-            &registrations,
-            &[],
-            &[],
             &[],
             "20-surface/decision/surface-authority/chosen",
         );
@@ -2909,17 +2875,11 @@ mod impact_tests {
     fn an_unresolved_or_malformed_leaf_address_is_a_clean_read() {
         // Both an address naming no live leaf and an ill-formed one are reads, not gates —
         // narrated plainly so the caller still exits zero.
-        let empty = BTreeMap::new();
-        let registrations = BTreeMap::new();
         let members = [nested_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
 
-        let missing = impact(
-            &empty,
+        let missing = impact_leaf(
             &by_kind,
-            &registrations,
-            &[],
-            &[],
             &[],
             "20-surface/decision/surface-authority/rejected",
         );
@@ -2928,15 +2888,7 @@ mod impact_tests {
             "{missing}"
         );
 
-        let malformed = impact(
-            &empty,
-            &by_kind,
-            &registrations,
-            &[],
-            &[],
-            &[],
-            "20-surface/decision",
-        );
+        let malformed = impact_leaf(&by_kind, &[], "20-surface/decision");
         assert!(
             malformed.contains("is not a well-formed leaf address"),
             "{malformed}"

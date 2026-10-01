@@ -325,6 +325,59 @@ fn a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage(
 }
 
 #[test]
+fn an_address_qualified_target_is_read_at_leaf_grain_however_it_is_spelled() {
+    // The `address:` qualifier *is* the grain declaration: resolution settles the species
+    // off the prefix, so every strand beneath it answers in the leaf reader's voice —
+    // including for a target the leaf grammar refuses. A slashless `address:` target is a
+    // malformed leaf address, never a missing member.
+    let mut leafy = feature("20-surface", &[]);
+    leafy.nested_members = vec![EmbeddedMember {
+        kind: "decision".to_string(),
+        key: "surface-authority".to_string(),
+        leaves: BTreeMap::from([("chosen".to_string(), "the surface is canonical".to_string())]),
+        members: Vec::new(),
+    }];
+    let members = [leafy];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    let malformed = explain(&[], &by_kind, &roster, "address:chosen");
+    assert!(
+        malformed.contains("`chosen` is not a well-formed leaf address"),
+        "a slashless `address:` target reads the leaf grammar's refusal: {malformed}"
+    );
+    assert!(
+        malformed.contains("`<member>/<kind>/<key>/<child-path>`"),
+        "the refusal names the form it wanted: {malformed}"
+    );
+    assert!(
+        !malformed.contains("No member named `chosen` is in the surface"),
+        "`address:` never falls back to the member voice: {malformed}"
+    );
+
+    // Non-vacuity at the other side of the same qualifier: a well-formed `address:`
+    // target still resolves against the corpus above and narrates the leaf whole.
+    let resolved = explain(
+        &[],
+        &by_kind,
+        &roster,
+        "address:20-surface/decision/surface-authority/chosen",
+    );
+    assert!(
+        resolved.contains("Authored value: \"the surface is canonical\""),
+        "a well-formed `address:` target narrates the leaf's value: {resolved}"
+    );
+    assert!(
+        resolved.contains("Citations ("),
+        "and its citers: {resolved}"
+    );
+    assert!(
+        resolved.contains("Coverage:"),
+        "and the leaf-grain coverage disclosure: {resolved}"
+    );
+}
+
+#[test]
 fn a_deep_member_address_is_explained_at_member_grain_never_as_a_leaf() {
     // The segment count decides the grain, so a nested member two layers down — five
     // segments — is a member address and `explain` consults the corpus for it. Read as a
