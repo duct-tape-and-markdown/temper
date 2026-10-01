@@ -595,7 +595,7 @@ const factory: ChainFactory = (flume) => {
     shellGate,
     parsePendingQueue,
     pendingGate,
-    git,
+    readGatedQueue,
     renderSchemaForPrompt,
   } = flume;
 
@@ -731,9 +731,9 @@ const factory: ChainFactory = (flume) => {
     name: "entry references resolve",
     when: "afterCommit",
     async run(ctx) {
-      // The queue as the gated commit holds it, through the engine's own
-      // listing (flume ≥0.19): absent and empty are one fact in a git tree.
-      const files = await git.readQueueAtRef(ctx.repoRoot, ctx.commitSha, `${ctx.stateRootRel ?? ".flume"}/plan/pending`);
+      // The queue as the gated commit holds it, through the read `pendingGate`
+      // itself runs (flume ≥0.21): an absent queue is that gate's refusal.
+      const { files } = await readGatedQueue(ctx);
       if (!files || files.length === 0) return { ok: true, message: "no pending entries to check" };
       const result = parsePendingQueue(files, entryExtension);
       if (!result.ok) return { ok: true, message: "parse gate owns malformed pending" };
