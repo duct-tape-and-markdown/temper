@@ -12,7 +12,7 @@
       },
       {
         "path": "src/drift.rs",
-        "description": "`ClauseRow` (line 4590) carries no `whole` column; add it beside `unit`, with its write (around line 5706) and robust read (around line 5767) in the same codec."
+        "description": "`ClauseRow` (line 4593) carries no `whole` column; add it beside `unit`, with its write (around line 5705) and robust read (around line 5766) in the same codec."
       },
       {
         "path": "sdk/src/contract.ts",
@@ -52,5 +52,5 @@
     }
   ],
   "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with a whole-grain `extent` clause authorable in the SDK and lifted back out of the lock as `whole: true`.",
-  "notes": "Dead plumbing found by the posture sweep: `engine::judge`'s summed-extent path (src/engine.rs:890) and `ranges_over_selection`'s `Extent { whole: true }` arm (src/contract.rs:899) are reachable only from hand-built test clauses. 4bdb7960 built both grains routing 0035's amendment and wired only `each` across the lock. Deferred, not cut: the grain is the enum's, and contract.md makes the enum the vocabulary's authority. Arm cite +7 at c2768167; no `whole` column anywhere. scoped at 27a6b6cf"
+  "notes": "Dead plumbing found by the posture sweep: `engine::judge`'s summed-extent path (src/engine.rs:890) and `ranges_over_selection`'s `Extent { whole: true }` arm (src/contract.rs:897) are reachable only from hand-built test clauses. 4bdb7960 built both grains routing 0035's amendment and wired only `each` across the lock. Deferred, not cut: the grain is the enum's, and contract.md makes the enum the vocabulary's authority. Row cites +3 at 2d51eb65; no `whole` column anywhere. scoped at 865bf888"
 }
