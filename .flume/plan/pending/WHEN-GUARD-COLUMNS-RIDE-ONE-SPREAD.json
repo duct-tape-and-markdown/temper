@@ -1,12 +1,10 @@
 {
   "tag": "WHEN-GUARD-COLUMNS-RIDE-ONE-SPREAD",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "EMBEDDED-LEAF-RESOLUTION-HAS-ONE-HOME"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
