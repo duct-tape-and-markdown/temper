@@ -1,12 +1,10 @@
 {
   "tag": "REGISTRATION-ROW-BUILDERS-LOSE-THEIR-UNEARNED-EXPORT",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "WHEN-GUARD-COLUMNS-RIDE-ONE-SPREAD"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
