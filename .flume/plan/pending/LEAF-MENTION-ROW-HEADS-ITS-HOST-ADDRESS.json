@@ -3,7 +3,6 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "ADDRESS-GRAMMAR-READS-ANY-DEPTH",
       "ADDRESS-GRAMMAR-READS-ANY-DEPTH-SDK"
     ]
   },

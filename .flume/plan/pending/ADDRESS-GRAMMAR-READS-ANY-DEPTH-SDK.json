@@ -1,10 +1,7 @@
 {
   "tag": "ADDRESS-GRAMMAR-READS-ANY-DEPTH-SDK",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "ADDRESS-GRAMMAR-READS-ANY-DEPTH"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "priority": 0,
