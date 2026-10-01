@@ -1980,14 +1980,7 @@ mod a_placement_refusal_names_the_members_whole_address {
 
     /// One `supporting-doc` member keyed `checklist`, under `host` (or under none).
     fn checklist(host: Option<&str>) -> PayloadMember {
-        PayloadMember {
-            kind: "supporting-doc".to_string(),
-            name: "checklist".to_string(),
-            host: host.map(str::to_string),
-            fields: Vec::new(),
-            body: "# Checklist\n".to_string(),
-            source_path: None,
-        }
+        common::payload_member("supporting-doc", "checklist", host, "# Checklist\n")
     }
 
     /// Emit the one-member corpus and render the refusal it raises.
@@ -2083,22 +2076,8 @@ mod a_placement_refusal_names_the_members_whole_address {
             },
         ];
         let members = vec![
-            PayloadMember {
-                kind: "area".to_string(),
-                name: "ops".to_string(),
-                host: None,
-                fields: Vec::new(),
-                body: "# Ops\n".to_string(),
-                source_path: None,
-            },
-            PayloadMember {
-                kind: "page".to_string(),
-                name: "gate".to_string(),
-                host: Some("area:ops".to_string()),
-                fields: Vec::new(),
-                body: "# The gate\n".to_string(),
-                source_path: None,
-            },
+            common::payload_member("area", "ops", None, "# Ops\n"),
+            common::payload_member("page", "gate", Some("area:ops"), "# The gate\n"),
         ];
 
         let rendered = refusal("ungoverned-child-address", kinds, members);
