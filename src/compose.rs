@@ -1573,34 +1573,39 @@ pub fn directive_members_from_resolved(
         .filter_map(|kind| kind.extraction.directive_syntax())
         .collect();
 
-    let mut members = Vec::new();
-    for (kind_name, uaf) in builtin_units_and_features {
+    // A built-in's declared syntax is keyed by name off `builtin_defs` where a custom
+    // kind carries its own; past that lookup the two sources are one shape, so they
+    // build the member through one literal.
+    let builtin_sources = builtin_units_and_features.iter().map(|(kind_name, uaf)| {
         let declared = builtin_defs
             .get(kind_name)
             .and_then(|def| def.extraction.directive_syntax());
-        for (unit, features) in uaf.units.iter().zip(&uaf.features) {
-            members.push(graph::DirectiveMember {
-                kind: kind_name.clone(),
-                id: features.id.clone(),
-                source_path: unit.source_path.clone(),
-                declares_directives: declared.is_some(),
-                directives: body_occurrences(&unit.body, declared, &seed_syntaxes),
-            });
-        }
-    }
-    for (custom_kind, uaf) in custom_units_and_features {
-        let declared = custom_kind.extraction.directive_syntax();
-        for (unit, features) in uaf.units.iter().zip(&uaf.features) {
-            members.push(graph::DirectiveMember {
-                kind: custom_kind.name.clone(),
-                id: features.id.clone(),
-                source_path: unit.source_path.clone(),
-                declares_directives: declared.is_some(),
-                directives: body_occurrences(&unit.body, declared, &seed_syntaxes),
-            });
-        }
-    }
-    members
+        (kind_name, declared, uaf)
+    });
+    let custom_sources = custom_units_and_features.iter().map(|(custom_kind, uaf)| {
+        (
+            &custom_kind.name,
+            custom_kind.extraction.directive_syntax(),
+            uaf,
+        )
+    });
+
+    let seed_syntaxes = &seed_syntaxes;
+    builtin_sources
+        .chain(custom_sources)
+        .flat_map(|(kind_name, declared, uaf)| {
+            uaf.units
+                .iter()
+                .zip(&uaf.features)
+                .map(move |(unit, features)| graph::DirectiveMember {
+                    kind: kind_name.clone(),
+                    id: features.id.clone(),
+                    source_path: unit.source_path.clone(),
+                    declares_directives: declared.is_some(),
+                    directives: body_occurrences(&unit.body, declared, seed_syntaxes),
+                })
+        })
+        .collect()
 }
 
 /// One member's directive occurrences: under the kind's own `declared` syntax where it
