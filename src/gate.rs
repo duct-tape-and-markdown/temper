@@ -618,7 +618,13 @@ pub fn gate(
     // an edge naming no reference field or targeting an unmodeled kind is
     // reported once and skipped by the route check.
     diagnostics.extend(graph::admissibility(&edges, &by_kind));
-    diagnostics.extend(graph::check(&edges, &by_kind));
+
+    // The whole-input edge-resolution walk, computed once here for every consumer below:
+    // its dangling half *is* the route verdict, its resolved half the arc set `degree`,
+    // reachability and mention-reachability range over.
+    let resolved_edges_result = graph::resolved_edges(&edges, &by_kind);
+    diagnostics.extend(resolved_edges_result.dangling_diagnostics);
+    let resolved_edges = &resolved_edges_result.resolved;
 
     // Mention route resolution: `emit` defers a mention naming a declared kind with no
     // composed member — its row rides the lock — so `check` owns that verdict here,
@@ -630,11 +636,6 @@ pub fn gate(
         &by_kind,
         &assembly_requirements,
     ));
-
-    // Compute the resolved edges once, shared across degree and mention_reachable
-    // to avoid recomputation of the whole-input edge-resolution walk.
-    let resolved_edges_result = graph::resolved_edges(&edges, &by_kind);
-    let resolved_edges = &resolved_edges_result.resolved;
 
     // `acyclic`: the **import relation** must be well-founded — `contract.md`
     // ("well-formedness") scopes acyclicity there and nowhere else, so the declared-field
@@ -648,8 +649,8 @@ pub fn gate(
 
     // `degree`: the one set predicate whose judge needs the graph — a clause bounds
     // every selected member's in/out edge count, so it takes the same selections
-    // `engine::judge` reads *and* the edges, reusing the arc resolution
-    // `check` assembles, plus the already-resolved mention edges —
+    // `engine::judge` reads *and* the edges, reusing the hoisted arc
+    // resolution, plus the already-resolved mention edges —
     // obligation-free by default, counted only when a `degree` clause opts in.
     diagnostics.extend(graph::degree(
         &selections,

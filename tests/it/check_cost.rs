@@ -644,94 +644,76 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
     );
 }
 
+/// Write a harness whose one rule declares a `routes_to` reference at `target`, with the
+/// skill `standards` composed and the lock declaring the `rule → skill` edge — the
+/// minimal live input for the whole-input edge-resolution walk: one declared `edge` fact,
+/// one source carrying the field, one real member of the target kind.
+fn write_routing_harness(label: &str, target: &str) -> std::path::PathBuf {
+    let root = tmpdir(label);
+    common::write_rule_skill_harness(
+        &root,
+        "style",
+        &common::scoped_routing_rule(None, Some(target)),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![common::edge("rule", "routes_to", "skill")],
+            ..Declarations::default()
+        },
+    );
+    root
+}
+
+/// The edge-resolution walk is whole-input work, so the cost doctrine puts it at once per
+/// run — and the pin is taken over `gate()` itself, the only caller whose call sites can
+/// drift apart. Driving the consumers by hand instead pins the test author's assembly:
+/// the two walks this entry folded were both inside `gate()`, one of them behind
+/// `graph::check`, and a hand-assembled stand-in excluded that wrapper by construction.
 #[test]
 fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
-    // Verify that the edge-resolution walk is computed exactly once per gate() invocation
-    // and shared across its consumers. The cost doctrine (engineering.md, "Cost scale is
-    // hoisted, and pinned by count") requires whole-input work computes once per run and
-    // is shared, never recomputed per call site.
-    //
-    // `acyclic` is off that consumer list: `contract.md` ("well-formedness") scopes it to
-    // the import relation, which is not this walk. `check` is the walk's own thin
-    // wrapper (it reads the dangling half of the same computation), so the consumers of
-    // the *pre-computed* slice are `degree`, `reached_from`, `mention_reachable`, and
-    // `reachable`.
-    use std::collections::BTreeMap;
-    use temper::compose;
-    use temper::extract::Features;
-    use temper::graph;
+    use temper::{gate, graph};
 
-    // A simple edge set: skill:s → rule:r.
-    let edges = [compose::Edge {
-        field: "routes_to".to_string(),
-        from: "skill".to_string(),
-        to: vec!["rule".to_string()],
-    }];
+    let root = write_routing_harness("gate-edge-walk-pin", "standards");
 
-    // A minimal by_kind corpus: one skill and one rule.
-    let mut skill_fields = BTreeMap::new();
-    skill_fields.insert("routes_to".to_string(), serde_json::json!(["r"]));
-    let skill = Features {
-        fields: skill_fields,
-        body_lines: 1,
-        ..common::features("s")
-    };
+    let before = graph::resolved_edges_count();
+    let (diagnostics, _) = gate::gate(&root.join(".temper"), &root, &[]).unwrap();
+    let walks = graph::resolved_edges_count() - before;
 
-    let rule = Features {
-        body_lines: 1,
-        ..common::features("r")
-    };
-
-    let skills = [skill];
-    let rules = [rule];
-    let by_kind: BTreeMap<&str, &[Features]> =
-        BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
-
-    let count_before = graph::resolved_edges_count();
-
-    // Call resolved_edges once.
-    let resolved_result = graph::resolved_edges(&edges, &by_kind);
-    let resolved_edges = &resolved_result.resolved;
-
-    // Use the pre-computed resolved edges in each consumer: neither re-walks.
-    let selections: [temper::engine::Selection; 0] = [];
-    // `degree` also takes the composed corpus, for the containment family it derives
-    // *after* its opt-in early return — no always-on walk, so the pin below does not move.
-    let _ = graph::degree(&selections, resolved_edges, &[], &by_kind);
-    // `reached_from` walks the closure `degree` cannot see, over the same slice and
-    // under the same opt-in early return — so it re-walks nothing either.
-    let _ = graph::reached_from(&selections, resolved_edges, &[], &by_kind);
-    let _ = graph::mention_reachable(
-        &selections,
-        resolved_edges,
-        &[],
-        &by_kind,
-        &graph::embedded_hosts_by_key(&by_kind),
-    );
-    // The third consumer: reachability closes over the same resolved slice (plus the
-    // directive edges, empty here), so it re-walks nothing either. Its opt-in is the
-    // root clause it reads off `selections` — empty here, so the call is a no-op, and
-    // the pin below is about the *edge* walk either way.
-    let _ = graph::reachable(
-        &selections,
-        &BTreeMap::new(),
-        &by_kind,
-        &[],
-        resolved_edges,
-        &[],
+    // Non-vacuity, the endpoints: a gate that discovered neither kind's member would walk
+    // an empty corpus and pass any count. The run's own disclosure names both.
+    let summary = &diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.rule == "coverage.checked")
+        .expect("the run discloses what it checked")
+        .message;
+    assert!(
+        summary.contains("rule (1") && summary.contains("skill (1"),
+        "the run must have judged the routing rule and its target skill, got: {summary}",
     );
 
-    // The narrowing itself, pinned at the cost seam: `acyclic` no longer takes this
-    // slice, so its input is the import relation — empty here, since no member imports.
-    assert!(graph::acyclic(&[]).is_empty());
+    // Non-vacuity, the walk: the declared route resolved here, so the route verdict is
+    // silent — and the same corpus with the reference pointed at an absent skill fires
+    // `graph.route`, which proves the counted walk really reads the declared edge rather
+    // than ranging over nothing.
+    assert!(
+        !diagnostics.iter().any(|d| d.rule == "graph.route"),
+        "the declared route resolves to the composed skill, got: {diagnostics:#?}",
+    );
+    let dangling = write_routing_harness("gate-edge-walk-pin-dangling", "absent");
+    let (control, _) = gate::gate(&dangling.join(".temper"), &dangling, &[]).unwrap();
+    assert!(
+        control.iter().any(|d| d.rule == "graph.route"),
+        "the same edge, pointed at no artifact, must fire the route verdict, got: {control:#?}",
+    );
 
-    let count_after = graph::resolved_edges_count();
-    let resolves_calls = count_after - count_before;
-
-    // The cost doctrine: the walk is computed exactly once per gate invocation.
     assert_eq!(
-        resolves_calls, 1,
-        "gate() must compute resolved_edges exactly once, shared across degree, reached_from and mention_reachable: {resolves_calls} calls (before {count_before}, after {count_after})",
+        walks, 1,
+        "gate() must compute the edge-resolution walk exactly once, shared by the route \
+         verdict, degree, reachability and mention-reachability: {walks} walks (before \
+         {before})",
     );
 }
 

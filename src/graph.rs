@@ -11,8 +11,10 @@
 //! bound), [`reached-from`](reached_from) (a selected member lies in the forward closure
 //! of an author-named root set), and [`reachable`]. All but [`acyclic`] range over one
 //! resolved-edge
-//! enumeration ([`resolved_edges`]), computed once per `gate()` invocation and shared
-//! with `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
+//! enumeration ([`resolved_edges`]), computed once per `gate()` invocation — the gate
+//! takes the route verdict off that one walk's dangling half, never through [`check`] —
+//! and the same enumeration `crate::read`'s narration ranges over, so gate and read
+//! never disagree (READ-EDGE-UNIFY).
 //!
 //! [`acyclic`] is the one check scoped to a *sub*-relation: `contract.md`
 //! ("well-formedness") founds it on the imports the target format itself executes, so
@@ -37,9 +39,9 @@ use crate::read::resolve_leaf;
 thread_local! {
     /// Per-thread count of resolved-edge computations. Incremented each time the
     /// edge-resolution walk is computed via [`resolved_edges`], pinning that
-    /// whole-input work hoists per `gate()` invocation (computed once and shared
-    /// across check, degree, and mention_reachable) rather than recomputing it
-    /// per check.
+    /// whole-input work hoists per `gate()` invocation — computed once and shared by
+    /// the route verdict, degree, reachability and mention-reachability — rather than
+    /// recomputed per check.
     static RESOLVED_EDGES_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 
     /// Per-thread count of reachability-closure computations. Incremented each time
@@ -139,8 +141,8 @@ pub struct ResolvedEdge {
 
 /// The outcome of computing the resolved edges over declared references: the arcs
 /// that form real member→member relationships and the dangling-route diagnostics
-/// for references that resolve to no artifact. Computed once per `gate()` invocation
-/// to avoid recomputation across [`check`], [`degree`], and [`mention_reachable`].
+/// for references that resolve to no artifact — both halves of one walk, computed once
+/// per `gate()` invocation.
 #[derive(Clone)]
 pub struct ResolvedEdgesResult {
     /// The **resolved** references — each an arc from one member to another over a
@@ -156,9 +158,10 @@ pub struct ResolvedEdgesResult {
 /// off every source artifact and return an error-severity [`Diagnostic`] for any
 /// route that resolves to no artifact of the target kind.
 ///
-/// This is a thin wrapper over [`resolved_edges`] that extracts the dangling
-/// diagnostics from the shared computation, avoiding recomputation of the
-/// edge-resolution walk across multiple checks.
+/// The convenience for a **standalone caller** — one wanting the route verdict alone over
+/// an edge set of its own: a thin wrapper reading the dangling half off [`resolved_edges`].
+/// `gate()` is not among them; it extends from its own hoisted walk, so calling this
+/// there would walk the whole input a second time.
 #[must_use]
 pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
     resolved_edges(edges, by_kind).dangling_diagnostics
@@ -680,8 +683,10 @@ fn edge_host(from: &Node, embedded_hosts: &BTreeMap<Node, Node>) -> Option<Node>
 /// a mention resolving to no composed member is [`route_mentions`]'s verdict, never
 /// double-reported here.
 ///
-/// **Declared leniency:** containment is *literal* — every source glob must appear
-/// verbatim in the target's gate set. True glob-set containment is undecidable, so this
+/// **Declared leniency:** containment is decided by **representative witness** — each
+/// source glob synthesizes representative paths, and the scope is contained only when
+/// every one of them matches some gate glob. True glob-set containment
+/// is undecidable, so this
 /// errs toward firing on a semantically contained narrower glob rather than staying
 /// silent; a clause naming the predicate therefore ships at advisory severity. This is
 /// the same leniency *direction* [`dead_registration`] takes with an uncompilable glob:
@@ -1643,8 +1648,9 @@ fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
 
 /// Enumerate every **resolved** reference edge and the **dangling** routes that
 /// resolve to no artifact: the single arc-resolution pass computed once per `gate()`
-/// invocation and shared across [`check`], [`degree`], and [`mention_reachable`],
-/// avoiding recomputation. For each admissible edge, each
+/// invocation, its dangling half the run's route verdict and its resolved half shared
+/// across [`degree`], [`reached_from`], [`mention_reachable`] and [`reachable`]. For each
+/// admissible edge, each
 /// source of its `from` kind, and each named target, yields either a [`ResolvedEdge`]
 /// (when the target resolves to a real artifact of its `to` kind) or a dangling
 /// diagnostic (when it resolves to nothing). The resolved half feeds [`DegreeIndex`]
