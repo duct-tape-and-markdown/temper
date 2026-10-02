@@ -37,9 +37,6 @@ use crate::member_address::{
     host_address, is_one_segment, nested_address, parse_host_address, parse_nested_address,
 };
 use crate::path::{HarnessRelativePath, canonical_spelling, to_canonical_spelling};
-// `coverage_note` still reaches the canonical spelling as `drift::to_lock_path`; the
-// re-point to the one home is filed in `.flume/refactor/`.
-pub(crate) use crate::path::to_canonical_spelling as to_lock_path;
 use std::cell::Cell;
 
 thread_local! {

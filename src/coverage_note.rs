@@ -12,7 +12,6 @@ use std::path::Path;
 
 use crate::builtin_kind::{CLAUDE_ROOT, KNOWN_SURFACES};
 use crate::check::Diagnostic;
-use crate::drift;
 use crate::glob::compile_glob;
 use crate::kind::CustomKind;
 
@@ -156,7 +155,7 @@ fn claude_entries(root: &Path) -> Vec<(String, bool)> {
         .filter_map(|entry| {
             let rel = entry.path().strip_prefix(root).ok()?;
             let is_dir = entry.file_type().is_some_and(|ft| ft.is_dir());
-            Some((drift::to_lock_path(rel), is_dir))
+            Some((crate::path::to_canonical_spelling(rel), is_dir))
         })
         .collect()
 }
