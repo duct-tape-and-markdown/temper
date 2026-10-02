@@ -10,8 +10,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use ignore::WalkBuilder;
-
 use crate::builtin_kind::{CLAUDE_ROOT, KNOWN_SURFACES};
 use crate::check::Diagnostic;
 use crate::drift;
@@ -143,24 +141,20 @@ pub fn check(
 
 /// Every entry directly under `<root>/.claude` (not recursive), as a
 /// (`.claude/`-relative slash path, is-directory) pair — the unclaimed-entry scan's
-/// input. Honors the repository's ignore rules (`.gitignore`, `.git/info/exclude`)
-/// exactly as harness discovery does ([`crate::import`]), so a gitignored stray is by
-/// declaration not authored here and never fires. A missing `.claude/` yields no
-/// entries rather than an error: an unadopted tree is not a finding.
+/// input. The ignore sources are the shared policy's ([`crate::import::ignore_walk`]),
+/// so a gitignored stray is by declaration not authored here and never fires. The
+/// whole-tree walk's three membership fences (`.git/`, the surface workspace, a nested
+/// governed root) are deliberately not taken: each prunes *descent* into a subtree the
+/// enclosing corpus does not own, and this scan descends nothing — it names the direct
+/// children of one directory. A missing `.claude/` yields no entries rather than an
+/// error: an unadopted tree is not a finding.
 fn claude_entries(root: &Path) -> Vec<(String, bool)> {
     let claude_dir = root.join(CLAUDE_ROOT);
     if !claude_dir.is_dir() {
         return Vec::new();
     }
-    let walk = WalkBuilder::new(&claude_dir)
+    let walk = crate::import::ignore_walk(&claude_dir, true)
         .max_depth(Some(1))
-        .hidden(false) // a dotfile stray (`.clauignore`) must not hide from itself.
-        .parents(false)
-        .ignore(false)
-        .git_global(false)
-        .git_ignore(true)
-        .git_exclude(true)
-        .require_git(false)
         .build();
     walk.flatten()
         .filter(|entry| entry.path() != claude_dir)
@@ -543,6 +537,44 @@ mod tests {
                 .iter()
                 .all(|d| !(d.rule == UNCLAIMED_RULE && d.artifact == ".claude/ignored-stray.md")),
             "a gitignored stray must never fire, got: {diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn the_stray_scan_consults_gits_declarations_and_no_other_ignore_source() {
+        // The two halves that distinguish the shared ignore-source policy from `ignore`'s
+        // defaults: git's declarations are honored without a `.git` to anchor them, and
+        // ripgrep's own `.ignore` source is off — a tree's preference for its own tools
+        // is no declaration of non-authorship.
+        let root = tmpdir("stray-scan-ignore-sources");
+        std::fs::create_dir_all(root.join(".claude")).unwrap();
+        std::fs::write(root.join(".claude/.gitignore"), "git-named.md\n").unwrap();
+        std::fs::write(root.join(".claude/.ignore"), "rg-named.md\n").unwrap();
+        std::fs::write(root.join(".claude/git-named.md"), "").unwrap();
+        std::fs::write(root.join(".claude/rg-named.md"), "").unwrap();
+
+        let diagnostics = check(
+            &root,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
+
+        let strays: Vec<&str> = diagnostics
+            .iter()
+            .filter(|d| d.rule == UNCLAIMED_RULE)
+            .map(|d| d.artifact.as_str())
+            .collect();
+        assert!(
+            strays.contains(&".claude/rg-named.md"),
+            "a stray named only by `.ignore` must still fire, got: {strays:?}"
+        );
+        assert!(
+            !strays.contains(&".claude/git-named.md"),
+            "a gitignored stray must never fire, got: {strays:?}"
         );
     }
 }

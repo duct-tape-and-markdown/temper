@@ -526,6 +526,33 @@ fn collect_glob(
     }
 }
 
+/// A walk over `root` carrying the ignore-source policy every walk in this tree rides —
+/// which declarations of non-authorship a walk consults, spelled once so two consumers
+/// cannot drift apart on it.
+///
+/// Built with ripgrep's `ignore` engine so nested `.gitignore` files, negation, and
+/// precedence are honored rather than hand-rolled. Only git's own declaration counts:
+/// the machine-global and ripgrep-specific (`.ignore`) sources are off, and parent
+/// directories above `root` are not consulted — the harness is the per-project
+/// boundary. `require_git` is off so a `.gitignore` is honored even when the tree is not
+/// itself a git checkout (a sub-tree, or a test fixture). Dotfiles never hide: `.claude/`
+/// is a dotdir the harness lives in.
+///
+/// `git_declarations` off drops git's two sources with the rest, for a walk whose
+/// kind declares authorship over what the repo ignores.
+pub(crate) fn ignore_walk(root: &Path, git_declarations: bool) -> WalkBuilder {
+    let mut builder = WalkBuilder::new(root);
+    builder
+        .hidden(false)
+        .parents(false)
+        .ignore(false)
+        .git_global(false)
+        .git_ignore(git_declarations)
+        .git_exclude(git_declarations)
+        .require_git(false);
+    builder
+}
+
 /// The tree of paths under `harness` a walk for a kind whose locus `local_governs` may
 /// see, indexed as each discoverable directory's direct children. Two presumptions prune
 /// it, and the flag waives **both, together**: the
@@ -542,25 +569,12 @@ fn collect_glob(
 /// `.temper/lock.toml` is its own corpus, so the walk never descends it. The harness
 /// root's own lock must not self-fence, so that skip keys off walk depth, not the name.
 ///
-/// Built with ripgrep's `ignore` engine so nested `.gitignore` files, negation, and
-/// precedence are honored rather than hand-rolled. Only git's own declaration counts:
-/// the machine-global and ripgrep-specific (`.ignore`) sources are off, and parent
-/// directories above the harness are not consulted — the harness is the per-project
-/// boundary. `require_git` is off so a `.gitignore` is honored even when the harness is
-/// not itself a git checkout (a sub-tree, or a test fixture). Paths are normalized so a
-/// `.`-rooted `governs` (`root = "."`) compares equal to the walk's harness-relative
-/// entries.
+/// Paths are normalized so a `.`-rooted `governs` (`root = "."`) compares equal to the
+/// walk's harness-relative entries.
 fn discoverable_paths(harness: &Path, local_governs: bool) -> Discoverable {
     WALKS.with(|w| w.set(w.get() + 1));
     let mut children: BTreeMap<PathBuf, Vec<DiscoverableChild>> = BTreeMap::new();
-    let walk = WalkBuilder::new(harness)
-        .hidden(false) // `.claude/` is a dotdir the harness lives in — never hide it.
-        .parents(false)
-        .ignore(false)
-        .git_global(false)
-        .git_ignore(!local_governs)
-        .git_exclude(!local_governs)
-        .require_git(false)
+    let walk = ignore_walk(harness, !local_governs)
         .filter_entry(move |entry| {
             if entry.file_name() == OsStr::new(".git") {
                 return false;
