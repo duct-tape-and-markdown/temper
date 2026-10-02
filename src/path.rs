@@ -73,14 +73,39 @@ pub fn relative_from_root(root: &Path, target: &Path) -> Option<PathBuf> {
     Some(relative)
 }
 
+/// The canonical spelling of a path — `/`-separated, with no leading `./` — the one
+/// home for the form [`HarnessRelativePath`] declares. Every producer of that form
+/// spells through here: a committed `lock.toml` row, a guard diagnostic's path, a
+/// governed locus' pattern, the repo file set.
+///
+/// `Path::join` inserts the host separator at each join boundary (backslash on
+/// Windows) — left alone, that forks a byte-committed path by host.
+#[must_use]
+pub fn to_canonical_spelling(path: &Path) -> String {
+    canonical_spelling(&path.to_string_lossy())
+}
+
+/// [`to_canonical_spelling`] over a path already spelled as text — a lock row's
+/// `source_path` as read, which arrives as a string and is compared as one.
+///
+/// The leading `./` is the engine's own fork rather than the host's: an engine before
+/// the workspace path was lexically normalized spelled a root-`.` member `./CLAUDE.md`
+/// where the current pass keys the bare `CLAUDE.md`. Both sides must normalize at read
+/// time (decision 0024) or an older lock's every live projection reads ownerless —
+/// mass-reaped by the reap sweep, and bound by no guard.
+#[must_use]
+pub fn canonical_spelling(path: &str) -> String {
+    path.replace('\\', "/").trim_start_matches("./").to_string()
+}
+
 /// Relativize a file path against a harness root. If the path is absolute, strip the root
 /// prefix and return the relative path. If the path is already relative, return it as-is.
-/// All backslashes are normalized to forward slashes.
+/// Either way the result carries the canonical spelling ([`to_canonical_spelling`]).
 /// Returns `None` if an absolute path is not under the root, or if a relative root cannot
 /// be resolved against the working directory.
 #[must_use]
 pub fn relativize_against_root(file_path: &str, root: &Path) -> Option<String> {
-    let file_path_normalized = file_path.replace('\\', "/");
+    let file_path_normalized = canonical_spelling(file_path);
     let file_path_buf = PathBuf::from(&file_path_normalized);
 
     // If the path is not absolute, it's already relative — return as-is.
@@ -93,7 +118,7 @@ pub fn relativize_against_root(file_path: &str, root: &Path) -> Option<String> {
     file_path_buf
         .strip_prefix(&root_absolute)
         .ok()
-        .map(|rel_path| rel_path.to_string_lossy().replace('\\', "/").to_string())
+        .map(to_canonical_spelling)
 }
 
 /// The harness root as an absolute, lexically normalized path. A relative root — `.`, the
@@ -190,6 +215,24 @@ mod tests {
             Path::new("/checkout/agent/docs/included.md"),
         );
         assert_eq!(relative, Some(PathBuf::from("docs/included.md")));
+    }
+
+    #[test]
+    fn the_canonical_spelling_slash_separates_and_erases_a_leading_dot_segment() {
+        // A Windows `Path::join` inserts `\` at the join boundary; simulate that shape
+        // directly (Unix `Path` never inserts `\`, so a real join can't reproduce it
+        // here) and assert the spelling still comes out `/`-separated.
+        assert_eq!(
+            to_canonical_spelling(&PathBuf::from("harness\\dir\\file.md")),
+            "harness/dir/file.md"
+        );
+        // And the `./` an older engine's lock rows carry is erased, so a row spelled
+        // `./CLAUDE.md` meets a reader keying the bare name (decision 0024).
+        assert_eq!(canonical_spelling("./CLAUDE.md"), "CLAUDE.md");
+        assert_eq!(
+            to_canonical_spelling(&PathBuf::from(".\\.claude\\skills\\x\\SKILL.md")),
+            ".claude/skills/x/SKILL.md"
+        );
     }
 
     #[test]

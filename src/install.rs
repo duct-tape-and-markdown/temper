@@ -1522,10 +1522,11 @@ fn is_claude_path(file_path: &str) -> bool {
     file_path.contains(&format!("{}/", builtin_kind::CLAUDE_ROOT))
 }
 
-/// Whether `file_path` names any candidate — an equality compare of `/`-normalized paths
-/// (`PATH-SEP-NORMALIZE`), both sides spelled harness-relative. A `file_path` arriving
-/// absolute (Claude Code's own convention) is relativized against `root` first; one landing
-/// outside the root matches nothing, since no candidate can name it.
+/// Whether `file_path` names any candidate — an equality compare of canonically spelled
+/// paths ([`crate::path::to_canonical_spelling`]), both sides spelled harness-relative. A
+/// `file_path` arriving absolute (Claude Code's own convention) is relativized against
+/// `root` first; one landing outside the root matches nothing, since no candidate can name
+/// it.
 fn path_matches<'a>(
     file_path: &str,
     root: &Path,
@@ -1535,28 +1536,28 @@ fn path_matches<'a>(
         return false;
     };
     candidates
-        .any(|candidate| candidate.to_string_lossy().replace('\\', "/") == file_path_normalized)
+        .any(|candidate| crate::path::to_canonical_spelling(candidate) == file_path_normalized)
 }
 
 /// `file_path` spelled the one way every path compare in this module spells both its
 /// sides: relativized against `root` (Claude Code names an absolute path; the lock and a
-/// locus pattern are harness-relative), `/`-separated (`PATH-SEP-NORMALIZE`), and with a
-/// leading `./` erased — `./x` and `x` name one file, and the lock only ever spells the
-/// latter. [`None`] for a path outside `root`, which no candidate and no locus can name.
+/// locus pattern are harness-relative), then lexically normalized and spelled canonically
+/// — `/`-separated with a leading `./` erased ([`crate::path::to_canonical_spelling`]),
+/// since `./x` and `x` name one file and the lock only ever spells the latter. [`None`]
+/// for a path outside `root`, which no candidate and no locus can name.
 fn harness_relative(file_path: &str, root: &Path) -> Option<String> {
     let relative = crate::path::relativize_against_root(file_path, root)?;
-    Some(
-        crate::path::normalize_path(Path::new(&relative))
-            .to_string_lossy()
-            .replace('\\', "/"),
-    )
+    Some(crate::path::to_canonical_spelling(
+        &crate::path::normalize_path(Path::new(&relative)),
+    ))
 }
 
 /// The first of `targets` `file_path` names, or `None` for a path no target names — an
-/// equality compare against each row's `/`-normalized `source_path` (`PATH-SEP-NORMALIZE`),
-/// tolerant of `file_path` arriving absolute (Claude Code's own convention) against a
-/// workspace-relative lock row. The matched row, not a bare yes/no, because the refusal owes
-/// the author the member that owns the bytes (`projection_owner_line`).
+/// equality compare against each row's canonically spelled `source_path`
+/// ([`crate::path::to_canonical_spelling`]), tolerant of `file_path` arriving absolute
+/// (Claude Code's own convention) against a workspace-relative lock row. The matched row,
+/// not a bare yes/no, because the refusal owes the author the member that owns the bytes
+/// (`projection_owner_line`).
 fn matched_projection<'a>(
     file_path: &str,
     root: &Path,
@@ -1579,7 +1580,7 @@ fn projection_owner_line(owner: &drift::EmitOwnedEntry) -> String {
         "\n  owner: the `{}` member `{}` owns `{}` — edit that member's source and re-emit",
         owner.kind,
         owner.name,
-        owner.path.to_string_lossy().replace('\\', "/")
+        crate::path::to_canonical_spelling(&owner.path)
     )
 }
 
@@ -1788,7 +1789,7 @@ fn unreconstructable_edit_finding(manifest: &GuardedManifest) -> Diagnostic {
             manifest.address.key_path.wire_label()
         )
     };
-    let path = manifest.path.to_string_lossy().replace('\\', "/");
+    let path = crate::path::to_canonical_spelling(&manifest.path);
     Diagnostic::error(
         GUARD_MANIFEST_EDIT_RULE,
         path.clone(),
@@ -1814,7 +1815,7 @@ fn unparseable_manifest_finding(
         json_manifest::JsonManifestError::Malformed { detail, .. } => detail.clone(),
         other => other.to_string(),
     };
-    let path = manifest.path.to_string_lossy().replace('\\', "/");
+    let path = crate::path::to_canonical_spelling(&manifest.path);
     Diagnostic::error(
         GUARD_MANIFEST_UNPARSEABLE_RULE,
         path.clone(),

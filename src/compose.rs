@@ -1710,7 +1710,7 @@ pub fn repo_file_set(root: &Path) -> Vec<String> {
         let Ok(entry) = entry else { continue };
         if entry.file_type().is_file() {
             let normalized = crate::path::normalize_path(entry.path());
-            files.push(normalized.to_string_lossy().replace('\\', "/"));
+            files.push(crate::path::to_canonical_spelling(&normalized));
         }
     }
     files

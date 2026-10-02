@@ -36,7 +36,10 @@ use crate::layout::{Layout, LayoutReading, LayoutRegion};
 use crate::member_address::{
     host_address, is_one_segment, nested_address, parse_host_address, parse_nested_address,
 };
-use crate::path::HarnessRelativePath;
+use crate::path::{HarnessRelativePath, canonical_spelling, to_canonical_spelling};
+// `coverage_note` still reaches the canonical spelling as `drift::to_lock_path`; the
+// re-point to the one home is filed in `.flume/refactor/`.
+pub(crate) use crate::path::to_canonical_spelling as to_lock_path;
 use std::cell::Cell;
 
 thread_local! {
@@ -987,24 +990,6 @@ struct Projection {
     body: String,
 }
 
-/// Render a path for a lock row's `source_path`: always `/`-separated and with no
-/// redundant `./` prefix, regardless of host. `lock.toml` is committed, and
-/// `Path::join` inserts the host separator at each join boundary (backslash on
-/// Windows) — left alone, that forks the byte-committed lock by host.
-pub(crate) fn to_lock_path(path: &Path) -> String {
-    normalize_lock_path(&path.to_string_lossy())
-}
-
-/// Canonicalize a lock `source_path` spelling for a byte-stable, host- and
-/// engine-independent join: `/`-separated, no leading `./`. An engine before the
-/// workspace path was lexically normalized spelled a root-`.` member `./CLAUDE.md`
-/// where the current pass keys the bare `CLAUDE.md`; the reap sweep must normalize
-/// both sides at read time (decision 0024) or the older lock's every live
-/// projection reads ownerless and is mass-reaped.
-fn normalize_lock_path(path: &str) -> String {
-    path.replace('\\', "/").trim_start_matches("./").to_string()
-}
-
 /// The harness root a `.temper` workspace sits inside (`<harness>/.temper` → `<harness>`):
 /// the base every lock row is spelled relative to, and the base a reader joins a row back
 /// onto to reach disk.
@@ -1696,7 +1681,7 @@ pub fn emit(
         // local, its prior rollup row still on the lock and its live document about to
         // be deleted as the orphan of a member emit no longer projects.
         if commitment == Some(Commitment::Local) {
-            local_paths.insert(to_lock_path(&source_path));
+            local_paths.insert(to_canonical_spelling(&source_path));
             continue;
         }
         // A container member of a represented manifest: its typed fields are the manifest's
@@ -1727,9 +1712,9 @@ pub fn emit(
             layout_satisfies.extend(derivation.satisfies);
             layout_source_rows.push(LayoutSourceRow {
                 member: payload_member_address(member),
-                source_path: to_lock_path(&source_path),
+                source_path: to_canonical_spelling(&source_path),
             });
-            layout_paths.insert(to_lock_path(&source_path));
+            layout_paths.insert(to_canonical_spelling(&source_path));
             continue;
         }
         // The member's own whole address — the one spelling every refusal below names it
@@ -1839,7 +1824,7 @@ pub fn emit(
     // to undo a deletion.
     let mut owned_paths: BTreeSet<String> = projections
         .iter()
-        .map(|projection| to_lock_path(&projection.source_path))
+        .map(|projection| to_canonical_spelling(&projection.source_path))
         .collect();
     // A layout document is a source — never reaped even when no rollup row projects it.
     owned_paths.extend(layout_paths);
@@ -1849,7 +1834,7 @@ pub fn emit(
     owned_paths.extend(local_paths);
     // A represented manifest is emit-owned by its path even when no container member gives
     // it a rollup row, so a re-emit never reaps the file it just wrote.
-    owned_paths.extend(manifests.keys().map(|path| to_lock_path(path)));
+    owned_paths.extend(manifests.keys().map(|path| to_canonical_spelling(path)));
 
     // Read and parse the lock document once for reuse across the reap-diff and
     // layer-drop checks below — whole-input work hoists parsing per run, never
@@ -1859,7 +1844,7 @@ pub fn emit(
     let lock_doc = read_lock_document(workspace_dir).unwrap_or_default();
 
     // Classify every prior projection the payload no longer owns without touching
-    // disk. Both sides normalized: `owned_paths` came through `to_lock_path`, and
+    // disk. Both sides normalized: `owned_paths` came through the canonical spelling, and
     // an older lock's raw row spelling gets the same canonicalization here, so a
     // `./`-prefixed row still joins its live projection.
     let mut orphans: Vec<(ProvenanceRow, PathBuf, EmitOutcome)> = Vec::new();
@@ -1872,10 +1857,10 @@ pub fn emit(
     // so an older lock's `./`-prefixed row still finds its live projection.
     let prior_emit_hashes: PriorEmitHashes = prior_rows
         .iter()
-        .map(|row| (normalize_lock_path(&row.source_path), row.emit_hash.clone()))
+        .map(|row| (canonical_spelling(&row.source_path), row.emit_hash.clone()))
         .collect();
     for row in prior_rows {
-        if owned_paths.contains(&normalize_lock_path(&row.source_path)) {
+        if owned_paths.contains(&canonical_spelling(&row.source_path)) {
             any_survivor = true;
             continue;
         }
@@ -1956,7 +1941,9 @@ pub fn emit(
             .push(RollupEntry {
                 name: projection.name.clone(),
                 host: projection.host.clone(),
-                source_path: HarnessRelativePath::new(to_lock_path(&projection.source_path)),
+                source_path: HarnessRelativePath::new(to_canonical_spelling(
+                    &projection.source_path,
+                )),
                 source_hash: hash.clone(),
                 emit_hash: hash,
             });
@@ -1983,7 +1970,7 @@ pub fn emit(
                 .push(RollupEntry {
                     name: container.name.clone(),
                     host: container.host.clone(),
-                    source_path: HarnessRelativePath::new(to_lock_path(path)),
+                    source_path: HarnessRelativePath::new(to_canonical_spelling(path)),
                     source_hash: hash.clone(),
                     emit_hash: hash,
                 });
@@ -2285,7 +2272,7 @@ fn emit_manifest(
     Ok((row(outcome), hash))
 }
 
-/// Every prior lock row's `emit_hash`, keyed by its [`normalize_lock_path`] spelling: the
+/// Every prior lock row's `emit_hash`, keyed by its [`canonical_spelling`]: the
 /// fingerprint column [`write_outcome`] joins a projection's on-disk bytes against to tell
 /// an overwritten hand edit from a plain source-side re-emit. Built once per [`emit`] off
 /// the single provenance walk the reap diff already makes.
@@ -2311,7 +2298,7 @@ fn write_outcome(
     let Some(bytes) = current else {
         return EmitOutcome::Emitted;
     };
-    match prior_emit_hashes.get(&to_lock_path(locus)) {
+    match prior_emit_hashes.get(&to_canonical_spelling(locus)) {
         Some(prior) if sha256_hex(&canonicalize_eol(bytes)) != *prior => EmitOutcome::Overwritten,
         _ => EmitOutcome::Emitted,
     }
@@ -2401,7 +2388,7 @@ fn manifest_segment_reaps(
         let manifest_label = disk_path
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| to_lock_path(path));
+            .unwrap_or_else(|| to_canonical_spelling(path));
         for key in current.opaque_fields.keys() {
             if !build.residue.contains_key(key) {
                 reaps.push(EmitEntry {
@@ -2425,7 +2412,7 @@ fn manifest_segment_reaps(
                     .is_some_and(|entries| !entries.is_empty());
                 if !survives {
                     return Err(DriftError::SegmentReapWave {
-                        manifest: to_lock_path(path),
+                        manifest: to_canonical_spelling(path),
                         collection: (*collection).to_string(),
                         count: *count,
                     });
@@ -2769,7 +2756,7 @@ fn resolve_source_dependency(
     let row = LayoutImportRow {
         member: host.to_string(),
         target: member_index.get(&resolved).cloned().unwrap_or_default(),
-        source_path: to_lock_path(&resolved),
+        source_path: to_canonical_spelling(&resolved),
         import_hash: sha256_hex(&canonicalize_eol(&bytes)),
     };
     Ok((row, bytes))
@@ -2838,7 +2825,7 @@ fn harness_relative(host: &str, target: &str, harness_root: &Path) -> Result<Str
         .or_else(|_| std::path::absolute(harness_root))
         .unwrap_or_else(|_| harness_root.to_path_buf());
     match crate::path::relative_from_root(&root_abs, &target_abs) {
-        Some(relative) => Ok(to_lock_path(&relative)),
+        Some(relative) => Ok(to_canonical_spelling(&relative)),
         None => Err(DriftError::UnrootedSourcePath {
             member: host.to_string(),
             import: target.to_string(),
@@ -3568,7 +3555,7 @@ pub struct LocusMemberSite {
     /// The governing kind's bare name, as the finding reports it.
     pub kind: String,
     /// The document's path, harness-relative, as the finding reports it. Compared
-    /// against a provenance row's `source_path` through [`normalize_lock_path`], so an
+    /// against a provenance row's `source_path` through [`canonical_spelling`], so an
     /// older lock's `./x` spelling still matches the site's bare `x`.
     pub source_path: String,
     /// Whether the governing kind is a lock-declared *custom* kind. A built-in's
@@ -3601,7 +3588,7 @@ pub struct UndeclaredLocusMembers {
 /// A file-content member's whole trace on the lock is its **projection provenance row**,
 /// not the [`layout_source`](LayoutSourceRow) record a layout host reaches the lock
 /// through — so this joins each site's path against the same rows [`emit_owned_targets`] and
-/// [`config_stale`] walk. Both sides normalize through [`normalize_lock_path`], exactly
+/// [`config_stale`] walk. Both sides normalize through [`canonical_spelling`], exactly
 /// as the emit reap-diff does: the site's path arrives as a `String` from
 /// [`crate::path::relativize_against_root`] while a row's is a
 /// [`HarnessRelativePath`], and an older lock's `./x` spelling would otherwise forge a
@@ -3633,14 +3620,14 @@ pub fn undeclared_locus_members_from_doc(
 ) -> UndeclaredLocusMembers {
     let declared: BTreeSet<String> = read_prior_provenance_from_doc(doc)
         .into_iter()
-        .map(|row| normalize_lock_path(&row.source_path))
+        .map(|row| canonical_spelling(&row.source_path))
         .collect();
     let mut verdict = UndeclaredLocusMembers {
         findings: Vec::new(),
         counts: BTreeMap::new(),
     };
     for site in sites {
-        if declared.contains(&normalize_lock_path(&site.source_path)) {
+        if declared.contains(&canonical_spelling(&site.source_path)) {
             continue;
         }
         *verdict.counts.entry(site.kind.clone()).or_default() += 1;
@@ -4297,7 +4284,10 @@ pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
             Some(EmitOwnedEntry {
                 kind: raw.kind,
                 name,
-                path: PathBuf::from(String::from(source_path)),
+                // Spelled through the one home, never off the raw row: an older lock
+                // spells a root-`.` member `./CLAUDE.md`, and `install` compares this
+                // path against a canonically spelled `file_path`.
+                path: PathBuf::from(canonical_spelling(&source_path)),
             })
         })
         .collect();
@@ -4321,15 +4311,17 @@ pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
     // synthetic label outrank the member's real name in a path-keyed index.
     let mut collected: BTreeSet<String> = targets
         .iter()
-        .map(|target| to_lock_path(&target.path))
+        .map(|target| to_canonical_spelling(&target.path))
         .collect();
     for registration in &declarations.registrations {
-        let Some(path) = manifest_path_for(&registration.manifest, &kind_facts) else {
+        let Some(manifest_path) = manifest_path_for(&registration.manifest, &kind_facts) else {
             continue;
         };
-        if !collected.insert(to_lock_path(&path)) {
+        let spelling = to_canonical_spelling(&manifest_path);
+        if !collected.insert(spelling.clone()) {
             continue;
         }
+        let path = PathBuf::from(spelling);
         let (kind, name) = manifest_owner_label(&path, &kind_facts);
         targets.push(EmitOwnedEntry { kind, name, path });
     }
@@ -6431,15 +6423,6 @@ pub fn import_edges_from_doc(doc: &DocumentMut) -> miette::Result<Vec<graph::Res
 mod tests {
     use super::*;
     use crate::test_support::tmpdir;
-
-    #[test]
-    fn to_lock_path_normalizes_a_backslash_joined_path() {
-        // A Windows `Path::join` inserts `\` at the join boundary; simulate that
-        // shape directly (Unix `Path` never inserts `\`, so a real join can't
-        // reproduce it here) and assert the lock row still comes out `/`-separated.
-        let path = PathBuf::from("harness\\dir\\file.md");
-        assert_eq!(to_lock_path(&path), "harness/dir/file.md");
-    }
 
     #[test]
     fn project_bytes_heads_a_frontmatterless_body_with_its_preserved_banner() {

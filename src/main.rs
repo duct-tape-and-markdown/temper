@@ -24,6 +24,7 @@ use temper::drift;
 use temper::gate;
 use temper::install;
 use temper::kind::{CollectionAddress, Commitment, CustomKind, Format};
+use temper::path;
 use temper::read;
 use temper::reporter;
 use temper::schema;
@@ -860,9 +861,7 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
         loci.push(install::GuardedLocus {
             kind: kind.name.clone(),
             root: governs.root.clone(),
-            pattern: drift::join_locus(&governs.root, &governs.glob)
-                .to_string_lossy()
-                .replace('\\', "/"),
+            pattern: path::to_canonical_spelling(&drift::join_locus(&governs.root, &governs.glob)),
             custom,
         });
     };

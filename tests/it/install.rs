@@ -2474,6 +2474,63 @@ fn guard_matches_a_projection_by_path_equality_not_suffix() {
     }
 }
 
+/// A declared projection whose lock row carries the older `./` spelling is bound exactly
+/// as the bare spelling is. An engine before the workspace path was lexically normalized
+/// wrote a root-`.` member as `./CLAUDE.md`, and both sides of the projection compare
+/// normalize at read time (decision 0024) — through
+/// [`temper::path::to_canonical_spelling`], the one home for the spelling. Left
+/// un-canonicalized, the candidate matched no relativized `file_path` and the write to a
+/// live projection passed unchecked.
+///
+/// The memory kind's root locus is `.`, which carries no governed-locus pattern at all, so
+/// the projection compare is the one binding that can speak here: the fall-through arm
+/// cannot cover for what the compare misses.
+#[test]
+fn guard_binds_a_projection_whose_lock_row_carries_the_older_dot_slash_spelling() {
+    let root = common::tmpdir("guard-dot-slash-row");
+    common::GuardLock::declaring("block")
+        .member("memory", "root", "./CLAUDE.md", "abc", "abc")
+        .write(&root);
+
+    // Vacuous unless the lock on disk really carries the older spelling — the fixture
+    // writes the row verbatim, and a writer that canonicalized it would leave this case
+    // asserting the bare spelling a second time.
+    let lock = fs::read_to_string(root.join(temper::WORKSPACE_DIR).join(temper::LOCK_FILENAME))
+        .expect("the fixture lock must be readable");
+    assert!(
+        lock.contains(r#"source_path = "./CLAUDE.md""#),
+        "the fixture must declare the older `./` spelling: {lock}"
+    );
+
+    // The write Claude Code actually sends: the projection's absolute path.
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload(&root.join("CLAUDE.md").to_string_lossy()),
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "the `./`-spelled row names a live projection and must block the write: {stderr}"
+    );
+    assert!(
+        stderr.contains("the `memory` member `root`"),
+        "and block through the projection compare, which names the row's owner: {stderr}"
+    );
+    assert!(
+        stderr.contains("owns `CLAUDE.md`"),
+        "the owner line spells the path canonically, never the row's older `./`: {stderr}"
+    );
+
+    // And the compare still binds nothing it does not name: canonicalizing a row widens
+    // no match beyond the one file it spells.
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload(&root.join("reference/CLAUDE.md").to_string_lossy()),
+    );
+    assert_eq!(code, Some(0), "an undeclared path stays allowed: {stderr}");
+    assert!(stderr.is_empty(), "and surfaces nothing: {stderr}");
+}
+
 /// A declared projection whose path needs a JSON escape to ride the payload is bound like
 /// any other. The guard reads `file_path` off the decoded payload, so the value it compares
 /// is the path the tool named; the retired field-scoped grep captured `[^"]*` and stopped at
