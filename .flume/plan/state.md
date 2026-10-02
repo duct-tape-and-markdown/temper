@@ -12,13 +12,15 @@
   `src/frontmatter.rs`, `src/toml_document.rs`, `src/gate.rs`,
   `src/check.rs`, `src/coverage.rs`, `src/coverage_note.rs`, `src/dial.rs`,
   `src/display.rs`, `src/admissibility.rs`, `src/telemetry.rs`, `src/tap.rs`,
+  `src/path.rs`, `src/address.rs`, `src/member_address.rs`,
   `sdk/src/emit.ts`, `sdk/src/declarations.ts`, `sdk/src/prose.ts`,
   `sdk/src/needs.ts`, `sdk/src/assembly.ts`, `sdk/src/builtins.ts`,
   `sdk/src/claude-code.ts`.
-- This tick: reconciled 3a99a087..4e3344e9 — all three folds verified, no
-  residue filed, every parked/deferred gate re-tested and still true.
-- Queue: 8 pending — 4 parked, 4 deferred. Pickable: 0. Open forks: 1.
-  Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
+- This tick: swept the addressing-leaves neighborhood (`path`, `address`,
+  `member_address`) — two folds filed, `member_address` clean.
+- Queue: 10 pending — 2 open, 4 parked, 4 deferred. Pickable: 2. Open
+  forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the posture rotation is open with no pickable entry, so
-plan takes the next frontier neighborhood itself next tick.
+Plan continues: after-build — the posture rotation stays open with two
+pickable entries, so the wave ships first and the sweep takes the next
+frontier neighborhood when it hands back.
