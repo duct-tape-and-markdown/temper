@@ -306,55 +306,52 @@ pub fn gate(
     // matching document into both member sets — a document's kind is its position
     // alone, never its content — so a shared locus refuses loud here.
     diagnostics.extend(admissibility::governs_collision_diagnostics(
-        &overlaid_builtin_kinds,
-        &custom_rows,
-        &declarations,
-    )?);
+        &declared_kinds,
+    ));
     // Two distinct kinds declaring the same collection address would silently union their
     // selections and cross-apply each other's contracts — a manifest registration at one
     // address can own only one kind, so a shared address refuses loud here.
     diagnostics.extend(admissibility::collection_address_collision_diagnostics(
-        &overlaid_builtin_kinds,
-        &custom_rows,
-        &declarations,
-    )?);
+        &declared_kinds,
+    ));
     // A kind named for one of the lock's own root keys would have its roll-up rows
     // written at that key and then overwritten — the engine stamp erased, or the whole
     // roll-up array lost — so the name refuses loud here, beside the two collisions
     // between kinds.
     diagnostics.extend(admissibility::reserved_kind_name_diagnostics(
-        &overlaid_builtin_kinds,
-        &custom_rows,
+        &declared_kinds,
     ));
     // A declared commitment class the locus cannot carry is decided here, beside the
     // locus's other coherence check, before any member is read under a kind whose own
     // declaration does not hold together.
-    diagnostics.extend(admissibility::local_locus_admissibility(
-        &overlaid_builtin_kinds,
-        &custom_rows,
-        &declarations,
-    )?);
+    diagnostics.extend(admissibility::local_locus_admissibility(&declared_kinds));
     diagnostics.extend(admissibility::registration_locus_admissibility(
-        &overlaid_builtin_kinds,
-        &custom_rows,
-        &declarations,
-    )?);
+        &declared_kinds,
+    ));
     // An `at` locus member rooted under the workspace would emit and lock but never be
     // discoverable — discovery fences .temper/ by design — so the admissible set excludes it.
+    // A relocation row that re-roots a built-in's `governs` there buries that built-in's
+    // members the same way, so the judge ranges over the whole effective set.
     diagnostics.extend(admissibility::at_locus_under_workspace_admissibility(
-        &custom_rows,
-        &declarations,
+        &declared_kinds,
     ));
     // A kind declaring more than one verbatim prose region declares a permanent no-op: only
     // the first verbatim prose region can carry text, so declaring a second or later one is
     // a malformed definition.
     diagnostics.extend(admissibility::layout_duplicate_prose_region_admissibility(
-        &overlaid_builtin_kinds,
-        &custom_rows,
-        &declarations,
-    )?);
+        &declared_kinds,
+    ));
     for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row)?;
+        // The row's own lift, taken off the run's one effective kind set rather than lifted
+        // a fourth time over the same row: `declared_kinds` keys every custom row by the
+        // bare name the row and its kind share, from the identical `partition_kind_rows`
+        // split this loop ranges over, so the lookup is total.
+        let custom_kind = declared_kinds.get(&row.name).ok_or_else(|| {
+            miette::miette!(
+                "kind `{}` is declared by the lock but absent from the run's effective kind set",
+                row.name
+            )
+        })?;
         let contract = compose::with_joined_clauses(
             compose::default_contract_from_rows(
                 &declarations.clauses,
@@ -365,7 +362,7 @@ pub fn gate(
             &row.name,
         )?;
         let uaf = compose::kind_units_and_features(
-            &custom_kind,
+            custom_kind,
             &discovery,
             &declarations,
             &manifest_cache,
@@ -387,7 +384,7 @@ pub fn gate(
         member_counts.insert(row.name.clone(), features.len());
         contracts.insert(row.name.clone(), contract);
         custom_kinds.push((custom_kind.clone(), features.clone()));
-        custom_units_and_features.push((custom_kind, uaf));
+        custom_units_and_features.push((custom_kind.clone(), uaf));
     }
 
     // Directive-target classing on the FLOOR tier: an unbacked `@import` is a **pure fact** about the importing member —

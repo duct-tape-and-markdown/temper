@@ -463,22 +463,6 @@ fn guard_body_site(host: &drift::ClauseRow) -> String {
     }
 }
 
-/// Builds the effective kind set: every built-in kind, optionally overlaid with any
-/// relocation, plus every custom kind from the lock.
-fn effective_kinds(
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-    custom_rows: &[&drift::KindFactRow],
-) -> Result<Vec<CustomKind>, drift::LockRowError> {
-    let mut kinds = Vec::new();
-    for kind in overlaid_builtin_kinds.values() {
-        kinds.push(kind.clone());
-    }
-    for row in custom_rows {
-        kinds.push(CustomKind::from_kind_fact_row(row)?);
-    }
-    Ok(kinds)
-}
-
 /// The diagnostic `rule` id a kind declaring an inadmissible commitment class reports
 /// under. Sibling of [`GOVERNS_COLLISION_RULE`]: both guard the locus's own coherence
 /// before the corpus is trusted to model the harness — that one across kinds, this one
@@ -488,14 +472,15 @@ const LOCAL_LOCUS_RULE: &str = "kind.local-locus";
 /// A [`LOCAL_LOCUS_RULE`] finding per kind whose declared `local` commitment class is
 /// inadmissible — the locus fence ([`CustomKind::local_locus_fault`]), raised over every
 /// kind in play before their members are read.
+///
+/// `declared_kinds` is the run's [**effective kind
+/// set**](crate::compose::LockFamily::declared_kinds), the one every judge here ranges
+/// over.
 pub fn local_locus_admissibility(
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-    custom_rows: &[&drift::KindFactRow],
-    _declarations: &drift::Declarations,
-) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
-    let kinds = effective_kinds(overlaid_builtin_kinds, custom_rows)?;
-    Ok(kinds
-        .iter()
+    declared_kinds: &BTreeMap<String, CustomKind>,
+) -> Vec<check::Diagnostic> {
+    declared_kinds
+        .values()
         .filter_map(|kind| {
             let fault = kind.local_locus_fault()?;
             Some(check::Diagnostic::error(
@@ -508,7 +493,7 @@ pub fn local_locus_admissibility(
                 ),
             ))
         })
-        .collect())
+        .collect()
 }
 
 /// The diagnostic `rule` id a kind declaring a non-empty `registration` with no file locus
@@ -519,15 +504,12 @@ const REGISTRATION_LOCUS_RULE: &str = "kind.registration-locus";
 
 /// A [`REGISTRATION_LOCUS_RULE`] finding per kind whose declared `registration` is
 /// inadmissible under its locus — the registration fence ([`CustomKind::registration_locus_fault`]),
-/// raised over every kind in play before their members are read.
+/// raised over the run's effective kind set before their members are read.
 pub fn registration_locus_admissibility(
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-    custom_rows: &[&drift::KindFactRow],
-    _declarations: &drift::Declarations,
-) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
-    let kinds = effective_kinds(overlaid_builtin_kinds, custom_rows)?;
-    Ok(kinds
-        .iter()
+    declared_kinds: &BTreeMap<String, CustomKind>,
+) -> Vec<check::Diagnostic> {
+    declared_kinds
+        .values()
         .filter_map(|kind| {
             let fault = kind.registration_locus_fault()?;
             Some(check::Diagnostic::error(
@@ -540,7 +522,7 @@ pub fn registration_locus_admissibility(
                 ),
             ))
         })
-        .collect())
+        .collect()
 }
 
 /// The diagnostic `rule` id an `at`-locus member rooted under the workspace directory reports
@@ -551,31 +533,43 @@ const AT_LOCUS_UNDER_WORKSPACE_RULE: &str = "at-locus.under-workspace";
 /// An [`AT_LOCUS_UNDER_WORKSPACE_RULE`] finding per `at`-locus member whose committed
 /// `source_path` falls under `.temper/` — the same invariant emit refuses at projection
 /// time, surfaced at check time over an already-committed lock.
+///
+/// Ranges over the whole effective kind set, a built-in's relocated locus included: the
+/// invariant is the *locus*'s, not the row's, so a relocation row that re-roots a
+/// built-in's `governs` under `.temper/` buries that built-in's members exactly as a
+/// custom kind's own declaration would. The one locus it spares is a
+/// [`Commitment::Local`](crate::kind::Commitment::Local) one, below.
 pub fn at_locus_under_workspace_admissibility(
-    kind_rows: &[&drift::KindFactRow],
-    _declarations: &drift::Declarations,
+    declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> Vec<check::Diagnostic> {
     let mut diagnostics = Vec::new();
-    for kind_row in kind_rows {
-        // Only `at` loci (both governs_root and governs_glob present) can be under workspace.
-        let Some(root) = kind_row.governs_root.as_deref() else {
+    for kind in declared_kinds.values() {
+        // Only an `at` locus can be under the workspace — a nested-file kind governs no
+        // root at all, and the lift is what pairs the row's two locus columns into one.
+        let Some(governs) = &kind.governs else {
             continue;
         };
-        let Some(_glob) = kind_row.governs_glob.as_deref() else {
+        // A `local` locus is admissible there, and that is the locus's declared class
+        // rather than a carve-out for any one kind: the `.temper/` fence is a discovery
+        // *presumption*, waived for exactly a local-locus kind's own walk
+        // (`import::local_governs`), and emit neither projects nor locks such a member.
+        // Every clause of the refusal below is false for it, so nothing is buried —
+        // temper's own `dial` is the shipped case.
+        if kind.commitment == Some(crate::kind::Commitment::Local) {
             continue;
-        };
-        let root_path = std::path::Path::new(root);
+        }
+        let root_path = std::path::Path::new(&governs.root);
         let workspace = std::path::Path::new(crate::WORKSPACE_DIR);
         if root_path == workspace || root_path.starts_with(format!("{}/", crate::WORKSPACE_DIR)) {
             diagnostics.push(check::Diagnostic::error(
                 AT_LOCUS_UNDER_WORKSPACE_RULE,
-                &kind_row.name,
+                &kind.name,
                 format!(
                     "kind `{}` declares an `at` locus rooted at `{}`, which falls under the \
                      workspace directory `.temper/` — a member rooted there would emit and lock \
                      but never be discoverable by design; re-root `{}`'s `governs` outside \
                      `.temper/`",
-                    kind_row.name, root, kind_row.name
+                    kind.name, governs.root, kind.name
                 ),
             ));
         }
@@ -594,20 +588,12 @@ const LAYOUT_DUPLICATE_PROSE_REGION_RULE: &str = "layout.duplicate-prose-region"
 /// prose region without an import can never carry a byte, so declaring it is a permanent
 /// no-op the admissible set excludes.
 pub fn layout_duplicate_prose_region_admissibility(
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-    custom_rows: &[&drift::KindFactRow],
-    _declarations: &drift::Declarations,
-) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
-    let mut diagnostics: Vec<check::Diagnostic> = overlaid_builtin_kinds
+    declared_kinds: &BTreeMap<String, CustomKind>,
+) -> Vec<check::Diagnostic> {
+    declared_kinds
         .values()
         .filter_map(duplicate_prose_region_diagnostic)
-        .collect();
-    for row in custom_rows {
-        diagnostics.extend(duplicate_prose_region_diagnostic(
-            &CustomKind::from_kind_fact_row(row)?,
-        ));
-    }
-    Ok(diagnostics)
+        .collect()
 }
 
 /// The [`LAYOUT_DUPLICATE_PROSE_REGION_RULE`] finding for one kind, naming the regions
@@ -676,15 +662,10 @@ const RESERVED_LOCK_KEY_RULE: &str = "kind.reserved-lock-key";
 /// whole roll-up array, each without a word. One error per kind wearing a reserved name,
 /// naming the key, what the lock keeps there, and the one exit: rename the kind.
 pub fn reserved_kind_name_diagnostics(
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-    custom_rows: &[&drift::KindFactRow],
+    declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> Vec<check::Diagnostic> {
-    let names = overlaid_builtin_kinds
-        .values()
-        .map(|kind| kind.name.as_str())
-        .chain(custom_rows.iter().map(|row| row.name.as_str()));
     let mut diagnostics = Vec::new();
-    for name in names {
+    for name in declared_kinds.values().map(|kind| kind.name.as_str()) {
         let Some((_, held)) = drift::RESERVED_LOCK_ROOT_KEYS
             .iter()
             .find(|(key, _)| *key == name)
@@ -724,48 +705,34 @@ pub fn reserved_kind_name_diagnostics(
 /// members' paths compose from their host's unit and the host template's pattern — so it
 /// enters no bucket and can contend with nobody. That is the whole point of the locus.
 pub fn governs_collision_diagnostics(
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-    custom_rows: &[&drift::KindFactRow],
-    _declarations: &drift::Declarations,
-) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
-    let mut by_governs: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
-    for kind in overlaid_builtin_kinds.values() {
-        let Some(governs) = kind.governs.clone() else {
+    declared_kinds: &BTreeMap<String, CustomKind>,
+) -> Vec<check::Diagnostic> {
+    let mut by_governs: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+    for kind in declared_kinds.values() {
+        let Some(governs) = &kind.governs else {
             continue;
         };
         if kind.collection_address.is_some() {
             continue;
         }
         by_governs
-            .entry((governs.root, governs.glob))
+            .entry((governs.root.as_str(), governs.glob.as_str()))
             .or_default()
-            .push(kind.name.clone());
+            .push(kind.name.as_str());
     }
-    for row in custom_rows {
-        let Some(governs) = row.governs_root.clone().zip(row.governs_glob.clone()) else {
-            continue;
-        };
-        if row.collection_address.is_some() {
-            continue;
-        }
-        by_governs
-            .entry(governs)
-            .or_default()
-            .push(row.name.clone());
-    }
-    Ok(by_governs
+    by_governs
         .into_iter()
         .filter(|(_, names)| names.len() > 1)
         .map(|((root, glob), mut names)| {
-            names.sort();
-            governs_collision_diagnostic(&root, &glob, &names)
+            names.sort_unstable();
+            governs_collision_diagnostic(root, glob, &names)
         })
-        .collect())
+        .collect()
 }
 
 /// A [`GOVERNS_COLLISION_RULE`] finding naming every kind that shares the
 /// `root`/`glob` locus and the glob itself.
-fn governs_collision_diagnostic(root: &str, glob: &str, names: &[String]) -> check::Diagnostic {
+fn governs_collision_diagnostic(root: &str, glob: &str, names: &[&str]) -> check::Diagnostic {
     let named = names
         .iter()
         .map(|name| format!("`{name}`"))
@@ -788,43 +755,29 @@ fn governs_collision_diagnostic(root: &str, glob: &str, names: &[String]) -> che
 /// manifest, and the key path. Like [`governs_collision_diagnostics`], this check runs
 /// over the effective kind set: the overlaid built-in kinds plus the custom rows.
 pub fn collection_address_collision_diagnostics(
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-    custom_rows: &[&drift::KindFactRow],
-    _declarations: &drift::Declarations,
-) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
-    let mut by_address: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
-    for kind in overlaid_builtin_kinds.values() {
+    declared_kinds: &BTreeMap<String, CustomKind>,
+) -> Vec<check::Diagnostic> {
+    let mut by_address: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+    for kind in declared_kinds.values() {
         let Some(collection_address) = &kind.collection_address else {
             continue;
         };
         by_address
             .entry((
-                collection_address.manifest.clone(),
-                collection_address.key_path.wire_label().to_string(),
+                collection_address.manifest.as_str(),
+                collection_address.key_path.wire_label(),
             ))
             .or_default()
-            .push(kind.name.clone());
+            .push(kind.name.as_str());
     }
-    for row in custom_rows {
-        let Some(collection_address) = &row.collection_address else {
-            continue;
-        };
-        by_address
-            .entry((
-                collection_address.manifest.clone(),
-                collection_address.key_path.clone(),
-            ))
-            .or_default()
-            .push(row.name.clone());
-    }
-    Ok(by_address
+    by_address
         .into_iter()
         .filter(|(_, names)| names.len() > 1)
         .map(|((manifest, key_path), mut names)| {
-            names.sort();
-            collection_address_collision_diagnostic(&manifest, &key_path, &names)
+            names.sort_unstable();
+            collection_address_collision_diagnostic(manifest, key_path, &names)
         })
-        .collect())
+        .collect()
 }
 
 /// A [`COLLECTION_ADDRESS_COLLISION_RULE`] finding naming every kind that shares the
@@ -832,7 +785,7 @@ pub fn collection_address_collision_diagnostics(
 fn collection_address_collision_diagnostic(
     manifest: &str,
     key_path: &str,
-    names: &[String],
+    names: &[&str],
 ) -> check::Diagnostic {
     let named = names
         .iter()
@@ -887,6 +840,33 @@ mod tests {
             kind: kind.map(str::to_string),
             ..test_support::clause_row("required", severity)
         }
+    }
+
+    /// The effective kind set a judge ranges over, keyed by bare name exactly as the run
+    /// publishes it ([`compose::LockFamily::declared_kinds`]).
+    fn kind_set(kinds: Vec<CustomKind>) -> BTreeMap<String, CustomKind> {
+        kinds
+            .into_iter()
+            .map(|kind| (kind.name.clone(), kind))
+            .collect()
+    }
+
+    /// A declared kind at `name` governing nothing — the no-locus half of the fixtures
+    /// below, which the two locus fences range over.
+    fn host_composed(name: &str) -> CustomKind {
+        CustomKind::host_composed(name, crate::kind::Extraction::new(Vec::new()))
+    }
+
+    /// A declared kind at `name` governing `root`/`glob` — the `at`-locus half.
+    fn at_locus(name: &str, root: &str, glob: &str) -> CustomKind {
+        CustomKind::new(
+            name,
+            crate::kind::Governs {
+                root: root.to_string(),
+                glob: glob.to_string(),
+            },
+            crate::kind::Extraction::new(Vec::new()),
+        )
     }
 
     /// The one message of `findings`, or a panic naming what was found instead.
@@ -1029,12 +1009,11 @@ mod tests {
 
     #[test]
     fn a_reserved_lock_key_kind_name_names_the_key_its_holder_and_the_rename() {
-        let engine = test_support::kind_fact_row("engine");
-        let declaration = test_support::kind_fact_row("declaration");
-        let message = only_message(&reserved_kind_name_diagnostics(
-            &BTreeMap::new(),
-            &[&engine],
-        ))
+        let engine = host_composed("engine");
+        let declaration = host_composed("declaration");
+        let message = only_message(&reserved_kind_name_diagnostics(&kind_set(vec![
+            engine.clone(),
+        ])))
         .to_string();
         assert!(
             message.contains("`engine`") && message.contains("engine version"),
@@ -1045,25 +1024,24 @@ mod tests {
             "the one exit must be named: {message}"
         );
         assert_eq!(
-            reserved_kind_name_diagnostics(&BTreeMap::new(), &[&engine, &declaration]).len(),
+            reserved_kind_name_diagnostics(&kind_set(vec![engine, declaration])).len(),
             2,
             "one error per kind wearing a reserved name"
         );
 
         // A kind named anything else is no collision with the lock's root namespace.
-        let free = test_support::kind_fact_row("engineer");
-        assert!(reserved_kind_name_diagnostics(&BTreeMap::new(), &[&free]).is_empty());
+        assert!(
+            reserved_kind_name_diagnostics(&kind_set(vec![host_composed("engineer")])).is_empty()
+        );
     }
 
     #[test]
     fn a_local_locus_fault_names_the_two_columns_that_resolve_it() {
-        let row = drift::KindFactRow {
-            commitment: Some("local".to_string()),
-            ..test_support::kind_fact_row("scratch")
+        let scratch = CustomKind {
+            commitment: Some(crate::kind::Commitment::Local),
+            ..host_composed("scratch")
         };
-        let findings =
-            local_locus_admissibility(&BTreeMap::new(), &[&row], &drift::Declarations::default())
-                .unwrap();
+        let findings = local_locus_admissibility(&kind_set(vec![scratch]));
         let message = only_message(&findings).to_string();
         assert!(
             message.contains("declare a `governs` locus for `scratch`")
@@ -1074,16 +1052,11 @@ mod tests {
 
     #[test]
     fn a_registration_locus_fault_names_the_two_columns_that_resolve_it() {
-        let row = drift::KindFactRow {
-            registration: vec!["always".to_string()],
-            ..test_support::kind_fact_row("nested-note")
+        let nested_note = CustomKind {
+            registration: vec![crate::kind::Registration::Always],
+            ..host_composed("nested-note")
         };
-        let findings = registration_locus_admissibility(
-            &BTreeMap::new(),
-            &[&row],
-            &drift::Declarations::default(),
-        )
-        .unwrap();
+        let findings = registration_locus_admissibility(&kind_set(vec![nested_note]));
         let message = only_message(&findings).to_string();
         assert!(
             message.contains("drop the `registration` from `nested-note`")
@@ -1094,13 +1067,11 @@ mod tests {
 
     #[test]
     fn a_workspace_rooted_at_locus_names_the_re_rooting() {
-        let row = drift::KindFactRow {
-            governs_root: Some(".temper/notes".to_string()),
-            governs_glob: Some("*.md".to_string()),
-            ..test_support::kind_fact_row("note")
-        };
-        let findings =
-            at_locus_under_workspace_admissibility(&[&row], &drift::Declarations::default());
+        let findings = at_locus_under_workspace_admissibility(&kind_set(vec![at_locus(
+            "note",
+            ".temper/notes",
+            "*.md",
+        )]));
         let message = only_message(&findings).to_string();
         assert!(
             message.contains("re-root `note`'s `governs` outside `.temper/`"),
@@ -1109,28 +1080,70 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_prose_regions_name_only_the_regions_that_can_never_carry_a_byte() {
-        let prose = |import: Option<&str>| drift::LayoutRegionRow {
-            region: "prose".to_string(),
-            import: import.map(str::to_string),
-            slot: None,
-            member_kind: None,
-            key: None,
+    fn a_relocation_rooting_a_builtin_under_the_workspace_is_refused_like_a_custom_kinds() {
+        // The row relocates rather than collides: it diverges from the built-in on nothing
+        // but its locus, so `overlay_builtin_kind` moves `skill`'s `governs` onto it and the
+        // effective kind the judge sees is a built-in rooted under the workspace.
+        let relocation = drift::KindFactRow {
+            governs_root: Some(".temper/skills".to_string()),
+            governs_glob: Some("*/SKILL.md".to_string()),
+            ..test_support::kind_fact_row("skill")
         };
-        let row = drift::KindFactRow {
-            governs_root: Some("specs".to_string()),
-            governs_glob: Some("*.md".to_string()),
-            content: Some(drift::LayoutRow {
+        let declarations = drift::Declarations {
+            kinds: vec![relocation],
+            ..drift::Declarations::default()
+        };
+        let skill = builtin_kind::definition("skill").expect("the skill kind ships embedded");
+        let overlaid = compose::overlay_builtin_kind(&skill, &declarations).expect("overlay");
+        assert_eq!(
+            overlaid
+                .governs
+                .as_ref()
+                .map(|governs| governs.root.as_str()),
+            Some(".temper/skills"),
+            "the fixture must actually relocate the built-in, or the judge ranges over nothing"
+        );
+
+        let findings = at_locus_under_workspace_admissibility(&kind_set(vec![overlaid]));
+        let message = only_message(&findings).to_string();
+        assert!(
+            message.contains("re-root `skill`'s `governs` outside `.temper/`"),
+            "a relocated built-in buries its members the same way: {message}"
+        );
+    }
+
+    #[test]
+    fn a_local_locus_rooted_at_the_workspace_is_admissible_as_the_shipped_dial_is() {
+        // The empty verdict, spelled rather than inherited: discovery's `.temper/` fence is
+        // a presumption it waives for a local-locus kind's own walk, so the locus buries
+        // nothing and the judge must stay silent over it. The shipped `dial` is the case.
+        let dial = builtin_kind::definition(crate::dial::KIND).expect("the dial kind ships");
+        let kinds = kind_set(vec![dial]);
+        assert!(
+            kinds.values().any(|kind| kind
+                .governs
+                .as_ref()
+                .is_some_and(|governs| governs.root == crate::WORKSPACE_DIR)),
+            "the fixture must root a kind at the workspace, or the silence is vacuous"
+        );
+        assert!(
+            at_locus_under_workspace_admissibility(&kinds).is_empty(),
+            "a local locus under the workspace is the declared exception"
+        );
+    }
+
+    #[test]
+    fn duplicate_prose_regions_name_only_the_regions_that_can_never_carry_a_byte() {
+        let prose = |import: Option<&str>| crate::layout::LayoutRegion::Prose {
+            import: import.map(str::to_string),
+        };
+        let spec = CustomKind {
+            content: crate::kind::Content::Layout(crate::layout::Layout {
                 regions: vec![prose(None), prose(Some("head.md")), prose(None)],
             }),
-            ..test_support::kind_fact_row("spec")
+            ..at_locus("spec", "specs", "*.md")
         };
-        let findings = layout_duplicate_prose_region_admissibility(
-            &BTreeMap::new(),
-            &[&row],
-            &drift::Declarations::default(),
-        )
-        .unwrap();
+        let findings = layout_duplicate_prose_region_admissibility(&kind_set(vec![spec]));
         let message = only_message(&findings).to_string();
         // Region 1 imports, so it carries bytes; region 0 is the one that reads. Only
         // region 2 is the no-op, and only it is what the author edits.
