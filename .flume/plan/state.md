@@ -1,8 +1,8 @@
 # Plan state
 
 - Spec derived through: 9626a1a6 — copied forward; the delta past it is empty.
-- Audited through: c51c34ef — the two import-neighborhood folds verified on disk.
-- Residue swept through: c51c34ef — one finding filed, in the fold's own wake.
+- Audited through: 1bc7f7e2 — the scan-locus normalize fold verified on disk.
+- Residue swept through: 1bc7f7e2 — clean; one comment-grade rider, filed nowhere.
 - Posture swept through: mid-rotation — frontier armed at ee7de9f9 (the
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
@@ -16,10 +16,10 @@
   `sdk/src/emit.ts`, `sdk/src/declarations.ts`, `sdk/src/prose.ts`,
   `sdk/src/needs.ts`, `sdk/src/assembly.ts`, `sdk/src/builtins.ts`,
   `sdk/src/claude-code.ts`.
-- This tick: post-ship reconciliation of 82108807..c51c34ef — both folds
-  verified, eight gates re-tested, LOCUS-SCAN-NORMALIZE-HAS-ONE-HOME filed.
-- Queue: 9 pending — 1 open, 4 parked, 4 deferred. Pickable: 1.
+- This tick: post-ship reconciliation of c51c34ef..1bc7f7e2 — the fold verified
+  with the suite green, eight gates re-tested, sweep clean, no entry filed.
+- Queue: 8 pending — 0 open, 4 parked, 4 deferred. Pickable: 0.
   Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the rotation stays open with a pickable entry;
-the sweep resumes on the next frontier module when the wave hands back.
+Plan continues: yes — the posture rotation is open with no pickable entry, so
+plan drives the next frontier module itself rather than handing back.

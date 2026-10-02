@@ -77,3 +77,12 @@ documentation option's own verdict — the advice has never been read in time,
 because it is not in the path of the one command that triggers the class. The
 mechanical option (install in `setupWorktree`) is the only one left that
 could.
+
+Sixth tick at 1bc7f7e2, and the first to pay little: a filtered run
+(`cargo test --test it nested_member`) surfaced the class in ~1s, not a full
+suite — `41 passed; 7 failed`, every red the same `sdk build failed` /
+`TS2688`. One call to read the panic, then the install, then
+`48 passed; 0 failed` and `1262 passed; 0 failed` across the suite. So the
+signature now has a cheap flavor too: an audit that filters to the entry's own
+test files hits it just as reliably, which means the class is unavoidable in a
+fresh worktree by any route — not merely a full-suite tax.
