@@ -76,10 +76,32 @@ impl<'a> Discovery<'a> {
     }
 
     /// The harness root this cache walks — the base a `governs` root and the bare-skill
-    /// path join against.
+    /// path join against. The `governs` join itself has its own home one method down
+    /// (`locus_root`); a caller asking "where does this locus sit on disk" wants that,
+    /// not this.
     #[must_use]
     pub fn harness(&self) -> &Path {
         self.harness
+    }
+
+    /// The on-disk root a `governs` locus names — the harness root joined with the
+    /// locus's declared `root`, normalized so a `.`-rooted locus (`memory`'s
+    /// `.` + `**/CLAUDE.md`) resolves to the harness root itself rather than a
+    /// `<harness>/.` spelling that no `strip_prefix` downstream matches.
+    ///
+    /// The one join-and-normalize: the unit-directory fold ([`host_units`]), the locus
+    /// scan ([`discover_kind_units`]) and `compose`'s file-unit fold base each used to
+    /// pair the join with the normalize by hand — two normalizing on the spot, the third
+    /// leaving it to [`scan_locus`] — and now all three read it here.
+    ///
+    /// [`scan_locus`] keeps its own normalize rather than taking this: it also runs over
+    /// a host unit's directory, so it cannot presume a pre-normalized root.
+    ///
+    /// `pub(crate)` because the only consumers are in-crate — this module and `compose`;
+    /// the walk the root feeds is not itself public surface.
+    #[must_use]
+    pub(crate) fn locus_root(&self, governs: &Governs) -> PathBuf {
+        crate::path::normalize_path(&self.harness().join(&governs.root))
     }
 
     /// The discoverable tree for the `local_governs` flavor, walking it on first use
@@ -347,7 +369,7 @@ fn host_units(
             })
             .collect();
     };
-    let root = crate::path::normalize_path(&disc.harness().join(&governs.root));
+    let root = disc.locus_root(governs);
     discover_kind_files(disc, host, governs, over)
         .into_iter()
         .filter_map(|entry| {
@@ -444,11 +466,7 @@ fn discover_kind_units(disc: &Discovery, governs: &Governs, local_governs: bool)
     // walk, whatever its `governs.root` depth. Shared per flavor across the run so N kinds
     // cost one walk, not N ([`Discovery`]).
     let discoverable = disc.discoverable(local_governs);
-    scan_locus(
-        &disc.harness().join(&governs.root),
-        &governs.glob,
-        discoverable,
-    )
+    scan_locus(&disc.locus_root(governs), &governs.glob, discoverable)
 }
 
 /// The scan itself: every file under `root` matching `glob`, deterministically ordered.
@@ -716,6 +734,31 @@ Last line, no newline.";
         fs::create_dir_all(&rules).unwrap();
         fs::write(rules.join("rust.md"), RUST_RULE).unwrap();
         fs::write(rules.join("collaboration.md"), COLLAB_RULE).unwrap();
+    }
+
+    #[test]
+    fn the_locus_root_joins_the_harness_and_drops_a_root_dot() {
+        // The one join-and-normalize, at the two edges each of the three former hand-
+        // pairings had to get right alone: a nested locus root lands under the harness,
+        // and a `.`-rooted locus resolves to the harness root itself rather than a
+        // `<harness>/.` no downstream `strip_prefix` matches.
+        let harness = Path::new("/tmp/gov-root");
+        let disc = Discovery::new(harness);
+
+        let nested = Governs {
+            root: ".claude/skills".to_string(),
+            glob: "*/SKILL.md".to_string(),
+        };
+        assert_eq!(
+            disc.locus_root(&nested),
+            Path::new("/tmp/gov-root/.claude/skills")
+        );
+
+        let root_locus = Governs {
+            root: ".".to_string(),
+            glob: "**/CLAUDE.md".to_string(),
+        };
+        assert_eq!(disc.locus_root(&root_locus), harness);
     }
 
     #[test]

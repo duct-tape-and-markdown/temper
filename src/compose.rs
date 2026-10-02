@@ -1033,7 +1033,7 @@ fn resolve_kind_units(
                 child_units
             }
             (_, _, Some(governs)) => {
-                let root = crate::path::normalize_path(&disc.harness().join(&governs.root));
+                let root = disc.locus_root(governs);
                 let base = drift::fold_base(&root, &governs.glob);
                 let mut file_units = Vec::new();
                 for file in
