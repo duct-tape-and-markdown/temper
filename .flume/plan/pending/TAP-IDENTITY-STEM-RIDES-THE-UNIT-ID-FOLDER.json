@@ -1,6 +1,10 @@
 {
   "tag": "TAP-IDENTITY-STEM-RIDES-THE-UNIT-ID-FOLDER",
-  "gate": { "kind": "blockedBy", "tags": ["FIELD-STRAND-NARRATES-ONE-EVENT-VOCABULARY"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
@@ -16,7 +20,10 @@
     "retire": []
   },
   "summary": "telemetry's InstructionsLoaded identity fallback hand-rolls a markdown-only stem beside extract::fold_file_id, the crate's one path-to-id folder",
-  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
   "tests": [
     {
       "path": "tests/it/read_verbs.rs",
