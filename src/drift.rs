@@ -1087,7 +1087,7 @@ fn splice_name(
 /// wrote, and the one the splice would then place back at `notes/notes-home.md`. Folding
 /// earns its keep only for the directories a wildcard spans, where depth genuinely
 /// distinguishes same-named files (the `**/CLAUDE.md` nearest-wins nesting
-/// [`crate::frontmatter::fold_file_id`] names). Uniqueness is untouched: every member under
+/// [`crate::extract::fold_file_id`] names). Uniqueness is untouched: every member under
 /// one pattern shares the literal prefix being stripped.
 ///
 /// The leading run stops at the first segment carrying a `*` — `**` included, since an

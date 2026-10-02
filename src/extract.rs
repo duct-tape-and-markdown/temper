@@ -23,9 +23,12 @@
 //! not clauses.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value as JsonValue;
+
+use crate::kind::UnitShape;
 
 /// A field's parsed source kind — the closed scalar/container lattice a kind's
 /// field schema ranges over. Taken from the *parsed*
@@ -833,6 +836,141 @@ pub(crate) fn path_shaped_id(source_file: &Path) -> Option<String> {
     source_dir_name(source_file)
 }
 
+/// A unit-shape id derivation's refusal: the source it ran over, and the component that
+/// source did not carry.
+///
+/// Format-neutral by construction. [`unit_shape_id`] is the one home for the derivation, so
+/// the fault names only *what was absent*; each read face maps it into its own error
+/// vocabulary ([`crate::frontmatter::FrontmatterError`],
+/// [`crate::json_manifest::JsonManifestError`],
+/// [`crate::toml_document::TomlDocumentError`]) — the same division of labour
+/// [`path_shaped_id`]'s [`None`] already draws.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct UnitIdFault {
+    /// The source whose id could not be derived — every face's refusal names it.
+    pub(crate) path: PathBuf,
+    /// The id component the source did not carry.
+    pub(crate) absent: AbsentId,
+}
+
+/// The absent id component a [`UnitIdFault`] names — one arm per id source a
+/// [`UnitShape`] can declare.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AbsentId {
+    /// A path-shaped unit sits at a path naming no owning directory. Carries the declared
+    /// shape's label (`directory` / `starred-segment`), which the faces spell in the
+    /// refusal.
+    PathDirectory(&'static str),
+    /// A file-shaped unit's path yields no filename stem, or a placement component that is
+    /// not valid UTF-8.
+    FileStem,
+    /// A `named-field` unit carries no string value at its declared key. Carries the key,
+    /// which is the kind's rather than a fixed label.
+    NamedField(String),
+}
+
+/// The surface id a unit of `shape` carries — the one derivation over
+/// [`UnitShape`] every authored read face reads identity from.
+///
+/// Each shape declares exactly one id source, and this is where that mapping lives: a
+/// path-shaped unit (`directory` / `starred-segment`) is named by the directory its source
+/// sits in ([`path_shaped_id`]); a `named-field` unit by the string value at the kind's
+/// declared key; a `file`-shaped unit — or one declaring no shape, which defaults to a lone
+/// file — by its filename stem with the placement below `base` folded in
+/// ([`fold_file_id`]). Three faces call it (the frontmatter member, the JSON document, the
+/// TOML document), so none of them can come to disagree about what a shape's id is.
+///
+/// `named_field` is the face's own top-level lookup, because only the face knows the grammar
+/// its fields were parsed out of (YAML frontmatter, a JSON object, a TOML table). The rule
+/// that a *string* value and nothing else names a unit is here, not there.
+///
+/// # Errors
+///
+/// Returns a [`UnitIdFault`] naming the absent component, for the calling face to map into
+/// its own error vocabulary.
+pub(crate) fn unit_shape_id<'v>(
+    shape: Option<&UnitShape>,
+    source_file: &Path,
+    base: &Path,
+    named_field: impl FnOnce(&str) -> Option<&'v JsonValue>,
+) -> Result<String, UnitIdFault> {
+    let fault = |absent| UnitIdFault {
+        path: source_file.to_path_buf(),
+        absent,
+    };
+    match shape {
+        Some(UnitShape::Directory) => {
+            path_shaped_id(source_file).ok_or_else(|| fault(AbsentId::PathDirectory("directory")))
+        }
+        Some(UnitShape::StarredSegment) => path_shaped_id(source_file)
+            .ok_or_else(|| fault(AbsentId::PathDirectory("starred-segment"))),
+        Some(UnitShape::NamedField { field }) => named_field(field)
+            .and_then(JsonValue::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| fault(AbsentId::NamedField(field.clone()))),
+        // `file` shape, or an undeclared shape defaulting to a lone file.
+        Some(UnitShape::File) | None => fold_file_id(base, source_file),
+    }
+}
+
+/// Derive a **file-shaped** unit's surface id, folding the directory placement below the
+/// fold base `base` into it. A unit
+/// directly under `base` keeps its bare filename stem — the common flat case, unchanged
+/// — while a nested one prefixes its placement path, the placement components and the
+/// stem joined with `-` into one surface-directory component. This is what stops a
+/// nested nearest-wins hierarchy (agents.md / `CLAUDE.md` memory nesting) from
+/// collapsing two same-named files at different depths onto one clobbered surface entry.
+///
+/// `base` is the **fold base**, not simply the kind's `governs` root: a caller that places
+/// members through a pattern descends the locus through the segments that pattern spells
+/// literally before folding against it ([`crate::drift::fold_base`]), because a literal
+/// segment is locus every member under the pattern shares, never identity. What reaches
+/// here is the placement a wildcard genuinely spans.
+///
+/// The [`unit_shape_id`] dispatch above is the one caller that reaches it per shape; the
+/// layout face (`compose::layout_unit`) calls it directly, having already resolved its unit
+/// to a file. A source not under `base` (a caller with no root context) folds no placement,
+/// degrading to the bare stem rather than erroring.
+///
+/// # Errors
+///
+/// Returns a [`UnitIdFault`] carrying [`AbsentId::FileStem`] if the source has no filename
+/// stem, or a placement component that is not valid UTF-8 — the same failure a bare stem
+/// raises.
+pub(crate) fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, UnitIdFault> {
+    let no_id = || UnitIdFault {
+        path: source_file.to_path_buf(),
+        absent: AbsentId::FileStem,
+    };
+    let stem = source_file
+        .file_stem()
+        .and_then(OsStr::to_str)
+        .ok_or_else(no_id)?;
+
+    // Placement = the directories between the scan root and the file. `.` components
+    // (a `base` that named the current dir) carry no placement and are skipped, so the
+    // flat case reduces to the bare stem.
+    let placement = source_file
+        .strip_prefix(base)
+        .ok()
+        .and_then(Path::parent)
+        .filter(|dirs| !dirs.as_os_str().is_empty());
+    let Some(dirs) = placement else {
+        return Ok(stem.to_string());
+    };
+
+    let mut parts = Vec::new();
+    for component in dirs.iter() {
+        let part = component.to_str().ok_or_else(no_id)?;
+        if part == "." {
+            continue;
+        }
+        parts.push(part);
+    }
+    parts.push(stem);
+    Ok(parts.join("-"))
+}
+
 /// Extract the `at-import` directive occurrences (`@path/to/file`) from a
 /// byte-faithful markdown body, in document order — the raw path strings, one per
 /// occurrence. An `@` opens an import only at a word boundary (start of line or after
@@ -973,6 +1111,139 @@ fn json_scalar_string(value: &JsonValue) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A kind's `named-field` shape over the key `name`, the shape every face's
+    /// declared-identity arm carries.
+    fn named_field(field: &str) -> UnitShape {
+        UnitShape::NamedField {
+            field: field.to_string(),
+        }
+    }
+
+    #[test]
+    fn a_path_shaped_unit_takes_its_id_from_its_owning_directory() {
+        let base = Path::new("/scan");
+        let source = Path::new("/scan/demo/SKILL.md");
+        let nothing = |_: &str| None;
+
+        // `directory` and `starred-segment` differ in what owns the directory, never in the
+        // fact read, so both answer with the same name.
+        assert_eq!(
+            unit_shape_id(Some(&UnitShape::Directory), source, base, nothing).unwrap(),
+            "demo"
+        );
+        assert_eq!(
+            unit_shape_id(Some(&UnitShape::StarredSegment), source, base, nothing).unwrap(),
+            "demo"
+        );
+
+        // A bare filename names no directory to be keyed by: the fault names the absent
+        // component and carries the declared shape's label for the face to spell.
+        let fault = unit_shape_id(
+            Some(&UnitShape::Directory),
+            Path::new("SKILL.md"),
+            base,
+            nothing,
+        )
+        .unwrap_err();
+        assert_eq!(fault.path, Path::new("SKILL.md"));
+        assert_eq!(fault.absent, AbsentId::PathDirectory("directory"));
+        assert_eq!(
+            unit_shape_id(
+                Some(&UnitShape::StarredSegment),
+                Path::new("SKILL.md"),
+                base,
+                nothing
+            )
+            .unwrap_err()
+            .absent,
+            AbsentId::PathDirectory("starred-segment")
+        );
+    }
+
+    #[test]
+    fn a_named_field_unit_takes_its_id_from_the_declared_key() {
+        let base = Path::new("/scan");
+        let source = Path::new("/scan/agents/reviewer.md");
+        let fields = serde_json::json!({ "name": "reviewer", "priority": 7 });
+        let look = |key: &str| fields.get(key);
+
+        assert_eq!(
+            unit_shape_id(Some(&named_field("name")), source, base, look).unwrap(),
+            "reviewer"
+        );
+
+        // A key absent altogether, and a key whose value is not a string: a unit is named by
+        // a string value or nothing, so both refuse, naming the declared key.
+        assert_eq!(
+            unit_shape_id(Some(&named_field("title")), source, base, look)
+                .unwrap_err()
+                .absent,
+            AbsentId::NamedField("title".to_string())
+        );
+        assert_eq!(
+            unit_shape_id(Some(&named_field("priority")), source, base, look)
+                .unwrap_err()
+                .absent,
+            AbsentId::NamedField("priority".to_string())
+        );
+    }
+
+    #[test]
+    fn a_file_shaped_unit_folds_its_placement_into_its_stem() {
+        let base = Path::new("/scan");
+        let nothing = |_: &str| None;
+
+        // Flat under the base: the bare stem. Nested: the placement components and the stem
+        // joined into one surface component, so two same-named files at different depths
+        // cannot collapse onto one entry.
+        assert_eq!(
+            unit_shape_id(
+                Some(&UnitShape::File),
+                Path::new("/scan/CLAUDE.md"),
+                base,
+                nothing
+            )
+            .unwrap(),
+            "CLAUDE"
+        );
+        assert_eq!(
+            unit_shape_id(
+                Some(&UnitShape::File),
+                Path::new("/scan/sub/deep/CLAUDE.md"),
+                base,
+                nothing
+            )
+            .unwrap(),
+            "sub-deep-CLAUDE"
+        );
+
+        // An undeclared shape defaults to a lone file — the same derivation, not a separate
+        // path through the match.
+        assert_eq!(
+            unit_shape_id(None, Path::new("/scan/sub/CLAUDE.md"), base, nothing).unwrap(),
+            "sub-CLAUDE"
+        );
+
+        // A source outside the base folds no placement rather than erroring (a caller with no
+        // root context), degrading to the bare stem.
+        assert_eq!(
+            unit_shape_id(
+                Some(&UnitShape::File),
+                Path::new("/elsewhere/AGENTS.md"),
+                base,
+                nothing
+            )
+            .unwrap(),
+            "AGENTS"
+        );
+
+        // No stem at all: the fault names the absent stem, whatever the base.
+        let fault =
+            unit_shape_id(Some(&UnitShape::File), Path::new("/"), base, nothing).unwrap_err();
+        assert_eq!(fault.path, Path::new("/"));
+        assert_eq!(fault.absent, AbsentId::FileStem);
+    }
 
     #[test]
     fn body_sections_pair_each_heading_with_its_nested_span_and_skip_fences() {

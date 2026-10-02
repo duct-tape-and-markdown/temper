@@ -74,14 +74,21 @@ fn parse(
         .filter_map(|(key, item)| item_to_json(item).map(|json| (key.to_string(), json)))
         .collect();
 
-    let id = fields
-        .get(field)
-        .and_then(JsonValue::as_str)
-        .map(str::to_string)
-        .ok_or_else(|| TomlDocumentError::NoIdentityValue {
-            path: source_file.to_path_buf(),
-            field: field.clone(),
-        })?;
+    // Identity comes off the one derivation over `unit_shape`
+    // (`extract::unit_shape_id`), reading this grammar's own top-level table. The shape is
+    // `named-field` by the refusal above, so the declared key is the only component the
+    // derivation can find absent and the fold base it would never reach is the source's own
+    // parent.
+    let id = crate::extract::unit_shape_id(
+        kind.unit_shape.as_ref(),
+        source_file,
+        source_file.parent().unwrap_or(source_file),
+        |key| fields.get(key),
+    )
+    .map_err(|fault| TomlDocumentError::NoIdentityValue {
+        path: fault.path,
+        field: field.clone(),
+    })?;
 
     Ok(DocumentMember {
         id,

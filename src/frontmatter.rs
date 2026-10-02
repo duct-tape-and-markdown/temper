@@ -15,7 +15,6 @@
 //! declared fields lead in declaration order, then the unknown keys sorted, so the
 //! projection is deterministic and `import` idempotent.
 
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use gray_matter::Pod;
@@ -23,7 +22,7 @@ use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
 use crate::document::Satisfies;
-use crate::kind::{CustomKind, UnitShape};
+use crate::kind::CustomKind;
 
 /// A member projected through the generic frontmatter adapter: the declared and
 /// preserved frontmatter fields, a byte-faithful body, the companions that travel
@@ -133,6 +132,25 @@ impl From<crate::hash::ReadUtf8Error> for FrontmatterError {
     }
 }
 
+/// This face's vocabulary for the shared id derivation's refusal
+/// ([`crate::extract::unit_shape_id`]): the fixed-label shapes keep [`NoId`](FrontmatterError::NoId)
+/// and its shape label, the dynamic key keeps [`NoNamedFieldId`](FrontmatterError::NoNamedFieldId)
+/// and its field name — the two diagnostics a frontmatter source refused with before the
+/// derivation had one home.
+impl From<crate::extract::UnitIdFault> for FrontmatterError {
+    fn from(fault: crate::extract::UnitIdFault) -> Self {
+        let path = fault.path;
+        match fault.absent {
+            crate::extract::AbsentId::PathDirectory(shape) => Self::NoId { path, shape },
+            crate::extract::AbsentId::FileStem => Self::NoId {
+                path,
+                shape: "file",
+            },
+            crate::extract::AbsentId::NamedField(field) => Self::NoNamedFieldId { path, field },
+        }
+    }
+}
+
 impl Member {
     /// Import a member from its source file, driven by the kind's declared unit shape
     /// and `field` extractors: split the YAML frontmatter, derive the id (file stem,
@@ -160,7 +178,8 @@ impl Member {
     }
 
     /// Import a member as [`from_source`](Member::from_source), but resolve a
-    /// file-shaped unit's id against the fold base `base` ([`fold_file_id`]): a unit nested
+    /// file-shaped unit's id against the fold base `base`
+    /// ([`crate::extract::fold_file_id`]): a unit nested
     /// below `base` folds its placement into the id, so two
     /// nested same-named files (`sub/AGENTS.md` and a root `AGENTS.md`) carry distinct
     /// surface ids rather than collapsing to one bare stem. A directory-shaped unit is
@@ -181,29 +200,13 @@ impl Member {
             detail,
         })?;
 
+        // Identity comes off the one derivation over `unit_shape`
+        // (`extract::unit_shape_id`), with this face supplying only its own field lookup and
+        // its own vocabulary for the refusal.
         let id =
-            match &kind.unit_shape {
-                Some(UnitShape::Directory) => crate::extract::path_shaped_id(source_file)
-                    .ok_or_else(|| FrontmatterError::NoId {
-                        path: source_file.to_path_buf(),
-                        shape: "directory",
-                    })?,
-                Some(UnitShape::NamedField { field }) => parsed
-                    .get(field)
-                    .and_then(JsonValue::as_str)
-                    .map(str::to_string)
-                    .ok_or_else(|| FrontmatterError::NoNamedFieldId {
-                        path: source_file.to_path_buf(),
-                        field: field.clone(),
-                    })?,
-                Some(UnitShape::StarredSegment) => crate::extract::path_shaped_id(source_file)
-                    .ok_or_else(|| FrontmatterError::NoId {
-                        path: source_file.to_path_buf(),
-                        shape: "starred-segment",
-                    })?,
-                // `file` shape, or an undeclared shape defaulting to a lone file.
-                Some(UnitShape::File) | None => fold_file_id(base, source_file)?,
-            };
+            crate::extract::unit_shape_id(kind.unit_shape.as_ref(), source_file, base, |field| {
+                parsed.get(field)
+            })?;
 
         let fields = order_fields(&kind.declared_fields(), parsed);
 
@@ -346,64 +349,6 @@ pub(crate) fn frontmatter_matter(source: &str) -> Option<(&str, &str)> {
         .strip_prefix("---\r\n")
         .or_else(|| source.strip_prefix("---\n"))?;
     closing_delimiter(rest).map(|(matter, _)| (rest, matter))
-}
-
-/// Derive a **file-shaped** unit's surface id, folding the directory placement below the
-/// fold base `base` into it. A unit
-/// directly under `base` keeps its bare filename stem — the common flat case, unchanged
-/// — while a nested one prefixes its placement path, the placement components and the
-/// stem joined with `-` into one surface-directory component. This is what stops a
-/// nested nearest-wins hierarchy (agents.md / `CLAUDE.md` memory nesting) from
-/// collapsing two same-named files at different depths onto one clobbered surface entry.
-///
-/// `base` is the **fold base**, not simply the kind's `governs` root: a caller that places
-/// members through a pattern descends the locus through the segments that pattern spells
-/// literally before folding against it ([`crate::drift::fold_base`]), because a literal
-/// segment is locus every member under the pattern shares, never identity. What reaches
-/// here is the placement a wildcard genuinely spans.
-///
-/// Both adapter faces share it — the frontmatter face
-/// ([`Member::from_source_rooted`]) and the layout face
-/// (`compose::layout_unit`) — so a nested unit is named identically whichever path
-/// imports it. A source not under `base` (a caller with no root context) folds no
-/// placement, degrading to the bare stem rather than erroring.
-///
-/// # Errors
-///
-/// Returns [`FrontmatterError::NoId`] if the source has no filename stem, or a
-/// placement component that is not valid UTF-8 — the same failure a bare stem raises.
-pub fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, FrontmatterError> {
-    let no_id = || FrontmatterError::NoId {
-        path: source_file.to_path_buf(),
-        shape: "file",
-    };
-    let stem = source_file
-        .file_stem()
-        .and_then(OsStr::to_str)
-        .ok_or_else(no_id)?;
-
-    // Placement = the directories between the scan root and the file. `.` components
-    // (a `base` that named the current dir) carry no placement and are skipped, so the
-    // flat case reduces to the bare stem.
-    let placement = source_file
-        .strip_prefix(base)
-        .ok()
-        .and_then(Path::parent)
-        .filter(|dirs| !dirs.as_os_str().is_empty());
-    let Some(dirs) = placement else {
-        return Ok(stem.to_string());
-    };
-
-    let mut parts = Vec::new();
-    for component in dirs.iter() {
-        let part = component.to_str().ok_or_else(no_id)?;
-        if part == "." {
-            continue;
-        }
-        parts.push(part);
-    }
-    parts.push(stem);
-    Ok(parts.join("-"))
 }
 
 #[cfg(test)]

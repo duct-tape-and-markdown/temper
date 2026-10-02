@@ -24,14 +24,13 @@
 //! the frontmatter face also holds.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
 use crate::extract::{self, FeatureValue};
 use crate::frontmatter::Provenance;
-use crate::kind::{CollectionAddress, CustomKind, Unit, UnitShape};
+use crate::kind::{CollectionAddress, CustomKind, Unit};
 
 thread_local! {
     static MANIFEST_READ_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -191,8 +190,9 @@ pub struct DocumentMember {
 
 impl DocumentMember {
     /// Read the JSON document at `source_file` as one member of `kind`, its identity taken
-    /// from the top-level key the kind's [`UnitShape::NamedField`] declares, from the file
-    /// stem for a singleton [`UnitShape::File`] document (a `settings.local.json`), or from
+    /// from the top-level key the kind's [`NamedField`](crate::kind::UnitShape::NamedField)
+    /// shape declares, from the file stem for a singleton
+    /// [`File`](crate::kind::UnitShape::File) document (a `settings.local.json`), or from
     /// the owning directory name for a path-shaped one.
     ///
     /// # Errors
@@ -219,38 +219,19 @@ impl DocumentMember {
     ) -> Result<Self, JsonManifestError> {
         let document = parse_top_level_object(source_file, raw, "document")?;
 
-        // A named-field document reads its id from a declared top-level key (a manifest's
-        // `name`); every other shape reads a path fact, from the same derivation the
-        // frontmatter face reads it from — a `file`-shaped singleton's stem
-        // (`settings.local`), a path-shaped unit's owning directory name.
-        let id =
-            match &kind.unit_shape {
-                Some(UnitShape::NamedField { field }) => document
-                    .get(field)
-                    .and_then(JsonValue::as_str)
-                    .map(str::to_string)
-                    .ok_or_else(|| JsonManifestError::NoIdentityValue {
-                        path: source_file.to_path_buf(),
-                        field: field.clone(),
-                    })?,
-                Some(UnitShape::File) | None => source_file
-                    .file_stem()
-                    .and_then(OsStr::to_str)
-                    .map(str::to_string)
-                    .ok_or_else(|| JsonManifestError::NoStemIdentity {
-                        path: source_file.to_path_buf(),
-                    })?,
-                Some(UnitShape::Directory) => crate::extract::path_shaped_id(source_file)
-                    .ok_or_else(|| JsonManifestError::NoPathIdentity {
-                        path: source_file.to_path_buf(),
-                        shape: "directory",
-                    })?,
-                Some(UnitShape::StarredSegment) => crate::extract::path_shaped_id(source_file)
-                    .ok_or_else(|| JsonManifestError::NoPathIdentity {
-                        path: source_file.to_path_buf(),
-                        shape: "starred-segment",
-                    })?,
-            };
+        // Identity comes off the one derivation over `unit_shape`
+        // (`extract::unit_shape_id`) — a named-field document reads a declared top-level key
+        // (a manifest's `name`), every other shape reads the same path fact the frontmatter
+        // face reads. The fold base is the source's own parent, the default
+        // `Member::from_source` takes with no scan-root context: a document face places no
+        // nesting of its own, so a `file`-shaped singleton folds no placement and its id is
+        // the bare stem (`settings.local`).
+        let id = crate::extract::unit_shape_id(
+            kind.unit_shape.as_ref(),
+            source_file,
+            source_file.parent().unwrap_or(source_file),
+            |field| document.get(field),
+        )?;
 
         Ok(Self {
             id,
@@ -386,6 +367,23 @@ impl From<crate::hash::ReadUtf8Error> for JsonManifestError {
         match err {
             crate::hash::ReadUtf8Error::Io { path, source } => Self::Io { path, source },
             crate::hash::ReadUtf8Error::NotUtf8 { path, source } => Self::NotUtf8 { path, source },
+        }
+    }
+}
+
+/// This face's vocabulary for the shared id derivation's refusal
+/// ([`crate::extract::unit_shape_id`]): a path-shaped document keeps
+/// [`NoPathIdentity`](JsonManifestError::NoPathIdentity) and its shape label, a singleton
+/// keeps [`NoStemIdentity`](JsonManifestError::NoStemIdentity), a named-field document keeps
+/// [`NoIdentityValue`](JsonManifestError::NoIdentityValue) and its key — the three
+/// diagnostics a document refused with before the derivation had one home.
+impl From<crate::extract::UnitIdFault> for JsonManifestError {
+    fn from(fault: crate::extract::UnitIdFault) -> Self {
+        let path = fault.path;
+        match fault.absent {
+            crate::extract::AbsentId::PathDirectory(shape) => Self::NoPathIdentity { path, shape },
+            crate::extract::AbsentId::FileStem => Self::NoStemIdentity { path },
+            crate::extract::AbsentId::NamedField(field) => Self::NoIdentityValue { path, field },
         }
     }
 }

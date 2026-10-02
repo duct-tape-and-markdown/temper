@@ -649,7 +649,9 @@ fn layout_unit(
     // this adapter's own vocabulary — the way every other adapter source load does.
     let raw = drift::read_layout_document_text(file).map_err(LayoutError::from)?;
     let mut reading = layout.read(&raw, file, edge_fields)?;
-    let id = host_qualified(host, kind_name, frontmatter::fold_file_id(base, file)?);
+    let folded =
+        crate::extract::fold_file_id(base, file).map_err(frontmatter::FrontmatterError::from)?;
+    let id = host_qualified(host, kind_name, folded);
     // The key every row below lowers under, spelled off the id just folded through the
     // grammar's one home: a top-level member's `<kind>:<name>`, a file child's whole
     // host-qualified address, which its id already is.
