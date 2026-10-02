@@ -1346,11 +1346,73 @@ fn overlay_builtin_kind_count_increments_once_per_application() {
     );
 }
 
+/// The **effective kind set** — every declared kind by bare name, the overlaid built-ins
+/// merged with every custom row the lock lifts — is whole-lock work: it partitions every
+/// kind row and lifts every custom one. So the cost doctrine binds it the way it binds the
+/// shared walk: derived once per run and shared, never once per consumer
+/// (`specs/process/engineering.md`, "Cost scale is hoisted, and pinned by count").
+///
+/// Four derivations per `check` before the hoist: the assembly pass's own, the manifest
+/// cache's, and one apiece for the two locus-less built-ins (`supporting-doc` and
+/// `handler`, both `governs: None`) whose unit resolution rebuilt the whole map to find
+/// their hosts — plus one more per nested-file or embedded kind a consumer declares. One
+/// after it, off [`compose::LockFamily::declared_kinds`].
+#[test]
+fn declared_kind_set_is_derived_once_per_check_run() {
+    use std::collections::BTreeMap;
+    use temper::compose;
+    use temper::gate;
+
+    let harness = tmpdir("declared-kinds-once-per-run");
+    let skill = harness.join(".claude").join("skills").join("test-skill");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: test-skill\ndescription: Test skill.\n---\n# Skill\n",
+    )
+    .unwrap();
+
+    let before = compose::declared_kinds_count();
+    gate::gate(&harness, &harness, &[]).unwrap();
+    let derivations = compose::declared_kinds_count() - before;
+
+    // The vacuity pin rides the count (engineering.md, "A green verdict is proven
+    // non-vacuous"): a derivation that collapsed to an empty map would read as a hoisted
+    // one, so the set the run published is asserted populated — and asserted to carry the
+    // locus-less kind whose per-kind rebuild is half of what the pre-fix count counted.
+    // Assembled here off the same unadopted harness `gate` just read, after the delta is
+    // taken, so this assembly's own derivation is outside the measured window.
+    let disc = import::Discovery::new(&harness);
+    let cache: compose::ManifestCache = BTreeMap::new();
+    let family =
+        compose::assemble_lock_family(&disc, &Declarations::default(), &[], &cache).unwrap();
+    let declared = &family.declared_kinds;
+    assert!(
+        !declared.is_empty(),
+        "the effective kind set must be populated — an empty map makes the count below \
+         vacuous",
+    );
+    assert!(
+        declared.values().any(|kind| kind.governs.is_none()),
+        "this harness's kind set must include a locus-less kind, the per-kind rebuild the \
+         hoist removes; got {:?}",
+        declared.keys().collect::<Vec<_>>(),
+    );
+
+    assert_eq!(
+        derivations,
+        1,
+        "the effective kind set must be derived exactly once per `check` run and shared \
+         from `LockFamily::declared_kinds`, never rebuilt per locus-less kind or per \
+         manifest cache; got {derivations} derivations over {} declared kinds",
+        declared.len(),
+    );
+}
+
 #[test]
 fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
     use std::collections::BTreeMap;
     use temper::compose;
-    use temper::drift::{CollectionAddressRow, Declarations, KindFactRow};
     use temper::import::Discovery;
     use temper::json_manifest;
     use temper::kind::{CollectionAddress, CollectionKeyPath, EntryShape, Extraction};
@@ -1371,7 +1433,10 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
     // Build two kinds programmatically that both govern settings.json:
     // - "hook" kind with a hooks.<Event> collection address
     // - "installed-plugin" kind with an enabledPlugins.* collection address
-    let mut overlaid_builtin_kinds = BTreeMap::new();
+    // The lock declares no custom kind, so these two *are* the run's effective kind set
+    // ([`compose::LockFamily::declared_kinds`]) — what `build_manifest_cache` now selects
+    // over, rather than re-deriving it off the declaration rows.
+    let mut declared_kinds = BTreeMap::new();
 
     // First kind: hook
     let mut hook_kind = temper::kind::CustomKind::new(
@@ -1390,7 +1455,7 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
             lifted_fields: vec!["matcher".to_string()],
         },
     });
-    overlaid_builtin_kinds.insert("hook".to_string(), hook_kind);
+    declared_kinds.insert("hook".to_string(), hook_kind);
 
     // Second kind: installed-plugin
     let mut plugin_kind = temper::kind::CustomKind::new(
@@ -1408,39 +1473,14 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
             field: "enabled".to_string(),
         },
     });
-    overlaid_builtin_kinds.insert("installed-plugin".to_string(), plugin_kind);
-
-    // Build declarations with the two kinds
-    let kind_rows = vec![
-        KindFactRow {
-            collection_address: Some(CollectionAddressRow {
-                manifest: "settings.json".to_string(),
-                key_path: "hooks.<Event>".to_string(),
-                entry_shape: "group-array(hooks;matcher)".to_string(),
-            }),
-            ..common::kind_facts("hook", ".claude", "settings.json")
-        },
-        KindFactRow {
-            collection_address: Some(CollectionAddressRow {
-                manifest: "settings.json".to_string(),
-                key_path: "enabledPlugins.*".to_string(),
-                entry_shape: "scalar(enabled)".to_string(),
-            }),
-            ..common::kind_facts("installed-plugin", ".claude", "settings.json")
-        },
-    ];
-
-    let declarations = Declarations {
-        kinds: kind_rows,
-        ..Default::default()
-    };
+    declared_kinds.insert("installed-plugin".to_string(), plugin_kind);
 
     // Read counts before build_manifest_cache
     let reads_before = json_manifest::manifest_read_count();
 
     // Call build_manifest_cache — this should read settings.json exactly once,
     // even though two kinds govern it with different collection addresses.
-    let _ = compose::build_manifest_cache(&discovery, &declarations, &overlaid_builtin_kinds)
+    let _ = compose::build_manifest_cache(&discovery, &declared_kinds)
         .expect("build_manifest_cache should succeed");
 
     // Read counts after build_manifest_cache

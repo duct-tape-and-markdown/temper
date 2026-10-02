@@ -2326,6 +2326,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let compose::LockFamily {
         declarations,
         overlaid_builtin_kinds,
+        declared_kinds,
         local_layout_prose,
         ..
     } = compose::assemble_lock_family(
@@ -2336,8 +2337,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     )?;
 
     // Build a shared manifest cache for this explain invocation.
-    let manifest_cache =
-        compose::build_manifest_cache(&discovery, &declarations, &overlaid_builtin_kinds)?;
+    let manifest_cache = compose::build_manifest_cache(&discovery, &declared_kinds)?;
 
     // Every embedded built-in kind's discovered features — the same generic loop
     // `gate`'s two-greens runs, not a hardcoded skill/rule pair
@@ -2346,6 +2346,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let builtin_defs = builtin_kind::definitions();
     let builtin_units_and_features = compose::builtin_units_and_features_by_kind(
         &overlaid_builtin_kinds,
+        &declared_kinds,
         &discovery,
         &declarations,
         &manifest_cache,
@@ -2393,7 +2394,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
             &discovery,
             &declarations,
             &manifest_cache,
-            &overlaid_builtin_kinds,
+            &declared_kinds,
         )?;
         let features = &uaf.features;
         let units = &uaf.units;

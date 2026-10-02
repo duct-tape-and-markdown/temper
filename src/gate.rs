@@ -176,6 +176,7 @@ pub fn gate(
         local_layout_prose: _,
         dial,
         overlaid_builtin_kinds,
+        declared_kinds,
     } = compose::assemble_lock_family(&discovery, &committed, layers, &empty_cache)?;
     // Every address the dial reached, accumulated across the contracts and selections
     // below: an entry that reached none is the one thing a dial can be wrong about that
@@ -224,8 +225,7 @@ pub fn gate(
 
     // Build a shared manifest cache: one read per manifest file, shared across all
     // manifest kinds that govern it (GATE-MANIFEST-SHARED-READ-HOIST).
-    let manifest_cache =
-        compose::build_manifest_cache(&discovery, &declarations, &overlaid_builtin_kinds)?;
+    let manifest_cache = compose::build_manifest_cache(&discovery, &declared_kinds)?;
 
     // Every clause's address is unique across the lock, decided before a single contract
     // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
@@ -263,7 +263,7 @@ pub fn gate(
             &discovery,
             &declarations,
             &manifest_cache,
-            &overlaid_builtin_kinds,
+            &declared_kinds,
         )?;
         let features = &uaf.features;
 
@@ -369,7 +369,7 @@ pub fn gate(
             &discovery,
             &declarations,
             &manifest_cache,
-            &overlaid_builtin_kinds,
+            &declared_kinds,
         )?;
         let features = &uaf.features;
 

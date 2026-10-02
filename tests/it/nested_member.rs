@@ -1442,6 +1442,7 @@ mod host_keyed_file_children {
         let family = compose::assemble_lock_family(&disc, &committed, &[], &cache).unwrap();
         compose::builtin_units_and_features_by_kind(
             &family.overlaid_builtin_kinds,
+            &family.declared_kinds,
             &disc,
             &family.declarations,
             &cache,

@@ -40,6 +40,7 @@ thread_local! {
     static RESOLVE_KIND_UNITS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static OVERLAY_BUILTIN_KIND_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static REPO_FILE_SET_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static DECLARED_KINDS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// This thread's cumulative count of `resolve_kind_units` invocations.
@@ -58,6 +59,13 @@ pub fn overlay_builtin_kind_count() -> usize {
 #[must_use]
 pub fn repo_file_set_count() -> usize {
     REPO_FILE_SET_COUNT.with(std::cell::Cell::get)
+}
+
+/// This thread's cumulative count of `declared_kinds_with_overlaid` derivations — the
+/// effective kind set's own hoist pin ([`LockFamily::declared_kinds`]).
+#[must_use]
+pub fn declared_kinds_count() -> usize {
+    DECLARED_KINDS_COUNT.with(std::cell::Cell::get)
 }
 
 /// A cache of manifest files read during one gate()/explain() invocation: one read per
@@ -568,6 +576,20 @@ pub struct LockFamily {
     /// [`admissibility::governs_collision_diagnostics`](crate::admissibility::governs_collision_diagnostics) — to hoist the computation cost
     /// per the cost doctrine (engineering.md, "Cost scale is hoisted").
     pub overlaid_builtin_kinds: BTreeMap<String, CustomKind>,
+    /// The run's **effective kind set**: every kind this harness declares, keyed by bare
+    /// name — the overlaid built-ins above merged with every custom kind the lock's own
+    /// rows declare ([`declared_kinds_with_overlaid`]). Derived once per invocation here
+    /// and shared with every consumer below — [`build_manifest_cache`] and
+    /// [`resolve_kind_units`]'s nested-file scan — for `overlaid_builtin_kinds`' own
+    /// reason: the derivation partitions every kind row and lifts every custom one, so it
+    /// is whole-lock work, which the cost doctrine binds to one home with one invalidation
+    /// (engineering.md, "Cost scale is hoisted" and "Derived state is computed"), pinned
+    /// at run granularity by [`declared_kinds_count`].
+    ///
+    /// Kept **beside** the overlaid map, never in place of it: a consumer that must tell a
+    /// built-in from a custom kind — [`builtin_units_and_features_by_kind`], `gate`'s own
+    /// `committed_member_sites` — reads a split this merged map does not carry.
+    pub declared_kinds: BTreeMap<String, CustomKind>,
 }
 
 /// This kind's effective declaration: the committed lock's own kind-fact row when the
@@ -764,6 +786,11 @@ fn host_qualified(host: Option<&str>, kind: &str, id: String) -> String {
 /// to avoid re-deriving the overlay. The `overlaid_builtin_kinds` should come from
 /// [`LockFamily::overlaid_builtin_kinds`].
 ///
+/// The **one** derivation of the effective kind set: [`assemble_lock_family`] runs it once
+/// per invocation and publishes the result as [`LockFamily::declared_kinds`], which every
+/// consumer takes instead. A second call site is a rebuild of whole-lock work, the shape
+/// the cost doctrine forbids (engineering.md, "Cost scale is hoisted").
+///
 /// # Errors
 ///
 /// Returns an error if the embedded kind set fails to load or a lock row falls outside a
@@ -772,6 +799,7 @@ fn declared_kinds_with_overlaid(
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
     declarations: &drift::Declarations,
 ) -> miette::Result<BTreeMap<String, CustomKind>> {
+    DECLARED_KINDS_COUNT.with(|c| c.set(c.get() + 1));
     let builtin_defs = builtin_kind::definitions();
     let mut kinds = overlaid_builtin_kinds.clone();
     let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
@@ -890,7 +918,11 @@ fn frontmatter_fault_diagnostic(
 }
 
 /// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
-/// range over. The `kind` is the pre-overlaid form from [`LockFamily::overlaid_builtin_kinds`];
+/// range over. The `kind` is the pre-overlaid form from [`LockFamily::overlaid_builtin_kinds`]
+/// and `declared_kinds` the run's whole effective kind set from
+/// [`LockFamily::declared_kinds`] — a locus-less kind's host is found in it, and taking it
+/// rather than re-deriving it is what keeps that whole-lock derivation off the per-kind
+/// path (engineering.md, "Cost scale is hoisted");
 /// every member is discovered by walking its `governs` locus, read straight off harness
 /// disk so the corpus can never drift from a stale copy; its `satisfies` fill edges come from the run's assembled
 /// [`drift::SatisfiesRow`] family, keyed by member id — a committed
@@ -920,7 +952,7 @@ fn resolve_kind_units(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<KindUnits> {
     RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
     let mut edge_fields = kind.edge_field_slots();
@@ -945,11 +977,13 @@ fn resolve_kind_units(
                     .collect()
             }
             (_, _, None) => {
-                let kinds = declared_kinds_with_overlaid(overlaid_builtin_kinds, declarations)?;
                 let mut child_units = Vec::new();
-                for found in
-                    import::discover_nested_file(disc, kind, &kinds, import::LocalOverride::Honored)
-                {
+                for found in import::discover_nested_file(
+                    disc,
+                    kind,
+                    declared_kinds,
+                    import::LocalOverride::Honored,
+                ) {
                     // Host-scoped identity, never corpus-wide by name: the host's address
                     // is the first segment of the address this child wears, so two hosts
                     // may each carry a same-named child and each still names one member.
@@ -1035,7 +1069,9 @@ fn resolve_kind_units(
 /// each member's nested-member facts resolved off the run's assembled `nested_members`
 /// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
 /// Both units and features are returned together to avoid a second resolution pass.
-/// The `kind` parameter should be the pre-overlaid form from [`LockFamily::overlaid_builtin_kinds`].
+/// The `kind` parameter should be the pre-overlaid form from [`LockFamily::overlaid_builtin_kinds`],
+/// and `declared_kinds` the run's hoisted effective kind set from
+/// [`LockFamily::declared_kinds`].
 ///
 /// # Errors
 ///
@@ -1045,7 +1081,7 @@ pub fn kind_units_and_features(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<KindUnitsAndFeatures> {
     let KindUnits {
         units,
@@ -1054,7 +1090,7 @@ pub fn kind_units_and_features(
         // feature read ranges over the family that pass already assembled.
         layout_rows: _,
         composed_embedded,
-    } = resolve_kind_units(kind, disc, declarations, cache, overlaid_builtin_kinds)?;
+    } = resolve_kind_units(kind, disc, declarations, cache, declared_kinds)?;
     let features = units
         .iter()
         .map(|unit| builtin_kind::features(kind, unit, &declarations.nested_members))
@@ -1070,13 +1106,18 @@ pub fn kind_units_and_features(
 /// Resolve every embedded built-in kind's discovered units and features off `harness_root`,
 /// keyed by bare kind name — the one loop that both `gate` and `explain` range over.
 /// Used by `explain` to collect directive members without a second resolution pass.
-/// The `overlaid_builtin_kinds` should come from [`LockFamily::overlaid_builtin_kinds`].
+/// Both maps come off the family: `overlaid_builtin_kinds` from
+/// [`LockFamily::overlaid_builtin_kinds`] is the built-in/custom split this loop's
+/// selection *is*, and `declared_kinds` from [`LockFamily::declared_kinds`] is the whole
+/// effective kind set each resolution needs — the merged map carries no such split, so
+/// neither stands in for the other.
 ///
 /// # Errors
 ///
 /// As [`kind_units_and_features`].
 pub fn builtin_units_and_features_by_kind(
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    declared_kinds: &BTreeMap<String, CustomKind>,
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
@@ -1085,7 +1126,7 @@ pub fn builtin_units_and_features_by_kind(
     for kind in overlaid_builtin_kinds.values() {
         by_kind.insert(
             kind.name.clone(),
-            kind_units_and_features(kind, disc, declarations, cache, overlaid_builtin_kinds)?,
+            kind_units_and_features(kind, disc, declarations, cache, declared_kinds)?,
         );
     }
     Ok(by_kind)
@@ -1277,7 +1318,7 @@ pub fn assemble_lock_family(
             // none — its values never reach a lock (0018) — and the corpus that judges it
             // is assembled off the same read in [`kind_units_and_features`].
             composed_embedded: _,
-        } = resolve_kind_units(kind, disc, committed, cache, &overlaid_builtin_kinds)?;
+        } = resolve_kind_units(kind, disc, committed, cache, &all_declared)?;
         local_members.extend(
             units
                 .iter()
@@ -1300,6 +1341,7 @@ pub fn assemble_lock_family(
         local_members: local_members.into_iter().collect(),
         local_layout_prose,
         overlaid_builtin_kinds,
+        declared_kinds: all_declared,
     })
 }
 
@@ -1716,17 +1758,19 @@ pub fn backed_on_disk(root: &Path) -> impl Fn(&Path) -> bool + use<> {
 /// kinds by their manifest file path and reading each file once with all governing kinds'
 /// addresses. This hoisting ensures manifest files are read exactly once per run, never
 /// once per governing kind (GATE-MANIFEST-SHARED-READ-HOIST).
+///
+/// `declared_kinds` is the run's hoisted effective kind set
+/// ([`LockFamily::declared_kinds`]): which kinds govern a manifest is a whole-lock fact,
+/// so this pass selects over the one derivation rather than running its own.
 pub fn build_manifest_cache(
     disc: &import::Discovery,
-    declarations: &drift::Declarations,
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<ManifestCache> {
     let mut cache: ManifestCache = BTreeMap::new();
-    let kinds = declared_kinds_with_overlaid(overlaid_builtin_kinds, declarations)?;
 
     // Group manifest kinds by their manifest file path.
     let mut by_manifest: BTreeMap<PathBuf, Vec<&CollectionAddress>> = BTreeMap::new();
-    for kind in kinds.values() {
+    for kind in declared_kinds.values() {
         if let Some(address) = &kind.collection_address
             && let Some(governs) = &kind.governs
         {
@@ -2251,21 +2295,17 @@ mod tests {
 
         let declarations = drift::Declarations::default();
         let cache = BTreeMap::new();
-        let overlaid_builtin_kinds = BTreeMap::from([(
+        // The lock declares no custom kind, so the effective kind set over it is the
+        // overlaid built-in alone.
+        let declared_kinds = BTreeMap::from([(
             "memory".to_string(),
             overlay_builtin_kind(&memory_kind, &declarations).expect("overlay"),
         )]);
 
         // Resolve units for the memory kind with unnormalized harness root.
-        let units = resolve_kind_units(
-            &memory_kind,
-            &disc,
-            &declarations,
-            &cache,
-            &overlaid_builtin_kinds,
-        )
-        .expect("resolve_kind_units succeeds")
-        .units;
+        let units = resolve_kind_units(&memory_kind, &disc, &declarations, &cache, &declared_kinds)
+            .expect("resolve_kind_units succeeds")
+            .units;
 
         // Both files should be discovered with distinct ids (placement preserved).
         assert_eq!(units.len(), 2, "both CLAUDE.md files should be found");
