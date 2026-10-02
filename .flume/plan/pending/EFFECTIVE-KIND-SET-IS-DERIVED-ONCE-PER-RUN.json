@@ -18,8 +18,12 @@
         "description": "`explain`'s own destructure (2326) binds the new field through its `..`, and its `build_manifest_cache` (2340) and `builtin_units_and_features_by_kind` (2348) / `kind_units_and_features` (2396) calls take it — the read verb runs the same assembly tier and pays the same rebuilds."
       },
       {
+        "path": "tests/it/nested_member.rs",
+        "description": "The second caller of `builtin_units_and_features_by_kind`, outside the first scoping's fence and the reason the first build attempt could not land (`.flume/refactor/build-effective-kind-set-fence-misses-nested-member-caller.md`, drained this tick): the `compose_corpus` helper (1437) calls it at 1443 with `&family.overlaid_builtin_kinds, &disc, &family.declarations, &cache`. One line of edit — thread the new field in as the argument the function now takes in place of `&family.declarations`. The arity must change: the function needs both maps (the overlaid one is the built-in/custom split its own loop selects on, the merged one is what each inner `kind_units_and_features` must receive), so no shape preserves the signature except passing the overlaid map where the merged one is expected — a subset correct only for a lock declaring no custom kinds."
+      },
+      {
         "path": "tests/it/check_cost.rs",
-        "description": "The count pin, in the shape of `overlay_builtin_kind_count_increments_once_per_application` (1316): over a harness whose kind set includes a locus-less kind (the embedded `supporting-doc` guarantees one), a full `check` run derives the declared-kind map exactly once. The vacuity pin rides it (`engineering.md`, \"A green verdict is proven non-vacuous\"): assert the derived map is non-empty before asserting the count, so a map that collapsed to zero cannot read as a hoisted one."
+        "description": "The count pin, in the shape of `overlay_builtin_kind_count_increments_once_per_application` (1316): over a harness whose kind set includes a locus-less kind (the embedded set carries two — `supporting-doc` and `handler`, both `governs: None`, builtin_kind.rs 1035 and 1225), a full `check` run derives the declared-kind map exactly once. The vacuity pin rides it (`engineering.md`, \"A green verdict is proven non-vacuous\"): assert the derived map is non-empty before asserting the count, so a map that collapsed to zero cannot read as a hoisted one. The existing `gate_manifest_cache_read_is_hoisted_across_governing_kinds` (1350) loses its `declarations` fixture (1431) once `build_manifest_cache` stops deriving — its two `KindFactRow`s and the `Declarations` built from them go dead, as do its own function-local `CollectionAddressRow`/`Declarations`/`KindFactRow` imports (1353); the overlaid map it already hands over as the third argument is exactly what the merged parameter wants here, no custom kinds in play. Expected, not lost coverage: that pin is about manifest reads per governing kind, and the kinds now reach it through the map directly."
       }
     ],
     "retire": []
@@ -32,9 +36,9 @@
   "tests": [
     {
       "path": "tests/it/check_cost.rs",
-      "asserts": "a full `check` run derives the declared-kind map exactly once, asserted after a non-empty check on the map itself; fails on the pre-fix tree, which derives it three times over this harness (the assembly pass, the manifest cache, and `supporting-doc`'s own unit resolution) and once more per nested-file kind a consumer declares"
+      "asserts": "a full `check` run derives the declared-kind map exactly once, asserted after a non-empty check on the map itself; fails on the pre-fix tree at four derivations — the assembly pass, the manifest cache, and one apiece for the two locus-less kinds' own unit resolution — and once more per nested-file or embedded kind a consumer declares"
     }
   ],
   "acceptance": "cargo test, cargo clippy --all-targets -- -D warnings and cargo fmt --all --check green; the new count pin green; `rg \"declared_kinds_with_overlaid\" src/` shows the derivation and exactly one caller.",
-  "notes": "Posture sweep of the admissibility neighborhood; the census crossed into compose. No field cost report, so no benchmark is owed — the violation is structural (whole-input work recomputed per kind) and its pin is a count, per the cited section. The four admissibility-tier copies of the same set are the chain's second entry, ADMISSIBILITY-JUDGES-READ-THE-ONE-KIND-SET, which reads the field this one publishes. scoped at 90a7d470"
+  "notes": "Posture sweep of the admissibility neighborhood; the census crossed into compose. No field cost report, so no benchmark is owed — the violation is structural (whole-input work recomputed per kind) and its pin is a count, per the cited section. Re-scoped from the refactor channel: the nested_member caller and the real pre-fix count of 4 (not 3) are the first scoping's two misses, both re-verified on disk. scoped at 774a179d"
 }

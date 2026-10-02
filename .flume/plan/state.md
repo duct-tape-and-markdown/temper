@@ -14,8 +14,8 @@
   `src/display.rs`, `src/admissibility.rs`, `sdk/src/emit.ts`,
   `sdk/src/declarations.ts`, `sdk/src/prose.ts`, `sdk/src/needs.ts`,
   `sdk/src/assembly.ts`, `sdk/src/builtins.ts`, `sdk/src/claude-code.ts`.
-- This tick: posture sweep covered the admissibility neighborhood — one
-  effective kind set, six homes; filed a two-entry chain.
+- This tick: drained the refactor channel — re-scoped
+  EFFECTIVE-KIND-SET-IS-DERIVED-ONCE-PER-RUN over the fence gap that blocked it.
 - Queue: 10 pending — 4 parked, 4 deferred, 1 open, 1 blocked. Pickable: 1.
   Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
