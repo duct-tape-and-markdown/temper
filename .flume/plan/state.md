@@ -11,10 +11,10 @@
   `src/builtin_lock.rs`, `sdk/src/emit.ts`, `sdk/src/declarations.ts`,
   `sdk/src/prose.ts`, `sdk/src/needs.ts`, `sdk/src/assembly.ts`,
   `sdk/src/builtins.ts`, `sdk/src/claude-code.ts`.
-- This tick: posture sweep over the SDK provider face — three findings filed as
-  a serial chain over `sdk/src/builtins.ts`.
-- Queue: 11 pending — 1 open, 4 parked, 4 deferred, 2 blockedBy. Pickable: 1.
+- This tick: drained the refactor channel — the tap-hooks TS-side pin already
+  runs at `sdk/test/emit.test.ts:2218`; capture deleted, no entry filed.
+- Queue: 8 pending — 0 open, 4 parked, 4 deferred. Pickable: 0.
   Open forks: 1. Friction: 2. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture rotation is open with a pickable
-entry, so the wave ships first and the sweep resumes when it hands back.
+Plan continues: yes — the 865bf888..7e998e50 window is unreconciled (three
+shipped entries across `src/` and `sdk/`).
