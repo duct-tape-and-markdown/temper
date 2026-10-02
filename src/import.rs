@@ -92,10 +92,10 @@ impl<'a> Discovery<'a> {
     /// The one join-and-normalize: the unit-directory fold ([`host_units`]), the locus
     /// scan ([`discover_kind_units`]) and `compose`'s file-unit fold base each used to
     /// pair the join with the normalize by hand — two normalizing on the spot, the third
-    /// leaving it to [`scan_locus`] — and now all three read it here.
-    ///
-    /// [`scan_locus`] keeps its own normalize rather than taking this: it also runs over
-    /// a host unit's directory, so it cannot presume a pre-normalized root.
+    /// leaving it to [`scan_locus`] — and now all three read it here. This is the only
+    /// normalize on the way into [`scan_locus`], whose other root — a host unit's
+    /// directory — is derived from this one ([`unit_dir`]) or from the normalized index
+    /// ([`discoverable_paths`]).
     ///
     /// `pub(crate)` because the only consumers are in-crate — this module and `compose`;
     /// the walk the root feeds is not itself public surface.
@@ -473,16 +473,19 @@ fn discover_kind_units(disc: &Discovery, governs: &Governs, local_governs: bool)
 /// Split from [`discover_kind_units`] so a nested file child's scan under each host unit
 /// rides the same matcher and the same already-computed `discoverable` index — one scanner
 /// serves every kind's locus, host and child alike.
+///
+/// `root` must already be normalized: matching reads the `discoverable` index, every key
+/// of which is normalized ([`discoverable_paths`]), so a `<harness>/.` spelling keys
+/// nothing. Normalizing is the producer's job, not the scan's — a locus root comes from
+/// [`Discovery::locus_root`], a host unit's directory from [`unit_dir`] off that root or
+/// from an index key's parent.
 fn scan_locus(root: &Path, glob: &str, discoverable: &Discoverable) -> Vec<PathBuf> {
     // A glob is a `/`-separated segment list: the final segment matches files, each
     // earlier one a subdirectory to descend into — a `**` segment descending any
     // number of levels. `split` always yields at least one segment.
     let segments: Vec<&str> = glob.split('/').collect();
-    // The index is keyed by normalized paths, so a `.`-rooted locus (`root = "."`) resolves
-    // to the harness root the walk keyed its top-level entries under.
-    let root = crate::path::normalize_path(root);
     let mut files = Vec::new();
-    collect_glob(&root, &segments, discoverable, &mut files);
+    collect_glob(root, &segments, discoverable, &mut files);
     // A `**` reaches one file by exactly one path, but the index yields children in walk
     // order; sort for deterministic processing.
     files.sort();
