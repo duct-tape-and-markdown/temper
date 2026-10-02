@@ -70,7 +70,7 @@ fn an_input_is_fingerprinted_without_moving_a_byte_into_the_projection() {
     let inputs = drift::inputs(&into).unwrap();
     assert_eq!(inputs.len(), 1);
     assert_eq!(inputs[0].member, "rule:host");
-    assert_eq!(inputs[0].source_path, "snapshot/handler.py");
+    assert_eq!(&*inputs[0].source_path, "snapshot/handler.py");
     assert!(inputs[0].target.is_empty());
     assert!(!inputs[0].import_hash.is_empty());
 
@@ -172,7 +172,7 @@ fn a_non_utf8_input_is_legal() {
 
     let inputs = drift::inputs(&into).unwrap();
     assert_eq!(inputs.len(), 1);
-    assert_eq!(inputs[0].source_path, "snapshot/model.bin");
+    assert_eq!(&*inputs[0].source_path, "snapshot/model.bin");
     assert!(
         drift::input_stale(&into, &fresh_clause())
             .unwrap()
@@ -205,7 +205,7 @@ fn an_input_above_the_harness_root_records_a_relative_path_that_resolves_in_any_
 
         let inputs = drift::inputs(&into).unwrap();
         assert_eq!(
-            inputs[0].source_path, "../../src/x.txt",
+            &*inputs[0].source_path, "../../src/x.txt",
             "an input above the root is spelled with `..` from the root, never absolutely"
         );
         locks.push(fs::read_to_string(into.join("lock.toml")).unwrap());

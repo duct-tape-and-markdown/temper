@@ -138,8 +138,9 @@ fn absolute_root(root: &Path) -> Option<PathBuf> {
 /// A harness-relative path: the lock's own vocabulary for source paths. Always
 /// `/`-separated, no leading `./`, normalized. This is the canonical form that's
 /// committed to lock.toml and carried by `RollupEntry`, `RawLockRow`, `ProvenanceRow`,
-/// `LayoutMemberSite`, `LocusMemberSite`, `EmitOwnedEntry`, `drift::Projection`, and
-/// `install::GuardedManifest` — so a path fact's root is its type, not its doc comment.
+/// `LayoutMemberSite`, `LocusMemberSite`, `LayoutImportRow`, `LayoutSourceRow`,
+/// `EmitOwnedEntry`, `drift::Projection`, and `install::GuardedManifest` — so a path
+/// fact's root is its type, not its doc comment.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HarnessRelativePath(String);
 

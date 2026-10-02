@@ -333,3 +333,102 @@ fn crlf_import_target_reads_clean_for_source_dep_stale() {
         "genuine content edit should flag as stale"
     );
 }
+
+#[test]
+fn a_respelled_source_dep_row_judges_in_the_one_harness_relative_spelling() {
+    // A committed `source_path` is a harness-relative path, and the column's type is
+    // where that form is enforced — not each reader's hand. Two spellings a real lock
+    // carries reach the reader: the `./`-prefixed one an older engine wrote before the
+    // workspace path was lexically normalized (decision 0024), and the host-separated
+    // one a Windows emit's `Path::join` laid down. Both name the same file, so both must
+    // judge identically to the bare spelling every other judge over this lock names.
+    let harness = common::scaffold("source-dep-row-respelled");
+    let into = harness.join(".temper");
+    const IMPORTED: &str = "shared prose.\n";
+    fs::write(harness.join("specs/guide.md"), "# Intent\n").unwrap();
+    fs::write(harness.join("specs/included.md"), IMPORTED).unwrap();
+
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::layout_kind_facts(
+                "guide",
+                vec![import_region("included.md"), field_region("intent")],
+            )],
+            ..Default::default()
+        },
+        members: vec![layout_member("guide")],
+    };
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // Non-vacuity: the emit wrote the one row every assertion below judges, in the bare
+    // spelling the respellings are measured against.
+    let emitted = drift::layout_imports(&into).unwrap();
+    assert_eq!(emitted.len(), 1);
+    assert_eq!(&*emitted[0].source_path, "specs/included.md");
+
+    // Respell the committed row's path in place, leaving its fingerprint — and the target
+    // it names — untouched.
+    let as_emitted = fs::read_to_string(into.join("lock.toml")).unwrap();
+    let respell = |spelling: &str| {
+        fs::write(
+            into.join("lock.toml"),
+            as_emitted.replace(
+                "source_path = \"specs/included.md\"",
+                &format!("source_path = \"{spelling}\""),
+            ),
+        )
+        .unwrap();
+    };
+
+    // Each spelling is written as the lock's own TOML text, so the host-separated one
+    // carries the escape `toml_edit` would have written for it.
+    for spelling in ["./specs/included.md", r"specs\\included.md"] {
+        respell(spelling);
+        // The reader lifts the row in the column's own form, whatever the lock spelled.
+        let lifted = drift::layout_imports(&into).unwrap();
+        assert_eq!(
+            &*lifted[0].source_path, "specs/included.md",
+            "a `{spelling}` row reads back in the one harness-relative spelling"
+        );
+        // So it resolves against the live target and reads stale-clean: a backslash-spelled
+        // row joined raw misses the file entirely and reports the dependency gone.
+        let lock_doc = drift::read_lock_document(&into).unwrap();
+        let findings = drift::source_dep_stale_from_doc(
+            &lock_doc,
+            &harness,
+            "layout_import",
+            "layout import",
+            "re-emit to reconcile",
+            &fresh_clause(),
+        )
+        .unwrap();
+        assert!(
+            findings.is_empty(),
+            "a `{spelling}` row names the unmoved target, so it reads clean: {findings:?}"
+        );
+    }
+
+    // And once the target's bytes do move, the finding is addressed in that same bare
+    // spelling — a `./`-carrying address names a path no other judge over this lock does,
+    // so a reader pairing the two findings cannot see them as one file.
+    respell("./specs/included.md");
+    fs::write(harness.join("specs/included.md"), "edited prose.\n").unwrap();
+    let lock_doc = drift::read_lock_document(&into).unwrap();
+    let findings = drift::source_dep_stale_from_doc(
+        &lock_doc,
+        &harness,
+        "layout_import",
+        "layout import",
+        "re-emit to reconcile",
+        &fresh_clause(),
+    )
+    .unwrap();
+    assert_eq!(findings.len(), 1, "the moved target is drift: {findings:?}");
+    assert_eq!(findings[0].artifact, "specs/included.md");
+    assert!(
+        findings[0].message.contains("`specs/included.md`"),
+        "the message names the target in the lock's one spelling: {}",
+        findings[0].message
+    );
+}

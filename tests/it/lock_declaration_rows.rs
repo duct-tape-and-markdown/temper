@@ -2199,7 +2199,7 @@ fn a_malformed_layout_source_row_refuses_loud() {
     let rows = drift::layout_sources(&ok).unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].member, "intent:intent");
-    assert_eq!(rows[0].source_path, "specs/intent.md");
+    assert_eq!(&*rows[0].source_path, "specs/intent.md");
 }
 
 /// A malformed element inside a present row's array column fails the whole row — a

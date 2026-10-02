@@ -2060,7 +2060,7 @@ fn a_lock_with_composed_prose_includes_emitted_from_a_foreign_cwd_is_harness_rel
             "the {label} lane's lock carries exactly the one include row emitted"
         );
         assert_eq!(
-            includes[0].source_path, "included.md",
+            &*includes[0].source_path, "included.md",
             "the {label} lane spells the include target against the harness root, \
              never as the absolute path the SDK resolved"
         );
@@ -2106,7 +2106,7 @@ fn an_include_target_above_the_harness_root_is_spelled_the_same_in_two_checkouts
 
         let includes = drift::includes(&into).unwrap();
         assert_eq!(
-            includes[0].source_path, "../../docs/included.md",
+            &*includes[0].source_path, "../../docs/included.md",
             "a target above the root is spelled with `..` from the root, never absolutely"
         );
         locks.push(fs::read_to_string(into.join("lock.toml")).unwrap());

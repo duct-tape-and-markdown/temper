@@ -36,7 +36,7 @@ use crate::layout::{Layout, LayoutReading, LayoutRegion};
 use crate::member_address::{
     host_address, is_one_segment, nested_address, parse_host_address, parse_nested_address,
 };
-use crate::path::{HarnessRelativePath, to_canonical_spelling};
+use crate::path::HarnessRelativePath;
 use std::cell::Cell;
 
 thread_local! {
@@ -1715,7 +1715,7 @@ pub fn emit(
             layout_satisfies.extend(derivation.satisfies);
             layout_source_rows.push(LayoutSourceRow {
                 member: payload_member_address(member),
-                source_path: source_path.to_string(),
+                source_path: source_path.clone(),
             });
             layout_paths.insert(source_path);
             continue;
@@ -1773,7 +1773,7 @@ pub fn emit(
                     contents.push(String::from_utf8(bytes).map_err(|_| {
                         DriftError::IncludeNotUtf8 {
                             member: address.clone(),
-                            path: row.source_path.clone(),
+                            path: String::from(row.source_path.clone()),
                         }
                     })?);
                     include_rows.push(row);
@@ -2757,7 +2757,7 @@ fn resolve_source_dependency(
     let row = LayoutImportRow {
         member: host.to_string(),
         target: member_index.get(&resolved).cloned().unwrap_or_default(),
-        source_path: to_canonical_spelling(&resolved),
+        source_path: HarnessRelativePath::from_path(&resolved),
         import_hash: sha256_hex(&canonicalize_eol(&bytes)),
     };
     Ok((row, bytes))
@@ -2814,7 +2814,11 @@ fn resolve_inputs(
 /// Returns [`DriftError::UnrootedSourcePath`] where no relative path exists at all — a
 /// target on another Windows drive. Recording the absolute path instead would commit a
 /// row naming one machine's checkout, so the refusal is loud.
-fn harness_relative(host: &str, target: &str, harness_root: &Path) -> Result<String, DriftError> {
+fn harness_relative(
+    host: &str,
+    target: &str,
+    harness_root: &Path,
+) -> Result<HarnessRelativePath, DriftError> {
     let target_path = PathBuf::from(target);
     // Try canonicalizing both sides to resolve symlinks consistently. The SDK canonicalizes
     // targets via fs::canonicalize (via import.meta.url resolution), so our root must too.
@@ -2826,7 +2830,7 @@ fn harness_relative(host: &str, target: &str, harness_root: &Path) -> Result<Str
         .or_else(|_| std::path::absolute(harness_root))
         .unwrap_or_else(|_| harness_root.to_path_buf());
     match crate::path::relative_from_root(&root_abs, &target_abs) {
-        Some(relative) => Ok(to_canonical_spelling(&relative)),
+        Some(relative) => Ok(HarnessRelativePath::from_path(&relative)),
         None => Err(DriftError::UnrootedSourcePath {
             member: host.to_string(),
             import: target.to_string(),
@@ -3678,9 +3682,9 @@ pub struct LayoutImportRow {
     /// resolves to a plain repository file that is not a member (a content dependency
     /// with no member edge).
     pub target: String,
-    /// The target's on-disk path, lock-normalized — the byte source the fingerprint
-    /// hashes and drift re-hashes.
-    pub source_path: String,
+    /// The target's on-disk path — the byte source the fingerprint hashes and drift
+    /// re-hashes, in the form its type declares.
+    pub source_path: HarnessRelativePath,
     /// The SHA-256 of the target's bytes at emit — a moved target re-hashes differently
     /// and surfaces as drift.
     pub import_hash: String,
@@ -3766,7 +3770,7 @@ pub(crate) fn write_source_deps(doc: &mut DocumentMut, family: &str, rows: &[Lay
         if !row.target.is_empty() {
             entry["target"] = value(row.target.clone());
         }
-        entry["source_path"] = value(row.source_path.clone());
+        entry["source_path"] = value(String::from(row.source_path.clone()));
         entry["import_hash"] = value(row.import_hash.clone());
         array.push(entry);
     }
@@ -3779,7 +3783,7 @@ fn source_dep_row(row: &Table) -> Result<LayoutImportRow, RowError> {
     Ok(LayoutImportRow {
         member: req_str(row, "member")?,
         target: opt_str(row, "target")?.unwrap_or_default(),
-        source_path: req_str(row, "source_path")?,
+        source_path: HarnessRelativePath::new(req_str(row, "source_path")?),
         import_hash: req_str(row, "import_hash")?,
     })
 }
@@ -3975,8 +3979,8 @@ pub fn layout_prose(workspace_dir: &Path) -> miette::Result<Vec<LayoutProseRow>>
 pub struct LayoutSourceRow {
     /// The layout host's own `kind:name` address.
     pub member: String,
-    /// The document's path, harness-relative, in the lock's spelling.
-    pub source_path: String,
+    /// The document's path, in the form its type declares.
+    pub source_path: HarnessRelativePath,
 }
 
 /// The lock family a committed layout member's source record rides under.
@@ -3997,7 +4001,7 @@ fn write_layout_sources(doc: &mut DocumentMut, rows: &[LayoutSourceRow]) {
     for row in rows {
         let mut entry = Table::new();
         entry["member"] = value(row.member.clone());
-        entry["source_path"] = value(row.source_path.clone());
+        entry["source_path"] = value(String::from(row.source_path.clone()));
         array.push(entry);
     }
     table.insert(LAYOUT_SOURCE_FAMILY, Item::ArrayOfTables(array));
@@ -4008,7 +4012,7 @@ fn write_layout_sources(doc: &mut DocumentMut, rows: &[LayoutSourceRow]) {
 fn layout_source_row(row: &Table) -> Result<LayoutSourceRow, RowError> {
     Ok(LayoutSourceRow {
         member: req_str(row, "member")?,
-        source_path: req_str(row, "source_path")?,
+        source_path: HarnessRelativePath::new(req_str(row, "source_path")?),
     })
 }
 
@@ -4077,7 +4081,7 @@ pub fn source_dep_stale_from_doc(
         };
         findings.push(crate::check::Diagnostic::from_clause(
             clause,
-            &row.source_path,
+            &*row.source_path,
             message,
         ));
     }
@@ -6702,7 +6706,7 @@ mod tests {
         let import = [LayoutImportRow {
             member: "spec:intent".to_string(),
             target: String::new(),
-            source_path: "specs/intent.md".to_string(),
+            source_path: HarnessRelativePath::new("specs/intent.md".to_string()),
             import_hash: "abc".to_string(),
         }];
         write_rollup(
@@ -6724,7 +6728,7 @@ mod tests {
             }],
             &[LayoutSourceRow {
                 member: "spec:intent".to_string(),
-                source_path: "specs/intent.md".to_string(),
+                source_path: HarnessRelativePath::new("specs/intent.md".to_string()),
             }],
         )
         .unwrap();
