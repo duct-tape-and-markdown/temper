@@ -1,0 +1,27 @@
+{
+  "tag": "LOCUS-SCAN-NORMALIZE-HAS-ONE-HOME",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/import.rs",
+        "description": "`scan_locus` (line 476) opens with `let root = crate::path::normalize_path(root);`, justified at the site by \"a `.`-rooted locus (`root = \\\".\\\"`)\" — the case the 03adbbde fold moved upstream into `Discovery::locus_root` (103). Both call sites now hand it an already-normalized root: `discover_kind_units` (469) reads `locus_root`, and `nested_file_members` (318) passes `unit.dir`, which `host_units` builds either as `unit_dir(&disc.locus_root(governs), entry)` (372) or as `found.file.parent()` off the shared index, whose every key is normalized in `discoverable_paths` (618). Drop the pass and state the precondition in its place: the index is keyed by normalized paths, so a normalized root is what matching *requires*, not a convenience the scan supplies. Correct `locus_root`'s own doc (97-98), which declares the pass kept because `scan_locus` \"also runs over a host unit's directory, so it cannot presume a pre-normalized root\" — that directory is itself derived from this producer and from the normalized index, so the reason names a caller shape that cannot occur."
+      }
+    ]
+  },
+  "summary": "`scan_locus`'s normalize of its own root is unreachable since the locus-root fold, and the reason its doc declares for keeping it names a caller that cannot occur.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "src/import.rs",
+      "asserts": "`the_locus_root_joins_the_harness_and_drops_a_root_dot` and the module's nested-file and `.`-rooted discovery pins stay green with the pass removed — the root the one producer normalizes is the only root the scan is ever handed"
+    }
+  ],
+  "acceptance": "`cargo test` green with the pass gone — `tests/it/nested_member.rs` (the per-host-unit call site) and `tests/it/memory_gate.rs` (the `.`-rooted locus) unmodified, so the no-op is proven by the suite rather than narrated — and `cargo clippy --all-targets -- -D warnings` clean.",
+  "notes": "Residue the 03adbbde fold itself made: before it, `discover_kind_units` handed `scan_locus` the raw `<harness>/<root>` join, so the pass was live. No new pin — the removal is observable at no call site, which is the entry's own claim; a test asserting the absence of a lexical pass is unwritable. If build finds a third caller the census missed, the pass stays and only the doc is corrected — say so in the body. scoped at c51c34ef"
+}

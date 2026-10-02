@@ -1,8 +1,8 @@
 # Plan state
 
 - Spec derived through: 9626a1a6 — copied forward; the delta past it is empty.
-- Audited through: 82108807 — copied forward; the window past it is empty.
-- Residue swept through: 82108807 — copied forward; same empty window.
+- Audited through: c51c34ef — the two import-neighborhood folds verified on disk.
+- Residue swept through: c51c34ef — one finding filed, in the fold's own wake.
 - Posture swept through: mid-rotation — frontier armed at ee7de9f9 (the
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
@@ -16,9 +16,9 @@
   `sdk/src/emit.ts`, `sdk/src/declarations.ts`, `sdk/src/prose.ts`,
   `sdk/src/needs.ts`, `sdk/src/assembly.ts`, `sdk/src/builtins.ts`,
   `sdk/src/claude-code.ts`.
-- This tick: posture sweep over the `src/import.rs` neighborhood — two
-  findings filed, serialized on the shared file.
-- Queue: 10 pending — 1 open, 1 blocked, 4 parked, 4 deferred. Pickable: 1.
+- This tick: post-ship reconciliation of 82108807..c51c34ef — both folds
+  verified, eight gates re-tested, LOCUS-SCAN-NORMALIZE-HAS-ONE-HOME filed.
+- Queue: 9 pending — 1 open, 4 parked, 4 deferred. Pickable: 1.
   Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
 Plan continues: after-build — the rotation stays open with a pickable entry;
