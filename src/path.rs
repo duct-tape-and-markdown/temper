@@ -208,6 +208,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn normalization_drops_a_dot_component_and_keeps_a_parent_it_cannot_pop() {
+        // A `.` segment names the directory it sits in, so it carries nothing: a `.`-rooted
+        // locus joins to `./.claude/skills` and must key identically to the bare spelling a
+        // walk indexed its entries under.
+        assert_eq!(
+            normalize_path(Path::new("./.claude/skills")),
+            Path::new(".claude/skills")
+        );
+        // A `..` behind a normal segment resolves against it, lexically.
+        assert_eq!(
+            normalize_path(Path::new("packages/agent/../src/x.txt")),
+            Path::new("packages/src/x.txt")
+        );
+        // The declared leniency: a leading `..` has nothing to pop and is kept rather than
+        // dropped, so an out-of-tree target stays distinct from one sitting at the root.
+        assert_eq!(
+            normalize_path(Path::new("../outside/x.txt")),
+            Path::new("../outside/x.txt")
+        );
+    }
+
+    #[test]
     fn a_target_above_the_root_is_spelled_with_parent_segments() {
         let relative = relative_from_root(
             Path::new("/checkout/packages/agent"),

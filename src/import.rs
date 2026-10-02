@@ -1165,27 +1165,11 @@ Last line, no newline.";
 
     #[test]
     fn unit_dir_resolves_a_host_unit_with_normalized_paths() {
-        // The shared index keys entries as normalized paths (no leading `./`), so `unit_dir`
-        // receives a normalized root (the fix normalizes it before calling `unit_dir`).
-        // This test verifies `unit_dir` correctly extracts the host unit directory.
+        // `unit_dir` speaks the shared index's vocabulary — normalized paths, no leading
+        // `./` on either side — and names the one level under the locus root that owns the
+        // entry: the host unit directory a nested child's template addresses an interior of.
         let root = Path::new(".claude/skills");
         let entry = Path::new(".claude/skills/coordinate/SKILL.md");
-        let result = unit_dir(root, entry);
-        assert_eq!(result, Some(root.join("coordinate")));
-    }
-
-    #[test]
-    fn normalize_path_strips_leading_dot_component() {
-        // The fix normalizes the root before passing it to `unit_dir`. This test verifies
-        // that normalize_path correctly strips the leading `.` that a `.`-rooted harness
-        // would introduce (e.g., `.` joined with `.claude/skills` yields `./.claude/skills`).
-        let unnormalized = Path::new("./.claude/skills");
-        let normalized = crate::path::normalize_path(unnormalized);
-        assert_eq!(normalized, Path::new(".claude/skills"));
-
-        // Now `unit_dir` can correctly match the normalized root against normalized entries.
-        let entry = Path::new(".claude/skills/coordinate/SKILL.md");
-        let result = unit_dir(&normalized, entry);
-        assert_eq!(result, Some(normalized.join("coordinate")));
+        assert_eq!(unit_dir(root, entry), Some(root.join("coordinate")));
     }
 }
