@@ -9,7 +9,7 @@
     "new": [
       {
         "path": "src/lock.rs",
-        "description": "The flat module (`architecture.md`, \"The tree stays flat\": a split lands as a new flat module) owning the lock declaration codec moved out of `src/drift.rs` — its `declaration rows` section banner through the tail of `import_edges_from_doc`, measured 4331-6419 of 6749 at b71e586f. That is `Declarations` and every `*Row` type, their `*_table`/`*_from_table` TOML round-trip pairs, the column readers (`req_str`, `opt_str`, `opt_table`), `LockRowError`/`RowError`, and the read/parse door (`read_lock_document`, `read_declarations`, `read_engine`, `engine_from_doc`, `parse_declarations`, `declarations_from_doc`). Symbols, not line numbers: the span is the park's cost argument and is re-measured each audit, while every name here resolves by `rg` and survives the next tick's churn. A move, not a rewrite: no signature, no behavior, no row column changes, and `drift` imports it rather than re-exporting it — one door per name, never two (`engineering.md`, \"An export earns its consumer\"). One byte of prose is not verbatim: `Declarations`'s doc names `GATE-READ-LOCK-DEMOLITION` as \"next in the chain\", a tag retired at ce61d85c — the clause goes, the sentence keeping the fact that `import`'s extraction still writes this family for the `check` path it feeds."
+        "description": "The flat module (`architecture.md`, \"The tree stays flat\": a split lands as a new flat module) owning the lock declaration codec moved out of `src/drift.rs` — its `declaration rows` section banner through the tail of `import_edges_from_doc`, measured 4335-6423 of 6753 at 3444b912. That is `Declarations` and every `*Row` type, their `*_table`/`*_from_table` TOML round-trip pairs, the column readers (`req_str`, `opt_str`, `opt_table`), `LockRowError`/`RowError`, and the read/parse door (`read_lock_document`, `read_declarations`, `read_engine`, `engine_from_doc`, `parse_declarations`, `declarations_from_doc`). Symbols, not line numbers: the span is the park's cost argument and is re-measured each audit, while every name here resolves by `rg` and survives the next tick's churn. A move, not a rewrite: no signature, no behavior, no row column changes, and `drift` imports it rather than re-exporting it — one door per name, never two (`engineering.md`, \"An export earns its consumer\"). One byte of prose is not verbatim: `Declarations`'s doc names `GATE-READ-LOCK-DEMOLITION` as \"next in the chain\", a tag retired at ce61d85c — the clause goes, the sentence keeping the fact that `import`'s extraction still writes this family for the `check` path it feeds."
       }
     ],
     "edit": [
@@ -268,7 +268,7 @@
     ],
     "retire": []
   },
-  "summary": "src/drift.rs carries three jobs in 6748 lines; the lock declaration codec (~2089 of them) splits to a flat src/lock.rs, drift keeping emit + place",
+  "summary": "src/drift.rs carries three jobs in 6753 lines; the lock declaration codec (~2089 of them) splits to a flat src/lock.rs, drift keeping emit + place",
   "per": {
     "path": "specs/process/engineering.md",
     "section": "One job, one home"
@@ -284,5 +284,5 @@
     }
   ],
   "acceptance": "cargo test, cargo clippy --all-targets -- -D warnings, cargo fmt --all --check and the rustdoc gate green; `src/lock.rs` owns the declaration codec, `src/drift.rs`'s header describes everything the file still holds, no consumer reaches a codec symbol through `drift`, and `git diff --stat` shows `sdk/src/generated/` changed in exactly the four bindings whose projected doc text named `crate::drift::`.",
-  "notes": "Drained from .flume/refactor/plan-drift-module-carries-three-jobs.md (observed at ee7de9f9). Park re-tested: the consumer set is unchanged (16 src/, 42 tests/it/, four generated bindings) and no codec import moved. The span re-measured at b71e586f: drift.rs is 6749 lines, the codec 4331-6419 (2089). Per-symbol line cites are retired from this entry — re-measuring 40 of them each audit was a tax on a parked entry, and `rg` resolves every name. scoped at b71e586f"
+  "notes": "Drained from .flume/refactor/plan-drift-module-carries-three-jobs.md (observed at ee7de9f9). Park re-tested: the consumer set is unchanged — the b71e586f..3444b912 window's four test edits are all already in files[], and no codec import moved. The span re-measured at 3444b912: drift.rs is 6753 lines, the codec 4335-6423 (2089, the same count), so the park's cost argument is unchanged. Per-symbol line cites stay retired — `rg` resolves every name. scoped at 3444b912"
 }

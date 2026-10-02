@@ -2,7 +2,7 @@
   "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
   "gate": {
     "kind": "deferred",
-    "reason": "project_modeline (src/install.rs:2988) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+    "reason": "`install::project_modeline` reads YAML frontmatter only (it opens on `frontmatter::frontmatter_matter(source)?` and returns `None` where there is no block); a JSON document's native `$schema` key or a TOML equivalent needs its own design before `schema`/`install` extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
   },
   "dependsOnForks": [],
   "files": {
@@ -10,7 +10,7 @@
     "edit": [
       {
         "path": "src/install.rs",
-        "description": "Anticipated: `schema_ref` (:2967) and `project_modeline` (:2988-:2998) grow a JSON-document and/or TOML-document variant once a design exists — a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
+        "description": "Anticipated: `schema_ref` and `project_modeline` grow a JSON-document and/or TOML-document variant once a design exists — a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix); a TOML equivalent is unprecedented and needs its own ruling. Symbols, not line numbers: both names resolve by `rg`, and re-measuring their offsets each audit was a tax on a deferred entry — the +6 shift 0d4a461a's guard-half rework bought is the third such re-measure."
       }
     ],
     "retire": []
@@ -22,5 +22,5 @@
   },
   "tests": [],
   "acceptance": "A JSON- or TOML-document kind (settings-local, plugin-manifest, marketplace, dial, or a declared kind sharing one of those formats) gets keystroke schema validation wired by `install`, once a modeline-equivalent mechanism is designed for its format.",
-  "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN, split so the YAML widening isn't blocked on this design question. Gate re-tested on disk this audit: `project_modeline` still opens with `frontmatter::frontmatter_matter(source)?` and returns `None` for a source with no YAML block, so no JSON/TOML kind has a modeline path. The 7e9a5a03..b71e586f path-type window reworked this module's guard half and moved neither cite. scoped at b71e586f"
+  "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN, split so the YAML widening isn't blocked on this design question. Gate re-tested on disk this audit: `project_modeline` still opens with `frontmatter::frontmatter_matter(source)?`, so no JSON/TOML kind has a modeline path. The b71e586f..3444b912 window moved both cites +6 within `install.rs`; the line numbers are retired rather than restamped. scoped at 3444b912"
 }
