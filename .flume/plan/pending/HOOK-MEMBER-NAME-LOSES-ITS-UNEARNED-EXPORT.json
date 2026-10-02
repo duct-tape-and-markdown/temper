@@ -1,0 +1,28 @@
+{
+  "tag": "HOOK-MEMBER-NAME-LOSES-ITS-UNEARNED-EXPORT",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "Drop `export` from `hookMemberName` (line 524). Its one caller is `hookMember` in this same module (line 589); no test imports it, `sdk/src/index.ts` does not re-export it, and `sdk/src/claude-code.ts` — the provider face's public entry point — exports `hook` but not the name composer. Its inverse `hookCollectionKey` keeps its export: `declarations.ts` reads it. The `{@link hookMemberName}` doc references at lines 530 and 570 stay valid intra-module links."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "`hookMemberName` is exported with no consumer outside its own module — narrow it to module-private.",
+  "per": { "path": "specs/process/engineering.md", "section": "An export earns its consumer" },
+  "tests": [
+    {
+      "path": "sdk/test/emit.test.ts",
+      "asserts": "composed hook member names still compose through the public `hook` constructor (`PostToolUse:Edit|Write`, `SessionStart` — lines 2356-2372)"
+    },
+    {
+      "path": "sdk/test/builtins.test.ts",
+      "asserts": "`hook()` still mints one matcher group with the group field beside its handler array (line 372)"
+    }
+  ],
+  "acceptance": "`pnpm --dir sdk test` green (strict tsc + node --test), with `rg -a 'hookMemberName' sdk/src sdk/test` matching only `sdk/src/builtins.ts`.",
+  "notes": "Found by the posture sweep over the SDK provider face. Verified un-consumed with `rg -a` across the tree (bare no-hits is not proof; `-a` reads every file). Same class as REGISTRATION-ROW-BUILDERS-LOSE-THEIR-UNEARNED-EXPORT (19823d58). scoped at fa16d12b"
+}

@@ -1,0 +1,61 @@
+{
+  "tag": "TELEMETRY-EVENT-HOOK-TABLE-CROSSES-THE-GENERATED-SEAM",
+  "gate": { "kind": "blockedBy", "tags": ["HOOK-MEMBER-NAME-LOSES-ITS-UNEARNED-EXPORT"] },
+  "files": {
+    "new": [
+      {
+        "path": "sdk/src/generated/tap-hooks.ts",
+        "description": "The second generated values module after `gate-commands.ts`: each documented tap event name paired with the `hooks.<Event>` event and matcher its tap hook registers under, written from the engine's table by the seam gate and committed."
+      }
+    ],
+    "edit": [
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "New provider-face table pairing every `TapEvent` with the Claude Code lifecycle event and tool-name matcher its tap hook registers under — the write-side twin of the facts `classify_claude_code_hook_payload` already reads (lines 723-756: `InstructionsLoaded`, `UserPromptExpansion`, `PostToolUse` + tool `Skill`). Resolved through an exhaustive match over `TapEvent` so a new variant cannot compile without its binding, and `pub` for the seam gate the way `install::GATE_COMMAND_BINDINGS` is (`src/install.rs`, line 211)."
+      },
+      {
+        "path": "src/tap.rs",
+        "description": "`documented_event_names()` (line 65) derives from the new table instead of restating its own four-name list, so the admissibility set `roster.rs` reads (line 146) and the SDK's registration table are one enumeration."
+      },
+      {
+        "path": "tests/it/seam_bindings_current.rs",
+        "description": "Generate and byte-compare the new values module beside `gate_commands_module()` (line 58): a second file held out of the `export type` loop, re-exported with `export { … }` in the barrel, blessed by `BLESS_SEAM_BINDINGS=1`. The module-doc list at lines 6-9 names the family as two things — the types and one values module; it becomes two values modules."
+      },
+      {
+        "path": "sdk/src/generated/index.ts",
+        "description": "Barrel re-export of the new values module beside `gate-commands.js` (last line) — machine-written by the seam gate, committed."
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "`TELEMETRY_EVENT_HOOKS` (line 2108) stops being a hand-authored table and reads the generated binding, keeping its exported name and shape so `declarations.ts` is unaffected; its doc comment keeps the cited prose about each event's matcher and names the engine as the table's home."
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "Behavior unchanged — `tapHookRows` (line 1008) still drops an unmapped event name so the roster's inadmissibility finding is the one channel (line 1003's documented design). Only touched if the import home moves."
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "The `telemetry()` verifier doc (line 455) points at `TELEMETRY_EVENT_HOOKS` in `builtins.ts` for the vocabulary; re-point it at the engine table that now owns it."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The tap's event-to-(hook event, matcher) table is stated twice across the TS/Rust seam — the engine owns it, the SDK's copy becomes machine-written.",
+  "per": { "path": "specs/process/engineering.md", "section": "A shared concept is one type" },
+  "tests": [
+    {
+      "path": "tests/it/seam_bindings_current.rs",
+      "asserts": "a committed `tap-hooks.ts` that disagrees with a fresh export off the engine table fails the byte-compare loudly"
+    },
+    {
+      "path": "src/tap.rs",
+      "asserts": "`documented_event_names()` still yields exactly the four canonical names, now read off the table (n = 4 asserted before the membership claims — non-vacuous)"
+    },
+    {
+      "path": "sdk/test/builtins.test.ts",
+      "asserts": "the generated table is non-empty and every name in it resolves to a non-empty event and matcher"
+    }
+  ],
+  "acceptance": "`cargo test` and `pnpm --dir sdk test` green; `rg -a 'SkillInvoked' sdk/src` matches only under `sdk/src/generated/`.",
+  "notes": "Latent, not live: the sets agree today (4 names each). A fifth `TapEvent` ships green and silent — the SDK synthesizes no tap hook while `roster.rs:146` admits the name, the silent no-op its own finding text names. Mechanism is decision 0073's gate-command bindings. `.temper/` is outside the fence: keep the generated values byte-identical so the committed lock cannot move. scoped at fa16d12b"
+}
