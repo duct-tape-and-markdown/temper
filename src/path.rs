@@ -138,10 +138,8 @@ fn absolute_root(root: &Path) -> Option<PathBuf> {
 /// A harness-relative path: the lock's own vocabulary for source paths. Always
 /// `/`-separated, no leading `./`, normalized. This is the canonical form that's
 /// committed to lock.toml and carried by `RollupEntry`, `RawLockRow`, `ProvenanceRow`,
-/// `LayoutMemberSite`, `LocusMemberSite`, `EmitOwnedEntry`, and
+/// `LayoutMemberSite`, `LocusMemberSite`, `EmitOwnedEntry`, `drift::Projection`, and
 /// `install::GuardedManifest` — so a path fact's root is its type, not its doc comment.
-/// `drift`'s emit-side `Projection::source_path` is the one carrier of the same form
-/// still outside the type, and so still outside that close.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HarnessRelativePath(String);
 
@@ -154,6 +152,15 @@ impl HarnessRelativePath {
     #[must_use]
     pub fn new(s: String) -> Self {
         Self(canonical_spelling(&s))
+    }
+
+    /// [`new`](Self::new) over a path already derived as a `Path` — a projection locus
+    /// composed by `Path::join`, which the host's separator makes host-shaped. The same
+    /// one door, so a derived locus never pairs [`to_canonical_spelling`] with the
+    /// constructor that would canonicalize it again.
+    #[must_use]
+    pub fn from_path(path: &Path) -> Self {
+        Self(canonical_spelling(&path.to_string_lossy()))
     }
 }
 

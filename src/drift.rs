@@ -973,9 +973,9 @@ struct Projection {
     /// address rather than by a `<kind>:<name>` no nested child wears. Absent at every
     /// locus but a nested **file** child's.
     host: Option<String>,
-    /// The path the artifact projects to, relative to the harness root — the lock's own
-    /// vocabulary. [`emit_one`] joins it onto the harness root to reach disk.
-    source_path: PathBuf,
+    /// The path the artifact projects to — [`emit_one`] joins it onto the harness root
+    /// to reach disk.
+    source_path: HarnessRelativePath,
     /// The kind's declared projection format, selecting the canonical write face the
     /// member's bytes are rendered through. `None` for a kind declaring none.
     format: Option<Format>,
@@ -1548,19 +1548,18 @@ pub fn emit(
     // host's only trace that does not depend on what its body lowered into, and so the
     // fact the root `locus-declared` clause asks about.
     let mut layout_source_rows: Vec<LayoutSourceRow> = Vec::new();
-    let mut layout_paths: BTreeSet<String> = BTreeSet::new();
+    let mut layout_paths: BTreeSet<HarnessRelativePath> = BTreeSet::new();
     // The local-locus members this pass passed over: emit writes nothing at their paths
     // and rows none of them, but the paths are still owned — an author's uncommitted
     // document is never an orphan for the reap to claim (the member loop below).
-    let mut local_paths: BTreeSet<String> = BTreeSet::new();
+    let mut local_paths: BTreeSet<HarnessRelativePath> = BTreeSet::new();
 
     // The represented manifests this pass writes whole through the canonical write face,
     // keyed by their host manifest's on-disk path (resolved off the registration kind's
     // `governs`): each carries its declared collection segments and, when a container
     // member projects to the same path, that member's opaque residue. Built before the
     // member loop so a container member is recognized by path as the loop reaches it.
-    // Keyed harness-relative, the vocabulary a member's own projection path speaks.
-    let mut manifests: BTreeMap<PathBuf, ManifestBuild> = BTreeMap::new();
+    let mut manifests: BTreeMap<HarnessRelativePath, ManifestBuild> = BTreeMap::new();
     for registration in &payload.declarations.registrations {
         let facts =
             kind_facts
@@ -1643,8 +1642,15 @@ pub fn emit(
                     kind: member.kind.clone(),
                     member: payload_member_address(member),
                 })?;
-        let source_path =
-            member_projection_path(facts, &member.name, member.host.as_deref(), &kind_facts)?;
+        // The derived locus enters the lock's vocabulary at this one door: every reader
+        // below — the owned sets, the manifest lookup, the layout rows, the projection —
+        // takes the typed path rather than re-spelling the raw one.
+        let source_path = HarnessRelativePath::from_path(&member_projection_path(
+            facts,
+            &member.name,
+            member.host.as_deref(),
+            &kind_facts,
+        )?);
         // The declared commitment class is lifted once, above the locus fence: the fence's
         // own `local` exemption and the skip below are the same class's two consequences,
         // so a second lift here would be a second chance to disagree.
@@ -1678,7 +1684,7 @@ pub fn emit(
         // local, its prior rollup row still on the lock and its live document about to
         // be deleted as the orphan of a member emit no longer projects.
         if commitment == Some(Commitment::Local) {
-            local_paths.insert(to_canonical_spelling(&source_path));
+            local_paths.insert(source_path);
             continue;
         }
         // A container member of a represented manifest: its typed fields are the manifest's
@@ -1698,7 +1704,7 @@ pub fn emit(
             let derivation = derive_layout_rows(
                 &layout,
                 member,
-                &source_path,
+                source_path.as_ref(),
                 &harness_root,
                 &member_index,
                 &edge_fields,
@@ -1709,9 +1715,9 @@ pub fn emit(
             layout_satisfies.extend(derivation.satisfies);
             layout_source_rows.push(LayoutSourceRow {
                 member: payload_member_address(member),
-                source_path: to_canonical_spelling(&source_path),
+                source_path: source_path.to_string(),
             });
-            layout_paths.insert(to_canonical_spelling(&source_path));
+            layout_paths.insert(source_path);
             continue;
         }
         // The member's own whole address — the one spelling every refusal below names it
@@ -1819,9 +1825,9 @@ pub fn emit(
     // projections, layout sources, and represented manifests — so the reap wave
     // is decided here, before a byte is written, and the cliff refusal never has
     // to undo a deletion.
-    let mut owned_paths: BTreeSet<String> = projections
+    let mut owned_paths: BTreeSet<HarnessRelativePath> = projections
         .iter()
-        .map(|projection| to_canonical_spelling(&projection.source_path))
+        .map(|projection| projection.source_path.clone())
         .collect();
     // A layout document is a source — never reaped even when no rollup row projects it.
     owned_paths.extend(layout_paths);
@@ -1831,7 +1837,7 @@ pub fn emit(
     owned_paths.extend(local_paths);
     // A represented manifest is emit-owned by its path even when no container member gives
     // it a rollup row, so a re-emit never reaps the file it just wrote.
-    owned_paths.extend(manifests.keys().map(|path| to_canonical_spelling(path)));
+    owned_paths.extend(manifests.keys().cloned());
 
     // Read and parse the lock document once for reuse across the reap-diff and
     // layer-drop checks below — whole-input work hoists parsing per run, never
@@ -1841,23 +1847,21 @@ pub fn emit(
     let lock_doc = read_lock_document(workspace_dir).unwrap_or_default();
 
     // Classify every prior projection the payload no longer owns without touching
-    // disk. Both sides normalized: `owned_paths` came through the canonical spelling, and
-    // a row's path is canonical by its `HarnessRelativePath` type, so a `./`-prefixed
-    // row still joins its live projection.
+    // disk. Both sides are `HarnessRelativePath`, so a `./`-prefixed row off an older
+    // lock still joins its live projection.
     let mut orphans: Vec<(ProvenanceRow, PathBuf, EmitOutcome)> = Vec::new();
     let mut any_survivor = false;
     let prior_rows = read_prior_provenance_from_doc(&lock_doc);
     // The owned side of the very column the orphan classification reads: one
     // path-to-`emit_hash` index off this same single walk, so `emit_one`/`emit_manifest`
     // can tell a projection they overwrote a hand edit from a plain source-side re-emit
-    // without a second parse. Keyed on the same canonical spelling the reap diff joins
-    // on, so an older lock's `./`-prefixed row still finds its live projection.
+    // without a second parse — keyed by the same type the reap diff above joins on.
     let prior_emit_hashes: PriorEmitHashes = prior_rows
         .iter()
-        .map(|row| (row.source_path.to_string(), row.emit_hash.clone()))
+        .map(|row| (row.source_path.clone(), row.emit_hash.clone()))
         .collect();
     for row in prior_rows {
-        if owned_paths.contains(&*row.source_path) {
+        if owned_paths.contains(&row.source_path) {
             any_survivor = true;
             continue;
         }
@@ -1938,9 +1942,7 @@ pub fn emit(
             .push(RollupEntry {
                 name: projection.name.clone(),
                 host: projection.host.clone(),
-                source_path: HarnessRelativePath::new(to_canonical_spelling(
-                    &projection.source_path,
-                )),
+                source_path: projection.source_path.clone(),
                 source_hash: hash.clone(),
                 emit_hash: hash,
             });
@@ -1967,7 +1969,7 @@ pub fn emit(
                 .push(RollupEntry {
                     name: container.name.clone(),
                     host: container.host.clone(),
-                    source_path: HarnessRelativePath::new(to_canonical_spelling(path)),
+                    source_path: path.clone(),
                     source_hash: hash.clone(),
                     emit_hash: hash,
                 });
@@ -2114,17 +2116,20 @@ struct ContainerMember {
 /// the file its registration members surface inside and the path the canonical write face
 /// regenerates. `None` for a kind governing no locus at all — a nested file kind has no
 /// host file to register inside.
-fn manifest_target_path(facts: &KindFactRow) -> Option<PathBuf> {
+fn manifest_target_path(facts: &KindFactRow) -> Option<HarnessRelativePath> {
     let root = facts.governs_root.as_deref()?;
     let glob = facts.governs_glob.as_deref()?;
-    Some(join_locus(root, glob))
+    Some(HarnessRelativePath::from_path(&join_locus(root, glob)))
 }
 
 /// The harness-relative path the manifest named `manifest` lives at, resolved through any
 /// in-play kind that declares it as its collection address's host — the same `governs`
 /// locus [`manifest_target_path`] gives a registration kind. `None` when no in-play kind
 /// declares the manifest, so its residue has nowhere to land.
-fn manifest_path_for(manifest: &str, kind_facts: &BTreeMap<&str, &KindFactRow>) -> Option<PathBuf> {
+fn manifest_path_for(
+    manifest: &str,
+    kind_facts: &BTreeMap<&str, &KindFactRow>,
+) -> Option<HarnessRelativePath> {
     kind_facts
         .values()
         .find(|facts| {
@@ -2142,15 +2147,14 @@ fn manifest_path_for(manifest: &str, kind_facts: &BTreeMap<&str, &KindFactRow>) 
 /// **container**), or the ownerless `manifest` label over the file's own name when the
 /// program declares no container kind for that path.
 fn manifest_owner_label(
-    path: &Path,
+    path: &HarnessRelativePath,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
 ) -> (String, String) {
-    let (ownerless_kind, name) = ownerless_manifest_label(path);
+    let (ownerless_kind, name) = ownerless_manifest_label(path.as_ref());
     let kind = kind_facts
         .values()
         .find(|facts| {
-            facts.collection_address.is_none()
-                && manifest_target_path(facts).as_deref() == Some(path)
+            facts.collection_address.is_none() && manifest_target_path(facts).as_ref() == Some(path)
         })
         .map_or(ownerless_kind, |facts| facts.name.clone());
     (kind, name)
@@ -2213,7 +2217,7 @@ fn collection_key_of(key_path: &str) -> String {
 /// When `cached_raw` is `Some`, uses the pre-read file contents instead of reading again,
 /// hoisting the read cost outside this function's loop. When `None`, reads the file directly.
 fn emit_manifest(
-    locus: &Path,
+    locus: &HarnessRelativePath,
     harness_root: &Path,
     build: &ManifestBuild,
     dry_run: bool,
@@ -2269,12 +2273,11 @@ fn emit_manifest(
     Ok((row(outcome), hash))
 }
 
-/// Every prior lock row's `emit_hash`, keyed by the canonical spelling its
-/// [`HarnessRelativePath`] guarantees: the
+/// Every prior lock row's `emit_hash`, keyed by its [`HarnessRelativePath`]: the
 /// fingerprint column [`write_outcome`] joins a projection's on-disk bytes against to tell
 /// an overwritten hand edit from a plain source-side re-emit. Built once per [`emit`] off
 /// the single provenance walk the reap diff already makes.
-type PriorEmitHashes = BTreeMap<String, String>;
+type PriorEmitHashes = BTreeMap<HarnessRelativePath, String>;
 
 /// Which outcome a re-emit over `current` reports for the projection at harness-relative
 /// `locus`: [`Overwritten`](EmitOutcome::Overwritten) when the prior lock fingerprinted
@@ -2290,13 +2293,13 @@ type PriorEmitHashes = BTreeMap<String, String>;
 #[must_use]
 fn write_outcome(
     prior_emit_hashes: &PriorEmitHashes,
-    locus: &Path,
+    locus: &HarnessRelativePath,
     current: Option<&[u8]>,
 ) -> EmitOutcome {
     let Some(bytes) = current else {
         return EmitOutcome::Emitted;
     };
-    match prior_emit_hashes.get(&to_canonical_spelling(locus)) {
+    match prior_emit_hashes.get(locus) {
         Some(prior) if sha256_hex(&canonicalize_eol(bytes)) != *prior => EmitOutcome::Overwritten,
         _ => EmitOutcome::Emitted,
     }
@@ -2325,13 +2328,13 @@ fn write_outcome(
 /// set. Propagates a [`LockRowError`] when a kind fact's collection address carries a
 /// key-path label outside the closed vocabulary.
 fn manifest_segment_reaps(
-    manifests: &BTreeMap<PathBuf, ManifestBuild>,
+    manifests: &BTreeMap<HarnessRelativePath, ManifestBuild>,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
     harness_root: &Path,
     teardown: bool,
-) -> Result<(Vec<EmitEntry>, BTreeMap<PathBuf, String>), DriftError> {
+) -> Result<(Vec<EmitEntry>, BTreeMap<HarnessRelativePath, String>), DriftError> {
     let mut reaps = Vec::new();
-    let mut cached_raws: BTreeMap<PathBuf, String> = BTreeMap::new();
+    let mut cached_raws: BTreeMap<HarnessRelativePath, String> = BTreeMap::new();
     for (path, build) in manifests {
         // Every collection address that targets this manifest file — the kinds whose
         // registration members surface inside it (a hook and an installed plugin both key
@@ -2340,7 +2343,7 @@ fn manifest_segment_reaps(
         // never silently.
         let mut addresses = Vec::new();
         for facts in kind_facts.values() {
-            if manifest_target_path(facts).as_deref() == Some(path.as_path())
+            if manifest_target_path(facts).as_ref() == Some(path)
                 && let Some(address) = collection_address_from_row(facts)?
             {
                 addresses.push(address);
@@ -2386,7 +2389,7 @@ fn manifest_segment_reaps(
         let manifest_label = disk_path
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| to_canonical_spelling(path));
+            .unwrap_or_else(|| path.to_string());
         for key in current.opaque_fields.keys() {
             if !build.residue.contains_key(key) {
                 reaps.push(EmitEntry {
@@ -2410,7 +2413,7 @@ fn manifest_segment_reaps(
                     .is_some_and(|entries| !entries.is_empty());
                 if !survives {
                     return Err(DriftError::SegmentReapWave {
-                        manifest: to_canonical_spelling(path),
+                        manifest: path.to_string(),
                         collection: (*collection).to_string(),
                         count: *count,
                     });
@@ -3073,7 +3076,7 @@ fn emit_one(
             crate::placement::NOTE_MARKER,
             crate::placement::NOTE_COMMENT,
         ))
-    } else if crate::placement::is_markdown_path(&projection.source_path) {
+    } else if crate::placement::is_markdown_path(projection.source_path.as_ref()) {
         Some((crate::placement::BANNER_MARKER, crate::placement::BANNER))
     } else {
         None
@@ -4311,12 +4314,15 @@ pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
         let Some(manifest_path) = manifest_path_for(&registration.manifest, &kind_facts) else {
             continue;
         };
-        let path = HarnessRelativePath::new(to_canonical_spelling(&manifest_path));
-        if !collected.insert(path.clone()) {
+        if !collected.insert(manifest_path.clone()) {
             continue;
         }
-        let (kind, name) = manifest_owner_label(Path::new(&*path), &kind_facts);
-        targets.push(EmitOwnedEntry { kind, name, path });
+        let (kind, name) = manifest_owner_label(&manifest_path, &kind_facts);
+        targets.push(EmitOwnedEntry {
+            kind,
+            name,
+            path: manifest_path,
+        });
     }
 
     targets
