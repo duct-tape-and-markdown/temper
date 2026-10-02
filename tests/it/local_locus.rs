@@ -561,6 +561,50 @@ fn a_commitment_label_outside_the_closed_vocabulary_refuses_at_load() {
 }
 
 #[test]
+fn emit_accepts_a_local_locus_member_rooted_under_the_workspace() {
+    // The fence's declared exemption, read at emit as the check judge already read it:
+    // a `local` locus under `.temper/` buries nothing, because discovery waives the
+    // workspace skip for exactly that kind's own walk and emit projects no byte there.
+    // Before the two faces shared one home, emit tested the locus above its own `local`
+    // skip and refused this payload while check stayed silent over the same declaration.
+    let harness = common::tmpdir("local-at-locus-under-workspace");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+
+    let kind = KindFactRow {
+        commitment: Some("local".to_string()),
+        format: Some("toml-document".to_string()),
+        unit_shape: Some("named-field(name)".to_string()),
+        ..common::kind_facts("knob", ".temper", "*.toml")
+    };
+    assert_eq!(
+        (kind.commitment.as_deref(), kind.governs_root.as_deref()),
+        (Some("local"), Some(".temper")),
+        "the fixture must root a local locus under the workspace, or the green is vacuous"
+    );
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![kind],
+            ..Default::default()
+        },
+        members: vec![common::payload_member("knob", "knob", None, "")],
+    };
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    assert!(
+        report.entries.iter().all(|entry| entry.name != "knob"),
+        "a local member is neither projected nor reaped, wherever its locus roots: {:?}",
+        report.entries
+    );
+    assert!(
+        !harness.join(".temper").join("knob.toml").exists(),
+        "emit writes no byte at a local member's path"
+    );
+}
+
+#[test]
 fn an_at_locus_under_the_workspace_refuses_at_emit_and_check() {
     let harness = common::tmpdir("at-locus-under-workspace");
     let into = harness.join(".temper");

@@ -1663,22 +1663,24 @@ pub fn emit(
                 })?;
         let source_path =
             member_projection_path(facts, &member.name, member.host.as_deref(), &kind_facts)?;
-        // An `at` locus (both governs_root and governs_glob present) rooted under the workspace
-        // would emit and lock but never be discoverable, since discovery fences .temper/ by design.
+        // The declared commitment class is lifted once, above the locus fence: the fence's
+        // own `local` exemption and the skip below are the same class's two consequences,
+        // so a second lift here would be a second chance to disagree.
+        let commitment = commitment_from_row(facts)?;
+        // An `at` locus (both governs_root and governs_glob present) rooted under the
+        // workspace would emit and lock but never be discoverable, since discovery fences
+        // `.temper/` by design. Buried-or-not is `kind`'s call, shared with the check-time
+        // judge (`crate::admissibility::at_locus_under_workspace_admissibility`).
         if let (Some(root), Some(_)) =
             (facts.governs_root.as_deref(), facts.governs_glob.as_deref())
+            && crate::kind::at_locus_is_under_workspace(root, commitment)
         {
-            let root_path = Path::new(root);
-            let workspace = Path::new(crate::WORKSPACE_DIR);
-            if root_path == workspace || root_path.starts_with(format!("{}/", crate::WORKSPACE_DIR))
-            {
-                return Err(DriftError::AtLocusUnderWorkspace {
-                    member: payload_member_address(member),
-                    kind: member.kind.clone(),
-                    root: root.to_string(),
-                }
-                .into());
+            return Err(DriftError::AtLocusUnderWorkspace {
+                member: payload_member_address(member),
+                kind: member.kind.clone(),
+                root: root.to_string(),
             }
+            .into());
         }
         // A **local**-locus member: the kind is declared and reviewed, its document is
         // not. Emit writes nothing at its path and
@@ -1693,7 +1695,7 @@ pub fn emit(
         // otherwise would the first time a kind that used to be committed is declared
         // local, its prior rollup row still on the lock and its live document about to
         // be deleted as the orphan of a member emit no longer projects.
-        if commitment_from_row(facts)? == Some(Commitment::Local) {
+        if commitment == Some(Commitment::Local) {
             local_paths.insert(to_lock_path(&source_path));
             continue;
         }

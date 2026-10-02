@@ -822,6 +822,33 @@ fn commitment_from_label(label: &str) -> Option<Commitment> {
     }
 }
 
+/// Whether a declared `at` locus rooted at `root` is **buried under the workspace** —
+/// the one home for the `.temper/` locus fence, read by both faces that refuse it: the
+/// check-time judge (`crate::admissibility::at_locus_under_workspace_admissibility`) and
+/// emit's projection pass (`crate::drift`). Sibling of
+/// [`local_locus_fault`](CustomKind::local_locus_fault) and
+/// [`registration_locus_fault`](CustomKind::registration_locus_fault): all three guard the
+/// locus's own coherence. It sits here beside the row lifts rather than in the `impl`
+/// because emit holds a [`KindFactRow`]'s two locus columns, never a whole [`CustomKind`];
+/// establishing *that there is* an `at` locus is each caller's own lift, and this decides
+/// the rest.
+///
+/// A member rooted under the workspace would emit and lock but never be discoverable,
+/// since discovery fences `.temper/` by design. The one locus spared is a
+/// [`Commitment::Local`] one: the fence is a discovery *presumption*, waived for exactly a
+/// local-locus kind's own walk (`crate::import`), and emit neither projects nor locks such
+/// a member — temper's own `dial` is the shipped case.
+///
+/// The root test is [`Path::starts_with`], which matches whole components only: it holds
+/// for `.temper` itself and for anything genuinely under it, and refuses the `.temperature`
+/// near-miss a byte-prefix test would bury.
+pub(crate) fn at_locus_is_under_workspace(root: &str, commitment: Option<Commitment>) -> bool {
+    if commitment == Some(Commitment::Local) {
+        return false;
+    }
+    Path::new(root).starts_with(crate::WORKSPACE_DIR)
+}
+
 /// Lift a [`KindFactRow`]'s declared commitment label into its typed [`Commitment`] —
 /// `None` for a kind whose file locus is committed (the absent column).
 ///
@@ -1315,6 +1342,22 @@ mod tests {
     use super::*;
     use crate::extract::{FeatureValue, ValueType};
     use crate::test_support;
+
+    #[test]
+    fn the_workspace_locus_fence_matches_whole_components_and_spares_a_local_class() {
+        // The fence the check judge and emit now share, at its three edges: the workspace
+        // root itself and anything genuinely under it are buried; a sibling whose name
+        // merely starts with the same bytes is not; and a `local` class is spared
+        // wherever it roots, which is the divergence the fold closed.
+        assert!(at_locus_is_under_workspace(crate::WORKSPACE_DIR, None));
+        assert!(at_locus_is_under_workspace(".temper/notes", None));
+        assert!(!at_locus_is_under_workspace(".temperature", None));
+        assert!(!at_locus_is_under_workspace(".claude/skills", None));
+        assert!(!at_locus_is_under_workspace(
+            ".temper/notes",
+            Some(Commitment::Local)
+        ));
+    }
 
     #[test]
     fn enabled_plugins_splits_the_marketplace_half_off_its_composite_key() {

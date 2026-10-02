@@ -537,8 +537,9 @@ const AT_LOCUS_UNDER_WORKSPACE_RULE: &str = "at-locus.under-workspace";
 /// Ranges over the whole effective kind set, a built-in's relocated locus included: the
 /// invariant is the *locus*'s, not the row's, so a relocation row that re-roots a
 /// built-in's `governs` under `.temper/` buries that built-in's members exactly as a
-/// custom kind's own declaration would. The one locus it spares is a
-/// [`Commitment::Local`](crate::kind::Commitment::Local) one, below.
+/// custom kind's own declaration would. Which locus is buried — and that a
+/// [`Commitment::Local`](crate::kind::Commitment::Local) one never is — is
+/// `kind::at_locus_is_under_workspace`'s call, shared with emit.
 pub fn at_locus_under_workspace_admissibility(
     declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> Vec<check::Diagnostic> {
@@ -549,18 +550,10 @@ pub fn at_locus_under_workspace_admissibility(
         let Some(governs) = &kind.governs else {
             continue;
         };
-        // A `local` locus is admissible there, and that is the locus's declared class
-        // rather than a carve-out for any one kind: the `.temper/` fence is a discovery
-        // *presumption*, waived for exactly a local-locus kind's own walk
-        // (`import::local_governs`), and emit neither projects nor locks such a member.
-        // Every clause of the refusal below is false for it, so nothing is buried —
-        // temper's own `dial` is the shipped case.
-        if kind.commitment == Some(crate::kind::Commitment::Local) {
-            continue;
-        }
-        let root_path = std::path::Path::new(&governs.root);
-        let workspace = std::path::Path::new(crate::WORKSPACE_DIR);
-        if root_path == workspace || root_path.starts_with(format!("{}/", crate::WORKSPACE_DIR)) {
+        // The `.temper/` test and the `local`-class exemption are decided in one home,
+        // the same one emit's projection pass reads, so the two faces cannot disagree
+        // over which locus is buried.
+        if crate::kind::at_locus_is_under_workspace(&governs.root, kind.commitment) {
             diagnostics.push(check::Diagnostic::error(
                 AT_LOCUS_UNDER_WORKSPACE_RULE,
                 &kind.name,
