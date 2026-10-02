@@ -32,8 +32,6 @@ enum Step {
 /// `FieldPath` in hand is inside the declared subset by construction.
 #[derive(Debug, Clone)]
 pub struct FieldPath {
-    /// The author's own spelling, the form every diagnostic names.
-    spelling: String,
     steps: Vec<Step>,
     query: JsonPath,
 }
@@ -63,11 +61,7 @@ impl FieldPath {
                  fields: {error}"
             )
         })?;
-        Ok(FieldPath {
-            spelling: spelling.to_string(),
-            steps,
-            query,
-        })
+        Ok(FieldPath { steps, query })
     }
 
     /// Whether this path is a **lone name segment** — the flat field name that is the
@@ -78,11 +72,10 @@ impl FieldPath {
         matches!(self.steps.as_slice(), [Step::Name(_)])
     }
 
-    /// This path's author-facing spelling.
-    #[must_use]
-    #[allow(dead_code)]
-    fn spelling(&self) -> &str {
-        &self.spelling
+    /// This path's author-facing spelling, rendered back from its steps.
+    #[cfg(test)]
+    fn spelling(&self) -> String {
+        steps_to_spelling(&self.steps)
     }
 
     /// The **top-level key** this path is rooted at — `owner` for `owner.name`, `plugins`
@@ -114,14 +107,7 @@ impl FieldPath {
         // The parent of an admissible path is admissible: it is this path's own steps,
         // one fewer, so the query it renders is one this crate already parsed.
         let query = JsonPath::parse(&rendered).ok()?;
-        Some((
-            FieldPath {
-                spelling: parent_spelling(&self.spelling, leaf),
-                steps,
-                query,
-            },
-            leaf.as_str(),
-        ))
+        Some((FieldPath { steps, query }, leaf.as_str()))
     }
 
     /// The sub-path truncated through the last `Step::EachElement`, paired with the
@@ -142,8 +128,6 @@ impl FieldPath {
         let rendered = query_of(&element_steps);
         let query = JsonPath::parse(&rendered).ok()?;
 
-        let element_spelling = steps_to_spelling(&element_steps);
-
         let tail = if last_each_idx + 1 < self.steps.len() {
             Some(steps_to_spelling(&self.steps[last_each_idx + 1..]))
         } else {
@@ -152,7 +136,6 @@ impl FieldPath {
 
         Some((
             FieldPath {
-                spelling: element_spelling,
                 steps: element_steps,
                 query,
             },
@@ -198,14 +181,8 @@ fn render_address(location: &serde_json_path::NormalizedPath) -> String {
     out
 }
 
-/// The parent path's spelling — `spelling` with its trailing `leaf` name segment (and the
-/// `.` that separated it) cut. Empty for a lone name, which is the root itself.
-fn parent_spelling(spelling: &str, leaf: &str) -> String {
-    let head = &spelling[..spelling.len() - leaf.len()];
-    head.strip_suffix('.').unwrap_or(head).to_string()
-}
-
-/// Reconstruct a path's spelling from its steps.
+/// A path's author-facing spelling, rendered from its steps — the one derivation of a
+/// spelling in this module, since no `FieldPath` stores one.
 fn steps_to_spelling(steps: &[Step]) -> String {
     let mut out = String::new();
     for step in steps {
@@ -409,6 +386,30 @@ mod tests {
                 "the refusal names the subset, got: {refusal}"
             );
         }
+    }
+
+    #[test]
+    fn every_admissible_spelling_round_trips_through_its_steps() {
+        // The steps are the only stored form, so rendering them back must reproduce what
+        // the author wrote — that identity is what licenses storing no spelling beside
+        // them.
+        let spellings = [
+            "name",
+            "owner.name",
+            "plugins[*]",
+            "plugins[*].source",
+            "matrix[*][*].id",
+            "disable-model-invocation",
+        ];
+        for spelling in spellings {
+            let steps = steps_of(spelling).expect("inside the subset");
+            assert_eq!(steps_to_spelling(&steps), spelling);
+        }
+        assert_eq!(
+            spellings.len(),
+            6,
+            "the round-trip ranges over every path shape"
+        );
     }
 
     #[test]
