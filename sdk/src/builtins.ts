@@ -1664,6 +1664,30 @@ export const mcp: KindDefinition<Mcp> = kind<Mcp>({
 export const mcpDefaultContract: readonly Clause[] = [];
 
 /**
+ * The cite behind {@link pathsGateGuidance} — one doc page and three dated probes: the
+ * gating hard-error, and the two negative findings that a shell read and a search read
+ * open no path gate. Dated facts go stale together, so they live in one place: a re-probe
+ * re-dates this const and every clause reading it moves with it.
+ */
+const PATHS_GATE_CITE =
+  "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211; shell and search reads open no path gate, probed on Claude Code 2.1.281, 2026-09-24)";
+
+/**
+ * The `mentionReachable("paths", "paths")` clause's guidance, for a member kind that
+ * carries a `paths` gate and can mention another that does. The reachability argument is
+ * a property of the gate mechanic, not of either kind, so the two default contracts that
+ * bind this clause — `skill` and `rule` — differ in exactly one word: the noun naming the
+ * mentioning member.
+ */
+function pathsGateGuidance(member: "skill" | "rule"): string {
+  return (
+    "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. " +
+    `So a ${member} that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this ${member}'s \`paths\` to the target's gate, or ungate the target. ` +
+    "Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that."
+  );
+}
+
+/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.
@@ -1771,9 +1795,8 @@ export const skillDefaultContract: readonly Clause[] = [
   }),
   clause(mentionReachable("paths", "paths"), {
     severity: "advisory",
-    guidance:
-      "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a skill that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this skill's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that.",
-    cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211; shell and search reads open no path gate, probed on Claude Code 2.1.281, 2026-09-24)",
+    guidance: pathsGateGuidance("skill"),
+    cite: PATHS_GATE_CITE,
   }),
 ];
 
@@ -1893,9 +1916,8 @@ export const ruleDefaultContract: readonly Clause[] = [
   }),
   clause(mentionReachable("paths", "paths"), {
     severity: "advisory",
-    guidance:
-      "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a rule that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this rule's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that.",
-    cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211; shell and search reads open no path gate, probed on Claude Code 2.1.281, 2026-09-24)",
+    guidance: pathsGateGuidance("rule"),
+    cite: PATHS_GATE_CITE,
   }),
 ];
 
