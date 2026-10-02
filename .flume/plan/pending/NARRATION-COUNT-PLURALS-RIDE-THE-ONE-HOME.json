@@ -1,11 +1,10 @@
 {
   "tag": "NARRATION-COUNT-PLURALS-RIDE-THE-ONE-HOME",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "TAP-IDENTITY-STEM-RIDES-THE-UNIT-ID-FOLDER"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
