@@ -1,7 +1,12 @@
 {
   "tag": "DOCUMENT-FACES-FOLD-THE-ID-THEY-ARE-HANDED",
-  "gate": { "kind": "blockedBy", "tags": ["UNIT-SHAPE-IDENTITY-HAS-ONE-HOME"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/json_manifest.rs",
@@ -27,13 +32,26 @@
         "path": "tests/it/toml_document.rs",
         "description": "Five `toml_document::read` call sites take the base; adds the named-field-id-unmoved assertion."
       },
-      { "path": "tests/it/plugin_manifest_kind.rs", "description": "Its `DocumentMember::read` call site takes the base." },
-      { "path": "tests/it/marketplace_kind.rs", "description": "Its `DocumentMember::read` call site takes the base." },
-      { "path": "tests/it/settings_local_kind.rs", "description": "Its `DocumentMember::read` call site takes the base; pins the built-in singleton's id as unmoved." }
-    ]
+      {
+        "path": "tests/it/plugin_manifest_kind.rs",
+        "description": "Its `DocumentMember::read` call site takes the base."
+      },
+      {
+        "path": "tests/it/marketplace_kind.rs",
+        "description": "Its `DocumentMember::read` call site takes the base."
+      },
+      {
+        "path": "tests/it/settings_local_kind.rs",
+        "description": "Its `DocumentMember::read` call site takes the base; pins the built-in singleton's id as unmoved."
+      }
+    ],
+    "retire": []
   },
   "summary": "A json/toml document read takes no fold base, so a nested file-shaped document keys by bare stem where its frontmatter twin folds placement — one unit shape, two ids.",
-  "per": { "path": "specs/model/representation.md", "section": "kind" },
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "kind"
+  },
   "tests": [
     {
       "path": "tests/it/json_document_format.rs",
