@@ -137,9 +137,11 @@ fn absolute_root(root: &Path) -> Option<PathBuf> {
 
 /// A harness-relative path: the lock's own vocabulary for source paths. Always
 /// `/`-separated, no leading `./`, normalized. This is the canonical form that's
-/// committed to lock.toml and shared across Projection, RollupEntry, RawLockRow,
-/// ProvenanceRow, and EmitOwnedEntry — so a path fact's root is its type, not its
-/// doc comment.
+/// committed to lock.toml and carried by `RollupEntry`, `RawLockRow`, `ProvenanceRow`,
+/// `LayoutMemberSite`, `LocusMemberSite`, `EmitOwnedEntry`, and
+/// `install::GuardedManifest` — so a path fact's root is its type, not its doc comment.
+/// `drift`'s emit-side `Projection::source_path` is the one carrier of the same form
+/// still outside the type, and so still outside that close.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HarnessRelativePath(String);
 

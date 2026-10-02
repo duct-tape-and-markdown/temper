@@ -2478,10 +2478,10 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let readout = tap::read_log(&workspace)?;
 
     // Build the path-to-id map from the lock's emit-owned entries, used to normalize
-    // InstructionsLoaded record identities from repo-relative paths to member IDs.
+    // InstructionsLoaded record identities from paths to member IDs.
     let path_to_id: BTreeMap<String, String> = drift::emit_owned_targets(&workspace)
         .into_iter()
-        .map(|entry| (entry.path.to_string_lossy().to_string(), entry.name))
+        .map(|entry| (entry.path.to_string(), entry.name))
         .collect();
 
     // The floor under the committed rows is what a bare-kind narration rests on: `emit`

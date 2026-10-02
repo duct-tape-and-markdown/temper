@@ -4244,11 +4244,10 @@ pub struct EmitOwnedEntry {
     pub kind: String,
     /// The member's name.
     pub name: String,
-    /// The projected artifact's path as the lock spells it: relative to the harness root.
-    /// A consumer reaching disk joins it onto the root it was aimed at; the guard compares
-    /// it for equality against a `file_path` relativized against that same root
-    /// (`install::matched_projection`).
-    pub path: PathBuf,
+    /// The projected artifact's path. A consumer reaching disk joins it onto the root it
+    /// was aimed at; the guard compares it for equality against a `file_path` relativized
+    /// against that same root (`install::matched_projection`).
+    pub path: HarnessRelativePath,
 }
 
 /// Every path a lock at `workspace_dir` declares **emit-owned** — the constituency
@@ -4284,10 +4283,7 @@ pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
             Some(EmitOwnedEntry {
                 kind: raw.kind,
                 name,
-                // Canonical by the column's own type: an older lock spells a root-`.`
-                // member `./CLAUDE.md`, and `install` compares this path against a
-                // canonically spelled `file_path`.
-                path: PathBuf::from(&*source_path),
+                path: source_path,
             })
         })
         .collect();
@@ -4305,24 +4301,21 @@ pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
     let facts = kind_facts_over_floor(&declarations.kinds);
     let kind_facts: BTreeMap<&str, &KindFactRow> =
         facts.iter().map(|row| (row.name.as_str(), row)).collect();
-    // Normalized on both sides, and extended as the loop pushes: a container member's own
-    // row already owns its manifest's path under its own identity, and a second entry for
-    // a path already collected would double the path's `install` placement and let the
-    // synthetic label outrank the member's real name in a path-keyed index.
-    let mut collected: BTreeSet<String> = targets
-        .iter()
-        .map(|target| to_canonical_spelling(&target.path))
-        .collect();
+    // Extended as the loop pushes: a container member's own row already owns its
+    // manifest's path under its own identity, and a second entry for a path already
+    // collected would double the path's `install` placement and let the synthetic label
+    // outrank the member's real name in a path-keyed index.
+    let mut collected: BTreeSet<HarnessRelativePath> =
+        targets.iter().map(|target| target.path.clone()).collect();
     for registration in &declarations.registrations {
         let Some(manifest_path) = manifest_path_for(&registration.manifest, &kind_facts) else {
             continue;
         };
-        let spelling = to_canonical_spelling(&manifest_path);
-        if !collected.insert(spelling.clone()) {
+        let path = HarnessRelativePath::new(to_canonical_spelling(&manifest_path));
+        if !collected.insert(path.clone()) {
             continue;
         }
-        let path = PathBuf::from(spelling);
-        let (kind, name) = manifest_owner_label(&path, &kind_facts);
+        let (kind, name) = manifest_owner_label(Path::new(&*path), &kind_facts);
         targets.push(EmitOwnedEntry { kind, name, path });
     }
 

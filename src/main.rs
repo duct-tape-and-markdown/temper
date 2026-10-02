@@ -781,7 +781,7 @@ fn guarded_manifests(
 /// Propagates the lock-row lift errors [`CustomKind::from_kind_fact_row`] raises.
 fn container_kinds(
     declarations: &drift::Declarations,
-) -> miette::Result<BTreeMap<PathBuf, String>> {
+) -> miette::Result<BTreeMap<path::HarnessRelativePath, String>> {
     let mut containers = BTreeMap::new();
     for row in &declarations.kinds {
         let kind = CustomKind::from_kind_fact_row(row)?;
@@ -878,13 +878,19 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
     Ok(loci)
 }
 
-/// The harness-relative path a manifest `kind` governs — its `governs` locus, the path the
-/// guard compares a pending write's `file_path` against (tolerant of the file_path arriving
-/// absolute, the same equality compare the projection binding runs). [`None`] for a kind
-/// governing no locus, which has no host file for the guard to watch.
-fn manifest_path(kind: &CustomKind) -> Option<PathBuf> {
+/// The path a manifest `kind` governs — its `governs` locus, the path the guard compares a
+/// pending write's `file_path` against (tolerant of the file_path arriving absolute, the
+/// same equality compare the projection binding runs). [`None`] for a kind governing no
+/// locus, which has no host file for the guard to watch.
+///
+/// The one door where [`drift::join_locus`]'s host-separated [`PathBuf`] enters the guard's
+/// harness-relative vocabulary: the join itself also composes glob patterns
+/// ([`guarded_loci`], `read`'s kind narration), which the type does not claim.
+fn manifest_path(kind: &CustomKind) -> Option<path::HarnessRelativePath> {
     let governs = kind.governs.as_ref()?;
-    Some(drift::join_locus(&governs.root, &governs.glob))
+    Some(path::HarnessRelativePath::new(path::to_canonical_spelling(
+        &drift::join_locus(&governs.root, &governs.glob),
+    )))
 }
 
 /// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)

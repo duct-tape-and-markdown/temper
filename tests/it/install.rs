@@ -2408,7 +2408,7 @@ fn an_emit_owned_manifest_is_named_once_by_its_container_member() {
     let targets = drift::emit_owned_targets(&root.join(temper::WORKSPACE_DIR));
     let settings: Vec<&drift::EmitOwnedEntry> = targets
         .iter()
-        .filter(|target| target.path == Path::new(".claude/settings.json"))
+        .filter(|target| &*target.path == ".claude/settings.json")
         .collect();
     assert_eq!(
         settings.len(),

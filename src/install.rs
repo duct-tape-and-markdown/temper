@@ -68,6 +68,7 @@ use crate::json_splice;
 use crate::kind::{
     self, CollectionAddress, CollectionKeyPath, CustomKind, HOOK_HANDLER_KEY, HOOK_MATCHER_KEY,
 };
+use crate::path::HarnessRelativePath;
 use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER};
 use crate::toml_document;
 
@@ -1522,21 +1523,19 @@ fn is_claude_path(file_path: &str) -> bool {
     file_path.contains(&format!("{}/", builtin_kind::CLAUDE_ROOT))
 }
 
-/// Whether `file_path` names any candidate — an equality compare of canonically spelled
-/// paths ([`crate::path::to_canonical_spelling`]), both sides spelled harness-relative. A
-/// `file_path` arriving absolute (Claude Code's own convention) is relativized against
-/// `root` first; one landing outside the root matches nothing, since no candidate can name
-/// it.
+/// Whether `file_path` names any candidate — an equality compare against each candidate's
+/// own spelling. A `file_path` arriving absolute (Claude Code's own convention) is
+/// relativized against `root` first; one landing outside the root matches nothing, since no
+/// candidate can name it.
 fn path_matches<'a>(
     file_path: &str,
     root: &Path,
-    mut candidates: impl Iterator<Item = &'a Path>,
+    mut candidates: impl Iterator<Item = &'a HarnessRelativePath>,
 ) -> bool {
     let Some(file_path_normalized) = harness_relative(file_path, root) else {
         return false;
     };
-    candidates
-        .any(|candidate| crate::path::to_canonical_spelling(candidate) == file_path_normalized)
+    candidates.any(|candidate| **candidate == *file_path_normalized)
 }
 
 /// `file_path` spelled the one way every path compare in this module spells both its
@@ -1553,11 +1552,10 @@ fn harness_relative(file_path: &str, root: &Path) -> Option<String> {
 }
 
 /// The first of `targets` `file_path` names, or `None` for a path no target names — an
-/// equality compare against each row's canonically spelled `source_path`
-/// ([`crate::path::to_canonical_spelling`]), tolerant of `file_path` arriving absolute
-/// (Claude Code's own convention) against a workspace-relative lock row. The matched row,
-/// not a bare yes/no, because the refusal owes the author the member that owns the bytes
-/// (`projection_owner_line`).
+/// equality compare against each row's `source_path`, tolerant of `file_path` arriving
+/// absolute (Claude Code's own convention) against a workspace-relative lock row. The
+/// matched row, not a bare yes/no, because the refusal owes the author the member that
+/// owns the bytes (`projection_owner_line`).
 fn matched_projection<'a>(
     file_path: &str,
     root: &Path,
@@ -1565,7 +1563,7 @@ fn matched_projection<'a>(
 ) -> Option<&'a drift::EmitOwnedEntry> {
     targets
         .iter()
-        .find(|target| path_matches(file_path, root, std::iter::once(target.path.as_path())))
+        .find(|target| path_matches(file_path, root, std::iter::once(&target.path)))
 }
 
 /// The line a projection refusal appends naming the member that owns the bytes — a drift
@@ -1578,9 +1576,7 @@ fn matched_projection<'a>(
 fn projection_owner_line(owner: &drift::EmitOwnedEntry) -> String {
     format!(
         "\n  owner: the `{}` member `{}` owns `{}` — edit that member's source and re-emit",
-        owner.kind,
-        owner.name,
-        crate::path::to_canonical_spelling(&owner.path)
+        owner.kind, owner.name, owner.path
     )
 }
 
@@ -1612,9 +1608,9 @@ fn matches_governed_locus<'a>(
 /// lock's kinds/clauses exactly as the gate resolves them, so the guard and the gate cannot
 /// disagree about a member's contract.
 pub struct GuardedManifest {
-    /// The manifest's harness-relative path — the kind's `governs` locus, the suffix a
-    /// pending write's `file_path` is matched against.
-    pub path: PathBuf,
+    /// The manifest's path — the kind's `governs` locus, the spelling a pending write's
+    /// `file_path` is matched against.
+    pub path: HarnessRelativePath,
     /// The manifest kind whose registration members surface inside `path`.
     pub kind: CustomKind,
     /// The kind's effective contract — its lock-declared clauses, else the embedded default.
@@ -1789,7 +1785,7 @@ fn unreconstructable_edit_finding(manifest: &GuardedManifest) -> Diagnostic {
             manifest.address.key_path.wire_label()
         )
     };
-    let path = crate::path::to_canonical_spelling(&manifest.path);
+    let path = manifest.path.to_string();
     Diagnostic::error(
         GUARD_MANIFEST_EDIT_RULE,
         path.clone(),
@@ -1815,7 +1811,7 @@ fn unparseable_manifest_finding(
         json_manifest::JsonManifestError::Malformed { detail, .. } => detail.clone(),
         other => other.to_string(),
     };
-    let path = crate::path::to_canonical_spelling(&manifest.path);
+    let path = manifest.path.to_string();
     Diagnostic::error(
         GUARD_MANIFEST_UNPARSEABLE_RULE,
         path.clone(),
@@ -1856,7 +1852,7 @@ pub fn manifest_write_findings(
 
     let matched: Vec<&GuardedManifest> = manifests
         .iter()
-        .filter(|manifest| path_matches(file_path, root, std::iter::once(manifest.path.as_path())))
+        .filter(|manifest| path_matches(file_path, root, std::iter::once(&manifest.path)))
         .collect();
     if matched.is_empty() {
         return None;
@@ -1890,7 +1886,7 @@ pub fn manifest_write_findings(
     // One finding per manifest path, not per collection address: the three addresses that
     // share `.claude/settings.json` all fail the same parse and would otherwise say so
     // three times.
-    let mut reported_unparseable: std::collections::BTreeSet<&Path> =
+    let mut reported_unparseable: std::collections::BTreeSet<&HarnessRelativePath> =
         std::collections::BTreeSet::new();
     for manifest in matched {
         // A pending write whose reconstructed bytes are not a manifest is refused here
@@ -1898,16 +1894,19 @@ pub fn manifest_write_findings(
         // for this file class none can — a harness carrying an unparseable manifest cannot
         // load, so `check` aborts before any reporter runs and the `SessionStart` hook that
         // would have carried the verdict is itself declared in the unparseable file.
-        let parsed =
-            match json_manifest::Manifest::parse(&manifest.path, &content, &[&manifest.address]) {
-                Ok(parsed) => parsed,
-                Err(error) => {
-                    if reported_unparseable.insert(manifest.path.as_path()) {
-                        findings.push(unparseable_manifest_finding(manifest, &error));
-                    }
-                    continue;
+        let parsed = match json_manifest::Manifest::parse(
+            Path::new(&*manifest.path),
+            &content,
+            &[&manifest.address],
+        ) {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                if reported_unparseable.insert(&manifest.path) {
+                    findings.push(unparseable_manifest_finding(manifest, &error));
                 }
-            };
+                continue;
+            }
+        };
 
         // Check that all lock-declared members are present in the pending write.
         let present_keys: std::collections::BTreeSet<_> =
