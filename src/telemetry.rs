@@ -5,35 +5,30 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 use std::path::Path;
 
-use crate::extract::Features;
+use crate::extract::{Features, fold_file_id};
 use crate::tap::{TapEvent, TapRecord};
 
 /// Event statistics for requirement-grain telemetry: (count, distinct_members, distinct_sessions, satisfiers_with_records)
 type EventStats = (usize, BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
 
-/// Extract a member ID from an InstructionsLoaded record's repo-relative file path,
-/// using the lock's path-to-id mapping for placement-folded identities.
-/// For nested files (e.g., `.claude/subdir/CLAUDE.md`), looks up the placement-folded id
-/// (e.g., `subdir-CLAUDE`); for flat files, returns the bare stem (e.g., `.claude/rules/rust.md` → `rust`).
-/// Falls back to the original identity if not found in the map.
+/// Extract a member ID from an InstructionsLoaded record's repo-relative file path, both
+/// sides of the join derived by the one path→id folder the crate owns. The lock's
+/// path-to-id map carries ids [`fold_file_id`] already folded (`.claude/subdir/CLAUDE.md`
+/// → `subdir-CLAUDE`), so a hit is that derivation read back; a miss re-runs it against
+/// the identity's own parent — the one fold base carrying no placement, so the fold
+/// degrades to the documented bare stem (`.claude/rules/rust.md` → `rust`). The raw
+/// identity stands only where the fold raises a [`crate::extract::UnitIdFault`]: a source
+/// with no filename stem at all.
 fn normalize_instructions_loaded_identity(
     identity: &str,
-    path_to_id: &std::collections::BTreeMap<String, String>,
+    path_to_id: &BTreeMap<String, String>,
 ) -> String {
-    // First, try to find an exact match in the lock's path-to-id map.
     if let Some(id) = path_to_id.get(identity) {
         return id.clone();
     }
-    // Fall back to bare filename stem for members not in the map.
     let path = Path::new(identity);
-    if let Some(filename) = path.file_name()
-        && let Some(name_str) = filename.to_str()
-        && let Some(member_id) = name_str.strip_suffix(".md")
-    {
-        member_id.to_string()
-    } else {
-        identity.to_string()
-    }
+    let base = path.parent().unwrap_or(path);
+    fold_file_id(base, path).unwrap_or_else(|_| identity.to_string())
 }
 
 /// Normalize a record's identity for member-index lookup: InstructionsLoaded records

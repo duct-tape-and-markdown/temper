@@ -2201,6 +2201,52 @@ fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id()
 }
 
 #[test]
+fn an_unmapped_instructions_loaded_record_joins_to_its_flat_member_by_bare_stem() {
+    // The miss side of the same join: a flat rule whose repo-relative path the lock's
+    // path-to-id map does not carry. Folding the identity against its own parent carries
+    // no placement, so it degrades to the bare stem `rust` and joins to the member.
+    let rules = [feature("rust", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    let readout = tap_readout(&[common::tap_record(
+        TAP_RECORD_VERSION,
+        TapEvent::InstructionsLoaded,
+        ".claude/rules/rust.md",
+    )]);
+
+    // Deliberately empty: this is the fallback path, with nothing to look the path up in.
+    let path_to_id: BTreeMap<String, String> = BTreeMap::new();
+
+    let registrations = BTreeMap::new();
+    let out = read::explain(
+        &[],
+        &roster,
+        &BTreeMap::new(),
+        &[],
+        &by_kind,
+        &[],
+        &[],
+        &registrations,
+        &[],
+        &[],
+        &[],
+        &readout.records,
+        readout.older_version,
+        "rust",
+        &path_to_id,
+    );
+    assert!(
+        out.contains("its local telemetry"),
+        "the flat member's field strand narrates telemetry: {out}"
+    );
+    assert!(
+        out.contains("`InstructionsLoaded` — 1 of 1"),
+        "the unmapped record folds to the bare stem and joins, counted non-vacuously: {out}"
+    );
+}
+
+#[test]
 fn a_kind_qualified_member_address_resolves_as_member() {
     let custom = [CustomMember {
         kind: "memory".to_string(),
