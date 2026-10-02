@@ -1,12 +1,12 @@
 {
   "tag": "HARNESS-RELATIVE-PATH-ENFORCES-ITS-FORM-AT-ITS-DOOR",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "LOCK-PATH-ALIAS-RETIRES-AT-ITS-ONE-CONSUMER"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/path.rs",
@@ -20,7 +20,8 @@
         "path": "tests/it/emit.rs",
         "description": "The pin joins the `./`-row family this file already owns: `a_lock_whose_rows_are_dot_slash_spelled_matches_its_live_projections_and_reaps_none` (1809) rewrites a fresh lock's every `source_path` with a `./` prefix and asserts nothing is reaped — so it is also the fold's non-vacuous proof, going red if the door fails to normalize once `drift.rs` 1860/1863 stop doing it by hand. What it does not reach is the judge that never normalized: add a case over the same fixture asserting `drift::config_stale_from_doc` names the stale projection `CLAUDE.md` and never `./CLAUDE.md` (a mismatching `emit_hash` against live bytes is all it takes to make the finding fire). `crlf_checkout_reads_clean_for_config_stale` (2808) holds the doc-level call shape (2831) if the new case reads the lock rather than re-emitting it."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`HarnessRelativePath` declares the canonical form in its doc but not at its door: four readers re-normalize a raw lock row by hand and a fifth forgets.",
   "per": {
