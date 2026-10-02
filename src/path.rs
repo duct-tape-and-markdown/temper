@@ -144,8 +144,9 @@ fn absolute_root(root: &Path) -> Option<PathBuf> {
 /// at read time. This is the canonical form that's
 /// committed to lock.toml and carried by `RollupEntry`, `RawLockRow`, `ProvenanceRow`,
 /// `LayoutMemberSite`, `LocusMemberSite`, `LayoutImportRow`, `LayoutSourceRow`,
-/// `EmitOwnedEntry`, `drift::Projection`, and `install::GuardedManifest` — so a path
-/// fact's root is its type, not its doc comment.
+/// `EmitOwnedEntry`, `drift::Projection`, `install::GuardedManifest`, and the stray
+/// scan's `.claude/` entry pair (`coverage_note::claude_entries`) — so a path fact's
+/// root is its type, not its doc comment.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HarnessRelativePath(String);
 

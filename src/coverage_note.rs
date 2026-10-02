@@ -14,6 +14,7 @@ use crate::builtin_kind::{CLAUDE_ROOT, KNOWN_SURFACES};
 use crate::check::Diagnostic;
 use crate::glob::compile_glob;
 use crate::kind::CustomKind;
+use crate::path::HarnessRelativePath;
 
 /// The rule id for the per-kind member-count summary — a **disclosure note**
 /// ([`Severity::Note`](crate::check::Severity::Note)), not an advisory: it states what
@@ -118,14 +119,12 @@ pub fn check(
     // built-in claims its new one — the raw embedded definitions would read a relocated
     // built-in's pre-relocation locus and name its real one a stray.
     for (path, is_dir) in claude_entries(root) {
-        if governed_by_any_path(declared_kinds, &path, is_dir)
-            || KNOWN_SURFACES.contains(&path.as_str())
-        {
+        if governed_by_any_path(declared_kinds, &path, is_dir) || KNOWN_SURFACES.contains(&&*path) {
             continue;
         }
         diagnostics.push(Diagnostic::warn(
             UNCLAIMED_RULE,
-            &path,
+            &*path,
             format!("`{path}` is present under `.claude/` but no kind or known surface covers it"),
         ));
     }
@@ -134,17 +133,17 @@ pub fn check(
 }
 
 /// Every entry directly under `<root>/.claude` (not recursive), as a
-/// (harness-relative slash path, is-directory) pair — the unclaimed-entry scan's input.
-/// The path keeps its `.claude/` prefix, because a governing claim is spelled against the
-/// harness root and the finding names the entry the author sees. The ignore sources are
-/// the shared policy's ([`crate::import::ignore_walk`]), so a gitignored stray is by
-/// declaration not authored here and never fires. The whole-tree walk's three membership
+/// (path, is-directory) pair — the unclaimed-entry scan's input. The path keeps its
+/// `.claude/` prefix, because a governing claim is spelled against the harness root and
+/// the finding names the entry the author sees. The ignore sources are the shared
+/// policy's ([`crate::import::ignore_walk`]), so a gitignored stray is by declaration
+/// not authored here and never fires. The whole-tree walk's three membership
 /// fences (`.git/`, the surface workspace, a nested governed root) are deliberately not
 /// taken: each prunes *descent* into a subtree the
 /// enclosing corpus does not own, and this scan descends nothing — it names the direct
 /// children of one directory. A missing `.claude/` yields no entries rather than an
 /// error: an unadopted tree is not a finding.
-fn claude_entries(root: &Path) -> Vec<(String, bool)> {
+fn claude_entries(root: &Path) -> Vec<(HarnessRelativePath, bool)> {
     let claude_dir = root.join(CLAUDE_ROOT);
     if !claude_dir.is_dir() {
         return Vec::new();
@@ -157,15 +156,19 @@ fn claude_entries(root: &Path) -> Vec<(String, bool)> {
         .filter_map(|entry| {
             let rel = entry.path().strip_prefix(root).ok()?;
             let is_dir = entry.file_type().is_some_and(|ft| ft.is_dir());
-            Some((crate::path::to_canonical_spelling(rel), is_dir))
+            Some((HarnessRelativePath::from_path(rel), is_dir))
         })
         .collect()
 }
 
-/// Whether any in-scope kind governs a harness-relative `path` — the exclusion that keeps
-/// the stray scan truthful to its inputs: an entry a kind actually covers is checked, not
-/// a gap. See [`governs`] for the directory/file distinction.
-fn governed_by_any_path(kinds: &BTreeMap<String, CustomKind>, path: &str, is_dir: bool) -> bool {
+/// Whether any in-scope kind governs `path` — the exclusion that keeps the stray scan
+/// truthful to its inputs: an entry a kind actually covers is checked, not a gap. See
+/// [`governs`] for the directory/file distinction.
+fn governed_by_any_path(
+    kinds: &BTreeMap<String, CustomKind>,
+    path: &HarnessRelativePath,
+    is_dir: bool,
+) -> bool {
     kinds.values().any(|kind| governs(kind, path, is_dir))
 }
 
@@ -183,7 +186,7 @@ fn governed_by_any_path(kinds: &BTreeMap<String, CustomKind>, path: &str, is_dir
 /// directory (its members live in a file, not a tree). A kind governing no locus at all —
 /// a nested file kind, whose members compose their paths under their host's unit — covers
 /// no path of its own.
-fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
+fn governs(kind: &CustomKind, path: &HarnessRelativePath, is_dir: bool) -> bool {
     let Some(governs) = &kind.governs else {
         return false;
     };
@@ -195,18 +198,18 @@ fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
     }
     if is_dir {
         let root = normalize_root(&governs.root);
-        root == path || root.starts_with(&format!("{path}/"))
+        root == &**path || root.starts_with(&format!("{path}/"))
     } else {
         governs_locus_matches(governs, path)
     }
 }
 
-/// Whether a harness-relative file `path` lies at a `governs` locus — the locus compiled
-/// as one pattern and matched whole. `compile_glob` memoizes per distinct glob, so this
-/// costs one compilation per kind across the whole scan, independent of tree size.
-fn governs_locus_matches(governs: &crate::kind::Governs, path: &str) -> bool {
+/// Whether a file `path` lies at a `governs` locus — the locus compiled as one pattern
+/// and matched whole. `compile_glob` memoizes per distinct glob, so this costs one
+/// compilation per kind across the whole scan, independent of tree size.
+fn governs_locus_matches(governs: &crate::kind::Governs, path: &HarnessRelativePath) -> bool {
     compile_glob(&crate::kind::locus_pattern(&governs.root, &governs.glob))
-        .is_some_and(|matcher| matcher.is_match(path))
+        .is_some_and(|matcher| matcher.is_match(&**path))
 }
 
 /// A `governs.root` reduced to a comparable relative path: leading `./` and any trailing
@@ -374,7 +377,7 @@ mod tests {
         // No built-in-shaped kind roots under `.claude/agents`, so it is ungoverned.
         assert!(!governed_by_any_path(
             &builtin_set(),
-            ".claude/agents",
+            &HarnessRelativePath::new(".claude/agents".to_string()),
             true
         ));
         // A custom kind rooted exactly there governs it.
@@ -382,7 +385,11 @@ mod tests {
             "agent".to_string(),
             kind_governing("agent", ".claude/agents", "*.md"),
         )]);
-        assert!(governed_by_any_path(&with_agent, ".claude/agents", true));
+        assert!(governed_by_any_path(
+            &with_agent,
+            &HarnessRelativePath::new(".claude/agents".to_string()),
+            true
+        ));
     }
 
     #[test]
@@ -391,7 +398,7 @@ mod tests {
         // ungoverned.
         assert!(!governed_by_any_path(
             &builtin_set(),
-            ".claude/settings.json",
+            &HarnessRelativePath::new(".claude/settings.json".to_string()),
             false
         ));
         // A kind rooted at `.claude` selecting `settings.json` governs the file.
@@ -401,7 +408,7 @@ mod tests {
         )]);
         assert!(governed_by_any_path(
             &with_settings,
-            ".claude/settings.json",
+            &HarnessRelativePath::new(".claude/settings.json".to_string()),
             false
         ));
         // And a glob carrying an interior segment is matched whole: `prompts/*.md` under
@@ -413,12 +420,12 @@ mod tests {
         )]);
         assert!(!governed_by_any_path(
             &with_prompts,
-            ".claude/notes.md",
+            &HarnessRelativePath::new(".claude/notes.md".to_string()),
             false
         ));
         assert!(governed_by_any_path(
             &with_prompts,
-            ".claude/prompts/intro.md",
+            &HarnessRelativePath::new(".claude/prompts/intro.md".to_string()),
             false
         ));
     }
@@ -435,12 +442,12 @@ mod tests {
         )]);
         assert!(governed_by_any_path(
             &with_memory,
-            ".claude/CLAUDE.md",
+            &HarnessRelativePath::new(".claude/CLAUDE.md".to_string()),
             false
         ));
         assert!(!governed_by_any_path(
             &with_memory,
-            ".claude/notes.md",
+            &HarnessRelativePath::new(".claude/notes.md".to_string()),
             false
         ));
     }
