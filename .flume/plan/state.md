@@ -11,14 +11,14 @@
   `src/builtin_lock.rs`, `src/json_manifest.rs`, `src/extract.rs`,
   `src/frontmatter.rs`, `src/toml_document.rs`, `src/gate.rs`,
   `src/check.rs`, `src/coverage.rs`, `src/coverage_note.rs`, `src/dial.rs`,
-  `src/display.rs`, `sdk/src/emit.ts`, `sdk/src/declarations.ts`,
-  `sdk/src/prose.ts`, `sdk/src/needs.ts`, `sdk/src/assembly.ts`,
-  `sdk/src/builtins.ts`, `sdk/src/claude-code.ts`.
-- This tick: reconciled 5421c983..f20a9248 — IGNORE-WALK-POLICY-HAS-ONE-HOME
-  verified shipped, every gate re-tested, no residue.
-- Queue: 8 pending — 4 parked, 4 deferred. Pickable: 0. Open forks: 1.
-  Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
+  `src/display.rs`, `src/admissibility.rs`, `sdk/src/emit.ts`,
+  `sdk/src/declarations.ts`, `sdk/src/prose.ts`, `sdk/src/needs.ts`,
+  `sdk/src/assembly.ts`, `sdk/src/builtins.ts`, `sdk/src/claude-code.ts`.
+- This tick: posture sweep covered the admissibility neighborhood — one
+  effective kind set, six homes; filed a two-entry chain.
+- Queue: 10 pending — 4 parked, 4 deferred, 1 open, 1 blocked. Pickable: 1.
+  Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the posture rotation is open with no pickable entry,
-so the sweep drives itself (the whole `tests/` tree and ~20 src/sdk modules
-are still in the frontier).
+Plan continues: after-build — the posture rotation stays open (the whole
+`tests/` tree and ~19 src/sdk modules are still in the frontier) and
+resumes when the wave hands back; the one pickable entry ships first.

@@ -1,0 +1,40 @@
+{
+  "tag": "EFFECTIVE-KIND-SET-IS-DERIVED-ONCE-PER-RUN",
+  "gate": { "kind": "open" },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/compose.rs",
+        "description": "`LockFamily` (532) publishes the effective kind set — every declared kind by bare name, overlaid built-ins plus every custom row lifted through `CustomKind::from_kind_fact_row` — as a field beside `overlaid_builtin_kinds`, filled from the `all_declared` value `assemble_lock_family` already computes at 1263. The field is the one home; `declared_kinds_with_overlaid` (771) keeps the derivation and loses its other two callers: `resolve_kind_units` (918, counted once per kind by `RESOLVE_KIND_UNITS_COUNT`) rebuilds the whole map inside its `(_, _, None)` arm at 948 — once per kind governing no locus, and each rebuild re-runs `partition_kind_rows` over every kind row — and `build_manifest_cache` (1725) rebuilds it once more per invocation. Both take the hoisted map instead, threaded through `kind_units_and_features` (1043) and `builtin_units_and_features_by_kind` (1078); the compose-internal call at 1280 and the unit test at 2260 read it from scope. The overlaid map stays a field of its own — `builtin_units_and_features_by_kind` (1085) and `gate::committed_member_sites` (gate.rs 95) need the built-in/custom split the merged map does not carry — so this is an addition, not a replacement. The hoist is the sanctioned derivation cache (`engineering.md`, \"Derived state is computed\": one home, one invalidation), exactly as `overlaid_builtin_kinds`'s own doc (566) already declares for the same reason. New thread-local count beside the three at 39-42 with a `pub fn` accessor in the shape of `overlay_builtin_kind_count` (53), so the once-per-run claim is decidable."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "The `LockFamily` destructure (168) is deliberately `..`-free, so the new field lands here as a compile error: bind it and pass it to `build_manifest_cache` (228) and to the two `kind_units_and_features` calls (262, 371) in place of their per-call rebuild."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "`explain`'s own destructure (2326) binds the new field through its `..`, and its `build_manifest_cache` (2340) and `builtin_units_and_features_by_kind` (2348) / `kind_units_and_features` (2396) calls take it — the read verb runs the same assembly tier and pays the same rebuilds."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "The count pin, in the shape of `overlay_builtin_kind_count_increments_once_per_application` (1316): over a harness whose kind set includes a locus-less kind (the embedded `supporting-doc` guarantees one), a full `check` run derives the declared-kind map exactly once. The vacuity pin rides it (`engineering.md`, \"A green verdict is proven non-vacuous\"): assert the derived map is non-empty before asserting the count, so a map that collapsed to zero cannot read as a hoisted one."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The effective kind set is a whole-lock derivation rebuilt once per locus-less kind and once per manifest cache; LockFamily publishes the one it already computes.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "Cost scale is hoisted, and pinned by count"
+  },
+  "tests": [
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "a full `check` run derives the declared-kind map exactly once, asserted after a non-empty check on the map itself; fails on the pre-fix tree, which derives it three times over this harness (the assembly pass, the manifest cache, and `supporting-doc`'s own unit resolution) and once more per nested-file kind a consumer declares"
+    }
+  ],
+  "acceptance": "cargo test, cargo clippy --all-targets -- -D warnings and cargo fmt --all --check green; the new count pin green; `rg \"declared_kinds_with_overlaid\" src/` shows the derivation and exactly one caller.",
+  "notes": "Posture sweep of the admissibility neighborhood; the census crossed into compose. No field cost report, so no benchmark is owed — the violation is structural (whole-input work recomputed per kind) and its pin is a count, per the cited section. The four admissibility-tier copies of the same set are the chain's second entry, ADMISSIBILITY-JUDGES-READ-THE-ONE-KIND-SET, which reads the field this one publishes. scoped at 90a7d470"
+}

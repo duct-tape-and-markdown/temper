@@ -1,0 +1,37 @@
+{
+  "tag": "ADMISSIBILITY-JUDGES-READ-THE-ONE-KIND-SET",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "EFFECTIVE-KIND-SET-IS-DERIVED-ONCE-PER-RUN"
+    ]
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/admissibility.rs",
+        "description": "The seven assembly-tier judges take the one effective kind set the parent entry publishes, in place of the `(overlaid_builtin_kinds, custom_rows)` pair each re-derives it from. `effective_kinds` (468) and its two rebuilds (496, 528) go; so do the four inline copies — `layout_duplicate_prose_region_admissibility` (601-609, built-in values plus a per-row lift), `reserved_kind_name_diagnostics` (682-685, names only), `governs_collision_diagnostics` (732-755) and `collection_address_collision_diagnostics` (796-819), the last two reading each side's columns directly rather than the lifted kind. That per-side read is also two spellings of one fact: `CustomKind::governs` is built from exactly `governs_root.clone().zip(governs_glob.clone())` (kind.rs 630-637, whose own comment says the two columns are one spelling), and the collision key is `CollectionKeyPath::wire_label` (kind.rs 259) on the built-in side against the raw lock string on the row side — folding onto the lifted kind leaves one spelling each. The six `_declarations: &drift::Declarations` parameters no body reads (494, 526, 556, 599, 729, 793) go with the signatures: no planned consumer is named at any of them, so the plumbing dies with its scaffold (`engineering.md`, \"An export earns its consumer\"). `at_locus_under_workspace_admissibility` (554) widens from `custom_rows` to the effective set as a consequence, so a relocation row rooting a built-in's `governs` under `.temper/` is refused like a custom kind's — the generalization the fold buys, named here rather than left looking accidental (`engineering.md`, \"The fix lands at the mechanism\"). `kind_collision_diagnostics` (300) is untouched: its rows are the collision partition, which is no part of the effective set. The four in-file judge tests that hand a judge a default `Declarations` (1065, 1084, 1103, 1131) lose that argument, and a sibling of `a_workspace_rooted_at_locus_names_the_re_rooting` (1096) pins the widened case."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "The seven judge calls (308, 316, 325, 332, 337, 344, 351) pass the hoisted set, and the custom-kind loop at 357 reads its already-lifted `CustomKind` by row name instead of calling `CustomKind::from_kind_fact_row` a fourth time over the same row. The per-call comments stay — each still says which incoherence its judge refuses — and no diagnostic text or rule id moves."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Seven assembly-tier judges each re-derive the effective kind set, four by re-lifting every custom row, and six carry a `_declarations` parameter no body reads.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "src/admissibility.rs",
+      "asserts": "the judges' in-file tests stay green through the new signature — the fold is behavior-neutral for every case they cover — plus one new test that a kind row relocating a built-in's `governs` under `.temper/` is refused, the widening the fold buys and the pin that would have caught its absence"
+    }
+  ],
+  "acceptance": "cargo test, cargo clippy --all-targets -- -D warnings and cargo fmt --all --check green; `rg \"from_kind_fact_row\" src/admissibility.rs` yields exactly one hit (the collision diagnostic's, over the collision partition) and `rg \"_declarations\" src/admissibility.rs` yields none — the consolidation is held by the signatures rather than by a counter.",
+  "notes": "Posture sweep of the admissibility neighborhood, verified on disk this tick. Blocked on the parent only for the field it publishes and the shared `src/gate.rs`; nothing here waits on a decision. The widening of `at_locus_under_workspace_admissibility` is the one behavior change and it is deliberate — the invariant is emit's, and the judge exists to surface it over an already-committed lock. scoped at 90a7d470"
+}
