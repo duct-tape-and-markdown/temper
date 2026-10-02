@@ -1867,6 +1867,65 @@ fn a_lock_whose_rows_are_dot_slash_spelled_matches_its_live_projections_and_reap
 }
 
 #[test]
+fn a_dot_slash_spelled_lock_row_names_its_stale_projection_by_the_bare_spelling() {
+    // The reap sweep's `./`-row sibling, over the judge that never re-spelled by hand:
+    // `config_stale` keys its finding straight off the row's `source_path`, so before the
+    // spelling moved to `HarnessRelativePath`'s door this named a pre-0024 row's finding
+    // `./CLAUDE.md` where every other judge over the same lock spells it bare.
+    let (harness, into) = workspace("config-stale-dot-slash-row");
+    const MEMORY_BODY: &str = "# Memory\n\nProject memory.\n";
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::kind_facts("memory", ".", "CLAUDE.md")],
+            ..Default::default()
+        },
+        members: vec![common::payload_member("memory", "root", None, MEMORY_BODY)],
+    };
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // The older spelling, as a pre-normalization engine wrote it.
+    let lock_path = into.join("lock.toml");
+    let older_lock = fs::read_to_string(&lock_path).unwrap().replace(
+        "source_path = \"CLAUDE.md\"",
+        "source_path = \"./CLAUDE.md\"",
+    );
+    assert!(
+        older_lock.contains("source_path = \"./CLAUDE.md\""),
+        "the simulated older lock spells the root-`.` projection with a `./` prefix: {older_lock}"
+    );
+    fs::write(&lock_path, &older_lock).unwrap();
+
+    // A hand edit is all it takes to make the fingerprint mismatch and the finding fire.
+    let projection = harness.join("CLAUDE.md");
+    let edited = format!(
+        "{}\n\nhand-edited.\n",
+        fs::read_to_string(&projection).unwrap()
+    );
+    fs::write(&projection, edited).unwrap();
+
+    let findings = drift::config_stale_from_doc(
+        &drift::read_lock_document(&into).unwrap(),
+        &into,
+        &fresh_clause(),
+    );
+    assert_eq!(
+        findings.len(),
+        1,
+        "the `./`-spelled row resolves its live projection and reports its one hand edit: {findings:?}"
+    );
+    assert_eq!(
+        findings[0].artifact, "CLAUDE.md",
+        "the finding is addressed by the bare spelling, never the row's `./` prefix"
+    );
+    assert!(
+        findings[0].message.contains("`CLAUDE.md`") && !findings[0].message.contains("./CLAUDE.md"),
+        "and reads it back the same way: {}",
+        findings[0].message
+    );
+}
+
+#[test]
 fn a_lock_emitted_from_a_foreign_cwd_carries_the_rows_of_one_emitted_at_the_harness_root() {
     // `--into`'s only non-default use is naming a workspace off the cwd, so the cwd an
     // emit happens to run under must reach no row: the lock is committed, and a row

@@ -1842,22 +1842,22 @@ pub fn emit(
 
     // Classify every prior projection the payload no longer owns without touching
     // disk. Both sides normalized: `owned_paths` came through the canonical spelling, and
-    // an older lock's raw row spelling gets the same canonicalization here, so a
-    // `./`-prefixed row still joins its live projection.
+    // a row's path is canonical by its `HarnessRelativePath` type, so a `./`-prefixed
+    // row still joins its live projection.
     let mut orphans: Vec<(ProvenanceRow, PathBuf, EmitOutcome)> = Vec::new();
     let mut any_survivor = false;
     let prior_rows = read_prior_provenance_from_doc(&lock_doc);
     // The owned side of the very column the orphan classification reads: one
     // path-to-`emit_hash` index off this same single walk, so `emit_one`/`emit_manifest`
     // can tell a projection they overwrote a hand edit from a plain source-side re-emit
-    // without a second parse. Keyed through the same normalization the reap diff joins on,
-    // so an older lock's `./`-prefixed row still finds its live projection.
+    // without a second parse. Keyed on the same canonical spelling the reap diff joins
+    // on, so an older lock's `./`-prefixed row still finds its live projection.
     let prior_emit_hashes: PriorEmitHashes = prior_rows
         .iter()
-        .map(|row| (canonical_spelling(&row.source_path), row.emit_hash.clone()))
+        .map(|row| (row.source_path.to_string(), row.emit_hash.clone()))
         .collect();
     for row in prior_rows {
-        if owned_paths.contains(&canonical_spelling(&row.source_path)) {
+        if owned_paths.contains(&*row.source_path) {
             any_survivor = true;
             continue;
         }
@@ -2269,7 +2269,8 @@ fn emit_manifest(
     Ok((row(outcome), hash))
 }
 
-/// Every prior lock row's `emit_hash`, keyed by its [`canonical_spelling`]: the
+/// Every prior lock row's `emit_hash`, keyed by the canonical spelling its
+/// [`HarnessRelativePath`] guarantees: the
 /// fingerprint column [`write_outcome`] joins a projection's on-disk bytes against to tell
 /// an overwritten hand edit from a plain source-side re-emit. Built once per [`emit`] off
 /// the single provenance walk the reap diff already makes.
@@ -3551,9 +3552,9 @@ pub fn undeclared_layout_members_from_doc(
 pub struct LocusMemberSite {
     /// The governing kind's bare name, as the finding reports it.
     pub kind: String,
-    /// The document's path, harness-relative, as the finding reports it. Compared
-    /// against a provenance row's `source_path` through [`canonical_spelling`], so an
-    /// older lock's `./x` spelling still matches the site's bare `x`.
+    /// The document's path, harness-relative, as the finding reports it. A `String`,
+    /// not a [`HarnessRelativePath`], so it spells through [`canonical_spelling`] to meet
+    /// the row side's type-guaranteed form.
     pub source_path: String,
     /// Whether the governing kind is a lock-declared *custom* kind. A built-in's
     /// commitment cannot be respelled — no lock row relocates it off its embedded
@@ -3585,11 +3586,11 @@ pub struct UndeclaredLocusMembers {
 /// A file-content member's whole trace on the lock is its **projection provenance row**,
 /// not the [`layout_source`](LayoutSourceRow) record a layout host reaches the lock
 /// through — so this joins each site's path against the same rows [`emit_owned_targets`] and
-/// [`config_stale`] walk. Both sides normalize through [`canonical_spelling`], exactly
-/// as the emit reap-diff does: the site's path arrives as a `String` from
-/// [`crate::path::relativize_against_root`] while a row's is a
-/// [`HarnessRelativePath`], and an older lock's `./x` spelling would otherwise forge a
-/// finding.
+/// [`config_stale`] walk. Both sides carry the canonical spelling, exactly as the emit
+/// reap-diff does: a row's path is a [`HarnessRelativePath`], canonical at its own door,
+/// while the site's arrives as a `String` from
+/// [`crate::path::relativize_against_root`] and is spelled here — left raw, an older
+/// lock's `./x` spelling would forge a finding.
 ///
 /// A document at a represented kind's locus that no row names is the file-locus twin of
 /// the layout stranger: `emit` will never maintain it — orphan classification iterates
@@ -3617,7 +3618,7 @@ pub fn undeclared_locus_members_from_doc(
 ) -> UndeclaredLocusMembers {
     let declared: BTreeSet<String> = read_prior_provenance_from_doc(doc)
         .into_iter()
-        .map(|row| canonical_spelling(&row.source_path))
+        .map(|row| row.source_path.into())
         .collect();
     let mut verdict = UndeclaredLocusMembers {
         findings: Vec::new(),
@@ -4281,10 +4282,10 @@ pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
             Some(EmitOwnedEntry {
                 kind: raw.kind,
                 name,
-                // Spelled through the one home, never off the raw row: an older lock
-                // spells a root-`.` member `./CLAUDE.md`, and `install` compares this
-                // path against a canonically spelled `file_path`.
-                path: PathBuf::from(canonical_spelling(&source_path)),
+                // Canonical by the column's own type: an older lock spells a root-`.`
+                // member `./CLAUDE.md`, and `install` compares this path against a
+                // canonically spelled `file_path`.
+                path: PathBuf::from(&*source_path),
             })
         })
         .collect();

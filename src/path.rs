@@ -144,10 +144,14 @@ fn absolute_root(root: &Path) -> Option<PathBuf> {
 pub struct HarnessRelativePath(String);
 
 impl HarnessRelativePath {
-    /// Create a new harness-relative path from a string. The string should already
-    /// be in canonical form (harness-relative, `/`-separated, no leading `./`).
+    /// Create a new harness-relative path, canonicalizing what it is handed
+    /// ([`canonical_spelling`]). The form the type declares is enforced at this one
+    /// door, so a raw `lock.toml` row — an older engine's `./CLAUDE.md`, a
+    /// host-separated `.claude\rules\rust.md` — arrives already in the vocabulary
+    /// every reader of the column compares on, with no reader re-spelling it.
+    #[must_use]
     pub fn new(s: String) -> Self {
-        Self(s)
+        Self(canonical_spelling(&s))
     }
 }
 
@@ -177,21 +181,9 @@ impl fmt::Display for HarnessRelativePath {
     }
 }
 
-impl From<String> for HarnessRelativePath {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-
 impl From<HarnessRelativePath> for String {
     fn from(p: HarnessRelativePath) -> Self {
         p.0
-    }
-}
-
-impl From<&str> for HarnessRelativePath {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
     }
 }
 
@@ -231,6 +223,27 @@ mod tests {
         assert_eq!(canonical_spelling("./CLAUDE.md"), "CLAUDE.md");
         assert_eq!(
             to_canonical_spelling(&PathBuf::from(".\\.claude\\skills\\x\\SKILL.md")),
+            ".claude/skills/x/SKILL.md"
+        );
+    }
+
+    #[test]
+    fn the_harness_relative_door_canonicalizes_what_it_is_handed() {
+        // The type's declared form is its constructor's job, not each reader's: a raw
+        // lock row arrives through this door, so the `./` an engine before decision 0024
+        // wrote and the host separator a Windows `Path::join` inserts are both gone
+        // before any judge compares the column.
+        assert_eq!(
+            &*HarnessRelativePath::new("./CLAUDE.md".to_string()),
+            "CLAUDE.md"
+        );
+        assert_eq!(
+            &*HarnessRelativePath::new(".\\.claude\\rules\\rust.md".to_string()),
+            ".claude/rules/rust.md"
+        );
+        // And a spelling already canonical passes through untouched.
+        assert_eq!(
+            &*HarnessRelativePath::new(".claude/skills/x/SKILL.md".to_string()),
             ".claude/skills/x/SKILL.md"
         );
     }
