@@ -1,0 +1,50 @@
+{
+ "tag": "MEMBER-SITE-PATHS-CARRY-THE-HARNESS-RELATIVE-TYPE",
+ "gate": {
+  "kind": "open"
+ },
+ "dependsOnForks": [],
+ "files": {
+  "new": [],
+  "edit": [
+   {
+    "path": "src/drift.rs",
+    "description": "`LocusMemberSite::source_path` (3478 on `LayoutMemberSite`, 3556 here) and `LayoutMemberSite::source_path` each carry a bare `String` whose doc comment *states* the harness-relative form in prose \u2014 the one shape `HarnessRelativePath` (src/path.rs:144) exists to retire now that its `new` (154) enforces the form at the door (7f04c6a0). Both fields take `HarnessRelativePath`; the `declared` set at 3619 becomes a `BTreeSet<HarnessRelativePath>` (drop the `.into()` at 3621 \u2014 the row column already is one) and the join at 3628 compares `declared.contains(&site.source_path)`, deleting the by-hand `canonical_spelling(&site.source_path)`. The two reporting readers per struct (`site.source_path.as_str()` at 3535/3647, the `{}` in each message at 3538/3650) are unchanged \u2014 `Deref`/`AsRef<str>`/`Display` all carry. Two prose claims go with the spell: `LocusMemberSite::source_path`'s \"A `String`, not a [`HarnessRelativePath`], so it spells through [`canonical_spelling`]\" (3555-3557), and `undeclared_locus_members_from_doc`'s paragraph at 3589-3593 whose justification is now false \u2014 it attributes the site-side spell to \"an older lock's `./x` spelling\", a form the site never reads (its two producers derive from disk, never from a row). Keep the paragraph's true half: both sides of the join carry the canonical spelling, each at its own type's door. `LayoutMemberSite`'s path joins nothing (its oracle keys `member` addresses, 3491), so its win is form-at-the-type alone \u2014 say so at the field rather than leaving the asymmetry unexplained. Drop the now-unused `canonical_spelling` from the import at line 39."
+   },
+   {
+    "path": "src/gate.rs",
+    "description": "`committed_member_sites` (98) builds both site structs from one `crate::path::relativize_against_root` value (111) that already carries the canonical spelling: wrap it as `HarnessRelativePath::new(...)` once before the `match class`, so the `SiteClass::Layout` push (118) and the `SiteClass::File` push (122) both move the typed value. Idempotent by construction \u2014 the door re-canonicalizes an already-canonical string to itself \u2014 so the wrap is the form's proof, not a second normalize. Add the `crate::path::HarnessRelativePath` import."
+   },
+   {
+    "path": "src/install.rs",
+    "description": "`locus_member_sites` (1290) spells its site path through the module's own `harness_relative` (1548). The glob test at 1311 stays on the `&str` (`matcher.is_match(&source_path)` \u2014 `globset` matches text); the typed value is constructed at the push (1314-1318). `harness_relative` itself keeps its signature and its two-step spelling (`relativize_against_root` then `to_canonical_spelling` over the normalized `PathBuf`, which is where the host separator can re-enter) \u2014 this entry does not touch it."
+   },
+   {
+    "path": "src/path.rs",
+    "description": "`canonical_spelling` (97) loses its last caller outside this module once drift's join stops hand-spelling \u2014 `rg '\\bcanonical_spelling\\b'` at HEAD finds only src/path.rs (85, 108, 148, 154, 223) and src/drift.rs (3556, 3628). Narrow it to private (`engineering.md`, \"An export earns its consumer\"); `to_canonical_spelling` stays `pub` with its five-module consumer set. Verify the census at pick-up before narrowing \u2014 if a caller arrived since, the `pub` stays and the entry says so. The narrow turns `HarnessRelativePath::new`'s own `[`canonical_spelling`]` doc link into a `rustdoc::private_intra_doc_links` advisory, the accepted class (advisory, `exit 0`, counted at 103 on 2026-09-28) \u2014 not a gate."
+   },
+   {
+    "path": "tests/it/coverage_note.rs",
+    "description": "One new case beside `a_declared_and_emitted_member_reports_neither_the_finding_nor_an_undeclared_count` (398): a provenance row spelled in the pre-0024 `./`-prefixed form still suppresses the `root.n` finding for the same document discovered bare at its governed locus. Reuses the file's `lock_rules` (274) / `write_skill` (31) fixtures with the row's `source_path` written `./`-prefixed. The pin's non-vacuity proof, to run on the pre-fix tree: delete the `canonical_spelling` call at drift.rs:3628 with the field left `String` and this case goes red, while the eleven existing cases stay green \u2014 the join's tolerance is exactly what moves from the call site to the type."
+   }
+  ],
+  "retire": []
+ },
+ "summary": "Both member-site structs declare their path's form in prose and the locus join re-spells it by hand \u2014 the field carries `HarnessRelativePath`, so the form is the type's on both sides.",
+ "per": {
+  "path": "specs/process/engineering.md",
+  "section": "A shared concept is one type"
+ },
+ "tests": [
+  {
+   "path": "tests/it/coverage_note.rs",
+   "asserts": "a `./`-spelled provenance row suppresses the `root.n` locus-declared finding for the bare-spelled document discovered at the locus \u2014 the join's tolerance held by the field's type, not by a call-site re-spell"
+  },
+  {
+   "path": "tests/it/install.rs",
+   "asserts": "`guard_binds_a_projection_whose_lock_row_carries_the_older_dot_slash_spelling` (2489) stays green \u2014 the row side's door, untouched here"
+  }
+ ],
+ "acceptance": "`cargo test` green (the eleven existing tests/it/coverage_note.rs cases plus the new `./`-row case) and `cargo clippy --all-targets -- -D warnings` clean, with `rg '\\bcanonical_spelling\\b' src/ tests/ sdk/` finding callers only inside src/path.rs. Behavior-neutral by construction: both site producers already emit the canonical spelling, so no finding's text or count moves.",
+ "notes": "Swept from the ee796964..66e9103d window. 7f04c6a0 moved the row side's form onto `HarnessRelativePath::new` and left the site side's hand spell plus the prose justifying it by a lock-row risk the site never reads. Both producers already canonicalize (`gate.rs` relativize_against_root, `install.rs` harness_relative), so the fold is behavior-neutral; its red-first proof is deleting the spell with the field left `String`. scoped at 66e9103d"
+}
