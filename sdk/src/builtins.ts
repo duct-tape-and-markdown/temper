@@ -10,6 +10,7 @@
  * — never from the root.
  */
 
+import { TAP_EVENT_HOOKS } from "./generated/index.js";
 import { kind } from "./kind.js";
 import type { KindDefinition, Member, MemberInit, Residue } from "./kind.js";
 import { isNameQualifier } from "./member-address.js";
@@ -2092,25 +2093,22 @@ export const hookDefaultContract: readonly Clause[] = [
  * projects its tap hook at. The event-name is the author-facing token a telemetry
  * verifier names (`contract.ts`'s `telemetry`, the `roster.rs` admissibility set); the
  * `event` is the `hooks.<Event>` key the tap registers under, and the `matcher` scopes
- * the fire to the telemetry-relevant subset — each an external fact
- * (code.claude.com/docs/en/hooks, retrieved 2026-08-26):
+ * the fire to the telemetry-relevant subset — a load reason, a command name, a tool name,
+ * each an external fact (code.claude.com/docs/en/hooks, retrieved 2026-08-26).
  *
- * - `InstructionsLoaded` fires on a rule/memory load; its matcher filters the load
- *   reason across all documented reasons (session_start, nested_traversal, path_glob_match,
- *   include, compact), so always-on members that load at session start are recorded.
- * - `SkillInvoked` is a skill invocation, surfaced under `PostToolUse` with the tool-name
- *   matcher `Skill` — the tap's own read of a skill call.
- * - `UserPromptExpansion` fires on a command expansion; its matcher filters the command
- *   name, `.*` capturing every one.
- * - `ToolUse` fires after any tool call; its matcher filters the tool name, `.*`
- *   capturing every one.
+ * The pairing's one home is the engine's own `TAP_HOOK_BINDINGS` table
+ * (`src/builtin_kind.rs`), which states and cites each event's own matcher and resolves the
+ * table through an exhaustive match over the `TapEvent` it already classifies hook payloads
+ * into — and which `check` reads for the admissibility set too, so the names a telemetry
+ * verifier may declare and the names a tap hook is synthesized for are one enumeration. The
+ * binding read here is machine-written across the `generated/` seam from that table and held
+ * byte-equal by the seam gate (`tests/it/seam_bindings_current.rs`).
+ *
+ * The widened annotation stays: `tapHookRows` looks up an author-supplied event name, which
+ * the generated literal's own narrow key type would refuse.
  */
-export const TELEMETRY_EVENT_HOOKS: Readonly<Record<string, { readonly event: string; readonly matcher: string }>> = {
-  InstructionsLoaded: { event: "InstructionsLoaded", matcher: ".*" },
-  SkillInvoked: { event: "PostToolUse", matcher: "Skill" },
-  UserPromptExpansion: { event: "UserPromptExpansion", matcher: ".*" },
-  ToolUse: { event: "PostToolUse", matcher: ".*" },
-};
+export const TELEMETRY_EVENT_HOOKS: Readonly<Record<string, { readonly event: string; readonly matcher: string }>> =
+  TAP_EVENT_HOOKS;
 
 /**
  * Every documented `.mcp.json` server transport — the closed set a server entry's `type`

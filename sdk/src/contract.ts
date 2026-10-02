@@ -452,7 +452,9 @@ export const script = (path: string): Verifier => ({ species: "script", path });
  * A telemetry verifier — the named documented harness events the emitted tap records
  * to a local-locus log, judged by reading the field record. Each name must be a
  * documented harness lifecycle event — the gate checks each resolves, never records
- * into it. See `TELEMETRY_EVENT_HOOKS` in `builtins.ts` for the vocabulary.
+ * into it. The vocabulary is the engine's own `TAP_HOOK_BINDINGS` table
+ * (`src/builtin_kind.rs`), machine-written across the `generated/` seam and read by
+ * `builtins.ts`'s `TELEMETRY_EVENT_HOOKS`.
  */
 export const telemetry = (events: readonly string[]): Verifier => ({ species: "telemetry", events });
 

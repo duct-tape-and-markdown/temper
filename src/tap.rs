@@ -59,17 +59,23 @@ pub(crate) const fn documented_name(event: TapEvent) -> &'static str {
     }
 }
 
-/// The canonical event names a telemetry verifier may name — the variants of
-/// the `TapEvent` enumeration, used to validate documented-event names.
-/// A telemetry verifier declaring any other name is inadmissible.
+/// The canonical event names a telemetry verifier may name — every documented tap event
+/// in [`builtin_kind::TAP_HOOK_BINDINGS`], read off the same table the SDK's registration
+/// module is written from, so the set `check` admits and the set the SDK synthesizes a tap
+/// hook for are one enumeration. A telemetry verifier declaring any other name is
+/// inadmissible.
 pub fn documented_event_names() -> &'static [&'static str] {
-    const NAMES: &[&str] = &[
-        documented_name(TapEvent::InstructionsLoaded),
-        documented_name(TapEvent::SkillInvoked),
-        documented_name(TapEvent::UserPromptExpansion),
-        documented_name(TapEvent::ToolUse),
-    ];
-    NAMES
+    const COUNT: usize = builtin_kind::TAP_HOOK_BINDINGS.len();
+    const NAMES: [&str; COUNT] = {
+        let mut names = [""; COUNT];
+        let mut index = 0;
+        while index < COUNT {
+            names[index] = builtin_kind::TAP_HOOK_BINDINGS[index].name;
+            index += 1;
+        }
+        names
+    };
+    &NAMES
 }
 
 #[cfg(test)]

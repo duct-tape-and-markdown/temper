@@ -700,6 +700,71 @@ pub fn features(kind: &CustomKind, unit: &Unit, nested_members: &[NestedMemberRo
     features
 }
 
+/// One documented tap event paired with the `settings.json` registration its tap hook
+/// takes: the `hooks.<Event>` key it registers under, and the matcher scoping the fire.
+pub struct TapHookBinding {
+    /// The author-facing event name a telemetry verifier declares — the token
+    /// `crate::tap::documented_name` spells for the variant.
+    pub name: &'static str,
+    /// The `hooks.<Event>` lifecycle key the tap hook registers under.
+    pub event: &'static str,
+    /// The matcher scoping the fire to the telemetry-relevant subset.
+    pub matcher: &'static str,
+}
+
+/// The lifecycle event and matcher one [`TapEvent`]'s tap hook registers under — the
+/// write-side twin of the payload shapes `classify_claude_code_hook_payload` reads below,
+/// and the same external fact (code.claude.com/docs/en/hooks, retrieved 2026-08-26):
+///
+/// - `InstructionsLoaded` fires on a rule/memory load, under a lifecycle event of its own;
+///   its matcher filters the load reason across every documented reason (`session_start`,
+///   `nested_traversal`, `path_glob_match`, `include`, `compact`), so always-on members
+///   that load at session start are recorded.
+/// - `SkillInvoked` is a skill invocation, surfaced under `PostToolUse` with the tool-name
+///   matcher `Skill`.
+/// - `UserPromptExpansion` fires on a command expansion, under its own event; its matcher
+///   filters the command name, `.*` capturing every one.
+/// - `ToolUse` fires after any tool call, under `PostToolUse`; its matcher filters the tool
+///   name, `.*` capturing every one.
+///
+/// An exhaustive match, so a new [`TapEvent`] variant cannot compile without declaring the
+/// hook its tap fires under: the alternative is a variant the roster admits while the SDK
+/// synthesizes no registration for it, exactly the silent no-op the admissibility finding
+/// exists to refuse.
+const fn tap_hook_binding(event: TapEvent) -> TapHookBinding {
+    let (hook_event, matcher) = match event {
+        TapEvent::InstructionsLoaded => ("InstructionsLoaded", ".*"),
+        TapEvent::SkillInvoked => ("PostToolUse", "Skill"),
+        TapEvent::UserPromptExpansion => ("UserPromptExpansion", ".*"),
+        TapEvent::ToolUse => ("PostToolUse", ".*"),
+    };
+    TapHookBinding {
+        name: crate::tap::documented_name(event),
+        event: hook_event,
+        matcher,
+    }
+}
+
+/// Every documented tap event paired with the hook registration it takes, in [`TapEvent`]'s
+/// own declaration order — the one home for that pairing.
+///
+/// The seam gate (`tests/it/seam_bindings_current.rs`) writes
+/// `sdk/src/generated/tap-hooks.ts` from this table and the SDK's `TELEMETRY_EVENT_HOOKS`
+/// reads that module, so the registration vocabulary cannot be respelled on one side of
+/// the seam; [`crate::tap::documented_event_names`] reads the same table for the
+/// admissibility set the roster judges a telemetry verifier's event names against. So the
+/// set `check` admits and the set the SDK synthesizes a hook for are one enumeration.
+///
+/// Public on the terms [`crate::install::GATE_COMMAND_BINDINGS`] is: the seam gate writes
+/// the SDK's copy from these rows, and a second table beside this one is the drift that
+/// generation exists to end.
+pub const TAP_HOOK_BINDINGS: [TapHookBinding; 4] = [
+    tap_hook_binding(TapEvent::InstructionsLoaded),
+    tap_hook_binding(TapEvent::SkillInvoked),
+    tap_hook_binding(TapEvent::UserPromptExpansion),
+    tap_hook_binding(TapEvent::ToolUse),
+];
+
 /// Classify a Claude Code hook payload into its lifecycle event, identity, and the
 /// optional discriminants an `InstructionsLoaded` load carries: its reason, the path
 /// whose match triggered a lazy load, and the file an `include` load was pulled from.
@@ -808,6 +873,28 @@ mod tests {
     use crate::compose::Edge;
     use crate::kind::Governs;
     use crate::test_support::{surface_unit, tmpdir};
+
+    #[test]
+    fn every_tap_event_binds_a_non_empty_hook_registration() {
+        // Vacuity pin: the table is the whole `TapEvent` enumeration, and the admissibility
+        // set `check` judges against is read off these same rows.
+        assert_eq!(
+            TAP_HOOK_BINDINGS.len(),
+            crate::tap::documented_event_names().len()
+        );
+        assert!(!TAP_HOOK_BINDINGS.is_empty());
+        for TapHookBinding {
+            name,
+            event,
+            matcher,
+        } in &TAP_HOOK_BINDINGS
+        {
+            assert!(!name.is_empty());
+            assert!(!event.is_empty(), "`{name}` binds an empty event");
+            assert!(!matcher.is_empty(), "`{name}` binds an empty matcher");
+            assert!(crate::tap::documented_event_names().contains(name));
+        }
+    }
 
     #[test]
     fn skill_definition_matches_the_hand_authored_kind() {

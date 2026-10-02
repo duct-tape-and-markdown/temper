@@ -36,3 +36,4 @@ export type { TemplateRow } from "./TemplateRow.js";
 export type { ValueType } from "./ValueType.js";
 export type { Verifier } from "./Verifier.js";
 export { GUARD_COMMAND, SESSION_START_COMMAND } from "./gate-commands.js";
+export { TAP_EVENT_HOOKS } from "./tap-hooks.js";
