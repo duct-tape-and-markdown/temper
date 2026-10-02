@@ -1,12 +1,10 @@
 {
   "tag": "STRAY-SCAN-PATHS-CARRY-THE-HARNESS-RELATIVE-TYPE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "STRAY-SCAN-MATCHES-THE-WHOLE-GOVERNED-LOCUS"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
