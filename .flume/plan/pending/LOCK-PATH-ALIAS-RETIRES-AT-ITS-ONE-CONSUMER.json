@@ -1,0 +1,26 @@
+{
+  "tag": "LOCK-PATH-ALIAS-RETIRES-AT-ITS-ONE-CONSUMER",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/coverage_note.rs",
+        "description": "`claude_entries` (line 159) calls `drift::to_lock_path(rel)` — re-point it at `crate::path::to_canonical_spelling`, the one home. `use crate::drift;` (line 15) is that module's only reference here, so it goes with the call (clippy -D warnings would catch the leftover)."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "Delete the compat re-export `pub(crate) use crate::path::to_canonical_spelling as to_lock_path;` (line 42) and the two-line comment above it (lines 40-41) that points at the now-drained `.flume/refactor/` capture. `to_canonical_spelling` is already imported directly on line 39, so drift's own 14 call sites are untouched."
+      }
+    ]
+  },
+  "summary": "Retire the `to_lock_path` alias in `drift`: its one consumer calls the canonical spelling's real home directly.",
+  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "tests": [
+    {
+      "path": "tests/it/coverage_note.rs",
+      "asserts": "the stray scan still reports the same harness-relative spellings — the re-point is behavior-neutral (same function, one name)"
+    }
+  ],
+  "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, and `rg to_lock_path` finds nothing in the tree — one function, one name.",
+  "notes": "Tail of PATH-SEPARATOR-SPELLING-HAS-ONE-HOME (f293cb27): the fold moved the spelling to `src/path.rs` but left the lock-named alias so the one out-of-fence caller could keep compiling. Verified at HEAD: exactly 3 matches, all three named above. scoped at ee796964"
+}

@@ -16,11 +16,10 @@
   `sdk/src/emit.ts`, `sdk/src/declarations.ts`, `sdk/src/prose.ts`,
   `sdk/src/needs.ts`, `sdk/src/assembly.ts`, `sdk/src/builtins.ts`,
   `sdk/src/claude-code.ts`.
-- This tick: swept the addressing-leaves neighborhood (`path`, `address`,
-  `member_address`) — two folds filed, `member_address` clean.
-- Queue: 10 pending — 2 open, 4 parked, 4 deferred. Pickable: 2. Open
+- This tick: drained the one refactor capture — the lock-named path alias
+  filed as LOCK-PATH-ALIAS-RETIRES-AT-ITS-ONE-CONSUMER, claim re-verified at HEAD.
+- Queue: 9 pending — 1 open, 4 parked, 4 deferred. Pickable: 1. Open
   forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture rotation stays open with two
-pickable entries, so the wave ships first and the sweep takes the next
-frontier neighborhood when it hands back.
+Plan continues: yes — post-ship reconciliation of 4e3344e9..ee796964 (the
+two addressing folds) is live, and it outranks the open posture rotation.
