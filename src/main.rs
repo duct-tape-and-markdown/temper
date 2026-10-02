@@ -883,15 +883,14 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
 /// same equality compare the projection binding runs). [`None`] for a kind governing no
 /// locus, which has no host file for the guard to watch.
 ///
-/// The one door where [`drift::join_locus`]'s host-separated [`PathBuf`] enters the guard's
-/// harness-relative vocabulary. A concrete *path*, never a pattern: a locus spelled as a
-/// glob is [`kind::locus_pattern`]'s, and the two concepts stay apart.
+/// The guard's read of [`kind::locus_path`], the one join-and-spell — the door where a
+/// `governs` pair enters the harness-relative vocabulary is that function, for the guard
+/// no less than for emit's manifest target and `bundle`'s written member. A concrete
+/// *path*, never a pattern: a locus spelled as a glob is [`kind::locus_pattern`]'s, and
+/// the two concepts stay apart.
 fn manifest_path(kind: &CustomKind) -> Option<path::HarnessRelativePath> {
     let governs = kind.governs.as_ref()?;
-    Some(path::HarnessRelativePath::from_path(&drift::join_locus(
-        &governs.root,
-        &governs.glob,
-    )))
+    Some(kind::locus_path(&governs.root, &governs.glob))
 }
 
 /// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)

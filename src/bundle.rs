@@ -289,8 +289,11 @@ fn hooks_manifest() -> BTreeMap<String, JsonValue> {
     )])
 }
 
-/// Write `fields` as one member of the embedded `kind` under the path derived from its
-/// declared Governs locus, recording the relative path in `files`. The bytes are whatever the
+/// Write `fields` as one member of the embedded `kind` under the path its declared Governs
+/// locus names ([`crate::kind::locus_path`], so the path this records is `/`-spelled on
+/// every host and a root-locus kind's `.` is dropped — one spelling across the whole
+/// [`BundleReport::files`] listing, never the host's at one entry and the literal `/` at
+/// the next). The bytes are whatever the
 /// kind's declared format renders through the one write dispatch — `bundle` names the kind and
 /// never picks an encoder, so the manifest it publishes is byte-for-byte the artifact `check`
 /// reads back off that same kind. A manifest carries no body and no install metadata, so both
@@ -313,12 +316,12 @@ fn write_member(
     let Some(governs) = definition.governs else {
         return Err(BundleError::NoGoverns { kind });
     };
-    let relative = Path::new(&governs.root).join(&governs.glob);
+    let relative = crate::kind::locus_path(&governs.root, &governs.glob);
     let fields: Vec<(String, JsonValue)> = fields.clone().into_iter().collect();
     let Some(rendered) = crate::drift::project_bytes(definition.format, &fields, "", &[]) else {
         return Err(BundleError::UnwritableFormat { kind });
     };
-    write_text(out, &relative, &rendered, files)
+    write_text(out, relative.as_ref(), &rendered, files)
 }
 
 /// Write a structured manifest as canonical pretty JSON under `<out>/<relative>`,

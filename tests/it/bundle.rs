@@ -280,16 +280,31 @@ fn bundle_is_deterministic() {
     bundle::run(&surface, &out).unwrap();
     let first = common::tree_bytes(&out);
 
-    bundle::run(&surface, &out).unwrap();
+    let report = bundle::run(&surface, &out).unwrap();
     let second = common::tree_bytes(&out);
 
     assert_eq!(first, second, "re-running bundle must be byte-identical");
 
-    // Pin the plugin shape: the sorted set of files the tree carries.
-    let files: Vec<String> = first
+    // The report records exactly what landed, one spelling for every entry. The `\`
+    // normalization belongs on the *walk* — `walkdir` hands back host-separated paths on
+    // Windows whatever the producer wrote — and nowhere on the producer: the written
+    // paths come off `kind::locus_path`, so they are `/`-spelled as written.
+    let on_disk: Vec<String> = first
         .keys()
-        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
         .collect();
+    let files = report.files;
+    let recorded: Vec<String> = files
+        .iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(
+        recorded, on_disk,
+        "the report must name the files the bundle wrote"
+    );
+
+    // Pin the plugin shape: the sorted set of files the producer recorded, read at its
+    // real spelling with no test-side separator replacement.
     insta::assert_debug_snapshot!(files);
 }
 

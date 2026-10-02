@@ -2119,7 +2119,7 @@ struct ContainerMember {
 fn manifest_target_path(facts: &KindFactRow) -> Option<HarnessRelativePath> {
     let root = facts.governs_root.as_deref()?;
     let glob = facts.governs_glob.as_deref()?;
-    Some(HarnessRelativePath::from_path(&join_locus(root, glob)))
+    Some(crate::kind::locus_path(root, glob))
 }
 
 /// The harness-relative path the manifest named `manifest` lives at, resolved through any

@@ -767,12 +767,31 @@ impl Governs {
     }
 }
 
-/// A kind's member locus as one harness-relative glob **pattern** — its `governs` root and
-/// glob joined and spelled canonically (`.claude/skills` + `*/SKILL.md` →
+/// A kind's member locus as one harness-relative **path** — its `governs` root and glob
+/// joined ([`crate::drift::join_locus`], which drops a root-locus kind's `.`) and entered
+/// into the harness-relative vocabulary through that type's own door, so the `/` spelling
+/// is the type's and not each caller's. The one join-and-spell: every face of "where does
+/// this kind's locus sit" composes it, rather than pairing the join with a spelling by
+/// hand — [`locus_pattern`] is the same computation read as a glob, and the guard, emit's
+/// manifest target and `bundle`'s written member are the same computation read as a file.
+///
+/// The two faces keep their distinct return types on purpose: a locus spelled as a glob
+/// and a locus spelled as a path are two concepts (`main::manifest_path`), and only the
+/// path face is a [`crate::path::HarnessRelativePath`].
+///
+/// A free function over the two columns rather than a [`Governs`] method, for the reason
+/// [`locus_pattern`] records.
+#[must_use]
+pub fn locus_path(root: &str, glob: &str) -> crate::path::HarnessRelativePath {
+    crate::path::HarnessRelativePath::from_path(&crate::drift::join_locus(root, glob))
+}
+
+/// A kind's member locus as one harness-relative glob **pattern** — [`locus_path`]'s join
+/// and spelling read as a glob (`.claude/skills` + `*/SKILL.md` →
 /// `.claude/skills/*/SKILL.md`, a root-locus kind's `.` dropped so `memory` reads
 /// `**/CLAUDE.md`). The one home for "a kind's locus as a glob": every consumer that asks
 /// whether a harness-relative path lies at a locus, or prints that locus to an author,
-/// composes it here rather than pairing the join with the spelling by hand.
+/// composes it here.
 ///
 /// A free function over the two columns rather than a [`Governs`] method, because one
 /// caller (`read`'s kind narration) holds a [`KindFactRow`]'s two `Option<String>` columns
@@ -780,7 +799,7 @@ impl Governs {
 /// `(&governs.root, &governs.glob)`.
 #[must_use]
 pub fn locus_pattern(root: &str, glob: &str) -> String {
-    crate::path::to_canonical_spelling(&crate::drift::join_locus(root, glob))
+    locus_path(root, glob).into()
 }
 
 /// Surface a `kind`-fact column's label as an out-of-vocabulary [`LockRowError`] when its
@@ -1359,6 +1378,36 @@ mod tests {
     use super::*;
     use crate::extract::{FeatureValue, ValueType};
     use crate::test_support;
+
+    #[test]
+    fn the_locus_path_drops_a_root_dot_and_spells_the_join_with_slashes() {
+        // The path face of the one join-and-spell, at the two edges the three former
+        // hand-pairings each had to get right on their own: a root-locus kind's `.` is
+        // dropped rather than spelled `./`, and the join boundary is `/` on every host
+        // (the type's own door canonicalizes, so a Windows `Path::join` cannot fork it).
+        assert_eq!(&*locus_path(".", "**/CLAUDE.md"), "**/CLAUDE.md");
+        assert_eq!(
+            &*locus_path(".claude-plugin", "plugin.json"),
+            ".claude-plugin/plugin.json"
+        );
+        assert_eq!(
+            &*locus_path(".claude/skills", "*/SKILL.md"),
+            ".claude/skills/*/SKILL.md"
+        );
+    }
+
+    #[test]
+    fn the_locus_pattern_is_the_locus_path_read_as_a_glob() {
+        // What makes one join honest: the two faces agree byte-for-byte over the same
+        // pair, so a consumer's choice of face is a choice of type, never of spelling.
+        for (root, glob) in [
+            (".", "**/CLAUDE.md"),
+            (".claude-plugin", "plugin.json"),
+            (".claude/skills", "*/SKILL.md"),
+        ] {
+            assert_eq!(locus_pattern(root, glob), *locus_path(root, glob));
+        }
+    }
 
     #[test]
     fn the_workspace_locus_fence_matches_whole_components_and_spares_a_local_class() {
