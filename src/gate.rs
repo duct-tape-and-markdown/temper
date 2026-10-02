@@ -342,16 +342,7 @@ pub fn gate(
         &declared_kinds,
     ));
     for row in custom_rows {
-        // The row's own lift, taken off the run's one effective kind set rather than lifted
-        // a fourth time over the same row: `declared_kinds` keys every custom row by the
-        // bare name the row and its kind share, from the identical `partition_kind_rows`
-        // split this loop ranges over, so the lookup is total.
-        let custom_kind = declared_kinds.get(&row.name).ok_or_else(|| {
-            miette::miette!(
-                "kind `{}` is declared by the lock but absent from the run's effective kind set",
-                row.name
-            )
-        })?;
+        let custom_kind = compose::published_kind_lift(&declared_kinds, &row.name)?;
         let contract = compose::with_joined_clauses(
             compose::default_contract_from_rows(
                 &declarations.clauses,

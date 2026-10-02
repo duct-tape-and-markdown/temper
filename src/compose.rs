@@ -809,6 +809,30 @@ fn declared_kinds_with_overlaid(
     Ok(kinds)
 }
 
+/// A custom kind row's own lift, taken off the run's published effective kind set rather
+/// than lifted again over the same row — the one home for that lookup, which both `gate`'s
+/// and `explain`'s custom-row loops reach through.
+///
+/// The lookup is **total** by construction: `declared_kinds` keys every custom kind by the
+/// bare name the row and its kind share, derived from the same `partition_kind_rows` split
+/// every caller ranges over. The refusal below therefore names an impossible state — a
+/// published set that lost a row its own split carries — and is loud rather than silent so
+/// the impossibility cannot pass as an empty kind.
+///
+/// # Errors
+///
+/// Returns an error if the name is absent from the published set.
+pub fn published_kind_lift<'a>(
+    declared_kinds: &'a BTreeMap<String, CustomKind>,
+    name: &str,
+) -> miette::Result<&'a CustomKind> {
+    declared_kinds.get(name).ok_or_else(|| {
+        miette::miette!(
+            "kind `{name}` is declared by the lock but absent from the run's effective kind set"
+        )
+    })
+}
+
 /// A manifest `kind`'s registration members as raw [`Unit`]s — every `hooks.<Event>` (or
 /// `mcpServers.*`) entry the host manifest carries at the kind's declared collection
 /// `address`, read from the pre-populated [`ManifestCache`] built once per manifest path.
@@ -1868,6 +1892,26 @@ mod tests {
     use crate::contract::{Clause, Predicate, Severity};
     use crate::test_support;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn published_kind_lift_takes_a_present_row_and_refuses_an_absent_one() {
+        // Both verbs' custom-row loops reach their lift through this one lookup, and both
+        // are total by construction — no synthetic reaches the refusal arm through a verb,
+        // so this is the only place either arm can be pinned.
+        let kind = test_support::skill_kind();
+        let mut declared_kinds = BTreeMap::new();
+        declared_kinds.insert(kind.name.clone(), kind.clone());
+
+        let lifted = published_kind_lift(&declared_kinds, &kind.name).unwrap();
+        assert_eq!(lifted.name, kind.name);
+        assert_eq!(lifted.governs, kind.governs);
+
+        let refusal = published_kind_lift(&declared_kinds, "absentee").unwrap_err();
+        assert_eq!(
+            refusal.to_string(),
+            "kind `absentee` is declared by the lock but absent from the run's effective kind set"
+        );
+    }
 
     #[test]
     fn default_contract_from_rows_builds_a_custom_kinds_whole_default_contract() {
