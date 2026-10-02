@@ -426,6 +426,64 @@ fn a_declared_and_emitted_member_reports_neither_the_finding_nor_an_undeclared_c
     );
 }
 
+/// A provenance row carrying the pre-0024 `./` spelling declares the document discovered
+/// bare at its governed locus. The two sides of the join reach it by different roads — a
+/// row is read off the lock, a site is derived from disk — and each arrives through
+/// [`temper::path::HarnessRelativePath`]'s own door, so an older engine's `./x` row meets
+/// the bare `x` site as one key. Left to a call-site re-spell, the tolerance lived beside
+/// the join instead of in the column's type, and the row read as naming nothing: the
+/// declared, emitted member would be flagged a stranger at its own locus and counted
+/// undeclared.
+#[test]
+fn a_dot_slash_spelled_provenance_row_declares_the_member_discovered_bare() {
+    let harness = common::tmpdir("dot-slash-row-locus-member");
+    lock_rules(&harness, &["declared"]);
+
+    // Respell the emitted row the way an engine before decision 0024 wrote it. The
+    // document on disk is untouched, so discovery still names it bare — the spelling fork
+    // the join has to absorb.
+    let lock_path = harness
+        .join(temper::WORKSPACE_DIR)
+        .join(temper::LOCK_FILENAME);
+    let lock = fs::read_to_string(&lock_path).expect("the emitted lock must be readable");
+    let respelled = lock.replace(
+        r#"source_path = ".claude/rules/"#,
+        r#"source_path = "./.claude/rules/"#,
+    );
+    // Non-vacuity: the case is only about the older spelling if the row really carries it.
+    assert_ne!(
+        respelled, lock,
+        "the fixture must find a bare-spelled row to respell: {lock}"
+    );
+    fs::write(&lock_path, &respelled).expect("the respelled lock must be writable");
+
+    let (findings, _success) = check_harness(&harness);
+
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    // Asserted FIRST: without a non-zero `rule` read the silence below could be an empty
+    // walk reading as clean.
+    assert!(
+        checked[0].contains("rule (1)"),
+        "the member is discovered and reads as declared, got: {}",
+        checked[0]
+    );
+    assert!(
+        !checked[0].contains("undeclared"),
+        "and nothing is counted undeclared, got: {}",
+        checked[0]
+    );
+    assert!(
+        common::findings_for(&findings, "root.locus-declared").is_empty(),
+        "a `./`-spelled row names its document, so no stranger is reported, got: \
+         {findings:#?}"
+    );
+}
+
 #[test]
 fn an_unrepresented_harness_reports_no_undeclared_member_however_many_it_finds() {
     // No lock at all: every discovered member is undeclared, and naming them all would

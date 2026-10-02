@@ -1313,7 +1313,7 @@ fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::
             }
             sites.push(drift::LocusMemberSite {
                 kind: locus.kind.clone(),
-                source_path,
+                source_path: crate::path::HarnessRelativePath::new(source_path),
                 custom: locus.custom,
             });
         }

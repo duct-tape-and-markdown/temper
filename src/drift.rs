@@ -36,7 +36,7 @@ use crate::layout::{Layout, LayoutReading, LayoutRegion};
 use crate::member_address::{
     host_address, is_one_segment, nested_address, parse_host_address, parse_nested_address,
 };
-use crate::path::{HarnessRelativePath, canonical_spelling, to_canonical_spelling};
+use crate::path::{HarnessRelativePath, to_canonical_spelling};
 use std::cell::Cell;
 
 thread_local! {
@@ -3475,8 +3475,12 @@ pub struct LayoutMemberSite {
     /// The member's own address — `<kind>:<name>` for a top-level member, the whole
     /// `<host-address>/<kind>/<key>` for a nested **file** child.
     pub member: String,
-    /// The document's path, harness-relative, as the finding reports it.
-    pub source_path: String,
+    /// The document's path, harness-relative, as the finding reports it. The type
+    /// carries the form, so no reader re-spells it. This path joins nothing — the
+    /// layout oracle keys [`member`](Self::member) addresses, not paths — so the type
+    /// buys form at the field alone, where the file-locus twin's buys the join too
+    /// ([`LocusMemberSite::source_path`]).
+    pub source_path: HarnessRelativePath,
 }
 
 /// Every layout host address the lock records `emit` as having read — the
@@ -3532,7 +3536,7 @@ pub fn undeclared_layout_members_from_doc(
         .map(|site| {
             crate::check::Diagnostic::from_clause(
                 clause,
-                site.source_path.as_str(),
+                &*site.source_path,
                 format!(
                     "layout document `{}` (member `{}`) is discovered but the lock declares no member for it — its body's members, prose, and leaf addresses are absent from every read, so its collections count zero and `explain` reports none; declare the member in the program and re-emit, or declare its kind `local` so `check` derives the rows at read time",
                     site.source_path, site.member
@@ -3552,10 +3556,10 @@ pub fn undeclared_layout_members_from_doc(
 pub struct LocusMemberSite {
     /// The governing kind's bare name, as the finding reports it.
     pub kind: String,
-    /// The document's path, harness-relative, as the finding reports it. A `String`,
-    /// not a [`HarnessRelativePath`], so it spells through [`canonical_spelling`] to meet
-    /// the row side's type-guaranteed form.
-    pub source_path: String,
+    /// The document's path, harness-relative, as the finding reports it — the key
+    /// [`undeclared_locus_members_from_doc`] joins against the lock's provenance
+    /// column, in the one form that column is spelled.
+    pub source_path: HarnessRelativePath,
     /// Whether the governing kind is a lock-declared *custom* kind. A built-in's
     /// commitment cannot be respelled — no lock row relocates it off its embedded
     /// committed class, and `relocate`'s delta is edge-fields-only — so the `local`
@@ -3586,11 +3590,9 @@ pub struct UndeclaredLocusMembers {
 /// A file-content member's whole trace on the lock is its **projection provenance row**,
 /// not the [`layout_source`](LayoutSourceRow) record a layout host reaches the lock
 /// through — so this joins each site's path against the same rows [`emit_owned_targets`] and
-/// [`config_stale`] walk. Both sides carry the canonical spelling, exactly as the emit
-/// reap-diff does: a row's path is a [`HarnessRelativePath`], canonical at its own door,
-/// while the site's arrives as a `String` from
-/// [`crate::path::relativize_against_root`] and is spelled here — left raw, an older
-/// lock's `./x` spelling would forge a finding.
+/// [`config_stale`] walk. Both sides of the join carry the canonical spelling, each at its
+/// own type's door: row and site are alike [`HarnessRelativePath`], so the compare is a
+/// set lookup with nothing left to re-spell.
 ///
 /// A document at a represented kind's locus that no row names is the file-locus twin of
 /// the layout stranger: `emit` will never maintain it — orphan classification iterates
@@ -3616,16 +3618,16 @@ pub fn undeclared_locus_members_from_doc(
     sites: &[LocusMemberSite],
     clause: &contract::Clause,
 ) -> UndeclaredLocusMembers {
-    let declared: BTreeSet<String> = read_prior_provenance_from_doc(doc)
+    let declared: BTreeSet<HarnessRelativePath> = read_prior_provenance_from_doc(doc)
         .into_iter()
-        .map(|row| row.source_path.into())
+        .map(|row| row.source_path)
         .collect();
     let mut verdict = UndeclaredLocusMembers {
         findings: Vec::new(),
         counts: BTreeMap::new(),
     };
     for site in sites {
-        if declared.contains(&canonical_spelling(&site.source_path)) {
+        if declared.contains(&site.source_path) {
             continue;
         }
         *verdict.counts.entry(site.kind.clone()).or_default() += 1;
@@ -3644,7 +3646,7 @@ pub fn undeclared_locus_members_from_doc(
         };
         verdict.findings.push(crate::check::Diagnostic::from_clause(
             clause,
-            site.source_path.as_str(),
+            &*site.source_path,
             format!(
                 "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it{loader_claim}; declare the member in the program and re-emit{local_remedy}",
                 site.source_path, site.kind

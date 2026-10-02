@@ -94,7 +94,7 @@ pub fn to_canonical_spelling(path: &Path) -> String {
 /// time (decision 0024) or an older lock's every live projection reads ownerless —
 /// mass-reaped by the reap sweep, and bound by no guard.
 #[must_use]
-pub fn canonical_spelling(path: &str) -> String {
+fn canonical_spelling(path: &str) -> String {
     path.replace('\\', "/").trim_start_matches("./").to_string()
 }
 
