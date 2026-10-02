@@ -1,10 +1,12 @@
 {
   "tag": "NORMALIZE-PATH-UNIT-PIN-LIVES-AT-ITS-SUBJECT",
   "gate": {
-    "kind": "blockedBy",
-    "tags": ["GOVERNS-SCAN-ROOT-HAS-ONE-HOME"]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/path.rs",
@@ -14,7 +16,8 @@
         "path": "src/import.rs",
         "description": "`normalize_path_strips_leading_dot_component` (line 1135) tests another module's function from here, and closes by re-asserting `unit_dir_resolves_a_host_unit_with_normalized_paths`'s exact claim (same root, same entry, same expectation) — it retires, its `normalize_path` half moving to `src/path.rs`. The surviving `unit_dir` test and its neighbour speak in incident voice (\"the fix normalizes the root before calling `unit_dir`\", \"This test verifies...\") — re-voiced to the rule they hold, per the narration rung."
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "`crate::path::normalize_path`'s only unit pin lives in `src/import.rs`'s test module, where it also re-asserts the preceding test's `unit_dir` claim verbatim.",
   "per": {
