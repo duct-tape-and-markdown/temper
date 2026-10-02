@@ -1,9 +1,12 @@
 {
   "tag": "STRAY-SCAN-AND-EXPLAIN-READ-THE-ONE-KIND-SET",
-  "gate": { "kind": "blockedBy", "tags": ["AT-LOCUS-WORKSPACE-FENCE-HAS-ONE-HOME"] },
-  "summary": "The stray scan re-derives the kind set off raw built-ins, so a relocated built-in's new locus is invisible to it, and `explain` re-lifts a custom row the published set already holds.",
-  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/coverage_note.rs",
@@ -25,7 +28,13 @@
         "path": "tests/it/check_cost.rs",
         "description": "`coverage_note_accepts_pre_parsed_locked_kinds` (571) is the surviving pin on the two-argument API, both arms spelled over it (`check(&[])` vacuity arm, then `check(&committed.kinds)`): it re-cuts onto the one set — the built-ins-only map still names `.claude/widgets` a stray, the effective set does not — keeping the non-vacuity arm and COVERAGE-NOTE-LOCK-PARSE-HOIST's intent. Its name moves with the API."
       }
-    ]
+    ],
+    "retire": []
+  },
+  "summary": "The stray scan re-derives the kind set off raw built-ins, so a relocated built-in's new locus is invisible to it, and `explain` re-lifts a custom row the published set already holds.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
   },
   "tests": [
     {
