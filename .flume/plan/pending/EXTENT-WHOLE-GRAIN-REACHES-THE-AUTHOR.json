@@ -52,5 +52,5 @@
     }
   ],
   "acceptance": "`cargo test` and `pnpm --dir sdk test` green, with a whole-grain `extent` clause authorable in the SDK and lifted back out of the lock as `whole: true`.",
-  "notes": "Engine half shipped: `contract::ExtentGrain::Whole` is judged and `tests/it/extent.rs` covers it; the authoring half is unspelled — no `whole` lock column and no SDK clause spelling, so every decoded extent clause is each-grain. Deferred on no consumer: no harness has asked for a summed-extent budget. Gate re-tested this audit — still no `whole` column anywhere in `src/` or `sdk/src/`. Line cites retired for symbols. scoped at 3444b912"
+  "notes": "Engine half shipped: `Predicate::Extent { whole: true }` is judged and `tests/it/extent.rs` covers both grains. The authoring half is unspelled — `contract.rs`'s `extent` arm hard-codes `whole: false`, no `ClauseRow` column carries the grain, and `extent(unit, bound)` offers no argument for it. Deferred on no consumer. Gate re-tested this audit; the prior notes named `contract::ExtentGrain::Whole`, a symbol that has never existed — the grain is a bool field on the variant. scoped at 82108807"
 }

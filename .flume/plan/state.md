@@ -1,9 +1,9 @@
 # Plan state
 
 - Spec derived through: 9626a1a6 — copied forward; the delta past it is empty.
-- Audited through: a8c9784c — both stray-scan entries verified on disk.
-- Residue swept through: a8c9784c — same window; the locus path face's three
-  hand-joins filed.
+- Audited through: 82108807 — `kind::locus_path` and its three consumers verified
+  on disk.
+- Residue swept through: 82108807 — same window; clean, nothing filed.
 - Posture swept through: mid-rotation — frontier armed at ee7de9f9 (the
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
@@ -17,11 +17,11 @@
   `sdk/src/emit.ts`, `sdk/src/declarations.ts`, `sdk/src/prose.ts`,
   `sdk/src/needs.ts`, `sdk/src/assembly.ts`, `sdk/src/builtins.ts`,
   `sdk/src/claude-code.ts`.
-- This tick: reconciled 3444b912..a8c9784c — both entries verified, the
-  locus path face filed as one entry over its three homes, all eight
-  carried gates re-tested and still true.
-- Queue: 9 pending — 1 open, 0 blocked, 4 parked, 4 deferred. Pickable: 1.
+- This tick: reconciled a8c9784c..82108807 — the fold verified on disk, the
+  sweep found no residue class, and the extent entry's invented symbol cite
+  corrected.
+- Queue: 8 pending — 0 open, 0 blocked, 4 parked, 4 deferred. Pickable: 0.
   Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture rotation is the only live job left
-and a pickable entry ships first; the sweep resumes when the wave hands back.
+Plan continues: yes — posture sweep; the rotation is open with no pickable
+entry, so plan drives the next neighborhood itself.
