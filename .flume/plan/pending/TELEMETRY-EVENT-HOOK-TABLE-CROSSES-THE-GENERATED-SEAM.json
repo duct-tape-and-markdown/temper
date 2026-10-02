@@ -1,6 +1,10 @@
 {
   "tag": "TELEMETRY-EVENT-HOOK-TABLE-CROSSES-THE-GENERATED-SEAM",
-  "gate": { "kind": "blockedBy", "tags": ["HOOK-MEMBER-NAME-LOSES-ITS-UNEARNED-EXPORT"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [
       {
@@ -41,7 +45,10 @@
     "retire": []
   },
   "summary": "The tap's event-to-(hook event, matcher) table is stated twice across the TS/Rust seam — the engine owns it, the SDK's copy becomes machine-written.",
-  "per": { "path": "specs/process/engineering.md", "section": "A shared concept is one type" },
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "A shared concept is one type"
+  },
   "tests": [
     {
       "path": "tests/it/seam_bindings_current.rs",
