@@ -1,0 +1,49 @@
+{
+  "tag": "HARNESS-RELATIVE-PRODUCER-RETURNS-THE-FORM-IT-MAKES",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "SOURCE-DEP-ROW-PATHS-CARRY-THE-HARNESS-RELATIVE-TYPE"
+    ]
+  },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/path.rs",
+        "description": "`relativize_against_root` (107) returns `Option<HarnessRelativePath>` — it already produces the form (its own doc says so at 103) and its three callers re-wrap or re-spell what it hands back. Its body reaches the type through its door rather than `to_canonical_spelling` (121). Two prose repairs ride the same open: the type's doc (134-137) cites the producer that guarantees \"normalized\" — `relative_from_root` (41) normalizes both sides before it subtracts them, so every committed row is normalized by construction, and the word stops reading as an unenforced door claim; and `to_canonical_spelling`'s producer list (78-82) drops \"the repo file set\", which `compose::repo_file_set` (1706) yields absolute for an absolute root and is therefore a path-domain set, not this form."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "`committed_member_sites`' re-wrap goes: `HarnessRelativePath::new(source_path)` (122) and the four comment lines above it (118-121) that exist only to explain why the wrap re-canonicalizes a value to itself — narration standing in for a type (`engineering.md`, \"Narration is the ladder's bottom rung\"). The `let Some(source_path) = ... else { continue }` (112-117) binds the typed value directly, and both `SiteClass` arms (124-133) move it into their site unchanged."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "`harness_relative` (1547) returns `Option<HarnessRelativePath>`, taking `relativize_against_root`'s typed result and keeping its `normalize_path` step — the guard's `file_path` is the one spelling that arrives from outside temper, so the lexical normalize is declared here as the untrusted-payload step it is rather than moved to a door every lock row read would pay for (`engineering.md`, \"The fix lands at the mechanism\": a divergence at the right depth is cited at its site). Its doc (1541-1546) says that, dropping the hand restatement of the canonical spelling. Its four callers then hold one type: `locus_member_sites` (1308) drops the `HarnessRelativePath::new` re-wrap at 1319 and matches the typed value through `globset`'s `AsRef<Path>` (1314); `path_matches`' compare (1538) is typed on both sides; `matches_governed_locus` (1598) matches the typed value the same way (1601); `reconstructed_text`'s `root.join(relative)` (1714) reads `relativize_against_root`'s own typed result."
+      },
+      {
+        "path": "src/main.rs",
+        "description": "`manifest_path` (889-893) takes `HarnessRelativePath::from_path(&drift::join_locus(..))` — the tree's last `new(to_canonical_spelling(..))` pair, which 34d3e97a added `from_path` to retire and left outside its own fence. `guarded_loci`'s `pattern` (864) keeps its bare `to_canonical_spelling`: a locus glob is not a source path, ruled at bbdf5147 and unchanged here."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The harness-relative form's producer hands back a raw `String`, so its consumers re-wrap it — one with four lines of comment explaining why the wrap is a no-op.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "A shared concept is one type"
+  },
+  "tests": [
+    {
+      "path": "tests/it/install.rs",
+      "asserts": "the existing `./`-spelled-row binding (2489) and the dot-root-versus-absolute-root verdict equality (2638) stay green — both run the guard's compare end to end through `harness_relative`, so they are the fold's non-vacuity proof: a producer that stopped canonicalizing drops the first, one that stopped normalizing drops the second"
+    },
+    {
+      "path": "src/path.rs",
+      "asserts": "the door's own case (240) and the canonical-spelling case (222) stay green. No runtime behavior is claimed: the producer's return type is the pin, and it holds at compile time"
+    }
+  ],
+  "acceptance": "`cargo test` green and `cargo clippy --all-targets -- -D warnings` clean, with no snapshot moves — the fold is behavior-neutral. The decidable close: `rg 'HarnessRelativePath::new\\(' src/` names only `path.rs`'s own door and its tests plus the lock-codec row lifts in `drift.rs`, and `rg 'new\\(.*to_canonical_spelling' src/` is empty.",
+  "notes": "Serialized behind the row entry: both rewrite `src/path.rs`'s doc. Rejected alternative — the type's door normalizes lexically, so `install`'s step deletes: it buys a component walk per lock row at tree scale for a property every writer already guarantees (`relative_from_root` normalizes both sides), and the one un-normalized spelling is the guard payload, which is not a lock row. No live misread was found at any carrier. scoped at b71e586f"
+}

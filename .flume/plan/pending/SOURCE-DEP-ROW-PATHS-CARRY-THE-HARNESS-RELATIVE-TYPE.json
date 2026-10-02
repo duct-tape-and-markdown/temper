@@ -1,0 +1,49 @@
+{
+  "tag": "SOURCE-DEP-ROW-PATHS-CARRY-THE-HARNESS-RELATIVE-TYPE",
+  "gate": { "kind": "open" },
+  "dependsOnForks": [],
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "The two lock row families whose `source_path` column holds the harness-relative form take `HarnessRelativePath`: `LayoutImportRow` (3674, the one shape the `layout_import`/`include`/`input` families all ride) and `LayoutSourceRow` (3975). Producers: `derive_layout_import_row`'s row build (2757-2761) takes `HarnessRelativePath::from_path(&resolved)` over its hand `to_canonical_spelling`; `harness_relative` (2817) returns `Result<HarnessRelativePath, DriftError>`, retiring the respell at 2829, and its two callers (1765 the include fold, 2785 the declared-input fold) take the type; the emit loop's `LayoutSourceRow` push (1716-1719) clones the already-typed `source_path` instead of downgrading it with `.to_string()`, the insert at 1720 keeping the value. Codec: `write_source_deps` (3769) and `write_layout_sources` (4000) write through `String::from` as `write_rollup` (704) already does; `source_dep_row` (3782) and `layout_source_row` (4010) hand `req_str`'s bytes to the type's door, which is the behavior fix — a `./`- or backslash-spelled committed row stops reaching the reader raw. Readers: `source_dep_stale_from_doc` (4067 join, 4071/4075 message, 4080 address) reads the field through `AsRef<Path>`/`Deref<str>`. The module's `to_canonical_spelling` import (39) narrows to `HarnessRelativePath` alone — no site in drift.rs respells the form. The unit-test rows at 6702-6727 construct through the door. Prose that asserted the form by hand — `LayoutImportRow::source_path`'s \"lock-normalized\" (3681-3682) and `LayoutSourceRow::source_path`'s \"harness-relative, in the lock's spelling\" (3979) — points at the type instead (`engineering.md`, \"Narration is the ladder's bottom rung\")."
+      },
+      {
+        "path": "src/path.rs",
+        "description": "`HarnessRelativePath`'s carrier list (134-137) gains `LayoutImportRow` and `LayoutSourceRow` — the list is a claim about the whole population, and 34d3e97a's own close left these two off it. No signature or door change here: that is the serialized follow-on's job."
+      },
+      {
+        "path": "tests/it/declared_input.rs",
+        "description": "The three `input` row assertions read the typed field: `assert_eq!(inputs[0].source_path, \"snapshot/handler.py\")` (73), `\"snapshot/model.bin\"` (175) and the out-of-tree `\"../../src/x.txt\"` (208) compare `&*...` against the literal. The 208 case is the fold's guard against over-reach: the door's canonical spelling must keep a leading `..` it has nothing to pop."
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "The two `include` row assertions read the typed field: the harness-relative spelling at 2063 (`\"included.md\"`) and the out-of-tree one at 2109 (`\"../../docs/included.md\"`) compare `&*...` against the literal. The payload-side `declarations.includes[0].source_path` writes (2014, 2026, 2104) are untouched — `IncludeRow` stays a `String`."
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "The layout-source round-trip assertion (2202) reads `&*rows[0].source_path`; the malformed-row refusal above it (2176-2195) is untouched — `req_str`'s type error is unchanged by what the column lifts into."
+      },
+      {
+        "path": "tests/it/layout_prose_import.rs",
+        "description": "Home of the new `./`-spelled-row case (below). The existing `imports[0].source_path.ends_with(...)` (65) and the two `source_dep_stale_from_doc` CRLF cases (297, 321) resolve through `Deref<str>` and need no change — declared so a compile fix lands inside the fence."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The source-dep row families carry the harness-relative path as a raw `String`, so a `./`-spelled or host-separated lock row drifts its finding off every other judge's spelling.",
+  "per": { "path": "specs/process/engineering.md", "section": "A shared concept is one type" },
+  "tests": [
+    {
+      "path": "tests/it/layout_prose_import.rs",
+      "asserts": "a committed `layout_import` row spelled `./specs/included.md` reads stale-clean against the live target, and once the target's bytes move its finding is addressed `specs/included.md` — the bare spelling every other judge over the same lock names. Red on the pre-fix tree: `source_dep_row` hands `req_str`'s bytes through untouched, so the finding carries the `./` and a backslash-spelled row's `join` misses the file entirely and reports false drift"
+    },
+    {
+      "path": "tests/it/declared_input.rs",
+      "asserts": "the out-of-tree input row still reads `../../src/x.txt` (208) — the typed door keeps a leading `..` it has nothing to pop, which is the proof the fold canonicalized the spelling without normalizing the path out from under an out-of-tree dependency"
+    }
+  ],
+  "acceptance": "`cargo test` green and `cargo clippy --all-targets -- -D warnings` clean, with the new `./`-spelled source-dep row case red on the pre-fix tree. The decidable close: `rg 'to_canonical_spelling' src/drift.rs` is empty — the module reaches the form only through its type.",
+  "notes": "Fourth and last population of the carrier census the window's three entries closed (9739284c member sites, bbdf5147 guard candidates, 34d3e97a emit side). `IncludeRow`/`InputRow` stay `String`: their column is an SDK-resolved absolute path, not this form. `compose::repo_file_set` (1706) stays too — an absolute root yields absolute entries, a path-domain set rather than the harness-relative one. scoped at b71e586f"
+}
