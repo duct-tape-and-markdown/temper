@@ -1,0 +1,42 @@
+{
+  "tag": "HARNESS-RELATIVE-PATH-ENFORCES-ITS-FORM-AT-ITS-DOOR",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "LOCK-PATH-ALIAS-RETIRES-AT-ITS-ONE-CONSUMER"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/path.rs",
+        "description": "`HarnessRelativePath::new` (149) canonicalizes what it is handed, through `canonical_spelling` (97) in this same module. The type's doc (138-142) already claims the form outright — \"Always `/`-separated, no leading `./`, normalized\", \"a path fact's root is its type, not its doc comment\" — while the constructor only asks for it (\"The string should already be in canonical form\"); this makes the doc a guarantee and that sentence goes. The two unused doors go with it: `From<String>` (180) and `From<&str>` (192) have no caller anywhere in `src/`, `tests/`, or this module's own tests (`rg HarnessRelativePath` resolves to path.rs + drift.rs alone), so the type keeps one door rather than one enforcing door beside two that don't (`engineering.md`, \"An export earns its consumer\"). `From<HarnessRelativePath> for String` (186) stays — the lock writer at `drift.rs:707` is its consumer. If a caller of either deleted `From` does surface, delegate it to `new`; never keep a second behavior."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "Four by-hand re-normalizations of one row column collapse onto the door: the reap sweep's prior-emit-hash index key (1860) and its reap diff (1863), the `declared` set in `undeclared_locus_members_from_doc` (3623), and `emit_owned_targets_from_doc`'s `path` (4290 — f293cb27's own per-consumer fix). `walk_lock_rows_from_doc`'s `HarnessRelativePath::new` (2941) is the one raw-row door and changes not at all: it inherits. `config_stale_from_doc` (3431) is the reader that never normalized — it keys its diagnostic off `&source_path as &str` and prints `{source_path}`, so a pre-0024 `./CLAUDE.md` row named the finding `./CLAUDE.md` where every other judge over the same lock spells it bare; it too inherits, no site change. The three doc comments that explain the per-consumer normalization re-point at the door (2275, 3558, 3591). Two things deliberately stay: the `to_canonical_spelling` wraps at 1944/1973 (they convert `&Path` to `String`, which the door cannot do) and the *site* side of 3630 — `site.source_path` is no row, and whether `relativize_against_root`'s already-canonical output needs re-spelling is that function's question, not this entry's."
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "The pin joins the `./`-row family this file already owns: `a_lock_whose_rows_are_dot_slash_spelled_matches_its_live_projections_and_reaps_none` (1809) rewrites a fresh lock's every `source_path` with a `./` prefix and asserts nothing is reaped — so it is also the fold's non-vacuous proof, going red if the door fails to normalize once `drift.rs` 1860/1863 stop doing it by hand. What it does not reach is the judge that never normalized: add a case over the same fixture asserting `drift::config_stale_from_doc` names the stale projection `CLAUDE.md` and never `./CLAUDE.md` (a mismatching `emit_hash` against live bytes is all it takes to make the finding fire). `crlf_checkout_reads_clean_for_config_stale` (2808) holds the doc-level call shape (2831) if the new case reads the lock rather than re-emitting it."
+      }
+    ]
+  },
+  "summary": "`HarnessRelativePath` declares the canonical form in its doc but not at its door: four readers re-normalize a raw lock row by hand and a fifth forgets.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "src/path.rs",
+      "asserts": "the door's own pin: `HarnessRelativePath::new(\"./CLAUDE.md\".into())` derefs to `CLAUDE.md` and a host-separator spelling reads `/`-separated — beside `canonical_spelling`'s existing case (231)"
+    },
+    {
+      "path": "tests/it/emit.rs",
+      "asserts": "a lock row carrying the older `./CLAUDE.md` spelling reports its `config_stale` finding against `CLAUDE.md` — fails on the pre-fix tree, which spells the finding `./CLAUDE.md`; and the existing `a_lock_whose_rows_are_dot_slash_spelled...` reap test stays green, which is what proves the four removed re-normalizations really moved to the door"
+    }
+  ],
+  "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green, and `rg '\\bcanonical_spelling\\(&(row\\.)?source_path\\)' src/` finds nothing — today's four hits are the by-hand re-spellings, and a lock row's form is its type's guarantee rather than each reader's chore.",
+  "notes": "Audit of 4e3344e9..ee796964. f293cb27 gave the spelling one home on the producer side and fixed one of five raw-row readers, leaving the type's door a request — the fix sat a level too shallow (`engineering.md`, \"The fix lands at the mechanism\"). Behavior moves only for a pre-0024 `./x` or backslashed row; every writer already spells canonical. Serialized behind LOCK-PATH-ALIAS-RETIRES-AT-ITS-ONE-CONSUMER, which also edits `src/drift.rs`. scoped at 78767a4d"
+}

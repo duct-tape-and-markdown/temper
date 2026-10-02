@@ -1,8 +1,8 @@
 # Plan state
 
 - Spec derived through: 9626a1a6 — copied forward; the delta past it is empty.
-- Audited through: 4e3344e9 — the three-fold telemetry chain verified on disk.
-- Residue swept through: 4e3344e9 — same window, clean.
+- Audited through: ee796964 — both addressing folds verified on disk.
+- Residue swept through: ee796964 — same window; one reader-side gap filed.
 - Posture swept through: mid-rotation — frontier armed at ee7de9f9 (the
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
@@ -16,10 +16,10 @@
   `sdk/src/emit.ts`, `sdk/src/declarations.ts`, `sdk/src/prose.ts`,
   `sdk/src/needs.ts`, `sdk/src/assembly.ts`, `sdk/src/builtins.ts`,
   `sdk/src/claude-code.ts`.
-- This tick: drained the one refactor capture — the lock-named path alias
-  filed as LOCK-PATH-ALIAS-RETIRES-AT-ITS-ONE-CONSUMER, claim re-verified at HEAD.
-- Queue: 9 pending — 1 open, 4 parked, 4 deferred. Pickable: 1. Open
-  forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
+- This tick: reconciled 4e3344e9..ee796964 — two folds verified, the
+  path-spelling fold's un-enforcing type door filed, the codec park re-measured.
+- Queue: 10 pending — 1 open, 1 blocked, 4 parked, 4 deferred. Pickable: 1.
+  Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — post-ship reconciliation of 4e3344e9..ee796964 (the
-two addressing folds) is live, and it outranks the open posture rotation.
+Plan continues: after-build — the posture rotation is the only live job left
+and a pickable entry ships first; the sweep resumes when the wave hands back.
