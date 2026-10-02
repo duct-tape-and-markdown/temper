@@ -84,10 +84,15 @@ condition arrives, it is the next break. If work touches one, surface it.
   24b22045 added the flag and fixed the 8 sites it surfaced, draining
   `.flume/friction/plan-private-item-doc-link-gate.md`). The
   `rustdoc::private_intra_doc_links` lint (a public doc linking to a private
-  item) stays advisory, unchanged. **Its scale, measured 2026-09-28 (this
-  tick, both sides run on disk): 98 before `cc6eb974`, 103 after** — the
-  record has carried no number until now, and the choice reads differently at
-  103 than at the single digits a reader would assume. The growth is
+  item) stays advisory, unchanged. **Its scale, re-measured 2026-10-01 (this
+  tick, one clean `rm -rf target/doc` run): 124**, against 103 at the
+  2026-09-28 reading (98 before `cc6eb974`) — +21 in three days, and the
+  choice reads differently at 124 than at the single digits a reader would
+  assume. The same run leaves three warnings outside this class, all in
+  `src/graph.rs`: two redundant explicit link targets (676, 2293) and one
+  unclosed HTML tag (2059, a `<id>` in prose rustdoc reads as markup and
+  swallows). Advisory too, and riders on the next entry that opens the file —
+  never their own entry. The growth is
   *structural*, not drift: narrowing an unearned `pub` (`engineering.md`, "An
   export earns its consumer") mints one warning per public doc that linked the
   name, so the visibility campaign and this asymmetry are coupled — every
