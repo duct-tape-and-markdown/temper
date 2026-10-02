@@ -39,7 +39,7 @@ fn normalize_instructions_loaded_identity(
 /// Normalize a record's identity for member-index lookup: InstructionsLoaded records
 /// use path-to-id normalization, all others use the identity as-is.
 fn normalized_record_identity(record: &TapRecord, path_to_id: &BTreeMap<String, String>) -> String {
-    if record.event == crate::tap::TapEvent::InstructionsLoaded {
+    if record.event == TapEvent::InstructionsLoaded {
         normalize_instructions_loaded_identity(&record.identity, path_to_id)
     } else {
         record.identity.clone()
@@ -88,7 +88,7 @@ pub fn field(
     }
 
     // Per event: this member's count (numerator) against every lock-joined record's count
-    // (denominator). A `BTreeMap` keyed by the record's event label for stable output.
+    // (denominator). A `BTreeMap` keyed by the event's documented name for stable output.
     // A record enters a denominator only when its identity names a member the lock declares
     // (through the member_index), so an event naming a tool or path no kind declares never
     // counts against the members: the join is through the lock, never a raw string tally.
@@ -101,7 +101,9 @@ pub fn field(
         if !member_index.contains_key(normalized_identity.as_str()) {
             continue;
         }
-        let entry = tallies.entry(event_label(record.event)).or_default();
+        let entry = tallies
+            .entry(crate::tap::documented_name(record.event))
+            .or_default();
         entry.1 += 1;
         if normalized_identity == member {
             entry.0 += 1;
@@ -142,18 +144,6 @@ pub fn field(
     }
 
     out
-}
-
-/// The record vocabulary's label for a [`TapEvent`] — the snake_case name the tap log
-/// carries, so the field strand narrates each event under the same name the record was
-/// written with.
-fn event_label(event: TapEvent) -> &'static str {
-    match event {
-        TapEvent::InstructionsLoaded => "instructions_loaded",
-        TapEvent::SkillInvoked => "skill_invoked",
-        TapEvent::UserPromptExpansion => "user_prompt_expansion",
-        TapEvent::ToolUse => "tool_use",
-    }
 }
 
 /// `explain`'s **field** strand for a requirement — narrate the aggregated telemetry

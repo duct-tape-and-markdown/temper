@@ -567,7 +567,7 @@ fn tap_readout(records: &[TapRecord]) -> tap::LogReadout {
 
 #[test]
 fn a_member_target_narrates_its_tap_event_counts_and_denominators() {
-    // Two skill members share the `skill_invoked` denominator; a `tool_use` for a tool no
+    // Two skill members share the `SkillInvoked` denominator; a `ToolUse` for a tool no
     // kind declares (`Bash`) joins to no member, so it never enters a denominator — the
     // join is through the lock, never a raw string tally.
     let skills = [feature("deploy", &[]), feature("audit", &[])];
@@ -596,11 +596,11 @@ fn a_member_target_narrates_its_tap_event_counts_and_denominators() {
         "the member target carries a field strand: {out}"
     );
     assert!(
-        out.contains("`skill_invoked` — 3 of 5"),
+        out.contains("`SkillInvoked` — 3 of 5"),
         "the member's counts + denominators are joined through the lock: {out}"
     );
     assert!(
-        !out.contains("tool_use"),
+        !out.contains("ToolUse"),
         "an event naming no declared member is never counted against the members: {out}"
     );
     // The field strand is joined beside — never in place of — the other member strands.
@@ -644,7 +644,7 @@ fn an_older_version_record_surfaces_as_a_count_never_a_silent_skip() {
         "the older record is counted, never silently skipped: {out}"
     );
     assert!(
-        out.contains("`skill_invoked` — 2 of 2"),
+        out.contains("`SkillInvoked` — 2 of 2"),
         "the older record is counted in the totals, not dropped: {out}"
     );
 }
@@ -676,7 +676,7 @@ fn an_absent_log_with_declared_telemetry_narrates_the_absence_against_the_declar
         "tap-required".to_string(),
         Requirement {
             verifier: Some(temper::compose::Verifier::Telemetry {
-                events: vec!["skill_invoked".to_string()],
+                events: vec!["SkillInvoked".to_string()],
             }),
             ..req("tap-required", true)
         },
@@ -2195,7 +2195,7 @@ fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id()
         "the nested member's field strand narrates telemetry: {out}"
     );
     assert!(
-        out.contains("`instructions_loaded` — 1 of 1"),
+        out.contains("`InstructionsLoaded` — 1 of 1"),
         "the InstructionsLoaded record names the nested member's placement-folded id and joins: {out}"
     );
 }
