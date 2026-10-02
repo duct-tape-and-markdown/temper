@@ -1,0 +1,36 @@
+{
+  "tag": "NORMALIZE-PATH-UNIT-PIN-LIVES-AT-ITS-SUBJECT",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": ["GOVERNS-SCAN-ROOT-HAS-ONE-HOME"]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/path.rs",
+        "description": "`normalize_path` (line 11) is the crate's foundational lexical normalizer and this module's own `mod tests` pins none of it — the four tests there drive `relative_from_root`, `to_canonical_spelling` and `HarnessRelativePath`, each leaning on it indirectly. It gains its own unit test here: the `.`-component drop, and the declared leniency its doc carries with nothing mechanical behind it — a leading `..` with nothing to pop is kept, so an out-of-tree target stays distinct rather than silently rooting."
+      },
+      {
+        "path": "src/import.rs",
+        "description": "`normalize_path_strips_leading_dot_component` (line 1135) tests another module's function from here, and closes by re-asserting `unit_dir_resolves_a_host_unit_with_normalized_paths`'s exact claim (same root, same entry, same expectation) — it retires, its `normalize_path` half moving to `src/path.rs`. The surviving `unit_dir` test and its neighbour speak in incident voice (\"the fix normalizes the root before calling `unit_dir`\", \"This test verifies...\") — re-voiced to the rule they hold, per the narration rung."
+      }
+    ]
+  },
+  "summary": "`crate::path::normalize_path`'s only unit pin lives in `src/import.rs`'s test module, where it also re-asserts the preceding test's `unit_dir` claim verbatim.",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
+  },
+  "tests": [
+    {
+      "path": "src/path.rs",
+      "asserts": "`normalize_path` drops a `.` component (`./.claude/skills` reads `.claude/skills`) and keeps a leading `..` it has nothing to pop"
+    },
+    {
+      "path": "src/import.rs",
+      "asserts": "`unit_dir` resolves a host unit directory under a normalized root — one test, not two copies of the one assertion"
+    }
+  ],
+  "acceptance": "`cargo test` green, with `normalize_path` pinned in `src/path.rs`'s own `mod tests` and `src/import.rs` carrying a single `unit_dir` test.",
+  "notes": "Blocked on GOVERNS-SCAN-ROOT-HAS-ONE-HOME only for file disjointness — both edit src/import.rs, and that entry adds a test to the same `mod tests` this one prunes. No behavior change: both findings are test-home and narration shape. scoped at 72e833f2"
+}
