@@ -1,12 +1,10 @@
 {
   "tag": "ADMISSIBILITY-JUDGES-READ-THE-ONE-KIND-SET",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "EFFECTIVE-KIND-SET-IS-DERIVED-ONCE-PER-RUN"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
