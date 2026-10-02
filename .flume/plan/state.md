@@ -14,11 +14,11 @@
   `src/display.rs`, `src/admissibility.rs`, `sdk/src/emit.ts`,
   `sdk/src/declarations.ts`, `sdk/src/prose.ts`, `sdk/src/needs.ts`,
   `sdk/src/assembly.ts`, `sdk/src/builtins.ts`, `sdk/src/claude-code.ts`.
-- This tick: drained the refactor channel — re-scoped
-  EFFECTIVE-KIND-SET-IS-DERIVED-ONCE-PER-RUN over the fence gap that blocked it.
-- Queue: 10 pending — 4 parked, 4 deferred, 1 open, 1 blocked. Pickable: 1.
+- This tick: drained the refactor channel — the workspace-rooted `at`-locus
+  fence's two homes filed as AT-LOCUS-WORKSPACE-FENCE-HAS-ONE-HOME.
+- Queue: 9 pending — 4 parked, 4 deferred, 1 open. Pickable: 1.
   Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture rotation stays open (the whole
-`tests/` tree and ~19 src/sdk modules are still in the frontier) and
-resumes when the wave hands back; the one pickable entry ships first.
+Plan continues: yes — post-ship reconciliation of f20a9248..2dfc9cc5, the
+two-commit effective-kind-set window (`src/compose.rs`, `src/gate.rs`,
+`src/read.rs`, `src/admissibility.rs`), outranks the open posture rotation.
