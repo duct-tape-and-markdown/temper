@@ -1,0 +1,42 @@
+{
+  "tag": "STRAY-SCAN-AND-EXPLAIN-READ-THE-ONE-KIND-SET",
+  "gate": { "kind": "blockedBy", "tags": ["AT-LOCUS-WORKSPACE-FENCE-HAS-ONE-HOME"] },
+  "summary": "The stray scan re-derives the kind set off raw built-ins, so a relocated built-in's new locus is invisible to it, and `explain` re-lifts a custom row the published set already holds.",
+  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "files": {
+    "edit": [
+      {
+        "path": "src/coverage_note.rs",
+        "description": "`check` (54) takes the run's effective kind set in place of its `kinds` + `locked_kinds` pair, and `with_locked_kinds` (178-190) retires with the merge it hand-rolls — the second implementation of `compose::declared_kinds_with_overlaid`'s job. Its `?` at 125 is `check`'s only error path, so `check` loses its `miette::Result` and its `# Errors` section, exactly as 50626fba's six judges lost an `Err` that could no longer happen. The doc's `kinds` / `locked_kinds` sentences (40-41, with the `# Errors` block at 50-53) re-state to the one set."
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "The one call site (794) hands `&declared_kinds` — destructured off the family at 179 and already handed to seven judges below — in place of `&builtin_kind::definitions()` + `&committed.kinds`, and drops the `?`. The raw definitions are the defect: `overlay_builtin_kind` overlays `governs` *always* (compose.rs 600, 609), so today the scan reads a relocated built-in's pre-relocation locus — a stray advisory at the new root, and silence over a real stray at the old one."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "`explain`'s custom-kind loop (2383) reads its kind off `declared_kinds` (in scope at 2329, already passed to `kind_units_and_features` at 2397) instead of re-lifting the row through `CustomKind::from_kind_fact_row` — the lift 50626fba dropped from `gate`'s twin loop, mirroring its total lookup and loud fallback (gate.rs 349-355). The loop pushes owned kinds, so this is a clone of the lifted kind, never a second lift."
+      },
+      {
+        "path": "tests/it/coverage_note.rs",
+        "description": "`a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kinds` (115) calls `check` directly: its arity and `.expect` move with the signature, and its comment already records that a corrupt lock now fails at read time. New case for the behavior change: a lock relocating `rule` to `.claude/policies/*.md` (struct-update over `common::rule_kind_facts`) with a member there reports no `coverage.unclaimed-entry` over the relocated directory — today it does. The two existing stray arms (76, 489) stay green."
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "`coverage_note_accepts_pre_parsed_locked_kinds` (571) is the surviving pin on the two-argument API, both arms spelled over it (`check(&[])` vacuity arm, then `check(&committed.kinds)`): it re-cuts onto the one set — the built-ins-only map still names `.claude/widgets` a stray, the effective set does not — keeping the non-vacuity arm and COVERAGE-NOTE-LOCK-PARSE-HOIST's intent. Its name moves with the API."
+      }
+    ]
+  },
+  "tests": [
+    {
+      "path": "tests/it/coverage_note.rs",
+      "asserts": "a lock relocating a built-in's `governs` under `.claude/` excludes the relocated directory from the unclaimed-entry scan, where the pre-fix scan named it a stray"
+    },
+    {
+      "path": "tests/it/check_cost.rs",
+      "asserts": "the stray exclusion comes from the run's one effective kind set: handed the built-ins-only map the locked custom kind's locus is named a stray, handed the effective set it is not"
+    }
+  ],
+  "acceptance": "`cargo test` green with the relocation case, `cargo clippy --all-targets -- -D warnings` clean, and `rg 'from_kind_fact_row' src/` showing no lift left in a consumer that holds the family's `declared_kinds` — compose's one home, the row-layer pair (`row_relocates_builtin`, `kind_collision_diagnostic`), `builtin_lock`'s load check and `main.rs`'s four family-less verb sites are the remainder.",
+  "notes": "Swept from the f20a9248..2dfc9cc5 window: 50626fba folded gate's loop and seven judges onto `LockFamily::declared_kinds`; these two consumers hold that map and re-derive anyway. `main.rs`'s four copies are out of class: `schema`/`guard` assemble no family, and three need the split the merged map lacks. Serialized behind AT-LOCUS on `src/gate.rs`; the parked codec split claims all five files and rewrites whole if it unparks. scoped at b45c6d7b"
+}

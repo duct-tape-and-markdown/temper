@@ -1,8 +1,8 @@
 # Plan state
 
 - Spec derived through: 9626a1a6 — copied forward; the delta past it is empty.
-- Audited through: f20a9248 — the ignore-walk consolidation, one commit.
-- Residue swept through: f20a9248 — same window, nothing fileable.
+- Audited through: 2dfc9cc5 — the two-commit effective-kind-set window.
+- Residue swept through: 2dfc9cc5 — same window, one residue filed.
 - Posture swept through: mid-rotation — frontier armed at ee7de9f9 (the
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
@@ -14,11 +14,12 @@
   `src/display.rs`, `src/admissibility.rs`, `sdk/src/emit.ts`,
   `sdk/src/declarations.ts`, `sdk/src/prose.ts`, `sdk/src/needs.ts`,
   `sdk/src/assembly.ts`, `sdk/src/builtins.ts`, `sdk/src/claude-code.ts`.
-- This tick: drained the refactor channel — the workspace-rooted `at`-locus
-  fence's two homes filed as AT-LOCUS-WORKSPACE-FENCE-HAS-ONE-HOME.
-- Queue: 9 pending — 4 parked, 4 deferred, 1 open. Pickable: 1.
+- This tick: reconciled f20a9248..2dfc9cc5 — the hoist verified on disk; the
+  two consumers that hold the published set and re-derive anyway filed as
+  STRAY-SCAN-AND-EXPLAIN-READ-THE-ONE-KIND-SET.
+- Queue: 10 pending — 4 parked, 4 deferred, 1 open, 1 blocked. Pickable: 1.
   Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — post-ship reconciliation of f20a9248..2dfc9cc5, the
-two-commit effective-kind-set window (`src/compose.rs`, `src/gate.rs`,
-`src/read.rs`, `src/admissibility.rs`), outranks the open posture rotation.
+Plan continues: after-build — the open posture rotation is the only live job
+left, and AT-LOCUS-WORKSPACE-FENCE-HAS-ONE-HOME is pickable, so the wave
+ships first.
