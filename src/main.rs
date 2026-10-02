@@ -888,8 +888,9 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
 /// ([`guarded_loci`], `read`'s kind narration), which the type does not claim.
 fn manifest_path(kind: &CustomKind) -> Option<path::HarnessRelativePath> {
     let governs = kind.governs.as_ref()?;
-    Some(path::HarnessRelativePath::new(path::to_canonical_spelling(
-        &drift::join_locus(&governs.root, &governs.glob),
+    Some(path::HarnessRelativePath::from_path(&drift::join_locus(
+        &governs.root,
+        &governs.glob,
     )))
 }
 

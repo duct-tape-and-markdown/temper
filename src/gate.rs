@@ -19,7 +19,6 @@ use crate::import;
 use crate::install;
 use crate::kind::{self, CustomKind};
 use crate::member_address;
-use crate::path::HarnessRelativePath;
 use crate::roster;
 
 /// Dispatch a single kind through the shared "two-greens" contract validation:
@@ -115,11 +114,6 @@ fn committed_member_sites(
             ) else {
                 continue;
             };
-            // The relativized value already carries the canonical spelling, so the door
-            // re-canonicalizes it to itself: the wrap is the form's proof at the type,
-            // never a second normalize. Taken once, before the class picks which
-            // population the typed value moves into.
-            let source_path = HarnessRelativePath::new(source_path);
             match class {
                 SiteClass::Layout => sites.layout.push(drift::LayoutMemberSite {
                     member: member_address::address_of(&kind.name, &unit.id),

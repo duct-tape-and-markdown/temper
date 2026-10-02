@@ -76,7 +76,7 @@ pub fn relative_from_root(root: &Path, target: &Path) -> Option<PathBuf> {
 /// The canonical spelling of a path — `/`-separated, with no leading `./` — the one
 /// home for the form [`HarnessRelativePath`] declares. Every producer of that form
 /// spells through here: a committed `lock.toml` row, a guard diagnostic's path, a
-/// governed locus' pattern, the repo file set.
+/// governed locus' pattern.
 ///
 /// `Path::join` inserts the host separator at each join boundary (backslash on
 /// Windows) — left alone, that forks a byte-committed path by host.
@@ -98,19 +98,21 @@ fn canonical_spelling(path: &str) -> String {
     path.replace('\\', "/").trim_start_matches("./").to_string()
 }
 
-/// Relativize a file path against a harness root. If the path is absolute, strip the root
-/// prefix and return the relative path. If the path is already relative, return it as-is.
-/// Either way the result carries the canonical spelling ([`to_canonical_spelling`]).
+/// Relativize a file path against a harness root, as the [`HarnessRelativePath`] the
+/// operation makes. If the path is absolute, strip the root prefix; if it is already
+/// relative, it is the answer. Either way the result enters through the type's own door,
+/// so no caller re-spells what this hands back.
+///
 /// Returns `None` if an absolute path is not under the root, or if a relative root cannot
 /// be resolved against the working directory.
 #[must_use]
-pub fn relativize_against_root(file_path: &str, root: &Path) -> Option<String> {
-    let file_path_normalized = canonical_spelling(file_path);
-    let file_path_buf = PathBuf::from(&file_path_normalized);
+pub fn relativize_against_root(file_path: &str, root: &Path) -> Option<HarnessRelativePath> {
+    let file_path_relative = HarnessRelativePath::new(file_path.to_string());
+    let file_path_buf = PathBuf::from(&*file_path_relative);
 
     // If the path is not absolute, it's already relative — return as-is.
     if !file_path_buf.is_absolute() {
-        return Some(file_path_normalized);
+        return Some(file_path_relative);
     }
 
     let root_absolute = absolute_root(root)?;
@@ -118,7 +120,7 @@ pub fn relativize_against_root(file_path: &str, root: &Path) -> Option<String> {
     file_path_buf
         .strip_prefix(&root_absolute)
         .ok()
-        .map(to_canonical_spelling)
+        .map(HarnessRelativePath::from_path)
 }
 
 /// The harness root as an absolute, lexically normalized path. A relative root — `.`, the
@@ -136,7 +138,10 @@ fn absolute_root(root: &Path) -> Option<PathBuf> {
 }
 
 /// A harness-relative path: the lock's own vocabulary for source paths. Always
-/// `/`-separated, no leading `./`, normalized. This is the canonical form that's
+/// `/`-separated and free of a leading `./` — the door below enforces both — and
+/// lexically normalized by its producers: [`relative_from_root`] normalizes root and
+/// target alike before it subtracts them, so a committed row needs no second normalize
+/// at read time. This is the canonical form that's
 /// committed to lock.toml and carried by `RollupEntry`, `RawLockRow`, `ProvenanceRow`,
 /// `LayoutMemberSite`, `LocusMemberSite`, `LayoutImportRow`, `LayoutSourceRow`,
 /// `EmitOwnedEntry`, `drift::Projection`, and `install::GuardedManifest` — so a path

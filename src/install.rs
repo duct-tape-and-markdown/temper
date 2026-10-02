@@ -1314,7 +1314,7 @@ fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::
             }
             sites.push(drift::LocusMemberSite {
                 kind: locus.kind.clone(),
-                source_path: crate::path::HarnessRelativePath::new(source_path),
+                source_path,
                 custom: locus.custom,
             });
         }
@@ -1532,22 +1532,28 @@ fn path_matches<'a>(
     root: &Path,
     mut candidates: impl Iterator<Item = &'a HarnessRelativePath>,
 ) -> bool {
-    let Some(file_path_normalized) = harness_relative(file_path, root) else {
+    let Some(relative) = harness_relative(file_path, root) else {
         return false;
     };
-    candidates.any(|candidate| **candidate == *file_path_normalized)
+    candidates.any(|candidate| *candidate == relative)
 }
 
 /// `file_path` spelled the one way every path compare in this module spells both its
 /// sides: relativized against `root` (Claude Code names an absolute path; the lock and a
-/// locus pattern are harness-relative), then lexically normalized and spelled canonically
-/// — `/`-separated with a leading `./` erased ([`crate::path::to_canonical_spelling`]),
-/// since `./x` and `x` name one file and the lock only ever spells the latter. [`None`]
-/// for a path outside `root`, which no candidate and no locus can name.
-fn harness_relative(file_path: &str, root: &Path) -> Option<String> {
+/// locus pattern are harness-relative), as the [`HarnessRelativePath`] both sides already
+/// hold. [`None`] for a path outside `root`, which no candidate and no locus can name.
+///
+/// The extra [`crate::path::normalize_path`] is this call's own, and is declared here
+/// rather than pushed down to the type's door: the guard's `file_path` is the one
+/// spelling that reaches temper from outside it, so a payload naming `a/./b` or `a/b/../b`
+/// is normalized where the untrusted value arrives. Every other producer of the form
+/// normalizes by construction (`relative_from_root` normalizes both sides before it
+/// subtracts), so a door-level walk would buy nothing and cost a component pass per lock
+/// row at tree scale.
+fn harness_relative(file_path: &str, root: &Path) -> Option<HarnessRelativePath> {
     let relative = crate::path::relativize_against_root(file_path, root)?;
-    Some(crate::path::to_canonical_spelling(
-        &crate::path::normalize_path(Path::new(&relative)),
+    Some(HarnessRelativePath::from_path(
+        &crate::path::normalize_path(Path::new(&*relative)),
     ))
 }
 
