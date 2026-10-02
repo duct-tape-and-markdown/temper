@@ -521,7 +521,7 @@ export const HOOK_MATCHER_KEY = "matcher";
  * normalized — `Edit|Write` and `Edit, Write` are two groups on the wire and two members
  * here — which is also why an authored empty matcher joins as the empty bytes it is.
  */
-export function hookMemberName(event: string, matcher: string | undefined): string {
+function hookMemberName(event: string, matcher: string | undefined): string {
   return matcher === undefined ? event : `${event}:${matcher}`;
 }
 
