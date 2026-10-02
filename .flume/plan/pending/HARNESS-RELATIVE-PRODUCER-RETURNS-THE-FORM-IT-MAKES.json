@@ -1,12 +1,10 @@
 {
   "tag": "HARNESS-RELATIVE-PRODUCER-RETURNS-THE-FORM-IT-MAKES",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "SOURCE-DEP-ROW-PATHS-CARRY-THE-HARNESS-RELATIVE-TYPE"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
+  "priority": 0,
   "files": {
     "new": [],
     "edit": [
