@@ -757,7 +757,7 @@ fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
             "  • reaching the session on {} — the declared registration channel{} a member \
              of it is read through.",
             backticked(&row.registration),
-            if row.registration.len() == 1 { "" } else { "s" }
+            crate::display::plural(row.registration.len())
         );
     }
     match row.commitment.as_deref() {

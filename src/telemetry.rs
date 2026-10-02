@@ -260,14 +260,14 @@ pub fn requirement_field(
         );
         for (event_name, (count, members, sessions, _)) in &event_stats {
             if *count > 0 {
-                let member_plural = if members.len() == 1 { "" } else { "s" };
-                let session_plural = if sessions.len() == 1 { "" } else { "s" };
-                let record_plural = if *count == 1 { "" } else { "s" };
                 let _ = writeln!(
                     out,
                     "  • `{event_name}` — {count} record{record_plural}, {} distinct member{member_plural}, {} distinct session{session_plural}",
                     members.len(),
-                    sessions.len()
+                    sessions.len(),
+                    record_plural = crate::display::plural(*count),
+                    member_plural = crate::display::plural(members.len()),
+                    session_plural = crate::display::plural(sessions.len())
                 );
             }
         }
