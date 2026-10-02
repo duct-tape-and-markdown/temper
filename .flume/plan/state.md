@@ -1,8 +1,8 @@
 # Plan state
 
 - Spec derived through: 9626a1a6 — copied forward; the delta past it is empty.
-- Audited through: 3a99a087 — copied forward; no src/tests/sdk commit past it.
-- Residue swept through: 3a99a087 — copied forward, same window.
+- Audited through: 4e3344e9 — the three-fold telemetry chain verified on disk.
+- Residue swept through: 4e3344e9 — same window, clean.
 - Posture swept through: mid-rotation — frontier armed at ee7de9f9 (the
   221-commit window off 7d695577; 862f0b60's phrase delta arms the whole
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
@@ -15,11 +15,10 @@
   `sdk/src/emit.ts`, `sdk/src/declarations.ts`, `sdk/src/prose.ts`,
   `sdk/src/needs.ts`, `sdk/src/assembly.ts`, `sdk/src/builtins.ts`,
   `sdk/src/claude-code.ts`.
-- This tick: swept the telemetry/tap neighborhood — three one-home folds
-  filed as a serialized chain over `src/telemetry.rs`.
-- Queue: 11 pending — 1 open, 2 blockedBy, 4 parked, 4 deferred. Pickable: 1.
-  Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
+- This tick: reconciled 3a99a087..4e3344e9 — all three folds verified, no
+  residue filed, every parked/deferred gate re-tested and still true.
+- Queue: 8 pending — 4 parked, 4 deferred. Pickable: 0. Open forks: 1.
+  Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: after-build — the posture rotation is the only other live
-input and the chain's head is pickable, so the sweep resumes with the next
-frontier neighborhood when the wave hands back.
+Plan continues: yes — the posture rotation is open with no pickable entry, so
+plan takes the next frontier neighborhood itself next tick.
