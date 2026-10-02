@@ -92,9 +92,12 @@ fn a_marketplace_json_surfaces_one_member_whose_identity_is_its_name_field() {
     let harness = common::tmpdir("marketplace-read");
     write_marketplace_json(&harness, MARKETPLACE_JSON);
 
+    let kind = marketplace_kind();
+    let governs = kind.governs.clone().unwrap();
     let member = DocumentMember::read(
-        &marketplace_kind(),
+        &kind,
         &harness.join(".claude-plugin/marketplace.json"),
+        &temper::drift::fold_base(&harness.join(&governs.root), &governs.glob),
     )
     .unwrap();
 

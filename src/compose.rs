@@ -720,10 +720,14 @@ fn read_file_unit(
         return layout_unit(layout, &kind.name, file, base, edge_fields, host);
     }
     let mut unit = match &kind.format {
+        // Both document faces fold against the very base the frontmatter arm below receives
+        // — the `drift::fold_base`-descended locus this function already holds — so a
+        // file-shaped document's id is a fact about its placement, never about which grammar
+        // its author declared.
         Some(kind::Format::JsonDocument) => {
-            json_manifest::DocumentMember::read(kind, file)?.to_unit()
+            json_manifest::DocumentMember::read(kind, file, base)?.to_unit()
         }
-        Some(kind::Format::TomlDocument) => toml_document::read(kind, file)?.to_unit(),
+        Some(kind::Format::TomlDocument) => toml_document::read(kind, file, base)?.to_unit(),
         Some(kind::Format::YamlFrontmatter) | None => {
             let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
             Unit {

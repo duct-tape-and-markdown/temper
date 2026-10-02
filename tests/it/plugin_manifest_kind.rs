@@ -76,9 +76,12 @@ fn a_plugin_json_surfaces_one_member_whose_identity_is_its_name_field() {
     let harness = common::tmpdir("plugin-manifest-read");
     write_plugin_json(&harness, PLUGIN_JSON);
 
+    let kind = plugin_manifest_kind();
+    let governs = kind.governs.clone().unwrap();
     let member = DocumentMember::read(
-        &plugin_manifest_kind(),
+        &kind,
         &harness.join(".claude-plugin/plugin.json"),
+        &temper::drift::fold_base(&harness.join(&governs.root), &governs.glob),
     )
     .unwrap();
 

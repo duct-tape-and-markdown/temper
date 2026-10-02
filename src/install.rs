@@ -2229,9 +2229,14 @@ struct LiftedMember {
 /// Returns a [`miette::Report`] if the source cannot be read or does not parse under its
 /// declared format.
 fn read_lifted_member(kind: &CustomKind, file: &Path) -> miette::Result<LiftedMember> {
+    // The lift holds no `governs` root to fold against — it reads one discovered artifact in
+    // isolation — so all three arms stay base-less together: each passes the source's own
+    // parent, the base `frontmatter::Member::from_source` supplies for exactly this case, and
+    // a file-shaped member keeps its bare stem.
+    let base = file.parent().unwrap_or(file);
     match kind.format {
         Some(kind::Format::JsonDocument) => {
-            let document = json_manifest::DocumentMember::read(kind, file)?;
+            let document = json_manifest::DocumentMember::read(kind, file, base)?;
             Ok(LiftedMember {
                 id: document.id,
                 fields: document.fields.into_iter().collect(),
@@ -2239,7 +2244,7 @@ fn read_lifted_member(kind: &CustomKind, file: &Path) -> miette::Result<LiftedMe
             })
         }
         Some(kind::Format::TomlDocument) => {
-            let document = toml_document::read(kind, file)?;
+            let document = toml_document::read(kind, file, base)?;
             Ok(LiftedMember {
                 id: document.id,
                 fields: document.fields.into_iter().collect(),

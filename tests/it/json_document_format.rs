@@ -17,6 +17,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use crate::common;
 
@@ -70,6 +71,14 @@ fn plugin_kind() -> CustomKind {
     kind
 }
 
+/// The fold base a `governs` walk hands the read face: `drift::fold_base` over the kind's
+/// own locus under `root`, so the ids below are the ids discovery derives rather than ones a
+/// fixture chose.
+fn fold_base(root: &Path, kind: &CustomKind) -> PathBuf {
+    let governs = kind.governs.as_ref().unwrap();
+    temper::drift::fold_base(&root.join(&governs.root), &governs.glob)
+}
+
 /// The fixture kind's lock row — the same declaration the SDK emits, carrying the format
 /// and identity labels through their closed vocabularies.
 fn plugin_kind_row() -> KindFactRow {
@@ -85,8 +94,13 @@ fn a_json_document_reads_its_top_level_keys_as_the_members_fields() {
     let dir = common::tmpdir("json-document-fields");
     write_plugin_json(&dir, PLUGIN_JSON);
 
-    let member =
-        DocumentMember::read(&plugin_kind(), &dir.join(".claude-plugin/plugin.json")).unwrap();
+    let kind = plugin_kind();
+    let member = DocumentMember::read(
+        &kind,
+        &dir.join(".claude-plugin/plugin.json"),
+        &fold_base(&dir, &kind),
+    )
+    .unwrap();
 
     // Every top-level key is the member's own field — a document member claims the whole
     // document, so unlike a manifest read nothing is opaque residue.
@@ -110,8 +124,13 @@ fn identity_is_read_from_the_declared_field_never_the_filename_stem() {
     let dir = common::tmpdir("json-document-identity");
     write_plugin_json(&dir, PLUGIN_JSON);
 
-    let member =
-        DocumentMember::read(&plugin_kind(), &dir.join(".claude-plugin/plugin.json")).unwrap();
+    let kind = plugin_kind();
+    let member = DocumentMember::read(
+        &kind,
+        &dir.join(".claude-plugin/plugin.json"),
+        &fold_base(&dir, &kind),
+    )
+    .unwrap();
 
     // The stem is `plugin` for every plugin manifest ever written; the declared key is what
     // distinguishes one member from the next.
@@ -128,8 +147,13 @@ fn a_document_missing_its_declared_identity_key_refuses_loud() {
     let dir = common::tmpdir("json-document-no-identity");
     write_plugin_json(&dir, "{\n  \"description\": \"Nameless\"\n}\n");
 
-    let err =
-        DocumentMember::read(&plugin_kind(), &dir.join(".claude-plugin/plugin.json")).unwrap_err();
+    let kind = plugin_kind();
+    let err = DocumentMember::read(
+        &kind,
+        &dir.join(".claude-plugin/plugin.json"),
+        &fold_base(&dir, &kind),
+    )
+    .unwrap_err();
 
     // Loud or nothing: a nameless document is never degraded to a member named by its stem.
     assert!(
@@ -147,7 +171,12 @@ fn a_file_shaped_json_document_names_itself_by_its_stem() {
     // so its identity is the file stem — read straight off the path, never a declared key.
     let mut kind = plugin_kind();
     kind.unit_shape = Some(UnitShape::File);
-    let member = DocumentMember::read(&kind, &dir.join(".claude-plugin/plugin.json")).unwrap();
+    let member = DocumentMember::read(
+        &kind,
+        &dir.join(".claude-plugin/plugin.json"),
+        &fold_base(&dir, &kind),
+    )
+    .unwrap();
     assert_eq!(member.id, "plugin");
     // The document's top-level keys are still the member's fields, exactly as the named-field
     // read yields — only the identity source differs.
@@ -180,34 +209,41 @@ fn area_markdown_kind(shape: UnitShape) -> CustomKind {
 }
 
 #[test]
-fn a_path_shaped_json_document_reads_the_id_its_frontmatter_peer_reads() {
-    let dir = common::tmpdir("json-document-path-shaped-identity");
+fn a_json_document_reads_the_path_id_its_frontmatter_peer_reads() {
+    let dir = common::tmpdir("json-document-path-identity");
     common::write_sibling(&dir, "docs/handbook/area.json", PLUGIN_JSON);
     common::write_sibling(&dir, "docs/handbook/area.md", "---\ntitle: Handbook\n---\n");
 
-    // A path-shaped identity is a fact about where the artifact sits, so the document's own
-    // grammar has no say in it: both shapes key the member by the directory it sits in, and
-    // the `name` the document plainly carries is not consulted.
-    for shape in [UnitShape::Directory, UnitShape::StarredSegment] {
-        let member = DocumentMember::read(
-            &area_kind(shape.clone()),
-            &dir.join("docs/handbook/area.json"),
-        )
-        .unwrap();
-        assert_eq!(member.id, "handbook");
-        assert_eq!(member.to_unit().id, "handbook");
+    // An id taken off the path is a fact about where the artifact sits, so the document's own
+    // grammar has no say in it: the two path shapes key the member by the directory it sits
+    // in, and the `name` the document plainly carries is not consulted. The `file` row is the
+    // same agreement over a different id source — nested below the fold base, a file-shaped
+    // document folds that placement in (`docs-handbook-area`) rather than keeping the bare
+    // `area` stem every depth under the glob would collapse onto.
+    for (shape, expected) in [
+        (UnitShape::Directory, "handbook"),
+        (UnitShape::StarredSegment, "handbook"),
+        (UnitShape::File, "handbook-area"),
+    ] {
+        let kind = area_kind(shape.clone());
+        let base = fold_base(&dir, &kind);
+        let member =
+            DocumentMember::read(&kind, &dir.join("docs/handbook/area.json"), &base).unwrap();
+        assert_eq!(member.id, expected);
+        assert_eq!(member.to_unit().id, expected);
         assert_eq!(
             member.fields.get("name"),
             Some(&serde_json::Value::from("formatter")),
-            "the declared key stays an ordinary field when identity is path-shaped"
+            "the declared key stays an ordinary field when identity comes off the path"
         );
 
         // And the two faces agree: the frontmatter peer over the sibling document in the
         // same directory reads the very same id, so a corpus cannot get one answer by
         // declaring `json-document` and another by declaring `yaml-frontmatter`.
-        let peer = temper::frontmatter::Member::from_source(
+        let peer = temper::frontmatter::Member::from_source_rooted(
             &area_markdown_kind(shape),
             &dir.join("docs/handbook/area.md"),
+            &base,
         )
         .unwrap();
         assert_eq!(peer.id, member.id);
@@ -219,8 +255,13 @@ fn a_member_re_emits_byte_identically_and_a_double_emit_is_stable() {
     let dir = common::tmpdir("json-document-round-trip");
     write_plugin_json(&dir, PLUGIN_JSON);
 
-    let member =
-        DocumentMember::read(&plugin_kind(), &dir.join(".claude-plugin/plugin.json")).unwrap();
+    let kind = plugin_kind();
+    let member = DocumentMember::read(
+        &kind,
+        &dir.join(".claude-plugin/plugin.json"),
+        &fold_base(&dir, &kind),
+    )
+    .unwrap();
 
     // Read↔write: the whole artifact re-renders from the member's fields alone, byte for
     // byte — the format carries no residue outside the member.
@@ -232,8 +273,9 @@ fn a_member_re_emits_byte_identically_and_a_double_emit_is_stable() {
 
     // And the round trip closes: re-reading the emitted bytes yields the same member.
     let reemitted = DocumentMember::parse(
-        &plugin_kind(),
+        &kind,
         &dir.join(".claude-plugin/plugin.json"),
+        &fold_base(&dir, &kind),
         &emitted,
     )
     .unwrap();
@@ -371,7 +413,8 @@ fn emit_projects_a_json_document_member_through_the_canonical_write_face() {
 
     // The projection closes the loop: the read face loads the emitted bytes back as the
     // same member the payload carried, so `emit` writes what `check` reads.
-    let reread = DocumentMember::read(&plugin_kind(), &projected).unwrap();
+    let kind = plugin_kind();
+    let reread = DocumentMember::read(&kind, &projected, &fold_base(&harness, &kind)).unwrap();
     assert_eq!(reread.id, "formatter");
     assert_eq!(
         reread.fields.keys().map(String::as_str).collect::<Vec<_>>(),

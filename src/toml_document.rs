@@ -23,15 +23,26 @@ use crate::kind::{CustomKind, UnitShape};
 /// Read the TOML document at `source_file` as one member of `kind`, its identity taken from
 /// the top-level key the kind's [`UnitShape::NamedField`] declares.
 ///
+/// `base` is the **fold base** [`DocumentMember::read`] takes, threaded for the same reason:
+/// the id derivation over `unit_shape` is one home for all three read faces
+/// ([`crate::extract::unit_shape_id`]), so this face hands it the caller's base rather than a
+/// base of its own. This grammar's identity is `named-field` by the refusal below and so
+/// never reaches the fold — the parameter is what keeps the two document faces one rule, not
+/// a behaviour of its own.
+///
 /// # Errors
 ///
 /// Returns a [`TomlDocumentError`] if the file cannot be read, is not UTF-8, is not valid
 /// TOML, or carries no string value at the declared identity key; and
 /// [`TomlDocumentError::NoDeclaredIdentity`] if `kind` declares no identity field for its
 /// document to be named by.
-pub fn read(kind: &CustomKind, source_file: &Path) -> Result<DocumentMember, TomlDocumentError> {
+pub fn read(
+    kind: &CustomKind,
+    source_file: &Path,
+    base: &Path,
+) -> Result<DocumentMember, TomlDocumentError> {
     let raw = crate::hash::read_utf8(source_file)?;
-    parse(kind, source_file, &raw)
+    parse(kind, source_file, base, &raw)
 }
 
 /// Read a document straight from its `raw` text rather than off disk.
@@ -43,6 +54,7 @@ pub fn read(kind: &CustomKind, source_file: &Path) -> Result<DocumentMember, Tom
 fn parse(
     kind: &CustomKind,
     source_file: &Path,
+    base: &Path,
     raw: &str,
 ) -> Result<DocumentMember, TomlDocumentError> {
     let field = match &kind.unit_shape {
@@ -77,14 +89,12 @@ fn parse(
     // Identity comes off the one derivation over `unit_shape`
     // (`extract::unit_shape_id`), reading this grammar's own top-level table. The shape is
     // `named-field` by the refusal above, so the declared key is the only component the
-    // derivation can find absent and the fold base it would never reach is the source's own
-    // parent.
-    let id = crate::extract::unit_shape_id(
-        kind.unit_shape.as_ref(),
-        source_file,
-        source_file.parent().unwrap_or(source_file),
-        |key| fields.get(key),
-    )
+    // derivation can find absent and `base` is a base the fold never reaches — passed
+    // through because the derivation is shared, so its contract is the caller's to satisfy
+    // here exactly as at the JSON and frontmatter faces.
+    let id = crate::extract::unit_shape_id(kind.unit_shape.as_ref(), source_file, base, |key| {
+        fields.get(key)
+    })
     .map_err(|fault| TomlDocumentError::NoIdentityValue {
         path: fault.path,
         field: field.clone(),

@@ -82,9 +82,15 @@ fn a_settings_local_document_surfaces_one_member_named_by_its_fixed_stem() {
     let harness = common::tmpdir("settings-local-read");
     write_sibling(&harness, ".claude/settings.local.json", SETTINGS_LOCAL_JSON);
 
+    // The read takes the fold base a `governs` walk hands it — the kind's own locus, `.claude`
+    // — so this pins the one shipped `file`-shaped json document against the fold: the
+    // singleton sits directly at its base, folds no placement, and keeps the bare stem.
+    let kind = settings_local_kind();
+    let governs = kind.governs.clone().unwrap();
     let member = DocumentMember::read(
-        &settings_local_kind(),
+        &kind,
         &harness.join(".claude/settings.local.json"),
+        &temper::drift::fold_base(&harness.join(&governs.root), &governs.glob),
     )
     .unwrap();
 

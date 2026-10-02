@@ -191,23 +191,34 @@ pub struct DocumentMember {
 impl DocumentMember {
     /// Read the JSON document at `source_file` as one member of `kind`, its identity taken
     /// from the top-level key the kind's [`NamedField`](crate::kind::UnitShape::NamedField)
-    /// shape declares, from the file stem for a singleton
-    /// [`File`](crate::kind::UnitShape::File) document (a `settings.local.json`), or from
-    /// the owning directory name for a path-shaped one.
+    /// shape declares, from the file stem for a
+    /// [`File`](crate::kind::UnitShape::File) document (a `settings.local.json`) with its
+    /// placement below `base` folded in, or from the owning directory name for a
+    /// path-shaped one.
+    ///
+    /// `base` is the **fold base** — the locus a file-shaped document's placement is
+    /// measured from, as [`crate::frontmatter::Member::from_source_rooted`] takes it. A
+    /// caller holding no root context passes the source's own parent, which folds no
+    /// placement and leaves the id the bare stem.
     ///
     /// # Errors
     ///
     /// Returns a [`JsonManifestError`] if the file cannot be read, is not UTF-8, is not a
     /// top-level JSON object, or yields no id for its declared shape.
-    pub fn read(kind: &CustomKind, source_file: &Path) -> Result<Self, JsonManifestError> {
+    pub fn read(
+        kind: &CustomKind,
+        source_file: &Path,
+        base: &Path,
+    ) -> Result<Self, JsonManifestError> {
         let raw = read_to_string(source_file)?;
-        Self::parse(kind, source_file, &raw)
+        Self::parse(kind, source_file, base, &raw)
     }
 
     /// Read a document straight from its `raw` bytes rather than off disk — the split
     /// [`Manifest::parse`] takes, for the same reason: an in-flight write's pending content
     /// is read through the one soundness boundary the disk read rides. `source_file` labels
-    /// the provenance and any diagnostic; nothing is read from it.
+    /// the provenance and any diagnostic, and is the path identity folds against `base`;
+    /// no bytes are read from it.
     ///
     /// # Errors
     ///
@@ -215,6 +226,7 @@ impl DocumentMember {
     pub fn parse(
         kind: &CustomKind,
         source_file: &Path,
+        base: &Path,
         raw: &str,
     ) -> Result<Self, JsonManifestError> {
         let document = parse_top_level_object(source_file, raw, "document")?;
@@ -222,16 +234,15 @@ impl DocumentMember {
         // Identity comes off the one derivation over `unit_shape`
         // (`extract::unit_shape_id`) — a named-field document reads a declared top-level key
         // (a manifest's `name`), every other shape reads the same path fact the frontmatter
-        // face reads. The fold base is the source's own parent, the default
-        // `Member::from_source` takes with no scan-root context: a document face places no
-        // nesting of its own, so a `file`-shaped singleton folds no placement and its id is
-        // the bare stem (`settings.local`).
-        let id = crate::extract::unit_shape_id(
-            kind.unit_shape.as_ref(),
-            source_file,
-            source_file.parent().unwrap_or(source_file),
-            |field| document.get(field),
-        )?;
+        // face reads, `base` included. Threading the caller's fold base rather than fixing it
+        // at the source's parent is what keeps the two document faces and the frontmatter
+        // face one rule: a `file`-shaped document nested below `base` folds that placement
+        // exactly as its frontmatter peer in the same directory does, and one sitting
+        // directly at `base` keeps its bare stem (`settings.local`).
+        let id =
+            crate::extract::unit_shape_id(kind.unit_shape.as_ref(), source_file, base, |field| {
+                document.get(field)
+            })?;
 
         Ok(Self {
             id,

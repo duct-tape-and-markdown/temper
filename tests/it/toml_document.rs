@@ -76,12 +76,18 @@ fn write_knob(root: &Path, body: &str) -> PathBuf {
     path
 }
 
+/// The fold base a `governs` walk hands the read face, over the knob kind's own locus under
+/// `root` — the base `compose` threads, not one a fixture chose.
+fn knob_base(root: &Path) -> PathBuf {
+    temper::drift::fold_base(&root.join(".claude/local"), "*.toml")
+}
+
 #[test]
 fn a_toml_document_reads_its_top_level_keys_as_the_members_fields() {
     let dir = common::tmpdir("toml-document-fields");
     let path = write_knob(&dir, KNOB_TOML);
 
-    let member = toml_document::read(&knob_kind(), &path).unwrap();
+    let member = toml_document::read(&knob_kind(), &path, &knob_base(&dir)).unwrap();
 
     // Every top-level key is the member's own field — a document member claims the whole
     // document, so unlike a manifest read nothing is opaque residue.
@@ -102,7 +108,7 @@ fn identity_is_read_from_the_declared_field_never_the_filename_stem() {
     let dir = common::tmpdir("toml-document-identity");
     let path = write_knob(&dir, KNOB_TOML);
 
-    let member = toml_document::read(&knob_kind(), &path).unwrap();
+    let member = toml_document::read(&knob_kind(), &path, &knob_base(&dir)).unwrap();
 
     // The stem is `knob` for every knob ever written; the declared key is what distinguishes
     // one member from the next.
@@ -112,6 +118,13 @@ fn identity_is_read_from_the_declared_field_never_the_filename_stem() {
     assert_eq!(member.to_unit().id, "workstation");
     assert_eq!(member.to_unit().frontmatter, member.fields);
     assert!(member.to_unit().body.is_empty());
+
+    // And the fold base this face now takes reaches the file arm alone: read against the
+    // harness root, a placement a file-shaped document would fold in whole
+    // (`claude-local-knob`), the declared key still names the member. The parameter carries
+    // the shared derivation's contract, never a second identity rule.
+    let deep = toml_document::read(&knob_kind(), &path, &dir).unwrap();
+    assert_eq!(deep.id, "workstation");
 }
 
 #[test]
@@ -119,7 +132,7 @@ fn a_document_that_is_not_valid_toml_refuses_loud() {
     let dir = common::tmpdir("toml-document-malformed");
     let path = write_knob(&dir, "name = \"workstation\"\nmode =\n");
 
-    let err = toml_document::read(&knob_kind(), &path).unwrap_err();
+    let err = toml_document::read(&knob_kind(), &path, &knob_base(&dir)).unwrap_err();
 
     // Loud or nothing: a parse failure is never degraded to a fieldless read, which would
     // hand the gate a fabricated absence to judge.
@@ -131,7 +144,7 @@ fn a_document_missing_its_declared_identity_key_refuses_loud() {
     let dir = common::tmpdir("toml-document-no-identity");
     let path = write_knob(&dir, "mode = \"advisory\"\n");
 
-    let err = toml_document::read(&knob_kind(), &path).unwrap_err();
+    let err = toml_document::read(&knob_kind(), &path, &knob_base(&dir)).unwrap_err();
 
     assert!(
         err.to_string().contains("no `name` key to name it"),
@@ -148,7 +161,7 @@ fn a_toml_document_kind_declaring_no_identity_field_refuses_loud() {
     // nothing to read, so the read refuses rather than inventing a rule.
     let mut kind = knob_kind();
     kind.unit_shape = Some(UnitShape::File);
-    let err = toml_document::read(&kind, &path).unwrap_err();
+    let err = toml_document::read(&kind, &path, &knob_base(&dir)).unwrap_err();
     assert!(
         err.to_string().contains("no `named-field` identity"),
         "{err}"
