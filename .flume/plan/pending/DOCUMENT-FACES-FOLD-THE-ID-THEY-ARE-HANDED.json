@@ -1,0 +1,53 @@
+{
+  "tag": "DOCUMENT-FACES-FOLD-THE-ID-THEY-ARE-HANDED",
+  "gate": { "kind": "blockedBy", "tags": ["UNIT-SHAPE-IDENTITY-HAS-ONE-HOME"] },
+  "files": {
+    "edit": [
+      {
+        "path": "src/json_manifest.rs",
+        "description": "`DocumentMember::read`/`parse` take the fold base and hand it to the shared id derivation, so a file-shaped document folds its placement exactly as the frontmatter face does."
+      },
+      {
+        "path": "src/toml_document.rs",
+        "description": "`read` and its private `parse` take the same base and pass it through — a named-field document's id is untouched, the parameter is what keeps the two document faces one rule."
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "`read_file_unit`'s JSON and TOML arms (722-724) pass the `base` the function already holds — the `drift::fold_base`-descended locus its frontmatter arm already receives."
+      },
+      {
+        "path": "src/install.rs",
+        "description": "`read_lifted_member`'s JSON and TOML arms (2234, 2242) pass the source's own parent — the lift holds no governs root, so all three of its arms stay base-less together, stated at the site."
+      },
+      {
+        "path": "tests/it/json_document_format.rs",
+        "description": "Seven `DocumentMember::read`/`parse` call sites take the base; `a_path_shaped_json_document_reads_the_id_its_frontmatter_peer_reads` grows the file-shaped row under a nested governs base — the agreement claim its own comment makes."
+      },
+      {
+        "path": "tests/it/toml_document.rs",
+        "description": "Five `toml_document::read` call sites take the base; adds the named-field-id-unmoved assertion."
+      },
+      { "path": "tests/it/plugin_manifest_kind.rs", "description": "Its `DocumentMember::read` call site takes the base." },
+      { "path": "tests/it/marketplace_kind.rs", "description": "Its `DocumentMember::read` call site takes the base." },
+      { "path": "tests/it/settings_local_kind.rs", "description": "Its `DocumentMember::read` call site takes the base; pins the built-in singleton's id as unmoved." }
+    ]
+  },
+  "summary": "A json/toml document read takes no fold base, so a nested file-shaped document keys by bare stem where its frontmatter twin folds placement — one unit shape, two ids.",
+  "per": { "path": "specs/model/representation.md", "section": "kind" },
+  "tests": [
+    {
+      "path": "tests/it/json_document_format.rs",
+      "asserts": "a file-shaped json document nested under its kind's fold base folds that placement into its id, matching the frontmatter peer in the same directory — red before the change, where the bare stem collapses both onto one id"
+    },
+    {
+      "path": "tests/it/toml_document.rs",
+      "asserts": "the toml face takes the same base and a named-field document's id is unmoved — the fold reaches the file arm alone"
+    },
+    {
+      "path": "tests/it/settings_local_kind.rs",
+      "asserts": "the built-in singleton's id is unmoved under the threaded base"
+    }
+  ],
+  "acceptance": "cargo test green including the new nested-document agreement assertion, with every emit/check snapshot unmoved — the shipped json/toml kinds are singletons or named-field, so no built-in id moves.",
+  "notes": "`compose::read_file_unit` already holds the fold base it passes to the frontmatter arm alone (compose.rs:708-726); `install::read_lifted_member` holds none. Census on disk: 2 src + 15 test call sites of `DocumentMember::read`/`parse` and `toml_document::read`. The collapse is loud today — admissibility refuses coincident addresses — so what this buys is authorability of a nested json corpus, never a silent wrong id. scoped at 9024e2c8"
+}

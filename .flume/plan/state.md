@@ -8,13 +8,14 @@
   domain). Covered: `src/drift.rs`, `src/install.rs`, `src/engine.rs`,
   `src/contract.rs`, `src/compose.rs`, `src/graph.rs`, `src/glob.rs`,
   `src/read.rs`, `src/kind.rs`, `src/builtin.rs`, `src/builtin_kind.rs`,
-  `src/builtin_lock.rs`, `sdk/src/emit.ts`, `sdk/src/declarations.ts`,
-  `sdk/src/prose.ts`, `sdk/src/needs.ts`, `sdk/src/assembly.ts`,
-  `sdk/src/builtins.ts`, `sdk/src/claude-code.ts`.
-- This tick: reconciled 865bf888..bfc75016 — three surfaces verified on disk,
-  no residue; TAP-ISO8601 cites refreshed, one friction capture filed.
-- Queue: 8 pending — 0 open, 4 parked, 4 deferred. Pickable: 0.
+  `src/builtin_lock.rs`, `src/json_manifest.rs`, `src/extract.rs`,
+  `src/frontmatter.rs`, `src/toml_document.rs`, `sdk/src/emit.ts`,
+  `sdk/src/declarations.ts`, `sdk/src/prose.ts`, `sdk/src/needs.ts`,
+  `sdk/src/assembly.ts`, `sdk/src/builtins.ts`, `sdk/src/claude-code.ts`.
+- This tick: posture sweep over the json-manifest neighborhood — the
+  unit-shape id derivation has three homes; two chained entries filed.
+- Queue: 10 pending — 1 open, 1 blockedBy, 4 parked, 4 deferred. Pickable: 1.
   Open forks: 1. Friction: 3. Amendments: 0. Refactor: 0. Inbox: 0.
 
-Plan continues: yes — the posture rotation is open with no pickable entries;
-the frontier's next neighborhood is a plan job.
+Plan continues: after-build — the posture rotation is open with a pickable
+entry; the frontier's next neighborhood resumes when the wave hands back.
