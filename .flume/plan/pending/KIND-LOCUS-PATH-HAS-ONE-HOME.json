@@ -1,0 +1,53 @@
+{
+  "tag": "KIND-LOCUS-PATH-HAS-ONE-HOME",
+  "gate": { "kind": "open" },
+  "priority": 0,
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/kind.rs",
+        "description": "Add `locus_path(root, glob) -> HarnessRelativePath` beside `locus_pattern` (line 782) — the concrete-path face of the one join-and-spell, the pattern face expressed over the same single join rather than a second hand-pairing. Both faces keep their distinct return types: `main::manifest_path`'s doc already rules that a locus spelled as a glob and a locus spelled as a path are two concepts. Unit-test the root-`.` drop and the `/` spelling."
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "`manifest_target_path` (line 2119) composes `kind::locus_path` instead of pairing `HarnessRelativePath::from_path` with `join_locus` by hand (line 2122). Its four consumers (lines 1571, 2141, 2157, 2346) are unchanged — the return type is identical."
+      },
+      {
+        "path": "src/main.rs",
+        "description": "`manifest_path` (line 889) composes `kind::locus_path` instead of the same hand-pairing (line 891). Its doc's \"the one door where `drift::join_locus`'s host-separated `PathBuf` enters the guard's harness-relative vocabulary\" (line 886) is false at HEAD — `drift.rs:2122` is a second such door — and is restated to name the real door."
+      },
+      {
+        "path": "src/bundle.rs",
+        "description": "`write_member` (line 316) hand-joins `Path::new(&governs.root).join(&governs.glob)`, the third copy and the divergent one: no `.`-root drop and no canonical spelling, so on Windows `BundleReport::files` prints `.claude-plugin\\plugin.json` beside the literal `skills/temper/SKILL.md` — one listing, two separators. Compose `kind::locus_path` and hand its `AsRef<Path>` to `write_text`, so the recorded path is `/`-spelled on every host."
+      },
+      {
+        "path": "tests/it/bundle.rs",
+        "description": "The separator-fork pin: `report.files` carries `/`-spelled paths as written, so the `.replace('\\\\', \"/\")` the deterministic-shape test applies to the producer's output (line 291) is the test normalizing what the producer should have. Drop it and let the snapshot read the real spelling."
+      },
+      {
+        "path": "src/coverage_note.rs",
+        "description": "`locus_pattern` call site (line 211) — in the fence only because the pattern face is re-expressed over the shared join; no change expected if `locus_pattern` keeps its `String` signature, which is the recommendation."
+      },
+      {
+        "path": "src/read.rs",
+        "description": "`locus_pattern` call site (line 735) — same fence reason as `coverage_note.rs`; no change expected."
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A kind's governs locus as a concrete path is hand-joined in three homes — drift, main's guard door, and bundle — beside the pattern face's one home.",
+  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "tests": [
+    {
+      "path": "src/kind.rs",
+      "asserts": "`locus_path` drops a root-`.` (`.` + `**/CLAUDE.md` -> `**/CLAUDE.md`), joins a real root (`.claude-plugin` + `plugin.json`), and spells `/` — and agrees byte-for-byte with `locus_pattern` over the same pair, which is what makes one join honest."
+    },
+    {
+      "path": "tests/it/bundle.rs",
+      "asserts": "`BundleReport::files` carries `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` `/`-spelled with no test-side separator replacement, beside the two literal paths that were already `/`-spelled."
+    }
+  ],
+  "acceptance": "`cargo test` green with the two new pins (red before the fold on the bundle separator half, where the test's own `replace` is removed); `cargo clippy --all-targets -- -D warnings` clean; no `join_locus` paired with `HarnessRelativePath::from_path` or `Path::join` over a `governs` pair survives outside `kind::locus_path`.",
+  "notes": "Found by the sweep over 3444b912..a8c9784c, which shipped the pattern face's unification (`kind::locus_pattern`, 039148a1) and left the path face's three copies standing. `locus_pattern(r,g)` and `from_path(join_locus(r,g))` are the identical computation today — `from_path` is `to_canonical_spelling` — so the duplication is literal, not merely similar. scoped at a8c9784c"
+}
