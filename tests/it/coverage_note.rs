@@ -115,13 +115,13 @@ fn the_note_reports_exactly_the_disclosure_and_the_unclaimed_entry() {
 fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kinds() {
     // A corrupt lock must reject loud when read — a corrupt lock silently reading as "no
     // kinds declared" would drop the locked-kind suppression (LOCK-READ-SWALLOW-LOUD).
-    // The locked kind rows now come from the caller's own read, so a corrupt lock fails
-    // at read time, before check runs. A missing lock degrades to an empty slice, and check
-    // succeeds with just the built-in kinds.
+    // The governing kind set now comes from the caller's own read, so a corrupt lock fails
+    // at read time, before check runs; a missing one leaves the caller holding the
+    // built-in kinds alone, and the scan still runs over them.
     let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
 
     // (1) A corrupt (unparseable) lock rejects loud when read — this happens before
-    // check() is called, since the caller must now provide the parsed kind rows.
+    // check() is called, since the caller must now provide the governing kind set.
     let corrupt = common::tmpdir("coverage-note-corrupt-lock");
     fs::create_dir_all(corrupt.join(".temper")).unwrap();
     fs::write(
@@ -135,8 +135,8 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
         "a corrupt lock must reject loud when read"
     );
 
-    // (2) A genuinely missing lock still degrades to an empty slice — the note succeeds
-    // with just the kinds it was handed and still names the stray it finds.
+    // (2) A genuinely missing lock degrades to the kinds the caller holds — the note
+    // scans over exactly those and still names the stray it finds.
     let missing = common::tmpdir("coverage-note-missing-lock");
     fs::create_dir_all(missing.join(".claude")).unwrap();
     fs::write(missing.join(".claude/stray.md"), "").unwrap();
@@ -146,9 +146,7 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
         &BTreeMap::new(),
         &BTreeMap::new(),
         &BTreeMap::new(),
-        &[],
-    )
-    .expect("a missing lock degrades to the built-in kinds, never an error");
+    );
     assert!(
         diagnostics
             .iter()
@@ -529,4 +527,66 @@ fn a_custom_kinds_locus_stray_names_no_loader_while_a_built_ins_does() {
     );
 
     assert!(success, "both findings stay advisory, got: {findings:#?}");
+}
+
+/// Commit a lock relocating the built-in `rule` kind to `.claude/policies/*.md` and
+/// project one member through it — the one locus `rule` governs on this run, reachable
+/// only through the overlay the lock's row carries, never the kind's embedded root.
+fn lock_relocated_rule(root: &Path, name: &str) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![KindFactRow {
+                governs_root: Some(".claude/policies".to_string()),
+                ..common::rule_kind_facts(None, &[])
+            }],
+            ..Declarations::default()
+        },
+        members: vec![common::rule_member(
+            name,
+            None,
+            &format!("# {name}\n\nBody.\n"),
+        )],
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+#[test]
+fn a_relocated_built_ins_new_locus_is_governed_and_its_old_one_is_not() {
+    // The stray scan's governing set is the run's *effective* one, so a relocation row
+    // moves which `.claude/` entry `rule` claims. Read off the raw embedded definitions
+    // the scan would claim `.claude/rules` — a directory this harness's program does not
+    // govern — and name the real locus a stray.
+    let harness = common::tmpdir("relocated-builtin-locus");
+    lock_relocated_rule(&harness, "house-style");
+    common::write_sibling(&harness, ".claude/rules/orphan.md", "# orphan\n\nBody.\n");
+    fs::write(harness.join(".claude/stray.md"), "").unwrap();
+
+    let (findings, success) = check_harness(&harness);
+
+    // Non-vacuity, both halves: the relocation reached the run (the disclosure counts the
+    // member at its new locus) and the scan found entries to classify (the plain stray is
+    // named), so neither assertion below can pass over an empty set.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(checked.len(), 1, "{findings:#?}");
+    assert!(
+        checked[0].contains("rule (1)"),
+        "the relocated member is discovered and disclosed, got: {}",
+        checked[0]
+    );
+    let unclaimed = common::findings_for(&findings, "coverage.unclaimed-entry");
+    assert!(
+        unclaimed.iter().any(|f| f.contains(".claude/stray.md")),
+        "the scan is populated and still names an entry nothing governs, got: {findings:#?}"
+    );
+
+    assert!(
+        !unclaimed.iter().any(|f| f.contains(".claude/policies")),
+        "the locus `rule` was relocated to is governed, never a stray, got: {unclaimed:#?}"
+    );
+    assert!(
+        unclaimed.iter().any(|f| f.contains(".claude/rules")),
+        "and the root it was relocated off is claimed by nothing, got: {unclaimed:#?}"
+    );
+    assert!(success, "both classes stay advisory, got: {findings:#?}");
 }

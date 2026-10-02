@@ -773,10 +773,12 @@ pub fn gate(
     // The wedge's coverage note: `coverage.checked` discloses which kinds checked how
     // many members, so the gate's silence never reads as "checked", and
     // `coverage.unclaimed-entry` advises on a `.claude/` entry no in-scope kind governs.
-    // Neither moves the run's exit code or the session-start verdict. Threads the
-    // already-parsed `committed.kinds` to avoid a redundant lock re-parse
-    // (COVERAGE-NOTE-LOCK-PARSE-HOIST), and the undeclared counts so the one line that
-    // says what was checked cannot silently absorb an undeclared member.
+    // Neither moves the run's exit code or the session-start verdict. Scanned over the
+    // run's one effective kind set, so a relocation row's new locus is the one the scan
+    // excludes: the raw embedded definitions would read a relocated built-in's
+    // pre-relocation locus — an advisory at the abandoned root, and silence over the real
+    // stray at the new one. Threads the undeclared counts too, so the one line that says
+    // what was checked cannot silently absorb an undeclared member.
     // Counted off BOTH sources a nested member reaches this run through, the two the
     // embedded corpus above is assembled from: the lock's own rows, and the members a host
     // kind's read composed. A manifest-composed handler owns no `nested_member` row, so
@@ -793,12 +795,11 @@ pub fn gate(
     }
     diagnostics.extend(coverage_note::check(
         harness_root,
-        &builtin_kind::definitions(),
+        &declared_kinds,
         &member_counts,
         &nested_member_counts,
         &undeclared_locus.counts,
-        &committed.kinds,
-    )?);
+    ));
 
     // The freshness facts — the root member's own `fresh` clause, whose subject is every
     // lock row a member owns: the projection's byte fingerprint here, each fingerprinted

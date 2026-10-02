@@ -2380,7 +2380,19 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let mut custom_members: Vec<CustomMember> = Vec::new();
     let (custom_rows, _collisions) = compose::partition_kind_rows(&declarations, &builtin_defs)?;
     for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row)?;
+        // The row's own lift, taken off the run's one effective kind set rather than
+        // lifted a second time over the same row: `declared_kinds` keys every custom row
+        // by the bare name the row and its kind share, from the identical
+        // `partition_kind_rows` split this loop ranges over, so the lookup is total.
+        let custom_kind = declared_kinds
+            .get(&row.name)
+            .ok_or_else(|| {
+                miette::miette!(
+                    "kind `{}` is declared by the lock but absent from the run's effective kind set",
+                    row.name
+                )
+            })?
+            .clone();
         contracts.insert(
             row.name.clone(),
             compose::default_contract_from_rows(

@@ -37,28 +37,23 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 /// declares, disclosed apart so the one line stating what was checked cannot silently
 /// absorb a document the program does not declare — a **disclosure**, never the
 /// `locus-declared` clause's finding, so dialing that clause changes the finding's
-/// weight and never the count printed here; `kinds` is the built-in kind set.
-/// `locked_kinds` are the kind-fact rows from the committed lock
-/// (an empty slice for an unadopted harness), so a locked custom kind's `governs` claims
-/// a `.claude/` entry exactly as a built-in's does. Nothing here is ever
+/// weight and never the count printed here; `declared_kinds` is the run's one effective
+/// kind set ([`crate::compose::LockFamily::declared_kinds`]) — every built-in under the
+/// committed lock's overlay plus every kind that lock declares — so a locked custom
+/// kind's `governs` claims a `.claude/` entry exactly as a built-in's does, and a
+/// relocated built-in claims the locus it was relocated *to*. Nothing here is ever
 /// `error` and none of it is a session-start verdict: the summary of what was checked is
 /// a `note`-severity **disclosure** (no clause declares it, so `--deny-advisories` never
 /// promotes it), and each stray `.claude/` entry nothing claims is a `warn`-severity
 /// advisory — a real gap the corpus closes by modelling it — so the gate's silence about
 /// an unexamined entry never reads as "checked".
-///
-/// # Errors
-///
-/// Returns an error when a lock-declared kind row cannot be lifted — a corrupt lock
-/// is loud here, never a silent degrade to built-ins-only exclusion.
 pub fn check(
     root: &Path,
-    kinds: &BTreeMap<String, CustomKind>,
+    declared_kinds: &BTreeMap<String, CustomKind>,
     member_counts: &BTreeMap<String, usize>,
     nested_member_counts: &BTreeMap<String, usize>,
     undeclared_counts: &BTreeMap<String, usize>,
-    locked_kinds: &[crate::drift::KindFactRow],
-) -> miette::Result<Vec<Diagnostic>> {
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     // (1) State what WAS checked: each kind's member count, so a clean run reads as
@@ -120,11 +115,11 @@ pub fn check(
     // (2) Name the strays: an entry directly under `.claude/` that no in-scope kind
     // governs AND `KNOWN_SURFACES` does not list is examined by nothing, and silence
     // about it is indistinguishable from "checked and clean". The governing set is the
-    // built-ins plus every kind the committed lock declares, so a locked custom kind
-    // claims its own locus exactly as a built-in does.
-    let governing_kinds = with_locked_kinds(kinds, locked_kinds)?;
+    // run's effective one, so a locked custom kind claims its own locus and a relocated
+    // built-in claims its new one — the raw embedded definitions would read a relocated
+    // built-in's pre-relocation locus and name its real one a stray.
     for (path, is_dir) in claude_entries(root) {
-        if governed_by_any_path(&governing_kinds, &path, is_dir)
+        if governed_by_any_path(declared_kinds, &path, is_dir)
             || KNOWN_SURFACES.contains(&path.as_str())
         {
             continue;
@@ -136,7 +131,7 @@ pub fn check(
         ));
     }
 
-    Ok(diagnostics)
+    diagnostics
 }
 
 /// Every entry directly under `<root>/.claude` (not recursive), as a
@@ -164,28 +159,6 @@ fn claude_entries(root: &Path) -> Vec<(String, bool)> {
             Some((drift::to_lock_path(rel), is_dir))
         })
         .collect()
-}
-
-/// `kinds` plus every kind row in `locked_kinds` that is not already in `kinds` — so
-/// a locked custom kind's `governs` locus joins the built-ins for the stray-entry
-/// exclusion. An empty `locked_kinds` slice degrades to `kinds` alone; a
-/// kind row outside its closed vocabulary rejects loud.
-///
-/// # Errors
-///
-/// Returns an error when a declared kind row cannot be lifted — a corrupt row is loud
-/// here, never a silent degrade to built-ins-only exclusion.
-fn with_locked_kinds(
-    kinds: &BTreeMap<String, CustomKind>,
-    locked_kinds: &[crate::drift::KindFactRow],
-) -> miette::Result<BTreeMap<String, CustomKind>> {
-    let mut merged = kinds.clone();
-    for row in locked_kinds {
-        if !merged.contains_key(&row.name) {
-            merged.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
-        }
-    }
-    Ok(merged)
 }
 
 /// Whether any in-scope kind governs a harness-relative `path` — the exclusion that keeps
@@ -293,9 +266,7 @@ mod tests {
             &counts,
             &BTreeMap::new(),
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
         let summary = diagnostics
             .iter()
             .find(|d| d.rule == CHECKED_RULE)
@@ -320,9 +291,7 @@ mod tests {
             &counts,
             &BTreeMap::new(),
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("checked 1 member across 1 kind:"));
     }
@@ -341,9 +310,7 @@ mod tests {
             &counts,
             &BTreeMap::new(),
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("command (2)"));
         assert!(!summary.message.contains("built-in"));
@@ -361,9 +328,7 @@ mod tests {
             &counts,
             &nested,
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(
             summary.message.contains("checked 3 members across 2 kinds"),
@@ -393,9 +358,7 @@ mod tests {
             &counts,
             &nested,
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(
             summary.message.contains("skill (2, 1 embedded)"),
@@ -456,9 +419,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
 
         let matches: Vec<_> = diagnostics
             .iter()
@@ -480,9 +441,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
 
         assert!(
             diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
@@ -505,9 +464,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
 
         assert!(
             diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
@@ -528,9 +485,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
 
         assert!(
             diagnostics
@@ -559,9 +514,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
-            &[],
-        )
-        .unwrap();
+        );
 
         let strays: Vec<&str> = diagnostics
             .iter()

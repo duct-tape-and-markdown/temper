@@ -568,10 +568,9 @@ fn gate_reads_and_parses_the_lock_once() {
 }
 
 #[test]
-fn coverage_note_accepts_pre_parsed_locked_kinds() {
+fn coverage_note_scans_over_the_runs_effective_kind_set() {
     use std::collections::BTreeMap;
-    use temper::coverage_note;
-    use temper::drift;
+    use temper::{compose, coverage_note, drift, import};
 
     let harness = tmpdir("coverage-note-lock-parse-hoist");
 
@@ -595,33 +594,35 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
         },
     );
 
-    // Verify that coverage_note::check works correctly when passed pre-parsed kind rows
-    // from a caller's own read_declarations call (as gate() now does, per
-    // COVERAGE-NOTE-LOCK-PARSE-HOIST).
+    // The stray scan's exclusion comes from the one effective kind set the caller holds —
+    // the family's `declared_kinds`, assembled off the caller's own read exactly as
+    // `gate` assembles it (COVERAGE-NOTE-LOCK-PARSE-HOIST keeps the lock parsed once).
     let committed = drift::read_declarations(&harness.join(".temper"))
         .expect("lock should parse and deserialize");
-
-    // Verify that the widget kind was parsed from the lock
     assert!(
         committed.kinds.iter().any(|k| k.name == "widget"),
         "lock should declare widget kind"
     );
+    let discovery = import::Discovery::new(&harness);
+    let empty_cache: compose::ManifestCache = BTreeMap::new();
+    let effective = compose::assemble_lock_family(&discovery, &committed, &[], &empty_cache)
+        .expect("the lock family assembles")
+        .declared_kinds;
+    assert!(
+        effective.contains_key("widget"),
+        "the effective set carries the locked kind, got: {:?}",
+        effective.keys().collect::<Vec<_>>()
+    );
 
-    // Call coverage_note::check with the pre-parsed kind rows (the new API), the whole
-    // built-in set in scope: no built-in governs `.claude/widgets`, so the locked kind's
-    // own contribution is the only thing that can exclude it.
     let member_counts = BTreeMap::from([("skill".to_string(), 1usize)]);
-    let in_scope = temper::builtin_kind::definitions();
-    let check = |locked: &[temper::drift::KindFactRow]| {
+    let check = |kinds: &BTreeMap<String, temper::kind::CustomKind>| {
         coverage_note::check(
             &harness,
-            &in_scope,
+            kinds,
             &member_counts,
             &BTreeMap::new(),
             &BTreeMap::new(),
-            locked,
         )
-        .expect("coverage_note::check should succeed")
     };
     let names_widgets = |diagnostics: &[temper::check::Diagnostic]| {
         diagnostics
@@ -629,15 +630,16 @@ fn coverage_note_accepts_pre_parsed_locked_kinds() {
             .any(|d| d.rule == "coverage.unclaimed-entry" && d.artifact == ".claude/widgets")
     };
 
-    // Non-vacuity: with no locked rows handed in, the entry is named a stray.
+    // Non-vacuity: handed the built-ins-only map, no kind governs `.claude/widgets`, so
+    // the entry is named a stray — the locked kind's contribution is the only thing that
+    // can exclude it.
     assert!(
-        names_widgets(&check(&[])),
-        "without the locked rows the unclaimed entry is named"
+        names_widgets(&check(&temper::builtin_kind::definitions())),
+        "the built-ins-only map names the locked kind's locus a stray"
     );
 
-    // Verify: the custom widget kind's governed locus excludes the entry. This proves the
-    // hoisted kind rows are being used just as if they had been read internally.
-    let diagnostics = check(&committed.kinds);
+    // Handed the effective set, the locked `widget` kind claims its own locus.
+    let diagnostics = check(&effective);
     assert!(
         !names_widgets(&diagnostics),
         "the locked widget kind should claim its own locus, got: {diagnostics:#?}"
