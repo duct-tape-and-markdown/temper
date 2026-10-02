@@ -732,7 +732,7 @@ fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
     // The pair is presence-coupled in every row a kind lift accepts; a half-declared one
     // still names the half it carries rather than going silent on the whole locus.
     let discovered = match (row.governs_root.as_deref(), row.governs_glob.as_deref()) {
-        (Some(root), Some(glob)) => Some(drift::join_locus(root, glob).display().to_string()),
+        (Some(root), Some(glob)) => Some(crate::kind::locus_pattern(root, glob)),
         (Some(root), None) => Some(format!("{root}/")),
         (None, Some(glob)) => Some(glob.to_string()),
         (None, None) => None,

@@ -648,3 +648,49 @@ fn a_relocated_built_ins_new_locus_is_governed_and_its_old_one_is_not() {
     );
     assert!(success, "both classes stay advisory, got: {findings:#?}");
 }
+
+#[test]
+fn the_claude_dir_memory_member_is_disclosed_as_checked_and_never_also_a_stray() {
+    // `.claude/CLAUDE.md` is a documented home for a project memory file, and the
+    // `memory` kind's any-depth `**/CLAUDE.md` locus covers it — so the one run that
+    // checks it may not also report it unclaimed. Read as a glob *leaf* against the
+    // entry's parent the two halves disagreed: `**/CLAUDE.md` matched, the leaf compare
+    // (root `.` folded to the empty string, parent `.claude`) did not, and the same
+    // output said both "checked" and "nothing covers it" about one file.
+    let harness = common::tmpdir("claude-dir-memory-member");
+    fs::create_dir_all(harness.join(".claude")).unwrap();
+    fs::write(
+        harness.join(".claude/CLAUDE.md"),
+        "# Memory\n\nProject guidance.\n",
+    )
+    .unwrap();
+    fs::write(harness.join(".claude/stray.md"), "").unwrap();
+
+    let (findings, success) = check_harness(&harness);
+
+    // Non-vacuity, both halves: the member really was checked (the disclosure counts it),
+    // and the scan really classified entries (it names the stray) — so neither assertion
+    // below can pass over an empty set.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(checked.len(), 1, "{findings:#?}");
+    assert!(
+        checked[0].contains("memory (1)"),
+        "the `.claude/` memory file is discovered and disclosed as checked, got: {}",
+        checked[0]
+    );
+    let unclaimed = common::findings_for(&findings, "coverage.unclaimed-entry");
+    assert!(
+        unclaimed.iter().any(|f| f.contains(".claude/stray.md")),
+        "the scan is populated and still names the entry nothing governs, got: {findings:#?}"
+    );
+
+    assert!(
+        !unclaimed.iter().any(|f| f.contains(".claude/CLAUDE.md")),
+        "a checked member is never also unclaimed — one file, one verdict, got: \
+         {unclaimed:#?}"
+    );
+    assert!(
+        success,
+        "the coverage note stays advisory, got: {findings:#?}"
+    );
+}

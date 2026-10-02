@@ -5,7 +5,7 @@
 /// Compile `glob` into a `globset` matcher — the one glob-matching surface every
 /// caller shares, in this module or across the crate (a kind's own
 /// [`CustomKind::owns_source`](crate::kind::CustomKind::owns_source) membership test, `import`'s per-segment discovery
-/// walk, `coverage_note`'s `governs` leaf test, `graph`'s `paths-match` liveness
+/// walk, `coverage_note`'s whole-locus `governs` match, `graph`'s `paths-match` liveness
 /// test). `literal_separator` is on: `*`/`?` stay within one `/`-separated segment,
 /// `**` crosses segments (a leading `**/` matching zero or more, per `globset`'s
 /// documented three-position grammar) — the one semantics every call site needs,
@@ -70,7 +70,7 @@ mod tests {
 
     /// Whether `glob` matches `candidate` through the shared `crate::glob::compile_glob` surface —
     /// `None` (an uncompilable glob) reported as no match, the polarity every
-    /// segment-level caller (`owns_source`, `import`, `coverage_note`) wants.
+    /// caller (`owns_source`, `import`, `coverage_note`) wants.
     fn matches(glob: &str, candidate: &str) -> bool {
         compile_glob(glob).is_some_and(|matcher| matcher.is_match(candidate))
     }

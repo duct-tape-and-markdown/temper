@@ -134,11 +134,13 @@ pub fn check(
 }
 
 /// Every entry directly under `<root>/.claude` (not recursive), as a
-/// (`.claude/`-relative slash path, is-directory) pair — the unclaimed-entry scan's
-/// input. The ignore sources are the shared policy's ([`crate::import::ignore_walk`]),
-/// so a gitignored stray is by declaration not authored here and never fires. The
-/// whole-tree walk's three membership fences (`.git/`, the surface workspace, a nested
-/// governed root) are deliberately not taken: each prunes *descent* into a subtree the
+/// (harness-relative slash path, is-directory) pair — the unclaimed-entry scan's input.
+/// The path keeps its `.claude/` prefix, because a governing claim is spelled against the
+/// harness root and the finding names the entry the author sees. The ignore sources are
+/// the shared policy's ([`crate::import::ignore_walk`]), so a gitignored stray is by
+/// declaration not authored here and never fires. The whole-tree walk's three membership
+/// fences (`.git/`, the surface workspace, a nested governed root) are deliberately not
+/// taken: each prunes *descent* into a subtree the
 /// enclosing corpus does not own, and this scan descends nothing — it names the direct
 /// children of one directory. A missing `.claude/` yields no entries rather than an
 /// error: an unadopted tree is not a finding.
@@ -168,11 +170,10 @@ fn governed_by_any_path(kinds: &BTreeMap<String, CustomKind>, path: &str, is_dir
 }
 
 /// Whether `kind`'s member locus covers `path`. A directory path is governed when the
-/// kind roots at or below it (its members live inside); a file path is governed when
-/// the kind roots at the file's parent and its glob leaf selects the filename. Roots
-/// are normalized (`./` prefix and trailing `/` stripped, a bare `.` treated as the
-/// harness root) so `governs.root = "."` compares against a top-level file's empty
-/// parent.
+/// kind roots at or below it (its members live inside); a file path is governed when the
+/// kind's **whole locus pattern** ([`crate::kind::locus_pattern`]) matches it — the same
+/// root-and-glob join discovery walks and the guard watch, so the scan's "is this entry
+/// checked?" is the governing claim itself and not a second, narrower reading of it.
 ///
 /// A **manifest kind** (one carrying a collection address) governs its host file only when
 /// its collection spans the whole manifest: `.mcp.json` is wholly its `mcpServers` map, so
@@ -190,35 +191,32 @@ fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
         if is_dir || !address.key_path.spans_whole_manifest() {
             return false;
         }
-        return governs_file_leaf(governs, path);
+        return governs_locus_matches(governs, path);
     }
-    let root = normalize_root(&governs.root);
     if is_dir {
+        let root = normalize_root(&governs.root);
         root == path || root.starts_with(&format!("{path}/"))
     } else {
-        governs_file_leaf(governs, path)
+        governs_locus_matches(governs, path)
     }
 }
 
-/// Whether a file path matches a `governs` locus's root and glob-leaf filter.
-fn governs_file_leaf(governs: &crate::kind::Governs, path: &str) -> bool {
-    let (parent, leaf) = split_file(path);
-    normalize_root(&governs.root) == parent
-        && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf))
+/// Whether a harness-relative file `path` lies at a `governs` locus — the locus compiled
+/// as one pattern and matched whole. `compile_glob` memoizes per distinct glob, so this
+/// costs one compilation per kind across the whole scan, independent of tree size.
+fn governs_locus_matches(governs: &crate::kind::Governs, path: &str) -> bool {
+    compile_glob(&crate::kind::locus_pattern(&governs.root, &governs.glob))
+        .is_some_and(|matcher| matcher.is_match(path))
 }
 
-/// A `governs.root` reduced to a comparable relative path: leading `./` and any
-/// trailing `/` stripped, and a bare `.` (the harness root itself, the `memory`
-/// kind's locus) folded to the empty string so it matches a top-level file's parent.
+/// A `governs.root` reduced to a comparable relative path: leading `./` and any trailing
+/// `/` stripped, and a bare `.` (the harness root itself, the `memory` kind's locus)
+/// folded to the empty string. Its one consumer is the **directory** branch of
+/// [`governs`], whose question — does this kind root at or below this directory? — is a
+/// prefix relation between two roots that no glob match can answer.
 fn normalize_root(root: &str) -> &str {
     let root = root.trim_start_matches("./").trim_end_matches('/');
     if root == "." { "" } else { root }
-}
-
-/// A file path split into its parent directory and filename leaf; a path with no `/`
-/// has an empty parent (a harness-root file).
-fn split_file(path: &str) -> (&str, &str) {
-    path.rsplit_once('/').unwrap_or(("", path))
 }
 
 #[cfg(test)]
@@ -388,7 +386,9 @@ mod tests {
     }
 
     #[test]
-    fn a_file_entry_is_governed_by_a_kind_whose_glob_leaf_selects_it() {
+    fn a_file_entry_is_governed_by_a_kind_whose_whole_locus_matches_it() {
+        // Neither built-in-shaped kind roots at `.claude` itself, so the file is
+        // ungoverned.
         assert!(!governed_by_any_path(
             &builtin_set(),
             ".claude/settings.json",
@@ -402,6 +402,45 @@ mod tests {
         assert!(governed_by_any_path(
             &with_settings,
             ".claude/settings.json",
+            false
+        ));
+        // And a glob carrying an interior segment is matched whole: `prompts/*.md` under
+        // `.claude` claims `.claude/prompts/x.md`, never `.claude/notes.md`. Read as a
+        // leaf (`*.md`) against a parent that equals the root, the stray was excluded.
+        let with_prompts = BTreeMap::from([(
+            "prompt".to_string(),
+            kind_governing("prompt", ".claude", "prompts/*.md"),
+        )]);
+        assert!(!governed_by_any_path(
+            &with_prompts,
+            ".claude/notes.md",
+            false
+        ));
+        assert!(governed_by_any_path(
+            &with_prompts,
+            ".claude/prompts/intro.md",
+            false
+        ));
+    }
+
+    #[test]
+    fn the_memory_kinds_any_depth_locus_governs_the_claude_dir_copy() {
+        // `memory` roots at `.` with an any-depth `**/CLAUDE.md` glob, and
+        // `.claude/CLAUDE.md` is a documented location for a project memory file — so the
+        // scan must read it as checked, never a stray. The leaf compare could not: the
+        // root folded to the empty string and the entry's parent is `.claude`.
+        let with_memory = BTreeMap::from([(
+            "memory".to_string(),
+            kind_governing("memory", ".", "**/CLAUDE.md"),
+        )]);
+        assert!(governed_by_any_path(
+            &with_memory,
+            ".claude/CLAUDE.md",
+            false
+        ));
+        assert!(!governed_by_any_path(
+            &with_memory,
+            ".claude/notes.md",
             false
         ));
     }

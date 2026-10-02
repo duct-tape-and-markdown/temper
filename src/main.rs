@@ -23,7 +23,7 @@ use temper::contract;
 use temper::drift;
 use temper::gate;
 use temper::install;
-use temper::kind::{CollectionAddress, Commitment, CustomKind, Format};
+use temper::kind::{self, CollectionAddress, Commitment, CustomKind, Format};
 use temper::path;
 use temper::read;
 use temper::reporter;
@@ -861,7 +861,7 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
         loci.push(install::GuardedLocus {
             kind: kind.name.clone(),
             root: governs.root.clone(),
-            pattern: path::to_canonical_spelling(&drift::join_locus(&governs.root, &governs.glob)),
+            pattern: kind::locus_pattern(&governs.root, &governs.glob),
             custom,
         });
     };
@@ -884,8 +884,8 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
 /// locus, which has no host file for the guard to watch.
 ///
 /// The one door where [`drift::join_locus`]'s host-separated [`PathBuf`] enters the guard's
-/// harness-relative vocabulary: the join itself also composes glob patterns
-/// ([`guarded_loci`], `read`'s kind narration), which the type does not claim.
+/// harness-relative vocabulary. A concrete *path*, never a pattern: a locus spelled as a
+/// glob is [`kind::locus_pattern`]'s, and the two concepts stay apart.
 fn manifest_path(kind: &CustomKind) -> Option<path::HarnessRelativePath> {
     let governs = kind.governs.as_ref()?;
     Some(path::HarnessRelativePath::from_path(&drift::join_locus(

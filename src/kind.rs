@@ -756,14 +756,31 @@ impl CustomKind {
 
 impl Governs {
     /// The glob's file-matching **leaf** — its final `/`-separated segment
-    /// (`*/SKILL.md` → `SKILL.md`, `CLAUDE.md` → `CLAUDE.md`). Earlier segments select
-    /// subdirectories to descend; the leaf selects the member files under the locus, so it
-    /// is the segment a per-member membership test ([`CustomKind::owns_source`]) matches
-    /// against a source filename.
+    /// (`*/SKILL.md` → `SKILL.md`, `CLAUDE.md` → `CLAUDE.md`). Its one consumer is
+    /// [`CustomKind::owns_source`], a **filename** discriminator for two kinds sharing a
+    /// surface locus: the leaf is what an imported member's bare source name can be
+    /// matched against. It is not a path matcher — a leaf carries none of the locus's
+    /// root or its interior segments, so a path question is [`locus_pattern`]'s.
     #[must_use]
     pub fn glob_leaf(&self) -> &str {
         self.glob.rsplit('/').next().unwrap_or(&self.glob)
     }
+}
+
+/// A kind's member locus as one harness-relative glob **pattern** — its `governs` root and
+/// glob joined and spelled canonically (`.claude/skills` + `*/SKILL.md` →
+/// `.claude/skills/*/SKILL.md`, a root-locus kind's `.` dropped so `memory` reads
+/// `**/CLAUDE.md`). The one home for "a kind's locus as a glob": every consumer that asks
+/// whether a harness-relative path lies at a locus, or prints that locus to an author,
+/// composes it here rather than pairing the join with the spelling by hand.
+///
+/// A free function over the two columns rather than a [`Governs`] method, because one
+/// caller (`read`'s kind narration) holds a [`KindFactRow`]'s two `Option<String>` columns
+/// and no [`Governs`] at all; the [`Governs`]-holding callers pass
+/// `(&governs.root, &governs.glob)`.
+#[must_use]
+pub fn locus_pattern(root: &str, glob: &str) -> String {
+    crate::path::to_canonical_spelling(&crate::drift::join_locus(root, glob))
 }
 
 /// Surface a `kind`-fact column's label as an out-of-vocabulary [`LockRowError`] when its
