@@ -9,6 +9,61 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+## [0.0.23] — 2026-10-16
+
+### Upgrading from 0.0.22
+
+Each line is what a 0.0.22 harness may see first, then what to do.
+[`docs/MIGRATING-0.0.23.md`](docs/MIGRATING-0.0.23.md) walks each one with
+before and after.
+
+- **Your lock changes on the next `emit`.** The `engine` line moves to
+  `0.0.23`. Re-emit once and commit the lock.
+- **Path-scoped rules you were told are dead may come back to life.** If
+  you ran `check --harness <path>` with anything but `.`, rules whose
+  `paths` globs are anchored at the root (`scripts/**`) were reported dead.
+  Undo any workaround you made for that, such as a `**/` prefix or a dial.
+- **A new `coverage.unclaimed-entry` advisory under `.claude/`.** A kind
+  whose locus glob has an interior directory (`prompts/*.md`) no longer
+  claims files outside it. Model the entry with a kind, or remove it.
+- **A relocated built-in kind moves its stray advisories.** The root you
+  relocated *off* is now scanned for strays, and the root you relocated
+  *to* no longer is. A relocation under `.temper/` now fails `check` with
+  `at-locus.under-workspace`.
+- **The guard blocks a hand write it used to allow** when your lock still
+  carries old `./`-prefixed rows. Re-emitting rewrites them.
+
+### Breaking
+
+- **A built-in kind relocated under `.temper/` is refused at `check`**
+  (`at-locus.under-workspace`), as `emit` already refused it.
+- **`coverage.unclaimed-entry` reads a kind's whole locus glob**, not its
+  last segment. Entries the last segment used to mask are now reported;
+  `.claude/CLAUDE.md` stops being reported.
+- **A relocated built-in kind is scanned at its new locus**: the stray scan
+  advises over the root it left and stops advising over the root it moved to.
+- **The guard reads an old lock's `./x` rows** as the projections they
+  name, so a hand write to one is refused, matching `check`.
+- **`explain`'s member field strand names tap events by their documented
+  name** (`SkillInvoked`), not the log's snake_case (`skill_invoked`).
+- **A lock `collection_address` row with no `entry_shape` is refused**
+  where it was silently filled in. Only a hand-built lock can lack it.
+
+### Fixed
+
+- **`root.reachable` reported path-scoped rules dead** unless `--harness`
+  was spelled `.`: globs anchored at the root (`scripts/**`,
+  `scripts/a.sh`) matched no file when the harness root was given as an
+  absolute or a relative path.
+- **`.claude/CLAUDE.md` was reported both a `memory` member and an
+  unclaimed entry** in the same run.
+- **A relocated built-in kind's new locus drew stray advisories**, and its
+  old one drew none.
+- **`emit` refused a `local` kind's member rooted under `.temper/`**,
+  which `check` accepted.
+- **On Windows, `bundle`'s file list and `explain`'s kind narration mixed
+  `\` and `/`** in one path.
+
 ## [0.0.22] — 2026-10-01
 
 ### Upgrading from 0.0.21
