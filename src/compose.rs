@@ -1700,16 +1700,20 @@ fn body_occurrences(
 /// one walk per run ([`repo_file_set_count`] pins it). `graph::reachable`'s `paths-match`
 /// channel is the whole set's consumer, so the gate takes the walk only where a root
 /// `reachable` clause binds — a cited `@import`'s backing resolves per target through
-/// [`backed_on_disk`] instead. Paths are normalized (`.`/`..` segments resolved): an
-/// absolute root yields absolute entries and a relative root relative ones, so the
-/// path-domain join holds regardless of the harness root's spelling.
+/// [`backed_on_disk`] instead. Entries are spelled relative to `root`, the domain a
+/// `paths` glob is authored in, so the set is the same whatever spelling the harness
+/// root arrived in (`.`, `m`, or an absolute path).
 pub fn repo_file_set(root: &Path) -> Vec<String> {
     REPO_FILE_SET_COUNT.with(|c| c.set(c.get() + 1));
     let mut files = Vec::new();
     for entry in walkdir::WalkDir::new(root).min_depth(1).sort_by_file_name() {
         let Ok(entry) = entry else { continue };
-        if entry.file_type().is_file() {
-            let normalized = crate::path::normalize_path(entry.path());
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        // Every entry the walk yields is `root` joined with its descent.
+        if let Ok(relative) = entry.path().strip_prefix(root) {
+            let normalized = crate::path::normalize_path(relative);
             files.push(crate::path::to_canonical_spelling(&normalized));
         }
     }
@@ -2006,10 +2010,9 @@ mod tests {
     /// regardless of `.gitignore`, and the safe direction fixes it — an extra backing file only *suppresses* a
     /// finding, while pruning one could *forge* an unbacked finding on a target that
     /// exists. This is the counterpart to discovery, which *does* prune — two sets,
-    /// two rules, never merged. Paths are normalized to match discovery's format:
-    /// absolute when root is absolute, relative when root is relative. An `@import`
-    /// target even if excluded by `.gitignore` stays visible, so backed pointers aren't
-    /// falsely unbacked by discovery's ignore-honoring pruning.
+    /// two rules, never merged. An `@import` target even if excluded by `.gitignore`
+    /// stays visible, so backed pointers aren't falsely unbacked by discovery's
+    /// ignore-honoring pruning.
     #[test]
     fn repo_file_set_stays_raw_disk_including_gitignored_targets() {
         use crate::test_support::tmpdir;
@@ -2024,22 +2027,18 @@ mod tests {
         fs::write(dep.join("SHARED.md"), "shared\n").unwrap();
 
         let files = repo_file_set(&root);
-        let expected_shared = root
-            .join("node_modules/dep/SHARED.md")
-            .to_string_lossy()
-            .replace('\\', "/");
-        let expected_claude = root.join("CLAUDE.md").to_string_lossy().replace('\\', "/");
         assert!(
-            files.iter().any(|f| f == &expected_shared),
+            files.iter().any(|f| f == "node_modules/dep/SHARED.md"),
             "the gitignored backing target must still be seen (raw disk): {files:?}"
         );
-        assert!(files.iter().any(|f| f == &expected_claude));
+        assert!(files.iter().any(|f| f == "CLAUDE.md"));
     }
 
-    /// repo_file_set with an absolute harness root produces absolute paths
-    /// (normalized), matching the format directive-target resolution uses.
+    /// An absolute harness root yields the same root-relative entries a `.` root does:
+    /// a `paths` glob is authored relative to the root, so a root-prefixed entry would
+    /// match only a glob that opens with `**/`.
     #[test]
-    fn repo_file_set_normalizes_absolute_paths() {
+    fn repo_file_set_spells_entries_relative_to_an_absolute_root() {
         use crate::test_support::tmpdir;
         use std::fs;
 
@@ -2049,26 +2048,16 @@ mod tests {
         fs::write(root.join("root.md"), "root").unwrap();
         fs::write(subdir.join("child.md"), "child").unwrap();
 
-        let files = repo_file_set(&root);
-        // When root is absolute, output paths are absolute (not stripped).
-        let expected_root = root.join("root.md").to_string_lossy().replace('\\', "/");
-        let expected_child = root
-            .join("src/child.md")
-            .to_string_lossy()
-            .replace('\\', "/");
-
-        assert!(
-            files.iter().any(|f| f == &expected_root),
-            "absolute root produces absolute paths: {files:?}"
-        );
-        assert!(
-            files.iter().any(|f| f == &expected_child),
-            "nested file is also absolute: {files:?}"
+        assert!(root.is_absolute(), "the case needs an absolute root");
+        assert_eq!(repo_file_set(&root), vec!["root.md", "src/child.md"]);
+        // A root spelled with a `.` segment walks to the same set.
+        assert_eq!(
+            repo_file_set(&root.join(".")),
+            vec!["root.md", "src/child.md"]
         );
     }
 
-    /// repo_file_set with a relative harness root produces relative paths
-    /// (normalized), matching the format directive-target resolution uses.
+    /// A `.` harness root yields entries with the `.` segment resolved away.
     #[test]
     fn repo_file_set_normalizes_relative_paths() {
         use std::fs;
@@ -2110,10 +2099,11 @@ mod tests {
         use crate::test_support::tmpdir;
         use std::fs;
 
-        /// The walk's own spelling of a path — normalized, `/`-separated — so the
-        /// set face and the stat face join on one string domain.
-        fn walk_spelling(path: &Path) -> String {
-            crate::path::normalize_path(path)
+        /// The walk's own spelling of a path — root-relative, normalized, `/`-separated —
+        /// so the set face and the stat face join on one string domain. A path outside
+        /// `root` keeps its full spelling, which no root-relative entry can equal.
+        fn walk_spelling(root: &Path, path: &Path) -> String {
+            crate::path::normalize_path(path.strip_prefix(root).unwrap_or(path))
                 .to_string_lossy()
                 .replace('\\', "/")
         }
@@ -2167,7 +2157,7 @@ mod tests {
         let backed = backed_on_disk(&root);
 
         for path in &collected {
-            let spelling = walk_spelling(path);
+            let spelling = walk_spelling(&root, path);
             assert!(
                 files.contains(&spelling),
                 "fixture drift: the walk must have collected `{spelling}`, got: {files:?}"
@@ -2176,13 +2166,13 @@ mod tests {
 
         for entry in &files {
             assert!(
-                backed(Path::new(entry)),
+                backed(&root.join(entry)),
                 "the walk collected `{entry}`, so the stat resolver must back it"
             );
         }
 
         for path in &excluded {
-            let spelling = walk_spelling(path);
+            let spelling = walk_spelling(&root, path);
             assert!(
                 !files.contains(&spelling),
                 "fixture drift: the walk collected `{spelling}`, which this case excludes"

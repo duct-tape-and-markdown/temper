@@ -624,3 +624,47 @@ fn a_root_engine_matches_clause_reports_a_lock_another_engine_wrote_and_stays_si
     );
     assert!(ok, "and the run passes, got:\n{findings:#?}");
 }
+
+#[test]
+fn a_paths_glob_matches_relative_to_the_harness_root_however_the_root_is_spelled() {
+    // Root-anchored globs — a directory, a nested one, an exact file — plus a `**/` one
+    // that matches at any depth, beside the dead rule as the non-vacuity control.
+    let root = dead_registration_harness("root-reachable-spelling");
+    common::write_sibling(&root, "scripts/a.sh", "x\n");
+    common::write_sibling(&root, "src/ui/app.ts", "x\n");
+    for (name, glob) in [
+        ("scripts", "scripts/**"),
+        ("ui", "src/ui/**"),
+        ("exact", "scripts/a.sh"),
+        ("anywhere", "**/a.sh"),
+    ] {
+        common::write_sibling(
+            &root,
+            &format!(".claude/rules/{name}.md"),
+            &common::scoped_rule(Some(glob)),
+        );
+    }
+    let parent = root.parent().unwrap();
+    let name = root.file_name().unwrap().to_str().unwrap();
+    let absolute = root.to_str().unwrap();
+
+    for (label, cwd, harness) in [
+        ("`.` from the root", root.as_path(), "."),
+        ("absolute from the root", root.as_path(), absolute),
+        ("relative from the parent", parent, name),
+        ("absolute from the parent", parent, absolute),
+    ] {
+        let findings = common::check_in(cwd, &["--harness", harness], Some("github")).findings();
+        let reported = common::findings_for(&findings, "root.reachable");
+        assert_eq!(
+            reported.len(),
+            1,
+            "{label}: only the unmatched rule is dead, got:\n{findings:#?}"
+        );
+        assert!(
+            reported[0].contains("`style`"),
+            "{label}: the one dead rule is the unmatched one, got: {}",
+            reported[0]
+        );
+    }
+}
