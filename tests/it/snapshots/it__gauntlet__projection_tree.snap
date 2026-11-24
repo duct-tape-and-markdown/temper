@@ -125,6 +125,14 @@ unit_shape = "file"
 content = { regions = [{ region = "prose", import = "../preamble.md" }, { region = "field", slot = "intent" }] }
 
 [[declaration.kind]]
+name = "decision"
+governs_root = "docs/decisions"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "named-field(title)"
+content = { regions = [{ region = "field", slot = "ruling" }, { region = "collection", member_kind = "invariant" }] }
+
+[[declaration.kind]]
 name = "guide"
 governs_root = "docs/guides"
 governs_glob = "*/GUIDE.md"
@@ -204,6 +212,13 @@ unit_shape = "file"
 content = { regions = [{ region = "prose" }, { region = "field", slot = "intent" }, { region = "collection", member_kind = "invariant" }] }
 
 [[declaration.clause]]
+label = "decision.required.status"
+kind = "decision"
+predicate = "required"
+field = "status"
+severity = "required"
+
+[[declaration.clause]]
 label = "machine.type.mode"
 kind = "machine"
 predicate = "type"
@@ -242,6 +257,10 @@ value = "warn"
 
 [[declaration.assembly]]
 fact = "contract"
+from = "decision"
+
+[[declaration.assembly]]
+fact = "contract"
 from = "machine"
 
 [[declaration.assembly]]
@@ -264,6 +283,12 @@ leaves = { source = "rule:conventions" }
 placed_edges = ["source"]
 rendered_lines = 1
 rendered_chars = 34
+
+[[declaration.nested_member]]
+host = "decision:check-at-session-open"
+kind = "invariant"
+key = "loud-or-nothing"
+leaves = { prose = "A gate never fabricates absence." }
 
 [[declaration.nested_member]]
 host = "guide:operate-the-gate/spec/representation"
@@ -316,12 +341,29 @@ member = "charter:gate"
 source_path = "docs/charters/gate.md"
 
 [[declaration.layout_source]]
+member = "decision:check-at-session-open"
+source_path = "docs/decisions/0001.md"
+
+[[declaration.layout_source]]
 member = "guide:operate-the-gate/spec/representation"
 source_path = "docs/guides/operate-the-gate/representation.md"
 
 === docs/charters/gate.md ===
 # Intent
 The gate is check at a narrower trigger.
+
+=== docs/decisions/0001.md ===
+---
+title: check-at-session-open
+status: accepted
+---
+# Ruling
+check runs at session open.
+
+# Invariants
+
+## Loud or nothing
+A gate never fabricates absence.
 
 === docs/guides/operate-the-gate/GUIDE.md ===
 <!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->

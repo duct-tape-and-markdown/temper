@@ -489,11 +489,9 @@ fn relocated_rule_with_layout() -> KindFactRow {
 }
 
 /// A document that fits `intent_layout` — a prose preamble, an `# Intent` field section,
-/// and an `# Invariants` collection — yet is **invalid as frontmatter**: the leading
-/// `---` fence wraps unparseable YAML. Read under the layout the fence is ordinary
-/// preamble prose; read as frontmatter (the pre-overlay path) it errors — so check
-/// staying clean is proof it dispatched to the layout.
-const FITS_LAYOUT_INVALID_FRONTMATTER: &str = "---\nnot: valid: yaml: [\n---\n\n\
+/// and an `# Invariants` collection — beneath a frontmatter block, which reads as on any
+/// file member of the built-in it relocates.
+const FITS_LAYOUT_WITH_FRONTMATTER: &str = "---\npaths: [\"decisions/**\"]\n---\n\n\
 The product intent, authored in prose.\n\
 \n\
 # Intent\n\
@@ -516,13 +514,12 @@ fn check_reads_a_relocated_builtin_document_under_its_declared_layout() {
     );
     let decisions = root.join("decisions");
     fs::create_dir_all(&decisions).unwrap();
-    fs::write(decisions.join("0001.md"), FITS_LAYOUT_INVALID_FRONTMATTER).unwrap();
+    fs::write(decisions.join("0001.md"), FITS_LAYOUT_WITH_FRONTMATTER).unwrap();
 
     let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
-        "a fitting document must read clean under the relocated built-in's layout — \
-         never through the frontmatter adapter, which its invalid `---` fence would trip:\n{}",
+        "a fitting document must read clean under the relocated built-in's layout:\n{}",
         run.output
     );
 }
@@ -1224,6 +1221,129 @@ fn a_declared_layout_member_whose_document_lowers_to_nothing_draws_no_undeclared
     assert!(
         !run.output.contains("root.locus-declared"),
         "a declared member whose document lowered into no row draws no finding: {}",
+        run.output
+    );
+}
+
+/// The `spec` layout kind of [`slot_floor_kind_facts`], declared in the yaml-frontmatter
+/// format with one `required` clause over a field its frontmatter — not its body —
+/// carries.
+fn frontmatter_floor_run(label: &str, doc: &str) -> common::CheckRun {
+    let root = common::tmpdir(label);
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                format: Some("yaml-frontmatter".to_string()),
+                ..slot_floor_kind_facts()
+            }],
+            clauses: vec![ClauseRow {
+                kind: Some("spec".to_string()),
+                field: Some("status".to_string()),
+                ..common::clause("required", "required")
+            }],
+            ..Default::default()
+        },
+    );
+    let specs = root.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("model.md"), doc).unwrap();
+    common::check_in(&root, &[], None)
+}
+
+/// A layout structures the body alone: the format's other slots read as on a
+/// `file`-content kind, so a frontmatter field reaches the clauses beside the layout's
+/// own slots — and the frontmatter block is never mistaken for body structure.
+#[test]
+fn a_layout_document_reads_its_frontmatter_fields() {
+    let present = frontmatter_floor_run(
+        "layout-frontmatter-present",
+        "---\nstatus: draft\n---\n# Summary\nThe representation model.\n",
+    );
+    assert!(
+        present.output.contains("spec (1)"),
+        "the case is vacuous unless the run judged the layout member: {}",
+        present.output
+    );
+    assert!(
+        present.ok && !present.output.contains("spec.required.status"),
+        "the frontmatter's `status` fills the field the clause asks for: {}",
+        present.output
+    );
+
+    let absent = frontmatter_floor_run(
+        "layout-frontmatter-absent",
+        "---\nowner: docs\n---\n# Summary\nThe representation model.\n",
+    );
+    assert!(
+        absent.output.contains("spec.required.status"),
+        "a frontmatter lacking the field fires the floor: {}",
+        absent.output
+    );
+}
+
+/// The `spec` kind keyed by a frontmatter field rather than its file stem.
+fn named_field_spec_kind() -> KindFactRow {
+    KindFactRow {
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("named-field(title)".to_string()),
+        content: Some(LayoutRow {
+            regions: vec![
+                common::field_region("summary"),
+                LayoutRegionRow {
+                    region: "collection".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: Some("invariant".to_string()),
+                    key: None,
+                },
+            ],
+        }),
+        ..common::kind_facts("spec", "specs", "*.md")
+    }
+}
+
+/// A layout document's identity is its kind's locus, as any file member's: a
+/// `named-field` unit is named by its frontmatter value on both faces — the rows emit
+/// lowers and the `layout_source` record key under it, and check reads the same id, so
+/// the declared member draws no undeclared advisory.
+#[test]
+fn a_layout_documents_identity_follows_its_kinds_unit_shape() {
+    let harness = common::scaffold("layout-named-field-identity");
+    fs::write(
+        harness.join("specs").join("model.md"),
+        "---\ntitle: representation\n---\n# Summary\nThe model.\n\n# Invariants\n\n\
+         ## Loud or nothing\nA gate never fabricates absence.\n",
+    )
+    .unwrap();
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![named_field_spec_kind()],
+            ..Default::default()
+        },
+        members: vec![common::payload_member("spec", "model", None, "")],
+    };
+    let into = harness.join(".temper");
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let hosts: Vec<String> = drift::read_declarations(&into)
+        .unwrap()
+        .nested_members
+        .into_iter()
+        .map(|row| row.host)
+        .collect();
+    assert_eq!(hosts, vec!["spec:representation".to_string()]);
+
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        run.output.contains("spec (1)"),
+        "the case is vacuous unless the run judged the member: {}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("root.locus-declared"),
+        "check reads the identity emit keyed the member under: {}",
         run.output
     );
 }

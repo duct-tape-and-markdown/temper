@@ -23,7 +23,10 @@
 //!    `guide`'s directory and carved out of that host's template discovery;
 //! 6. a top-level layout document at a governed locus — a `charter` whose prose
 //!    region imports a preamble outside the locus, so the lock carries a declaration
-//!    row and an import fingerprint for it and no provenance row.
+//!    row and an import fingerprint for it and no provenance row;
+//! 7. a yaml-frontmatter layout document keyed by a frontmatter field — a `decision`
+//!    whose layout structures its body alone: its frontmatter fields reach a clause and
+//!    its `named-field` identity keys its rows, never the file stem.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -43,7 +46,7 @@ use crate::common;
 /// nested-file templates, embedded edges, admission, the local commitment class,
 /// manifest residue) is temper's own model (`specs/model/`), not an external fact.
 const GAUNTLET_PROGRAM: &str = r#"
-import { blocks, clause, emit, embeddedMemberValue, harness, kind, text, type } from "@dtmd/temper";
+import { blocks, clause, emit, embeddedMemberValue, harness, kind, required, text, type } from "@dtmd/temper";
 import { hook, installedPlugin, knownMarketplace, rule, settings } from "@dtmd/temper/claude-code";
 
 // Composition 1 — a composed layout body over a templated host.
@@ -210,13 +213,36 @@ const charter = kind<{ intent?: string }>({
 
 const gateCharter = charter({ name: "gate" });
 
+// Composition 7 — a yaml-frontmatter layout document keyed by a frontmatter field.
+//
+// `decision`'s layout structures its body alone: the frontmatter reads as on any file
+// member, so `status` reaches the `required` clause below, and the `named-field`
+// identity is the document's own `title`, not the `0001` stem its path splices from.
+const decision = kind<{ title?: string; status?: string; ruling?: string }>({
+  name: "decision",
+  locus: { kind: "at", root: "docs/decisions", glob: "*.md" },
+  format: "yaml-frontmatter",
+  unitShape: "named-field",
+  identityField: "title",
+  registration: [],
+  content: {
+    regions: [
+      { region: "field", slot: "ruling" },
+      { region: "collection", memberKind: "invariant" },
+    ],
+  },
+});
+
+const gateDecision = decision({ name: "0001" });
+
 process.stdout.write(
   emit(
     harness({
-      members: [gateGuide, representation, conventions, authoring, sessionHook, auditHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook, gateCharter],
+      members: [gateGuide, representation, conventions, authoring, sessionHook, auditHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook, gateCharter, gateDecision],
       admit: [{ host: rule, admits: [citation] }],
       expect: [
         { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },
+        { kind: decision, clauses: [clause(required("status"), { severity: "required" })] },
       ],
     }),
   ).seam,
@@ -247,6 +273,17 @@ const MACHINE_DOC: &str = "---\nmode: advisory\n---\n\nThis workstation's own kn
 /// The `charter` layout source — one `# Intent` field section after the imported prose.
 const CHARTER_DOC: &str = "# Intent\nThe gate is check at a narrower trigger.\n";
 
+/// The `decision` layout source — frontmatter naming it and carrying the `status` its
+/// clause requires, then a `# Ruling` field section and an `# Invariants` collection.
+const DECISION_DOC: &str = "---\ntitle: check-at-session-open\nstatus: accepted\n---\n\
+# Ruling\n\
+check runs at session open.\n\
+\n\
+# Invariants\n\
+\n\
+## Loud or nothing\n\
+A gate never fabricates absence.\n";
+
 /// The preamble the `charter` kind's prose region imports.
 const PREAMBLE_DOC: &str = "Shared preamble prose.\n";
 
@@ -265,6 +302,7 @@ fn seat_sources(harness: &Path) {
     common::write_sibling(harness, ".gitignore", ".claude/local/\n");
     common::write_sibling(harness, "docs/charters/gate.md", CHARTER_DOC);
     common::write_sibling(harness, "docs/preamble.md", PREAMBLE_DOC);
+    common::write_sibling(harness, "docs/decisions/0001.md", DECISION_DOC);
 }
 
 /// The emitted projection tree, faced as one deterministic listing: the emit

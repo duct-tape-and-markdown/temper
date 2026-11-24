@@ -29,8 +29,8 @@ use crate::contract;
 use crate::graph;
 use crate::hash::{canonicalize_eol, canonicalize_eol_str, sha256_hex};
 use crate::kind::{
-    CollectionAddress, Commitment, Content, Format, collection_address_from_row,
-    commitment_from_row, content_from_row, format_from_row,
+    CollectionAddress, Commitment, Content, CustomKind, Format, UnitShape,
+    collection_address_from_row, commitment_from_row, content_from_row, format_from_row,
 };
 use crate::layout::{Layout, LayoutReading, LayoutRegion};
 use crate::member_address::{
@@ -53,7 +53,7 @@ thread_local! {
     /// done once per manifest per emit() run and shared with the write-decision phase.
     static MANIFEST_READS: Cell<usize> = const { Cell::new(0) };
     /// Per-thread count of layout document file reads. Incremented by the one counted
-    /// door onto a layout document's bytes ([`read_layout_document_text`]), pinning that
+    /// door onto a layout document's bytes ([`read_layout_document_member`]), pinning that
     /// each document is read once per pass — a member's already-read text lowers through
     /// [`lower_layout_reading`] rather than going back to disk.
     static LAYOUT_DOCUMENT_READS: Cell<usize> = const { Cell::new(0) };
@@ -1701,7 +1701,9 @@ pub fn emit(
         }
         if let Content::Layout(layout) = content_from_row(facts)? {
             let edge_fields = layout_edge_fields(&payload.declarations.assembly, &member.kind)?;
+            let kind = CustomKind::from_kind_fact_row(facts)?;
             let derivation = derive_layout_rows(
+                &kind,
                 &layout,
                 member,
                 source_path.as_ref(),
@@ -1714,7 +1716,7 @@ pub fn emit(
             layout_prose_rows.extend(derivation.prose);
             layout_satisfies.extend(derivation.satisfies);
             layout_source_rows.push(LayoutSourceRow {
-                member: payload_member_address(member),
+                member: derivation.host,
                 source_path: source_path.clone(),
             });
             layout_paths.insert(source_path);
@@ -2431,6 +2433,9 @@ fn manifest_segment_reaps(
 /// [`SatisfiesRow`] fill edges. All fall out of the one document read, so they travel
 /// together rather than forcing a second pass over the same source.
 struct LayoutDerivation {
+    /// The layout host's own address — the identity `check` reads off the same document,
+    /// which every row below keys under and the `layout_source` record names.
+    host: String,
     /// The collection members, lowered into `nested_member` rows.
     nested: Vec<NestedMemberRow>,
     /// The prose imports, resolved and fingerprinted.
@@ -2522,6 +2527,7 @@ fn member_address_under(host: Option<&str>, kind: &str, key: &str) -> String {
 /// a `LayoutError` (as a [`miette::Report`]) when the document does not fit its declared
 /// layout.
 fn derive_layout_rows(
+    kind: &CustomKind,
     layout: &Layout,
     member: &PayloadMember,
     source_path: &Path,
@@ -2530,8 +2536,7 @@ fn derive_layout_rows(
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<LayoutDerivation> {
     let disk_path = harness_root.join(source_path);
-    let host = payload_member_address(member);
-    let document = read_layout_document(layout, &host, &disk_path, edge_fields)?;
+    let (host, document) = read_layout_document(kind, layout, member, &disk_path, edge_fields)?;
 
     let mut imports = Vec::new();
     for region in &layout.regions {
@@ -2548,6 +2553,7 @@ fn derive_layout_rows(
     }
 
     Ok(LayoutDerivation {
+        host,
         nested: document.nested,
         imports,
         prose: document.prose,
@@ -2579,47 +2585,98 @@ pub struct LayoutDocumentRows {
     pub prose: Vec<LayoutProseRow>,
 }
 
-/// Read the layout document at `disk_path`, parse it under `layout`, and lower the
+/// Read the layout document at `disk_path`, parse its body under `layout`, and lower the
 /// reading into the rows it declares — the reaching half, for a caller that does not
 /// already hold the document. A caller that has already parsed one lowers its reading
 /// directly ([`lower_layout_reading`]) rather than reading and parsing it twice.
 ///
+/// Returns the address the rows key under beside them: the member's identity is the one
+/// `check` reads off the same document. A path-shaped or file-shaped unit's identity is
+/// the placement emit composed from the member's own name, so the name is it; a
+/// `named-field` unit's is the document's own frontmatter value, which the program's name
+/// does not govern.
+///
 /// # Errors
-/// Returns a [`DriftError`] when the document cannot be read or is not UTF-8, or a
-/// `LayoutError` (as a [`miette::Report`]) when it does not fit its declared layout.
+/// Returns a [`DriftError`] when the document cannot be read or is not UTF-8, the
+/// frontmatter adapter's refusal when its frontmatter is malformed or names no id, or a
+/// `LayoutError` (as a [`miette::Report`]) when its body does not fit its declared layout.
 fn read_layout_document(
+    kind: &CustomKind,
     layout: &Layout,
-    host: &str,
+    member: &PayloadMember,
     disk_path: &Path,
     edge_fields: &BTreeSet<String>,
-) -> miette::Result<LayoutDocumentRows> {
-    let body = read_layout_document_text(disk_path).map_err(DriftError::from)?;
-    let reading = layout.read(&body, disk_path, edge_fields)?;
-    Ok(lower_layout_reading(layout, host, reading))
+) -> miette::Result<(String, LayoutDocumentRows)> {
+    let base = disk_path.parent().unwrap_or(disk_path);
+    let document =
+        read_layout_document_member(kind, disk_path, base).map_err(|fault| match fault {
+            LayoutDocumentFault::Read(err) => miette::Report::new(DriftError::from(err)),
+            LayoutDocumentFault::Frontmatter(err) => miette::Report::new(err),
+        })?;
+    let host = match &kind.unit_shape {
+        Some(UnitShape::NamedField { .. }) => {
+            member_address_under(member.host.as_deref(), &member.kind, &document.id)
+        }
+        _ => payload_member_address(member),
+    };
+    let reading = layout.read(&document.body, disk_path, edge_fields)?;
+    let rows = lower_layout_reading(layout, &host, reading);
+    Ok((host, rows))
 }
 
-/// Read one layout document's text off disk — the **one counted door** onto a layout
-/// document's bytes. Both sites that load one come through here: the unit adapter that
-/// fills a member's fields off its sections (`compose::layout_unit`) and the reaching half
-/// of the row derivation above. Counting at the door rather than per caller makes
-/// [`layout_document_read_count`] the pass's true disk-read total, which is what lets a
-/// count pin catch a document read a second time.
+/// Read one layout document off disk through its format's frontmatter adapter — the **one
+/// counted door** onto a layout document's bytes. Both sites that load one come through
+/// here: the unit adapter that fills a member's fields off its sections
+/// (`compose::layout_unit`) and the reaching half of the row derivation above. Counting at
+/// the door rather than per caller makes [`layout_document_read_count`] the pass's true
+/// disk-read total, which is what lets a count pin catch a document read a second time.
 ///
-/// The bytes come through [`crate::hash::read_utf8`], the read+decode primitive every
-/// other adapter source load shares, and the door hands its error back unmapped: the
-/// two callers sit in different vocabularies (a unit adapter refuses as a
+/// A layout structures the body alone: the document's frontmatter, its fields and the
+/// identity the kind's unit shape takes off them read exactly as a `file`-content member's
+/// do ([`crate::frontmatter::Member::from_source_rooted`]), and the returned member's
+/// `body` is what the layout parses. `base` is the fold base a file-shaped id folds
+/// against.
+///
+/// The fault comes back split rather than mapped: the two callers sit in different
+/// vocabularies (a unit adapter refuses a read as a
 /// [`LayoutError`](crate::layout::LayoutError), the row lowering as a [`DriftError`]),
-/// so each maps at its own call site rather than translating twice through one.
+/// so each maps the read half at its own call site; the frontmatter half is the
+/// frontmatter adapter's own refusal on either face.
 ///
 /// # Errors
-/// Returns a [`crate::hash::ReadUtf8Error`] when the document cannot be read or is not
-/// valid UTF-8.
-pub(crate) fn read_layout_document_text(
+/// Returns a [`LayoutDocumentFault`] when the document cannot be read, is not valid UTF-8,
+/// carries a malformed frontmatter block, or yields no id for its kind's unit shape.
+pub(crate) fn read_layout_document_member(
+    kind: &CustomKind,
     disk_path: &Path,
-) -> Result<String, crate::hash::ReadUtf8Error> {
-    let body = crate::hash::read_utf8(disk_path)?;
+    base: &Path,
+) -> Result<crate::frontmatter::Member, LayoutDocumentFault> {
+    use crate::frontmatter::FrontmatterError;
+    use crate::hash::ReadUtf8Error;
+    let member =
+        crate::frontmatter::Member::from_source_rooted(kind, disk_path, base).map_err(|err| {
+            match err {
+                FrontmatterError::Io { path, source } => {
+                    LayoutDocumentFault::Read(ReadUtf8Error::Io { path, source })
+                }
+                FrontmatterError::NotUtf8 { path, source } => {
+                    LayoutDocumentFault::Read(ReadUtf8Error::NotUtf8 { path, source })
+                }
+                other => LayoutDocumentFault::Frontmatter(other),
+            }
+        })?;
     increment_layout_document_reads();
-    Ok(body)
+    Ok(member)
+}
+
+/// Why [`read_layout_document_member`] could not hand back a document: its bytes, or its
+/// frontmatter.
+#[derive(Debug)]
+pub(crate) enum LayoutDocumentFault {
+    /// The document could not be read or decoded — each caller's own vocabulary maps it.
+    Read(crate::hash::ReadUtf8Error),
+    /// The frontmatter adapter refused the document, as it refuses any file member's.
+    Frontmatter(crate::frontmatter::FrontmatterError),
 }
 
 /// Lower an already-parsed [`LayoutReading`] into the rows its document declares — the

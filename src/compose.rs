@@ -633,14 +633,14 @@ pub fn overlay_builtin_kind(
 }
 
 /// Read one layout-content document at `file` into a [`Unit`] **and the declaration rows
-/// it declares**, off the kind's declared `layout`: the whole file is the body's heading
-/// tree, the field sections fill the unit's fields (each slot's verbatim span, so a clause
+/// it declares**, off the kind's declared `layout`: the frontmatter reads as on a
+/// `file`-content kind, the body after it is the heading tree, the field sections fill the unit's fields (each slot's verbatim span, so a clause
 /// ranges over it as a field). A declared-relationship edge slot is the exception: its
 /// entries are addresses, folded onto the unit as a list field the reference graph resolves
 /// live off the host's features — like a file member's frontmatter reference list — while
 /// `satisfies` reaches the unit off the lock's own family, keyed by member id, not off the
-/// document here. The id folds the file's placement under `base` the same way a
-/// file-content member's does. A document that does not fit the layout — a section missing,
+/// document here. The id is the kind's unit shape over the file, exactly as a file-content
+/// member's is. A document that does not fit the layout — a section missing,
 /// structure no primitive admits — refuses loud through [`crate::layout::LayoutError`],
 /// naming the file and heading.
 ///
@@ -655,29 +655,31 @@ pub fn overlay_builtin_kind(
 /// # Errors
 ///
 /// Returns a [`LayoutError`] if the document is unreadable, is not UTF-8, or does not fit
-/// its declared layout.
+/// its declared layout, and the frontmatter adapter's refusal if its frontmatter is
+/// malformed or names no id.
 fn layout_unit(
+    kind: &CustomKind,
     layout: &Layout,
-    kind_name: &str,
     file: &Path,
     base: &Path,
     edge_fields: &BTreeSet<String>,
     host: Option<&str>,
 ) -> miette::Result<(Unit, drift::LayoutDocumentRows)> {
-    // Through the counted door, not a bare `read_to_string`: this and the row derivation's
-    // own reach are the two sites that load a layout document, and a count taken at one of
-    // them would pin a share of the cost rather than the cost. The door reads through the
-    // shared read+decode primitive and hands its error back unmapped, so the refusal takes
-    // this adapter's own vocabulary — the way every other adapter source load does.
-    let raw = drift::read_layout_document_text(file).map_err(LayoutError::from)?;
-    let mut reading = layout.read(&raw, file, edge_fields)?;
-    let folded =
-        crate::extract::fold_file_id(base, file).map_err(frontmatter::FrontmatterError::from)?;
-    let id = host_qualified(host, kind_name, folded);
+    // Through the counted door: this and the row derivation's own reach are the two sites
+    // that load a layout document, and a count taken at one of them would pin a share of
+    // the cost rather than the cost. The door reads the frontmatter as any file member's
+    // and hands the read fault back unmapped, so it takes this adapter's own vocabulary.
+    let document =
+        drift::read_layout_document_member(kind, file, base).map_err(|fault| match fault {
+            drift::LayoutDocumentFault::Read(err) => miette::Report::new(LayoutError::from(err)),
+            drift::LayoutDocumentFault::Frontmatter(err) => miette::Report::new(err),
+        })?;
+    let mut reading = layout.read(&document.body, file, edge_fields)?;
+    let id = host_qualified(host, &kind.name, document.id);
     // The key every row below lowers under, spelled off the id just folded through the
     // grammar's one home: a top-level member's `<kind>:<name>`, a file child's whole
     // host-qualified address, which its id already is.
-    let address = member_address::address_of(kind_name, &id);
+    let address = member_address::address_of(&kind.name, &id);
     // The one parse, split **by move** between its two consumers: the unit takes the
     // reading's field half, the rows take its member/prose/`satisfies` half. Neither copies
     // what the other holds, and neither goes back through `Layout::read` for it.
@@ -690,10 +692,16 @@ fn layout_unit(
             .edges
             .insert(kind::SATISFIES_EDGE_FIELD.to_string(), entries);
     }
-    let mut frontmatter: BTreeMap<String, serde_json::Value> = fields
-        .into_iter()
-        .map(|(slot, span)| (slot, serde_json::Value::String(span)))
-        .collect();
+    // The frontmatter's own fields first, then the layout's slots over them: a slot is the
+    // body's declared structure, so where an author spells one name in both, the section
+    // the layout reads wins.
+    let mut frontmatter: BTreeMap<String, serde_json::Value> =
+        document.fields.into_iter().collect();
+    frontmatter.extend(
+        fields
+            .into_iter()
+            .map(|(slot, span)| (slot, serde_json::Value::String(span))),
+    );
     for (slot, entries) in unit_edges {
         frontmatter.insert(
             slot,
@@ -705,7 +713,7 @@ fn layout_unit(
         Unit {
             id,
             frontmatter,
-            body: raw,
+            body: document.body,
             source_path: file.to_path_buf(),
             satisfies: Vec::new(),
             satisfies_clauses: Vec::new(),
@@ -739,7 +747,7 @@ fn read_file_unit(
     // the member's address, so the host must be in hand before the lowering, not folded on
     // after it. Every other adapter yields the unit alone and qualifies below.
     if let kind::Content::Layout(layout) = &kind.content {
-        return layout_unit(layout, &kind.name, file, base, edge_fields, host);
+        return layout_unit(kind, layout, file, base, edge_fields, host);
     }
     let mut unit = match &kind.format {
         // Both document faces fold against the very base the frontmatter arm below receives
