@@ -23,7 +23,7 @@ const agent = {
 };
 
 export const declaration = {
-  specLocus: ["specs/**/*.md"],
+  specLocus: ["specs/*.md", "specs/**/*.md"],
 
   fence: {
     // Product code and its build surface. Build never writes the control

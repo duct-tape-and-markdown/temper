@@ -37,3 +37,4 @@ sdk/node_modules/
 .flume/stop
 .flume/run-end.json
 .flume/sessions/
+.flume/friction/
