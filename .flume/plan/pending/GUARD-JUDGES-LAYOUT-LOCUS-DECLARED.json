@@ -1,0 +1,50 @@
+{
+  "tag": "GUARD-JUDGES-LAYOUT-LOCUS-DECLARED",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "guard's locus-declared judgment: add the layout half beside the locus half"
+      },
+      {
+        "path": "src/main.rs",
+        "description": "guard edges hand member addresses to the layout half"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "undeclared_layout_members_from_doc reachable from guard sites"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "unit-id derivation the layout half needs per site"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "guard layout-member tests"
+      },
+      {
+        "path": "tests/it/gauntlet.rs",
+        "description": "subset pin covers an undeclared layout member"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The guard judges the layout half of locus-declared (undeclared layout members) at both edges, as check does",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "The placements and their enforcement modes"
+  },
+  "acceptance": "A guarded tree with an undeclared layout member yields the guard finding check raises, at pre and post edges; the gauntlet subset pin holds",
+  "tests": [
+    "the guard raises an undeclared layout member at the post edge",
+    "the guard raises an undeclared layout member in a pending write"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "From GUARD-JUDGES-AS-CHECK-DOES note: guard binds locus-declared but judges only its locus half; 'a clause it binds it judges whole'. Member address comes off compose's unit-id derivation. Shares main.rs/install.rs with GUARD-PRE-EDGE-HONORS-IGNORE."
+}

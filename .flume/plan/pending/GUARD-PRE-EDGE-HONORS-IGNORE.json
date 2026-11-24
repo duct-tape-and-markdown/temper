@@ -1,0 +1,41 @@
+{
+  "tag": "GUARD-PRE-EDGE-HONORS-IGNORE",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/import.rs",
+        "description": "one shared discovery filter: single-path ignore query + the three fences (.git, workspace, nested governed root)"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "locus_member_sites uses the shared filter; pre edge drops a path check would not discover"
+      },
+      {
+        "path": "src/main.rs",
+        "description": "pre edge consults the single-path query"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "gitignored pending write test"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The guard's pre edge never binds a pending write at a gitignored path check would not discover (subset rule)",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "The placements and their enforcement modes"
+  },
+  "acceptance": "A pending write to a gitignored path inside a governed locus (e.g. .claude/rules/local.md) raises no guard finding; locus_member_sites and discovery share one fence filter in import",
+  "tests": [
+    "the guard does not judge a pending write to a gitignored locus path"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "From GUARD-JUDGES-AS-CHECK-DOES note. A pending path may not exist yet, so the query judges ignore rules for a path, not a walk. Consolidation of locus_member_sites' repeated fences rides here (discoverable_paths/is_governed_root are private). .-rooted loci skip at pre edge: widen only if the same query admits them cleanly."
+}

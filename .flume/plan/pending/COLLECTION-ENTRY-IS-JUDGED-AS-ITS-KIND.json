@@ -42,10 +42,11 @@
   },
   "acceptance": "A member-grain clause on an entry kind and a host-path clause over the entries (invariant[*].test) each produce a finding on a violating collection entry; the gauntlet pins it",
   "tests": [
-    "a required clause on a collection entry's kind fires on the entry",
     "a host path clause over collection entries fires on a violating entry"
   ],
-  "pins": [],
+  "pins": [
+    "a required clause on a collection entry's kind fires on the entry"
+  ],
   "laneTests": [],
   "notes": "Cause unconfirmed: trace compose.rs ~1480 and gate.rs ~482 first; widen files if the gap sits elsewhere. Shares compose.rs and the gauntlet with LAYOUT-STRUCTURES-THE-BODY-ALONE.",
   "observedFiles": [

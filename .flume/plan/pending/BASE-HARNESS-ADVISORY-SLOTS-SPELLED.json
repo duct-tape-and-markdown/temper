@@ -1,0 +1,31 @@
+{
+  "tag": "BASE-HARNESS-ADVISORY-SLOTS-SPELLED",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "examples/base-harness/.temper/harness.ts",
+        "description": "standards and operations spell required: false, per its own comment"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emit"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The base-harness example spells required: false on its advisory standards and operations requirements, now that unset lowers to true",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "requirement \u2014 a shipped kind, not a primitive"
+  },
+  "acceptance": "The example lock lowers standards and operations to required = false; check on the example stays green",
+  "tests": [],
+  "pins": [],
+  "laneTests": [],
+  "notes": "From REQUIREMENT-LOWERS-THE-CORPUS-DEFAULT note: the comment says these are deliberately not floored, but the corpus default now floors them."
+}
