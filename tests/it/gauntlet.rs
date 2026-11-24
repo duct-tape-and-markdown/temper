@@ -8,7 +8,8 @@
 //!
 //! 1. a composed layout body over a templated host — a `spec` document graining
 //!    into embedded `invariant` members, itself a nested-file child of a
-//!    templated `guide` host;
+//!    templated `guide` host, its entries judged as `invariant` members and from
+//!    the host over `invariant[*]`;
 //! 2. an embedded edge scoped on both endpoints — a `citation` edge inside a
 //!    `paths`-scoped rule's body, pointing at a second `paths`-scoped rule;
 //! 3. a declared manifest container — a `settings` member owning `settings.json`
@@ -66,6 +67,16 @@ const spec = kind<{ intent?: string }>({
       { region: "collection", memberKind: "invariant" },
     ],
   },
+});
+
+// The collection's entry kind, declared so a clause can name it. An entry is a member of
+// its kind in every respect: a clause on `invariant` judges each entry, and a host path
+// over the entries (`invariant[*].test` on `spec`) judges each one from the host. Neither
+// seated entry carries a `test` sub-heading, so both clauses fire on both entries.
+const invariant = kind({
+  name: "invariant",
+  locus: { kind: "embedded" },
+  unitShape: "file",
 });
 
 const guide = kind({
@@ -243,6 +254,8 @@ process.stdout.write(
       expect: [
         { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },
         { kind: decision, clauses: [clause(required("status"), { severity: "required" })] },
+        { kind: invariant, clauses: [clause(required("test"), { severity: "advisory" })] },
+        { kind: spec, clauses: [clause(required("invariant[*].test"), { severity: "advisory" })] },
       ],
     }),
   ).seam,

@@ -1347,3 +1347,54 @@ fn a_layout_documents_identity_follows_its_kinds_unit_shape() {
         run.output
     );
 }
+
+/// A `check` run over the declared `specs/intent.md` layout member carrying
+/// [`INTENT_DOC`]'s two `invariant` entries, neither with a `test` sub-heading, judged
+/// against `clause` beside the kind's own rows — the entry-grain contract the cases
+/// below declare.
+fn entry_clause_run(label: &str, clause: ClauseRow) -> common::CheckRun {
+    let root = common::tmpdir(label);
+    let specs = root.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("intent.md"), INTENT_DOC).unwrap();
+    let mut payload = intent_payload();
+    payload.declarations.clauses.push(clause);
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+    common::check_in(&root, &[], None)
+}
+
+#[test]
+fn a_required_clause_on_a_collection_entrys_kind_fires_on_the_entry() {
+    let run = entry_clause_run(
+        "layout-entry-kind-clause",
+        ClauseRow {
+            kind: Some("invariant".to_string()),
+            field: Some("test".to_string()),
+            ..common::clause("required", "required")
+        },
+    );
+    assert!(
+        run.output.contains("invariant.required.test"),
+        "a clause on the entry's kind must judge the entry: {}",
+        run.output
+    );
+    assert!(!run.ok, "{}", run.output);
+}
+
+#[test]
+fn a_host_path_clause_over_collection_entries_fires_on_a_violating_entry() {
+    let run = entry_clause_run(
+        "layout-entry-host-path-clause",
+        ClauseRow {
+            kind: Some("intent".to_string()),
+            field: Some("invariant[*].test".to_string()),
+            ..common::clause("required", "required")
+        },
+    );
+    assert!(
+        run.output.contains("intent.required.invariant[*].test"),
+        "a host-path clause over the entries must judge each entry: {}",
+        run.output
+    );
+    assert!(!run.ok, "{}", run.output);
+}

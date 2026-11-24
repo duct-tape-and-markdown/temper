@@ -219,12 +219,26 @@ field = "status"
 severity = "required"
 
 [[declaration.clause]]
+label = "invariant.required.test"
+kind = "invariant"
+predicate = "required"
+field = "test"
+severity = "advisory"
+
+[[declaration.clause]]
 label = "machine.type.mode"
 kind = "machine"
 predicate = "type"
 field = "mode"
 severity = "advisory"
 value_type = ["string"]
+
+[[declaration.clause]]
+label = "spec.required.invariant[*].test"
+kind = "spec"
+predicate = "required"
+field = "invariant[*].test"
+severity = "advisory"
 
 [[declaration.clause]]
 label = "root.reachable"
@@ -261,7 +275,15 @@ from = "decision"
 
 [[declaration.assembly]]
 fact = "contract"
+from = "invariant"
+
+[[declaration.assembly]]
+fact = "contract"
 from = "machine"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "spec"
 
 [[declaration.assembly]]
 fact = "edge"

@@ -1096,6 +1096,63 @@ fn resolve_kind_units(
     })
 }
 
+/// Seat a layout host's collection entries in its own fields, so a host path over them
+/// (`invariant[*].test`) addresses each entry as the path grammar addresses any element.
+///
+/// An entry is a member of its kind in every respect, addressed from its host as well as
+/// on its own: each member collection keys under its `member_kind` to the host's entries
+/// of that kind, in document order, each an object of its leaves — its field sections,
+/// its reserved own-span `prose` leaf, and one layer of its own sub-collections keyed by
+/// collection name. The entries are the host's [`nested_members`] already resolved off the
+/// run's assembled rows, so a committed host and a local host read identically.
+///
+/// A collection with no entries seats nothing, the way an unfilled field section reads
+/// absent: a `required` over the collection is the floor that says "at least one", and a
+/// host path over no entries has no element to fault. A field of the same name already on
+/// the host (a slot or a frontmatter key) is the authored value and is left standing.
+///
+/// [`nested_members`]: extract::Features::nested_members
+fn fold_collection_entries(layout: &Layout, features: &mut extract::Features) {
+    for region in &layout.regions {
+        let crate::layout::LayoutRegion::Collection { member_kind, .. } = region else {
+            continue;
+        };
+        let entries: Vec<serde_json::Value> = features
+            .nested_members
+            .iter()
+            .filter(|member| member.kind == *member_kind)
+            .map(entry_value)
+            .collect();
+        if entries.is_empty() {
+            continue;
+        }
+        features
+            .fields
+            .entry(member_kind.clone())
+            .or_insert(serde_json::Value::Array(entries));
+    }
+}
+
+/// One embedded member as the object a host path walks: its leaves as strings, then each
+/// of its sub-collections as an array of its entries' own objects, under the collection's
+/// name. A leaf and a sub-collection sharing a name keep the leaf, the authored span.
+fn entry_value(member: &extract::EmbeddedMember) -> serde_json::Value {
+    let mut object: serde_json::Map<String, serde_json::Value> = member
+        .leaves
+        .iter()
+        .map(|(leaf, value)| (leaf.clone(), serde_json::Value::String(value.clone())))
+        .collect();
+    for entry in &member.members {
+        let slot = object
+            .entry(entry.collection.clone())
+            .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+        if let serde_json::Value::Array(entries) = slot {
+            entries.push(entry_value(&entry.member));
+        }
+    }
+    serde_json::Value::Object(object)
+}
+
 /// A kind's members' extracted [`extract::Features`] — [`resolve_kind_units`]
 /// run through the kind's own composed extraction,
 /// each member's nested-member facts resolved off the run's assembled `nested_members`
@@ -1125,7 +1182,13 @@ pub fn kind_units_and_features(
     } = resolve_kind_units(kind, disc, declarations, cache, declared_kinds)?;
     let features = units
         .iter()
-        .map(|unit| builtin_kind::features(kind, unit, &declarations.nested_members))
+        .map(|unit| {
+            let mut features = builtin_kind::features(kind, unit, &declarations.nested_members);
+            if let kind::Content::Layout(layout) = &kind.content {
+                fold_collection_entries(layout, &mut features);
+            }
+            features
+        })
         .collect();
     Ok(KindUnitsAndFeatures {
         units,
