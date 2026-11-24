@@ -413,7 +413,8 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     commitment: governs?.commitment,
     format: facts.format,
     unit_shape: unitShapeLabel(facts),
-    registration: registrationLabels(facts.registration),
+    // An embedded or nested-file kind declares no set — its locus already states it empty.
+    registration: registrationLabels(facts.registration ?? []),
     templates: templatesFor(facts, admissions),
     content: contentRow(facts.content),
     shape: facts.shape,

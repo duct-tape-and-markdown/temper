@@ -330,7 +330,7 @@ test("supporting-doc is a nested-file kind: fields-free, prose-only, channel-les
   assert.equal(supportingDoc.facts.unitShape, "file");
   assert.equal(supportingDoc.facts.identityField, undefined);
   // Channel-less: it reaches the world only through the skill that references it.
-  assert.deepEqual(supportingDoc.facts.registration, []);
+  assert.equal(supportingDoc.facts.registration, undefined);
   // Fields-free, but still body-bearing — never the fields-only registration shape.
   assert.equal(supportingDoc.facts.shape, undefined);
   const member = supportingDoc({ name: "reference", host: skill({ name: "demo", description: "A host." }) });
@@ -344,7 +344,7 @@ test("handler is an embedded kind under hook's template — fields-only, channel
   assert.deepEqual(handler.facts.locus, { kind: "embedded" });
   assert.notDeepEqual(handler.facts.locus, supportingDoc.facts.locus);
   // Channel-less: a handler reaches the world only through the hook whose event fires it.
-  assert.deepEqual(handler.facts.registration, []);
+  assert.equal(handler.facts.registration, undefined);
   // Fields-only — no body slot, like its host hook.
   assert.equal(handler.facts.shape, "fields");
   // No declared artifact format: a handler is a JSON object inside its host's manifest,
@@ -1098,7 +1098,6 @@ test("embeddedMemberValue's leaves are typed against the passed KindDefinition's
     name: "test-decision",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
   });
 
   // This call verifies that leaves must include both 'chosen' and 'rationale' fields.
@@ -1119,24 +1118,36 @@ test("embeddedMemberValue's leaves are typed against the passed KindDefinition's
   });
 });
 
-test("an embedded-locus kind requires empty registration", () => {
+test("an embedded-locus kind declares no registration — its locus already states the empty set", () => {
   const embeddedKind = kind<Record<never, never>>({
     name: "embedded-example",
     locus: { kind: "embedded" },
     unitShape: "file",
+  });
+  assert.equal(embeddedKind.facts.registration, undefined);
+  // @ts-expect-error — an embedded kind's registration is derived, never spelled again.
+  kind<Record<never, never>>({
+    name: "embedded-restated",
+    locus: { kind: "embedded" },
+    unitShape: "file",
     registration: [],
   });
-  assert.deepEqual(embeddedKind.facts.registration, []);
 });
 
-test("a nested-file-locus kind requires empty registration", () => {
+test("a nested-file-locus kind declares no registration — its locus already states the empty set", () => {
   const nestedKind = kind<Record<never, never>>({
     name: "nested-example",
     locus: { kind: "nested-file" },
     unitShape: "file",
-    registration: [],
   });
-  assert.deepEqual(nestedKind.facts.registration, []);
+  assert.equal(nestedKind.facts.registration, undefined);
+  // @ts-expect-error — a nested-file kind's registration is derived, never spelled again.
+  kind<Record<never, never>>({
+    name: "nested-restated",
+    locus: { kind: "nested-file" },
+    unitShape: "file",
+    registration: [{ via: "always" }],
+  });
 });
 
 // ---------------------------------------------------------------------------

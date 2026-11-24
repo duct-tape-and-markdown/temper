@@ -167,7 +167,6 @@ export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>(
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 /**
@@ -445,7 +444,6 @@ export const handler: KindDefinition<Handler> = kind<Handler>({
   name: "handler",
   locus: { kind: "embedded" },
   unitShape: "file",
-  registration: [],
   shape: "fields",
   cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)",
 });

@@ -236,7 +236,6 @@ const supportingDoc = kind<object>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 const guide = kind<object>({
@@ -268,7 +267,6 @@ const supportingDoc = kind<object>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 const guide = kind<object>({
@@ -304,7 +302,6 @@ const note = kind<object>({
   name: "note",
   locus: { kind: "embedded" },
   unitShape: "file",
-  registration: [],
 });
 
 const coordinating = skill({
@@ -1530,7 +1527,6 @@ const note = kind<{ title: string }>({
   locus: { kind: "nested-file" },
   unitShape: "file",
   format: "json-document",
-  registration: [],
 });
 
 const unit = kind<object>({
@@ -1639,14 +1635,12 @@ const leaf = kind<object>({
   name: "leaf",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 const page = kind<object>({
   name: "page",
   locus: { kind: "nested-file" },
   unitShape: "directory",
-  registration: [],
   templates: [{ kind: leaf, path: "notes/*.md" }],
 });
 
@@ -1842,7 +1836,6 @@ const supportingDoc = kind<object>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 const guide = kind<object>({

@@ -52,11 +52,10 @@ import { hook, installedPlugin, knownMarketplace, rule, settings } from "@dtmd/t
 // composed layout: a prose preamble, an `intent` field section, and a collection
 // that grains each child heading into one embedded `invariant` member. The
 // document is a source read at emit and check; emit writes nothing at its path.
-const spec = kind({
+const spec = kind<{ intent?: string }>({
   name: "spec",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
   content: {
     regions: [
       { region: "prose" },
@@ -88,7 +87,6 @@ const citation = kind(
     name: "citation",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
     edgeFields: [{ field: "source", to: ["rule"] }],
   },
   {
@@ -197,7 +195,7 @@ const gateHandbook = handbook({ name: "operate-the-gate", prose: text`# Conventi
 // lock records its declaration row and the import's fingerprint — and writes nothing at
 // its path, so it carries no provenance row. Its opening prose region imports a shared
 // preamble outside the locus, a fingerprinted content dependency of the member.
-const charter = kind({
+const charter = kind<{ intent?: string }>({
   name: "charter",
   locus: { kind: "at", root: "docs/charters", glob: "*.md" },
   unitShape: "file",

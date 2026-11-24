@@ -17,7 +17,6 @@ const decision = kind<Record<never, never>>({
   name: "decision",
   locus: { kind: "embedded" },
   unitShape: "file",
-  registration: [],
 });
 const admitDecision = { host: memory, admits: [decision] };
 

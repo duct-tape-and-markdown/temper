@@ -2359,7 +2359,7 @@ const CUSTOM_KIND_CONTENT_PROGRAM: &str = r#"
 import { kind, emit, harness, text } from "@dtmd/temper";
 
 // A custom kind with layout content: prose (import), field (slot), and collection (member_kind + key).
-const layoutKind = kind({
+const layoutKind = kind<{ intent?: string }>({
   name: "spec",
   locus: { kind: "at", root: "specs", glob: "*.md" },
   unitShape: "file",

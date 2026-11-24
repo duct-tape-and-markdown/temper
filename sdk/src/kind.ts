@@ -102,13 +102,15 @@ export type Locus =
 /**
  * One region of a kind's **layout** — one of the three corpus primitives over the
  * body's heading tree. `prose` is a verbatim span, or an `import` reference resolving to
- * a file's contents; `field` is a heading whose span fills a named field `slot`;
+ * a file's contents; `field` is a heading whose span fills a named field `slot` — a key
+ * of the kind's own typed surface `T`, so a slot the member does not carry is a compile
+ * error rather than a second, free-hand spelling of the field set;
  * `collection` is a heading whose child headings are each one member of `memberKind`,
  * identity the slugged child heading unless an explicit `key` overrides it.
  */
-export type LayoutRegion =
+export type LayoutRegion<T extends object = Record<string, unknown>> =
   | { readonly region: "prose"; readonly import?: string }
-  | { readonly region: "field"; readonly slot: string }
+  | { readonly region: "field"; readonly slot: keyof T & string }
   | { readonly region: "collection"; readonly memberKind: string; readonly key?: string };
 
 /**
@@ -116,8 +118,8 @@ export type LayoutRegion =
  * Declaring one on a kind's `content` makes the kind `layout`-content; leaving `content`
  * absent leaves it `file`-content (one verbatim prose body, the default).
  */
-export interface Layout {
-  readonly regions: readonly LayoutRegion[];
+export interface Layout<T extends object = Record<string, unknown>> {
+  readonly regions: readonly LayoutRegion<T>[];
 }
 
 /**
@@ -232,7 +234,7 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly edgeFields?: readonly EdgeField[];
       /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
        * leaves the kind `file`-content (one verbatim prose body, the default). */
-      readonly content?: Layout;
+      readonly content?: Layout<T>;
       /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
        * leaves the kind body-bearing (`file` or a {@link Layout}). */
       readonly shape?: Shape;
@@ -277,8 +279,10 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly format?: Format;
       /** Fact 3b, projection — the on-disk unit shape. */
       readonly unitShape: UnitShape;
-      /** Fact 4, registration — embedded members register nothing. */
-      readonly registration: readonly [];
+      /** Fact 4, registration — derived, never declared: an embedded member registers
+       * nothing, so the locus already states the empty set and the lowering supplies it
+       * (`declarations.ts`). */
+      readonly registration?: never;
       /**
        * The frontmatter key the member's name writes under. For `unitShape:
        * "named-field"` this is the id **source** — the declared field a member's
@@ -294,7 +298,7 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly edgeFields?: readonly EdgeField[];
       /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
        * leaves the kind `file`-content (one verbatim prose body, the default). */
-      readonly content?: Layout;
+      readonly content?: Layout<T>;
       /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
        * leaves the kind body-bearing (`file` or a {@link Layout}). */
       readonly shape?: Shape;
@@ -339,8 +343,10 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly format?: Format;
       /** Fact 3b, projection — the on-disk unit shape. */
       readonly unitShape: UnitShape;
-      /** Fact 4, registration — nested-file members register nothing. */
-      readonly registration: readonly [];
+      /** Fact 4, registration — derived, never declared: a nested-file member registers
+       * nothing, so the locus already states the empty set and the lowering supplies it
+       * (`declarations.ts`). */
+      readonly registration?: never;
       /**
        * The frontmatter key the member's name writes under. For `unitShape:
        * "named-field"` this is the id **source** — the declared field a member's
@@ -356,7 +362,7 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly edgeFields?: readonly EdgeField[];
       /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
        * leaves the kind `file`-content (one verbatim prose body, the default). */
-      readonly content?: Layout;
+      readonly content?: Layout<T>;
       /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
        * leaves the kind body-bearing (`file` or a {@link Layout}). */
       readonly shape?: Shape;
@@ -628,7 +634,12 @@ export interface KindOptions {
  * checked here at the keystroke, and its lowering to the row is the one place it is
  * spelled again (`declarations.ts`).
  */
-export function kind<T extends object>(facts: KindFacts<T>, options: KindOptions = {}): KindDefinition<T> {
+export function kind<T extends object>(typed: KindFacts<T>, options: KindOptions = {}): KindDefinition<T> {
+  // The erasure, spelled: `T` binds the witness and the field slots at the keystroke and
+  // then leaves. `keyof T` reads contravariantly, so the compiler will not widen a slot
+  // set bound to `T` to the erased `string` on its own — every key of `T` is a string
+  // the erased surface admits, which is all this assertion claims.
+  const facts = typed as KindFacts;
   const construct = (init: MemberInit<T>): Member => ({
     kind: facts.name,
     facts,
@@ -764,7 +775,10 @@ export function relocate<T extends object>(
   const relocated = { ...base.facts, relocates: base.facts.name, edgeFields };
   // Two spellings, not one with an optional `locus`: `KindFacts` is a union discriminated
   // on the locus, so the moved case must carry the `at` locus as its own literal branch.
-  const facts: KindFacts = locus === undefined ? relocated : { ...relocated, locus };
+  // A moved locus is only ever an `at` base's (`relocatedLocus` refuses the rest), and an
+  // `at` kind declares its registration set — so the base's set rides through as declared.
+  const facts: KindFacts =
+    locus === undefined ? relocated : { ...relocated, locus, registration: relocated.registration ?? [] };
   // The base's leaf-set witness rides through as data, and the assertion is that
   // pass-through spelled: a relocation appends *edge fields* over the kind's own surface,
   // never a leaf, so the set the base's own constructor already bound still names what a

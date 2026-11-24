@@ -66,7 +66,6 @@ const supportingDoc = kind<object>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 const noteDoc = kind<object>({
@@ -87,7 +86,6 @@ const section = kind<object>({
   name: "section",
   locus: { kind: "nested-file" },
   unitShape: "directory",
-  registration: [],
   templates: [{ kind: supportingDoc, path: "*.md" }],
 });
 
@@ -110,7 +108,6 @@ const waypoint = kind<object>(
     name: "waypoint",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
     edgeFields: [
       { field: "to_skill", to: ["skill"] },
       { field: "to_rule", to: ["rule"] },

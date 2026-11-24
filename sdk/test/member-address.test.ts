@@ -154,7 +154,7 @@ test("the bare lookup key is a key, never an address", () => {
 
 /** An embedded-locus kind named `decision` — the nested member the address below names. */
 function decisionKind() {
-  return kind<object>({ name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] });
+  return kind<object>({ name: "decision", locus: { kind: "embedded" }, unitShape: "file" });
 }
 
 /** An embedded kind whose `source` edge renders the target facts' own address verbatim. */
@@ -164,7 +164,6 @@ function citationKind() {
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "source", to: ["decision"] }],
     },
     { render: (value) => `See \`${value.targets.source.address}\`.` },

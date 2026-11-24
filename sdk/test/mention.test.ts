@@ -17,7 +17,6 @@ const memoryDecision = kind<Record<never, never>>({
   name: "decision",
   locus: { kind: "embedded" },
   unitShape: "file",
-  registration: [],
 });
 
 /** The admission letting a `memory` host compose a `decision` — every `blocks()` harness below declares it. */
@@ -238,7 +237,6 @@ test("a resolved edge target carries both host-relative and repo-rooted path fac
       name: "link",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "target", to: ["rule"] }],
     },
     {

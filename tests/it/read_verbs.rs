@@ -2417,14 +2417,12 @@ const leaf = kind<object>({
   name: "leaf",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 const page = kind<object>({
   name: "page",
   locus: { kind: "nested-file" },
   unitShape: "directory",
-  registration: [],
   templates: [{ kind: leaf, path: "*.md" }],
 });
 

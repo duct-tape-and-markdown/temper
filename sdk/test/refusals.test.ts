@@ -26,7 +26,6 @@ function decisionKind() {
     name: "decision",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
   });
 }
 
@@ -239,7 +238,6 @@ test("blocks() admits an embedded value of a child kind named `file`", () => {
     name: "file",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
   });
   const h = harness({
     members: [
@@ -274,7 +272,6 @@ function citationKind(render?: (value: ResolvedEmbeddedMemberValue) => string) {
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "source", to: ["rule"] }],
     },
     render === undefined ? {} : { render },
@@ -393,7 +390,6 @@ test("emit refuses a bare nested key several hosts carry — an ambiguous addres
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "source", to: ["decision"] }],
     },
     { render: (value) => `See \`${value.targets.source.address}\`.` },
@@ -616,7 +612,6 @@ const supportingDoc = kind<Record<never, never>>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 /** A directory-unit host templating one `supporting-doc` file layer at `*.md`. */
@@ -676,4 +671,25 @@ test("a clean harness emits without throwing", () => {
     ],
   });
   assert.doesNotThrow(() => emit(h));
+});
+
+test("a layout field region's slot is bound to the kind's own typed surface", () => {
+  // The slot names a field the member carries, so it is `keyof T` — never a second,
+  // free-hand spelling of the field set. An in-surface slot compiles and lowers verbatim.
+  const spec = kind<{ intent?: string }>({
+    name: "spec",
+    locus: { kind: "at", root: "specs", glob: "*.md" },
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    content: { regions: [{ region: "field", slot: "intent" }] },
+  });
+  assert.deepEqual(spec.facts.content?.regions, [{ region: "field", slot: "intent" }]);
+  kind<{ intent?: string }>({
+    name: "spec-off-surface",
+    locus: { kind: "at", root: "specs", glob: "*.md" },
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    // @ts-expect-error — `purpose` is not a key of the kind's typed surface.
+    content: { regions: [{ region: "field", slot: "purpose" }] },
+  });
 });

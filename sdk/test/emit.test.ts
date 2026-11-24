@@ -672,7 +672,6 @@ function embeddedKind<T extends object>(name: string) {
     name,
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
   });
 }
 
@@ -704,7 +703,6 @@ test("an embedded kind declaring guidance/cite takes a locus-absent kind-fact ro
     name: "decision-with-guidance",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
     guidance: "State the decision's rationale, not just its verdict.",
     cite: "https://example.com/decisions (retrieved 2026-07-24)",
   });
@@ -742,7 +740,6 @@ test("an embedded kind declaring only a leaf set takes a fact row carrying it in
     name: "decision-with-leaves",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
     leaves: { verdict: true, rationale: true },
   });
   // No member of the kind is in this surface — the adopter's actual moment (decision
@@ -809,7 +806,6 @@ const supportingDoc = kind<Record<never, never>>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
-  registration: [],
 });
 
 /** A `guide` host declaring one file-child layer: `supporting-doc` units at `*.md`,
@@ -884,7 +880,6 @@ function homeCitationKind() {
       name: "home-citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "home", to: ["supporting-doc"] }],
     },
     { render: (value) => `See [${value.targets.home.name}](${value.targets.home.path}) at \`${value.targets.home.address}\`.` },
@@ -1017,7 +1012,7 @@ test("a built-in kind's composed body admits a corpus-declared embedded kind", (
 test("a kind's declared layout lowers into its content row; a file-content kind omits it", () => {
   // A `layout`-content kind exercising all three primitives: an importing prose region,
   // a field section filling a named slot, and a member collection of a named kind.
-  const specDoc = kind<Record<never, never>>({
+  const specDoc = kind<{ intent?: string }>({
     name: "spec",
     locus: { kind: "at", root: "specs", glob: "*.md" },
     unitShape: "file",
@@ -1181,10 +1176,10 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
 
 test("a kind()'s render hook projects fence-free in place of the default TOML view; a kind() without one keeps its member fence byte-identical", () => {
   const decisionWithRender = kind<object>(
-    { name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { name: "decision", locus: { kind: "embedded" }, unitShape: "file" },
     { render: (value) => `${value.key} chose: ${value.leaves.chosen}` },
   );
-  const decisionWithoutRender = kind<object>({ name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] });
+  const decisionWithoutRender = kind<object>({ name: "decision", locus: { kind: "embedded" }, unitShape: "file" });
 
   const h = harness({
     members: [
@@ -1221,7 +1216,7 @@ test("a kind()'s render hook projects fence-free in place of the default TOML vi
 
 test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, the same as the hook-less default TOML view", () => {
   const decisionWithRender = kind<object>(
-    { name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { name: "decision", locus: { kind: "embedded" }, unitShape: "file" },
     { render: (value) => `${value.key} chose: ${value.leaves.chosen}` },
   );
 
@@ -1246,7 +1241,7 @@ test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, t
 
 test("a kind()'s render hook receives a resolvable leaf mention already rendered to a plain string, not a Text object", () => {
   const decisionWithRender = kind<object>(
-    { name: "decision", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { name: "decision", locus: { kind: "embedded" }, unitShape: "file" },
     { render: (value) => `${value.key} chose: ${value.leaves.chosen}` },
   );
 
@@ -1528,7 +1523,6 @@ function citationKind() {
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "source", to: ["rule"] }],
     },
     {
@@ -1609,7 +1603,6 @@ test("a multi-element `to` set still demands the kind-qualified address — a ba
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "source", to: ["rule", "skill"] }],
     },
     { render: (value) => `See \`${value.targets.source.address}\`.` },
@@ -1647,7 +1640,6 @@ function nestedCitationKind() {
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "source", to: ["invariant"] }],
     },
     {
@@ -1665,7 +1657,6 @@ function invariantKind() {
     name: "invariant",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [],
   });
 }
 
@@ -1752,7 +1743,6 @@ function citationHarness(
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "source", to: ["rule"] }],
     },
     { render },
@@ -1814,7 +1804,7 @@ test("a value leaving a declared edge field unfilled records no placement — an
 
 test("a value whose kind declares no edge field records no placement — an ordinary nested_member row is unchanged", () => {
   const passage = kind<object>(
-    { name: "passage", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { name: "passage", locus: { kind: "embedded" }, unitShape: "file" },
     { render: (value) => value.leaves.body },
   );
   const h = harness({
@@ -1845,7 +1835,7 @@ test("a composed embedded member's row carries its captured rendered span; a row
   // projects. A fence-free render hook makes the projected bytes exactly the leaf body, so
   // the captured span is checkable directly: two lines, seventeen characters.
   const passage = kind<object>(
-    { name: "passage", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { name: "passage", locus: { kind: "embedded" }, unitShape: "file" },
     { render: (value) => value.leaves.body },
   );
   const h = harness({
@@ -1881,7 +1871,6 @@ test("each composed value's placement and extent land on its own row, routed by 
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      registration: [],
       edgeFields: [{ field: "source", to: ["rule"] }],
     },
     // Spells the edge only where the value asks for it, and otherwise projects the value's
@@ -1927,7 +1916,7 @@ test("a composed body interleaves prose spans and embedded values in authored or
   // A passage-style wrapper: an embedded kind whose render hook projects a leaf
   // verbatim, fence-free — the exhibit the native interleave retires.
   const passage = kind<object>(
-    { name: "passage", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { name: "passage", locus: { kind: "embedded" }, unitShape: "file" },
     { render: (value) => value.leaves.body },
   );
   const decisionValue = embeddedMemberValue({
