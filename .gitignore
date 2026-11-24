@@ -5,16 +5,6 @@
 # Node (flume harness control plane only)
 /node_modules
 
-# Flume harness-managed state (not authored, not committed)
-/.flume/worktrees/
-/.flume/sessions/
-/.flume/awake/
-/.flume/prior-attempts/
-/.flume/rendered-prompts/
-/.flume/merging/
-/.flume/tick-verdict/
-/.flume/tick-verdicts.jsonl
-
 # The dogfood authoring workspace (`.temper/`) IS committed — member modules,
 # harness.ts, lock.toml — its node dependencies are not. Same split for the
 # example harnesses' workspaces.
@@ -33,4 +23,17 @@ sdk/node_modules/
 # Secrets — never committed (plan ticks stage with `git add -A`)
 .env
 .env.*
-/.flume/loop.pid
+
+# Flume harness-managed state (written by flume-harness init)
+.flume/awake/
+.flume/held/
+.flume/prior-attempts/
+.flume/rendered-prompts/
+.flume/worktrees/
+.flume/tick-verdict/
+.flume/invocations/
+.flume/loop.pid
+.flume/tick-verdicts.jsonl
+.flume/stop
+.flume/run-end.json
+.flume/sessions/

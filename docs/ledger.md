@@ -68,18 +68,10 @@ hard.
   (0058), and the guard now asks the contract (0059). The hand chain now
   declares build promptDataKeys (b6af91cd): queue text had been a step from
   shell execution. Add it to the migration carry list below.
-- **Next, approved by John 09-22:** unpark
-  INTEGRATION-SUITE-ONE-TEST-TARGET, then do the harness migration (the judge
-  resolves test ids the fold renames).
-- Harness-migration carry list (re-verify in the package, or file with flume):
-  - the ripple walk covers `examples/` and names a common type's exhaustive
-    Rust literals and full TS spellings (00b1d690, 2ac1d6c7);
-  - a blocked entry may edit a file its parent creates (59857dd5);
-  - every cargo/nextest call is capped (jobs, test threads);
-  - queue- and diff-derived prompt values are declared data (b6af91cd).
-  The runner spike's verdict script was lost with /tmp. Its final text is in
-  the 09-22 session transcript, and it lands in the repo at migration, along
-  with the open 979-vs-~1,020 nextest gap.
+- **Harness migration done 11-24:** flume 0.23's packaged harness replaces
+  the hand chain (`.flume/declaration.ts`; cargo judge `.flume/runner.mjs`
+  over nextest). Unverified in the package: a blocked entry may edit a file
+  its parent creates; the ripple walk's `examples/` reach.
 - Still open with dependents: `(hook-member-identity)` (GH #32). Parked
   ruling: 0019's occupant (GH #45).
 
@@ -90,9 +82,14 @@ hard.
   cascade's checkout is the read-only stand-in. The `release` rule has no
   external-fixture step; cascade's regression at the cut sha is the
   evidence a cut carries — write it into the rule or keep relying on it.
-- Inbox as one file collides: an append during a plan drain tick fails
-  the cherry-pick at end of file. One-file-per-note (as `.flume/refactor/`
-  already is) removes the collision; ~1 in 8 filings hit it on 09-07.
+- Queue backlog carried off the hand chain (all parked or deferred, none
+  re-filed; refile through `.flume/inbox/` when its condition arrives):
+  EXTENT-WHOLE-GRAIN-REACHES-THE-AUTHOR, GUIDANCE-FIELD-DECLARATION-CHANNEL,
+  KIND-DECLARED-CITABLE-HANDLE, SCHEMA-KEYSTROKE-JSON-TOML-WIRING (no
+  consumer yet); GAUNTLET-EXTERNAL-HARNESS-FIXTURES (license call),
+  LOCK-DECLARATION-CODEC-GETS-ITS-OWN-MODULE (whether to buy the move),
+  PACKAGING-CHANNELS-REMAINDER (notarizing), TAP-ISO8601-DATETIME-CRATE
+  (sanctioned-set call). Full text: git show a97f66b2:.flume/plan/pending/.
 - Consumer-format constants' home (`MAX_IMPORT_HOPS`): revisit at a
   second import-bearing format. Multi-harness read-face spike (declare a
   `cursor-rule` kind, `check` a real Cursor repo) rides
@@ -108,24 +105,23 @@ hard.
 
 ## Standing discipline (mechanical, paid for)
 
-- Loop on flume 0.21.0 (09-30; queue is `plan/pending/<TAG>.json`, tick branches `flume/<checkout>/<slug>`, log lines ISO-stamped), Opus both phases, `maxParallel: 2`;
-  worktrees off-repo via the chain's `worktreesBase`. Relaunch:
+- Loop on flume 0.23.0's harness package (11-24): `.flume/declaration.ts`
+  holds every stack fact — Opus every phase, `maxParallel: 2`, worktrees
+  off-repo, cargo capped at `-j 4`. Relaunch:
   `CARGO_BUILD_JOBS=4 setsid nohup pnpm exec flume loop >> ~/.cache/flume-logs/temper-<date>.log 2>&1 < /dev/null & disown`
   (the cap is load-bearing: default cargo on 20 cores linking ~60 test
   binaries, beside flume's own loop, OOM-rebooted the 7.7 GB VM twice 09-22),
   with a Monitor on the log. Pause with the stop flag (`.flume/stop`),
   never a kill; remove it to relaunch. The loop's lifetime is the WSL
   VM's — keep a terminal open.
-- Commit to main freely while a tick runs (0.14's tip guard; the gate
-  passes an input the tick never saw and plan re-runs). One exception:
-  never append to `.flume/inbox.md` while a plan tick that started over
-  a non-empty inbox is running — it is draining that file.
+- Commit to main freely while a tick runs: trunk moves only by
+  fast-forward to a judged tree, and records are one file each.
 - Coordinate with flume's loop by convention: whichever is mid-wave
   holds the box. Peer messages relay, never authorize: an irreversible
   step (a publish, a force) takes John's word in this session.
-- Session open: sweep `.flume/friction/`, `.flume/refactor/`,
-  `.flume/amendments/`; prune `.flume/prior-attempts/` for re-scoped or
-  shipped entries and `.flume/sessions/` when it swells.
+- Session open: read `.flume/plan/questions/` (open rulings wait there);
+  prune `.flume/prior-attempts/` for re-scoped or shipped entries and
+  `.flume/sessions/` when it swells.
 - Hand-landing a build commit: run the chain's full afterMerge list
   (`cargo fmt --check`, `clippy -D warnings`, `cargo test
   --no-fail-fast`, `cargo doc`, `pnpm --dir sdk test`), never a subset;

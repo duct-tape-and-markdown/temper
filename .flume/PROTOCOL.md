@@ -1,128 +1,126 @@
-# Flume Protocol — author project conventions
+# Protocol — project conventions
 
-Runtime mechanics (baton, gates, handoff, pending schema) live in `chain.ts` and
-the `@dtmd/flume` runtime. This file holds the project-side conventions the chain
-config doesn't encode.
+Runtime mechanics — the phases, their prompts, the gates, the entry
+extension, the judges — ship in the harness package and are configured in
+`.flume/declaration.ts`. This file holds the project-side conventions
+no declaration encodes.
 
 ## The chain
 
-`specs/` (evergreen) → `.flume/plan/` → `src/` (+ `tests/`, `Cargo.toml`, docs) → git log
+`specs/` → `.flume/plan/` → `src/`, `sdk/`, `tests/` → git log
 
-The `specs/` corpus is the evergreen source of truth (`specs/process/spec-system.md`),
-authored only in interactive sessions under explicit direction, never by an
-autonomous phase. It is **not** a release line: plan reconciles code against the
-living corpus, one job per tick — there is no frozen ship target. `specs/intent.md`
-is the north star; `specs/decisions/` is history, outside the phases' read path.
+`specs/` is the evergreen source of truth (`specs/process/spec-system.md`),
+authored only in interactive sessions, never by a phase. It is not a release
+line: plan reconciles code against the living corpus. `specs/intent.md` is
+the north star; `specs/decisions/` is history, outside every `per` cite.
 
-| Layer | Author | Phase | Commit prefix  |
-| ----- | ------ | ----- | -------------- |
-| spec  | human  | —     | (any)          |
-| plan  | plan   | plan  | `plan:`        |
-| code  | build  | build | `build:`       |
+## Two harnesses live here
 
-Harness-authored commits (post-merge ship) use `chore(flume):`.
+1. **The flume harness** (`.flume/`) — this pipeline. Human territory; build
+   writes only its records.
+2. **The Claude Code harness** (`.claude/`, `CLAUDE.md`) — the product
+   domain, and the environment every tick runs inside. `CLAUDE.md` and the
+   `.claude/` member files are projections of `.temper/` sources: a direct
+   edit is drift the guard blocks.
 
-## Two harnesses live here — don't confuse them
+The build fence excludes both, plus `.temper/`, `specs/` and `docs/`. A tick
+that finds one of them wrong files a record; it never edits.
 
-This repo carries **two** harnesses with different owners:
+## What an entry means here
 
-1. **The flume harness** (`.flume/`) — the build pipeline. Authored by humans;
-   never edited by the `build` phase, with three deliberate slits:
-   `.flume/friction/**` (agent→human harness feedback, humans drain),
-   `.flume/refactor/**` (agent→plan structural-debt captures, plan drains
-   into pending entries), and `.flume/amendments/**` (agent→human
-   apply-ready diffs — operating-layer changes ratified by review,
-   `specs/process/**` phrase advocacy ratified by argument — 0044).
-   Any phase may file into any; see each directory's README.
-2. **The Claude Code harness** (`.claude/`, `CLAUDE.md`) — the *product domain*:
-   the very artifacts `temper` is built to project, and the environment the
-   build agents themselves run inside, so it is hand-curated to an exemplary
-   standard. The `build` phase never edits it; changes flow through human
-   `chore(harness):` commits. The recursive dogfood is live: `CLAUDE.md` and
-   the `.claude/` member files are projections of `.temper/` modules — edit
-   the owning module and re-run `temper emit`; a direct edit is drift the
-   guard blocks.
+The discipline file holds what every entry carries. This project adds:
 
-`writablePaths` in `chain.ts` enforces both exclusions mechanically.
+1. **A retirement's blast radius is symbol scope.** `rg` a retired
+   function or type across `tests/**` as well as `src/**` and `sdk/**`: a
+   shared helper under `tests/it/common/` fans the edit out to every file
+   that imports it, and `files` names those up front.
+2. **A fold's census is the whole class, by behavior.** Before filing "X
+   folds into one home", find every copy by what it does — the literal it
+   spells, the shape it builds, the call it makes — across `src/` unit
+   tests, `tests/it/**` and `sdk/**`, and name each in `files`.
+3. **Widening a shared enumeration names its other consumers** in `files`
+   (`specs/process/engineering.md`, "A shared concept is one type").
+4. **A seam change is two-sided.** A declaration-row change moves the SDK
+   row builders (`sdk/src/declarations.ts`), the Rust reader
+   (`src/read.rs`) and the embedded lock (`src/builtin_lock.toml`) in one
+   entry.
 
-## Rust gate model
+## Tests
 
-Gate placement follows CHAIN-AUTHORING §2, adapted for cargo (compilation is the
-expensive step):
+A `tests[]` or `pins[]` line names a Rust test by its words. The test that
+carries it is the one whose function name, letters and digits only,
+contains the line's letters and digits: `a layout reads its frontmatter`
+is carried by `fn a_layout_reads_its_frontmatter`. Build names the test
+from the line, snake_case, punctuation dropped. The judge runs
+`.flume/runner.mjs` over `cargo nextest`; integration tests live in the one
+`tests/it/` binary, unit tests beside their flat `src/` module.
 
-- **afterCommit:** `cargo fmt --all --check` only — no compile, safe to run
-  N-wide under fanout.
-- **afterMerge:** `cargo clippy --all-targets -- -D warnings` and `cargo test` —
-  serial on the trunk, no N-wide contention; a failure reverts only the offending
-  entry.
+## Lanes
 
-No `setupWorktree`: cargo shares its registry cache via `~/.cargo`; only `target/`
-is per-worktree (the cold compile kept off the parallel path on purpose).
+| Layer | Artifact | Author | Commit prefix |
+| ----- | -------- | ------ | ------------- |
+| spec | `specs/` | session, human in the loop | `specs:` |
+| plan | `.flume/plan/` | plan slices | `plan:` |
+| code | `src/`, `sdk/`, `tests/` | build | `build:` |
+| harnesses | `.flume/`, `.claude/`, `.temper/`, `CLAUDE.md` | session | `chore(harness):`, `chore(flume):` |
+| release | version homes, `CHANGELOG.md` | session | `chore(release):` |
 
-## Commands
+## Records
 
-Invocation is exec-local (flume ≥0.9): the repo-root `package.json` pins
-`@dtmd/flume`, and `pnpm exec flume` runs that pinned copy — never a global
-engine (fresh clone: `pnpm install`).
+A finding for plan and a note from a build tick are **records**: one file
+each, drained by the inbox slice and deleted on the way out. The paths, the
+title line, and the byte cap are the package's (`docs/CHAIN-AUTHORING.md`,
+*Records: one file each*):
 
-- `pnpm exec flume status` — baton state, tip claim, stop flag.
-- `pnpm exec flume tick` / `loop` — run the pipeline. Loops are autonomous —
-  no slash command invokes them; wake-then-loop runs as its own background
-  task. The tip claim is one *engine* per ref (flume ≥0.12); an operator
-  commit landing on the trunk mid-run is ordinary history — merge sites
-  absorb it, git arbitrates (a conflict parks that entry; the foreign
-  commit is never touched), and the merged tree's correctness is the
-  `afterMerge` gates' job. Commit freely. Every phase's agent — singleton
-  included — runs in a private worktree; the operator's checkout is never
-  touched mid-tick.
-- `pnpm exec flume stop` — end a run at the next tick boundary, in-flight
-  tick completed and merged. The next loop refuses until the stop flag is
-  removed; that refusal is the operator's ack, not an error. Pausing by
-  killing the process is retired. Upgrading flume (or shipping
-  engine-contract changes) under a running loop: stop, then relaunch — a
-  supervisor stays on its launch contract while children re-read HEAD.
-- `pnpm exec flume log` / `check` — read verbs: recent tick verdicts; the
-  working tree's pending queue validated without spending an agent. (No
-  `flume friction` here: the engine's friction channel is gitignored and
-  hand-routed; this chain's committed `.flume/friction/**` captures are a
-  different, deliberate design.)
+- **Inbox** — `.flume/inbox/<YYYY-MM-DD>-<slug>.md`, from whoever observes
+  something in the field: an adopter's issue, a session's routing.
+- **Build notes** — `.flume/plan/notes/<TAG>.md`, from the build tick
+  assigned that entry: an observation for the next plan tick, structural
+  debt the tick could not take among them.
+- **Build parks** — `.flume/plan/notes/parked/<TAG>.md`: the entry cannot
+  ship as written and stays in the queue.
+- **Build continuations** — `.flume/plan/notes/continuing/<TAG>.md`: a
+  green segment landed and the rest is another tick's.
 
-## Prior attempts are write-only to plan
+**Friction** — the declared channel `.flume/friction/`, gitignored: a tick
+that hit costly harness friction files one note there (the
+`capture-friction` skill); the inbox slice routes it.
 
-A clean exit persists to `.flume/prior-attempts/entry/<slug>.json` and is read
-by nothing but that entry's next build attempt — plan never sees it. An ask
-that needs plan (a fork, a rescope) must route through `.flume/inbox.md` or an
-open-questions record to move. Humans delete a record once its entry re-scopes
-or ships: a stale refusal misleads the next attempt.
+## Kept on purpose
 
-## Plan dispatch + continuation marker
+Deliberate asymmetries, each a ruling with the condition that reopens it.
+Nothing is filed against one; a tick that meets its condition files a
+question.
 
-Plan is iteratively prompted: one tick = one job, dispatched off its stateful
-records (inbox → spec delta → post-ship reconciliation; quiet is a closing
-verdict inside every tick, never its own job — the job table lives in
-`prompts/plan.md`), with per-input cursors in `state.md`
-(`Spec derived through:` / `Audited through:` / `Residue swept through:`).
-`state.md` ends with `Plan continues: yes — <reason>` while a later input is
-live and the harness re-wakes plan; `Plan continues: no` hands to build or
-hibernates. The regex `^Plan continues:\s*yes\b` (in `chain.ts`) is
-load-bearing, and the marker's honesty is gated (`planHonestyGate`): a `no`
-with an undrained inbox or a trailing spec cursor reverts the tick.
+- **A pack is a skill — no skill-package kind.** `skill` plus its nested
+  `supporting-doc` layer owns the shape. Reopens for a consumer who cannot
+  express a pack with the two.
+- **Default-contract auto-adoption.** A bare harness gets the built-in
+  kinds checked with no assembly declaration: the engine embeds a built-in
+  lock (`specs/model/pipeline.md`, "The lock"). Data, not code.
+- **Format implementations are engine code** (frontmatter, `json-document`,
+  `toml-document`); the kind that selects one is data. A format grows only
+  by deliberate addition, answering the exhaustive `Format` match.
+- **Stale cites: intra-doc links are gated, prose rides.** Broken intra-doc
+  links fail the `cargo doc` gate for every item; the
+  `rustdoc::private_intra_doc_links` lint stays advisory. Prose staleness
+  no linter can check rides the next entry that opens the file, never its
+  own entry, tracked nowhere. Reopens when a reader cannot find a real
+  broken link among the advisory ones.
+- **`.flume/` is ungoverned by temper.** The pipeline that builds temper is
+  outside its gate; a candidate governed corpus once a custom-kind story
+  for it proves end to end (`specs/model/representation.md`, "Reach").
+- **`docs/` is candidate intent, not intent** — human territory; no tick
+  reads a page there as intent.
 
 ## Disk vs git log
 
-To answer "did X ship?" or "is gate Y green?", read the disk artifact
-(`plan/pending/<TAG>.json`, the `src/` file, `cargo` output). Never grep commit messages.
-Git log is orientation, not authority.
+To answer "did X ship?" or "is gate Y green?", read the disk artifact — the
+queue at `.flume/plan/pending/`, the source file, `cargo` output. Git log is
+orientation, not authority.
 
-## Non-negotiables
+## Push policy
 
-- Build commits per entry reach the trunk after green validation — **via the
-  dispatcher's merge, never directly**. The agent commits only on its own
-  worktree branch: no rebasing onto `main`, no pushing a trunk ref, no
-  committing from the root checkout. A `main` that moved mid-tick is the
-  dispatcher's merge problem, not the agent's — a commit made directly on the
-  trunk bypasses the afterMerge gates and is invisible to ship bookkeeping.
-- NEVER force-push, amend pushed commits, or `--no-verify`.
-- NEVER modify files when asked to investigate — investigate and report.
-- Search the codebase before implementing — don't assume not implemented.
-- Never silently fill a spec gap — surface it as an open question.
+No phase pushes. Trunk moves on this machine by the engine's fast-forward;
+the operator pushes `main`. Never force-push, amend a pushed commit, or
+`--no-verify`.

@@ -1,0 +1,5 @@
+# Does the contract grow a predicate correlating two edges' sources at one member?
+
+Driver: GH #59. Shape: `writer --writes--> target <--presents-- presenter --gatedBy--> condition`; the defect is a gated presenter whose target has an ungated writer. The vocabulary misses it by construction: `degree` counts edges at one member, `membership` tests one field against a fixed set, `reached-from` follows reachability, never a correlation between two sources. A ruling is a `specs/model/contract.md` "clause" addition, human-authored.
+
+Stance (John, 2026-09-29): a general path predicate is rejected, since it makes the contract language a query language. The narrow sibling form ("every sibling source into X over field F carries the edge G that the source over field H carries") clears the evidence bar only when a driver authors it and has to delete it; the driver is a second corpus, a feature and never a founding assumption (`specs/model/representation.md`, "Reach"). Open for that evidence. No dependents.
