@@ -79,27 +79,29 @@ syntax beyond markdown's own and has one face, the reader: the document is
 the authored home, read, never regenerated. What does not fit the three
 primitives is two kinds, or it is prose. Regions state what may appear,
 never what must: a document conforms with a region empty, and any floor —
-a required section, a minimum member count — is a clause over the
-selection, dialable per corpus.
+a required section, a minimum member count — is a dialable clause.
 
 ## locus
 
 Where a member serializes. Three spellings:
 
-- **file** — the member owns a file at a path its kind governs; a
-  document's kind is declared by its position alone, so two kinds never
-  share a `governs` glob — routing by content would be mining. A file
+- **file** — the member owns a file at a path its kind governs, a
+  **template**: literal segments with at most one `*`, optionally under a
+  leading `**/` for any depth, less the paths the kind declares
+  **excluded**. Any other pattern syntax refuses at load; names narrow by
+  clause, never by pattern. A document's kind is declared by its position
+  alone, so two kinds never govern one path; a registration kind's starless
+  locus names the manifest it surfaces in and governs no document. A file
   locus may declare a commitment class of **local**: per-machine and
   uncommitted — the kind is declared and reviewed, its members' documents
   are not. A local member is read-side only — the governed source, read at
   check under its kind's format, never an emit input or target
   (`pipeline.md`) — and its rows derive at read time, never in the lock,
-- **embedded** — the member lives inside its parent's body, addressed per
-  the parent's format; it loads through its host, never on its own, so it
-  registers nothing — a non-empty registration is a well-formedness fault, or
-- **nested file** — the member owns a file whose path composes from its
-  host's unit and the host template's path pattern — the host's declared
-  fact; the child kind governs no glob of its own.
+- **embedded** — the member lives inside its parent's body, loading through
+  its host, never on its own, so it registers nothing — a non-empty
+  registration is a well-formedness fault, or
+- **nested file** — the member's path composes from its host's unit and
+  the host template's path pattern; the child kind governs no path itself.
 
 ## nesting
 
@@ -125,20 +127,18 @@ declaration (`../builtins.md`).
 ## The root member
 
 The harness itself is a member — the root of the forest. Its kind's template
-names the top layers (`.claude/`, the memory files, settings), and the
-contract attaches to it as to any member. Harness-wide declarations are its
-fields — the enforcement mode among them — overridable per member. There is
-no container above the forest: it is members all the way down.
+names the top layers (`.claude/`, the memory files, settings), the contract
+attaches to it as to any member, and harness-wide declarations are its
+fields — the enforcement mode among them — overridable per member.
 
 ## Reach
 
 - Structured config trees (`settings.json`, `.mcp.json`, a plugin's
-  manifests) are **manifests**: projections representing a controlled
-  segment of their container member — its fields, its members' registration
-  facts, and derived aggregates like the permission list. A registration
-  member (a hook, an MCP server, an installed plugin) is a file-less kind
-  surfacing at its declared collection address; a small residue of genuinely
-  unschematized keys remains as opaque fields, named as such.
+  manifests) are **manifests**: projections of a controlled segment of their
+  container member — its fields, its members' registration facts, derived
+  aggregates like the permission list. A registration member (a hook, an MCP
+  server) is a file-less kind at a collection address within the manifest
+  its locus names; unschematized keys remain as opaque fields, named.
 - Claude Code's artifact levels — user, project, project-local, enterprise —
   are peer forests of one shape, merged at runtime by the surface per
   documented, cited per-kind precedence. temper governs the project forest,

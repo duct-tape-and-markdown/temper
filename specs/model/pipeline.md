@@ -53,8 +53,9 @@ producer. The gate reads declarations from nowhere but the lock family — the
 committed lock, the read-time rows of local-locus members whose kinds it
 declares, and the locks the invocation joins; no verb compiles a committed
 declaration row anywhere else. Two row families: **provenance** — per member,
-source path plus content hash, and the byte hash of each emitted artifact:
-the fingerprints drift compares — and **declaration rows** — the program's
+source path plus content hash, the byte hash of each emitted artifact, and
+the hash of each module in the program's closure: the fingerprints drift
+compares — and **declaration rows** — the program's
 erased declarations and the rows emit derives from layout sources. The
 lock also names the engine version that wrote it, and a gate run by a
 different engine says so, at its clause's declared severity. In
@@ -84,8 +85,9 @@ finding shape — an **authored source** differing from its provenance row (the
 source moved; re-emit — for a declared input, re-verify the member's claims
 against it first) and a **committed projection** differing from its byte
 fingerprint (the projection was hand-touched; edit the owning source and
-re-emit). Each finding names the member that owns the bytes, the side that
-moved, and the remedy. The comparison is line-ending-blind — an EOL-only
+re-emit). A moved module of the program's closure is an authored source
+the root member owns. Each finding names the member that owns the bytes,
+the side that moved, and the remedy. The comparison is line-ending-blind — an EOL-only
 difference is layout (**Verbatim**, above), so the comparator canonicalizes
 EOL before it hashes; every non-EOL difference remains the hand-edit.
 

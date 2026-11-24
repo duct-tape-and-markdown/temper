@@ -34,11 +34,15 @@ apart: a mention names a member and moves no content; an include pulls the
 target's content into the host's emitted bytes, a dependency the lock
 fingerprints. Both are declared edges (`contract.md`), a path reference
 resolves relative to the module that states it, never the workspace, and
-every other word is just a word. A member may also declare **inputs**:
-files its claims rest on, fingerprinted by the lock like an include's
-target and moved nowhere — no bytes reach the projection. A committed file
-temper does not write joins the roster this way: a member whose record
-temper writes, declaring the file as its input.
+every other word is just a word. The program's own **module closure** —
+every local module its run loaded — is fingerprinted at emit: an import is
+a reference the authoring language executes, declared by being written, so
+a value computed from an imported module is never fresher than that
+module. A member may also declare **inputs**: non-code files its claims
+rest on, fingerprinted by the lock like an include's target and moved
+nowhere — no bytes reach the projection. A committed file temper does not
+write joins the roster this way: a member whose record temper writes,
+declaring the file as its input.
 
 ## Layers
 

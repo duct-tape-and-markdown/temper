@@ -34,5 +34,8 @@ is a source at either depth — its authored home never moves, so the lift
 never converts it. Re-running install converges, placements following the
 lock's current contents. On a represented harness a gate hook is a member
 the author owns: install names a missing or stale one with its remedy and
-never re-adds it. The verbs target one project's harness at an
+never re-adds it. The member states one fact, the temper binary it runs
+(`temper` on the path unless declared); the engine renders the command
+from it, and the installed-gate check judges the member, never a command
+string. The verbs target one project's harness at an
 explicit path.
