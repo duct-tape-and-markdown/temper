@@ -1,0 +1,22 @@
+{
+  "tag": "COLLECTION-ENTRY-IS-JUDGED-AS-ITS-KIND",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/compose.rs", "description": "embedded_features_by_kind_with_composed: collection entries reach their kind's selection (trace; cause unconfirmed)" },
+      { "path": "src/gate.rs", "description": "default_contract_from_rows: clauses on an entry's kind bind its entries (trace)" },
+      { "path": "tests/it/layout_kind.rs", "description": "entry-clause tests" },
+      { "path": "tests/it/gauntlet.rs", "description": "gauntlet cell: a clause on the invariant collection's kind that fires" },
+      { "path": "tests/it/snapshots/it__gauntlet__check_diagnostics.snap", "description": "re-bless" },
+      { "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap", "description": "re-bless" }
+    ]
+  },
+  "summary": "Clauses on a layout collection entry's kind fire on its entries, as on any member of that kind (GH #62)",
+  "per": { "path": "specs/model/representation.md", "section": "layout" },
+  "acceptance": "A member-grain clause on an entry kind and a host-path clause over the entries (invariant[*].test) each produce a finding on a violating collection entry; the gauntlet pins it",
+  "tests": [
+    "a required clause on a collection entry's kind fires on the entry",
+    "a host path clause over collection entries fires on a violating entry"
+  ],
+  "notes": "Cause unconfirmed: trace compose.rs ~1480 and gate.rs ~482 first; widen files if the gap sits elsewhere. Shares compose.rs and the gauntlet with LAYOUT-STRUCTURES-THE-BODY-ALONE."
+}
