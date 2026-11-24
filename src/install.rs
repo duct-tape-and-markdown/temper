@@ -73,12 +73,10 @@ use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER};
 use crate::toml_document;
 
 thread_local! {
-    /// Per-thread count of the guard shell edge's locus walks: every [`WalkDir`] this
-    /// module builds bumps it once ([`locus_member_sites`]). The walk is single-threaded
-    /// on its caller's thread, so this counts one call's walks in isolation — a
-    /// concurrent run on another test thread cannot perturb it.
-    ///
-    /// [`WalkDir`]: walkdir::WalkDir
+    /// Per-thread count of the guard shell edge's locus walks: every ignore-honouring walk
+    /// [`locus_member_sites`] builds bumps it once. The walk is single-threaded on its
+    /// caller's thread, so this counts one call's walks in isolation — a concurrent run on
+    /// another test thread cannot perturb it.
     static LOCUS_MEMBER_SITE_WALKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
@@ -392,6 +390,13 @@ fn guard_manifest_unparseable_message() -> &'static str {
 /// the lock's declared set rather than reading a path off the payload, so a projection it
 /// finds drifted may have been moved by any earlier call, or by no call at all.
 const GUARD_SHELL_EDGE_MESSAGE: &str = "temper-managed projection drift: a committed projection is out of sync with the .temper/ surface the lock fingerprinted — edit the owning .temper/ module or document and re-run `temper emit` to restore it. A shell tool's writes name no path in the hook payload, so this edge judges the projection set the lock declares rather than one file, and cannot say which call moved it.";
+
+/// The header `temper guard` prints at the **post** edge over its **source-dependency**
+/// half: a fingerprinted layout import, prose include or declared input whose bytes moved
+/// since the lock recorded them. A separate preamble because no projection moved — the
+/// projection is stale against a source it was built from, so the restore is a re-emit
+/// (each finding's own line names its remedy), not an edit to undo.
+const GUARD_SHELL_EDGE_SOURCE_MESSAGE: &str = "temper source dependency: a file a member's emit read (a layout import, a prose include, or a declared input) has moved since the lock fingerprinted it — its projection is stale against it; follow each finding's remedy and re-run `temper emit`. A shell tool's writes name no path in the hook payload, so this edge judges every source the lock fingerprinted rather than one file, and cannot say which call moved it.";
 
 /// The header `temper guard` prints at the **post** edge over its **locus** half: a document
 /// the call left at a represented kind's governed locus that the lock declares no member
@@ -1217,11 +1222,14 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
 /// - the **projection** half of the root member's `fresh` clause
 ///   ([`drift::config_stale_from_doc`]), re-hashing each lock row's `source_path` against
 ///   the `emit_hash` the lock recorded;
+/// - the **source-dependency** half of the same clause
+///   ([`crate::gate::source_dependency_stale`], the door `check` takes), re-hashing each
+///   fingerprinted layout import, prose include and declared input;
 /// - the **locus** half of its `locus-declared` clause
 ///   ([`drift::undeclared_locus_members_from_doc`]), asking the lock's provenance rows
 ///   about every document sitting at a governed locus `loci` names.
 ///
-/// [`None`] where both halves are silent — a pass prints nothing — and for each half
+/// [`None`] where every half is silent — a pass prints nothing — and for each half
 /// whose clause the root contract does not bind at all. One judge in one vocabulary per
 /// half, so the boundary and the gate cannot disagree about either fact. Clauses are
 /// located the way [`crate::compose::root_contract`]'s rows-or-default rule locates every
@@ -1258,36 +1266,43 @@ pub fn shell_edge_findings(
     }
 
     let doc = drift::read_lock_document(workspace_dir)?;
+    let harness_root = drift::harness_root_of(workspace_dir);
     let drifted = fresh
         .map(|clause| drift::config_stale_from_doc(&doc, workspace_dir, clause))
         .unwrap_or_default();
+    let stale_sources = match fresh {
+        Some(clause) => crate::gate::source_dependency_stale(&doc, &harness_root, clause)?,
+        None => Vec::new(),
+    };
     let lock_present = workspace_dir.join(crate::LOCK_FILENAME).is_file();
     let strays = locus_declared
         .filter(|_| lock_present)
         .map(|clause| {
-            let sites = locus_member_sites(&drift::harness_root_of(workspace_dir), loci);
+            let sites = locus_member_sites(&harness_root, loci);
             drift::undeclared_locus_members_from_doc(&doc, &sites, clause).findings
         })
         .unwrap_or_default();
 
-    Ok(render_shell_edge_report(&drifted, &strays))
+    Ok(render_shell_edge_report(&drifted, &stale_sources, &strays))
 }
 
 /// Every document on disk at a locus `loci` names, as the site shape the locus judge asks
 /// the lock's provenance rows about. The post edge's answer to having no path in its
 /// payload: the pending-write edge tests one `file_path` against the patterns
 /// ([`matches_governed_locus`]), so here each locus root is enumerated instead and every
-/// file under it matched against the same [`crate::glob::compile_glob`] pattern — the post
-/// edge binds exactly the paths the pre edge would have tested, and no others.
+/// file under it matched against the same [`crate::glob::compile_glob`] pattern.
 ///
-/// The walk's bound is pinned by [`locus_member_site_walk_count`]. That bound is why
-/// `import`'s own locus scan is the wrong reuse — it reads an index built from a
-/// whole-tree ignore-honoring walk — and why the caller's locus set carries no `.`-rooted
-/// locus: the guard has no ignore reader, so a root-rooted glob would judge vendored
-/// documents discovery prunes.
+/// The enumeration is `check`'s: each walk rides [`import::ignore_walk`], the one
+/// ignore-source policy discovery walks by, rooted at the harness root so the root
+/// `.gitignore` and every one between it and the locus govern exactly as they govern
+/// discovery, and it holds discovery's three fences — `.git/`, the surface workspace, and
+/// a nested governed root. Pruned to the locus root's ancestor chain and its subtree, so a
+/// call still costs one bounded walk per locus root ([`locus_member_site_walk_count`]) —
+/// never `import`'s whole-tree index, which a `.claude/rules` locus has no use for — and an
+/// ignored or vendored document is no site, as it is no member to `check`.
 ///
-/// Sorted by path within each locus ([`walkdir::WalkDir::sort_by_file_name`]), so the
-/// findings a call surfaces read in one order on every platform.
+/// Sorted by name within each directory, so the findings a call surfaces read in one order
+/// on every platform.
 fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::LocusMemberSite> {
     let mut sites = Vec::new();
     for locus in loci {
@@ -1295,14 +1310,38 @@ fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::
             continue;
         };
         LOCUS_MEMBER_SITE_WALKS.with(|c| c.set(c.get() + 1));
-        let walk = walkdir::WalkDir::new(harness_root.join(&locus.root))
-            .min_depth(1)
-            .sort_by_file_name();
+        let locus_root = harness_root.join(&locus.root);
+        let bound = locus_root.clone();
+        let walk = import::ignore_walk(harness_root, true)
+            .sort_by_file_name(std::cmp::Ord::cmp)
+            .filter_entry(move |entry| {
+                let path = entry.path();
+                // Descend the locus root's ancestors (so their ignore files are read) and
+                // its subtree; nothing else can hold a site.
+                if !(bound.starts_with(path) || path.starts_with(&bound)) {
+                    return false;
+                }
+                let name = entry.file_name();
+                if name == ".git" || name == crate::WORKSPACE_DIR {
+                    return false;
+                }
+                // A deeper directory carrying its own lock is its own corpus — discovery
+                // never descends it, so neither does this walk.
+                !(entry.depth() > 0
+                    && entry.file_type().is_some_and(|kind| kind.is_dir())
+                    && path
+                        .join(crate::WORKSPACE_DIR)
+                        .join(crate::LOCK_FILENAME)
+                        .is_file())
+            })
+            .build();
         for entry in walk {
             // A locus directory that does not exist, or an entry that cannot be read, is
             // no site: absent evidence must never forge a finding.
             let Ok(entry) = entry else { continue };
-            if !entry.file_type().is_file() {
+            if !entry.file_type().is_some_and(|kind| kind.is_file())
+                || !entry.path().starts_with(&locus_root)
+            {
                 continue;
             }
             let Some(source_path) = harness_relative(&entry.path().to_string_lossy(), harness_root)
@@ -1322,14 +1361,20 @@ fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::
     sites
 }
 
-/// Render the post edge's two halves for the guard's in-band surface — each non-empty half
-/// under its own preamble, blank-line separated, [`None`] when both are silent. The halves
-/// are separate sections because the preamble is a *claim*: drift asserts a fingerprinted
-/// projection moved, and a stray at a governed locus is not that — the lock never named it,
-/// so there is no fingerprint to restore.
-fn render_shell_edge_report(drifted: &[Diagnostic], strays: &[Diagnostic]) -> Option<String> {
+/// Render the post edge's three halves for the guard's in-band surface — each non-empty
+/// half under its own preamble, blank-line separated, [`None`] when all are silent. The
+/// halves are separate sections because the preamble is a *claim*: drift asserts a
+/// fingerprinted projection moved, a stale source asserts a dependency moved under a
+/// projection that did not, and a stray at a governed locus is neither — the lock never
+/// named it, so there is no fingerprint to restore.
+fn render_shell_edge_report(
+    drifted: &[Diagnostic],
+    stale_sources: &[Diagnostic],
+    strays: &[Diagnostic],
+) -> Option<String> {
     let sections: Vec<String> = [
         (GUARD_SHELL_EDGE_MESSAGE, drifted),
+        (GUARD_SHELL_EDGE_SOURCE_MESSAGE, stale_sources),
         (GUARD_SHELL_EDGE_LOCUS_MESSAGE, strays),
     ]
     .into_iter()
@@ -1602,7 +1647,12 @@ fn matches_governed_locus<'a>(
     loci: &'a [GuardedLocus],
 ) -> Option<&'a GuardedLocus> {
     let normalized = harness_relative(file_path, root)?;
-    loci.iter().find(|locus| {
+    // A `.`-rooted locus (`memory`'s `**/CLAUDE.md`) reaches vendored documents discovery
+    // prunes by the repo's ignore rules, and a pending write names a path that may not
+    // exist yet for an ignore walk to admit — so this edge leaves it to the post edge's
+    // ignore-honouring enumeration ([`locus_member_sites`]) rather than raise a finding
+    // `check` would not.
+    loci.iter().filter(|locus| locus.root != ".").find(|locus| {
         crate::glob::compile_glob(&locus.pattern)
             .is_some_and(|matcher| matcher.is_match(&normalized))
     })
@@ -3159,7 +3209,11 @@ mod tests {
         let findings = std::slice::from_ref(&contract);
         assert!(!findings.is_empty(), "the encoder is judged over a finding");
 
-        for preamble in [GUARD_SHELL_EDGE_MESSAGE, GUARD_SHELL_EDGE_LOCUS_MESSAGE] {
+        for preamble in [
+            GUARD_SHELL_EDGE_MESSAGE,
+            GUARD_SHELL_EDGE_SOURCE_MESSAGE,
+            GUARD_SHELL_EDGE_LOCUS_MESSAGE,
+        ] {
             assert_eq!(
                 render_guard_findings(preamble, findings),
                 format!("{preamble}{line}"),

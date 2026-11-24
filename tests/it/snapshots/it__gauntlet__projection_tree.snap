@@ -118,6 +118,13 @@ source_hash = "ac651535c1afa9c9bca50229b49531dadcb3c5a6a3773f0f117bd185cec2e026"
 emit_hash = "ac651535c1afa9c9bca50229b49531dadcb3c5a6a3773f0f117bd185cec2e026"
 
 [[declaration.kind]]
+name = "charter"
+governs_root = "docs/charters"
+governs_glob = "*.md"
+unit_shape = "file"
+content = { regions = [{ region = "prose", import = "../preamble.md" }, { region = "field", slot = "intent" }] }
+
+[[declaration.kind]]
 name = "guide"
 governs_root = "docs/guides"
 governs_glob = "*/GUIDE.md"
@@ -294,14 +301,27 @@ key = "acme-marketplace"
 manifest = "settings.json"
 key_path = "extraKnownMarketplaces.*"
 
+[[declaration.layout_import]]
+member = "charter:gate"
+source_path = "docs/preamble.md"
+import_hash = "7240f751ea8dd0ae24f270af57ea630716a5acf78741302a6e35f18426de5683"
+
 [[declaration.layout_prose]]
 member = "guide:operate-the-gate/spec/representation"
 region_index = 0
 prose = "The representation model, authored in prose."
 
 [[declaration.layout_source]]
+member = "charter:gate"
+source_path = "docs/charters/gate.md"
+
+[[declaration.layout_source]]
 member = "guide:operate-the-gate/spec/representation"
 source_path = "docs/guides/operate-the-gate/representation.md"
+
+=== docs/charters/gate.md ===
+# Intent
+The gate is check at a narrower trigger.
 
 === docs/guides/operate-the-gate/GUIDE.md ===
 <!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
@@ -326,3 +346,6 @@ A gate never fabricates absence.
 
 ## The projection is not the database
 Facts are declared, never mined back.
+
+=== docs/preamble.md ===
+Shared preamble prose.

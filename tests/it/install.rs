@@ -3959,3 +3959,153 @@ fn guard_hook_fails_loud_when_temper_not_on_path() {
         "stderr must contain 'temper: command not found' to name the missing binary, got:\n{stderr}"
     );
 }
+
+/// A `PostToolUse` payload after a Bash call — the event, the tool, and a `tool_response`
+/// naming no path (code.claude.com/docs/en/hooks, "PostToolUse input", retrieved
+/// 2026-09-25). The shell edge's whole input: the subject is the tree the call left.
+const SHELL_CALL_PAYLOAD: &str = "{\"session_id\":\"s\",\
+     \"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\
+     \"tool_input\":{\"command\":\"true\"},\
+     \"tool_response\":{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false}}";
+
+/// A represented harness declaring one top-level layout document — a `guide` at
+/// `specs/guide.md` whose body opens with a prose region importing `specs/included.md`
+/// and closes with an `intent` field section — emitted, so the lock carries the member's
+/// declaration row and the import's fingerprint and no provenance row (a layout document
+/// is a source emit reads, never a projection it writes). Rows-or-default: no clause row,
+/// so the shipped root `fresh` and `locus-declared` clauses bind, under `warn`.
+fn declared_layout_harness(label: &str) -> PathBuf {
+    let harness = common::scaffold(label);
+    fs::write(
+        harness.join("specs/guide.md"),
+        "# Intent\ntemper makes a harness good.\n",
+    )
+    .unwrap();
+    fs::write(harness.join("specs/included.md"), "shared prose.\n").unwrap();
+    let payload = drift::Payload {
+        version: drift::SEAM_VERSION,
+        declarations: drift::Declarations {
+            kinds: vec![common::layout_kind_facts(
+                "guide",
+                vec![
+                    drift::LayoutRegionRow {
+                        region: "prose".to_string(),
+                        import: Some("included.md".to_string()),
+                        slot: None,
+                        member_kind: None,
+                        key: None,
+                    },
+                    common::field_region("intent"),
+                ],
+            )],
+            ..Default::default()
+        },
+        members: vec![common::layout_member("guide")],
+    };
+    drift::emit(
+        &payload,
+        &harness.join(".temper"),
+        drift::EmitOptions::default(),
+    )
+    .unwrap();
+    harness
+}
+
+/// A declared layout document is a declared member — its lock evidence is the
+/// declaration row `emit` lowered it into, never a provenance row — so `check` raises no
+/// `locus-declared` finding over it, and neither may the guard at either edge.
+#[test]
+fn the_guard_raises_no_locus_finding_for_a_declared_layout_document() {
+    let harness = declared_layout_harness("guard-declared-layout");
+
+    let (findings, _) = common::check_harness(&harness);
+    assert!(
+        common::findings_for(&findings, "root.locus-declared").is_empty(),
+        "the premise: `check` calls the declared layout document declared, got: {findings:?}"
+    );
+
+    let (code, output) = common::run_guard(&harness, SHELL_CALL_PAYLOAD);
+    assert_eq!(code, Some(0));
+    assert!(
+        output.is_empty(),
+        "a shell call over a clean tree with a declared layout document passes silently, \
+         got: {output}"
+    );
+
+    let (code, output) =
+        common::run_guard(&harness, &common::guard_write_payload("specs/guide.md"));
+    assert_eq!(code, Some(0));
+    assert!(
+        output.is_empty(),
+        "an edit to a declared layout document is no undeclared member, got: {output}"
+    );
+}
+
+/// The shell edge enumerates its loci the way `check`'s discovery does: an ignored file
+/// is by declaration not authored here, so a document the repo's root `.gitignore`
+/// names is no site, even inside a governed locus — while an unignored stray beside it
+/// still is.
+#[test]
+fn the_guard_s_locus_walk_honours_ignore_rules() {
+    let harness = common::tmpdir("guard-locus-walk-ignore");
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("scratch.md"), "# Scratch\n").unwrap();
+    fs::write(rules.join("stray.md"), "# Stray\n").unwrap();
+    fs::write(harness.join(".gitignore"), ".claude/rules/scratch.md\n").unwrap();
+    common::write_lock(
+        &harness,
+        drift::Declarations {
+            clauses: vec![common::clause("locus-declared", "required")],
+            ..drift::Declarations::default()
+        },
+    );
+
+    let (findings, _) = common::check_harness(&harness);
+    let check_locus = common::findings_for(&findings, "root.locus-declared");
+    assert!(
+        check_locus.iter().all(|line| !line.contains("scratch.md")),
+        "the premise: `check` never discovers the ignored document, got: {findings:?}"
+    );
+
+    let (code, output) = common::run_guard(&harness, SHELL_CALL_PAYLOAD);
+    assert_eq!(code, Some(0));
+    let in_band = common::guard_in_band(&output, "PostToolUse");
+    assert!(
+        in_band.contains(".claude/rules/stray.md"),
+        "the unignored stray is still a site, got: {in_band}"
+    );
+    assert!(
+        !in_band.contains("scratch.md"),
+        "an ignored document is no site of the guard's walk, got: {in_band}"
+    );
+}
+
+/// The post edge runs the whole of the root `fresh` clause `check` runs: a layout
+/// document's imported prose moving under an unmoved projection is source-dependency
+/// drift, and the shell call that moved it hears so.
+#[test]
+fn the_guard_s_post_edge_reports_a_stale_layout_import() {
+    let harness = declared_layout_harness("guard-stale-layout-import");
+    fs::write(harness.join("specs/included.md"), "edited prose.\n").unwrap();
+
+    let (findings, _) = common::check_harness(&harness);
+    assert!(
+        findings
+            .iter()
+            .any(|line| line.contains("title=root.fresh::") && line.contains("layout import")),
+        "the premise: `check` calls the moved import stale, got: {findings:?}"
+    );
+
+    let (code, output) = common::run_guard(&harness, SHELL_CALL_PAYLOAD);
+    assert_eq!(code, Some(0));
+    let in_band = common::guard_in_band(&output, "PostToolUse");
+    assert!(
+        in_band.contains("temper source dependency"),
+        "the stale import speaks under the source-dependency preamble, got: {in_band}"
+    );
+    assert!(
+        in_band.contains("root.fresh: ") && in_band.contains("specs/included.md"),
+        "and names the moved import under `check`'s own label, got: {in_band}"
+    );
+}

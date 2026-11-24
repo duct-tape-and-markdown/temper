@@ -795,38 +795,30 @@ fn container_kinds(
     Ok(containers)
 }
 
-/// Every governed locus the `PreToolUse` guard binds a pending write against — one
-/// [`install::GuardedLocus`] per **committed** kind that owns a file locus of its own,
-/// whether an embedded built-in ([`builtin_kind::definitions`], overlaid with the lock's
-/// relocations) or a lock-declared custom kind.
+/// Every governed locus `temper guard` binds — one [`install::GuardedLocus`] per kind whose
+/// members `check` asks the lock's provenance rows about, whether an embedded built-in
+/// ([`builtin_kind::definitions`], overlaid with the lock's relocations) or a
+/// lock-declared custom kind.
+///
+/// The guard is `check` at a narrower trigger, so it keeps no kind filter of its own: a
+/// kind is a locus exactly where [`gate::site_class`] — the classification `check`'s
+/// site walk admits members by — answers [`gate::SiteClass::File`]. That one answer drops
+/// a `local`-commitment kind, a host-composed nested-file kind, a registration kind, and
+/// a **layout** kind, whose declared members carry a declaration row and never a
+/// provenance row — so binding its locus would call every declared layout document
+/// undeclared.
 ///
 /// Sourced from the embedded kind data rather than the lock's `[[declaration.kind]]`
-/// rows, the one call [`guarded_manifests`] already makes: a kind row exists only for a
-/// kind the program actually *uses*, so a lock carrying no `agent` member carries no
-/// `agent` row, and a row-sourced locus set would leave `.claude/agents/` unbound — the
-/// hole this closes, and a disagreement with `check`, which walks every overlaid
-/// built-in. Pure embedded data: no disk read and no walk, so the guard's per-tool-call
-/// cost bound is the existing one.
+/// rows: a kind row exists only for a kind the program actually *uses*, and `check`
+/// walks every overlaid built-in, so a row-sourced set would leave `.claude/agents/`
+/// unbound where `check` judges it. Pure embedded data: no disk read and no walk.
 ///
 /// Gated on the **contract** before any kind fact is read: the whole set is empty unless
 /// the root member's own `locus-declared` clause binds, located off the declarations
-/// already in hand ([`compose::root_contract`], rows-or-default, so a lock carrying no
-/// kind-less row still gets the shipped default) rather than off a walk. The
-/// undeclared-document fact is opt-in at `check`, so the guard asks the same question
-/// before it binds — otherwise `block` denies a write the same absent clause makes
-/// `check` silent about. Pure row scan, no disk read and no walk; and the dial moves a
-/// clause's severity only (`dial::Dial::dial_clause`), never its binding, so
-/// this declarations-level scan cannot disagree with the dialed selection `check` reads.
-/// Where no clause binds, the guard's projection binding is its only one.
-///
-/// Four further exclusions, each on its own kind fact: a `local`-commitment kind's
-/// documents are the author's own by declaration (never an emit input or target, so no
-/// member is ever declared for them); a kind with no `governs` locus composes its paths
-/// from a host and governs no glob; a kind carrying a `collection_address` is a manifest
-/// whose members [`guarded_manifests`] checks by contract, not by locus; and a `.`-rooted
-/// locus (`memory`'s `**/CLAUDE.md`) would judge every `CLAUDE.md` in the tree, vendored
-/// ones included, because the guard has no ignore reader where discovery prunes by the
-/// repo's ignore rules — binding it would disagree with `check`.
+/// already in hand ([`compose::root_contract`], rows-or-default). The undeclared-document
+/// fact is opt-in at `check`, so the guard asks the same question before it binds; the
+/// dial moves a clause's severity only, never its binding, so this scan cannot disagree
+/// with the dialed selection `check` reads.
 ///
 /// # Errors
 ///
@@ -849,15 +841,12 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
     // are tagged apart here — the one fact the locus finding's `local` remedy turns on,
     // exactly as `gate::committed_member_sites` tags the same split for `check`.
     let push = |kind: &CustomKind, custom: bool, loci: &mut Vec<install::GuardedLocus>| {
+        if gate::site_class(kind) != Some(gate::SiteClass::File) {
+            return;
+        }
         let Some(governs) = kind.governs.as_ref() else {
             return;
         };
-        if kind.commitment == Some(Commitment::Local)
-            || kind.collection_address.is_some()
-            || governs.root == "."
-        {
-            return;
-        }
         loci.push(install::GuardedLocus {
             kind: kind.name.clone(),
             root: governs.root.clone(),

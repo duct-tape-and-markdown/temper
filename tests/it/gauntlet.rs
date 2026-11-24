@@ -20,9 +20,13 @@
 //!    document the reviewed `governs` discovers all the same (the dial precedent);
 //! 5. a starred-segment lone file inside a directory-owning host — a `handbook`
 //!    keyed by the directory segment its `*/conventions.md` glob stars, seated in a
-//!    `guide`'s directory and carved out of that host's template discovery.
+//!    `guide`'s directory and carved out of that host's template discovery;
+//! 6. a top-level layout document at a governed locus — a `charter` whose prose
+//!    region imports a preamble outside the locus, so the lock carries a declaration
+//!    row and an import fingerprint for it and no provenance row.
 
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::Path;
 
 use temper::drift::{self, EmitOptions};
@@ -187,10 +191,31 @@ const handbook = kind({
 
 const gateHandbook = handbook({ name: "operate-the-gate", prose: text`# Conventions` });
 
+// Composition 6 — a top-level layout document at a governed locus, importing prose.
+//
+// `charter` is an `at`-locus layout kind: its document is a source emit reads — the
+// lock records its declaration row and the import's fingerprint — and writes nothing at
+// its path, so it carries no provenance row. Its opening prose region imports a shared
+// preamble outside the locus, a fingerprinted content dependency of the member.
+const charter = kind({
+  name: "charter",
+  locus: { kind: "at", root: "docs/charters", glob: "*.md" },
+  unitShape: "file",
+  registration: [],
+  content: {
+    regions: [
+      { region: "prose", import: "../preamble.md" },
+      { region: "field", slot: "intent" },
+    ],
+  },
+});
+
+const gateCharter = charter({ name: "gate" });
+
 process.stdout.write(
   emit(
     harness({
-      members: [gateGuide, representation, conventions, authoring, sessionHook, auditHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook],
+      members: [gateGuide, representation, conventions, authoring, sessionHook, auditHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook, gateCharter],
       admit: [{ host: rule, admits: [citation] }],
       expect: [
         { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },
@@ -221,9 +246,16 @@ Facts are declared, never mined back.\n";
 /// place. Gitignored, the way a real per-machine document always is.
 const MACHINE_DOC: &str = "---\nmode: advisory\n---\n\nThis workstation's own knob.\n";
 
-/// Seat the two source documents the harness reads but does not emit — the `spec`
-/// layout source under its `guide` host's unit, and the gitignored local `machine`
-/// document — plus the `.gitignore` that names the local locus. Written before
+/// The `charter` layout source — one `# Intent` field section after the imported prose.
+const CHARTER_DOC: &str = "# Intent\nThe gate is check at a narrower trigger.\n";
+
+/// The preamble the `charter` kind's prose region imports.
+const PREAMBLE_DOC: &str = "Shared preamble prose.\n";
+
+/// Seat the source documents the harness reads but does not emit — the `spec` layout
+/// source under its `guide` host's unit, the gitignored local `machine` document, and
+/// the `charter` layout source with the preamble it imports — plus the `.gitignore` that
+/// names the local locus. Written before
 /// `emit_program`, since a layout host and a local kind each read a source off disk.
 fn seat_sources(harness: &Path) {
     common::write_sibling(
@@ -233,6 +265,8 @@ fn seat_sources(harness: &Path) {
     );
     common::write_sibling(harness, ".claude/local/machine.md", MACHINE_DOC);
     common::write_sibling(harness, ".gitignore", ".claude/local/\n");
+    common::write_sibling(harness, "docs/charters/gate.md", CHARTER_DOC);
+    common::write_sibling(harness, "docs/preamble.md", PREAMBLE_DOC);
 }
 
 /// The emitted projection tree, faced as one deterministic listing: the emit
@@ -439,6 +473,132 @@ fn emitted_member_set_matches_independent_discovery() {
         assert_eq!(
             lock_set, discovered_set,
             "kind '{kind_name}': lock provenance must match independent discovery"
+        );
+    }
+}
+
+/// The `(rule, message)` findings one shell-edge `temper guard` call surfaced in-band —
+/// each `  <rule>: <message>` line under a section preamble — empty for a pass, which
+/// prints nothing. Read at `warn`, the gauntlet's declared mode.
+fn shell_edge_findings(harness: &Path) -> Vec<(String, String)> {
+    let (code, output) = common::run_guard(harness, SHELL_CALL);
+    assert_eq!(
+        code,
+        Some(0),
+        "no mode exits non-zero at the post edge, got: {output}"
+    );
+    if output.is_empty() {
+        return Vec::new();
+    }
+    common::guard_in_band(&output, "PostToolUse")
+        .lines()
+        .filter_map(|line| line.strip_prefix("  ")?.split_once(": "))
+        .map(|(rule, message)| (rule.to_string(), message.to_string()))
+        .collect()
+}
+
+/// Whether `check`'s finding lines carry `rule` over a message containing `needle`.
+fn check_raises(check: &[String], rule: &str, needle: &str) -> bool {
+    common::findings_for(check, rule)
+        .iter()
+        .any(|line| line.contains(needle))
+}
+
+/// The `PostToolUse` payload after a Bash call (code.claude.com/docs/en/hooks,
+/// "PostToolUse input", retrieved 2026-09-25): no field names what the call wrote.
+const SHELL_CALL: &str = "{\"session_id\":\"s\",\"hook_event_name\":\"PostToolUse\",\
+     \"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"true\"},\
+     \"tool_response\":{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false}}";
+
+/// The guard is `check` at a narrower trigger (`specs/distribution.md`, "The placements
+/// and their enforcement modes"): every finding it raises at either edge is one `check`
+/// raises on the tree it judges. Over the kitchen-sink corpus — every composition the
+/// guard's loci, member walk and freshness judges must classify the way `check` does —
+/// at the post edge on the clean tree and on a tree a call disturbed (a projection
+/// edited, an import target moved, a stray left at a governed locus), and at the pre edge
+/// over a write to each kind of path, judged against `check` on the tree the write leaves.
+#[test]
+fn the_guard_s_findings_on_the_gauntlet_are_a_subset_of_check_s_at_both_edges() {
+    let (harness, into) = common::wire_sdk_harness("gauntlet-guard-subset", GAUNTLET_PROGRAM);
+    seat_sources(&harness);
+    drift::emit_program(&into, EmitOptions::default())
+        .expect("the gauntlet composes only legal compositions, so emit compiles the whole");
+
+    // Post edge, clean tree: whatever the guard says, `check` says word for word.
+    let clean = shell_edge_findings(&harness);
+    let (check_clean, _) = common::check_harness(&harness);
+    for (rule, message) in &clean {
+        assert!(
+            check_raises(&check_clean, rule, message),
+            "the post edge raised `{rule}: {message}` on the clean gauntlet, which `check` \
+             does not: {check_clean:#?}"
+        );
+    }
+
+    // Pre edge: a write to each kind of path the corpus holds — a projection, a declared
+    // top-level layout document, a nested layout source, a local document, a vendored
+    // memory file, and a new stray at a governed locus. Each finding is recorded with the
+    // path it bound, then every write lands and `check` judges the tree they left.
+    let writes = [
+        ".claude/rules/conventions.md",
+        "docs/charters/gate.md",
+        "docs/guides/operate-the-gate/representation.md",
+        ".claude/local/machine.md",
+        "vendor/dep/CLAUDE.md",
+        ".claude/rules/stray.md",
+    ];
+    // The pending-write edge speaks one finding about the one path its payload names, so
+    // a surfaced verdict at all is the binding recorded.
+    let mut bound = Vec::new();
+    for path in writes {
+        let (code, output) = common::run_guard(&harness, &common::guard_write_payload(path));
+        assert_eq!(code, Some(0), "warn allows every write, got: {output}");
+        if !output.is_empty() {
+            bound.push(path);
+        }
+    }
+    assert!(
+        bound.contains(&".claude/rules/conventions.md")
+            && bound.contains(&".claude/rules/stray.md"),
+        "non-vacuity: the pre edge binds the projection and the stray, got: {bound:?}"
+    );
+    for path in writes {
+        let target = harness.join(path);
+        let mut bytes = fs::read(&target).unwrap_or_default();
+        bytes.extend_from_slice(b"\nA line the pending write adds.\n");
+        common::write_sibling(&harness, path, &String::from_utf8(bytes).unwrap());
+    }
+    let (check_written, _) = common::check_harness(&harness);
+    for path in &bound {
+        assert!(
+            check_raises(&check_written, "root.fresh", path)
+                || check_raises(&check_written, "root.locus-declared", path),
+            "the pre edge bound a write to `{path}` that `check` raises nothing about once \
+             it lands: {check_written:#?}"
+        );
+    }
+
+    // Post edge, disturbed tree: the written tree above, plus the import target moved.
+    common::write_sibling(&harness, "docs/preamble.md", "Edited preamble prose.\n");
+    let disturbed = shell_edge_findings(&harness);
+    let (check_disturbed, _) = common::check_harness(&harness);
+    let said = |needle: &str| {
+        disturbed
+            .iter()
+            .any(|(_, message)| message.contains(needle))
+    };
+    assert!(
+        said(".claude/rules/conventions.md")
+            && said("docs/preamble.md")
+            && said(".claude/rules/stray.md"),
+        "non-vacuity: the post edge names the edited projection, the moved import and the \
+         stray, got: {disturbed:#?}"
+    );
+    for (rule, message) in &disturbed {
+        assert!(
+            check_raises(&check_disturbed, rule, message),
+            "the post edge raised `{rule}: {message}` on the disturbed gauntlet, which \
+             `check` does not: {check_disturbed:#?}"
         );
     }
 }

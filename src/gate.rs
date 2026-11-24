@@ -58,11 +58,16 @@ struct CommittedMemberSites {
     file: Vec<drift::LocusMemberSite>,
 }
 
-/// Which of [`CommittedMemberSites`]'s two populations a kind's members join, or `None`
-/// for a kind neither asks about.
-#[derive(Clone, Copy)]
-enum SiteClass {
+/// Which of `CommittedMemberSites`'s two populations a kind's members join, or `None`
+/// for a kind neither asks about. Public because the guard reads the same answer
+/// (`temper guard`'s governed loci are exactly the [`SiteClass::File`] kinds), so the
+/// verb that judges one write and the verb that judges the tree cannot classify a kind
+/// two ways.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SiteClass {
+    /// A layout-content kind: its members' lock evidence is a declaration row.
     Layout,
+    /// A file-content kind at a governed locus: its members' evidence is a provenance row.
     File,
 }
 
@@ -77,7 +82,11 @@ enum SiteClass {
 /// drops a nested-file child, whose path composes from its host and which holds no
 /// rollup row of its own. `commitment` drops a local-locus kind, whose rows are derived
 /// at read time ([`compose::assemble_lock_family`]) and were never the lock's to carry.
-fn site_class(kind: &CustomKind) -> Option<SiteClass> {
+///
+/// The one answer `check` and `temper guard` both read: a kind the guard binds a locus
+/// for is a kind whose members `check` asks the lock about, and no other.
+#[must_use]
+pub fn site_class(kind: &CustomKind) -> Option<SiteClass> {
     if kind.commitment == Some(kind::Commitment::Local) {
         return None;
     }
@@ -86,6 +95,31 @@ fn site_class(kind: &CustomKind) -> Option<SiteClass> {
         kind::Content::File if kind.governs.is_some() => Some(SiteClass::File),
         _ => None,
     }
+}
+
+/// The source-dependency half of the root `fresh` clause over an already-parsed lock: every
+/// fingerprinted layout-import, composed-prose include and declared-input target whose
+/// bytes no longer match the lock, in that order, under `clause`'s label and severity.
+///
+/// The one door both `check` and `temper guard`'s post edge take to these three judges, so
+/// a source dependency the gate calls stale is one the guard calls stale too.
+///
+/// # Errors
+///
+/// Propagates the [`drift::DriftError`] a malformed row in any of the three families raises.
+pub fn source_dependency_stale(
+    lock_doc: &toml_edit::DocumentMut,
+    harness_root: &Path,
+    clause: &contract::Clause,
+) -> Result<Vec<check::Diagnostic>, drift::DriftError> {
+    let mut findings = drift::layout_import_stale_from_doc(lock_doc, harness_root, clause)?;
+    findings.extend(drift::include_stale_from_doc(
+        lock_doc,
+        harness_root,
+        clause,
+    )?);
+    findings.extend(drift::input_stale_from_doc(lock_doc, harness_root, clause)?);
+    Ok(findings)
 }
 
 /// One site walk over every discovered kind, collecting each admitted member into its
@@ -828,20 +862,9 @@ pub fn gate(
     // longer match the lock — the target moved and `emit` has not re-run. All three read
     // the pre-parsed lock document, so a third family costs no read and no parse.
     if let Some(clause) = fresh_clause {
-        let harness_root_for_staleness = drift::harness_root_of(workspace);
-        diagnostics.extend(drift::layout_import_stale_from_doc(
+        diagnostics.extend(source_dependency_stale(
             &lock_doc,
-            &harness_root_for_staleness,
-            clause,
-        )?);
-        diagnostics.extend(drift::include_stale_from_doc(
-            &lock_doc,
-            &harness_root_for_staleness,
-            clause,
-        )?);
-        diagnostics.extend(drift::input_stale_from_doc(
-            &lock_doc,
-            &harness_root_for_staleness,
+            &drift::harness_root_of(workspace),
             clause,
         )?);
     }
