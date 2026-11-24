@@ -35,11 +35,13 @@ const program = harness({
     },
     standards: {
       prose: "what correct code and change look like, scoped to the trees the conventions govern",
+      required: false,
     },
     operations: {
       prose:
         "doing work to this project is a stated procedure — build, verify, diagnose live as invocable skills, never as chat folklore",
       kind: skill,
+      required: false,
     },
     governance: {
       prose:

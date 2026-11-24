@@ -384,7 +384,7 @@ prose = "the harness maintains itself: the gate placements are wired, and growin
 [[declaration.requirement]]
 name = "operations"
 kind = "skill"
-required = true
+required = false
 prose = "doing work to this project is a stated procedure — build, verify, diagnose live as invocable skills, never as chat folklore"
 
 [[declaration.requirement]]
@@ -394,7 +394,7 @@ prose = "what this project is and where truth lives is stated ambiently — the 
 
 [[declaration.requirement]]
 name = "standards"
-required = true
+required = false
 prose = "what correct code and change look like, scoped to the trees the conventions govern"
 
 [[declaration.assembly]]
