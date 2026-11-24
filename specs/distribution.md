@@ -70,7 +70,11 @@ toolchain; the plugin a stranger installs is the one that gates this repo
   call's result in-band and names the restore. A pass prints nothing. What
   the guard binds is the contract's call, and the mode decides only what
   happens: a write of a document the program never declared, at a governed
-  locus, binds only where a `locus-declared` clause is bound.
+  locus, binds only where a `locus-declared` clause is bound. The guard is
+  `check` at a narrower trigger, never a second reader: it judges with
+  `check`'s judges over `check`'s member enumeration, so every finding it
+  raises is one `check` would raise on the tree it judges, and a clause it
+  binds it judges whole.
 
 `temper install` is the one on-ramp: discovery report, one question, every
 answer flag-spelled (`--yes`), no invisible state — re-running converges.

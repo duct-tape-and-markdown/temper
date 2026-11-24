@@ -15,11 +15,20 @@ the array. The SDK implements no semantics — types, constructors, one pipe to
 the engine; Turing-completeness is quarantined at authoring time, running the
 program is the author's act, and checking never needs Node.
 
+**One fact, one spelling.** Every fact the author declares has exactly one
+place to declare it, and what declared facts already determine is derived,
+never asked for again. A restatement the type system binds to its source —
+an exhaustive witness the compiler refuses out of step — is that one
+spelling carried across the erasure; an unbound restatement is two
+spellings, and two spellings of one fact are one defect, never a choice.
+A default the SDK lowers is the corpus's default: the model states it once
+and the surface inherits it, never re-decides it.
+
 A member's prose keeps its authored medium — a document in its own file, a
 three-line rule inline — and either way lands byte-identical in the
 projection. A composed body may interleave verbatim prose spans with embedded
 member values in authored order — the write-side mirror of a layout's ordered
-regions (`representation.md`, "kind"); a narrative span is prose, never a
+regions (`representation.md`, "layout"); a narrative span is prose, never a
 wrapper member minted to carry it. Prose may declare references, two intents
 apart: a mention names a member and moves no content; an include pulls the
 target's content into the host's emitted bytes, a dependency the lock

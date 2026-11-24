@@ -1,9 +1,8 @@
-# Representation — member · kind · locus · nesting
+# Representation — member · kind · layout · locus · nesting
 
-Layer 1 of the model: a faithful, typed representation of the harness as a
-forest of nested members, rooted at the harness itself. Representation is
-ground level — the value is the contract over it (`contract.md`) — but
-everything the contract can reach, this layer must model.
+Layer 1 of the model: the harness as a typed forest of nested members,
+rooted at the harness itself. The value is the contract over it
+(`contract.md`), but everything the contract can reach, this layer models.
 
 ## member
 
@@ -23,35 +22,13 @@ One authored unit: an instance of a kind. A member carries
 - **edges** — its declared references (`contract.md`),
 - and, when its kind nests, **nested members**.
 
-Members are what `emit` projects into artifacts (`pipeline.md`).
-
 ## kind
 
 The type of a member. A kind declares
 
 - the **field schema**,
 - the **content** — `file`: the body is one verbatim prose value (the
-  default; what install hoists), or a **layout**: a declared template over
-  the body's heading tree in exactly three primitives — prose (verbatim; a
-  region may be an import, a declared reference resolving to a file's
-  contents, fingerprinted and refusing when dangling), a field section (a
-  heading whose span fills a named slot — intent among them), and a member
-  collection (a heading whose child headings are each one member of a named
-  kind; identity is the slugged heading, so a retitle without an explicit
-  key is a delete and a create). A field section the kind marks as an edge
-  field declares the member's edges — `satisfies` among them — and its
-  entries are addresses. A lone leading heading is the document's title:
-  its span is the document's own `prose`, and the regions bind to its child
-  headings. A layout admits no syntax beyond markdown's own and has one
-  face — the reader: the document is the authored home, read, never
-  regenerated. What does not fit the three primitives is two kinds, or it
-  is prose. A layout's regions state what may appear, never what must: a
-  document conforms with a region empty, so one kind serves a tree whose
-  documents range from prose-only to fully membered, and any floor — a
-  required section, a minimum member count — is a clause over the
-  selection, dialable per corpus. A document's kind is declared by its
-  position alone: two kinds never share a `governs` glob, because routing
-  a document by its content would be mining.
+  default; what install hoists), or a **layout** (below),
 - the **edge fields** — which fields are references, and to what,
 - a **format** — a template literal rendering the member's values into its
   artifact: constant text around interpolated fields, prose, and child
@@ -62,19 +39,13 @@ The type of a member. A kind declares
   text neither can absorb; the prose slot terminal or fenced), holding no
   logic and no derived values, and declaring the leniency its source-reads
   forgive; a structured sublanguage is a slot naming a schema, never syntax
-  spelled as constant text. An **embedded**-locus kind's format is
-  writer-only and unconstrained — no admissibility bar — when its host is
-  composed: the rendering is a projection, its facts declared (`pipeline.md`,
-  "The lock"), never read back. Beside the member's own values, an embedded
-  format may place a **closed, engine-derived set of facts about its edge
-  fields' targets** — name, address, kind, and the target's projection path
-  relative to the host member's own projection — as data the template
-  selects, never authored at the instance and never fabricated: a rendered
-  reference is true by construction, and instance prose never spells its
-  target. A format that omits an edge its kind declares renders a contract
-  the prose does not represent; that check is a clause. A member embedded
-  in a layout document has no format of its own: it is read off the host's
-  declared layout — source, never projection.
+  spelled as constant text. An **embedded**-locus kind's format, under a
+  composed host, is writer-only with no admissibility bar — a projection
+  whose facts are declared (`pipeline.md`, "The lock"), never read back. It
+  may place a **closed, engine-derived set of facts about its edge fields'
+  targets** — name, address, kind, projection path relative to the host's;
+  instance prose never spells its target, so a rendered reference is true
+  by construction. A format omitting a declared edge is a clause's finding.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
 
@@ -83,27 +54,52 @@ identity travels by import, never by string. Built-in and user-declared kinds
 are the same construct — ownership, not privilege (`../builtins.md`): a
 corpus kind of a built-in's name replaces the built-in in that harness.
 
+## layout
+
+A kind's declared template over its body's heading tree. It structures the
+body and nothing else: the format's other slots, frontmatter among them,
+read as on a `file`-content kind, and the document's identity follows its
+kind's locus as any file member's does. Exactly three primitives:
+
+- **prose** — a verbatim span; a region may be an import, a declared
+  reference resolving to a file's contents, fingerprinted and refusing
+  when dangling,
+- a **field section** — a heading whose span fills a named slot; a slot the
+  kind marks as an edge field declares the member's edges (`satisfies`
+  among them), its entries addresses,
+- a **member collection** — a heading whose child headings are each one
+  member of a named kind, identity the slugged heading, so a retitle
+  without an explicit key is a delete and a create. An entry is a member
+  in every respect — selected, judged, addressed as any of its kind — read
+  off the host's layout, source, never projection, with no format of its own.
+
+A lone leading heading is the document's title: its span is the document's
+own `prose`, and the regions bind to its child headings. A layout admits no
+syntax beyond markdown's own and has one face, the reader: the document is
+the authored home, read, never regenerated. What does not fit the three
+primitives is two kinds, or it is prose. Regions state what may appear,
+never what must: a document conforms with a region empty, and any floor —
+a required section, a minimum member count — is a clause over the
+selection, dialable per corpus.
+
 ## locus
 
 Where a member serializes. Three spellings:
 
-- **file** — the member owns a file at a path its kind governs. A file
+- **file** — the member owns a file at a path its kind governs; a
+  document's kind is declared by its position alone, so two kinds never
+  share a `governs` glob — routing by content would be mining. A file
   locus may declare a commitment class of **local**: per-machine and
   uncommitted — the kind is declared and reviewed, its members' documents
-  are not. A local member is read-side only (the document is the governed
-  source, read at check under whatever format its kind declares; it is
-  never an emit input or target — emit's codomain is the committed tree,
-  `pipeline.md`) and its rows never enter the lock, deriving at read time,
+  are not. A local member is read-side only — the governed source, read at
+  check under its kind's format, never an emit input or target
+  (`pipeline.md`) — and its rows derive at read time, never in the lock,
 - **embedded** — the member lives inside its parent's body, addressed per
-  the parent's format; like any locus with no file of its own, an embedded
-  member loads through its host, never on its own, so it registers
-  nothing — its registration is empty, and a non-empty registration is a
-  well-formedness fault, or
+  the parent's format; it loads through its host, never on its own, so it
+  registers nothing — a non-empty registration is a well-formedness fault, or
 - **nested file** — the member owns a file whose path composes from its
-  host's unit and the host template's path pattern (the template fact
-  above): the pattern is the host's declared fact, the child kind governs
-  no glob of its own, and position stays decidable — two kinds still never
-  share a governs glob.
+  host's unit and the host template's path pattern — the host's declared
+  fact; the child kind governs no glob of its own.
 
 ## nesting
 
