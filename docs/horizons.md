@@ -8,8 +8,8 @@ read as intent by the autonomous loop — a derived layer must never receive
 intent the human hasn't authored (`specs/process/spec-system.md`). This file is upstream
 of the corpus, not part of it.
 
-Not `.flume/plan/open-questions.md` either: that file holds forks *blocking
-already-filed work*. A horizon is pre-intent — no pending entry may cite one.
+Not `.flume/plan/questions/` either: those files hold forks *blocking
+work plan would file*. A horizon is pre-intent — no pending entry may cite one.
 
 ## The graduation ceremony
 

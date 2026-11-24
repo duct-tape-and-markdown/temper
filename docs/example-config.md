@@ -45,9 +45,8 @@ declares what the harness must contain:
 ```ts
 const program = harness({
   require: {
-    "pending-entry-discipline": {
-      prose: "flume's plan phase needs pending-entry filing constraints available as a rule scoped to .flume/plan/pending/*.json",
-      kind: rule,
+    "friction-capture-procedure": {
+      prose: "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture",
       required: true,
     },
     // ...

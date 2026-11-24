@@ -1,11 +1,7 @@
 import { emit, harness, requirement, telemetry } from "@dtmd/temper";
-import { rule, settings } from "@dtmd/temper/claude-code";
+import { settings } from "@dtmd/temper/claude-code";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
-import { rule_forkLifecycle } from "./rules/fork-lifecycle.ts";
-import { rule_pendingEntry } from "./rules/pending-entry.ts";
-import { rule_planState } from "./rules/plan-state.ts";
-import { rule_postureSweep } from "./rules/posture-sweep.ts";
 import { rule_publicProse } from "./rules/public-prose.ts";
 import { rule_release } from "./rules/release.ts";
 import { rule_rust } from "./rules/rust.ts";
@@ -20,14 +16,9 @@ import {
 
 // The requirements below are load-bearing, not documentation: emit
 // refuses if any loses its satisfier (sdk/test/refusals.test.ts, "an
-// unfilled required requirement"). The flume prompts are thin by design
-// — doctrine lives in these paths-scoped rules, loading exactly when the
-// governed file is touched (the pending-entry precedent, generalized
-// 07-17); a prompt paragraph that duplicates a rule is drift. Prompt
-// prose still names members by identifier outside any gate — that
-// residual is cosmetic (no trigger mechanism reads the prose) and
-// tracked on the ".flume/ is ungoverned by temper" record, not
-// re-litigated here.
+// unfilled required requirement"). The flume pipeline's own discipline
+// ships with its harness package (.flume/declaration.ts); this harness
+// carries only what the package leaves to the project.
 //
 // friction-capture-procedure carries no `kind:` constraint: Requirement.kind
 // is KindDefinition<object>, and skill's own Skill.description is required,
@@ -61,23 +52,8 @@ const program = harness({
   // only a deny reaches it (specs/distribution.md, "Per tool call").
   mode: "block",
   require: {
-    "pending-entry-discipline": {
-      prose: "flume's plan phase (and any interactive session) needs pending-entry filing constraints available as a rule scoped to .flume/plan/pending/*.json",
-      kind: rule,
-      required: true,
-    },
     "friction-capture-procedure": {
       prose: "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture",
-      required: true,
-    },
-    "plan-state-discipline": {
-      prose: "flume's plan phase needs state.md's schema, cursor copy-forward, and marker mechanics as a rule scoped to .flume/plan/state.md — the prompt stays thin",
-      kind: rule,
-      required: true,
-    },
-    "fork-lifecycle-discipline": {
-      prose: "any actor touching open-questions.md needs the open-forks-only lifecycle (encode + delete, DATUMs to commit bodies, kept-on-purpose semantics) as a rule scoped to that file",
-      kind: rule,
       required: true,
     },
     // The behavioral remainder the gate cannot decide (intent.md invariant 2):
@@ -93,19 +69,10 @@ const program = harness({
         "every always-on member this harness declares should actually reach the model, and every skill should be reachable by its description — the failure intent.md names (a rule that fails to load, a skill that never triggers), judged by reading the field record, never by check",
       verifier: telemetry(["InstructionsLoaded", "SkillInvoked"]),
     }),
-    "posture-sweep-discipline": {
-      prose: "the posture sweep needs its administering discipline (pages-as-authority, verified-on-disk, routing, rotation) as a rule scoped to the posture pages it reads",
-      kind: rule,
-      required: true,
-    },
   },
   members: [
     memory_CLAUDE,
     rule_collaboration,
-    rule_forkLifecycle,
-    rule_pendingEntry,
-    rule_planState,
-    rule_postureSweep,
     rule_publicProse,
     rule_release,
     rule_rust,

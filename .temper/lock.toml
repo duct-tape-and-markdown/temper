@@ -3,38 +3,14 @@ engine = "0.0.23"
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "057ff4957a9e31a1cfefefff6e739e15dadfc7eeba12cb23e7f48305964aac25"
-emit_hash = "057ff4957a9e31a1cfefefff6e739e15dadfc7eeba12cb23e7f48305964aac25"
+source_hash = "01e6f0f62c1ac4ebf0c8443617c7175f22ecfbc4f01c942ed3a1952ca4402b29"
+emit_hash = "01e6f0f62c1ac4ebf0c8443617c7175f22ecfbc4f01c942ed3a1952ca4402b29"
 
 [[rule]]
 name = "collaboration"
 source_path = ".claude/rules/collaboration.md"
-source_hash = "283c85875b3603df13b6103abf7376cac9939d60ee5656b2df50fd0b74b04ada"
-emit_hash = "283c85875b3603df13b6103abf7376cac9939d60ee5656b2df50fd0b74b04ada"
-
-[[rule]]
-name = "fork-lifecycle"
-source_path = ".claude/rules/fork-lifecycle.md"
-source_hash = "9b903784aea6b49de18f5b3921e8381c6409fb2df7d69420968850cfc5649597"
-emit_hash = "9b903784aea6b49de18f5b3921e8381c6409fb2df7d69420968850cfc5649597"
-
-[[rule]]
-name = "pending-entry"
-source_path = ".claude/rules/pending-entry.md"
-source_hash = "78964c1d4e331b5ddc11cd38e91cb92883f290e7b762afb4010678eeed7498f0"
-emit_hash = "78964c1d4e331b5ddc11cd38e91cb92883f290e7b762afb4010678eeed7498f0"
-
-[[rule]]
-name = "plan-state"
-source_path = ".claude/rules/plan-state.md"
-source_hash = "0016527b88bc4a3b56f9f29dd76e16e591c1c9052d9dcf9f51cf09220b9beea3"
-emit_hash = "0016527b88bc4a3b56f9f29dd76e16e591c1c9052d9dcf9f51cf09220b9beea3"
-
-[[rule]]
-name = "posture-sweep"
-source_path = ".claude/rules/posture-sweep.md"
-source_hash = "20a7ff7e0d34d074e6ce11f44063b3585d4b674403938d0f1f587fc596c25b5a"
-emit_hash = "20a7ff7e0d34d074e6ce11f44063b3585d4b674403938d0f1f587fc596c25b5a"
+source_hash = "02a9c5eb40395093887d8453bc3c33e3539f7712dfe6bff652d02e86c17be96e"
+emit_hash = "02a9c5eb40395093887d8453bc3c33e3539f7712dfe6bff652d02e86c17be96e"
 
 [[rule]]
 name = "public-prose"
@@ -69,8 +45,8 @@ emit_hash = "d29d54d03dff5bd4b21747e36abb9be1a22e2061bfb454963c066afd3f147402"
 [[skill]]
 name = "capture-friction"
 source_path = ".claude/skills/capture-friction/SKILL.md"
-source_hash = "d8f8ee5ce2bc5d84e72ec6763a4d333f3f1f0829dbde2fc6893f5dff66c2b713"
-emit_hash = "d8f8ee5ce2bc5d84e72ec6763a4d333f3f1f0829dbde2fc6893f5dff66c2b713"
+source_hash = "7acc21ac45319601a5645fed222fdd3ac696d3aa2c974f5a786f50df56a0260b"
+emit_hash = "7acc21ac45319601a5645fed222fdd3ac696d3aa2c974f5a786f50df56a0260b"
 
 [[declaration.kind]]
 name = "handler"
@@ -155,53 +131,13 @@ verifier = { species = "telemetry", events = ["InstructionsLoaded", "SkillInvoke
 prose = "every always-on member this harness declares should actually reach the model, and every skill should be reachable by its description — the failure intent.md names (a rule that fails to load, a skill that never triggers), judged by reading the field record, never by check"
 
 [[declaration.requirement]]
-name = "fork-lifecycle-discipline"
-kind = "rule"
-required = true
-prose = "any actor touching open-questions.md needs the open-forks-only lifecycle (encode + delete, DATUMs to commit bodies, kept-on-purpose semantics) as a rule scoped to that file"
-
-[[declaration.requirement]]
 name = "friction-capture-procedure"
 required = true
 prose = "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture"
 
-[[declaration.requirement]]
-name = "pending-entry-discipline"
-kind = "rule"
-required = true
-prose = "flume's plan phase (and any interactive session) needs pending-entry filing constraints available as a rule scoped to .flume/plan/pending/*.json"
-
-[[declaration.requirement]]
-name = "plan-state-discipline"
-kind = "rule"
-required = true
-prose = "flume's plan phase needs state.md's schema, cursor copy-forward, and marker mechanics as a rule scoped to .flume/plan/state.md — the prompt stays thin"
-
-[[declaration.requirement]]
-name = "posture-sweep-discipline"
-kind = "rule"
-required = true
-prose = "the posture sweep needs its administering discipline (pages-as-authority, verified-on-disk, routing, rotation) as a rule scoped to the posture pages it reads"
-
 [[declaration.assembly]]
 fact = "mode"
 value = "block"
-
-[[declaration.satisfies]]
-member = "rule:fork-lifecycle"
-requirement = "fork-lifecycle-discipline"
-
-[[declaration.satisfies]]
-member = "rule:pending-entry"
-requirement = "pending-entry-discipline"
-
-[[declaration.satisfies]]
-member = "rule:plan-state"
-requirement = "plan-state-discipline"
-
-[[declaration.satisfies]]
-member = "rule:posture-sweep"
-requirement = "posture-sweep-discipline"
 
 [[declaration.satisfies]]
 member = "skill:capture-friction"

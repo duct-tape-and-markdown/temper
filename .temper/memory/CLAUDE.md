@@ -44,7 +44,7 @@ the owning module or document and re-run `temper emit`, never the generated file
 
 The dogfood **consumes** the product and adapts to it; it never drives the
 product's design. Friction it surfaces that a real adopter would also hit is
-signal — route it to `.flume/inbox.md`. Friction that exists only because the
+signal — route it to `.flume/inbox/`. Friction that exists only because the
 dogfood represents something the product already owns is the dogfood's to
 absorb, never a `src/` change.
 
@@ -73,7 +73,8 @@ Conventions live in `.claude/rules/*.md`, auto-loaded by Claude Code at launch
 `.flume/` runs the autonomous build: plan reconciles the queue against
 `specs/`; build ships one validated commit per entry. Everything operational
 — conventions, commands, phase mechanics, non-negotiables — lives in
-`.flume/PROTOCOL.md`, nowhere else. Feedback routes to `.flume/inbox.md`.
+`.flume/PROTOCOL.md` and `.flume/declaration.ts`, nowhere else. Feedback
+routes to `.flume/inbox/`, one record per file.
 
 ## Common commands
 

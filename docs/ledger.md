@@ -19,7 +19,7 @@ hard.
   PACKAGING-CHANNELS-REMAINDER (parked); 0.1.0 is the launch tag's.
 - **First adopter**: cascade (John's). Its session live-verifies every
   landing sha and audits entries claim-by-claim before build; send it the
-  sha, read its verdict, route its findings through `.flume/inbox.md`.
+  sha, read its verdict, route its findings through `.flume/inbox/`.
   Reports at `~/.cache/cascade-integrations/audits/`.
 - **centercode = the structural-half dogfood**: the behavioral half
   (verifiers, `when`/`dial`/`extent`, local commitment) is un-field-tested

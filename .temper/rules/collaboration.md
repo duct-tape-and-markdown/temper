@@ -50,9 +50,9 @@ instructions to file.
 - A derived layer never invents intent absent from its source. Plan does not
   invent requirements the spec doesn't carry; build does not invent behavior the
   entry doesn't name.
-- Open questions are keyed `(slug)` in `.flume/plan/open-questions.md`. An entry
-  resting on one declares `dependsOnForks: ["slug"]` and waits — building onto an
-  undecided foundation is worse than not building.
+- An open question is one file in `.flume/plan/questions/`, open while it
+  exists. Work resting on one is not filed until it is answered — building
+  onto an undecided foundation is worse than not building.
 
 ## External facts are cited, never guessed
 
@@ -80,7 +80,7 @@ instructions to file.
 - Consolidation is the one sanctioned expansion: when your change would add
   or extend a duplicate of an existing surface, unifying them is the entry,
   not creep (`specs/process/engineering.md`) — name the unification in the
-  commit body. Structural debt you can't take this tick is a
-  `.flume/refactor/` capture, never silence.
+  commit body. Structural debt you can't take this tick is a build note
+  (the `capture-friction` skill), never silence.
 - If you cut a corner (a `// TODO`, a deferred case, a weaker check), say so
   out loud in the commit body or the response — a silent gap reads as done.
