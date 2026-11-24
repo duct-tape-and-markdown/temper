@@ -473,6 +473,11 @@ export const telemetry = (events: readonly string[]): Verifier => ({ species: "t
 export interface Requirement {
   readonly prose: string;
   readonly kind?: string | KindDefinition<any>;
+  /**
+   * Whether the requirement must be filled. Unset inherits the corpus's shipped
+   * default — at least one satisfier, at error severity — so an unfilled
+   * requirement fails `check`; `false` is the advisory override.
+   */
   readonly required?: boolean;
   readonly clauses?: readonly Clause[];
   readonly verifier?: Verifier;

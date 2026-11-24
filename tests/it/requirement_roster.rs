@@ -1277,3 +1277,76 @@ fn a_kinds_own_member_grain_clause_reports_exactly_once() {
         run.output
     );
 }
+
+// ---- the SDK's `required` default: the corpus's, never re-decided ----
+
+/// A real SDK program declaring one requirement whose posture is `POSTURE` (an
+/// object-literal fragment, empty for "unset") and one floor-clean skill that opts
+/// into nothing — so the requirement is unfilled and only its posture decides the run.
+fn unfilled_requirement_program(posture: &str) -> String {
+    format!(
+        r#"
+import {{ emit, harness, text }} from "@dtmd/temper";
+import {{ skill }} from "@dtmd/temper/claude-code";
+
+const program = harness({{
+  members: [
+    skill({{
+      name: "coordinate",
+      description: "Use when coordinating agents across axes.",
+      prose: text`
+        # Coordinate
+
+        Drive the team.
+      `,
+    }}),
+  ],
+  require: {{
+    agents: {{ prose: "the harness fields an agent roster"{posture} }},
+  }},
+}});
+
+process.stdout.write(emit(program).seam);
+"#
+    )
+}
+
+/// Emit `program` through the real SDK and run `check` over the harness it wrote.
+fn emit_and_check(label: &str, program: &str) -> common::CheckRun {
+    let (harness, into) = common::wire_sdk_harness(label, program);
+    temper::drift::emit_program(&into, temper::drift::EmitOptions::default()).unwrap();
+    common::check_in(&harness, &[], None)
+}
+
+#[test]
+fn a_requirement_declared_without_required_fails_check_when_unfilled() {
+    let run = emit_and_check("default-required", &unfilled_requirement_program(""));
+    assert!(
+        !run.ok,
+        "an unset `required` lowers the corpus default (at least one satisfier, error) ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("requirement.unfilled") && run.output.contains("agents"),
+        "the finding names the unfilled rule and the requirement, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_requirement_declared_required_false_stays_advisory_when_unfilled() {
+    let run = emit_and_check(
+        "explicit-advisory",
+        &unfilled_requirement_program(", required: false"),
+    );
+    assert!(
+        !run.output.contains("requirement.unfilled"),
+        "`required: false` is the advisory override ⇒ no unfilled finding, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "an advisory requirement never blocks, got:\n{}",
+        run.output
+    );
+}

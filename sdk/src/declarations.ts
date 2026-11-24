@@ -577,7 +577,11 @@ function kindFactKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
   );
 }
 
-/** The requirement rows — assembly `require` and every member's `requires`, one namespace. */
+/**
+ * The requirement rows — assembly `require` and every member's `requires`, one namespace.
+ * An unset `required` lowers the corpus's shipped default — "this must be filled": at
+ * least one satisfier, at error — so only an explicit `required: false` is advisory.
+ */
 function requirementRows(harness: Harness): RequirementRow[] {
   const entries: Array<[string, Requirement]> = [];
   for (const [name, requirement] of Object.entries(harness.require)) {
@@ -594,7 +598,7 @@ function requirementRows(harness: Harness): RequirementRow[] {
     .map(([name, requirement]) => ({
       name,
       kind: typeof requirement.kind === "string" ? requirement.kind : requirement.kind?.key,
-      required: requirement.required ?? false,
+      required: requirement.required ?? true,
       clauses: (requirement.clauses ?? []).map((clause) => clauseRow(clause)),
       verifier: verifierRow(requirement.verifier),
       prose: requirement.prose,
