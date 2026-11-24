@@ -6,6 +6,7 @@ export const rule_release = rule({
     "Cargo.toml",
     "sdk/package.json",
     "sdk/package-lock.json",
+    ".temper/package-lock.json",
     ".github/workflows/release.yml",
     "CHANGELOG.md",
     "docs/MIGRATING-*.md",

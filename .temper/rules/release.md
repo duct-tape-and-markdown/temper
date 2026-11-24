@@ -37,10 +37,12 @@ the trigger and the published pair is the gate, not the local tree.
    installing the published pair from the registry and round-tripping
    `install` → `emit` → `check` — is green. Green build jobs and provenance
    do not prove the pair works together.
-9. **Sync the SDK lock** once the engines are live: `npm --prefix sdk
-   install`, commit `chore(release): sync the SDK lock to X.Y.Z`.
+9. **Sync both npm locks** once the engines are live: `npm --prefix sdk
+   install` and `npm --prefix .temper install` (`.temper/` links `../sdk`,
+   so its lock records the same engine pins), commit `chore(release): sync
+   the npm locks to X.Y.Z`.
 
-## Why the SDK lock trails the tag
+## Why the npm locks trail the tag
 
 The new platform packages do not exist on the registry until the release
 publishes them, so `npm install` cannot resolve them before step 9.
