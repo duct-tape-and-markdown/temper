@@ -68,6 +68,9 @@ const program = harness({
       prose:
         "every always-on member this harness declares should actually reach the model, and every skill should be reachable by its description — the failure intent.md names (a rule that fails to load, a skill that never triggers), judged by reading the field record, never by check",
       verifier: telemetry(["InstructionsLoaded", "SkillInvoked"]),
+      // Advisory by design: the field record judges it, so nothing satisfies
+      // it and the shipped fill default would refuse emit.
+      required: false,
     }),
   },
   members: [
