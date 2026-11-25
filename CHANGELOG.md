@@ -9,6 +9,51 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+## [0.0.25] — 2026-11-25
+
+### Upgrading from 0.0.24
+
+Each line is what a 0.0.24 harness may see first, then what to do.
+[`docs/MIGRATING-0.0.25.md`](docs/MIGRATING-0.0.25.md) walks each one with
+before and after.
+
+- **`install.gate-installed` reports your gate hooks.** Re-emit (or re-run
+  `install` on an unrepresented harness) to pick up the anchored commands.
+- **`check` reports `kind.governs-collision`.** Add the named path to the
+  `exclude` of the kind that does not own it.
+- **A layout document refuses with `layout::swallowed_heading`.** Add the
+  missing section it names.
+- **`emit` refuses with `drift::ownerless_manifest_keys`.** Re-run
+  `install` to hoist the hand-added keys into a `settings` member.
+
+### Breaking
+
+- **Every gate command is anchored at the project root** (GH #67). It
+  opens with `cd "${CLAUDE_PROJECT_DIR:-.}" || exit 1;`, so its binary and
+  its `.` target resolve at the root after a Bash `cd`, where the guard used
+  to exit 127 or judge a subdirectory. The installed-gate check recognizes
+  the anchored form only.
+- **Two kinds whose loci reach one discovered document are reported**,
+  naming the document and both kinds. The literal `exclude` on the kind
+  that does not own it answers it.
+- **A heading with sub-headings swallowed into an earlier region refuses
+  whenever any later region starves** (GH #44), not only the next one.
+- **`emit` refuses, never deletes, a hand-added key in a settings file no
+  member owns** (GH #40 follow-up). `install` hoists those keys into a
+  `settings` member.
+
+### Added
+
+- **`gateHook()` takes `satisfies`**, so a gate hook can fill a requirement
+  like any other member.
+
+### Fixed
+
+- **A directory `exclude` reaches beneath a rooted any-depth locus**, such
+  as `docs/a/b` under `docs` + `**/*.md`, where it used to refuse at load.
+- **The `root.locus-declared` guidance no longer says `emit` never writes**
+  an undeclared manifest.
+
 ## [0.0.24] — 2026-11-25
 
 ### Upgrading from 0.0.23
