@@ -9,35 +9,34 @@
     "new": [],
     "edit": [
       {
+        "path": "src/import.rs",
+        "description": "expose check's host-unit enumeration as a placement test for one path (the park note's `nested_file_placement`)"
+      },
+      {
         "path": "src/install.rs",
-        "description": "guarded_layout_loci: admit governs-less layout kinds whose locus and address come from a host unit, at both edges"
+        "description": "LayoutGuard::hosted_member binds a pending write placed under a host unit, file on disk or not"
       },
       {
         "path": "src/compose.rs",
-        "description": "the host-unit locus/address derivation check uses, reachable from guard sites"
+        "description": "hosted_member_address, the shared address seam the pending site reads"
       },
       {
         "path": "tests/it/install.rs",
-        "description": "guard pins over a nested layout child"
-      },
-      {
-        "path": "tests/it/gauntlet.rs",
-        "description": "the guard-narrower-than-check pin over gauntlet `spec` flips to agreement"
+        "description": "pre-edge pin over a write creating a hosted child on nested_layout_child_harness"
       }
     ],
     "retire": []
   },
-  "summary": "The guard judges locus-declared over nested layout children (governs-less layout kinds located by a host unit), as check does",
+  "summary": "The pre-edge guard names a pending write that creates an undeclared nested layout child, as check names it once written",
   "per": {
     "path": "specs/distribution.md",
     "section": "The placements and their enforcement modes"
   },
-  "acceptance": "An undeclared nested layout child (gauntlet `spec`) is named by the guard at both edges with check's finding; the host read stays bounded per tool call",
+  "acceptance": "A Write creating `docs/guides/operate/stray.md` on the nested-layout-child harness is named at the pre edge with check's finding; existing-child pins at both edges stay green; the host read stays bounded per tool call",
   "tests": [
-    "the guard names an undeclared nested layout child at the post edge",
-    "the guard names an undeclared nested layout child at the pre edge"
+    "the guard names a pending write that creates an undeclared nested layout child"
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "Left out of GUARD-JUDGES-LAYOUT-LOCUS-DECLARED; its note names host discovery at guard sites as the cost. Blocked only to serialize on install.rs. Reuse check's host derivation, never a second one."
+  "notes": "Existing-child half shipped in 39a05bae (both edges, gauntlet `spec` agrees). Remainder per the park note: placement over check's host units (src/import.rs), never a second host derivation in compose.rs."
 }

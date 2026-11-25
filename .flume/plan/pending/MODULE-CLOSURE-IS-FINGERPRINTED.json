@@ -51,6 +51,26 @@
       {
         "path": "sdk/test/emit.test.ts",
         "description": "the payload's module set excludes node_modules"
+      },
+      {
+        "path": "tests/it/builtin_lock_frozen.rs",
+        "description": "the module family joins the frozen compare; the embedded lock carries no module rows"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "lock-text expectations gain module rows"
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "lock-text expectations gain module rows"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "lock-text expectations gain module rows"
+      },
+      {
+        "path": "tests/it/gauntlet.rs",
+        "description": "lock-text expectations gain module rows"
       }
     ],
     "retire": []
@@ -67,5 +87,5 @@
     "a moved program module is a root level fresh finding with the re emit remedy",
     "an unchanged program module closure reports no fresh finding"
   ],
-  "notes": "Seam change: SDK row builder, Rust reader and generated binding move together (BLESS_SEAM_BINDINGS). Drift's finding shape is pipeline.md \"Drift\"; input() narrowing is authoring.md \"The SDK\". How Node reports loaded modules (loader hook, etc.) is build's call. No refusal of an input() naming a TS module is derived: 0080 says one 'can' name it, the spec does not require it."
+  "notes": "Seam change (BLESS_SEAM_BINDINGS). \"node_modules excluded\" judges the realpath: 0080's driver (GH #61) is a workspace package reached through a node_modules symlink, which a pre-realpath rule drops. A symlinked SDK is then fingerprinted; the dogfood absorbs that. Loader mechanism is build's call (park note: engine-owned --import preload, registerHooks)."
 }

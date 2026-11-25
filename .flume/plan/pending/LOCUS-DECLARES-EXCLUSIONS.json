@@ -26,7 +26,7 @@
       },
       {
         "path": "src/kind.rs",
-        "description": "Governs carries excluded paths; template refusal covers them"
+        "description": "CustomKind carries excluded paths (lifted in from_kind_fact_row, starless literal paths under the locus, refused at load otherwise)"
       },
       {
         "path": "src/import.rs",
@@ -43,6 +43,22 @@
       {
         "path": "sdk/test/refusals.test.ts",
         "description": "exclude round-trips through the row"
+      },
+      {
+        "path": "src/test_support.rs",
+        "description": "kind_fact_row default names the new column"
+      },
+      {
+        "path": "tests/it/common/mod.rs",
+        "description": "kind_facts and the literal KindFactRow constructions name the new column"
+      },
+      {
+        "path": "src/main.rs",
+        "description": "guarded_loci carries the kind's excluded paths onto GuardedLocus"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "committed_member_sites: confirm locus-declared reads the subtracted discovery"
       }
     ],
     "retire": []
@@ -60,5 +76,5 @@
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "Seam change (SDK row builder, Rust reader, embedded lock in one entry). Exclusions are paths, not patterns (\"Any other pattern syntax refuses at load\"). Blocked on the template entry: both edit src/kind.rs's locus validation."
+  "notes": "Seam change (SDK row builder, Rust reader, generated binding in one entry). Exclusions are paths, not patterns (\"Any other pattern syntax refuses at load\"). Fence widened per the park note: KindFactRow has no Default, so every full literal names the column; prefer CustomKind over Governs (~50 literal sites)."
 }
