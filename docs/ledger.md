@@ -99,9 +99,7 @@ hard.
   next, then channel 3.
 - Docs-language candidates: the determinism ladder; the harness pin
   ("name the invariants, let the loop settle").
-- On John: revoke the 07-19 npm token at the registry and set each package
-  to disallow tokens (trusted publishing shipped 0.0.24; the repo secret is
-  deleted); Apple notarizing at release; USPTO screen.
+- On John: Apple notarizing at release; USPTO screen.
 
 ## Standing discipline (mechanical, paid for)
 
