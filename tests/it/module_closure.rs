@@ -173,6 +173,92 @@ fn an_unchanged_program_module_closure_reports_no_fresh_finding() {
     );
 }
 
+/// A program importing a tracked sibling module and a gitignored one, beside a
+/// `file:`-linked workspace package whose built `dist/` is gitignored.
+const IGNORED_PROGRAM: &str = r#"
+import { emit, harness, text } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+import { RULE_NAME } from "./members.ts";
+import { GENERATED } from "./generated/names.ts";
+import { suffix } from "linked-pkg";
+
+const program = harness({
+  members: [
+    rule({
+      name: `${RULE_NAME}-${GENERATED}`,
+      paths: [`src/**/*.${suffix}`],
+      prose: text`
+        # Host
+      `,
+    }),
+  ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+/// Wire [`IGNORED_PROGRAM`]: a tracked `members.ts`, a gitignored `generated/` module,
+/// and `linked-pkg` living in the repository at `packages/linked-pkg`, reached through a
+/// `node_modules` symlink, whose `dist/` the repository ignores. Then run one real emit.
+fn emitted_with_ignored(label: &str) -> std::path::PathBuf {
+    let (harness, into) = common::wire_sdk_harness(label, IGNORED_PROGRAM);
+    fs::create_dir(harness.join(".git")).unwrap();
+    common::write_sibling(
+        &harness,
+        ".gitignore",
+        ".temper/node_modules/\n.temper/generated/\ndist/\n",
+    );
+    fs::write(into.join("members.ts"), MEMBERS_MODULE).unwrap();
+    common::write_sibling(
+        &into,
+        "generated/names.ts",
+        "export const GENERATED = \"gen\";\n",
+    );
+    let package = harness.join("packages/linked-pkg");
+    common::write_sibling(
+        &package,
+        "package.json",
+        "{ \"name\": \"linked-pkg\", \"type\": \"module\", \"main\": \"dist/index.js\" }\n",
+    );
+    common::write_sibling(&package, "dist/index.js", "export const suffix = \"rs\";\n");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&package, into.join("node_modules/linked-pkg")).unwrap();
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&package, into.join("node_modules/linked-pkg")).unwrap();
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+    into
+}
+
+#[test]
+fn a_gitignored_module_the_program_loaded_gets_no_provenance_row() {
+    let into = emitted_with_ignored("module-closure-gitignored");
+
+    let paths: Vec<String> = module_rows(&into).into_iter().map(|(_, p)| p).collect();
+    assert!(
+        paths.iter().any(|p| p == ".temper/members.ts"),
+        "a tracked sibling keeps its row: {paths:?}"
+    );
+    assert!(
+        paths.iter().all(|p| !p.contains("generated")),
+        "the gitignored module is no committed source: {paths:?}"
+    );
+}
+
+#[test]
+fn a_gitignored_module_reached_through_a_linked_package_gets_no_provenance_row() {
+    let into = emitted_with_ignored("module-closure-linked");
+
+    let paths: Vec<String> = module_rows(&into).into_iter().map(|(_, p)| p).collect();
+    assert!(
+        paths.iter().any(|p| p == ".temper/harness.ts"),
+        "the program's own entry keeps its row: {paths:?}"
+    );
+    assert!(
+        paths.iter().all(|p| !p.contains("linked-pkg")),
+        "the linked package's ignored build output gets no row: {paths:?}"
+    );
+}
+
 /// `lock_text` with every `[[declaration.module]]` row `drop` selects removed — the family
 /// key too once nothing is left. The one home for the suites whose committed or snapshotted
 /// lock text cannot carry a row: the SDK `common::vendor_sdk` links in by symlink is

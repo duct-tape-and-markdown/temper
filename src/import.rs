@@ -779,15 +779,57 @@ fn fenced(path: &Path, depth: usize, is_dir: bool, local_governs: bool) -> bool 
 /// pending write) and so cannot be admitted by a walk. The flavor waives what the walk's
 /// does: the workspace fence and every git ignore declaration.
 ///
-/// Each prefix of `relative` is put to the walk's two tests in walk order: the [`fenced`]
-/// fences, then the git ignore declarations [`ignore_walk`] consults — every `.gitignore`
-/// from the harness root down to the prefix's parent, deepest first, then each level's
-/// `.git/info/exclude` the same way, then a linked worktree's common exclude, the
-/// precedence the `ignore` engine applies. An
-/// ignored prefix prunes everything below it, exactly as the walk never descends an
-/// ignored directory. A `.gitignore` that fails to parse contributes what it could parse,
-/// as the walk's own builder does.
+/// Each prefix of `relative` is put to the [`fenced`] fences, then the git ignore
+/// declarations [`ignore_walk`] consults ([`admitted`]).
 pub(crate) fn discovers_path(harness: &Path, relative: &Path, local_governs: bool) -> bool {
+    admitted(harness, relative, !local_governs, |path, depth, is_dir| {
+        fenced(path, depth, is_dir, local_governs)
+    })
+}
+
+/// Whether the repository holding the real, absolute `path` leaves it unignored — the
+/// git ignore declarations a discovery walk honours (every `.gitignore`, each level's
+/// `.git/info/exclude`, a linked worktree's common exclude), judged from the nearest
+/// ancestor carrying a `.git`, or from `fallback_root` when no ancestor does and `path`
+/// sits under it. A path in no repository and under no fallback root has no rules to
+/// exclude it, so it is kept.
+pub(crate) fn repository_keeps(path: &Path, fallback_root: &Path) -> bool {
+    let path = crate::path::normalize_path(path);
+    let root = path
+        .ancestors()
+        .skip(1)
+        .find(|dir| dir.join(".git").exists())
+        .map(Path::to_path_buf)
+        .or_else(|| {
+            let fallback = fallback_root
+                .canonicalize()
+                .unwrap_or_else(|_| fallback_root.to_path_buf());
+            path.starts_with(&fallback).then_some(fallback)
+        });
+    let Some(root) = root else {
+        return true;
+    };
+    let Ok(relative) = path.strip_prefix(&root) else {
+        return true;
+    };
+    admitted(&root, relative, true, |path, _depth, _is_dir| {
+        path.file_name() == Some(OsStr::new(".git"))
+    })
+}
+
+/// The walk-order judgment [`discovers_path`] and [`repository_keeps`] share: each prefix
+/// of `relative` under `root` is put to `fence`, then — when `git_declarations` — to
+/// every `.gitignore` from `root` down to the prefix's parent, deepest first, then each
+/// level's `.git/info/exclude` the same way, then a linked worktree's common exclude, the
+/// precedence the `ignore` engine applies. An ignored prefix prunes everything below it,
+/// exactly as the walk never descends an ignored directory. A `.gitignore` that fails to
+/// parse contributes what it could parse, as the walk's own builder does.
+fn admitted(
+    root: &Path,
+    relative: &Path,
+    git_declarations: bool,
+    fence: impl Fn(&Path, usize, bool) -> bool,
+) -> bool {
     use ignore::gitignore::{Gitignore, GitignoreBuilder};
 
     let matcher = |dir: &Path, file: PathBuf| {
@@ -798,23 +840,23 @@ pub(crate) fn discovers_path(harness: &Path, relative: &Path, local_governs: boo
         }
         builder.build().unwrap_or_else(|_| Gitignore::empty())
     };
-    let common = if local_governs {
-        None
+    let common = if git_declarations {
+        common_exclude(root).map(|exclude| matcher(root, exclude))
     } else {
-        common_exclude(harness).map(|exclude| matcher(harness, exclude))
+        None
     };
     let components: Vec<_> = relative.components().collect();
     let mut gitignores = Vec::new();
     let mut excludes = Vec::new();
-    let mut dir = harness.to_path_buf();
+    let mut dir = root.to_path_buf();
     for (index, component) in components.iter().enumerate() {
         let path = dir.join(component);
         let last = index + 1 == components.len();
         let is_dir = !last || path.is_dir();
-        if fenced(&path, index + 1, is_dir, local_governs) {
+        if fence(&path, index + 1, is_dir) {
             return false;
         }
-        if local_governs {
+        if !git_declarations {
             dir = path;
             continue;
         }

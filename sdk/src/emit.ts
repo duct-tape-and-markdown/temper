@@ -1038,6 +1038,8 @@ const LOADED_MODULES_KEY = Symbol.for("@dtmd/temper.loaded-modules");
  * real path, not the URL a specifier resolved through: a workspace package reached via a
  * `node_modules` symlink is the author's own source and stays fingerprinted, while an
  * installed package, whose real path sits under `node_modules`, is its lockfile's to pin.
+ * The engine then keeps only the modules the repository tracks: a path its ignore rules
+ * exclude (a linked package's build output) gets no row.
  */
 export function loadedLocalModules(): string[] {
   const recorded = (globalThis as Record<symbol, unknown>)[LOADED_MODULES_KEY];

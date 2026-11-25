@@ -3018,9 +3018,11 @@ fn resolve_inputs(
     Ok(resolved)
 }
 
-/// Fingerprint every local module the program's run loaded into the lock's `module`
-/// source-dependency family, each row owned by the root member: a moved module changes
-/// what the whole program compiles to, so no one member answers for it.
+/// Fingerprint every local module the program's run loaded that its repository tracks
+/// into the lock's `module` source-dependency family, each row owned by the root member:
+/// a moved module changes what the whole program compiles to, so no one member answers
+/// for it. A module the repository's ignore rules exclude (a linked package's build
+/// output) is no committed source, so it gets no row.
 ///
 /// # Errors
 /// Returns [`DriftError::DanglingImport`] when a reported module no longer exists, or
@@ -3032,6 +3034,9 @@ fn resolve_modules(
     let no_members = BTreeMap::new();
     let mut resolved = Vec::with_capacity(rows.len());
     for module in rows {
+        if !crate::import::repository_keeps(Path::new(module), harness_root) {
+            continue;
+        }
         let relative = harness_relative(contract::ROOT_OWNER, module, harness_root)?;
         let (row, _bytes) = resolve_source_dependency(
             contract::ROOT_OWNER,
