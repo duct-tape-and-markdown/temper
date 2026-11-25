@@ -1493,3 +1493,100 @@ fn a_layout_kind_with_a_json_document_format_refuses_at_load() {
         );
     }
 }
+
+/// [`INTENT_DOC`] with each `invariant` entry carrying a `#### Test` field section — the
+/// document both entry-grain clauses below are satisfied by.
+const TESTED_INTENT_DOC: &str = "The product intent, authored in prose.\n\
+\n\
+# Intent\n\
+temper makes a harness good.\n\
+\n\
+# Invariants\n\
+\n\
+## Loud or nothing\n\
+A gate never fabricates absence.\n\
+\n\
+#### Test\n\
+a gate test.\n\
+\n\
+## The projection is not the database\n\
+Facts are declared, never mined back.\n\
+\n\
+#### Test\n\
+a lock test.\n";
+
+/// The second entry's `#### Test` section, the span a hand edit deletes.
+const SECOND_ENTRY_TEST: &str = "\n#### Test\na lock test.\n";
+
+/// The `specs/intent.md` layout member carrying [`TESTED_INTENT_DOC`], emitted once with
+/// both entry-grain `required` clauses over the entries' `test` field.
+fn tested_intent_harness(label: &str) -> std::path::PathBuf {
+    let root = common::tmpdir(label);
+    let specs = root.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("intent.md"), TESTED_INTENT_DOC).unwrap();
+    let mut payload = intent_payload();
+    payload.declarations.clauses.extend([
+        ClauseRow {
+            kind: Some("invariant".to_string()),
+            field: Some("test".to_string()),
+            ..common::clause("required", "required")
+        },
+        ClauseRow {
+            kind: Some("intent".to_string()),
+            field: Some("invariant[*].test".to_string()),
+            ..common::clause("required", "required")
+        },
+    ]);
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+    root
+}
+
+#[test]
+fn deleting_a_layout_entrys_field_section_without_a_re_emit_fails_check() {
+    let root = tested_intent_harness("layout-entry-delete-field-no-reemit");
+    let before = common::check_in(&root, &[], None);
+    assert!(
+        before.ok,
+        "every entry carries its test, so the case is vacuous unless check first passes: {}",
+        before.output
+    );
+
+    let doc = root.join("specs").join("intent.md");
+    fs::write(&doc, TESTED_INTENT_DOC.replace(SECOND_ENTRY_TEST, "")).unwrap();
+
+    let run = common::check_in(&root, &[], None);
+    assert!(!run.ok, "{}", run.output);
+    for id in [
+        "invariant.required.test",
+        "intent.required.invariant[*].test",
+    ] {
+        assert!(
+            run.output.contains(id),
+            "the entry is read off the document, not the lock, so `{id}` fires: {}",
+            run.output
+        );
+    }
+}
+
+#[test]
+fn the_guard_edges_leave_a_layout_entry_edit_to_check() {
+    let root = tested_intent_harness("layout-entry-edit-guard-edges");
+    let doc = root.join("specs").join("intent.md");
+    fs::write(&doc, TESTED_INTENT_DOC.replace(SECOND_ENTRY_TEST, "")).unwrap();
+
+    // The pre edge over the very edit, and the shell edge after it: neither judges the
+    // contract over a layout source's entries — that is check's.
+    let pre = common::guard_edit_payload("specs/intent.md", SECOND_ENTRY_TEST, "");
+    let post = "{\"session_id\":\"s\",\"hook_event_name\":\"PostToolUse\",\
+                \"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"true\"},\
+                \"tool_response\":{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false}}";
+    for payload in [pre.as_str(), post] {
+        let (code, output) = common::run_guard(&root, payload);
+        assert_eq!(code, Some(0), "the guard lets the edit through: {output}");
+        assert!(
+            !output.contains("required.test") && !output.contains("invariant[*]"),
+            "no guard edge judges the entry's contract: {output}"
+        );
+    }
+}

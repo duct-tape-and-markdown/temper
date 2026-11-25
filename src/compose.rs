@@ -651,10 +651,9 @@ pub fn overlay_builtin_kind(
 /// The rows ride out beside the unit because they are the *other half of the one reading*:
 /// a member's collections, prose regions and fill claims come off the same parse its fields
 /// do, and a caller that wanted them separately would have to hand the text back to
-/// [`crate::layout::Layout::read`] a second time. A local-locus kind's rows are derived at
-/// read time ([`assemble_lock_family`]) precisely because they never enter the lock, and
-/// that derivation reads them from here; a committed kind's are the lock's, and its rows
-/// here are simply unconsumed.
+/// [`crate::layout::Layout::read`] a second time. [`assemble_lock_family`] derives a
+/// local-locus kind's rows from here, and a committed kind's collection entries too,
+/// replacing the lock's stored ones.
 ///
 /// # Errors
 ///
@@ -1503,6 +1502,16 @@ pub fn assemble_lock_family(
     let mut local_units: BTreeMap<&str, (&CustomKind, Vec<Unit>)> = BTreeMap::new();
     for kind in all_declared.values() {
         if kind.commitment != Some(kind::Commitment::Local) {
+            if matches!(kind.content, kind::Content::Layout(_)) {
+                replace_committed_layout_entries(
+                    &mut assembled,
+                    kind,
+                    disc,
+                    committed,
+                    cache,
+                    &all_declared,
+                )?;
+            }
             continue;
         }
         let KindUnits {
@@ -1538,6 +1547,52 @@ pub fn assemble_lock_family(
         overlaid_builtin_kinds,
         declared_kinds: all_declared,
     })
+}
+
+/// Replace a committed layout kind's hosts' stored collection entries with the ones their
+/// documents declare now. The document is the entry's authored home, so the lock's rows
+/// are a snapshot an edit since the last emit has already outrun; every discovered host's
+/// stored rows of a collection's kind go, even where its document now lowers none — a
+/// row of any other kind the host nests is no entry of its layout and stands. A host the walk no longer
+/// finds keeps its rows, for the undeclared/missing findings to judge as before. Only the
+/// `nested_member` half is replaced: the lock's prose and `satisfies` rows stand.
+///
+/// # Errors
+///
+/// As [`resolve_kind_units`].
+fn replace_committed_layout_entries(
+    assembled: &mut drift::Declarations,
+    kind: &CustomKind,
+    disc: &import::Discovery,
+    committed: &drift::Declarations,
+    cache: &ManifestCache,
+    declared_kinds: &BTreeMap<String, CustomKind>,
+) -> miette::Result<()> {
+    let KindUnits {
+        units, layout_rows, ..
+    } = resolve_kind_units(kind, disc, committed, cache, declared_kinds)?;
+    let hosts: BTreeSet<String> = units
+        .iter()
+        .map(|unit| member_address::address_of(&kind.name, &unit.id))
+        .collect();
+    let entry_kinds: BTreeSet<&str> = match &kind.content {
+        kind::Content::Layout(layout) => layout
+            .regions
+            .iter()
+            .filter_map(|region| match region {
+                crate::layout::LayoutRegion::Collection { member_kind, .. } => {
+                    Some(member_kind.as_str())
+                }
+                _ => None,
+            })
+            .collect(),
+        _ => BTreeSet::new(),
+    };
+    assembled
+        .nested_members
+        .retain(|row| !(hosts.contains(&row.host) && entry_kinds.contains(row.kind.as_str())));
+    assembled.nested_members.extend(layout_rows.nested);
+    Ok(())
 }
 
 /// Assemble the by-kind [`extract::Features`] corpus every set-scope and
