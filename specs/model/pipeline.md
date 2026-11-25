@@ -44,7 +44,12 @@ uncommitted path; a local member is a check-side input, never a target.
   field the kind's schema marks optional is no edge when absent; a mention
   addressing a declared kind whose member is not a composed value defers to
   the gate — the row rides the lock, `check` owns the verdict — and a mention
-  addressing no declared kind refuses.
+  addressing no declared kind refuses. Before running the program, emit
+  typechecks it with the program's own resolved TypeScript and refuses on a
+  type error, naming the compiler's diagnostics: the compiler's errors are
+  how the author receives the SDK's shape (intent, invariant 8). A program
+  with no resolvable TypeScript refuses too, naming the install that fixes
+  it. `check` still never needs Node.
 
 ## The lock
 
