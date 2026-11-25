@@ -249,6 +249,19 @@ struct HostUnit {
     entry: PathBuf,
 }
 
+impl HostUnit {
+    /// The child at `file` this unit hosts, placed by `host`'s template `pattern`.
+    fn child(&self, host: &CustomKind, pattern: &str, file: PathBuf) -> NestedFileUnit {
+        NestedFileUnit {
+            host_unit: self.dir.clone(),
+            host_kind: host.name.clone(),
+            host_name: self.identity.clone(),
+            pattern: pattern.to_string(),
+            file,
+        }
+    }
+}
+
 /// Discover a nested file `kind`'s members on `harness`: under each host member's unit,
 /// every file matching the host template's pattern for this kind. The child kind carries
 /// neither half — the pattern is the host kind's declared `templates` fact and the units
@@ -302,8 +315,66 @@ fn nested_file_members(
     trail: &mut Vec<String>,
 ) -> Vec<NestedFileUnit> {
     let mut found = Vec::new();
+    for (host, pattern, unit) in kind_host_units(disc, kind, kinds, over, claimed, trail) {
+        let discoverable = disc.discoverable(local_governs(host, over));
+        for file in scan_locus(&unit.dir, pattern, discoverable) {
+            if file != unit.entry && !claimed.contains(&file) {
+                found.push(unit.child(host, pattern, file));
+            }
+        }
+    }
+    found.sort_by(|a, b| a.file.cmp(&b.file));
+    found
+}
+
+/// The nested file placement `check`'s scan would give a `kind` document at `file`, an
+/// absolute path that need not exist yet — a pending write, which no walk can admit. The
+/// single-path answer to [`discover_nested_file`], over the same host units: `file` is
+/// placed where it sits under a host unit at the host template's pattern, is not that
+/// host's own entry, is claimed by no declared `governs` locus, and discovery would reach
+/// it ([`discovers_path`]). [`None`] where any of those fails.
+pub fn nested_file_placement(
+    disc: &Discovery,
+    kind: &CustomKind,
+    kinds: &BTreeMap<String, CustomKind>,
+    over: LocalOverride,
+    file: &Path,
+) -> Option<NestedFileUnit> {
+    let file = crate::path::normalize_path(file);
+    let harness = crate::path::normalize_path(disc.harness());
+    if !discovers_path(&harness, file.strip_prefix(&harness).ok()?) {
+        return None;
+    }
+    let claimed = disc.declared_governed_paths(kinds, over);
+    if claimed.contains(&file) {
+        return None;
+    }
+    kind_host_units(disc, kind, kinds, over, claimed, &mut Vec::new())
+        .into_iter()
+        .find_map(|(host, pattern, unit)| {
+            let under = crate::path::to_canonical_spelling(file.strip_prefix(&unit.dir).ok()?);
+            let placed = file != unit.entry
+                && crate::glob::compile_glob(pattern).is_some_and(|m| m.is_match(&under));
+            placed.then(|| unit.child(host, pattern, file.clone()))
+        })
+}
+
+/// Every host unit a `kind` child composes under, with the host kind and the template
+/// pattern it places the child at — the host loop [`nested_file_members`] scans and
+/// [`nested_file_placement`] matches against. Only a host owning a **directory** unit
+/// qualifies: a lone file has no interior to seat a child in. A `kind` already on `trail`
+/// is a template cycle and yields nothing.
+fn kind_host_units<'k>(
+    disc: &Discovery,
+    kind: &CustomKind,
+    kinds: &'k BTreeMap<String, CustomKind>,
+    over: LocalOverride,
+    claimed: &BTreeSet<PathBuf>,
+    trail: &mut Vec<String>,
+) -> Vec<(&'k CustomKind, &'k str, HostUnit)> {
+    let mut units = Vec::new();
     if trail.contains(&kind.name) {
-        return found;
+        return units;
     }
     trail.push(kind.name.clone());
     for host in kinds.values() {
@@ -313,24 +384,12 @@ fn nested_file_members(
         if host.unit_shape != Some(UnitShape::Directory) {
             continue;
         }
-        let discoverable = disc.discoverable(local_governs(host, over));
         for unit in host_units(disc, host, kinds, over, claimed, trail) {
-            for file in scan_locus(&unit.dir, pattern, discoverable) {
-                if file != unit.entry && !claimed.contains(&file) {
-                    found.push(NestedFileUnit {
-                        host_unit: unit.dir.clone(),
-                        host_kind: host.name.clone(),
-                        host_name: unit.identity.clone(),
-                        pattern: pattern.to_string(),
-                        file,
-                    });
-                }
-            }
+            units.push((host, pattern, unit));
         }
     }
     trail.pop();
-    found.sort_by(|a, b| a.file.cmp(&b.file));
-    found
+    units
 }
 
 /// Every unit `host` owns on disk, with the host member's own identity — the recursion's

@@ -4457,6 +4457,30 @@ fn the_guard_names_an_undeclared_nested_layout_child_at_the_pre_edge() {
     assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, NESTED_STRAY);
 }
 
+#[test]
+fn the_guard_names_a_pending_write_that_creates_an_undeclared_nested_layout_child() {
+    let harness = nested_layout_child_harness("guard-nested-layout-create");
+    assert!(!harness.join(NESTED_STRAY).exists());
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content(NESTED_STRAY, NESTED_SPEC_DOC),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+
+    // A path outside the host template's pattern places no child, so it binds nothing.
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload("docs/guides/operate/deeper/stray.txt"),
+    );
+    assert_eq!(code, Some(0));
+    assert!(output.is_empty(), "no placement, no binding, got: {output}");
+
+    // Once the write lands, `check` raises the finding the guard spoke before it.
+    fs::write(harness.join(NESTED_STRAY), NESTED_SPEC_DOC).unwrap();
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, NESTED_STRAY);
+}
+
 /// `memory`'s locus is `.`-rooted (`**/CLAUDE.md`): it reaches every directory, and the
 /// pending-write edge binds it wherever discovery would reach the written path.
 #[test]

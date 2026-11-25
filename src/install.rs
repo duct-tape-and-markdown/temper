@@ -1743,28 +1743,26 @@ impl LayoutGuard {
     }
 
     /// The address `check`'s nested-file scan gives the hosted child at `target`, read off
-    /// `identity`. The scan discovers documents on disk, so a child the write would create
-    /// is not reached; nor is any path while no hosted kind binds, which costs no walk.
+    /// `identity` — placed over the scan's own host units, so a child the write would
+    /// create binds as one already on disk does. No hosted kind binding costs no walk.
     fn hosted_member(
         &self,
         root: &Path,
         target: &Path,
         identity: crate::compose::SiteIdentity<'_>,
     ) -> Option<String> {
-        if self.loci.hosted.is_empty() || !target.is_file() {
+        if self.loci.hosted.is_empty() {
             return None;
         }
-        let target = crate::path::normalize_path(target);
         let disc = import::Discovery::new(root);
         self.loci.hosted.iter().find_map(|kind| {
-            import::discover_nested_file(
+            import::nested_file_placement(
                 &disc,
                 kind,
                 &self.loci.kinds,
                 import::LocalOverride::Honored,
+                target,
             )
-            .into_iter()
-            .find(|found| found.file == target)
             .and_then(|found| crate::compose::hosted_member_address(kind, &found, identity))
         })
     }
