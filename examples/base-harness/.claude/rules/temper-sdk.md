@@ -51,6 +51,10 @@ projections of it.
   never only in a comment: emit delivers guidance as a rule scoped to the kind's
   documents, where the next author reads it.
 - To move or retune a built-in, `relocate` it; do not redeclare it under a new name.
+- A subkind is `extend<Base, Sub>(base, delta)` with `interface Sub extends Base`:
+  `tsc` refuses a surface that drops or retypes a base field. A field interface,
+  clause set, or guidance several subkinds share is an ordinary TypeScript value —
+  extend the interface, and spread the value into each `extend` delta.
 - Narrow a kind's members with a clause, never a richer locus glob. A `render` hook
   treats every `value.targets` entry as possibly absent.
 - The rule names `temper-sdk` and `temper-guidance-<kind>` are temper's own; an

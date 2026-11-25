@@ -95,6 +95,10 @@ projections of it.
   never only in a comment: emit delivers guidance as a rule scoped to the kind's
   documents, where the next author reads it.
 - To move or retune a built-in, `relocate` it; do not redeclare it under a new name.
+- A subkind is `extend<Base, Sub>(base, delta)` with `interface Sub extends Base`:
+  `tsc` refuses a surface that drops or retypes a base field. A field interface,
+  clause set, or guidance several subkinds share is an ordinary TypeScript value —
+  extend the interface, and spread the value into each `extend` delta.
 - Narrow a kind's members with a clause, never a richer locus glob. A `render` hook
   treats every `value.targets` entry as possibly absent.
 - The rule names `temper-sdk` and `temper-guidance-<kind>` are temper's own; an
@@ -174,8 +178,8 @@ emit_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
 [[rule]]
 name = "temper-sdk"
 source_path = ".claude/rules/temper-sdk.md"
-source_hash = "34399c1eb96ce9d16427ab317f736494859fd38e1e7de08ac6579cb8f1da49a4"
-emit_hash = "34399c1eb96ce9d16427ab317f736494859fd38e1e7de08ac6579cb8f1da49a4"
+source_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
+emit_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
 
 [[settings]]
 name = "settings"

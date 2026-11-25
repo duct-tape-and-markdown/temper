@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Clause, Harness } from "../src/index.js";
+import type { Clause, Harness, Prose } from "../src/index.js";
 import { blocks, embeddedMemberValue, emit, extend, harness, kind, relocate, requirement, span } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
 import { manifestOf } from "../src/kind.js";
@@ -1659,7 +1659,7 @@ test("a kind sharing a relocation's name without its provenance still refuses", 
 });
 
 test("extend under a new name mints a subkind whose row names its base", () => {
-  const decision = extend<Rule>(rule, { name: "decision", governs: { root: ".claude/rules/decisions", glob: "*.md" } });
+  const decision = extend<Rule, Rule>(rule, { name: "decision", governs: { root: ".claude/rules/decisions", glob: "*.md" } });
   assert.equal(decision.facts.name, "decision");
   assert.equal(decision.facts.base, "rule");
   assert.equal(decision.facts.relocates, undefined);
@@ -1674,14 +1674,38 @@ test("extend under a new name mints a subkind whose row names its base", () => {
 
 test("extend under the base's name is the relocation relocate makes", () => {
   const delta = { exclude: [".claude/rules/fixture"] };
-  assert.deepEqual(extend<Rule>(rule, delta).facts, relocate<Rule>(rule, delta).facts);
+  assert.deepEqual(extend<Rule, Rule>(rule, delta).facts, relocate<Rule>(rule, delta).facts);
 });
 
 test("a subkind whose locus lies outside its base's refuses", () => {
   assert.throws(
-    () => extend<Rule>(rule, { name: "decision", governs: { root: "docs/decisions", glob: "*.md" } }),
+    () => extend<Rule, Rule>(rule, { name: "decision", governs: { root: "docs/decisions", glob: "*.md" } }),
     /lies outside the base's/,
   );
+});
+
+test("a subkind whose surface drops or retypes a base field refuses at authoring", () => {
+  // Every selection of the base binds the subkind's documents, so its surface must
+  // read as the base's: `tsc` refuses a narrowing one before any value exists.
+  const delta = { name: "decision", governs: { root: ".claude/rules/decisions", glob: "*.md" } };
+  // @ts-expect-error a surface dropping the base's optional `paths` keeps no base field set.
+  extend<Rule, { readonly prose?: Prose }>(rule, delta);
+  // @ts-expect-error a surface retyping `paths` is not the base's surface.
+  extend<Rule, { readonly paths?: number; readonly prose?: Prose }>(rule, delta);
+  interface Owned {
+    readonly command: string;
+  }
+  const server = kind<Owned>({
+    name: "owned",
+    locus: { kind: "at", root: ".", glob: ".mcp.json" },
+    unitShape: "file",
+    shape: "fields",
+    registration: [{ via: "always" }],
+  });
+  // @ts-expect-error a surface dropping a required base field does not extend the base's.
+  extend<Owned, { readonly owner?: string }>(server, { name: "unowned" });
+  // A surface widening the base's is the subkind the base admits.
+  assert.equal(extend<Rule, Rule & { readonly owner?: string }>(rule, delta).facts.base, "rule");
 });
 
 /**
@@ -1693,7 +1717,7 @@ interface Standard extends Rule {
   readonly tenets?: readonly string[];
 }
 
-const standard = extend<Standard>(rule, {
+const standard = extend<Rule, Standard>(rule, {
   name: "standard",
   governs: { root: ".claude/rules/standards", glob: "*.md" },
   fields: { owner: "render", tenets: "render" },
@@ -1734,7 +1758,7 @@ test("a plain field survives a second extension and keeps out of the frontmatter
   interface Tenet extends Standard {
     readonly area: string;
   }
-  const tenet = extend<Tenet>(standard, {
+  const tenet = extend<Standard, Tenet>(standard, {
     name: "tenet",
     fields: { area: "render" },
     render: ({ area, prose }) => blocks(span(`**Area:** ${area}\n`), ...(prose?.kind === "blocks" ? prose.values : [])),
@@ -1749,12 +1773,12 @@ test("a plain field survives a second extension and keeps out of the frontmatter
 test("a subkind's plain field with no place its base's format admits refuses at authoring", () => {
   // Placed by a render the delta never declares.
   assert.throws(
-    () => extend<Standard>(rule, { name: "standard", fields: { owner: "render" } }),
+    () => extend<Rule, Standard>(rule, { name: "standard", fields: { owner: "render" } }),
     /declares no `render`/,
   );
   // Placed in a body region the base's file-content body does not declare.
   assert.throws(
-    () => extend<Standard>(rule, { name: "standard", fields: { owner: "region" } }),
+    () => extend<Rule, Standard>(rule, { name: "standard", fields: { owner: "region" } }),
     /declares no `field` region of slot `owner`/,
   );
   // Placed by a render over a fields-only base, which writes no body at all.
@@ -1767,7 +1791,7 @@ test("a subkind's plain field with no place its base's format admits refuses at 
   });
   assert.throws(
     () =>
-      extend<{ command: string; owner: string }>(server, {
+      extend<{ command: string }, { command: string; owner: string }>(server, {
         name: "owned-server",
         fields: { owner: "render" },
         render: () => text``,
@@ -1775,7 +1799,7 @@ test("a subkind's plain field with no place its base's format admits refuses at 
     /not one verbatim prose value/,
   );
   // A render placing no field is a body template no field needs.
-  assert.throws(() => extend<Standard>(rule, { name: "standard", render: ({ prose }) => prose ?? text`` }), /places none/);
+  assert.throws(() => extend<Rule, Standard>(rule, { name: "standard", render: ({ prose }) => prose ?? text`` }), /places none/);
 });
 
 test("a plain field placed in a body region lives under the base layout's field heading", () => {
@@ -1787,7 +1811,7 @@ test("a plain field placed in a body region lives under the base layout's field 
     registration: [{ via: "always" }],
     content: { regions: [{ region: "field", slot: "intent" }] },
   });
-  const brief = extend<{ intent?: string }>(spec, { name: "brief", fields: { intent: "region" } });
+  const brief = extend<{ intent?: string }, { intent?: string }>(spec, { name: "brief", fields: { intent: "region" } });
   const member = brief({ name: "why", intent: "say why", prose: text`## Intent\n\nsay why` });
   assert.deepEqual(member.fields, []);
 });

@@ -63,8 +63,8 @@ emit_hash = "feb43f893b773c8c1e436266f7a8d59cd25e6af99bc04a0780767cef45e84e30"
 [[rule]]
 name = "temper-sdk"
 source_path = ".claude/rules/temper-sdk.md"
-source_hash = "34399c1eb96ce9d16427ab317f736494859fd38e1e7de08ac6579cb8f1da49a4"
-emit_hash = "34399c1eb96ce9d16427ab317f736494859fd38e1e7de08ac6579cb8f1da49a4"
+source_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
+emit_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
 
 [[settings]]
 name = "settings"

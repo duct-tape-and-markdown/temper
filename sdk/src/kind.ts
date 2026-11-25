@@ -1084,8 +1084,22 @@ export function relocate<T extends object>(
   delta: KindRelocation<T>,
 ): KindDefinition<T> {
   const { name: _name, ...relocation } = delta as KindExtension<T>;
-  return extend(base, relocation);
+  // A relocation keeps the base's surface by construction — it adds no plain field — so
+  // the surface witness `extend` demands holds; the generic `T` only defers its proof.
+  return extend<any, T>(base, relocation as KindExtension<T> & KeepsBaseSurface<any, T>);
 }
+
+/**
+ * The witness that an extension's surface `T` keeps every field of its base's `B` —
+ * `unknown` when it does, a {@link Remedy} the delta cannot supply when it drops one.
+ * `T extends B` alone admits dropping an *optional* base field (a surface without it is
+ * still assignable), so the keys are compared on their own.
+ */
+export type KeepsBaseSurface<B, T> = [Exclude<keyof B, keyof T>] extends [never]
+  ? unknown
+  : {
+      readonly droppedBaseFields: Remedy<"a subkind keeps every field of its base's surface — extend the base's interface rather than omit one of its fields">;
+    };
 
 /**
  * An **extension delta** — a {@link KindRelocation} plus an optional `name`. A name other
@@ -1129,14 +1143,19 @@ export interface KindExtension<T extends object> extends KindRelocation<T> {
  * way a member never projects it as a frontmatter key, so the subkind's kind-fact row and
  * its members' headers stay the base's documented format.
  *
+ * The surface is typed: `T extends B` and {@link KeepsBaseSurface} make `tsc` refuse a
+ * delta whose surface retypes or drops a base field, optional ones included — every
+ * selection of the base binds the subkind's documents, so its members must read as the
+ * base's. Spell both: `extend<Rule, Standard>(rule, { … })`.
+ *
  * # Throws
  * As {@link relocate}; for a subkind, if the base's locus is not `at`, or the subkind's
  * locus does not lie within it; and if a plain field has no place the base's format
  * admits, or a `render` places none ({@link placedBody}).
  */
-export function extend<T extends object>(
-  base: KindDefinition<any>,
-  delta: KindExtension<T>,
+export function extend<B extends object, T extends B>(
+  base: KindDefinition<B, any>,
+  delta: KindExtension<T> & KeepsBaseSurface<B, T>,
 ): KindDefinition<T> {
   const name = delta.name ?? base.facts.name;
   const subkind = name !== base.facts.name;
