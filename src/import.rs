@@ -596,23 +596,7 @@ fn discoverable_paths(harness: &Path, local_governs: bool) -> Discoverable {
     WALKS.with(|w| w.set(w.get() + 1));
     let mut children: BTreeMap<PathBuf, Vec<DiscoverableChild>> = BTreeMap::new();
     let walk = ignore_walk(harness, !local_governs)
-        .filter_entry(move |entry| {
-            if entry.file_name() == OsStr::new(".git") {
-                return false;
-            }
-            if !local_governs && entry.file_name() == OsStr::new(crate::WORKSPACE_DIR) {
-                return false;
-            }
-            // Depth 0 is the harness root itself: its own `.temper/lock.toml` governs
-            // this walk and must never fence it. Any deeper directory carrying one is a
-            // nested governed root — its members belong to its own corpus, so the walk
-            // stops here rather than collecting them for the parent.
-            !(entry.depth() > 0
-                && entry
-                    .file_type()
-                    .is_some_and(|file_type| file_type.is_dir())
-                && is_governed_root(entry.path()))
-        })
+        .filter_entry(discovery_fence(local_governs))
         .build();
     // A walk error (an unreadable entry) drops that entry rather than aborting discovery.
     // The file-vs-directory tag rides `entry.file_type()` — the one fact the scan needs
@@ -630,6 +614,79 @@ fn discoverable_paths(harness: &Path, local_governs: bool) -> Discoverable {
         }
     }
     Discoverable { children }
+}
+
+/// The entry filter every discovery walk prunes by: [`fenced`] over a walk's entry, so a
+/// walk that adds its own bound composes this rather than respelling the fences.
+pub(crate) fn discovery_fence(
+    local_governs: bool,
+) -> impl Fn(&ignore::DirEntry) -> bool + Send + Sync + 'static {
+    move |entry| {
+        let is_dir = entry
+            .file_type()
+            .is_some_and(|file_type| file_type.is_dir());
+        !fenced(entry.path(), entry.depth(), is_dir, local_governs)
+    }
+}
+
+/// Whether a walk stops at `path` regardless of the repo's ignore rules: `.git/`, the
+/// surface workspace unless `local_governs` waives it, and a nested governed root. Depth 0
+/// is the harness root itself, whose own lock governs the walk and must never fence it.
+fn fenced(path: &Path, depth: usize, is_dir: bool, local_governs: bool) -> bool {
+    let name = path.file_name();
+    name == Some(OsStr::new(".git"))
+        || (!local_governs && name == Some(OsStr::new(crate::WORKSPACE_DIR)))
+        || (depth > 0 && is_dir && is_governed_root(path))
+}
+
+/// Whether a committed kind's discovery walk over `harness` would reach the file at the
+/// harness-relative `relative` — the single-path answer to the question
+/// [`discoverable_paths`] answers for a whole tree, for a path that may not exist yet (a
+/// pending write) and so cannot be admitted by a walk.
+///
+/// Each prefix of `relative` is put to the walk's two tests in walk order: the [`fenced`]
+/// fences, then the git ignore declarations [`ignore_walk`] consults — every `.gitignore`
+/// from the harness root down to the prefix's parent, deepest first, then each level's
+/// `.git/info/exclude` the same way, the precedence the `ignore` engine applies. An
+/// ignored prefix prunes everything below it, exactly as the walk never descends an
+/// ignored directory. A `.gitignore` that fails to parse contributes what it could parse,
+/// as the walk's own builder does.
+pub(crate) fn discovers_path(harness: &Path, relative: &Path) -> bool {
+    use ignore::gitignore::{Gitignore, GitignoreBuilder};
+
+    let matcher = |dir: &Path, file: PathBuf| {
+        let mut builder = GitignoreBuilder::new(dir);
+        if file.is_file() {
+            // A partial parse error still yields the globs that parsed.
+            let _partial = builder.add(file);
+        }
+        builder.build().unwrap_or_else(|_| Gitignore::empty())
+    };
+    let components: Vec<_> = relative.components().collect();
+    let mut gitignores = Vec::new();
+    let mut excludes = Vec::new();
+    let mut dir = harness.to_path_buf();
+    for (index, component) in components.iter().enumerate() {
+        gitignores.push(matcher(&dir, dir.join(".gitignore")));
+        excludes.push(matcher(&dir, dir.join(".git").join("info").join("exclude")));
+        let path = dir.join(component);
+        let last = index + 1 == components.len();
+        let is_dir = !last || path.is_dir();
+        if fenced(&path, index + 1, is_dir, false) {
+            return false;
+        }
+        let decision = gitignores
+            .iter()
+            .rev()
+            .chain(excludes.iter().rev())
+            .map(|ignores| ignores.matched(&path, is_dir))
+            .find(|matched| !matched.is_none());
+        if decision.is_some_and(|matched| matched.is_ignore()) {
+            return false;
+        }
+        dir = path;
+    }
+    true
 }
 
 /// Whether `dir` carries its own `.temper/lock.toml` — the mark of an independently
@@ -682,6 +739,70 @@ mod tests {
     /// own kind's locus, and the set the nested file arm reads a host out of plays no part.
     fn no_hosts() -> BTreeMap<String, CustomKind> {
         BTreeMap::new()
+    }
+
+    /// The single-path query answers exactly as the walk does, for every fence and for
+    /// nested ignore precedence: a deeper `.gitignore` re-including what a shallower one
+    /// ignores, an ignored directory pruning its re-included child, a nested governed
+    /// root, and the workspace.
+    #[test]
+    fn the_single_path_query_agrees_with_the_discovery_walk() {
+        let root = tmpdir("discovers-path-agrees");
+        let write = |relative: &str, body: &str| {
+            let path = root.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, body).unwrap();
+        };
+        write(".gitignore", "*.local.md\nbuild/\n");
+        write(".claude/rules/.gitignore", "!keep.local.md\n");
+        write(".claude/rules/a.md", "");
+        write(".claude/rules/b.local.md", "");
+        write(".claude/rules/keep.local.md", "");
+        write("build/.gitignore", "!x.md\n");
+        write("build/x.md", "");
+        write("vendor/sub/.temper/lock.toml", "");
+        write("vendor/sub/y.md", "");
+        write(".temper/z.md", "");
+        write(".git/info/exclude", "excluded.md\n");
+        write("excluded.md", "");
+
+        let walked: BTreeSet<PathBuf> = ignore_walk(&root, true)
+            .filter_entry(discovery_fence(false))
+            .build()
+            .flatten()
+            .filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()))
+            .map(|entry| entry.path().strip_prefix(&root).unwrap().to_path_buf())
+            .collect();
+        for candidate in [
+            ".claude/rules/a.md",
+            ".claude/rules/b.local.md",
+            ".claude/rules/keep.local.md",
+            ".claude/rules/pending.md",
+            ".claude/rules/pending.local.md",
+            "build/x.md",
+            "vendor/sub/y.md",
+            ".temper/z.md",
+            "excluded.md",
+        ] {
+            let candidate = Path::new(candidate);
+            let exists = root.join(candidate).is_file();
+            let queried = discovers_path(&root, candidate);
+            if exists {
+                assert_eq!(
+                    queried,
+                    walked.contains(candidate),
+                    "{}",
+                    candidate.display()
+                );
+            }
+        }
+        assert!(discovers_path(&root, Path::new(".claude/rules/pending.md")));
+        assert!(!discovers_path(
+            &root,
+            Path::new(".claude/rules/pending.local.md")
+        ));
+        assert!(walked.contains(Path::new(".claude/rules/keep.local.md")));
+        assert!(!walked.contains(Path::new("build/x.md")));
     }
 
     const COORDINATE: &str = "---\n\

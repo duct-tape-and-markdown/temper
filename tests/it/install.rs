@@ -2216,6 +2216,33 @@ fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
     );
 }
 
+/// A pending write at a gitignored path inside a governed locus names a document
+/// discovery never reaches — the repo declares it not authored here — so `check` judges
+/// no member there and the guard binds nothing either. A sibling the ignore rules leave
+/// alone is still bound, so the allowance is the ignore rule's, not the locus's.
+#[test]
+fn the_guard_does_not_judge_a_pending_write_to_a_gitignored_locus_path() {
+    let root = represented_rule_harness("guard-gitignored-locus", "block");
+    fs::write(root.join(".gitignore"), ".claude/rules/local.md\n").unwrap();
+
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload(".claude/rules/local.md"),
+    );
+    assert_eq!(
+        code,
+        Some(0),
+        "a gitignored locus path is no member `check` judges, got: {stderr}"
+    );
+    assert!(stderr.is_empty(), "a pass prints nothing, got: {stderr}");
+
+    let (stray_code, _) = common::run_guard(
+        &root,
+        &common::guard_write_payload(".claude/rules/stray.md"),
+    );
+    assert_eq!(stray_code, Some(2), "an unignored sibling stays bound");
+}
+
 /// The arms the governed-locus binding must leave exactly where they were: a declared
 /// projection keeps the projection wording, a `local`-commitment locus is never bound by
 /// it, a manifest locus at the harness root stays the manifest arm's — excluded twice over,

@@ -1312,27 +1312,14 @@ fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::
         LOCUS_MEMBER_SITE_WALKS.with(|c| c.set(c.get() + 1));
         let locus_root = harness_root.join(&locus.root);
         let bound = locus_root.clone();
+        let fence = import::discovery_fence(false);
         let walk = import::ignore_walk(harness_root, true)
             .sort_by_file_name(std::cmp::Ord::cmp)
             .filter_entry(move |entry| {
                 let path = entry.path();
                 // Descend the locus root's ancestors (so their ignore files are read) and
                 // its subtree; nothing else can hold a site.
-                if !(bound.starts_with(path) || path.starts_with(&bound)) {
-                    return false;
-                }
-                let name = entry.file_name();
-                if name == ".git" || name == crate::WORKSPACE_DIR {
-                    return false;
-                }
-                // A deeper directory carrying its own lock is its own corpus — discovery
-                // never descends it, so neither does this walk.
-                !(entry.depth() > 0
-                    && entry.file_type().is_some_and(|kind| kind.is_dir())
-                    && path
-                        .join(crate::WORKSPACE_DIR)
-                        .join(crate::LOCK_FILENAME)
-                        .is_file())
+                (bound.starts_with(path) || path.starts_with(&bound)) && fence(entry)
             })
             .build();
         for entry in walk {
@@ -1647,15 +1634,19 @@ fn matches_governed_locus<'a>(
     loci: &'a [GuardedLocus],
 ) -> Option<&'a GuardedLocus> {
     let normalized = harness_relative(file_path, root)?;
-    // A `.`-rooted locus (`memory`'s `**/CLAUDE.md`) reaches vendored documents discovery
-    // prunes by the repo's ignore rules, and a pending write names a path that may not
-    // exist yet for an ignore walk to admit — so this edge leaves it to the post edge's
-    // ignore-honouring enumeration ([`locus_member_sites`]) rather than raise a finding
-    // `check` would not.
-    loci.iter().filter(|locus| locus.root != ".").find(|locus| {
-        crate::glob::compile_glob(&locus.pattern)
-            .is_some_and(|matcher| matcher.is_match(&normalized))
-    })
+    // A `.`-rooted locus (`memory`'s `**/CLAUDE.md`) stays the post edge's
+    // ([`locus_member_sites`]): it reaches every directory of the tree, and this edge
+    // binds it only once that whole reach is proven to agree with `check`'s.
+    let locus = loci
+        .iter()
+        .filter(|locus| locus.root != ".")
+        .find(|locus| {
+            crate::glob::compile_glob(&locus.pattern)
+                .is_some_and(|matcher| matcher.is_match(&normalized))
+        })?;
+    // A path discovery would never reach — gitignored, or behind a fence — is no member
+    // `check` judges, so the guard binds nothing there either.
+    import::discovers_path(root, Path::new(&*normalized)).then_some(locus)
 }
 
 /// One represented manifest the `PreToolUse` guard checks a pending write against — its
