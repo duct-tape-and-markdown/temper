@@ -35,7 +35,9 @@ target's content into the host's emitted bytes, a dependency the lock
 fingerprints. Both are declared edges (`contract.md`), a path reference
 resolves relative to the module that states it, never the workspace, and
 every other word is just a word. The program's own **module closure** —
-every local module its run loaded — is fingerprinted at emit: an import is
+every module its run loaded that the repository tracks — is fingerprinted
+at emit; the toolchain is held by its version and packages by their
+lockfile, so neither is the program's own. An import is
 a reference the authoring language executes, declared by being written, so
 a value computed from an imported module is never fresher than that
 module. A member may also declare **inputs**: non-code files its claims
