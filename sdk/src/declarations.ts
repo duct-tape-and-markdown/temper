@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
-import type { EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
+import type { EdgeField, EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
 import { collectionAddressOf, manifestOf, registrationOf } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
@@ -202,7 +202,7 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
  * `section`/`sections`/`fields`/`target` columns and never from this one, so nothing
  * round-trips through the synthesized text.
  */
-function clauseField(predicate: Predicate): string | undefined {
+export function clauseField(predicate: Predicate): string | undefined {
   if (predicate.key === "section_contains") {
     const { section } = predicate;
     return section === undefined ? undefined : `${section.heading}.${section.marker}`;
@@ -655,8 +655,60 @@ function bullet(head: string, text: string): string {
 }
 
 /** The kind names an edge field's `to` set lists, for a line that states where it points. */
-function targetList(to: readonly string[]): string {
+export function targetList(to: readonly string[]): string {
   return to.map((target) => `\`${target}\``).join(", ");
+}
+
+/** A kind's counsel for one field, when it declares any that is not blank. */
+function fieldCounsel(owner: KindFacts, field: string): string | undefined {
+  const counsel = (owner.fieldGuidance as Record<string, string | undefined> | undefined)?.[field];
+  return counsel === undefined || counsel.trim() === "" ? undefined : counsel;
+}
+
+/**
+ * One declared edge and its intent — the counsel its source kind gives the edge field,
+ * absent when the source declares none. `shipped` marks a source kind temper ships, whose
+ * counsel a guidance rule never projects.
+ */
+export interface EdgeIntent {
+  readonly from: string;
+  readonly field: string;
+  readonly to: readonly string[];
+  readonly intent: string | undefined;
+  readonly shipped: boolean;
+}
+
+/**
+ * The edges at a kind's two ends, with their intent: `outbound` its own edge fields in
+ * declared order, `inbound` every kind-in-play's edge field whose `to` set names it, in
+ * `kinds` order. The one assembly of edge intent the guidance rules and the reference's
+ * kind topics both state, so a relationship's intent reads the same at every surface.
+ */
+export function kindEdges(
+  facts: KindFacts,
+  kinds: readonly KindFacts[],
+): { readonly outbound: readonly EdgeIntent[]; readonly inbound: readonly EdgeIntent[] } {
+  const of = (source: KindFacts, edge: EdgeField): EdgeIntent => ({
+    from: source.name,
+    field: edge.field,
+    to: edge.to,
+    intent: fieldCounsel(source, edge.field),
+    shipped: SHIPPED_KINDS.has(source),
+  });
+  return {
+    outbound: (facts.edgeFields ?? []).map((edge) => of(facts, edge)),
+    inbound: kinds.flatMap((source) =>
+      (source.edgeFields ?? []).filter((edge) => edge.to.includes(facts.name)).map((edge) => of(source, edge)),
+    ),
+  };
+}
+
+/**
+ * The repository-relative file globs a kind's members occupy over `harness` — what a
+ * guidance rule's `paths` lists and a kind topic names as its locus.
+ */
+export function kindLocusGlobs(facts: KindFacts, harness: Harness): string[] {
+  return locusGlobs(facts, kindsInPlay(harness), admissionsByHost(harness));
 }
 
 /**
@@ -700,9 +752,10 @@ export function contractedRequirements(harness: Harness): ContractedRequirement[
 
 /**
  * The body a kind's guidance rule carries — the kind's own counsel; its counselled
- * non-edge fields under `Fields`, in authored order; each counselled edge field's intent
- * under `Edges`, outbound ones (the kind's own) before inbound ones (another kind's field
- * targeting this one), so an edge's intent reads at both its ends; and under
+ * non-edge fields under `Fields`, in authored order; each counselled edge's intent
+ * ({@link kindEdges}) under `Edges`, outbound ones (the kind's own, in declared order)
+ * before inbound ones (another kind's field targeting this one), so an edge's intent
+ * reads at both its ends; and under
  * `Requirements` every requirement this kind's members satisfy or that declares this
  * kind, with its prose and satisfiers — what is already contracted, before an agent adds
  * to the set. A shipped kind contributes none of its shipped counsel (`shipped`): its
@@ -715,28 +768,22 @@ function guidanceBody(
   requirements: readonly ContractedRequirement[],
 ): string | undefined {
   const shipped = SHIPPED_KINDS.has(facts);
-  const counselOf = (owner: KindFacts, field: string): string | undefined => {
-    if (SHIPPED_KINDS.has(owner)) return undefined;
-    const counsel = (owner.fieldGuidance as Record<string, string | undefined> | undefined)?.[field];
-    return counsel === undefined || counsel.trim() === "" ? undefined : counsel;
-  };
-  const ownEdges = new Map((facts.edgeFields ?? []).map((edge) => [edge.field, edge.to]));
+  const edges = kindEdges(facts, kinds);
+  const ownEdges = new Set(edges.outbound.map((edge) => edge.field));
   const own = shipped ? "" : (facts.guidance?.trim() ?? "");
   const fields: string[] = [];
-  const outbound: string[] = [];
   for (const field of shipped ? [] : Object.keys(facts.fieldGuidance ?? {})) {
-    const counsel = counselOf(facts, field);
-    if (counsel === undefined) continue;
-    const to = ownEdges.get(field);
-    if (to === undefined) fields.push(bullet(`\`${field}\``, counsel));
-    else outbound.push(bullet(`\`${field}\` → ${targetList(to)}`, counsel));
+    const counsel = fieldCounsel(facts, field);
+    if (counsel !== undefined && !ownEdges.has(field)) fields.push(bullet(`\`${field}\``, counsel));
   }
-  const inbound = kinds.flatMap((source) =>
-    (source.edgeFields ?? []).flatMap((edge) => {
-      const counsel = edge.to.includes(facts.name) ? counselOf(source, edge.field) : undefined;
-      return counsel === undefined ? [] : [bullet(`\`${source.name}\`.\`${edge.field}\` → here`, counsel)];
-    }),
-  );
+  const projected = (edge: EdgeIntent): edge is EdgeIntent & { intent: string } =>
+    !edge.shipped && edge.intent !== undefined;
+  const outbound = edges.outbound
+    .filter(projected)
+    .map((edge) => bullet(`\`${edge.field}\` → ${targetList(edge.to)}`, edge.intent));
+  const inbound = edges.inbound
+    .filter(projected)
+    .map((edge) => bullet(`\`${edge.from}\`.\`${edge.field}\` → here`, edge.intent));
   const contracted = requirements.flatMap((requirement) => {
     const mine = requirement.kind === facts.name || requirement.satisfiers.some((s) => s.kind === facts.name);
     if (!mine) return [];

@@ -4,8 +4,11 @@
  * description and body render from the program's own declarations: the product's
  * mechanics, then one index line per kind in play and per contracted domain, and a
  * description naming those domains so every session starts knowing which are taken.
- * Each domain the index names gets its topic beside `SKILL.md` — a `supporting-doc`
- * `domain-<r>.md` carrying the requirement's prose, what holds it, and its owners.
+ * Each kind and domain the index names gets its topic flat beside `SKILL.md`, a
+ * `supporting-doc`: `kind-<k>.md` carries the kind's counsel, locus, fields, edges in and
+ * out with their intent, the clauses bound over it and its domains; `domain-<r>.md` the
+ * requirement's prose, what holds it, and its owners. A kind topic names no member, so it
+ * grows with declarations, never with documents.
  *
  * It renders only committed declarations: a kind at a `local` locus (the dial among
  * them) and every member of one stay out of the index, since a committed projection
@@ -13,11 +16,19 @@
  */
 
 import type { Harness } from "./assembly.js";
-import type { Verifier } from "./contract.js";
+import type { Clause, Verifier } from "./contract.js";
 import type { KindFacts, Member } from "./kind.js";
 import { skill, supportingDoc } from "./builtins.js";
-import { compareStrings, contractedRequirements, kindsInPlay } from "./declarations.js";
-import type { ContractedRequirement } from "./declarations.js";
+import {
+  clauseField,
+  compareStrings,
+  contractedRequirements,
+  kindEdges,
+  kindLocusGlobs,
+  kindsInPlay,
+  targetList,
+} from "./declarations.js";
+import type { ContractedRequirement, EdgeIntent } from "./declarations.js";
 import { span } from "./prose.js";
 
 /** The reference's skill name — its member lands at `.claude/skills/temper/SKILL.md`. */
@@ -175,21 +186,119 @@ function domainTopicName(name: string): string {
   return `domain-${name}`;
 }
 
-/** The rendered reference over `harness`: its description, its body, and its domain topics. */
+/** The topic file name a kind's index line links to — without its `.md`, the doc's identity. */
+function kindTopicName(name: string): string {
+  return `kind-${name}`;
+}
+
+/** A list item whose text may span lines — continuation lines indent under the bullet. */
+function item(head: string, text: string | undefined): string {
+  const body = text?.trim();
+  return body === undefined || body === "" ? `- ${head}` : `- ${head}: ${body.split("\n").join("\n  ")}`;
+}
+
+/** Where a kind's members live, as its topic states it — the locus and the globs it occupies. */
+function locusSection(facts: KindFacts, globs: readonly string[]): string {
+  const listed = globs.map((glob) => `- \`${glob}\``).join("\n");
+  switch (facts.locus.kind) {
+    case "at":
+      return `Each member is its own document, at:\n\n${listed}`;
+    case "nested-file":
+      return globs.length === 0
+        ? "Each member is a file nested in a host's unit, and no host in play templates it."
+        : `Each member is a file nested in a host's unit, at:\n\n${listed}`;
+    case "embedded":
+      return globs.length === 0
+        ? "Each member is embedded in a host's document, and no host in play templates or admits it."
+        : `Each member is embedded in a host's document, at:\n\n${listed}`;
+  }
+}
+
+/** The fields a kind's topic lists — its leaf set, then any counselled field beyond it, edge fields aside. */
+function fieldLines(facts: KindFacts): string[] {
+  const edges = new Set((facts.edgeFields ?? []).map((edge) => edge.field));
+  const counsel = (facts.fieldGuidance ?? {}) as Record<string, string | undefined>;
+  const names = [...new Set([...Object.keys(facts.leaves ?? {}), ...Object.keys(counsel)])];
+  return names.filter((name) => !edges.has(name)).map((name) => item(`\`${name}\``, counsel[name]));
+}
+
+/** One clause bound over a kind, as its topic states it: the predicate, its field, its severity, its guidance. */
+function clauseLine(clause: Clause): string {
+  const field = clauseField(clause.predicate);
+  const on = field === undefined ? "" : ` on \`${field}\``;
+  return item(`\`${clause.predicate.key}\`${on} (${clause.severity})`, clause.guidance);
+}
+
+/** The body of a kind's topic — every declaration over the kind, and no member of it. */
+function kindTopic(
+  facts: KindFacts,
+  view: Harness,
+  kinds: readonly KindFacts[],
+  requirements: readonly ContractedRequirement[],
+): string {
+  const counsel = facts.guidance?.trim();
+  const fields = fieldLines(facts);
+  const { outbound, inbound } = kindEdges(facts, kinds);
+  const edge = (head: string, intent: EdgeIntent["intent"]) => item(head, intent ?? "no intent declared.");
+  const edges = [
+    ...(outbound.length === 0
+      ? []
+      : [`### Out\n\n${outbound.map((e) => edge(`\`${e.field}\` → ${targetList(e.to)}`, e.intent)).join("\n")}`]),
+    ...(inbound.length === 0
+      ? []
+      : [`### In\n\n${inbound.map((e) => edge(`\`${e.from}\`.\`${e.field}\` → here`, e.intent)).join("\n")}`]),
+  ];
+  const bindings = view.expect.filter((binding) => binding.kind.facts.name === facts.name);
+  const clauses = bindings.flatMap((binding) => binding.clauses);
+  const contract =
+    bindings.length === 0
+      ? "The program binds no clauses over it — any default contract the kind ships is what holds it."
+      : clauses.length === 0
+        ? "The program binds it an empty contract — no clause holds its members."
+        : clauses.map(clauseLine).join("\n");
+  const domains = requirements.flatMap((requirement) => {
+    const declared = requirement.kind === facts.name;
+    const filled = requirement.satisfiers.some((satisfier) => satisfier.kind === facts.name);
+    if (!declared && !filled) return [];
+    const how = [declared ? "declared over this kind" : "", filled ? "a member of this kind fills it" : ""]
+      .filter((part) => part !== "")
+      .join("; ");
+    const topic = domainTopicName(requirement.name);
+    return [`- \`${requirement.name}\` (${how}) — read [${topic}.md](${topic}.md).`];
+  });
+  return [
+    `# The \`${facts.name}\` kind`,
+    counsel === undefined || counsel === "" ? "The kind declares no counsel." : counsel,
+    `## Locus\n\n${locusSection(facts, kindLocusGlobs(facts, view))}`,
+    ...(fields.length === 0 ? [] : [`## Fields\n\n${fields.join("\n")}`]),
+    ...(edges.length === 0 ? [] : [`## Edges\n\n${edges.join("\n\n")}`]),
+    `## Clauses\n\n${contract}`,
+    ...(domains.length === 0 ? [] : [`## Domains\n\n${domains.join("\n")}`]),
+  ].join("\n\n");
+}
+
+/** A topic the reference carries beside `SKILL.md`: its doc name and its body. */
+interface Topic {
+  readonly name: string;
+  readonly body: string;
+}
+
+/**
+ * The rendered reference over `harness`: its description, its body, and its topics —
+ * one per kind in play, then one per contracted domain.
+ */
 export function renderReference(harness: Harness): {
   readonly description: string;
   readonly body: string;
-  readonly domains: readonly { readonly name: string; readonly body: string }[];
+  readonly topics: readonly Topic[];
 } {
   const view = committedView(harness);
-  const kinds = kindsInPlay(view)
-    .filter(committed)
-    .map((facts) => facts.name)
-    .sort(compareStrings);
+  const inPlay = kindsInPlay(view);
+  const kinds = inPlay.filter(committed).sort((a, b) => compareStrings(a.name, b.name));
   const requirements = contractedRequirements(view);
   const domains = requirements.map((requirement) => requirement.name);
   const kindLines = kinds.map(
-    (name) => `- When you add or change a \`${name}\` member, read [kind-${name}.md](kind-${name}.md).`,
+    ({ name }) => `- When you add or change a \`${name}\` member, read [${kindTopicName(name)}.md](${kindTopicName(name)}.md).`,
   );
   const domainLines = domains.map(
     (name) =>
@@ -208,22 +317,28 @@ export function renderReference(harness: Harness): {
   return {
     description,
     body: `${MECHANICS}\n${index}\n`,
-    domains: requirements.map((requirement) => ({
-      name: domainTopicName(requirement.name),
-      body: `${domainTopic(requirement)}\n`,
-    })),
+    topics: [
+      ...kinds.map((facts) => ({
+        name: kindTopicName(facts.name),
+        body: `${kindTopic(facts, view, inPlay, requirements)}\n`,
+      })),
+      ...requirements.map((requirement) => ({
+        name: domainTopicName(requirement.name),
+        body: `${domainTopic(requirement)}\n`,
+      })),
+    ],
   };
 }
 
 /**
  * `harness` with every declared reference rendered from it — the one view emit compiles,
  * so the projection and the declaration rows agree. Each rendered reference brings its
- * domain topics as `supporting-doc` members hosted by it. A harness carrying none comes
+ * kind and domain topics as `supporting-doc` members hosted by it. A harness carrying none comes
  * back as is.
  */
 export function withReference(harness: Harness): Harness {
   if (!harness.members.some((member) => DECLARED.has(member))) return harness;
-  const { description, body, domains } = renderReference(harness);
+  const { description, body, topics } = renderReference(harness);
   return {
     ...harness,
     members: harness.members.flatMap((member) => {
@@ -237,7 +352,7 @@ export function withReference(harness: Harness): Harness {
       };
       return [
         rendered,
-        ...domains.map((topic) => supportingDoc({ name: topic.name, host: rendered, prose: span(topic.body) })),
+        ...topics.map((topic) => supportingDoc({ name: topic.name, host: rendered, prose: span(topic.body) })),
       ];
     }),
   };
