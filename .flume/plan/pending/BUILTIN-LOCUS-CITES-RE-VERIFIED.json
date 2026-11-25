@@ -1,0 +1,14 @@
+{
+  "tag": "BUILTIN-LOCUS-CITES-RE-VERIFIED",
+  "gate": { "kind": "blockedBy", "tags": ["BUILTIN-LOCI-CLAIM-WHAT-THE-HARNESS-LOADS"] },
+  "files": {
+    "edit": [
+      { "path": "sdk/src/builtins.ts", "description": "each file kind's locus doc cites the doc section naming the paths its loader reads, retrieved current" }
+    ]
+  },
+  "summary": "Every built-in file locus carries a current cite for the paths the harness loads as that kind",
+  "per": { "path": "specs/builtins.md", "section": "Built-ins — what ships" },
+  "acceptance": "every built-in file kind's locus comment cites a code.claude.com page and a 2026-11 retrieval date that documents exactly that locus",
+  "tests": [],
+  "notes": "Per 0084 Consequences: a locus is only as current as its cite. Cite-only: a locus the current docs contradict (e.g. commands in subdirectories) is not moved here — file it as a build note naming the doc quote, so the move gets its own entry with tests."
+}

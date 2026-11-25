@@ -1,0 +1,24 @@
+{
+  "tag": "MODULE-CLOSURE-IS-WHAT-THE-REPOSITORY-TRACKS",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/drift.rs", "description": "drop module rows whose real path the repository's ignore rules exclude" },
+      { "path": "src/import.rs", "description": "expose discovery's ignore judgment (incl. worktree common exclude) for one real path" },
+      { "path": "sdk/src/emit.ts", "description": "loadedLocalModules doc names the tracked boundary" },
+      { "path": "tests/it/module_closure.rs", "description": "gitignored and linked-package cases" }
+    ]
+  },
+  "summary": "The fingerprinted module closure is the loaded modules the repository tracks; a gitignored module gets no row",
+  "per": { "path": "specs/model/authoring.md", "section": "The SDK" },
+  "acceptance": "an emit whose program loads a gitignored module (e.g. a file:-linked SDK's dist) writes no module row for it, and a tracked sibling keeps its row",
+  "tests": [
+    "a gitignored module the program loaded gets no provenance row",
+    "a gitignored module reached through a linked package gets no provenance row"
+  ],
+  "pins": [
+    "emit writes a provenance row for each local module the program loaded",
+    "a module under node modules gets no provenance row"
+  ],
+  "notes": "Per 0083: judged by real path against the ignore rules discovery already honours — reuse its ignore machinery, never hand-roll gitignore matching. A tracked workspace package (GH #61) keeps its row. Dogfood lock re-emit is a human half."
+}

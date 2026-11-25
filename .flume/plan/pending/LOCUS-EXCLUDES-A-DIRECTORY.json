@@ -1,0 +1,23 @@
+{
+  "tag": "LOCUS-EXCLUDES-A-DIRECTORY",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/kind.rs", "description": "excluded_from_row admits a directory the template reaches beneath; locus_admits subtracts what lies under an excluded directory" },
+      { "path": "sdk/src/kind.ts", "description": "exclude doc names the directory form" },
+      { "path": "tests/it/locus_template.rs", "description": "directory-exclude cases beside the literal-path ones" }
+    ]
+  },
+  "summary": "A file locus's exclude admits a directory, which leaves every path beneath it ungoverned",
+  "per": { "path": "specs/model/representation.md", "section": "locus" },
+  "acceptance": "a kind excluding a directory loads, and no path beneath that directory is discovered or bound as its member",
+  "tests": [
+    "an excluded directory leaves every path beneath it ungoverned",
+    "an exclude naming a directory the template reaches beneath loads",
+    "an exclude naming a directory the template never reaches refuses at load"
+  ],
+  "pins": [
+    "an excluded path at a kinds locus is not discovered"
+  ],
+  "notes": "One membership home stays locus_admits (discovery, check, emit, coverage, both guard edges all route through it). Spelling of the directory form (trailing `/` or bare prefix) is build's call; keep it starless."
+}
