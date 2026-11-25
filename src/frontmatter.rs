@@ -218,10 +218,13 @@ impl Member {
         // Identity comes off the one derivation over `unit_shape`
         // (`extract::unit_shape_id`), with this face supplying only its own field lookup and
         // its own vocabulary for the refusal.
-        let id =
-            crate::extract::unit_shape_id(kind.unit_shape.as_ref(), source_file, base, |field| {
-                parsed.get(field)
-            })?;
+        let id = crate::extract::unit_shape_id(
+            kind.unit_shape.as_ref(),
+            source_file,
+            base,
+            kind.governs.as_ref().map(|governs| governs.glob.as_str()),
+            |field| parsed.get(field),
+        )?;
 
         let fields = order_fields(&kind.declared_fields(), parsed);
 

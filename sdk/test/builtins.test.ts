@@ -149,6 +149,20 @@ test("command claims every markdown file under .claude/commands, named by its pa
   assert.deepEqual(command.facts.locus, { kind: "at", root: ".claude/commands", glob: "**/*.md" });
 });
 
+test("skill claims every subdirectory's own .claude/skills folder", () => {
+  // A skill nested under a subdirectory's own `.claude/skills/` loads once Claude works
+  // there (code.claude.com/docs/en/skills, "Load skills in monorepos and subdirectories",
+  // retrieved 2026-11-25), so the locus is any-depth from the harness root.
+  assert.deepEqual(skill.facts.locus, { kind: "at", root: ".", glob: "**/.claude/skills/*/SKILL.md" });
+  assert.equal(skill.facts.unitShape, "directory");
+});
+
+test("an exclude-only relocation of skill fences the fixture tree its any-depth locus reaches", () => {
+  const row = skillKindRow(relocate<Skill>(skill, { exclude: ["tests/fixtures/extract_equivalence"] }));
+  assert.equal(row.governs_glob, "**/.claude/skills/*/SKILL.md");
+  assert.deepEqual(row.exclude, ["tests/fixtures/extract_equivalence"]);
+});
+
 test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {
   assert.deepEqual(
     ruleDefaultContract.map((c) => c.predicate.key),
@@ -1500,8 +1514,8 @@ test("a relocation's authored exclusion follows the reached base exclusions", ()
 });
 
 test("a relocation refuses an exclusion its locus cannot subtract", () => {
-  // Off the template: the built-in skill locus never reaches `tests/`.
-  assert.throws(() => relocate<Skill>(skill, { exclude: ["tests/fixtures/extract_equivalence"] }), /starless/);
+  // Off the template: the built-in rule locus never reaches `tests/`.
+  assert.throws(() => relocate<Rule>(rule, { exclude: ["tests/fixtures"] }), /starless/);
   // A pattern, not a path.
   assert.throws(() => relocate<Skill>(skill, { exclude: [".claude/skills/*"] }), /starless/);
   // A trailing slash is an empty segment.

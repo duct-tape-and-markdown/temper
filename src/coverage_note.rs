@@ -198,10 +198,30 @@ fn governs(kind: &CustomKind, path: &HarnessRelativePath, is_dir: bool) -> bool 
     }
     if is_dir {
         let root = normalize_root(&governs.root);
-        root == &**path || root.starts_with(&format!("{path}/"))
+        root == &**path
+            || root.starts_with(&format!("{path}/"))
+            || units_sit_under(&governs.root, &governs.glob, path)
     } else {
         kind.locus_admits(path)
     }
+}
+
+/// Whether the directories `root` + `glob` seats its members in match `path` — the
+/// directory reading of an any-depth locus (`**/.claude/skills/*/SKILL.md` keeps its units
+/// under every `.claude/skills`). The pattern less its filename and trailing wildcard
+/// segments is matched against `path`; a remainder spelling no literal segment
+/// (`**/CLAUDE.md` reduces to `**`) names no directory, so it covers none.
+fn units_sit_under(root: &str, glob: &str, path: &HarnessRelativePath) -> bool {
+    let pattern = crate::kind::locus_pattern(root, glob);
+    let mut segments: Vec<&str> = pattern.split('/').collect();
+    segments.pop();
+    while segments.last().is_some_and(|segment| segment.contains('*')) {
+        segments.pop();
+    }
+    if segments.iter().all(|segment| segment.contains('*')) {
+        return false;
+    }
+    crate::glob::compile_glob(&segments.join("/")).is_some_and(|matcher| matcher.is_match(&**path))
 }
 
 /// A `governs.root` reduced to a comparable relative path: leading `./` and any trailing
@@ -235,7 +255,7 @@ mod tests {
     }
 
     fn skill_kind() -> CustomKind {
-        kind_governing("skill", ".claude/skills", "*/SKILL.md")
+        kind_governing("skill", ".", "**/.claude/skills/*/SKILL.md")
     }
 
     /// The two built-in-shaped kinds keyed by name — the set the note is handed.
@@ -419,6 +439,26 @@ mod tests {
             &with_prompts,
             &HarnessRelativePath::new(".claude/prompts/intro.md".to_string()),
             false
+        ));
+    }
+
+    #[test]
+    fn an_any_depth_skill_locus_governs_its_skills_folder_and_no_sibling() {
+        let set = builtin_set();
+        let dir = |path: &str| {
+            governed_by_any_path(&set, &HarnessRelativePath::new(path.to_string()), true)
+        };
+        assert!(dir(".claude/skills"));
+        assert!(!dir(".claude/prompts"));
+        // `memory`'s `**/CLAUDE.md` names no directory, so it covers none.
+        let with_memory = BTreeMap::from([(
+            "memory".to_string(),
+            kind_governing("memory", ".", "**/CLAUDE.md"),
+        )]);
+        assert!(!governed_by_any_path(
+            &with_memory,
+            &HarnessRelativePath::new(".claude/prompts".to_string()),
+            true
         ));
     }
 

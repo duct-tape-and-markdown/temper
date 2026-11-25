@@ -1325,6 +1325,17 @@ fn host_grain(address: &str) -> Option<(&str, &str, Option<&str>)> {
 /// Propagates [`DriftError::FlatGlobDepth`] from the splice.
 fn placement_in_unit(facts: &KindFactRow, pattern: &str, name: &str) -> Result<String, DriftError> {
     if facts.unit_shape.as_deref() == Some("directory") {
+        if let Some(under) = pattern.strip_prefix("**/") {
+            // The inverse of the read side's `**`-span prefix: every `:`-joined segment
+            // ahead of the leaf is a directory the `**` spans, the leaf the starred unit.
+            let (span, leaf) = name.rsplit_once(':').unwrap_or(("", name));
+            let placed = under.replacen('*', leaf, 1);
+            return Ok(if span.is_empty() {
+                placed
+            } else {
+                format!("{}/{placed}", span.replace(':', "/"))
+            });
+        }
         let entry = pattern.split_once('/').map_or(pattern, |(_, rest)| rest);
         return Ok(format!("{name}/{entry}"));
     }
@@ -7246,6 +7257,29 @@ mod tests {
         assert_eq!(
             entry.member.leaves.get("because").map(String::as_str),
             Some("a stamping projector breaks law 5")
+        );
+    }
+
+    #[test]
+    fn a_nested_skill_places_its_prefix_segments_ahead_of_its_skills_folder() {
+        let row = KindFactRow {
+            governs_root: Some(".".to_string()),
+            governs_glob: Some("**/.claude/skills/*/SKILL.md".to_string()),
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("directory".to_string()),
+            ..crate::test_support::kind_fact_row("skill")
+        };
+        let facts = BTreeMap::new();
+        let place = |name: &str| {
+            crate::path::normalize_path(&member_projection_path(&row, name, None, &facts).unwrap())
+                .to_string_lossy()
+                .into_owned()
+        };
+
+        assert_eq!(place("deploy"), ".claude/skills/deploy/SKILL.md");
+        assert_eq!(
+            place("apps:web:deploy"),
+            "apps/web/.claude/skills/deploy/SKILL.md"
         );
     }
 

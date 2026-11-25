@@ -239,10 +239,13 @@ impl DocumentMember {
         // face one rule: a `file`-shaped document nested below `base` folds that placement
         // exactly as its frontmatter peer in the same directory does, and one sitting
         // directly at `base` keeps its bare stem (`settings.local`).
-        let id =
-            crate::extract::unit_shape_id(kind.unit_shape.as_ref(), source_file, base, |field| {
-                document.get(field)
-            })?;
+        let id = crate::extract::unit_shape_id(
+            kind.unit_shape.as_ref(),
+            source_file,
+            base,
+            kind.governs.as_ref().map(|governs| governs.glob.as_str()),
+            |field| document.get(field),
+        )?;
 
         Ok(Self {
             id,

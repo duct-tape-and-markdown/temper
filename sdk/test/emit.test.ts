@@ -1609,6 +1609,38 @@ test("an embedded format spells an edge target off the derived facts — name, a
   );
 });
 
+test("a nested skill's `:`-joined name places back under its subdirectory's skills folder", () => {
+  // A nested skill is named by its subdirectory's segments ahead of its own directory —
+  // `apps/web/.claude/skills/deploy` is `apps:web:deploy` — so the placement splits the
+  // prefix back into the directories the `**` spans.
+  const citation = kind<object>(
+    {
+      name: "skill-citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      edgeFields: [{ field: "source", to: ["skill"] }],
+    },
+    { render: (value) => `See [${value.targets.source.name}](${value.targets.source.path}).` },
+  );
+  const cite = (key: string, target: string) =>
+    embeddedMemberValue({ kind: citation, key, leaves: { source: target } });
+  const h = harness({
+    members: [
+      skill({ name: "apps:web:deploy", description: "Use when deploying the web app.", prose: text`# Deploy` }),
+      skill({ name: "deploy", description: "Use when deploying.", prose: text`# Deploy` }),
+      memory({ name: "CLAUDE", prose: blocks(cite("nested", "skill:apps:web:deploy"), cite("root", "skill:deploy")) }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+
+  const result = emit(h);
+  assert.equal(
+    result.members.find((m) => m.name === "CLAUDE")!.body,
+    "See [apps:web:deploy](apps/web/.claude/skills/deploy/SKILL.md).\n\n" +
+      "See [deploy](.claude/skills/deploy/SKILL.md).\n",
+  );
+});
+
 test("a nested command's `:`-joined name places back at its path under commands/", () => {
   // A command is named by its path under `commands/`, each `/` a `:` — so the placement
   // splits the name back into the directories it came from, and the link a citing member

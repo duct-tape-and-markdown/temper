@@ -415,8 +415,8 @@ mod tests {
         assert_eq!(
             skill.governs,
             Some(Governs {
-                root: ".claude/skills".to_string(),
-                glob: "*/SKILL.md".to_string(),
+                root: ".".to_string(),
+                glob: "**/.claude/skills/*/SKILL.md".to_string(),
             })
         );
         // The composed extractor: the documented frontmatter fields (`version` is

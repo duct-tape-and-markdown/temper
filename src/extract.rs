@@ -892,6 +892,7 @@ pub(crate) fn unit_shape_id<'v>(
     shape: Option<&UnitShape>,
     source_file: &Path,
     base: &Path,
+    pattern: Option<&str>,
     named_field: impl FnOnce(&str) -> Option<&'v JsonValue>,
 ) -> Result<String, UnitIdFault> {
     let fault = |absent| UnitIdFault {
@@ -900,7 +901,13 @@ pub(crate) fn unit_shape_id<'v>(
     };
     match shape {
         Some(UnitShape::Directory) => {
-            path_shaped_id(source_file).ok_or_else(|| fault(AbsentId::PathDirectory("directory")))
+            let leaf = path_shaped_id(source_file)
+                .ok_or_else(|| fault(AbsentId::PathDirectory("directory")))?;
+            let mut parts = pattern
+                .map(|pattern| globstar_span(base, source_file, pattern))
+                .unwrap_or_default();
+            parts.push(leaf);
+            Ok(parts.join(":"))
         }
         Some(UnitShape::StarredSegment) => path_shaped_id(source_file)
             .ok_or_else(|| fault(AbsentId::PathDirectory("starred-segment"))),
@@ -912,6 +919,50 @@ pub(crate) fn unit_shape_id<'v>(
         // `file` shape, or an undeclared shape defaulting to a lone file.
         Some(UnitShape::File) | None => fold_file_id(base, source_file),
     }
+}
+
+/// The directories `pattern`'s one `**` spans in `source_file`'s placement below `base` —
+/// the prefix a directory unit nested under an any-depth locus is named by
+/// (`apps/web/.claude/skills/deploy/SKILL.md` through `**/.claude/skills/*/SKILL.md` spans
+/// `apps`, `web`). `base` is the fold base, so the pattern's leading literal segments are
+/// skipped exactly as [`crate::drift::fold_base`] descends them; every other segment
+/// matches one placement component. Empty for a pattern with no `**` (or more than one),
+/// a source not under `base`, or a placement shorter than the pattern's fixed segments.
+fn globstar_span(base: &Path, source_file: &Path, pattern: &str) -> Vec<String> {
+    let segments: Vec<&str> = pattern.split('/').collect();
+    let literal_lead = segments
+        .iter()
+        .take(segments.len().saturating_sub(1))
+        .take_while(|segment| !segment.contains('*'))
+        .count();
+    let tail = &segments[literal_lead..];
+    let mut globstars = tail
+        .iter()
+        .enumerate()
+        .filter(|(_, segment)| **segment == "**")
+        .map(|(at, _)| at);
+    let (Some(at), None) = (globstars.next(), globstars.next()) else {
+        return Vec::new();
+    };
+    let after = tail.len() - at - 1;
+    let Ok(relative) = source_file.strip_prefix(base) else {
+        return Vec::new();
+    };
+    let components: Option<Vec<&str>> = relative
+        .iter()
+        .map(OsStr::to_str)
+        .filter(|part| *part != Some("."))
+        .collect();
+    let Some(components) = components else {
+        return Vec::new();
+    };
+    if components.len() < at + after {
+        return Vec::new();
+    }
+    components[at..components.len() - after]
+        .iter()
+        .map(|part| (*part).to_string())
+        .collect()
 }
 
 /// Derive a **file-shaped** unit's surface id, folding the directory placement below the
@@ -1141,11 +1192,18 @@ mod tests {
         // `directory` and `starred-segment` differ in what owns the directory, never in the
         // fact read, so both answer with the same name.
         assert_eq!(
-            unit_shape_id(Some(&UnitShape::Directory), source, base, nothing).unwrap(),
+            unit_shape_id(Some(&UnitShape::Directory), source, base, None, nothing).unwrap(),
             "demo"
         );
         assert_eq!(
-            unit_shape_id(Some(&UnitShape::StarredSegment), source, base, nothing).unwrap(),
+            unit_shape_id(
+                Some(&UnitShape::StarredSegment),
+                source,
+                base,
+                None,
+                nothing
+            )
+            .unwrap(),
             "demo"
         );
 
@@ -1155,6 +1213,7 @@ mod tests {
             Some(&UnitShape::Directory),
             Path::new("SKILL.md"),
             base,
+            None,
             nothing,
         )
         .unwrap_err();
@@ -1165,6 +1224,7 @@ mod tests {
                 Some(&UnitShape::StarredSegment),
                 Path::new("SKILL.md"),
                 base,
+                None,
                 nothing
             )
             .unwrap_err()
@@ -1181,23 +1241,58 @@ mod tests {
         let look = |key: &str| fields.get(key);
 
         assert_eq!(
-            unit_shape_id(Some(&named_field("name")), source, base, look).unwrap(),
+            unit_shape_id(Some(&named_field("name")), source, base, None, look).unwrap(),
             "reviewer"
         );
 
         // A key absent altogether, and a key whose value is not a string: a unit is named by
         // a string value or nothing, so both refuse, naming the declared key.
         assert_eq!(
-            unit_shape_id(Some(&named_field("title")), source, base, look)
+            unit_shape_id(Some(&named_field("title")), source, base, None, look)
                 .unwrap_err()
                 .absent,
             AbsentId::NamedField("title".to_string())
         );
         assert_eq!(
-            unit_shape_id(Some(&named_field("priority")), source, base, look)
+            unit_shape_id(Some(&named_field("priority")), source, base, None, look)
                 .unwrap_err()
                 .absent,
             AbsentId::NamedField("priority".to_string())
+        );
+    }
+
+    #[test]
+    fn a_directory_unit_under_a_globstar_is_prefixed_by_the_segments_it_spans() {
+        let base = Path::new("/scan");
+        let pattern = Some("**/.claude/skills/*/SKILL.md");
+        let nothing = |_: &str| None;
+        let id = |source: &str| {
+            unit_shape_id(
+                Some(&UnitShape::Directory),
+                Path::new(source),
+                base,
+                pattern,
+                nothing,
+            )
+            .unwrap()
+        };
+
+        assert_eq!(id("/scan/.claude/skills/deploy/SKILL.md"), "deploy");
+        assert_eq!(
+            id("/scan/apps/web/.claude/skills/deploy/SKILL.md"),
+            "apps:web:deploy"
+        );
+        // A pattern with no `**` spans nothing, so the bare directory name stands.
+        assert_eq!(
+            unit_shape_id(
+                Some(&UnitShape::Directory),
+                Path::new("/scan/deploy/SKILL.md"),
+                base,
+                Some("*/SKILL.md"),
+                nothing,
+            )
+            .unwrap(),
+            "deploy"
         );
     }
 
@@ -1206,7 +1301,14 @@ mod tests {
         let base = Path::new("/scan");
         let nothing = |_: &str| None;
         let id = |source: &str| {
-            unit_shape_id(Some(&UnitShape::Path), Path::new(source), base, nothing).unwrap()
+            unit_shape_id(
+                Some(&UnitShape::Path),
+                Path::new(source),
+                base,
+                None,
+                nothing,
+            )
+            .unwrap()
         };
 
         assert_eq!(id("/scan/deploy.md"), "deploy");
@@ -1228,6 +1330,7 @@ mod tests {
                 Some(&UnitShape::File),
                 Path::new("/scan/CLAUDE.md"),
                 base,
+                None,
                 nothing
             )
             .unwrap(),
@@ -1238,6 +1341,7 @@ mod tests {
                 Some(&UnitShape::File),
                 Path::new("/scan/sub/deep/CLAUDE.md"),
                 base,
+                None,
                 nothing
             )
             .unwrap(),
@@ -1247,7 +1351,7 @@ mod tests {
         // An undeclared shape defaults to a lone file — the same derivation, not a separate
         // path through the match.
         assert_eq!(
-            unit_shape_id(None, Path::new("/scan/sub/CLAUDE.md"), base, nothing).unwrap(),
+            unit_shape_id(None, Path::new("/scan/sub/CLAUDE.md"), base, None, nothing).unwrap(),
             "sub-CLAUDE"
         );
 
@@ -1258,6 +1362,7 @@ mod tests {
                 Some(&UnitShape::File),
                 Path::new("/elsewhere/AGENTS.md"),
                 base,
+                None,
                 nothing
             )
             .unwrap(),
@@ -1266,7 +1371,7 @@ mod tests {
 
         // No stem at all: the fault names the absent stem, whatever the base.
         let fault =
-            unit_shape_id(Some(&UnitShape::File), Path::new("/"), base, nothing).unwrap_err();
+            unit_shape_id(Some(&UnitShape::File), Path::new("/"), base, None, nothing).unwrap_err();
         assert_eq!(fault.path, Path::new("/"));
         assert_eq!(fault.absent, AbsentId::FileStem);
     }

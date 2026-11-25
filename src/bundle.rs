@@ -47,7 +47,7 @@ use serde_json::{Value as JsonValue, json};
 /// outside the `deny`ed skill names (`anthropic`, `claude`), so the bundled skill
 /// passes `temper`'s own skill contract — the dogfood holds.
 /// Plugin skill locations (`skills/<name>/SKILL.md`) are plugin-root-relative, distinct
-/// from the installed-harness skill locus (`.claude/skills/*/SKILL.md` per the `skill`
+/// from the installed-harness skill locus (`**/.claude/skills/*/SKILL.md` per the `skill`
 /// kind's governs; a plugin's contributed surfaces lie outside the corpus, unmodeled).
 /// Both are documented plugin layouts
 /// (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).

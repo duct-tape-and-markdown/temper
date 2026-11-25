@@ -165,40 +165,103 @@ fn a_relocation_rows_exclusion_leaves_a_fixture_skill_ungoverned() {
     let skill_md = "---\nname: x\ndescription: x\n---\n# x\n";
     common::write_sibling(&harness, ".claude/skills/deploy/SKILL.md", skill_md);
     common::write_sibling(&harness, ".claude/skills/fixture/SKILL.md", skill_md);
-    common::write_sibling(
-        &harness,
-        "tests/fixtures/extract_equivalence/.claude/skills/coordinate/SKILL.md",
-        skill_md,
-    );
+    let fixture = "tests/fixtures/extract_equivalence/.claude/skills/coordinate/SKILL.md";
+    common::write_sibling(&harness, fixture, skill_md);
 
-    // An exclude-only relocation row: the built-in's locus, one authored exclusion.
-    let scoped = overlaid_skill(|row| row.exclude = vec![".claude/skills/fixture".to_string()]);
-    assert_eq!(scoped.excluded, vec![".claude/skills/fixture".to_string()]);
+    // Non-vacuity: the built-in any-depth locus claims the fixture skill.
+    assert!(discovered(&harness, "skill").contains(&harness.join(fixture)));
+
+    // An exclude-only relocation row: the built-in's locus, authored exclusions.
+    let scoped = overlaid_skill(|row| {
+        row.exclude = vec![
+            ".claude/skills/fixture".to_string(),
+            "tests/fixtures/extract_equivalence".to_string(),
+        ]
+    });
     assert_eq!(
         discover(&harness, &scoped),
         vec![harness.join(".claude/skills/deploy/SKILL.md")]
     );
+}
 
-    // A moved locus reaching nested skills, with the fixture tree excluded.
-    let nested = |exclude: Vec<String>| {
-        overlaid_skill(|row| {
-            row.governs_root = Some(".".to_string());
-            row.governs_glob = Some("**/.claude/skills/*/SKILL.md".to_string());
-            row.exclude = exclude;
-        })
-    };
-    // Non-vacuity: without the exclusion, the moved locus claims the fixture skill.
-    assert!(discover(&harness, &nested(Vec::new())).contains(
-        &harness.join("tests/fixtures/extract_equivalence/.claude/skills/coordinate/SKILL.md")
-    ));
+const SKILL_MD: &str = "---\nname: deploy\ndescription: Ship it.\n---\n# Deploy\n";
+
+#[test]
+fn a_skill_under_a_subdirectorys_own_skills_folder_is_a_member() {
+    let harness = common::tmpdir("skill-subdirectory");
+    common::write_sibling(&harness, ".claude/skills/deploy/SKILL.md", SKILL_MD);
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/skills/deploy/SKILL.md",
+        SKILL_MD,
+    );
+
     assert_eq!(
-        discover(
-            &harness,
-            &nested(vec!["tests/fixtures/extract_equivalence".to_string()])
-        ),
+        discovered(&harness, "skill"),
         vec![
             harness.join(".claude/skills/deploy/SKILL.md"),
-            harness.join(".claude/skills/fixture/SKILL.md"),
+            harness.join("apps/web/.claude/skills/deploy/SKILL.md"),
         ]
+    );
+}
+
+#[test]
+fn a_nested_skills_identity_prefixes_its_subdirectory_segments_joined_with_colons() {
+    let harness = common::tmpdir("skill-subdirectory-identity");
+    common::write_sibling(&harness, ".claude/skills/deploy/SKILL.md", SKILL_MD);
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/skills/deploy/SKILL.md",
+        SKILL_MD,
+    );
+    let skill = builtin_kind::definition("skill").expect("skill is built in");
+    let address = |relative: &str| {
+        compose::governed_member_address(
+            &skill,
+            &harness,
+            &harness.join(relative),
+            compose::SiteIdentity::OnDisk,
+        )
+    };
+
+    assert_eq!(
+        address(".claude/skills/deploy/SKILL.md").as_deref(),
+        Some("skill:deploy")
+    );
+    assert_eq!(
+        address("apps/web/.claude/skills/deploy/SKILL.md").as_deref(),
+        Some("skill:apps:web:deploy")
+    );
+
+    // `check` reads the same identity: a finding on the nested skill names it so.
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/skills/deploy/SKILL.md",
+        "---\nname: deploy\n---\n# Deploy\n",
+    );
+    let (findings, _) = common::check_harness(&harness);
+    assert!(
+        findings
+            .iter()
+            .any(|line| line.contains("title=skill.required.description::apps:web:deploy:")),
+        "{findings:#?}"
+    );
+}
+
+#[test]
+fn a_nested_harnesss_skills_stay_outside_the_outer_harness() {
+    let harness = common::tmpdir("skill-nested-harness");
+    common::write_sibling(&harness, ".claude/skills/deploy/SKILL.md", SKILL_MD);
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/skills/deploy/SKILL.md",
+        SKILL_MD,
+    );
+    // `apps/web` governs itself: its own workspace lock fences it from the outer walk.
+    common::write_sibling(&harness, "apps/web/.temper/lock.toml", "");
+
+    assert_eq!(
+        discovered(&harness, "skill"),
+        vec![harness.join(".claude/skills/deploy/SKILL.md")]
     );
 }

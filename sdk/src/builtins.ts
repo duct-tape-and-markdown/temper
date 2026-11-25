@@ -173,7 +173,7 @@ export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>(
 });
 
 /**
- * `skill` — `.claude/skills/<name>/SKILL.md`, a directory unit, YAML frontmatter
+ * `skill` — `**\/.claude/skills/<name>/SKILL.md`, a directory unit, YAML frontmatter
  * carrying `name` then `description`; registers on both documented invocation
  * channels — user-invoked (`/name`) and description-trigger — modulated per
  * member by the `disable-model-invocation`/`user-invocable` fields
@@ -189,11 +189,14 @@ export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>(
  *
  * The locus is the project row of the documented load table,
  * `.claude/skills/<skill-name>/SKILL.md` (code.claude.com/docs/en/skills, "Choose where
- * skills load", retrieved 2026-11-24).
+ * skills load", retrieved 2026-11-24), at any depth: a subdirectory's own
+ * `.claude/skills/` loads once Claude works there, its skill named by the subdirectory's
+ * segments joined with `:` (`apps/web/.claude/skills/deploy` is `apps:web:deploy`;
+ * same source, "Load skills in monorepos and subdirectories", retrieved 2026-11-25).
  */
 export const skill: KindDefinition<Skill> = kind<Skill>({
   name: "skill",
-  locus: { kind: "at", root: ".claude/skills", glob: "*/SKILL.md" },
+  locus: { kind: "at", root: ".", glob: "**/.claude/skills/*/SKILL.md" },
   format: "yaml-frontmatter",
   unitShape: "directory",
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],

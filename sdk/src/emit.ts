@@ -203,6 +203,13 @@ function spliceName(
  */
 function placementInUnit(facts: KindFacts, pattern: string, name: string): string {
   if (facts.unitShape === "directory") {
+    if (pattern.startsWith("**/")) {
+      // The inverse of the read side's `**`-span prefix: every `:`-joined segment ahead of
+      // the leaf is a directory the `**` spans, the leaf the starred unit.
+      const colon = name.lastIndexOf(":");
+      const placed = pattern.slice(3).replace("*", name.slice(colon + 1));
+      return colon < 0 ? placed : joinSlash(name.slice(0, colon).replaceAll(":", "/"), placed);
+    }
     const slash = pattern.indexOf("/");
     return joinSlash(name, slash < 0 ? pattern : pattern.slice(slash + 1));
   }

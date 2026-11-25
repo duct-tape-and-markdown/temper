@@ -428,13 +428,21 @@ fn host_units(
             .collect();
     };
     let root = disc.locus_root(governs);
+    let base = crate::drift::fold_base(&root, &governs.glob);
     discover_kind_files(disc, host, governs, over)
         .into_iter()
         .filter_map(|entry| {
             let dir = unit_dir(&root, &entry)?;
-            // The host's own name: its unit directory's final component, which is exactly
-            // the id a `directory` unit shape folds.
-            let identity = dir.file_name().and_then(OsStr::to_str)?.to_string();
+            // The host's own name: the id a `directory` unit shape derives, its unit
+            // directory's final component behind any `**`-spanned prefix.
+            let identity = crate::extract::unit_shape_id(
+                Some(&UnitShape::Directory),
+                &entry,
+                &base,
+                Some(&governs.glob),
+                |_| None,
+            )
+            .ok()?;
             Some(HostUnit {
                 dir,
                 identity,
@@ -454,16 +462,16 @@ fn file_template<'a>(host: &'a CustomKind, child: &str) -> Option<&'a str> {
         .and_then(|template| template.path.as_deref())
 }
 
-/// The unit directory a discovered entry file sits in: the one level below the kind's
+/// The unit directory a discovered entry file sits in, below the kind's
 /// `governs` root, where a directory-unit member's `<root>/<name>/` is composed. [`None`]
 /// for a file the root does not contain (a bare harness that is itself a skill) or one
 /// lying loose at the root, neither of which owns an interior a template addresses.
 fn unit_dir(root: &Path, entry: &Path) -> Option<PathBuf> {
     let relative = entry.strip_prefix(root).ok()?;
-    let mut components = relative.components();
-    let name = components.next()?;
-    components.next()?;
-    Some(root.join(name))
+    relative
+        .parent()
+        .filter(|dir| !dir.as_os_str().is_empty())?;
+    entry.parent().map(Path::to_path_buf)
 }
 
 /// Discover a `kind`'s member source files under `harness`, matching an explicit

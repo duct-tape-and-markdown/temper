@@ -93,9 +93,13 @@ fn parse(
     // derivation can find absent and `base` is a base the fold never reaches — passed
     // through because the derivation is shared, so its contract is the caller's to satisfy
     // here exactly as at the JSON and frontmatter faces.
-    let id = crate::extract::unit_shape_id(kind.unit_shape.as_ref(), source_file, base, |key| {
-        fields.get(key)
-    })
+    let id = crate::extract::unit_shape_id(
+        kind.unit_shape.as_ref(),
+        source_file,
+        base,
+        kind.governs.as_ref().map(|governs| governs.glob.as_str()),
+        |key| fields.get(key),
+    )
     .map_err(|fault| TomlDocumentError::NoIdentityValue {
         path: fault.path,
         field: field.clone(),

@@ -134,8 +134,8 @@ unit_shape = "file"
 
 [[declaration.kind]]
 name = "skill"
-governs_root = ".claude/skills"
-governs_glob = "*/SKILL.md"
+governs_root = "."
+governs_glob = "**/.claude/skills/*/SKILL.md"
 format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]

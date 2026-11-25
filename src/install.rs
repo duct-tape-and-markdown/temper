@@ -2731,10 +2731,12 @@ struct LiftedMember {
 /// `frontmatter::Member::from_source` supplies for exactly this case.
 fn lift_base(root: &Path, kind: &CustomKind, file: &Path) -> PathBuf {
     match (&kind.unit_shape, &kind.governs) {
-        (Some(kind::UnitShape::Path), Some(governs)) => crate::drift::fold_base(
-            &crate::path::normalize_path(&root.join(&governs.root)),
-            &governs.glob,
-        ),
+        (Some(kind::UnitShape::Path | kind::UnitShape::Directory), Some(governs)) => {
+            crate::drift::fold_base(
+                &crate::path::normalize_path(&root.join(&governs.root)),
+                &governs.glob,
+            )
+        }
         _ => file.parent().unwrap_or(file).to_path_buf(),
     }
 }

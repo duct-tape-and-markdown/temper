@@ -792,6 +792,33 @@ fn a_command_and_an_agent_sharing_a_member_id_scaffold_to_distinct_paths() {
 }
 
 #[test]
+fn a_nested_skill_lifts_under_its_prefixed_name_and_re_emits_where_it_was_found() {
+    let root = common::tmpdir("nested-skill-lift");
+    let nested = root.join("apps/web/.claude/skills/deploy/SKILL.md");
+    fs::create_dir_all(nested.parent().unwrap()).unwrap();
+    fs::write(&nested, SKILL).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(outcome.scaffolded, 1);
+
+    let module = fs::read_to_string(temper_dir.join("skills").join("apps-web-deploy.ts")).unwrap();
+    assert!(module.contains("name: \"apps:web:deploy\""), "{module}");
+    // The first emit places it back under its own subdirectory, never at the root's
+    // `.claude/skills/deploy/`.
+    assert!(!root.join(".claude/skills/deploy/SKILL.md").exists());
+    assert!(
+        fs::read_to_string(&nested)
+            .unwrap()
+            .ends_with("# Coordinate\n\nDrive the team through the playbook.\n")
+    );
+}
+
+#[test]
 fn a_nested_command_lifts_under_its_path_name_and_re_emits_where_it_was_found() {
     let root = common::tmpdir("nested-command-lift");
     for dir in ["frontend", "backend"] {

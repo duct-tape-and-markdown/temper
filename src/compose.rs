@@ -1193,7 +1193,14 @@ fn site_id(
             if matches!(kind.unit_shape, Some(kind::UnitShape::NamedField { .. })) {
                 return None;
             }
-            extract::unit_shape_id(kind.unit_shape.as_ref(), &file, base, |_| None).ok()?
+            extract::unit_shape_id(
+                kind.unit_shape.as_ref(),
+                &file,
+                base,
+                kind.governs.as_ref().map(|governs| governs.glob.as_str()),
+                |_| None,
+            )
+            .ok()?
         }
     })
 }
