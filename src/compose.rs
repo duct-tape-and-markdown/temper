@@ -171,9 +171,10 @@ pub struct Requirement {
     /// **kind-blind**: any artifact that opts in fills it, and no narrowing clause
     /// attaches at all.
     pub kind: Option<String>,
-    /// Whether an unfilled requirement is a gate-blocking violation. Absent ⇒ `false`
-    /// (`temper` never fabricates a gate the author did not declare
-    /// "Declared, never mined"). Never cardinality — posture and the set-scope `count` clause in
+    /// Whether an unfilled requirement is a gate-blocking violation. Absent ⇒ `true`:
+    /// the corpus default (at least one satisfier, at error) — declaring the
+    /// requirement *is* declaring the gate; `required: false` is the advisory
+    /// override. Never cardinality — posture and the set-scope `count` clause in
     /// [`clauses`](Requirement::clauses) are different kinds of thing.
     pub required: bool,
     /// The requirement's set-/edge-scope demands — ordinary [`contract::Clause`]

@@ -22,7 +22,9 @@ name: string,
  */
 kind?: string, 
 /**
- * Whether an unfilled requirement blocks the gate.
+ * Whether an unfilled requirement blocks the gate. Absent ⇒ `true`: the
+ * corpus default (at least one satisfier, at error), the one the SDK lowers —
+ * a row read without the column inherits it, never re-decides it.
  */
 required: boolean, 
 /**

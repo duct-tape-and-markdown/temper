@@ -5080,8 +5080,10 @@ pub struct RequirementRow {
     /// The kind that may fill it, when typed by one.
     #[serde(default)]
     pub kind: Option<String>,
-    /// Whether an unfilled requirement blocks the gate.
-    #[serde(default)]
+    /// Whether an unfilled requirement blocks the gate. Absent ⇒ `true`: the
+    /// corpus default (at least one satisfier, at error), the one the SDK lowers —
+    /// a row read without the column inherits it, never re-decides it.
+    #[serde(default = "required_by_default")]
     pub required: bool,
     /// The requirement's set-/edge-scope demands, in declaration order — a
     /// `count`/`unique`/`membership`/`degree` [`ClauseRow`] per clause, each
@@ -5096,6 +5098,13 @@ pub struct RequirementRow {
     /// carried verbatim, never interpreted.
     #[serde(default)]
     pub prose: Option<String>,
+}
+
+/// The corpus default for a requirement row's absent `required` column, the one
+/// default both readers (serde over the seam, [`RequirementRow`]'s lock-table
+/// reader) share.
+fn required_by_default() -> bool {
+    true
 }
 
 /// A requirement row's `count` bound — the satisfier-set size's inclusive `[min, max]`.
@@ -6117,7 +6126,7 @@ impl RequirementRow {
         Ok(Self {
             name: req_str(table, "name")?,
             kind: opt_str(table, "kind")?,
-            required: opt_bool(table, "required")?.unwrap_or(false),
+            required: opt_bool(table, "required")?.unwrap_or_else(required_by_default),
             clauses: match table.get("clauses") {
                 None => Vec::new(),
                 Some(item) => {

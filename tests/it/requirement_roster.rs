@@ -1350,3 +1350,38 @@ fn a_requirement_declared_required_false_stays_advisory_when_unfilled() {
         run.output
     );
 }
+
+#[test]
+fn a_requirement_row_without_a_required_column_blocks_the_gate_when_unfilled() {
+    let root = common::tmpdir("absent-required-column");
+    // A floor-clean skill that opts into nothing, so `agents` is unfilled and only
+    // its posture decides the run.
+    common::write_skill(&root, "coordinate", &common::clean_skill("coordinate"));
+    common::write_requirements(&root, vec![common::requirement("agents", false, None)]);
+    // Strip the `required` column the writer always emits: a lock whose writer
+    // omitted it must read the corpus default, never `false`.
+    let lock_path = root.join(".temper").join("lock.toml");
+    let lock = std::fs::read_to_string(&lock_path).unwrap();
+    let stripped: String = lock
+        .lines()
+        .filter(|line| line.trim() != "required = false")
+        .map(|line| format!("{line}\n"))
+        .collect();
+    assert_ne!(
+        lock, stripped,
+        "the fixture must carry a `required` column to strip"
+    );
+    std::fs::write(&lock_path, stripped).unwrap();
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "an absent `required` column reads as required ⇒ an unfilled requirement fails, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("requirement.unfilled") && run.output.contains("agents"),
+        "the finding names the unfilled rule and the requirement, got:\n{}",
+        run.output
+    );
+}
