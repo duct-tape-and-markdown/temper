@@ -1,0 +1,36 @@
+{
+  "tag": "AGENT-NAME-CLAUSES-FOLLOW-THE-CURRENT-DOCS",
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "agent default contract's `name` clauses re-derived from the sub-agents docs as retrieved 2026-11-25"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-emitted clause rows"
+      },
+      {
+        "path": "src/bundled_reference/kind-agent.md",
+        "description": "re-copied if its clause list moves"
+      },
+      {
+        "path": "tests/it/agent_kind.rs",
+        "description": "built-in override name test"
+      }
+    ]
+  },
+  "gate": {
+    "kind": "open"
+  },
+  "summary": "the agent `name` clauses state what the sub-agents docs say today, so a project agent named `Explore` (a documented built-in override) draws no finding",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Default contracts"
+  },
+  "acceptance": "a project agent named `Explore` checks clean; every name clause carries a 2026-11-25 cite to code.claude.com/docs/en/sub-agents",
+  "tests": [
+    "an agent named after an overridable built-in draws no name finding"
+  ],
+  "notes": "Retrieved 2026-11-25 (sub-agents): `name` is 'Unique identifier of at most 256 characters'; 'Names can't contain `:`'; a name starting with `-` is skipped; 'A user or project subagent named `Explore` overrides the built-in'. No lowercase wording was found, and the [a-z-] charset cites 2026-07-15. Re-verify. If lowercase is undocumented, the charset goes; if it is documented, admit the documented override name only."
+}

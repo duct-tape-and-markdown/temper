@@ -1,0 +1,28 @@
+{
+  "tag": "AN-IMPORT-REACHED-FILE-IS-CLAIMED",
+  "files": {
+    "edit": [
+      {
+        "path": "src/coverage_note.rs",
+        "description": "unclaimed-entry scan treats a file a memory @-import reaches as claimed by the importer"
+      },
+      {
+        "path": "tests/it/coverage_note.rs",
+        "description": "import-reached test"
+      }
+    ]
+  },
+  "gate": {
+    "kind": "open"
+  },
+  "summary": "a file a memory `@path` import reaches is claimed by the importing member through the import edge, never reported coverage.unclaimed-entry",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "edge"
+  },
+  "acceptance": "root CLAUDE.md importing `@.claude/notes.md` gives no unclaimed-entry for `.claude/notes.md`; a file with its own kind is still judged by that kind",
+  "tests": [
+    "a file a memory import reaches draws no unclaimed-entry finding"
+  ],
+  "notes": "Verified: coverage_note.rs claude_entries consults kind loci and known surfaces only, never the import relation."
+}

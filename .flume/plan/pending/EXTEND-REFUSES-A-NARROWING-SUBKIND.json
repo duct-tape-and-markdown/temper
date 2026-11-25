@@ -1,0 +1,29 @@
+{
+  "tag": "EXTEND-REFUSES-A-NARROWING-SUBKIND",
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "extend<B, T extends B>(base: KindDefinition<B>, delta: KindExtension<T>)"
+      },
+      {
+        "path": "sdk/src/counsel.ts",
+        "description": "one sentence: a shared field interface/clause set/guidance is an ordinary TS value spread into each extend delta"
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "description": "@ts-expect-error on a subkind that drops or retypes a base field"
+      }
+    ]
+  },
+  "gate": {
+    "kind": "open"
+  },
+  "summary": "type `extend` so a subkind's surface must extend its base's, so tsc refuses a narrowing subkind at authoring",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "kind"
+  },
+  "acceptance": "`pnpm --dir sdk test` passes with an @ts-expect-error over a subkind dropping a base field; the .temper counsel rule names the spread idiom",
+  "notes": "SDK-only: pinned by the SDK type test, so no tests[] line (PROTOCOL, Tests). Every base selection binds the subkind (0094), so it must be substitutable. emit runs tsc (0098). Counsel rule came from 7f280c31. Test file is build's call."
+}

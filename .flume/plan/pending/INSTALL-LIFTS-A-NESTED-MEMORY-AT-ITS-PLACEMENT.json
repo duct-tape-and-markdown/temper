@@ -1,8 +1,7 @@
 {
   "tag": "INSTALL-LIFTS-A-NESTED-MEMORY-AT-ITS-PLACEMENT",
   "gate": {
-    "kind": "parked",
-    "reason": "decision on nested-memory-identity question: how a nested CLAUDE.md is named so emit can place it"
+    "kind": "open"
   },
   "files": {
     "edit": [
@@ -13,6 +12,10 @@
       {
         "path": "tests/it/install.rs",
         "description": "nested memory lift test"
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "place a path-shaped memory name back at its subdirectory, per builtins.md memory (0096)"
       }
     ]
   },
@@ -25,5 +28,5 @@
   "tests": [
     "install lifts two nested memory files as two members"
   ],
-  "notes": "Parked: lift half works (lift_base folding via drift::fold_base); emit places every memory member at root CLAUDE.md because the `-` fold is not invertible. Once the question rules, the install edit is ~10 lines plus emit placement per the ruling."
+  "notes": "Unparked by 0096: a nested memory is `memory:apps:web:CLAUDE` (0090's `:` grammar), so emit inverts it. The lift half works (lift_base via drift::fold_base). Fold the nested CLAUDE.md with `:` rather than `-`, and have emit place the name the way path-shaped kinds already do (emit.ts placement, `:` -> `/`)."
 }

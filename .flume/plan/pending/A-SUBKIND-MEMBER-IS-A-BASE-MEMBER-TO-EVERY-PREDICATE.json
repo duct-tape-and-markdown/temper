@@ -1,0 +1,37 @@
+{
+  "tag": "A-SUBKIND-MEMBER-IS-A-BASE-MEMBER-TO-EVERY-PREDICATE",
+  "files": {
+    "edit": [
+      {
+        "path": "src/engine.rs",
+        "description": "wrong_kind admits a member whose kind is the narrowed kind or its subkind"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "an inherited peer predicate (unique-name) decides over the base's whole population"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "shared seam: is_kind_or_subkind"
+      },
+      {
+        "path": "tests/it/kind_extension.rs",
+        "description": "narrowing + peer population tests"
+      }
+    ]
+  },
+  "gate": {
+    "kind": "open"
+  },
+  "summary": "a `kind` narrowing to a base admits its subkind's members, and the base's peer predicates judge base and subkind members as one population",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "kind"
+  },
+  "acceptance": "`kind: rule` admits a `decision` subkind member; a rule and a decision sharing a name draw the base's unique-name finding",
+  "tests": [
+    "a kind narrowing to a base admits its subkind's members",
+    "a base's unique-name judges its subkind's members with its own"
+  ],
+  "notes": "From the BASE-SELECTIONS-BIND-A-SUBKIND note. engine.rs wrong_kind compares the exact tag (verified). 'every selection of the base binds its document.'"
+}
