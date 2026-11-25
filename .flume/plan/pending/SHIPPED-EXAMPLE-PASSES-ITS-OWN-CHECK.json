@@ -3,10 +3,10 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "GATE-HOOK-CARRIES-SATISFIES",
       "GATE-COMMAND-ANCHORED-AT-THE-PROJECT"
     ]
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -56,5 +56,7 @@
     "the shipped example harness passes its own check with advisories denied",
     "a plain string prose leaf refuses naming its member and field"
   ],
+  "pins": [],
+  "laneTests": [],
   "notes": "Inbox record. Find why CLAUDE.md, two rules and settings.json draw root.locus-declared: stale projections or emitted elsewhere; make the committed tree its emit. 0082 removed command-string gate hooks."
 }
