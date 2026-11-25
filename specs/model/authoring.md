@@ -46,6 +46,17 @@ nowhere — no bytes reach the projection. A committed file temper does not
 write joins the roster this way: a member whose record temper writes,
 declaring the file as its input.
 
+A **command** the harness runs is one typed reference, stated once and
+pointed at by what runs it: a package's bin (`{ package, bin }`, its
+version the lockfile's, its path the anchored `.bin` the program's package
+manager lays out), a committed file (`{ file }`, a source joining the
+roster as an input), or a system tool (`{ system }`, claiming presence and
+no version). Its runners (a gate hook, a tap, the typecheck, a script
+verifier) reach it by declared edges, and a command nothing runs is an
+advisory finding. The program's `package.json` is a source temper scaffolds
+once and never writes: its `packageManager` field is the declared manager,
+and every other writer (the manager on every add, update bots) stays free.
+
 ## Layers
 
 The harness value composes from an ordered stack of layers under the same

@@ -45,8 +45,8 @@ uncommitted path; a local member is a check-side input, never a target.
   addressing a declared kind whose member is not a composed value defers to
   the gate — the row rides the lock, `check` owns the verdict — and a mention
   addressing no declared kind refuses. Before running the program, emit
-  runs the **typecheck the program declares** (its compiler command and
-  project, the consumer's own toolchain, never resolved by guess) and
+  runs the **typecheck the program declares** (a command reference, `authoring.md`, and its project, the
+  consumer's own toolchain, never resolved by guess) and
   refuses on a type error, naming the compiler's diagnostics: the
   compiler's errors are how the author receives the SDK's shape (intent,
   invariant 8). A program that declares no typecheck refuses, naming the
@@ -108,11 +108,11 @@ only paths the lock names as projections, so with no lock nothing is one.
 ## Telemetry
 
 A telemetry declaration projects as tap hook registrations in the emitted
-manifest — the same rows any hook rides — and states the temper binary its
-taps run, `temper` on the path unless declared, each tap command anchored
-at the project as a gate command is (`adoption.md`, "Install"). Declarations
-sharing a tap compare the binary as the engine resolves it, so an undeclared
-binary and `temper` agree, and a real disagreement refuses at emit. The tap appends event records to its
+manifest — the same rows any hook rides — and names the command its taps
+run (`authoring.md`), each anchored at the project as a gate command is
+(`adoption.md`, "Install"). Declarations sharing a tap compare the command
+as the engine resolves it, so an undeclared one and the default agree, and
+a real disagreement refuses at emit. The tap appends event records to its
 own log — the lock's category, never a member's: machine-written,
 bespoke-parsed, versioned in lockstep with the one binary that both writes
 and reads it. The log is per-machine, uncommitted, never an emit input or
