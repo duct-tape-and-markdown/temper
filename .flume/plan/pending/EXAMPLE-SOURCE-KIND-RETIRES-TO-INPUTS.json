@@ -72,7 +72,7 @@
   "tests": [],
   "pins": [],
   "laneTests": [],
-  "notes": "Decision 0064 Consequences rules the retirement; `local` is per-machine, uncommitted (kinds.ts misuses it). Inbox flagged only implemented-by; verify-summary.ts also mentions `source:main` and README demos it, so it moves too. Re-emit per tests/it/emit.rs's vendored-SDK recipe.",
+  "notes": "Prior attempt reverted: committed lock's system:scanner row (53cd…) was the hash of an emit over the old frontmatter file, which kept a stale `# temper:` note line (EMIT-DROPS-A-NOTE-THE-NEW-SHAPE-CANNOT-HOLD); the .md was then replaced by hand. Delete docs/systems/*.md before re-emitting, never hand-swap a projection, and run `cargo test --test it shipped_example` on the committed tree. 0064 rules the retirement; re-emit per tests/it/emit.rs's vendored-SDK recipe.",
   "observedFiles": [
     ".flume/plan/notes/EXAMPLE-SOURCE-KIND-RETIRES-TO-INPUTS.md",
     "examples/base-harness/.claude/rules/docs-discipline.md",
