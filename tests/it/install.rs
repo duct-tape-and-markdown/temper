@@ -791,6 +791,51 @@ fn a_command_and_an_agent_sharing_a_member_id_scaffold_to_distinct_paths() {
     );
 }
 
+#[test]
+fn a_nested_command_lifts_under_its_path_name_and_re_emits_where_it_was_found() {
+    let root = common::tmpdir("nested-command-lift");
+    for dir in ["frontend", "backend"] {
+        let commands = root.join(".claude").join("commands").join(dir);
+        fs::create_dir_all(&commands).unwrap();
+        fs::write(commands.join("deploy.md"), COMMAND_DEPLOY).unwrap();
+    }
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(
+        outcome.scaffolded, 2,
+        "two same-stemmed commands, two members"
+    );
+
+    // `:` is reserved in a Windows file name, so the module is named with `-`; the member
+    // keeps the `:`-joined path name `check` reads it under.
+    for (stem, name) in [
+        ("frontend-deploy", "frontend:deploy"),
+        ("backend-deploy", "backend:deploy"),
+    ] {
+        let module = fs::read_to_string(temper_dir.join("command").join(format!("{stem}.ts")))
+            .unwrap_or_else(|err| panic!("the `{name}` command scaffolds as `{stem}.ts`: {err}"));
+        assert!(
+            module.contains(&format!("name: \"{name}\"")),
+            "the module names the member by its path, got:\n{module}"
+        );
+    }
+    // The first emit places each back at its own nested path, never a flat `deploy.md`.
+    assert!(!root.join(".claude/commands/deploy.md").exists());
+    for dir in ["frontend", "backend"] {
+        assert!(
+            root.join(".claude/commands")
+                .join(dir)
+                .join("deploy.md")
+                .is_file()
+        );
+    }
+}
+
 /// A skill whose body is a document — well past the SDK's three-line inline
 /// threshold (`sdk/src/prose.ts`) — the lift's other prose placement: a
 /// module-adjacent file, never a `file()` back-reference to the original

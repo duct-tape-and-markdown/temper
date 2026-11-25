@@ -623,7 +623,7 @@ mod tests {
             command.governs,
             Some(Governs {
                 root: ".claude/commands".to_string(),
-                glob: "*.md".to_string(),
+                glob: "**/*.md".to_string(),
             })
         );
         // The skill's field schema, reused verbatim — command is a second placement of
@@ -633,9 +633,9 @@ mod tests {
             definition("skill").unwrap().extraction.primitives()
         );
         assert_eq!(command.relationships, Vec::<Edge>::new());
-        // File-shaped, like `rule` — identity is the filename stem, no `name` field
-        // required for identity.
-        assert_eq!(command.unit_shape, Some(crate::kind::UnitShape::File));
+        // Path-shaped — identity is the path under `commands/`, each `/` a `:`
+        // (`frontend:component`), no `name` field required for identity.
+        assert_eq!(command.unit_shape, Some(crate::kind::UnitShape::Path));
         // Registers on both documented invocation channels, exactly like `skill`.
         assert_eq!(
             command.registration,

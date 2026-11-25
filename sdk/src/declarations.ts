@@ -262,7 +262,7 @@ function edgeBoundArgs(
 }
 
 /**
- * The lock label for a kind's declared unit shape: `file`/`directory`/`starred-segment`
+ * The lock label for a kind's declared unit shape: `file`/`directory`/`starred-segment`/`path`
  * verbatim, or `named-field(<identityField>)` for the field-sourced mode — the same
  * `<name>(<field>)` call syntax [`registrationLabel`] uses, so the id source round-trips
  * through the row rather than degrading to a bare, unreconstructable `"named-field"`.

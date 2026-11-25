@@ -33,9 +33,12 @@ export type Format = "yaml-frontmatter" | "json-document" | "toml-document";
  * agent's `name`) — on whichever surface the kind's `format` carries its fields — or a
  * lone file keyed by the directory segment its single-`*` segment glob stars
  * (`"starred-segment"`), coexisting inside another kind's directory rather than owning
- * one. The identity source is this spelled fact, never inferred from the glob.
+ * one — or a lone file named by its whole path under the locus, each `/` a `:` and the
+ * extension dropped (`"path"`: a command's `frontend/component.md` is
+ * `frontend:component`). The identity source is this spelled fact, never inferred from
+ * the glob.
  */
-export type UnitShape = "file" | "directory" | "named-field" | "starred-segment";
+export type UnitShape = "file" | "directory" | "named-field" | "starred-segment" | "path";
 
 /**
  * One **channel** a kind's registration declares — a documented way a member

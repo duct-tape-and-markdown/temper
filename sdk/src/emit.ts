@@ -195,7 +195,8 @@ function spliceName(
  * names that entry file and the member's own name is the directory: the leading segment
  * drops and `<name>/` takes its place, which is what makes `*\/SKILL.md` and a template's
  * `*\/PAGE.md` land the same shape. Every other shape places its name through the one
- * splice rule ({@link spliceName}), a starred-segment kind's `*\/<file>` included.
+ * splice rule ({@link spliceName}), a starred-segment kind's `*\/<file>` included; a
+ * path-shaped kind first turns each `:` of its name back into the `/` its placement spelled.
  *
  * # Throws
  * Whatever {@link spliceName} throws when the pattern maps the name onto no one path.
@@ -204,6 +205,12 @@ function placementInUnit(facts: KindFacts, pattern: string, name: string): strin
   if (facts.unitShape === "directory") {
     const slash = pattern.indexOf("/");
     return joinSlash(name, slash < 0 ? pattern : pattern.slice(slash + 1));
+  }
+  if (facts.unitShape === "path") {
+    // A path-shaped name *is* its placement, each `:` a directory separator — the inverse
+    // of the `:` join the read side names it by, so `frontend:component` through
+    // `**\/*.md` lands `frontend/component.md`.
+    return spliceName(facts.name, pattern, name.replaceAll(":", "/"), false);
   }
   return spliceName(facts.name, pattern, name, facts.unitShape === "starred-segment");
 }

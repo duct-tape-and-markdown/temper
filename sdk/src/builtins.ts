@@ -204,21 +204,24 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
 });
 
 /**
- * `command` — `.claude/commands/*.md`, the skill surface's legacy file placement
+ * `command` — `.claude/commands/**\/*.md`, the skill surface's legacy file placement
  * (Claude Code merged commands into skills; code.claude.com/docs/en/skills,
- * retrieved 2026-07-15): a lone file (identity from the stem, so no
- * `identityField` — like `rule`), the skill's field schema by import, registering
- * on the same two documented invocation channels as `skill`.
+ * retrieved 2026-07-15): a lone file named by its path under `commands/`, each `/` a
+ * `:` (`unitShape: "path"`, so no `identityField` — like `rule`), the skill's field
+ * schema by import, registering on the same two documented invocation channels as
+ * `skill`.
  *
  * The locus is the documented placement: "a Markdown file in `.claude/commands/` is the
  * older format and still works" (code.claude.com/docs/en/skills, "Choose where skills
- * load", retrieved 2026-11-24).
+ * load", retrieved 2026-11-24), and a subdirectory names the command —
+ * `.claude/commands/frontend/component.md` is `/frontend:component`
+ * (code.claude.com/docs/en/skills, retrieved 2026-11-25).
  */
 export const command: KindDefinition<Skill> = kind<Skill>({
   name: "command",
-  locus: { kind: "at", root: ".claude/commands", glob: "*.md" },
+  locus: { kind: "at", root: ".claude/commands", glob: "**/*.md" },
   format: "yaml-frontmatter",
-  unitShape: "file",
+  unitShape: "path",
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
 });
 

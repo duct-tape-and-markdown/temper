@@ -44,7 +44,7 @@ import * as sdk from "../src/index.js";
 import type { LeafSet, ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
 import { loadedLocalModules } from "../src/emit.js";
-import { agent, hook, mcpServer, memory, rule, settings, skill } from "../src/claude-code.js";
+import { agent, command, hook, mcpServer, memory, rule, settings, skill } from "../src/claude-code.js";
 import { clauseRow } from "./common.js";
 
 function projectedHarness() {
@@ -1607,6 +1607,46 @@ test("an embedded format spells an edge target off the derived facts — name, a
     result.members.find((m) => m.name === "coordinate")!.body,
     "See [rust](../../rules/rust.md) — the rule at `rule:rust`.\n",
   );
+});
+
+test("a nested command's `:`-joined name places back at its path under commands/", () => {
+  // A command is named by its path under `commands/`, each `/` a `:` — so the placement
+  // splits the name back into the directories it came from, and the link a citing member
+  // renders lands on the file `check` reads as `command:frontend:component`.
+  const citation = kind<object>(
+    {
+      name: "command-citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      edgeFields: [{ field: "source", to: ["command"] }],
+    },
+    { render: (value) => `See [${value.targets.source.name}](${value.targets.source.path}).` },
+  );
+  const h = harness({
+    members: [
+      command({ name: "frontend:component", description: "Use when scaffolding a component.", prose: text`# Component` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: citation,
+            key: "the-command",
+            leaves: { source: "command:frontend:component" },
+          }),
+        ),
+      }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+
+  const result = emit(h);
+  assert.equal(
+    result.members.find((m) => m.name === "CLAUDE")!.body,
+    "See [frontend:component](.claude/commands/frontend/component.md).\n",
+  );
+  const row = result.declarations.kinds.find((k) => k.name === "command")!;
+  assert.equal(row.governs_glob, "**/*.md");
+  assert.equal(row.unit_shape, "path");
 });
 
 test("a one-element `to` set resolves a bare leaf address within its one kind, identical to the kind-qualified form", () => {

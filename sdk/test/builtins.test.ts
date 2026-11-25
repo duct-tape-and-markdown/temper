@@ -137,9 +137,16 @@ test("commandDefaultContract is empty — command frontmatter is entirely option
   // A command is a lone markdown file whose frontmatter is entirely optional. All
   // command frontmatter is optional (code.claude.com/docs/en/slash-commands, retrieved
   // 2026-07-22), so the command kind requires no field — the forgiving legacy
-  // placement. Identity comes from the file stem (like `rule`, not from a `name`
-  // field), and any fields present are extracted as context; nothing gates the check.
+  // placement. Identity comes from the file's path (not from a `name` field), and any
+  // fields present are extracted as context; nothing gates the check.
   assert.deepEqual(commandDefaultContract, []);
+});
+
+test("command claims every markdown file under .claude/commands, named by its path", () => {
+  // A command in a subdirectory is named by its path under `commands/`, each `/` a `:`
+  // (code.claude.com/docs/en/skills, retrieved 2026-11-25) — the `path` unit shape over an
+  // any-depth glob, never the stem-only `file` shape.
+  assert.deepEqual(command.facts.locus, { kind: "at", root: ".claude/commands", glob: "**/*.md" });
 });
 
 test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {
@@ -1058,8 +1065,8 @@ test("the residue channel is opt-in by type — a closed-frontmatter kind still 
   assert.deepEqual(closed.fields, [["anything", true]]);
 });
 
-test("command is a file-shaped unit with no identityField, unlike the directory-shaped skill", () => {
-  assert.equal(command.facts.unitShape, "file");
+test("command is a path-shaped unit with no identityField, unlike the directory-shaped skill", () => {
+  assert.equal(command.facts.unitShape, "path");
   assert.equal(command.facts.identityField, undefined);
   assert.equal(skill.facts.unitShape, "directory");
   assert.equal(skill.facts.identityField, "name");

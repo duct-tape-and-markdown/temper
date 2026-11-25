@@ -908,6 +908,7 @@ pub(crate) fn unit_shape_id<'v>(
             .and_then(JsonValue::as_str)
             .map(str::to_string)
             .ok_or_else(|| fault(AbsentId::NamedField(field.clone()))),
+        Some(UnitShape::Path) => joined_placement_id(base, source_file, ":"),
         // `file` shape, or an undeclared shape defaulting to a lone file.
         Some(UnitShape::File) | None => fold_file_id(base, source_file),
     }
@@ -937,6 +938,18 @@ pub(crate) fn unit_shape_id<'v>(
 /// stem, or a placement component that is not valid UTF-8 — the same failure a bare stem
 /// raises.
 pub(crate) fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, UnitIdFault> {
+    joined_placement_id(base, source_file, "-")
+}
+
+/// A lone file's placement below `base` and its stem, joined with `separator` — the one
+/// walk both path-derived lone-file shapes share: `file` folds with `-`
+/// ([`fold_file_id`]), `path` names with `:` (a command's `frontend:component`). A source
+/// directly under `base`, or not under it at all, keeps its bare stem.
+fn joined_placement_id(
+    base: &Path,
+    source_file: &Path,
+    separator: &str,
+) -> Result<String, UnitIdFault> {
     let no_id = || UnitIdFault {
         path: source_file.to_path_buf(),
         absent: AbsentId::FileStem,
@@ -967,7 +980,7 @@ pub(crate) fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, Un
         parts.push(part);
     }
     parts.push(stem);
-    Ok(parts.join("-"))
+    Ok(parts.join(separator))
 }
 
 /// Extract the `at-import` directive occurrences (`@path/to/file`) from a
@@ -1186,6 +1199,20 @@ mod tests {
                 .absent,
             AbsentId::NamedField("priority".to_string())
         );
+    }
+
+    #[test]
+    fn a_path_shaped_unit_is_named_by_its_path_under_the_base_joined_with_colons() {
+        let base = Path::new("/scan");
+        let nothing = |_: &str| None;
+        let id = |source: &str| {
+            unit_shape_id(Some(&UnitShape::Path), Path::new(source), base, nothing).unwrap()
+        };
+
+        assert_eq!(id("/scan/deploy.md"), "deploy");
+        assert_eq!(id("/scan/frontend/component.md"), "frontend:component");
+        assert_eq!(id("/scan/a/b/c.md"), "a:b:c");
+        assert_eq!(id("/elsewhere/deploy.md"), "deploy");
     }
 
     #[test]

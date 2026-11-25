@@ -376,8 +376,9 @@ impl Format {
 /// A kind's declared **unit shape** — the format fact that varies per kind:
 /// whether a member's on-disk artifact is a lone file, its
 /// identity the filename stem; a directory with companions, its identity the
-/// directory name; or a lone file whose identity is read from a declared field
-/// rather than derived from the path. A closed enum; any other
+/// directory name; a lone file whose identity is read from a declared field
+/// rather than derived from the path; or a lone file named by its whole path under the
+/// locus. A closed enum; any other
 /// value is a load error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnitShape {
@@ -402,6 +403,14 @@ pub enum UnitShape {
     /// only, so it coexists inside another kind's directory (a `conventions.md` sitting in a
     /// skill's directory, which `skill` owns).
     StarredSegment,
+    /// `path` — a lone file whose id is its whole path under the fold base, each directory
+    /// separator spelled `:` and the extension dropped (a command's
+    /// `.claude/commands/frontend/component.md` is `frontend:component`; `builtins.md`,
+    /// "The shipped kinds"). Distinct from [`File`](UnitShape::File): that shape folds a
+    /// wildcard-spanned placement with `-` so nested nearest-wins files stay apart, whereas
+    /// here the `:`-joined path *is* the documented name, and splits back into the placement
+    /// on the way out.
+    Path,
 }
 
 /// A kind's declared registration — one **channel** among the inbound boundary edges
@@ -950,6 +959,7 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
         "file" => return Some(UnitShape::File),
         "directory" => return Some(UnitShape::Directory),
         "starred-segment" => return Some(UnitShape::StarredSegment),
+        "path" => return Some(UnitShape::Path),
         _ => {}
     }
     let (name, field) = call_label(label)?;

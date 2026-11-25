@@ -38,8 +38,9 @@ use crate::common;
 
 /// A harness whose embedded `waypoint` format renders one link per edge field, each
 /// spelled off the derived target facts alone (`value.targets`), and whose targets cover
-/// every unit shape a member can project at: `skill` (a directory unit), `rule` and
-/// `command` (a single-segment single-`*` flat glob), `agent` and `memory` (an any-depth
+/// every unit shape a member can project at: `skill` (a directory unit), `rule` (a
+/// single-segment single-`*` flat glob), `command` (a path-shaped name under an any-depth
+/// glob, its `:` placed back as `/`), `agent` and `memory` (an any-depth
 /// `**\/` prefix, which collapses to zero segments before the splice — `agent`'s
 /// `.claude/agents/**\/*.md` takes the name in its leaf, `memory`'s `**\/CLAUDE.md`
 /// carries no `*` and is wholly fixed), `note-doc` (a literal leading segment, fixed
@@ -141,7 +142,7 @@ const program = harness({
             to_skill: "skill:coordinate",
             to_rule: "rule:rust",
             to_agent: "agent:explore",
-            to_command: "command:review",
+            to_command: "command:frontend:review",
             to_memory: "memory:CLAUDE",
             to_doc: "supporting-doc:checklist",
             to_deep_doc: "guide:operate-the-gate/section/closing/supporting-doc/appendix",
@@ -164,7 +165,7 @@ const program = harness({
     noteDoc({ name: "cadence", prose: text`# Cadence` }),
     rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
     agent({ name: "explore", description: "Use when a broad read-only sweep is the task.", prose: text`# Explore` }),
-    command({ name: "review", description: "Use when reviewing the working diff.", prose: text`# Review` }),
+    command({ name: "frontend:review", description: "Use when reviewing the working diff.", prose: text`# Review` }),
     memory({ name: "CLAUDE", prose: text`# Memory` }),
   ],
   admit: [{ host: skill, admits: [waypoint] }],
@@ -179,7 +180,7 @@ const EDGES: &[(&str, &str, &str)] = &[
     ("to_skill", "skill", "coordinate"),
     ("to_rule", "rule", "rust"),
     ("to_agent", "agent", "explore"),
-    ("to_command", "command", "review"),
+    ("to_command", "command", "frontend:review"),
     ("to_memory", "memory", "CLAUDE"),
     ("to_doc", "supporting-doc", "checklist"),
     ("to_deep_doc", "supporting-doc", "appendix"),
@@ -202,7 +203,7 @@ const GOVERNED: &[(&str, &str, &str, &str)] = &[
     ("skill", "coordinate", ".claude/skills", "*/SKILL.md"),
     ("rule", "rust", ".claude/rules", "*.md"),
     ("agent", "explore", ".claude/agents", "**/*.md"),
-    ("command", "review", ".claude/commands", "*.md"),
+    ("command", "frontend:review", ".claude/commands", "**/*.md"),
     ("memory", "CLAUDE", ".", "**/CLAUDE.md"),
     ("guide", "operate-the-gate", ".claude/guides", "*/GUIDE.md"),
     (

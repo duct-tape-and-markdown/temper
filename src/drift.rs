@@ -1318,7 +1318,8 @@ fn host_grain(address: &str) -> Option<(&str, &str, Option<&str>)> {
 /// segment is dropped and `<name>/` put in its place, which is what makes `*/SKILL.md`
 /// and a template's `*/PAGE.md` land the same shape. Every other shape places its name
 /// through the one splice rule ([`splice_name`]), a starred-segment kind's `*/<file>`
-/// included.
+/// included; a path-shaped kind first turns each `:` of its name back into the `/` its
+/// placement spelled.
 ///
 /// # Errors
 /// Propagates [`DriftError::FlatGlobDepth`] from the splice.
@@ -1326,6 +1327,13 @@ fn placement_in_unit(facts: &KindFactRow, pattern: &str, name: &str) -> Result<S
     if facts.unit_shape.as_deref() == Some("directory") {
         let entry = pattern.split_once('/').map_or(pattern, |(_, rest)| rest);
         return Ok(format!("{name}/{entry}"));
+    }
+    if facts.unit_shape.as_deref() == Some("path") {
+        // A path-shaped name *is* its placement, each `:` a directory separator — the
+        // inverse of the `:` join the read side names it by
+        // ([`crate::extract::unit_shape_id`]). The splice lands the rejoined path in the
+        // leaf's `*`, so `frontend:component` through `**/*.md` is `frontend/component.md`.
+        return splice_name(&facts.name, pattern, &name.replace(':', "/"), false);
     }
     let starred_segment = facts.unit_shape.as_deref() == Some("starred-segment");
     splice_name(&facts.name, pattern, name, starred_segment)
@@ -7238,6 +7246,29 @@ mod tests {
         assert_eq!(
             entry.member.leaves.get("because").map(String::as_str),
             Some("a stamping projector breaks law 5")
+        );
+    }
+
+    #[test]
+    fn a_path_shaped_member_places_each_colon_of_its_name_as_a_directory() {
+        let row = KindFactRow {
+            governs_root: Some(".claude/commands".to_string()),
+            governs_glob: Some("**/*.md".to_string()),
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("path".to_string()),
+            ..crate::test_support::kind_fact_row("command")
+        };
+        let facts = BTreeMap::new();
+        let place = |name: &str| {
+            crate::path::normalize_path(&member_projection_path(&row, name, None, &facts).unwrap())
+                .to_string_lossy()
+                .into_owned()
+        };
+
+        assert_eq!(place("deploy"), ".claude/commands/deploy.md");
+        assert_eq!(
+            place("frontend:component"),
+            ".claude/commands/frontend/component.md"
         );
     }
 

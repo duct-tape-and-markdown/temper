@@ -62,6 +62,7 @@ fn parse(
         Some(UnitShape::File)
         | Some(UnitShape::Directory)
         | Some(UnitShape::StarredSegment)
+        | Some(UnitShape::Path)
         | None => {
             return Err(TomlDocumentError::NoDeclaredIdentity {
                 path: source_file.to_path_buf(),

@@ -912,7 +912,7 @@ fn run_represented(
     let scaffolded = if already_scaffolded {
         0
     } else {
-        scaffold(&temper_dir, discovery, dry_run)?
+        scaffold(root, &temper_dir, discovery, dry_run)?
     };
 
     // A fresh (never-scaffolded) `--dry-run` preview has no `harness.ts` on disk to
@@ -2720,6 +2720,25 @@ struct LiftedMember {
     body: Option<String>,
 }
 
+/// The base a discovered artifact's id is derived against for the lift.
+///
+/// A `path`-shaped kind (a command) is *named* by its placement under the locus
+/// (`frontend:component`), so its id folds against the same base `check` derives it
+/// against ([`crate::drift::fold_base`] over the kind's `governs`) — a base-less read would
+/// lift the bare stem, and the scaffolded member would emit back flat, away from the
+/// file it came from. Every other shape reads the artifact in isolation, against its
+/// own parent: a file-shaped member keeps its bare stem, the base
+/// `frontmatter::Member::from_source` supplies for exactly this case.
+fn lift_base(root: &Path, kind: &CustomKind, file: &Path) -> PathBuf {
+    match (&kind.unit_shape, &kind.governs) {
+        (Some(kind::UnitShape::Path), Some(governs)) => crate::drift::fold_base(
+            &crate::path::normalize_path(&root.join(&governs.root)),
+            &governs.glob,
+        ),
+        _ => file.parent().unwrap_or(file).to_path_buf(),
+    }
+}
+
 /// Read one discovered artifact under the format its kind declares — a `json-document` or
 /// `toml-document` kind's whole artifact through that grammar's adapter, every other file
 /// kind through the frontmatter adapter. Reading a JSON document as frontmatter instead
@@ -2729,12 +2748,7 @@ struct LiftedMember {
 /// # Errors
 /// Returns a [`miette::Report`] if the source cannot be read or does not parse under its
 /// declared format.
-fn read_lifted_member(kind: &CustomKind, file: &Path) -> miette::Result<LiftedMember> {
-    // The lift holds no `governs` root to fold against — it reads one discovered artifact in
-    // isolation — so all three arms stay base-less together: each passes the source's own
-    // parent, the base `frontmatter::Member::from_source` supplies for exactly this case, and
-    // a file-shaped member keeps its bare stem.
-    let base = file.parent().unwrap_or(file);
+fn read_lifted_member(kind: &CustomKind, file: &Path, base: &Path) -> miette::Result<LiftedMember> {
     match kind.format {
         Some(kind::Format::JsonDocument) => {
             let document = json_manifest::DocumentMember::read(kind, file, base)?;
@@ -2753,7 +2767,7 @@ fn read_lifted_member(kind: &CustomKind, file: &Path) -> miette::Result<LiftedMe
             })
         }
         Some(kind::Format::YamlFrontmatter) | None => {
-            let member = frontmatter::Member::from_source(kind, file)?;
+            let member = frontmatter::Member::from_source_rooted(kind, file, base)?;
             Ok(LiftedMember {
                 id: member.id,
                 fields: member.fields,
@@ -2890,7 +2904,8 @@ fn is_reserved_device_name(head: &str) -> bool {
 ///
 /// # Errors
 /// Returns [`InstallError::MemberFileName`] for an id that is not a portable file name
-/// ([`is_portable_file_stem`]). A registration key is read off a manifest — the one id the
+/// ([`is_portable_file_stem`]) once each `:` a path-shaped id spells its placement with
+/// is a `-`. A registration key is read off a manifest — the one id the
 /// lift does not get from the filesystem — so a key carrying a path separator would seat
 /// the module somewhere other than that directory, or outside `.temper/` entirely.
 fn module_stems(
@@ -2910,18 +2925,23 @@ fn module_stems(
         // cannot is the same defect as one unwritable here. An ordinal suffix appends
         // `-<digit>` — no reserved character, no trailing dot or space, and no device
         // name — so clearing the id clears every stem derived from it.
-        if !is_portable_file_stem(&member.id) {
+        //
+        // A path-shaped id spells its placement with `:` (a command's
+        // `frontend:component`), a character Windows reserves; the module is named by that
+        // placement with `-` in its place, the `name` property still carrying the id.
+        let base_stem = member.id.replace(':', "-");
+        if !is_portable_file_stem(&base_stem) {
             return Err(InstallError::MemberFileName {
                 kind: kind.clone(),
                 id: member.id.clone(),
                 dir,
             });
         }
-        let mut stem = member.id.clone();
+        let mut stem = base_stem.clone();
         let mut ordinal = 1usize;
         while !taken.insert((module_dir.clone(), stem.clone())) {
             ordinal += 1;
-            stem = format!("{}-{ordinal}", member.id);
+            stem = format!("{base_stem}-{ordinal}");
         }
         stems.push(stem);
     }
@@ -2944,6 +2964,7 @@ fn module_stems(
 /// Returns a [`miette::Report`] if a member's source cannot be parsed, an id cannot name
 /// a module file ([`module_stems`]), or a scaffold file cannot be written.
 fn scaffold(
+    root: &Path,
     temper_dir: &Path,
     discovery: &DiscoveryReport,
     dry_run: bool,
@@ -2971,7 +2992,7 @@ fn scaffold(
                     continue;
                 }
                 for file in files {
-                    let mut member = read_lifted_member(kind, file)?;
+                    let mut member = read_lifted_member(kind, file, &lift_base(root, kind, file))?;
                     if let Some(claimed) = claimed.get(file.as_path()) {
                         member
                             .fields
@@ -3080,7 +3101,8 @@ fn hoist_settings_residue(root: &Path, temper_dir: &Path, keys: &[String]) -> mi
         path: temper_dir.join(HARNESS_ENTRY),
         detail: "the built-in `settings` kind is not in play".to_string(),
     })?;
-    let mut member = read_lifted_member(kind, &settings_path(root))?;
+    let settings = settings_path(root);
+    let mut member = read_lifted_member(kind, &settings, settings.parent().unwrap_or(root))?;
     member.fields.retain(|(key, _)| keys.contains(key));
 
     let dir = temper_dir.join(member_dir(KIND));

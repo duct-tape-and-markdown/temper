@@ -103,9 +103,9 @@ registration = ["description-trigger(description)"]
 [[declaration.kind]]
 name = "command"
 governs_root = ".claude/commands"
-governs_glob = "*.md"
+governs_glob = "**/*.md"
 format = "yaml-frontmatter"
-unit_shape = "file"
+unit_shape = "path"
 registration = ["user-invoked", "description-trigger(description)"]
 
 [[declaration.kind]]

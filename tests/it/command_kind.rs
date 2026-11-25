@@ -1,8 +1,9 @@
 //! The `command` built-in kind: the skill surface's legacy file placement
 //! (`specs/builtins.md`, "The shipped kinds").
 //!
-//! Discovery folds a lone `.claude/commands/*.md` file into a `command` member with
-//! file-stem identity (like `rule` — no `name` field required for identity) and no
+//! Discovery folds a lone `.claude/commands/**/*.md` file into a `command` member named
+//! by its path under `commands/`, each `/` a `:` (no `name` field required for identity),
+//! and no
 //! required frontmatter fields — all command frontmatter is optional: both
 //! invocation channels, and any fields the frontmatter carries are extracted as
 //! context. Driven at the crate-public API a real `import`/`check` read takes —
@@ -31,14 +32,88 @@ description: Deploy the application to production.\n\
 \n\
 Run the release pipeline.\n";
 
-/// Write a command member at `<root>/.claude/commands/<stem>.md` — the real Claude
-/// Code locus (`.claude/commands/*.md`), never a layout invented for the test.
-fn write_command(root: &std::path::Path, stem: &str, body: &str) -> PathBuf {
-    let dir = root.join(".claude").join("commands");
-    fs::create_dir_all(&dir).unwrap();
-    let path = dir.join(format!("{stem}.md"));
+/// Write a command member at `<root>/.claude/commands/<relative>.md` — the real Claude
+/// Code locus (`.claude/commands/**/*.md`), never a layout invented for the test.
+/// `relative` may carry subdirectories (`frontend/component`).
+fn write_command(root: &std::path::Path, relative: &str, body: &str) -> PathBuf {
+    let path = root
+        .join(".claude")
+        .join("commands")
+        .join(format!("{relative}.md"));
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(&path, body).unwrap();
     path
+}
+
+/// Discover the command files under `harness` and name each one as `check` reads it:
+/// rooted at the locus the command glob folds against.
+fn command_members(harness: &std::path::Path) -> Vec<(PathBuf, String)> {
+    let command_kind = builtin_kind::definition("command").expect("command is embedded");
+    let governs = command_kind.governs.clone().unwrap();
+    let disc = import::Discovery::new(harness);
+    let base = temper::drift::fold_base(&harness.join(&governs.root), &governs.glob);
+    import::discover_kind_files(
+        &disc,
+        &command_kind,
+        &governs,
+        import::LocalOverride::Honored,
+    )
+    .into_iter()
+    .map(|file| {
+        let id = Member::from_source_rooted(&command_kind, &file, &base)
+            .unwrap()
+            .id;
+        (file, id)
+    })
+    .collect()
+}
+
+#[test]
+fn a_command_in_a_subdirectory_of_the_commands_folder_is_a_member() {
+    let harness = common::tmpdir("nested-member");
+    write_command(&harness, "deploy", DEPLOY_COMMAND);
+    write_command(&harness, "frontend/component", DEPLOY_COMMAND);
+
+    let files: Vec<PathBuf> = command_members(&harness)
+        .into_iter()
+        .map(|(file, _)| file)
+        .collect();
+    assert_eq!(
+        files,
+        vec![
+            harness.join(".claude/commands/deploy.md"),
+            harness.join(".claude/commands/frontend/component.md"),
+        ]
+    );
+}
+
+#[test]
+fn a_nested_commands_identity_is_its_path_under_commands_joined_with_colons() {
+    let harness = common::tmpdir("nested-identity");
+    write_command(&harness, "frontend/component", DEPLOY_COMMAND);
+    write_command(&harness, "a/b/c", DEPLOY_COMMAND);
+
+    let ids: Vec<String> = command_members(&harness)
+        .into_iter()
+        .map(|(_, id)| id)
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["a:b:c".to_string(), "frontend:component".to_string()]
+    );
+}
+
+#[test]
+fn two_same_named_commands_in_different_subdirectories_are_two_members() {
+    let harness = common::tmpdir("nested-same-name");
+    write_command(&harness, "frontend/x", DEPLOY_COMMAND);
+    write_command(&harness, "backend/x", DEPLOY_COMMAND);
+
+    let ids: Vec<String> = command_members(&harness)
+        .into_iter()
+        .map(|(_, id)| id)
+        .collect();
+    assert_eq!(ids, vec!["backend:x".to_string(), "frontend:x".to_string()]);
 }
 
 #[test]
