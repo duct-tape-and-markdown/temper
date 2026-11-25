@@ -1,10 +1,7 @@
 {
   "tag": "BUNDLE-EMBEDS-THE-HARNESS-REFERENCE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "REFERENCE-RENDERS-KIND-TOPICS"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
