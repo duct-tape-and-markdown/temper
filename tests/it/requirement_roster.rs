@@ -527,6 +527,32 @@ fn a_telemetry_verifier_naming_a_documented_event_is_admissible() {
 }
 
 #[test]
+fn a_lock_declaring_a_review_verifier_checks_clean() {
+    let root = common::tmpdir("admit-review-ok");
+    // A review names its reader in prose — carried, never judged — so the gate has
+    // nothing to resolve and the run is clean. It reaches the engine off the lock row.
+    common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
+    common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
+    common::write_requirements(
+        &root,
+        vec![RequirementRow {
+            required: true,
+            verifier: Some(Verifier::Review {
+                prose: "a reviewer at the diff confirms the plan names its tasks".to_string(),
+            }),
+            ..common::requirement("planner", false, Some("skill"))
+        }],
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a review verifier is admissible as declared ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
 fn a_telemetry_verifier_naming_an_undocumented_event_is_inadmissible() {
     let root = common::tmpdir("admit-telemetry-bad");
     // Coverage is clean; the sole fault is a telemetry verifier naming an event no

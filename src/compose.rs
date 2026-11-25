@@ -122,8 +122,8 @@ pub struct Edge {
 }
 
 /// A requirement's **typed verifier** — the declared delegate that judges the
-/// behavioral remainder, resolved at admissibility and never run. Two species this
-/// slice; a probe stays a documented pattern until a consumer types its transcript
+/// behavioral remainder, resolved at admissibility and never run. Three species; a
+/// probe stays a documented pattern until a consumer types its transcript
 /// surface. One shared shape: [`crate::drift::RequirementRow`] carries it on the
 /// wire and [`crate::roster`] resolves over it.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, ts_rs::TS)]
@@ -140,6 +140,13 @@ pub enum Verifier {
     Telemetry {
         /// The harness lifecycle event names this verifier reads the tap for.
         events: Vec<String>,
+    },
+    /// The reader whose judgment holds the requirement, named in prose — the author as
+    /// it writes, a reviewer at the diff. Carried verbatim, never interpreted: nothing
+    /// resolves beyond its presence, so it is admissible as declared.
+    Review {
+        /// Who reviews, and at what point — the authored statement of the judge.
+        prose: String,
     },
 }
 

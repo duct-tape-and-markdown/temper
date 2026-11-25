@@ -28,6 +28,7 @@ import {
   reachedFrom,
   required,
   requireSections,
+  review,
   rootDefaultContract,
   script,
   sectionContains,
@@ -415,6 +416,17 @@ test("the telemetry constructor composes an event-tagged verifier and lowers its
     species: "telemetry",
     events: ["SkillInvoked", "ToolUse"],
   });
+});
+
+test("the review constructor composes a prose-tagged verifier and lowers it verbatim", () => {
+  const prose = "a reviewer at the diff confirms the front door names its skill";
+  assert.deepEqual(review(prose), { species: "review", prose });
+  assert.deepEqual(verifierRowOf(review(prose)), { species: "review", prose });
+});
+
+test("a review naming no reader refuses at the keystroke", () => {
+  assert.throws(() => review(""), /review: `prose` is blank/);
+  assert.throws(() => review("  \n\t"), /review: `prose` is blank/);
 });
 
 test("a requirement with no verifier lowers to an absent verifier column", () => {

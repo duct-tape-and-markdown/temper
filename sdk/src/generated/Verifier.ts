@@ -2,8 +2,8 @@
 
 /**
  * A requirement's **typed verifier** — the declared delegate that judges the
- * behavioral remainder, resolved at admissibility and never run. Two species this
- * slice; a probe stays a documented pattern until a consumer types its transcript
+ * behavioral remainder, resolved at admissibility and never run. Three species; a
+ * probe stays a documented pattern until a consumer types its transcript
  * surface. One shared shape: [`crate::drift::RequirementRow`] carries it on the
  * wire and [`crate::roster`] resolves over it.
  */
@@ -15,4 +15,8 @@ path: string, } | { "species": "telemetry",
 /**
  * The harness lifecycle event names this verifier reads the tap for.
  */
-events: Array<string>, };
+events: Array<string>, } | { "species": "review", 
+/**
+ * Who reviews, and at what point — the authored statement of the judge.
+ */
+prose: string, };

@@ -433,8 +433,9 @@ export function clause(
 /**
  * A requirement's **typed verifier** — the declared delegate that judges the
  * behavioral remainder, a species-tagged union the gate resolves at admissibility
- * and never runs. Two species this slice: a `script` (path-resolved) and a
- * `telemetry` declaration (named documented harness events). A probe stays a
+ * and never runs. Three species: a `script` (path-resolved), a `telemetry`
+ * declaration (named documented harness events), and a `review` (the reader whose
+ * judgment holds it, named in prose). A probe stays a
  * documented pattern until a consumer types it — no `probe()` constructor is minted.
  */
 export type Verifier =
@@ -445,7 +446,8 @@ export type Verifier =
       /** The temper binary the declaration's tap hooks run — absent for `temper` on the
        * PATH ({@link telemetry}). */
       readonly binary?: string;
-    };
+    }
+  | { readonly species: "review"; readonly prose: string };
 
 /** What a {@link telemetry} declaration states beyond its events. */
 export interface TelemetryInit {
@@ -487,6 +489,24 @@ export function telemetry(events: readonly string[], init: TelemetryInit = {}): 
   return init.binary === undefined
     ? { species: "telemetry", events }
     : { species: "telemetry", events, binary: init.binary };
+}
+
+/**
+ * A review verifier — the reader whose judgment holds the requirement, named in prose:
+ * the author as it writes, a reviewer at the diff. The gate carries the prose verbatim
+ * and never judges it.
+ *
+ * # Throws
+ * If `prose` is blank — a review naming no reader holds nothing.
+ */
+export function review(prose: string): Verifier {
+  if (prose.trim() === "") {
+    throw new Error(
+      "review: `prose` is blank — name the reader whose judgment holds the requirement " +
+        "(the author as it writes, a reviewer at the diff).",
+    );
+  }
+  return { species: "review", prose };
 }
 
 /**

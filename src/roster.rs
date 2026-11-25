@@ -95,7 +95,8 @@ pub fn selections<'a>(
 ///   itself is kind-blind now: any opt-in artifact, of any modeled kind, satisfies
 ///   coverage; naming an unmodeled kind only ever breaks the *narrowing* clause).
 /// - **(b)** a `verifier` resolves: a script's path exists relative to `base_dir`,
-///   and a telemetry verifier's every event names a documented harness event.
+///   and a telemetry verifier's every event names a documented harness event; a
+///   review names its reader in prose and has nothing to resolve.
 /// - **(c)** every clause in [`clauses`](Requirement::clauses) is itself well-formed —
 ///   reusing [`crate::engine::inadmissibilities`], the same rules a kind's own floor
 ///   clauses are checked against (an inverted `count`/`degree` bound, an empty
@@ -154,7 +155,9 @@ pub fn admissibility(
                     }
                 }
             }
-            Some(Verifier::Script { .. }) | None => {}
+            // A review names its reader in prose — carried, never judged, so there is
+            // nothing to resolve.
+            Some(Verifier::Script { .. } | Verifier::Review { .. }) | None => {}
         }
 
         // (c) Every clause's own predicate must be well-formed.

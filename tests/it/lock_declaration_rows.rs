@@ -420,6 +420,32 @@ fn a_requirements_prose_round_trips_the_lock_row_verbatim() {
     );
 }
 
+/// A review verifier's prose — the reader whose judgment holds the requirement —
+/// round-trips its species sub-table verbatim.
+#[test]
+fn a_review_verifier_round_trips_through_the_lock() {
+    let mut declarations = rich_declarations();
+    let verifier = compose::Verifier::Review {
+        prose: "the author as it writes; a reviewer at the diff".to_string(),
+    };
+    declarations.requirements[0].verifier = Some(verifier.clone());
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("review-verifier", &payload);
+
+    let lock = fs::read_to_string(into.join(temper::LOCK_FILENAME)).unwrap();
+    assert!(
+        lock.contains(r#"species = "review""#),
+        "the lock row tags the review species, got:\n{lock}"
+    );
+    let read_back = drift::read_declarations(&into).unwrap();
+    let requirement = read_back
+        .requirements
+        .iter()
+        .find(|r| r.name == "review-coverage")
+        .expect("the requirement is recorded");
+    assert_eq!(requirement.verifier.as_ref(), Some(&verifier));
+}
+
 /// The other half of the pipe: a lock-declared requirement's `prose` reaches the
 /// running engine's own composed [`compose::Requirement`] and out through `explain`'s
 /// narration verbatim — the persistence gap this entry closes (`main.rs`'s

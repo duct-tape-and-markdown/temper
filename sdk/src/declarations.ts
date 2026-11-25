@@ -777,9 +777,14 @@ function requirementRows(harness: Harness): RequirementRow[] {
  */
 function verifierRow(verifier: Verifier | undefined): VerifierRow | undefined {
   if (verifier === undefined) return undefined;
-  return verifier.species === "script"
-    ? { species: "script", path: verifier.path }
-    : { species: "telemetry", events: [...verifier.events] };
+  switch (verifier.species) {
+    case "script":
+      return { species: "script", path: verifier.path };
+    case "telemetry":
+      return { species: "telemetry", events: [...verifier.events] };
+    case "review":
+      return { species: "review", prose: verifier.prose };
+  }
 }
 
 /**

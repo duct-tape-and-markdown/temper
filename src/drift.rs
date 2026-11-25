@@ -6647,7 +6647,7 @@ impl RequirementRow {
 }
 
 /// Serialize a requirement's typed verifier to its species sub-table — `species`
-/// tags the variant, then the variant's own payload column (`path` / `events`). The
+/// tags the variant, then the variant's own payload column (`path` / `events` / `prose`). The
 /// same spelling the serde reader lifts the SDK-emitted JSON through, so the lock and
 /// the seam agree byte-for-byte.
 fn verifier_table(verifier: &crate::compose::Verifier) -> InlineTable {
@@ -6661,6 +6661,10 @@ fn verifier_table(verifier: &crate::compose::Verifier) -> InlineTable {
         Verifier::Telemetry { events } => {
             table.insert("species", Value::from("telemetry"));
             table.insert("events", Value::Array(string_array(events)));
+        }
+        Verifier::Review { prose } => {
+            table.insert("species", Value::from("review"));
+            table.insert("prose", Value::from(prose.clone()));
         }
     }
     table
@@ -6678,7 +6682,13 @@ fn verifier_from_table(table: &dyn TableLike) -> Result<crate::compose::Verifier
         "telemetry" => Ok(Verifier::Telemetry {
             events: opt_str_array(table, "events")?.unwrap_or_default(),
         }),
-        _ => Err(RowError::wrong("species", "`script` or `telemetry`")),
+        "review" => Ok(Verifier::Review {
+            prose: req_str(table, "prose")?,
+        }),
+        _ => Err(RowError::wrong(
+            "species",
+            "`script`, `telemetry`, or `review`",
+        )),
     }
 }
 
