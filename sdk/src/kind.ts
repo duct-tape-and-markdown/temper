@@ -723,7 +723,7 @@ export function manifestOf(facts: KindFacts): string {
 
 /**
  * A **relocation delta** — the facts a relocated built-in kind diverges from its base
- * on. Three faces, any one or more:
+ * on. Four faces, any one or more:
  *
  * - `edgeFields`, *added* to whatever the base already declares (never replacing them,
  *   which would drop a shipped kind's own edges silently). Each added field names a key
@@ -734,12 +734,16 @@ export function manifestOf(facts: KindFacts): string {
  *   (`src/compose.rs`'s `overlay_builtin_kind`).
  * - `exclude`, *appended* to the base exclusions the (possibly moved) locus still
  *   reaches — leaving paths the built-in would claim ungoverned (decision 0085).
+ * - `guidance`, `fieldGuidance` and `cite`, *replacing* the base's counsel — the
+ *   relocated kind's guidance rule carries exactly what the relocation declares, and a
+ *   relocation declaring none carries none: a built-in's own shipped counsel never
+ *   projects into an adopter's harness (decision 0091).
  *
  * Every other fact — format, unit shape, registration, content, templates, the declared
  * leaf set — rides through unchanged, which is exactly what makes the emitted row still
  * read as a relocation rather than a name collision on the reading side.
  */
-export interface KindRelocation<T> {
+export interface KindRelocation<T extends object> {
   /** The edge fields this relocation adds, each over a field of the kind's own surface. */
   readonly edgeFields?: readonly {
     readonly field: keyof T & string;
@@ -762,6 +766,12 @@ export interface KindRelocation<T> {
    * to exclude from.
    */
   readonly exclude?: readonly string[];
+  /** Counsel for the relocated kind as a whole, projected as its path-scoped guidance rule. */
+  readonly guidance?: string;
+  /** Counsel per field of the relocated kind's surface, riding the same rule. */
+  readonly fieldGuidance?: FieldGuidance<T>;
+  /** External-fact source backing the relocation's guidance. */
+  readonly cite?: string;
 }
 
 /**
@@ -957,10 +967,16 @@ export function relocate<T extends object>(
   delta: KindRelocation<T>,
 ): KindDefinition<T> {
   const declaredEdges = delta.edgeFields ?? [];
-  if (declaredEdges.length === 0 && delta.governs === undefined && (delta.exclude ?? []).length === 0) {
+  const counselled = delta.guidance !== undefined || delta.fieldGuidance !== undefined;
+  if (
+    declaredEdges.length === 0 &&
+    delta.governs === undefined &&
+    (delta.exclude ?? []).length === 0 &&
+    !counselled
+  ) {
     throw new Error(
       `relocating kind \`${base.facts.name}\`: a relocation declares at least one diverging ` +
-        `fact — \`edgeFields\`, \`governs\`, or \`exclude\`. A delta declaring none mints a ` +
+        `fact — \`edgeFields\`, \`governs\`, \`exclude\`, or guidance. A delta declaring none mints a ` +
         `second kind of the base's own name that diverges on nothing, which reads as a name ` +
         `collision rather than a relocation (specs/model/representation.md, "kind").`,
     );
@@ -983,7 +999,17 @@ export function relocate<T extends object>(
     added.push({ field: edge.field, to: edge.to });
   }
   const edgeFields = [...inherited, ...added];
-  const relocated = { ...base.facts, relocates: base.facts.name, edgeFields };
+  // The base's counsel is dropped, not inherited: the relocation's own, where declared,
+  // takes its place, so a guidance rule never projects a built-in's shipped counsel.
+  const { guidance: _guidance, fieldGuidance: _fieldGuidance, cite: _cite, ...uncounselled } = base.facts;
+  const relocated = {
+    ...uncounselled,
+    relocates: base.facts.name,
+    edgeFields,
+    ...(delta.guidance === undefined ? {} : { guidance: delta.guidance }),
+    ...(delta.fieldGuidance === undefined ? {} : { fieldGuidance: delta.fieldGuidance }),
+    ...(delta.cite === undefined ? {} : { cite: delta.cite }),
+  };
   // Two spellings, not one with an optional `locus`: `KindFacts` is a union discriminated
   // on the locus, so the moved case must carry the `at` locus as its own literal branch.
   // A moved locus is only ever an `at` base's (`relocatedLocus` refuses the rest), and an

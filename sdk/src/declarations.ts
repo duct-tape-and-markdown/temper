@@ -444,15 +444,18 @@ function locusLabel(facts: KindFacts): string {
 }
 
 /**
- * A kind's facts with the three faces a relocation may diverge from its base on erased:
- * the `relocates` marker, the appended `edgeFields`, and an `at` locus's moved root and
- * glob (`kind.ts`'s `KindRelocation`). Two values agreeing here are one kind up to a
+ * A kind's facts with the faces a relocation may diverge from its base on erased: the
+ * `relocates` marker, the appended `edgeFields`, an `at` locus's moved root and glob, and
+ * the replaced counsel (`kind.ts`'s `KindRelocation`). Two values agreeing here are one kind up to a
  * relocation delta; the delta's own faces are checked on their own terms.
  */
 function relocationInvariants(facts: KindFacts): Record<string, unknown> {
   const bare: Record<string, unknown> = { ...facts };
   delete bare.relocates;
   delete bare.edgeFields;
+  delete bare.guidance;
+  delete bare.fieldGuidance;
+  delete bare.cite;
   if (facts.locus.kind === "at") bare.locus = { ...facts.locus, root: "", glob: "" };
   return bare;
 }
@@ -460,7 +463,8 @@ function relocationInvariants(facts: KindFacts): Record<string, unknown> {
 /**
  * Whether `relocation` was derived from `base` — the provenance the relocation-wins rule
  * rests on. The marker names the base, `relocate` only ever *appends* edge fields (so the
- * base's are a prefix of the relocation's), and every other fact rides through unchanged:
+ * base's are a prefix of the relocation's), and every other fact but the counsel a
+ * relocation replaces by design rides through unchanged:
  * the base's facts are a subset by construction, which is exactly what makes keeping the
  * relocation lossless. Checked rather than assumed, because the marker carries a name and
  * a name is what is in dispute — a value bearing it whose facts are not the other's
@@ -661,8 +665,9 @@ function guidanceBody(facts: KindFacts): string | undefined {
  * One `rule` member per **guided corpus kind**: a kind in play that carries counsel (its
  * own `guidance` or a field's, {@link guidanceBody}) and that the program authored, never
  * one it only imported (a shipped built-in projects nothing — every harness would
- * otherwise get rules it never asked for — and a relocated built-in carries only what its
- * relocation declares). Its `paths` are the kind's
+ * otherwise get rules it never asked for). A relocated built-in is the program's own:
+ * `relocate` replaces the base's counsel with the relocation's, so it projects exactly what
+ * its relocation declares, and nothing when it declares none. Its `paths` are the kind's
  * {@link locusGlobs}, its body the counsel, so the runtime hands the counsel to an agent
  * the first time a session touches a member's document. A kind whose locus resolves to no
  * file (an embedded kind nothing hosts) has nowhere to scope a rule and projects none.
@@ -684,7 +689,7 @@ function guidanceRules(harness: Harness): Member[] {
   for (const facts of kinds) {
     const guidance = guidanceBody(facts);
     if (guidance === undefined) continue;
-    if (SHIPPED_KINDS.has(facts) || facts.relocates !== undefined) continue;
+    if (SHIPPED_KINDS.has(facts)) continue;
     const paths = locusGlobs(facts, kinds, admissions);
     if (paths.length === 0) continue;
     const name = `${GUIDANCE_RULE_PREFIX}${facts.name}`;

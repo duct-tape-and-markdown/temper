@@ -31,6 +31,7 @@ import {
   input,
   kind,
   maxLen,
+  relocate,
   reachable,
   reachedFrom,
   renderText,
@@ -42,6 +43,7 @@ import {
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
 import type { LeafSet, ResolvedEmbeddedMemberValue } from "../src/index.js";
+import type { Rule, Skill } from "../src/claude-code.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
 import { loadedLocalModules } from "../src/emit.js";
 import { agent, command, hook, mcpServer, memory, rule, settings, skill } from "../src/claude-code.js";
@@ -2653,6 +2655,35 @@ test("importing a built-in unrelocated emits no guidance rule, though the built-
       ],
     }),
   );
+  assert.deepEqual(guidanceRuleMembers(result), []);
+});
+
+test("a relocated built-in projects the guidance its relocation declares over its locus", () => {
+  const counsel = "Lead with the trigger; a skill nobody invokes is dead weight.";
+  const guidedSkill = relocate<Skill>(skill, {
+    guidance: counsel,
+    fieldGuidance: { description: "Say when to use it and when not to." },
+  });
+  const result = emit(
+    harness({
+      members: [guidedSkill({ name: "coordinate", description: "Coordinate the work.", prose: text`# Coordinate` })],
+    }),
+  );
+  const rules = guidanceRuleMembers(result);
+  assert.deepEqual(
+    rules.map((member) => member.name),
+    ["temper-guidance-skill"],
+  );
+  assert.deepEqual(rules[0]!.fields, [["paths", ["**/.claude/skills/*/SKILL.md"]]]);
+  // The relocation's counsel alone — never the built-in's own shipped guidance.
+  assert.ok(skill.facts.guidance !== undefined && !rules[0]!.body.includes(skill.facts.guidance));
+  assert.equal(rules[0]!.body, `${counsel}\n\n## Fields\n\n- \`description\`: Say when to use it and when not to.`);
+});
+
+test("a relocation declaring no guidance projects none of its built-in's shipped counsel", () => {
+  assert.ok(rule.facts.guidance !== undefined);
+  const decisionRule = relocate<Rule>(rule, { governs: { root: "decisions", glob: "*.md" } });
+  const result = emit(harness({ members: [decisionRule({ name: "0001-pick", prose: text`# Pick` })] }));
   assert.deepEqual(guidanceRuleMembers(result), []);
 });
 
