@@ -38,6 +38,10 @@ The discipline file holds what every entry carries. This project adds:
    folds into one home", find every copy by what it does — the literal it
    spells, the shape it builds, the call it makes — across `src/` unit
    tests, `tests/it/**` and `sdk/**`, and name each in `files`.
+   A fold changes no behavior, so it names no `tests[]` line. Its
+   `pins[]` name the tests that already hold the behavior it keeps, and
+   the judge proves them green. Its acceptance is a net deletion in the
+   domain it folds.
 3. **Widening a shared enumeration names its other consumers** in `files`
    (`specs/process/engineering.md`, "A shared concept is one type").
 4. **A seam change is two-sided.** A declaration-row change moves the SDK
