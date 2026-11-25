@@ -1,5 +1,0 @@
-# The shipped example's `source` kind retires to inputs (0064)
-
-Answers the `committed-read-only-locus-posture` question. Decision 0064 already rules it: there is no new commitment class, and "A `source` kind over a committed snapshot can retire in favor of inputs on the members whose claims rest on it." The example's `source` kind (`src/*.js` with `commitment: "local"`) contradicts `local`'s definition (per-machine, uncommitted) and teaches adopters that misuse.
-
-Change: drop `source` and `system`'s `implemented-by` edge to it. Each `system` member declares its implementing files as `inputs` (`input(import.meta.url, "../src/<file>.js")`). The claim then drifts when a file changes and refuses when it goes, which is the guarantee the edge was standing in for. Also check whether any `root.locus-declared` remedy text suggests `commitment: "local"` for a committed file. The remedy for committed ground temper does not write is an input on the member whose claims rest on it (`specs/model/authoring.md`, inputs). The example still passes `check --deny-advisories`.
