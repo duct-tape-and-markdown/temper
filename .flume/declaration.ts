@@ -53,15 +53,10 @@ export const declaration = {
     ],
   },
 
-  // Paths a scoped build tick writes beside its entry's own files: each is
-  // re-blessed by whatever change moves the bytes it derives from.
-  channelPaths: [
-    "sdk/src/index.ts",
-    "tests/**/snapshots/**",
-    "sdk/src/generated/**",
-    "examples/*/.temper/lock.toml",
-  ],
-  scopeWritesToEntry: true,
+  // Build writes anywhere in its fence; an entry's `files` is the
+  // partitioner's prediction, as the package's discipline says, never a
+  // second fence. Holding build to it turned every census miss into a park.
+  scopeWritesToEntry: false,
 
   runner: scriptRunner({ command: "node", args: [".flume/runner.mjs"] }),
 
