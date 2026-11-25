@@ -1,10 +1,7 @@
 {
   "tag": "SHIPPED-EXAMPLE-PASSES-ITS-OWN-CHECK",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "GATE-COMMAND-ANCHORED-AT-THE-PROJECT"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
