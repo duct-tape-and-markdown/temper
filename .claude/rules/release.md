@@ -35,8 +35,10 @@ the trigger and the published pair is the gate, not the local tree.
 6. **Gates green**: `cargo test`, `cargo clippy --all-targets -- -D
    warnings`, `cargo fmt --all --check`, `pnpm --dir sdk test`,
    `cargo run -- check`.
-7. **Commit `chore(release): cut X.Y.Z`**, tag `vX.Y.Z`, push `main` and the
-   tag. The tag push publishes (`release.yml`).
+7. **Commit `chore(release): cut X.Y.Z`**, with the cut's net code
+   growth in its body (`git diff --shortstat vPREV -- src sdk/src`), so
+   growth no feature explains shows at every cut. Tag `vX.Y.Z` and push
+   `main` and the tag. The tag push publishes (`release.yml`).
 8. **Watch the release run.** The cut is shipped only when its smoke job —
    installing the published pair from the registry and round-tripping
    `install` → `emit` → `check` — is green. Green build jobs and provenance
