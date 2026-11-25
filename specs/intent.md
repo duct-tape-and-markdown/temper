@@ -66,8 +66,12 @@ checks are well-formedness: the preconditions of checking at all
    part-emitted.
 8. **Guidance is delivered; judgment is the author's.** Beside the gate, a
    kind carries **guidance** for its members — the intent behind its shape,
-   advisory and never a check — and temper delivers it to the author at
-   authoring time (`schema` hover, `explain`), counsel rather than verdict.
+   advisory and never a check — and temper delivers it where the author
+   works, counsel rather than verdict. A primarily AI author receives it
+   through what its environment runs: context the runtime loads (a
+   path-scoped rule on first touch) and the output of the verbs it runs
+   (`check`, `emit`, the compiler's own errors). Hover and `explain` serve
+   the human reading over its shoulder; exposed is not delivered.
    What no predicate can decide (invariant 2) temper does not fake with a
    proxy (invariant 5); the quality judgment is the author's. A temper
    harness is primarily AI-authored, so the author renders that judgment
