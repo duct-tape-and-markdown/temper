@@ -5,7 +5,7 @@
 use std::fs;
 use std::path::Path;
 
-use temper::drift::{ClauseRow, CountBoundRow, Declarations, KindFactRow};
+use temper::drift::{ClauseRow, CountBoundRow, Declarations, KindFactRow, SatisfiesRow};
 
 use crate::common;
 
@@ -217,6 +217,52 @@ fn a_by_kind_selection_of_the_base_counts_its_subkinds_members() {
     assert!(
         run.output.contains("title=rule.count"),
         "the base's selection holds both members, so its count of one is exceeded, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_kind_narrowing_to_a_base_admits_its_subkinds_members() {
+    let root = common::tmpdir("subkind-narrowing");
+    write_rule(&root, ".claude/rules/decisions/0001-adopt.md");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![decision(".claude/rules/decisions", "*.md")],
+            requirements: vec![common::requirement("review-coverage", true, Some("rule"))],
+            satisfies: vec![SatisfiesRow {
+                member: "decision:0001-adopt".to_string(),
+                requirement: "review-coverage".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.output.contains("title=requirement.review-coverage"),
+        "a decision is a rule, so it satisfies the rule-narrowed requirement, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_bases_unique_name_judges_its_subkinds_members_with_its_own() {
+    let root = common::tmpdir("subkind-unique-name");
+    write_rule(&root, ".claude/rules/decisions/style.md");
+    write_rule(&root, ".claude/rules/style.md");
+    let run = check_with_clauses(
+        &root,
+        vec![decision(".claude/rules/decisions", "*.md")],
+        vec![ClauseRow {
+            label: Some("rule.unique-name".to_string()),
+            kind: Some("rule".to_string()),
+            ..common::clause("unique-name", "required")
+        }],
+    );
+    assert_eq!(
+        run.output.matches("title=rule.unique-name::style:").count(),
+        2,
+        "the rule and the decision share a name in the base's one population, got:\n{}",
         run.output
     );
 }

@@ -869,8 +869,12 @@ pub fn root_clause<'a>(
 /// [`crate::graph::degree`], which needs the reference graph the members do not carry,
 /// and the member-grain predicates by [`validate`], which reads one member's
 /// [`Features`].
+///
+/// `is_kind(kind, narrowed)` answers whether a member of `kind` is a member of
+/// `narrowed` — the kind itself or one of its subkinds — the one fact about kinds the
+/// `kind` narrowing needs and the selections do not carry.
 #[must_use]
-pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
+pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for selection in selections {
         for clause in &selection.clauses {
@@ -885,7 +889,7 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                     diagnostics.extend(out_of_set(selections, selection, clause, field, target));
                 }
                 Predicate::Kind { kind } => {
-                    diagnostics.extend(wrong_kind(selection, clause, kind));
+                    diagnostics.extend(wrong_kind(selection, clause, kind, is_kind));
                 }
                 Predicate::Extent {
                     unit,
@@ -941,7 +945,9 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
 /// member-grain clauses already reach [`validate`] off the identical contract; a
 /// requirement's own clauses reach no other judge, so this pass is scoped to
 /// [`Selector::OptIn`] — judging a by-kind selection here would double-report every
-/// kind clause.
+/// kind clause. The exception is a kind's peer clauses
+/// ([`Predicate::decides_over_peers`]), which its dispatcher withholds from [`validate`]:
+/// they decide over the kind's whole selection, its subkinds' members included.
 ///
 /// The selection's own clauses are the contract in scope: `closed-keys` reads its
 /// allow-list off the sibling `required`/`optional` clauses the same requirement
@@ -952,12 +958,19 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
 pub fn judge_members(selections: &[Selection]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for selection in selections {
-        if !matches!(selection.selector, Selector::OptIn(_)) {
-            continue;
-        }
+        let clauses = match selection.selector {
+            Selector::OptIn(_) => selection.clauses.clone(),
+            Selector::Kind(_) => selection
+                .clauses
+                .iter()
+                .filter(|clause| clause.predicate.decides_over_peers())
+                .cloned()
+                .collect(),
+            Selector::Root => continue,
+        };
         let contract = Contract {
             name: selection.selector.label().to_string(),
-            clauses: selection.clauses.clone(),
+            clauses,
             guidance: None,
         };
         let peers: Vec<&Features> = selection
@@ -1146,18 +1159,23 @@ fn out_of_set(
         .collect()
 }
 
-/// The each-grain `kind` findings — one per selected member whose actual kind is not the
-/// declared one. A member outside the narrowing is a finding, never a silent exclusion
+/// The each-grain `kind` findings — one per selected member whose actual kind is neither
+/// the declared one nor one of its subkinds. A member outside the narrowing is a finding, never a silent exclusion
 /// from the set `count`/`unique`/`membership` range over.
 ///
 /// A member's *actual* kind is the selection's own context, never a fact [`Features`]
 /// itself carries, so this predicate is judged here rather than in [`decide`]'s
 /// per-`Features` table.
-fn wrong_kind(selection: &Selection, clause: &Clause, kind: &str) -> Vec<Diagnostic> {
+fn wrong_kind(
+    selection: &Selection,
+    clause: &Clause,
+    kind: &str,
+    is_kind: &dyn Fn(&str, &str) -> bool,
+) -> Vec<Diagnostic> {
     selection
         .members
         .iter()
-        .filter(|(actual, _)| *actual != kind)
+        .filter(|(actual, _)| !is_kind(actual, kind))
         .map(|(actual, features)| {
             finding(
                 selection,
@@ -1890,6 +1908,11 @@ pub fn severity_of(severity: contract::Severity) -> check::Severity {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// [`super::judge`] over a corpus declaring no subkind: a kind is only itself.
+    fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
+        super::judge(selections, &|kind, narrowed| kind == narrowed)
+    }
     use std::collections::BTreeMap;
 
     use serde_json::{Value as JsonValue, json};

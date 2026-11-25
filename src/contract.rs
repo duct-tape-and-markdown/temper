@@ -898,6 +898,15 @@ impl Predicate {
         )
     }
 
+    /// Whether this member-grain predicate decides one member against its **peers** —
+    /// `unique-name` — so its verdict depends on which population the clause binds to:
+    /// a kind's clause judges the kind's whole by-kind selection, its subkinds' members
+    /// included, never one dispatcher's slice of it.
+    #[must_use]
+    pub fn decides_over_peers(&self) -> bool {
+        matches!(self, Predicate::UniqueName)
+    }
+
     /// The field (or marker) this predicate constrains, or `None` for the
     /// artifact- and cross-artifact-level predicates that name no single field
     /// (`forbidden_keys`, `extent`, `require_sections`, `name-matches-dir`,

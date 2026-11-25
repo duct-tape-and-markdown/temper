@@ -94,17 +94,17 @@ fn whole_grain_bounds_the_selections_summed_extent_in_both_units() {
         member("c", 120, 900, 120),
     ];
     let over_lines = selection(ExtentUnit::Lines, 300, &members);
-    assert_eq!(engine::judge(&[over_lines]).len(), 1);
+    assert_eq!(judge(&[over_lines]).len(), 1);
 
     // Summed under the bound holds.
     let under_lines = selection(ExtentUnit::Lines, 400, &members);
-    assert!(engine::judge(&[under_lines]).is_empty());
+    assert!(judge(&[under_lines]).is_empty());
 
     // The same summation in characters: 2700 total over a 2000-character ambient budget.
     let over_chars = selection(ExtentUnit::Characters, 2000, &members);
-    assert_eq!(engine::judge(&[over_chars]).len(), 1);
+    assert_eq!(judge(&[over_chars]).len(), 1);
     let under_chars = selection(ExtentUnit::Characters, 3000, &members);
-    assert!(engine::judge(&[under_chars]).is_empty());
+    assert!(judge(&[under_chars]).is_empty());
 }
 
 #[test]
@@ -151,12 +151,12 @@ fn an_extent_clause_bound_to_an_embedded_kind_judges_the_captured_span() {
         member("c", 120, 900, 0),
     ];
     assert_eq!(
-        engine::judge(&[selection(ExtentUnit::Lines, 300, &members)]).len(),
+        judge(&[selection(ExtentUnit::Lines, 300, &members)]).len(),
         1
     );
-    assert!(engine::judge(&[selection(ExtentUnit::Lines, 400, &members)]).is_empty());
+    assert!(judge(&[selection(ExtentUnit::Lines, 400, &members)]).is_empty());
     assert_eq!(
-        engine::judge(&[selection(ExtentUnit::Characters, 2000, &members)]).len(),
+        judge(&[selection(ExtentUnit::Characters, 2000, &members)]).len(),
         1
     );
 }
@@ -226,4 +226,9 @@ fn row(predicate: &str, unit: Option<&str>, max: Option<usize>) -> ClauseRow {
         unit: unit.map(str::to_string),
         ..common::clause(predicate, "advisory")
     }
+}
+
+/// [`engine::judge`] over members of kinds declaring no subkind.
+fn judge(selections: &[engine::Selection]) -> Vec<temper::check::Diagnostic> {
+    engine::judge(selections, &|kind, narrowed| kind == narrowed)
 }

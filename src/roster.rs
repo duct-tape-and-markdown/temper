@@ -195,7 +195,9 @@ mod tests {
         requirements: &BTreeMap<String, Requirement>,
         by_kind: &BTreeMap<&str, &[Features]>,
     ) -> Vec<Diagnostic> {
-        engine::judge(&selections(requirements, by_kind))
+        engine::judge(&selections(requirements, by_kind), &|kind, narrowed| {
+            kind == narrowed
+        })
     }
 
     /// The member-grain half of the same composition — a requirement's own clauses

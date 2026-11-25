@@ -45,17 +45,18 @@ fn two_greens_dispatch(
     // member is judged by them and its own together, so `closed-keys` admits both
     // contracts' declared keys.
     diagnostics.extend(engine::admissibility(&contract, locus));
-    if inherited.is_empty() {
-        diagnostics.extend(engine::validate(&contract, features));
-    } else {
-        let own = contract.clauses.clone();
-        let mut whole = Contract {
-            clauses: inherited,
-            ..contract.clone()
-        };
-        whole.clauses.extend(own);
-        diagnostics.extend(engine::validate(&whole, features));
-    }
+    // A peer clause decides over the kind's whole by-kind selection, which only exists
+    // once every dispatcher has run: `engine::judge_members` judges it there, so an
+    // inherited one is withheld here with the kind's own.
+    let mut whole = Contract {
+        clauses: inherited,
+        ..contract.clone()
+    };
+    whole.clauses.extend(contract.clauses.iter().cloned());
+    whole
+        .clauses
+        .retain(|clause| !clause.predicate.decides_over_peers());
+    diagnostics.extend(engine::validate(&whole, features));
 
     (contract, diagnostics)
 }
@@ -649,7 +650,9 @@ pub fn gate(
     };
 
     // The selection grain: `count` / `unique` / `membership` whole, `kind` each.
-    diagnostics.extend(engine::judge(&selections));
+    diagnostics.extend(engine::judge(&selections, &|kind, narrowed| {
+        compose::is_kind_or_subkind(&declared_kinds, kind, narrowed)
+    }));
 
     // The member grain of the opt-in selections: a requirement's own `required`/`type`/…
     // clauses bind to its satisfiers, and `validate` above ran over kind contracts
@@ -935,9 +938,9 @@ pub fn gate(
 /// reads the ones that range over the selection and `engine::validate` has already read
 /// the member-grain ones off the identical contract, so the two judges split one
 /// declaration rather than two filtered copies of it. That second half is why
-/// `engine::judge_members` — the member-grain pass over a selection — skips a by-kind
-/// selection: its clauses are already read here, and judging them again would
-/// double-report every one. A kind in `by_kind` with no contract of its own declares no
+/// `engine::judge_members` — the member-grain pass over a selection — reads only a
+/// by-kind selection's peer clauses, the ones `engine::validate` was not handed: judging
+/// the rest again would double-report every one. A kind in `by_kind` with no contract of its own declares no
 /// clause to judge and contributes no selection.
 ///
 /// A base's selection binds its subkinds' members beside its own, each tagged with its
