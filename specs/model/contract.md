@@ -47,15 +47,14 @@ how the gate teaches at the moment of failure.
 **Guidance is not the clause's alone.** The same channel — advisory intent,
 optionally cited — attaches directly to a **kind** or a **field**, carrying
 no predicate: authoring counsel delivered at authoring time (`schema` hover,
-`explain`), teaching before there is anything to fail (intent.md, invariant
-8). It never gates: advice hardened into a numeric rule is the linter
-temper sits downstream of (invariant 5). Nor is guidance the unit's: an
-embedded kind — its members living inside a host's document, owning no
-file — carries kind- and field-attached counsel like any kind, that counsel
-**the kind's fact, stated once**: one counsel in every body that admits the
-kind (`representation.md`, "nesting"), surfaced where its members are
-authored, never restated per admitting host. A kind absent a unit is not a
-kind absent counsel.
+`explain`), teaching before anything can fail (invariant 8). A corpus kind's
+counsel, its fields' with it, also projects as a path-scoped rule over the
+kind's locus (its admitting hosts', for an embedded kind), so the runtime
+hands it to an agent the first time a session touches a member's document.
+It never gates: advice hardened into a numeric rule is the linter temper
+sits downstream of (invariant 5). An embedded kind's counsel is **the kind's
+fact, stated once**: one counsel in every body that admits it
+(`representation.md`, "nesting"), never restated per host.
 
 The predicate vocabulary is **closed**: the enum in code is the authority,
 an unknown predicate is rejected at load, never skipped, and adding one is
