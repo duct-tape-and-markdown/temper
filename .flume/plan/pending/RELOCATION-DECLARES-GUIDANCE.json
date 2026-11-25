@@ -1,10 +1,7 @@
 {
   "tag": "RELOCATION-DECLARES-GUIDANCE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "KIND-CARRIES-FIELD-GUIDANCE"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
