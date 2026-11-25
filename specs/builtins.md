@@ -10,7 +10,10 @@ locus is the harness's too: it claims exactly the paths the harness loads as
 that kind, cited, and where two loaders' documented reach meets, the kind
 whose loader the documentation names owns the path and the other excludes
 it. A relocated built-in keeps each exclusion its new template still
-reaches, since moving one loader's reach moves no other's, and an author
+reaches, since moving one loader's reach moves no other's. A built-in
+host's template claim owns the files under its unit at any depth, so a
+`CLAUDE.md` inside a nested skill's directory is the skill's, as a root
+skill's is (0084), with no exclusion pattern needed. An author
 may add exclusions to a built-in through its relocation. That is how a
 collision with a built-in is answered (0085), and how a fixture tree
 holding harness files is left ungoverned. Kind identity
@@ -31,7 +34,8 @@ Fourteen kinds ship. Ten are file members:
   in monorepos and subdirectories", retrieved 2026-11-25). A nested skill's
   name is prefixed by its subdirectory's segments, each joined with `:`
   (`apps:web:deploy`). The invocation spelling is rendered from the
-  placement, never the identity. Its
+  placement, never the identity, and the frontmatter `name` is the leaf
+  (`deploy`), so the directory and the name still match. Its
   template names **supporting-doc**, the shipped kind of its bundled
   reference documents: fields-free, prose-only, channel-less, identity from
   the filename — the documented shape of a supporting file
@@ -63,7 +67,9 @@ Fourteen kinds ship. Ten are file members:
 - **rule** — a lone markdown file with an optional path scope; a rule with no
   scope registers unconditionally.
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
-  frontmatter: the entire file is prose.
+  frontmatter: the entire file is prose. A nested one is named by the same
+  grammar as a nested skill, its subdirectory's segments joined with `:`
+  (`memory:apps:web:CLAUDE`), so emit places it where it was found.
 - **plugin-manifest** — the pack's identity at
   `.claude-plugin/plugin.json`, a JSON document; identity from its `name`
   field, the one required field (kebab-case). Its contract mirrors the

@@ -103,7 +103,9 @@ only paths the lock names as projections, so with no lock nothing is one.
 A telemetry declaration projects as tap hook registrations in the emitted
 manifest — the same rows any hook rides — and states the temper binary its
 taps run, `temper` on the path unless declared, each tap command anchored
-at the project as a gate command is (`adoption.md`, "Install"). The tap appends event records to its
+at the project as a gate command is (`adoption.md`, "Install"). Declarations
+sharing a tap compare the binary as the engine resolves it, so an undeclared
+binary and `temper` agree, and a real disagreement refuses at emit. The tap appends event records to its
 own log — the lock's category, never a member's: machine-written,
 bespoke-parsed, versioned in lockstep with the one binary that both writes
 and reads it. The log is per-machine, uncommitted, never an emit input or
