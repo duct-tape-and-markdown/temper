@@ -37,11 +37,20 @@ embeds the same value. The `bundle.rs` literal retires.
   working directory. A failed command aborts the invocation.
 - **Keeping the fixed text.** It is a second spelling of the surface, and
   it already rotted.
-- **The map in path rules alone.** Those carry one kind's slice on touch.
-  The agent restructuring a harness needs the whole map.
+- **The map in path rules alone.** Those carry one kind's slice on touch,
+  and restructuring needs the whole map.
 
 ## Consequences
 
-Any contract change re-renders the skill. The map is an index (identity,
-the requirement's prose, owner), and `explain` carries the depth. The
-skill can declare `satisfies` and so list itself as its domain's owner.
+The shape is progressive disclosure, which is the router Cascade's
+`standard()` arrived at independently. `SKILL.md` stays as small as
+possible: the method, and one index line per kind and per domain that
+leads with the moment (`read kind-domain.md when you add or change a
+domain`). Each topic file sits flat beside it as a supporting doc.
+`kind-<k>.md` carries the kind's counsel, locus, fields, edges in and
+out with their intent, clauses and domains. `domain-<r>.md` carries the
+requirement's prose, its verifier and its owners. No file lists members,
+so a topic grows with declarations, never with documents. Only committed
+declarations render; dials, `local` members and joined locks never do.
+Any contract change re-renders it. The skill can declare `satisfies`,
+and so list itself as its domain's owner.
