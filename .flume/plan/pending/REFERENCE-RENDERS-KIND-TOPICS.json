@@ -1,10 +1,7 @@
 {
   "tag": "REFERENCE-RENDERS-KIND-TOPICS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "HARNESS-REFERENCE-IS-AN-SDK-VALUE"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
