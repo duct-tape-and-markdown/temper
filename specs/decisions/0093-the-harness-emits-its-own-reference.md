@@ -7,12 +7,11 @@
 Every team building a harness with AI keeps a "how our setup works and
 why" document, and it rots. Intent does not survive a conversation. On
 2026-11-25 a session nearly designed a second owner for a domain temper
-already fills: the bundled `temper` operate skill, a hand-kept string in
-`src/bundle.rs` that only plugin users receive and that predates the
-current surface. 0091 and 0092 deliver one kind's counsel and contracts
-on touch. Nothing gives the whole picture to an agent about to change
-the harness. John, 2026-11-25: the skill's contents "is a representation
-of the harness, emitted with it".
+already fills: the bundled `temper` operate skill, a hand-kept
+`src/bundle.rs` string only plugin users receive. 0091 and 0092 deliver
+one kind's counsel and contracts on touch. Nothing gives the whole
+picture to an agent about to change the harness. John, 2026-11-25: the
+skill's contents "is a representation of the harness, emitted with it".
 
 ## Decision
 
