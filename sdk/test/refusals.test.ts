@@ -321,6 +321,43 @@ test("emit defers an edge field naming a declared at-locus kind's uncomposed mem
   assert.deepEqual(result.declarations.nested_members[0].placed_edges, undefined);
 });
 
+test("a bare edge target in a one element set defers to check like its qualified spelling", () => {
+  // A one-element `to` set resolves a bare name within its one kind, so `ghost` and
+  // `rule:ghost` are one address: both defer, and each rides the lock as authored.
+  const citation = citationKind();
+  for (const address of ["ghost", "rule:ghost"]) {
+    const h = harness({
+      members: [
+        rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust` }),
+        ...citingHarness(citation, address).members,
+      ],
+      admit: [{ host: memory, admits: [citation] }],
+    });
+    const result = emit(h);
+    assert.deepEqual(result.declarations.nested_members[0].leaves, { source: address });
+    assert.deepEqual(result.declarations.nested_members[0].placed_edges, undefined);
+  }
+});
+
+test("a bare edge target in a multi element set still refuses at emit", () => {
+  // A multi-element set requires the kind-qualified address: a bare name there names
+  // no kind, so nothing on disk could resolve it and the refusal stands.
+  const citation = kind<object>({
+    name: "citation",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    edgeFields: [{ field: "source", to: ["rule", "skill"] }],
+  });
+  const h = harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust` }),
+      ...citingHarness(citation, "ghost").members,
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+  assert.throws(() => emit(h), /names `ghost`, which resolves to no composed member/);
+});
+
 test("a render reading a deferred edge field's facts refuses by name", () => {
   // The deferral derives no facts, so there is nothing for a hook to spell a reference
   // off — and an absent key would surface as a `TypeError` in the author's own template,

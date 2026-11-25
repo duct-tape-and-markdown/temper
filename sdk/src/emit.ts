@@ -361,10 +361,10 @@ function edgeTargetFacts(
     const target = options.members?.get(lookup);
     const reference = `${context}: edge field \`${edge.field}\` names \`${address}\``;
     if (target === undefined) {
-      // Judged on the address the author wrote, never `lookup`: the one-element-`to` lift
-      // spells a bare name as a host address for the member table alone, and a bare name
-      // names no discoverable member.
-      if (defersToGate(address, deferrableKinds)) {
+      // Judged on `lookup`: a one-element `to` set makes a bare name and its `kind:name`
+      // spelling one address, so both defer alike; a bare name in a wider set stays bare,
+      // names no discoverable member, and refuses.
+      if (defersToGate(lookup, deferrableKinds)) {
         deferred.set(edge.field, reference);
         continue;
       }

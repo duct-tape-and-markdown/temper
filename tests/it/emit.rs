@@ -3127,3 +3127,76 @@ fn crlf_orphan_classifies_as_reaped_not_drift() {
         "orphan-drift file should not be reaped"
     );
 }
+
+/// A fixture SDK program whose `CLAUDE` memory carries one `citation` value per
+/// spelling of the same dangling `rule` target — bare and kind-qualified — through a
+/// one-element `to` set; `rust` composes so the `rule` kind is in play.
+const DANGLING_EDGE_SPELLINGS_PROGRAM: &str = r#"
+import { blocks, embeddedMemberValue, emit, harness, kind, text } from "@dtmd/temper";
+import { memory, rule } from "@dtmd/temper/claude-code";
+
+const citation = kind({
+  name: "citation",
+  locus: { kind: "embedded" },
+  unitShape: "file",
+  edgeFields: [{ field: "source", to: ["rule"] }],
+});
+
+const program = harness({
+  members: [
+    rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust` }),
+    memory({
+      name: "CLAUDE",
+      prose: blocks(
+        embeddedMemberValue({ kind: citation, key: "bare", leaves: { source: "ghost" } }),
+        embeddedMemberValue({ kind: citation, key: "qualified", leaves: { source: "rule:phantom" } }),
+      ),
+    }),
+  ],
+  admit: [{ host: memory, admits: [citation] }],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_bare_edge_target_in_a_one_element_set_defers_to_check_like_its_qualified_spelling() {
+    let (harness, into) =
+        common::wire_sdk_harness("bare-edge-defers", DANGLING_EDGE_SPELLINGS_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default())
+        .expect("both spellings of a dangling one-element target defer to check");
+
+    let run = common::check_in(&harness, &[], None);
+    assert!(run.output.contains("graph.route"), "got:\n{}", run.output);
+    for (value, target) in [("bare", "ghost"), ("qualified", "rule:phantom")] {
+        let finding = format!(
+            "`memory:CLAUDE/citation/{value}` `source` routes to `{target}`, which resolves to no `rule` artifact"
+        );
+        assert!(
+            run.output.contains(&finding),
+            "check owns the route verdict for `{target}`, got:\n{}",
+            run.output
+        );
+    }
+}
+
+#[test]
+fn a_bare_edge_target_in_a_multi_element_set_still_refuses_at_emit() {
+    // A multi-element set requires the kind-qualified address: a bare name names no
+    // kind, so nothing on disk could resolve it and emit refuses rather than defer.
+    let program = DANGLING_EDGE_SPELLINGS_PROGRAM
+        .replace(r#"to: ["rule"]"#, r#"to: ["rule", "skill"]"#)
+        .replace(
+            r#"embeddedMemberValue({ kind: citation, key: "qualified", leaves: { source: "rule:phantom" } }),"#,
+            "",
+        );
+    let (_harness, into) = common::wire_sdk_harness("bare-edge-multi-refuses", &program);
+
+    let err = drift::emit_program(&into, EmitOptions::default())
+        .expect_err("a bare name in a multi-element set refuses at emit");
+    assert!(
+        format!("{err:?}").contains("names `ghost`, which resolves to no composed member"),
+        "the refusal names the bare target: {err:?}"
+    );
+}
