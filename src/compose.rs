@@ -1023,13 +1023,7 @@ fn resolve_kind_units(
                     // host that is itself a nested file child contributes its **own whole
                     // address** — `address_of` makes that discrimination once, and reads
                     // it at whatever depth the walk descended to.
-                    let host = member_address::address_of(&found.host_kind, &found.host_name);
-                    // The child's key folds against the locus its host template's pattern
-                    // spells literally, not the bare unit: `notes/*.md` places every one of
-                    // its members under `notes/`, so that segment is locus and the key is
-                    // the stem the author declared. The `governs` branch below reaches the
-                    // same rule with its own (locus, pattern) pair.
-                    let base = drift::fold_base(&found.host_unit, &found.pattern);
+                    let (host, base) = nested_host_and_base(&found);
                     match read_file_unit(kind, &found.file, &base, &edge_fields, Some(&host)) {
                         Ok(read) => child_units.push(read),
                         Err(err) => match frontmatter_fault_diagnostic(err) {
@@ -1134,15 +1128,58 @@ pub fn governed_member_address(
     let governs = kind.governs.as_ref()?;
     let disc = import::Discovery::new(harness_root);
     let base = governed_fold_base(&disc, governs);
+    let id = site_id(kind, file, &base, identity)?;
+    Some(member_address::address_of(&kind.name, &id))
+}
+
+/// The member address `check`'s nested-file scan gives the child `found` names — the
+/// host-qualified `<host-address>/<kind>/<key>` of a `kind` that governs no locus of its
+/// own — for a reader holding one discovered child rather than the whole scan
+/// (`temper guard`'s layout half of `locus-declared`). [`None`] where the identity
+/// cannot be read, as for [`governed_member_address`].
+#[must_use]
+pub fn hosted_member_address(
+    kind: &CustomKind,
+    found: &import::NestedFileUnit,
+    identity: SiteIdentity<'_>,
+) -> Option<String> {
+    let (host, base) = nested_host_and_base(found);
+    let id = site_id(kind, &found.file, &base, identity)?;
+    Some(member_address::address_of(
+        &kind.name,
+        &host_qualified(Some(&host), &kind.name, id),
+    ))
+}
+
+/// A discovered nested child's host address and the base its key folds against — the
+/// locus its host template's pattern spells literally, not the bare unit: `notes/*.md`
+/// places every member under `notes/`, so that segment is locus and the key is the stem
+/// the author declared. The one derivation `check`'s scan and the guard's sites share.
+fn nested_host_and_base(found: &import::NestedFileUnit) -> (String, PathBuf) {
+    (
+        member_address::address_of(&found.host_kind, &found.host_name),
+        drift::fold_base(&found.host_unit, &found.pattern),
+    )
+}
+
+/// The bare id `kind`'s document at `file` folds against `base`, read off the bytes
+/// `identity` names. [`None`] for a load fault, or a `named-field` identity pending bytes
+/// cannot answer.
+fn site_id(
+    kind: &CustomKind,
+    file: &Path,
+    base: &Path,
+    identity: SiteIdentity<'_>,
+) -> Option<String> {
     let file = crate::path::normalize_path(file);
-    let id = match identity {
+    Some(match identity {
         SiteIdentity::OnDisk => {
-            drift::read_layout_document_member(kind, &file, &base)
+            drift::read_layout_document_member(kind, &file, base)
                 .ok()?
                 .id
         }
         SiteIdentity::Pending(Some(text)) => {
-            crate::frontmatter::Member::from_text_rooted(kind, text, &file, &base)
+            crate::frontmatter::Member::from_text_rooted(kind, text, &file, base)
                 .ok()?
                 .id
         }
@@ -1150,10 +1187,9 @@ pub fn governed_member_address(
             if matches!(kind.unit_shape, Some(kind::UnitShape::NamedField { .. })) {
                 return None;
             }
-            extract::unit_shape_id(kind.unit_shape.as_ref(), &file, &base, |_| None).ok()?
+            extract::unit_shape_id(kind.unit_shape.as_ref(), &file, base, |_| None).ok()?
         }
-    };
-    Some(member_address::address_of(&kind.name, &id))
+    })
 }
 
 /// Seat a layout host's collection entries in its own fields, so a host path over them

@@ -584,14 +584,19 @@ fn the_guard_s_findings_on_the_gauntlet_are_a_subset_of_check_s_at_both_edges() 
         );
     }
 
+    // An undeclared `spec` child under its `guide` host's unit: its locus and its address
+    // both compose from the host, and both edges name it as `check` does.
+    common::write_sibling(&harness, "docs/guides/operate-the-gate/stray.md", SPEC_DOC);
+
     // Pre edge: a write to each kind of path the corpus holds — a projection, a declared
-    // top-level layout document, a nested layout source, a local document, a vendored
-    // memory file, and a new stray at a governed locus. Each finding is recorded with the
+    // top-level layout document, a nested layout source, an undeclared one, a local
+    // document, a vendored memory file, and a new stray at a governed locus. Each finding is recorded with the
     // path it bound, then every write lands and `check` judges the tree they left.
     let writes = [
         ".claude/rules/conventions.md",
         "docs/charters/gate.md",
         "docs/guides/operate-the-gate/representation.md",
+        "docs/guides/operate-the-gate/stray.md",
         ".claude/local/machine.md",
         "vendor/dep/CLAUDE.md",
         ".claude/rules/stray.md",
@@ -610,9 +615,10 @@ fn the_guard_s_findings_on_the_gauntlet_are_a_subset_of_check_s_at_both_edges() 
     assert!(
         bound.contains(&".claude/rules/conventions.md")
             && bound.contains(&".claude/rules/stray.md")
-            && bound.contains(&"docs/charters/stray.md"),
-        "non-vacuity: the pre edge binds the projection, the stray and the undeclared \
-         layout document, got: {bound:?}"
+            && bound.contains(&"docs/charters/stray.md")
+            && bound.contains(&"docs/guides/operate-the-gate/stray.md"),
+        "non-vacuity: the pre edge binds the projection, the stray and both undeclared \
+         layout documents, got: {bound:?}"
     );
     for path in writes {
         let target = harness.join(path);
@@ -658,9 +664,10 @@ fn the_guard_s_findings_on_the_gauntlet_are_a_subset_of_check_s_at_both_edges() 
             && said("docs/preamble.md")
             && said(".claude/rules/stray.md")
             && said("docs/charters/stray.md")
+            && said("docs/guides/operate-the-gate/stray.md")
             && said("decision:an-undeclared-ruling"),
         "non-vacuity: the post edge names the edited projection, the moved import, the \
-         stray and both undeclared layout documents, got: {disturbed:#?}"
+         stray and every undeclared layout document, got: {disturbed:#?}"
     );
     for (rule, message) in &disturbed {
         assert!(

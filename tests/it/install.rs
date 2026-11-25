@@ -4291,6 +4291,118 @@ fn the_guard_raises_an_undeclared_layout_member_in_a_pending_write() {
     assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, "docs/charters/stray.md");
 }
 
+/// A represented harness whose layout kind is a nested child — a `spec` governing no
+/// locus, templated at `*.md` under each `guide` host's `docs/guides/<name>/` unit — with
+/// one host `operate` and its declared child `representation`, emitted, plus an
+/// undeclared `stray.md` beside it in the host's unit. Rows-or-default: the shipped root
+/// `locus-declared` clause binds, under `warn`.
+fn nested_layout_child_harness(label: &str) -> PathBuf {
+    let harness = common::scaffold(label);
+    let unit = harness.join("docs/guides/operate");
+    fs::create_dir_all(&unit).unwrap();
+    fs::write(unit.join("representation.md"), NESTED_SPEC_DOC).unwrap();
+    let payload = drift::Payload {
+        version: drift::SEAM_VERSION,
+        declarations: drift::Declarations {
+            kinds: vec![
+                KindFactRow {
+                    unit_shape: Some("directory".to_string()),
+                    templates: vec![drift::TemplateRow {
+                        kind: "spec".to_string(),
+                        path: Some("*.md".to_string()),
+                    }],
+                    ..common::kind_facts("guide", "docs/guides", "*/GUIDE.md")
+                },
+                KindFactRow {
+                    governs_root: None,
+                    governs_glob: None,
+                    unit_shape: Some("file".to_string()),
+                    content: Some(drift::LayoutRow {
+                        regions: vec![common::field_region("intent")],
+                    }),
+                    ..common::kind_facts("spec", "", "")
+                },
+            ],
+            ..Default::default()
+        },
+        members: vec![
+            common::payload_member("guide", "operate", None, "# Operate\n"),
+            common::payload_member("spec", "representation", Some("guide:operate"), ""),
+        ],
+    };
+    drift::emit(
+        &payload,
+        &harness.join(".temper"),
+        drift::EmitOptions::default(),
+    )
+    .unwrap();
+    harness
+}
+
+/// A `spec` document fitting its layout: one `# Intent` field section.
+const NESTED_SPEC_DOC: &str = "# Intent\nThe gate is check.\n";
+
+/// The undeclared child of [`nested_layout_child_harness`]'s `operate` host.
+const NESTED_STRAY: &str = "docs/guides/operate/stray.md";
+
+#[test]
+fn the_guard_names_an_undeclared_nested_layout_child_at_the_post_edge() {
+    let harness = nested_layout_child_harness("guard-nested-layout-post");
+    let (code, output) = common::run_guard(&harness, SHELL_CALL_PAYLOAD);
+    assert_eq!(code, Some(0));
+    assert!(
+        output.is_empty(),
+        "the declared child alone is no stray, got: {output}"
+    );
+
+    fs::write(harness.join(NESTED_STRAY), NESTED_SPEC_DOC).unwrap();
+    let before = temper::import::walk_count();
+    let report = install::shell_edge_findings(
+        &harness.join(".temper"),
+        &drift::read_declarations(&harness.join(".temper")).unwrap(),
+        &[],
+    )
+    .unwrap()
+    .expect("the undeclared child reports");
+    assert!(report.contains(NESTED_STRAY), "got: {report}");
+    let walks = temper::import::walk_count() - before;
+    assert!(
+        walks <= 2,
+        "the hosts are read through one discovery walk per flavor per call, never one per \
+         kind or host, got: {walks}"
+    );
+
+    let (code, output) = common::run_guard(&harness, SHELL_CALL_PAYLOAD);
+    assert_eq!(code, Some(0), "warn allows the call, got: {output}");
+    let in_band = common::guard_in_band(&output, "PostToolUse");
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, NESTED_STRAY);
+    assert!(
+        !in_band.contains("representation.md"),
+        "the declared child is no stray, got: {in_band}"
+    );
+}
+
+#[test]
+fn the_guard_names_an_undeclared_nested_layout_child_at_the_pre_edge() {
+    let harness = nested_layout_child_harness("guard-nested-layout-pre");
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload("docs/guides/operate/representation.md"),
+    );
+    assert_eq!(code, Some(0));
+    assert!(
+        output.is_empty(),
+        "a write to the declared child passes silently, got: {output}"
+    );
+
+    // The undeclared child already sits in the host's unit; the pending write edits it.
+    fs::write(harness.join(NESTED_STRAY), NESTED_SPEC_DOC).unwrap();
+    let (code, output) = common::run_guard(&harness, &common::guard_write_payload(NESTED_STRAY));
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, NESTED_STRAY);
+}
+
 /// `memory`'s locus is `.`-rooted (`**/CLAUDE.md`): it reaches every directory, and the
 /// pending-write edge binds it wherever discovery would reach the written path.
 #[test]

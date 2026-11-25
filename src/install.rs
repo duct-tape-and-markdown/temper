@@ -1426,18 +1426,46 @@ fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::
 /// The layout twin of [`locus_member_sites`], over the same bounded walk
 /// ([`locus_files`]). A document whose identity cannot be read is no site: `check`
 /// reports it as a load fault, never as an undeclared member.
+///
+/// A hosted kind's children are the ones `check`'s nested-file scan discovers, through
+/// that same scan ([`import::discover_nested_file`]) over one shared [`import::Discovery`],
+/// so every hosted kind a call judges rides one walk per discovery flavor.
 fn layout_member_sites(
     harness_root: &Path,
-    loci: &[GuardedLayoutLocus],
+    loci: &GuardedLayoutLoci,
 ) -> Vec<drift::LayoutMemberSite> {
     let mut sites = Vec::new();
-    for locus in loci {
+    for locus in &loci.governed {
         for (file, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
             let Some(member) = crate::compose::governed_member_address(
                 &locus.kind,
                 harness_root,
                 &file,
                 crate::compose::SiteIdentity::OnDisk,
+            ) else {
+                continue;
+            };
+            sites.push(drift::LayoutMemberSite {
+                member,
+                source_path,
+            });
+        }
+    }
+    if loci.hosted.is_empty() {
+        return sites;
+    }
+    let disc = import::Discovery::new(harness_root);
+    for kind in &loci.hosted {
+        for found in
+            import::discover_nested_file(&disc, kind, &loci.kinds, import::LocalOverride::Honored)
+        {
+            let (Some(member), Some(source_path)) = (
+                crate::compose::hosted_member_address(
+                    kind,
+                    &found,
+                    crate::compose::SiteIdentity::OnDisk,
+                ),
+                harness_relative(&found.file.to_string_lossy(), harness_root),
             ) else {
                 continue;
             };
@@ -1606,15 +1634,31 @@ pub struct GuardedLayoutLocus {
     pub pattern: String,
 }
 
-/// Every committed layout kind's governed locus `temper guard` binds — the layout twin of
-/// the file loci the binary assembles, admitted by the one classification `check`'s site
-/// walk reads ([`crate::gate::site_class`] answering [`crate::gate::SiteClass::Layout`]),
-/// over the embedded built-ins overlaid with the lock's relocations and the lock-declared
-/// custom kinds.
-///
-/// Only a kind governing a locus of its own binds. A nested layout child's locus composes
-/// from its host's unit, and its address carries that host — neither is a fact one path
-/// answers — so it stays `check`'s alone.
+/// Every committed layout kind `temper guard` binds, split by where its members sit.
+pub struct GuardedLayoutLoci {
+    /// The layout kinds governing a locus of their own.
+    pub governed: Vec<GuardedLayoutLocus>,
+    /// The governs-less layout kinds — nested children whose locus and address compose
+    /// from a host unit ([`crate::compose::hosted_member_address`]).
+    pub hosted: Vec<CustomKind>,
+    /// The effective kind set the hosts are read out of, keyed by bare name.
+    pub kinds: BTreeMap<String, CustomKind>,
+}
+
+impl GuardedLayoutLoci {
+    /// Whether no layout kind binds at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.governed.is_empty() && self.hosted.is_empty()
+    }
+}
+
+/// Every committed layout kind `temper guard` binds — the layout twin of the file loci the
+/// binary assembles, admitted by the one classification `check`'s site walk reads
+/// ([`crate::gate::site_class`] answering [`crate::gate::SiteClass::Layout`]), over the
+/// embedded built-ins overlaid with the lock's relocations and the lock-declared custom
+/// kinds. A kind governing no locus of its own is a hosted child, located as `check`
+/// locates it, through its host's unit.
 ///
 /// Empty unless the root contract binds `locus-declared` (rows-or-default), the clause's
 /// whole opt-in at either edge.
@@ -1626,40 +1670,43 @@ pub struct GuardedLayoutLocus {
 /// raise — a corrupt lock, refused loud.
 pub fn guarded_layout_loci(
     declarations: &drift::Declarations,
-) -> miette::Result<Vec<GuardedLayoutLocus>> {
+) -> miette::Result<GuardedLayoutLoci> {
+    let mut loci = GuardedLayoutLoci {
+        governed: Vec::new(),
+        hosted: Vec::new(),
+        kinds: BTreeMap::new(),
+    };
     let root = crate::compose::root_contract(&declarations.clauses, &declarations.assembly)?;
     if !root
         .clauses
         .iter()
         .any(|clause| clause.predicate == crate::contract::Predicate::LocusDeclared)
     {
-        return Ok(Vec::new());
+        return Ok(loci);
     }
-    let push = |kind: CustomKind, loci: &mut Vec<GuardedLayoutLocus>| {
-        if crate::gate::site_class(&kind) != Some(crate::gate::SiteClass::Layout) {
-            return;
-        }
-        let Some(governs) = kind.governs.as_ref() else {
-            return;
-        };
-        loci.push(GuardedLayoutLocus {
-            root: governs.root.clone(),
-            pattern: kind::locus_pattern(&governs.root, &governs.glob),
-            kind,
-        });
-    };
     let builtin_defs = builtin_kind::definitions();
-    let mut loci = Vec::new();
     for kind in builtin_defs.values() {
-        push(
-            crate::compose::overlay_builtin_kind(kind, declarations)?,
-            &mut loci,
-        );
+        let kind = crate::compose::overlay_builtin_kind(kind, declarations)?;
+        loci.kinds.insert(kind.name.clone(), kind);
     }
     let (custom_rows, _collisions) =
         crate::compose::partition_kind_rows(declarations, &builtin_defs)?;
     for row in custom_rows {
-        push(CustomKind::from_kind_fact_row(row)?, &mut loci);
+        let kind = CustomKind::from_kind_fact_row(row)?;
+        loci.kinds.insert(kind.name.clone(), kind);
+    }
+    for kind in loci.kinds.values() {
+        if crate::gate::site_class(kind) != Some(crate::gate::SiteClass::Layout) {
+            continue;
+        }
+        match kind.governs.as_ref() {
+            Some(governs) => loci.governed.push(GuardedLayoutLocus {
+                root: governs.root.clone(),
+                pattern: kind::locus_pattern(&governs.root, &governs.glob),
+                kind: kind.clone(),
+            }),
+            None => loci.hosted.push(kind.clone()),
+        }
     }
     Ok(loci)
 }
@@ -1669,8 +1716,8 @@ pub fn guarded_layout_loci(
 /// `check`'s judge reads, so a pending layout document is judged by
 /// [`drift::undeclared_layout_members_from_doc`] itself and speaks its words.
 pub struct LayoutGuard {
-    /// The governed layout loci a pending write is tested against.
-    loci: Vec<GuardedLayoutLocus>,
+    /// The layout loci a pending write is tested against.
+    loci: GuardedLayoutLoci,
     /// The parsed lock and the root `locus-declared` clause; [`None`] where the clause
     /// binds nothing or no lock is on disk — an unrepresented harness declares no member
     /// anywhere, so naming every document undeclared would be noise.
@@ -1701,6 +1748,33 @@ impl LayoutGuard {
         Ok(Self { loci, judge })
     }
 
+    /// The address `check`'s nested-file scan gives the hosted child at `target`, read off
+    /// `identity`. The scan discovers documents on disk, so a child the write would create
+    /// is not reached; nor is any path while no hosted kind binds, which costs no walk.
+    fn hosted_member(
+        &self,
+        root: &Path,
+        target: &Path,
+        identity: crate::compose::SiteIdentity<'_>,
+    ) -> Option<String> {
+        if self.loci.hosted.is_empty() || !target.is_file() {
+            return None;
+        }
+        let target = crate::path::normalize_path(target);
+        let disc = import::Discovery::new(root);
+        self.loci.hosted.iter().find_map(|kind| {
+            import::discover_nested_file(
+                &disc,
+                kind,
+                &self.loci.kinds,
+                import::LocalOverride::Honored,
+            )
+            .into_iter()
+            .find(|found| found.file == target)
+            .and_then(|found| crate::compose::hosted_member_address(kind, &found, identity))
+        })
+    }
+
     /// The finding `check` would raise over the layout document a pending write to
     /// `file_path` lands, or [`None`] where it raises none: a path in no governed layout
     /// locus, one discovery would never reach, a member the lock declares, or a document
@@ -1715,24 +1789,26 @@ impl LayoutGuard {
     ) -> Option<Diagnostic> {
         let (doc, clause) = self.judge.as_ref()?;
         let normalized = harness_relative(file_path, root)?;
-        let locus = self.loci.iter().find(|locus| {
-            crate::glob::compile_glob(&locus.pattern)
-                .is_some_and(|matcher| matcher.is_match(&normalized))
-        })?;
-        if !import::discovers_path(root, Path::new(&*normalized)) {
-            return None;
-        }
         let pending = tool_input(payload).map(|input| pending_manifest(input, file_path, root));
         let text = match &pending {
             Some(PendingManifest::Text(text)) => Some(text.as_str()),
             _ => None,
         };
-        let member = crate::compose::governed_member_address(
-            &locus.kind,
-            root,
-            &root.join(&*normalized),
-            crate::compose::SiteIdentity::Pending(text),
-        )?;
+        let identity = crate::compose::SiteIdentity::Pending(text);
+        let target = root.join(&*normalized);
+        let governed = self.loci.governed.iter().find(|locus| {
+            crate::glob::compile_glob(&locus.pattern)
+                .is_some_and(|matcher| matcher.is_match(&normalized))
+        });
+        let member = match governed {
+            Some(locus) => {
+                if !import::discovers_path(root, Path::new(&*normalized)) {
+                    return None;
+                }
+                crate::compose::governed_member_address(&locus.kind, root, &target, identity)?
+            }
+            None => self.hosted_member(root, &target, identity)?,
+        };
         let site = drift::LayoutMemberSite {
             member,
             source_path: normalized,
