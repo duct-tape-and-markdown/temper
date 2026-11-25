@@ -20,6 +20,7 @@ import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
 import * as shippedBuiltins from "./builtins.js";
 import { dial } from "./dial.js";
+import { SDK_COUNSEL } from "./counsel.js";
 import {
   GATE_BINARY_KEY,
   HOOK_HANDLER_KEY,
@@ -603,6 +604,10 @@ const SHIPPED_KINDS: ReadonlySet<KindFacts> = new Set(
 /** The name prefix every synthesized guidance rule takes — `temper-guidance-<kind>`. */
 const GUIDANCE_RULE_PREFIX = "temper-guidance-";
 
+/** The rule carrying {@link SDK_COUNSEL}, scoped over the program directory. */
+const COUNSEL_RULE_NAME = "temper-sdk";
+const COUNSEL_RULE_PATHS = ".temper/**";
+
 /** The synthesized guidance rules, so a harness already carrying them is not re-synthesized. */
 const SYNTHESIZED_RULES = new WeakSet<Member>();
 
@@ -662,7 +667,8 @@ function guidanceBody(facts: KindFacts): string | undefined {
 }
 
 /**
- * One `rule` member per **guided corpus kind**: a kind in play that carries counsel (its
+ * The {@link SDK_COUNSEL} rule over the program directory, always, then one `rule`
+ * member per **guided corpus kind**: a kind in play that carries counsel (its
  * own `guidance` or a field's, {@link guidanceBody}) and that the program authored, never
  * one it only imported (a shipped built-in projects nothing — every harness would
  * otherwise get rules it never asked for). A relocated built-in is the program's own:
@@ -677,34 +683,26 @@ function guidanceBody(facts: KindFacts): string | undefined {
  * (a relocated `rule` places it at the relocated root), else the built-in.
  *
  * # Throws
- * If an authored `rule` member already holds a synthesized rule's name — the
- * `temper-guidance-` names are temper's, so two writers at one file is a collision.
+ * If an authored `rule` member already holds a synthesized rule's name — those names
+ * are temper's, so two writers at one file is a collision.
  */
 function guidanceRules(harness: Harness): Member[] {
   const kinds = kindsInPlay(harness);
   const admissions = admissionsByHost(harness);
   const ruleFacts = kinds.find((facts) => facts.name === rule.key) ?? rule.facts;
   const authored = new Set(harness.members.filter((member) => member.kind === rule.key).map((member) => member.name));
-  const rules: Member[] = [];
-  for (const facts of kinds) {
-    const guidance = guidanceBody(facts);
-    if (guidance === undefined) continue;
-    if (SHIPPED_KINDS.has(facts)) continue;
-    const paths = locusGlobs(facts, kinds, admissions);
-    if (paths.length === 0) continue;
-    const name = `${GUIDANCE_RULE_PREFIX}${facts.name}`;
+  const synthesize = (name: string, prose: string, paths: string[], owner: string): Member => {
     if (authored.has(name)) {
       throw new Error(
-        `rule \`${name}\`: the name is the guidance rule temper synthesizes for kind ` +
-          `\`${facts.name}\` — the \`${GUIDANCE_RULE_PREFIX}\` names are temper's own, so ` +
-          `rename the authored rule.`,
+        `rule \`${name}\`: the name is the ${owner} — the \`${GUIDANCE_RULE_PREFIX}\` names and ` +
+          `\`${COUNSEL_RULE_NAME}\` are temper's own, so rename the authored rule.`,
       );
     }
     const member: Member = {
       kind: rule.key,
       facts: ruleFacts,
       name,
-      prose: span(guidance),
+      prose: span(prose),
       fields: [["paths", paths]],
       satisfies: [],
       requires: {},
@@ -712,7 +710,25 @@ function guidanceRules(harness: Harness): Member[] {
       inputs: [],
     };
     SYNTHESIZED_RULES.add(member);
-    rules.push(member);
+    return member;
+  };
+  const rules = [
+    synthesize(COUNSEL_RULE_NAME, SDK_COUNSEL, [COUNSEL_RULE_PATHS], "SDK counsel rule temper synthesizes over the program"),
+  ];
+  for (const facts of kinds) {
+    const guidance = guidanceBody(facts);
+    if (guidance === undefined) continue;
+    if (SHIPPED_KINDS.has(facts)) continue;
+    const paths = locusGlobs(facts, kinds, admissions);
+    if (paths.length === 0) continue;
+    rules.push(
+      synthesize(
+        `${GUIDANCE_RULE_PREFIX}${facts.name}`,
+        guidance,
+        paths,
+        `guidance rule temper synthesizes for kind \`${facts.name}\``,
+      ),
+    );
   }
   return rules;
 }
@@ -724,8 +740,7 @@ function guidanceRules(harness: Harness): Member[] {
  */
 export function withGuidanceRules(harness: Harness): Harness {
   if (harness.members.some((member) => SYNTHESIZED_RULES.has(member))) return harness;
-  const rules = guidanceRules(harness);
-  return rules.length === 0 ? harness : { ...harness, members: [...harness.members, ...rules] };
+  return { ...harness, members: [...harness.members, ...guidanceRules(harness)] };
 }
 
 /**

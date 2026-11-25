@@ -47,7 +47,13 @@ import type { Rule, Skill } from "../src/claude-code.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
 import { loadedLocalModules } from "../src/emit.js";
 import { agent, command, hook, mcpServer, memory, rule, settings, skill } from "../src/claude-code.js";
+import { SDK_COUNSEL } from "../src/counsel.js";
 import { clauseRow } from "./common.js";
+
+/** The members the program authored — every emit also carries the synthesized `temper-sdk` counsel rule. */
+function authoredMembers<M extends { readonly name: string }>(members: readonly M[]): M[] {
+  return members.filter((member) => member.name !== "temper-sdk");
+}
 
 function projectedHarness() {
   return harness({
@@ -78,7 +84,7 @@ test("emit compiles the projected members and declarations in one pass", () => {
   const result = emit(projectedHarness());
 
   assert.deepEqual(
-    result.members.map((m) => `${m.kind}:${m.name}`),
+    authoredMembers(result.members).map((m) => `${m.kind}:${m.name}`),
     ["rule:rust", "skill:coordinate"],
   );
   const rust = result.members.find((m) => m.name === "rust")!;
@@ -105,7 +111,7 @@ test("emit compiles the projected members and declarations in one pass", () => {
     ["rule", "skill"],
   );
   assert.deepEqual(
-    seam.members.map((m: { name: string }) => m.name),
+    authoredMembers<{ name: string }>(seam.members).map((m) => m.name),
     ["rust", "coordinate"],
   );
 });
@@ -733,7 +739,7 @@ test("an embedded member absent guidance/cite neither projects nor takes a kind-
  });
   const result = emit(mixed);
   // Only the rule projects — the embedded kind lives inside a host document.
-  assert.deepEqual(result.members.map((m) => m.name), ["rust"]);
+  assert.deepEqual(authoredMembers(result.members).map((m) => m.name), ["rust"]);
   // The declaration kinds carry the rule, never the embedded kind (residue inherits through the host).
   assert.deepEqual(result.declarations.kinds.map((k) => k.name), ["rule"]);
 });
@@ -755,7 +761,7 @@ test("an embedded kind declaring guidance/cite takes a locus-absent kind-fact ro
   const result = emit(mixed);
   // Its guidance/cite ride a lock row now, but the kind still owns no unit of its own —
   // no standalone projection joins the rule's.
-  assert.deepEqual(result.members.map((m) => m.name), ["rust"]);
+  assert.deepEqual(authoredMembers(result.members).map((m) => m.name), ["rust"]);
   const row = result.declarations.kinds.find((k) => k.name === "decision-with-guidance");
   assert.ok(row, "an embedded kind carrying guidance/cite takes a kind-fact row");
   assert.equal(row?.governs_root, undefined);
@@ -1268,7 +1274,7 @@ test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, t
           embeddedMemberValue({
             kind: decisionWithRender,
             key: "surface-authority",
-            leaves: { chosen: text`See ${{ address: "rule:ghost", display: "ghost" }}.` },
+            leaves: { chosen: text`See ${{ address: "agent:ghost", display: "ghost" }}.` },
           }),
         ),
       }),
@@ -1431,7 +1437,7 @@ test("an unresolved mention inside a leaf is a loud emit error, mirroring a memb
           embeddedMemberValue({
             kind: "decision",
             key: "surface-authority",
-            leaves: { chosen: text`See ${{ address: "rule:ghost", display: "ghost" }}.` },
+            leaves: { chosen: text`See ${{ address: "agent:ghost", display: "ghost" }}.` },
           }),
         ),
       }),
@@ -2110,7 +2116,7 @@ test("a hook and an mcp-server member each erase into a registration write fact 
 
   // Neither surfaces as a standalone projection — a fields-only registration member
   // owns no artifact of its own, so it never rides the projected-member payload.
-  assert.deepEqual(result.members, []);
+  assert.deepEqual(authoredMembers(result.members), []);
 
   // Each erases into a write fact carrying its name (key), collection address, and
   // folded fields — the shape a manifest write face reads back. Kind-then-key sorted,
@@ -2581,8 +2587,8 @@ test("a module-carried memory member carries no frontmatter fields", () => {
  });
 
   const result = emit(h);
-  assert.deepEqual(result.members.map((m) => m.name), ["CLAUDE"]);
-  const member = result.members[0];
+  assert.deepEqual(authoredMembers(result.members).map((m) => m.name), ["CLAUDE"]);
+  const member = result.members[0]!;
   assert.equal(member.body, claudeBody);
   assert.deepEqual(member.fields, []);
 });
@@ -2635,7 +2641,7 @@ test("two hook members on one event share an address and both emit — a registr
 
   const result = emit(h);
 
-  assert.deepEqual(result.members, []);
+  assert.deepEqual(authoredMembers(result.members), []);
   assert.deepEqual(
     result.registrations.map((row) => [row.kind, row.key, Object.fromEntries(row.fields).matcher]),
     // Kind-then-key sorted, and rows sharing a key keep their authored order.
@@ -2766,6 +2772,26 @@ test("an embedded guided kind nothing hosts projects no rule — it has no locus
   });
   const result = emit(harness({ members: [], expect: [{ kind: orphan, clauses: [] }] }));
   assert.deepEqual(guidanceRuleMembers(result), []);
+});
+
+test("every emit carries the temper-sdk rule, scoped over the program directory, whose body is the SDK counsel", () => {
+  for (const program of [harness({ members: [] }), harness({ members: [specDoc({ name: "intent" })] })]) {
+    const counsel = emit(program).members.filter((member) => member.name === "temper-sdk");
+    assert.equal(counsel.length, 1);
+    assert.equal(counsel[0]!.kind, "rule");
+    assert.deepEqual(counsel[0]!.fields, [["paths", [".temper/**"]]]);
+    assert.equal(counsel[0]!.body, SDK_COUNSEL);
+  }
+});
+
+test("the SDK counsel stays within about 1k tokens", () => {
+  // Four bytes a token is the conventional English estimate.
+  assert.ok(Buffer.byteLength(SDK_COUNSEL) <= 4096, `${Buffer.byteLength(SDK_COUNSEL)} bytes`);
+});
+
+test("an authored rule at the SDK counsel rule's name refuses loud", () => {
+  const h = harness({ members: [rule({ name: "temper-sdk", prose: text`# Mine` })] });
+  assert.throws(() => emit(h), /rule `temper-sdk`: the name is the SDK counsel rule temper synthesizes/);
 });
 
 test("an authored rule at a synthesized guidance rule's name refuses loud", () => {

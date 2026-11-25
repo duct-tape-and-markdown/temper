@@ -161,14 +161,23 @@ fn the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit() {
          verbatim (src/builtin_lock.toml's own header), never by hand-editing a row"
     );
 
-    // And the compare stays honest about what it dropped. A memberless emit writes no
-    // provenance rows, so the engine stamp — plus the blank line the first table carries
-    // as its own separator — is the whole of the derived prefix. Spelled out byte-exact
-    // so this lane keeps noticing any *other* root key emit grows, rather than silently
-    // widening the slice to swallow it.
+    // And the compare stays honest about what it dropped. A memberless emit writes one
+    // provenance row — the `temper-sdk` counsel rule every emit synthesizes — so the
+    // engine stamp and that row are the whole of the derived prefix. Spelled out
+    // byte-exact (bar the row's hashes) so this lane keeps noticing any *other* root key
+    // emit grows, rather than silently widening the slice to swallow it.
+    let counsel_hash = derived_prefix
+        .lines()
+        .find_map(|line| line.strip_prefix("source_hash = "))
+        .expect("the counsel rule's provenance row carries its source hash");
     assert_eq!(
         derived_prefix,
-        format!("engine = \"{}\"\n\n", temper::VERSION),
+        format!(
+            "engine = \"{}\"\n\n[[rule]]\nname = \"temper-sdk\"\n\
+             source_path = \".claude/rules/temper-sdk.md\"\n\
+             source_hash = {counsel_hash}\nemit_hash = {counsel_hash}\n\n",
+            temper::VERSION
+        ),
         "the only thing the derived side carries ahead of its declaration rows is the \
          engine stamp; a new root key belongs in this lane's compare, not in the prefix \
          it drops"

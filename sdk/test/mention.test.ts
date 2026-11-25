@@ -93,7 +93,7 @@ test("a dangling mention in a composed-body prose span refuses at emit, like a m
     members: [
       memory({
         name: "CLAUDE",
-        prose: blocks(text`It rests on ${{ address: "rule:ghost", display: "ghost" }}.`),
+        prose: blocks(text`It rests on ${{ address: "agent:ghost", display: "ghost" }}.`),
       }),
     ],
   });
