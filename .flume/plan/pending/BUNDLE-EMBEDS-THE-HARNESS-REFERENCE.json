@@ -3,10 +3,11 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "REFERENCE-RENDERS-KIND-TOPICS",
-      "REFERENCE-RENDERS-DOMAIN-TOPICS"
+      "REFERENCE-RENDERS-KIND-TOPICS"
     ]
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [
       {
@@ -23,7 +24,8 @@
         "path": "tests/it/bundle.rs",
         "description": "frozen byte-compare of the embedded reference against the SDK's emit"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "bundle embeds the SDK's reference value, re-derived and byte-compared like the built-in lock; the bundle.rs operate-skill literal retires",
   "per": {
@@ -34,5 +36,7 @@
   "tests": [
     "the bundled reference byte equals the sdks memberless emit"
   ],
+  "pins": [],
+  "laneTests": [],
   "notes": "0093: bundle embeds the same value. Mirrors tests/it/builtin_lock_frozen.rs (node subprocess over the built SDK). The memberless program is the lock's; build names the embedded path. Keep the bundle.rs unit pin that the bundled skill passes temper's own skill contract."
 }
