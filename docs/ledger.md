@@ -71,10 +71,6 @@ hard.
 - **Queued human half:** when REQUIREMENT-LOWERS-THE-CORPUS-DEFAULT ships,
   drop `friction-capture-procedure`'s `required: true` in `.temper/harness.ts`
   (ruled 11-24: it restates the default) and re-emit.
-- **Queued human half (0081):** after
-  COLLECTION-ADDRESS-NAMES-ONLY-THE-KEY-PATH ships, re-emit `.temper`; the
-  gate-hook move (0082) is done (`gateHook`, 11-24) and goes in the next
-  cut's migration note.
 - **Harness migration done 11-24:** flume 0.23's packaged harness replaces
   the hand chain (`.flume/declaration.ts`; cargo judge `.flume/runner.mjs`
   over nextest). Unverified in the package: a blocked entry may edit a file
