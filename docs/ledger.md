@@ -94,6 +94,7 @@ hard.
 - Base harness dogfood: `docs/base-harness-primer.md`,
   `examples/base-harness/`, `docs/market-formats.md`. Stranger dry run
   next, then channel 3.
+- Product latch on 0095 (review verifier): a review checklist at the diff (the review-held requirements a change touches), review-held invariants delivered to the writing agent on touch, the review-held inventory as the ladder's promotion queue, review evidence later.
 - Docs-language candidates: the determinism ladder; the harness pin
   ("name the invariants, let the loop settle").
 - On John: Apple notarizing at release; USPTO screen.
