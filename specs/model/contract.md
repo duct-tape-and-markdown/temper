@@ -116,12 +116,16 @@ A requirement is a member of a built-in kind (embedded locus). Its template:
 - **prose** — the authored intent the requirement exists to carry; never
   interpreted,
 - a **verifier** — the typed delegate that judges the behavioral remainder,
-  two shipped species: a **script** (a path-resolved reference to the test
-  or CI job that executes the judgment) or a **telemetry** declaration
+  three shipped species: a **script** (a path-resolved reference to the
+  test or CI job that executes the judgment), a **telemetry** declaration
   (named, documented harness events the emitted tap records, judged by
-  reading the field record). The gate checks the declaration resolves and
-  never runs, records into, or aggregates over it: no verifier's verdict
-  enters `check`'s exit code,
+  reading the field record), or a **review** (the reader whose judgment
+  holds it, named in prose: the author as it writes, a reviewer at the
+  diff). The gate checks the declaration resolves and never runs, records
+  into, or aggregates over it: no verifier's verdict enters `check`'s exit
+  code. A requirement declaring none is **unheld**, and the read verbs and
+  the emitted reference say so; making it a finding is a clause the author
+  attaches, never a default (intent, invariant 1),
 - **attached clauses** over its opt-in selection. "This must be filled" is
   the shipped default: a whole-grain cardinality clause (at least one
   satisfier) at error severity — overridable, so an advisory requirement
