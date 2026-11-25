@@ -1139,6 +1139,28 @@ test("the six builtin kinds carry their promoted authoring notes as guidance fac
   assert.match(hook.facts.guidance, /UserPromptSubmit.*Stop/);
 });
 
+test("each instruction-bearing builtin kind's guidance states what reaches context and when, cited", () => {
+  // rule: unscoped at launch, path-scoped on the first file-tool touch — never "always-on".
+  assert.match(rule.facts.guidance ?? "", /no `paths` frontmatter it loads at launch/);
+  assert.match(rule.facts.guidance ?? "", /first time Read, Write or Edit touches a matching file/);
+  assert.doesNotMatch(rule.facts.guidance ?? "", /always-on/);
+  assert.match(rule.facts.cite ?? "", /code\.claude\.com\/docs\/en\/memory/);
+  // skill: description listed, body on invocation, paths-gated listing on touch.
+  assert.match(skill.facts.guidance ?? "", /`description` is listed from session start/);
+  assert.match(skill.facts.guidance ?? "", /body loads only when the skill is invoked/);
+  assert.match(skill.facts.guidance ?? "", /`paths` list withholds even the listing/);
+  assert.match(skill.facts.cite ?? "", /code\.claude\.com\/docs\/en\/skills/);
+  // command: the skill's load semantics at the legacy placement.
+  assert.match(command.facts.guidance ?? "", /body reaches context only when invoked/);
+  assert.match(command.facts.cite ?? "", /code\.claude\.com\/docs\/en\/skills/);
+  // supporting-doc: only when the host body sends Claude there.
+  assert.match(supportingDoc.facts.guidance ?? "", /only when its skill's body sends Claude to it/);
+  assert.match(supportingDoc.facts.cite ?? "", /code\.claude\.com\/docs\/en\/skills/);
+  for (const k of [rule, skill, command, supportingDoc, memory]) {
+    assert.doesNotMatch(k.facts.guidance ?? "", /always-on/);
+  }
+});
+
 test("agentDefaultContract requires name and description, gates the lowercase-hyphen charset, and pins per-scope uniqueness", () => {
   assert.deepEqual(
     agentDefaultContract.map((c) => c.predicate.key),

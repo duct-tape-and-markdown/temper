@@ -170,6 +170,9 @@ export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>(
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
+  cite: "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)",
+  guidance:
+    "a supporting doc never loads on its own: it reaches context only when its skill's body sends Claude to it, after the skill is invoked — so the body names the file and says when to open it, and a doc the body never mentions is never read. Keep each doc to one concern, so following one pointer loads only what that step needs.",
 });
 
 /**
@@ -202,8 +205,9 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
   identityField: "name",
   templates: [{ kind: supportingDoc, path: "*.md" }],
+  cite: "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)",
   guidance:
-    "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `disable-model-invocation: true` for side-effectful workflows you want to time yourself; `user-invocable: false` for background knowledge that is not a command; `metadata` is the sanctioned home for versioning — there is no top-level `version` field.",
+    "a skill reaches context in two steps: its `description` is listed from session start, and its body loads only when the skill is invoked — by `/name`, or by Claude matching the description — so the description carries the trigger and the body the procedure. A `paths` list withholds even the listing until Read, Write or Edit touches a matching file, and supporting files load only when the body sends Claude to one. Set `disable-model-invocation: true` for side-effectful workflows you want to time yourself — it drops the description from context too, so only `/name` loads the skill; `user-invocable: false` for background knowledge that is not a command. Prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `metadata` is the sanctioned home for versioning — there is no top-level `version` field.",
 });
 
 /**
@@ -226,6 +230,9 @@ export const command: KindDefinition<Skill> = kind<Skill>({
   format: "yaml-frontmatter",
   unitShape: "path",
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
+  cite: "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)",
+  guidance:
+    "a command loads as a skill does: its `description` is listed from session start, and its body reaches context only when invoked — by `/` plus its path under `commands/` with each `/` a `:`, or by Claude matching the description. It is one file, so it bundles no supporting files; reach for `.claude/skills/<name>/SKILL.md` when the procedure needs reference material loaded on demand.",
 });
 
 /** A Claude Code subagent definition. */
@@ -367,8 +374,9 @@ export const rule: KindDefinition<Rule> = kind<Rule>({
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "paths-match", field: "paths" }],
+  cite: "https://code.claude.com/docs/en/memory (retrieved 2026-11-25); path-rule load timing observed on Claude Code 2.1.332",
   guidance:
-    "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
+    "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
 });
 
 /** A Claude Code memory file — `CLAUDE.md`, loaded in full at launch, no frontmatter. */
