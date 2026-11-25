@@ -1590,3 +1590,53 @@ fn the_guard_edges_leave_a_layout_entry_edit_to_check() {
         );
     }
 }
+
+#[test]
+fn check_drops_a_satisfies_edge_removed_from_a_committed_layout_host_without_a_re_emit() {
+    let root = common::tmpdir("layout-satisfies-delete-no-reemit");
+    let specs = root.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    let doc = specs.join("guide.md");
+    let authored = "# Purpose\nA guide that fills two requirements.\n\
+                    \n# Satisfies\n- dev-standards\n- layout-edge-slot\n";
+    fs::write(&doc, authored).unwrap();
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::layout_kind_facts(
+                "guide",
+                vec![
+                    common::field_region("purpose"),
+                    common::field_region("satisfies"),
+                ],
+            )],
+            requirements: ["dev-standards", "layout-edge-slot"]
+                .map(|name| common::requirement(name, true, Some("guide")))
+                .to_vec(),
+            ..Default::default()
+        },
+        members: vec![common::layout_member("guide")],
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+    let before = common::check_in(&root, &[], None);
+    assert!(
+        before.ok,
+        "both fills are in the document, so the case is vacuous unless check first passes: {}",
+        before.output
+    );
+
+    fs::write(&doc, authored.replace("- layout-edge-slot\n", "")).unwrap();
+
+    let run = common::check_in(&root, &[], None);
+    assert!(!run.ok, "{}", run.output);
+    assert!(
+        run.output.contains("layout-edge-slot"),
+        "the fill is read off the document, not the lock, so the requirement reads unfilled: {}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("dev-standards"),
+        "the fill the document still carries stays credited: {}",
+        run.output
+    );
+}

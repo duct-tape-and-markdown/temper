@@ -1554,8 +1554,13 @@ pub fn assemble_lock_family(
 /// are a snapshot an edit since the last emit has already outrun; every discovered host's
 /// stored rows of a collection's kind go, even where its document now lowers none — a
 /// row of any other kind the host nests is no entry of its layout and stands. A host the walk no longer
-/// finds keeps its rows, for the undeclared/missing findings to judge as before. Only the
-/// `nested_member` half is replaced: the lock's prose and `satisfies` rows stand.
+/// finds keeps its rows, for the undeclared/missing findings to judge as before.
+///
+/// Where the layout declares a `satisfies` field section, the document is its hosts' fill
+/// home too, so each discovered host's stored `satisfies` rows are replaced the same way.
+/// A lock row carries no record of which source wrote it, so a layout without that
+/// section keeps every stored fill — none of them can have come off its document. The
+/// lock's prose rows stand.
 ///
 /// # Errors
 ///
@@ -1575,23 +1580,33 @@ fn replace_committed_layout_entries(
         .iter()
         .map(|unit| member_address::address_of(&kind.name, &unit.id))
         .collect();
-    let entry_kinds: BTreeSet<&str> = match &kind.content {
-        kind::Content::Layout(layout) => layout
-            .regions
-            .iter()
-            .filter_map(|region| match region {
-                crate::layout::LayoutRegion::Collection { member_kind, .. } => {
-                    Some(member_kind.as_str())
-                }
-                _ => None,
-            })
-            .collect(),
-        _ => BTreeSet::new(),
+    let regions: &[crate::layout::LayoutRegion] = match &kind.content {
+        kind::Content::Layout(layout) => &layout.regions,
+        _ => &[],
     };
+    let entry_kinds: BTreeSet<&str> = regions
+        .iter()
+        .filter_map(|region| match region {
+            crate::layout::LayoutRegion::Collection { member_kind, .. } => {
+                Some(member_kind.as_str())
+            }
+            _ => None,
+        })
+        .collect();
     assembled
         .nested_members
         .retain(|row| !(hosts.contains(&row.host) && entry_kinds.contains(row.kind.as_str())));
     assembled.nested_members.extend(layout_rows.nested);
+    let fills_in_document = regions.iter().any(|region| {
+        matches!(region, crate::layout::LayoutRegion::Field { slot }
+            if slot == kind::SATISFIES_EDGE_FIELD)
+    });
+    if fills_in_document {
+        assembled
+            .satisfies
+            .retain(|row| !hosts.contains(&row.member));
+        assembled.satisfies.extend(layout_rows.satisfies);
+    }
     Ok(())
 }
 
