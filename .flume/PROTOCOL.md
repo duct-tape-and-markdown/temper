@@ -134,4 +134,6 @@ orientation, not authority.
 
 No phase pushes. Trunk moves on this machine by the engine's fast-forward;
 the operator pushes `main`. Never force-push, amend a pushed commit, or
-`--no-verify`.
+`--no-verify`. An interactive session commits to trunk mid-run only under
+the ship lock: `pnpm exec flume exclusive -- sh -c '<commit and push>'`. A
+bare commit races a tick's fast-forward and costs that span a re-merge.
