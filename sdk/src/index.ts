@@ -82,6 +82,7 @@ export type {
   KindDefinition,
   KindFacts,
   KindOptions,
+  KindExtension,
   KindRelocation,
   Layout,
   LayoutRegion,
@@ -98,7 +99,7 @@ export type {
   Template,
   UnitShape,
 } from "./kind.js";
-export { embeddedMemberValue, kind, relocate } from "./kind.js";
+export { embeddedMemberValue, extend, kind, relocate } from "./kind.js";
 
 // Inputs — the files a member's claims rest on, fingerprinted by the lock and moved
 // nowhere. A member-grain declaration, not a word in a body, so it rides here rather

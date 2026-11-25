@@ -18,6 +18,12 @@ name: string,
  */
 provider?: string, 
 /**
+ * The **base** kind's bare name, for a subkind: it keeps the base's facts and governs
+ * a locus within the base's, whose documents there are its members alone. Absent for
+ * every other kind — a relocation keeps its base's name, so it names none.
+ */
+base?: string, 
+/**
  * The `governs` locus root directory. Absent together with
  * [`governs_glob`](KindFactRow::governs_glob) for a **nested file** kind: its members'
  * paths compose from their host's unit and the host template's pattern, so it governs

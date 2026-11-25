@@ -498,7 +498,7 @@ pub fn discover_kind_files(
     over: LocalOverride,
 ) -> Vec<PathBuf> {
     let mut files = discover_kind_units(disc, governs, local_governs(kind, over));
-    if !kind.excluded.is_empty() {
+    if !kind.excluded.is_empty() || !kind.ceded.is_empty() {
         // The walk's files hang off the normalized locus root, so they are read back to
         // harness-relative against the harness normalized the same way.
         let harness = crate::path::normalize_path(disc.harness());
@@ -507,6 +507,7 @@ pub fn discover_kind_files(
             file.strip_prefix(&harness).is_ok_and(|relative| {
                 let relative = crate::path::HarnessRelativePath::from_path(relative);
                 crate::kind::locus_admits(&pattern, &kind.excluded, &relative)
+                    && !kind.cedes(&relative)
             })
         });
     }

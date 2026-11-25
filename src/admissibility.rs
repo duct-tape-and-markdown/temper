@@ -706,7 +706,12 @@ pub fn governs_collision_diagnostics(
         let Some(governs) = &kind.governs else {
             continue;
         };
-        if kind.collection_address.is_some() {
+        // A base whose subkind shares its whole locus cedes every document there.
+        if kind.collection_address.is_some()
+            || kind
+                .ceded
+                .contains(&crate::kind::locus_pattern(&governs.root, &governs.glob))
+        {
             continue;
         }
         by_governs

@@ -412,6 +412,7 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
   return {
     name: facts.name,
     provider: facts.provider,
+    base: facts.base,
     governs_root: governs?.root,
     governs_glob: governs?.glob,
     commitment: governs?.commitment,

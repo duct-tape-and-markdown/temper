@@ -827,7 +827,94 @@ fn declared_kinds_with_overlaid(
     for row in custom_rows {
         kinds.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
     }
+    resolve_subkinds(&mut kinds)?;
     Ok(kinds)
+}
+
+/// Bind every subkind in `kinds` to its base, bases first: the subkind takes each fact its
+/// row leaves undeclared from the base, and the base cedes the subkind's locus, so a
+/// document there is the subkind's one member.
+///
+/// # Errors
+///
+/// Returns a [`drift::LockRowError::Subkind`] when a base names no kind in play, the base
+/// chain cycles, either side governs no file locus, or the subkind's locus does not lie
+/// within the base's.
+fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drift::LockRowError> {
+    let refuse = |kind: &CustomKind, base: &str, reason: String| drift::LockRowError::Subkind {
+        kind: kind.name.clone(),
+        base: base.to_string(),
+        reason,
+    };
+    let mut ordered: Vec<(usize, String)> = Vec::new();
+    for kind in kinds.values() {
+        let Some(base) = &kind.base else { continue };
+        let mut depth = 0;
+        let mut seen = BTreeSet::from([kind.name.as_str()]);
+        let mut at = base.as_str();
+        loop {
+            let Some(next) = kinds.get(at) else {
+                return Err(refuse(
+                    kind,
+                    base,
+                    format!("no kind named `{at}` is declared"),
+                ));
+            };
+            if !seen.insert(at) {
+                return Err(refuse(kind, base, "its base chain cycles".to_string()));
+            }
+            depth += 1;
+            match &next.base {
+                Some(up) => at = up,
+                None => break,
+            }
+        }
+        ordered.push((depth, kind.name.clone()));
+    }
+    ordered.sort();
+    for (_, name) in ordered {
+        let sub = kinds[&name].clone();
+        let Some(base_name) = sub.base.clone() else {
+            continue;
+        };
+        let base = &kinds[&base_name];
+        let (Some(own), Some(inherited)) = (&sub.governs, &base.governs) else {
+            return Err(refuse(
+                &sub,
+                &base_name,
+                "a subkind governs a locus within its base's, and one of the two governs no file locus".to_string(),
+            ));
+        };
+        let pattern = kind::locus_pattern(&own.root, &own.glob);
+        let base_pattern = kind::locus_pattern(&inherited.root, &inherited.glob);
+        if !kind::locus_within(&pattern, &base_pattern) {
+            return Err(refuse(
+                &sub,
+                &base_name,
+                format!("its locus `{pattern}` lies outside the base's `{base_pattern}`"),
+            ));
+        }
+        let mut bound = sub;
+        bound.format = bound.format.or(base.format);
+        bound.unit_shape = bound.unit_shape.or_else(|| base.unit_shape.clone());
+        if bound.registration.is_empty() {
+            bound.registration.clone_from(&base.registration);
+        }
+        if bound.templates.is_empty() {
+            bound.templates.clone_from(&base.templates);
+        }
+        if bound.content == kind::Content::File {
+            bound.content = base.content.clone();
+        }
+        if bound.commitment.is_none() {
+            bound.commitment = base.commitment;
+        }
+        kinds.insert(name, bound);
+        if let Some(base) = kinds.get_mut(&base_name) {
+            base.ceded.push(pattern);
+        }
+    }
+    Ok(())
 }
 
 /// A custom kind row's own lift, taken off the run's published effective kind set rather
@@ -1513,6 +1600,13 @@ pub fn assemble_lock_family(
     }
 
     let all_declared = declared_kinds_with_overlaid(&overlaid_builtin_kinds, committed)?;
+    // A built-in base cedes its subkinds' loci on both maps, or its own walk would still
+    // read their documents.
+    for (name, kind) in &mut overlaid_builtin_kinds {
+        if let Some(declared) = all_declared.get(name) {
+            kind.ceded.clone_from(&declared.ceded);
+        }
+    }
     // Each local kind's resolved units, retained beside the rows derived from them, so a
     // consumer of this pass's own read needs no second resolution of the same kind over
     // the same discovery: [`read_dial`] is that consumer.
@@ -2154,6 +2248,31 @@ mod tests {
     use crate::contract::{Clause, Predicate, Severity};
     use crate::test_support;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn a_subkind_keeps_its_bases_facts_and_its_base_cedes_its_locus() {
+        let declarations = drift::Declarations {
+            kinds: vec![drift::KindFactRow {
+                base: Some("rule".to_string()),
+                governs_root: Some(".claude/rules/decisions".to_string()),
+                governs_glob: Some("*.md".to_string()),
+                ..test_support::kind_fact_row("decision")
+            }],
+            ..drift::Declarations::default()
+        };
+        let overlaid: BTreeMap<String, CustomKind> = builtin_kind::definitions()
+            .into_values()
+            .map(|kind| (kind.name.clone(), kind))
+            .collect();
+        let kinds = declared_kinds_with_overlaid(&overlaid, &declarations).unwrap();
+        let (decision, rule) = (&kinds["decision"], &kinds["rule"]);
+        assert_eq!(decision.format, rule.format);
+        assert_eq!(decision.unit_shape, rule.unit_shape);
+        assert_eq!(decision.registration, rule.registration);
+        assert!(decision.locus_admits(".claude/rules/decisions/0001.md"));
+        assert!(!rule.locus_admits(".claude/rules/decisions/0001.md"));
+        assert!(rule.locus_admits(".claude/rules/style.md"));
+    }
 
     #[test]
     fn published_kind_lift_takes_a_present_row_and_refuses_an_absent_one() {

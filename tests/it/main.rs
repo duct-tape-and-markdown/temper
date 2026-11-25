@@ -40,6 +40,7 @@ mod hook_kind;
 mod install;
 mod installed_plugin_kind;
 mod json_document_format;
+mod kind_extension;
 mod known_marketplace_kind;
 mod layer_join;
 mod layout_edge_slot;

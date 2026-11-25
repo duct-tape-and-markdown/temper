@@ -255,6 +255,7 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
  {
       name: "rule",
       provider: undefined,
+      base: undefined,
       governs_root: ".claude/rules",
       governs_glob: "**/*.md",
       commitment: undefined,

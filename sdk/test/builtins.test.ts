@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Clause, Harness } from "../src/index.js";
-import { embeddedMemberValue, emit, harness, kind, relocate, requirement } from "../src/index.js";
+import { embeddedMemberValue, emit, extend, harness, kind, relocate, requirement } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
 import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
@@ -1654,4 +1654,30 @@ test("a kind sharing a relocation's name without its provenance still refuses", 
     expect: [{ kind: impostorRule, clauses: [] }],
   });
   assert.throws(compileDeclarations.bind(null, h), /two kinds named `rule` are in play/);
+});
+
+test("extend under a new name mints a subkind whose row names its base", () => {
+  const decision = extend<Rule>(rule, { name: "decision", governs: { root: ".claude/rules/decisions", glob: "*.md" } });
+  assert.equal(decision.facts.name, "decision");
+  assert.equal(decision.facts.base, "rule");
+  assert.equal(decision.facts.relocates, undefined);
+  const rows = compileDeclarations(harness({ members: [], expect: [{ kind: decision, clauses: [] }] })).kinds;
+  const row = rows.find((candidate) => candidate.name === "decision");
+  assert.ok(row !== undefined, "the subkind reaches the lock as its own row");
+  assert.equal(row.base, "rule");
+  assert.equal(row.governs_root, ".claude/rules/decisions");
+  assert.equal(row.format, rule.facts.format);
+  assert.equal(row.unit_shape, "file");
+});
+
+test("extend under the base's name is the relocation relocate makes", () => {
+  const delta = { exclude: [".claude/rules/fixture"] };
+  assert.deepEqual(extend<Rule>(rule, delta).facts, relocate<Rule>(rule, delta).facts);
+});
+
+test("a subkind whose locus lies outside its base's refuses", () => {
+  assert.throws(
+    () => extend<Rule>(rule, { name: "decision", governs: { root: "docs/decisions", glob: "*.md" } }),
+    /lies outside the base's/,
+  );
 });

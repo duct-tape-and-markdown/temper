@@ -1147,6 +1147,7 @@ pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFa
     KindFactRow {
         name: "skill".to_string(),
         provider: provider.map(str::to_string),
+        base: None,
         governs_root: Some(".claude/skills".to_string()),
         governs_glob: Some("*/SKILL.md".to_string()),
         commitment: None,
@@ -1170,6 +1171,7 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
     KindFactRow {
         name: "rule".to_string(),
         provider: provider.map(str::to_string),
+        base: None,
         governs_root: Some(".claude/rules".to_string()),
         governs_glob: Some("*.md".to_string()),
         commitment: None,
@@ -1196,6 +1198,7 @@ pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFac
     KindFactRow {
         name: name.to_string(),
         provider: None,
+        base: None,
         governs_root: Some(governs_root.to_string()),
         governs_glob: Some(governs_glob.to_string()),
         commitment: None,

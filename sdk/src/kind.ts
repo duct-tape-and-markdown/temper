@@ -250,6 +250,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
        * (`src/compose.rs`'s `row_relocates_builtin`).
        */
       readonly relocates?: string;
+      /** The kind this one is a **subkind** of, by name — set only by {@link extend} under a
+       * new name. It reaches the kind-fact row's `base` column. */
+      readonly base?: string;
       /** Fact 2, locus — where members live, and for a file locus whether their documents
        * are committed: a `local` commitment class declares the kind reviewed and its
        * members' documents not. */
@@ -319,6 +322,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
        * (`src/compose.rs`'s `row_relocates_builtin`).
        */
       readonly relocates?: string;
+      /** The kind this one is a **subkind** of, by name — set only by {@link extend} under a
+       * new name. It reaches the kind-fact row's `base` column. */
+      readonly base?: string;
       /** Fact 2, locus — where members live, and for a file locus whether their documents
        * are committed: a `local` commitment class declares the kind reviewed and its
        * members' documents not. */
@@ -388,6 +394,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
        * (`src/compose.rs`'s `row_relocates_builtin`).
        */
       readonly relocates?: string;
+      /** The kind this one is a **subkind** of, by name — set only by {@link extend} under a
+       * new name. It reaches the kind-fact row's `base` column. */
+      readonly base?: string;
       /** Fact 2, locus — where members live, and for a file locus whether their documents
        * are committed: a `local` commitment class declares the kind reviewed and its
        * members' documents not. */
@@ -908,6 +917,23 @@ function locusPattern(root: string, glob: string): string {
   return root === "." ? glob : `${root}/${glob}`;
 }
 
+/**
+ * Whether every path the template `sub` matches, `base` matches too — the engine's
+ * `locus_within`, decided over the same witnesses: each `*` a fresh token no literal
+ * matches, a `**` zero, one and two fresh components.
+ */
+function locusWithin(sub: string, base: string): boolean {
+  const fresh = "\u0001";
+  const segments = sub.split("/").map((segment) => (segment === "**" ? segment : segment.split("*").join(fresh)));
+  const depths = segments.includes("**") ? [0, 1, 2] : [0];
+  return depths.every((depth) =>
+    templateMatches(
+      base,
+      segments.flatMap((segment) => (segment === "**" ? Array.from({ length: depth }, (_, n) => `${fresh}${n}`) : [segment])).join("/"),
+    ),
+  );
+}
+
 /** Whether one path component matches one template segment: a literal, or one `*`. */
 function segmentMatches(segment: string, component: string): boolean {
   const star = segment.indexOf("*");
@@ -1015,9 +1041,60 @@ export function relocate<T extends object>(
   base: KindDefinition<any>,
   delta: KindRelocation<T>,
 ): KindDefinition<T> {
+  const { name: _name, ...relocation } = delta as KindExtension<T>;
+  return extend(base, relocation);
+}
+
+/**
+ * An **extension delta** — a {@link KindRelocation} plus an optional `name`. A name other
+ * than the base's mints a subkind; none (or the base's own) is a relocation.
+ */
+export interface KindExtension<T extends object> extends KindRelocation<T> {
+  /** The subkind's name; omitted, the extension relocates the base under its own. */
+  readonly name?: string;
+}
+
+/**
+ * **Extend** a kind. Under a new `name` the result is a **subkind**: it keeps the base's
+ * facts, adds `delta`'s edge fields and counsel, governs a locus within the base's (the
+ * base's own unless `governs` moves it), and names the base in its `base` fact — the
+ * engine then reads a document in that locus as the subkind's one member. Under the
+ * base's name it is the relocation {@link relocate} documents, the same operation.
+ *
+ * # Throws
+ * As {@link relocate}, and — for a subkind — if the base's locus is not `at`, or the
+ * subkind's locus does not lie within it.
+ */
+export function extend<T extends object>(
+  base: KindDefinition<any>,
+  delta: KindExtension<T>,
+): KindDefinition<T> {
+  const name = delta.name ?? base.facts.name;
+  const subkind = name !== base.facts.name;
+  if (subkind) {
+    if (base.facts.locus.kind !== "at") {
+      throw new Error(
+        `extending kind \`${base.facts.name}\` as \`${name}\`: a subkind governs a locus within ` +
+          `its base's, and this kind's locus is \`${base.facts.locus.kind}\` — it governs no glob ` +
+          `of its own (specs/model/representation.md, "kind").`,
+      );
+    }
+    if (delta.governs !== undefined) {
+      const own = locusPattern(delta.governs.root, delta.governs.glob);
+      const held = locusPattern(base.facts.locus.root, base.facts.locus.glob);
+      if (!locusWithin(own, held)) {
+        throw new Error(
+          `extending kind \`${base.facts.name}\` as \`${name}\`: the subkind's locus \`${own}\` ` +
+            `lies outside the base's \`${held}\`, and a subkind governs a locus within its ` +
+            `base's (specs/model/representation.md, "kind").`,
+        );
+      }
+    }
+  }
   const declaredEdges = delta.edgeFields ?? [];
   const counselled = delta.guidance !== undefined || delta.fieldGuidance !== undefined;
   if (
+    !subkind &&
     declaredEdges.length === 0 &&
     delta.governs === undefined &&
     (delta.exclude ?? []).length === 0 &&
@@ -1051,9 +1128,9 @@ export function relocate<T extends object>(
   // The base's counsel is dropped, not inherited: the relocation's own, where declared,
   // takes its place, so a guidance rule never projects a built-in's shipped counsel.
   const { guidance: _guidance, fieldGuidance: _fieldGuidance, cite: _cite, ...uncounselled } = base.facts;
+  const { relocates: _relocates, base: _base, ...unmarked } = uncounselled;
   const relocated = {
-    ...uncounselled,
-    relocates: base.facts.name,
+    ...(subkind ? { ...unmarked, name, base: base.facts.name } : { ...uncounselled, relocates: base.facts.name }),
     edgeFields,
     ...(delta.guidance === undefined ? {} : { guidance: delta.guidance }),
     ...(delta.fieldGuidance === undefined ? {} : { fieldGuidance: delta.fieldGuidance }),

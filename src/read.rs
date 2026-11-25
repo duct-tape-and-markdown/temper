@@ -677,6 +677,13 @@ fn narrate_kind(
     if let Some(row) = locus {
         narrate_locus(&mut out, name, row);
     }
+    if let Some(base) = facts.and_then(|row| row.base.as_deref()) {
+        let _ = writeln!(
+            out,
+            "`{name}` is a subkind of `{base}`: it keeps that kind's facts, and a document at \
+             its locus is a `{name}` member alone, never a `{base}` one.\n"
+        );
+    }
     narrate_hosting_kinds(&mut out, name, &hosts);
     narrate_address_form(&mut out, name, locus.is_some(), &hosts);
     if let Some(layout) = layout {

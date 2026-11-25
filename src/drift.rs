@@ -873,6 +873,17 @@ pub enum LockRowError {
         /// The unrecognized label.
         value: String,
     },
+    /// A subkind row's `base` names no kind in play, or its locus does not lie within the
+    /// base's.
+    #[error("lock `kind` declaration row `{kind}` is a subkind of `{base}`, but {reason}")]
+    Subkind {
+        /// The subkind's bare name.
+        kind: String,
+        /// The base its row names.
+        base: String,
+        /// What the row gets wrong about its base.
+        reason: String,
+    },
 }
 
 /// A declaration-row column problem before the family that scopes it is known — the
@@ -5190,6 +5201,11 @@ pub struct KindFactRow {
     /// The declared provider authority, when the kind qualifies by one.
     #[serde(default)]
     pub provider: Option<String>,
+    /// The **base** kind's bare name, for a subkind: it keeps the base's facts and governs
+    /// a locus within the base's, whose documents there are its members alone. Absent for
+    /// every other kind — a relocation keeps its base's name, so it names none.
+    #[serde(default)]
+    pub base: Option<String>,
     /// The `governs` locus root directory. Absent together with
     /// [`governs_glob`](KindFactRow::governs_glob) for a **nested file** kind: its members'
     /// paths compose from their host's unit and the host template's pattern, so it governs
@@ -6222,6 +6238,9 @@ impl KindFactRow {
         if let Some(provider) = &self.provider {
             table.insert("provider", value(provider.clone()));
         }
+        if let Some(base) = &self.base {
+            table.insert("base", value(base.clone()));
+        }
         if let Some(root) = &self.governs_root {
             table.insert("governs_root", value(root.clone()));
         }
@@ -6274,6 +6293,7 @@ impl KindFactRow {
         Ok(Self {
             name: req_str(table, "name")?,
             provider: opt_str(table, "provider")?,
+            base: opt_str(table, "base")?,
             governs_root: opt_str(table, "governs_root")?,
             governs_glob: opt_str(table, "governs_glob")?,
             commitment: opt_str(table, "commitment")?,

@@ -144,6 +144,13 @@ pub struct CustomKind {
     /// convention (code.claude.com/docs/en/skills, retrieved 2026-07-16). The mechanism
     /// generalizes to any kind that declares a bare-root file, not hardwired by name.
     pub bare_root_file: Option<String>,
+    /// The **base** kind this one is a subkind of, by bare name — read off the row's
+    /// `base` column. `None` for every other kind, a relocation included.
+    pub base: Option<String>,
+    /// The locus patterns ([`locus_pattern`]) of this kind's subkinds: a document one of
+    /// them matches is that subkind's member alone, so this kind's own locus cedes it.
+    /// Derived when the run's effective kind set is assembled, never read off a row.
+    pub ceded: Vec<String>,
 }
 
 /// A kind's declared **content** — how a member's authored body is shaped. The body is
@@ -542,6 +549,8 @@ impl CustomKind {
             commitment: None,
             excluded: Vec::new(),
             bare_root_file: None,
+            base: None,
+            ceded: Vec::new(),
         }
     }
 
@@ -557,6 +566,16 @@ impl CustomKind {
                 &self.excluded,
                 harness_relative,
             )
+        }) && !self.cedes(harness_relative)
+    }
+
+    /// Whether `harness_relative` lies in one of this kind's subkinds' loci
+    /// ([`ceded`](CustomKind::ceded)), and so is never this kind's own member.
+    #[must_use]
+    pub fn cedes(&self, harness_relative: &str) -> bool {
+        self.ceded.iter().any(|pattern| {
+            crate::glob::compile_glob(pattern)
+                .is_some_and(|matcher| matcher.is_match(harness_relative))
         })
     }
 
@@ -684,6 +703,7 @@ impl CustomKind {
             commitment: commitment_from_row(row)?,
             excluded: excluded_from_row(row)?,
             bare_root_file: None,
+            base: row.base.clone(),
             ..CustomKind::with_locus(
                 row.name.clone(),
                 // The two columns are one spelling: an `at` locus writes both, a nested file
@@ -879,6 +899,48 @@ pub fn locus_admits(pattern: &str, excluded: &[String], harness_relative: &str) 
         .any(|path| is_at_or_beneath(harness_relative, path))
         && crate::glob::compile_glob(pattern)
             .is_some_and(|matcher| matcher.is_match(harness_relative))
+}
+
+/// Whether every path the placement template `sub` matches, the template `base` matches
+/// too — a subkind's locus lying within its base's. Decided over witnesses: `sub` with each
+/// `*` spelled as a fresh token no literal can match and its `**` as zero, one and two fresh
+/// components. A base literal that a token meets refuses, a fixed-depth base refuses a
+/// varying-depth witness, so over the placement-template grammar the witnesses stand for
+/// every path `sub` matches.
+#[must_use]
+pub fn locus_within(sub: &str, base: &str) -> bool {
+    const FRESH: &str = "\u{1}";
+    let Some(matcher) = crate::glob::compile_glob(base) else {
+        return false;
+    };
+    let spelled: Vec<String> = sub
+        .split('/')
+        .map(|segment| {
+            if segment == "**" {
+                segment.to_string()
+            } else {
+                segment.replace('*', FRESH)
+            }
+        })
+        .collect();
+    let depths: &[usize] = if spelled.iter().any(|segment| segment == "**") {
+        &[0, 1, 2]
+    } else {
+        &[0]
+    };
+    depths.iter().all(|&depth| {
+        let witness: Vec<String> = spelled
+            .iter()
+            .flat_map(|segment| {
+                if segment == "**" {
+                    (0..depth).map(|n| format!("{FRESH}{n}")).collect()
+                } else {
+                    vec![segment.clone()]
+                }
+            })
+            .collect();
+        matcher.is_match(witness.join("/"))
+    })
 }
 
 /// Whether `path` is `excluded` itself or lies beneath it as a directory — whole
@@ -1577,6 +1639,27 @@ mod tests {
     use super::*;
     use crate::extract::{FeatureValue, ValueType};
     use crate::test_support;
+
+    #[test]
+    fn a_locus_lies_within_another_only_when_every_path_it_matches_the_other_does() {
+        for (sub, base) in [
+            (".claude/rules/decisions/*.md", ".claude/rules/**/*.md"),
+            (".claude/rules/**/*.md", ".claude/rules/**/*.md"),
+            (".claude/rules/adr-*.md", ".claude/rules/*.md"),
+            (".claude/rules/decisions/**/*.md", ".claude/rules/**/*.md"),
+        ] {
+            assert!(locus_within(sub, base), "`{sub}` lies within `{base}`");
+        }
+        for (sub, base) in [
+            ("docs/decisions/*.md", ".claude/rules/**/*.md"),
+            (".claude/rules/**/*.md", ".claude/rules/*.md"),
+            (".claude/rules/*.md", ".claude/rules/adr-*.md"),
+            (".claude/rules/*.txt", ".claude/rules/**/*.md"),
+            ("**/CLAUDE.md", ".claude/**/CLAUDE.md"),
+        ] {
+            assert!(!locus_within(sub, base), "`{sub}` lies outside `{base}`");
+        }
+    }
 
     #[test]
     fn the_locus_path_drops_a_root_dot_and_spells_the_join_with_slashes() {

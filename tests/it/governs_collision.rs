@@ -121,3 +121,24 @@ fn the_built_in_kinds_draw_no_governs_collision() {
         run.output
     );
 }
+
+#[test]
+fn a_kind_naming_no_base_over_a_built_ins_sub_locus_still_draws_a_governs_collision() {
+    let root = common::tmpdir("governs-collision-unrelated");
+    write_doc(&root, ".claude/rules/decisions/0001.md");
+    let run = check_with(
+        &root,
+        vec![common::kind_facts(
+            "decision",
+            ".claude/rules/decisions",
+            "*.md",
+        )],
+    );
+    assert!(
+        run.output.contains("kind.governs-collision")
+            && run.output.contains("`decision`")
+            && run.output.contains("`rule`"),
+        "only a subkind cedes its base's documents, got:\n{}",
+        run.output
+    );
+}
