@@ -30,9 +30,32 @@ export interface Mentionable {
  * {@link memberAddress}, its bare name the display text — the convention every corpus
  * repeats to cite a member from prose. A nested file child spells the host-qualified
  * address it resolves at, exactly as its declaration rows key by it.
+ *
+ * A user-invoked member placed under a subdirectory's own locus displays the invocation
+ * spelling its placement gives instead ({@link nestedInvocation}): the address stays the
+ * identity, the display is what the user types.
  */
 export function mentionOf(member: Member): Mentionable {
-  return { address: memberAddress(member), display: member.name };
+  return { address: memberAddress(member), display: nestedInvocation(member) ?? member.name };
+}
+
+/**
+ * The invocation a member nested under a subdirectory is typed by, rendered from its
+ * placement, never its identity — or `undefined` for every other member. It applies to a
+ * user-invoked directory unit claimed at any depth (`**\/…`), whose identity prefixes the
+ * subdirectory's segments with `:` (`apps:web:deploy`): those segments are a path, so
+ * they render `/`-joined ahead of the `:`-joined leaf — `/apps/web:deploy`
+ * (code.claude.com/docs/en/skills, "Load skills in monorepos and subdirectories",
+ * retrieved 2026-11-25). A root member's identity is its whole name and keeps it.
+ */
+function nestedInvocation(member: Member): string | undefined {
+  const facts = member.facts;
+  if (facts.locus.kind !== "at" || facts.unitShape !== "directory") return undefined;
+  if (!facts.locus.glob.startsWith("**/")) return undefined;
+  if (!facts.registration?.some((channel) => channel.via === "user-invoked")) return undefined;
+  const colon = member.name.lastIndexOf(":");
+  if (colon < 0) return undefined;
+  return `/${member.name.slice(0, colon).replaceAll(":", "/")}:${member.name.slice(colon + 1)}`;
 }
 
 /** One authored interpolation: position in the template plus its target. */

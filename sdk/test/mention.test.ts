@@ -52,6 +52,14 @@ test("mentionOf spells a member's kind:name mention target", () => {
   assert.deepEqual(mentionOf(member), { address: "rule:rust", display: "rust" });
 });
 
+test("a mention of a nested skill displays its invocation spelling while its address stays the identity", () => {
+  const nested = skill({ name: "apps:web:deploy", description: "Deploy the web app.", prose: text`# Deploy` });
+  assert.deepEqual(mentionOf(nested), { address: "skill:apps:web:deploy", display: "/apps/web:deploy" });
+  // A root skill's identity is its whole name, and its display keeps it.
+  const root = skill({ name: "deploy", description: "Deploy.", prose: text`# Deploy` });
+  assert.deepEqual(mentionOf(root), { address: "skill:deploy", display: "deploy" });
+});
+
 test("a mention targeting an embedded member's host-scoped address resolves without a dangling refusal", () => {
   const citer = rule({
     name: "citations",
