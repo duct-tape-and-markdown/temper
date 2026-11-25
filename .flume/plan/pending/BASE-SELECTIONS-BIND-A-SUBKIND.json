@@ -35,5 +35,12 @@
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "0094 Decision, bullet 2. Ships soon after EXTEND-MINTS-A-SUBKIND: until then a subkind's documents escape the base's contract."
+  "notes": "0094 Decision, bullet 2. Ships soon after EXTEND-MINTS-A-SUBKIND: until then a subkind's documents escape the base's contract.",
+  "observedFiles": [
+    ".flume/plan/notes/BASE-SELECTIONS-BIND-A-SUBKIND.md",
+    "src/compose.rs",
+    "src/gate.rs",
+    "src/main.rs",
+    "tests/it/kind_extension.rs"
+  ]
 }
