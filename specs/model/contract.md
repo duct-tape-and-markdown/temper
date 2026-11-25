@@ -27,7 +27,8 @@ whatever an edge claims about rendering. A member's reference set is a
 declare, and its **containment** of each embedded member its body composes
 (one field per admitted kind, derived) — never a second authored list.
 
-Every edge resolves into one enumeration the gate and the read verbs share.
+Every edge resolves into one enumeration the gate and every read verb share,
+so narration never disagrees with the verdict.
 Edges are declared, never mined from prose. Path-resolved edges resolve
 against raw disk, never the ignore-filtered discovery view: an extra file
 can only suppress a finding, a pruned one can forge one (discovery is the
@@ -63,7 +64,8 @@ an unknown one refuses at load, never skipped; adding one is a language
 change, and the corpus does not enumerate it.
 
 A clause's compiled label (`pipeline.md`, "The lock") is its **address**:
-deterministic, human-legible, printed by every finding and by `explain`. The
+deterministic, human-legible, printed by every finding and by `explain` —
+never opaque to the author. The
 shipped **dial** kind consumes it: a temper-owned, local-locus TOML document
 (`.temper/dial.toml`) naming a clause by label and declaring this machine's
 read severity. The dial's schema is the envelope — severity is its only
@@ -87,7 +89,7 @@ do not nest.
 Some predicates need whole-graph context — a degree bound, a reachability
 test. That is cost, not a category: **reachability** and **drift** are
 clauses in the root member's default contract, advisory by default —
-severities the author declares.
+severities the author declares, never the tool.
 
 ## selection
 

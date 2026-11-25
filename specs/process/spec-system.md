@@ -32,10 +32,12 @@ Five, by placement:
   code owns all mechanism and all instance data — the predicate enum, the
   default contracts' clauses, the external-fact citations. The corpus never
   enumerates what code enumerates.
-- **Budgets.** intent ≤ 100 lines; a model file ≤ 150; a decision ≤ 55
-  (calibrated by 0001, the largest legitimate record: a re-founding with a
-  full retirement map). A file that cannot stay in budget is restating code
-  or hoarding history.
+- **Budgets are a review trigger, never a cap.** intent ~100 lines, a model
+  file ~150, a decision ~55 (calibrated by 0001, the largest legitimate
+  record). A file past its budget is read for restated code or hoarded
+  history, and either is cut. A file the kernel grew is not: it grows, and
+  the commit says so, or it splits along a seam its nouns already have.
+  Meaning is never trimmed to fit a number.
 - **External facts cited at the point of enforcement.** A claim about a
   format the outside world owns carries its source and retrieval date where
   it is enforced — a clause's `cite` — and is verified against current docs

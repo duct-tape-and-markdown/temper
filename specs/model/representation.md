@@ -13,8 +13,9 @@ One authored unit: an instance of a kind. A member carries
   as the model nests, and `/<leaf>` beneath it; every name, key and leaf is
   one segment (a leaf's child path joins with `.`), so a member address has
   an odd segment count and a leaf's an even one — one grammar every row
-  spells and every verb accepts; resolution is total, and coincident
-  addresses are a malformed lock,
+  spells and every verb accepts; resolution is total — an address names
+  exactly one thing or the verb refuses — and coincident addresses are a
+  malformed lock,
 - typed **fields**, projected to frontmatter or structured config,
 - **prose** — its authored words, copied verbatim, byte-for-byte,
 - **edges** — its declared references (`contract.md`),
@@ -36,12 +37,14 @@ The type of a member. A kind declares
   trip; admissible only when unambiguous (adjacent slots split by constant
   text neither can absorb; the prose slot terminal or fenced), holding no
   logic and no derived values, and declaring the leniency its reads forgive;
-  a structured sublanguage is a slot naming a schema. An **embedded**-locus
+  a structured sublanguage is a slot naming a schema, never syntax
+  spelled as constant text. An **embedded**-locus
   kind's format, under a composed host, is writer-only with no admissibility
   bar — a projection whose facts are declared (`pipeline.md`, "The lock"),
   never read back. It may place a **closed, engine-derived set of facts
   about its edge fields' targets** — name, address, kind, projection path
-  relative to the host's; so a rendered reference is true by construction. A
+  relative to the host's; instance prose never spells its target, so a rendered reference
+  is true by construction. A
   format omitting a declared edge is a clause's finding.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
