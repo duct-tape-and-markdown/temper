@@ -44,7 +44,10 @@ the trigger and the published pair is the gate, not the local tree.
 9. **Sync both npm locks** once the engines are live: `npm --prefix sdk
    install` and `npm --prefix .temper install` (`.temper/` links `../sdk`,
    so its lock records the same engine pins), commit `chore(release): sync
-   the npm locks to X.Y.Z`.
+   the npm locks to X.Y.Z`. Live means `npm view` returns X.Y.Z for each
+   engine: an install against a lagging registry writes an engine entry
+   with no `version`, which passes over an existing `node_modules` and
+   fails every fresh `npm ci`.
 
 ## Why the npm locks trail the tag
 
