@@ -1105,14 +1105,14 @@ fn governed_fold_base(disc: &import::Discovery, governs: &kind::Governs) -> Path
 
 /// Which bytes a per-site address derivation reads its identity off.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SiteIdentity {
+pub enum SiteIdentity<'a> {
     /// The document on disk, read through the layout door exactly as `check`'s scan
     /// reads it — every unit shape, a `named-field` identity included.
     OnDisk,
-    /// The document's placement alone — a pending write whose bytes are not on disk yet.
-    /// A `named-field` identity is the document's own frontmatter, so it has no answer
-    /// here.
-    Placement,
+    /// A pending write's bytes, not on disk yet: read as the on-disk document would be
+    /// where the bytes are known, else off the placement alone — where a `named-field`
+    /// identity, the document's own frontmatter, has no answer.
+    Pending(Option<&'a str>),
 }
 
 /// The member address `check`'s `governs` scan gives the top-level `kind` document at
@@ -1122,14 +1122,14 @@ pub enum SiteIdentity {
 ///
 /// [`None`] for a kind governing no locus (a nested child's address composes from its
 /// host), for a document whose identity cannot be read — a load fault `check` reports as
-/// its own finding, never an undeclared member — and, at [`SiteIdentity::Placement`],
-/// for a `named-field` identity the placement cannot answer.
+/// its own finding, never an undeclared member — and, for pending bytes not in hand, a
+/// `named-field` identity the placement cannot answer.
 #[must_use]
 pub fn governed_member_address(
     kind: &CustomKind,
     harness_root: &Path,
     file: &Path,
-    identity: SiteIdentity,
+    identity: SiteIdentity<'_>,
 ) -> Option<String> {
     let governs = kind.governs.as_ref()?;
     let disc = import::Discovery::new(harness_root);
@@ -1141,7 +1141,12 @@ pub fn governed_member_address(
                 .ok()?
                 .id
         }
-        SiteIdentity::Placement => {
+        SiteIdentity::Pending(Some(text)) => {
+            crate::frontmatter::Member::from_text_rooted(kind, text, &file, &base)
+                .ok()?
+                .id
+        }
+        SiteIdentity::Pending(None) => {
             if matches!(kind.unit_shape, Some(kind::UnitShape::NamedField { .. })) {
                 return None;
             }

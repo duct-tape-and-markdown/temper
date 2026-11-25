@@ -2245,10 +2245,9 @@ fn the_guard_does_not_judge_a_pending_write_to_a_gitignored_locus_path() {
 
 /// The arms the governed-locus binding must leave exactly where they were: a declared
 /// projection keeps the projection wording, a `local`-commitment locus is never bound by
-/// it, a manifest locus at the harness root stays the manifest arm's — excluded twice over,
-/// by `collection_address` and by `.`-rooting — and an unrepresented harness keeps the
-/// `.claude/` fallback. Its neighbour: a container kind's own locus binds where it is
-/// rooted under a directory, `.claude/settings.json` included.
+/// it, a registration kind's `collection_address` keeps it off its host manifest, and an
+/// unrepresented harness keeps the `.claude/` fallback. Its neighbour: a container kind's
+/// own locus binds wherever it is rooted, `.claude/settings.json` and `.mcp.json` included.
 #[test]
 fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
     let root = represented_rule_harness("guard-locus-neighbours", "block");
@@ -2279,19 +2278,22 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
         assert!(local_stderr.is_empty());
     }
 
-    // A manifest kind's locus stays `manifest_write_findings`'s: `.mcp.json` is not
-    // emit-owned in this lock (no registration rows), and two exclusions keep the locus
-    // binding off it — the `collection_address` one off `mcp-server`, and the `.`-rooted
-    // one off the `mcp` container, which governs the file but sits at the harness root
-    // where the guard has no ignore reader to prune with. So the write is allowed.
+    // `.mcp.json` is not emit-owned in this lock (no registration rows), so no manifest
+    // arm claims it: the `mcp` container governs the file at the harness root and binds
+    // it like any container locus, while `mcp-server`'s `collection_address` keeps the
+    // registration kind off it — one finding, the container's.
     let (manifest_code, manifest_stderr) =
         common::run_guard(&root, &common::guard_write_payload(".mcp.json"));
     assert_eq!(
         manifest_code,
-        Some(0),
-        "a manifest locus is the manifest arm's, not the locus binding's, got: {manifest_stderr}"
+        Some(2),
+        "the `mcp` container's locus binds, got: {manifest_stderr}"
     );
-    assert!(manifest_stderr.is_empty());
+    assert!(
+        manifest_stderr.contains("`mcp` kind's governed locus")
+            && !manifest_stderr.contains("`mcp-server` kind"),
+        "the finding names the container, never the registration kind, got: {manifest_stderr}"
+    );
 
     // `.claude/settings.json` is the other side of that exclusion: the `settings`
     // container governs the file and carries no collection address, so its locus binds
@@ -2307,18 +2309,6 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
         settings_stderr.contains("`settings` kind's governed locus"),
         "the finding names the `settings` kind, got: {settings_stderr}"
     );
-
-    // `memory` governs `.` with `**/CLAUDE.md`, and the guard has no ignore reader where
-    // discovery prunes by the repo's ignore rules — so the `.`-rooted locus is excluded
-    // by construction rather than judging every CLAUDE.md in the tree.
-    let (memory_code, memory_stderr) =
-        common::run_guard(&root, &common::guard_write_payload("vendor/dep/CLAUDE.md"));
-    assert_eq!(
-        memory_code,
-        Some(0),
-        "a `.`-rooted locus is excluded, got: {memory_stderr}"
-    );
-    assert!(memory_stderr.is_empty());
 
     // No lock at all: the `.claude/` fallback is untouched, and it is a substring match
     // on `.claude/`, so it binds `settings.local.json` too — "never bound" is a claim
@@ -2485,20 +2475,35 @@ fn guard_matches_a_projection_by_path_equality_not_suffix() {
     );
     assert!(stderr.contains("temper-managed projection"));
 
-    // Every other path ending in `CLAUDE.md` is a different file, not the projection:
-    // neither one deeper in the tree nor one a single segment over may be blocked.
-    for unrelated in [".temper/memory/CLAUDE.md", "reference/CLAUDE.md"] {
-        let (code, stderr) = common::run_guard(
-            &root,
-            &common::guard_write_payload(&root.join(unrelated).to_string_lossy()),
-        );
-        assert_eq!(
-            code,
-            Some(0),
-            "`{unrelated}` is not the declared projection and must be allowed"
-        );
-        assert!(stderr.is_empty(), "and surfaces nothing: {stderr}");
-    }
+    // Every other path ending in `CLAUDE.md` is a different file, not the projection.
+    // One under the surface workspace is fenced from discovery, so nothing binds it.
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload(&root.join(".temper/memory/CLAUDE.md").to_string_lossy()),
+    );
+    assert_eq!(
+        code,
+        Some(0),
+        "a fenced `CLAUDE.md` is no projection: {stderr}"
+    );
+    assert!(stderr.is_empty(), "and surfaces nothing: {stderr}");
+
+    // One a single segment over is an undeclared document at `memory`'s locus — bound,
+    // but as the locus finding, never as this projection.
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload(&root.join("reference/CLAUDE.md").to_string_lossy()),
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "block denies the undeclared document: {stderr}"
+    );
+    assert!(
+        !stderr.contains("temper-managed projection")
+            && stderr.contains("`memory` kind's governed locus"),
+        "`reference/CLAUDE.md` is the locus finding, not the projection's: {stderr}"
+    );
 }
 
 /// A declared projection whose lock row carries the older `./` spelling is bound exactly
@@ -2509,9 +2514,8 @@ fn guard_matches_a_projection_by_path_equality_not_suffix() {
 /// un-canonicalized, the candidate matched no relativized `file_path` and the write to a
 /// live projection passed unchecked.
 ///
-/// The memory kind's root locus is `.`, which carries no governed-locus pattern at all, so
-/// the projection compare is the one binding that can speak here: the fall-through arm
-/// cannot cover for what the compare misses.
+/// The memory kind's `.`-rooted locus binds an undeclared `CLAUDE.md` too, so only the
+/// owner line proves the projection compare spoke rather than the locus arm.
 #[test]
 fn guard_binds_a_projection_whose_lock_row_carries_the_older_dot_slash_spelling() {
     let root = common::tmpdir("guard-dot-slash-row");
@@ -2548,14 +2552,18 @@ fn guard_binds_a_projection_whose_lock_row_carries_the_older_dot_slash_spelling(
         "the owner line spells the path canonically, never the row's older `./`: {stderr}"
     );
 
-    // And the compare still binds nothing it does not name: canonicalizing a row widens
-    // no match beyond the one file it spells.
-    let (code, stderr) = common::run_guard(
+    // And the compare still names nothing it does not spell: canonicalizing a row widens
+    // no match beyond the one file it spells, so a sibling `CLAUDE.md` is the locus
+    // arm's undeclared document, never this row's projection.
+    let (_, stderr) = common::run_guard(
         &root,
         &common::guard_write_payload(&root.join("reference/CLAUDE.md").to_string_lossy()),
     );
-    assert_eq!(code, Some(0), "an undeclared path stays allowed: {stderr}");
-    assert!(stderr.is_empty(), "and surfaces nothing: {stderr}");
+    assert!(
+        !stderr.contains("temper-managed projection")
+            && stderr.contains("`memory` kind's governed locus"),
+        "an undeclared sibling is no projection: {stderr}"
+    );
 }
 
 /// A declared projection whose path needs a JSON escape to ride the payload is bound like
@@ -2681,12 +2689,12 @@ fn guard_reaches_the_same_verdict_from_a_dot_root_as_from_an_absolute_root() {
                 .into_owned(),
             Some(2),
         ),
-        // Undeclared paths, absolute — including one whose bare name matches a projection.
+        // Undeclared paths, absolute — one at `memory`'s locus, bound as undeclared.
         (
             root.join("reference/CLAUDE.md")
                 .to_string_lossy()
                 .into_owned(),
-            Some(0),
+            Some(2),
         ),
         (
             root.join("src/main.rs").to_string_lossy().into_owned(),
@@ -4242,5 +4250,115 @@ fn the_guard_raises_an_undeclared_layout_member_in_a_pending_write() {
         "# Intent\nNobody declared me.\n",
     )
     .unwrap();
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, "docs/charters/stray.md");
+}
+
+/// `memory`'s locus is `.`-rooted (`**/CLAUDE.md`): it reaches every directory, and the
+/// pending-write edge binds it wherever discovery would reach the written path.
+#[test]
+fn the_pre_edge_names_an_undeclared_claude_md_written_under_a_dot_rooted_locus() {
+    let root = represented_rule_harness("guard-dot-rooted-memory", "block");
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload("docs/CLAUDE.md"));
+    assert_eq!(
+        code,
+        Some(2),
+        "block denies an undeclared memory document, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("`memory` kind's governed locus"),
+        "the finding names the `memory` kind, as `check` does, got: {stderr}"
+    );
+}
+
+/// A gitignored `CLAUDE.md` is no member `check` judges, so the `.`-rooted locus binds
+/// nothing there; an unignored sibling stays bound, so the allowance is the ignore rule's.
+#[test]
+fn the_pre_edge_binds_nothing_for_a_gitignored_claude_md_under_a_dot_rooted_locus() {
+    let root = represented_rule_harness("guard-dot-rooted-ignored", "block");
+    fs::write(root.join(".gitignore"), "vendor/\n").unwrap();
+
+    let (code, stderr) =
+        common::run_guard(&root, &common::guard_write_payload("vendor/dep/CLAUDE.md"));
+    assert_eq!(
+        code,
+        Some(0),
+        "a gitignored path binds nothing, got: {stderr}"
+    );
+    assert!(stderr.is_empty(), "a pass prints nothing, got: {stderr}");
+
+    let (sibling_code, sibling_stderr) =
+        common::run_guard(&root, &common::guard_write_payload("lib/dep/CLAUDE.md"));
+    assert_eq!(
+        sibling_code,
+        Some(2),
+        "an unignored sibling stays bound, got: {sibling_stderr}"
+    );
+}
+
+/// [`undeclared_layout_member_harness`]'s `charter` kind, keyed by its frontmatter
+/// `title` rather than its file stem; the declared document is titled `charter`.
+fn named_field_layout_member_harness(label: &str) -> PathBuf {
+    let harness = common::scaffold(label);
+    let charters = harness.join("docs/charters");
+    fs::create_dir_all(&charters).unwrap();
+    fs::write(
+        charters.join("charter.md"),
+        "---\ntitle: charter\n---\n# Intent\nThe gate is check.\n",
+    )
+    .unwrap();
+    let payload = drift::Payload {
+        version: drift::SEAM_VERSION,
+        declarations: drift::Declarations {
+            kinds: vec![drift::KindFactRow {
+                format: Some("yaml-frontmatter".to_string()),
+                unit_shape: Some("named-field(title)".to_string()),
+                content: Some(drift::LayoutRow {
+                    regions: vec![common::field_region("intent")],
+                }),
+                ..common::kind_facts("charter", "docs/charters", "*.md")
+            }],
+            ..Default::default()
+        },
+        members: vec![common::layout_member("charter")],
+    };
+    drift::emit(
+        &payload,
+        &harness.join(".temper"),
+        drift::EmitOptions::default(),
+    )
+    .unwrap();
+    harness
+}
+
+#[test]
+fn the_pre_edge_names_an_undeclared_named_field_layout_document_by_its_frontmatter_identity() {
+    let harness = named_field_layout_member_harness("guard-named-field-layout-pre");
+
+    // A rewrite of the declared document keeps its declared identity.
+    let declared = "---\ntitle: charter\n---\n# Intent\nThe gate is still check.\n";
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content("docs/charters/charter.md", declared),
+    );
+    assert_eq!(code, Some(0));
+    assert!(
+        output.is_empty(),
+        "a write keeping the declared identity passes silently, got: {output}"
+    );
+
+    let stray = "---\ntitle: wayward\n---\n# Intent\nNobody declared me.\n";
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content("docs/charters/stray.md", stray),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    assert!(
+        in_band.contains("charter:wayward"),
+        "the finding names the document by its frontmatter identity, got: {in_band}"
+    );
+
+    // Land the write, and `check` raises the very finding the guard spoke.
+    fs::write(harness.join("docs/charters/stray.md"), stray).unwrap();
     assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, "docs/charters/stray.md");
 }

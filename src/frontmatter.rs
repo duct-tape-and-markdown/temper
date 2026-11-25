@@ -194,8 +194,23 @@ impl Member {
         base: &Path,
     ) -> Result<Self, FrontmatterError> {
         let raw = crate::hash::read_utf8(source_file)?;
+        Self::from_text_rooted(kind, &raw, source_file, base)
+    }
 
-        let parsed = parse_frontmatter(&raw).map_err(|detail| FrontmatterError::Malformed {
+    /// Read a member as [`from_source_rooted`](Member::from_source_rooted) does, off
+    /// `raw` bytes already in hand rather than the file at `source_file` — a pending write
+    /// whose bytes are not on disk yet. `source_file` is still the placement the id folds.
+    ///
+    /// # Errors
+    ///
+    /// As [`from_source`](Member::from_source), less the read and UTF-8 faults.
+    pub(crate) fn from_text_rooted(
+        kind: &CustomKind,
+        raw: &str,
+        source_file: &Path,
+        base: &Path,
+    ) -> Result<Self, FrontmatterError> {
+        let parsed = parse_frontmatter(raw).map_err(|detail| FrontmatterError::Malformed {
             path: source_file.to_path_buf(),
             detail,
         })?;
@@ -213,7 +228,7 @@ impl Member {
         Ok(Self {
             id,
             fields,
-            body: crate::placement::strip_leading_banner(split_frontmatter(&raw).1).to_string(),
+            body: crate::placement::strip_leading_banner(split_frontmatter(raw).1).to_string(),
             satisfies: Vec::new(),
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),

@@ -1615,31 +1615,35 @@ impl LayoutGuard {
 
     /// The finding `check` would raise over the layout document a pending write to
     /// `file_path` lands, or [`None`] where it raises none: a path in no governed layout
-    /// locus, one discovery would never reach, a member the lock declares, or an identity
-    /// the placement cannot answer (a `named-field` kind's is the pending bytes'
-    /// frontmatter — the post edge reads it once the write lands).
-    ///
-    /// A `.`-rooted locus stays the post edge's, as it does for the file-locus half
-    /// ([`matches_governed_locus`]).
-    fn pending_finding(&self, file_path: &str, root: &Path) -> Option<Diagnostic> {
+    /// locus, one discovery would never reach, a member the lock declares, or a document
+    /// whose identity cannot be read. The identity is read off the pending bytes the
+    /// payload carries ([`pending_manifest`]), so a `named-field` kind's is the pending
+    /// frontmatter's; with no bytes to read, the placement answers what it can.
+    fn pending_finding(
+        &self,
+        payload: &JsonValue,
+        file_path: &str,
+        root: &Path,
+    ) -> Option<Diagnostic> {
         let (doc, clause) = self.judge.as_ref()?;
         let normalized = harness_relative(file_path, root)?;
-        let locus = self
-            .loci
-            .iter()
-            .filter(|locus| locus.root != ".")
-            .find(|locus| {
-                crate::glob::compile_glob(&locus.pattern)
-                    .is_some_and(|matcher| matcher.is_match(&normalized))
-            })?;
+        let locus = self.loci.iter().find(|locus| {
+            crate::glob::compile_glob(&locus.pattern)
+                .is_some_and(|matcher| matcher.is_match(&normalized))
+        })?;
         if !import::discovers_path(root, Path::new(&*normalized)) {
             return None;
         }
+        let pending = tool_input(payload).map(|input| pending_manifest(input, file_path, root));
+        let text = match &pending {
+            Some(PendingManifest::Text(text)) => Some(text.as_str()),
+            _ => None,
+        };
         let member = crate::compose::governed_member_address(
             &locus.kind,
             root,
             &root.join(&*normalized),
-            crate::compose::SiteIdentity::Placement,
+            crate::compose::SiteIdentity::Pending(text),
         )?;
         let site = drift::LayoutMemberSite {
             member,
@@ -1711,7 +1715,7 @@ pub fn guard(
             format!("{}{}", guard_message(), projection_owner_line(owner))
         } else if let Some(locus) = matches_governed_locus(file_path, root, loci) {
             undeclared_locus_message(&locus.kind, locus.custom)
-        } else if let Some(finding) = layout.pending_finding(file_path, root) {
+        } else if let Some(finding) = layout.pending_finding(payload, file_path, root) {
             render_guard_findings(guard_layout_message(), &[finding])
         } else {
             return allow();
@@ -1854,16 +1858,10 @@ fn matches_governed_locus<'a>(
     loci: &'a [GuardedLocus],
 ) -> Option<&'a GuardedLocus> {
     let normalized = harness_relative(file_path, root)?;
-    // A `.`-rooted locus (`memory`'s `**/CLAUDE.md`) stays the post edge's
-    // ([`locus_member_sites`]): it reaches every directory of the tree, and this edge
-    // binds it only once that whole reach is proven to agree with `check`'s.
-    let locus = loci
-        .iter()
-        .filter(|locus| locus.root != ".")
-        .find(|locus| {
-            crate::glob::compile_glob(&locus.pattern)
-                .is_some_and(|matcher| matcher.is_match(&normalized))
-        })?;
+    let locus = loci.iter().find(|locus| {
+        crate::glob::compile_glob(&locus.pattern)
+            .is_some_and(|matcher| matcher.is_match(&normalized))
+    })?;
     // A path discovery would never reach — gitignored, or behind a fence — is no member
     // `check` judges, so the guard binds nothing there either.
     import::discovers_path(root, Path::new(&*normalized)).then_some(locus)
