@@ -477,7 +477,8 @@ fn unit_dir(root: &Path, entry: &Path) -> Option<PathBuf> {
 /// from. [`discover_builtin`] is the thin caller that always walks the kind's own
 /// governs.
 ///
-/// The kind's declared excluded paths are subtracted from the walk: no member owns one.
+/// The kind's declared excluded paths are subtracted from the walk through the one locus
+/// membership predicate ([`crate::kind::locus_admits`]): no member owns one.
 ///
 /// `over` decides whether the kind's own commitment class may override discovery's
 /// presumptions for this walk; the `kind` is what carries that class, which is why the
@@ -490,12 +491,16 @@ pub fn discover_kind_files(
 ) -> Vec<PathBuf> {
     let mut files = discover_kind_units(disc, governs, local_governs(kind, over));
     if !kind.excluded.is_empty() {
-        let excluded: Vec<PathBuf> = kind
-            .excluded
-            .iter()
-            .map(|path| crate::path::normalize_path(&disc.harness().join(path)))
-            .collect();
-        files.retain(|file| !excluded.contains(file));
+        // The walk's files hang off the normalized locus root, so they are read back to
+        // harness-relative against the harness normalized the same way.
+        let harness = crate::path::normalize_path(disc.harness());
+        let pattern = crate::kind::locus_pattern(&governs.root, &governs.glob);
+        files.retain(|file| {
+            file.strip_prefix(&harness).is_ok_and(|relative| {
+                let relative = crate::path::HarnessRelativePath::from_path(relative);
+                crate::kind::locus_admits(&pattern, &kind.excluded, &relative)
+            })
+        });
     }
     if let Some(bare_file) = &kind.bare_root_file {
         let bare = disc.harness().join(bare_file);

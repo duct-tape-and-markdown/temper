@@ -564,6 +564,26 @@ pub enum DriftError {
         glob: String,
     },
 
+    /// A derived projection path the deriving kind's glob finds but its file locus
+    /// **excludes**. Membership is the template less the excluded paths, so discovery never
+    /// walks an excluded path: a projection written there is locked yet never discovered,
+    /// the same silent hole [`UngovernedProjection`](DriftError::UngovernedProjection)
+    /// refuses. Refused before a byte is written; the repair is the declaration's — rename
+    /// the member or drop the path from the kind's `exclude`.
+    #[error(
+        "member `{member}` projects to `{path}`, which kind `{kind}` excludes from its file locus — discovery never walks an excluded path, so this projection would be written and locked yet never discovered"
+    )]
+    #[diagnostic(code(temper::drift::excluded_projection))]
+    ExcludedProjection {
+        /// The kind whose locus excludes its own member's projection.
+        kind: String,
+        /// The member's **whole address**, as [`UngovernedProjection`](DriftError::UngovernedProjection)
+        /// names it.
+        member: String,
+        /// The derived path, harness-relative — the spelling the kind's `exclude` lists.
+        path: String,
+    },
+
     /// A **cycle** in the declared kind graph's file-template edges: a kind whose nested
     /// file layer reaches, through its children's own layers, back to itself. A nested
     /// file child's unit composes under its host's, so a cycle declares a member whose
@@ -1444,10 +1464,22 @@ fn member_projection_path(
         return nested_file_path(facts, name, host, kind_facts);
     };
     let relative = placement_in_unit(facts, glob, name)?;
-    // `governs_root` is the locus the glob is rooted at, so the relative path is what the
-    // glob has to find — the same spelling `import`'s walk matches segment by segment.
-    refuse_ungoverned(&facts.name, host, name, glob, &relative)?;
-    Ok(join_locus(root, &relative))
+    let placed = join_locus(root, &relative);
+    // Placement asks the one membership question discovery asks — the template less the
+    // excluded paths — so emit never writes a member `check` would not find.
+    let harness_relative = HarnessRelativePath::from_path(&placed);
+    let pattern = crate::kind::locus_pattern(root, glob);
+    if !crate::kind::locus_admits(&pattern, &facts.exclude, &harness_relative) {
+        // `governs_root` is the locus the glob is rooted at, so the relative path is what
+        // the glob has to find; a path the template finds failed on the exclusion half.
+        refuse_ungoverned(&facts.name, host, name, glob, &relative)?;
+        return Err(DriftError::ExcludedProjection {
+            kind: facts.name.clone(),
+            member: member_address_under(host, &facts.name, name),
+            path: harness_relative.to_string(),
+        });
+    }
+    Ok(placed)
 }
 
 /// Run the SDK program at `<workspace_dir>/harness.ts` and compile its payload in one

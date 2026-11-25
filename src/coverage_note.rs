@@ -12,7 +12,6 @@ use std::path::Path;
 
 use crate::builtin_kind::{CLAUDE_ROOT, KNOWN_SURFACES};
 use crate::check::Diagnostic;
-use crate::glob::compile_glob;
 use crate::kind::CustomKind;
 use crate::path::HarnessRelativePath;
 
@@ -174,9 +173,10 @@ fn governed_by_any_path(
 
 /// Whether `kind`'s member locus covers `path`. A directory path is governed when the
 /// kind roots at or below it (its members live inside); a file path is governed when the
-/// kind's **whole locus pattern** ([`crate::kind::locus_pattern`]) matches it — the same
-/// root-and-glob join discovery walks and the guard watch, so the scan's "is this entry
-/// checked?" is the governing claim itself and not a second, narrower reading of it.
+/// path is a member of the kind's file locus ([`CustomKind::locus_admits`]: the whole
+/// locus pattern matches it and the kind does not exclude it) — the one membership
+/// predicate discovery walks and the guard watch, so the scan's "is this entry checked?"
+/// is the governing claim itself and not a second, wider reading of it.
 ///
 /// A **manifest kind** (one carrying a collection address) governs its host file only when
 /// its collection spans the whole manifest: `.mcp.json` is wholly its `mcpServers` map, so
@@ -194,22 +194,14 @@ fn governs(kind: &CustomKind, path: &HarnessRelativePath, is_dir: bool) -> bool 
         if is_dir || !address.key_path.spans_whole_manifest() {
             return false;
         }
-        return governs_locus_matches(governs, path);
+        return kind.locus_admits(path);
     }
     if is_dir {
         let root = normalize_root(&governs.root);
         root == &**path || root.starts_with(&format!("{path}/"))
     } else {
-        governs_locus_matches(governs, path)
+        kind.locus_admits(path)
     }
-}
-
-/// Whether a file `path` lies at a `governs` locus — the locus compiled as one pattern
-/// and matched whole. `compile_glob` memoizes per distinct glob, so this costs one
-/// compilation per kind across the whole scan, independent of tree size.
-fn governs_locus_matches(governs: &crate::kind::Governs, path: &HarnessRelativePath) -> bool {
-    compile_glob(&crate::kind::locus_pattern(&governs.root, &governs.glob))
-        .is_some_and(|matcher| matcher.is_match(&**path))
 }
 
 /// A `governs.root` reduced to a comparable relative path: leading `./` and any trailing

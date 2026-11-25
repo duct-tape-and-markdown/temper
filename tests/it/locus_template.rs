@@ -3,7 +3,10 @@
 //! every built-in kind's glob loads under the same rule. A locus less its declared
 //! excluded paths leaves them ungoverned at discovery, `check` and both guard edges.
 
-use temper::drift::{Declarations, KindFactRow};
+use std::collections::BTreeMap;
+
+use temper::coverage_note;
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload};
 use temper::import;
 use temper::kind::{CustomKind, EXCLUDE_COLUMN, PLACEMENT_TEMPLATE_COLUMN};
 
@@ -197,4 +200,79 @@ fn an_exclusion_that_is_a_pattern_or_off_the_locus_refuses_at_load() {
             "the refusal names `{path}` and the rule, got: {message}"
         );
     }
+}
+
+#[test]
+fn emit_refuses_to_place_a_member_at_a_path_its_kind_excludes() {
+    // Discovery never walks an excluded path, so a member placed there would be written
+    // and locked yet never found: emit asks the same membership question and refuses.
+    let root = common::tmpdir("locus-exclude-emit");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![domain_excluding_readme()],
+            ..Declarations::default()
+        },
+        members: vec![common::payload_member(
+            "domain",
+            "README",
+            None,
+            "# Domains\n",
+        )],
+    };
+    let err = drift::emit(&payload, &root.join(".temper"), EmitOptions::default())
+        .expect_err("a placement at an excluded path must refuse");
+    let message = format!("{err:?}");
+    assert!(
+        message.contains("domains/README.md") && message.contains("excludes"),
+        "the refusal names the excluded path, got: {message}"
+    );
+    assert!(
+        !root.join("domains/README.md").exists(),
+        "nothing is written at the excluded path"
+    );
+
+    // A sibling the locus admits still places.
+    let payload = Payload {
+        members: vec![common::payload_member("domain", "intro", None, "# Intro\n")],
+        ..payload
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default())
+        .expect("an admitted placement emits");
+    assert!(root.join("domains/intro.md").is_file());
+}
+
+#[test]
+fn the_coverage_advisory_does_not_count_a_path_its_kind_excludes_as_governed() {
+    // A kind at `.claude` + `*.md` excluding `.claude/README.md`: the README is no
+    // member, so the stray scan names it; its sibling the kind admits stays governed.
+    let root = common::tmpdir("locus-exclude-coverage");
+    common::write_sibling(&root, ".claude/README.md", "# Readme\n");
+    common::write_sibling(&root, ".claude/notes.md", "# Notes\n");
+    let row = KindFactRow {
+        unit_shape: Some("file".to_string()),
+        exclude: vec![".claude/README.md".to_string()],
+        ..common::kind_facts("note", ".claude", "*.md")
+    };
+    let kinds = BTreeMap::from([(
+        "note".to_string(),
+        CustomKind::from_kind_fact_row(&row).unwrap(),
+    )]);
+    let diagnostics = coverage_note::check(
+        &root,
+        &kinds,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+    );
+    let unclaimed: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.rule == "coverage.unclaimed-entry")
+        .map(|d| &*d.artifact)
+        .collect();
+    assert_eq!(
+        unclaimed,
+        [".claude/README.md"],
+        "the excluded README is unclaimed, the admitted sibling is governed"
+    );
 }

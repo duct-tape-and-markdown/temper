@@ -1409,7 +1409,11 @@ fn locus_member_sites(
     let mut sites = Vec::new();
     for locus in loci {
         for (_, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
-            if kind_excludes(kinds, &locus.kind, &source_path) {
+            if !kind::locus_admits(
+                &locus.pattern,
+                kind_excluded(kinds, &locus.kind),
+                &source_path,
+            ) {
                 continue;
             }
             sites.push(drift::LocusMemberSite {
@@ -1439,7 +1443,7 @@ fn layout_member_sites(
     let mut sites = Vec::new();
     for locus in &loci.governed {
         for (file, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
-            if locus.kind.excludes(&source_path) {
+            if !kind::locus_admits(&locus.pattern, &locus.kind.excluded, &source_path) {
                 continue;
             }
             let Some(member) = crate::compose::governed_member_address(
@@ -1799,11 +1803,10 @@ impl LayoutGuard {
         };
         let identity = crate::compose::SiteIdentity::Pending(text);
         let target = root.join(&*normalized);
-        let governed = self.loci.governed.iter().find(|locus| {
-            crate::glob::compile_glob(&locus.pattern)
-                .is_some_and(|matcher| matcher.is_match(&normalized))
-                && !locus.kind.excludes(&normalized)
-        });
+        let governed =
+            self.loci.governed.iter().find(|locus| {
+                kind::locus_admits(&locus.pattern, &locus.kind.excluded, &normalized)
+            });
         let member = match governed {
             Some(locus) => {
                 let local = import::local_governs(&locus.kind, import::LocalOverride::Honored);
@@ -2032,9 +2035,11 @@ fn matches_governed_locus<'a>(
 ) -> Option<&'a GuardedLocus> {
     let normalized = harness_relative(file_path, root)?;
     let locus = loci.iter().find(|locus| {
-        crate::glob::compile_glob(&locus.pattern)
-            .is_some_and(|matcher| matcher.is_match(&normalized))
-            && !kind_excludes(kinds, &locus.kind, &normalized)
+        kind::locus_admits(
+            &locus.pattern,
+            kind_excluded(kinds, &locus.kind),
+            &normalized,
+        )
     })?;
     // A path discovery would never reach — gitignored, or behind a fence — is no member
     // `check` judges, so the guard binds nothing there either. The governing kind's own
@@ -2045,11 +2050,13 @@ fn matches_governed_locus<'a>(
     import::discovers_path(root, Path::new(&*normalized), local).then_some(locus)
 }
 
-/// Whether the kind named `kind` in the effective set `kinds` excludes `path` from its
-/// locus. [`GuardedLocus`] carries the kind's name only, so its exclusions are read off the
-/// one effective kind set the layout guard already assembles ([`GuardedLayoutLoci::kinds`]).
-fn kind_excludes(kinds: &BTreeMap<String, CustomKind>, kind: &str, path: &str) -> bool {
-    kinds.get(kind).is_some_and(|kind| kind.excludes(path))
+/// The excluded paths of the kind named `kind` in the effective set `kinds` — the
+/// exclusion half [`kind::locus_admits`] subtracts from a [`GuardedLocus`]'s pattern.
+/// [`GuardedLocus`] carries the kind's name only, so its exclusions are read off the one
+/// effective kind set the layout guard already assembles ([`GuardedLayoutLoci::kinds`]);
+/// a name the set lacks excludes nothing.
+fn kind_excluded<'a>(kinds: &'a BTreeMap<String, CustomKind>, kind: &str) -> &'a [String] {
+    kinds.get(kind).map_or(&[], |kind| kind.excluded.as_slice())
 }
 
 /// One represented manifest the `PreToolUse` guard checks a pending write against — its

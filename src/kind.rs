@@ -135,7 +135,7 @@ pub struct CustomKind {
     /// The file locus's declared **excluded** paths — harness-relative, each a starless
     /// path the [`governs`](CustomKind::governs) template matches, which no member of
     /// the kind owns: discovery, `locus-declared` and the guard all leave it ungoverned
-    /// ([`excludes`](CustomKind::excludes)). Read back off the row's `exclude` column.
+    /// ([`locus_admits`](CustomKind::locus_admits)). Read back off the row's `exclude` column.
     pub excluded: Vec<String>,
     /// The filename a kind additionally recognizes directly at the harness root,
     /// alongside its `governs` subdirectory locus. `None` for every kind today except
@@ -535,11 +535,19 @@ impl CustomKind {
         }
     }
 
-    /// Whether `harness_relative` — a `/`-separated path under the harness — is one of the
-    /// kind's declared [`excluded`](CustomKind::excluded) paths.
+    /// Whether `harness_relative` is a member path of this kind's own file locus — its
+    /// [`governs`](CustomKind::governs) template match less its declared
+    /// [`excluded`](CustomKind::excluded) paths ([`locus_admits`]). A kind governing no
+    /// locus admits no path.
     #[must_use]
-    pub fn excludes(&self, harness_relative: &str) -> bool {
-        self.excluded.iter().any(|path| path == harness_relative)
+    pub fn locus_admits(&self, harness_relative: &str) -> bool {
+        self.governs.as_ref().is_some_and(|governs| {
+            locus_admits(
+                &locus_pattern(&governs.root, &governs.glob),
+                &self.excluded,
+                harness_relative,
+            )
+        })
     }
 
     /// Declare this kind's file locus **local** — per-machine and uncommitted
@@ -841,6 +849,23 @@ pub fn locus_path(root: &str, glob: &str) -> crate::path::HarnessRelativePath {
 #[must_use]
 pub fn locus_pattern(root: &str, glob: &str) -> String {
     locus_path(root, glob).into()
+}
+
+/// **Locus membership** — whether `harness_relative`, a `/`-separated harness-relative
+/// path, is in the file locus whose whole pattern is `pattern` ([`locus_pattern`]): the
+/// template matches it and it is none of the locus's `excluded` paths. The one home for
+/// "is this path in a kind's file locus": discovery, emit's placement, the guard and the
+/// coverage advisory all ask it here, so no site can admit a path another refuses.
+///
+/// A free function over the pattern and the exclusions rather than a [`CustomKind`]
+/// method alone, because emit holds a [`KindFactRow`]'s columns and the guard a locus's
+/// pattern beside a kind it looks up by name; [`CustomKind::locus_admits`] is the
+/// kind-holding spelling. An uncompilable pattern admits nothing.
+#[must_use]
+pub fn locus_admits(pattern: &str, excluded: &[String], harness_relative: &str) -> bool {
+    !excluded.iter().any(|path| path == harness_relative)
+        && crate::glob::compile_glob(pattern)
+            .is_some_and(|matcher| matcher.is_match(harness_relative))
 }
 
 /// The column a non-template `governs_glob` refuses under, spelled to name the rule it
