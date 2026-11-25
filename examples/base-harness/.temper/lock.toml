@@ -30,6 +30,12 @@ source_path = ".claude/rules/docs-discipline.md"
 source_hash = "335a1c8fd9f80f5a116f7b4c70e44bb48da9148308f14fb5c9950185d09497df"
 emit_hash = "335a1c8fd9f80f5a116f7b4c70e44bb48da9148308f14fb5c9950185d09497df"
 
+[[settings]]
+name = "settings"
+source_path = ".claude/settings.json"
+source_hash = "48868641b5c6edc187a4683ed181a450f26ef16d64e64e680b0abde45d4f4ac9"
+emit_hash = "48868641b5c6edc187a4683ed181a450f26ef16d64e64e680b0abde45d4f4ac9"
+
 [[skill]]
 name = "grow-harness"
 source_path = ".claude/skills/grow-harness/SKILL.md"
@@ -120,6 +126,13 @@ registration = ["paths-match(paths)"]
 guidance = "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
 
 [[declaration.kind]]
+name = "settings"
+governs_root = ".claude"
+governs_glob = "settings.json"
+format = "json-document"
+unit_shape = "file"
+
+[[declaration.kind]]
 name = "skill"
 governs_root = ".claude/skills"
 governs_glob = "*/SKILL.md"
@@ -133,6 +146,7 @@ guidance = "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processi
 name = "source"
 governs_root = "src"
 governs_glob = "*.js"
+commitment = "local"
 unit_shape = "file"
 registration = ["always"]
 
@@ -447,6 +461,10 @@ field = "implemented-by"
 to = ["source"]
 
 [[declaration.satisfies]]
+member = "hook:PostToolUse:Bash"
+requirement = "governance"
+
+[[declaration.satisfies]]
 member = "hook:PreToolUse:Write|Edit|MultiEdit"
 requirement = "governance"
 
@@ -612,6 +630,12 @@ guessed at.""" }
 
 [[declaration.registration]]
 kind = "hook"
+key = "PostToolUse"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
 key = "PreToolUse"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
@@ -655,17 +679,17 @@ import_hash = "aa75a0eb2ddf78bdf6523400863e0e5eb8d04a21bb15a8fe7001477702b26bc2"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "0ace6d3d5933c4716e1eb7d48c7a94904d70c5bd519ec9e419d123b502ffbfd4"
+import_hash = "2f2b1c92c42efa67c86212d5d81ec640695942660dd9cbbafd3ce39d1143c1b0"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/hooks.ts"
-import_hash = "24e983578b5243a0ce1fab7c4fae608cea02d8799d97253f5c2497a04fb80dfe"
+import_hash = "f7f7534a42bed65f3b0fb48a3fc73b49d69b10ad579c68cfb235d56285814d49"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/kinds.ts"
-import_hash = "ca7674636b1a2e486f09a61f06065a62c81ded711d27f947394099e30d92c569"
+import_hash = "1d7da188217746ebd68c7f2ec91278424f03c0b962c57034a2285ab84cc67237"
 
 [[declaration.module]]
 member = "root"

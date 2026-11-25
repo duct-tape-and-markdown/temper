@@ -179,6 +179,27 @@ export interface Blocks {
 export type Prose = File | Text | Blocks;
 
 /**
+ * A member init's `prose`, checked to be one of the three constructors' values. The
+ * type already refuses a bare string; an untyped program reaching here with one would
+ * otherwise crash emit far from the member that authored it.
+ *
+ * # Throws
+ * If `prose` is present and is not a `text`, `file()` or `blocks()` value.
+ */
+export function memberProse(prose: unknown, member: string, kind: string): Prose | undefined {
+  if (prose === undefined) return undefined;
+  const tag = (prose as Partial<Prose> | null)?.kind;
+  if (typeof prose === "object" && (tag === "text" || tag === "file" || tag === "blocks")) {
+    return prose as Prose;
+  }
+  const shape = typeof prose === "string" ? "a plain string" : `a ${prose === null ? "null" : typeof prose}`;
+  throw new Error(
+    `member \`${member}\` of kind \`${kind}\`: field \`prose\` is ${shape} — a member's prose is ` +
+      `a \`text\` span, a \`file()\` or a \`blocks()\` body; tag the template literal with \`text\`.`,
+  );
+}
+
+/**
  * Refuse authored words carrying {@link MENTION_SLOT} or {@link INCLUDE_SLOT} — the
  * markers are the tool's alone. A stray one would split into a chunk no reference
  * claims, and {@link renderText} drops every chunk past the last mention, so the loud

@@ -1,22 +1,22 @@
-import { hook } from "@dtmd/temper/claude-code";
-import { GATE_COMMAND } from "./facts.ts";
+import { gateHook } from "@dtmd/temper/claude-code";
 
-// The two gate placements, authored as fields-only registration members — one
-// `hook()` call per matcher group, each group spelling the handlers it fires in
-// its `hooks` array, folding into its `hooks.<Event>` entry in the
-// settings.json projection.
+// The three gate placements, authored as gate hook members: each states only
+// the event and matcher it rides, and the engine renders the temper command
+// it runs, anchored at the project root, into the settings.json projection.
 
 /** The advisory gate report at session open — always exits zero. */
-export const hook_sessionStart = hook({
-  name: "SessionStart",
-  hooks: [{ type: "command", command: `${GATE_COMMAND} --reporter session-start` }],
+export const hook_sessionStart = gateHook({ name: "SessionStart", satisfies: ["governance"] });
+
+/** The write-boundary guard; mode is read live from the lock (default warn). */
+export const hook_guard = gateHook({
+  name: "PreToolUse",
+  matcher: "Write|Edit|MultiEdit",
   satisfies: ["governance"],
 });
 
-/** The write-boundary guard; mode is read live from the lock (default warn). */
-export const hook_guard = hook({
-  name: "PreToolUse",
-  matcher: "Write|Edit|MultiEdit",
-  hooks: [{ type: "command", command: "temper guard ." }],
+/** The guard's other edge: a Bash write carries no file path, so it is judged after the call. */
+export const hook_postToolUseBash = gateHook({
+  name: "PostToolUse",
+  matcher: "Bash",
   satisfies: ["governance"],
 });

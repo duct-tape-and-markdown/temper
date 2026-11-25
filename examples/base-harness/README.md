@@ -31,10 +31,11 @@ What the harness demonstrates:
   ```
 
 - **One fact, one home.** Commands and expected outputs that more than one
-  surface states live once in `.temper/facts.ts`; the memory's map, the
-  verify skill's procedure, and the settings manifest all interpolate the
-  same constants, so one edit moves every projection and the surfaces
-  cannot contradict each other.
+  surface states live once in `.temper/facts.ts`; the memory's map and the
+  verify skill's procedure interpolate the same constants, so one edit
+  moves every projection and the surfaces cannot contradict each other.
+  The gate hooks state no command at all: each is a `gateHook` member, and
+  the engine renders the command it runs into the settings manifest.
 - **A skill can be path-gated, and its claims are edges.** `verify-summary`
   declares `paths: ["src/**", "TODO.md"]`, so it registers only when the
   work touches what it knows how to verify — and its body mentions the

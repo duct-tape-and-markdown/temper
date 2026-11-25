@@ -87,3 +87,16 @@ test("a computed string carrying a reserved reference marker is a loud error, ne
   assert.throws(() => span("Participants:\u0000 rust."), /reserved reference marker/);
   assert.throws(() => span("Participants:\u0001 rust."), /reserved reference marker/);
 });
+
+test("a plain string prose leaf refuses naming its member and field", () => {
+  // The type refuses the bare string; an untyped program arrives with one anyway.
+  const untyped = { name: "conduct", prose: "plain words" } as unknown as Parameters<typeof memory>[0];
+  assert.throws(
+    () => memory(untyped),
+    (error: unknown) =>
+      error instanceof Error &&
+      !(error instanceof TypeError) &&
+      error.message.includes("member `conduct` of kind `memory`") &&
+      error.message.includes("field `prose` is a plain string"),
+  );
+});

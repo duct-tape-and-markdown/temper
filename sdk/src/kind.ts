@@ -11,6 +11,7 @@
  */
 
 import type { Prose, Text } from "./prose.js";
+import { memberProse } from "./prose.js";
 import type { Capability } from "./needs.js";
 import type { Requirement } from "./contract.js";
 import { isOneSegment } from "./member-address.js";
@@ -659,7 +660,7 @@ export function kind<T extends object>(typed: KindFacts<T>, options: KindOptions
     facts,
     name: init.name,
     host: hostOf(facts, init),
-    prose: init.prose,
+    prose: memberProse(init.prose, init.name, facts.name),
     fields: orderedFields(facts, init),
     satisfies: init.satisfies ?? [],
     requires: init.requires ?? {},

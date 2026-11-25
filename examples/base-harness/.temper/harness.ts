@@ -1,11 +1,11 @@
 import { clause, count, emit, extent, harness, uniqueName } from "@dtmd/temper";
-import { skill, skillDefaultContract } from "@dtmd/temper/claude-code";
+import { settings, skill, skillDefaultContract } from "@dtmd/temper/claude-code";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_conduct } from "./rules/conduct.ts";
 import { rule_docsDiscipline } from "./rules/docs-discipline.ts";
 import { skill_growHarness } from "./skills/grow-harness.ts";
 import { skill_verifySummary } from "./skills/verify-summary.ts";
-import { hook_guard, hook_sessionStart } from "./hooks.ts";
+import { hook_guard, hook_postToolUseBash, hook_sessionStart } from "./hooks.ts";
 import { alternative, decision, flow, glossary, invariant, source, stepKind, system } from "./kinds.ts";
 import { system_scanner } from "./docs/systems/scanner.ts";
 import { system_renderer } from "./docs/systems/renderer.ts";
@@ -76,6 +76,10 @@ const program = harness({
     glossary({ name: "glossary" }),
     hook_sessionStart,
     hook_guard,
+    hook_postToolUseBash,
+    // The committed `.claude/settings.json` as one member: it carries no keys
+    // of its own, so the file renders whole from the hook registrations.
+    settings({ name: "settings" }),
   ],
   // Admission is the corpus's declaration, not the type's: an embedded kind
   // declares no host, and each host names what its composed body admits.

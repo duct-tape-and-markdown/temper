@@ -11,8 +11,8 @@
  * - `glossary` is a **layout source**: the document is the authored home,
  *   read under its declared layout, never regenerated — the posture for
  *   prose-first content whose sections are model structure.
- * - `source` is **read-only ground**: it makes each file under `src/`
- *   an addressable member so a system's `implemented-by` claim is an edge
+ * - `source` is **read-only ground**: a `local` locus making each file
+ *   under `src/` an addressable member so a system's `implemented-by` claim is an edge
  *   the gate resolves — and a claim naming a moved or deleted file fails.
  */
 
@@ -200,12 +200,13 @@ export const glossary: KindDefinition<Record<never, never>> = kind({
 
 /**
  * `source` — the governed implementation, one member per file under `src/`.
- * Read-only ground: never projected, never contracted; it exists so an
+ * Read-only ground: a `local` locus, so `check` derives each member from the
+ * file in place and `emit` never touches it; it exists so an
  * `implemented-by` entry is an address the gate can refuse.
  */
 export const source: KindDefinition<Record<never, never>> = kind({
   name: "source",
-  locus: { kind: "at", root: "src", glob: "*.js" },
+  locus: { kind: "at", root: "src", glob: "*.js", commitment: "local" },
   unitShape: "file",
   registration: [{ via: "always" }],
 });

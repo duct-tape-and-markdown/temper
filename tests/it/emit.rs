@@ -2893,10 +2893,8 @@ fn emit_program_runs_the_shipped_example_harness() {
     // this run's doing, and the checkout pin below reads the delta, not the state.
     let residue_before = committed.join(".temper").join("node_modules").exists();
 
-    let harness = common::tmpdir("shipped-example");
-    common::copy_tree(&committed, &harness);
+    let harness = shipped_example_copy(&committed);
     let into = harness.join(".temper");
-    common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
 
     // `copy_tree` carried the committed lock in, so a compare against the copy would
     // pass on a file this run never touched — vacuous exactly where the bug was. A
@@ -2982,6 +2980,34 @@ fn emit_program_runs_the_shipped_example_harness() {
         residue_before,
         "the example emit runs from a copy: this run may not create \
          examples/base-harness/.temper/node_modules in the checkout"
+    );
+}
+
+/// A temp copy of the committed example harness with the SDK vendored where a real
+/// `npm install` would put it — the scope every run over the example drives, so no
+/// run writes into the checkout.
+fn shipped_example_copy(committed: &Path) -> PathBuf {
+    let harness = common::tmpdir("shipped-example");
+    common::copy_tree(committed, &harness);
+    common::vendor_sdk(&harness.join(".temper").join("node_modules").join("@dtmd"));
+    harness
+}
+
+/// The example is what an adopter copies, so it holds the bar it teaches: its own
+/// gate, advisories denied, from its own root — the gate hooks installed as gate
+/// members and every document at a governed locus one its program declares.
+#[test]
+fn the_shipped_example_harness_passes_its_own_check_with_advisories_denied() {
+    let committed = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("examples")
+        .join("base-harness");
+    let harness = shipped_example_copy(&committed);
+
+    let run = common::check_in(&harness, &[".", "--deny-advisories"], None);
+    assert!(
+        run.ok,
+        "examples/base-harness must pass `temper check . --deny-advisories` from its own root:\n{}",
+        run.output
     );
 }
 
