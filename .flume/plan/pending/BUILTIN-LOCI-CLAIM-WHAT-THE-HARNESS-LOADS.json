@@ -36,6 +36,10 @@
       {
         "path": "tests/it/main.rs",
         "description": "register builtin_loci"
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "embedded-lock kind-facts test: rule governs_glob asserts **/*.md (was *.md, ~:2620)"
       }
     ],
     "retire": []
@@ -43,7 +47,7 @@
   "summary": "rule claims .claude/rules/**/*.md; memory excludes the .claude/ folders other built-in loaders own",
   "per": {
     "path": "specs/builtins.md",
-    "section": "Built-ins \u2014 what ships"
+    "section": "Built-ins — what ships"
   },
   "acceptance": "a rule in .claude/rules/frontend/ is a governed rule, and a CLAUDE.md under any of the four loader folders is not memory; builtin_lock_frozen stays green",
   "tests": [
@@ -57,5 +61,5 @@
     "every built in kind glob is a placement template"
   ],
   "laneTests": [],
-  "notes": "Per decision 0084. Discovery reads loci from src/builtin_kind.rs, not the lock \u2014 SDK, Rust population and embedded lock move together (lift test). Re-emits the embedded lock (builtin_lock_frozen). Dogfood .temper lock re-emit is a human chore(harness) half. Same-stem rules in two subdirectories meet the existing identity-collision judge."
+  "notes": "Per decision 0084. Discovery reads loci from src/builtin_kind.rs, not the lock — SDK, Rust population and embedded lock move together (lift test). Re-emits the embedded lock (builtin_lock_frozen). Dogfood .temper lock re-emit is a human chore(harness) half. Same-stem rules in two subdirectories meet the existing identity-collision judge."
 }
