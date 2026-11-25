@@ -47,6 +47,9 @@ The type of a member. A kind declares
   construction. A format omitting a declared edge is a clause's finding.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
+  A nested member's kind is declared by its host's template or admission,
+  as a file's is by its position, so a nested kind is extended by an
+  extended host naming the subkind as its child.
 
 A kind is data, never code, its extractor composed from that data; its
 identity travels by import, never by string. Built-in and user-declared
