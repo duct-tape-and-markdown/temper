@@ -11,9 +11,11 @@
 /// documented three-position grammar) — the one semantics every call site needs,
 /// whether the candidate it tests is a bare filename (no `/` to cross) or a full
 /// repo-relative path. `None` for a glob `globset` cannot compile (a malformed
-/// character class); the caller decides what an uncompilable pattern means for its
-/// own match (`graph`'s liveness test treats it as matching, never a false
-/// negative on a pattern it failed to understand).
+/// character class). A file locus never reaches here uncompiled: load admits only a
+/// [placement template](is_placement_template), which carries no class to malform, so
+/// `None` is a fact about author-supplied patterns alone (a rule's `paths`), and the
+/// caller decides what it means for its own match (`graph`'s liveness test treats it
+/// as matching, never a false negative on a pattern it failed to understand).
 #[must_use]
 pub(crate) fn compile_glob(glob: &str) -> Option<globset::GlobMatcher> {
     GLOB_CACHE.with(|cache| {
@@ -38,6 +40,33 @@ pub(crate) fn compile_glob(glob: &str) -> Option<globset::GlobMatcher> {
             .insert(glob.to_string(), compiled.clone());
         compiled
     })
+}
+
+/// Whether `glob` is a **placement template** — the only glob a file locus may govern:
+/// `/`-separated literal segments carrying at most one `*` between them, optionally
+/// under one leading `**/` for any depth. Placement splices a member's name into the one
+/// `*`, so any other pattern syntax — a `?`, a character class, braces, an extglob, an
+/// escape, a second star, a `**` anywhere but the leading segment — names a set of paths
+/// no single placement can be written back to, and is refused.
+#[must_use]
+pub(crate) fn is_placement_template(glob: &str) -> bool {
+    let body = glob.strip_prefix("**/").unwrap_or(glob);
+    let segments: Vec<&str> = body.split('/').collect();
+    let mut stars = 0;
+    for segment in &segments {
+        if segment.is_empty() || segment.contains(['?', '[', ']', '{', '}', '\\']) {
+            return false;
+        }
+        // An extglob opens with one of its operators directly before a `(`.
+        if ["!(", "@(", "+(", "*(", "?("]
+            .iter()
+            .any(|opener| segment.contains(opener))
+        {
+            return false;
+        }
+        stars += segment.matches('*').count();
+    }
+    stars <= 1
 }
 
 thread_local! {
@@ -100,6 +129,32 @@ mod tests {
         assert!(!matches("*/SKILL.md", "SKILL.md"));
         assert!(matches("[0-9][0-9]-*.md", "07-kinds.md"));
         assert!(!matches("[0-9][0-9]-*.md", "ab-kinds.md"));
+    }
+
+    #[test]
+    fn a_placement_template_is_literal_segments_with_one_star_under_an_optional_leading_globstar() {
+        for template in [
+            "*.md",
+            "*/SKILL.md",
+            "**/CLAUDE.md",
+            "**/*.md",
+            "settings.json",
+        ] {
+            assert!(is_placement_template(template), "{template}");
+        }
+        for pattern in [
+            "domains/[a-z0-9-]*.md",
+            "!(README).md",
+            "*/*.md",
+            "*.{md,txt}",
+            "SKILL.m?",
+            "docs/**/*.md",
+            "**",
+            "a//b.md",
+            "\\*.md",
+        ] {
+            assert!(!is_placement_template(pattern), "{pattern}");
+        }
     }
 
     #[test]

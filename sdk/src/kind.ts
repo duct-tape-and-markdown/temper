@@ -93,6 +93,10 @@ export type Locus =
   | {
       readonly kind: "at";
       readonly root: string;
+      /** A placement template: literal `/`-separated segments with at most one `*`,
+       * optionally under a leading `**` + `/` for any depth. Any other pattern syntax
+       * (a `?`, a character class, braces, an extglob, a second star) is refused when
+       * the engine loads the lock; narrow member names with a clause, never the glob. */
       readonly glob: string;
       readonly commitment?: "local";
     }

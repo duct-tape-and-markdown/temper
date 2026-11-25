@@ -45,6 +45,7 @@ mod layout_kind;
 mod layout_prose_import;
 mod local_locus;
 mod lock_declaration_rows;
+mod locus_template;
 mod manifest_adapter;
 mod manifest_schema_oracle;
 mod marketplace_kind;

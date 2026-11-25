@@ -601,11 +601,25 @@ impl CustomKind {
     ///
     /// # Errors
     ///
-    /// Returns a [`LockRowError`] when a `format`/`unit_shape`/`registration`/`shape`/
+    /// Returns a [`LockRowError`] when the `governs_glob` is not a placement template
+    /// ([`PLACEMENT_TEMPLATE_COLUMN`]), or when a `format`/`unit_shape`/`registration`/`shape`/
     /// `collection_address` label or a layout region falls outside its closed vocabulary —
     /// the tool-written lock carries only labels the SDK could emit, so an unknown one is
     /// corruption rejected at load.
     pub fn from_kind_fact_row(row: &KindFactRow) -> Result<Self, LockRowError> {
+        if let Some(glob) = row
+            .governs_glob
+            .as_ref()
+            .filter(|glob| !crate::glob::is_placement_template(glob))
+        {
+            // The closed vocabulary here is the template grammar itself: a glob outside it
+            // is a locus no placement can write back to.
+            return Err(LockRowError::Vocabulary {
+                family: "kind".to_string(),
+                column: PLACEMENT_TEMPLATE_COLUMN.to_string(),
+                value: glob.clone(),
+            });
+        }
         Ok(CustomKind {
             format: format_from_row(row)?,
             unit_shape: match &row.unit_shape {
@@ -802,6 +816,10 @@ pub fn locus_path(root: &str, glob: &str) -> crate::path::HarnessRelativePath {
 pub fn locus_pattern(root: &str, glob: &str) -> String {
     locus_path(root, glob).into()
 }
+
+/// The column a non-template `governs_glob` refuses under, spelled to name the rule it
+/// broke: literal segments, at most one `*`, an optional leading `**/`.
+pub const PLACEMENT_TEMPLATE_COLUMN: &str = "governs_glob (a placement template: literal segments, at most one `*`, optionally under a leading `**/`)";
 
 /// Surface a `kind`-fact column's label as an out-of-vocabulary [`LockRowError`] when its
 /// closed-vocabulary lookup came back empty — the shared reject the label lifts route a
