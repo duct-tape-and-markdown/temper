@@ -1,18 +1,38 @@
 {
   "tag": "BUILTIN-LOCI-CLAIM-WHAT-THE-HARNESS-LOADS",
-  "gate": { "kind": "blockedBy", "tags": ["LOCUS-EXCLUDES-A-DIRECTORY"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [
-      { "path": "tests/it/builtin_loci.rs", "description": "rule recursion and memory's loader-folder exclusions, through discovery" }
+      {
+        "path": "tests/it/builtin_loci.rs",
+        "description": "rule recursion and memory's loader-folder exclusions, through discovery"
+      }
     ],
     "edit": [
-      { "path": "sdk/src/builtins.ts", "description": "rule locus recursive under .claude/rules; memory excludes .claude/agents, commands, rules, skills; cite code.claude.com/docs/en/memory retrieved 2026-11-24" },
-      { "path": "src/builtin_lock.toml", "description": "re-derived rule glob and memory exclude rows" },
-      { "path": "tests/it/main.rs", "description": "register builtin_loci" }
-    ]
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "rule locus recursive under .claude/rules; memory excludes .claude/agents, commands, rules, skills; cite code.claude.com/docs/en/memory retrieved 2026-11-24"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived rule glob and memory exclude rows"
+      },
+      {
+        "path": "tests/it/main.rs",
+        "description": "register builtin_loci"
+      }
+    ],
+    "retire": []
   },
   "summary": "rule claims .claude/rules/**/*.md; memory excludes the .claude/ folders other built-in loaders own",
-  "per": { "path": "specs/builtins.md", "section": "Built-ins — what ships" },
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Built-ins — what ships"
+  },
   "acceptance": "a rule in .claude/rules/frontend/ is a governed rule, and a CLAUDE.md under any of the four loader folders is not memory; builtin_lock_frozen stays green",
   "tests": [
     "a rule in a subdirectory of the rules folder is discovered as a rule",
@@ -23,5 +43,6 @@
     "a CLAUDE.md under .claude outside the loader folders stays memory",
     "every built in kind glob is a placement template"
   ],
+  "laneTests": [],
   "notes": "Per decision 0084. Re-emits the embedded lock (builtin_lock_frozen lane). The dogfood .temper lock re-emit is a human chore(harness) half. Two same-stem rules in different subdirectories meet the existing identity-collision judge; no new rule here."
 }
