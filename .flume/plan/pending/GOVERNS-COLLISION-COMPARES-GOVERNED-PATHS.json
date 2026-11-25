@@ -9,17 +9,21 @@
     "new": [
       {
         "path": "tests/it/governs_collision.rs",
-        "description": "overlapping templates, wholly-excluded overlap, built-ins pass"
+        "description": "a document two loci reach, unoccupied overlap, excluded document, built-ins pass"
       }
     ],
     "edit": [
       {
         "path": "src/admissibility.rs",
-        "description": "governs_collision_diagnostics judges template overlap less excludes, not root+glob string equality"
+        "description": "a per-discovered-document collision beside the kept root+glob string check; remedy names the literal exclude"
       },
       {
-        "path": "src/kind.rs",
-        "description": "a template-overlap predicate beside locus_admits, honoring excluded paths and directories"
+        "path": "src/gate.rs",
+        "description": "wire the per-document collision with the run's Discovery"
+      },
+      {
+        "path": "src/import.rs",
+        "description": "expose each file kind's discovered paths off Discovery if the claimed-set cache cannot serve it"
       },
       {
         "path": "tests/it/main.rs",
@@ -28,19 +32,21 @@
     ],
     "retire": []
   },
-  "summary": "The governs-collision check compares the paths two kinds govern, not their glob strings",
+  "summary": "Two kinds collide at a discovered document both loci reach, answered by a literal exclude, not by template overlap",
   "per": {
     "path": "specs/model/representation.md",
     "section": "locus"
   },
-  "acceptance": "two kinds whose templates (less their excludes) can match one path draw kind.governs-collision; the built-in set draws none",
+  "acceptance": "a discovered document two file kinds' loci both reach draws kind.governs-collision naming both kinds and the literal-exclude remedy; unoccupied overlap and the built-in set draw none",
   "tests": [
-    "two kinds whose distinct templates share a governed path draw a governs collision",
-    "two kinds whose shared paths are wholly excluded draw no governs collision"
+    "a document two kinds' distinct loci both reach draws a governs collision naming both kinds",
+    "the per document governs collision names a literal exclude as its remedy"
   ],
   "pins": [
+    "two kinds whose templates overlap only on unoccupied paths draw no governs collision",
+    "a document excluded from one of two overlapping kinds draws no governs collision",
     "the built in kinds draw no governs collision"
   ],
   "laneTests": [],
-  "notes": "Per 0081/0084. The template grammar (literal segments, one `*`, optional leading `**/`) keeps overlap decidable without enumerating a tree. Manifest and nested-file kinds stay out as today. May surface new findings on the dogfood .temper corpus — a record, not a src change."
+  "notes": "Per 0085: judged over the discovered document set, never template comparison — no kind.rs overlap predicate. Keep the identical root+glob string check; one finding per pair, not two. Manifest and nested-file kinds stay out. Fixtures need no extra excludes: the prior red suite came from static overlap."
 }
