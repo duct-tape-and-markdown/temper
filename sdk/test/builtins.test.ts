@@ -15,7 +15,7 @@ import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
 // is its one caller), so the test reaches the module rather than the public subpath.
 import { tapHookRegistration } from "../src/builtins.js";
-import type { Handler, Hook, Rule } from "../src/claude-code.js";
+import type { Handler, Hook, Memory, Rule } from "../src/claude-code.js";
 import {
   agent,
   agentDefaultContract,
@@ -1403,6 +1403,48 @@ test("a locus delta and an edge-field delta compose in one relocation", () => {
   // ...while the added edge still reaches the lock as its own assembly fact.
   const edges = result.declarations.assembly.filter((fact) => fact.fact === "edge" && fact.from === "rule");
   assert.deepEqual(edges, [{ fact: "edge", from: "rule", field: "routes_to", to: ["skill"] }]);
+});
+
+/** The one `memory` kind-fact row a harness expecting `memoryKind` compiles to. */
+function memoryKindRow(memoryKind: typeof memory) {
+  const rows = compileDeclarations(harness({ members: [], expect: [{ kind: memoryKind, clauses: [] }] })).kinds.filter(
+    (row) => row.name === "memory",
+  );
+  assert.equal(rows.length, 1, "exactly one `memory` kind-fact row must reach the lock");
+  return rows[0];
+}
+
+test("relocating memory off `.` drops the base exclusions its new template no longer reaches", () => {
+  // Non-vacuity first: the base carries exclusions the move has to answer for.
+  assert.ok(memoryKindRow(memory).exclude?.length, "the built-in memory row must carry exclusions");
+  const docsMemory = relocate<Memory>(memory, { governs: { root: "docs", glob: "**/CLAUDE.md" } });
+  const row = memoryKindRow(docsMemory);
+  assert.equal(row.governs_root, "docs");
+  assert.equal(row.governs_glob, "**/CLAUDE.md");
+  // `docs/**/CLAUDE.md` neither matches nor reaches beneath any `.claude/` folder, so
+  // every exclusion would be refused by the engine as subtracting nothing.
+  assert.ok(!("exclude" in row), "no unreached exclusion may ride onto the moved row");
+  assert.ok(!("exclude" in docsMemory.facts.locus));
+});
+
+test("relocating memory onto the same reach keeps every base exclusion", () => {
+  const sameReach = relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" } });
+  const row = memoryKindRow(sameReach);
+  assert.deepEqual(row.exclude, [".claude/agents", ".claude/commands", ".claude/rules", ".claude/skills"]);
+});
+
+test("a relocation keeps exactly the base exclusions its new template still reaches", () => {
+  // `.claude/**/CLAUDE.md` still reaches beneath every `.claude/` folder; a single-path
+  // template under `.claude/rules` reaches beneath that one folder alone.
+  const underClaude = relocate<Memory>(memory, { governs: { root: ".claude", glob: "**/CLAUDE.md" } });
+  assert.deepEqual(memoryKindRow(underClaude).exclude, [
+    ".claude/agents",
+    ".claude/commands",
+    ".claude/rules",
+    ".claude/skills",
+  ]);
+  const underRules = relocate<Memory>(memory, { governs: { root: ".claude/rules", glob: "*/CLAUDE.md" } });
+  assert.deepEqual(memoryKindRow(underRules).exclude, [".claude/rules"]);
 });
 
 // ---------------------------------------------------------------------------

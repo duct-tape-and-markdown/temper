@@ -724,7 +724,10 @@ export interface KindRelocation<T> {
 
 /**
  * The locus a `governs` delta moves the base to: the base's `at` root and glob replaced,
- * every other locus fact (its commitment class among them) riding through.
+ * every other locus fact (its commitment class among them) riding through. Of the base's
+ * exclusions it keeps each the new template still matches or reaches beneath — moving one
+ * loader's reach moves no other's — and drops the rest, which the engine would refuse as
+ * subtracting nothing.
  *
  * # Throws
  * If the base's locus is not `at` — an embedded or nested-file kind governs no glob at
@@ -743,7 +746,84 @@ function relocatedLocus(
         `(specs/model/representation.md, "locus").`,
     );
   }
-  return { ...base.locus, root: governs.root, glob: governs.glob };
+  const pattern = locusPattern(governs.root, governs.glob);
+  const kept = (base.locus.exclude ?? []).filter(
+    (path) => templateMatches(pattern, path) || templateReachesBeneath(pattern, path),
+  );
+  const { exclude: _replaced, ...rest } = base.locus;
+  return { ...rest, root: governs.root, glob: governs.glob, ...(kept.length > 0 ? { exclude: kept } : {}) };
+}
+
+/** A file locus as one harness-relative template, a root-locus kind's `.` dropped. */
+function locusPattern(root: string, glob: string): string {
+  return root === "." ? glob : `${root}/${glob}`;
+}
+
+/** Whether one path component matches one template segment: a literal, or one `*`. */
+function segmentMatches(segment: string, component: string): boolean {
+  const star = segment.indexOf("*");
+  if (star < 0) {
+    return segment === component;
+  }
+  const prefix = segment.slice(0, star);
+  const suffix = segment.slice(star + 1);
+  return component.length >= prefix.length + suffix.length && component.startsWith(prefix) && component.endsWith(suffix);
+}
+
+/** Whether every leading component matches the template segment at its position. */
+function segmentsMatch(components: readonly string[], segments: readonly string[]): boolean {
+  return components.every((component, i) => i >= segments.length || segmentMatches(segments[i], component));
+}
+
+/**
+ * Whether the placement template `pattern` matches `path` whole — a `**` segment standing
+ * for any number of components, none included. Mirrors the engine's glob match over the
+ * placement-template subset, the only syntax a locus may carry.
+ */
+function templateMatches(pattern: string, path: string): boolean {
+  const template = pattern.split("/");
+  const components = path.split("/");
+  const anyDepth = template.indexOf("**");
+  if (anyDepth < 0) {
+    return components.length === template.length && segmentsMatch(components, template);
+  }
+  const root = template.slice(0, anyDepth);
+  const body = template.slice(anyDepth + 1);
+  return (
+    components.length >= root.length + body.length &&
+    segmentsMatch(components.slice(0, root.length), root) &&
+    segmentsMatch(components.slice(components.length - body.length), body)
+  );
+}
+
+/**
+ * Whether the placement template `pattern` matches some path strictly beneath the
+ * directory `dir` — the engine's reach test for a directory exclusion (`src/kind.rs`,
+ * `template_reaches_beneath`), spelled over the same segments.
+ */
+function templateReachesBeneath(pattern: string, dir: string): boolean {
+  const template = pattern.split("/");
+  const components = dir.split("/");
+  const prefixMatches = (prefix: readonly string[], segments: readonly string[]) =>
+    prefix.length < segments.length && segmentsMatch(prefix, segments);
+  const anyDepth = template.indexOf("**");
+  if (anyDepth < 0) {
+    return prefixMatches(components, template);
+  }
+  const root = template.slice(0, anyDepth);
+  const body = template.slice(anyDepth + 1);
+  if (components.length <= root.length) {
+    return segmentsMatch(components, root);
+  }
+  if (!segmentsMatch(components.slice(0, root.length), root)) {
+    return false;
+  }
+  for (let start = root.length; start <= components.length; start += 1) {
+    if (prefixMatches(components.slice(start), body)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
