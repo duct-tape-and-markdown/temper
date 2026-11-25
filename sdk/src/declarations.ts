@@ -659,11 +659,15 @@ function targetList(to: readonly string[]): string {
   return to.map((target) => `\`${target}\``).join(", ");
 }
 
-/** A requirement as a guidance rule states it: its kind (when declared), its satisfiers. */
+/**
+ * A requirement as the guidance rules and the reference state it: its kind (when
+ * declared), its prose, what holds its behavior (absent when unheld), its satisfiers.
+ */
 export interface ContractedRequirement {
   readonly name: string;
   readonly kind: string | undefined;
   readonly prose: string;
+  readonly verifier: Verifier | undefined;
   readonly satisfiers: readonly { readonly kind: string; readonly address: string }[];
 }
 
@@ -689,6 +693,7 @@ export function contractedRequirements(harness: Harness): ContractedRequirement[
       name,
       kind: typeof requirement.kind === "string" ? requirement.kind : requirement.kind?.key,
       prose: requirement.prose,
+      verifier: requirement.verifier,
       satisfiers: (satisfiers.get(name) ?? []).sort((a, b) => compareStrings(a.address, b.address)),
     }));
 }

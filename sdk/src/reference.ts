@@ -4,6 +4,8 @@
  * description and body render from the program's own declarations: the product's
  * mechanics, then one index line per kind in play and per contracted domain, and a
  * description naming those domains so every session starts knowing which are taken.
+ * Each domain the index names gets its topic beside `SKILL.md` — a `supporting-doc`
+ * `domain-<r>.md` carrying the requirement's prose, what holds it, and its owners.
  *
  * It renders only committed declarations: a kind at a `local` locus (the dial among
  * them) and every member of one stay out of the index, since a committed projection
@@ -11,9 +13,11 @@
  */
 
 import type { Harness } from "./assembly.js";
+import type { Verifier } from "./contract.js";
 import type { KindFacts, Member } from "./kind.js";
-import { skill } from "./builtins.js";
+import { skill, supportingDoc } from "./builtins.js";
 import { compareStrings, contractedRequirements, kindsInPlay } from "./declarations.js";
+import type { ContractedRequirement } from "./declarations.js";
 import { span } from "./prose.js";
 
 /** The reference's skill name — its member lands at `.claude/skills/temper/SKILL.md`. */
@@ -134,20 +138,62 @@ function committedView(harness: Harness): Harness {
   };
 }
 
-/** The rendered description and body of the reference over `harness`. */
-export function renderReference(harness: Harness): { readonly description: string; readonly body: string } {
+/**
+ * What holds a requirement's behavior, as its domain topic states it — a declared
+ * verifier, or that it is unheld. The two read distinctly: a review names the reader
+ * whose judgment holds the domain, while unheld names that nothing judges it.
+ */
+function heldBy(verifier: Verifier | undefined): string {
+  switch (verifier?.species) {
+    case undefined:
+      return "It is unheld — no verifier is declared, so nothing judges its behavior.";
+    case "review":
+      return `It is held by review: ${verifier.prose}`;
+    case "script":
+      return `It is held by script: \`${verifier.path}\`.`;
+    case "telemetry":
+      return `It is held by telemetry over ${verifier.events.map((event) => `\`${event}\``).join(", ")}.`;
+  }
+}
+
+/** The body of a domain's topic — its prose, what holds it, and the members that own it. */
+function domainTopic(requirement: ContractedRequirement): string {
+  const owners =
+    requirement.satisfiers.length === 0
+      ? "No member fills it yet."
+      : requirement.satisfiers.map((owner) => `- \`${owner.address}\``).join("\n");
+  return [
+    `# The \`${requirement.name}\` domain`,
+    requirement.prose,
+    `## Verifier\n\n${heldBy(requirement.verifier)}`,
+    `## Owners\n\n${owners}`,
+  ].join("\n\n");
+}
+
+/** The topic file name a domain's index line links to — without its `.md`, the doc's identity. */
+function domainTopicName(name: string): string {
+  return `domain-${name}`;
+}
+
+/** The rendered reference over `harness`: its description, its body, and its domain topics. */
+export function renderReference(harness: Harness): {
+  readonly description: string;
+  readonly body: string;
+  readonly domains: readonly { readonly name: string; readonly body: string }[];
+} {
   const view = committedView(harness);
   const kinds = kindsInPlay(view)
     .filter(committed)
     .map((facts) => facts.name)
     .sort(compareStrings);
-  const domains = contractedRequirements(view).map((requirement) => requirement.name);
+  const requirements = contractedRequirements(view);
+  const domains = requirements.map((requirement) => requirement.name);
   const kindLines = kinds.map(
     (name) => `- When you add or change a \`${name}\` member, read [kind-${name}.md](kind-${name}.md).`,
   );
   const domainLines = domains.map(
     (name) =>
-      `- When you fill, change, or move the \`${name}\` domain, read [domain-${name}.md](domain-${name}.md).`,
+      `- When you fill, change, or move the \`${name}\` domain, read [${domainTopicName(name)}.md](${domainTopicName(name)}.md).`,
   );
   const index = [
     "## This harness",
@@ -159,28 +205,40 @@ export function renderReference(harness: Harness): { readonly description: strin
   const named = domains.map((name) => `\`${name}\``).join(", ");
   const description =
     domains.length === 0 ? TRIGGER : `${TRIGGER} Its contracted domains: ${named}.`;
-  return { description, body: `${MECHANICS}\n${index}\n` };
+  return {
+    description,
+    body: `${MECHANICS}\n${index}\n`,
+    domains: requirements.map((requirement) => ({
+      name: domainTopicName(requirement.name),
+      body: `${domainTopic(requirement)}\n`,
+    })),
+  };
 }
 
 /**
  * `harness` with every declared reference rendered from it — the one view emit compiles,
- * so the projection and the declaration rows agree. A harness carrying none comes back as is.
+ * so the projection and the declaration rows agree. Each rendered reference brings its
+ * domain topics as `supporting-doc` members hosted by it. A harness carrying none comes
+ * back as is.
  */
 export function withReference(harness: Harness): Harness {
   if (!harness.members.some((member) => DECLARED.has(member))) return harness;
-  const { description, body } = renderReference(harness);
+  const { description, body, domains } = renderReference(harness);
   return {
     ...harness,
-    members: harness.members.map((member) =>
-      DECLARED.has(member)
-        ? {
-            ...member,
-            prose: span(body),
-            fields: member.fields.map(([key, value]) =>
-              key === "description" ? (["description", description] as const) : ([key, value] as const),
-            ),
-          }
-        : member,
-    ),
+    members: harness.members.flatMap((member) => {
+      if (!DECLARED.has(member)) return [member];
+      const rendered: Member = {
+        ...member,
+        prose: span(body),
+        fields: member.fields.map(([key, value]) =>
+          key === "description" ? (["description", description] as const) : ([key, value] as const),
+        ),
+      };
+      return [
+        rendered,
+        ...domains.map((topic) => supportingDoc({ name: topic.name, host: rendered, prose: span(topic.body) })),
+      ];
+    }),
   };
 }

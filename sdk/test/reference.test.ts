@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { dial, emit, harness, reference, requirement, text } from "../src/index.js";
+import { dial, emit, harness, reference, requirement, review, text } from "../src/index.js";
 import { rule, settingsLocal, skill } from "../src/claude-code.js";
 
 function declared(...extra: Parameters<typeof harness>[0]["members"]) {
@@ -91,4 +91,67 @@ test("a harness without the reference projects no temper skill", () => {
     result.members.find((m) => m.name === "temper"),
     undefined,
   );
+});
+
+function domainTopicOf(result: ReturnType<typeof emit>, name: string) {
+  const topic = result.members.find((m) => m.kind === "supporting-doc" && m.name === `domain-${name}`);
+  assert.ok(topic, `the reference carries a domain-${name}.md topic`);
+  assert.equal(topic.host, "skill:temper");
+  return topic.body;
+}
+
+test("declared reference renders one domain topic per requirement: prose, verifier, owners", () => {
+  const program = harness({
+    members: [
+      reference({ satisfies: ["gate-operation"] }),
+      rule({ name: "release", prose: text`# Release`, satisfies: ["release-procedure"] }),
+    ],
+    require: {
+      "gate-operation": requirement({ prose: "How to operate the gate." }),
+      "release-procedure": requirement({
+        prose: "How a release is cut.",
+        verifier: review("the release captain reads the cut against the recipe."),
+      }),
+    },
+  });
+  const result = emit(program);
+
+  assert.equal(
+    domainTopicOf(result, "release-procedure"),
+    [
+      "# The `release-procedure` domain",
+      "",
+      "How a release is cut.",
+      "",
+      "## Verifier",
+      "",
+      "It is held by review: the release captain reads the cut against the recipe.",
+      "",
+      "## Owners",
+      "",
+      "- `rule:release`",
+      "",
+    ].join("\n"),
+  );
+  const unheld = domainTopicOf(result, "gate-operation");
+  assert.match(unheld, /^How to operate the gate\.$/m);
+  assert.match(unheld, /It is unheld — no verifier is declared/);
+  assert.doesNotMatch(unheld, /held by review/);
+  assert.match(unheld, /^- `skill:temper`$/m);
+});
+
+test("a domain topic names that no member fills an unfilled domain", () => {
+  const result = emit(declared(reference()));
+  assert.match(domainTopicOf(result, "conventions"), /## Owners\n\nNo member fills it yet\.\n$/);
+});
+
+test("the reference's domain topics are only its committed domains", () => {
+  const program = harness({
+    members: [
+      reference(),
+      settingsLocal({ name: "settings.local", requires: { "machine-only": requirement({ prose: "One machine's slot." }) } }),
+    ],
+  });
+  const topics = emit(program).members.filter((m) => m.kind === "supporting-doc");
+  assert.deepEqual(topics, []);
 });
