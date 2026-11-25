@@ -1,0 +1,18 @@
+<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
+
+# The `rule` kind
+
+a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.
+
+## Locus
+
+Each member is its own document, at:
+
+- `.claude/rules/**/*.md`
+
+## Clauses
+
+- `forbidden_keys` (required): Cursor `.mdc` keys. Claude Code's documented rules schema is `paths`-only; a rule authored with Cursor frontmatter is configuration another tool's semantics silently fail to honor — the rule loads, the scoping you meant does not. (That Claude Code ignores unknown keys is observed behavior, not documented contract — the documented schema is the citation.)
+- `glob-valid` on `paths` (required): `paths` is the one documented rules key: globs (brace expansion supported) that load the rule when a file tool (read, edit, write) touches a matching path. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it.
+- `extent` (advisory): Unconditional rules are always-on context, paid every session: the docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md; rules load in full regardless of length.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it.
+- `mention-reachable` on `paths` (advisory): A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a rule that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this rule's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that.

@@ -5,3 +5,6 @@
 src/builtin_lock.toml text eol=lf
 tests/snapshots/*.snap text eol=lf
 tests/fixtures/** text eol=lf
+# The bundled harness reference — the SDK emit `temper bundle` ships verbatim and
+# tests/it/bundle.rs byte-compares against a fresh emit.
+src/bundled_reference/** text eol=lf

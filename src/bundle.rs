@@ -5,9 +5,10 @@
 //! is the Claude-Code-native placement, and `bundle` is the verb that produces it.
 //! `temper` ships as a plugin bundling two things:
 //!
-//! 1. the **skill** — how to *operate the gate* (`install` / `check`, read a
-//!    diagnostic, author a custom kind's layout, and when to challenge the
-//!    contract versus fix the artifact). It is
+//! 1. the **skill** — the SDK's harness reference, emitted over the built-in program:
+//!    how to *operate the gate* (`install` / `check`, read a diagnostic, author a
+//!    custom kind's layout, and when to challenge the contract versus fix the
+//!    artifact), then one topic file per built-in kind beside it. It is
 //!    mechanics, never taste (the Decision "the skill is mechanics, never taste"):
 //!    the opinions live in the SDK's floors, never in skill prose;
 //! 2. the **`SessionStart` hook**, in its own `hooks.json` — the advisory
@@ -19,8 +20,8 @@
 //!
 //! The plugin is a **vendored, generated surface** — itself an instance of what
 //! `temper` projects, so it is **byte-faithful where it carries prose**:
-//! the skill body is copied verbatim from its
-//! embedded source, never re-rendered. `plugin.json` and `marketplace.json` are members of
+//! the skill and its topics are copied verbatim from the embedded SDK emit
+//! ([`BUNDLED_REFERENCE`]), never re-rendered. `plugin.json` and `marketplace.json` are members of
 //! the `plugin-manifest` and `marketplace` kinds, rendered by the one write dispatch their
 //! declared format names ([`crate::drift::project_bytes`]) — so what `bundle` publishes is
 //! what `temper check` reads back off the same kinds, and no encoder is chosen here.
@@ -59,78 +60,74 @@ const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: ins
      active contract, and run the advisory session-start gate — with the std-lib \
      default contracts embedded.";
 
-/// The bundled **operate-the-gate skill**, embedded byte-faithful.
-/// Mechanics
-/// only — how to run the checker and when to challenge the contract — never advice on
-/// what a good harness is (the Decision "the skill is mechanics, never taste"). Its
-/// `name` is `temper` and it lands under `skills/temper/`, so `name-matches-dir` holds
-/// and the skill passes `temper`'s own skill contract.
-const OPERATE_SKILL: &str = "\
----
-name: temper
-description: Use when operating the temper gate on a Claude Code harness — installing the gate, running `temper check` against the active contract, reading a temper diagnostic, or deciding whether to fix the artifact or challenge the contract.
----
-# Operating the temper gate
-
-`temper` is one gate over a Claude Code harness, placed wherever the harness is
-authored, changed, or used. This skill is how to *operate* that gate. It carries no
-opinion about what a good harness is — that lives in the SDK module
-(`specs/distribution.md`), which you bind, extend, or fork.
-
-## Run the gate
-
-- `temper install` — the one on-ramp: a discovery report, then one question
-  (represent this project as a temper program? — every answer flag-spelled, e.g.
-  `--yes`, no invisible state). Yes lifts the harness into an SDK program, runs the
-  first `emit`, and places the session-start hook, guard hook, schema modeline, and
-  managed-by notes; no wires the session-start hook alone. Re-running converges: an
-  unchanged harness is a no-op.
-- `temper check .` — the gate, run at the harness root. It validates two greens: every built-in
-  contract is itself admissible, and every artifact conforms to the contract for its
-  kind. It exits non-zero on a `required`-severity violation; add `--deny-advisories`
-  to also fail on advisory ones.
-- `temper schema --kind <kind>` — emit the active contract as an editor JSON Schema,
-  the same gate shifted to the keystroke.
-
-## Author a custom kind's layout
-
-When a host document interleaves prose and typed members — a spec with its
-invariants, a rule with its clauses — declare a **layout** on the kind and author
-the document in place. A layout types the body's heading tree in three
-primitives: **prose** (verbatim words), a **field section** (a heading whose span
-fills a named field, intent among them), and a **member collection** (a heading
-whose child headings are each one member of a named kind). A field section the
-kind marks as an edge field declares the member's edges, `satisfies` among them.
-
-A layout has one face — the reader: the document is the authored home, so `check`
-reads its members off the file and `emit` never regenerates it. Author the prose
-and the members directly; declaring the layout is what puts that content under
-the gate.
-
-## Read a diagnostic
-
-Each finding names its clause (the `code`, e.g. `skill.forbidden_keys`), the artifact
-it is about, and what failed. A `required` finding blocks; an `advisory` one is a
-recommendation. The clause id is the contract clause that fired — read it against the
-contract for that kind to see exactly what was checked.
-
-## Fix the artifact, or challenge the contract
-
-A finding is a true positive by construction — the clause is decidable, so it never
-guesses. That leaves two honest responses, never a third:
-
-- **Fix the artifact** when the finding is right — the artifact really does violate a
-  contract you stand behind.
-- **Challenge the contract** when the clause is wrong for this harness — too strict,
-  mis-scoped, or checking something you do not want gated. The contract is data: tune
-  the clause's severity, change its parameters, or drop it — through the SDK
-  program's `expect` overrides, compiled into the lock at `emit`. Do not silence a
-  finding by contorting the artifact around a clause you disagree with — change the
-  clause.
-
-Never paper over a gap. If the contract and the artifact disagree and you are unsure
-which is wrong, surface it rather than guessing which way to bend.
-";
+/// The bundled **harness reference** — the SDK's `reference()` value emitted over the
+/// memberless built-in program (the same program `src/builtin_lock.toml` is that program's
+/// lock of), embedded byte-faithful: `SKILL.md` first, then its topic files beside it, each
+/// a `(file name, bytes)` pair. Never hand-authored here: `tests/it/bundle.rs` re-emits the
+/// reference through the built SDK and byte-compares every file, so the plugin's skill is
+/// the very value a harness that declares `reference()` emits as its own member. Its
+/// `name` is `temper` and it lands under `skills/temper/`, so `name-matches-dir` holds and
+/// the skill passes `temper`'s own skill contract.
+pub const BUNDLED_REFERENCE: &[(&str, &str)] = &[
+    ("SKILL.md", include_str!("bundled_reference/SKILL.md")),
+    (
+        "kind-agent.md",
+        include_str!("bundled_reference/kind-agent.md"),
+    ),
+    (
+        "kind-command.md",
+        include_str!("bundled_reference/kind-command.md"),
+    ),
+    (
+        "kind-handler.md",
+        include_str!("bundled_reference/kind-handler.md"),
+    ),
+    (
+        "kind-hook.md",
+        include_str!("bundled_reference/kind-hook.md"),
+    ),
+    (
+        "kind-installed-plugin.md",
+        include_str!("bundled_reference/kind-installed-plugin.md"),
+    ),
+    (
+        "kind-known-marketplace.md",
+        include_str!("bundled_reference/kind-known-marketplace.md"),
+    ),
+    (
+        "kind-marketplace.md",
+        include_str!("bundled_reference/kind-marketplace.md"),
+    ),
+    (
+        "kind-mcp-server.md",
+        include_str!("bundled_reference/kind-mcp-server.md"),
+    ),
+    ("kind-mcp.md", include_str!("bundled_reference/kind-mcp.md")),
+    (
+        "kind-memory.md",
+        include_str!("bundled_reference/kind-memory.md"),
+    ),
+    (
+        "kind-plugin-manifest.md",
+        include_str!("bundled_reference/kind-plugin-manifest.md"),
+    ),
+    (
+        "kind-rule.md",
+        include_str!("bundled_reference/kind-rule.md"),
+    ),
+    (
+        "kind-settings.md",
+        include_str!("bundled_reference/kind-settings.md"),
+    ),
+    (
+        "kind-skill.md",
+        include_str!("bundled_reference/kind-skill.md"),
+    ),
+    (
+        "kind-supporting-doc.md",
+        include_str!("bundled_reference/kind-supporting-doc.md"),
+    ),
+];
 
 /// Errors raised while composing the plugin tree — the write side `bundle` owns.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -213,14 +210,14 @@ pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     write_member(out, "plugin-manifest", &plugin_manifest(), &mut files)?;
     write_member(out, "marketplace", &marketplace_manifest(), &mut files)?;
 
-    // The operate-the-gate skill — embedded prose, byte-faithful.
-    // Plugin skill location: `skills/<name>/SKILL.md` (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).
-    write_text(
-        out,
-        Path::new("skills/temper/SKILL.md"),
-        OPERATE_SKILL,
-        &mut files,
-    )?;
+    // The harness reference — the SDK's emit, byte-faithful: `SKILL.md` and its topics.
+    // Plugin skill location: `skills/<name>/SKILL.md`, supporting files beside it
+    // (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).
+    // `/`-spelled like every other recorded path, never joined with the host separator.
+    for (name, contents) in BUNDLED_REFERENCE {
+        let relative = PathBuf::from(format!("skills/{PLUGIN_NAME}/{name}"));
+        write_text(out, &relative, contents, &mut files)?;
+    }
 
     // The `SessionStart` hook, in its own `hooks.json`.
     // Plugin hooks location: `hooks/hooks.json` (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).
@@ -394,7 +391,7 @@ mod tests {
         let src = tmpdir("skill-src");
         let skill_dir = src.join("skills").join("temper");
         fs::create_dir_all(&skill_dir).unwrap();
-        fs::write(skill_dir.join("SKILL.md"), OPERATE_SKILL).unwrap();
+        fs::write(skill_dir.join("SKILL.md"), BUNDLED_REFERENCE[0].1).unwrap();
 
         let kind = crate::builtin_kind::definition("skill").unwrap();
         let member =

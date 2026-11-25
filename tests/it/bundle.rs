@@ -12,6 +12,8 @@
 //!   the real gate reads the published tree back;
 //! - **determinism** — a second run reproduces an identical tree, byte for byte
 //!   (an `insta` snapshot pins the shape, and the two manifests' bytes are pinned whole);
+//! - **the reference is the SDK's value** — the bundled skill and its topics byte-equal
+//!   a fresh emit of the SDK's `reference()` over the memberless built-in program;
 //! - **CLI** — the real `temper bundle` binary composes the plugin across the process
 //!   boundary (where `main`'s dispatch and the default `--out` are observable).
 
@@ -23,6 +25,7 @@ use std::process::Command;
 use crate::common;
 
 use temper::bundle;
+use temper::drift::{self, EmitOptions};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -46,7 +49,7 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
     assert!(skill.is_file(), "the bundled skill must be written");
     let skill_md = fs::read_to_string(&skill).unwrap();
     assert!(
-        skill_md.starts_with("---\nname: temper\n"),
+        skill_md.starts_with("---\n") && skill_md.contains("\nname: \"temper\"\n"),
         "the skill carries its frontmatter, got:\n{skill_md}"
     );
     // Mechanics, not taste: it teaches operating the gate and challenging the
@@ -342,4 +345,76 @@ fn the_cli_bundle_verb_composes_the_plugin() {
         out.join("skills").join("temper").join("SKILL.md").is_file(),
         "the CLI bundle must write the operate-the-gate skill"
     );
+}
+
+/// The memberless built-in program the built-in lock is derived from, with the SDK's
+/// harness reference declared as its one member — so the reference renders over exactly
+/// the std-lib the stranger gate embeds, and nothing a particular harness adds.
+fn reference_program() -> String {
+    let base = crate::builtin_lock_frozen::MEMBERLESS_BUILTIN_PROGRAM;
+    let root_import = "import { dial, dialDefaultContract, emit, harness } from \"@dtmd/temper\";";
+    assert!(
+        base.contains(root_import) && base.contains("members: [],"),
+        "the memberless built-in program still spells its root import and empty members"
+    );
+    base.replacen(
+        root_import,
+        "import { dial, dialDefaultContract, emit, harness, reference } from \"@dtmd/temper\";",
+        1,
+    )
+    .replacen("members: [],", "members: [reference()],", 1)
+}
+
+#[test]
+fn the_bundled_reference_byte_equals_the_sdks_memberless_emit() {
+    // The bundle embeds the same value a harness declaring `reference()` emits as its own
+    // member — never a hand-transcribed copy. Re-derive it through the built SDK (a real
+    // `node` subprocess, as the built-in lock's frozen lane does) and byte-compare every
+    // file the skill directory carries, so a renamed, added, or dropped topic fails here
+    // as loudly as a changed byte.
+    let (harness, into) = common::wire_sdk_harness("bundled-reference", &reference_program());
+
+    drift::emit_program(&into, EmitOptions::default()).expect(
+        "re-deriving the bundled reference requires a working node + the built @dtmd/temper \
+         module — the frozen discipline fails loud here rather than skipping the compare",
+    );
+
+    let skill_dir = harness.join(".claude/skills/temper");
+    let derived: BTreeMap<String, String> = fs::read_dir(&skill_dir)
+        .expect("emit projects the reference under .claude/skills/temper/")
+        .map(|entry| {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            (name, fs::read_to_string(&path).unwrap())
+        })
+        .collect();
+    let embedded: BTreeMap<String, String> = bundle::BUNDLED_REFERENCE
+        .iter()
+        .map(|(name, bytes)| ((*name).to_string(), (*bytes).to_string()))
+        .collect();
+
+    assert_eq!(
+        derived.keys().collect::<Vec<_>>(),
+        embedded.keys().collect::<Vec<_>>(),
+        "src/bundled_reference/ carries exactly the files the SDK's reference emits"
+    );
+    for (name, bytes) in &derived {
+        assert_eq!(
+            bytes, &embedded[name],
+            "src/bundled_reference/{name} has drifted from the SDK's emit of the reference \
+             over the memberless built-in program — regenerate it by re-running that emit \
+             and copying .claude/skills/temper/ verbatim, never by hand-editing"
+        );
+    }
+
+    // And the plugin writes that embedded tree under skills/temper/, byte for byte.
+    let out = common::tmpdir("bundled-reference-out");
+    bundle::run(&common::tmpdir("bundled-reference-surface"), &out).unwrap();
+    for (name, bytes) in &embedded {
+        assert_eq!(
+            &fs::read_to_string(out.join("skills/temper").join(name)).unwrap(),
+            bytes,
+            "bundle writes skills/temper/{name} verbatim"
+        );
+    }
 }

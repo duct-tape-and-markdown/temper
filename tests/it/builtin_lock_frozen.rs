@@ -41,7 +41,7 @@ use crate::module_closure::without_module_rows;
 /// `handler`, the embedded kind `hook` templates: its six handler-level clauses are its
 /// own, and `hookDefaultContract` spreads them, so the byte-compare below covers the new
 /// kind row, those six rows under it, and `hook`'s new `templates` column.
-const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
+pub(crate) const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
 import { dial, dialDefaultContract, emit, harness } from "@dtmd/temper";
 import {
   agent,
