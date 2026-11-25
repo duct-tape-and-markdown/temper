@@ -17,6 +17,13 @@ becomes a pending entry.
 - A second implementation of one job — two matchers, two normalizers, two
   encoders — is residue, fileable against this section whenever no pending
   entry consolidates it.
+- A fact some data already carries is never spelled again by hand. A hand
+  spelling beside its source is the same residue, and it folds into a
+  derivation.
+- Consolidation is a byproduct of the loop. Every neighborhood a change
+  touches is swept against this page, and the residue found there is
+  filed as a fold. A fold keeps the behavior its pinned tests hold, and it
+  lands net-negative in the domain it folds.
 - Test scaffolding is a surface too: shared fixtures and builders live in
   one home (`tests/it/common`), never copy-pasted per file.
 
