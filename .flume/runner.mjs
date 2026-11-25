@@ -6,11 +6,13 @@
  * every line on stdout in the package's verdict-line encoding
  * (`flume<TAB>pass<TAB><file><TAB><name>` / `flume<TAB>fail<TAB><TAB><name>`).
  *
- * A line names a Rust test by its words: the test carrying it is the one whose
- * function name, with every non-alphanumeric dropped, contains the line with
- * every non-alphanumeric dropped — so `a layout's frontmatter reads` is carried
- * by `fn a_layouts_frontmatter_reads` and by `fn a_layout_s_frontmatter_reads`
- * alike (PROTOCOL.md, "Tests").
+ * A line names a Rust test by its words (PROTOCOL.md, "Tests"). A test
+ * function carries it when either holds:
+ * - its name, letters and digits only, contains the line's letters and digits
+ *   (`a layout's frontmatter reads` is carried by `a_layouts_frontmatter_reads`);
+ * - the line's words appear in order among the name's words, so a name may
+ *   spell out punctuation an identifier cannot hold (`` a `.`-rooted locus ``
+ *   is carried by `a_dot_rooted_locus`).
  *
  * Runs nextest filtered to the tests that could carry a requested line — a
  * pre-filter the answer never depends on: a test the filter misses answers
@@ -24,9 +26,25 @@ import { fileURLToPath } from "node:url";
 /** A line or a name reduced to the letters and digits the match compares. */
 export const squash = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, "");
 
-/** A nextest filter regex matching any test name that squashes to contain `line`. */
-export const lineRegex = (line) =>
-  [...squash(line)].map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[^a-z0-9]*");
+/** A line or a name split into its lowercase words. */
+export const words = (text) => text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+/** True when every word of `want` appears in `have`, in order, gaps allowed. */
+export const inOrder = (want, have) => {
+  let at = 0;
+  for (const word of have) if (at < want.length && word === want[at]) at++;
+  return want.length > 0 && at === want.length;
+};
+
+/** Whether a test function name carries a requested line. */
+export const carries = (fnName, line) =>
+  (squash(line).length > 0 && squash(fnName).includes(squash(line))) || inOrder(words(line), words(fnName));
+
+/**
+ * A nextest filter regex over-approximating `carries`: the line's words in
+ * order with anything between. The verdict, never the filter, decides.
+ */
+export const lineRegex = (line) => words(line).join(".*");
 
 /**
  * Split a libtest-json name (`temper::it$acceptance::a_case`) into its binary
@@ -81,10 +99,7 @@ export const readEvents = (stdout) => {
 /** Answer each requested line from the passing test names. */
 export const verdicts = (lines, passed, exists = existsSync) =>
   lines.map((line) => {
-    const want = squash(line);
-    const carrier = want.length > 0
-      ? passed.find((full) => squash(parseName(full).path.at(-1) ?? "").includes(want))
-      : undefined;
+    const carrier = passed.find((full) => carries(parseName(full).path.at(-1) ?? "", line));
     if (!carrier) return `flume\tfail\t\t${line}`;
     const { binary, path } = parseName(carrier);
     return `flume\tpass\t${fileOf(binary, path, exists)}\t${line}`;

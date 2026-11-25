@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fileOf, lineRegex, parseName, readEvents, squash, verdicts } from "./runner.mjs";
+import { carries, fileOf, lineRegex, parseName, readEvents, squash, verdicts } from "./runner.mjs";
 
 const onDisk = (paths) => (p) => paths.includes(p.replace(/^\.\//, ""));
 
@@ -53,4 +53,17 @@ test("every requested line is answered once, pass with its file or fail with non
   assert.equal(lines[0], "flume\tpass\ttests/it/a.rs\tpasses");
   assert.equal(lines[1], "flume\tfail\t\tfails");
   assert.equal(lines[2], "flume\tfail\t\t");
+});
+
+test("a name may spell out punctuation an identifier cannot hold", () => {
+  const line = "the pre edge names an undeclared CLAUDE.md written under a `.`-rooted locus";
+  const fn = "the_pre_edge_names_an_undeclared_claude_md_written_under_a_dot_rooted_locus";
+  assert.ok(carries(fn, line));
+  assert.ok(new RegExp(lineRegex(line)).test(`temper::it$install::${fn}`));
+});
+
+test("words out of order or missing do not carry a line", () => {
+  assert.ok(!carries("a_rooted_dot_locus_under", "under a `.`-rooted locus"));
+  assert.ok(!carries("the_pre_edge_names_a_document", "the pre edge names an undeclared document"));
+  assert.ok(!carries("anything", ""));
 });
