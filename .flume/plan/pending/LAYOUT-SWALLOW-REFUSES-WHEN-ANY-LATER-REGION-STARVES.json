@@ -1,0 +1,31 @@
+{
+  "tag": "LAYOUT-SWALLOW-REFUSES-WHEN-ANY-LATER-REGION-STARVES",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/layout.rs",
+        "description": "Layout::read keeps a swallowed heading pending until every later region is judged, not only the next"
+      },
+      {
+        "path": "tests/it/layout_kind.rs",
+        "description": "the non-adjacent repro"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A field region swallowing a heading with sub-headings refuses while any later region stays unbound, not only the very next (GH #44)",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "layout"
+  },
+  "acceptance": "the intent/entity/contract/depends-on repro with no ## Intent draws layout::swallowed_heading naming Entities, intent and the starved depends-on",
+  "tests": [
+    "a heading with children swallowed into a field refuses when a non adjacent later region starves"
+  ],
+  "notes": "Inbox GH #44; rule is 0048's Decision+Consequences. Out of scope: a childless replacement heading still shifts silently (#41 closed on it). The adjacent case is pinned today in src/layout.rs."
+}

@@ -1,0 +1,44 @@
+{
+  "tag": "LAYOUT-ENTRIES-READ-OFF-THE-DOCUMENT-AT-CHECK",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "nested_member rows of a committed layout host no longer the entries' read path at check"
+      },
+      {
+        "path": "src/layout.rs",
+        "description": "entries derived from the document under the declared layout at read time, beside its fields"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "check judges the derived entries"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "both guard edges read the same derivation"
+      },
+      {
+        "path": "tests/it/layout_kind.rs",
+        "description": "delete an entry's #### Test with no re-emit"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "check and the guard derive a committed layout host's collection entries from the document at read time, never from the lock's stored rows (GH #62)",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "layout"
+  },
+  "acceptance": "deleting an entry's #### Test with no re-emit fails check on invariant.required.test and the host's required(\"invariant[*].test\"), both guard edges agreeing",
+  "tests": [
+    "deleting a layout entrys field section without a re emit fails check",
+    "both guard edges refuse a layout entry edit check refuses without a re emit"
+  ],
+  "notes": "Inbox GH #62. An entry is read off the host's layout, source, never projection; derived state is never stored beside its source (engineering.md). No fingerprint on layout_source: that would make every in-place edit wait for emit. If pipeline.md 'derives its rows in the same pass' blocks this, raise a question."
+}

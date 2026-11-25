@@ -1,0 +1,40 @@
+{
+  "tag": "EMIT-NEVER-REAPS-A-HAND-KEY-FROM-AN-UNDECLARED-SETTINGS",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "a residue key of a manifest no settings member owns refuses by name instead of MemberReaped; locus-declared wording agrees with what emit does"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "re-running install on a represented harness hoists the residue into a settings member, as first adoption does"
+      },
+      {
+        "path": "tests/it/settings_kind.rs",
+        "description": "hand-added key survives emit (refused by name) and install (hoisted)"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "existing residue-reap expectations move"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Emit and install never silently delete a hand-added key from a settings.json no settings member declares: emit refuses it by name, install hoists it (GH #40)",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "Emit"
+  },
+  "acceptance": "a hand-added permissions key in a hook-only represented harness's settings.json survives emit (named refusal) and install (hoisted into a settings member); root.locus-declared's wording matches",
+  "tests": [
+    "emit refuses a hand added key in a settings file no settings member declares",
+    "install hoists a hand added settings key into a settings member on a represented harness"
+  ],
+  "notes": "Inbox GH #40. 'Total': a drifted ownerless file is a finding, never a silent delete; adoption.md Install: re-running converges; 0050 Consequences: install hoists existing residue. A key the build's residue does declare still drops normally."
+}

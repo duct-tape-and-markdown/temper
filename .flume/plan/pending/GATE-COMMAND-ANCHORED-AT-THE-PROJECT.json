@@ -1,0 +1,53 @@
+{
+  "tag": "GATE-COMMAND-ANCHORED-AT-THE-PROJECT",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "render_gate_command enters the provider's project root first; SESSION_START_COMMAND/GUARD_COMMAND; rendered_gate_binary reads the anchored form only"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "pins of the command bytes; sh -c from a subdirectory with and without CLAUDE_PROJECT_DIR"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "rendered gate bytes"
+      },
+      {
+        "path": "tests/it/session_start.rs",
+        "description": "BIN substitution over the anchored command"
+      },
+      {
+        "path": "tests/it/snapshots/it__install__a_fresh_install_settings_document_is_stable.snap",
+        "description": "re-bless"
+      },
+      {
+        "path": "src/bundle.rs",
+        "description": "carries SESSION_START_COMMAND"
+      },
+      {
+        "path": "tests/it/bundle.rs",
+        "description": "bundle pin"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Every rendered gate command anchors at the project root before its probe, so a relative binary and the `.` target resolve there after a `cd` (GH #67, 0086)",
+  "per": {
+    "path": "specs/model/adoption.md",
+    "section": "Install"
+  },
+  "acceptance": "from a subdirectory with CLAUDE_PROJECT_DIR at the root, each rendered gate command run through sh -c invokes temper at the root with a relative binary; unset, it runs where invoked",
+  "tests": [
+    "a rendered gate command run from a subdirectory invokes temper at the project root",
+    "a rendered gate command with the project dir unset runs where it is invoked",
+    "a gate command in the unanchored form reads as no rendered gate"
+  ],
+  "notes": "Inbox GH #67, urgent: the guard is down after any Bash cd. Spelling: double-quoted \"${CLAUDE_PROJECT_DIR:-.}\" (code.claude.com/docs/en/hooks, retrieved 2026-11-25). Renderer stays the one home (0073). Dogfood .claude/settings.json + .temper lock re-emit is a human chore(harness) half after ship."
+}

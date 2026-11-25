@@ -1,5 +1,0 @@
-# Emit deletes hand-added keys from a settings.json no `settings` member declares, while check says emit never maintains it
-
-Observed on 0.0.24 while triaging GH #40. Take a represented harness with hook members but no `settings` member, and add a `permissions` key to `.claude/settings.json` by hand. `temper emit` and `temper install` both print `member-reaped  settings.json  permissions` and delete the key. Meanwhile `root.locus-declared` on the same file says "`emit` will never maintain it". One of these is wrong, and the wrong one loses adopter data.
-
-Sources: Decision 0050, Consequences ("install hoisting existing residue into the program"), which today happens only on first adoption; `specs/model/adoption.md`, "Install" (re-running install converges); and `specs/model/pipeline.md`, "Emit", on what a manifest's undeclared keys are. A key emit does not own must be hoisted into a `settings` member or refused by name, never removed silently. The finding's wording must also agree with whatever emit does to the file.
