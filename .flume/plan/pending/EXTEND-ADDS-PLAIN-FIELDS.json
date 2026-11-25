@@ -1,12 +1,12 @@
 {
   "tag": "EXTEND-ADDS-PLAIN-FIELDS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "EXTEND-MINTS-A-SUBKIND"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "sdk/src/kind.ts",
@@ -16,7 +16,8 @@
         "path": "sdk/test/builtins.test.ts",
         "description": "plain field rendered via render/body region; unplaced field refuses"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "extend's delta gains plain fields, each living where the base's format admits it (body region or render), never an undocumented key",
   "per": {
@@ -24,5 +25,8 @@
     "section": "kind"
   },
   "acceptance": "a subkind of rule with a plain field rendered through its render emits it in the body and no new frontmatter key; a plain field with no admitted place refuses at authoring; pnpm --dir sdk test green",
+  "tests": [],
+  "pins": [],
+  "laneTests": [],
   "notes": "0094 Decision bullet 4 and Consequences (relocate's delta gains plain fields and a new name). SDK-only. Cascade's standard extends rule is the shape to fit."
 }
