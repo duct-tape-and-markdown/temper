@@ -30,10 +30,11 @@
   },
   "acceptance": "a base-kind clause fires at a subkind member's address, and the subkind's own clause fires beside it; base members are judged as before",
   "tests": [
-    "a clause bound to the base kind judges a subkinds member",
+    "a clause bound to the base kind judges a subkinds member"
+  ],
+  "pins": [
     "a subkinds own clause binds only the subkinds members"
   ],
-  "pins": [],
   "laneTests": [],
   "notes": "0094 Decision, bullet 2. Ships soon after EXTEND-MINTS-A-SUBKIND: until then a subkind's documents escape the base's contract.",
   "observedFiles": [
