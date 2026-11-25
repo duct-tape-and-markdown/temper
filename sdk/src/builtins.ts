@@ -12,7 +12,7 @@
 
 import { TAP_EVENT_HOOKS } from "./generated/index.js";
 import { kind } from "./kind.js";
-import type { KindDefinition, Member, MemberInit, Residue } from "./kind.js";
+import type { KindDefinition, Member, MemberInit, Remedy, Residue } from "./kind.js";
 import { isNameQualifier } from "./member-address.js";
 import type { Prose } from "./prose.js";
 import {
@@ -610,7 +610,7 @@ const hookGroup: KindDefinition<Hook> = kind<Hook>({
  * address at, which in a name truncates the member and re-seats every handler beneath it
  * ({@link isNameQualifier}).
  */
-function hookMember(init: MemberInit<Hook>): Member {
+function hookMember(init: HookInit): Member {
   if (init.matcher !== undefined && !isNameQualifier(init.matcher)) {
     throw new Error(
       `hook \`${init.name}\`: matcher \`${init.matcher}\` carries a \`/\`, and a hook's name ` +
@@ -622,9 +622,20 @@ function hookMember(init: MemberInit<Hook>): Member {
   return hookGroup({ ...init, name: hookMemberName(init.name, init.matcher) });
 }
 
+/**
+ * What `hook(...)` takes: a matcher group's init, plus a {@link Remedy} slot for each
+ * flat handler field a group carried before its handlers became a list, so the old
+ * spelling fails `tsc` naming where the field went.
+ */
+export type HookInit = MemberInit<Hook> & {
+  readonly type?: Remedy<"`type` moved to a handler: write `hooks: [{ type, command }]`">;
+  readonly command?: Remedy<"`command` moved to a handler: write `hooks: [{ type, command }]`, or use `gateHook()` for a temper gate">;
+  readonly timeout?: Remedy<"`timeout` moved to a handler: write `hooks: [{ type, command, timeout }]`">;
+};
+
 /** The authored `hook` constructor — {@link hookGroup}'s facts over {@link hookMember}'s
  * name composition. */
-export const hook: KindDefinition<Hook> = Object.assign(hookMember, {
+export const hook: KindDefinition<Hook, HookInit> = Object.assign(hookMember, {
   facts: hookGroup.facts,
   key: hookGroup.key,
   render: hookGroup.render,

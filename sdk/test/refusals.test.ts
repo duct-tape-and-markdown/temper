@@ -14,7 +14,10 @@
  */
 
 import assert from "node:assert/strict";
+import { dirname, resolve } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { blocks, embeddedMemberValue, emit, file, harness, kind, text } from "../src/index.js";
@@ -746,4 +749,132 @@ test("an at locus's excluded paths round-trip through the kind's fact row", () =
   const row = result.declarations.kinds.find((k) => k.name === "domain");
   assert.deepEqual(row?.exclude, ["domains/README.md"]);
   assert.equal(result.declarations.kinds.find((k) => k.name === "rule")?.exclude, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// (10) A known adopter mistake fails `tsc` naming its fix — a retired export, a
+// field that moved, a field the locus derives. Each case compiles a snippet
+// against the emitted `.d.ts` face an adopter's program sees and pins the remedy
+// text in the diagnostic, so a bare `never` or missing-name error is a regression.
+// ---------------------------------------------------------------------------
+
+const DIST_TEST = dirname(fileURLToPath(import.meta.url));
+
+/** Every diagnostic message a snippet compiled beside this file yields, chains flattened. */
+function tscErrors(source: string): string[] {
+  const snippet = resolve(DIST_TEST, "__remedy_snippet__.ts");
+  const options: ts.CompilerOptions = {
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    target: ts.ScriptTarget.ES2022,
+    strict: true,
+    noEmit: true,
+    skipLibCheck: true,
+    types: [],
+  };
+  const host = ts.createCompilerHost(options);
+  const getSourceFile = host.getSourceFile.bind(host);
+  const fileExists = host.fileExists.bind(host);
+  host.getSourceFile = (name, version, ...rest) =>
+    name === snippet ? ts.createSourceFile(name, source, version) : getSourceFile(name, version, ...rest);
+  host.fileExists = (name) => name === snippet || fileExists(name);
+  const program = ts.createProgram([snippet], options, host);
+  return ts
+    .getPreEmitDiagnostics(program)
+    .filter((diagnostic) => diagnostic.file?.fileName === snippet)
+    .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+}
+
+/** Assert the snippet fails `tsc`, and that some diagnostic spells `remedy`. */
+function assertRemedy(source: string, remedy: string): void {
+  const errors = tscErrors(source);
+  assert.ok(errors.length > 0, "the mistake should fail `tsc`");
+  assert.ok(
+    errors.some((message) => message.includes(remedy)),
+    `no diagnostic names the remedy \`${remedy}\`:\n${errors.join("\n---\n")}`,
+  );
+}
+
+const ROOT = `import { kind, extent } from "../src/index.js";\n`;
+const CLAUDE_CODE = `import { hook } from "../src/claude-code.js";\n`;
+
+test("a clean snippet compiles, so a remedy case fails on its mistake alone", () => {
+  assert.deepEqual(
+    tscErrors(
+      `${ROOT}${CLAUDE_CODE}` +
+        `kind({ name: "d", locus: { kind: "embedded" }, unitShape: "file" });\n` +
+        `extent("lines", 200);\n` +
+        `hook({ name: "PreToolUse", matcher: "Write", hooks: [{ type: "command", command: "x" }] });\n`,
+    ),
+    [],
+  );
+});
+
+test("registration on an embedded kind names its deletion", () => {
+  assertRemedy(
+    `${ROOT}kind({ name: "d", locus: { kind: "embedded" }, unitShape: "file", registration: [] });\n`,
+    "an embedded locus registers nothing: delete `registration`",
+  );
+});
+
+test("registration on a nested-file kind names its deletion", () => {
+  assertRemedy(
+    `${ROOT}kind({ name: "d", locus: { kind: "nested-file" }, unitShape: "file", registration: [] });\n`,
+    "a nested-file locus registers nothing: delete `registration`",
+  );
+});
+
+test("a collection address on an embedded kind names the at locus it needs", () => {
+  assertRemedy(
+    `${ROOT}kind({ name: "d", locus: { kind: "embedded" }, unitShape: "file", shape: "fields",\n` +
+      `  collectionAddress: { keyPath: "mcpServers.*", entryShape: "object" } });\n`,
+    "a collection address keys inside an `at` locus's manifest",
+  );
+});
+
+test("a collection address's retired manifest names the locus that holds it", () => {
+  assertRemedy(
+    `${ROOT}kind({ name: "d", locus: { kind: "at", root: ".claude", glob: "settings.json" },\n` +
+      `  unitShape: "file", shape: "fields", registration: [{ via: "connection" }],\n` +
+      `  collectionAddress: { manifest: "settings.json", keyPath: "mcpServers.*", entryShape: "object" } });\n`,
+    "the manifest is the kind's `at` locus glob: delete `manifest`",
+  );
+});
+
+test("a typed field spelled inside residue names where it belongs", () => {
+  assertRemedy(
+    `import { settings } from "../src/claude-code.js";\n` +
+      `settings({ name: "settings", residue: { model: "opus" } });\n`,
+    "`model` is a typed field: write it beside `residue`, not in it",
+  );
+});
+
+test("a hook's flat handler fields name the handler list they moved to", () => {
+  const errors = tscErrors(
+    `${CLAUDE_CODE}hook({ name: "PreToolUse", matcher: "Write", hooks: [],\n` +
+      `  type: "command", command: "temper guard .", timeout: 5 });\n`,
+  );
+  for (const field of ["type", "command", "timeout"]) {
+    assert.ok(
+      errors.some((message) => message.includes(`\`${field}\` moved to a handler`)),
+      `no diagnostic names where \`${field}\` moved:\n${errors.join("\n---\n")}`,
+    );
+  }
+});
+
+test("the retired gate command constants name gateHook", () => {
+  assertRemedy(
+    `import { GUARD_COMMAND, hook } from "../src/claude-code.js";\n` +
+      `hook({ name: "PreToolUse", matcher: "Write", hooks: [{ type: "command", command: GUARD_COMMAND }] });\n`,
+    "GUARD_COMMAND is retired: declare the hook as `gateHook({ name, matcher })`",
+  );
+  assertRemedy(
+    `import { SESSION_START_COMMAND, hook } from "../src/claude-code.js";\n` +
+      `hook({ name: "SessionStart", hooks: [{ type: "command", command: SESSION_START_COMMAND }] });\n`,
+    "SESSION_START_COMMAND is retired: declare the hook as `gateHook({ name: 'SessionStart' })`",
+  );
+});
+
+test("the retired maxLines predicate names extent", () => {
+  assertRemedy(`import { maxLines } from "../src/index.js";\nmaxLines(200);\n`, "maxLines is retired: write `extent('lines', n)`");
 });

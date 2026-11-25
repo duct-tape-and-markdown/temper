@@ -16,6 +16,17 @@ import type { Capability } from "./needs.js";
 import type { Requirement } from "./contract.js";
 import { isOneSegment } from "./member-address.js";
 
+/** The brand {@link Remedy} keys on — unexported, so no value outside this module can carry it. */
+declare const remedy: unique symbol;
+
+/**
+ * A type no authored value inhabits, whose argument is the fix for writing one. It stands
+ * where a known mistake would otherwise meet `never` or a bare missing-name error — a field
+ * the locus already derives, a field that moved, a retired export — so the compiler's own
+ * error prints the remedy (`Type 'never[]' is not assignable to type 'Remedy<"…">'`).
+ */
+export type Remedy<Message extends string> = { readonly [remedy]: Message };
+
 /**
  * The shape of the on-disk artifact a member projects to (fact 3, projection) — a closed
  * vocabulary the engine implements once per entry, and the fact deciding which adapter
@@ -178,6 +189,8 @@ export interface CollectionAddress {
     | "enabledPlugins.*"
     | "extraKnownMarketplaces.*";
   readonly entryShape: string;
+  /** Retired: the manifest is the kind's starless `at` locus glob, stated once there. */
+  readonly manifest?: Remedy<"the manifest is the kind's `at` locus glob: delete `manifest`">;
 }
 
 /**
@@ -317,7 +330,7 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** Fact 4, registration — derived, never declared: an embedded member registers
        * nothing, so the locus already states the empty set and the lowering supplies it
        * (`declarations.ts`). */
-      readonly registration?: never;
+      readonly registration?: Remedy<"an embedded locus registers nothing: delete `registration`">;
       /**
        * The frontmatter key the member's name writes under. For `unitShape:
        * "named-field"` this is the id **source** — the declared field a member's
@@ -339,7 +352,7 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly shape?: Shape;
       /** No collection address: a registration kind's manifest is its `at` locus, and
        * this locus names no file. */
-      readonly collectionAddress?: never;
+      readonly collectionAddress?: Remedy<"a collection address keys inside an `at` locus's manifest: declare that locus or delete `collectionAddress`">;
       /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
        * hosts; absent for a kind that nests nothing. */
       readonly templates?: readonly Template[];
@@ -386,7 +399,7 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** Fact 4, registration — derived, never declared: a nested-file member registers
        * nothing, so the locus already states the empty set and the lowering supplies it
        * (`declarations.ts`). */
-      readonly registration?: never;
+      readonly registration?: Remedy<"a nested-file locus registers nothing: delete `registration`">;
       /**
        * The frontmatter key the member's name writes under. For `unitShape:
        * "named-field"` this is the id **source** — the declared field a member's
@@ -408,7 +421,7 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly shape?: Shape;
       /** No collection address: a registration kind's manifest is its `at` locus, and
        * this locus names no file. */
-      readonly collectionAddress?: never;
+      readonly collectionAddress?: Remedy<"a collection address keys inside an `at` locus's manifest: declare that locus or delete `collectionAddress`">;
       /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
        * hosts; absent for a kind that nests nothing. */
       readonly templates?: readonly Template[];
@@ -530,7 +543,9 @@ const RESIDUE_KEY = "residue";
  * arrives as a bare `Record<string, unknown>` and types fine, so the constructor refuses
  * the collision again over the keys it actually holds ({@link orderedFields}).
  */
-export type Residue<T> = Readonly<Record<string, unknown>> & { readonly [K in keyof T]?: never };
+export type Residue<T> = Readonly<Record<string, unknown>> & {
+  readonly [K in keyof T]?: Remedy<`\`${K & string}\` is a typed field: write it beside \`residue\`, not in it`>;
+};
 
 /**
  * The init a kind constructor takes — the framework keys plus the kind's typed fields `T`.
@@ -556,10 +571,12 @@ export type MemberInit<T> = {
 /**
  * A kind — a callable constructor carrying its seven facts. Calling it builds a
  * member; `key` (its name) keys `expect` and a `kind` reference in a requirement.
- * The value *is* the identity — it travels by import, never by string.
+ * The value *is* the identity — it travels by import, never by string. `Init` is the
+ * constructor's input, {@link MemberInit} over `T` unless a kind widens it with
+ * {@link Remedy} slots for fields that moved off its surface.
  */
-export interface KindDefinition<T> {
-  (init: MemberInit<T>): Member;
+export interface KindDefinition<T, Init = MemberInit<T>> {
+  (init: Init): Member;
   readonly facts: KindFacts;
   readonly key: string;
   /**
@@ -678,14 +695,28 @@ export interface KindOptions {
  * declared {@link LeafSet} witness to `keyof T`: the leaf set is the kind's own surface,
  * checked here at the keystroke, and its lowering to the row is the one place it is
  * spelled again (`declarations.ts`).
+ *
+ * One overload per locus: {@link KindFacts} discriminates on the nested `locus.kind`,
+ * which the compiler cannot narrow a union by, so a single union parameter reports a
+ * wrong field against an arbitrary branch. Per-locus overloads let it judge the branch
+ * the author wrote, and that branch's {@link Remedy} slots are what its error prints.
  */
+export function kind<T extends object>(typed: Extract<KindFacts<T>, { readonly locus: { readonly kind: "at" } }>, options?: KindOptions): KindDefinition<T>;
+export function kind<T extends object>(typed: Extract<KindFacts<T>, { readonly locus: { readonly kind: "embedded" } }>, options?: KindOptions): KindDefinition<T>;
+export function kind<T extends object>(typed: Extract<KindFacts<T>, { readonly locus: { readonly kind: "nested-file" } }>, options?: KindOptions): KindDefinition<T>;
 export function kind<T extends object>(typed: KindFacts<T>, options: KindOptions = {}): KindDefinition<T> {
+  return defineKind(typed, options);
+}
+
+/** {@link kind} over the whole facts union — the body every overload shares, and the entry
+ * {@link relocate} takes, since a relocated facts value is any locus's. */
+function defineKind<T extends object>(typed: KindFacts<T>, options: KindOptions): KindDefinition<T> {
   // The erasure, spelled: `T` binds the witness and the field slots at the keystroke and
   // then leaves. `keyof T` reads contravariantly, so the compiler will not widen a slot
   // set bound to `T` to the erased `string` on its own — every key of `T` is a string
   // the erased surface admits, which is all this assertion claims.
   const facts = typed as KindFacts;
-  if (facts.collectionAddress !== undefined) manifestOf(facts);
+  if (collectionAddressOf(facts) !== undefined) manifestOf(facts);
   const construct = (init: MemberInit<T>): Member => ({
     kind: facts.name,
     facts,
@@ -699,6 +730,24 @@ export function kind<T extends object>(typed: KindFacts<T>, options: KindOptions
     inputs: init.inputs ?? [],
   });
   return Object.assign(construct, { facts, key: facts.name, render: options.render });
+}
+
+/** The `at`-locus branch of {@link KindFacts} — the one that declares a registration set
+ * and may carry a collection address; the other loci hold {@link Remedy} slots there. */
+type AtKindFacts = Extract<KindFacts, { readonly locus: { readonly kind: "at" } }>;
+
+function isAtLocus(facts: KindFacts): facts is AtKindFacts {
+  return facts.locus.kind === "at";
+}
+
+/** A kind's registration channel set — declared on an `at` locus, empty on every other. */
+export function registrationOf(facts: KindFacts): readonly Registration[] {
+  return isAtLocus(facts) ? facts.registration : [];
+}
+
+/** A kind's collection address — only an `at` locus names a manifest to key inside. */
+export function collectionAddressOf(facts: KindFacts): CollectionAddress | undefined {
+  return isAtLocus(facts) ? facts.collectionAddress : undefined;
 }
 
 /**
@@ -1013,15 +1062,25 @@ export function relocate<T extends object>(
   // Two spellings, not one with an optional `locus`: `KindFacts` is a union discriminated
   // on the locus, so the moved case must carry the `at` locus as its own literal branch.
   // A moved locus is only ever an `at` base's (`relocatedLocus` refuses the rest), and an
-  // `at` kind declares its registration set — so the base's set rides through as declared.
+  // `at` kind declares its registration set — so the base's set and address ride through
+  // as declared, read off the `at` branch rather than the erased union's remedy slots.
+  const { registration: _registration, collectionAddress: _address, ...unregistered } = relocated;
+  const address = collectionAddressOf(base.facts);
   const facts: KindFacts =
-    locus === undefined ? relocated : { ...relocated, locus, registration: relocated.registration ?? [] };
+    locus === undefined
+      ? relocated
+      : {
+          ...unregistered,
+          locus,
+          registration: registrationOf(base.facts),
+          ...(address === undefined ? {} : { collectionAddress: address }),
+        };
   // The base's leaf-set witness rides through as data, and the assertion is that
   // pass-through spelled: a relocation appends *edge fields* over the kind's own surface,
   // never a leaf, so the set the base's own constructor already bound still names what a
   // member carries. `T` here is the widened surface (the base's fields plus the added
   // edges), so re-binding the witness to `keyof T` would demand the edge fields be leaves.
-  return kind<T>(facts as KindFacts<T>, { render: base.render });
+  return defineKind<T>(facts as KindFacts<T>, { render: base.render });
 }
 
 /**

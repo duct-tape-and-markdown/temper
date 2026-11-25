@@ -14,7 +14,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
-import { manifestOf } from "./kind.js";
+import { collectionAddressOf, manifestOf, registrationOf } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
@@ -377,11 +377,9 @@ function contentRow(content: Layout | undefined): LayoutRow | undefined {
  * `undefined` for a file-locus kind, so its row omits the column and stays byte-identical.
  */
 function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefined {
-  if (facts.collectionAddress === undefined) return undefined;
-  return {
-    key_path: facts.collectionAddress.keyPath,
-    entry_shape: facts.collectionAddress.entryShape,
-  };
+  const address = collectionAddressOf(facts);
+  if (address === undefined) return undefined;
+  return { key_path: address.keyPath, entry_shape: address.entryShape };
 }
 
 /**
@@ -422,7 +420,7 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     format: facts.format,
     unit_shape: unitShapeLabel(facts),
     // An embedded or nested-file kind declares no set — its locus already states it empty.
-    registration: registrationLabels(facts.registration ?? []),
+    registration: registrationLabels(registrationOf(facts)),
     templates: templatesFor(facts, admissions),
     content: contentRow(facts.content),
     shape: facts.shape,
@@ -1132,7 +1130,7 @@ function registrationRows(harness: Harness): RegistrationRow[] {
   return harness.members
     .filter((member) => member.facts.shape === "fields")
     .map((member): RegistrationRow => {
-      const address = member.facts.collectionAddress;
+      const address = collectionAddressOf(member.facts);
       if (address === undefined) {
         throw new Error(
           `member \`${member.name}\`: a fields-only registration kind declares no ` +

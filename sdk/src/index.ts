@@ -62,6 +62,11 @@ export {
   when,
 } from "./contract.js";
 
+// Retired exports, declared for the type checker alone: no runtime binding carries
+// them, so a program still naming one fails `tsc` with its replacement spelled out.
+import type { Remedy } from "./kind.js";
+export declare const maxLines: Remedy<"maxLines is retired: write `extent('lines', n)`">;
+
 // The engine room — kinds as typed constructors, plus the embedded-member value
 // shape `blocks()` composes and the resolved shape a `render` hook receives.
 export type {
@@ -84,6 +89,7 @@ export type {
   Member,
   MemberInit,
   Registration,
+  Remedy,
   Residue,
   ResolvedEmbeddedMemberCollectionEntry,
   ResolvedEmbeddedMemberValue,

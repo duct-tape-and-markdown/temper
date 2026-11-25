@@ -1225,11 +1225,11 @@ test("an embedded-locus kind declares no registration — its locus already stat
     unitShape: "file",
   });
   assert.equal(embeddedKind.facts.registration, undefined);
-  // @ts-expect-error — an embedded kind's registration is derived, never spelled again.
   kind<Record<never, never>>({
     name: "embedded-restated",
     locus: { kind: "embedded" },
     unitShape: "file",
+    // @ts-expect-error — an embedded kind's registration is derived, never spelled again.
     registration: [],
   });
 });
@@ -1241,11 +1241,11 @@ test("a nested-file-locus kind declares no registration — its locus already st
     unitShape: "file",
   });
   assert.equal(nestedKind.facts.registration, undefined);
-  // @ts-expect-error — a nested-file kind's registration is derived, never spelled again.
   kind<Record<never, never>>({
     name: "nested-restated",
     locus: { kind: "nested-file" },
     unitShape: "file",
+    // @ts-expect-error — a nested-file kind's registration is derived, never spelled again.
     registration: [{ via: "always" }],
   });
 });

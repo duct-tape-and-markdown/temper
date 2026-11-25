@@ -15,6 +15,7 @@
  */
 
 import type { EmbeddedMemberValue, Member } from "./kind.js";
+import { registrationOf } from "./kind.js";
 import { memberAddress, parseHostAddress } from "./member-address.js";
 
 /** A declared value a mention may name — the target of the one-way citation edge. */
@@ -52,7 +53,7 @@ function nestedInvocation(member: Member): string | undefined {
   const facts = member.facts;
   if (facts.locus.kind !== "at" || facts.unitShape !== "directory") return undefined;
   if (!facts.locus.glob.startsWith("**/")) return undefined;
-  if (!facts.registration?.some((channel) => channel.via === "user-invoked")) return undefined;
+  if (!registrationOf(facts).some((channel) => channel.via === "user-invoked")) return undefined;
   const colon = member.name.lastIndexOf(":");
   if (colon < 0) return undefined;
   return `/${member.name.slice(0, colon).replaceAll(":", "/")}:${member.name.slice(colon + 1)}`;
