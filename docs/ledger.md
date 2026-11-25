@@ -95,6 +95,7 @@ hard.
   `examples/base-harness/`, `docs/market-formats.md`. Stranger dry run
   next, then channel 3.
 - On John, later: revisit the README and public-facing docs against today's model (0090-0097: extension, the emitted reference, guidance delivery); a public gist on the project once it is stable, for outside interest.
+- Parked design: a kind's TS surface and its shape clauses spell one fact twice (`holder: string` beside `required("holder")`). tsc holds it for projected members, and only the clause reaches source documents. Derive one from the other (clauses from the surface, or the surface from the contract, as `schema` already does) once extension has shipped and been used.
 - Product latch on 0095 (review verifier): a review checklist at the diff (the review-held requirements a change touches), review-held invariants delivered to the writing agent on touch, the review-held inventory as the ladder's promotion queue, review evidence later.
 - Docs-language candidates: the determinism ladder; the harness pin
   ("name the invariants, let the loop settle").
