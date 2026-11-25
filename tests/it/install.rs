@@ -272,6 +272,99 @@ fn discovery_fences_a_nested_governed_root() {
     assert!(!memory.iter().any(|p| p.starts_with(root.join("vendor"))));
 }
 
+/// A primary checkout and a linked worktree of it, made by a real `git worktree add` so
+/// the pointer file and `commondir` are git's own layout, with the common git dir's
+/// `info/exclude` naming `/.claude/rules/excluded.md`. Returns the worktree's root.
+fn linked_worktree_excluding_a_rule(name: &str) -> PathBuf {
+    let tmp = common::tmpdir(name);
+    let primary = tmp.join("primary");
+    fs::create_dir_all(&primary).unwrap();
+    let git = |args: &[&str]| {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(&primary)
+            .env_remove("GIT_DIR")
+            .env_remove("GIT_WORK_TREE")
+            .env_remove("GIT_INDEX_FILE")
+            .output()
+            .expect("git runs");
+        assert!(output.status.success(), "git {args:?}: {output:?}");
+    };
+    git(&["init", "--quiet", "--initial-branch=main"]);
+    let worktree = tmp.join("linked");
+    git(&["worktree", "add", "--quiet", worktree.to_str().unwrap()]);
+    assert!(
+        worktree.join(".git").is_file(),
+        "a linked worktree's .git is a file"
+    );
+    fs::write(
+        primary.join(".git").join("info").join("exclude"),
+        "/.claude/rules/excluded.md\n",
+    )
+    .unwrap();
+    worktree
+}
+
+/// git reads `info/exclude` from the common git dir a linked worktree's pointer chains
+/// to, so a rule that exclude names is no member of the worktree's harness.
+#[test]
+fn the_discovery_walk_in_a_linked_worktree_skips_a_path_the_common_git_dirs_info_exclude_names() {
+    let worktree = linked_worktree_excluding_a_rule("discover-worktree-exclude");
+    let rules = worktree.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("kept.md"), "# Kept\n").unwrap();
+    fs::write(rules.join("excluded.md"), "# Excluded\n").unwrap();
+
+    let report = install::discover(&worktree).unwrap();
+    let discovered = report.members.get("rule").unwrap().files();
+    assert_eq!(discovered.len(), 1, "{discovered:?}");
+    assert!(discovered[0].ends_with("kept.md"), "{discovered:?}");
+}
+
+/// The guard's single-path answer for a pending write reads the same common exclude the
+/// walk does: a write the exclude names is no member `check` would judge, so a
+/// block-mode guard allows it, while an unexcluded sibling stays bound.
+#[test]
+fn the_single_path_query_agrees_with_the_discovery_walk_in_a_linked_worktree() {
+    let worktree = linked_worktree_excluding_a_rule("guard-worktree-exclude");
+    common::GuardLock::declaring("block")
+        .member("rule", "safety", ".claude/rules/safety.md", "abc", "abc")
+        .write(&worktree);
+
+    let (code, stderr) = common::run_guard(
+        &worktree,
+        &common::guard_write_payload(".claude/rules/excluded.md"),
+    );
+    assert_eq!(
+        code,
+        Some(0),
+        "a path the common exclude names is no member `check` judges, got: {stderr}"
+    );
+
+    let (stray_code, _) = common::run_guard(
+        &worktree,
+        &common::guard_write_payload(".claude/rules/stray.md"),
+    );
+    assert_eq!(stray_code, Some(2), "an unexcluded sibling stays bound");
+}
+
+/// The walk reads `.gitignore` without requiring a git checkout around it.
+#[test]
+fn a_gitignore_still_prunes_the_discovery_walk_in_a_tree_with_no_git() {
+    let root = common::tmpdir("discover-gitignore-no-git");
+    assert!(!root.join(".git").exists());
+    let rules = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(root.join(".gitignore"), "*.local.md\n").unwrap();
+    fs::write(rules.join("kept.md"), "# Kept\n").unwrap();
+    fs::write(rules.join("mine.local.md"), "# Mine\n").unwrap();
+
+    let report = install::discover(&root).unwrap();
+    let discovered = report.members.get("rule").unwrap().files();
+    assert_eq!(discovered.len(), 1, "{discovered:?}");
+    assert!(discovered[0].ends_with("kept.md"), "{discovered:?}");
+}
+
 // ---------------------------------------------------------------------------
 // the no-path — the session-start reporter alone, Node-free
 // ---------------------------------------------------------------------------

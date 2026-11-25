@@ -188,56 +188,18 @@ pub enum TapError {
 /// The per-machine event log's path under a workspace directory — the one home
 /// for locating the log, shared by the writer and the reader.
 ///
-/// If workspace_dir's parent is a git linked worktree (indicated by a `.git` file),
-/// resolves the worktree chain (.git file → gitdir → commondir), where gitdir and
-/// commondir paths can each be relative to their containing directory (an external fact:
-/// git-scm.com/docs/git-worktree, retrieved 2026-07-26), to find the primary
-/// checkout's root and homes the log there instead. This ensures telemetry records
-/// persist across worktree deletion. Falls back to workspace_dir if not a linked
-/// worktree, if resolution fails, or if the parent is a regular `.git` directory.
+/// When the harness root (workspace_dir's parent) is a git linked worktree — its git
+/// dir differs from its common dir — the log homes under the primary checkout (the
+/// common dir's parent) instead, so telemetry records persist across worktree
+/// deletion. Falls back to workspace_dir otherwise.
 pub(crate) fn log_path(workspace_dir: &Path) -> PathBuf {
-    // Check if workspace_dir's parent (the harness root) is a git linked worktree.
-    if let Some(harness_root) = workspace_dir.parent() {
-        let git_path = harness_root.join(".git");
-
-        // If .git is a file (not a directory), it indicates a linked worktree.
-        if let Ok(git_content) = fs::read_to_string(&git_path) {
-            // Parse the gitdir line to find the admin directory.
-            for line in git_content.lines() {
-                if let Some(gitdir_str) = line.strip_prefix("gitdir: ") {
-                    let gitdir_str = gitdir_str.trim();
-                    // gitdir can be relative to the directory containing the .git file (harness_root)
-                    let admin_dir = if Path::new(gitdir_str).is_absolute() {
-                        PathBuf::from(gitdir_str)
-                    } else {
-                        harness_root.join(gitdir_str)
-                    };
-                    let admin_dir = crate::path::normalize_path(&admin_dir);
-
-                    // Read commondir from the admin directory to find the real git dir.
-                    if let Ok(commondir_content) = fs::read_to_string(admin_dir.join("commondir")) {
-                        let commondir_str = commondir_content.trim();
-                        // commondir can be relative to the directory containing it (admin_dir)
-                        let common_git_path = if Path::new(commondir_str).is_absolute() {
-                            PathBuf::from(commondir_str)
-                        } else {
-                            admin_dir.join(commondir_str)
-                        };
-                        let common_git_path = crate::path::normalize_path(&common_git_path);
-
-                        // The primary checkout root is the parent of the git directory.
-                        if let Some(primary_root) = common_git_path.parent()
-                            && primary_root.is_dir()
-                        {
-                            return primary_root.join(".temper").join(LOG_FILENAME);
-                        }
-                    }
-                }
-            }
-        }
+    if let Some(dirs) = workspace_dir.parent().and_then(crate::import::git_dirs)
+        && dirs.git_dir != dirs.common_dir
+        && let Some(primary_root) = dirs.common_dir.parent()
+        && primary_root.is_dir()
+    {
+        return primary_root.join(".temper").join(LOG_FILENAME);
     }
-
-    // Fall back to the existing behavior for non-worktrees or resolution failures.
     workspace_dir.join(LOG_FILENAME)
 }
 

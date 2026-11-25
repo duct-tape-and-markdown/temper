@@ -644,7 +644,68 @@ pub(crate) fn ignore_walk(root: &Path, git_declarations: bool) -> WalkBuilder {
         .git_ignore(git_declarations)
         .git_exclude(git_declarations)
         .require_git(false);
+    if git_declarations && let Some(exclude) = common_exclude(root) {
+        // Explicit ignores anchor at the builder's current dir and rank below every
+        // per-directory source — git's own precedence for `info/exclude`.
+        builder.current_dir(root);
+        // A partial parse error still contributes the globs that parsed.
+        let _partial = builder.add_ignore(exclude);
+    }
     builder
+}
+
+/// The git directories of the repository whose `.git` sits at `root`: the per-worktree
+/// git dir and the common dir that holds `info/`, refs, and objects. [`None`] where
+/// `root` carries no `.git`, or its pointer file does not resolve.
+///
+/// A `.git` directory is both. A `.git` file is a pointer (`gitdir: <path>`, relative to
+/// `root`) to a per-worktree admin dir, whose `commondir` file (relative to the admin
+/// dir) names the common dir; an admin dir with no `commondir` is its own common dir.
+pub(crate) fn git_dirs(root: &Path) -> Option<GitDirs> {
+    let dot_git = root.join(".git");
+    if dot_git.is_dir() {
+        return Some(GitDirs {
+            git_dir: dot_git.clone(),
+            common_dir: dot_git,
+        });
+    }
+    let pointer = std::fs::read_to_string(&dot_git).ok()?;
+    let gitdir = pointer
+        .lines()
+        .find_map(|line| line.strip_prefix("gitdir: "))?
+        .trim();
+    let git_dir = crate::path::normalize_path(&root.join(gitdir));
+    if !git_dir.is_dir() {
+        return None;
+    }
+    let common_dir = match std::fs::read_to_string(git_dir.join("commondir")) {
+        Ok(commondir) => crate::path::normalize_path(&git_dir.join(commondir.trim())),
+        Err(_) => git_dir.clone(),
+    };
+    Some(GitDirs {
+        git_dir,
+        common_dir,
+    })
+}
+
+/// A repository's two git directories, as [`git_dirs`] resolves them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GitDirs {
+    /// The per-worktree git dir (`HEAD`, the index).
+    pub(crate) git_dir: PathBuf,
+    /// The dir shared by every worktree (`info/`, refs, objects).
+    pub(crate) common_dir: PathBuf,
+}
+
+/// The `info/exclude` a walk over `root` must add beyond what the `ignore` engine reads
+/// itself: the common dir's, when `root`'s `.git` is a pointer file — the engine only
+/// reads `<dir>/.git/info/exclude`, which a pointer file never has.
+fn common_exclude(root: &Path) -> Option<PathBuf> {
+    if root.join(".git").is_dir() {
+        return None;
+    }
+    let exclude = git_dirs(root)?.common_dir.join("info").join("exclude");
+    exclude.is_file().then_some(exclude)
 }
 
 /// The tree of paths under `harness` a walk for a kind whose locus `local_governs` may
@@ -721,7 +782,8 @@ fn fenced(path: &Path, depth: usize, is_dir: bool, local_governs: bool) -> bool 
 /// Each prefix of `relative` is put to the walk's two tests in walk order: the [`fenced`]
 /// fences, then the git ignore declarations [`ignore_walk`] consults — every `.gitignore`
 /// from the harness root down to the prefix's parent, deepest first, then each level's
-/// `.git/info/exclude` the same way, the precedence the `ignore` engine applies. An
+/// `.git/info/exclude` the same way, then a linked worktree's common exclude, the
+/// precedence the `ignore` engine applies. An
 /// ignored prefix prunes everything below it, exactly as the walk never descends an
 /// ignored directory. A `.gitignore` that fails to parse contributes what it could parse,
 /// as the walk's own builder does.
@@ -735,6 +797,11 @@ pub(crate) fn discovers_path(harness: &Path, relative: &Path, local_governs: boo
             let _partial = builder.add(file);
         }
         builder.build().unwrap_or_else(|_| Gitignore::empty())
+    };
+    let common = if local_governs {
+        None
+    } else {
+        common_exclude(harness).map(|exclude| matcher(harness, exclude))
     };
     let components: Vec<_> = relative.components().collect();
     let mut gitignores = Vec::new();
@@ -757,6 +824,7 @@ pub(crate) fn discovers_path(harness: &Path, relative: &Path, local_governs: boo
             .iter()
             .rev()
             .chain(excludes.iter().rev())
+            .chain(common.iter())
             .map(|ignores| ignores.matched(&path, is_dir))
             .find(|matched| !matched.is_none());
         if decision.is_some_and(|matched| matched.is_ignore()) {
@@ -886,6 +954,110 @@ mod tests {
         ));
         assert!(walked.contains(Path::new(".claude/rules/keep.local.md")));
         assert!(!walked.contains(Path::new("build/x.md")));
+    }
+
+    /// In a linked worktree the common git dir's `info/exclude` governs both surfaces
+    /// alike: its patterns anchor at the worktree root, a `.gitignore` negation outranks
+    /// it, and an excluded directory prunes its children.
+    #[test]
+    fn a_linked_worktrees_common_exclude_anchors_at_its_root_below_a_gitignore_negation() {
+        let tmp = tmpdir("discovers-path-worktree");
+        let write = |relative: &str, body: &str| {
+            let path = tmp.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, body).unwrap();
+        };
+        // The layout `git worktree add` writes: a pointer file, an admin dir under the
+        // common dir's `worktrees/`, and a `commondir` relative to the admin dir.
+        write("primary/.git/worktrees/linked/commondir", "../..\n");
+        write(
+            "primary/.git/info/exclude",
+            "/.claude/rules/excluded.md\nscratch/\n*.keep.md\n",
+        );
+        write("linked/.git", "gitdir: ../primary/.git/worktrees/linked\n");
+        write("linked/.gitignore", "!a.keep.md\n");
+        write("linked/.claude/rules/a.md", "");
+        write("linked/.claude/rules/excluded.md", "");
+        write("linked/.claude/rules/a.keep.md", "");
+        write("linked/.claude/rules/b.keep.md", "");
+        write("linked/scratch/x.md", "");
+        write("linked/nested/.claude/rules/excluded.md", "");
+        let root = tmp.join("linked");
+
+        let walked: BTreeSet<PathBuf> = ignore_walk(&root, true)
+            .filter_entry(discovery_fence(false))
+            .build()
+            .flatten()
+            .filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()))
+            .map(|entry| entry.path().strip_prefix(&root).unwrap().to_path_buf())
+            .collect();
+        let expected = [
+            (".claude/rules/a.md", true),
+            (".claude/rules/excluded.md", false),
+            (".claude/rules/a.keep.md", true),
+            (".claude/rules/b.keep.md", false),
+            ("scratch/x.md", false),
+            ("nested/.claude/rules/excluded.md", true),
+        ];
+        for (candidate, discoverable) in expected {
+            let candidate = Path::new(candidate);
+            assert_eq!(
+                walked.contains(candidate),
+                discoverable,
+                "walk: {}",
+                candidate.display()
+            );
+            assert_eq!(
+                discovers_path(&root, candidate, false),
+                discoverable,
+                "query: {}",
+                candidate.display()
+            );
+        }
+        // The local-locus flavor waives every git declaration, the common exclude too.
+        assert!(discovers_path(
+            &root,
+            Path::new(".claude/rules/excluded.md"),
+            true
+        ));
+    }
+
+    /// The resolver reads a `.git` directory as both dirs and chains a pointer file
+    /// through its admin dir's `commondir`; an admin dir without one is its own common dir.
+    #[test]
+    fn git_dirs_resolves_a_directory_a_worktree_pointer_and_a_bare_pointer() {
+        let tmp = tmpdir("git-dirs");
+        fs::create_dir_all(tmp.join("repo/.git/worktrees/wt")).unwrap();
+        fs::write(tmp.join("repo/.git/worktrees/wt/commondir"), "../..\n").unwrap();
+        fs::create_dir_all(tmp.join("repo/.git/modules/sub")).unwrap();
+        fs::create_dir_all(tmp.join("wt")).unwrap();
+        fs::write(tmp.join("wt/.git"), "gitdir: ../repo/.git/worktrees/wt\n").unwrap();
+        fs::create_dir_all(tmp.join("sub")).unwrap();
+        fs::write(tmp.join("sub/.git"), "gitdir: ../repo/.git/modules/sub\n").unwrap();
+
+        let git = tmp.join("repo/.git");
+        assert_eq!(
+            git_dirs(&tmp.join("repo")),
+            Some(GitDirs {
+                git_dir: git.clone(),
+                common_dir: git.clone(),
+            })
+        );
+        assert_eq!(
+            git_dirs(&tmp.join("wt")),
+            Some(GitDirs {
+                git_dir: git.join("worktrees/wt"),
+                common_dir: git.clone(),
+            })
+        );
+        assert_eq!(
+            git_dirs(&tmp.join("sub")),
+            Some(GitDirs {
+                git_dir: git.join("modules/sub"),
+                common_dir: git.join("modules/sub"),
+            })
+        );
+        assert_eq!(git_dirs(&tmp), None);
     }
 
     const COORDINATE: &str = "---\n\
