@@ -1398,3 +1398,47 @@ fn a_host_path_clause_over_collection_entries_fires_on_a_violating_entry() {
     );
     assert!(!run.ok, "{}", run.output);
 }
+
+#[test]
+fn a_layout_kind_with_a_json_document_format_refuses_at_load() {
+    // A layout structures a markdown body's heading tree; a whole-document format has no
+    // such body, so the lift refuses rather than reading the document as frontmatter.
+    for label in ["json-document", "toml-document"] {
+        let row = KindFactRow {
+            format: Some(label.to_string()),
+            ..intent_kind_facts()
+        };
+        let err = temper::kind::CustomKind::from_kind_fact_row(&row).unwrap_err();
+        let message = err.to_string();
+        assert!(
+            message.contains("`intent`") && message.contains(label),
+            "the refusal must name the kind and its format, got: {message}"
+        );
+
+        let root = common::tmpdir("layout-non-markdown-format");
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![row],
+                ..Default::default()
+            },
+        );
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok && run.output.contains("`intent`"),
+            "check must refuse the {label} layout kind by name, got:\n{}",
+            run.output
+        );
+    }
+
+    for format in [None, Some("yaml-frontmatter".to_string())] {
+        let row = KindFactRow {
+            format,
+            ..intent_kind_facts()
+        };
+        assert!(
+            temper::kind::CustomKind::from_kind_fact_row(&row).is_ok(),
+            "a markdown layout kind loads unchanged"
+        );
+    }
+}

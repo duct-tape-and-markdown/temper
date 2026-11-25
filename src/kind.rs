@@ -678,6 +678,7 @@ impl CustomKind {
     /// closed vocabulary or omits the column that primitive requires.
     pub fn overlay_content(mut self, content: Option<&LayoutRow>) -> Result<Self, LockRowError> {
         if let Some(layout) = content {
+            markdown_layout_format(&self.name, self.format)?;
             self.content = Content::Layout(layout_from_row(layout)?);
         }
         Ok(self)
@@ -933,7 +934,31 @@ pub(crate) fn content_from_row(row: &KindFactRow) -> Result<Content, LockRowErro
     }
     match &row.content {
         None => Ok(Content::File),
-        Some(layout) => Ok(Content::Layout(layout_from_row(layout)?)),
+        Some(layout) => {
+            markdown_layout_format(&row.name, format_from_row(row)?)?;
+            Ok(Content::Layout(layout_from_row(layout)?))
+        }
+    }
+}
+
+/// Refuse a layout over a non-markdown format: a layout structures a markdown body's
+/// heading tree, so a JSON or TOML document has no body for it to read, and accepting one
+/// would silently read the document as frontmatter plus markdown.
+///
+/// # Errors
+///
+/// Returns a [`LockRowError::Vocabulary`] on the `format` column, naming the kind, when
+/// `format` is a whole-document format.
+fn markdown_layout_format(kind: &str, format: Option<Format>) -> Result<(), LockRowError> {
+    match format {
+        None | Some(Format::YamlFrontmatter) => Ok(()),
+        Some(other @ (Format::JsonDocument | Format::TomlDocument)) => {
+            Err(LockRowError::Vocabulary {
+                family: "kind".to_string(),
+                column: format!("format` of layout kind `{kind}"),
+                value: other.label().to_string(),
+            })
+        }
     }
 }
 

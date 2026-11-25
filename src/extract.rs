@@ -927,10 +927,9 @@ pub(crate) fn unit_shape_id<'v>(
 /// segment is locus every member under the pattern shares, never identity. What reaches
 /// here is the placement a wildcard genuinely spans.
 ///
-/// The [`unit_shape_id`] dispatch above is the one caller that reaches it per shape; the
-/// layout face (`compose::layout_unit`) calls it directly, having already resolved its unit
-/// to a file. A source not under `base` (a caller with no root context) folds no placement,
-/// degrading to the bare stem rather than erroring.
+/// The [`unit_shape_id`] dispatch above is the one caller that reaches it per shape. A
+/// source not under `base` (a caller with no root context) folds no placement, degrading
+/// to the bare stem rather than erroring.
 ///
 /// # Errors
 ///
