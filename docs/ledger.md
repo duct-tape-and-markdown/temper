@@ -72,12 +72,9 @@ hard.
   the hand chain (`.flume/declaration.ts`; cargo judge `.flume/runner.mjs`
   over nextest). Unverified in the package: a blocked entry may edit a file
   its parent creates; the ripple walk's `examples/` reach.
-- Still open with dependents: `(hook-member-identity)` (GH #32). Parked
-  ruling: 0019's occupant (GH #45).
 
 ## Parked (pointers only)
 
-- `(external-commitment)` Decision for GH #29 — session to draft.
 - Gauntlet external-harness fixtures parked on John's license call;
   cascade's checkout is the read-only stand-in. The `release` rule has no
   external-fixture step; cascade's regression at the cut sha is the

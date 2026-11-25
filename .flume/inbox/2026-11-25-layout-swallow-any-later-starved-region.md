@@ -1,0 +1,7 @@
+# A heading with children swallowed into a field refuses only when the very next region starves (GH #44)
+
+Observed on 0.0.24, triaging GH #44. Decision 0048's Consequences rule that a field or collection region binding a heading that carries sub-headings refuses while a **later** region stays unbound, and its Decision that every heading and span binds to a region, a leaf, or a finding. `Layout::read` (`src/layout.rs`) checks only the next region: `last_swallowed` resets when any later region binds a heading, so a shift further back binds silently.
+
+Repro: layout `field intent, collection entity, collection contract, field depends-on`, a `required("intent")` clause, and a body with no `## Intent`: `## Entities` / `### Widget`, `## Contracts` / `### Ships`, `## Depends on`. `check` exits 0: `Entities` (with `Widget`) fills `intent`, `Ships` reads as an entity, the contract collection takes `Depends on`, and `depends-on` is unbound. Expected: `layout::swallowed_heading` naming `Entities`, `intent` and the starved `depends-on`. Drop `## Depends on` and it already refuses, so the adjacent case is pinned (`a_heading_with_children_swallowed_as_field_when_a_section_is_missing_refuses_loud`); the non-adjacent case needs its acceptance line in `tests/it/layout_kind.rs`.
+
+Out of scope: a missing section whose replacement heading has no children still shifts silently. 0048 rules only the swallowed-children case, and #41 closed on it.
