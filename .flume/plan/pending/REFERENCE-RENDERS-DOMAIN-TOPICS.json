@@ -3,11 +3,13 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "HARNESS-REFERENCE-IS-AN-SDK-VALUE",
-      "REVIEW-IS-A-VERIFIER-SPECIES"
+      "HARNESS-REFERENCE-IS-AN-SDK-VALUE"
     ]
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "sdk/src/reference.ts",
@@ -21,7 +23,8 @@
         "path": "sdk/test/reference.test.ts",
         "description": "domain topic content; review-held vs unheld"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "The reference renders a flat domain-<r>.md per requirement: its prose, its verifier (held by review and unheld distinct), and its owners",
   "per": {
@@ -29,5 +32,8 @@
     "section": "What ships — three channels"
   },
   "acceptance": "a program with a review-held and an unheld requirement emits two domain topics naming prose, owners, and held by review: <prose> versus unheld; pnpm --dir sdk test green",
+  "tests": [],
+  "pins": [],
+  "laneTests": [],
   "notes": "0093 Consequences; 0095 Consequences (the reference renders held by review and unheld distinctly). Owners are the satisfying members' identities, a declaration, so the topic grows with declarations."
 }
