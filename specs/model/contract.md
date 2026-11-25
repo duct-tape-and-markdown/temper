@@ -27,15 +27,17 @@ whatever an edge claims about rendering. A member's reference set is a
 declare, and its **containment** of each embedded member its body composes
 (one field per admitted kind, derived) — never a second authored list.
 
-Every edge resolves into one enumeration the gate and every read verb
-share, so narration never disagrees with the verdict. Edges are declared,
-never mined from prose. Path-resolved edges resolve against raw disk, never
-the ignore-filtered discovery view: an extra file can only suppress a
-finding, a pruned one can forge one (member discovery is the opposite case
-— `adoption.md`). An edge carries no obligation of its own: the clauses
-that range over it decide whether it counts. A mention is obligation-free
-by default: the shipped `mention-reachable` advisory judges only the
-mentions a member authored, and a contract may count them further.
+Every edge resolves into one enumeration the gate and the read verbs share.
+Edges are declared, never mined from prose. Path-resolved edges resolve
+against raw disk, never the ignore-filtered discovery view: an extra file
+can only suppress a finding, a pruned one can forge one (discovery is the
+opposite, `adoption.md`). An edge carries no obligation of its own: the
+clauses that range over it decide whether it counts; the shipped
+`mention-reachable` advisory judges only authored mentions. What an edge
+**means** is its **intent**, never checked: an edge field's guidance (0091),
+stated once, or a satisfies entry's requirement prose. Delivered at both
+ends with the requirements and their satisfiers, it lets an agent growing
+the contract set reason over what is contracted.
 
 ## clause
 
@@ -46,28 +48,27 @@ how the gate teaches at the moment of failure.
 
 **Guidance is not the clause's alone.** The same channel — advisory intent,
 optionally cited — attaches directly to a **kind** or a **field**, carrying
-no predicate: authoring counsel delivered at authoring time (`schema` hover,
-`explain`), teaching before anything can fail (invariant 8). A corpus kind's
-counsel, its fields' with it, also projects as a path-scoped rule over the
-kind's locus (its admitting hosts', for an embedded kind), so the runtime
-hands it to an agent the first time a session touches a member's document.
-It never gates: advice hardened into a numeric rule is the linter temper
-sits downstream of (invariant 5). An embedded kind's counsel is **the kind's
-fact, stated once**: one counsel in every body that admits it
-(`representation.md`, "nesting"), never restated per host.
+no predicate: counsel teaching before anything can fail (invariant 8). A
+corpus kind's counsel, its fields' with it, projects as a path-scoped rule
+over the kind's locus (its admitting hosts', for an embedded kind), which
+the runtime loads on a session's first touch of a member's document;
+`schema` hover and `explain` serve the human. It never gates: advice
+hardened into a numeric rule is the linter temper sits downstream of
+(invariant 5). An embedded kind's counsel is **the kind's fact, stated
+once**: one counsel in every body that admits it (`representation.md`,
+"nesting"), never restated per host.
 
 The predicate vocabulary is **closed**: the enum in code is the authority,
-an unknown predicate is rejected at load, never skipped, and adding one is
-a deliberate language change; the corpus does not enumerate it.
+an unknown one refuses at load, never skipped; adding one is a language
+change, and the corpus does not enumerate it.
 
 A clause's compiled label (`pipeline.md`, "The lock") is its **address**:
-deterministic, human-legible, printed by every finding and by `explain` —
-never opaque to the author. The shipped **dial** kind consumes it: a
-temper-owned, local-locus TOML document (`.temper/dial.toml`) naming a
-clause by label and declaring this machine's read severity. The dial's
-schema is the envelope — severity is its only verb, deletion is unspellable,
-a dialed clause still reports; dial semantics and the block-mode bound live
-in `authoring.md`, "Layers".
+deterministic, human-legible, printed by every finding and by `explain`. The
+shipped **dial** kind consumes it: a temper-owned, local-locus TOML document
+(`.temper/dial.toml`) naming a clause by label and declaring this machine's
+read severity. The dial's schema is the envelope — severity is its only
+verb, deletion is unspellable, a dialed clause still reports; dial semantics
+and the block-mode bound live in `authoring.md`, "Layers".
 
 A clause binds to a **selection** and evaluates at one of two grains:
 
@@ -84,9 +85,9 @@ independently, and a finding names the concrete address it fired at. Guards
 do not nest.
 
 Some predicates need whole-graph context — a degree bound, a reachability
-test. That is evaluation cost, not a category: **reachability** and
-**drift** are clauses in the root member's default contract, on by
-default at advisory — severities the author declares, never the tool.
+test. That is cost, not a category: **reachability** and **drift** are
+clauses in the root member's default contract, advisory by default —
+severities the author declares.
 
 ## selection
 
