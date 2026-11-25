@@ -1,0 +1,28 @@
+{
+  "tag": "A-WHEN-BODY-UNIQUE-NAME-JUDGES-THE-BY-KIND-SELECTION",
+  "files": {
+    "edit": [
+      {
+        "path": "src/engine.rs",
+        "description": "judge_members routes peer clauses nested in a `when` body; decide's `when` arm stops judging them over the dispatcher slice"
+      },
+      {
+        "path": "tests/it/kind_extension.rs",
+        "description": "when-nested unique-name over base + subkind test"
+      }
+    ]
+  },
+  "gate": {
+    "kind": "open"
+  },
+  "summary": "a unique-name nested in a `when` body judges over the kind's by-kind selection, so a subkind member's name collides with a base member's as a top-level unique-name already does",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "kind"
+  },
+  "acceptance": "a base member and a subkind member sharing a name, under a base contract whose unique-name sits in a `when` body the guard satisfies, draw one unique-name finding",
+  "tests": [
+    "a when-nested unique-name finds a base member and a subkind member sharing a name"
+  ],
+  "notes": "Residual of A-SUBKIND-MEMBER-IS-A-BASE-MEMBER-TO-EVERY-PREDICATE: decides_over_peers withholds only top-level clauses; engine.rs `when` arm (~l.1734) passes `all` through. Standalone engine::validate keeps judging over the slice it is handed."
+}

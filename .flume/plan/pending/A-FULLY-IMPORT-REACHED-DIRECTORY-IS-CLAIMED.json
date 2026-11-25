@@ -1,0 +1,29 @@
+{
+  "tag": "A-FULLY-IMPORT-REACHED-DIRECTORY-IS-CLAIMED",
+  "files": {
+    "edit": [
+      {
+        "path": "src/coverage_note.rs",
+        "description": "a `.claude/` directory entry is claimed when every file beneath it is in reached_files"
+      },
+      {
+        "path": "tests/it/coverage_note.rs",
+        "description": "directory claim tests"
+      }
+    ]
+  },
+  "gate": {
+    "kind": "open"
+  },
+  "summary": "a `.claude/` directory whose every file an import reaches draws no unclaimed-entry; one holding any unreached file still does",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "edge"
+  },
+  "acceptance": "root CLAUDE.md importing `@.claude/notes/a.md` with `.claude/notes/` holding only a.md gives no unclaimed-entry; adding an unimported b.md brings the `.claude/notes` finding back",
+  "tests": [
+    "a directory whose every file an import reaches draws no unclaimed-entry finding",
+    "a directory holding an unreached file still draws an unclaimed-entry finding"
+  ],
+  "notes": "Residual of AN-IMPORT-REACHED-FILE-IS-CLAIMED (claim is per file entry). `every`, not `some`: a some-reached claim would hide the unreached file, since the scan names direct children only."
+}
