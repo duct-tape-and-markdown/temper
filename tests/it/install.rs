@@ -176,6 +176,44 @@ fn one_gate_finding(findings: &[temper::check::Diagnostic]) -> &str {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
+    use temper::install::{
+        DEFAULT_GATE_BINARY, GUARD_COMMAND, SESSION_START_COMMAND, gate_hook_command,
+    };
+    // At the default binary the renderer is the one home of today's bytes.
+    assert_eq!(DEFAULT_GATE_BINARY, "temper");
+    assert_eq!(
+        gate_hook_command("SessionStart", DEFAULT_GATE_BINARY).as_deref(),
+        Some(SESSION_START_COMMAND)
+    );
+    for event in ["PreToolUse", "PostToolUse"] {
+        assert_eq!(
+            gate_hook_command(event, DEFAULT_GATE_BINARY).as_deref(),
+            Some(GUARD_COMMAND)
+        );
+    }
+
+    // A path renders as written, in the probe, the refusal and the run alike.
+    assert_eq!(
+        gate_hook_command("PreToolUse", "./node_modules/.bin/temper").as_deref(),
+        Some(
+            "command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper guard ."
+        )
+    );
+
+    // A binary the shell would split or expand is one quoted word everywhere it appears.
+    assert_eq!(
+        gate_hook_command("SessionStart", "/opt/my tools/it's/temper").as_deref(),
+        Some(
+            "command -v '/opt/my tools/it'\\''s/temper' >/dev/null 2>&1 || { echo '/opt/my tools/it'\\''s/temper: command not found' >&2; exit 127; } && '/opt/my tools/it'\\''s/temper' check . --reporter session-start"
+        )
+    );
+
+    // An event temper's gate does not ride renders no command at all.
+    assert_eq!(gate_hook_command("Stop", DEFAULT_GATE_BINARY), None);
+}
+
+#[test]
 fn discover_reports_member_counts_by_kind() {
     let root = write_harness("discover", false);
     let report = install::discover(&root).unwrap();

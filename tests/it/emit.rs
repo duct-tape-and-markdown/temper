@@ -1027,6 +1027,134 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
     assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
 }
 
+/// A payload carrying one gate hook per event temper's gate rides, as the SDK's
+/// `gateHook(...)` erases them: one `command` handler spelling no command, and the declared
+/// binary under the seam's reserved `temper:gate-binary` key (`null` declaring none).
+fn gate_hook_payload(binary: serde_json::Value) -> Payload {
+    let row = |key: &str, matcher: Option<&str>| {
+        let mut fields = Vec::new();
+        if let Some(matcher) = matcher {
+            fields.push(("matcher".to_string(), serde_json::json!(matcher)));
+        }
+        fields.push((
+            "hooks".to_string(),
+            serde_json::json!([{ "type": "command" }]),
+        ));
+        fields.push(("temper:gate-binary".to_string(), binary.clone()));
+        RegistrationRow {
+            kind: "hook".to_string(),
+            key: key.to_string(),
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            fields,
+        }
+    };
+    Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![hook_kind_facts()],
+            registrations: vec![
+                row("PostToolUse", Some("Bash")),
+                row("PreToolUse", Some("Write|Edit|MultiEdit")),
+                row("SessionStart", None),
+            ],
+            ..Default::default()
+        },
+        members: Vec::new(),
+    }
+}
+
+/// The projected `settings.json` a gate hook payload emits, parsed — with the one command
+/// each event's group runs.
+fn projected_gate_commands(harness: &Path) -> (serde_json::Value, [String; 3]) {
+    let manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap(),
+    )
+    .unwrap();
+    let command = |event: &str| {
+        manifest["hooks"][event][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap_or_else(|| panic!("`{event}`'s gate handler carries a command: {manifest}"))
+            .to_string()
+    };
+    let commands = [
+        command("SessionStart"),
+        command("PreToolUse"),
+        command("PostToolUse"),
+    ];
+    (manifest, commands)
+}
+
+#[test]
+fn a_gate_hook_with_a_declared_binary_projects_a_command_running_that_binary() {
+    let (harness, into) = workspace("gate-hook-declared-binary");
+    let payload = gate_hook_payload(serde_json::json!("./node_modules/.bin/temper"));
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // Every gate hook probes, names and runs the binary it declared — the workspace path,
+    // resolved as itself rather than looked up on the PATH.
+    let (manifest, [session_start, guard, post_guard]) = projected_gate_commands(&harness);
+    let probe = "command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper";
+    assert_eq!(
+        session_start,
+        format!("{probe} check . --reporter session-start")
+    );
+    assert_eq!(guard, format!("{probe} guard ."));
+    assert_eq!(post_guard, guard, "both guard edges run the one command");
+
+    // The seam's reserved key is consumed, never projected.
+    assert!(
+        !manifest.to_string().contains("temper:gate-binary"),
+        "the binary key never reaches the manifest: {manifest}"
+    );
+
+    // Re-emit is the idempotent no-op.
+    let before = fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap();
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap(),
+        before
+    );
+}
+
+#[test]
+fn a_gate_hook_with_no_declared_binary_projects_the_path_temper_command() {
+    let (harness, into) = workspace("gate-hook-default-binary");
+
+    drift::emit(
+        &gate_hook_payload(serde_json::Value::Null),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+
+    // No binary declared is `temper` on the PATH: today's commands, byte for byte.
+    let (manifest, [session_start, guard, post_guard]) = projected_gate_commands(&harness);
+    assert_eq!(session_start, temper::install::SESSION_START_COMMAND);
+    assert_eq!(guard, temper::install::GUARD_COMMAND);
+    assert_eq!(post_guard, temper::install::GUARD_COMMAND);
+    // The handler is exactly the command handler — the reserved key rides nowhere in it.
+    assert_eq!(
+        manifest["hooks"]["SessionStart"],
+        serde_json::json!([{ "hooks": [{ "type": "command", "command": temper::install::SESSION_START_COMMAND }] }])
+    );
+}
+
+#[test]
+fn a_gate_hook_on_an_event_temper_does_not_ride_refuses_at_emit() {
+    let (_harness, into) = workspace("gate-hook-foreign-event");
+    let mut payload = gate_hook_payload(serde_json::Value::Null);
+    payload.declarations.registrations[0].key = "Stop".to_string();
+
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("`Stop` is not an event temper's gate rides"),
+        "the refusal names the event: {err}"
+    );
+}
+
 #[test]
 fn harness_settings_residue_folds_into_settings_json_beside_the_hooks_segment() {
     let (harness, into) = workspace("settings-residue");

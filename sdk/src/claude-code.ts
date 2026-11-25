@@ -10,6 +10,8 @@
 
 export type {
   Agent,
+  GateHookEvent,
+  GateHookInit,
   Handler,
   Hook,
   InstalledPlugin,
@@ -32,6 +34,7 @@ export {
   agentDefaultContract,
   command,
   commandDefaultContract,
+  gateHook,
   handler,
   handlerDefaultContract,
   hook,

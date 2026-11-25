@@ -597,6 +597,78 @@ export const hook: KindDefinition<Hook> = Object.assign(hookMember, {
 });
 
 /**
+ * The lifecycle events temper's own gate rides — the session-start report and the guard's
+ * two edges. A gate hook on any other event fires no temper verb, so the type refuses it.
+ */
+export type GateHookEvent = "SessionStart" | "PreToolUse" | "PostToolUse";
+
+/**
+ * A gate hook's authored surface: the event and matcher that place its matcher group, and
+ * the one fact the member states — the temper `binary` it runs. Absent, the binary is
+ * `temper` on the PATH; a workspace install states its path instead
+ * (`"./node_modules/.bin/temper"`). The command is never authored: the engine renders it
+ * from the binary at emit, so the bytes a gate hook runs have one home
+ * (specs/model/adoption.md, "Install"; decision 0082).
+ */
+export interface GateHookInit {
+  /** The lifecycle event — the member's `name`, as on {@link hook}. */
+  readonly name: GateHookEvent;
+  /** The tool-name filter the group binds, as on {@link Hook}; absent on `SessionStart`. */
+  readonly matcher?: string;
+  /** The temper binary the hook runs — a name resolved on the PATH, or a path. */
+  readonly binary?: string;
+}
+
+/**
+ * The key a gate hook's registration row carries its declared binary under — the engine's
+ * `GATE_BINARY_KEY` (`src/drift.rs`), which consumes it at emit and renders the handler's
+ * command in its place. Colon-qualified so no typed {@link Hook} field can spell it.
+ * `null` is a gate hook declaring no binary, so the default (`temper`) has one spelling,
+ * the engine's.
+ */
+export const GATE_BINARY_KEY = "temper:gate-binary";
+
+/** Each gate hook member's declared binary (`null` declaring none) — the fact
+ * {@link gateHook} records and {@link gateHookBinary} reads, keyed by the member itself so
+ * the member's typed fields stay exactly the manifest entry they project to. */
+const gateHookBinaries = new WeakMap<Member, string | null>();
+
+/**
+ * A temper gate hook — a {@link hook} member whose single `command` handler runs the
+ * temper verb its event fires, with the binary it states. The member is an ordinary
+ * matcher group in every other respect: its name joins its matcher as any hook's does,
+ * and a tap hook at the same event and matcher joins it as a further handler.
+ *
+ * # Throws
+ * If `binary` is the empty string — there is nothing to run — or the matcher carries a
+ * `/` ({@link hook}).
+ */
+export function gateHook(init: GateHookInit): Member {
+  if (init.binary === "") {
+    throw new Error(
+      `gate hook \`${init.name}\`: \`binary\` is empty — state the temper binary the hook ` +
+        `runs, or omit it for \`temper\` on the PATH (specs/model/adoption.md, "Install").`,
+    );
+  }
+  const handlers: readonly Handler[] = [{ type: "command" }];
+  const member =
+    init.matcher === undefined
+      ? hook({ name: init.name, hooks: handlers })
+      : hook({ name: init.name, matcher: init.matcher, hooks: handlers });
+  gateHookBinaries.set(member, init.binary ?? null);
+  return member;
+}
+
+/**
+ * The binary a gate hook member declares — `null` where it declares none (`temper` on the
+ * PATH) — or `undefined` where `member` is not a gate hook at all. The one reader is the
+ * registration erasure (`declarations.ts`), which carries it under {@link GATE_BINARY_KEY}.
+ */
+export function gateHookBinary(member: Member): string | null | undefined {
+  return gateHookBinaries.get(member);
+}
+
+/**
  * The tap hook registration's `hooks.<Event>` key-path and {@link Hook} fields — the
  * provider fact {@link tapHookRows} (`declarations.ts`) fills rather than authors inline.
  * One matcher group like any authored one: the per-event `matcher`

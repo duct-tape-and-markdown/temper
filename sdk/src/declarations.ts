@@ -13,15 +13,17 @@ import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
-import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kind.js";
+import type { EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves } from "./prose.js";
 import {
+  GATE_BINARY_KEY,
   HOOK_HANDLER_KEY,
   HOOK_MATCHER_KEY,
   SETTINGS_MANIFEST,
   TELEMETRY_EVENT_HOOKS,
+  gateHookBinary,
   hook,
   hookCollectionKey,
   tapHookRegistration,
@@ -973,10 +975,22 @@ function registrationRows(harness: Harness): RegistrationRow[] {
         key_path: address.keyPath,
         // The generated row carries a mutable field list; the member's is read-only, so
         // copy each pair into a fresh tuple — the same values, a shape the row accepts.
-        fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
+        fields: [
+          ...member.fields.map(([name, value]): [string, unknown] => [name, value]),
+          // A gate hook carries its declared binary across the seam beside its fields; the
+          // engine renders the handler's command from it and drops the key ({@link gateHook}).
+          ...gateBinaryField(member),
+        ],
       };
     })
     .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key));
+}
+
+/** The gate hook row's binary field — `[GATE_BINARY_KEY, binary]` for a {@link gateHook}
+ * member, `null` declaring none, and nothing for every other member. */
+function gateBinaryField(member: Member): Array<[string, unknown]> {
+  const binary = gateHookBinary(member);
+  return binary === undefined ? [] : [[GATE_BINARY_KEY, binary]];
 }
 
 /** The tap invocation the synthesized telemetry hooks run — the sibling verb of the

@@ -20,6 +20,7 @@ import {
   agentDefaultContract,
   command,
   commandDefaultContract,
+  gateHook,
   GUARD_COMMAND,
   handler,
   handlerDefaultContract,
@@ -398,6 +399,36 @@ test("hook() mints one matcher group however many handlers it fires — the grou
   assert.deepEqual(hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper check ." }] }).fields, [
     ["hooks", [{ type: "command", command: "temper check ." }]],
   ]);
+});
+
+test("gateHook constructor defaults the binary and carries what it declares across the seam", () => {
+  // The member states the binary, never the command: its one handler spells none, and the
+  // registration row carries the binary under the seam's reserved key for the engine to
+  // render from — `null` where none is declared, so `temper` on the PATH is the engine's
+  // one spelling of the default.
+  const sessionStart = gateHook({ name: "SessionStart" });
+  const guard = gateHook({ name: "PreToolUse", matcher: "Write|Edit|MultiEdit", binary: "./node_modules/.bin/temper" });
+  assert.equal(sessionStart.kind, "hook");
+  assert.equal(guard.name, "PreToolUse:Write|Edit|MultiEdit");
+  assert.deepEqual(sessionStart.fields, [["hooks", [{ type: "command" }]]]);
+
+  const h = harness({ members: [sessionStart, guard] });
+  const rows = compileDeclarations(h).registrations;
+  assert.deepEqual(
+    rows.map((row) => [row.key, row.fields]),
+    [
+      ["PreToolUse", [["matcher", "Write|Edit|MultiEdit"], ["hooks", [{ type: "command" }]], ["temper:gate-binary", "./node_modules/.bin/temper"]]],
+      ["SessionStart", [["hooks", [{ type: "command" }]], ["temper:gate-binary", null]]],
+    ],
+  );
+
+  // An ordinary hook carries no gate fact at all.
+  const plain = hook({ name: "Stop", hooks: [{ type: "command", command: "true" }] });
+  const [plainRow] = compileDeclarations(harness({ members: [plain] })).registrations;
+  assert.deepEqual(plainRow?.fields, [["hooks", [{ type: "command", command: "true" }]]]);
+
+  // An empty binary names nothing to run.
+  assert.throws(() => gateHook({ name: "SessionStart", binary: "" }), /`binary` is empty/);
 });
 
 test("tapHookRegistration composes the tap's one command handler inside its matcher group", () => {

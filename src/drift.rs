@@ -336,6 +336,23 @@ pub enum DriftError {
         member: String,
     },
 
+    /// A gate hook's declared fact cannot be rendered into the registration it names: no
+    /// `hook` registration sits at its event and matcher, its event is not one temper's
+    /// gate rides, or its binary is empty.
+    #[error("gate hook `{member}`: {detail}")]
+    #[diagnostic(
+        code(temper::drift::gate_hook),
+        help(
+            "build a gate hook with `gateHook(...)` from `@dtmd/temper/claude-code` on `SessionStart`, `PreToolUse` or `PostToolUse`, and declare a non-empty `binary` or none (`temper` on the PATH)"
+        )
+    )]
+    GateHook {
+        /// The gate hook's member name — its event, joined with its matcher.
+        member: String,
+        /// Why its command could not be rendered.
+        detail: String,
+    },
+
     /// A declared source dependency — a layout region's `import`, a composed-prose
     /// `include`, or a member's declared `input` — names a file that does not exist on
     /// disk. Refused before a byte is written: the author cannot produce output from a
@@ -961,6 +978,88 @@ pub struct Payload {
     pub declarations: Declarations,
     /// Every projected member.
     pub members: Vec<PayloadMember>,
+}
+
+/// The reserved key a gate hook's registration row carries its declared temper binary
+/// under, among the row's seam-inbound `fields` — the SDK's `GATE_BINARY_KEY`
+/// (`sdk/src/builtins.ts`), which `gateHook(...)` alone writes. Colon-qualified so no
+/// typed `Hook` field can spell it: the key is the seam's, never the manifest's, and
+/// [`gate_rendered_fields`] consumes it before a byte is projected.
+///
+/// The member states the binary, never the command (`specs/model/adoption.md`,
+/// "Install"; 0082): `emit` renders the command here, so the bytes a gate hook runs have
+/// one home, the engine's ([`crate::install::gate_hook_command`]).
+const GATE_BINARY_KEY: &str = "temper:gate-binary";
+
+/// `registration`'s fields as its manifest entry folds them. A gate hook's row — one
+/// carrying [`GATE_BINARY_KEY`] — drops that key and has its first handler's `command`
+/// rendered from the declared binary (`null` declaring none, so
+/// [`crate::install::DEFAULT_GATE_BINARY`]): the gate handler `gateHook(...)` builds, ahead of
+/// any tap handler the SDK joined after it. Every other row folds its own fields as-is.
+///
+/// Refuses a gate hook whose binary is neither `null` nor a non-empty string, whose event temper's gate
+/// does not ride, or whose row carries no handler to render into — the SDK builds the
+/// fact and the handler together, so any of these is a malformed payload, never
+/// something to skip.
+fn gate_rendered_fields(
+    registration: &RegistrationRow,
+) -> Result<std::borrow::Cow<'_, [(String, JsonValue)]>, DriftError> {
+    let Some(declared) = registration
+        .fields
+        .iter()
+        .find_map(|(name, value)| (name == GATE_BINARY_KEY).then_some(value))
+    else {
+        return Ok(std::borrow::Cow::Borrowed(&registration.fields));
+    };
+    let mut fields: Vec<(String, JsonValue)> = registration
+        .fields
+        .iter()
+        .filter(|(name, _)| name != GATE_BINARY_KEY)
+        .cloned()
+        .collect();
+    // The member's name, as the SDK joined it: the event, then the matcher after a `:`.
+    let member = match fields
+        .iter()
+        .find(|(name, _)| name == crate::kind::HOOK_MATCHER_KEY)
+        .and_then(|(_, value)| value.as_str())
+    {
+        Some(matcher) => format!("{}:{matcher}", registration.key),
+        None => registration.key.clone(),
+    };
+    let refuse = |detail: String| DriftError::GateHook {
+        member: member.clone(),
+        detail,
+    };
+    // `null` is a gate hook declaring no binary: `temper` on the PATH, defaulted here so
+    // the default has one spelling, the engine's.
+    let binary = match declared {
+        JsonValue::Null => crate::install::DEFAULT_GATE_BINARY,
+        JsonValue::String(binary) if !binary.is_empty() => binary.as_str(),
+        _ => {
+            return Err(refuse(format!(
+                "its binary must be `null` or a non-empty string, got {declared}"
+            )));
+        }
+    };
+    let Some(command) = crate::install::gate_hook_command(&registration.key, binary) else {
+        return Err(refuse(format!(
+            "`{}` is not an event temper's gate rides (`SessionStart`, `PreToolUse`, `PostToolUse`)",
+            registration.key
+        )));
+    };
+    let gate_handler = fields
+        .iter_mut()
+        .find(|(name, _)| name == crate::kind::HOOK_HANDLER_KEY)
+        .and_then(|(_, handlers)| handlers.as_array_mut())
+        .and_then(|handlers| handlers.first_mut())
+        .and_then(JsonValue::as_object_mut);
+    let Some(gate_handler) = gate_handler else {
+        return Err(refuse(
+            "its registration carries no handler to render the command into".to_string(),
+        ));
+    };
+    gate_handler.insert("command".to_string(), JsonValue::String(command));
+    Ok(std::borrow::Cow::Owned(fields))
 }
 
 /// The desired projection of one member: its identity, the harness-relative path it
@@ -1601,11 +1700,9 @@ pub fn emit(
                 // group and append it, so two rows sharing a lifecycle event accumulate as
                 // the two groups they are (the flat object a naive insert would write is
                 // silently ignored).
-                let group = crate::json_manifest::hook_matcher_group(
-                    &registration.fields,
-                    &member_key,
-                    &lifted_fields,
-                );
+                let fields = gate_rendered_fields(registration)?;
+                let group =
+                    crate::json_manifest::hook_matcher_group(&fields, &member_key, &lifted_fields);
                 if let JsonValue::Array(groups) = segment
                     .entry(registration.key.clone())
                     .or_insert_with(|| JsonValue::Array(Vec::new()))

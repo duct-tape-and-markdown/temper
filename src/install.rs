@@ -193,6 +193,88 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 /// Public so the guard-hook acceptance can drive the exact wired command.
 pub const GUARD_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
 
+/// The temper binary a gate hook runs when its member declares none — `temper`, resolved
+/// on the PATH. A gate hook member states one fact, the binary it runs, and this is that
+/// fact's default (`specs/model/adoption.md`, "Install"; decision 0082).
+pub const DEFAULT_GATE_BINARY: &str = "temper";
+
+/// Which temper verb a gate hook fires — the half of its command the binary does not
+/// state. [`GATE_HOOKS`] pairs each hook with one; [`render_gate_command`] joins it to a
+/// binary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GateVerb {
+    /// The advisory session-start report ([`SESSION_START_COMMAND`]).
+    SessionStart,
+    /// The write-boundary guard, at either edge ([`GUARD_COMMAND`]).
+    Guard,
+}
+
+impl GateVerb {
+    /// The arguments the binary is invoked with.
+    fn args(self) -> &'static str {
+        match self {
+            Self::SessionStart => "check . --reporter session-start",
+            Self::Guard => "guard .",
+        }
+    }
+
+    /// The command this verb renders to at [`DEFAULT_GATE_BINARY`] — byte-equal to
+    /// [`render_gate_command`] there (pinned by this module's tests), kept as a `const` so
+    /// the seam's [`GATE_COMMAND_BINDINGS`] and the installed-gate check still read it.
+    const fn default_command(self) -> &'static str {
+        match self {
+            Self::SessionStart => SESSION_START_COMMAND,
+            Self::Guard => GUARD_COMMAND,
+        }
+    }
+}
+
+/// `word` as one POSIX shell word: bare when every byte is one no shell treats specially
+/// (so `temper` and `./node_modules/.bin/temper` render as written), single-quoted
+/// otherwise, with each embedded `'` closed, escaped and reopened.
+fn shell_word(word: &str) -> std::borrow::Cow<'_, str> {
+    let bare = !word.is_empty()
+        && word
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"-_./+@%:=,".contains(&b));
+    if bare {
+        std::borrow::Cow::Borrowed(word)
+    } else {
+        std::borrow::Cow::Owned(format!("'{}'", word.replace('\'', "'\\''")))
+    }
+}
+
+/// The exec-form command a gate hook firing `verb` runs with `binary` as temper: the
+/// resolvability probe (`command -v`, so a bare name resolves on the PATH and a path
+/// resolves as itself), the fail-loud exit 127 naming the binary it could not find, then
+/// the verb. The engine's one home for rendering a gate command (0073): at
+/// [`DEFAULT_GATE_BINARY`] it is today's [`SESSION_START_COMMAND`] / [`GUARD_COMMAND`]
+/// byte for byte.
+fn render_gate_command(verb: GateVerb, binary: &str) -> String {
+    let word = shell_word(binary);
+    let missing = match &word {
+        std::borrow::Cow::Borrowed(_) => format!("\"{binary}: command not found\""),
+        std::borrow::Cow::Owned(_) => {
+            shell_word(&format!("{binary}: command not found")).into_owned()
+        }
+    };
+    format!(
+        "command -v {word} >/dev/null 2>&1 || {{ echo {missing} >&2; exit 127; }} && {word} {}",
+        verb.args()
+    )
+}
+
+/// The command the gate hook keyed under lifecycle `event` runs with `binary` as temper —
+/// `None` where `event` is not one temper's gate rides ([`GATE_HOOKS`]). `emit` reads a
+/// gate hook member's declared binary through this, so the bytes a represented harness
+/// projects are rendered here and nowhere else.
+pub fn gate_hook_command(event: &str, binary: &str) -> Option<String> {
+    GATE_HOOKS
+        .iter()
+        .find(|hook| hook.event == event)
+        .map(|hook| render_gate_command(hook.verb, binary))
+}
+
 /// temper's gate commands paired with the TS binding each is exported under across the
 /// SDK seam. The engine is the one home for the *bytes* — above — and this table is the
 /// one home for the *names*: the seam gate (`tests/it/seam_bindings_current.rs`)
@@ -243,7 +325,10 @@ struct GateHook {
     event: &'static str,
     /// The tool-name filter, absent on an event that fires unconditionally.
     matcher: Option<&'static str>,
-    /// The exec-form command, this module's own constant.
+    /// The temper verb the hook fires; its command renders from this and a binary
+    /// ([`render_gate_command`]), at [`DEFAULT_GATE_BINARY`] unless the member declares one.
+    verb: GateVerb,
+    /// The command at [`DEFAULT_GATE_BINARY`] — [`GateVerb::default_command`].
     command: &'static str,
 }
 
@@ -260,19 +345,22 @@ const GATE_HOOKS: [GateHook; GATE_HOOK_COUNT] = [
         placement: Placement::SessionStart,
         event: "SessionStart",
         matcher: None,
-        command: SESSION_START_COMMAND,
+        verb: GateVerb::SessionStart,
+        command: GateVerb::SessionStart.default_command(),
     },
     GateHook {
         placement: Placement::GuardHook,
         event: "PreToolUse",
         matcher: Some(GUARD_MATCHER),
-        command: GUARD_COMMAND,
+        verb: GateVerb::Guard,
+        command: GateVerb::Guard.default_command(),
     },
     GateHook {
         placement: Placement::PostToolUseHook,
         event: "PostToolUse",
         matcher: Some(BASH_MATCHER),
-        command: GUARD_COMMAND,
+        verb: GateVerb::Guard,
+        command: GateVerb::Guard.default_command(),
     },
 ];
 
@@ -2826,7 +2914,7 @@ fn scaffold(
 
 /// The kind row label temper's own gate hooks scaffold under — the same `hook` kind any
 /// authored `hooks.<Event>` member takes.
-const GATE_HOOK_KIND: &str = "hook";
+pub(crate) const GATE_HOOK_KIND: &str = "hook";
 
 /// Where one gate hook's member module sits under the workspace dir — also, prefixed
 /// `./`, the `harness.ts` import specifier that reaches it. One home for both, so the
