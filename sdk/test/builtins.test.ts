@@ -1440,7 +1440,7 @@ test("two same-named kinds neither relocating the other refuse, naming both loci
   assert.throws(compileDeclarations.bind(null, h), (error: Error) => {
     assert.match(error.message, /two kinds named `rule` are in play/);
     // Both loci: the refusal names the two declarations the author has to go look at.
-    assert.match(error.message, /\.claude\/rules\/\*\.md/);
+    assert.match(error.message, /\.claude\/rules\/\*\*\/\*\.md/);
     assert.match(error.message, /docs\/\*\.md/);
     return true;
   });
@@ -1455,7 +1455,7 @@ test("two diverging relocations of one base refuse the same way", () => {
   });
   assert.throws(compileDeclarations.bind(null, h), (error: Error) => {
     assert.match(error.message, /two relocations of kind `rule` are in play/);
-    assert.match(error.message, /\.claude\/rules\/\*\.md/);
+    assert.match(error.message, /\.claude\/rules\/\*\*\/\*\.md/);
     assert.match(error.message, /decisions\/\*\.md/);
     return true;
   });

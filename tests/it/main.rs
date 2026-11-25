@@ -14,6 +14,7 @@ mod common;
 mod acceptance;
 mod agent_kind;
 mod builtin_contract_matrix;
+mod builtin_loci;
 mod builtin_lock_frozen;
 mod bundle;
 mod check_cost;

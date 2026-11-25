@@ -162,6 +162,7 @@ mod tests {
             // empty. Comparing those would assert the lift's defaults, not agreement.
             let name = &row.name;
             assert_eq!(lifted.governs, spelled.governs, "{name}: governs");
+            assert_eq!(lifted.excluded, spelled.excluded, "{name}: excluded");
             assert_eq!(lifted.commitment, spelled.commitment, "{name}: commitment");
             assert_eq!(lifted.format, spelled.format, "{name}: format");
             assert_eq!(lifted.unit_shape, spelled.unit_shape, "{name}: unit_shape");

@@ -192,7 +192,7 @@ unit_shape = "file"
 [[declaration.kind]]
 name = "rule"
 governs_root = ".claude/rules"
-governs_glob = "*.md"
+governs_glob = "**/*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]

@@ -335,13 +335,15 @@ export interface Rule {
 }
 
 /**
- * `rule` — `.claude/rules/<name>.md`, a lone file (identity from the stem), YAML
- * frontmatter; registers a path scope (code.claude.com/docs/en/memory, retrieved
- * 2026-07-15).
+ * `rule` — a `<name>.md` at any depth under `.claude/rules/`, a lone file (identity
+ * from the stem), YAML frontmatter; registers a path scope
+ * (code.claude.com/docs/en/memory, retrieved 2026-07-15). The locus recurses: "All `.md` files are discovered recursively, so
+ * you can organize rules into subdirectories like `frontend/` or `backend/`"
+ * (code.claude.com/docs/en/memory, retrieved 2026-11-24).
  */
 export const rule: KindDefinition<Rule> = kind<Rule>({
   name: "rule",
-  locus: { kind: "at", root: ".claude/rules", glob: "*.md" },
+  locus: { kind: "at", root: ".claude/rules", glob: "**/*.md" },
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "paths-match", field: "paths" }],
@@ -361,11 +363,20 @@ export interface Memory {
  * `format`. A project `CLAUDE.md` may sit at either `./CLAUDE.md` or
  * `./.claude/CLAUDE.md` — equal documented locations (same source) — and the
  * any-depth locus (a `CLAUDE.md` at any directory) covers both; a
- * module-carried memory projects the root file.
+ * module-carried memory projects the root file. The locus excludes the `.claude/`
+ * folders another built-in loader owns — `agents`, `commands`, `rules`, `skills`: the
+ * memory docs describe no `CLAUDE.md` inside them loading as memory, and the rules
+ * loader discovers every `.md` under `.claude/rules/` recursively
+ * (code.claude.com/docs/en/memory, retrieved 2026-11-24; decision 0084).
  */
 export const memory: KindDefinition<Memory> = kind<Memory>({
   name: "memory",
-  locus: { kind: "at", root: ".", glob: "**/CLAUDE.md" },
+  locus: {
+    kind: "at",
+    root: ".",
+    glob: "**/CLAUDE.md",
+    exclude: [".claude/agents", ".claude/commands", ".claude/rules", ".claude/skills"],
+  },
   unitShape: "file",
   registration: [{ via: "always" }],
   guidance:

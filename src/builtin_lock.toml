@@ -179,6 +179,7 @@ collection_address = { key_path = "mcpServers.*", entry_shape = "object" }
 name = "memory"
 governs_root = "."
 governs_glob = "**/CLAUDE.md"
+exclude = [".claude/agents", ".claude/commands", ".claude/rules", ".claude/skills"]
 unit_shape = "file"
 registration = ["always"]
 guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."
@@ -194,7 +195,7 @@ guidance = "leave `version` unset while iterating, so the commit SHA drives upda
 [[declaration.kind]]
 name = "rule"
 governs_root = ".claude/rules"
-governs_glob = "*.md"
+governs_glob = "**/*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]

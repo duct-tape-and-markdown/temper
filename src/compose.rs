@@ -625,6 +625,9 @@ pub fn overlay_builtin_kind(
     let mut overlaid = kind.clone();
     if let Some((root, glob)) = row.governs_root.clone().zip(row.governs_glob.clone()) {
         overlaid.governs = Some(kind::Governs { root, glob });
+        // The row's exclude belongs to the locus it rides beside: a relocated locus
+        // carries the row's exclusions, never the built-in's for a template it replaced.
+        overlaid.excluded = row.exclude.clone();
     }
     if !row.templates.is_empty() {
         overlaid = overlaid.overlay_templates(&row.templates);

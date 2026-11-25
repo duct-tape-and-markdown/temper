@@ -2617,7 +2617,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .find(|k| k.name == "rule")
         .expect("the rule kind fact is embedded");
     assert_eq!(rule.governs_root.as_deref(), Some(".claude/rules"));
-    assert_eq!(rule.governs_glob.as_deref(), Some("*.md"));
+    assert_eq!(rule.governs_glob.as_deref(), Some("**/*.md"));
     assert_eq!(rule.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(rule.unit_shape.as_deref(), Some("file"));
     assert_eq!(rule.registration, vec!["paths-match(paths)".to_string()]);
@@ -2629,6 +2629,15 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .expect("the memory kind fact is embedded");
     assert_eq!(memory.governs_root.as_deref(), Some("."));
     assert_eq!(memory.governs_glob.as_deref(), Some("**/CLAUDE.md"));
+    assert_eq!(
+        memory.exclude,
+        vec![
+            ".claude/agents".to_string(),
+            ".claude/commands".to_string(),
+            ".claude/rules".to_string(),
+            ".claude/skills".to_string(),
+        ]
+    );
     assert_eq!(memory.format, None);
     assert_eq!(memory.unit_shape.as_deref(), Some("file"));
     assert_eq!(memory.registration, vec!["always".to_string()]);

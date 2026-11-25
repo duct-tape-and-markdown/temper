@@ -223,8 +223,11 @@ fn claude_code_agent() -> CustomKind {
     }
 }
 
-/// Anthropic's documented `.claude/rules/*.md` kind: a lone file whose identity is
+/// Anthropic's documented `.claude/rules/**/*.md` kind: a lone file whose identity is
 /// the filename stem, activated by its `paths` glob (or unconditionally, when absent).
+/// The locus recurses — "All `.md` files are discovered recursively, so you can organize
+/// rules into subdirectories like `frontend/` or `backend/`"
+/// (code.claude.com/docs/en/memory, retrieved 2026-11-24).
 fn claude_code_rule() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
@@ -236,7 +239,7 @@ fn claude_code_rule() -> CustomKind {
             "rule",
             Governs {
                 root: format!("{}/rules", CLAUDE_ROOT),
-                glob: "*.md".to_string(),
+                glob: "**/*.md".to_string(),
             },
             Extraction::new(vec![
                 Primitive::Field {
@@ -251,12 +254,29 @@ fn claude_code_rule() -> CustomKind {
     }
 }
 
+/// The `.claude/` folders another built-in loader owns, which the memory locus excludes:
+/// the memory docs describe no `CLAUDE.md` inside them loading as memory, and the rules
+/// loader discovers every `.md` under `.claude/rules/` recursively
+/// (code.claude.com/docs/en/memory, retrieved 2026-11-24; decision 0084).
+const MEMORY_EXCLUDED_LOADER_FOLDERS: [&str; 4] = [
+    ".claude/agents",
+    ".claude/commands",
+    ".claude/rules",
+    ".claude/skills",
+];
+
 /// Anthropic's documented `CLAUDE.md` memory kind: every `CLAUDE.md` in the
-/// repository, frontmatter-less (no `format`), loaded unconditionally at launch.
+/// repository outside the `.claude/` loader folders
+/// ([`MEMORY_EXCLUDED_LOADER_FOLDERS`]), frontmatter-less (no `format`), loaded
+/// unconditionally at launch.
 fn claude_code_memory() -> CustomKind {
     CustomKind {
         unit_shape: Some(crate::kind::UnitShape::File),
         registration: vec![Registration::Always],
+        excluded: MEMORY_EXCLUDED_LOADER_FOLDERS
+            .iter()
+            .map(|folder| (*folder).to_string())
+            .collect(),
         ..CustomKind::new(
             "memory",
             Governs {
@@ -967,7 +987,7 @@ mod tests {
             rule.governs,
             Some(Governs {
                 root: ".claude/rules".to_string(),
-                glob: "*.md".to_string(),
+                glob: "**/*.md".to_string(),
             })
         );
         assert_eq!(
