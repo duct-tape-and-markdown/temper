@@ -100,6 +100,10 @@ export type Locus =
        * the engine loads the lock; narrow member names with a clause, never the glob. */
       readonly glob: string;
       readonly commitment?: "local";
+      /** Paths the template would govern that the kind leaves ungoverned — each a
+       * starless, harness-relative literal the template matches (`domains/README.md`
+       * under `domains` + `*.md`). Anything else is refused when the engine loads the lock. */
+      readonly exclude?: readonly string[];
     }
   | { readonly kind: "embedded" }
   | { readonly kind: "nested-file" };
@@ -216,7 +220,7 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** Fact 2, locus — where members live, and for a file locus whether their documents
        * are committed: a `local` commitment class declares the kind reviewed and its
        * members' documents not. */
-      readonly locus: { readonly kind: "at"; readonly root: string; readonly glob: string; readonly commitment?: "local" };
+      readonly locus: Extract<Locus, { kind: "at" }>;
       /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
       readonly format?: Format;
       /** Fact 3b, projection — the on-disk unit shape. */

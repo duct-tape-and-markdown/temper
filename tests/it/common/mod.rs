@@ -666,6 +666,9 @@ fn kind_fact_table(row: &KindFactRow) -> Table {
             table[column] = value(cell.clone());
         }
     }
+    if !row.exclude.is_empty() {
+        table["exclude"] = value(row.exclude.iter().collect::<toml_edit::Array>());
+    }
     table
 }
 
@@ -1146,6 +1149,7 @@ pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFa
         governs_root: Some(".claude/skills".to_string()),
         governs_glob: Some("*/SKILL.md".to_string()),
         commitment: None,
+        exclude: Vec::new(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
         registration: registration.iter().map(|r| r.to_string()).collect(),
@@ -1168,6 +1172,7 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
         governs_root: Some(".claude/rules".to_string()),
         governs_glob: Some("*.md".to_string()),
         commitment: None,
+        exclude: Vec::new(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("file".to_string()),
         registration: registration.iter().map(|r| r.to_string()).collect(),
@@ -1193,6 +1198,7 @@ pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFac
         governs_root: Some(governs_root.to_string()),
         governs_glob: Some(governs_glob.to_string()),
         commitment: None,
+        exclude: Vec::new(),
         format: None,
         unit_shape: None,
         registration: Vec::new(),

@@ -42,6 +42,13 @@ governs_glob?: string,
  */
 commitment?: string, 
 /**
+ * The file locus's declared **excluded** paths — harness-relative, starless, each a
+ * path the locus template would otherwise govern, left ungoverned. Empty for a
+ * locus excluding nothing, the tolerant round-trip
+ * [`registration`](KindFactRow::registration) takes.
+ */
+exclude?: Array<string>, 
+/**
  * The declared projection format label, when declared.
  */
 format?: string, 

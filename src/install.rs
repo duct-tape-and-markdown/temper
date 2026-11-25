@@ -1387,7 +1387,7 @@ pub fn shell_edge_findings(
             &layout_sites,
             clause,
         ));
-        let sites = locus_member_sites(&harness_root, loci);
+        let sites = locus_member_sites(&harness_root, loci, &layout_loci.kinds);
         strays.extend(drift::undeclared_locus_members_from_doc(&doc, &sites, clause).findings);
     }
 
@@ -1399,11 +1399,19 @@ pub fn shell_edge_findings(
 /// payload: the pending-write edge tests one `file_path` against the patterns
 /// ([`matches_governed_locus`]), so here each locus root is enumerated instead
 /// ([`locus_files`], one bounded walk per locus) and every file under it matched against
-/// the same [`crate::glob::compile_glob`] pattern.
-fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::LocusMemberSite> {
+/// the same [`crate::glob::compile_glob`] pattern, less the paths the governing kind
+/// (looked up in `kinds`) excludes.
+fn locus_member_sites(
+    harness_root: &Path,
+    loci: &[GuardedLocus],
+    kinds: &BTreeMap<String, CustomKind>,
+) -> Vec<drift::LocusMemberSite> {
     let mut sites = Vec::new();
     for locus in loci {
         for (_, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
+            if kind_excludes(kinds, &locus.kind, &source_path) {
+                continue;
+            }
             sites.push(drift::LocusMemberSite {
                 kind: locus.kind.clone(),
                 source_path,
@@ -1431,6 +1439,9 @@ fn layout_member_sites(
     let mut sites = Vec::new();
     for locus in &loci.governed {
         for (file, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
+            if locus.kind.excludes(&source_path) {
+                continue;
+            }
             let Some(member) = crate::compose::governed_member_address(
                 &locus.kind,
                 harness_root,
@@ -1791,6 +1802,7 @@ impl LayoutGuard {
         let governed = self.loci.governed.iter().find(|locus| {
             crate::glob::compile_glob(&locus.pattern)
                 .is_some_and(|matcher| matcher.is_match(&normalized))
+                && !locus.kind.excludes(&normalized)
         });
         let member = match governed {
             Some(locus) => {
@@ -1869,7 +1881,9 @@ pub fn guard(
     let message = if let Some(targets) = targets {
         if let Some(owner) = matched_projection(file_path, root, targets) {
             format!("{}{}", guard_message(), projection_owner_line(owner))
-        } else if let Some(locus) = matches_governed_locus(file_path, root, loci) {
+        } else if let Some(locus) =
+            matches_governed_locus(file_path, root, loci, &layout.loci.kinds)
+        {
             undeclared_locus_message(&locus.kind, locus.custom)
         } else if let Some(finding) = layout.pending_finding(payload, file_path, root) {
             render_guard_findings(guard_layout_message(), &[finding])
@@ -2007,20 +2021,30 @@ fn projection_owner_line(owner: &drift::EmitOwnedEntry) -> String {
 /// The match itself is [`crate::glob::compile_glob`] — `literal_separator(true)`, so
 /// `*`/`?` stay inside one segment and `**` crosses them. That is exactly
 /// `import::scan_locus`'s per-segment walk semantics reached in one compare, so the
-/// guard binds the paths discovery would have walked and no others.
+/// guard binds the paths discovery would have walked and no others — a path the
+/// governing kind (looked up in `kinds`) excludes among those it never walks.
 fn matches_governed_locus<'a>(
     file_path: &str,
     root: &Path,
     loci: &'a [GuardedLocus],
+    kinds: &BTreeMap<String, CustomKind>,
 ) -> Option<&'a GuardedLocus> {
     let normalized = harness_relative(file_path, root)?;
     let locus = loci.iter().find(|locus| {
         crate::glob::compile_glob(&locus.pattern)
             .is_some_and(|matcher| matcher.is_match(&normalized))
+            && !kind_excludes(kinds, &locus.kind, &normalized)
     })?;
     // A path discovery would never reach — gitignored, or behind a fence — is no member
     // `check` judges, so the guard binds nothing there either.
     import::discovers_path(root, Path::new(&*normalized)).then_some(locus)
+}
+
+/// Whether the kind named `kind` in the effective set `kinds` excludes `path` from its
+/// locus. [`GuardedLocus`] carries the kind's name only, so its exclusions are read off the
+/// one effective kind set the layout guard already assembles ([`GuardedLayoutLoci::kinds`]).
+fn kind_excludes(kinds: &BTreeMap<String, CustomKind>, kind: &str, path: &str) -> bool {
+    kinds.get(kind).is_some_and(|kind| kind.excludes(path))
 }
 
 /// One represented manifest the `PreToolUse` guard checks a pending write against — its

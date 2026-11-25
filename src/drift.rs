@@ -4587,6 +4587,13 @@ pub struct KindFactRow {
     /// derive at read time under it.
     #[serde(default)]
     pub commitment: Option<String>,
+    /// The file locus's declared **excluded** paths — harness-relative, starless, each a
+    /// path the locus template would otherwise govern, left ungoverned. Empty for a
+    /// locus excluding nothing, the tolerant round-trip
+    /// [`registration`](KindFactRow::registration) takes.
+    #[serde(default)]
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub exclude: Vec<String>,
     /// The declared projection format label, when declared.
     #[serde(default)]
     pub format: Option<String>,
@@ -5582,6 +5589,9 @@ impl KindFactRow {
         if let Some(commitment) = &self.commitment {
             table.insert("commitment", value(commitment.clone()));
         }
+        if !self.exclude.is_empty() {
+            table.insert("exclude", value(string_array(&self.exclude)));
+        }
         if let Some(format) = &self.format {
             table.insert("format", value(format.clone()));
         }
@@ -5625,6 +5635,7 @@ impl KindFactRow {
             governs_root: opt_str(table, "governs_root")?,
             governs_glob: opt_str(table, "governs_glob")?,
             commitment: opt_str(table, "commitment")?,
+            exclude: opt_str_array(table, "exclude")?.unwrap_or_default(),
             format: opt_str(table, "format")?,
             unit_shape: opt_str(table, "unit_shape")?,
             registration: opt_str_array(table, "registration")?.unwrap_or_default(),

@@ -693,3 +693,20 @@ test("a layout field region's slot is bound to the kind's own typed surface", ()
     content: { regions: [{ region: "field", slot: "purpose" }] },
   });
 });
+
+test("an at locus's excluded paths round-trip through the kind's fact row", () => {
+  // The engine refuses an exclusion that is a pattern or sits off the locus; the SDK only
+  // carries the declared paths onto the row, and omits the column when none are declared.
+  const domain = kind<Record<never, never>>({
+    name: "domain",
+    locus: { kind: "at", root: "domains", glob: "*.md", exclude: ["domains/README.md"] },
+    unitShape: "file",
+    registration: [{ via: "always" }],
+  });
+  const result = emit(
+    harness({ members: [rule({ name: "rust", prose: text`# Rust` })], expect: [{ kind: domain, clauses: [] }] }),
+  );
+  const row = result.declarations.kinds.find((k) => k.name === "domain");
+  assert.deepEqual(row?.exclude, ["domains/README.md"]);
+  assert.equal(result.declarations.kinds.find((k) => k.name === "rule")?.exclude, undefined);
+});

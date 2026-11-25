@@ -478,6 +478,8 @@ fn unit_dir(root: &Path, entry: &Path) -> Option<PathBuf> {
 /// from. [`discover_builtin`] is the thin caller that always walks the kind's own
 /// governs.
 ///
+/// The kind's declared excluded paths are subtracted from the walk: no member owns one.
+///
 /// `over` decides whether the kind's own commitment class may override discovery's
 /// presumptions for this walk; the `kind` is what carries that class, which is why the
 /// generalized scan cannot decide it off `governs` alone.
@@ -488,6 +490,14 @@ pub fn discover_kind_files(
     over: LocalOverride,
 ) -> Vec<PathBuf> {
     let mut files = discover_kind_units(disc, governs, local_governs(kind, over));
+    if !kind.excluded.is_empty() {
+        let excluded: Vec<PathBuf> = kind
+            .excluded
+            .iter()
+            .map(|path| crate::path::normalize_path(&disc.harness().join(path)))
+            .collect();
+        files.retain(|file| !excluded.contains(file));
+    }
     if let Some(bare_file) = &kind.bare_root_file {
         let bare = disc.harness().join(bare_file);
         if bare.is_file() {

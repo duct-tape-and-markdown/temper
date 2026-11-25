@@ -132,6 +132,11 @@ pub struct CustomKind {
     /// [`local_locus_fault`](CustomKind::local_locus_fault) states; admissible over any
     /// declared content and format. Read back off the row's `commitment` column.
     pub commitment: Option<Commitment>,
+    /// The file locus's declared **excluded** paths — harness-relative, each a starless
+    /// path the [`governs`](CustomKind::governs) template matches, which no member of
+    /// the kind owns: discovery, `locus-declared` and the guard all leave it ungoverned
+    /// ([`excludes`](CustomKind::excludes)). Read back off the row's `exclude` column.
+    pub excluded: Vec<String>,
     /// The filename a kind additionally recognizes directly at the harness root,
     /// alongside its `governs` subdirectory locus. `None` for every kind today except
     /// `skill`, which declares `Some("SKILL.md".to_string())` — the bare-root-is-a-skill
@@ -525,8 +530,16 @@ impl CustomKind {
             content: Content::File,
             collection_address: None,
             commitment: None,
+            excluded: Vec::new(),
             bare_root_file: None,
         }
+    }
+
+    /// Whether `harness_relative` — a `/`-separated path under the harness — is one of the
+    /// kind's declared [`excluded`](CustomKind::excluded) paths.
+    #[must_use]
+    pub fn excludes(&self, harness_relative: &str) -> bool {
+        self.excluded.iter().any(|path| path == harness_relative)
     }
 
     /// Declare this kind's file locus **local** — per-machine and uncommitted
@@ -613,7 +626,8 @@ impl CustomKind {
     /// # Errors
     ///
     /// Returns a [`LockRowError`] when the `governs_glob` is not a placement template
-    /// ([`PLACEMENT_TEMPLATE_COLUMN`]), or when a `format`/`unit_shape`/`registration`/`shape`/
+    /// ([`PLACEMENT_TEMPLATE_COLUMN`]), when an `exclude` entry is not a starless path the
+    /// locus governs ([`EXCLUDE_COLUMN`]), or when a `format`/`unit_shape`/`registration`/`shape`/
     /// `collection_address` label or a layout region falls outside its closed vocabulary —
     /// the tool-written lock carries only labels the SDK could emit, so an unknown one is
     /// corruption rejected at load.
@@ -650,6 +664,7 @@ impl CustomKind {
             content: content_from_row(row)?,
             collection_address: collection_address_from_row(row)?,
             commitment: commitment_from_row(row)?,
+            excluded: excluded_from_row(row)?,
             bare_root_file: None,
             ..CustomKind::with_locus(
                 row.name.clone(),
@@ -914,6 +929,41 @@ pub(crate) fn at_locus_is_under_workspace(root: &str, commitment: Option<Commitm
     }
     Path::new(root).starts_with(crate::WORKSPACE_DIR)
 }
+
+/// Lift a [`KindFactRow`]'s `exclude` column: each entry must be a starless literal path
+/// the row's own file locus template matches — a pattern would subtract a set no author
+/// can enumerate, and a path off the locus (or a kind with no locus) subtracts nothing.
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] naming [`EXCLUDE_COLUMN`] and the first entry that is not
+/// such a path.
+fn excluded_from_row(row: &KindFactRow) -> Result<Vec<String>, LockRowError> {
+    let pattern = row
+        .governs_root
+        .as_ref()
+        .zip(row.governs_glob.as_ref())
+        .map(|(root, glob)| locus_pattern(root, glob));
+    for path in &row.exclude {
+        let starless = !path.contains(['*', '?', '[', ']', '{', '}', '\\']);
+        let governed = pattern.as_deref().is_some_and(|pattern| {
+            crate::glob::compile_glob(pattern).is_some_and(|matcher| matcher.is_match(path))
+        });
+        if !(starless && governed) {
+            return Err(LockRowError::Vocabulary {
+                family: "kind".to_string(),
+                column: EXCLUDE_COLUMN.to_string(),
+                value: path.clone(),
+            });
+        }
+    }
+    Ok(row.exclude.clone())
+}
+
+/// The column a malformed `exclude` entry refuses under, spelled to name the rule it
+/// broke.
+pub const EXCLUDE_COLUMN: &str =
+    "exclude (a starless, harness-relative path the kind's file locus template matches)";
 
 /// Lift a [`KindFactRow`]'s declared commitment label into its typed [`Commitment`] —
 /// `None` for a kind whose file locus is committed (the absent column).

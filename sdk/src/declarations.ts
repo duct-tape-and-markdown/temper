@@ -395,8 +395,8 @@ function leafSetRow(leaves: KindFacts["leaves"]): string[] | undefined {
  * One kind's fact row — an `at` locus supplies `governs_root`/`governs_glob` and any
  * other locus neither (a nested-file kind's path composes from its host's unit and the
  * host template's pattern; an embedded kind owns no unit at all — both govern no glob).
- * A file locus's `commitment` class rides the same spelling, absent for the committed
- * default. `templates` names the embedded kinds the corpus admits over it, and `content`
+ * A file locus's `commitment` class and `exclude` paths ride the same spelling, absent for
+ * the committed, nothing-excluded default. `templates` names the embedded kinds the corpus admits over it, and `content`
  * lowers a declared layout (absent for a `file`-content kind). A registration kind
  * extends the row with its `shape` marker and `collection_address`. A declared leaf-set
  * witness lowers to `leaves` ([`leafSetRow`]), absent for a kind declaring none. Advisory
@@ -413,6 +413,8 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     governs_root: governs?.root,
     governs_glob: governs?.glob,
     commitment: governs?.commitment,
+    // Spread rather than an `undefined` column: a row excluding nothing carries no key.
+    ...(governs?.exclude?.length ? { exclude: [...governs.exclude] } : {}),
     format: facts.format,
     unit_shape: unitShapeLabel(facts),
     // An embedded or nested-file kind declares no set — its locus already states it empty.
