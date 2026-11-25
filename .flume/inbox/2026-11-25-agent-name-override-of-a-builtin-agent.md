@@ -1,0 +1,3 @@
+# `agent.allowed_chars.name` refuses the exact name needed to override a built-in agent
+
+From the same real-harness probe (0.0.25; not lab-checked). One agent overrides a Claude Code built-in agent whose name has a capital letter. The override needs that exact name, so the lowercase-only `allowed_chars` clause makes the override impossible to write. Verify first (code.claude.com/docs/en/sub-agents): whether a project agent of a built-in agent's name overrides it, and that name's documented spelling. If so, the clause admits the documented built-in names, cited, and the finding keeps its reason for every other name. If the docs say otherwise, record that, and the finding stands.

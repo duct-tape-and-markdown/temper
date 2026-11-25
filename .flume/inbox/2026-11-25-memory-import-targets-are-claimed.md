@@ -1,0 +1,3 @@
+# A file a memory `@`-import reaches is reported unclaimed
+
+From the same real-harness probe (0.0.25). Two files pulled into the root memory by `@path` imports draw `coverage.unclaimed-entry`. `specs/model/contract.md`, "edge": an import directive is "a reference the target format itself executes … a file an import reaches carries the directives its format executes, whatever its kind". A file the runtime loads through an import is reached, and coverage that calls it unclaimed contradicts that. Coverage counts an import-reached file as claimed by the importing member, through the import edge, and the file stays judged by its own kind where it has one.
