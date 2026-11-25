@@ -1,0 +1,13 @@
+awake/
+held/
+prior-attempts/
+rendered-prompts/
+worktrees/
+tick-verdict/
+invocations/
+node_modules/
+loop.pid
+tick-verdicts.jsonl
+stop
+run-end.json
+friction/
