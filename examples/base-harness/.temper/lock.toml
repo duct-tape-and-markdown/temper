@@ -344,7 +344,7 @@ cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 20
 label = "root.fresh"
 predicate = "fresh"
 severity = "advisory"
-guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
+guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency has moved: a layout import, a prose include, a declared input, or — on the root member — a module the program itself loaded. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved declared input re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
 
 [[declaration.clause]]
 label = "root.locus-declared"
@@ -620,6 +620,76 @@ kind = "hook"
 key = "SessionStart"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/docs/decisions/authority-arrow.ts"
+import_hash = "5fbced4eec86a179ffb8f4bffb4226eafee93d848cdd2eb144a3c082df58c09b"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/docs/decisions/per-change-doc-duty.ts"
+import_hash = "ebf2ef78b0995fa9db67941497fb1084b051670e447af08244dfc567aa91932c"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/docs/flows/summarize.ts"
+import_hash = "f0c49f614105c48d7c900c39941acbb54e03fa5f153477e3b0dfbc10a7ab0733"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/docs/systems/renderer.ts"
+import_hash = "9b1c3df76bc3f34c422649d9e55eb2013757bb98bd43966cc70bcd8e55a0b176"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/docs/systems/scanner.ts"
+import_hash = "6d785c6e6516ee2349f083f82a4564d9a52efd6ad82306b87670c79f1e5b44b3"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/facts.ts"
+import_hash = "aa75a0eb2ddf78bdf6523400863e0e5eb8d04a21bb15a8fe7001477702b26bc2"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/harness.ts"
+import_hash = "0ace6d3d5933c4716e1eb7d48c7a94904d70c5bd519ec9e419d123b502ffbfd4"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/hooks.ts"
+import_hash = "24e983578b5243a0ce1fab7c4fae608cea02d8799d97253f5c2497a04fb80dfe"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/kinds.ts"
+import_hash = "ca7674636b1a2e486f09a61f06065a62c81ded711d27f947394099e30d92c569"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/memory/CLAUDE.ts"
+import_hash = "61b592521d3e3f7ab279e033fd3fa1861114cf85a17a9c24ca2aba13117f62bb"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/rules/conduct.ts"
+import_hash = "b4871e01768edf8f724a7a74ab445a363315ea1254210c2db574ff3a486f981e"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/rules/docs-discipline.ts"
+import_hash = "9e786133d2bf6c440e0c7030160bf14ce90b2b970121b04dec191c9868f9e4de"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/skills/grow-harness.ts"
+import_hash = "52edc7db8fc2913c6e62eb52db0928d31beb91933fa832b1f74c0cc6fbb021f3"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/skills/verify-summary.ts"
+import_hash = "b4c03f614aa8bf7b7ad65c8d258bd50e2f6710254b80edf4dcf29379159719b2"
 
 [[declaration.layout_prose]]
 member = "glossary:glossary"

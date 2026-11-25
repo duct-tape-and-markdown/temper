@@ -10,7 +10,8 @@
  */
 
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
+import { sep } from "node:path";
 
 import type { Harness } from "./assembly.js";
 import type {
@@ -1026,6 +1027,43 @@ export interface EmitResult {
 }
 
 /**
+ * The `globalThis` key the engine's `node --import` preload publishes the run's loaded
+ * `file:` URLs under (`src/drift.rs`, `LOADED_MODULES_KEY`). Change both.
+ */
+const LOADED_MODULES_KEY = Symbol.for("@dtmd/temper.loaded-modules");
+
+/**
+ * The real paths of every local module this run loaded, as the engine's preload recorded
+ * them — empty when no preload ran (the SDK driven outside `temper emit`). The judge is the
+ * real path, not the URL a specifier resolved through: a workspace package reached via a
+ * `node_modules` symlink is the author's own source and stays fingerprinted, while an
+ * installed package, whose real path sits under `node_modules`, is its lockfile's to pin.
+ */
+export function loadedLocalModules(): string[] {
+  const recorded = (globalThis as Record<symbol, unknown>)[LOADED_MODULES_KEY];
+  if (!(recorded instanceof Set)) {
+    return [];
+  }
+  const paths: string[] = [];
+  for (const url of recorded) {
+    if (typeof url !== "string" || !url.startsWith("file:")) {
+      continue;
+    }
+    const path = fileURLToPath(url);
+    let real: string;
+    try {
+      real = realpathSync(path);
+    } catch {
+      real = path;
+    }
+    if (!real.split(sep).includes("node_modules")) {
+      paths.push(real);
+    }
+  }
+  return paths;
+}
+
+/**
  * Compile the whole face in one deterministic pass: the declaration rows (its
  * rollup and its seven families) and every projected member's erased payload.
  * Prose resolves once (`file()` assets read in, mentions resolution-checked
@@ -1039,12 +1077,15 @@ export function emit(harness: Harness): EmitResult {
     deferrableKinds: declaredAtLocusKinds(harness),
     members: memberTable(harness),
   };
+  // Read once, ahead of both passes: the set is a fact about this run, not the harness.
+  const modules = loadedLocalModules();
   const compile = (): EmitResult => {
     const members = orderedMembers(harness, resolve);
     const declarations = compileDeclarations(
       harness,
       edgePlacements(harness, resolve),
       renderedExtents(harness, resolve),
+      modules,
     );
     return {
       declarations,

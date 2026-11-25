@@ -801,6 +801,14 @@ function inputRows(harness: Harness): InputRow[] {
 }
 
 /**
+ * The `module` rows — the program's loaded local modules, deduplicated and sorted so the
+ * row order is the set's, never the load order a refactor of import statements reshuffles.
+ */
+function moduleRows(modules: readonly string[]): string[] {
+  return [...new Set(modules)].sort(compareStrings);
+}
+
+/**
  * Each composed embedded value's placed edge fields, by {@link nestedAddress} — the very
  * address the `nested_member` row each entry feeds is identified by — `emit`'s record of
  * which declared edges each value's format actually rendered (`emit.ts`'s
@@ -1203,6 +1211,7 @@ export function compileDeclarations(
   harness: Harness,
   placements?: EdgePlacements,
   extents?: RenderedExtents,
+  modules: readonly string[] = [],
 ): Declarations {
   const allKinds = kindsInPlay(harness);
   const admissions = admissionsByHost(harness);
@@ -1230,6 +1239,7 @@ export function compileDeclarations(
     mentions: mentionRows(harness),
     includes: includeRows(harness),
     inputs: inputRows(harness),
+    modules: moduleRows(modules),
     nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements, extents),
     registrations: mergedRegistrationRows(harness),
     settings: settingsRows(harness),

@@ -220,6 +220,7 @@ fn rich_declarations() -> Declarations {
         }],
         includes: Vec::new(),
         inputs: Vec::new(),
+        modules: Vec::new(),
         nested_members: Vec::new(),
         registrations: Vec::new(),
         settings: Vec::new(),

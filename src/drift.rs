@@ -695,6 +695,7 @@ pub(crate) fn write_rollup(
     write_source_deps(&mut doc, LAYOUT_IMPORT_FAMILY, source_deps.layout_imports);
     write_source_deps(&mut doc, INCLUDE_FAMILY, source_deps.includes);
     write_source_deps(&mut doc, INPUT_FAMILY, source_deps.inputs);
+    write_source_deps(&mut doc, MODULE_FAMILY, source_deps.modules);
     write_layout_prose(&mut doc, layout_prose);
     write_layout_sources(&mut doc, layout_sources);
 
@@ -1494,6 +1495,8 @@ fn run_sdk_program(harness_entry: &Path) -> Result<String, DriftError> {
         })?;
     let entry_arg = strip_verbatim_prefix(&entry_arg);
     let output = Command::new("node")
+        .arg("--import")
+        .arg(module_recorder_preload())
         .arg(&entry_arg)
         .current_dir(cwd)
         .output()
@@ -1511,6 +1514,41 @@ fn run_sdk_program(harness_entry: &Path) -> Result<String, DriftError> {
         path: harness_entry.to_path_buf(),
         source,
     })
+}
+
+/// The `globalThis` symbol key the module recorder publishes its set under — the one name
+/// the engine's preload and the SDK's `emit` (`sdk/src/emit.ts`) agree on. Change both.
+const LOADED_MODULES_KEY: &str = "@dtmd/temper.loaded-modules";
+
+/// The engine-owned preload, as a `data:` URL for `node --import`: a synchronous
+/// `module.registerHooks` load hook recording every `file:` URL the run loads into a
+/// `Set` the SDK reads at emit. It has to run before the entry: ESM links every static
+/// import before any module body evaluates, so a hook registered from inside the SDK
+/// would see nothing. A Node without `registerHooks` refuses loud rather than emitting a
+/// lock that silently fingerprints no module.
+fn module_recorder_preload() -> String {
+    let source = format!(
+        "import module from \"node:module\";\n\
+         if (typeof module.registerHooks !== \"function\") {{\n\
+         throw new Error(\"temper emit needs Node's module.registerHooks (Node >= 22.15) to fingerprint the program's modules\");\n\
+         }}\n\
+         const seen = new Set();\n\
+         globalThis[Symbol.for({key:?})] = seen;\n\
+         module.registerHooks({{ load(url, context, nextLoad) {{\n\
+         if (url.startsWith(\"file:\")) seen.add(url);\n\
+         return nextLoad(url, context);\n\
+         }} }});\n",
+        key = LOADED_MODULES_KEY,
+    );
+    let mut url = String::from("data:text/javascript,");
+    for byte in source.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-_.~".contains(&byte) {
+            url.push(char::from(byte));
+        } else {
+            url.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    url
 }
 
 /// Strip Windows' `\\?\` verbatim-path prefix from a canonicalized path.
@@ -1621,6 +1659,7 @@ pub fn emit(
     // or not, and moves no byte into that member's artifact. A dangling input refuses
     // here, before any projection is derived, the same posture an include takes.
     let input_rows = resolve_inputs(&payload.declarations.inputs, &harness_root)?;
+    let module_rows = resolve_modules(&payload.declarations.modules, &harness_root)?;
 
     let mut projections = Vec::with_capacity(payload.members.len());
     // The composed-prose includes emit resolved this pass — each fingerprinted as a
@@ -2116,6 +2155,7 @@ pub fn emit(
                 layout_imports: &layout_import_rows,
                 includes: &include_rows,
                 inputs: &input_rows,
+                modules: &module_rows,
             },
             &layout_prose_rows,
             &layout_source_rows,
@@ -2936,6 +2976,33 @@ fn resolve_inputs(
         let relative = harness_relative(&input.member, &input.source_path, harness_root)?;
         let (row, _bytes) = resolve_source_dependency(
             &input.member,
+            &relative,
+            Path::new("."),
+            harness_root,
+            &no_members,
+        )?;
+        resolved.push(row);
+    }
+    Ok(resolved)
+}
+
+/// Fingerprint every local module the program's run loaded into the lock's `module`
+/// source-dependency family, each row owned by the root member: a moved module changes
+/// what the whole program compiles to, so no one member answers for it.
+///
+/// # Errors
+/// Returns [`DriftError::DanglingImport`] when a reported module no longer exists, or
+/// [`DriftError::Read`] when it exists but cannot be read.
+fn resolve_modules(
+    rows: &[String],
+    harness_root: &Path,
+) -> Result<Vec<LayoutImportRow>, DriftError> {
+    let no_members = BTreeMap::new();
+    let mut resolved = Vec::with_capacity(rows.len());
+    for module in rows {
+        let relative = harness_relative(contract::ROOT_OWNER, module, harness_root)?;
+        let (row, _bytes) = resolve_source_dependency(
+            contract::ROOT_OWNER,
             &relative,
             Path::new("."),
             harness_root,
@@ -3841,7 +3908,7 @@ pub struct LayoutImportRow {
     pub import_hash: String,
 }
 
-/// The three source-dependency families one emit pass derived, gathered for the lock
+/// The four source-dependency families one emit pass derived, gathered for the lock
 /// write ([`write_rollup`]). Named rather than positional: every family is the same
 /// `LayoutImportRow` slice, so three adjacent parameters would swap silently.
 pub(crate) struct SourceDeps<'a> {
@@ -3851,6 +3918,8 @@ pub(crate) struct SourceDeps<'a> {
     pub(crate) includes: &'a [LayoutImportRow],
     /// The members' declared inputs.
     pub(crate) inputs: &'a [LayoutImportRow],
+    /// The local modules the program's run loaded, owned by the root member.
+    pub(crate) modules: &'a [LayoutImportRow],
 }
 
 /// The root lock key naming the engine version that wrote the file. Root-level, not a
@@ -3880,6 +3949,8 @@ const LAYOUT_IMPORT_FAMILY: &str = "layout_import";
 const INCLUDE_FAMILY: &str = "include";
 /// The lock family key declared inputs fingerprint under.
 const INPUT_FAMILY: &str = "input";
+/// The lock family key the program's loaded local modules fingerprint under.
+const MODULE_FAMILY: &str = "module";
 
 /// The remedy a moved layout-import or composed-prose include target reports: its bytes
 /// were copied into the referencing projection, so re-emitting is the whole reconciliation.
@@ -4390,6 +4461,29 @@ pub fn input_stale_from_doc(
     )
 }
 
+/// The drift findings for the program's loaded modules from an already-parsed lock
+/// document — a module whose bytes moved or went unreadable, reported under `clause`'s
+/// label at `clause`'s declared severity with the re-emit remedy: the program is a
+/// function of its modules, so re-running it is the whole reconciliation.
+///
+/// # Errors
+///
+/// Returns a [`DriftError::LockRow`] if a present row is malformed.
+pub fn module_stale_from_doc(
+    doc: &DocumentMut,
+    harness_root: &Path,
+    clause: &contract::Clause,
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+    source_dep_stale_from_doc(
+        doc,
+        harness_root,
+        MODULE_FAMILY,
+        "program module",
+        REEMIT_REMEDY,
+        clause,
+    )
+}
+
 // ---------------------------------------------------------------------------
 // emit-owned paths — the lock-grounded basis for `install`'s guard/note/modeline
 // placements
@@ -4536,6 +4630,13 @@ pub struct Declarations {
     /// this family empty.
     #[serde(default)]
     pub inputs: Vec<InputRow>,
+    /// The real, absolute path of every local module the program's own run loaded — any
+    /// `file:` module whose real path sits under no `node_modules` directory, since an
+    /// installed package is its package lockfile's to pin. Seam-inbound like `inputs`:
+    /// `emit` fingerprints each as a `module` source dependency owned by the root member,
+    /// so a lock round-trip reads this family empty.
+    #[serde(default)]
+    pub modules: Vec<String>,
     /// The host members' declared embedded-member facts — captured as declaration
     /// rows rather than a second copy the engine reads back off the rendered fence
     /// (0018, "the projection is not the database").
@@ -5449,6 +5550,8 @@ pub(crate) fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, L
         // source dependency at emit, never written into this declaration table, so a lock
         // round-trip reads none.
         inputs: Vec::new(),
+        // Loaded modules are seam-inbound only, lowered to the `module` source dependency.
+        modules: Vec::new(),
         nested_members: family(table, "nested_member", NestedMemberRow::from_table)?,
         registrations: family(table, "registration", RegistrationRow::from_table)?,
         // Settings residue is seam-inbound only — folded into its manifest's opaque residue
@@ -6879,6 +6982,7 @@ mod tests {
                 layout_imports: &import,
                 includes: &import,
                 inputs: &import,
+                modules: &import,
             },
             &[LayoutProseRow {
                 member: "spec:intent".to_string(),

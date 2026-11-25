@@ -8,7 +8,7 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -43,6 +43,7 @@ import {
 import * as sdk from "../src/index.js";
 import type { LeafSet, ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
+import { loadedLocalModules } from "../src/emit.js";
 import { agent, hook, mcpServer, memory, rule, settings, skill } from "../src/claude-code.js";
 import { clauseRow } from "./common.js";
 
@@ -111,6 +112,43 @@ test("emit is byte-stable across a double pass", () => {
   const a = emit(projectedHarness());
   const b = emit(projectedHarness());
   assert.equal(a.seam, b.seam);
+});
+
+test("the payload's module set excludes node_modules", () => {
+  // The engine's preload publishes the run's loaded `file:` URLs under this symbol; a
+  // stand-in set plays it here. The workspace package reached through a `node_modules`
+  // symlink is judged by its real path, so it stays; the installed one does not.
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "temper-modules-")));
+  const key = Symbol.for("@dtmd/temper.loaded-modules");
+  const scope = globalThis as Record<symbol, unknown>;
+  try {
+    const program = join(dir, "harness.ts");
+    const installed = join(dir, "node_modules", "pkg", "index.js");
+    const workspace = join(dir, "packages", "shared", "index.js");
+    const linked = join(dir, "node_modules", "shared");
+    mkdirSync(join(dir, "node_modules", "pkg"), { recursive: true });
+    mkdirSync(join(dir, "packages", "shared"), { recursive: true });
+    for (const path of [program, installed, workspace]) {
+      writeFileSync(path, "export {};\n");
+    }
+    symlinkSync(join(dir, "packages", "shared"), linked, "dir");
+    scope[key] = new Set([
+      pathToFileURL(program).href,
+      pathToFileURL(installed).href,
+      pathToFileURL(join(linked, "index.js")).href,
+      "node:fs",
+    ]);
+
+    assert.deepEqual(loadedLocalModules().sort(), [program, workspace].sort());
+    assert.deepEqual(emit(projectedHarness()).declarations.modules, [program, workspace].sort());
+  } finally {
+    delete scope[key];
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("emit reports no modules when no engine preload recorded any", () => {
+  assert.deepEqual(emit(projectedHarness()).declarations.modules, []);
 });
 
 test("a skill and an agent project the grown frontmatter fields, identity first then authored order", () => {

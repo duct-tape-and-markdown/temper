@@ -32,6 +32,7 @@ use temper::placement;
 
 use crate::common;
 use crate::common::{fresh_clause, hook_kind_facts, workspace};
+use crate::module_closure::{is_vendored_sdk, without_module_rows};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -2905,7 +2906,12 @@ fn emit_program_runs_the_shipped_example_harness() {
     // is stale. The engine stamp is compared like any other byte, deliberately: an
     // adopter's committed lock takes this same one-line diff on every upgrade, and a
     // normalization here would hide exactly the churn the release bump owes them.
-    let derived = fs::read_to_string(&lock).expect("emit writes the example's lock into the copy");
+    // The vendored SDK's module rows name this checkout, so they are held out of both
+    // sides; the example's own modules compare like any other row.
+    let derived = without_module_rows(
+        &fs::read_to_string(&lock).expect("emit writes the example's lock into the copy"),
+        is_vendored_sdk,
+    );
     assert_eq!(
         derived, carried,
         "examples/base-harness/.temper/lock.toml has drifted from what the example's own \

@@ -76,6 +76,14 @@ includes: Array<IncludeRow>,
  */
 inputs: Array<InputRow>, 
 /**
+ * The real, absolute path of every local module the program's own run loaded — any
+ * `file:` module whose real path sits under no `node_modules` directory, since an
+ * installed package is its package lockfile's to pin. Seam-inbound like `inputs`:
+ * `emit` fingerprints each as a `module` source dependency owned by the root member,
+ * so a lock round-trip reads this family empty.
+ */
+modules: Array<string>, 
+/**
  * The host members' declared embedded-member facts — captured as declaration
  * rows rather than a second copy the engine reads back off the rendered fence
  * (0018, "the projection is not the database").

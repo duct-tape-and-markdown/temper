@@ -98,15 +98,16 @@ pub fn site_class(kind: &CustomKind) -> Option<SiteClass> {
 }
 
 /// The source-dependency half of the root `fresh` clause over an already-parsed lock: every
-/// fingerprinted layout-import, composed-prose include and declared-input target whose
-/// bytes no longer match the lock, in that order, under `clause`'s label and severity.
+/// fingerprinted layout-import, composed-prose include, declared-input and program-module
+/// target whose bytes no longer match the lock, in that order, under `clause`'s label and
+/// severity.
 ///
-/// The one door both `check` and `temper guard`'s post edge take to these three judges, so
+/// The one door both `check` and `temper guard`'s post edge take to these four judges, so
 /// a source dependency the gate calls stale is one the guard calls stale too.
 ///
 /// # Errors
 ///
-/// Propagates the [`drift::DriftError`] a malformed row in any of the three families raises.
+/// Propagates the [`drift::DriftError`] a malformed row in any of the four families raises.
 pub fn source_dependency_stale(
     lock_doc: &toml_edit::DocumentMut,
     harness_root: &Path,
@@ -119,6 +120,11 @@ pub fn source_dependency_stale(
         clause,
     )?);
     findings.extend(drift::input_stale_from_doc(lock_doc, harness_root, clause)?);
+    findings.extend(drift::module_stale_from_doc(
+        lock_doc,
+        harness_root,
+        clause,
+    )?);
     Ok(findings)
 }
 
@@ -858,9 +864,9 @@ pub fn gate(
     diagnostics.extend(undeclared_locus.findings);
 
     // The source-dependency half of the same `fresh` clause: a fingerprinted
-    // layout-import, composed-prose include or declared-input target whose bytes no
-    // longer match the lock — the target moved and `emit` has not re-run. All three read
-    // the pre-parsed lock document, so a third family costs no read and no parse.
+    // layout-import, composed-prose include, declared-input or program-module target whose
+    // bytes no longer match the lock — the target moved and `emit` has not re-run. All
+    // read the pre-parsed lock document, so another family costs no read and no parse.
     if let Some(clause) = fresh_clause {
         diagnostics.extend(source_dependency_stale(
             &lock_doc,

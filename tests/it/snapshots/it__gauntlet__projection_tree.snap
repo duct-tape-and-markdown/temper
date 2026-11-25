@@ -251,7 +251,7 @@ cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 20
 label = "root.fresh"
 predicate = "fresh"
 severity = "advisory"
-guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
+guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency has moved: a layout import, a prose include, a declared input, or — on the root member — a module the program itself loaded. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved declared input re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
 
 [[declaration.clause]]
 label = "root.locus-declared"
@@ -352,6 +352,11 @@ key_path = "extraKnownMarketplaces.*"
 member = "charter:gate"
 source_path = "docs/preamble.md"
 import_hash = "7240f751ea8dd0ae24f270af57ea630716a5acf78741302a6e35f18426de5683"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/harness.ts"
+import_hash = "5f0f80d427270efa69902a45e9924c6232e643bfb8ed510ce55cce3e9785c3cf"
 
 [[declaration.layout_prose]]
 member = "guide:operate-the-gate/spec/representation"

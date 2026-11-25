@@ -28,6 +28,7 @@ use temper::drift::{self, EmitOptions};
 use temper::kind::{CustomKind, Registration};
 
 use crate::common;
+use crate::module_closure::without_module_rows;
 
 /// A memberless harness binding every built-in kind to every built-in default contract via
 /// `expect` — no members, so `compileDeclarations` (`sdk/src/declarations.ts`) emits
@@ -138,6 +139,18 @@ fn the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit() {
 
     let derived_text = fs::read_to_string(into.join("lock.toml"))
         .expect("emit_program writes a lock.toml carrying the memberless declaration rows");
+    // The module family is a fact about the program that ran, never the std-lib: a
+    // stranger gate fingerprinting this run's `.temper/harness.ts` would hash a file no
+    // other harness has. So the derived side carries it and the compare drops it whole.
+    assert!(
+        derived_text.contains("source_path = \".temper/harness.ts\""),
+        "the derived lock fingerprints the program that produced it"
+    );
+    assert!(
+        !embedded_lock_text().contains("[[declaration.module]]"),
+        "the embedded lock carries no module rows"
+    );
+    let derived_text = without_module_rows(&derived_text, |_| true);
     let (derived_prefix, derived) = split_at_declaration_rows("derived", &derived_text);
     let (_header, embedded) = split_at_declaration_rows("embedded", &embedded_lock_text());
 

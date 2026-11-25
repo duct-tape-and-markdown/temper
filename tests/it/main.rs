@@ -53,6 +53,7 @@ mod mcp_kind;
 mod mcp_server_kind;
 mod memory_contract;
 mod memory_gate;
+mod module_closure;
 mod nested_member;
 mod plugin_manifest_kind;
 mod projection_path_seam;

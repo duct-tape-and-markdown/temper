@@ -36,6 +36,7 @@ use std::path::Path;
 use temper::drift::{self, EmitOptions};
 
 use crate::common;
+use crate::module_closure::{is_vendored_sdk, without_module_rows};
 
 /// The one kitchen-sink harness program. Every composition the model claims legal
 /// that ships today, in one `harness()` — the base the queued feature cells extend.
@@ -352,7 +353,10 @@ fn projection_tree(harness: &Path, report: &drift::EmitReport) -> String {
         out.push_str(&format!("\n=== {rel} ===\n"));
         let text = String::from_utf8_lossy(&bytes);
         if rel.ends_with(".temper/lock.toml") {
-            out.push_str(&redact_engine_stamp(&text));
+            out.push_str(&redact_engine_stamp(&without_module_rows(
+                &text,
+                is_vendored_sdk,
+            )));
         } else {
             out.push_str(&text);
         }
