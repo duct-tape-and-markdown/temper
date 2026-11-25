@@ -18,13 +18,15 @@ John 2026-11-25, who accepted the break in the next release.
 
 ## Decision
 
-**Emit typechecks the program before running it, and refuses on a type
-error** (`pipeline.md`, "Emit", Refusing). It uses the program's own
-resolved TypeScript and names the compiler's diagnostics. A program with
-no resolvable TypeScript refuses, naming the install that fixes it. The
-toolchain is held by its version and packages by their lockfile
-(`authoring.md`), so the compiler is the program's own and never pinned
-in the lock.
+**The program declares its typecheck, and emit runs it before the program,
+refusing on a type error** (`pipeline.md`, "Emit", Refusing). The
+declaration is the consumer's own toolchain: the compiler command and the
+project file, never resolved by guess, as a gate hook states its binary
+(0082). The project file is a declared input (0064), so a change to it
+marks the lock stale. A program that declares no typecheck refuses,
+naming the declaration. Amended the same day, before derivation, on
+John's point that the compiler is the consumer's package to configure and
+register.
 
 ## Rejected
 
@@ -33,11 +35,16 @@ in the lock.
   shapes. The break lands with the version bump.
 - **`typescript` as a runtime dependency of the SDK.** That makes a second
   compiler beside the program's, which can disagree with its editor.
+- **Resolving the program's TypeScript implicitly.** That is temper guessing
+  at the consumer's toolchain, the PATH guess 0082 retired for the gate
+  binary.
 - **Report and continue.** It runs a program the compiler has called
   wrong, so its lock is built from a shape that was never checked.
 
 ## Consequences
 
-`install` scaffolds `typescript` and a `tsconfig` into `.temper/`. The
-migration note names the break and the fix: run `tsc` and correct what it
-reports. Emit pays one typecheck per run, the price of delivery.
+`install` scaffolds the declaration, a `tsconfig` and `typescript` as a
+dependency of `.temper/`, so a new harness gets one line it owns. The
+migration note names the break and the fix: declare the typecheck, run it,
+and correct what it reports. Emit pays one typecheck per run, the price of
+delivery.
