@@ -399,3 +399,34 @@ fn an_exclude_naming_a_directory_the_template_never_reaches_refuses_at_load() {
         );
     }
 }
+
+/// A kind at the rooted any-depth locus `docs` + `**/*.md` excluding the directory
+/// `exclude` — the built-in rule locus's shape.
+fn rooted_any_depth_excluding(exclude: &str) -> KindFactRow {
+    KindFactRow {
+        exclude: vec![exclude.to_string()],
+        ..common::kind_facts("note", "docs", "**/*.md")
+    }
+}
+
+#[test]
+fn an_exclude_naming_a_directory_deeper_than_the_template_under_a_rooted_any_depth_locus_loads() {
+    for dir in ["docs", "docs/a", "docs/a/b", "docs/a/b/c/d"] {
+        CustomKind::from_kind_fact_row(&rooted_any_depth_excluding(dir)).unwrap_or_else(|err| {
+            panic!("`{dir}` lies under the root the `**` descends from: {err}")
+        });
+    }
+}
+
+#[test]
+fn an_exclude_naming_a_directory_outside_a_rooted_any_depth_locus_root_refuses_at_load() {
+    for dir in ["notes", "notes/a/b", "doc", "docsx/a"] {
+        let err = CustomKind::from_kind_fact_row(&rooted_any_depth_excluding(dir))
+            .expect_err("a directory outside the locus root must refuse");
+        let message = err.to_string();
+        assert!(
+            message.contains(dir) && message.contains(EXCLUDE_COLUMN),
+            "the refusal names `{dir}` and the rule, got: {message}"
+        );
+    }
+}

@@ -882,30 +882,30 @@ fn is_at_or_beneath(path: &str, excluded: &str) -> bool {
 /// Whether the locus `pattern` ([`locus_pattern`], a placement template) matches some path
 /// strictly beneath the directory `dir` — the test that makes a directory exclusion
 /// subtract something. The template's literal segments and its one `*` are matched per
-/// segment against `dir`'s leading components; under a leading `**/` the directory may
-/// sit at any depth above the template's body, so any directory a match can descend
-/// through counts.
+/// segment against `dir`'s leading components; past a `**` segment — leading, or after a
+/// rooted locus's root (`docs/**/*.md`) — the directory may sit at any depth above the
+/// template's body, so any directory a match can descend through counts.
 fn template_reaches_beneath(pattern: &str, dir: &str) -> bool {
-    let (anywhere, body) = match pattern.strip_prefix("**/") {
-        Some(body) => (true, body),
-        None => (false, pattern),
-    };
-    let template: Vec<&str> = body.split('/').collect();
+    let template: Vec<&str> = pattern.split('/').collect();
     let dir: Vec<&str> = dir.split('/').collect();
-    let prefix_matches = |components: &[&str]| {
-        components.len() < template.len()
-            && components
-                .iter()
-                .zip(&template)
-                .all(|(component, segment)| {
-                    crate::glob::compile_glob(segment).is_some_and(|m| m.is_match(component))
-                })
+    let segments_match = |components: &[&str], segments: &[&str]| {
+        components.iter().zip(segments).all(|(component, segment)| {
+            crate::glob::compile_glob(segment).is_some_and(|m| m.is_match(component))
+        })
     };
-    if anywhere {
-        (0..=dir.len()).any(|start| prefix_matches(&dir[start..]))
-    } else {
-        prefix_matches(&dir)
+    let prefix_matches = |components: &[&str], segments: &[&str]| {
+        components.len() < segments.len() && segments_match(components, segments)
+    };
+    let Some(any_depth) = template.iter().position(|segment| *segment == "**") else {
+        return prefix_matches(&dir, &template);
+    };
+    let (root, body) = (&template[..any_depth], &template[any_depth + 1..]);
+    if dir.len() <= root.len() {
+        // At or above the root: `**` may match nothing, so the body lies beneath.
+        return segments_match(&dir, root);
     }
+    segments_match(&dir[..root.len()], root)
+        && (root.len()..=dir.len()).any(|start| prefix_matches(&dir[start..], body))
 }
 
 /// The column a non-template `governs_glob` refuses under, spelled to name the rule it
