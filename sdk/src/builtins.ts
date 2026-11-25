@@ -162,6 +162,9 @@ export interface SupportingDoc {
  * file is body), identity from the filename, and channel-less: a supporting file reaches
  * the world only through the skill whose body references it, never on a channel of its
  * own (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-07-16).
+ * The locus is the host's: "Skills can include multiple files in their directory", the
+ * documented layout placing `reference.md` and `examples.md` beside `SKILL.md`
+ * (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-11-24).
  */
 export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>({
   name: "supporting-doc",
@@ -183,6 +186,10 @@ export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>(
  * files"). The pattern claims the markdown subset the prose-only child kind can hold —
  * a supporting file of another type (the docs' own `scripts/helper.py`) matches nothing
  * and stays unmodeled rather than mis-typed.
+ *
+ * The locus is the project row of the documented load table,
+ * `.claude/skills/<skill-name>/SKILL.md` (code.claude.com/docs/en/skills, "Choose where
+ * skills load", retrieved 2026-11-24).
  */
 export const skill: KindDefinition<Skill> = kind<Skill>({
   name: "skill",
@@ -202,6 +209,10 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
  * retrieved 2026-07-15): a lone file (identity from the stem, so no
  * `identityField` — like `rule`), the skill's field schema by import, registering
  * on the same two documented invocation channels as `skill`.
+ *
+ * The locus is the documented placement: "a Markdown file in `.claude/commands/` is the
+ * older format and still works" (code.claude.com/docs/en/skills, "Choose where skills
+ * load", retrieved 2026-11-24).
  */
 export const command: KindDefinition<Skill> = kind<Skill>({
   name: "command",
@@ -313,7 +324,10 @@ export interface Agent {
  * `name` then `description`; identity is the `name` field (never the filename),
  * the named-field mode; registers on the description-trigger channel only — no
  * user-invoked slash command (code.claude.com/docs/en/sub-agents, retrieved
- * 2026-07-15).
+ * 2026-07-15). The locus is the project row, `.claude/agents/`, and recurses: "Claude
+ * Code scans `.claude/agents/` and `~/.claude/agents/` recursively, so you can organize
+ * definitions into subfolders" (code.claude.com/docs/en/sub-agents, "Choose the subagent
+ * scope", retrieved 2026-11-24).
  */
 export const agent: KindDefinition<Agent> = kind<Agent>({
   name: "agent",
@@ -339,7 +353,7 @@ export interface Rule {
  * from the stem), YAML frontmatter; registers a path scope
  * (code.claude.com/docs/en/memory, retrieved 2026-07-15). The locus recurses: "All `.md` files are discovered recursively, so
  * you can organize rules into subdirectories like `frontend/` or `backend/`"
- * (code.claude.com/docs/en/memory, retrieved 2026-11-24).
+ * (code.claude.com/docs/en/memory, "Organize rules with `.claude/rules/`", retrieved 2026-11-24).
  */
 export const rule: KindDefinition<Rule> = kind<Rule>({
   name: "rule",
@@ -363,7 +377,11 @@ export interface Memory {
  * `format`. A project `CLAUDE.md` may sit at either `./CLAUDE.md` or
  * `./.claude/CLAUDE.md` — equal documented locations (same source) — and the
  * any-depth locus (a `CLAUDE.md` at any directory) covers both; a
- * module-carried memory projects the root file. The locus excludes the `.claude/`
+ * module-carried memory projects the root file. The locus is the project row,
+ * "`./CLAUDE.md` or `./.claude/CLAUDE.md`", at any depth because "Claude also discovers
+ * `CLAUDE.md` and `CLAUDE.local.md` files in subdirectories under your current working
+ * directory" (code.claude.com/docs/en/memory, "Choose where to put CLAUDE.md files" and
+ * "How CLAUDE.md files load", retrieved 2026-11-24). The locus excludes the `.claude/`
  * folders another built-in loader owns — `agents`, `commands`, `rules`, `skills`: the
  * memory docs describe no `CLAUDE.md` inside them loading as memory, and the rules
  * loader discovers every `.md` under `.claude/rules/` recursively
@@ -961,7 +979,9 @@ export interface PluginManifest {
  * It owns its file, so it carries no collection address, and it is channel-less: a
  * manifest carries distribution metadata rather than session content, so it reaches the
  * model on no channel of its own — what it reaches is the installer
- * (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16).
+ * (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16). The locus is the
+ * documented one: "Save the manifest at `.claude-plugin/plugin.json` under the plugin
+ * root" (code.claude.com/docs/en/plugins-reference, "Manifest file", retrieved 2026-11-24).
  */
 export const pluginManifest: KindDefinition<PluginManifest> = kind<PluginManifest>({
   name: "plugin-manifest",
@@ -1279,7 +1299,10 @@ export interface Marketplace {
  * stem is `marketplace` for every catalog ever written. Like its `plugin-manifest`
  * sibling it owns its file (no collection address) and is channel-less: a catalog is read
  * by the installer, never surfaced to the model
- * (code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-16).
+ * (code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-16). The locus is the
+ * documented one: a marketplace is "a directory or repository with a
+ * `.claude-plugin/marketplace.json` file" (code.claude.com/docs/en/plugin-marketplaces,
+ * "Create a marketplace", retrieved 2026-11-24).
  */
 export const marketplace: KindDefinition<Marketplace> = kind<Marketplace>({
   name: "marketplace",
@@ -1512,7 +1535,9 @@ export interface SettingsLocal {
  * key names it). The keys it does not type ride {@link SettingsLocal.residue}, the opaque
  * channel 0036's partial governance names. Channel-less: machine configuration read by the
  * harness, never surfaced to the model (code.claude.com/docs/en/settings, retrieved
- * 2026-07-16; decisions 0032/0034/0036).
+ * 2026-07-16; decisions 0032/0034/0036). The locus is the "Project local" row,
+ * `.claude/settings.local.json`, which "Claude Code keeps … out of git"
+ * (code.claude.com/docs/en/settings, "Settings files and who they affect", retrieved 2026-11-24).
  */
 export const settingsLocal: KindDefinition<SettingsLocal> = kind<SettingsLocal>({
   name: "settings-local",
@@ -1632,6 +1657,10 @@ export interface Settings {
  * address order, then the residue — which the member itself authors through
  * {@link Settings.residue}, flat and key-sorted behind its typed fields
  * (code.claude.com/docs/en/settings, retrieved 2026-09-22).
+ *
+ * The locus is the "Shared project" row, `.claude/settings.json` — "In a git repository,
+ * commit it so teammates get it" (code.claude.com/docs/en/settings, "Settings files and
+ * who they affect", retrieved 2026-11-24).
  */
 export const settings: KindDefinition<Settings> = kind<Settings>({
   name: "settings",
@@ -1718,7 +1747,9 @@ export interface Mcp {
  * its own kind ({@link mcpServer}). That segment and this member's opaque residue are one
  * file: emit renders the declared segment first, then the residue — which the member itself
  * authors through {@link Mcp.residue}, flat and key-sorted
- * (code.claude.com/docs/en/mcp, retrieved 2026-09-29).
+ * (code.claude.com/docs/en/mcp, retrieved 2026-09-29). The locus is the project root:
+ * "add the entry under `mcpServers` in `.mcp.json` at your project root and commit it"
+ * (code.claude.com/docs/en/mcp, "Add a server from an `mcpServers` JSON block", retrieved 2026-11-24).
  */
 export const mcp: KindDefinition<Mcp> = kind<Mcp>({
   name: "mcp",
