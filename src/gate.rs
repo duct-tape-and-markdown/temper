@@ -454,6 +454,7 @@ pub fn gate(
     let graph::DirectiveClassing {
         edges: directive_arcs,
         findings: unbacked_pointers,
+        reached_files: import_reached_files,
     } = graph::classify_directives(
         &compose::directive_members_from_resolved(
             // The declaring-kind flag per member: the traversal's seed set is the kinds
@@ -851,6 +852,7 @@ pub fn gate(
         &member_counts,
         &nested_member_counts,
         &undeclared_locus.counts,
+        &import_reached_files,
     ));
 
     // The freshness facts — the root member's own `fresh` clause, whose subject is every

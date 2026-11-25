@@ -265,6 +265,7 @@ fn the_coverage_advisory_does_not_count_a_path_its_kind_excludes_as_governed() {
         &BTreeMap::new(),
         &BTreeMap::new(),
         &BTreeMap::new(),
+        &std::collections::BTreeSet::new(),
     );
     let unclaimed: Vec<&str> = diagnostics
         .iter()

@@ -146,6 +146,7 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
         &BTreeMap::new(),
         &BTreeMap::new(),
         &BTreeMap::new(),
+        &std::collections::BTreeSet::new(),
     );
     assert!(
         diagnostics
@@ -688,6 +689,50 @@ fn the_claude_dir_memory_member_is_disclosed_as_checked_and_never_also_a_stray()
         !unclaimed.iter().any(|f| f.contains(".claude/CLAUDE.md")),
         "a checked member is never also unclaimed — one file, one verdict, got: \
          {unclaimed:#?}"
+    );
+    assert!(
+        success,
+        "the coverage note stays advisory, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_file_a_memory_import_reaches_draws_no_unclaimed_entry_finding() {
+    // The root memory file imports a `.claude/` file no kind governs: the import edge is
+    // what loads it, so the importer claims it. A sibling nothing imports stays a stray,
+    // and a reached file that has its own kind is still judged — counted — by that kind.
+    let harness = common::tmpdir("import-reached-claimed");
+    fs::create_dir_all(harness.join(".claude/rules")).unwrap();
+    fs::write(
+        harness.join("CLAUDE.md"),
+        "# Memory\n\nSee @.claude/notes.md and @.claude/rules/style.md.\n",
+    )
+    .unwrap();
+    fs::write(harness.join(".claude/notes.md"), "# Notes\n").unwrap();
+    fs::write(
+        harness.join(".claude/rules/style.md"),
+        "# Style\n\nBe terse.\n",
+    )
+    .unwrap();
+    fs::write(harness.join(".claude/stray.md"), "").unwrap();
+
+    let (findings, success) = check_harness(&harness);
+
+    let unclaimed = common::findings_for(&findings, "coverage.unclaimed-entry");
+    assert!(
+        unclaimed.iter().any(|f| f.contains(".claude/stray.md")),
+        "the scan is populated and still names the file nothing imports, got: {findings:#?}"
+    );
+    assert!(
+        !unclaimed.iter().any(|f| f.contains(".claude/notes.md")),
+        "an import-reached file is claimed by its importer, got: {unclaimed:#?}"
+    );
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(checked.len(), 1, "{findings:#?}");
+    assert!(
+        checked[0].contains("rule (1)") && checked[0].contains("memory (1)"),
+        "a reached file with its own kind is still judged by that kind, got: {}",
+        checked[0]
     );
     assert!(
         success,

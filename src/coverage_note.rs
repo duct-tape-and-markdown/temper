@@ -8,7 +8,7 @@
 //! claim.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::builtin_kind::{CLAUDE_ROOT, KNOWN_SURFACES};
 use crate::check::Diagnostic;
@@ -45,13 +45,17 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 /// a `note`-severity **disclosure** (no clause declares it, so `--deny-advisories` never
 /// promotes it), and each stray `.claude/` entry nothing claims is a `warn`-severity
 /// advisory — a real gap the corpus closes by modelling it — so the gate's silence about
-/// an unexamined entry never reads as "checked".
+/// an unexamined entry never reads as "checked". `import_reached` is the set of
+/// non-member files a memory `@path` import reaches
+/// ([`crate::graph::DirectiveClassing::reached_files`]), spelled under `root`: each is
+/// claimed by its importer through the import edge, so it is no stray.
 pub fn check(
     root: &Path,
     declared_kinds: &BTreeMap<String, CustomKind>,
     member_counts: &BTreeMap<String, usize>,
     nested_member_counts: &BTreeMap<String, usize>,
     undeclared_counts: &BTreeMap<String, usize>,
+    import_reached: &BTreeSet<PathBuf>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
@@ -118,7 +122,11 @@ pub fn check(
     // built-in claims its new one — the raw embedded definitions would read a relocated
     // built-in's pre-relocation locus and name its real one a stray.
     for (path, is_dir) in claude_entries(root) {
-        if governed_by_any_path(declared_kinds, &path, is_dir) || KNOWN_SURFACES.contains(&&*path) {
+        if governed_by_any_path(declared_kinds, &path, is_dir)
+            || KNOWN_SURFACES.contains(&&*path)
+            || (!is_dir
+                && import_reached.contains(&crate::path::normalize_path(&root.join(&*path))))
+        {
             continue;
         }
         diagnostics.push(Diagnostic::warn(
@@ -278,6 +286,7 @@ mod tests {
             &counts,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
         let summary = diagnostics
             .iter()
@@ -303,6 +312,7 @@ mod tests {
             &counts,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("checked 1 member across 1 kind:"));
@@ -322,6 +332,7 @@ mod tests {
             &counts,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("command (2)"));
@@ -340,6 +351,7 @@ mod tests {
             &counts,
             &nested,
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(
@@ -370,6 +382,7 @@ mod tests {
             &counts,
             &nested,
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(
@@ -496,6 +509,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
 
         let matches: Vec<_> = diagnostics
@@ -518,6 +532,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
 
         assert!(
@@ -541,6 +556,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
 
         assert!(
@@ -562,6 +578,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
 
         assert!(
@@ -591,6 +608,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeSet::new(),
         );
 
         let strays: Vec<&str> = diagnostics

@@ -622,6 +622,7 @@ fn coverage_note_scans_over_the_runs_effective_kind_set() {
             &member_counts,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &std::collections::BTreeSet::new(),
         )
     };
     let names_widgets = |diagnostics: &[temper::check::Diagnostic]| {

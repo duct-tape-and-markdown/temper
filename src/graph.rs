@@ -1526,6 +1526,10 @@ pub struct DirectiveClassing {
     /// to the importing member. Only a **reached** member's occurrences are judged: an
     /// occurrence nothing executes loads nothing and so loses no context.
     pub findings: Vec<Diagnostic>,
+    /// The backed repo files a reached occurrence resolved to that no member owns — the
+    /// boundary half of the import relation, normalized in the importing member's path
+    /// domain. Such a file is claimed by its importer: what loads it is the import.
+    pub reached_files: BTreeSet<PathBuf>,
 }
 
 /// Resolves whether one cited `@import` target is **backed** — given the resolved,
@@ -1603,6 +1607,7 @@ pub fn classify_directives(
 
     let mut edges = Vec::new();
     let mut findings = Vec::new();
+    let mut reached_files = BTreeSet::new();
     // One hop per round, so a chain longer than the format's recursion cap stops there:
     // the tail loads nothing, and classing it would report an edge nothing follows.
     for _ in 0..MAX_IMPORT_HOPS {
@@ -1619,10 +1624,12 @@ pub fn classify_directives(
                     if classed.insert(*to) {
                         next.insert(*to);
                     }
-                } else if !backed(&resolved) {
+                } else if backed(&resolved) {
+                    // A one-way boundary edge: no finding, no member edge.
+                    reached_files.insert(resolved);
+                } else {
                     // Neither a member nor a repo file: an unbacked pointer that loads
-                    // nothing. A backed repo file is a one-way boundary edge — no finding,
-                    // no member edge.
+                    // nothing.
                     findings.push(unbacked_pointer(&member.id, target));
                 }
             }
@@ -1632,7 +1639,11 @@ pub fn classify_directives(
         }
         frontier = next;
     }
-    DirectiveClassing { edges, findings }
+    DirectiveClassing {
+        edges,
+        findings,
+        reached_files,
+    }
 }
 
 /// Resolve a directive target against the importing member's file: an absolute target
