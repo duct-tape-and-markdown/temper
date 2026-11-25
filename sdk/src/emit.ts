@@ -21,7 +21,7 @@ import type {
   Member,
   ResolvedEmbeddedMemberValue,
 } from "./kind.js";
-import type { MentionScope, Text } from "./prose.js";
+import type { Mentionable, MentionScope, Text } from "./prose.js";
 import { checkMentions, defersToGate, isTextSpan, renderText, resolveEmbeddedLeaves } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations, RenderedExtent } from "./declarations.js";
@@ -685,14 +685,49 @@ function renderedExtents(harness: Harness, options: ResolveOptions): Map<string,
  * address, a discovery-locus one deferred; `context` naming the host) and the
  * display rule applied, each include slot left standing for the engine to splice.
  * Shared by a `text` body and a composed body's prose spans, so a narrative span
- * resolves the identical way a member-level `text` body does.
+ * resolves the identical way a member-level `text` body does. A path-form mention renders
+ * as its target's projection path read from `host`'s ({@link mentionPath}).
  *
  * # Throws
- * If a mention names no declared value and has no discovery locus.
+ * If a mention names no declared value and has no discovery locus, or a path-form
+ * mention's target projects no file ({@link mentionPath}).
  */
-function renderTextBody(prose: Text, scope: MentionScope, context: string): string {
-  checkMentions(prose.mentions, scope, context);
-  return renderText(prose);
+function renderTextBody(host: Member, prose: Text, options: ResolveOptions, context: string): string {
+  checkMentions(prose.mentions, scopeOf(options), context);
+  return renderText(prose, (target) =>
+    target.form === "path" ? mentionPath(host, target, options, context) : target.display,
+  );
+}
+
+/**
+ * A path-form mention's rendering: the target's projection path relative to the host's,
+ * by the same {@link relativeProjection} an edge target's `path` fact is derived by, so
+ * a hand-written link and a rendered one are never two spellings of one placement.
+ *
+ * Only a composed member that owns a file has a path: a deferred target is discovered on
+ * disk where emit derives no placement, an embedded value lands inside its host's body,
+ * and a registration writes into a shared document — each refuses by name, before any
+ * byte is written.
+ *
+ * # Throws
+ * If the target resolves to no composed member, or to one that projects no file.
+ */
+function mentionPath(host: Member, target: Mentionable, options: ResolveOptions, context: string): string {
+  const reference = `${context}: path-form mention of \`${target.address}\``;
+  const member = options.members?.get(target.address);
+  if (member === undefined) {
+    throw new Error(
+      `${reference} names no composed member — a path is derived off the target's placement, ` +
+        `and emit places only what the program composes (specs/model/authoring.md, "The SDK").`,
+    );
+  }
+  if (isNested(member) || !isProjected(member)) {
+    throw new Error(
+      `${reference}, which projects no file — there is no path to render; mention it by name ` +
+        `(specs/model/representation.md, "locus").`,
+    );
+  }
+  return relativeProjection(projectionPath(host), projectionPath(member));
 }
 
 /**
@@ -722,18 +757,19 @@ function resolveBody(member: Member, options: ResolveOptions): string {
       );
     }
   }
-  const scope = scopeOf(options);
+  const context = `member \`${member.name}\``;
   if (prose.kind === "blocks") {
-    const context = `member \`${member.name}\``;
     return (
       prose.values
         .map((value) =>
-          isTextSpan(value) ? renderTextBody(value, scope, context) : renderMemberBlock(member, value, options),
+          isTextSpan(value)
+            ? renderTextBody(member, value, options, context)
+            : renderMemberBlock(member, value, options),
         )
         .join("\n\n") + "\n"
     );
   }
-  return renderTextBody(prose, scope, `member \`${member.name}\``);
+  return renderTextBody(member, prose, options, context);
 }
 
 /**

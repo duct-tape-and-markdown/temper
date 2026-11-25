@@ -15,7 +15,7 @@
 
 // Prose — four constructors, one field type; references (mention · include) ride `text`,
 // and `span()` is the same inline prose from a string the program computed.
-export type { Blocks, File, Include, Mention, Mentionable, Prose, Reference, Text } from "./prose.js";
+export type { Blocks, File, Include, Mention, Mentionable, MentionForm, MentionOptions, Prose, Reference, Text } from "./prose.js";
 export { blocks, file, include, mentionOf, renderText, span, text } from "./prose.js";
 
 // Needs — the derived permission union's source.

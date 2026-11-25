@@ -24,6 +24,26 @@ export interface Mentionable {
   readonly address: string;
   /** The display text the one corpus-wide rule renders in place. */
   readonly display: string;
+  /**
+   * The mention's rendered form, when not {@link display}: `"path"` renders the target's
+   * projection path relative to the host's own, derived at emit off both members'
+   * placements — so a link to a supporting doc is the one bound spelling of where the
+   * doc lands, never a hand-written restatement of it. Absent, the display renders.
+   */
+  readonly form?: MentionForm;
+}
+
+/**
+ * How a mention renders in its host's words: `"name"` (the default) as the target's
+ * {@link Mentionable.display}, `"path"` as the target's projection path relative to the
+ * host's — a target that projects no file has no path, and emit refuses it by name.
+ */
+export type MentionForm = "name" | "path";
+
+/** The rendering choice {@link mentionOf} takes. */
+export interface MentionOptions {
+  /** The form the mention renders as; `"name"` when omitted. */
+  readonly as?: MentionForm;
 }
 
 /**
@@ -35,9 +55,14 @@ export interface Mentionable {
  * A user-invoked member placed under a subdirectory's own locus displays the invocation
  * spelling its placement gives instead ({@link nestedInvocation}): the address stays the
  * identity, the display is what the user types.
+ *
+ * `{ as: "path" }` renders the mention as the target's projection path relative to the
+ * host's instead ({@link MentionForm}) — `text\`See [the reference](${mentionOf(doc, { as:
+ * "path" })}).\`` in a skill body emits `reference.md`, wherever the two land.
  */
-export function mentionOf(member: Member): Mentionable {
-  return { address: memberAddress(member), display: nestedInvocation(member) ?? member.name };
+export function mentionOf(member: Member, options: MentionOptions = {}): Mentionable {
+  const mention = { address: memberAddress(member), display: nestedInvocation(member) ?? member.name };
+  return options.as === "path" ? { ...mention, form: "path" } : mention;
 }
 
 /**
@@ -364,15 +389,39 @@ export function isTextSpan(value: Text | EmbeddedMemberValue): value is Text {
  * Render an inline body to its final text — the display rule applied: each
  * mention slot becomes its target's display form, the surrounding words
  * untouched. The chunk count is `mentions.length + 1` by {@link text}'s
- * construction, so the walk consumes every slot.
+ * construction, so the walk consumes every slot. `render` is the per-mention rule; emit
+ * passes one that also derives a path-form mention's relative path, and the default
+ * ({@link displayOf}) refuses one, having no host placement to derive it from.
+ *
+ * # Throws
+ * If the default rule meets a path-form mention ({@link displayOf}).
  */
-export function renderText(prose: Text): string {
+export function renderText(prose: Text, render: (target: Mentionable) => string = displayOf): string {
   const chunks = prose.template.split(MENTION_SLOT);
   let out = chunks[0];
   prose.mentions.forEach((mention, i) => {
-    out += mention.target.display + chunks[i + 1];
+    out += render(mention.target) + chunks[i + 1];
   });
   return out;
+}
+
+/**
+ * The display rule alone: a mention renders as its {@link Mentionable.display}. A
+ * path-form mention ({@link MentionForm}) is refused — its path is derived off the host's
+ * placement, which only emit knows, so rendering it here would spell the name where the
+ * author bound a path.
+ *
+ * # Throws
+ * If the target is a path-form mention.
+ */
+function displayOf(target: Mentionable): string {
+  if (target.form === "path") {
+    throw new Error(
+      `mention of \`${target.address}\` renders as a path, which is derived off its host's ` +
+        `projection at emit — render the host through \`emit\` (specs/model/authoring.md, "The SDK").`,
+    );
+  }
+  return target.display;
 }
 
 /**
@@ -395,6 +444,14 @@ export function resolveLeaf(value: string | Text, scope: MentionScope, context: 
     );
   }
   checkMentions(value.mentions, scope, context);
+  const path = value.mentions.find((mention) => mention.target.form === "path");
+  if (path !== undefined) {
+    throw new Error(
+      `${context}: mention of \`${path.target.address}\` renders as a path, but an embedded-member ` +
+        `leaf is a fenced value, not a document a relative path is read from — mention it by ` +
+        `name here (specs/model/authoring.md, "The SDK").`,
+    );
+  }
   return renderText(value);
 }
 

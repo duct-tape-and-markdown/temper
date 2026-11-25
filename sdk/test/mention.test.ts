@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { blocks, embeddedMemberValue, emit, harness, kind, mentionOf, text } from "../src/index.js";
+import { blocks, embeddedMemberValue, emit, harness, kind, mentionOf, renderText, text } from "../src/index.js";
 import { memory, rule, skill, supportingDoc } from "../src/claude-code.js";
 
 /** The `decision` embedded kind the host below nests — host-free, admitted over `memory` per harness. */
@@ -266,4 +266,98 @@ test("a resolved edge target carries both host-relative and repo-rooted path fac
   const result = emit(h);
   const body = result.members.find((m) => m.name === "CLAUDE")!.body;
   assert.equal(body, "relative: .claude/rules/rust.md, rooted: .claude/rules/rust.md\n");
+});
+
+test("a path-form mention renders the target's projection path relative to the host's", () => {
+  // The skill cites its own supporting doc: the doc is placed under the skill's unit, so
+  // the link the body carries is the doc's path read from SKILL.md — never hand-written.
+  const placement = skill({ name: "deploy", description: "Use when deploying." });
+  const doc = supportingDoc({ name: "reference", host: placement, prose: text`# Reference` });
+  const host = skill({
+    name: "deploy",
+    description: "Use when deploying.",
+    prose: text`See [the reference](${mentionOf(doc, { as: "path" })}).`,
+  });
+  // A doc citing a sibling skill's SKILL.md climbs out of its own unit first.
+  const other = skill({ name: "release", description: "Use when releasing.", prose: text`# Release` });
+  const citer = supportingDoc({
+    name: "notes",
+    host: placement,
+    prose: text`Then [release](${mentionOf(other, { as: "path" })}).`,
+  });
+
+  const result = emit(harness({ members: [host, doc, other, citer] }));
+  const body = (name: string) => result.members.find((m) => m.name === name)!.body;
+  assert.match(body("deploy"), /See \[the reference\]\(reference\.md\)\./);
+  assert.match(body("notes"), /Then \[release\]\(\.\.\/release\/SKILL\.md\)\./);
+  // The path form changes the rendering, never the edge: the mention row is the same.
+  assert.ok(
+    result.declarations.mentions.some(
+      (row) => row.member === "skill:deploy" && row.target === "skill:deploy/supporting-doc/reference",
+    ),
+  );
+});
+
+test("mentionOf's path form marks the mention while the name form stays the bare pair", () => {
+  const member = rule({ name: "rust", prose: text`# Rust` });
+  assert.deepEqual(mentionOf(member, { as: "path" }), {
+    address: "rule:rust",
+    display: "rust",
+    form: "path",
+  });
+  assert.deepEqual(mentionOf(member, { as: "name" }), { address: "rule:rust", display: "rust" });
+});
+
+test("a path-form mention of a member that projects no file refuses at emit, before any write", () => {
+  const citer = rule({
+    name: "citations",
+    prose: text`It upholds ${{
+      address: "memory:CLAUDE/decision/done-is-exact",
+      display: "done-is-exact",
+      form: "path",
+    }}.`,
+  });
+  const h = harness({ members: [hostWithEmbeddedMember(), citer], admit: [admitDecision] });
+  assert.throws(
+    () => emit(h),
+    /member `citations`: path-form mention of `memory:CLAUDE\/decision\/done-is-exact`, which projects no file/,
+  );
+});
+
+test("a path-form mention deferring to check refuses at emit — a discovered target has no derived placement", () => {
+  const citer = rule({
+    name: "citations",
+    prose: text`It rests on ${{ address: "source:main", display: "main", form: "path" }}.`,
+  });
+  const h = harness({ members: [citer], expect: [{ kind: sourceKind, clauses: [] }] });
+  assert.throws(() => emit(h), /path-form mention of `source:main` names no composed member/);
+});
+
+test("a path-form mention in an embedded-member leaf refuses by the leaf's name", () => {
+  const cited = rule({ name: "rust", prose: text`# Rust` });
+  const h = harness({
+    members: [
+      cited,
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: memoryDecision,
+            key: "top",
+            leaves: { chosen: text`See ${mentionOf(cited, { as: "path" })}.` },
+          }),
+        ),
+      }),
+    ],
+    admit: [admitDecision],
+  });
+  assert.throws(
+    () => emit(h),
+    /member\.decision top: leaf `chosen`: mention of `rule:rust` renders as a path/,
+  );
+});
+
+test("renderText outside emit refuses a path-form mention rather than spelling its name", () => {
+  const cited = rule({ name: "rust", prose: text`# Rust` });
+  assert.throws(() => renderText(text`See ${mentionOf(cited, { as: "path" })}.`), /renders as a path/);
 });
