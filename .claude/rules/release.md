@@ -62,5 +62,8 @@ leaves the resolved pins stale.
 
 - **`0.1.0` is the launch tag's to stake.** Interim cuts stay on `0.0.x`;
   the launch waits on `specs/distribution.md`'s launch gate.
-- **`NPM_TOKEN`** is the repo secret the publish authenticates with. Never
-  paste it into a transcript; rotate at the registry, then `gh secret set`.
+- **The publish holds no registry secret.** Each package trusts
+  `release.yml` on this repo as its publisher, and the job authenticates by
+  OIDC (`id-token: write`). A new package needs its trusted publisher set on
+  npmjs.com before its first tag; an E404 on `PUT` means that link is
+  missing or names another workflow.

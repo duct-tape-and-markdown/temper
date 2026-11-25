@@ -54,6 +54,13 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    # Trusted publishing: npm trades this job's OIDC token for a publish
+    # credential, so no registry secret exists to leak or expire. Each of the
+    # three packages names this repo and release.yml as its trusted
+    # publisher (docs.npmjs.com/trusted-publishers, retrieved 2026-11-25).
+    permissions:
+      contents: write
+      id-token: write
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -62,6 +69,17 @@ jobs:
         with:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
+      - name: Require an npm that publishes over OIDC
+        # Trusted publishing needs npm >= 11.5.1; an older bundled npm would
+        # fall back to token auth and fail with a misleading E404.
+        run: |
+          node -e "
+            const [a,b,c] = process.argv[1].split('.').map(Number);
+            if (a < 11 || (a === 11 && (b < 5 || (b === 5 && c < 1)))) {
+              console.error('npm ' + process.argv[1] + ' is older than 11.5.1, which trusted publishing needs');
+              process.exit(1);
+            }
+          " "$(npm --version)"
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -73,7 +91,6 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Publish the platform packages
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
@@ -109,7 +126,6 @@ jobs:
           done
       - name: Publish the SDK
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail

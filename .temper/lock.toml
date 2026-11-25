@@ -21,8 +21,8 @@ emit_hash = "a9ff49b47ff62d221ccda83a21406bc7ce2ec97c74cd8f97c46048ee4114148a"
 [[rule]]
 name = "release"
 source_path = ".claude/rules/release.md"
-source_hash = "709174054ac2232fad35fb4e4712c6bf7671e1479f118eddf64d3369ca3d8948"
-emit_hash = "709174054ac2232fad35fb4e4712c6bf7671e1479f118eddf64d3369ca3d8948"
+source_hash = "9370141dc64979a6b897228f4b90d5ffe855aa4a11857d66716b8a3ff00cd882"
+emit_hash = "9370141dc64979a6b897228f4b90d5ffe855aa4a11857d66716b8a3ff00cd882"
 
 [[rule]]
 name = "rust"

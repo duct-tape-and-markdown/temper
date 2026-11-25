@@ -99,9 +99,9 @@ hard.
   next, then channel 3.
 - Docs-language candidates: the determinism ladder; the harness pin
   ("name the invariants, let the loop settle").
-- On John: rotate NPM_TOKEN at leisure (07-19 token, exposed in chat then;
-  it published 0.0.18 — rotate at the registry, then `gh secret set`,
-  never through a transcript); Apple notarizing at release; USPTO screen.
+- On John: once a trusted-publishing release lands, revoke the 07-19 npm
+  token, `gh secret delete NPM_TOKEN`, and set each package to disallow
+  tokens; Apple notarizing at release; USPTO screen.
 
 ## Standing discipline (mechanical, paid for)
 
