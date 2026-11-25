@@ -348,6 +348,10 @@ pub fn gate(
     diagnostics.extend(admissibility::governs_collision_diagnostics(
         &declared_kinds,
     ));
+    diagnostics.extend(admissibility::document_governs_collision_diagnostics(
+        &declared_kinds,
+        &discovery,
+    ));
     // Two distinct kinds declaring the same collection address would silently union their
     // selections and cross-apply each other's contracts — a manifest registration at one
     // address can own only one kind, so a shared address refuses loud here.

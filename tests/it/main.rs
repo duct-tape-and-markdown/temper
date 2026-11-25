@@ -34,6 +34,7 @@ mod extract_equivalence;
 mod field_addressing;
 mod gate_fail_loud;
 mod gauntlet;
+mod governs_collision;
 mod graph;
 mod hook_kind;
 mod install;

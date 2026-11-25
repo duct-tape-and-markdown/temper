@@ -13,6 +13,7 @@ use crate::contract::Contract;
 use crate::drift;
 use crate::engine;
 use crate::extract;
+use crate::import;
 use crate::kind::CustomKind;
 use crate::member_address;
 
@@ -740,6 +741,71 @@ fn governs_collision_diagnostic(root: &str, glob: &str, names: &[&str]) -> check
              matching document into both member sets; give each kind a distinct `governs`",
         ),
     )
+}
+
+/// Per-document governs-collision findings: every discovered document two file kinds'
+/// loci both reach, one error per document naming the kinds and the remedy — a literal
+/// exclude of that path on the kind that does not own it. Judged over the documents
+/// discovery actually finds, never the templates, so an overlap no document occupies
+/// collides with nothing, and a kind that already excludes the path does not reach it.
+///
+/// Kinds whose root and glob are identical are left to [`governs_collision_diagnostics`]:
+/// a document that only such a set reaches draws no second finding here. Manifest and
+/// nested-file kinds stay out for the reasons that check states.
+pub fn document_governs_collision_diagnostics(
+    declared_kinds: &BTreeMap<String, CustomKind>,
+    disc: &import::Discovery,
+) -> Vec<check::Diagnostic> {
+    let harness = crate::path::normalize_path(disc.harness());
+    let mut by_document: BTreeMap<String, Vec<&CustomKind>> = BTreeMap::new();
+    for kind in declared_kinds.values() {
+        let Some(governs) = &kind.governs else {
+            continue;
+        };
+        if kind.collection_address.is_some() {
+            continue;
+        }
+        for file in import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
+        {
+            let relative = file.strip_prefix(&harness).unwrap_or(&file);
+            let relative = crate::path::HarnessRelativePath::from_path(relative);
+            by_document
+                .entry(relative.to_string())
+                .or_default()
+                .push(kind);
+        }
+    }
+    by_document
+        .into_iter()
+        .filter(|(_, kinds)| {
+            let loci: BTreeSet<(&str, &str)> = kinds
+                .iter()
+                .filter_map(|kind| kind.governs.as_ref())
+                .map(|governs| (governs.root.as_str(), governs.glob.as_str()))
+                .collect();
+            loci.len() > 1
+        })
+        .map(|(document, kinds)| {
+            let mut names: Vec<&str> = kinds.iter().map(|kind| kind.name.as_str()).collect();
+            names.sort_unstable();
+            names.dedup();
+            let named = names
+                .iter()
+                .map(|name| format!("`{name}`"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            check::Diagnostic::error(
+                GOVERNS_COLLISION_RULE,
+                document.clone(),
+                format!(
+                    "document `{document}` is reached by the loci of kinds {named} — a \
+                     document's kind is its position alone, so two kinds must never govern \
+                     one document; add the literal path `{document}` to the `exclude` of \
+                     each kind here that does not own it",
+                ),
+            )
+        })
+        .collect()
 }
 
 /// Collection-address-collision findings: two distinct kinds declaring the same
