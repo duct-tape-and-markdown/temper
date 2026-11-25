@@ -110,7 +110,7 @@ cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 20
 label = "root.fresh"
 predicate = "fresh"
 severity = "advisory"
-guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency it imports or includes has moved. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved dependency re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
+guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency has moved: a layout import, a prose include, a declared input, or — on the root member — a module the program itself loaded. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved declared input re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
 
 [[declaration.clause]]
 label = "root.locus-declared"
@@ -178,3 +178,48 @@ kind = "hook"
 key = "PostToolUse"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/harness.ts"
+import_hash = "a24ccad885627231e9c8f1f4fca9a91ed6961ab8209d26b63f5521211bd781b1"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/hooks.ts"
+import_hash = "514e507c7bd4e70be38e0248d3f6d709718bec542336115d67af7aded63cea2f"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/memory/CLAUDE.ts"
+import_hash = "038edfa3535d7fbb0a3994189a9c08544b194da8b6d1db10a78a0aa77cc95623"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/rules/collaboration.ts"
+import_hash = "c0e7a01745ac987647674cd58e4df7045c89a3407d71edf2a7cb5d572e92d9d0"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/rules/public-prose.ts"
+import_hash = "b4deb9577306fa3f00bf79ca6434c8bf822a424221894f741bfde51a53107649"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/rules/release.ts"
+import_hash = "7e14a32717e3179e897f69da0fc19c86d6cd60a07a6ea345a3e347d5d656795a"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/rules/rust.ts"
+import_hash = "1005a62faaed4cea59e14957033e719f5e223756af52d47c571a17c6fa2df2c0"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/rules/sdk.ts"
+import_hash = "4356541e8ec5157dacbc1cc711935acb4465dfc335ef666432acc9a8140aa824"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/skills/capture-friction.ts"
+import_hash = "83f391890f159d6f1f35cf56e36785c9e7cfaba8070ea2647ae71086097debb3"
