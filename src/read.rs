@@ -2408,9 +2408,10 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         let custom_kind = compose::published_kind_lift(&declared_kinds, &row.name)?.clone();
         contracts.insert(
             row.name.clone(),
-            compose::default_contract_from_rows(
-                &declarations.clauses,
-                &declarations.kinds,
+            compose::kind_contract_with_bases(
+                &declarations,
+                &declared_kinds,
+                &builtin_defs,
                 &row.name,
             )?,
         );

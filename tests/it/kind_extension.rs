@@ -266,3 +266,63 @@ fn a_bases_unique_name_judges_its_subkinds_members_with_its_own() {
         run.output
     );
 }
+
+fn rule_requires_owner() -> ClauseRow {
+    ClauseRow {
+        label: Some("rule.required.owner".to_string()),
+        kind: Some("rule".to_string()),
+        field: Some("owner".to_string()),
+        ..common::clause("required", "required")
+    }
+}
+
+#[test]
+fn schema_for_a_subkind_includes_its_bases_clauses() {
+    let root = common::tmpdir("subkind-schema");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![decision(".claude/rules/decisions", "*.md")],
+            clauses: vec![rule_requires_owner(), decision_requires_status()],
+            ..Declarations::default()
+        },
+    );
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_temper"))
+        .current_dir(&root)
+        .args(["schema", "--kind", "decision"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        output.status.success(),
+        "schema --kind decision must exit zero, got:\n{stdout}{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let required: Vec<&str> = json["required"]
+        .as_array()
+        .unwrap_or_else(|| panic!("a `required` list, got:\n{stdout}"))
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .collect();
+    assert!(
+        required.contains(&"owner") && required.contains(&"status"),
+        "the subkind's schema carries its base's required field beside its own, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn explain_narrates_a_subkinds_inherited_clauses() {
+    let root = common::tmpdir("subkind-explain-clauses");
+    write_rule(&root, ".claude/rules/decisions/0001-adopt.md");
+    check_with_clauses(
+        &root,
+        vec![decision(".claude/rules/decisions", "*.md")],
+        vec![rule_requires_owner(), decision_requires_status()],
+    );
+    let narration = common::explain_in(&root, "decision:0001-adopt");
+    assert!(
+        narration.contains("rule.required.owner") && narration.contains("decision.required.status"),
+        "the subkind member's narration names its base's clause beside its own, got:\n{narration}"
+    );
+}

@@ -352,7 +352,13 @@ fn main() -> miette::Result<ExitCode> {
             // not the skill/rule fossil).
             let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE.as_str()))?;
             let builtin_defs = builtin_kind::definitions();
-            let domain = yaml_frontmatter_kind_domain(&declarations, &builtin_defs)?;
+            let kinds = compose::effective_kinds(&declarations)?;
+            let mut domain: Vec<String> = kinds
+                .values()
+                .filter(|kind| kind.format == Some(Format::YamlFrontmatter))
+                .map(|kind| kind.name.clone())
+                .collect();
+            domain.sort();
 
             let json = match kind.as_deref() {
                 // An unknown kind is a hard error, never a silent empty schema.
@@ -366,13 +372,23 @@ fn main() -> miette::Result<ExitCode> {
                                 domain.join(", ")
                             )
                         })?;
-                    let contract = compose::kind_contract(&declarations, &builtin_defs, name)?;
+                    let contract = compose::kind_contract_with_bases(
+                        &declarations,
+                        &kinds,
+                        &builtin_defs,
+                        name,
+                    )?;
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
                     for name in &domain {
-                        let contract = compose::kind_contract(&declarations, &builtin_defs, name)?;
+                        let contract = compose::kind_contract_with_bases(
+                            &declarations,
+                            &kinds,
+                            &builtin_defs,
+                            name,
+                        )?;
                         map.insert(name.clone(), schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
@@ -628,36 +644,6 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
     }
-}
-
-/// `schema`'s domain: every kind — embedded built-in or lock-declared — whose
-/// projection format is [`Format::YamlFrontmatter`], the represented keystroke
-/// placement (`specs/distribution.md`, "The placements and their enforcement
-/// modes"). Sorted, so `--kind` errors and the no-`--kind` map are deterministic.
-///
-/// # Errors
-///
-/// Propagates the lock-row lift errors a malformed declared kind row raises.
-fn yaml_frontmatter_kind_domain(
-    declarations: &drift::Declarations,
-    builtin_defs: &BTreeMap<String, CustomKind>,
-) -> miette::Result<Vec<String>> {
-    let mut domain: Vec<String> = builtin_defs
-        .values()
-        .filter(|def| def.format == Some(Format::YamlFrontmatter))
-        .map(|def| def.name.clone())
-        .collect();
-
-    let (custom_rows, _collisions) = compose::partition_kind_rows(declarations, builtin_defs)?;
-    for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row)?;
-        if custom_kind.format == Some(Format::YamlFrontmatter) {
-            domain.push(row.name.clone());
-        }
-    }
-
-    domain.sort();
-    Ok(domain)
 }
 
 /// Extract the member keys declared in the lock for a given manifest kind: its

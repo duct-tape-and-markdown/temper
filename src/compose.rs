@@ -831,6 +831,23 @@ fn declared_kinds_with_overlaid(
     Ok(kinds)
 }
 
+/// The effective kind set — every built-in overlaid by its relocation, every custom kind,
+/// every subkind bound to its base — for a verb that reads kinds without assembling a
+/// [`LockFamily`] (`schema`), so it sees the kinds `check` sees with no discovery walk.
+///
+/// # Errors
+///
+/// As [`declared_kinds_with_overlaid`].
+pub fn effective_kinds(
+    declarations: &drift::Declarations,
+) -> miette::Result<BTreeMap<String, CustomKind>> {
+    let mut overlaid = BTreeMap::new();
+    for kind in builtin_kind::definitions().values() {
+        overlaid.insert(kind.name.clone(), overlay_builtin_kind(kind, declarations)?);
+    }
+    declared_kinds_with_overlaid(&overlaid, declarations)
+}
+
 /// Bind every subkind in `kinds` to its base, bases first: the subkind takes each fact its
 /// row leaves undeclared from the base, and the base cedes the subkind's locus, so a
 /// document there is the subkind's one member.
@@ -2269,6 +2286,25 @@ pub fn inherited_clauses(
         clauses.extend(own.clauses);
     }
     Ok(clauses)
+}
+
+/// A kind's whole contract as `check` judges its members — its bases' inherited clauses,
+/// outermost first, then its own — for a reader (`schema`, `explain`) that narrates one
+/// contract per kind rather than dispatching the two halves apart. Joins no layer.
+///
+/// # Errors
+///
+/// Propagates the clause-lift errors contract resolution raises.
+pub fn kind_contract_with_bases(
+    declarations: &drift::Declarations,
+    kinds: &BTreeMap<String, CustomKind>,
+    builtin_defs: &BTreeMap<String, CustomKind>,
+    name: &str,
+) -> miette::Result<Contract> {
+    let own = kind_contract(declarations, builtin_defs, name)?;
+    let mut clauses = inherited_clauses(declarations, &[], kinds, builtin_defs, name)?;
+    clauses.extend(own.clauses);
+    Ok(Contract { clauses, ..own })
 }
 
 /// Whether `kind` is `base` or one of its subkinds, at any depth — the test a by-kind
