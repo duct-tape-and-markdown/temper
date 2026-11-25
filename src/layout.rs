@@ -174,8 +174,8 @@ pub enum LayoutError {
     },
 
     /// A field or collection region bound a heading with children, while a later
-    /// heading-bound region stayed unbound — the heading's structure was swallowed
-    /// by the wrong region, shifting every later binding by one heading — a
+    /// heading-bound region — any one, not only the next — stayed unbound: the heading's
+    /// structure was swallowed by the wrong region, shifting every later binding — a
     /// missing-section shift: a declared section is absent, so its position consumes an
     /// unrelated heading. It takes two top-level headings to reach; a lone leading one
     /// is the document's title, which binds one level down rather than shifting.
@@ -254,14 +254,14 @@ impl Layout {
         let mut reading = LayoutReading::default();
         let mut cursor = 0;
         let mut preamble_taken = false;
-        // Track when a field/collection with children consumed a heading, to detect
-        // if the next region is left unbound (structure mismatch).
-        let mut last_swallowed: Option<(String, String)> = None;
+        // The first field/collection that bound a heading with children, held until
+        // every later region is judged: any later heading-bound region left unbound
+        // means that heading's structure was swallowed, however far downstream.
+        let mut swallowed: Option<(String, String)> = None;
 
         for region in &self.regions {
             match region {
                 LayoutRegion::Prose { import } => {
-                    last_swallowed = None;
                     let span = if import.is_none() && !preamble_taken {
                         preamble_taken = true;
                         prose_span.trim().to_string()
@@ -273,9 +273,7 @@ impl Layout {
                 LayoutRegion::Field { slot } => {
                     // No heading left for the slot: it reads absent, not loud.
                     let Some(node) = next_heading(tree, &mut cursor) else {
-                        // If the last region swallowed a heading with children, and this
-                        // field is now unbound, the structure is misaligned.
-                        if let Some((swallowed, consumed)) = last_swallowed {
+                        if let Some((swallowed, consumed)) = swallowed {
                             return Err(LayoutError::SwallowedHeading {
                                 path: source_path.to_path_buf(),
                                 swallowed,
@@ -285,12 +283,9 @@ impl Layout {
                         }
                         continue;
                     };
-                    // Track if this field consumed a heading with children.
-                    last_swallowed = if !node.children.is_empty() {
-                        Some((node.heading.clone(), slot.clone()))
-                    } else {
-                        None
-                    };
+                    if swallowed.is_none() && !node.children.is_empty() {
+                        swallowed = Some((node.heading.clone(), slot.clone()));
+                    }
                     if edge_fields.contains(slot) {
                         reading
                             .edges
@@ -304,9 +299,7 @@ impl Layout {
                 LayoutRegion::Collection { member_kind, key } => {
                     // No heading left for the collection: it reads with zero members.
                     let Some(node) = next_heading(tree, &mut cursor) else {
-                        // If the last region swallowed a heading with children, and this
-                        // collection is now unbound, the structure is misaligned.
-                        if let Some((swallowed, consumed)) = last_swallowed {
+                        if let Some((swallowed, consumed)) = swallowed {
                             let collection_name = format!("{member_kind} (collection)");
                             return Err(LayoutError::SwallowedHeading {
                                 path: source_path.to_path_buf(),
@@ -317,11 +310,9 @@ impl Layout {
                         }
                         continue;
                     };
-                    last_swallowed = if !node.children.is_empty() {
-                        Some((node.heading.clone(), member_kind.clone()))
-                    } else {
-                        None
-                    };
+                    if swallowed.is_none() && !node.children.is_empty() {
+                        swallowed = Some((node.heading.clone(), member_kind.clone()));
+                    }
                     for child in &node.children {
                         reading.members.push(read_collection_member(
                             child,

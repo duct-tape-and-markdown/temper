@@ -763,6 +763,57 @@ fn a_heading_with_children_swallowed_as_field_when_a_section_is_missing_refuses_
 }
 
 #[test]
+fn a_heading_with_children_swallowed_into_a_field_refuses_when_a_non_adjacent_later_region_starves()
+{
+    // `## Intent` is absent, so the intent field binds `Entities` (which has children),
+    // the collection binds the childless `Contract`, the contract field binds
+    // `Depends on`, and only the last region starves — two regions past the swallow.
+    let layout = Layout {
+        regions: vec![
+            LayoutRegion::Field {
+                slot: "intent".to_string(),
+            },
+            LayoutRegion::Collection {
+                member_kind: "entity".to_string(),
+                key: None,
+            },
+            LayoutRegion::Field {
+                slot: "contract".to_string(),
+            },
+            LayoutRegion::Field {
+                slot: "depends-on".to_string(),
+            },
+        ],
+    };
+    let doc = "# Spec\n\n\
+## Entities\n\n\
+### Widget\nA widget.\n\n\
+## Contract\nthe contract\n\n\
+## Depends on\n- other\n";
+
+    let err = layout
+        .read(
+            doc,
+            std::path::Path::new("specs/model/thing.md"),
+            &no_edges(),
+        )
+        .unwrap_err();
+
+    let LayoutError::SwallowedHeading {
+        swallowed,
+        consumed_slot,
+        starved_slot,
+        ..
+    } = &err
+    else {
+        panic!("expected a swallowed-heading refusal, got {err}");
+    };
+    assert_eq!(swallowed, "Entities");
+    assert_eq!(consumed_slot, "intent");
+    assert_eq!(starved_slot, "depends-on");
+}
+
+#[test]
 fn check_refuses_a_layout_declaring_two_verbatim_prose_regions() {
     // A layout kind declaring more than one verbatim (non-import) prose region is a
     // permanent no-op: Layout::read lands the preamble in the first prose region only,
