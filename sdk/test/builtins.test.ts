@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Clause, Harness } from "../src/index.js";
-import { embeddedMemberValue, emit, harness, kind, relocate } from "../src/index.js";
+import { embeddedMemberValue, emit, harness, kind, relocate, requirement } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
 import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
@@ -461,6 +461,22 @@ test("gateHook constructor defaults the binary and carries what it declares acro
 
   // An empty binary names nothing to run.
   assert.throws(() => gateHook({ name: "SessionStart", binary: "" }), /`binary` is empty/);
+});
+
+test("a gate hook declaring satisfies fills its requirement", () => {
+  // A gate hook is an ordinary hook member, so it speaks every member's `satisfies` edge:
+  // the claim rides the member and reaches the seam as its satisfies row.
+  const sessionStart = gateHook({ name: "SessionStart", satisfies: ["session-gate"] });
+  assert.deepEqual(sessionStart.satisfies, ["session-gate"]);
+  const h = harness({
+    members: [sessionStart],
+    require: { "session-gate": requirement({ prose: "the gate reports at session open", kind: hook }) },
+  });
+  assert.deepEqual(compileDeclarations(h).satisfies, [{ member: "hook:SessionStart", requirement: "session-gate" }]);
+  // The requirement is declared, so the join is live and emit compiles.
+  assert.doesNotThrow(() => emit(h));
+  // Absent, a gate hook claims nothing.
+  assert.deepEqual(gateHook({ name: "SessionStart" }).satisfies, []);
 });
 
 test("tapHookRegistration composes the tap's one command handler inside its matcher group", () => {

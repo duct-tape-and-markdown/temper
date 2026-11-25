@@ -2345,6 +2345,49 @@ fn wire_sdk_harness(label: &str) -> (PathBuf, PathBuf) {
     common::wire_sdk_harness(label, HARNESS_PROGRAM)
 }
 
+/// A fixture SDK program whose one member is a gate hook filling a `require`d
+/// requirement — a gate hook is an ordinary hook member, so it speaks every member's
+/// `satisfies` edge.
+const GATE_HOOK_SATISFIES_PROGRAM: &str = r#"
+import { harness, requirement, emit } from "@dtmd/temper";
+import { gateHook, hook } from "@dtmd/temper/claude-code";
+
+const program = harness({
+  members: [gateHook({ name: "SessionStart", satisfies: ["session-gate"] })],
+  require: {
+    "session-gate": requirement({ prose: "the gate reports at session open", kind: hook }),
+  },
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_gate_hook_declaring_satisfies_fills_its_requirement() {
+    let (harness, into) =
+        common::wire_sdk_harness("gate-hook-satisfies", GATE_HOOK_SATISFIES_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    // The gate hook's fill claim reaches the lock as its satisfies row.
+    let declarations = drift::read_declarations(&into).unwrap();
+    assert_eq!(
+        declarations.satisfies,
+        vec![drift::SatisfiesRow {
+            member: "hook:SessionStart".to_string(),
+            requirement: "session-gate".to_string(),
+        }],
+    );
+
+    // And the gate counts it: the requirement is filled at check.
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        !run.output.contains("requirement.unfilled"),
+        "the gate hook's satisfies fills `session-gate`, got:\n{}",
+        run.output
+    );
+}
+
 /// A fixture SDK program declaring a `require`d requirement carrying a `count`
 /// set-scope clause — proving the real SDK emits a requirement's demand as
 /// a nested clause row, not a facet field, end to end across the seam.

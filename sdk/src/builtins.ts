@@ -645,6 +645,9 @@ export interface GateHookInit {
   readonly matcher?: string;
   /** The temper binary the hook runs — a name resolved on the PATH, or a path. */
   readonly binary?: string;
+  /** The requirements this member fills — every member's `satisfies` edge, as on
+   * {@link hook} (specs/model/contract.md, "edge"). */
+  readonly satisfies?: readonly string[];
 }
 
 /**
@@ -679,10 +682,11 @@ export function gateHook(init: GateHookInit): Member {
     );
   }
   const handlers: readonly Handler[] = [{ type: "command" }];
+  const satisfies = init.satisfies === undefined ? {} : { satisfies: init.satisfies };
   const member =
     init.matcher === undefined
-      ? hook({ name: init.name, hooks: handlers })
-      : hook({ name: init.name, matcher: init.matcher, hooks: handlers });
+      ? hook({ name: init.name, hooks: handlers, ...satisfies })
+      : hook({ name: init.name, matcher: init.matcher, hooks: handlers, ...satisfies });
   gateHookBinaries.set(member, init.binary ?? null);
   return member;
 }
