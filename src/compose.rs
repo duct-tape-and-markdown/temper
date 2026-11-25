@@ -1041,8 +1041,7 @@ fn resolve_kind_units(
                 child_units
             }
             (_, _, Some(governs)) => {
-                let root = disc.locus_root(governs);
-                let base = drift::fold_base(&root, &governs.glob);
+                let base = governed_fold_base(disc, governs);
                 let mut file_units = Vec::new();
                 for file in
                     import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
@@ -1094,6 +1093,62 @@ fn resolve_kind_units(
         layout_rows,
         composed_embedded,
     })
+}
+
+/// The fold base a governed kind's top-level member ids fold against: the locus root,
+/// descended through the segments its glob spells literally ([`drift::fold_base`]). The
+/// one spelling of it, read by the `governs` scan above and by the per-site derivations
+/// below, so a member's address is one fact whichever reader asks.
+fn governed_fold_base(disc: &import::Discovery, governs: &kind::Governs) -> PathBuf {
+    drift::fold_base(&disc.locus_root(governs), &governs.glob)
+}
+
+/// Which bytes a per-site address derivation reads its identity off.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SiteIdentity {
+    /// The document on disk, read through the layout door exactly as `check`'s scan
+    /// reads it — every unit shape, a `named-field` identity included.
+    OnDisk,
+    /// The document's placement alone — a pending write whose bytes are not on disk yet.
+    /// A `named-field` identity is the document's own frontmatter, so it has no answer
+    /// here.
+    Placement,
+}
+
+/// The member address `check`'s `governs` scan gives the top-level `kind` document at
+/// `file` under `harness_root` — `<kind>:<id>`, its id folded against the
+/// fold base (`governed_fold_base`) the scan folds against — for a reader that holds one site
+/// rather than the whole walk (`temper guard`'s layout half of `locus-declared`).
+///
+/// [`None`] for a kind governing no locus (a nested child's address composes from its
+/// host), for a document whose identity cannot be read — a load fault `check` reports as
+/// its own finding, never an undeclared member — and, at [`SiteIdentity::Placement`],
+/// for a `named-field` identity the placement cannot answer.
+#[must_use]
+pub fn governed_member_address(
+    kind: &CustomKind,
+    harness_root: &Path,
+    file: &Path,
+    identity: SiteIdentity,
+) -> Option<String> {
+    let governs = kind.governs.as_ref()?;
+    let disc = import::Discovery::new(harness_root);
+    let base = governed_fold_base(&disc, governs);
+    let file = crate::path::normalize_path(file);
+    let id = match identity {
+        SiteIdentity::OnDisk => {
+            drift::read_layout_document_member(kind, &file, &base)
+                .ok()?
+                .id
+        }
+        SiteIdentity::Placement => {
+            if matches!(kind.unit_shape, Some(kind::UnitShape::NamedField { .. })) {
+                return None;
+            }
+            extract::unit_shape_id(kind.unit_shape.as_ref(), &file, &base, |_| None).ok()?
+        }
+    };
+    Some(member_address::address_of(&kind.name, &id))
 }
 
 /// Seat a layout host's collection entries in its own fields, so a host path over them

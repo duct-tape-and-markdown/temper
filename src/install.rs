@@ -413,6 +413,21 @@ const GUARD_SHELL_EDGE_SOURCE_MESSAGE: &str = "temper source dependency: a file 
 /// each finding under it already speaks ([`drift::undeclared_locus_members_from_doc`]).
 const GUARD_SHELL_EDGE_LOCUS_MESSAGE: &str = "temper-governed locus: a document sits at a represented kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared; declare the member in the program and re-emit, or remove the file. A shell tool's writes name no path in the hook payload, so this edge enumerates the loci the lock's kinds govern rather than one file, and cannot say which call left it.";
 
+/// The header `temper guard` prints at the **pending-write** edge over the layout half of
+/// `locus-declared`: the write lands a layout document the lock declares no member for.
+/// The finding under it is `check`'s own ([`drift::undeclared_layout_members_from_doc`]),
+/// which names the document, its member address and the remedy, so the header states only
+/// the binding and its limit.
+fn guard_layout_message() -> &'static str {
+    static MESSAGE: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "temper-governed layout locus: this write lands a layout document the lock declares no member for, which `check` reports undeclared. {}",
+            binding_limit()
+        )
+    });
+    &MESSAGE
+}
+
 /// The one question `install` asks, exactly once, after the discovery report:
 /// there is one
 /// genuine fork in the world — a harness is represented or it is not. Asked only where
@@ -1227,7 +1242,11 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
 ///   fingerprinted layout import, prose include and declared input;
 /// - the **locus** half of its `locus-declared` clause
 ///   ([`drift::undeclared_locus_members_from_doc`]), asking the lock's provenance rows
-///   about every document sitting at a governed locus `loci` names.
+///   about every document sitting at a governed locus `loci` names;
+/// - the **layout** half of the same clause ([`drift::undeclared_layout_members_from_doc`]),
+///   asking the lock's `layout_source` rows about every document at a committed layout
+///   kind's governed locus ([`guarded_layout_loci`]), each addressed as `check`'s scan
+///   addresses it ([`crate::compose::governed_member_address`]).
 ///
 /// [`None`] where every half is silent — a pass prints nothing — and for each half
 /// whose clause the root contract does not bind at all. One judge in one vocabulary per
@@ -1275,13 +1294,20 @@ pub fn shell_edge_findings(
         None => Vec::new(),
     };
     let lock_present = workspace_dir.join(crate::LOCK_FILENAME).is_file();
-    let strays = locus_declared
-        .filter(|_| lock_present)
-        .map(|clause| {
-            let sites = locus_member_sites(&harness_root, loci);
-            drift::undeclared_locus_members_from_doc(&doc, &sites, clause).findings
-        })
-        .unwrap_or_default();
+    // Both halves of the one clause, in the order `check` reports them: the layout half
+    // (a layout document no `layout_source` row names) then the file-locus half.
+    let mut strays = Vec::new();
+    if let Some(clause) = locus_declared.filter(|_| lock_present) {
+        let layout_loci = guarded_layout_loci(declarations)?;
+        let layout_sites = layout_member_sites(&harness_root, &layout_loci);
+        strays.extend(drift::undeclared_layout_members_from_doc(
+            &doc,
+            &layout_sites,
+            clause,
+        ));
+        let sites = locus_member_sites(&harness_root, loci);
+        strays.extend(drift::undeclared_locus_members_from_doc(&doc, &sites, clause).findings);
+    }
 
     Ok(render_shell_edge_report(&drifted, &stale_sources, &strays))
 }
@@ -1289,55 +1315,13 @@ pub fn shell_edge_findings(
 /// Every document on disk at a locus `loci` names, as the site shape the locus judge asks
 /// the lock's provenance rows about. The post edge's answer to having no path in its
 /// payload: the pending-write edge tests one `file_path` against the patterns
-/// ([`matches_governed_locus`]), so here each locus root is enumerated instead and every
-/// file under it matched against the same [`crate::glob::compile_glob`] pattern.
-///
-/// The enumeration is `check`'s: each walk rides [`import::ignore_walk`], the one
-/// ignore-source policy discovery walks by, rooted at the harness root so the root
-/// `.gitignore` and every one between it and the locus govern exactly as they govern
-/// discovery, and it holds discovery's three fences — `.git/`, the surface workspace, and
-/// a nested governed root. Pruned to the locus root's ancestor chain and its subtree, so a
-/// call still costs one bounded walk per locus root ([`locus_member_site_walk_count`]) —
-/// never `import`'s whole-tree index, which a `.claude/rules` locus has no use for — and an
-/// ignored or vendored document is no site, as it is no member to `check`.
-///
-/// Sorted by name within each directory, so the findings a call surfaces read in one order
-/// on every platform.
+/// ([`matches_governed_locus`]), so here each locus root is enumerated instead
+/// ([`locus_files`], one bounded walk per locus) and every file under it matched against
+/// the same [`crate::glob::compile_glob`] pattern.
 fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::LocusMemberSite> {
     let mut sites = Vec::new();
     for locus in loci {
-        let Some(matcher) = crate::glob::compile_glob(&locus.pattern) else {
-            continue;
-        };
-        LOCUS_MEMBER_SITE_WALKS.with(|c| c.set(c.get() + 1));
-        let locus_root = harness_root.join(&locus.root);
-        let bound = locus_root.clone();
-        let fence = import::discovery_fence(false);
-        let walk = import::ignore_walk(harness_root, true)
-            .sort_by_file_name(std::cmp::Ord::cmp)
-            .filter_entry(move |entry| {
-                let path = entry.path();
-                // Descend the locus root's ancestors (so their ignore files are read) and
-                // its subtree; nothing else can hold a site.
-                (bound.starts_with(path) || path.starts_with(&bound)) && fence(entry)
-            })
-            .build();
-        for entry in walk {
-            // A locus directory that does not exist, or an entry that cannot be read, is
-            // no site: absent evidence must never forge a finding.
-            let Ok(entry) = entry else { continue };
-            if !entry.file_type().is_some_and(|kind| kind.is_file())
-                || !entry.path().starts_with(&locus_root)
-            {
-                continue;
-            }
-            let Some(source_path) = harness_relative(&entry.path().to_string_lossy(), harness_root)
-            else {
-                continue;
-            };
-            if !matcher.is_match(&source_path) {
-                continue;
-            }
+        for (_, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
             sites.push(drift::LocusMemberSite {
                 kind: locus.kind.clone(),
                 source_path,
@@ -1346,6 +1330,92 @@ fn locus_member_sites(harness_root: &Path, loci: &[GuardedLocus]) -> Vec<drift::
         }
     }
     sites
+}
+
+/// Every document on disk at a committed layout kind's governed locus, addressed as
+/// `check`'s `governs` scan addresses it ([`crate::compose::governed_member_address`],
+/// read off the document on disk so a `named-field` identity is its own frontmatter's).
+/// The layout twin of [`locus_member_sites`], over the same bounded walk
+/// ([`locus_files`]). A document whose identity cannot be read is no site: `check`
+/// reports it as a load fault, never as an undeclared member.
+fn layout_member_sites(
+    harness_root: &Path,
+    loci: &[GuardedLayoutLocus],
+) -> Vec<drift::LayoutMemberSite> {
+    let mut sites = Vec::new();
+    for locus in loci {
+        for (file, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
+            let Some(member) = crate::compose::governed_member_address(
+                &locus.kind,
+                harness_root,
+                &file,
+                crate::compose::SiteIdentity::OnDisk,
+            ) else {
+                continue;
+            };
+            sites.push(drift::LayoutMemberSite {
+                member,
+                source_path,
+            });
+        }
+    }
+    sites
+}
+
+/// Every file on disk under `<harness_root>/<root>` matching `pattern`, as its on-disk
+/// path and its harness-relative spelling — one bounded walk per call, the enumeration
+/// both post-edge site builders ride.
+///
+/// The enumeration is `check`'s: the walk rides [`import::ignore_walk`], the one
+/// ignore-source policy discovery walks by, rooted at the harness root so the root
+/// `.gitignore` and every one between it and the locus govern exactly as they govern
+/// discovery, and it holds discovery's three fences — `.git/`, the surface workspace, and
+/// a nested governed root. Pruned to the locus root's ancestor chain and its subtree, so a
+/// call costs one bounded walk ([`locus_member_site_walk_count`]) — never `import`'s
+/// whole-tree index — and an ignored or vendored document is no site, as it is no member
+/// to `check`. Sorted by name within each directory, so the findings a call surfaces read
+/// in one order on every platform.
+fn locus_files(
+    harness_root: &Path,
+    root: &str,
+    pattern: &str,
+) -> Vec<(PathBuf, HarnessRelativePath)> {
+    let mut files = Vec::new();
+    let Some(matcher) = crate::glob::compile_glob(pattern) else {
+        return files;
+    };
+    LOCUS_MEMBER_SITE_WALKS.with(|c| c.set(c.get() + 1));
+    let locus_root = harness_root.join(root);
+    let bound = locus_root.clone();
+    let fence = import::discovery_fence(false);
+    let walk = import::ignore_walk(harness_root, true)
+        .sort_by_file_name(std::cmp::Ord::cmp)
+        .filter_entry(move |entry| {
+            let path = entry.path();
+            // Descend the locus root's ancestors (so their ignore files are read) and
+            // its subtree; nothing else can hold a site.
+            (bound.starts_with(path) || path.starts_with(&bound)) && fence(entry)
+        })
+        .build();
+    for entry in walk {
+        // A locus directory that does not exist, or an entry that cannot be read, is
+        // no site: absent evidence must never forge a finding.
+        let Ok(entry) = entry else { continue };
+        if !entry.file_type().is_some_and(|kind| kind.is_file())
+            || !entry.path().starts_with(&locus_root)
+        {
+            continue;
+        }
+        let Some(source_path) = harness_relative(&entry.path().to_string_lossy(), harness_root)
+        else {
+            continue;
+        };
+        if !matcher.is_match(&source_path) {
+            continue;
+        }
+        files.push((entry.path().to_path_buf(), source_path));
+    }
+    files
 }
 
 /// Render the post edge's three halves for the guard's in-band surface — each non-empty
@@ -1434,6 +1504,153 @@ pub struct GuardedLocus {
     pub custom: bool,
 }
 
+/// One committed **layout** kind's governed locus — the layout half of `locus-declared`
+/// binds here. A layout document is a source `emit` reads and writes no provenance row
+/// for, so its lock evidence is a `layout_source` row keyed by member address, never a
+/// path: the kind itself rides along, because the address is its unit shape over the
+/// document ([`crate::compose::governed_member_address`]).
+pub struct GuardedLayoutLocus {
+    /// The governing layout kind, overlaid with the lock's relocations.
+    pub kind: CustomKind,
+    /// The kind's `governs` root — the directory the post edge enumerates from.
+    pub root: String,
+    /// The locus pattern, `governs.root` joined to `governs.glob`, `/`-separated.
+    pub pattern: String,
+}
+
+/// Every committed layout kind's governed locus `temper guard` binds — the layout twin of
+/// the file loci the binary assembles, admitted by the one classification `check`'s site
+/// walk reads ([`crate::gate::site_class`] answering [`crate::gate::SiteClass::Layout`]),
+/// over the embedded built-ins overlaid with the lock's relocations and the lock-declared
+/// custom kinds.
+///
+/// Only a kind governing a locus of its own binds. A nested layout child's locus composes
+/// from its host's unit, and its address carries that host — neither is a fact one path
+/// answers — so it stays `check`'s alone.
+///
+/// Empty unless the root contract binds `locus-declared` (rows-or-default), the clause's
+/// whole opt-in at either edge.
+///
+/// # Errors
+///
+/// Propagates the [`crate::compose::ClauseRowError`] a clause row outside the closed
+/// vocabulary raises and the lock-row lift errors the overlay and the custom-row partition
+/// raise — a corrupt lock, refused loud.
+pub fn guarded_layout_loci(
+    declarations: &drift::Declarations,
+) -> miette::Result<Vec<GuardedLayoutLocus>> {
+    let root = crate::compose::root_contract(&declarations.clauses, &declarations.assembly)?;
+    if !root
+        .clauses
+        .iter()
+        .any(|clause| clause.predicate == crate::contract::Predicate::LocusDeclared)
+    {
+        return Ok(Vec::new());
+    }
+    let push = |kind: CustomKind, loci: &mut Vec<GuardedLayoutLocus>| {
+        if crate::gate::site_class(&kind) != Some(crate::gate::SiteClass::Layout) {
+            return;
+        }
+        let Some(governs) = kind.governs.as_ref() else {
+            return;
+        };
+        loci.push(GuardedLayoutLocus {
+            root: governs.root.clone(),
+            pattern: kind::locus_pattern(&governs.root, &governs.glob),
+            kind,
+        });
+    };
+    let builtin_defs = builtin_kind::definitions();
+    let mut loci = Vec::new();
+    for kind in builtin_defs.values() {
+        push(
+            crate::compose::overlay_builtin_kind(kind, declarations)?,
+            &mut loci,
+        );
+    }
+    let (custom_rows, _collisions) =
+        crate::compose::partition_kind_rows(declarations, &builtin_defs)?;
+    for row in custom_rows {
+        push(CustomKind::from_kind_fact_row(row)?, &mut loci);
+    }
+    Ok(loci)
+}
+
+/// The pending-write edge's layout half of `locus-declared`: the committed layout loci,
+/// and — where the clause binds over a represented harness — the lock and the clause
+/// `check`'s judge reads, so a pending layout document is judged by
+/// [`drift::undeclared_layout_members_from_doc`] itself and speaks its words.
+pub struct LayoutGuard {
+    /// The governed layout loci a pending write is tested against.
+    loci: Vec<GuardedLayoutLocus>,
+    /// The parsed lock and the root `locus-declared` clause; [`None`] where the clause
+    /// binds nothing or no lock is on disk — an unrepresented harness declares no member
+    /// anywhere, so naming every document undeclared would be noise.
+    judge: Option<(DocumentMut, crate::contract::Clause)>,
+}
+
+impl LayoutGuard {
+    /// Assemble the layout half over the surface workspace `workspace_dir` and its
+    /// already-read `declarations`. No walk: the loci are a row scan, and the lock is read
+    /// only where a layout locus binds.
+    ///
+    /// # Errors
+    ///
+    /// As [`guarded_layout_loci`], plus the lock read/parse error a corrupt lock raises.
+    pub fn read(workspace_dir: &Path, declarations: &drift::Declarations) -> miette::Result<Self> {
+        let loci = guarded_layout_loci(declarations)?;
+        let judge = if loci.is_empty() || !workspace_dir.join(crate::LOCK_FILENAME).is_file() {
+            None
+        } else {
+            let root =
+                crate::compose::root_contract(&declarations.clauses, &declarations.assembly)?;
+            root.clauses
+                .into_iter()
+                .find(|c| c.predicate == crate::contract::Predicate::LocusDeclared)
+                .map(|clause| drift::read_lock_document(workspace_dir).map(|doc| (doc, clause)))
+                .transpose()?
+        };
+        Ok(Self { loci, judge })
+    }
+
+    /// The finding `check` would raise over the layout document a pending write to
+    /// `file_path` lands, or [`None`] where it raises none: a path in no governed layout
+    /// locus, one discovery would never reach, a member the lock declares, or an identity
+    /// the placement cannot answer (a `named-field` kind's is the pending bytes'
+    /// frontmatter — the post edge reads it once the write lands).
+    ///
+    /// A `.`-rooted locus stays the post edge's, as it does for the file-locus half
+    /// ([`matches_governed_locus`]).
+    fn pending_finding(&self, file_path: &str, root: &Path) -> Option<Diagnostic> {
+        let (doc, clause) = self.judge.as_ref()?;
+        let normalized = harness_relative(file_path, root)?;
+        let locus = self
+            .loci
+            .iter()
+            .filter(|locus| locus.root != ".")
+            .find(|locus| {
+                crate::glob::compile_glob(&locus.pattern)
+                    .is_some_and(|matcher| matcher.is_match(&normalized))
+            })?;
+        if !import::discovers_path(root, Path::new(&*normalized)) {
+            return None;
+        }
+        let member = crate::compose::governed_member_address(
+            &locus.kind,
+            root,
+            &root.join(&*normalized),
+            crate::compose::SiteIdentity::Placement,
+        )?;
+        let site = drift::LayoutMemberSite {
+            member,
+            source_path: normalized,
+        };
+        drift::undeclared_layout_members_from_doc(doc, std::slice::from_ref(&site), clause)
+            .into_iter()
+            .next()
+    }
+}
+
 /// `temper guard`'s decision over one pending write: the verdict it reached and the
 /// finding that goes with it. The message is empty for [`GuardVerdict::Allow`] and for
 /// [`GuardVerdict::Note`], which surfaces nothing in-band — it rides the next report.
@@ -1477,6 +1694,7 @@ pub fn guard(
     root: &Path,
     targets: Option<&[drift::EmitOwnedEntry]>,
     loci: &[GuardedLocus],
+    layout: &LayoutGuard,
 ) -> GuardDecision {
     let allow = || GuardDecision {
         verdict: GuardVerdict::Allow,
@@ -1493,6 +1711,8 @@ pub fn guard(
             format!("{}{}", guard_message(), projection_owner_line(owner))
         } else if let Some(locus) = matches_governed_locus(file_path, root, loci) {
             undeclared_locus_message(&locus.kind, locus.custom)
+        } else if let Some(finding) = layout.pending_finding(file_path, root) {
+            render_guard_findings(guard_layout_message(), &[finding])
         } else {
             return allow();
         }

@@ -4136,3 +4136,111 @@ fn the_guard_s_post_edge_reports_a_stale_layout_import() {
         "and names the moved import under `check`'s own label, got: {in_band}"
     );
 }
+
+/// A represented harness declaring one top-level layout document at a wildcard locus — a
+/// `charter` kind governing `docs/charters/*.md`, its one member `docs/charters/charter.md`
+/// declared and emitted — plus an undeclared `docs/charters/stray.md` beside it. The
+/// stray fits the layout, so `check` reads it as a member of the kind and finds no
+/// `layout_source` row naming it. Rows-or-default: the shipped root `locus-declared`
+/// clause binds, under `warn`.
+fn undeclared_layout_member_harness(label: &str) -> PathBuf {
+    let harness = common::scaffold(label);
+    let charters = harness.join("docs/charters");
+    fs::create_dir_all(&charters).unwrap();
+    fs::write(
+        charters.join("charter.md"),
+        "# Intent\nThe gate is check.\n",
+    )
+    .unwrap();
+    let payload = drift::Payload {
+        version: drift::SEAM_VERSION,
+        declarations: drift::Declarations {
+            kinds: vec![drift::KindFactRow {
+                content: Some(drift::LayoutRow {
+                    regions: vec![common::field_region("intent")],
+                }),
+                ..common::kind_facts("charter", "docs/charters", "*.md")
+            }],
+            ..Default::default()
+        },
+        members: vec![common::layout_member("charter")],
+    };
+    drift::emit(
+        &payload,
+        &harness.join(".temper"),
+        drift::EmitOptions::default(),
+    )
+    .unwrap();
+    harness
+}
+
+/// The one `root.locus-declared` finding a guard's in-band surface speaks about the
+/// layout document at `path`, asserted to be a finding `check` raises word for word over
+/// the same tree — the guard is `check` at a narrower trigger, never a second reader.
+fn assert_check_raises_the_guard_s_layout_finding(harness: &Path, in_band: &str, path: &str) {
+    let spoken = in_band
+        .lines()
+        .filter_map(|line| line.strip_prefix("  root.locus-declared: "))
+        .find(|message| message.contains(path) && message.starts_with("layout document"))
+        .unwrap_or_else(|| {
+            panic!("the guard raises the undeclared layout member `{path}`, got: {in_band}")
+        });
+    let (findings, _) = common::check_harness(harness);
+    assert!(
+        common::findings_for(&findings, "root.locus-declared")
+            .iter()
+            .any(|line| line.contains(spoken)),
+        "the guard's `{spoken}` is a finding `check` raises on the same tree, got: \
+         {findings:#?}"
+    );
+}
+
+#[test]
+fn the_guard_raises_an_undeclared_layout_member_at_the_post_edge() {
+    let harness = undeclared_layout_member_harness("guard-layout-stray-post");
+    fs::write(
+        harness.join("docs/charters/stray.md"),
+        "# Intent\nNobody declared me.\n",
+    )
+    .unwrap();
+
+    let (code, output) = common::run_guard(&harness, SHELL_CALL_PAYLOAD);
+    assert_eq!(code, Some(0), "warn allows the call, got: {output}");
+    let in_band = common::guard_in_band(&output, "PostToolUse");
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, "docs/charters/stray.md");
+    assert!(
+        !in_band.contains("docs/charters/charter.md`"),
+        "the declared layout document is no stray, got: {in_band}"
+    );
+}
+
+#[test]
+fn the_guard_raises_an_undeclared_layout_member_in_a_pending_write() {
+    let harness = undeclared_layout_member_harness("guard-layout-stray-pre");
+
+    // The pending write to the declared document is no undeclared member.
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload("docs/charters/charter.md"),
+    );
+    assert_eq!(code, Some(0));
+    assert!(
+        output.is_empty(),
+        "a write to the declared layout document passes silently, got: {output}"
+    );
+
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload("docs/charters/stray.md"),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+
+    // Land the write, and `check` raises the very finding the guard spoke.
+    fs::write(
+        harness.join("docs/charters/stray.md"),
+        "# Intent\nNobody declared me.\n",
+    )
+    .unwrap();
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, "docs/charters/stray.md");
+}

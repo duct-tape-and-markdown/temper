@@ -595,6 +595,7 @@ fn the_guard_s_findings_on_the_gauntlet_are_a_subset_of_check_s_at_both_edges() 
         ".claude/local/machine.md",
         "vendor/dep/CLAUDE.md",
         ".claude/rules/stray.md",
+        "docs/charters/stray.md",
     ];
     // The pending-write edge speaks one finding about the one path its payload names, so
     // a surfaced verdict at all is the binding recorded.
@@ -608,12 +609,22 @@ fn the_guard_s_findings_on_the_gauntlet_are_a_subset_of_check_s_at_both_edges() 
     }
     assert!(
         bound.contains(&".claude/rules/conventions.md")
-            && bound.contains(&".claude/rules/stray.md"),
-        "non-vacuity: the pre edge binds the projection and the stray, got: {bound:?}"
+            && bound.contains(&".claude/rules/stray.md")
+            && bound.contains(&"docs/charters/stray.md"),
+        "non-vacuity: the pre edge binds the projection, the stray and the undeclared \
+         layout document, got: {bound:?}"
     );
     for path in writes {
         let target = harness.join(path);
-        let mut bytes = fs::read(&target).unwrap_or_default();
+        // A new layout document lands bytes that fit its kind's layout, so `check` reads it
+        // as a member of the kind rather than refusing it as a load fault.
+        let mut bytes = fs::read(&target).unwrap_or_else(|_| {
+            if path.starts_with("docs/charters/") {
+                CHARTER_DOC.into()
+            } else {
+                Vec::new()
+            }
+        });
         bytes.extend_from_slice(b"\nA line the pending write adds.\n");
         common::write_sibling(&harness, path, &String::from_utf8(bytes).unwrap());
     }
@@ -627,8 +638,14 @@ fn the_guard_s_findings_on_the_gauntlet_are_a_subset_of_check_s_at_both_edges() 
         );
     }
 
-    // Post edge, disturbed tree: the written tree above, plus the import target moved.
+    // Post edge, disturbed tree: the written tree above, plus the import target moved and
+    // an undeclared `named-field` layout document, whose identity is its own frontmatter's.
     common::write_sibling(&harness, "docs/preamble.md", "Edited preamble prose.\n");
+    common::write_sibling(
+        &harness,
+        "docs/decisions/0002.md",
+        &DECISION_DOC.replace("check-at-session-open", "an-undeclared-ruling"),
+    );
     let disturbed = shell_edge_findings(&harness);
     let (check_disturbed, _) = common::check_harness(&harness);
     let said = |needle: &str| {
@@ -639,9 +656,11 @@ fn the_guard_s_findings_on_the_gauntlet_are_a_subset_of_check_s_at_both_edges() 
     assert!(
         said(".claude/rules/conventions.md")
             && said("docs/preamble.md")
-            && said(".claude/rules/stray.md"),
-        "non-vacuity: the post edge names the edited projection, the moved import and the \
-         stray, got: {disturbed:#?}"
+            && said(".claude/rules/stray.md")
+            && said("docs/charters/stray.md")
+            && said("decision:an-undeclared-ruling"),
+        "non-vacuity: the post edge names the edited projection, the moved import, the \
+         stray and both undeclared layout documents, got: {disturbed:#?}"
     );
     for (rule, message) in &disturbed {
         assert!(

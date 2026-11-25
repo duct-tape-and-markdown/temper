@@ -454,8 +454,8 @@ fn main() -> miette::Result<ExitCode> {
             // The shell edge, taken before anything else the pending-write edge needs is
             // assembled: after a shell tool no payload field names what it wrote, so the
             // subject is the tree the call left and the judges are `check`'s own over that
-            // tree — the projection half of the root `fresh` clause and the locus half of
-            // its `locus-declared` one. `block` cannot deny a write already made, so it
+            // tree — the projection half of the root `fresh` clause and both halves (file
+            // locus and layout) of its `locus-declared` one. `block` cannot deny a write already made, so it
             // refuses the call's *result* in-band and names the restore, which is why this
             // arm exits zero at every mode: the refusal is the payload, not the exit code.
             if install::guard_edge(&payload) == install::GuardEdge::PostToolUse {
@@ -480,6 +480,10 @@ fn main() -> miette::Result<ExitCode> {
             let lock_present = workspace_dir.join(temper::LOCK_FILENAME).is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
             let manifests = guarded_manifests(&declarations)?;
+            // The layout half of `locus-declared` at this edge: the committed layout loci
+            // and the lock `check`'s judge reads, so a pending layout document is judged
+            // by that judge and speaks its words.
+            let layout = install::LayoutGuard::read(&workspace_dir, &declarations)?;
 
             // A represented manifest **no container member projects** is co-owned — a write
             // touching only opaque residue is legitimate — so its binding is a contract check
@@ -516,6 +520,7 @@ fn main() -> miette::Result<ExitCode> {
                 &path,
                 lock_present.then_some(targets.as_slice()),
                 &loci,
+                &layout,
             );
             Ok(match decision.verdict {
                 install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
