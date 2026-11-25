@@ -101,7 +101,7 @@ export type Locus =
       /** A placement template: literal `/`-separated segments with at most one `*`,
        * optionally under a leading `**` + `/` for any depth. Any other pattern syntax
        * (a `?`, a character class, braces, an extglob, a second star) is refused when
-       * the engine loads the lock; narrow member names with a clause, never the glob. */
+       * the engine loads the lock. */
       readonly glob: string;
       readonly commitment?: "local";
       /** Paths the template would govern that the kind leaves ungoverned — each a
@@ -1121,8 +1121,7 @@ export interface ResolvedEmbeddedMemberValue {
    * The target facts of each edge field this value *fills and resolves*, keyed by the edge
    * field's own name — the data a `render` hook selects to spell a reference. Two cases
    * read absent: an unfilled field (no edge at all), and a kind declaring no edge fields —
-   * or a value composed off a bare kind name, which carries none. A hook spelling a
-   * reference off such a key must therefore handle its absence. A third derives no facts
+   * or a value composed off a bare kind name, which carries none. A third derives no facts
    * but does not read absent: a filled field whose target defers to `check`, naming a
    * declared `at`-locus kind's uncomposed member (`pipeline.md`, "Emit", the "Refusing"
    * bullet) — reading it refuses by name at emit, naming the member, the value, the field

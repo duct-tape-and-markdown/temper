@@ -26,8 +26,8 @@ projections of it.
   \`agent\`, ... from \`@dtmd/temper/claude-code\`, or your own \`kind()\`), and list every
   one in \`harness({ members })\`. A member the program does not list is not governed.
 - Keep long prose in a sibling Markdown file and reference it with
-  \`file(import.meta.url, "./name.md")\`; use \`text\` for short inline prose. temper
-  copies authored prose verbatim — it never rewrites your words.
+  \`file(import.meta.url, "./name.md")\`; use \`text\` for short inline prose, \`span\`
+  only for a string the program computes. temper copies prose verbatim.
 - Cite another member as \`text\` with \`\${mentionOf(member)}\` interpolated, not a
   hand-typed name or path: the mention resolves at emit and refuses when its target
   is gone.
@@ -44,7 +44,8 @@ projections of it.
 - Bind clauses to a kind with \`expect\`; start from the shipped default contract
   (\`skillDefaultContract\`, ...) and add to it rather than restating it.
 - A check enters only as a decidable clause. Behavior no predicate can decide belongs
-  to a wired verifier or to your own review — never a clause that approximates it.
+  to a wired verifier or to your own review — never a clause that approximates it. A
+  clause that can false-fire (\`mentionReachable\`'s literal containment) is advisory.
 
 ## Kinds
 
@@ -52,6 +53,8 @@ projections of it.
   never only in a comment: emit delivers guidance as a rule scoped to the kind's
   documents, where the next author reads it.
 - To move or retune a built-in, \`relocate\` it; do not redeclare it under a new name.
+- Narrow a kind's members with a clause, never a richer locus glob. A \`render\` hook
+  treats every \`value.targets\` entry as possibly absent.
 - The rule names \`temper-sdk\` and \`temper-guidance-<kind>\` are temper's own; an
   authored rule at either refuses.
 `;

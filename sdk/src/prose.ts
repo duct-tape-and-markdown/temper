@@ -293,9 +293,8 @@ export function text(strings: TemplateStringsArray, ...targets: Reference[]): Te
 /**
  * The computed-prose constructor: the same inline prose as `` text`…` ``, from a string
  * the program built rather than a template the author typed — a rolled-up participants
- * line, a table derived from the members. An author reaches for the tag whenever the
- * words are literal, since only the tag can carry a {@link Reference}; a computed string
- * cannot, because the tag's interpolations *are* the references. So a span is prose with
+ * line, a table derived from the members. Only the tag can carry a {@link Reference}
+ * — its interpolations *are* the references — so a computed string cannot. So a span is prose with
  * zero references by construction, dedented by the same rule, and composes wherever a
  * `` text`…` `` span does — a member's whole body or a {@link blocks} child.
  *

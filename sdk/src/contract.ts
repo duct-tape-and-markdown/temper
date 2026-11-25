@@ -139,8 +139,8 @@ export const allowedChars = (field: string, charset: Charset): Predicate => ({
  * spell nothing else. There is no escape to a hand-written pattern, which is the point.
  *
  * - `hyphen-placement` — a hyphen neither leads, trails, nor doubles (`pdf-processing`,
- *   never `-pdf`, `pdf-`, or `pdf--processing`). Says nothing about the alphabet; pair it
- *   with `allowedChars` where the character set matters.
+ *   never `-pdf`, `pdf-`, or `pdf--processing`). Says nothing about the alphabet, which
+ *   is `allowedChars`'s.
  * - `no-xml-tags` — the value carries no XML tag (`<br/>`, `</note>`, `<a href="x">`).
  *   Prose spelling a comparison (`use when x < y`) is not a tag and does not fire.
  */
@@ -221,8 +221,7 @@ export const globValid = (field: string): Predicate => ({ key: "glob-valid", fie
  * carrying a value, never its registration set. Containment is *literal* — every source
  * glob must appear verbatim in the gate — since true glob-set containment is
  * undecidable, so it false-fires on a semantically contained narrower glob
- * (`src/**\/*.ts` inside `src/**`). Declare it at advisory severity: a check that can be
- * wrong must not block.
+ * (`src/**\/*.ts` inside `src/**`).
  */
 export const mentionReachable = (scopeField: string, gateField: string): Predicate => ({
   key: "mention-reachable",
@@ -328,8 +327,8 @@ export const membership = (field: string, target: string): Predicate => ({
   target,
 });
 /**
- * The in/out edge-count bound every selected member must land in. At least one
- * direction must be given.
+ * The in/out edge-count bound every selected member must land in. A bound naming no
+ * direction constrains nothing and is refused at admissibility.
  *
  * `fields` filters the by-incidence selection both bounds range over — the clause's
  * own filter, not either direction's. Omit it and the bound ranges over every edge at
@@ -385,8 +384,8 @@ export const reachedFrom = (roots: string, via?: readonly string[]): Predicate =
  * The guard and body share the guard's address binding: the body's field paths
  * evaluate at the concrete element address the guard locates.
  *
- * The guard must be a `type` or `enumOf` predicate, named for the decidable
- * field it addresses. Neither is enforced here; emit validates admissibility.
+ * A guard other than a `type` or `enumOf` predicate over the decidable field it
+ * addresses is refused — not here, but by emit's admissibility check.
  *
  * Options for `severity`, `guidance`, and `cite` are supported and follow the
  * same pattern as `clause()`. Default severity is `required`.
