@@ -46,7 +46,7 @@
 //! cannot complete is a hard [`InstallError`] / propagated [`miette::Report`], never
 //! a silent skip.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -217,16 +217,6 @@ impl GateVerb {
             Self::Guard => "guard .",
         }
     }
-
-    /// The command this verb renders to at [`DEFAULT_GATE_BINARY`] — byte-equal to
-    /// [`render_gate_command`] there (pinned by this module's tests), kept as a `const` so
-    /// the seam's [`GATE_COMMAND_BINDINGS`] and the installed-gate check still read it.
-    const fn default_command(self) -> &'static str {
-        match self {
-            Self::SessionStart => SESSION_START_COMMAND,
-            Self::Guard => GUARD_COMMAND,
-        }
-    }
 }
 
 /// `word` as one POSIX shell word: bare when every byte is one no shell treats specially
@@ -275,32 +265,41 @@ pub fn gate_hook_command(event: &str, binary: &str) -> Option<String> {
         .map(|hook| render_gate_command(hook.verb, binary))
 }
 
-/// temper's gate commands paired with the TS binding each is exported under across the
-/// SDK seam. The engine is the one home for the *bytes* — above — and this table is the
-/// one home for the *names*: the seam gate (`tests/it/seam_bindings_current.rs`)
-/// generates `sdk/src/generated/gate-commands.ts` from these pairs, the SDK re-exports
-/// them from `@dtmd/temper/claude-code`, and a scaffolded gate-hook module imports the
-/// binding instead of copying the bytes. So a command respelled here cannot leave a
-/// represented harness running yesterday's spelling, and it cannot go stale on the SDK
-/// side without the seam gate failing loud (0073).
-///
-/// Sorted by binding name: the generated module's export order, the barrel's re-export
-/// line and a scaffolded module's import list are all read off this order.
-///
-/// Public so the seam gate writes that module from the same pairs the scaffold imports —
-/// a second table beside this one is exactly the drift the generation exists to end.
+/// temper's gate commands paired with the names they were once exported under across the
+/// SDK seam. Nothing reads the table: a gate hook member states its binary and the engine
+/// renders its command ([`gate_hook_command`]), so no command string is an author surface.
+/// It stands only while [`crate::builtin_kind::TAP_HOOK_BINDINGS`]'s doc still links it.
 pub const GATE_COMMAND_BINDINGS: [(&str, &str); 2] = [
     ("GUARD_COMMAND", GUARD_COMMAND),
     ("SESSION_START_COMMAND", SESSION_START_COMMAND),
 ];
 
-/// The binding naming `value` where `value` is one of temper's own gate commands — the
-/// spelling a scaffolded module imports in place of those bytes.
-fn gate_command_binding(value: &str) -> Option<&'static str> {
-    GATE_COMMAND_BINDINGS
-        .iter()
-        .find(|(_, command)| *command == value)
-        .map(|(binding, _)| *binding)
+/// The binary `command` runs as temper when it is exactly the command a gate hook firing
+/// `verb` renders ([`render_gate_command`]) — `None` for any other command. This is how a
+/// projection is recognized as a gate hook member's, whatever binary the member states:
+/// the probe's word is unquoted and re-rendered, so only the engine's own bytes match.
+fn rendered_gate_binary(verb: GateVerb, command: &str) -> Option<String> {
+    let rest = command.strip_prefix("command -v ")?;
+    let binary = match rest.strip_prefix('\'') {
+        Some(quoted) => {
+            let mut binary = String::new();
+            let mut tail = quoted;
+            loop {
+                let end = tail.find('\'')?;
+                binary.push_str(&tail[..end]);
+                match tail[end..].strip_prefix("'\\''") {
+                    Some(next) => {
+                        binary.push('\'');
+                        tail = next;
+                    }
+                    None => break,
+                }
+            }
+            binary
+        }
+        None => rest.split(' ').next()?.to_owned(),
+    };
+    (!binary.is_empty() && render_gate_command(verb, &binary) == command).then_some(binary)
 }
 
 /// The tool-name matcher the guard's `PostToolUse` row binds — direct Bash tool
@@ -328,8 +327,6 @@ struct GateHook {
     /// The temper verb the hook fires; its command renders from this and a binary
     /// ([`render_gate_command`]), at [`DEFAULT_GATE_BINARY`] unless the member declares one.
     verb: GateVerb,
-    /// The command at [`DEFAULT_GATE_BINARY`] — [`GateVerb::default_command`].
-    command: &'static str,
 }
 
 /// temper's whole gate, in the order the placement rows report it. On the represented
@@ -346,21 +343,18 @@ const GATE_HOOKS: [GateHook; GATE_HOOK_COUNT] = [
         event: "SessionStart",
         matcher: None,
         verb: GateVerb::SessionStart,
-        command: GateVerb::SessionStart.default_command(),
     },
     GateHook {
         placement: Placement::GuardHook,
         event: "PreToolUse",
         matcher: Some(GUARD_MATCHER),
         verb: GateVerb::Guard,
-        command: GateVerb::Guard.default_command(),
     },
     GateHook {
         placement: Placement::PostToolUseHook,
         event: "PostToolUse",
         matcher: Some(BASH_MATCHER),
         verb: GateVerb::Guard,
-        command: GateVerb::Guard.default_command(),
     },
 ];
 
@@ -1059,10 +1053,10 @@ fn gate_hook_at(placement: Placement) -> Option<&'static GateHook> {
 ///   `(event, matcher)` address, so both halves are owed: the member module and the
 ///   `harness.ts` import line that reaches it. An unimported module is the unreached
 ///   member `reached-from` indicts, so naming only the module would author a second defect.
-/// - **stale** ([`ApplyOutcome::SupersededByMember`]) — a member *is* seated there,
-///   running something other than temper's command. The module exists and is imported, so
-///   the remedy is the handler alone, pointed at the [`GATE_COMMAND_BINDINGS`] binding
-///   rather than a literal that can go stale again.
+/// - **stale** ([`ApplyOutcome::SupersededByMember`]) — a member *is* seated there, but
+///   it is not a gate hook member: it runs no command the engine rendered for this verb.
+///   The module exists and is imported, so the remedy is the module's constructor alone —
+///   `gateHook(...)`, which states a binary and never a command.
 ///
 /// Unrepresented, the session-start hook is install's own write
 /// ([`place_settings_only`]), so the remedy there is the verb.
@@ -1073,11 +1067,10 @@ fn gate_hook_clause(hook: &GateHook, outcome: ApplyOutcome, represented: bool) -
     }
     let module = gate_hook_module(hook);
     if outcome == ApplyOutcome::SupersededByMember {
-        let binding = gate_command_binding(hook.command)
-            .expect("every gate hook's command is one of `GATE_COMMAND_BINDINGS`");
         return format!(
-            "{label} stale: `{workspace}/{module}` runs something else, so point its handler at `{binding}` from `{SDK_PACKAGE}/claude-code`",
-            workspace = crate::WORKSPACE_DIR
+            "{label} stale: `{workspace}/{module}` is not a gate hook, so build it with `{constructor}` from `{SDK_PACKAGE}/claude-code`",
+            workspace = crate::WORKSPACE_DIR,
+            constructor = gate_hook_call(hook),
         );
     }
     format!(
@@ -1120,7 +1113,8 @@ fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<Install
 /// distinction.
 #[derive(Debug, Clone, Copy)]
 struct GateHookState {
-    /// Some group under this hook's event runs its command — the gate is wired here.
+    /// The group seated at this hook's address is a gate hook member's projection — the
+    /// gate is wired here, at whatever binary the member states.
     wired: bool,
     /// Some group is seated at this hook's `(event, matcher)` address, whatever it runs.
     seated: bool,
@@ -1157,7 +1151,7 @@ fn gate_hooks_state(path: &Path) -> Result<[GateHookState; GATE_HOOK_COUNT], Ins
         })?;
     Ok(GATE_HOOKS.map(|hook| GateHookState {
         wired: event_has_group(object, hook.event, |group| {
-            group_has_command(group, hook.command)
+            group_binds_matcher(group, hook.matcher) && group_runs_gate(group, hook.verb)
         }),
         seated: event_has_group(object, hook.event, |group| {
             group_binds_matcher(group, hook.matcher)
@@ -2489,7 +2483,7 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
         })?;
 
     let hook_present = event_has_group(object, "SessionStart", |group| {
-        group_has_command(group, SESSION_START_COMMAND)
+        group_runs_gate(group, GateVerb::SessionStart)
     });
     if hook_present {
         return Ok(SettingsProjection {
@@ -2549,7 +2543,7 @@ pub(crate) fn session_start_group() -> JsonValue {
 ///
 /// Two questions ride it, and the gate needs both:
 ///
-/// - [`group_has_command`] — *is temper's gate wired here*. The unrepresented merge asks
+/// - [`group_runs_gate`] — *is temper's gate wired here*. The unrepresented merge asks
 ///   it of the human's document (its idempotence check), and [`gate_hooks_state`] asks it
 ///   of the projected one about each of [`GATE_HOOKS`].
 /// - [`group_binds_matcher`] — *is a member seated at this gate hook's address at all*,
@@ -2575,9 +2569,11 @@ fn group_binds_matcher(group: &JsonValue, matcher: Option<&str>) -> bool {
     group.is_object() && group.get(HOOK_MATCHER_KEY).and_then(JsonValue::as_str) == matcher
 }
 
-/// Whether a hook group carries `command` verbatim on one of its handlers. A differing
-/// command reads `false`, since a hook that runs something else is not temper's gate.
-fn group_has_command(group: &JsonValue, command: &str) -> bool {
+/// Whether a hook group carries, on one of its handlers, the command a gate hook firing
+/// `verb` renders at some binary ([`rendered_gate_binary`]) — the projection of a gate hook
+/// member, wherever its binary lives. Any other command reads `false`: a hook that runs
+/// something else is not temper's gate.
+fn group_runs_gate(group: &JsonValue, verb: GateVerb) -> bool {
     group
         .get(HOOK_HANDLER_KEY)
         .and_then(JsonValue::as_array)
@@ -2585,7 +2581,7 @@ fn group_has_command(group: &JsonValue, command: &str) -> bool {
             hooks.iter().any(|hook| {
                 hook.get("command")
                     .and_then(JsonValue::as_str)
-                    .is_some_and(|found| found == command)
+                    .is_some_and(|found| rendered_gate_binary(verb, found).is_some())
             })
         })
 }
@@ -2949,14 +2945,11 @@ fn scaffold(
         });
     }
 
-    // temper's own gate rides the program like any other member: one `hook` module per
-    // group in [`GATE_HOOKS`], composed into `harness.ts` below, so `emit` projects all
-    // three into `.claude/settings.json`'s `hooks` collection and nothing splices that
-    // file behind emit's back. The commands stay this module's constants and reach the
-    // module as the SDK binding generated from them ([`GATE_COMMAND_BINDINGS`] →
-    // `sdk/src/generated/gate-commands.ts`), never a literal: a respelling here follows
-    // into every represented harness on its next `npm install`, and the seam gate
-    // (`tests/it/seam_bindings_current.rs`) holds the SDK copy byte-equal to these bytes.
+    // temper's own gate rides the program like any other member: one `gateHook(...)`
+    // module per group in [`GATE_HOOKS`], composed into `harness.ts` below, so `emit`
+    // projects all three into `.claude/settings.json`'s `hooks` collection and nothing
+    // splices that file behind emit's back. The module states no binary and no command:
+    // `emit` renders the command, so a respelling follows into every represented harness.
     //
     // They are not counted in the lift's total: the lift converts *discovered artifacts*,
     // and these are members temper authors.
@@ -2965,14 +2958,7 @@ fn scaffold(
         let module = gate_hook_module(hook);
         write_scaffold_file(
             &temper_dir.join(&module),
-            &member_module_source(
-                GATE_HOOK_KIND,
-                hook.event,
-                hook.event,
-                &ident,
-                &gate_hook_fields(hook),
-                None,
-            ),
+            &gate_hook_module_source(hook, &ident),
         )?;
         scaffolded.push(ScaffoldedMember {
             ident,
@@ -3000,28 +2986,26 @@ fn gate_hook_module(hook: &GateHook) -> String {
     format!("{}/{}.ts", member_dir(GATE_HOOK_KIND), hook.event)
 }
 
-/// The typed fields one gate hook's member module carries: its matcher where the event
-/// binds one, then the single `command` handler it fires, inside the `hooks` array a
-/// matcher group carries its handlers in (`code.claude.com/docs/en/hooks`, retrieved
-/// 2026-09-29). The grain is the group's, matching the authoring surface the module is
-/// written against (`Hook`, `sdk/src/builtins.ts`): a handler's own keys never sit flat
-/// beside the group's. `name` is the event, already the module's identity property, so it
-/// is not repeated here.
-///
-/// The command travels as its own bytes — [`json_to_ts_literal`] is what renders them as
-/// the imported [`GATE_COMMAND_BINDINGS`] binding rather than a literal, wherever in the
-/// value they sit. The matchers have no such binding and stay engine-only literals: they
-/// are wiring facts about Claude Code's tool surface, not bytes a member runs.
-fn gate_hook_fields(hook: &GateHook) -> Vec<(String, JsonValue)> {
-    let mut fields = Vec::new();
-    if let Some(matcher) = hook.matcher {
-        fields.push((HOOK_MATCHER_KEY.to_string(), json!(matcher)));
+/// The `gateHook(...)` call one gate hook's member is built with: its event and the
+/// matcher it binds, nothing more — no binary, so `temper` on the PATH. The one spelling of
+/// the constructor both the scaffold writes and a stale hook's remedy names.
+fn gate_hook_call(hook: &GateHook) -> String {
+    match hook.matcher {
+        Some(matcher) => format!(
+            "gateHook({{ name: {:?}, matcher: {matcher:?} }})",
+            hook.event
+        ),
+        None => format!("gateHook({{ name: {:?} }})", hook.event),
     }
-    fields.push((
-        HOOK_HANDLER_KEY.to_string(),
-        json!([{ "type": "command", "command": hook.command }]),
-    ));
-    fields
+}
+
+/// One gate hook's scaffolded member module: the typed constructor alone
+/// ([`gate_hook_call`]), bound under `ident`.
+fn gate_hook_module_source(hook: &GateHook, ident: &str) -> String {
+    format!(
+        "import {{ gateHook }} from \"{SDK_PACKAGE}/claude-code\";\n\nexport const {ident} = {};\n",
+        gate_hook_call(hook)
+    )
 }
 
 /// A member module's TS identifier: kind-prefixed so a skill and a rule sharing a
@@ -3082,7 +3066,7 @@ fn fits_inline(body: &str) -> bool {
 
 /// One lifted member's module source (0016, whole conversion): every present
 /// field but `name` (already the object literal's identity property) hoists
-/// into its own typed TS property via [`json_to_ts_literal`], in the order
+/// into its own typed TS property via [`json_leaf`], in the order
 /// [`read_lifted_member`] carries them; `body`
 /// moves module-side — inline as a `` text`…` `` literal ([`fits_inline`]) or,
 /// for a document, a `file()` reference to the module-adjacent `<stem>.md`
@@ -3094,10 +3078,7 @@ fn fits_inline(body: &str) -> bool {
 /// A `body` of [`None`] is a whole-document format's member ([`read_lifted_member`]): its
 /// fields are the whole member, so the module carries no `prose:` property and imports
 /// neither prose constructor. The kind reaches the module as the SDK binding its
-/// constructor is exported under ([`sdk_constructor`]), never the row label — and so does
-/// a field whose value is one of temper's own gate commands: the binding the renderer
-/// spelled joins the import list beside the constructor, so the module names the command
-/// and never copies it.
+/// constructor is exported under ([`sdk_constructor`]), never the row label.
 fn member_module_source(
     kind: &str,
     name: &str,
@@ -3107,7 +3088,6 @@ fn member_module_source(
     body: Option<&str>,
 ) -> String {
     let constructor = sdk_constructor(kind);
-    let mut bindings = BTreeSet::new();
     let mut fields_src = String::new();
     for (key, value) in fields {
         if key == "name" {
@@ -3116,11 +3096,11 @@ fn member_module_source(
         fields_src.push_str(&format!(
             "  {}: {},\n",
             ts_property_key(key),
-            json_to_ts_literal(value, &mut bindings)
+            json_leaf(value)
         ));
     }
 
-    let (mut imports, prose_src) = match body {
+    let (imports, prose_src) = match body {
         None => (constructor.clone(), String::new()),
         Some(body) if fits_inline(body) => (
             format!("file, text, {constructor}"),
@@ -3131,10 +3111,6 @@ fn member_module_source(
             format!("  prose: file(import.meta.url, \"./{stem}.md\"),\n"),
         ),
     };
-    for binding in &bindings {
-        imports.push_str(", ");
-        imports.push_str(binding);
-    }
 
     format!(
         "import {{ {imports} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {constructor}({{\n  name: {name:?},\n{fields_src}{prose_src}}});\n"
@@ -3157,55 +3133,9 @@ fn ts_property_key(key: &str) -> String {
     }
 }
 
-/// Render a JSON frontmatter value as a TS literal, collecting into `bindings` every
-/// gate-command binding the value names. JSON's grammar is a syntactic subset of TS/JS
-/// object- and array-literal syntax, so a JSON leaf already reads as a TS literal — one
-/// renderer generic over every JSON shape a scaffolded field carries (string, number,
-/// bool, array, object), replacing the description-only special case the lift used to
-/// carry.
-///
-/// Containers are walked rather than serialized whole for one reason: a string whose
-/// bytes *are* one of temper's own gate commands renders as the binding that names them
-/// ([`GATE_COMMAND_BINDINGS`]) instead of a second copy, and the command a gate hook
-/// fires sits inside its handler array, not flat on the member. The rule is a property of
-/// the bytes, so it holds at any depth and for any field — never a carve-out on the
-/// gate-hook path. Escaping stays `serde_json`'s ([`json_leaf`]); only the container
-/// punctuation is this function's, and it is JSON's compact form byte for byte.
-fn json_to_ts_literal(value: &JsonValue, bindings: &mut BTreeSet<&'static str>) -> String {
-    match value {
-        JsonValue::String(text) => match gate_command_binding(text) {
-            Some(binding) => {
-                bindings.insert(binding);
-                binding.to_owned()
-            }
-            None => json_leaf(value),
-        },
-        JsonValue::Array(items) => {
-            let rendered: Vec<String> = items
-                .iter()
-                .map(|item| json_to_ts_literal(item, bindings))
-                .collect();
-            format!("[{}]", rendered.join(","))
-        }
-        JsonValue::Object(entries) => {
-            let rendered: Vec<String> = entries
-                .iter()
-                .map(|(key, value)| {
-                    format!(
-                        "{}:{}",
-                        json_leaf(&JsonValue::String(key.clone())),
-                        json_to_ts_literal(value, bindings)
-                    )
-                })
-                .collect();
-            format!("{{{}}}", rendered.join(","))
-        }
-        _ => json_leaf(value),
-    }
-}
-
-/// One JSON value serialized — the encoder [`json_to_ts_literal`] delegates every
-/// non-container value and every object key to, so no escaping is ever hand-rolled here.
+/// One JSON value serialized compactly — already a valid TS literal, since JSON's grammar
+/// is a syntactic subset of TS object- and array-literal syntax, so no escaping is ever
+/// hand-rolled here.
 fn json_leaf(value: &JsonValue) -> String {
     serde_json::to_string(value).expect("a JSON value serializes infallibly")
 }
@@ -3819,69 +3749,54 @@ mod tests {
     }
 
     #[test]
-    fn json_to_ts_literal_renders_every_json_shape_as_valid_ts() {
-        let mut bindings = BTreeSet::new();
-        let render = |value: JsonValue, bindings: &mut BTreeSet<&'static str>| {
-            json_to_ts_literal(&value, bindings)
-        };
-        assert_eq!(render(json!("x"), &mut bindings), "\"x\"");
-        assert_eq!(render(json!(true), &mut bindings), "true");
-        assert_eq!(render(json!(7), &mut bindings), "7");
-        assert_eq!(render(json!(null), &mut bindings), "null");
-        assert_eq!(render(json!(["a", "b"]), &mut bindings), "[\"a\",\"b\"]");
-        // The walked container punctuation is JSON's compact form byte for byte, escaping
-        // included — a nested object and a quote-bearing key render as `serde_json` would.
+    fn json_leaf_renders_every_json_shape_as_valid_ts() {
+        assert_eq!(json_leaf(&json!("x")), "\"x\"");
+        assert_eq!(json_leaf(&json!(true)), "true");
+        assert_eq!(json_leaf(&json!(7)), "7");
+        assert_eq!(json_leaf(&json!(null)), "null");
+        assert_eq!(json_leaf(&json!(["a", "b"])), "[\"a\",\"b\"]");
         assert_eq!(
-            render(json!({ "a\"b": { "c": [1, false] } }), &mut bindings),
+            json_leaf(&json!({ "a\"b": { "c": [1, false] } })),
             "{\"a\\\"b\":{\"c\":[1,false]}}"
         );
-        assert!(
-            bindings.is_empty(),
-            "no ordinary field names a gate command, got: {bindings:?}"
-        );
     }
 
     #[test]
-    fn json_to_ts_literal_spells_a_gate_command_as_its_binding_at_any_depth() {
-        // The rule is a property of the bytes, not of the field: the command a gate hook
-        // fires sits inside its handler array, so a leaf-level substitution is the only
-        // one that reaches it.
-        let mut bindings = BTreeSet::new();
-        assert_eq!(
-            json_to_ts_literal(
-                &json!([{ "type": "command", "command": GUARD_COMMAND }]),
-                &mut bindings
-            ),
-            "[{\"command\":GUARD_COMMAND,\"type\":\"command\"}]"
-        );
-        assert_eq!(
-            json_to_ts_literal(&json!(SESSION_START_COMMAND), &mut bindings),
-            "SESSION_START_COMMAND"
-        );
-        assert_eq!(
-            bindings.iter().copied().collect::<Vec<_>>(),
-            ["GUARD_COMMAND", "SESSION_START_COMMAND"],
-            "every binding the render named joins the import list, in table order"
-        );
-    }
-
-    #[test]
-    fn every_gate_command_binding_names_a_distinct_command() {
-        // The table is the one home for the names, so a duplicated binding or a
-        // duplicated command would make [`gate_command_binding`] pick by position.
-        let names: BTreeSet<&str> = GATE_COMMAND_BINDINGS.iter().map(|(n, _)| *n).collect();
-        let commands: BTreeSet<&str> = GATE_COMMAND_BINDINGS.iter().map(|(_, c)| *c).collect();
-        assert_eq!(names.len(), GATE_COMMAND_BINDINGS.len());
-        assert_eq!(commands.len(), GATE_COMMAND_BINDINGS.len());
-        for (name, command) in GATE_COMMAND_BINDINGS {
-            assert_eq!(gate_command_binding(command), Some(name));
+    fn a_gate_rendering_is_recognized_at_any_binary_and_nothing_else_is() {
+        for binary in [
+            "temper",
+            "./node_modules/.bin/temper",
+            "/opt/my tools/it's temper",
+        ] {
+            for verb in [GateVerb::SessionStart, GateVerb::Guard] {
+                let command = render_gate_command(verb, binary);
+                assert_eq!(
+                    rendered_gate_binary(verb, &command).as_deref(),
+                    Some(binary),
+                    "{command}"
+                );
+            }
+            // A verb's rendering is not the other verb's.
+            let guard = render_gate_command(GateVerb::Guard, binary);
+            assert_eq!(rendered_gate_binary(GateVerb::SessionStart, &guard), None);
         }
-        // Sorted by binding name — the order the generated module and every import list
-        // read off it.
-        assert!(
-            GATE_COMMAND_BINDINGS.is_sorted_by_key(|(name, _)| *name),
-            "got: {GATE_COMMAND_BINDINGS:?}"
+        assert_eq!(
+            rendered_gate_binary(GateVerb::Guard, GUARD_COMMAND).as_deref(),
+            Some(DEFAULT_GATE_BINARY)
         );
+        for other in [
+            "temper guard .",
+            "command -v temper && temper guard .",
+            "command -v  >/dev/null 2>&1 || { echo \": command not found\" >&2; exit 127; } &&  guard .",
+            "cargo fmt --quiet",
+            "",
+        ] {
+            assert_eq!(
+                rendered_gate_binary(GateVerb::Guard, other),
+                None,
+                "{other}"
+            );
+        }
     }
 
     #[test]

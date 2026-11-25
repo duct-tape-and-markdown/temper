@@ -780,23 +780,12 @@ fn a_settings_document_lifts_into_a_fields_bearing_member_whose_emit_re_renders_
     // beside emit reported `applied` and was erased by the very next re-render, leaving
     // this file with no `hooks` key at all.
     assert_gate_hooks_wired(&root, "after install");
-    // Each module imports the constructor plus the binding naming the command it fires —
-    // the generated spelling, never a literal (0073).
-    for (hook, binding) in [
-        ("SessionStart", "SESSION_START_COMMAND"),
-        ("PreToolUse", "GUARD_COMMAND"),
-        ("PostToolUse", "GUARD_COMMAND"),
-    ] {
+    // Each module is the typed gate constructor — no command, no binary.
+    for hook in ["SessionStart", "PreToolUse", "PostToolUse"] {
         let module = fs::read_to_string(temper_dir.join("hooks").join(format!("{hook}.ts")))
-            .unwrap_or_else(|_| panic!("the lift scaffolds a `hook` module for {hook}"));
+            .unwrap_or_else(|_| panic!("the lift scaffolds a gate hook module for {hook}"));
         assert!(
-            module.contains(&format!(
-                "import {{ hook, {binding} }} from \"@dtmd/temper/claude-code\";"
-            )),
-            "got:\n{module}"
-        );
-        assert!(
-            module.contains(&format!("name: {hook:?},")),
+            module.contains(&format!("gateHook({{ name: {hook:?}")),
             "got:\n{module}"
         );
     }
@@ -1331,8 +1320,7 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
     assert_gate_hooks_wired(&root, "after install");
 
     // The lift minted one member module per group, all three composed into the entry
-    // point — the commands stay `install`'s own constants, reaching the module as the
-    // binding generated from them.
+    // point.
     let harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
     for (event, ident) in [
         ("SessionStart", "hook_SessionStart"),
@@ -1348,44 +1336,6 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
         );
         assert!(harness.contains(ident), "got:\n{harness}");
     }
-    // One matcher group carrying one handler: the `matcher` is the group's own field and
-    // the `command` sits inside the `hooks` array, the grain the authoring surface types
-    // (`Hook`, `sdk/src/builtins.ts`) — a handler's keys never land flat on the module.
-    // The command itself is the imported binding, never a literal: a scaffolded member
-    // spelling the bytes goes stale the day the command changes (0073), so the module
-    // names `GUARD_COMMAND` and the import line that brings it in is asserted with it.
-    let guard_module = fs::read_to_string(temper_dir.join("hooks").join("PreToolUse.ts")).unwrap();
-    assert!(
-        guard_module.contains("matcher: \"Write|Edit|MultiEdit\","),
-        "got:\n{guard_module}"
-    );
-    assert!(
-        guard_module.contains("import { hook, GUARD_COMMAND } from \"@dtmd/temper/claude-code\";"),
-        "got:\n{guard_module}"
-    );
-    assert!(
-        guard_module.contains("hooks: [{\"command\":GUARD_COMMAND,\"type\":\"command\"}],"),
-        "got:\n{guard_module}"
-    );
-    assert!(
-        !guard_module.contains(temper::install::GUARD_COMMAND),
-        "the module spells no command literal, got:\n{guard_module}"
-    );
-
-    // The session-start module takes the same treatment under its own binding — the rule
-    // is the command's, not one hook's.
-    let session_module =
-        fs::read_to_string(temper_dir.join("hooks").join("SessionStart.ts")).unwrap();
-    assert!(
-        session_module
-            .contains("import { hook, SESSION_START_COMMAND } from \"@dtmd/temper/claude-code\";"),
-        "got:\n{session_module}"
-    );
-    assert!(
-        !session_module.contains(temper::install::SESSION_START_COMMAND),
-        "the module spells no command literal, got:\n{session_module}"
-    );
-
     // Strip the guard group by hand, the drift the `PreToolUse` guard itself exists to
     // catch. A plain `emit` — no `install` behind it — puts it back, because the member
     // is where the hook lives.
@@ -1685,11 +1635,10 @@ fn an_authored_group_on_a_gate_event_never_overwrites_the_gate_hooks_own_module(
     // `hooks/<Event>.ts` name its remedy can cite; the authored group takes the next free
     // one. Sharing a stem, whichever ran second silently erased the other.
     let gate_module = fs::read_to_string(temper_dir.join("hooks").join("SessionStart.ts")).unwrap();
-    // The gate's command reaches the module as the generated binding, never a literal
-    // (0073), so what identifies this module as the gate's is the binding it imports —
-    // the authored group's own command is a string it spells inline.
+    // What identifies this module as the gate's is the typed constructor it is built with
+    // — the authored group's own command is a string it spells inline.
     assert!(
-        gate_module.contains("SESSION_START_COMMAND"),
+        gate_module.contains("gateHook("),
         "temper's own gate module is still the gate's, got:\n{gate_module}"
     );
     let authored_module =
@@ -1937,13 +1886,13 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
     );
 
     // And `check`'s self-verify says so, with the remedy the author owes: the module, and
-    // the binding its handler should run instead of a literal that can go stale again.
+    // the typed constructor that states a binary instead of a command that can go stale.
     let findings = gate_installed(&root);
     let message = one_gate_finding(&findings);
     for needle in [
         "session-start hook stale",
         ".temper/hooks/SessionStart.ts",
-        "SESSION_START_COMMAND",
+        "gateHook({ name: \"SessionStart\" })",
     ] {
         assert!(
             message.contains(needle),
@@ -1954,6 +1903,111 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
         fs::read_to_string(&settings_path).unwrap(),
         settings,
         "the self-verify is read-only — it never writes the projection"
+    );
+}
+
+/// Install a represented harness under `label`, then overwrite its scaffolded guard module
+/// with `module` and re-emit, so the projection is that module's.
+fn reinstall_with_guard_module(label: &str, module: &str) -> PathBuf {
+    common::ensure_sdk_built();
+    let root = write_harness(label, false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert!(gate_installed(&root).is_empty());
+
+    fs::write(temper_dir.join("hooks").join("PreToolUse.ts"), module).unwrap();
+    temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
+    root
+}
+
+#[test]
+fn install_scaffolds_gate_hooks_with_the_typed_constructor() {
+    common::ensure_sdk_built();
+    let root = write_harness("gate-hooks-typed-constructor", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // Each gate hook module is the constructor alone: its address, no binary (`temper` on
+    // the PATH) and no command — the engine renders that from the member.
+    for (event, call) in [
+        ("SessionStart", "gateHook({ name: \"SessionStart\" })"),
+        (
+            "PreToolUse",
+            "gateHook({ name: \"PreToolUse\", matcher: \"Write|Edit|MultiEdit\" })",
+        ),
+        (
+            "PostToolUse",
+            "gateHook({ name: \"PostToolUse\", matcher: \"Bash\" })",
+        ),
+    ] {
+        let module =
+            fs::read_to_string(temper_dir.join("hooks").join(format!("{event}.ts"))).unwrap();
+        assert_eq!(
+            module,
+            format!(
+                "import {{ gateHook }} from \"@dtmd/temper/claude-code\";\n\nexport const hook_{event} = {call};\n"
+            )
+        );
+    }
+    assert_gate_hooks_wired(&root, "after install");
+}
+
+#[test]
+fn a_gate_hook_declaring_an_off_path_binary_is_reported_installed() {
+    let binary = "./node_modules/.bin/temper";
+    let root = reinstall_with_guard_module(
+        "gate-hook-off-path-binary",
+        &format!(
+            "import {{ gateHook }} from \"@dtmd/temper/claude-code\";\n\n\
+             export const hook_PreToolUse = gateHook({{ name: \"PreToolUse\", \
+             matcher: \"Write|Edit|MultiEdit\", binary: {binary:?} }});\n"
+        ),
+    );
+    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    assert_eq!(
+        json["hooks"]["PreToolUse"][0]["hooks"][0]["command"].as_str(),
+        temper::install::gate_hook_command("PreToolUse", binary).as_deref(),
+        "the guard runs the declared binary, got:\n{settings}"
+    );
+    let findings = gate_installed(&root);
+    assert!(
+        findings.is_empty(),
+        "a gate hook member is installed at whatever binary it states, got: {findings:?}"
+    );
+}
+
+#[test]
+fn a_hook_at_a_gate_address_that_is_not_a_gate_hook_member_is_reported_stale() {
+    let root = reinstall_with_guard_module(
+        "hook-at-gate-address-not-gate",
+        "import { hook } from \"@dtmd/temper/claude-code\";\n\n\
+         export const hook_PreToolUse = hook({\n  name: \"PreToolUse\",\n  \
+         matcher: \"Write|Edit|MultiEdit\",\n  \
+         hooks: [{ type: \"command\", command: \"echo not the guard\" }],\n});\n",
+    );
+    let findings = gate_installed(&root);
+    let message = one_gate_finding(&findings);
+    for needle in [
+        "guard hook stale",
+        ".temper/hooks/PreToolUse.ts",
+        "is not a gate hook",
+        "gateHook({ name: \"PreToolUse\", matcher: \"Write|Edit|MultiEdit\" })",
+    ] {
+        assert!(
+            message.contains(needle),
+            "the stale report must name `{needle}`, got: {message}"
+        );
+    }
+    assert!(
+        !message.contains("session-start") && !message.contains("post-tool-use"),
+        "the untouched gate hooks stay installed, got: {message}"
     );
 }
 

@@ -22,7 +22,6 @@ import {
   command,
   commandDefaultContract,
   gateHook,
-  GUARD_COMMAND,
   handler,
   handlerDefaultContract,
   hook,
@@ -43,7 +42,6 @@ import {
   pluginManifestDefaultContract,
   rule,
   ruleDefaultContract,
-  SESSION_START_COMMAND,
   settings,
   settingsDefaultContract,
   settingsLocal,
@@ -92,16 +90,17 @@ test("every default contract clause carries a non-empty cite", () => {
  }
 });
 
-test("the provider face exports temper's gate commands as non-empty, distinct strings", () => {
-  // Presence only. The engine is these commands' one home (`src/install.rs`) and the Rust
-  // seam gate (`tests/it/seam_bindings_current.rs`) is what holds the generated copy
-  // byte-equal to it; a copy of the bytes asserted here would be the drift the generation
-  // exists to end.
-  for (const gateCommand of [GUARD_COMMAND, SESSION_START_COMMAND]) {
-    assert.equal(typeof gateCommand, "string");
-    assert.ok(gateCommand.length > 0);
+test("the provider face exports no gate-command string: a gate hook states its binary", async () => {
+  // A gate hook member is `gateHook(...)`; the engine renders its command, so a command
+  // string is never an author surface.
+  const face = await import("../src/claude-code.js");
+  for (const retired of ["GUARD_COMMAND", "SESSION_START_COMMAND"]) {
+    assert.equal(retired in face, false, `\`${retired}\` is still exported`);
   }
-  assert.notEqual(GUARD_COMMAND, SESSION_START_COMMAND);
+  const root = await import("../src/index.js");
+  for (const retired of ["GUARD_COMMAND", "SESSION_START_COMMAND"]) {
+    assert.equal(retired in root, false, `\`${retired}\` is still exported from the root`);
+  }
 });
 
 test("skillDefaultContract carries the skill kind's decidable clauses, name-first", () => {
