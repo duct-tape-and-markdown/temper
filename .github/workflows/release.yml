@@ -187,10 +187,14 @@ jobs:
           mkdir -p .claude/rules
           printf '# Smoke rule\n\nOne line of prose.\n' > .claude/rules/smoke.md
           npm init -y > /dev/null
-          # Registry propagation lag: wait until the SDK version is viewable.
-          for i in $(seq 1 20); do
-            npm view "@dtmd/temper@$VERSION" version > /dev/null 2>&1 && break
-            sleep 15
+          # Registry propagation lag: wait until the SDK and both engines are
+          # viewable. npm skips an optionalDependency it cannot resolve yet, so
+          # an engine still propagating installs as missing, not as an error.
+          for pkg in @dtmd/temper @dtmd/temper-linux-x64 @dtmd/temper-win32-x64; do
+            for i in $(seq 1 20); do
+              npm view "$pkg@$VERSION" version > /dev/null 2>&1 && break
+              sleep 15
+            done
           done
           npm install "@dtmd/temper@$VERSION" > /dev/null
           npx temper --version
