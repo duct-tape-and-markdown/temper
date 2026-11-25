@@ -1,12 +1,12 @@
 {
   "tag": "BUILTIN-KIND-FACTS-DERIVE-FROM-THE-EMBEDDED-LOCK",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "BUILTIN-LOCI-CLAIM-WHAT-THE-HARNESS-LOADS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/builtin_kind.rs",
@@ -36,7 +36,8 @@
         "path": "tests/it/lock_declaration_rows.rs",
         "description": "the_embedded_lock_kind_facts_match_todays_hand_written_kinds stops restating literals"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "The Rust built-in population is derived from the embedded lock, not hand-spelled beside it",
   "per": {
@@ -45,5 +46,7 @@
   },
   "acceptance": "no claude_code_*() constructor spells a locus, glob, exclude or content fact the embedded lock carries; cargo test and pnpm --dir sdk test stay green",
   "tests": [],
+  "pins": [],
+  "laneTests": [],
   "notes": "Fold, from the 2026-11-24 inbox record: one change to a built-in fact parked twice across sdk/src/builtins.ts, src/builtin_kind.rs and test pins. Census by behavior: every production site spelling a built-in kind fact as a literal (test fixtures in coverage_note/drift/kind are fixtures, not copies). Name each Rust-only fact found in the commit body."
 }

@@ -1,18 +1,38 @@
 {
   "tag": "GOVERNS-COLLISION-COMPARES-GOVERNED-PATHS",
-  "gate": { "kind": "blockedBy", "tags": ["BUILTIN-LOCI-CLAIM-WHAT-THE-HARNESS-LOADS"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [
-      { "path": "tests/it/governs_collision.rs", "description": "overlapping templates, wholly-excluded overlap, built-ins pass" }
+      {
+        "path": "tests/it/governs_collision.rs",
+        "description": "overlapping templates, wholly-excluded overlap, built-ins pass"
+      }
     ],
     "edit": [
-      { "path": "src/admissibility.rs", "description": "governs_collision_diagnostics judges template overlap less excludes, not root+glob string equality" },
-      { "path": "src/kind.rs", "description": "a template-overlap predicate beside locus_admits, honoring excluded paths and directories" },
-      { "path": "tests/it/main.rs", "description": "register governs_collision" }
-    ]
+      {
+        "path": "src/admissibility.rs",
+        "description": "governs_collision_diagnostics judges template overlap less excludes, not root+glob string equality"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "a template-overlap predicate beside locus_admits, honoring excluded paths and directories"
+      },
+      {
+        "path": "tests/it/main.rs",
+        "description": "register governs_collision"
+      }
+    ],
+    "retire": []
   },
   "summary": "The governs-collision check compares the paths two kinds govern, not their glob strings",
-  "per": { "path": "specs/model/representation.md", "section": "locus" },
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "locus"
+  },
   "acceptance": "two kinds whose templates (less their excludes) can match one path draw kind.governs-collision; the built-in set draws none",
   "tests": [
     "two kinds whose distinct templates share a governed path draw a governs collision",
@@ -21,5 +41,6 @@
   "pins": [
     "the built in kinds draw no governs collision"
   ],
+  "laneTests": [],
   "notes": "Per 0081/0084. The template grammar (literal segments, one `*`, optional leading `**/`) keeps overlap decidable without enumerating a tree. Manifest and nested-file kinds stay out as today. May surface new findings on the dogfood .temper corpus — a record, not a src change."
 }
