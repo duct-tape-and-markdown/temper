@@ -1,10 +1,7 @@
 {
   "tag": "SKILL-CLAIMS-SUBDIRECTORY-SKILLS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "COMMAND-CLAIMS-ITS-NESTED-PLACEMENTS"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
