@@ -6,7 +6,7 @@
 //! filename or a containing subdirectory (organizational only). Driven at the
 //! crate-public API a real `import`/`check` read takes — `import::discover_kind_files`,
 //! `Member::from_source`, `builtin_kind::features`, and `temper::builtin::contract` +
-//! `engine::validate` for the floor's charset/uniqueness clauses — over fixtures
+//! `engine::validate` for the floor's name/uniqueness clauses — over fixtures
 //! mirroring the real Claude Code layout (`.claude/rules/rust.md`, "Harness-input
 //! fixtures mirror the real Claude Code layout").
 
@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use crate::common;
 
 use temper::builtin_kind;
-use temper::contract::{Charset, Predicate};
+use temper::contract::Predicate;
 use temper::engine;
 use temper::extract::FeatureValue;
 use temper::frontmatter::Member;
@@ -139,15 +139,6 @@ fn an_agent_member_extracts_its_declared_field_schema() {
     );
 }
 
-/// The `[a-z-]` charset the `name` `allowed_chars` clause declares — lowercase
-/// letters and hyphens only, no digits (unlike a skill's `[a-z0-9-]` name).
-fn agent_name_charset() -> Charset {
-    Charset {
-        ranges: vec![('a', 'z')],
-        chars: std::collections::BTreeSet::from(['-']),
-    }
-}
-
 #[test]
 fn agent_builtin_carries_the_decidable_clause_vector() {
     let contract = common::builtin_floor("agent");
@@ -164,9 +155,9 @@ fn agent_builtin_carries_the_decidable_clause_vector() {
             Predicate::Required {
                 field: "name".to_string()
             },
-            Predicate::AllowedChars {
+            Predicate::MaxLen {
                 field: "name".to_string(),
-                charset: agent_name_charset(),
+                max: 256,
             },
             Predicate::UniqueName,
             Predicate::Required {
@@ -195,44 +186,42 @@ fn the_agent_builtin_is_admissible() {
     assert!(diagnostics.is_empty(), "got: {diagnostics:?}");
 }
 
-#[test]
-fn an_uppercase_name_trips_the_charset_clause() {
-    let harness = common::tmpdir("bad-charset");
-    let source = write_agent(&harness, "reviewer.md", "Reviewer");
+/// Every diagnostic the agent floor raises over one member named `name`.
+fn name_diagnostics(name: &str) -> Vec<temper::check::Diagnostic> {
+    let harness = common::tmpdir("name-clauses");
+    let source = write_agent(&harness, "agent.md", name);
 
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
     let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&kind, &unit, &[]);
 
-    let contract = common::builtin_floor("agent");
-    let diagnostics = engine::validate(&contract, &[features]);
+    engine::validate(&common::builtin_floor("agent"), &[features])
+}
 
+#[test]
+fn an_agent_named_after_an_overridable_built_in_draws_no_name_finding() {
+    let diagnostics = name_diagnostics("Explore");
     assert!(
-        diagnostics
-            .iter()
-            .any(|d| d.rule == "agent.allowed_chars.name"),
-        "an uppercase name must trip the charset clause, got: {diagnostics:#?}"
+        diagnostics.is_empty(),
+        "a project `Explore` overrides the built-in and must check clean, got: {diagnostics:#?}"
     );
 }
 
 #[test]
-fn a_lowercase_hyphenated_name_trips_no_charset_clause() {
-    let harness = common::tmpdir("good-charset");
-    let source = write_agent(&harness, "code-reviewer.md", "code-reviewer");
+fn a_name_with_digits_draws_no_name_finding() {
+    let diagnostics = name_diagnostics("reviewer-v2");
+    assert!(diagnostics.is_empty(), "got: {diagnostics:#?}");
+}
 
-    let kind = agent_kind();
-    let member = Member::from_source(&kind, &source).unwrap();
-    let unit = common::surface_unit(&member);
-    let features = builtin_kind::features(&kind, &unit, &[]);
-
-    let contract = common::builtin_floor("agent");
-    let diagnostics = engine::validate(&contract, &[features]);
-
+#[test]
+fn a_name_past_256_characters_trips_the_length_clause() {
+    let diagnostics = name_diagnostics(&"a".repeat(257));
     assert!(
-        diagnostics.iter().all(|d| d.rule != "allowed_chars"),
-        "a clean lowercase-hyphenated name must not trip the charset clause, got: {diagnostics:#?}"
+        diagnostics.iter().any(|d| d.rule == "agent.max_len.name"),
+        "got: {diagnostics:#?}"
     );
+    assert!(name_diagnostics(&"a".repeat(256)).is_empty());
 }
 
 #[test]

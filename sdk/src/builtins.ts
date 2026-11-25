@@ -1995,11 +1995,18 @@ export const commandDefaultContract: readonly Clause[] = [];
 
 /**
  * The default contract for `agent` — Anthropic's documented subagent contract
- * (code.claude.com/docs/en/sub-agents, retrieved 2026-07-15): `name` and
- * `description` are the only required fields, `name` is a "unique identifier
- * using lowercase letters and hyphens" (no digits, unlike a skill's `name`), and
- * "keep `name` values unique across the whole tree" — a same-scope collision
+ * (code.claude.com/docs/en/sub-agents, retrieved 2026-11-25): `name` and
+ * `description` are the only required fields; `name` is a "unique identifier of
+ * at most 256 characters" with no documented charset (`reviewer-v2` is the docs'
+ * own example, and a project agent named `Explore` overrides the built-in); and
+ * "keep `name` values unique across subfolders" — a same-directory collision
  * loads only one definition.
+ *
+ * Hold: the docs skip a file whose `name` contains `:` (reserved for
+ * plugin-scoped identifiers) or starts with `-`. Both are decidable, but
+ * `allowedChars` is a whitelist and `deny` matches whole values, so neither is
+ * spellable; the widening that closes it is a forbidden-character (or
+ * leading-character) predicate.
  *
  * Deliberately narrow, like `ruleDefaultContract`: undecidable properties (whether the
  * description triggers well, model/permissionMode's semi-open vocabularies) stay
@@ -2010,25 +2017,25 @@ export const agentDefaultContract: readonly Clause[] = [
     severity: "required",
     guidance:
       "Every subagent declares a `name` — its unique identifier. Claude Code binds identity to this field alone, never the filename, so a nameless subagent cannot be delegated to.",
-    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-15)",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)",
   }),
-  clause(allowedChars("name", { ranges: ["a-z"], chars: "-" }), {
+  clause(maxLen("name", 256), {
     severity: "required",
     guidance:
-      "Lowercase letters and hyphens only — no digits, unlike a skill's `[a-z0-9-]` name. Hooks receive this value as `agent_type`.",
-    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-15)",
+      "A name longer than 256 characters is skipped at load — Claude Code writes an error to the debug log and the subagent never exists. Any case and digits are fine (`reviewer-v2`, `Explore` to override the built-in); keep `:` out, which is reserved for plugin-scoped ids like `my-plugin:reviewer`, and don't lead with `-` — both also skip the file. Hooks receive this value as `agent_type`.",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)",
   }),
   clause(uniqueName(), {
     severity: "required",
     guidance:
       "Keep `name` values unique across the whole tree — when two files in one scope declare the same name, Claude Code loads only one of them, silently shadowing the other.",
-    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-15)",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)",
   }),
   clause(required("description"), {
     severity: "required",
     guidance:
       "The description is how Claude decides when to delegate to this subagent — write it so the trigger is unambiguous.",
-    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-15)",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)",
   }),
 ];
 

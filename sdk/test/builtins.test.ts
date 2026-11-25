@@ -1161,17 +1161,19 @@ test("each instruction-bearing builtin kind's guidance states what reaches conte
   }
 });
 
-test("agentDefaultContract requires name and description, gates the lowercase-hyphen charset, and pins per-scope uniqueness", () => {
+test("agentDefaultContract requires name and description, bounds the name at 256 characters, and pins per-scope uniqueness", () => {
   assert.deepEqual(
     agentDefaultContract.map((c) => c.predicate.key),
-    ["required", "allowed_chars", "unique-name", "required"],
+    ["required", "max_len", "unique-name", "required"],
   );
   assert.deepEqual(
     agentDefaultContract.map((c) => c.predicate.field),
     ["name", "name", undefined, "description"],
   );
-  const charset = agentDefaultContract[1].predicate.charset;
-  assert.deepEqual(charset, { ranges: ["a-z"], chars: "-" });
+  assert.deepEqual(agentDefaultContract[1].predicate.args, { max: 256 });
+  for (const c of agentDefaultContract.slice(0, 3)) {
+    assert.equal(c.cite, "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)");
+  }
 });
 
 test("an agent member's identity field writes name first, then the typed description", () => {
