@@ -54,7 +54,6 @@ const program = harness({
   require: {
     "friction-capture-procedure": {
       prose: "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture",
-      required: true,
     },
     // The behavioral remainder the gate cannot decide (intent.md invariant 2):
     // whether a declared member ever reaches the model. Its verifier is the

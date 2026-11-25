@@ -68,9 +68,6 @@ hard.
   (0058), and the guard now asks the contract (0059). The hand chain now
   declares build promptDataKeys (b6af91cd): queue text had been a step from
   shell execution. Add it to the migration carry list below.
-- **Queued human half:** when REQUIREMENT-LOWERS-THE-CORPUS-DEFAULT ships,
-  drop `friction-capture-procedure`'s `required: true` in `.temper/harness.ts`
-  (ruled 11-24: it restates the default) and re-emit.
 - **Harness migration done 11-24:** flume 0.23's packaged harness replaces
   the hand chain (`.flume/declaration.ts`; cargo judge `.flume/runner.mjs`
   over nextest). Unverified in the package: a blocked entry may edit a file
