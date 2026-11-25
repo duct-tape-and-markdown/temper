@@ -70,6 +70,7 @@ export type {
   EdgeTargetFacts,
   EmbeddedMemberCollectionEntry,
   EmbeddedMemberValue,
+  FieldGuidance,
   Format,
   Input,
   KindDefinition,

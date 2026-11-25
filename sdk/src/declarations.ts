@@ -642,10 +642,27 @@ function locusGlobs(
 }
 
 /**
- * One `rule` member per **guided corpus kind**: a kind in play that carries `guidance` and
- * that the program authored, never one it only imported (a shipped built-in projects
- * nothing — every harness would otherwise get rules it never asked for — and a relocated
- * built-in carries only what its relocation declares). Its `paths` are the kind's
+ * The body a kind's guidance rule carries — the kind's own counsel, then one line per
+ * counselled field in the order the author wrote them, under a `Fields` heading. A kind
+ * guided only at its fields still has a body; one carrying no counsel at all (blank
+ * counsel included) has none, and projects no rule.
+ */
+function guidanceBody(facts: KindFacts): string | undefined {
+  const own = facts.guidance?.trim() ?? "";
+  const fields = Object.entries(facts.fieldGuidance ?? {}).flatMap(([field, counsel]) =>
+    counsel === undefined || counsel.trim() === "" ? [] : [`- \`${field}\`: ${counsel.trim()}`],
+  );
+  if (fields.length === 0) return own === "" ? undefined : facts.guidance;
+  const section = `## Fields\n\n${fields.join("\n")}`;
+  return own === "" ? section : `${own}\n\n${section}`;
+}
+
+/**
+ * One `rule` member per **guided corpus kind**: a kind in play that carries counsel (its
+ * own `guidance` or a field's, {@link guidanceBody}) and that the program authored, never
+ * one it only imported (a shipped built-in projects nothing — every harness would
+ * otherwise get rules it never asked for — and a relocated built-in carries only what its
+ * relocation declares). Its `paths` are the kind's
  * {@link locusGlobs}, its body the counsel, so the runtime hands the counsel to an agent
  * the first time a session touches a member's document. A kind whose locus resolves to no
  * file (an embedded kind nothing hosts) has nowhere to scope a rule and projects none.
@@ -665,8 +682,8 @@ function guidanceRules(harness: Harness): Member[] {
   const authored = new Set(harness.members.filter((member) => member.kind === rule.key).map((member) => member.name));
   const rules: Member[] = [];
   for (const facts of kinds) {
-    const guidance = facts.guidance;
-    if (guidance === undefined || guidance.trim() === "") continue;
+    const guidance = guidanceBody(facts);
+    if (guidance === undefined) continue;
     if (SHIPPED_KINDS.has(facts) || facts.relocates !== undefined) continue;
     const paths = locusGlobs(facts, kinds, admissions);
     if (paths.length === 0) continue;

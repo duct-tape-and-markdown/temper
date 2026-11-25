@@ -198,6 +198,19 @@ export interface Template {
 }
 
 /**
+ * Per-field authoring counsel over a kind's typed surface `T` — one optional counsel per
+ * key of `T`, so a field the surface does not carry cannot be counselled. Advisory only:
+ * it never gates, and it reaches an author through the kind's path-scoped guidance rule.
+ *
+ * A surface with no fields resolves to `never`: the mapped object over no keys would be
+ * `{}`, which the compiler checks no excess property against, so the empty case is
+ * spelled as the refusal it is rather than left open to any key.
+ */
+export type FieldGuidance<T extends object> = [keyof T & string] extends [never]
+  ? never
+  : { readonly [K in keyof T & string]?: string };
+
+/**
  * The seven facts of a kind's runtime residue, plus the derived {@link LeafSet} witness
  * its typed surface hands over. `T` is that surface — the interface the kind's
  * constructor is generic over. It defaults to an erased `Record<string, unknown>`, so
@@ -269,6 +282,11 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */
       readonly cite?: string;
+      /** Advisory counsel per field, keyed by the kind's typed surface `T` — a key naming a
+       * field the surface lacks fails `tsc` (decision 0091, bounded as 0078 bounds a leaf
+       * set). It carries no predicate and rides the kind's guidance rule beside the kind's
+       * own counsel, in the order the author wrote it. */
+      readonly fieldGuidance?: FieldGuidance<T>;
     }
   | {
       /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
@@ -333,6 +351,11 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */
       readonly cite?: string;
+      /** Advisory counsel per field, keyed by the kind's typed surface `T` — a key naming a
+       * field the surface lacks fails `tsc` (decision 0091, bounded as 0078 bounds a leaf
+       * set). It carries no predicate and rides the kind's guidance rule beside the kind's
+       * own counsel, in the order the author wrote it. */
+      readonly fieldGuidance?: FieldGuidance<T>;
     }
   | {
       /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
@@ -397,6 +420,11 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */
       readonly cite?: string;
+      /** Advisory counsel per field, keyed by the kind's typed surface `T` — a key naming a
+       * field the surface lacks fails `tsc` (decision 0091, bounded as 0078 bounds a leaf
+       * set). It carries no predicate and rides the kind's guidance rule beside the kind's
+       * own counsel, in the order the author wrote it. */
+      readonly fieldGuidance?: FieldGuidance<T>;
     };
 
 /**

@@ -2628,3 +2628,66 @@ test("an authored rule at a synthesized guidance rule's name refuses loud", () =
   });
   assert.throws(() => emit(h), /rule `temper-guidance-spec-doc`: the name is the guidance rule temper synthesizes/);
 });
+
+test("a kind's field guidance rides its guidance rule beside the kind's own counsel, in authored order", () => {
+  const guidedSpec = kind<{ readonly title?: string; readonly status?: string }>({
+    name: "guided-spec",
+    locus: { kind: "at", root: "specs", glob: "**/*.md" },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    guidance: SPEC_COUNSEL,
+    fieldGuidance: {
+      title: "Name the claim, not the topic.",
+      status: "Draft until a decision cites it.",
+    },
+  });
+  const result = emit(harness({ members: [guidedSpec({ name: "intent" })] }));
+  const rule = guidanceRuleMembers(result).find((member) => member.name === "temper-guidance-guided-spec");
+  assert.ok(rule, "the guided kind projects its rule");
+  assert.equal(
+    rule.body,
+    `${SPEC_COUNSEL}\n\n## Fields\n\n` +
+      "- `title`: Name the claim, not the topic.\n" +
+      "- `status`: Draft until a decision cites it.",
+  );
+});
+
+test("a kind carrying only field guidance still projects its rule", () => {
+  const fieldOnly = kind<{ readonly title?: string }>({
+    name: "field-only",
+    locus: { kind: "at", root: "docs", glob: "*.md" },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    fieldGuidance: { title: "Name the claim, not the topic." },
+  });
+  const result = emit(harness({ members: [], expect: [{ kind: fieldOnly, clauses: [] }] }));
+  const rules = guidanceRuleMembers(result);
+  assert.deepEqual(
+    rules.map((member) => member.name),
+    ["temper-guidance-field-only"],
+  );
+  assert.deepEqual(rules[0]!.fields, [["paths", ["docs/*.md"]]]);
+  assert.equal(rules[0]!.body, "## Fields\n\n- `title`: Name the claim, not the topic.");
+});
+
+test("field guidance naming a field the kind's surface lacks does not type-check", () => {
+  const facts = {
+    name: "mistyped",
+    locus: { kind: "at", root: "docs", glob: "*.md" },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [{ via: "always" }],
+  } as const;
+  kind<{ readonly title?: string }>({
+    ...facts,
+    // @ts-expect-error `titel` is not a field of the surface — counsel binds to a field that exists.
+    fieldGuidance: { titel: "Never compiles." },
+  });
+  kind<Record<never, never>>({
+    ...facts,
+    // @ts-expect-error a surface with no fields admits no field counsel at all.
+    fieldGuidance: { title: "Never compiles." },
+  });
+});
