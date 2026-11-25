@@ -11,6 +11,7 @@ import { test } from "node:test";
 import type { Clause, Harness } from "../src/index.js";
 import { embeddedMemberValue, emit, harness, kind, relocate } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
+import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
 // is its one caller), so the test reaches the module rather than the public subpath.
 import { tapHookRegistration } from "../src/builtins.js";
@@ -171,7 +172,6 @@ test("mcpServer is a fields-only manifest kind at the mcpServers.* collection ad
   assert.deepEqual(mcpServer.facts.locus, { kind: "at", root: ".", glob: ".mcp.json" });
   assert.deepEqual(mcpServer.facts.registration, [{ via: "connection" }]);
   assert.deepEqual(mcpServer.facts.collectionAddress, {
-    manifest: ".mcp.json",
     keyPath: "mcpServers.*",
     entryShape: "object",
   });
@@ -194,7 +194,42 @@ test("mcp is the committed json-document container of the mcpServers collection 
   assert.equal(mcp.facts.shape, undefined);
   assert.deepEqual(mcp.facts.registration, []);
   // Same file, two faces: the container governs the document, `mcpServer` keys inside it.
-  assert.equal(mcp.facts.locus.glob, mcpServer.facts.collectionAddress?.manifest);
+  assert.equal(mcp.facts.locus.glob, manifestOf(mcpServer.facts));
+});
+
+test("registration kinds name the manifest once — in their starless locus, never their address", () => {
+  const surfaces: [typeof hook.facts | typeof mcpServer.facts, string][] = [
+    [hook.facts, "settings.json"],
+    [mcpServer.facts, ".mcp.json"],
+    [installedPlugin.facts, "settings.json"],
+    [knownMarketplace.facts, "settings.json"],
+  ];
+  for (const [facts, manifest] of surfaces) {
+    assert.equal("manifest" in (facts.collectionAddress ?? {}), false, facts.name);
+    assert.equal(manifestOf(facts), manifest, facts.name);
+  }
+  // The registration rows still name the manifest — read off the locus, never the address.
+  const declarations = compileDeclarations(
+    harness({ members: [mcpServer({ name: "github", type: "http", url: "https://example.com/mcp" })] }),
+  );
+  const row = declarations.kinds.find((k) => k.name === "mcp-server");
+  assert.deepEqual(row?.collection_address, { key_path: "mcpServers.*", entry_shape: "object" });
+  assert.equal(declarations.registrations.find((r) => r.kind === "mcp-server")?.manifest, ".mcp.json");
+});
+
+test("a collection address keys inside one manifest — a starred locus is refused at the keystroke", () => {
+  assert.throws(
+    () =>
+      kind({
+        name: "wide-hook",
+        locus: { kind: "at", root: ".claude", glob: "*.json" },
+        unitShape: "file",
+        registration: [],
+        shape: "fields",
+        collectionAddress: { keyPath: "hooks.<Event>", entryShape: "object" },
+      }),
+    /names no single file/,
+  );
 });
 
 test("mcpDefaultContract is empty by construction — the one documented key is a collection address", () => {
@@ -225,7 +260,6 @@ test("installedPlugin is a fields-only manifest kind at the enabledPlugins.* col
   // The entry's own presence is the channel, and the field names the gate.
   assert.deepEqual(installedPlugin.facts.registration, [{ via: "enablement", field: "enabled" }]);
   assert.deepEqual(installedPlugin.facts.collectionAddress, {
-    manifest: "settings.json",
     keyPath: "enabledPlugins.*",
     entryShape: "scalar(enabled)",
   });
@@ -247,7 +281,6 @@ test("knownMarketplace is a fields-only manifest kind at the extraKnownMarketpla
   // as a connection's is.
   assert.deepEqual(knownMarketplace.facts.registration, [{ via: "registry" }]);
   assert.deepEqual(knownMarketplace.facts.collectionAddress, {
-    manifest: "settings.json",
     keyPath: "extraKnownMarketplaces.*",
     entryShape: "object",
   });

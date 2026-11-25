@@ -147,7 +147,7 @@ fn the_mcp_kind_crosses_the_seam_as_a_committed_whole_file_json_document() {
         .collection_address
         .as_ref()
         .expect("mcp-server keys at a collection address");
-    assert_eq!(address.manifest, ".mcp.json");
+    assert_eq!(server.governs_glob.as_deref(), Some(".mcp.json"));
     assert_eq!(address.key_path, "mcpServers.*");
 }
 

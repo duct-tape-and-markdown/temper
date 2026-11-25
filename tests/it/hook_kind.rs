@@ -826,7 +826,7 @@ fn the_embedded_builtin_lock_carries_the_hook_kind_and_its_event_clause() {
         .collection_address
         .as_ref()
         .expect("the hook kind carries its collection address");
-    assert_eq!(address.manifest, "settings.json");
+    assert_eq!(hook.governs_glob.as_deref(), Some("settings.json"));
     assert_eq!(address.key_path, "hooks.<Event>");
 
     let clause = declarations
@@ -842,22 +842,19 @@ fn the_embedded_builtin_lock_carries_the_hook_kind_and_its_event_clause() {
     );
 }
 
-/// A fields-only kind row keyed at `settings.json#hooks.<Event>` and governing no file
-/// locus of its own — the shape the collision case needs on both sides of the collision,
-/// diverging only on the name. The judged collision is the address itself, so both sides
+/// A fields-only kind row keyed at `settings.json#hooks.<Event>`, its manifest named by its
+/// `.claude/settings.json` locus — the shape the collision case needs on both sides of the
+/// collision, diverging only on the name. The judged collision is the address itself, so both sides
 /// declare the same `entry_shape`; the parameter stays so a case needing divergent shapes
 /// at one address can ask for it.
 fn collides_at_hooks_event(name: &str, entry_shape: &str) -> KindFactRow {
     KindFactRow {
-        governs_root: None,
-        governs_glob: None,
         shape: Some("fields".to_string()),
         collection_address: Some(CollectionAddressRow {
-            manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
             entry_shape: entry_shape.to_string(),
         }),
-        ..common::kind_facts(name, "", "")
+        ..common::kind_facts(name, ".claude", "settings.json")
     }
 }
 
@@ -876,10 +873,7 @@ fn two_kinds_at_the_same_collection_address_trip_collision_loud() {
 
     // Write a lock that declares two kinds at the same collection address. The first is
     // the built-in `hook` kind at `settings.json#hooks.<Event>`; the second is a custom
-    // kind also at that same address. Both rows are spelled here rather than off
-    // `common::hook_kind_facts`, which declares the real kind's `.claude/settings.json`
-    // file locus: the collision this case judges is the *collection* address alone, and a
-    // governed glob beside it would hand the gate a second, unrelated locus fact.
+    // kind also at that same address — the manifest each locus names, and one key path.
     common::write_lock(
         &harness,
         Declarations {

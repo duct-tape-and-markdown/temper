@@ -23,7 +23,7 @@ use temper::contract;
 use temper::drift;
 use temper::gate;
 use temper::install;
-use temper::kind::{self, CollectionAddress, Commitment, CustomKind, Format};
+use temper::kind::{self, Commitment, CustomKind, Format};
 use temper::path;
 use temper::read;
 use temper::reporter;
@@ -689,17 +689,13 @@ fn kind_contract(
     }
 }
 
-/// Extract the member keys declared in the lock for a given manifest kind and collection address.
-/// Filters registrations by the kind name, manifest name, and collection address.
-fn extract_expected_keys(
-    declarations: &drift::Declarations,
-    kind_name: &str,
-    address: &CollectionAddress,
-) -> Vec<String> {
+/// Extract the member keys declared in the lock for a given manifest kind: its
+/// registrations in the manifest its locus names.
+fn extract_expected_keys(declarations: &drift::Declarations, kind: &CustomKind) -> Vec<String> {
     declarations
         .registrations
         .iter()
-        .filter(|reg| reg.kind == kind_name && reg.manifest == address.manifest)
+        .filter(|reg| reg.kind == kind.name && Some(reg.manifest.as_str()) == kind.manifest())
         .map(|reg| reg.key.clone())
         .collect()
 }
@@ -733,7 +729,7 @@ fn guarded_manifests(
             &declarations.assembly,
             &kind.name,
         )?;
-        let expected_keys = extract_expected_keys(declarations, &kind.name, &address);
+        let expected_keys = extract_expected_keys(declarations, &kind);
         manifests.push(install::GuardedManifest {
             container: containers.get(&path).cloned(),
             path,
@@ -756,7 +752,7 @@ fn guarded_manifests(
             &declarations.kinds,
             &row.name,
         )?;
-        let expected_keys = extract_expected_keys(declarations, &kind.name, &address);
+        let expected_keys = extract_expected_keys(declarations, &kind);
         manifests.push(install::GuardedManifest {
             container: containers.get(&path).cloned(),
             path,

@@ -2222,9 +2222,9 @@ fn manifest_target_path(facts: &KindFactRow) -> Option<HarnessRelativePath> {
 }
 
 /// The harness-relative path the manifest named `manifest` lives at, resolved through any
-/// in-play kind that declares it as its collection address's host — the same `governs`
-/// locus [`manifest_target_path`] gives a registration kind. `None` when no in-play kind
-/// declares the manifest, so its residue has nowhere to land.
+/// in-play registration kind whose locus names it — the same `governs` locus
+/// [`manifest_target_path`] gives that kind. `None` when no in-play kind declares the
+/// manifest, so its residue has nowhere to land.
 fn manifest_path_for(
     manifest: &str,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
@@ -2232,10 +2232,7 @@ fn manifest_path_for(
     kind_facts
         .values()
         .find(|facts| {
-            facts
-                .collection_address
-                .as_ref()
-                .is_some_and(|address| address.manifest == manifest)
+            facts.collection_address.is_some() && facts.governs_glob.as_deref() == Some(manifest)
         })
         .and_then(|facts| manifest_target_path(facts))
 }
@@ -4668,14 +4665,13 @@ pub struct TemplateRow {
     pub path: Option<String>,
 }
 
-/// A kind's declared **collection address** row — the manifest a registration member
-/// surfaces in, the key path it keys at, and the shape its entry takes: the
-/// presence-coupled triple [`KindFactRow::collection_address`] carries. Absent from a
-/// [`KindFactRow`] means the kind owns its own file locus.
+/// A kind's declared **collection address** row — the key path a registration member
+/// keys at and the shape its entry takes: the presence-coupled pair
+/// [`KindFactRow::collection_address`] carries. The manifest it keys inside is the row's
+/// own starless `governs_glob`, never a second column here. Absent from a [`KindFactRow`]
+/// means the kind owns its own file locus.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct CollectionAddressRow {
-    /// The host manifest the registration surfaces in (`settings.json`, `.mcp.json`).
-    pub manifest: String,
     /// The manifest key path the registration keys at (`hooks.<Event>`, `mcpServers.*`), a
     /// closed vocabulary the engine's kind lift rejects an unknown value from.
     pub key_path: String,
@@ -5729,23 +5725,21 @@ fn edge_to_from_table(table: &dyn TableLike) -> Result<Option<Vec<String>>, RowE
     opt_str_array(table, "to")
 }
 
-/// Build a [`KindFactRow`]'s `collection_address` column's wire form: a `{ manifest =
-/// "…", key_path = "…", entry_shape = "…" }` inline table, all three columns of the
-/// presence-coupled triple written whenever the address is declared.
+/// Build a [`KindFactRow`]'s `collection_address` column's wire form: a `{ key_path =
+/// "…", entry_shape = "…" }` inline table, both columns written whenever the address is
+/// declared.
 fn collection_address_table(address: &CollectionAddressRow) -> InlineTable {
     let mut table = InlineTable::new();
-    table.insert("manifest", Value::from(address.manifest.clone()));
     table.insert("key_path", Value::from(address.key_path.clone()));
     table.insert("entry_shape", Value::from(address.entry_shape.clone()));
     table
 }
 
-/// Read a `collection_address` column back off its inline table — a missing `manifest`,
-/// `key_path`, or `entry_shape` is a [`RowError`], the same required-column discipline the
-/// rest of the row family holds.
+/// Read a `collection_address` column back off its inline table — a missing `key_path` or
+/// `entry_shape` is a [`RowError`], the same required-column discipline the rest of the row
+/// family holds.
 fn collection_address_from_table(table: &dyn TableLike) -> Result<CollectionAddressRow, RowError> {
     Ok(CollectionAddressRow {
-        manifest: req_str(table, "manifest")?,
         key_path: req_str(table, "key_path")?,
         entry_shape: req_str(table, "entry_shape")?,
     })

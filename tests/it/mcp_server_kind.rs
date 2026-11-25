@@ -222,7 +222,7 @@ fn the_embedded_builtin_lock_carries_the_mcp_server_kind_and_its_type_clause() {
         .collection_address
         .as_ref()
         .expect("the mcp-server kind carries its collection address");
-    assert_eq!(address.manifest, ".mcp.json");
+    assert_eq!(mcp.governs_glob.as_deref(), Some(".mcp.json"));
     assert_eq!(address.key_path, "mcpServers.*");
 
     let clause = declarations

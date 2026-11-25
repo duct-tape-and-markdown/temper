@@ -14,6 +14,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
+import { manifestOf } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves } from "./prose.js";
@@ -374,7 +375,6 @@ function contentRow(content: Layout | undefined): LayoutRow | undefined {
 function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefined {
   if (facts.collectionAddress === undefined) return undefined;
   return {
-    manifest: facts.collectionAddress.manifest,
     key_path: facts.collectionAddress.keyPath,
     entry_shape: facts.collectionAddress.entryShape,
   };
@@ -942,8 +942,8 @@ function nestedMemberRows(
 /**
  * The `registration` rows — every fields-only registration member (a hook, an MCP server)
  * erased for the manifest write face, kind-then-key sorted so double emit is byte-stable.
- * Each carries its **collection key** (`kind`/`key`), its collection address
- * (`manifest`/`keyPath`, the wire's snake_case `key_path`), and its folded typed fields —
+ * Each carries its **collection key** (`kind`/`key`), its manifest (the kind's locus,
+ * {@link manifestOf}) and key path (the wire's snake_case `key_path`), and its folded typed fields —
  * the entry value the engine's write face places under `key`. The authored half alone:
  * the synthesized tap hooks join these rows in {@link mergedRegistrationRows}, which is
  * what both readers of the family take.
@@ -971,7 +971,7 @@ function registrationRows(harness: Harness): RegistrationRow[] {
       return {
         kind: member.kind,
         key: member.kind === hook.key ? hookCollectionKey(member.name) : member.name,
-        manifest: address.manifest,
+        manifest: manifestOf(member.facts),
         key_path: address.keyPath,
         // The generated row carries a mutable field list; the member's is read-only, so
         // copy each pair into a fresh tuple — the same values, a shape the row accepts.

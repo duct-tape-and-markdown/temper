@@ -714,19 +714,19 @@ fn declares_a_locus(row: &drift::KindFactRow) -> bool {
 ///
 /// The collection address and the `governs` pair are **not** alternatives: a registration
 /// kind (`hook`) carries both, and they answer different questions. The address says where
-/// the member keys — which manifest, under which key path. The `governs` pair says where
-/// the *document* carrying it is discovered, which for a registration kind is the host
-/// manifest and for a file-locus kind is the member's own unit. A file-locus kind
+/// the member keys — under which key path of the manifest its `governs` glob names. The
+/// `governs` pair says where the *document* carrying it is discovered, which for a
+/// registration kind is the host manifest and for a file-locus kind is the member's own unit. A file-locus kind
 /// therefore shows the `governs` line alone, and neither reading is invented from the
 /// other's absence.
 fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
     let _ = writeln!(out, "Where a member of it lands:");
-    if let Some(address) = &row.collection_address {
+    if let (Some(address), Some(manifest)) = (&row.collection_address, &row.governs_glob) {
         let _ = writeln!(
             out,
-            "  • keyed at `{}` inside the `{}` manifest — a member of `{name}` is one entry \
-             under that key, never a document of its own.",
-            address.key_path, address.manifest
+            "  • keyed at `{}` inside the `{manifest}` manifest — a member of `{name}` is one \
+             entry under that key, never a document of its own.",
+            address.key_path
         );
     }
     // The pair is presence-coupled in every row a kind lift accepts; a half-declared one

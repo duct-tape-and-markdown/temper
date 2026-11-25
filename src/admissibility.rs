@@ -752,14 +752,13 @@ pub fn collection_address_collision_diagnostics(
 ) -> Vec<check::Diagnostic> {
     let mut by_address: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
     for kind in declared_kinds.values() {
-        let Some(collection_address) = &kind.collection_address else {
+        let (Some(collection_address), Some(manifest)) =
+            (&kind.collection_address, kind.manifest())
+        else {
             continue;
         };
         by_address
-            .entry((
-                collection_address.manifest.as_str(),
-                collection_address.key_path.wire_label(),
-            ))
+            .entry((manifest, collection_address.key_path.wire_label()))
             .or_default()
             .push(kind.name.as_str());
     }

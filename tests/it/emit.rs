@@ -2510,7 +2510,6 @@ const registrationKind = kind({
   registration: [{ via: "event", field: "event" }],
   shape: "fields",
   collectionAddress: {
-    manifest: "settings.json",
     keyPath: "hooks.<Event>",
     entryShape: "group-array(hooks;matcher)",
   },
@@ -2615,7 +2614,7 @@ fn emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end(
         "the fields-only shape is recorded in the lock: {lock}"
     );
     assert!(
-        lock.contains("manifest = \"settings.json\""),
+        lock.contains("collection_address = { key_path = \"hooks.<Event>\""),
         "the collection address is recorded in the lock: {lock}"
     );
 }

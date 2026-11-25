@@ -3,7 +3,8 @@
  * `T` and a constructor `kind<T>()` — plus seven facts of runtime residue: label,
  * locus, projection, registration, edge fields, content, and template. A registration kind (a hook,
  * an MCP server) extends the content fact with a fields-only `shape` and a
- * `collectionAddress` naming the host manifest it surfaces in. `tsc` is the keystroke
+ * `collectionAddress` naming the key path it surfaces at, inside the manifest its starless
+ * `at` locus names. `tsc` is the keystroke
  * wall; every type erases at the seam, and what a kind leaves behind rides the lock as
  * rows. Identity travels by import, never by string — a `kind` reference is the imported
  * value.
@@ -152,14 +153,14 @@ export type Shape = "fields";
 export type LeafSet<T extends object> = { readonly [K in keyof T]-?: true };
 
 /**
- * A registration member's **collection address** — where inside a host manifest its
- * registration surfaces: which `manifest` (`settings.json`, `.mcp.json`) and which
- * `keyPath` it keys at — one of the four addresses the shipped kinds surface at.
+ * A registration member's **collection address** — where inside its host manifest its
+ * registration surfaces: the `keyPath` it keys at, one of the four addresses the shipped
+ * kinds surface at. The manifest itself is the kind's starless `at` locus — one home, so
+ * the address and the locus can never name two different files ({@link manifestOf}).
  * Carried by a fields-only registration kind; absent for a kind that owns its own file
  * locus.
  */
 export interface CollectionAddress {
-  readonly manifest: string;
   readonly keyPath:
     | "hooks.<Event>"
     | "mcpServers.*"
@@ -242,8 +243,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
        * leaves the kind body-bearing (`file` or a {@link Layout}). */
       readonly shape?: Shape;
-      /** The registration member's {@link CollectionAddress} — which manifest and key path
-       * its registration surfaces at; absent for a kind that owns its own file locus. */
+      /** The registration member's {@link CollectionAddress} — the key path its
+       * registration surfaces at inside the manifest this kind's starless locus names;
+       * absent for a kind that owns its own file locus. */
       readonly collectionAddress?: CollectionAddress;
       /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
        * hosts; absent for a kind that nests nothing. */
@@ -306,9 +308,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
        * leaves the kind body-bearing (`file` or a {@link Layout}). */
       readonly shape?: Shape;
-      /** The registration member's {@link CollectionAddress} — which manifest and key path
-       * its registration surfaces at; absent for a kind that owns its own file locus. */
-      readonly collectionAddress?: CollectionAddress;
+      /** No collection address: a registration kind's manifest is its `at` locus, and
+       * this locus names no file. */
+      readonly collectionAddress?: never;
       /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
        * hosts; absent for a kind that nests nothing. */
       readonly templates?: readonly Template[];
@@ -370,9 +372,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
        * leaves the kind body-bearing (`file` or a {@link Layout}). */
       readonly shape?: Shape;
-      /** The registration member's {@link CollectionAddress} — which manifest and key path
-       * its registration surfaces at; absent for a kind that owns its own file locus. */
-      readonly collectionAddress?: CollectionAddress;
+      /** No collection address: a registration kind's manifest is its `at` locus, and
+       * this locus names no file. */
+      readonly collectionAddress?: never;
       /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
        * hosts; absent for a kind that nests nothing. */
       readonly templates?: readonly Template[];
@@ -644,6 +646,7 @@ export function kind<T extends object>(typed: KindFacts<T>, options: KindOptions
   // set bound to `T` to the erased `string` on its own — every key of `T` is a string
   // the erased surface admits, which is all this assertion claims.
   const facts = typed as KindFacts;
+  if (facts.collectionAddress !== undefined) manifestOf(facts);
   const construct = (init: MemberInit<T>): Member => ({
     kind: facts.name,
     facts,
@@ -657,6 +660,26 @@ export function kind<T extends object>(typed: KindFacts<T>, options: KindOptions
     inputs: init.inputs ?? [],
   });
   return Object.assign(construct, { facts, key: facts.name, render: options.render });
+}
+
+/**
+ * The host manifest a registration kind surfaces in — its `at` locus glob, which must
+ * name exactly one file (no `*`): a starred glob governs a family of files, and a
+ * collection address keys inside one.
+ *
+ * # Throws
+ * If the kind's locus is not `at`, or its glob carries a `*`.
+ */
+export function manifestOf(facts: KindFacts): string {
+  if (facts.locus.kind !== "at" || facts.locus.glob.includes("*")) {
+    const spelled = facts.locus.kind === "at" ? `\`${facts.locus.glob}\`` : `a \`${facts.locus.kind}\` locus`;
+    throw new Error(
+      `kind \`${facts.name}\`: a collection address keys inside the one manifest the kind's ` +
+        `locus names, and ${spelled} names no single file — declare an \`at\` locus whose ` +
+        `glob carries no \`*\` (specs/model/representation.md, "Reach").`,
+    );
+  }
+  return facts.locus.glob;
 }
 
 /**

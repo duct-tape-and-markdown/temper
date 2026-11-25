@@ -1043,7 +1043,6 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
         declarations: Declarations {
             kinds: vec![drift::KindFactRow {
                 collection_address: Some(CollectionAddressRow {
-                    manifest: "settings.json".to_string(),
                     key_path: "hooks.<Event>".to_string(),
                     entry_shape: "group-array(hooks;matcher)".to_string(),
                 }),

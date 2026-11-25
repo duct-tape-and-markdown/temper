@@ -98,7 +98,6 @@ fn timed_hook_kind_facts() -> KindFactRow {
     KindFactRow {
         shape: Some("fields".to_string()),
         collection_address: Some(CollectionAddressRow {
-            manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
             entry_shape: "group-array(hooks;matcher,timeout)".to_string(),
         }),
@@ -1714,11 +1713,11 @@ fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reac
         "a shape diverging from its key path's other declarants reads back as declared"
     );
 
-    // The wire form carries all three columns of the triple, in declared order.
+    // The wire form carries both columns of the pair, in declared order.
     let lock_text = String::from_utf8(first.clone()).expect("the lock is UTF-8");
     assert!(
         lock_text.contains(
-            "collection_address = { manifest = \"settings.json\", key_path = \"hooks.<Event>\", \
+            "collection_address = { key_path = \"hooks.<Event>\", \
              entry_shape = \"group-array(hooks;matcher,timeout)\" }"
         ),
         "the declared shape rides the address inline table as a required column:\n{lock_text}"
@@ -1788,7 +1787,6 @@ fn mcp_server_kind_facts() -> KindFactRow {
     KindFactRow {
         shape: Some("fields".to_string()),
         collection_address: Some(CollectionAddressRow {
-            manifest: ".mcp.json".to_string(),
             key_path: "mcpServers.*".to_string(),
             entry_shape: "object".to_string(),
         }),
@@ -1843,7 +1841,6 @@ fn a_registration_member_surfaces_in_the_lock_and_reaches_the_read_graph() {
         .find(|row| row.key == "gmail")
         .expect("the registration member is recorded as a declaration row");
     assert_eq!(server.kind, "mcp-server");
-    assert_eq!(server.manifest, ".mcp.json");
     assert_eq!(server.key_path, "mcpServers.*");
     assert!(
         server.fields.is_empty(),
@@ -1872,7 +1869,6 @@ fn from_kind_fact_row_rejects_an_out_of_vocabulary_collection_key_path() {
     let row = KindFactRow {
         shape: Some("fields".to_string()),
         collection_address: Some(CollectionAddressRow {
-            manifest: "settings.json".to_string(),
             key_path: "hooks.everything".to_string(),
             entry_shape: "group-array(hooks;matcher)".to_string(),
         }),
@@ -2686,7 +2682,6 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .collection_address
         .as_ref()
         .expect("the hook kind carries its collection address");
-    assert_eq!(address.manifest, "settings.json");
     assert_eq!(address.key_path, "hooks.<Event>");
 
     // The `mcp-server` kind is the second manifest kind: no `format`, a `fields` shape, the
@@ -2705,7 +2700,6 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .collection_address
         .as_ref()
         .expect("the mcp-server kind carries its collection address");
-    assert_eq!(mcp_address.manifest, ".mcp.json");
     assert_eq!(mcp_address.key_path, "mcpServers.*");
 
     // The `installed-plugin` kind is the third manifest kind, and the second addressing a
@@ -2727,7 +2721,6 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .collection_address
         .as_ref()
         .expect("the installed-plugin kind carries its collection address");
-    assert_eq!(plugin_address.manifest, "settings.json");
     assert_eq!(plugin_address.key_path, "enabledPlugins.*");
 
     // The `known-marketplace` kind is the fourth manifest kind, and the third addressing a
@@ -2749,7 +2742,6 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .collection_address
         .as_ref()
         .expect("the known-marketplace kind carries its collection address");
-    assert_eq!(market_address.manifest, "settings.json");
     assert_eq!(market_address.key_path, "extraKnownMarketplaces.*");
 
     // The `supporting-doc` kind is the only one at the nested-file locus: it governs no
@@ -3869,5 +3861,83 @@ fn a_kind_named_for_a_reserved_lock_root_key_is_refused_and_any_other_name_is_no
     assert!(
         !output.contains("kind.reserved-lock-key"),
         "the reserved-lock-key rule must stay silent, got:\n{output}"
+    );
+}
+
+/// Each built-in registration kind's manifest is its locus glob: the lift reads it off the
+/// row's starless `governs_glob`, since the collection address names only the key path.
+#[test]
+fn a_registration_kind_surfaces_in_the_manifest_its_locus_names() {
+    let declarations = builtin_lock::declarations();
+    for (name, manifest) in [
+        ("hook", "settings.json"),
+        ("mcp-server", ".mcp.json"),
+        ("installed-plugin", "settings.json"),
+        ("known-marketplace", "settings.json"),
+    ] {
+        let row = declarations
+            .kinds
+            .iter()
+            .find(|k| k.name == name)
+            .expect("the registration kind fact is embedded");
+        let kind = CustomKind::from_kind_fact_row(row).unwrap();
+        assert_eq!(kind.manifest(), Some(manifest), "{name}");
+    }
+
+    // A custom registration kind's manifest moves with its locus — there is no second home
+    // for it to disagree with.
+    let moved = KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            key_path: "mcpServers.*".to_string(),
+            entry_shape: "object".to_string(),
+        }),
+        ..common::kind_facts("team-mcp", "config", "servers.json")
+    };
+    let kind = CustomKind::from_kind_fact_row(&moved).unwrap();
+    assert_eq!(kind.manifest(), Some("servers.json"));
+
+    // A starred locus governs a family of files, so it names no one manifest to key inside.
+    let starred = KindFactRow {
+        governs_glob: Some("*.json".to_string()),
+        ..moved
+    };
+    let err = CustomKind::from_kind_fact_row(&starred).unwrap_err();
+    assert!(
+        matches!(&err, drift::LockRowError::Vocabulary { column, value, .. }
+            if column == "governs_glob" && value == "*.json"),
+        "a starred registration locus is refused at load, got: {err:?}"
+    );
+}
+
+/// The lock's `collection_address` column carries the key path and entry shape alone — the
+/// manifest is the row's locus, never spelled twice.
+#[test]
+fn a_collection_address_row_carries_no_manifest() {
+    let root = common::tmpdir("collection-address-no-manifest");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![hook_kind_facts()],
+            ..Declarations::default()
+        },
+    );
+    let lock = fs::read_to_string(root.join(".temper").join("lock.toml")).unwrap();
+    let line = lock
+        .lines()
+        .find(|line| line.starts_with("collection_address"))
+        .expect("the hook row writes its collection address");
+    assert_eq!(
+        line,
+        r#"collection_address = { key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }"#
+    );
+
+    let embedded = include_str!("../../src/builtin_lock.toml");
+    assert!(
+        embedded
+            .lines()
+            .filter(|line| line.starts_with("collection_address"))
+            .all(|line| !line.contains("manifest")),
+        "no embedded collection_address row spells a manifest"
     );
 }

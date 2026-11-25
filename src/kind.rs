@@ -121,9 +121,10 @@ pub struct CustomKind {
     /// reads as [`Content::File`].
     pub content: Content,
     /// The kind's declared **collection address** — for a registration member surfacing
-    /// inside a host manifest (a hook, an MCP server), which manifest and which key path
-    /// it registers at. `None` for a kind that owns its own file locus. Read back off the
-    /// row's `collection_address` column.
+    /// inside a host manifest (a hook, an MCP server), the key path it registers at; the
+    /// manifest is the kind's own starless [`governs`](CustomKind::governs) locus
+    /// ([`manifest`](CustomKind::manifest)). `None` for a kind that owns its own file
+    /// locus. Read back off the row's `collection_address` column.
     pub collection_address: Option<CollectionAddress>,
     /// The file locus's declared **commitment class** — [`Commitment::Local`] for a
     /// per-machine, uncommitted locus; absent ⇒ committed, the class every shipped kind
@@ -180,13 +181,14 @@ pub enum EntryShape {
 /// A registration member's declared **collection address** — where inside a host manifest
 /// its registration surfaces. A hook registers under its lifecycle event in
 /// `settings.json`'s `hooks`; an MCP server registers by name under `.mcp.json`'s
-/// `mcpServers`. The manifest is a free path; the [`key_path`](CollectionAddress::key_path)
-/// is a closed vocabulary, the same load-time reject [`Format`]/[`UnitShape`]/
-/// [`Registration`] carry.
+/// `mcpServers`. The address names only the key path inside the manifest — which manifest
+/// is the kind's starless locus ([`CustomKind::manifest`]). The
+/// [`key_path`](CollectionAddress::key_path) is a closed vocabulary, the same load-time
+/// reject [`Format`]/[`UnitShape`]/[`Registration`] carry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionAddress {
-    /// The host manifest the registration surfaces in (`settings.json`, `.mcp.json`), a
-    /// path relative to the harness.
+    /// The host manifest the registration surfaces in — the kind's locus glob, which the
+    /// lift copies here and no row spells; read it through [`CustomKind::manifest`].
     pub manifest: String,
     /// The key path within the manifest the member's registration keys at.
     pub key_path: CollectionKeyPath,
@@ -537,6 +539,15 @@ impl CustomKind {
     pub fn local(mut self) -> Self {
         self.commitment = Some(Commitment::Local);
         self
+    }
+
+    /// The host manifest a registration kind surfaces in — its locus glob, the one file a
+    /// collection address keys inside (`settings.json`, `.mcp.json`). [`None`] for a kind
+    /// declaring no [`collection_address`](CustomKind::collection_address).
+    #[must_use]
+    pub fn manifest(&self) -> Option<&str> {
+        self.collection_address.as_ref()?;
+        self.governs.as_ref().map(|governs| governs.glob.as_str())
     }
 
     /// Why this kind's declared commitment class is inadmissible, or [`None`] when it is
@@ -1023,21 +1034,38 @@ fn content_shape_from_label(label: &str) -> Option<Content> {
 /// whose key path lifts through the closed [`CollectionKeyPath`] vocabulary.
 ///
 /// The row's own `entry_shape` column is the shape — a declared fact the kind carries and
-/// emit writes, required like `manifest` and `key_path`. It is never reconstructed from
+/// emit writes, required like `key_path`. It is never reconstructed from
 /// the key path: two kinds keying at one path may declare different shapes, so a key-path
 /// mapping here would be a second home for what the provider face already declares.
 ///
 /// # Errors
 ///
 /// Returns a [`LockRowError`] when the recorded `key_path` or `entry_shape` label falls
-/// outside its closed vocabulary — the tool-written lock carries only labels the SDK
-/// could emit, so an unknown one is corruption rejected at load.
+/// outside its closed vocabulary, or when the row's locus names no single manifest (no
+/// `governs_glob`, or a starred one) — the tool-written lock carries only what the SDK
+/// could emit, so either is corruption rejected at load.
 pub(crate) fn collection_address_from_row(
     row: &KindFactRow,
 ) -> Result<Option<CollectionAddress>, LockRowError> {
     match &row.collection_address {
         None => Ok(None),
         Some(address) => {
+            let manifest = match row.governs_glob.as_deref() {
+                None => {
+                    return Err(LockRowError::MissingColumn {
+                        family: "kind".to_string(),
+                        column: "governs_glob".to_string(),
+                    });
+                }
+                Some(glob) if glob.contains('*') => {
+                    return Err(LockRowError::Vocabulary {
+                        family: "kind".to_string(),
+                        column: "governs_glob".to_string(),
+                        value: glob.to_string(),
+                    });
+                }
+                Some(glob) => glob.to_string(),
+            };
             let key_path = kind_vocab(
                 &address.key_path,
                 "collection_address",
@@ -1049,7 +1077,7 @@ pub(crate) fn collection_address_from_row(
                 entry_shape_from_label(&address.entry_shape),
             )?;
             Ok(Some(CollectionAddress {
-                manifest: address.manifest.clone(),
+                manifest,
                 key_path,
                 entry_shape,
             }))

@@ -202,7 +202,7 @@ fn the_embedded_builtin_lock_carries_the_installed_plugin_kind_and_no_clause() {
         .collection_address
         .as_ref()
         .expect("the installed-plugin kind carries its collection address");
-    assert_eq!(address.manifest, "settings.json");
+    assert_eq!(plugin.governs_glob.as_deref(), Some("settings.json"));
     assert_eq!(address.key_path, "enabledPlugins.*");
 
     // The empty default contract is an assertion, not an omission: the format documents no
