@@ -1,11 +1,9 @@
 {
   "tag": "GATE-INSTALLED-JUDGES-THE-MEMBER",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "GATE-HOOK-STATES-ITS-BINARY"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -62,5 +60,7 @@
     "a hook at a gate address that is not a gate hook member is reported stale",
     "install scaffolds gate hooks with the typed constructor"
   ],
+  "pins": [],
+  "laneTests": [],
   "notes": "The dogfood's .temper/hooks.ts imports the retired constants: its migration is a chore(harness) half, and the adopter migration note is the release cut's (0082 Consequences)."
 }
