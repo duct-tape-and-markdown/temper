@@ -92,8 +92,9 @@ unit_shape = "file"
 
 [[declaration.kind]]
 name = "skill"
-governs_root = ".claude/skills"
-governs_glob = "*/SKILL.md"
+governs_root = "."
+governs_glob = "**/.claude/skills/*/SKILL.md"
+exclude = ["tests/fixtures"]
 format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
@@ -192,6 +193,11 @@ import_hash = "f2a508fcb626a65eeef5aa99249e81865c79882e0bfe17138ff183232225ac1a"
 
 [[declaration.module]]
 member = "root"
+source_path = ".temper/kinds.ts"
+import_hash = "7862c5d59f0fa59298d5e080ecf43c2ce78e980f4d935c9cb3462296d7c04f21"
+
+[[declaration.module]]
+member = "root"
 source_path = ".temper/memory/CLAUDE.ts"
 import_hash = "038edfa3535d7fbb0a3994189a9c08544b194da8b6d1db10a78a0aa77cc95623"
 
@@ -223,4 +229,4 @@ import_hash = "4356541e8ec5157dacbc1cc711935acb4465dfc335ef666432acc9a8140aa824"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/skills/capture-friction.ts"
-import_hash = "83f391890f159d6f1f35cf56e36785c9e7cfaba8070ea2647ae71086097debb3"
+import_hash = "9557ab0b1be92d0290693cc1646c6bf16806ee9f83da9c0644337e40eb02a910"

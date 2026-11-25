@@ -1,4 +1,5 @@
-import { file, skill } from "@dtmd/temper/claude-code";
+import { file } from "@dtmd/temper/claude-code";
+import { skill } from "../kinds.ts";
 
 export const skill_captureFriction = skill({
   name: "capture-friction",
