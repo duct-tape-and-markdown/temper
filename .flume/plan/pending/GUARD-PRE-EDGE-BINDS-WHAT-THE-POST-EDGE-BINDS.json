@@ -1,0 +1,24 @@
+{
+  "tag": "GUARD-PRE-EDGE-BINDS-WHAT-THE-POST-EDGE-BINDS",
+  "gate": { "kind": "open" },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/install.rs", "description": "matches_governed_locus and LayoutGuard::pending_finding: drop the `.`-root skip (discovers_path now answers per path); derive a named-field id from the pending bytes" },
+      { "path": "src/frontmatter.rs", "description": "a pub(crate) text-level identity read for a named-field kind over pending bytes" },
+      { "path": "src/compose.rs", "description": "governed_member_address: answer a named-field identity at the placement from supplied bytes" },
+      { "path": "tests/it/install.rs", "description": "pre-edge pins for a `.`-rooted locus and a named-field layout kind" }
+    ],
+    "retire": []
+  },
+  "summary": "The PreToolUse guard judges `.`-rooted loci and named-field layout kinds, which today only the post edge binds",
+  "per": { "path": "specs/distribution.md", "section": "The placements and their enforcement modes" },
+  "acceptance": "A Write of an undeclared document at memory's `**/CLAUDE.md` locus, or at a named-field layout locus, is judged at the pre edge with check's words; an ignored or fenced path still binds nothing",
+  "tests": [
+    "the pre edge names an undeclared CLAUDE.md written under a `.`-rooted locus",
+    "the pre edge names an undeclared named-field layout document by its frontmatter identity",
+    "the pre edge binds nothing for a gitignored CLAUDE.md under a `.`-rooted locus"
+  ],
+  "notes": "Both skips date from before import::discovers_path; the stated reason (no ignore reader at the pre edge) is gone. Post edge already binds both. Existing pin tests/it/install.rs reference/CLAUDE.md-allowed may need its premise restated, not deleted."
+}

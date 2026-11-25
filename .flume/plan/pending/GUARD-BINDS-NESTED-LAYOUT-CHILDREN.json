@@ -1,0 +1,23 @@
+{
+  "tag": "GUARD-BINDS-NESTED-LAYOUT-CHILDREN",
+  "gate": { "kind": "blockedBy", "tags": ["GUARD-PRE-EDGE-BINDS-WHAT-THE-POST-EDGE-BINDS"] },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/install.rs", "description": "guarded_layout_loci: admit governs-less layout kinds whose locus and address come from a host unit, at both edges" },
+      { "path": "src/compose.rs", "description": "the host-unit locus/address derivation check uses, reachable from guard sites" },
+      { "path": "tests/it/install.rs", "description": "guard pins over a nested layout child" },
+      { "path": "tests/it/gauntlet.rs", "description": "the guard-narrower-than-check pin over gauntlet `spec` flips to agreement" }
+    ],
+    "retire": []
+  },
+  "summary": "The guard judges locus-declared over nested layout children (governs-less layout kinds located by a host unit), as check does",
+  "per": { "path": "specs/distribution.md", "section": "The placements and their enforcement modes" },
+  "acceptance": "An undeclared nested layout child (gauntlet `spec`) is named by the guard at both edges with check's finding; the host read stays bounded per tool call",
+  "tests": [
+    "the guard names an undeclared nested layout child at the post edge",
+    "the guard names an undeclared nested layout child at the pre edge"
+  ],
+  "notes": "Left out of GUARD-JUDGES-LAYOUT-LOCUS-DECLARED; its note names host discovery at guard sites as the cost. Blocked only to serialize on install.rs. Reuse check's host derivation, never a second one."
+}
