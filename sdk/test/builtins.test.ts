@@ -15,7 +15,7 @@ import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
 // is its one caller), so the test reaches the module rather than the public subpath.
 import { tapHookRegistration } from "../src/builtins.js";
-import type { Handler, Hook, Memory, Rule } from "../src/claude-code.js";
+import type { Handler, Hook, Memory, Rule, Skill } from "../src/claude-code.js";
 import {
   agent,
   agentDefaultContract,
@@ -1445,6 +1445,70 @@ test("a relocation keeps exactly the base exclusions its new template still reac
   ]);
   const underRules = relocate<Memory>(memory, { governs: { root: ".claude/rules", glob: "*/CLAUDE.md" } });
   assert.deepEqual(memoryKindRow(underRules).exclude, [".claude/rules"]);
+});
+
+/** The one `skill` kind-fact row a harness expecting `skillKind` compiles to. */
+function skillKindRow(skillKind: typeof skill) {
+  const rows = compileDeclarations(harness({ members: [], expect: [{ kind: skillKind, clauses: [] }] })).kinds.filter(
+    (row) => row.name === "skill",
+  );
+  assert.equal(rows.length, 1, "exactly one `skill` kind-fact row must reach the lock");
+  return rows[0];
+}
+
+test("an exclude-only relocation of skill keeps its locus and carries the authored exclusion", () => {
+  const base = skillKindRow(skill);
+  assert.ok(!("exclude" in base), "the built-in skill row excludes nothing");
+  const scoped = relocate<Skill>(skill, { exclude: [".claude/skills/fixture"] });
+  assert.equal(scoped.facts.relocates, "skill");
+  const row = skillKindRow(scoped);
+  // The locus stays the built-in's; only the exclusion diverges.
+  assert.equal(row.governs_root, base.governs_root);
+  assert.equal(row.governs_glob, base.governs_glob);
+  assert.deepEqual(row.exclude, [".claude/skills/fixture"]);
+  // The three overlay facts stay the base's, so the engine reads the row as a relocation.
+  assert.equal(row.format, base.format);
+  assert.equal(row.unit_shape, base.unit_shape);
+  assert.deepEqual(row.registration, base.registration);
+});
+
+test("a relocation's authored exclusion follows the reached base exclusions", () => {
+  const nested = relocate<Skill>(skill, {
+    governs: { root: ".", glob: "**/.claude/skills/*/SKILL.md" },
+    exclude: ["tests/fixtures/extract_equivalence"],
+  });
+  const row = skillKindRow(nested);
+  assert.equal(row.governs_root, ".");
+  assert.equal(row.governs_glob, "**/.claude/skills/*/SKILL.md");
+  assert.deepEqual(row.exclude, ["tests/fixtures/extract_equivalence"]);
+  // Appended after the base's kept exclusions, never replacing them.
+  const docsMemory = relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" }, exclude: ["vendor"] });
+  assert.deepEqual(memoryKindRow(docsMemory).exclude, [
+    ".claude/agents",
+    ".claude/commands",
+    ".claude/rules",
+    ".claude/skills",
+    "vendor",
+  ]);
+});
+
+test("a relocation refuses an exclusion its locus cannot subtract", () => {
+  // Off the template: the built-in skill locus never reaches `tests/`.
+  assert.throws(() => relocate<Skill>(skill, { exclude: ["tests/fixtures/extract_equivalence"] }), /starless/);
+  // A pattern, not a path.
+  assert.throws(() => relocate<Skill>(skill, { exclude: [".claude/skills/*"] }), /starless/);
+  // A trailing slash is an empty segment.
+  assert.throws(() => relocate<Skill>(skill, { exclude: [".claude/skills/fixture/"] }), /starless/);
+  // Already excluded by the base.
+  assert.throws(
+    () => relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" }, exclude: [".claude/rules"] }),
+    /already excluded/,
+  );
+  // A kind with no glob of its own has nothing to exclude from.
+  assert.throws(
+    () => relocate<Record<never, never>>(supportingDoc, { exclude: ["docs"] }),
+    /governs no glob of its own/,
+  );
 });
 
 // ---------------------------------------------------------------------------

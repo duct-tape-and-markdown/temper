@@ -692,7 +692,7 @@ export function manifestOf(facts: KindFacts): string {
 
 /**
  * A **relocation delta** — the facts a relocated built-in kind diverges from its base
- * on. Two faces, either or both:
+ * on. Three faces, any one or more:
  *
  * - `edgeFields`, *added* to whatever the base already declares (never replacing them,
  *   which would drop a shipped kind's own edges silently). Each added field names a key
@@ -701,6 +701,8 @@ export function manifestOf(facts: KindFacts): string {
  * - `governs`, *replacing* the base's `at` locus root and glob — moving where the kind's
  *   members are found, the one fact the engine's own overlay exists to apply
  *   (`src/compose.rs`'s `overlay_builtin_kind`).
+ * - `exclude`, *appended* to the base exclusions the (possibly moved) locus still
+ *   reaches — leaving paths the built-in would claim ungoverned (decision 0085).
  *
  * Every other fact — format, unit shape, registration, content, templates, the declared
  * leaf set — rides through unchanged, which is exactly what makes the emitted row still
@@ -720,6 +722,15 @@ export interface KindRelocation<T> {
    * commitment class stays the built-in's.
    */
   readonly governs?: { readonly root: string; readonly glob: string };
+  /**
+   * Paths the relocated kind leaves ungoverned, *appended* to the base exclusions its
+   * template (moved or not) still reaches — the way an author answers a collision with a
+   * built-in, or leaves a fixture tree holding harness files ungoverned. Each is spelled
+   * as {@link Locus}'s `exclude` is: a starless, harness-relative literal the template
+   * matches, or a bare directory it reaches beneath. Only an `at` kind carries a locus
+   * to exclude from.
+   */
+  readonly exclude?: readonly string[];
 }
 
 /**
@@ -752,6 +763,54 @@ function relocatedLocus(
   );
   const { exclude: _replaced, ...rest } = base.locus;
   return { ...rest, root: governs.root, glob: governs.glob, ...(kept.length > 0 ? { exclude: kept } : {}) };
+}
+
+/**
+ * The locus an `exclude` delta leaves: `moved` (or the base's own `at` locus, when the
+ * delta moves nothing) with the authored paths appended to the exclusions it already
+ * carries.
+ *
+ * # Throws
+ * If the base's locus is not `at` — there is no template to subtract from. If an
+ * authored path is not starless, is not one the template matches or reaches beneath
+ * (the engine refuses it as subtracting nothing when it loads the lock), or is already
+ * excluded — a second entry for one path subtracts nothing new.
+ */
+function excludedLocus(
+  base: KindFacts,
+  moved: Extract<Locus, { kind: "at" }> | undefined,
+  authored: readonly string[],
+): Extract<Locus, { kind: "at" }> {
+  if (base.locus.kind !== "at") {
+    throw new Error(
+      `relocating kind \`${base.name}\`: an \`exclude\` delta subtracts paths from the ` +
+        `glob a kind's members are found at, and this kind's locus is \`${base.locus.kind}\` ` +
+        `— it governs no glob of its own. Drop the \`exclude\` face of the delta ` +
+        `(specs/model/representation.md, "locus").`,
+    );
+  }
+  const locus = moved ?? base.locus;
+  const pattern = locusPattern(locus.root, locus.glob);
+  const exclude = [...(locus.exclude ?? [])];
+  for (const path of authored) {
+    const starless = !/[*?[\]{}\\]/.test(path) && !path.split("/").some((part) => part === "");
+    if (!starless || !(templateMatches(pattern, path) || templateReachesBeneath(pattern, path))) {
+      throw new Error(
+        `relocating kind \`${base.name}\`: excluded path \`${path}\` must be a starless, ` +
+          `harness-relative path the locus template \`${pattern}\` matches, or a bare ` +
+          `directory it reaches beneath — anything else subtracts nothing ` +
+          `(specs/model/representation.md, "locus").`,
+      );
+    }
+    if (exclude.includes(path)) {
+      throw new Error(
+        `relocating kind \`${base.name}\`: path \`${path}\` is already excluded, and a ` +
+          `second exclusion of one path subtracts nothing new.`,
+      );
+    }
+    exclude.push(path);
+  }
+  return { ...locus, exclude };
 }
 
 /** A file locus as one harness-relative template, a root-locus kind's `.` dropped. */
@@ -828,11 +887,12 @@ function templateReachesBeneath(pattern: string, dir: string): boolean {
 
 /**
  * **Relocate** a built-in kind: the sanctioned way an adopting corpus moves a kind it
- * does not own to its own root, adds an edge field to it, or both. Returns a fresh
- * constructor over the widened typed surface `T` (the base's fields plus the added edge
- * fields, spelled by the caller as one interface), carrying the base's facts with
- * `delta`'s edge fields appended, `delta`'s `governs` in place of the base's locus root
- * and glob, and the base's own {@link KindDefinition.render} hook preserved. Ownership,
+ * does not own to its own root, adds an edge field to it, excludes paths from it, or any
+ * combination. Returns a fresh constructor over the widened typed surface `T` (the
+ * base's fields plus the added edge fields, spelled by the caller as one interface),
+ * carrying the base's facts with `delta`'s edge fields appended, `delta`'s `governs` in
+ * place of the base's locus root and glob, `delta`'s `exclude` appended to the locus's
+ * exclusions, and the base's own {@link KindDefinition.render} hook preserved. Ownership,
  * not privilege — a relocated built-in is an ordinary kind value from here on, and its
  * added edge reaches the lock as an assembly `edge` row keyed by `from`, exactly as any
  * kind's does (`declarations.ts`), never as a column on a kind-fact row.
@@ -842,7 +902,9 @@ function templateReachesBeneath(pattern: string, dir: string): boolean {
  * `registration` stay the base's — which is precisely the three-fact test the lock
  * reader applies before overlaying the row onto its compiled-in built-in
  * (`src/compose.rs`'s `row_relocates_builtin`), so the engine reads members at the new
- * root rather than treating the row as a colliding kind.
+ * root rather than treating the row as a colliding kind. An `exclude` delta rides the
+ * same row's `exclude` column — the reached base exclusions, then the authored ones —
+ * which the overlay writes back whole.
  *
  * The produced facts carry `relocates`, naming the base — the marker that tells a
  * legitimate relocation from a genuine name collision when two same-named kinds are in
@@ -853,8 +915,9 @@ function templateReachesBeneath(pattern: string, dir: string): boolean {
  * If an added edge field re-declares one the base already carries, or one another
  * entry of the same delta already added — two `edge` rows over one `<from, field>`
  * cross-wire the graph instead of declaring one relationship. If a `governs` delta
- * names a base whose locus is not `at` ({@link relocatedLocus}). And if the delta
- * declares neither face, which would mint a marker-bearing clone of the base — a second
+ * names a base whose locus is not `at` ({@link relocatedLocus}), or an `exclude` delta
+ * does, or names a path the locus cannot subtract ({@link excludedLocus}). And if the
+ * delta declares no face, which would mint a marker-bearing clone of the base — a second
  * same-named kind diverging on nothing, which is a name collision spelled as a
  * relocation.
  */
@@ -863,15 +926,17 @@ export function relocate<T extends object>(
   delta: KindRelocation<T>,
 ): KindDefinition<T> {
   const declaredEdges = delta.edgeFields ?? [];
-  if (declaredEdges.length === 0 && delta.governs === undefined) {
+  if (declaredEdges.length === 0 && delta.governs === undefined && (delta.exclude ?? []).length === 0) {
     throw new Error(
       `relocating kind \`${base.facts.name}\`: a relocation declares at least one diverging ` +
-        `fact — \`edgeFields\`, \`governs\`, or both. A delta declaring neither mints a ` +
+        `fact — \`edgeFields\`, \`governs\`, or \`exclude\`. A delta declaring none mints a ` +
         `second kind of the base's own name that diverges on nothing, which reads as a name ` +
         `collision rather than a relocation (specs/model/representation.md, "kind").`,
     );
   }
-  const locus = delta.governs === undefined ? undefined : relocatedLocus(base.facts, delta.governs);
+  const authored = delta.exclude ?? [];
+  const moved = delta.governs === undefined ? undefined : relocatedLocus(base.facts, delta.governs);
+  const locus = authored.length === 0 ? moved : excludedLocus(base.facts, moved, authored);
   const inherited = base.facts.edgeFields ?? [];
   const claimed = new Set(inherited.map((edge) => edge.field));
   const added: EdgeField[] = [];

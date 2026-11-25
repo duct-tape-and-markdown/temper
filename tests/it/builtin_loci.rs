@@ -140,3 +140,65 @@ fn every_built_in_kind_glob_is_a_placement_template() {
         }
     }
 }
+
+/// The embedded lock's own `skill` row with `edit` applied, overlaid onto the built-in
+/// the way the lock reader overlays an SDK relocation row.
+fn overlaid_skill(edit: impl FnOnce(&mut temper::drift::KindFactRow)) -> CustomKind {
+    let builtin = builtin_kind::definition("skill").expect("skill is built in");
+    let mut row = temper::builtin_lock::declarations()
+        .kinds
+        .iter()
+        .find(|row| row.name == "skill")
+        .expect("the embedded lock carries skill")
+        .clone();
+    edit(&mut row);
+    let declarations = Declarations {
+        kinds: vec![row],
+        ..Declarations::default()
+    };
+    compose::overlay_builtin_kind(&builtin, &declarations).unwrap()
+}
+
+#[test]
+fn a_relocation_rows_exclusion_leaves_a_fixture_skill_ungoverned() {
+    let harness = common::tmpdir("skill-relocation-exclude");
+    let skill_md = "---\nname: x\ndescription: x\n---\n# x\n";
+    common::write_sibling(&harness, ".claude/skills/deploy/SKILL.md", skill_md);
+    common::write_sibling(&harness, ".claude/skills/fixture/SKILL.md", skill_md);
+    common::write_sibling(
+        &harness,
+        "tests/fixtures/extract_equivalence/.claude/skills/coordinate/SKILL.md",
+        skill_md,
+    );
+
+    // An exclude-only relocation row: the built-in's locus, one authored exclusion.
+    let scoped = overlaid_skill(|row| row.exclude = vec![".claude/skills/fixture".to_string()]);
+    assert_eq!(scoped.excluded, vec![".claude/skills/fixture".to_string()]);
+    assert_eq!(
+        discover(&harness, &scoped),
+        vec![harness.join(".claude/skills/deploy/SKILL.md")]
+    );
+
+    // A moved locus reaching nested skills, with the fixture tree excluded.
+    let nested = |exclude: Vec<String>| {
+        overlaid_skill(|row| {
+            row.governs_root = Some(".".to_string());
+            row.governs_glob = Some("**/.claude/skills/*/SKILL.md".to_string());
+            row.exclude = exclude;
+        })
+    };
+    // Non-vacuity: without the exclusion, the moved locus claims the fixture skill.
+    assert!(discover(&harness, &nested(Vec::new())).contains(
+        &harness.join("tests/fixtures/extract_equivalence/.claude/skills/coordinate/SKILL.md")
+    ));
+    assert_eq!(
+        discover(
+            &harness,
+            &nested(vec!["tests/fixtures/extract_equivalence".to_string()])
+        ),
+        vec![
+            harness.join(".claude/skills/deploy/SKILL.md"),
+            harness.join(".claude/skills/fixture/SKILL.md"),
+        ]
+    );
+}

@@ -626,8 +626,10 @@ pub fn overlay_builtin_kind(
     if let Some((root, glob)) = row.governs_root.clone().zip(row.governs_glob.clone()) {
         overlaid.governs = Some(kind::Governs { root, glob });
         // The row's exclude belongs to the locus it rides beside: a relocation row
-        // carries the built-in's exclusions its new template still reaches, the rest
-        // dropped by the author's emit, so the row's column is the whole set.
+        // carries the built-in's exclusions its template still reaches, the rest
+        // dropped by the author's emit, then any the author added — an exclude-only
+        // relocation's included, whose row repeats the built-in's own root and glob —
+        // so the row's column is the whole set.
         overlaid.excluded = row.exclude.clone();
     }
     if !row.templates.is_empty() {
