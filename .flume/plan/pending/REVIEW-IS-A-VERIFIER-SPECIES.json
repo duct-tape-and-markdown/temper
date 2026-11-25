@@ -1,0 +1,53 @@
+{
+  "tag": "REVIEW-IS-A-VERIFIER-SPECIES",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/compose.rs",
+        "description": "Verifier gains the review species (prose)"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "verifier species sub-table writes and reads review"
+      },
+      {
+        "path": "src/roster.rs",
+        "description": "a review resolves at admissibility (nothing to resolve)"
+      },
+      {
+        "path": "sdk/src/generated/Verifier.ts",
+        "description": "regenerated binding"
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "review(prose) beside script() and telemetry(); blank prose refuses"
+      },
+      {
+        "path": "sdk/src/index.ts",
+        "description": "export review"
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "description": "review() row and blank refusal"
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "review verifier row round trip"
+      }
+    ]
+  },
+  "summary": "review(prose) is a third verifier species: the SDK emits it, the lock row carries it, the engine reads and admits it, never judges it",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "requirement — a shipped kind, not a primitive"
+  },
+  "acceptance": "a requirement declaring review(\"…\") emits, reads back off the lock, and checks clean; cargo test and pnpm --dir sdk test green",
+  "tests": [
+    "a review verifier round trips through the lock",
+    "a lock declaring a review verifier checks clean"
+  ],
+  "notes": "0095. Seam change, two-sided (PROTOCOL 4). Widening Verifier: its other consumers are src/read.rs and src/roster.rs matches."
+}

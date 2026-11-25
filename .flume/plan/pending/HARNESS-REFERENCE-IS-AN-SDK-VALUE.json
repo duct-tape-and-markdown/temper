@@ -1,0 +1,35 @@
+{
+  "tag": "HARNESS-REFERENCE-IS-AN-SDK-VALUE",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [
+      {
+        "path": "sdk/src/reference.ts",
+        "description": "the operate skill as an SDK value: a skill member whose SKILL.md is the mechanics plus one index line per kind and per domain, led by the moment"
+      },
+      {
+        "path": "sdk/test/reference.test.ts",
+        "description": "declared reference emits its SKILL.md; description names the contracted domains"
+      }
+    ],
+    "edit": [
+      {
+        "path": "sdk/src/index.ts",
+        "description": "export the reference value"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "shared seam: kinds in play and requirement rows the reference renders from"
+      }
+    ]
+  },
+  "summary": "The operate skill becomes an SDK value a harness declares and emits as its own skill member: mechanics plus an index of its kinds and domains, its description naming the contracted domains",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "What ships — three channels"
+  },
+  "acceptance": "a program declaring the reference emits .claude/skills/temper/SKILL.md carrying the mechanics and one index line per kind and per requirement, description naming the requirements; it may declare satisfies; pnpm --dir sdk test green",
+  "notes": "0093 Decision and Consequences. Mechanics text ports from src/bundle.rs OPERATE_SKILL (the literal retires in BUNDLE-EMBEDS-THE-HARNESS-REFERENCE). Renders only committed declarations: no dial, no local member. Index lines point at the topic files the next two entries render. Dogfood declaring it is a human chore(harness) half."
+}

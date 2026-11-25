@@ -1,0 +1,33 @@
+{
+  "tag": "REFERENCE-RENDERS-KIND-TOPICS",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "HARNESS-REFERENCE-IS-AN-SDK-VALUE",
+      "GUIDANCE-RULE-CARRIES-CONTRACTS-AND-EDGE-INTENT"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/reference.ts",
+        "description": "one flat kind-<k>.md supporting doc per kind: counsel, locus, fields, edges in and out with intent, clauses, domains"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "shared seam: edge intent in/out and locus globs the guidance rule already assembles"
+      },
+      {
+        "path": "sdk/test/reference.test.ts",
+        "description": "kind topic content; no member listed"
+      }
+    ]
+  },
+  "summary": "The reference renders a flat kind-<k>.md beside SKILL.md per kind in play, listing declarations only, never members",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "What ships — three channels"
+  },
+  "acceptance": "a program with a guided kind and an edge field emits kind-<k>.md carrying its counsel, locus, fields, edges with intent, clauses and domains, and naming no member; pnpm --dir sdk test green",
+  "notes": "0093 Consequences. Reuse the edge-intent assembly GUIDANCE-RULE-CARRIES-CONTRACTS-AND-EDGE-INTENT builds; one home for the fact."
+}
