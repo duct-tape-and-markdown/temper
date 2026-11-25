@@ -1,0 +1,64 @@
+{
+  "tag": "LOCUS-DECLARES-EXCLUSIONS",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "LOCUS-IS-A-PLACEMENT-TEMPLATE"
+    ]
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "`exclude` on an `at` locus"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "carry exclusions on the kind fact row"
+      },
+      {
+        "path": "sdk/src/generated/KindFactRow.ts",
+        "description": "re-blessed seam binding"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "KindFactRow gains the exclusions"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "Governs carries excluded paths; template refusal covers them"
+      },
+      {
+        "path": "src/import.rs",
+        "description": "discovery subtracts a kind's excluded paths"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "the guard's locus match honors exclusions, as check does"
+      },
+      {
+        "path": "tests/it/locus_template.rs",
+        "description": "exclusion pins"
+      },
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "description": "exclude round-trips through the row"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A file locus declares excluded paths; discovery, locus-declared and the guard leave them ungoverned",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "locus"
+  },
+  "acceptance": "A kind at `domains/*.md` excluding `domains/README.md` leaves the README undiscovered: no locus-declared finding at check or either guard edge",
+  "tests": [
+    "an excluded path at a kind's locus is not discovered",
+    "an excluded path draws no locus declared finding",
+    "the guard binds nothing for a write at an excluded path"
+  ],
+  "notes": "Seam change (SDK row builder, Rust reader, embedded lock in one entry). Exclusions are paths, not patterns (\"Any other pattern syntax refuses at load\"). Blocked on the template entry: both edit src/kind.rs's locus validation."
+}

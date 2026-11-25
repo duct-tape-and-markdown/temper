@@ -1,0 +1,152 @@
+{
+  "tag": "COLLECTION-ADDRESS-NAMES-ONLY-THE-KEY-PATH",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "CollectionAddress drops `manifest`; a registration kind's starless locus names it"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "the built-in registration kinds stop spelling the manifest twice"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "the collection-address row loses manifest"
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "consumers read the manifest off the locus"
+      },
+      {
+        "path": "sdk/src/generated/CollectionAddressRow.ts",
+        "description": "re-blessed seam binding"
+      },
+      {
+        "path": "sdk/src/generated/KindFactRow.ts",
+        "description": "re-blessed seam binding"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "CollectionAddressRow drops manifest; manifest_path_for reads the locus"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "CollectionAddress drops manifest; the manifest derives from the locus"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "reader of the row"
+      },
+      {
+        "path": "src/admissibility.rs",
+        "description": "reads the manifest off the locus"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "reads the manifest off the locus"
+      },
+      {
+        "path": "src/main.rs",
+        "description": "reads the manifest off the locus"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "collection_address rows lose manifest"
+      },
+      {
+        "path": "src/builtin_lock.rs",
+        "description": "embedded-lock reader"
+      },
+      {
+        "path": "tests/it/common/mod.rs",
+        "description": "fixture rows lose manifest"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "fixture rows lose manifest"
+      },
+      {
+        "path": "tests/it/hook_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/manifest_adapter.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "fixture rows; manifest-from-locus pin"
+      },
+      {
+        "path": "tests/it/check_cost.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/mcp_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/plugin_manifest_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/marketplace_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/settings_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/known_marketplace_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/mcp_server_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/settings_local_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/installed_plugin_kind.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "fixture rows"
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
+        "description": "row bytes move"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "registration kinds name the manifest once"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "collectionAddress.manifest retires: a registration kind's starless locus names the manifest it surfaces in, and the address carries only the key path",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "Reach"
+  },
+  "acceptance": "No kind fact row or SDK kind spells a manifest outside its locus; hooks, MCP servers, plugins and marketplaces still surface at their manifests",
+  "tests": [
+    "a registration kind surfaces in the manifest its locus names",
+    "a collection address row carries no manifest"
+  ],
+  "notes": "Seam change across SDK, reader and embedded lock (PROTOCOL rule 4). Census by `rg collection_address|collectionAddress` across src, tests/it, sdk. The starless locus governing no document is representation.md \"locus\". The dogfood's .temper re-emit is a chore(harness) half."
+}

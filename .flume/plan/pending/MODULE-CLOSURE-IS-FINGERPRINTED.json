@@ -1,0 +1,71 @@
+{
+  "tag": "MODULE-CLOSURE-IS-FINGERPRINTED",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [
+      {
+        "path": "tests/it/module_closure.rs",
+        "description": "emit fingerprints the closure; a moved module is root-level fresh"
+      }
+    ],
+    "edit": [
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "report the run's loaded local module set (node_modules excluded) in the payload"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "the module rows beside inputRows"
+      },
+      {
+        "path": "sdk/src/generated/Declarations.ts",
+        "description": "re-blessed seam binding for the module family"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "Declarations gains the module family; emit writes a `module` source-dep family; a module-stale judge with the re-emit remedy, owned by the root member"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "source_dependency_stale folds the module judge in"
+      },
+      {
+        "path": "sdk/src/assembly.ts",
+        "description": "root.fresh guidance stops treating imports and includes as one word"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "the re-worded root.fresh guidance"
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__projection_tree.snap",
+        "description": "guidance text moves"
+      },
+      {
+        "path": "tests/it/main.rs",
+        "description": "register module_closure"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "the payload's module set excludes node_modules"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Emit fingerprints every local module the program's run loaded; check re-hashes offline and a moved module is one root-level fresh finding",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "The lock"
+  },
+  "acceptance": "Editing a module the program imports, with no input() declared, turns root.fresh on the root member with the re-emit remedy; check runs no Node",
+  "tests": [
+    "emit writes a provenance row for each local module the program loaded",
+    "a module under node_modules gets no provenance row",
+    "a moved program module is a root level fresh finding with the re emit remedy",
+    "an unchanged program module closure reports no fresh finding"
+  ],
+  "notes": "Seam change: SDK row builder, Rust reader and generated binding move together (BLESS_SEAM_BINDINGS). Drift's finding shape is pipeline.md \"Drift\"; input() narrowing is authoring.md \"The SDK\". How Node reports loaded modules (loader hook, etc.) is build's call. No refusal of an input() naming a TS module is derived: 0080 says one 'can' name it, the spec does not require it."
+}
