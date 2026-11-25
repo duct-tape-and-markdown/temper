@@ -1,22 +1,64 @@
 {
   "tag": "SDK-TSDOC-RULES-MOVE-TO-DELIVERED-HOMES",
-  "gate": { "kind": "blockedBy", "tags": ["SDK-COUNSEL-RULE-OVER-THE-PROGRAM"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
+    "new": [],
     "edit": [
-      { "path": "sdk/src/kind.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/contract.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/builtins.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/declarations.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/assembly.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/prose.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/dial.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/needs.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/emit.ts", "description": "TSDoc census" },
-      { "path": "sdk/src/counsel.ts", "description": "receives the author-facing rules with no kind/field/clause/refusal home" }
-    ]
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/assembly.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/prose.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/dial.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/needs.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "TSDoc census"
+      },
+      {
+        "path": "sdk/src/counsel.ts",
+        "description": "receives the author-facing rules with no kind/field/clause/refusal home"
+      }
+    ],
+    "retire": []
   },
   "summary": "author-facing rules stranded in exported-API TSDoc move to a delivered home; the TSDoc keeps the description",
-  "per": { "path": "specs/intent.md", "section": "Invariants" },
+  "per": {
+    "path": "specs/intent.md",
+    "section": "Invariants"
+  },
   "acceptance": "every must/never/prefer/use-X-not-Y sentence addressed to an author in exported TSDoc lives in kind or field guidance, a clause's guidance, an emit/SDK refusal message, or the counsel rule; net-neutral or negative lines; SDK gate green",
+  "tests": [],
+  "pins": [],
+  "laneTests": [],
   "notes": "A fold: no tests[]/pins[] (SDK-only). Internal implementation comments are out of scope; only counsel to a program author moves."
 }
