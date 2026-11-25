@@ -755,8 +755,8 @@ fn container_kinds(
 
 /// Every governed locus `temper guard` binds — one [`install::GuardedLocus`] per kind whose
 /// members `check` asks the lock's provenance rows about, whether an embedded built-in
-/// ([`builtin_kind::definitions`], overlaid with the lock's relocations) or a
-/// lock-declared custom kind.
+/// ([`builtin_kind::definitions`], overlaid with the lock's relocations), a lock-declared
+/// custom kind, or a subkind, whose locus its base cedes.
 ///
 /// The guard is `check` at a narrower trigger, so it keeps no kind filter of its own: a
 /// kind is a locus exactly where [`gate::site_class`] — the classification `check`'s
@@ -766,8 +766,8 @@ fn container_kinds(
 /// provenance row — so binding its locus would call every declared layout document
 /// undeclared.
 ///
-/// Sourced from the embedded kind data rather than the lock's `[[declaration.kind]]`
-/// rows: a kind row exists only for a kind the program actually *uses*, and `check`
+/// Sourced from the effective kind set ([`compose::effective_kinds`]), the embedded kind
+/// data overlaid, rather than the lock's `[[declaration.kind]]` rows alone: a kind row exists only for a kind the program actually *uses*, and `check`
 /// walks every overlaid built-in, so a row-sourced set would leave `.claude/agents/`
 /// unbound where `check` judges it. Pure embedded data: no disk read and no walk.
 ///
@@ -780,9 +780,9 @@ fn container_kinds(
 ///
 /// # Errors
 ///
-/// Propagates the lock-row lift errors the overlay and the custom-row partition raise,
-/// and the [`compose::ClauseRowError`] a clause row outside the closed vocabulary raises
-/// — a corrupt lock, refused loud here as everywhere.
+/// Propagates the errors [`compose::effective_kinds`] raises, and the
+/// [`compose::ClauseRowError`] a clause row outside the closed vocabulary raises — a
+/// corrupt lock, refused loud here as everywhere.
 fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<install::GuardedLocus>> {
     let root = compose::root_contract(&declarations.clauses, &declarations.assembly)?;
     if !root
@@ -793,35 +793,25 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
         return Ok(Vec::new());
     }
 
+    // The one effective kind set `check` reads, subkinds bound and each base ceding its
+    // subkinds' loci, so a write there matches the subkind alone. A built-in's commitment
+    // is not the author's to respell, so a kind of a built-in's name is tagged apart from
+    // a custom one — the one fact the locus finding's `local` remedy turns on, exactly as
+    // `gate::committed_member_sites` tags the same split for `check`.
     let builtin_defs = builtin_kind::definitions();
-
-    // A built-in's commitment is not the author's to respell, so the two sources' loci
-    // are tagged apart here — the one fact the locus finding's `local` remedy turns on,
-    // exactly as `gate::committed_member_sites` tags the same split for `check`.
-    let push = |kind: &CustomKind, custom: bool, loci: &mut Vec<install::GuardedLocus>| {
-        if gate::site_class(kind) != Some(gate::SiteClass::File) {
-            return;
-        }
-        let Some(governs) = kind.governs.as_ref() else {
-            return;
-        };
-        loci.push(install::GuardedLocus {
-            kind: kind.name.clone(),
-            root: governs.root.clone(),
-            pattern: kind::locus_pattern(&governs.root, &governs.glob),
-            custom,
-        });
-    };
-
-    let mut loci = Vec::new();
-    for kind in builtin_defs.values() {
-        let kind = compose::overlay_builtin_kind(kind, declarations)?;
-        push(&kind, false, &mut loci);
-    }
-    let (custom_rows, _collisions) = compose::partition_kind_rows(declarations, &builtin_defs)?;
-    for row in custom_rows {
-        push(&CustomKind::from_kind_fact_row(row)?, true, &mut loci);
-    }
+    let loci = compose::effective_kinds(declarations)?
+        .into_values()
+        .filter(|kind| gate::site_class(kind) == Some(gate::SiteClass::File))
+        .filter_map(|kind| {
+            let governs = kind.governs.as_ref()?;
+            Some(install::GuardedLocus {
+                root: governs.root.clone(),
+                pattern: kind::locus_pattern(&governs.root, &governs.glob),
+                custom: !builtin_defs.contains_key(&kind.name),
+                kind: kind.name,
+            })
+        })
+        .collect();
     Ok(loci)
 }
 

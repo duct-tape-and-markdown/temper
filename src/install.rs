@@ -1456,7 +1456,7 @@ pub fn shell_edge_findings(
 /// ([`matches_governed_locus`]), so here each locus root is enumerated instead
 /// ([`locus_files`], one bounded walk per locus) and every file under it matched against
 /// the same [`crate::glob::compile_glob`] pattern, less the paths the governing kind
-/// (looked up in `kinds`) excludes.
+/// (looked up in `kinds`) excludes or cedes to a subkind ([`locus_admits`]).
 fn locus_member_sites(
     harness_root: &Path,
     loci: &[GuardedLocus],
@@ -1465,11 +1465,7 @@ fn locus_member_sites(
     let mut sites = Vec::new();
     for locus in loci {
         for (_, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
-            if !kind::locus_admits(
-                &locus.pattern,
-                kind_excluded(kinds, &locus.kind),
-                &source_path,
-            ) {
+            if !locus_admits(kinds, locus, &source_path) {
                 continue;
             }
             sites.push(drift::LocusMemberSite {
@@ -1499,7 +1495,7 @@ fn layout_member_sites(
     let mut sites = Vec::new();
     for locus in &loci.governed {
         for (file, source_path) in locus_files(harness_root, &locus.root, &locus.pattern) {
-            if !kind::locus_admits(&locus.pattern, &locus.kind.excluded, &source_path) {
+            if !locus.kind.locus_admits(&source_path) {
                 continue;
             }
             let Some(member) = crate::compose::governed_member_address(
@@ -1721,8 +1717,9 @@ impl GuardedLayoutLoci {
 /// Every committed layout kind `temper guard` binds — the layout twin of the file loci the
 /// binary assembles, admitted by the one classification `check`'s site walk reads
 /// ([`crate::gate::site_class`] answering [`crate::gate::SiteClass::Layout`]), over the
-/// embedded built-ins overlaid with the lock's relocations and the lock-declared custom
-/// kinds. A kind governing no locus of its own is a hosted child, located as `check`
+/// one effective kind set `check` reads ([`crate::compose::effective_kinds`]): built-ins
+/// overlaid with the lock's relocations, custom kinds, and every subkind bound to its
+/// base, the base ceding the subkind's locus. A kind governing no locus of its own is a hosted child, located as `check`
 /// locates it, through its host's unit.
 ///
 /// Empty unless the root contract binds `locus-declared` (rows-or-default), the clause's
@@ -1731,8 +1728,8 @@ impl GuardedLayoutLoci {
 /// # Errors
 ///
 /// Propagates the [`crate::compose::ClauseRowError`] a clause row outside the closed
-/// vocabulary raises and the lock-row lift errors the overlay and the custom-row partition
-/// raise — a corrupt lock, refused loud.
+/// vocabulary raises and the errors [`crate::compose::effective_kinds`] raises — a
+/// corrupt lock, refused loud.
 pub fn guarded_layout_loci(
     declarations: &drift::Declarations,
 ) -> miette::Result<GuardedLayoutLoci> {
@@ -1749,17 +1746,7 @@ pub fn guarded_layout_loci(
     {
         return Ok(loci);
     }
-    let builtin_defs = builtin_kind::definitions();
-    for kind in builtin_defs.values() {
-        let kind = crate::compose::overlay_builtin_kind(kind, declarations)?;
-        loci.kinds.insert(kind.name.clone(), kind);
-    }
-    let (custom_rows, _collisions) =
-        crate::compose::partition_kind_rows(declarations, &builtin_defs)?;
-    for row in custom_rows {
-        let kind = CustomKind::from_kind_fact_row(row)?;
-        loci.kinds.insert(kind.name.clone(), kind);
-    }
+    loci.kinds = crate::compose::effective_kinds(declarations)?;
     for kind in loci.kinds.values() {
         if crate::gate::site_class(kind) != Some(crate::gate::SiteClass::Layout) {
             continue;
@@ -1859,10 +1846,11 @@ impl LayoutGuard {
         };
         let identity = crate::compose::SiteIdentity::Pending(text);
         let target = root.join(&*normalized);
-        let governed =
-            self.loci.governed.iter().find(|locus| {
-                kind::locus_admits(&locus.pattern, &locus.kind.excluded, &normalized)
-            });
+        let governed = self
+            .loci
+            .governed
+            .iter()
+            .find(|locus| locus.kind.locus_admits(&normalized));
         let member = match governed {
             Some(locus) => {
                 let local = import::local_governs(&locus.kind, import::LocalOverride::Honored);
@@ -2090,13 +2078,9 @@ fn matches_governed_locus<'a>(
     kinds: &BTreeMap<String, CustomKind>,
 ) -> Option<&'a GuardedLocus> {
     let normalized = harness_relative(file_path, root)?;
-    let locus = loci.iter().find(|locus| {
-        kind::locus_admits(
-            &locus.pattern,
-            kind_excluded(kinds, &locus.kind),
-            &normalized,
-        )
-    })?;
+    let locus = loci
+        .iter()
+        .find(|locus| locus_admits(kinds, locus, &normalized))?;
     // A path discovery would never reach — gitignored, or behind a fence — is no member
     // `check` judges, so the guard binds nothing there either. The governing kind's own
     // walk flavor decides: a local locus's commitment waives both presumptions.
@@ -2106,13 +2090,20 @@ fn matches_governed_locus<'a>(
     import::discovers_path(root, Path::new(&*normalized), local).then_some(locus)
 }
 
-/// The excluded paths of the kind named `kind` in the effective set `kinds` — the
-/// exclusion half [`kind::locus_admits`] subtracts from a [`GuardedLocus`]'s pattern.
-/// [`GuardedLocus`] carries the kind's name only, so its exclusions are read off the one
-/// effective kind set the layout guard already assembles ([`GuardedLayoutLoci::kinds`]);
-/// a name the set lacks excludes nothing.
-fn kind_excluded<'a>(kinds: &'a BTreeMap<String, CustomKind>, kind: &str) -> &'a [String] {
-    kinds.get(kind).map_or(&[], |kind| kind.excluded.as_slice())
+/// Whether `harness_relative` is a member path of `locus` — its pattern less the paths
+/// its governing kind, looked up by name in the effective set `kinds`, excludes or cedes
+/// to a subkind ([`kind::locus_admits`]). [`GuardedLocus`] carries the kind's name only,
+/// so both subtractions are read off the one effective kind set the layout guard already
+/// assembles ([`GuardedLayoutLoci::kinds`]); a name the set lacks subtracts nothing.
+fn locus_admits(
+    kinds: &BTreeMap<String, CustomKind>,
+    locus: &GuardedLocus,
+    harness_relative: &str,
+) -> bool {
+    let (excluded, ceded) = kinds.get(&locus.kind).map_or((&[][..], &[][..]), |kind| {
+        (kind.excluded.as_slice(), kind.ceded.as_slice())
+    });
+    kind::locus_admits(&locus.pattern, excluded, ceded, harness_relative)
 }
 
 /// One represented manifest the `PreToolUse` guard checks a pending write against — its

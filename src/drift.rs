@@ -1653,7 +1653,7 @@ fn member_projection_path(
     // excluded paths — so emit never writes a member `check` would not find.
     let harness_relative = HarnessRelativePath::from_path(&placed);
     let pattern = crate::kind::locus_pattern(root, glob);
-    if !crate::kind::locus_admits(&pattern, &facts.exclude, &harness_relative) {
+    if !crate::kind::locus_admits(&pattern, &facts.exclude, &[], &harness_relative) {
         // `governs_root` is the locus the glob is rooted at, so the relative path is what
         // the glob has to find; a path the template finds failed on the exclusion half.
         refuse_ungoverned(&facts.name, host, name, glob, &relative)?;

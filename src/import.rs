@@ -486,7 +486,8 @@ fn unit_dir(root: &Path, entry: &Path) -> Option<PathBuf> {
 /// governs.
 ///
 /// The kind's declared excluded paths are subtracted from the walk through the one locus
-/// membership predicate ([`crate::kind::locus_admits`]): no member owns one.
+/// membership predicate ([`crate::kind::locus_admits`]): no member owns one. So are
+/// its subkinds' ceded loci, whose documents are the subkinds' members alone.
 ///
 /// `over` decides whether the kind's own commitment class may override discovery's
 /// presumptions for this walk; the `kind` is what carries that class, which is why the
@@ -506,8 +507,7 @@ pub fn discover_kind_files(
         files.retain(|file| {
             file.strip_prefix(&harness).is_ok_and(|relative| {
                 let relative = crate::path::HarnessRelativePath::from_path(relative);
-                crate::kind::locus_admits(&pattern, &kind.excluded, &relative)
-                    && !kind.cedes(&relative)
+                crate::kind::locus_admits(&pattern, &kind.excluded, &kind.ceded, &relative)
             })
         });
     }

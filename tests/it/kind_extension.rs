@@ -326,3 +326,41 @@ fn explain_narrates_a_subkinds_inherited_clauses() {
         "the subkind member's narration names its base's clause beside its own, got:\n{narration}"
     );
 }
+
+/// The guard binds the one effective kind set `check` reads: a pending write inside a
+/// subkind's locus is the subkind's undeclared member alone, the base ceding the path,
+/// while a write in the rest of the base's locus is still the base's.
+#[test]
+fn the_guard_judges_a_write_in_a_subkinds_locus_as_the_subkind_alone() {
+    let root = common::tmpdir("guard-subkind-locus");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![decision(".claude/rules/decisions", "*.md")],
+            clauses: vec![common::clause("locus-declared", "required")],
+            ..Declarations::default()
+        },
+    );
+
+    let (code, output) = common::run_guard(
+        &root,
+        &common::guard_write_payload(".claude/rules/decisions/0001.md"),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    assert!(
+        in_band.contains("`decision`") && !in_band.contains("`rule`"),
+        "a write in the subkind's locus is the subkind's member alone, got: {in_band}"
+    );
+
+    let (code, output) = common::run_guard(
+        &root,
+        &common::guard_write_payload(".claude/rules/style.md"),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    assert!(
+        in_band.contains("`rule`") && !in_band.contains("`decision`"),
+        "a write elsewhere in the base's locus stays the base's, got: {in_band}"
+    );
+}
