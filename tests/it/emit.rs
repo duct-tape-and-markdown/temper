@@ -705,6 +705,42 @@ fn a_member_naming_an_undeclared_kind_is_a_clear_refusal() {
 }
 
 #[test]
+fn emit_refuses_two_members_that_derive_one_projection_path() {
+    let (harness, into) = workspace("projection-path-collision");
+    // A literal glob places every member at the one path, whatever its name.
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                common::rule_kind_facts(None, &[]),
+                common::kind_facts("memory", ".", "CLAUDE.md"),
+            ],
+            ..Default::default()
+        },
+        members: vec![
+            common::rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+            common::payload_member("memory", "root", None, "# Root\n"),
+            common::payload_member("memory", "nested", None, "# Nested\n"),
+        ],
+    };
+
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    let message = format!("{err}");
+    assert!(message.contains("memory:root"), "{message}");
+    assert!(message.contains("memory:nested"), "{message}");
+    assert!(message.contains("`CLAUDE.md`"), "{message}");
+    // Refused before a byte is written: neither the colliding path, the unrelated
+    // member's projection, nor the lock lands.
+    assert!(!harness.join("CLAUDE.md").exists());
+    assert!(!harness.join(".claude").exists());
+    assert_eq!(
+        fs::read_dir(&into).unwrap().count(),
+        0,
+        "no lock is written"
+    );
+}
+
+#[test]
 fn an_unsupported_seam_version_is_a_clear_refusal() {
     let (_harness, into) = workspace("bad-version");
     let mut payload = basic_payload(vec![]);

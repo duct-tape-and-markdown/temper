@@ -605,6 +605,23 @@ pub enum DriftError {
         name: String,
     },
 
+    /// Two members derive **one projection path**. Each would write the file and the
+    /// one the emit loop reached last would silently win, its sibling's words lost with
+    /// no finding to name them. Refused before a byte is written; the repair is the
+    /// program's — rename or re-place one of the two.
+    #[error(
+        "members `{first}` and `{second}` both project to `{path}` — one path has one owner, so emitting both would let one silently overwrite the other"
+    )]
+    #[diagnostic(code(temper::drift::projection_path_collision))]
+    ProjectionPathCollision {
+        /// The harness-relative path both members derive.
+        path: String,
+        /// The first member (in program order) deriving the path, by whole address.
+        first: String,
+        /// The second member deriving the same path, by whole address.
+        second: String,
+    },
+
     /// A derived projection path the deriving kind's **own glob cannot find**. Placement
     /// and discovery are one round trip: emit splices a member's name through the glob
     /// `check` later walks, so a path outside that glob is written and locked yet
@@ -3532,7 +3549,9 @@ fn splice_includes(host: &str, body: &str, contents: &[String]) -> Result<String
 /// # Errors
 /// Returns the refusals [`member_projection_path`] raises when a member maps to no one
 /// projection path — the same ones [`emit`]'s member loop raises, surfaced here so the
-/// index never carries a nonsense path.
+/// index never carries a nonsense path — and [`DriftError::ProjectionPathCollision`] when
+/// two members derive one path, since the index is the one place every member's path
+/// is on hand before a byte is written.
 fn member_path_index(
     members: &[PayloadMember],
     kind_facts: &BTreeMap<&str, &KindFactRow>,
@@ -3548,7 +3567,17 @@ fn member_path_index(
             member.host.as_deref(),
             kind_facts,
         )?);
-        index.insert(path, payload_member_address(member));
+        let address = payload_member_address(member);
+        // One path, one owner: two members deriving the same projection would each
+        // write it, and whichever the loop reached last would silently win.
+        if let Some(first) = index.get(&path) {
+            return Err(DriftError::ProjectionPathCollision {
+                path: HarnessRelativePath::from_path(&path).to_string(),
+                first: String::clone(first),
+                second: address,
+            });
+        }
+        index.insert(path, address);
     }
     Ok(index)
 }
