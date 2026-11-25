@@ -3,6 +3,7 @@
   "gate": {
     "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -34,5 +35,12 @@
   "pins": [
     "a bare edge target in a multi element set still refuses at emit"
   ],
-  "notes": "Inbox GH #52. The comment above defersToGate's call records the opposite choice; 'one-element set resolves a bare name within its one kind' makes the two spellings one address. Pipeline.md Emit 'Refusing' is the deferral rule."
+  "laneTests": [],
+  "notes": "Inbox GH #52. The comment above defersToGate's call records the opposite choice; 'one-element set resolves a bare name within its one kind' makes the two spellings one address. Pipeline.md Emit 'Refusing' is the deferral rule.",
+  "observedFiles": [
+    ".flume/plan/notes/BARE-EDGE-TARGET-DEFERS-LIKE-ITS-QUALIFIED-SPELLING.md",
+    "sdk/src/emit.ts",
+    "sdk/test/refusals.test.ts",
+    "tests/it/emit.rs"
+  ]
 }
