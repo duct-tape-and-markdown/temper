@@ -385,6 +385,22 @@ pub enum DriftError {
         member: String,
     },
 
+    /// A tap handler's declared binary cannot be rendered into its command — it is neither
+    /// `null` nor a non-empty string.
+    #[error("tap hook on `{event}`: {detail}")]
+    #[diagnostic(
+        code(temper::drift::tap_hook),
+        help(
+            "declare a telemetry verifier with `telemetry(events, {{ binary }})` from `@dtmd/temper`, stating a non-empty `binary` or none (`temper` on the PATH)"
+        )
+    )]
+    TapHook {
+        /// The lifecycle event the tap's registration keys under.
+        event: String,
+        /// What is wrong with the declared binary.
+        detail: String,
+    },
+
     /// A gate hook's declared fact cannot be rendered into the registration it names: no
     /// `hook` registration sits at its event and matcher, its event is not one temper's
     /// gate rides, or its binary is empty.
@@ -1061,7 +1077,59 @@ pub struct Payload {
 /// one home, the engine's ([`crate::install::gate_hook_command`]).
 const GATE_BINARY_KEY: &str = "temper:gate-binary";
 
-/// `registration`'s fields as its manifest entry folds them. A gate hook's row — one
+/// The reserved key a tap handler carries its telemetry declaration's temper binary under,
+/// inside the handler object — the SDK's `TAP_BINARY_KEY` (`sdk/src/builtins.ts`), which
+/// the synthesized tap alone writes. On the handler, not the row, because a tap joins an
+/// authored group at its (event, matcher) as a further handler. Colon-qualified so no
+/// typed handler field can spell it; [`tap_rendered_handlers`] consumes it before a byte
+/// is projected, so the bytes a tap runs have one home, the engine's
+/// ([`crate::install::tap_hook_command`]; `specs/model/pipeline.md`, "Telemetry").
+const TAP_BINARY_KEY: &str = "temper:tap-binary";
+
+/// Render every tap handler in `fields`' handler array in place: a handler carrying
+/// [`TAP_BINARY_KEY`] drops it and gains the `command` rendered from the declared binary
+/// (`null` declaring none, so [`crate::install::DEFAULT_GATE_BINARY`]). Returns whether a
+/// handler was rendered. Refuses a binary that is neither `null` nor a non-empty string —
+/// the SDK builds the fact, so it is a malformed payload, never something to skip.
+fn tap_rendered_handlers(
+    registration_key: &str,
+    fields: &mut [(String, JsonValue)],
+) -> Result<bool, DriftError> {
+    let Some(handlers) = fields
+        .iter_mut()
+        .find(|(name, _)| name == crate::kind::HOOK_HANDLER_KEY)
+        .and_then(|(_, handlers)| handlers.as_array_mut())
+    else {
+        return Ok(false);
+    };
+    let mut rendered = false;
+    for handler in handlers.iter_mut().filter_map(JsonValue::as_object_mut) {
+        let Some(declared) = handler.remove(TAP_BINARY_KEY) else {
+            continue;
+        };
+        let binary = match &declared {
+            JsonValue::Null => crate::install::DEFAULT_GATE_BINARY,
+            JsonValue::String(binary) if !binary.is_empty() => binary.as_str(),
+            _ => {
+                return Err(DriftError::TapHook {
+                    event: registration_key.to_string(),
+                    detail: format!(
+                        "its binary must be `null` or a non-empty string, got {declared}"
+                    ),
+                });
+            }
+        };
+        handler.insert(
+            "command".to_string(),
+            JsonValue::String(crate::install::tap_hook_command(binary)),
+        );
+        rendered = true;
+    }
+    Ok(rendered)
+}
+
+/// `registration`'s fields as its manifest entry folds them, every tap handler's command
+/// rendered first ([`tap_rendered_handlers`]). A gate hook's row — one
 /// carrying [`GATE_BINARY_KEY`] — drops that key and has its first handler's `command`
 /// rendered from the declared binary (`null` declaring none, so
 /// [`crate::install::DEFAULT_GATE_BINARY`]): the gate handler `gateHook(...)` builds, ahead of
@@ -1079,7 +1147,12 @@ fn gate_rendered_fields(
         .iter()
         .find_map(|(name, value)| (name == GATE_BINARY_KEY).then_some(value))
     else {
-        return Ok(std::borrow::Cow::Borrowed(&registration.fields));
+        let mut fields = registration.fields.clone();
+        return Ok(if tap_rendered_handlers(&registration.key, &mut fields)? {
+            std::borrow::Cow::Owned(fields)
+        } else {
+            std::borrow::Cow::Borrowed(&registration.fields)
+        });
     };
     let mut fields: Vec<(String, JsonValue)> = registration
         .fields
@@ -1129,6 +1202,8 @@ fn gate_rendered_fields(
         ));
     };
     gate_handler.insert("command".to_string(), JsonValue::String(command));
+    // A tap joined behind the gate handler renders as any tap does.
+    tap_rendered_handlers(&registration.key, &mut fields)?;
     Ok(std::borrow::Cow::Owned(fields))
 }
 

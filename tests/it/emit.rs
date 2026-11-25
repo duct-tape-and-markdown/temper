@@ -1013,17 +1013,14 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
     );
 }
 
-#[test]
-fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_loop() {
-    let (harness, into) = workspace("tap-hook-matcher-group");
-
-    // A synthesized tap-hook row — the shape the SDK derives from a telemetry verifier
-    // (`sdk/src/declarations.ts`'s `tapHookRows`): `kind` hook, the group's own `matcher`
-    // field, and the `temper tap` command inside the single `command` handler of its
-    // `hooks` array, since a tap hook is one ordinary matcher group (0075). The engine
-    // projects it through the same registration loop a hook member rides, no engine change
-    // — a `Skill` invocation is surfaced under `PostToolUse` with the tool-name matcher.
-    let payload = Payload {
+/// A payload carrying one synthesized tap-hook row — the shape the SDK derives from a
+/// telemetry verifier (`sdk/src/declarations.ts`'s `tapHookRows`): `kind` hook, the
+/// group's own `matcher` field, and a single `command` handler carrying the declaration's
+/// binary under the seam's reserved `temper:tap-binary` key (`null` declaring none), since
+/// a tap hook is one ordinary matcher group (0075). A `Skill` invocation surfaces under
+/// `PostToolUse` with the tool-name matcher.
+fn tap_hook_payload(binary: serde_json::Value) -> Payload {
+    Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![hook_kind_facts()],
@@ -1036,9 +1033,7 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
                     ("matcher".to_string(), serde_json::json!("Skill")),
                     (
                         "hooks".to_string(),
-                        serde_json::json!([
-                            { "type": "command", "command": "temper tap \"$CLAUDE_PROJECT_DIR\"" }
-                        ]),
+                        serde_json::json!([{ "type": "command", "temper:tap-binary": binary }]),
                     ),
                 ],
                 emit_hash: None,
@@ -1046,19 +1041,38 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
             ..Default::default()
         },
         members: Vec::new(),
-    };
+    }
+}
+
+/// The `PostToolUse` tap handler's `command` in the settings manifest `emit` projected.
+fn projected_tap_command(harness: &Path) -> String {
+    let manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap(),
+    )
+    .unwrap();
+    let handler = &manifest["hooks"]["PostToolUse"][0]["hooks"][0];
+    assert!(
+        handler.get("temper:tap-binary").is_none(),
+        "the seam's binary key never reaches the manifest: {handler}"
+    );
+    handler["command"].as_str().unwrap().to_owned()
+}
+
+#[test]
+fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_loop() {
+    let (harness, into) = workspace("tap-hook-matcher-group");
+    let payload = tap_hook_payload(serde_json::Value::Null);
 
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
-    // The `matcher` field lifts to the group level and the handler array rides through as
-    // read — `hooks.PostToolUse` is the array of matcher groups Claude Code loads, each
-    // `{matcher, hooks:[{…handler}]}` — proving the engine projects the SDK-synthesized row
-    // unchanged.
+    // The `matcher` field lifts to the group level and the handler array rides through with
+    // its command rendered by the engine — `hooks.PostToolUse` is the array of matcher
+    // groups Claude Code loads, each `{matcher, hooks:[{…handler}]}`.
     let mut entries = std::collections::BTreeMap::new();
     entries.insert(
         "PostToolUse".to_string(),
         serde_json::json!([
-            { "matcher": "Skill", "hooks": [ { "type": "command", "command": "temper tap \"$CLAUDE_PROJECT_DIR\"" } ] }
+            { "matcher": "Skill", "hooks": [ { "type": "command", "command": temper::install::tap_hook_command("temper") } ] }
         ]),
     );
     let segment = json_manifest::CollectionSegment {
@@ -1069,6 +1083,63 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
 
     let manifest_path = harness.join(".claude").join("settings.json");
     assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
+
+    // Double emit reproduces the manifest byte-for-byte: the rendered command is the
+    // entry's hash, so a re-render is no drift.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
+}
+
+#[test]
+fn a_tap_hook_command_is_anchored_at_the_project() {
+    // A declaration stating no binary runs `temper` on the PATH — entered at the project
+    // root Claude Code names, so the tap's `.` target resolves there whatever directory
+    // the session has moved to, as a gate command's does (`pipeline.md`, "Telemetry").
+    let (harness, into) = workspace("tap-hook-anchored");
+    drift::emit(
+        &tap_hook_payload(serde_json::Value::Null),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+
+    assert_eq!(
+        projected_tap_command(&harness),
+        "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper tap ."
+    );
+}
+
+#[test]
+fn a_tap_hook_runs_its_declared_binary() {
+    // A declaration stating a workspace binary runs that binary, resolved at the project
+    // root the anchor entered — the binary the gate hooks of a temper-off-PATH harness run.
+    let (harness, into) = workspace("tap-hook-declared-binary");
+    drift::emit(
+        &tap_hook_payload(serde_json::json!("./.temper/node_modules/.bin/temper")),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+
+    assert_eq!(
+        projected_tap_command(&harness),
+        "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./.temper/node_modules/.bin/temper tap ."
+    );
+}
+
+#[test]
+fn a_tap_hook_declaring_an_empty_binary_is_refused() {
+    let (_harness, into) = workspace("tap-hook-empty-binary");
+    let err = drift::emit(
+        &tap_hook_payload(serde_json::json!("")),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("tap hook on `PostToolUse`"),
+        "{err}"
+    );
 }
 
 /// A payload carrying one gate hook per event temper's gate rides, as the SDK's

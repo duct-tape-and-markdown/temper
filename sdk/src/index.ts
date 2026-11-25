@@ -23,7 +23,7 @@ export type { Capability } from "./needs.js";
 export { bash, capability, permissionUnion } from "./needs.js";
 
 // Contracts — clauses, predicates, requirements.
-export type { Charset, Clause, ExtentUnit, Predicate, Requirement, Severity, Verifier } from "./contract.js";
+export type { Charset, Clause, ExtentUnit, Predicate, Requirement, Severity, TelemetryInit, Verifier } from "./contract.js";
 export {
   allowedChars,
   clause,

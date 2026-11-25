@@ -707,18 +707,31 @@ export function gateHookBinary(member: Member): string | null | undefined {
 }
 
 /**
+ * The key a tap handler carries its declaration's temper binary under — the engine's
+ * `TAP_BINARY_KEY` (`src/drift.rs`), which consumes it at emit and renders the handler's
+ * command in its place, anchored at the project. Carried on the **handler**, not the row,
+ * because a tap joins an authored group at the same (event, matcher) as a further handler
+ * (`declarations.ts`). Colon-qualified so no typed {@link Handler} field can spell it;
+ * `null` is a declaration stating no binary, so the default (`temper`) has one spelling,
+ * the engine's.
+ */
+export const TAP_BINARY_KEY = "temper:tap-binary";
+
+/**
  * The tap hook registration's `hooks.<Event>` key-path and {@link Hook} fields — the
  * provider fact {@link tapHookRows} (`declarations.ts`) fills rather than authors inline.
  * One matcher group like any authored one: the per-event `matcher`
  * {@link TELEMETRY_EVENT_HOOKS} names lifted beside a single `command` handler carrying
- * the tap's own command, so a synthesized row and an authored one are the same shape and
- * the join in `declarations.ts` can merge one into the other.
+ * the binary the telemetry declaration states ({@link TAP_BINARY_KEY}; `null` stating
+ * none) — the engine renders the tap's command from it — so a synthesized row and an
+ * authored one are the same shape and the join in `declarations.ts` can merge one into
+ * the other.
  */
 export function tapHookRegistration(
-  command: string,
+  binary: string | null,
   matcher: string,
 ): { readonly keyPath: string; readonly fields: Array<[string, unknown]> } {
-  const handler: Handler = { type: "command", command };
+  const handler = { type: "command", [TAP_BINARY_KEY]: binary };
   return {
     keyPath: HOOK_KEY_PATH,
     fields: [

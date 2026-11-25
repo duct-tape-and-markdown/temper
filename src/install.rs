@@ -207,6 +207,10 @@ enum GateVerb {
     SessionStart,
     /// The write-boundary guard, at either edge ([`GUARD_COMMAND`]).
     Guard,
+    /// The telemetry tap a telemetry declaration's synthesized hooks fire
+    /// ([`tap_hook_command`]) — anchored as a gate command is, though no gate member
+    /// carries it (`specs/model/pipeline.md`, "Telemetry").
+    Tap,
 }
 
 impl GateVerb {
@@ -215,6 +219,7 @@ impl GateVerb {
         match self {
             Self::SessionStart => "check . --reporter session-start",
             Self::Guard => "guard .",
+            Self::Tap => "tap .",
         }
     }
 }
@@ -272,6 +277,15 @@ pub fn gate_hook_command(event: &str, binary: &str) -> Option<String> {
         .iter()
         .find(|hook| hook.event == event)
         .map(|hook| render_gate_command(hook.verb, binary))
+}
+
+/// The command a telemetry declaration's tap hook runs with `binary` as temper — the same
+/// anchored, probed rendering a gate command takes ([`render_gate_command`]), firing
+/// `tap .` at the project root the anchor entered. `emit` renders each tap handler through
+/// this from the binary its declaration states, so the tap's bytes have the one home a
+/// gate command's do (`specs/model/pipeline.md`, "Telemetry"; 0088).
+pub fn tap_hook_command(binary: &str) -> String {
+    render_gate_command(GateVerb::Tap, binary)
 }
 
 /// temper's gate commands paired with the names they were once exported under across the
