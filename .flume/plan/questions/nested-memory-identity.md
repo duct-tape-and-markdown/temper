@@ -1,0 +1,5 @@
+# How is a nested `CLAUDE.md` named so emit can place it?
+
+Driver: `specs/model/adoption.md`, "Install", and `specs/model/pipeline.md`, "Emit" (every artifact is its member's projection). Memory claims `**/CLAUDE.md`, but its file-shape fold joins placement segments with `-` (`extract::fold_file_id`: `apps/web/CLAUDE.md` → `apps-web-CLAUDE`), which emit cannot invert — `apps-web-CLAUDE` could be `apps/web/` or `apps-web/`. Today `drift::placement_in_unit` → `splice_name` drops the `**/` and places every memory member at the root `CLAUDE.md`. 0090 settled the same problem for nested commands and skills with the `:` that 0074 admits in a name; it named no memory placement.
+
+The answers: memory joins 0090's grammar (`memory:apps:web:CLAUDE`, invertible because `:` is reserved, as path shape already is); or a module declares its placement explicitly. Recommendation: the `:` grammar — one address grammar, no new authored field, and the SDK's `projectionPath` (gated by `tests/projection_path_seam.rs`) derives it the same way. Blocks `INSTALL-LIFTS-A-NESTED-MEMORY-AT-ITS-PLACEMENT`. Seen by its park.

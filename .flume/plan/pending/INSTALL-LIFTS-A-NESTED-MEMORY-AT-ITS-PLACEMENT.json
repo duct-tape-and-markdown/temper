@@ -1,17 +1,29 @@
 {
   "tag": "INSTALL-LIFTS-A-NESTED-MEMORY-AT-ITS-PLACEMENT",
-  "gate": { "kind": "open" },
+  "gate": {
+    "kind": "parked",
+    "reason": "decision on nested-memory-identity question: how a nested CLAUDE.md is named so emit can place it"
+  },
   "files": {
     "edit": [
-      { "path": "src/install.rs", "description": "lift_base folds a file-shaped kind against its governs base, as it already does for path/directory shapes" },
-      { "path": "tests/it/install.rs", "description": "nested memory lift test" }
+      {
+        "path": "src/install.rs",
+        "description": "lift_base folds a file-shaped kind against its governs base, as it already does for path/directory shapes"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "nested memory lift test"
+      }
     ]
   },
   "summary": "install lifts each nested CLAUDE.md under its placement id, not the bare stem every one shares",
-  "per": { "path": "specs/model/adoption.md", "section": "Install" },
+  "per": {
+    "path": "specs/model/adoption.md",
+    "section": "Install"
+  },
   "acceptance": "install on a tree with several nested CLAUDE.md files writes one module per file with distinct ids, and the first emit regenerates each at its own path",
   "tests": [
     "install lifts two nested memory files as two members"
   ],
-  "notes": "Seen by COMMAND-CLAIMS-ITS-NESTED-PLACEMENTS: a file-shaped any-depth kind lifts base-less, so every nested CLAUDE.md lifts as `CLAUDE` and only the module stem is ordinaled."
+  "notes": "Parked: lift half works (lift_base folding via drift::fold_base); emit places every memory member at root CLAUDE.md because the `-` fold is not invertible. Once the question rules, the install edit is ~10 lines plus emit placement per the ruling."
 }

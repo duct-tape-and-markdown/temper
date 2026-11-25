@@ -1,0 +1,17 @@
+{
+  "tag": "EMIT-REFUSES-TWO-MEMBERS-AT-ONE-PROJECTION-PATH",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/drift.rs", "description": "emit refuses, before a byte is written, when two members derive one projection path" },
+      { "path": "tests/it/emit.rs", "description": "projection-path collision refusal" }
+    ]
+  },
+  "summary": "emit refuses two members that derive the same projection path instead of letting one silently win",
+  "per": { "path": "specs/model/pipeline.md", "section": "Emit" },
+  "acceptance": "an emit whose program holds two members projecting to one path refuses naming both members and the path, writing nothing",
+  "tests": [
+    "emit refuses two members that derive one projection path"
+  ],
+  "notes": "Seen by INSTALL-LIFTS-A-NESTED-MEMORY-AT-ITS-PLACEMENT's park: two nested memory members both placed at root CLAUDE.md, one silently won. Repro with two memory members today; the SDK's guidanceRules collision refusal is the same shape one layer up."
+}
