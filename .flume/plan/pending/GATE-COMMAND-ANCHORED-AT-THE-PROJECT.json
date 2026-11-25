@@ -3,6 +3,7 @@
   "gate": {
     "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -49,5 +50,15 @@
     "a rendered gate command with the project dir unset runs where it is invoked",
     "a gate command in the unanchored form reads as no rendered gate"
   ],
-  "notes": "Inbox GH #67, urgent: the guard is down after any Bash cd. Spelling: double-quoted \"${CLAUDE_PROJECT_DIR:-.}\" (code.claude.com/docs/en/hooks, retrieved 2026-11-25). Renderer stays the one home (0073). Dogfood .claude/settings.json + .temper lock re-emit is a human chore(harness) half after ship."
+  "pins": [],
+  "laneTests": [],
+  "notes": "Inbox GH #67, urgent: the guard is down after any Bash cd. Spelling: double-quoted \"${CLAUDE_PROJECT_DIR:-.}\" (code.claude.com/docs/en/hooks, retrieved 2026-11-25). Renderer stays the one home (0073). Dogfood .claude/settings.json + .temper lock re-emit is a human chore(harness) half after ship.",
+  "observedFiles": [
+    ".flume/plan/notes/GATE-COMMAND-ANCHORED-AT-THE-PROJECT.md",
+    "src/install.rs",
+    "tests/it/emit.rs",
+    "tests/it/install.rs",
+    "tests/it/session_start.rs",
+    "tests/it/snapshots/it__install__a_fresh_install_settings_document_is_stable.snap"
+  ]
 }
