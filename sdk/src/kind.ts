@@ -598,6 +598,26 @@ export interface KindDefinition<T, Init = MemberInit<T>> {
    * the default `[collection.entry]` TOML view.
    */
   readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
+  /**
+   * Where the **plain fields** an {@link extend} delta added live — every one named, so
+   * construction never projects it as a frontmatter key, and the delta's body `render`,
+   * when declared, which builds a member's body from its values. Set only by `extend`;
+   * absent on a kind declaring no added plain field.
+   */
+  readonly body?: BodyPlacement;
+}
+
+/**
+ * The plain fields a kind's body holds rather than its frontmatter, and the render that
+ * places those a `"render"` placement names ({@link KindExtension.fields}). Erased at the
+ * emit seam like {@link KindDefinition.render}: a member reaches emit with the field out
+ * of its projected fields and its value already in its prose.
+ */
+export interface BodyPlacement {
+  /** Every added plain field, whichever placement holds it. */
+  readonly plain: readonly string[];
+  /** The member's body built from its values — the base's own render, then the delta's. */
+  readonly render?: (values: Readonly<Record<string, unknown>>) => Prose;
 }
 
 /**
@@ -609,13 +629,19 @@ export interface KindDefinition<T, Init = MemberInit<T>> {
  * the fields are the whole member, folded into a manifest entry, never a header.
  *
  * A {@link RESIDUE_KEY} bag splices in last: what the program types, it orders; what it
- * merely carries, it sorts.
+ * merely carries, it sorts. A `plain` field — one an {@link extend} delta placed in the
+ * body ({@link BodyPlacement}) — is never projected: it lives where the base's format
+ * admits it, never as an undocumented key.
  */
-function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readonly [string, unknown]> {
+function orderedFields(
+  facts: KindFacts,
+  init: MemberInit<object>,
+  plain: ReadonlySet<string>,
+): Array<readonly [string, unknown]> {
   if (facts.format === undefined && facts.shape !== "fields") return [];
   const typed: Array<readonly [string, unknown]> = [];
   for (const [key, value] of Object.entries(init)) {
-    if (!FRAMEWORK_KEYS.has(key)) typed.push([key, value]);
+    if (!FRAMEWORK_KEYS.has(key) && !plain.has(key)) typed.push([key, value]);
   }
   const head: Array<readonly [string, unknown]> =
     facts.identityField !== undefined ? [[facts.identityField, init.name]] : [];
@@ -693,6 +719,11 @@ export interface KindOptions {
   readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
 }
 
+/** {@link KindOptions} plus the {@link BodyPlacement} only {@link extend} hands over. */
+interface DefineOptions extends KindOptions {
+  readonly body?: BodyPlacement;
+}
+
 /**
  * Define a kind. Returns a constructor over the kind's typed
  * fields `T`; every type erases at the seam, so what the returned member carries
@@ -719,26 +750,37 @@ export function kind<T extends object>(typed: KindFacts<T>, options: KindOptions
 
 /** {@link kind} over the whole facts union — the body every overload shares, and the entry
  * {@link relocate} takes, since a relocated facts value is any locus's. */
-function defineKind<T extends object>(typed: KindFacts<T>, options: KindOptions): KindDefinition<T> {
+function defineKind<T extends object>(typed: KindFacts<T>, options: DefineOptions): KindDefinition<T> {
   // The erasure, spelled: `T` binds the witness and the field slots at the keystroke and
   // then leaves. `keyof T` reads contravariantly, so the compiler will not widen a slot
   // set bound to `T` to the erased `string` on its own — every key of `T` is a string
   // the erased surface admits, which is all this assertion claims.
   const facts = typed as KindFacts;
   if (collectionAddressOf(facts) !== undefined) manifestOf(facts);
+  const body = options.body;
+  const plain = new Set(body?.plain ?? []);
   const construct = (init: MemberInit<T>): Member => ({
     kind: facts.name,
     facts,
     name: init.name,
     host: hostOf(facts, init),
-    prose: memberProse(init.prose, init.name, facts.name),
-    fields: orderedFields(facts, init),
+    prose: memberProse(
+      body?.render === undefined ? init.prose : body.render(init as Readonly<Record<string, unknown>>),
+      init.name,
+      facts.name,
+    ),
+    fields: orderedFields(facts, init, plain),
     satisfies: init.satisfies ?? [],
     requires: init.requires ?? {},
     needs: init.needs ?? [],
     inputs: init.inputs ?? [],
   });
-  return Object.assign(construct, { facts, key: facts.name, render: options.render });
+  return Object.assign(construct, {
+    facts,
+    key: facts.name,
+    render: options.render,
+    ...(body === undefined ? {} : { body }),
+  });
 }
 
 /** The `at`-locus branch of {@link KindFacts} — the one that declares a registration set
@@ -1052,18 +1094,45 @@ export function relocate<T extends object>(
 export interface KindExtension<T extends object> extends KindRelocation<T> {
   /** The subkind's name; omitted, the extension relocates the base under its own. */
   readonly name?: string;
+  /**
+   * The **plain fields** this extension adds over the widened surface `T`, each with the
+   * place the base's format admits it — never a new frontmatter key, which the base's
+   * documented format does not carry:
+   *
+   * - `"region"` — a `field` region of the base's declared {@link Layout} whose slot is
+   *   the field's name; the member's body holds it under that heading, read as the base
+   *   reads it.
+   * - `"render"` — this delta's body {@link KindExtension.render}, which builds the
+   *   member's body from its values; admitted where the base's body is one verbatim
+   *   prose value (`file` content).
+   */
+  readonly fields?: { readonly [K in keyof T & string]?: "region" | "render" };
+  /**
+   * The extension's body **render** — the template a member's body is built from: its
+   * typed values in (the `"render"`-placed fields and its own `prose` among them), its
+   * body out. Declared only beside a `"render"`-placed field. Over a base that renders its
+   * own body, the base's render builds the `prose` this one receives.
+   */
+  readonly render?: (values: T) => Prose;
 }
 
 /**
  * **Extend** a kind. Under a new `name` the result is a **subkind**: it keeps the base's
- * facts, adds `delta`'s edge fields and counsel, governs a locus within the base's (the
- * base's own unless `governs` moves it), and names the base in its `base` fact — the
- * engine then reads a document in that locus as the subkind's one member. Under the
- * base's name it is the relocation {@link relocate} documents, the same operation.
+ * facts, adds `delta`'s edge fields, plain fields and counsel, governs a locus within the
+ * base's (the base's own unless `governs` moves it), and names the base in its `base`
+ * fact — the engine then reads a document in that locus as the subkind's one member.
+ * Under the base's name it is the relocation {@link relocate} documents, the same
+ * operation.
+ *
+ * A plain field lives where the base's format admits it ({@link KindExtension.fields}):
+ * a `field` region of the base's layout, or the body the delta's `render` builds. Either
+ * way a member never projects it as a frontmatter key, so the subkind's kind-fact row and
+ * its members' headers stay the base's documented format.
  *
  * # Throws
- * As {@link relocate}, and — for a subkind — if the base's locus is not `at`, or the
- * subkind's locus does not lie within it.
+ * As {@link relocate}; for a subkind, if the base's locus is not `at`, or the subkind's
+ * locus does not lie within it; and if a plain field has no place the base's format
+ * admits, or a `render` places none ({@link placedBody}).
  */
 export function extend<T extends object>(
   base: KindDefinition<any>,
@@ -1093,8 +1162,10 @@ export function extend<T extends object>(
   }
   const declaredEdges = delta.edgeFields ?? [];
   const counselled = delta.guidance !== undefined || delta.fieldGuidance !== undefined;
+  const body = placedBody(base, name, delta as KindExtension<Record<string, unknown>>, declaredEdges);
   if (
     !subkind &&
+    body === base.body &&
     declaredEdges.length === 0 &&
     delta.governs === undefined &&
     (delta.exclude ?? []).length === 0 &&
@@ -1102,7 +1173,7 @@ export function extend<T extends object>(
   ) {
     throw new Error(
       `relocating kind \`${base.facts.name}\`: a relocation declares at least one diverging ` +
-        `fact — \`edgeFields\`, \`governs\`, \`exclude\`, or guidance. A delta declaring none mints a ` +
+        `fact — \`edgeFields\`, \`fields\`, \`governs\`, \`exclude\`, or guidance. A delta declaring none mints a ` +
         `second kind of the base's own name that diverges on nothing, which reads as a name ` +
         `collision rather than a relocation (specs/model/representation.md, "kind").`,
     );
@@ -1157,7 +1228,90 @@ export function extend<T extends object>(
   // never a leaf, so the set the base's own constructor already bound still names what a
   // member carries. `T` here is the widened surface (the base's fields plus the added
   // edges), so re-binding the witness to `keyof T` would demand the edge fields be leaves.
-  return defineKind<T>(facts as KindFacts<T>, { render: base.render });
+  return defineKind<T>(facts as KindFacts<T>, { render: base.render, ...(body === undefined ? {} : { body }) });
+}
+
+/**
+ * The {@link BodyPlacement} an extension of `base` carries: the base's own, with the
+ * delta's plain fields appended and its render composed over the base's. Returns
+ * `base.body` itself when the delta places nothing, which is how {@link extend} tells a
+ * delta adding no plain field.
+ *
+ * # Throws
+ * If a plain field is already one the base places, or one the delta declares an edge
+ * over; if a `"region"` field names no `field` region of the base's layout; if a
+ * `"render"` field sits over a base whose body is not one verbatim prose value (a layout,
+ * a fields-only kind, an embedded locus), or the delta declares no render to place it;
+ * and if a render is declared that places no field.
+ */
+function placedBody(
+  base: KindDefinition<any>,
+  name: string,
+  delta: KindExtension<Record<string, unknown>>,
+  edges: readonly { readonly field: string }[],
+): BodyPlacement | undefined {
+  const declared = Object.entries(delta.fields ?? {}).filter(
+    (entry): entry is [string, "region" | "render"] => entry[1] !== undefined,
+  );
+  const at = `extending kind \`${base.facts.name}\`${name === base.facts.name ? "" : ` as \`${name}\``}`;
+  const inherited = base.body?.plain ?? [];
+  const edged = new Set([...(base.facts.edgeFields ?? []).map((edge) => edge.field), ...edges.map((edge) => edge.field)]);
+  const slots = new Set(
+    (base.facts.content?.regions ?? []).flatMap((region) => (region.region === "field" ? [region.slot] : [])),
+  );
+  const prose = base.facts.content === undefined && base.facts.shape !== "fields" && base.facts.locus.kind !== "embedded";
+  let rendered = false;
+  for (const [field, place] of declared) {
+    if (inherited.includes(field) || edged.has(field) || FRAMEWORK_KEYS.has(field) || field === base.facts.identityField) {
+      throw new Error(
+        `${at}: plain field \`${field}\` is already a field the kind carries — a framework key, ` +
+          `its identity, an edge field, or a plain field its base placed — and one field takes ` +
+          `one place (specs/model/representation.md, "kind").`,
+      );
+    }
+    if (place === "region" && !slots.has(field)) {
+      throw new Error(
+        `${at}: plain field \`${field}\` is placed in a body region, and the base's layout ` +
+          `declares no \`field\` region of slot \`${field}\` — a field lives where the base's ` +
+          `format admits it, never as an undocumented key. Place it with a \`render\` over a ` +
+          `\`file\`-content base, or extend a base whose layout holds the slot ` +
+          `(specs/model/representation.md, "kind").`,
+      );
+    }
+    if (place === "render" && !prose) {
+      throw new Error(
+        `${at}: plain field \`${field}\` is placed by the kind's render, and the base's body is ` +
+          `not one verbatim prose value — a layout reads its body by region, a fields-only or ` +
+          `embedded kind writes no body of its own — so a render has nowhere to put it. A field ` +
+          `lives where the base's format admits it, never as an undocumented key ` +
+          `(specs/model/representation.md, "kind").`,
+      );
+    }
+    if (place === "render" && delta.render === undefined) {
+      throw new Error(
+        `${at}: plain field \`${field}\` is placed by the kind's render, and the delta declares ` +
+          `no \`render\` — declare one that writes it into the body, or the field is an ` +
+          `undocumented key (specs/model/representation.md, "kind").`,
+      );
+    }
+    rendered ||= place === "render";
+  }
+  if (delta.render !== undefined && !rendered) {
+    throw new Error(
+      `${at}: a \`render\` places the plain fields a delta adds, and this one places none — ` +
+        `name each it writes under \`fields\` as \`"render"\` (specs/model/representation.md, "kind").`,
+    );
+  }
+  if (declared.length === 0) return base.body;
+  const outer = delta.render as ((values: Readonly<Record<string, unknown>>) => Prose) | undefined;
+  const inner = base.body?.render;
+  const render =
+    outer === undefined
+      ? inner
+      : inner === undefined
+        ? outer
+        : (values: Readonly<Record<string, unknown>>) => outer({ ...values, prose: inner(values) });
+  return { plain: [...inherited, ...declared.map(([field]) => field)], ...(render === undefined ? {} : { render }) };
 }
 
 /**

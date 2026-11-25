@@ -82,6 +82,7 @@ export type {
   KindDefinition,
   KindFacts,
   KindOptions,
+  BodyPlacement,
   KindExtension,
   KindRelocation,
   Layout,

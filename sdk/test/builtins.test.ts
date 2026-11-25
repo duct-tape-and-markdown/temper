@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Clause, Harness } from "../src/index.js";
-import { embeddedMemberValue, emit, extend, harness, kind, relocate, requirement } from "../src/index.js";
+import { blocks, embeddedMemberValue, emit, extend, harness, kind, relocate, requirement, span } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
 import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
@@ -1680,4 +1680,112 @@ test("a subkind whose locus lies outside its base's refuses", () => {
     () => extend<Rule>(rule, { name: "decision", governs: { root: "docs/decisions", glob: "*.md" } }),
     /lies outside the base's/,
   );
+});
+
+/**
+ * A corpus `standard`: a subkind of `rule` carrying an `owner` and a `tenets` field the
+ * rule's frontmatter does not document, placed in the body by the subkind's render.
+ */
+interface Standard extends Rule {
+  readonly owner: string;
+  readonly tenets?: readonly string[];
+}
+
+const standard = extend<Standard>(rule, {
+  name: "standard",
+  governs: { root: ".claude/rules/standards", glob: "*.md" },
+  fields: { owner: "render", tenets: "render" },
+  render: ({ owner, tenets, prose }) =>
+    blocks(
+      span(`**Owner:** ${owner}\n\n${(tenets ?? []).map((tenet) => `- ${tenet}`).join("\n")}\n`),
+      ...(prose?.kind === "text" ? [prose] : []),
+    ),
+});
+
+test("a subkind's plain field placed by its render emits in the body and never as a frontmatter key", () => {
+  const result = emit(
+    harness({
+      members: [
+        standard({
+          name: "errors",
+          owner: "platform",
+          tenets: ["fail loudly"],
+          paths: ["src/**"],
+          prose: text`Errors carry their remedy.`,
+        }),
+      ],
+    }),
+  );
+  const member = result.members.find((row) => row.kind === "standard" && row.name === "errors");
+  assert.ok(member, "the subkind's member must reach the payload");
+  // The base's documented key survives; the plain fields add no key beside it.
+  assert.deepEqual(member.fields, [["paths", ["src/**"]]]);
+  assert.match(member.body, /\*\*Owner:\*\* platform/);
+  assert.match(member.body, /- fail loudly/);
+  assert.match(member.body, /Errors carry their remedy\./);
+  // The kind-fact row stays the base's format: a plain field reaches no row column.
+  const row = result.declarations.kinds.find((candidate) => candidate.name === "standard");
+  assert.equal(row?.format, rule.facts.format);
+});
+
+test("a plain field survives a second extension and keeps out of the frontmatter", () => {
+  interface Tenet extends Standard {
+    readonly area: string;
+  }
+  const tenet = extend<Tenet>(standard, {
+    name: "tenet",
+    fields: { area: "render" },
+    render: ({ area, prose }) => blocks(span(`**Area:** ${area}\n`), ...(prose?.kind === "blocks" ? prose.values : [])),
+  });
+  const built = tenet({ name: "loud", owner: "platform", area: "errors", prose: text`Be loud.` });
+  assert.deepEqual(built.fields, []);
+  const result = emit(harness({ members: [built] }));
+  const body = result.members.find((row) => row.name === "loud")?.body ?? "";
+  assert.match(body, /\*\*Area:\*\* errors[\s\S]*\*\*Owner:\*\* platform[\s\S]*Be loud\./);
+});
+
+test("a subkind's plain field with no place its base's format admits refuses at authoring", () => {
+  // Placed by a render the delta never declares.
+  assert.throws(
+    () => extend<Standard>(rule, { name: "standard", fields: { owner: "render" } }),
+    /declares no `render`/,
+  );
+  // Placed in a body region the base's file-content body does not declare.
+  assert.throws(
+    () => extend<Standard>(rule, { name: "standard", fields: { owner: "region" } }),
+    /declares no `field` region of slot `owner`/,
+  );
+  // Placed by a render over a fields-only base, which writes no body at all.
+  const server = kind<{ command: string }>({
+    name: "server",
+    locus: { kind: "at", root: ".", glob: ".mcp.json" },
+    unitShape: "file",
+    shape: "fields",
+    registration: [{ via: "always" }],
+  });
+  assert.throws(
+    () =>
+      extend<{ command: string; owner: string }>(server, {
+        name: "owned-server",
+        fields: { owner: "render" },
+        render: () => text``,
+      }),
+    /not one verbatim prose value/,
+  );
+  // A render placing no field is a body template no field needs.
+  assert.throws(() => extend<Standard>(rule, { name: "standard", render: ({ prose }) => prose ?? text`` }), /places none/);
+});
+
+test("a plain field placed in a body region lives under the base layout's field heading", () => {
+  const spec = kind<{ intent?: string }>({
+    name: "spec",
+    locus: { kind: "at", root: "specs", glob: "*.md" },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    content: { regions: [{ region: "field", slot: "intent" }] },
+  });
+  const brief = extend<{ intent?: string }>(spec, { name: "brief", fields: { intent: "region" } });
+  const member = brief({ name: "why", intent: "say why", prose: text`## Intent\n\nsay why` });
+  assert.deepEqual(member.fields, []);
 });
