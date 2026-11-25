@@ -1,0 +1,28 @@
+{
+  "tag": "DISCOVERS-PATH-HONORS-THE-WORKTREE-EXCLUDE",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/import.rs",
+        "description": "discovers_path (723-760) finds info/exclude where the ignore walk does, following a `.git` file to the common git dir"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "a linked-worktree case agreeing with the walk"
+      }
+    ]
+  },
+  "summary": "The guard's single-path discovery query reads `.git/info/exclude` as a directory path only, so in a linked worktree it disagrees with the ignore walk check runs",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "Libraries before hand-rolls"
+  },
+  "acceptance": "In a harness whose `.git` is a worktree pointer file, a path the common git dir's info/exclude names is undiscoverable to discovers_path, as it is to ignore_walk",
+  "tests": [
+    "the single path query agrees with the discovery walk in a linked worktree"
+  ],
+  "notes": "import.rs:750 joins dir/.git/info/exclude. The ignore crate resolves a `.git` file (gitdir:, then commondir) before reading exclude. Earlier this was accepted as debt (ignore-precedence-mirror) with the agreement test as tripwire, but that test builds a real .git dir and cannot see this case. Prefer deriving from the ignore crate's own resolution over a second hand-roll, where the crate exposes one."
+}
