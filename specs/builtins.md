@@ -10,7 +10,10 @@ locus is the harness's too: it claims exactly the paths the harness loads as
 that kind, cited, and where two loaders' documented reach meets, the kind
 whose loader the documentation names owns the path and the other excludes
 it. A relocated built-in keeps each exclusion its new template still
-reaches, since moving one loader's reach moves no other's. Kind identity
+reaches, since moving one loader's reach moves no other's, and an author
+may add exclusions to a built-in through its relocation. That is how a
+collision with a built-in is answered (0085), and how a fixture tree
+holding harness files is left ungoverned. Kind identity
 travels by import, never by string: two providers are two modules, so
 collision is impossible and no name-qualification scheme exists. One
 harness holds one kind per name: a corpus kind of a built-in's name
@@ -21,7 +24,14 @@ replaces the built-in there.
 Fourteen kinds ship. Ten are file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
-  from its directory's name; registers on both invocation channels. Its
+  from its directory's name; registers on both invocation channels. It
+  claims `**/.claude/skills/*/SKILL.md`: a skill nested under a
+  subdirectory's own `.claude/skills/` loads once Claude works there,
+  invoked `/apps/web:deploy` (code.claude.com/docs/en/skills, "Load skills
+  in monorepos and subdirectories", retrieved 2026-11-25). A nested skill's
+  name is prefixed by its subdirectory's segments, each joined with `:`
+  (`apps:web:deploy`). The invocation spelling is rendered from the
+  placement, never the identity. Its
   template names **supporting-doc**, the shipped kind of its bundled
   reference documents: fields-free, prose-only, channel-less, identity from
   the filename — the documented shape of a supporting file
@@ -39,10 +49,17 @@ Fourteen kinds ship. Ten are file members:
   (code.claude.com/docs/en/slash-commands, retrieved 2026-07-22), so the
   command kind requires no field — the forgiving legacy placement; the strict
   name/description profile stays the skill kind's, never the command's. The
-  same two channels.
+  same two channels. It claims `.claude/commands/**/*.md`. A command in a
+  subdirectory is named by its path under `commands/`, each `/` a `:`
+  (`.claude/commands/frontend/component.md` is `/frontend:component`,
+  code.claude.com/docs/en/skills, retrieved 2026-11-25), and that is its
+  identity: `command:frontend:component`.
 - **agent** — a subagent definition; identity from its frontmatter `name`
   field, never the filename; registers by description delegation
-  (code.claude.com/docs/en/sub-agents, retrieved 2026-07-07).
+  (code.claude.com/docs/en/sub-agents, retrieved 2026-07-07). It claims
+  `.claude/agents/**/*.md`: "Claude Code scans `.claude/agents/` …
+  recursively, so you can organize definitions into subfolders"
+  (code.claude.com/docs/en/sub-agents, retrieved 2026-11-25).
 - **rule** — a lone markdown file with an optional path scope; a rule with no
   scope registers unconditionally.
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
