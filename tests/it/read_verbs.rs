@@ -2150,10 +2150,10 @@ fn an_unfilled_telemetry_requirement_narrates_records_against_the_declared_membe
 
 #[test]
 fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id() {
-    // A nested CLAUDE.md with id `subdir-CLAUDE` (placement-folded by fold_file_id).
+    // A nested CLAUDE.md with id `subdir:CLAUDE` (placement-folded by fold_file_id).
     // An InstructionsLoaded record naming the repo-relative path should normalize
     // to the placement-folded id via the lock's path-to-id map, joining to the member.
-    let memories = [feature("subdir-CLAUDE", &[])];
+    let memories = [feature("subdir:CLAUDE", &[])];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("memory", &memories[..])]);
     let roster: BTreeMap<String, Requirement> = BTreeMap::new();
 
@@ -2168,7 +2168,7 @@ fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id()
     let mut path_to_id: BTreeMap<String, String> = BTreeMap::new();
     path_to_id.insert(
         ".claude/subdir/CLAUDE.md".to_string(),
-        "subdir-CLAUDE".to_string(),
+        "subdir:CLAUDE".to_string(),
     );
 
     let registrations = BTreeMap::new();
@@ -2186,7 +2186,7 @@ fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id()
         &[],
         &readout.records,
         readout.older_version,
-        "subdir-CLAUDE",
+        "subdir:CLAUDE",
         &path_to_id,
     );
     assert!(

@@ -218,12 +218,12 @@ fn a_json_document_reads_the_path_id_its_frontmatter_peer_reads() {
     // grammar has no say in it: the two path shapes key the member by the directory it sits
     // in, and the `name` the document plainly carries is not consulted. The `file` row is the
     // same agreement over a different id source — nested below the fold base, a file-shaped
-    // document folds that placement in (`docs-handbook-area`) rather than keeping the bare
+    // document folds that placement in (`handbook:area`) rather than keeping the bare
     // `area` stem every depth under the glob would collapse onto.
     for (shape, expected) in [
         (UnitShape::Directory, "handbook"),
         (UnitShape::StarredSegment, "handbook"),
-        (UnitShape::File, "handbook-area"),
+        (UnitShape::File, "handbook:area"),
     ] {
         let kind = area_kind(shape.clone());
         let base = fold_base(&dir, &kind);

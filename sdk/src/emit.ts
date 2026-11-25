@@ -196,8 +196,9 @@ function spliceName(
  * names that entry file and the member's own name is the directory: the leading segment
  * drops and `<name>/` takes its place, which is what makes `*\/SKILL.md` and a template's
  * `*\/PAGE.md` land the same shape. Every other shape places its name through the one
- * splice rule ({@link spliceName}), a starred-segment kind's `*\/<file>` included; a
- * path-shaped kind first turns each `:` of its name back into the `/` its placement spelled.
+ * splice rule ({@link spliceName}), a starred-segment kind's `*\/<file>` included; a lone
+ * file (`file` or `path` shape) first turns each `:` of its name back into the `/` its
+ * placement spelled.
  *
  * # Throws
  * Whatever {@link spliceName} throws when the pattern maps the name onto no one path.
@@ -214,11 +215,19 @@ function placementInUnit(facts: KindFacts, pattern: string, name: string): strin
     const slash = pattern.indexOf("/");
     return joinSlash(name, slash < 0 ? pattern : pattern.slice(slash + 1));
   }
-  if (facts.unitShape === "path") {
-    // A path-shaped name *is* its placement, each `:` a directory separator — the inverse
+  if (facts.unitShape === undefined || facts.unitShape === "path" || facts.unitShape === "file") {
+    // A lone file's name *is* its placement, each `:` a directory separator — the inverse
     // of the `:` join the read side names it by, so `frontend:component` through
-    // `**\/*.md` lands `frontend/component.md`.
-    return spliceName(facts.name, pattern, name.replaceAll(":", "/"), false);
+    // `**\/*.md` lands `frontend/component.md`. A `*`-free leaf fixes the filename, so the
+    // name's segments ahead of its stem are the directories the `**` spans:
+    // `apps:web:CLAUDE` through `**\/CLAUDE.md` lands `apps/web/CLAUDE.md`.
+    const path = name.replaceAll(":", "/");
+    if (pattern.startsWith("**/") && !pattern.includes("*", 3)) {
+      const slash = path.lastIndexOf("/");
+      const leaf = pattern.slice(pattern.lastIndexOf("/") + 1);
+      return slash < 0 ? leaf : joinSlash(path.slice(0, slash), leaf);
+    }
+    return spliceName(facts.name, pattern, path, false);
   }
   return spliceName(facts.name, pattern, name, facts.unitShape === "starred-segment");
 }

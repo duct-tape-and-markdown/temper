@@ -863,6 +863,59 @@ fn a_nested_command_lifts_under_its_path_name_and_re_emits_where_it_was_found() 
     }
 }
 
+#[test]
+fn install_lifts_two_nested_memory_files_as_two_members() {
+    let root = common::tmpdir("nested-memory-lift");
+    fs::write(root.join("CLAUDE.md"), "# Root\n\nRoot memory.\n").unwrap();
+    for dir in ["apps/web", "apps/api"] {
+        fs::create_dir_all(root.join(dir)).unwrap();
+        fs::write(
+            root.join(dir).join("CLAUDE.md"),
+            format!("# {dir}\n\nMemory for {dir}.\n"),
+        )
+        .unwrap();
+    }
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(
+        outcome.scaffolded, 3,
+        "three CLAUDE.md files, three members"
+    );
+
+    let modules: Vec<String> = walkdir::WalkDir::new(&temper_dir)
+        .into_iter()
+        .filter_entry(|entry| entry.file_name() != "node_modules")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "ts"))
+        .map(|entry| fs::read_to_string(entry.path()).unwrap())
+        .collect();
+    for name in ["CLAUDE", "apps:web:CLAUDE", "apps:api:CLAUDE"] {
+        assert!(
+            modules
+                .iter()
+                .any(|module| module.contains(&format!("name: \"{name}\""))),
+            "a module names the `{name}` memory member"
+        );
+    }
+
+    // The first emit regenerates each at its own path, never collapsing onto the root.
+    let root_md = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
+    assert!(root_md.contains("Root memory."), "{root_md}");
+    for dir in ["apps/web", "apps/api"] {
+        let nested = fs::read_to_string(root.join(dir).join("CLAUDE.md")).unwrap();
+        assert!(nested.contains(&format!("Memory for {dir}.")), "{nested}");
+        assert!(
+            nested.starts_with(temper::placement::BANNER_MARKER),
+            "`{dir}/CLAUDE.md` is regenerated as a projection, got:\n{nested}"
+        );
+    }
+}
+
 /// A skill whose body is a document — well past the SDK's three-line inline
 /// threshold (`sdk/src/prose.ts`) — the lift's other prose placement: a
 /// module-adjacent file, never a `file()` back-reference to the original

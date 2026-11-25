@@ -346,7 +346,7 @@ fn a_cyclic_import_relation_fails_the_run() {
     assert!(
         run.output.contains("cycle")
             && run.output.contains("CLAUDE")
-            && run.output.contains("docs-CLAUDE"),
+            && run.output.contains("docs:CLAUDE"),
         "the finding names the cycle and the members forming it, got:\n{}",
         run.output
     );

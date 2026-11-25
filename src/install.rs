@@ -2734,24 +2734,19 @@ struct LiftedMember {
     body: Option<String>,
 }
 
-/// The base a discovered artifact's id is derived against for the lift.
-///
-/// A `path`-shaped kind (a command) is *named* by its placement under the locus
-/// (`frontend:component`), so its id folds against the same base `check` derives it
-/// against ([`crate::drift::fold_base`] over the kind's `governs`) — a base-less read would
-/// lift the bare stem, and the scaffolded member would emit back flat, away from the
-/// file it came from. Every other shape reads the artifact in isolation, against its
-/// own parent: a file-shaped member keeps its bare stem, the base
-/// `frontmatter::Member::from_source` supplies for exactly this case.
+/// The base a discovered artifact's id is derived against for the lift: the same base
+/// `check` derives it against ([`crate::drift::fold_base`] over the kind's `governs`), so a
+/// placement-named member (a command's `frontend:component`, a nested memory's
+/// `apps:web:CLAUDE`) lifts under the id it emits back to, never the bare stem every
+/// same-named file shares. A kind with no `governs` reads the artifact against its own
+/// parent.
 fn lift_base(root: &Path, kind: &CustomKind, file: &Path) -> PathBuf {
-    match (&kind.unit_shape, &kind.governs) {
-        (Some(kind::UnitShape::Path | kind::UnitShape::Directory), Some(governs)) => {
-            crate::drift::fold_base(
-                &crate::path::normalize_path(&root.join(&governs.root)),
-                &governs.glob,
-            )
-        }
-        _ => file.parent().unwrap_or(file).to_path_buf(),
+    match &kind.governs {
+        Some(governs) => crate::drift::fold_base(
+            &crate::path::normalize_path(&root.join(&governs.root)),
+            &governs.glob,
+        ),
+        None => file.parent().unwrap_or(file).to_path_buf(),
     }
 }
 

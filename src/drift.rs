@@ -1421,8 +1421,8 @@ fn host_grain(address: &str) -> Option<(&str, &str, Option<&str>)> {
 /// segment is dropped and `<name>/` put in its place, which is what makes `*/SKILL.md`
 /// and a template's `*/PAGE.md` land the same shape. Every other shape places its name
 /// through the one splice rule ([`splice_name`]), a starred-segment kind's `*/<file>`
-/// included; a path-shaped kind first turns each `:` of its name back into the `/` its
-/// placement spelled.
+/// included; a lone file (`file` or `path` shape) first turns each `:` of its name back
+/// into the `/` its placement spelled.
 ///
 /// # Errors
 /// Propagates [`DriftError::FlatGlobDepth`] from the splice.
@@ -1442,12 +1442,25 @@ fn placement_in_unit(facts: &KindFactRow, pattern: &str, name: &str) -> Result<S
         let entry = pattern.split_once('/').map_or(pattern, |(_, rest)| rest);
         return Ok(format!("{name}/{entry}"));
     }
-    if facts.unit_shape.as_deref() == Some("path") {
-        // A path-shaped name *is* its placement, each `:` a directory separator — the
+    if matches!(facts.unit_shape.as_deref(), None | Some("path" | "file")) {
+        // A lone file's name *is* its placement, each `:` a directory separator — the
         // inverse of the `:` join the read side names it by
         // ([`crate::extract::unit_shape_id`]). The splice lands the rejoined path in the
         // leaf's `*`, so `frontend:component` through `**/*.md` is `frontend/component.md`.
-        return splice_name(&facts.name, pattern, &name.replace(':', "/"), false);
+        let path = name.replace(':', "/");
+        // A `*`-free leaf fixes the filename, so the name's segments ahead of its stem are
+        // the directories the `**` spans: `apps:web:CLAUDE` through `**/CLAUDE.md` lands
+        // `apps/web/CLAUDE.md`.
+        if let Some(under) = pattern.strip_prefix("**/")
+            && !under.contains('*')
+        {
+            let leaf = under.rsplit_once('/').map_or(under, |(_, leaf)| leaf);
+            return Ok(match path.rsplit_once('/') {
+                Some((dirs, _)) => format!("{dirs}/{leaf}"),
+                None => leaf.to_string(),
+            });
+        }
+        return splice_name(&facts.name, pattern, &path, false);
     }
     let starred_segment = facts.unit_shape.as_deref() == Some("starred-segment");
     splice_name(&facts.name, pattern, name, starred_segment)

@@ -915,9 +915,8 @@ pub(crate) fn unit_shape_id<'v>(
             .and_then(JsonValue::as_str)
             .map(str::to_string)
             .ok_or_else(|| fault(AbsentId::NamedField(field.clone()))),
-        Some(UnitShape::Path) => joined_placement_id(base, source_file, ":"),
-        // `file` shape, or an undeclared shape defaulting to a lone file.
-        Some(UnitShape::File) | None => fold_file_id(base, source_file),
+        // `path` and `file` shape, or an undeclared shape defaulting to a lone file.
+        Some(UnitShape::Path | UnitShape::File) | None => fold_file_id(base, source_file),
     }
 }
 
@@ -965,42 +964,22 @@ fn globstar_span(base: &Path, source_file: &Path, pattern: &str) -> Vec<String> 
         .collect()
 }
 
-/// Derive a **file-shaped** unit's surface id, folding the directory placement below the
-/// fold base `base` into it. A unit
-/// directly under `base` keeps its bare filename stem — the common flat case, unchanged
-/// — while a nested one prefixes its placement path, the placement components and the
-/// stem joined with `-` into one surface-directory component. This is what stops a
-/// nested nearest-wins hierarchy (agents.md / `CLAUDE.md` memory nesting) from
-/// collapsing two same-named files at different depths onto one clobbered surface entry.
+/// A lone file's id: its placement below the fold base `base` and its stem, joined with
+/// `:` — the grammar a `file`- and a `path`-shaped unit share, so a nested `CLAUDE.md` is
+/// `apps:web:CLAUDE` and a nested command `frontend:component`. `:` is reserved in a path
+/// segment's identity, which is what lets emit invert the join and place the unit back
+/// where it was found. A unit directly under `base`, or not under it at all, keeps its
+/// bare stem.
 ///
-/// `base` is the **fold base**, not simply the kind's `governs` root: a caller that places
-/// members through a pattern descends the locus through the segments that pattern spells
-/// literally before folding against it ([`crate::drift::fold_base`]), because a literal
-/// segment is locus every member under the pattern shares, never identity. What reaches
-/// here is the placement a wildcard genuinely spans.
-///
-/// The [`unit_shape_id`] dispatch above is the one caller that reaches it per shape. A
-/// source not under `base` (a caller with no root context) folds no placement, degrading
-/// to the bare stem rather than erroring.
+/// `base` is the **fold base**, not simply the kind's `governs` root: a literal pattern
+/// segment is locus every member under the pattern shares, never identity
+/// ([`crate::drift::fold_base`]).
 ///
 /// # Errors
 ///
 /// Returns a [`UnitIdFault`] carrying [`AbsentId::FileStem`] if the source has no filename
-/// stem, or a placement component that is not valid UTF-8 — the same failure a bare stem
-/// raises.
+/// stem, or a placement component that is not valid UTF-8.
 pub(crate) fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, UnitIdFault> {
-    joined_placement_id(base, source_file, "-")
-}
-
-/// A lone file's placement below `base` and its stem, joined with `separator` — the one
-/// walk both path-derived lone-file shapes share: `file` folds with `-`
-/// ([`fold_file_id`]), `path` names with `:` (a command's `frontend:component`). A source
-/// directly under `base`, or not under it at all, keeps its bare stem.
-fn joined_placement_id(
-    base: &Path,
-    source_file: &Path,
-    separator: &str,
-) -> Result<String, UnitIdFault> {
     let no_id = || UnitIdFault {
         path: source_file.to_path_buf(),
         absent: AbsentId::FileStem,
@@ -1031,7 +1010,7 @@ fn joined_placement_id(
         parts.push(part);
     }
     parts.push(stem);
-    Ok(parts.join(separator))
+    Ok(parts.join(":"))
 }
 
 /// Extract the `at-import` directive occurrences (`@path/to/file`) from a
@@ -1345,14 +1324,14 @@ mod tests {
                 nothing
             )
             .unwrap(),
-            "sub-deep-CLAUDE"
+            "sub:deep:CLAUDE"
         );
 
         // An undeclared shape defaults to a lone file — the same derivation, not a separate
         // path through the match.
         assert_eq!(
             unit_shape_id(None, Path::new("/scan/sub/CLAUDE.md"), base, None, nothing).unwrap(),
-            "sub-CLAUDE"
+            "sub:CLAUDE"
         );
 
         // A source outside the base folds no placement rather than erroring (a caller with no

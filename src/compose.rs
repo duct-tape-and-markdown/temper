@@ -2801,11 +2801,11 @@ mod tests {
         let mut ids: Vec<String> = units.iter().map(|u| u.id.clone()).collect();
         ids.sort();
 
-        // Root CLAUDE.md should have id "CLAUDE", nested should have id "sub-CLAUDE".
+        // Root CLAUDE.md should have id "CLAUDE", nested should have id "sub:CLAUDE".
         // If the fix is not applied, both would collapse to "CLAUDE" and cause a duplicate.
         assert_eq!(
             ids,
-            vec!["CLAUDE".to_string(), "sub-CLAUDE".to_string()],
+            vec!["CLAUDE".to_string(), "sub:CLAUDE".to_string()],
             "nested members should fold with distinct ids, placement preserved"
         );
     }

@@ -543,7 +543,7 @@ mod literal_template_segments_are_locus {
             .collect();
         assert_eq!(
             keys,
-            vec!["deep-home".to_string(), "home".to_string()],
+            vec!["deep:home".to_string(), "home".to_string()],
             "the literal `notes/` strips and the `**`-spanned depth folds: {found:#?}"
         );
     }

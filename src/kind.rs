@@ -390,7 +390,8 @@ impl Format {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnitShape {
     /// `file` — a lone file; the member's id is its filename stem (a rule's
-    /// `.claude/rules/rust.md`).
+    /// `.claude/rules/rust.md`), prefixed by any wildcard-spanned placement joined with `:`
+    /// (a nested memory's `apps:web:CLAUDE`).
     File,
     /// `directory` — a directory with companions; the member's id is the directory
     /// name (a skill's `.claude/skills/<name>/SKILL.md`).
@@ -413,10 +414,8 @@ pub enum UnitShape {
     /// `path` — a lone file whose id is its whole path under the fold base, each directory
     /// separator spelled `:` and the extension dropped (a command's
     /// `.claude/commands/frontend/component.md` is `frontend:component`; `builtins.md`,
-    /// "The shipped kinds"). Distinct from [`File`](UnitShape::File): that shape folds a
-    /// wildcard-spanned placement with `-` so nested nearest-wins files stay apart, whereas
-    /// here the `:`-joined path *is* the documented name, and splits back into the placement
-    /// on the way out.
+    /// "The shipped kinds"). Derived and placed exactly as [`File`](UnitShape::File) is; the
+    /// label records that the `:`-joined path is the documented invocation name.
     Path,
 }
 

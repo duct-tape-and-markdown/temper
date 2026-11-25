@@ -14,7 +14,7 @@ type EventStats = (usize, BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
 /// Extract a member ID from an InstructionsLoaded record's repo-relative file path, both
 /// sides of the join derived by the one path→id folder the crate owns. The lock's
 /// path-to-id map carries ids [`fold_file_id`] already folded (`.claude/subdir/CLAUDE.md`
-/// → `subdir-CLAUDE`), so a hit is that derivation read back; a miss re-runs it against
+/// → `subdir:CLAUDE`), so a hit is that derivation read back; a miss re-runs it against
 /// the identity's own parent — the one fold base carrying no placement, so the fold
 /// degrades to the documented bare stem (`.claude/rules/rust.md` → `rust`). The raw
 /// identity stands only where the fold raises a [`crate::extract::UnitIdFault`]: a source

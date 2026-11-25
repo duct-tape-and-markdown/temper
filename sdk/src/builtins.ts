@@ -390,8 +390,9 @@ export interface Memory {
  * retrieved 2026-07-15): the whole file is the body, so the kind declares no
  * `format`. A project `CLAUDE.md` may sit at either `./CLAUDE.md` or
  * `./.claude/CLAUDE.md` — equal documented locations (same source) — and the
- * any-depth locus (a `CLAUDE.md` at any directory) covers both; a
- * module-carried memory projects the root file. The locus is the project row,
+ * any-depth locus (a `CLAUDE.md` at any directory) covers both. A nested memory is
+ * named by its placement, `:`-joined (`apps:web:CLAUDE`), so it projects back where it
+ * was found. The locus is the project row,
  * "`./CLAUDE.md` or `./.claude/CLAUDE.md`", at any depth because "Claude also discovers
  * `CLAUDE.md` and `CLAUDE.local.md` files in subdirectories under your current working
  * directory" (code.claude.com/docs/en/memory, "Choose where to put CLAUDE.md files" and
