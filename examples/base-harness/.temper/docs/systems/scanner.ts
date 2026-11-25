@@ -1,9 +1,9 @@
-import { blocks, span } from "@dtmd/temper";
+import { blocks, input, span } from "@dtmd/temper";
 import { invariantOf, system } from "../../kinds.ts";
 
 export const system_scanner = system({
   name: "scanner",
-  "implemented-by": ["scan"],
+  inputs: [input(import.meta.url, "../../../src/scan.js")],
   satisfies: ["documented-spine"],
   prose: blocks(
     span(

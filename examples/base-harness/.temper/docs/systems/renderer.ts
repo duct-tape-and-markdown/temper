@@ -1,9 +1,9 @@
-import { blocks, span } from "@dtmd/temper";
+import { blocks, input, span } from "@dtmd/temper";
 import { invariantOf, system } from "../../kinds.ts";
 
 export const system_renderer = system({
   name: "renderer",
-  "implemented-by": ["render"],
+  inputs: [input(import.meta.url, "../../../src/render.js")],
   satisfies: ["documented-spine"],
   prose: blocks(
     span(

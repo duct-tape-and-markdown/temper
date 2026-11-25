@@ -1,15 +1,6 @@
-import { blocks, span, text } from "@dtmd/temper";
+import { blocks, input, span } from "@dtmd/temper";
 import { skill } from "@dtmd/temper/claude-code";
 import { GATE_COMMAND, VERIFY_COMMAND, VERIFY_EXPECTED } from "../facts.ts";
-
-/**
- * The entrypoint under test, addressed as the discovered `source` member.
- * The SDK defers a discovery-locus mention to the gate (the kind is
- * declared; the member is the engine's to resolve), so this skill's claim
- * about where the toy lives dangles loudly at `check` if `src/main.js`
- * moves.
- */
-const srcMain = { address: "source:main", display: "src/main.js" };
 
 /**
  * The Operations exemplar: the end-to-end check for the governed toy, as an
@@ -24,6 +15,10 @@ export const skill_verifySummary = skill({
     "Verifies the checklist summarizer end to end: runs it against TODO.md and compares the printed count with the file's items. Use after changing anything under src/ or TODO.md.",
   paths: ["src/**", "TODO.md"],
   satisfies: ["operations"],
+  // The procedure's claims rest on the entrypoint it runs: declared as an
+  // input, the lock fingerprints it, so a moved or deleted `src/main.js`
+  // routes the author back to this skill before the next emit.
+  inputs: [input(import.meta.url, "../../src/main.js")],
   prose: blocks(
     span(
       `# Verify the summary
@@ -41,8 +36,9 @@ is its input. To confirm a change actually works:
    output to match broken behavior.
 4. Finish with \`${GATE_COMMAND}\`: the structural gate must be green
    before the change is done.
+
+The entrypoint under test is \`src/main.js\`.
 `,
     ),
-    text`The entrypoint under test is ${srcMain}.`,
   ),
 });

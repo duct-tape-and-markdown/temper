@@ -1,5 +1,5 @@
 /**
- * The base harness's own doc kinds. Three postures, each first-class:
+ * The base harness's own doc kinds. Two postures, each first-class:
  *
  * - `system`/`flow`/`decision`/`superseded-decision` are **composed**: each
  *   member is a typed value in the program, its body prose spans and
@@ -11,9 +11,6 @@
  * - `glossary` is a **layout source**: the document is the authored home,
  *   read under its declared layout, never regenerated — the posture for
  *   prose-first content whose sections are model structure.
- * - `source` is **read-only ground**: a `local` locus making each file
- *   under `src/` an addressable member so a system's `implemented-by` claim is an edge
- *   the gate resolves — and a claim naming a moved or deleted file fails.
  */
 
 import { embeddedMemberValue, kind, mentionOf, text } from "@dtmd/temper";
@@ -101,24 +98,17 @@ export const alternative: KindDefinition<Record<never, never>> = kind(
 export const alternativeOf = (key: string, title: string, body: string | Text): EmbeddedMemberValue =>
   embeddedMemberValue({ kind: alternative, key, leaves: { title, body } });
 
-/** A system's typed fields: the source files implementing it, an edge field. */
-export interface System {
-  readonly "implemented-by": readonly string[];
-  readonly prose?: Prose;
-}
-
 /**
  * `system` — one area of declared behavior, projected to
- * `docs/systems/<name>.md`. `implemented-by` is the outward arrow: an edge
- * the gate resolves within `source`, so the claim fails when the file goes.
+ * `docs/systems/<name>.md`. A system's claims rest on the `src/` files
+ * implementing it, declared as the member's `inputs`: the lock fingerprints
+ * them, so a moved file routes the author back to the system's claims.
  */
-export const system: KindDefinition<System> = kind<System>({
+export const system: KindDefinition<{ readonly prose?: Prose }> = kind({
   name: "system",
   locus: { kind: "at", root: "docs/systems", glob: "*.md" },
-  format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "always" }],
-  edgeFields: [{ field: "implemented-by", to: ["source"] }],
 });
 
 /**
@@ -196,17 +186,4 @@ export const glossary: KindDefinition<Record<never, never>> = kind({
   content: {
     regions: [{ region: "prose" }, { region: "collection", memberKind: "term" }],
   },
-});
-
-/**
- * `source` — the governed implementation, one member per file under `src/`.
- * Read-only ground: a `local` locus, so `check` derives each member from the
- * file in place and `emit` never touches it; it exists so an
- * `implemented-by` entry is an address the gate can refuse.
- */
-export const source: KindDefinition<Record<never, never>> = kind({
-  name: "source",
-  locus: { kind: "at", root: "src", glob: "*.js", commitment: "local" },
-  unitShape: "file",
-  registration: [{ via: "always" }],
 });

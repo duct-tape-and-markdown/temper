@@ -15,8 +15,8 @@ emit_hash = "c92a63922bf018ffaf12a3c4df781c7987323944863e7d4cddd061374b9bb693"
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "f55a70eb56de014bd551c592c9c6ba3a05a644bc318ddf51dfccfe40d4d97e19"
-emit_hash = "f55a70eb56de014bd551c592c9c6ba3a05a644bc318ddf51dfccfe40d4d97e19"
+source_hash = "d3823356e6ba6810a13bbb0ce8b29e130bce68cac981ae1be02c6297b426b3af"
+emit_hash = "d3823356e6ba6810a13bbb0ce8b29e130bce68cac981ae1be02c6297b426b3af"
 
 [[rule]]
 name = "conduct"
@@ -27,8 +27,8 @@ emit_hash = "27227247fb748e906c6de810b5bdcf48b824973c865ff817cb147d5f5f300c99"
 [[rule]]
 name = "docs-discipline"
 source_path = ".claude/rules/docs-discipline.md"
-source_hash = "335a1c8fd9f80f5a116f7b4c70e44bb48da9148308f14fb5c9950185d09497df"
-emit_hash = "335a1c8fd9f80f5a116f7b4c70e44bb48da9148308f14fb5c9950185d09497df"
+source_hash = "b78c5b35a4b1589f00f3523fc9426777a62081ff906fd9393af9089aa8f60fa4"
+emit_hash = "b78c5b35a4b1589f00f3523fc9426777a62081ff906fd9393af9089aa8f60fa4"
 
 [[settings]]
 name = "settings"
@@ -45,8 +45,8 @@ emit_hash = "56f40527068b867a2ab87e93bb88f4a596b971352c3ddbcdfad1c4aeaee6ad5c"
 [[skill]]
 name = "verify-summary"
 source_path = ".claude/skills/verify-summary/SKILL.md"
-source_hash = "c2243d727ec7d3569541dd5213795f5e3e5cc2a5f6ed58a66c1ca8b0fce6bb1c"
-emit_hash = "c2243d727ec7d3569541dd5213795f5e3e5cc2a5f6ed58a66c1ca8b0fce6bb1c"
+source_hash = "a385c98df646e6663d4d4395b4e08aa5dce4f5b4dc89dd3e7c261a820a1ae487"
+emit_hash = "a385c98df646e6663d4d4395b4e08aa5dce4f5b4dc89dd3e7c261a820a1ae487"
 
 [[superseded-decision]]
 name = "per-change-doc-duty"
@@ -57,14 +57,14 @@ emit_hash = "201c36bf5fb0506fdaab8ac33c90645ec302f1391db2621dc34acd5a15fe3af3"
 [[system]]
 name = "renderer"
 source_path = "docs/systems/renderer.md"
-source_hash = "e1f38c600de4d1fe972c6523e90aaa5edc25aa3c632bd3c6eb47649cfdb00132"
-emit_hash = "e1f38c600de4d1fe972c6523e90aaa5edc25aa3c632bd3c6eb47649cfdb00132"
+source_hash = "626e94c03737bbcbc5791e32744899d747c3853308d15a8c02db58bed102dcce"
+emit_hash = "626e94c03737bbcbc5791e32744899d747c3853308d15a8c02db58bed102dcce"
 
 [[system]]
 name = "scanner"
 source_path = "docs/systems/scanner.md"
-source_hash = "7dd84d04b47c71072e26429dae1806f00db74674e2be5b8c23ff3dd7eea62188"
-emit_hash = "7dd84d04b47c71072e26429dae1806f00db74674e2be5b8c23ff3dd7eea62188"
+source_hash = "22ab29a09137fdbfc484dd462512b1f4cc3da1f77c4160889e6a0daff83e6041"
+emit_hash = "22ab29a09137fdbfc484dd462512b1f4cc3da1f77c4160889e6a0daff83e6041"
 
 [[declaration.kind]]
 name = "decision"
@@ -143,14 +143,6 @@ templates = [{ kind = "supporting-doc", path = "*.md" }]
 guidance = "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `disable-model-invocation: true` for side-effectful workflows you want to time yourself; `user-invocable: false` for background knowledge that is not a command; `metadata` is the sanctioned home for versioning — there is no top-level `version` field."
 
 [[declaration.kind]]
-name = "source"
-governs_root = "src"
-governs_glob = "*.js"
-commitment = "local"
-unit_shape = "file"
-registration = ["always"]
-
-[[declaration.kind]]
 name = "superseded-decision"
 governs_root = "docs/decisions/superseded"
 governs_glob = "*.md"
@@ -162,7 +154,6 @@ registration = ["always"]
 name = "system"
 governs_root = "docs/systems"
 governs_glob = "*.md"
-format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["always"]
 templates = [{ kind = "invariant" }]
@@ -438,10 +429,6 @@ from = "skill"
 
 [[declaration.assembly]]
 fact = "contract"
-from = "source"
-
-[[declaration.assembly]]
-fact = "contract"
 from = "step"
 
 [[declaration.assembly]]
@@ -453,12 +440,6 @@ fact = "edge"
 from = "superseded-decision"
 field = "superseded-by"
 to = ["decision"]
-
-[[declaration.assembly]]
-fact = "edge"
-from = "system"
-field = "implemented-by"
-to = ["source"]
 
 [[declaration.satisfies]]
 member = "hook:PostToolUse:Bash"
@@ -507,10 +488,6 @@ target = "system:scanner"
 [[declaration.mention]]
 member = "flow:summarize/step/summarize/in"
 target = "system:renderer"
-
-[[declaration.mention]]
-member = "skill:verify-summary"
-target = "source:main"
 
 [[declaration.nested_member]]
 host = "decision:authority-arrow"
@@ -646,6 +623,21 @@ key = "SessionStart"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
 
+[[declaration.input]]
+member = "skill:verify-summary"
+source_path = "src/main.js"
+import_hash = "41f1d85716afec8bd550cccb357c045717649708a03cdf5f2985100065447786"
+
+[[declaration.input]]
+member = "system:scanner"
+source_path = "src/scan.js"
+import_hash = "3a853fe2b288daffa1b14b805f68d5549388083670b5a0079d37e1812d876f1e"
+
+[[declaration.input]]
+member = "system:renderer"
+source_path = "src/render.js"
+import_hash = "a666ecae6b7f26437c5c13f680d1473eb522ff294bedc2a399847874600767da"
+
 [[declaration.module]]
 member = "root"
 source_path = ".temper/docs/decisions/authority-arrow.ts"
@@ -664,12 +656,12 @@ import_hash = "f0c49f614105c48d7c900c39941acbb54e03fa5f153477e3b0dfbc10a7ab0733"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/docs/systems/renderer.ts"
-import_hash = "9b1c3df76bc3f34c422649d9e55eb2013757bb98bd43966cc70bcd8e55a0b176"
+import_hash = "6e532d6b3990d995c7f6da9dc754c37441f86272cb68d50cfcc3b4f537420d6e"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/docs/systems/scanner.ts"
-import_hash = "6d785c6e6516ee2349f083f82a4564d9a52efd6ad82306b87670c79f1e5b44b3"
+import_hash = "8111403f0825e448ee11fa9b051b783384e84df4b355ffd6fbcd2d0dcb342df9"
 
 [[declaration.module]]
 member = "root"
@@ -679,7 +671,7 @@ import_hash = "aa75a0eb2ddf78bdf6523400863e0e5eb8d04a21bb15a8fe7001477702b26bc2"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "2f2b1c92c42efa67c86212d5d81ec640695942660dd9cbbafd3ce39d1143c1b0"
+import_hash = "2f478f79f9b993fe8ff37fa72c590ce57c95a69f7b9b6c2954d0232ea41e76de"
 
 [[declaration.module]]
 member = "root"
@@ -689,12 +681,12 @@ import_hash = "f7f7534a42bed65f3b0fb48a3fc73b49d69b10ad579c68cfb235d56285814d49"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/kinds.ts"
-import_hash = "1d7da188217746ebd68c7f2ec91278424f03c0b962c57034a2285ab84cc67237"
+import_hash = "f4bd7f8054a6fc63cf9c3dd384c901f289974aa8e9611983a3e9db771ebe7955"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/memory/CLAUDE.ts"
-import_hash = "61b592521d3e3f7ab279e033fd3fa1861114cf85a17a9c24ca2aba13117f62bb"
+import_hash = "a7cd18abc0f10694db8f7e7e58c2c153c9af22fcf975e9de9ee6c37263451b25"
 
 [[declaration.module]]
 member = "root"
@@ -714,7 +706,7 @@ import_hash = "52edc7db8fc2913c6e62eb52db0928d31beb91933fa832b1f74c0cc6fbb021f3"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/skills/verify-summary.ts"
-import_hash = "b4c03f614aa8bf7b7ad65c8d258bd50e2f6710254b80edf4dcf29379159719b2"
+import_hash = "7f0b1c11a83bcc3e94be1a91e9342b87eb691bbf427624ac9704903dd0531e8f"
 
 [[declaration.layout_prose]]
 member = "glossary:glossary"

@@ -9,8 +9,8 @@ tells you where to look and how to work; `docs/` holds the intent, and
 ## Map
 
 - `docs/systems/` — one document per area of declared behavior; each names
-  the `src/` files implementing it (`implemented-by`, an edge the gate
-  resolves) and declares its invariants as typed members.
+  the `src/` files implementing it as declared inputs the lock
+  fingerprints, and declares its invariants as typed members.
 - `docs/flows/` — behavior that crosses systems; each step is a typed
   member carrying an edge to the system it happens in, and the
   participants line is rendered from the steps, never authored twice.

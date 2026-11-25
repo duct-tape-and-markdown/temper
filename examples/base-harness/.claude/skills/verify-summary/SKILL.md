@@ -20,5 +20,5 @@ is its input. To confirm a change actually works:
 4. Finish with `temper check .`: the structural gate must be green
    before the change is done.
 
+The entrypoint under test is `src/main.js`.
 
-The entrypoint under test is src/main.js.

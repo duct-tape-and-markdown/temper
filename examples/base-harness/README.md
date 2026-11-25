@@ -36,23 +36,28 @@ What the harness demonstrates:
   moves every projection and the surfaces cannot contradict each other.
   The gate hooks state no command at all: each is a `gateHook` member, and
   the engine renders the command it runs into the settings manifest.
-- **A skill can be path-gated, and its claims are edges.** `verify-summary`
-  declares `paths: ["src/**", "TODO.md"]`, so it registers only when the
-  work touches what it knows how to verify — and its body mentions the
-  entrypoint it tests, so moving `src/main.js` fails the gate:
+- **A skill can be path-gated, and its claims rest on declared inputs.**
+  `verify-summary` declares `paths: ["src/**", "TODO.md"]`, so it
+  registers only when the work touches what it knows how to verify, and it
+  declares the entrypoint it tests, `src/main.js`, as an input the lock
+  fingerprints. Delete `src/main.js` and `temper emit` refuses:
 
   ```
-  x `skill:verify-summary` mentions `source:main`, which resolves to no member in the discovered corpus
+  Error: temper::drift::dangling_import
+
+    × member `skill:verify-summary` references `src/main.js`, resolving to `./
+    │ src/main.js`, which does not exist — a dangling reference
   ```
-- **Typed claims can go false, and the gate catches them.** Each system
-  document names the `src/` files implementing it (`implemented-by`,
-  resolved within the `source` kind). Delete `src/scan.js` and
-  `temper check` fails:
+- **Claims about code go stale, and the gate says where to look.** Each
+  system declares the `src/` files implementing it as inputs. Change
+  `src/scan.js` without re-emitting and `temper check` names the member
+  whose claims to re-verify (advisory; `--deny-advisories` fails on it):
 
   ```
-  graph.route
+  root.fresh
 
-    x `scanner` `implemented-by` routes to `scan`, which resolves to no `source` artifact
+    ! declared input target `src/scan.js` (referenced by `system:scanner`) no longer matches the lock's fingerprint — the target changed and `emit` has not run; re-verify the member's claims against
+    | the input, then re-emit
   ```
 
 What the documentation corpus demonstrates:
@@ -88,12 +93,10 @@ temper explain scanner
 ```
 
 `explain scanner` narrates the member's place in the graph, including the
-outward edge, the invariants its own body composes, and the step's leaf that
-points at it:
+invariants its own body composes and the step's leaf that points at it:
 
 ```
 Edges out (the resolved references it declares and the members its body composes, the exact set the gate ranges over):
-  • it points at `scan` (source) via its `implemented-by` field
   • it contains `system:scanner/invariant/done-is-exact` (invariant) — an embedded member its body composes
   • it contains `system:scanner/invariant/ignored-never-guessed` (invariant) — an embedded member its body composes
 Edges in (the resolved references that point at it and the host whose body composes it):
