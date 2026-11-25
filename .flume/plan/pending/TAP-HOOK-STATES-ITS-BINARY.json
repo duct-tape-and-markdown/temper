@@ -1,0 +1,49 @@
+{
+  "tag": "TAP-HOOK-STATES-ITS-BINARY",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "telemetry(...) takes an optional binary"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "tap rows carry the declared binary across the seam; TAP_COMMAND retires to the engine"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "tapHookRegistration takes the binary fact"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "tap row carries the binary"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "render the tap command anchored at the project through the one renderer"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "render the tap handler's command from the declared binary"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "tap command expectations"
+      }
+    ]
+  },
+  "summary": "A telemetry declaration states the temper binary its taps run (temper unless declared); each tap command is rendered anchored at the project by the engine's one renderer",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "Telemetry"
+  },
+  "acceptance": "a telemetry verifier declaring a workspace binary emits tap hooks that cd to the project and run that binary; undeclared renders temper; cargo test and pnpm --dir sdk test green",
+  "tests": [
+    "a tap hook command is anchored at the project",
+    "a tap hook runs its declared binary"
+  ],
+  "notes": "Two telemetry declarations naming one event with different binaries: open question tap-binary-disagreement. Ship the agreeing case and refuse a disagreement loud; never pick one."
+}

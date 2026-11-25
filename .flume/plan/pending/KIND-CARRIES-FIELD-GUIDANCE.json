@@ -1,0 +1,32 @@
+{
+  "tag": "KIND-CARRIES-FIELD-GUIDANCE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "GUIDED-KIND-PROJECTS-A-PATH-SCOPED-RULE"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "kind() takes field guidance keyed by the typed surface"
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "the guidance rule carries each field's counsel"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "field guidance in the rule"
+      }
+    ]
+  },
+  "summary": "kind() takes per-field guidance keyed by its typed surface (a named field must exist), carried in the kind's path-scoped guidance rule",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "acceptance": "field guidance naming a field the surface lacks fails tsc; a kind with only field guidance still projects its rule; pnpm --dir sdk test green",
+  "notes": "SDK-only. Keyed by keyof T, the 0078 bound."
+}

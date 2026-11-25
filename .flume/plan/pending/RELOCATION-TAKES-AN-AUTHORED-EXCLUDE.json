@@ -1,0 +1,39 @@
+{
+  "tag": "RELOCATION-TAKES-AN-AUTHORED-EXCLUDE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "RELOCATION-KEEPS-THE-EXCLUSIONS-IT-STILL-REACHES"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "KindRelocation gains `exclude`, appended to the reached base exclusions; counts as a diverging fact without `governs`"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "an exclude-only relocation of skill"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "overlay carries an exclude-only relocation row's exclusions"
+      },
+      {
+        "path": "tests/it/builtin_loci.rs",
+        "description": "pin the engine side"
+      }
+    ]
+  },
+  "summary": "A built-in's relocation takes an authored `exclude`, appended to the base exclusions its template still reaches — 0085's remedy and the fixture-tree opt-out",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Built-ins — what ships"
+  },
+  "acceptance": "relocate(skill, { exclude: [<fixture dir>] }) emits a row whose locus leaves that tree ungoverned at check; pnpm --dir sdk test and cargo test green",
+  "pins": [
+    "a relocation row's exclusion leaves a fixture skill ungoverned"
+  ],
+  "notes": "Unblocks the dogfood's human half: .temper relocates skill with an exclude for tests/fixtures/extract_equivalence (inbox 2026-11-25-dogfood-excludes-the-fixture-skill)."
+}

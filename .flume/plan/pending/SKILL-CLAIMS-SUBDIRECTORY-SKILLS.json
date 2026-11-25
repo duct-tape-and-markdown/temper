@@ -1,0 +1,84 @@
+{
+  "tag": "SKILL-CLAIMS-SUBDIRECTORY-SKILLS",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "COMMAND-CLAIMS-ITS-NESTED-PLACEMENTS",
+      "RELOCATION-TAKES-AN-AUTHORED-EXCLUDE"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "skill locus . + **/.claude/skills/*/SKILL.md; identity test"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "skill row's root and glob"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "directory identity prefixed by the ** segments, :-joined; surface_subdir under a `.` root"
+      },
+      {
+        "path": "src/extract.rs",
+        "description": "derive the prefixed identity"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "placement inverse for a prefixed skill"
+      },
+      {
+        "path": "src/import.rs",
+        "description": "skill locus resolution"
+      },
+      {
+        "path": "src/bundle.rs",
+        "description": "installed-harness skill locus"
+      },
+      {
+        "path": "src/coverage_note.rs",
+        "description": "skill locus in coverage"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "skill locus"
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "placement splice for a prefixed skill"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "skill facts"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "nested skill placement round-trips"
+      },
+      {
+        "path": "tests/it/builtin_loci.rs",
+        "description": "nested skill membership and identity"
+      },
+      {
+        "path": "tests/it/builtin_lock_frozen.rs",
+        "description": "re-derived lock agrees"
+      }
+    ]
+  },
+  "summary": "skill claims **/.claude/skills/*/SKILL.md; a nested skill's identity prefixes its subdirectory segments joined with : (skill:apps:web:deploy)",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
+  "acceptance": "apps/web/.claude/skills/deploy/SKILL.md checks as skill:apps:web:deploy; a nested harness (own .temper) stays fenced; commit body names the fixture census: tests/fixtures/extract_equivalence/.claude/skills is the one fixture tree outside a nested harness, for the dogfood's human exclude",
+  "tests": [
+    "a skill under a subdirectory's own skills folder is a member",
+    "a nested skill's identity prefixes its subdirectory segments joined with colons"
+  ],
+  "pins": [
+    "a nested harness's skills stay outside the outer harness"
+  ],
+  "notes": "Blocked on the authored exclude so the dogfood's fixture skill has its remedy the tick this lands. Watch: a clause tying a skill's `name` field to its identity, and memory's **/CLAUDE.md meeting a nested skill's companions — surface either as a question rather than choose."
+}

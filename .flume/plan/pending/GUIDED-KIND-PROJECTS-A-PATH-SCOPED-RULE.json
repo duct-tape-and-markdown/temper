@@ -1,0 +1,29 @@
+{
+  "tag": "GUIDED-KIND-PROJECTS-A-PATH-SCOPED-RULE",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "synthesize one rule member per guided corpus kind, paths = its locus (admitting hosts' loci for an embedded kind), at a placement no authored rule can collide with"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "synthesized rule's rows, as tap hooks are synthesized"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "guided kind yields its rule; imported-only built-in yields none"
+      }
+    ]
+  },
+  "summary": "A corpus kind's guidance projects as a path-scoped rule over its locus (its admitting hosts' loci when embedded); an only-imported built-in projects nothing",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "acceptance": "a program with a guided custom kind emits one rule whose paths are the kind's locus and whose body is its guidance; importing a built-in unrelocated emits no rule; pnpm --dir sdk test green",
+  "notes": "SDK-only behavior. Placement: build names a path temper owns where an author's rule cannot collide (0091 Consequences) and states it in the commit body. Dogfood human half: hand rules this replaces in .temper."
+}

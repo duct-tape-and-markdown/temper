@@ -1,0 +1,33 @@
+{
+  "tag": "RELOCATION-DECLARES-GUIDANCE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "KIND-CARRIES-FIELD-GUIDANCE",
+      "RELOCATION-TAKES-AN-AUTHORED-EXCLUDE"
+    ]
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "KindRelocation gains kind and field guidance"
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "a relocated built-in projects the guidance its relocation declares"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "relocated built-in's guidance rule"
+      }
+    ]
+  },
+  "summary": "A relocated built-in carries the guidance its relocation declares into its path-scoped rule; the built-in's own shipped guidance never projects by default",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "acceptance": "relocate(skill, { guidance }) emits a rule with that counsel over skill's locus; a bare import emits none; pnpm --dir sdk test green",
+  "notes": "SDK-only. Per 0091: projecting built-ins' guidance by default was rejected; relocation is the opt-in."
+}

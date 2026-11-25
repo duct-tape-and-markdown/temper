@@ -1,0 +1,74 @@
+{
+  "tag": "COMMAND-CLAIMS-ITS-NESTED-PLACEMENTS",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "command locus .claude/commands + **/*.md; identity test"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "command row's glob and unit shape"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "the unit shape whose id is the path under the root, each / a :"
+      },
+      {
+        "path": "src/extract.rs",
+        "description": "derive the path identity"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "placement inverse for the path identity"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "command locus and unit shape"
+      },
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "UnitShape widening"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "unit-shape lock label"
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "placement splice for a :-joined identity"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "command facts"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "nested command placement round-trips"
+      },
+      {
+        "path": "tests/it/command_kind.rs",
+        "description": "nested command membership and identity"
+      },
+      {
+        "path": "tests/it/builtin_lock_frozen.rs",
+        "description": "re-derived lock agrees"
+      }
+    ]
+  },
+  "summary": "command claims .claude/commands/**/*.md; a nested command's identity is its path under commands/, each / a : (command:frontend:component); stem-only identity retires",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
+  "acceptance": ".claude/commands/frontend/component.md checks as command:frontend:component and two x.md in different subdirectories are two members; cargo test and pnpm --dir sdk test green",
+  "tests": [
+    "a command in a subdirectory of the commands folder is a member",
+    "a nested command's identity is its path under commands joined with colons",
+    "two same-named commands in different subdirectories are two members"
+  ],
+  "notes": "Rule keeps its stem identity: the spec moves command only, so the path identity is command's, not a change to the shared `file` shape. Widening UnitShape names every consumer (PROTOCOL 3, 4). Agent's **/*.md placement already ships."
+}
