@@ -121,6 +121,11 @@ export type {
 } from "./emit.js";
 export { emit } from "./emit.js";
 
+// The harness reference — temper's operate skill, rendered at emit from the harness
+// that declares it.
+export type { ReferenceInit } from "./reference.js";
+export { reference } from "./reference.js";
+
 // The dial — temper's own shipped kind, and the one kind value the root exports: it
 // declares how this machine reads temper's gate, which is a fact about temper rather
 // than about any provider's harness. A provider's kinds stay behind their own subpath.

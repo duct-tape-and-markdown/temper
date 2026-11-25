@@ -539,7 +539,7 @@ function resolveNameCollision(held: KindFacts, arriving: KindFacts): KindFacts {
  * `edge` row from, so first-wins would drop a relocation's added edge on the floor
  * whenever the base happened to be named first.
  */
-function kindsInPlay(harness: Harness): KindFacts[] {
+export function kindsInPlay(harness: Harness): KindFacts[] {
   const byName = new Map<string, KindFacts>();
   const pending: KindFacts[] = [];
   const admit = (facts: KindFacts): void => {
@@ -659,7 +659,7 @@ function targetList(to: readonly string[]): string {
 }
 
 /** A requirement as a guidance rule states it: its kind (when declared), its satisfiers. */
-interface ContractedRequirement {
+export interface ContractedRequirement {
   readonly name: string;
   readonly kind: string | undefined;
   readonly prose: string;
@@ -671,7 +671,7 @@ interface ContractedRequirement {
  * namespace {@link requirementRows} lowers — with the members claiming to fill it, name
  * sorted, satisfiers in address order.
  */
-function contractedRequirements(harness: Harness): ContractedRequirement[] {
+export function contractedRequirements(harness: Harness): ContractedRequirement[] {
   const entries: Array<[string, Requirement]> = Object.entries(harness.require);
   for (const member of harness.members) entries.push(...Object.entries(member.requires));
   const satisfiers = new Map<string, Array<{ kind: string; address: string }>>();

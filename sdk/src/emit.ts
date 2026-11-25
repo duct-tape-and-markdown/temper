@@ -38,6 +38,7 @@ import {
   withGuidanceRules,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
+import { withReference } from "./reference.js";
 import {
   bareLookupKey,
   edgeLookupKey,
@@ -1124,7 +1125,7 @@ export function loadedLocalModules(): string[] {
  * authoring is a loud failure, never a silent churn.
  */
 export function emit(program: Harness): EmitResult {
-  const harness = withGuidanceRules(program);
+  const harness = withGuidanceRules(withReference(program));
   refuseBrokenSource(harness);
   const resolve: ResolveOptions = {
     mentionable: declaredAddresses(harness),
