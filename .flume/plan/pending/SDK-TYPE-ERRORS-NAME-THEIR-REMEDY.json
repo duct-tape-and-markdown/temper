@@ -1,0 +1,16 @@
+{
+  "tag": "SDK-TYPE-ERRORS-NAME-THEIR-REMEDY",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "sdk/src/kind.ts", "description": "typed-never fields (registration on an embedded kind, ...) become branded remedy messages" },
+      { "path": "sdk/src/contract.ts", "description": "census: moved/removed surfaces" },
+      { "path": "sdk/src/builtins.ts", "description": "census: removed constants" },
+      { "path": "sdk/test/refusals.test.ts", "description": "ts-expect-error type tests whose tsc text names the remedy" }
+    ]
+  },
+  "summary": "where a known SDK mistake yields a bare type mismatch, the type's name or a branded message type states the remedy",
+  "per": { "path": "specs/intent.md", "section": "Invariants" },
+  "acceptance": "census of known adopter mistakes (removed constant, moved field, typed-never field) each yields tsc text stating the fix, pinned by SDK type tests; SDK gate green",
+  "notes": "SDK-only: no tests[] lines (PROTOCOL, Tests)."
+}

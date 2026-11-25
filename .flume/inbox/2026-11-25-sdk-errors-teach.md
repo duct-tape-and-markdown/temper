@@ -1,3 +1,0 @@
-# Where an SDK mistake matters, the compiler's error text carries the lesson
-
-Intent invariant 8 (amended 2026-11-25): the compiler's own errors are a delivery channel. A plain mismatch (`Type 'string' is not assignable to type 'GateHookEvent'`) says what is wrong and never why. Census the SDK surfaces where a known adopter mistake gives an unexplained type error: a removed constant, a moved field, a typed-`never` field such as `registration` on an embedded kind. For each, make the type's own name or a branded message type state the remedy, so the error text teaches. `tsc` output is the evidence. This is SDK-only: pin it with SDK type tests (`sdk/test/`) and no `tests[]` lines (PROTOCOL, Tests).

@@ -1,5 +1,0 @@
-# check never compares the ownerless registration hash; only emit does (0089)
-
-Observed on main after 6d75238e, on a hook-only harness with no `settings` member. Hand-edit an emitted hook group's command in `.claude/settings.json`. `emit` refuses (`OwnerlessRegistrationDrift`, naming `hook:PostToolUse:Bash`), but `check` exits 0 and reports no `root.fresh`. Only `install.gate-installed` notices, because the edited group happened to be a gate hook. A non-gate hook edit draws nothing from `check`.
-
-`specs/model/pipeline.md`, "The lock": provenance hashes are "the fingerprints drift compares", and 0089 rules that "a mismatch is drift, routed to the owning hook member". Drift is `check`'s finding (`root.fresh`), and the guard's after a Bash call. Emit's refusal is the second half of the rule. `check`, and the guard's post edge with it, compares each ownerless registration row's `emit_hash` against the on-disk entry, and names the owning member and the re-emit or edit-the-source remedy. An old lock's rows have no hash, which reads as unknown and is never a finding.

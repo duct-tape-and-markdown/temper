@@ -1,0 +1,17 @@
+{
+  "tag": "EXPLAIN-SERVES-A-RELOCATIONS-COUNSEL",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/compose.rs", "description": "overlay_builtin_kind overlays the relocation row's guidance and cite when the row declares them" },
+      { "path": "tests/it/builtin_loci.rs", "description": "relocation counsel reaches explain" }
+    ]
+  },
+  "summary": "explain and schema serve the counsel a relocation declares, not the built-in's it replaced",
+  "per": { "path": "specs/model/contract.md", "section": "clause" },
+  "acceptance": "a relocated built-in whose relocation declares guidance shows that guidance in explain and schema hover, matching the rule emit projects; a relocation declaring none is unchanged",
+  "tests": [
+    "explain serves the guidance a relocation declares"
+  ],
+  "notes": "Seen by RELOCATION-DECLARES-GUIDANCE: the SDK writes the relocation's counsel to the kind-fact row; the overlay never reads those columns, so the two faces disagree."
+}
