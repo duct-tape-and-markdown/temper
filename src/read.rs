@@ -1126,7 +1126,7 @@ fn narrate_hosted_kinds(
 
 /// A comma-separated inline list of code-spanned names — the one spelling every
 /// narrated name set takes.
-fn backticked(names: &[String]) -> String {
+pub(crate) fn backticked(names: &[String]) -> String {
     names
         .iter()
         .map(|name| format!("`{name}`"))

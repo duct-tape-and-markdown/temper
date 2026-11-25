@@ -627,6 +627,23 @@ enum InstallError {
         dir: PathBuf,
     },
 
+    /// A represented program owns no `.claude/settings.json` member, and the settings keys
+    /// it does not declare cannot be hoisted into one: `harness.ts` gives the new member no
+    /// place to compose into.
+    #[error("cannot hoist settings keys into {path}: {detail}")]
+    #[diagnostic(
+        code(temper::install::hoist_unwired),
+        help(
+            "author a `settings` member carrying those keys and compose it into the program, or delete the keys from `.claude/settings.json` by hand"
+        )
+    )]
+    HoistUnwired {
+        /// The program entry the member would have been composed into.
+        path: PathBuf,
+        /// Why the hoist could not land.
+        detail: String,
+    },
+
     /// `npm install` exited non-zero while ensuring the `@dtmd/temper` dependency.
     #[error("\"npm install\" failed in {path}:\n{stderr}")]
     #[diagnostic(code(temper::install::dependency_install))]
@@ -892,17 +909,31 @@ fn run_represented(
     // the scaffold count rather than inventing an emit report. Once the program
     // exists (already represented, or this very run just wrote it for real),
     // `emit_program` runs for real — its own `dry_run` governs whether it writes.
+    let emit_options = drift::EmitOptions {
+        dry_run,
+        frozen: false,
+        teardown: false,
+    };
+    let mut scaffolded = scaffolded;
     let emit = if dry_run && !already_scaffolded {
         None
     } else {
-        Some(drift::emit_program(
-            &temper_dir,
-            drift::EmitOptions {
-                dry_run,
-                frozen: false,
-                teardown: false,
-            },
-        )?)
+        match drift::emit_program(&temper_dir, emit_options) {
+            Ok(report) => Some(report),
+            // A represented program that composes no `settings` member refuses keys an
+            // adopter hand-added to the settings file. Re-running install converges the
+            // way first adoption does: those keys are hoisted into a `settings` member
+            // module and the emit runs again over a program that now owns them.
+            Err(report) if !dry_run => {
+                let Some(keys) = ownerless_settings_keys(&report) else {
+                    return Err(report);
+                };
+                hoist_settings_residue(root, &temper_dir, &keys)?;
+                scaffolded += 1;
+                Some(drift::emit_program(&temper_dir, emit_options)?)
+            }
+            Err(report) => return Err(report),
+        }
     };
 
     let entries = if emit.is_some() {
@@ -3006,6 +3037,90 @@ fn scaffold(
     )?;
 
     Ok(lifted.len())
+}
+
+/// The keys an emit refused to delete from `.claude/settings.json` because no member of the
+/// program owns that file — `None` for any other failure, which install passes through.
+fn ownerless_settings_keys(report: &miette::Report) -> Option<Vec<String>> {
+    match report.downcast_ref::<drift::DriftError>()? {
+        drift::DriftError::OwnerlessManifestKeys { manifest, keys }
+            if Path::new(manifest)
+                == Path::new(builtin_kind::CLAUDE_ROOT).join("settings.json") =>
+        {
+            Some(keys.clone())
+        }
+        _ => None,
+    }
+}
+
+/// Hoist `keys` of the on-disk `.claude/settings.json` into a new `settings` member module
+/// and compose it into `harness.ts` — the lift first adoption runs, narrowed to the keys
+/// the represented program does not declare. The entry point is spliced, never
+/// regenerated: it is the author's file once scaffolded ([`splice_member_into_entry`]).
+///
+/// # Errors
+/// Returns [`InstallError::HoistUnwired`] — before any byte is written — when `harness.ts`
+/// carries no single `members: [` list to compose the member into, and propagates a read
+/// or parse failure of the settings file or a scaffold write failure.
+fn hoist_settings_residue(root: &Path, temper_dir: &Path, keys: &[String]) -> miette::Result<()> {
+    const KIND: &str = "settings";
+    let kinds = builtin_kind::definitions();
+    let kind = kinds.get(KIND).ok_or_else(|| InstallError::HoistUnwired {
+        path: temper_dir.join(HARNESS_ENTRY),
+        detail: "the built-in `settings` kind is not in play".to_string(),
+    })?;
+    let mut member = read_lifted_member(kind, &settings_path(root))?;
+    member.fields.retain(|(key, _)| keys.contains(key));
+
+    let dir = temper_dir.join(member_dir(KIND));
+    let mut stem = member.id.clone();
+    let mut ordinal = 1usize;
+    while dir.join(format!("{stem}.ts")).exists() {
+        stem = format!("{}-{ordinal}", member.id);
+        ordinal += 1;
+    }
+    let ident = member_ident(KIND, &stem);
+
+    let entry_path = temper_dir.join(HARNESS_ENTRY);
+    let entry = read_optional(&entry_path)?.unwrap_or_default();
+    let spliced = splice_member_into_entry(
+        &entry,
+        &ident,
+        &format!("./{}/{stem}.ts", member_dir(KIND)),
+    )
+    .ok_or_else(|| InstallError::HoistUnwired {
+        path: entry_path.clone(),
+        detail: format!(
+            "it carries no single `members: [` list to compose `{ident}` into (settings keys {})",
+            keys.join(", ")
+        ),
+    })?;
+
+    write_scaffold_file(
+        &dir.join(format!("{stem}.ts")),
+        &member_module_source(KIND, &member.id, &stem, &ident, &member.fields, None),
+    )?;
+    write_scaffold_file(&entry_path, &spliced)?;
+    Ok(())
+}
+
+/// `entry` with `import { <ident> } from "<import_path>";` prepended — the one position valid
+/// whatever shape its own imports take — and `<ident>, ` opening its `members: [` list.
+/// `None` unless exactly one such list exists.
+fn splice_member_into_entry(entry: &str, ident: &str, import_path: &str) -> Option<String> {
+    const LIST: &str = "members: [";
+    let mut lists = entry.match_indices(LIST);
+    let (at, _) = lists.next()?;
+    if lists.next().is_some() {
+        return None;
+    }
+    let list_end = at + LIST.len();
+    let mut out = format!("import {{ {ident} }} from {import_path:?};\n");
+    out.push_str(&entry[..list_end]);
+    out.push_str(ident);
+    out.push_str(", ");
+    out.push_str(&entry[list_end..]);
+    Some(out)
 }
 
 /// The kind row label temper's own gate hooks scaffold under — the same `hook` kind any

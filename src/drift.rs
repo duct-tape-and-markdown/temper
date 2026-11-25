@@ -225,6 +225,22 @@ pub enum DriftError {
         count: usize,
     },
 
+    /// A manifest no container member owns carries top-level keys the program does not
+    /// declare. With no member to fingerprint the file, a hand-added key cannot be told
+    /// from one temper wrote, so the whole-file rewrite would delete authored bytes no
+    /// lock ever recorded; refused by name before a byte is written, `--teardown` or not.
+    #[error(
+        "refusing to delete {} from `{manifest}`: no member of this program owns that file, so these keys are ones no emit wrote. Declare a member that owns the file — re-running `temper install` hoists them into one — or delete them by hand.",
+        crate::read::backticked(keys)
+    )]
+    #[diagnostic(code(temper::drift::ownerless_manifest_keys))]
+    OwnerlessManifestKeys {
+        /// The manifest carrying the undeclared keys, harness-relative.
+        manifest: String,
+        /// The undeclared top-level keys, sorted.
+        keys: Vec<String>,
+    },
+
     /// A projection did not reproduce byte-for-byte across a double-emit: the
     /// authoring surface is nondeterministic (a timestamp, an unordered map surfacing
     /// into a field). Law 5 makes this a loud failure rather than a silent churn the
@@ -2493,8 +2509,9 @@ fn write_outcome(
 /// # Errors
 /// Returns [`DriftError::SegmentReapWave`] when the drop is total — every discovered member
 /// of one collection gone, the payload declaring none in its place — unless `teardown` is
-/// set. Propagates a [`LockRowError`] when a kind fact's collection address carries a
-/// key-path label outside the closed vocabulary.
+/// set; [`DriftError::OwnerlessManifestKeys`] when a manifest no container member owns
+/// carries a residue key the build does not declare. Propagates a [`LockRowError`] when a
+/// kind fact's collection address carries a key-path label outside the closed vocabulary.
 fn manifest_segment_reaps(
     manifests: &BTreeMap<HarnessRelativePath, ManifestBuild>,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
@@ -2558,15 +2575,25 @@ fn manifest_segment_reaps(
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.to_string());
-        for key in current.opaque_fields.keys() {
-            if !build.residue.contains_key(key) {
-                reaps.push(EmitEntry {
-                    kind: manifest_label.clone(),
-                    name: key.clone(),
-                    source_path: disk_path.clone(),
-                    outcome: EmitOutcome::MemberReaped,
-                });
-            }
+        let undeclared: Vec<String> = current
+            .opaque_fields
+            .keys()
+            .filter(|key| !build.residue.contains_key(*key))
+            .cloned()
+            .collect();
+        if build.container.is_none() && !undeclared.is_empty() {
+            return Err(DriftError::OwnerlessManifestKeys {
+                manifest: path.to_string(),
+                keys: undeclared,
+            });
+        }
+        for key in undeclared {
+            reaps.push(EmitEntry {
+                kind: manifest_label.clone(),
+                name: key,
+                source_path: disk_path.clone(),
+                outcome: EmitOutcome::MemberReaped,
+            });
         }
 
         // The segment cliff: a collection whose every discovered member is dropped, the

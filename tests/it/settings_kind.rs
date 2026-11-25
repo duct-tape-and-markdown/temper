@@ -299,3 +299,105 @@ fn the_same_bytes_under_the_pre_0050_posture_carry_no_rollup_row_and_go_undeclar
          {findings:?}"
     );
 }
+
+/// A hook-only represented harness — temper's own install over a lone rule, whose program
+/// composes the gate hooks and no `settings` member — with a `permissions` key then
+/// hand-added to the settings file it rendered. Returns the root and its `.temper/`.
+fn hook_only_harness_with_a_hand_added_key(
+    label: &str,
+) -> (std::path::PathBuf, std::path::PathBuf) {
+    use temper::install::{self, Represent};
+
+    let root = common::tmpdir(label);
+    common::write_sibling(&root, ".claude/rules/rust.md", "Run `cargo fmt`.\n");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert!(
+        !temper_dir.join("settings").exists(),
+        "the program composes no settings member"
+    );
+
+    let path = settings_path(&root);
+    let mut document: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    document["permissions"] = serde_json::json!({ "allow": ["Bash(cargo build:*)"] });
+    fs::write(
+        &path,
+        serde_json::to_string_pretty(&document).unwrap() + "\n",
+    )
+    .unwrap();
+    (root, temper_dir)
+}
+
+#[test]
+fn emit_refuses_a_hand_added_key_in_a_settings_file_no_settings_member_declares() {
+    let (root, temper_dir) = hook_only_harness_with_a_hand_added_key("settings-ownerless-key");
+    let before = fs::read_to_string(settings_path(&root)).unwrap();
+
+    let err = drift::emit_program(&temper_dir, EmitOptions::default()).unwrap_err();
+    let message = format!("{err}");
+    assert!(message.contains("`permissions`"), "{message}");
+    assert!(message.contains(".claude/settings.json"), "{message}");
+    assert_eq!(
+        fs::read_to_string(settings_path(&root)).unwrap(),
+        before,
+        "the refusal lands before a byte is written — the hand-added key survives"
+    );
+
+    // `--teardown` spells a collection drop, never the deletion of keys no emit wrote.
+    let err = drift::emit_program(
+        &temper_dir,
+        EmitOptions {
+            teardown: true,
+            ..EmitOptions::default()
+        },
+    )
+    .unwrap_err();
+    assert!(format!("{err}").contains("`permissions`"), "{err}");
+    assert_eq!(fs::read_to_string(settings_path(&root)).unwrap(), before);
+}
+
+#[test]
+fn install_hoists_a_hand_added_settings_key_into_a_settings_member_on_a_represented_harness() {
+    use temper::install::{self, Represent};
+
+    let (root, temper_dir) = hook_only_harness_with_a_hand_added_key("settings-hoist-key");
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(outcome.scaffolded, 1, "the one hoisted settings member");
+
+    // The key now lives in the program: a `settings` member module composed into the entry.
+    let module = fs::read_to_string(temper_dir.join("settings").join("settings.ts")).unwrap();
+    assert!(
+        module.contains("permissions: {\"allow\":[\"Bash(cargo build:*)\"]},"),
+        "got:\n{module}"
+    );
+    assert!(
+        !module.contains("hooks"),
+        "a claimed collection stays its registrations': got:\n{module}"
+    );
+    let entry = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
+    assert!(
+        entry.contains("import { settings_settings } from \"./settings/settings.ts\";"),
+        "got:\n{entry}"
+    );
+    assert!(
+        entry.contains("members: [settings_settings, "),
+        "got:\n{entry}"
+    );
+
+    // The file survived the re-render with the key, and is now a fingerprinted projection.
+    let projected: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(settings_path(&root)).unwrap()).unwrap();
+    assert_eq!(projected["permissions"]["allow"][0], "Bash(cargo build:*)");
+    assert!(projected["hooks"]["PreToolUse"].is_array(), "{projected}");
+    assert_eq!(rollup_rows(&temper_dir, "settings").len(), 1);
+
+    // Converged: the next emit owns the key and moves no byte.
+    let before = common::tree_bytes(&root);
+    drift::emit_program(&temper_dir, EmitOptions::default()).unwrap();
+    assert_eq!(before, common::tree_bytes(&root));
+}
