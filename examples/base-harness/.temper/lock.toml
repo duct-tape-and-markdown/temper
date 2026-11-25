@@ -31,6 +31,36 @@ source_hash = "b78c5b35a4b1589f00f3523fc9426777a62081ff906fd9393af9089aa8f60fa4"
 emit_hash = "b78c5b35a4b1589f00f3523fc9426777a62081ff906fd9393af9089aa8f60fa4"
 
 [[rule]]
+name = "temper-guidance-hook"
+source_path = ".claude/rules/temper-guidance-hook.md"
+source_hash = "8dd9d20e794cfbafb152e7bfd487f68f47df1f816df8b5e12dd28042ee001cf0"
+emit_hash = "8dd9d20e794cfbafb152e7bfd487f68f47df1f816df8b5e12dd28042ee001cf0"
+
+[[rule]]
+name = "temper-guidance-memory"
+source_path = ".claude/rules/temper-guidance-memory.md"
+source_hash = "22c7891972befff18713de6eb47fe365ea3fd97e7958db06ddc04b975c9d8e55"
+emit_hash = "22c7891972befff18713de6eb47fe365ea3fd97e7958db06ddc04b975c9d8e55"
+
+[[rule]]
+name = "temper-guidance-rule"
+source_path = ".claude/rules/temper-guidance-rule.md"
+source_hash = "1458688f00a07f864fde720e9266de70362ca23c63544f1d20fa5ea97d9f6b33"
+emit_hash = "1458688f00a07f864fde720e9266de70362ca23c63544f1d20fa5ea97d9f6b33"
+
+[[rule]]
+name = "temper-guidance-skill"
+source_path = ".claude/rules/temper-guidance-skill.md"
+source_hash = "e0ecb6dab914d0fa8cdbbfc43a6bda36a1e6daf5dc071673d7d0ab40355d864a"
+emit_hash = "e0ecb6dab914d0fa8cdbbfc43a6bda36a1e6daf5dc071673d7d0ab40355d864a"
+
+[[rule]]
+name = "temper-guidance-system"
+source_path = ".claude/rules/temper-guidance-system.md"
+source_hash = "feb43f893b773c8c1e436266f7a8d59cd25e6af99bc04a0780767cef45e84e30"
+emit_hash = "feb43f893b773c8c1e436266f7a8d59cd25e6af99bc04a0780767cef45e84e30"
+
+[[rule]]
 name = "temper-sdk"
 source_path = ".claude/rules/temper-sdk.md"
 source_hash = "34399c1eb96ce9d16427ab317f736494859fd38e1e7de08ac6579cb8f1da49a4"

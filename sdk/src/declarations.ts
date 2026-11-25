@@ -648,28 +648,118 @@ function locusGlobs(
   return [...globs].sort(compareStrings);
 }
 
+/** A list item whose text may span lines — continuation lines indent under the bullet. */
+function bullet(head: string, text: string): string {
+  return `- ${head}: ${text.trim().split("\n").join("\n  ")}`;
+}
+
+/** The kind names an edge field's `to` set lists, for a line that states where it points. */
+function targetList(to: readonly string[]): string {
+  return to.map((target) => `\`${target}\``).join(", ");
+}
+
+/** A requirement as a guidance rule states it: its kind (when declared), its satisfiers. */
+interface ContractedRequirement {
+  readonly name: string;
+  readonly kind: string | undefined;
+  readonly prose: string;
+  readonly satisfiers: readonly { readonly kind: string; readonly address: string }[];
+}
+
 /**
- * The body a kind's guidance rule carries — the kind's own counsel, then one line per
- * counselled field in the order the author wrote them, under a `Fields` heading. A kind
- * guided only at its fields still has a body; one carrying no counsel at all (blank
- * counsel included) has none, and projects no rule.
+ * Every declared requirement — assembly `require` ∪ each member's `requires`, the
+ * namespace {@link requirementRows} lowers — with the members claiming to fill it, name
+ * sorted, satisfiers in address order.
  */
-function guidanceBody(facts: KindFacts): string | undefined {
-  const own = facts.guidance?.trim() ?? "";
-  const fields = Object.entries(facts.fieldGuidance ?? {}).flatMap(([field, counsel]) =>
-    counsel === undefined || counsel.trim() === "" ? [] : [`- \`${field}\`: ${counsel.trim()}`],
+function contractedRequirements(harness: Harness): ContractedRequirement[] {
+  const entries: Array<[string, Requirement]> = Object.entries(harness.require);
+  for (const member of harness.members) entries.push(...Object.entries(member.requires));
+  const satisfiers = new Map<string, Array<{ kind: string; address: string }>>();
+  for (const member of harness.members) {
+    for (const name of member.satisfies) {
+      const list = satisfiers.get(name) ?? [];
+      list.push({ kind: member.kind, address: memberAddress(member) });
+      satisfiers.set(name, list);
+    }
+  }
+  return [...uniqueMap(entries).entries()]
+    .sort(([a], [b]) => compareStrings(a, b))
+    .map(([name, requirement]) => ({
+      name,
+      kind: typeof requirement.kind === "string" ? requirement.kind : requirement.kind?.key,
+      prose: requirement.prose,
+      satisfiers: (satisfiers.get(name) ?? []).sort((a, b) => compareStrings(a.address, b.address)),
+    }));
+}
+
+/**
+ * The body a kind's guidance rule carries — the kind's own counsel; its counselled
+ * non-edge fields under `Fields`, in authored order; each counselled edge field's intent
+ * under `Edges`, outbound ones (the kind's own) before inbound ones (another kind's field
+ * targeting this one), so an edge's intent reads at both its ends; and under
+ * `Requirements` every requirement this kind's members satisfy or that declares this
+ * kind, with its prose and satisfiers — what is already contracted, before an agent adds
+ * to the set. A shipped kind contributes none of its shipped counsel (`shipped`): its
+ * rule carries only the program's contracts. A body with nothing in it is none, and
+ * projects no rule.
+ */
+function guidanceBody(
+  facts: KindFacts,
+  kinds: readonly KindFacts[],
+  requirements: readonly ContractedRequirement[],
+): string | undefined {
+  const shipped = SHIPPED_KINDS.has(facts);
+  const counselOf = (owner: KindFacts, field: string): string | undefined => {
+    if (SHIPPED_KINDS.has(owner)) return undefined;
+    const counsel = (owner.fieldGuidance as Record<string, string | undefined> | undefined)?.[field];
+    return counsel === undefined || counsel.trim() === "" ? undefined : counsel;
+  };
+  const ownEdges = new Map((facts.edgeFields ?? []).map((edge) => [edge.field, edge.to]));
+  const own = shipped ? "" : (facts.guidance?.trim() ?? "");
+  const fields: string[] = [];
+  const outbound: string[] = [];
+  for (const field of shipped ? [] : Object.keys(facts.fieldGuidance ?? {})) {
+    const counsel = counselOf(facts, field);
+    if (counsel === undefined) continue;
+    const to = ownEdges.get(field);
+    if (to === undefined) fields.push(bullet(`\`${field}\``, counsel));
+    else outbound.push(bullet(`\`${field}\` → ${targetList(to)}`, counsel));
+  }
+  const inbound = kinds.flatMap((source) =>
+    (source.edgeFields ?? []).flatMap((edge) => {
+      const counsel = edge.to.includes(facts.name) ? counselOf(source, edge.field) : undefined;
+      return counsel === undefined ? [] : [bullet(`\`${source.name}\`.\`${edge.field}\` → here`, counsel)];
+    }),
   );
-  if (fields.length === 0) return own === "" ? undefined : facts.guidance;
-  const section = `## Fields\n\n${fields.join("\n")}`;
-  return own === "" ? section : `${own}\n\n${section}`;
+  const contracted = requirements.flatMap((requirement) => {
+    const mine = requirement.kind === facts.name || requirement.satisfiers.some((s) => s.kind === facts.name);
+    if (!mine) return [];
+    const declared = requirement.kind === undefined ? "" : ` (kind \`${requirement.kind}\`)`;
+    const filled =
+      requirement.satisfiers.length === 0
+        ? "No member satisfies it yet."
+        : `Satisfied by ${requirement.satisfiers.map((s) => `\`${s.address}\``).join(", ")}.`;
+    return [bullet(`\`${requirement.name}\`${declared}`, `${requirement.prose.trim()}\n${filled}`)];
+  });
+  const sections = [
+    own,
+    fields.length === 0 ? "" : `## Fields\n\n${fields.join("\n")}`,
+    outbound.length + inbound.length === 0 ? "" : `## Edges\n\n${[...outbound, ...inbound].join("\n")}`,
+    contracted.length === 0 ? "" : `## Requirements\n\n${contracted.join("\n")}`,
+  ].filter((section) => section !== "");
+  if (sections.length === 0) return undefined;
+  // A body of the kind's own counsel alone keeps it exactly as authored.
+  if (sections.length === 1 && own !== "") return facts.guidance;
+  return sections.join("\n\n");
 }
 
 /**
  * The {@link SDK_COUNSEL} rule over the program directory, always, then one `rule`
- * member per **guided corpus kind**: a kind in play that carries counsel (its
- * own `guidance` or a field's, {@link guidanceBody}) and that the program authored, never
- * one it only imported (a shipped built-in projects nothing — every harness would
- * otherwise get rules it never asked for). A relocated built-in is the program's own:
+ * member per **guided corpus kind**: a kind in play whose {@link guidanceBody} is
+ * non-empty — the program's own counsel, edge intent and contracts over it. A built-in
+ * the program only imports projects none of its shipped counsel (every harness would
+ * otherwise get rules it never asked for), so it takes a rule only when the program
+ * contracts over it. A relocated built-in is the program's own:
  * `relocate` replaces the base's counsel with the relocation's, so it projects exactly what
  * its relocation declares, and nothing when it declares none. Its `paths` are the kind's
  * {@link locusGlobs}, its body the counsel, so the runtime hands the counsel to an agent
@@ -713,10 +803,10 @@ function guidanceRules(harness: Harness): Member[] {
   const rules = [
     synthesize(COUNSEL_RULE_NAME, SDK_COUNSEL, [COUNSEL_RULE_PATHS], "SDK counsel rule temper synthesizes over the program"),
   ];
+  const requirements = contractedRequirements(harness);
   for (const facts of kinds) {
-    const guidance = guidanceBody(facts);
+    const guidance = guidanceBody(facts, kinds, requirements);
     if (guidance === undefined) continue;
-    if (SHIPPED_KINDS.has(facts)) continue;
     const paths = locusGlobs(facts, kinds, admissions);
     if (paths.length === 0) continue;
     rules.push(

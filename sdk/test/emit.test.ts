@@ -2863,3 +2863,54 @@ test("field guidance naming a field the kind's surface lacks does not type-check
     fieldGuidance: { title: "Never compiles." },
   });
 });
+
+test("a guidance rule carries the requirements and edge intent at both endpoint kinds' loci", () => {
+  const standard = kind<{ readonly owner?: string }>({
+    name: "standard",
+    locus: { kind: "at", root: "standards", glob: "*.md" },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    edgeFields: [{ field: "owner", to: ["skill"] }],
+    fieldGuidance: { owner: "The skill that keeps this standard current." },
+  });
+  const result = emit(
+    harness({
+      members: [
+        skill({
+          name: "standards",
+          description: "Use when touching code standards.",
+          prose: text`# Standards`,
+          satisfies: ["code-standards"],
+        }),
+        standard({ name: "naming", owner: "standards" }),
+      ],
+      require: {
+        "code-standards": { prose: "One skill owns the code standards.", kind: skill },
+        "release-notes": { prose: "A skill writes the release notes.", kind: skill, required: false },
+      },
+    }),
+  );
+  const rules = guidanceRuleMembers(result);
+  assert.deepEqual(
+    rules.map((member) => member.name),
+    ["temper-guidance-skill", "temper-guidance-standard"],
+  );
+  const [skillRule, standardRule] = rules;
+  // An imported built-in's rule carries the program's contracts alone — none of its shipped counsel.
+  assert.equal(
+    skillRule!.body,
+    "## Edges\n\n" +
+      "- `standard`.`owner` → here: The skill that keeps this standard current.\n\n" +
+      "## Requirements\n\n" +
+      "- `code-standards` (kind `skill`): One skill owns the code standards.\n" +
+      "  Satisfied by `skill:standards`.\n" +
+      "- `release-notes` (kind `skill`): A skill writes the release notes.\n" +
+      "  No member satisfies it yet.",
+  );
+  assert.equal(
+    standardRule!.body,
+    "## Edges\n\n- `owner` → `skill`: The skill that keeps this standard current.",
+  );
+  assert.deepEqual(standardRule!.fields, [["paths", ["standards/*.md"]]]);
+});
