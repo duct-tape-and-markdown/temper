@@ -267,6 +267,36 @@ fn a_bases_unique_name_judges_its_subkinds_members_with_its_own() {
     );
 }
 
+#[test]
+fn a_when_nested_unique_name_finds_a_base_member_and_a_subkind_member_sharing_a_name() {
+    let root = common::tmpdir("subkind-when-unique-name");
+    write_rule(&root, ".claude/rules/decisions/style.md");
+    write_rule(&root, ".claude/rules/style.md");
+    // Both members carry `globs: "*.rs"`, so the guard holds at each of them.
+    let run = check_with_clauses(
+        &root,
+        vec![decision(".claude/rules/decisions", "*.md")],
+        vec![ClauseRow {
+            label: Some("rule.when.globs".to_string()),
+            kind: Some("rule".to_string()),
+            field: Some("globs".to_string()),
+            values: Some(vec!["*.rs".to_string()]),
+            guard_predicate: Some("enum".to_string()),
+            body: Some(vec![ClauseRow {
+                label: Some("rule.when.globs.unique-name".to_string()),
+                ..common::clause("unique-name", "required")
+            }]),
+            ..common::clause("when", "required")
+        }],
+    );
+    assert_eq!(
+        run.output.matches(".unique-name::style:").count(),
+        2,
+        "a guarded unique-name decides over the base's one population, got:\n{}",
+        run.output
+    );
+}
+
 fn rule_requires_owner() -> ClauseRow {
     ClauseRow {
         label: Some("rule.required.owner".to_string()),

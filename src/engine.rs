@@ -960,12 +960,7 @@ pub fn judge_members(selections: &[Selection]) -> Vec<Diagnostic> {
     for selection in selections {
         let clauses = match selection.selector {
             Selector::OptIn(_) => selection.clauses.clone(),
-            Selector::Kind(_) => selection
-                .clauses
-                .iter()
-                .filter(|clause| clause.predicate.decides_over_peers())
-                .cloned()
-                .collect(),
+            Selector::Kind(_) => split_peer_clauses(selection.clauses.clone()).1,
             Selector::Root => continue,
         };
         let contract = Contract {
@@ -983,6 +978,46 @@ pub fn judge_members(selections: &[Selection]) -> Vec<Diagnostic> {
         }
     }
     diagnostics
+}
+
+/// Partition a kind's clauses into the ones its dispatcher judges over its own slice
+/// and the **peer clauses** ([`Predicate::decides_over_peers`]) [`judge_members`] judges
+/// over the kind's whole by-kind selection — `(slice, peers)`.
+///
+/// A peer clause nested in a `when` body decides over the same population as a
+/// top-level one, so the `when` splits with it: each side keeps the guard over its own
+/// share of the body, and a side whose share is empty carries no `when` at all. A body
+/// clause is never itself a `when`, so one level is the whole split.
+#[must_use]
+pub fn split_peer_clauses(clauses: Vec<Clause>) -> (Vec<Clause>, Vec<Clause>) {
+    let mut slice = Vec::new();
+    let mut peers = Vec::new();
+    for clause in clauses {
+        match &clause.predicate {
+            predicate if predicate.decides_over_peers() => peers.push(clause),
+            Predicate::When { guard, body } => {
+                let (peer_body, slice_body): (Vec<Clause>, Vec<Clause>) = body
+                    .iter()
+                    .cloned()
+                    .partition(|inner| inner.predicate.decides_over_peers());
+                let guarded = |body: Vec<Clause>| Clause {
+                    predicate: Predicate::When {
+                        guard: guard.clone(),
+                        body,
+                    },
+                    ..clause.clone()
+                };
+                if !peer_body.is_empty() {
+                    peers.push(guarded(peer_body));
+                }
+                if !slice_body.is_empty() {
+                    slice.push(guarded(slice_body));
+                }
+            }
+            _ => slice.push(clause),
+        }
+    }
+    (slice, peers)
 }
 
 /// The whole-grain `count` finding when the selection's cardinality falls outside the

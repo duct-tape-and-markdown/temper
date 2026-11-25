@@ -47,15 +47,13 @@ fn two_greens_dispatch(
     diagnostics.extend(engine::admissibility(&contract, locus));
     // A peer clause decides over the kind's whole by-kind selection, which only exists
     // once every dispatcher has run: `engine::judge_members` judges it there, so an
-    // inherited one is withheld here with the kind's own.
+    // inherited one is withheld here with the kind's own, `when`-nested ones included.
     let mut whole = Contract {
         clauses: inherited,
         ..contract.clone()
     };
     whole.clauses.extend(contract.clauses.iter().cloned());
-    whole
-        .clauses
-        .retain(|clause| !clause.predicate.decides_over_peers());
+    whole.clauses = engine::split_peer_clauses(whole.clauses).0;
     diagnostics.extend(engine::validate(&whole, features));
 
     (contract, diagnostics)
