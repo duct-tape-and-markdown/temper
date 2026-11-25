@@ -47,10 +47,11 @@
   "acceptance": "from a subdirectory with CLAUDE_PROJECT_DIR at the root, each rendered gate command run through sh -c invokes temper at the root with a relative binary; unset, it runs where invoked",
   "tests": [
     "a rendered gate command run from a subdirectory invokes temper at the project root",
-    "a rendered gate command with the project dir unset runs where it is invoked",
     "a gate command in the unanchored form reads as no rendered gate"
   ],
-  "pins": [],
+  "pins": [
+    "a rendered gate command with the project dir unset runs where it is invoked"
+  ],
   "laneTests": [],
   "notes": "Inbox GH #67, urgent: the guard is down after any Bash cd. Spelling: double-quoted \"${CLAUDE_PROJECT_DIR:-.}\" (code.claude.com/docs/en/hooks, retrieved 2026-11-25). Renderer stays the one home (0073). Dogfood .claude/settings.json + .temper lock re-emit is a human chore(harness) half after ship.",
   "observedFiles": [
