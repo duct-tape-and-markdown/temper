@@ -6,14 +6,11 @@
 
 The `nested-command-and-skill-placements` question. Current Claude Code
 documentation (code.claude.com/docs/en/skills and /sub-agents, retrieved
-2026-11-25) loads three placements the built-ins do not claim:
-
-- a command in a subdirectory of `.claude/commands/`, named by its path
-  with `/` as `:` (`/frontend:component`);
-- a skill under a subdirectory's own `.claude/skills/`, invoked
-  `/apps/web:deploy` once Claude works there;
-- an agent in a subfolder of `.claude/agents/`, which is scanned
-  recursively.
+2026-11-25) loads three placements the built-ins do not claim: a command
+in a subdirectory of `.claude/commands/` (named by its path, `/` as `:`:
+`/frontend:component`), a skill under a subdirectory's own
+`.claude/skills/` (`/apps/web:deploy`, once Claude works there), and an
+agent in a subfolder of the recursively scanned `.claude/agents/`.
 
 0084 rules that a built-in claims what the harness loads. The obstacle is
 identity: `/` is the nesting separator (0049). Ruled by John 2026-11-25:
