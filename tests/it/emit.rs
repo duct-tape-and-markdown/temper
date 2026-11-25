@@ -1332,6 +1332,91 @@ fn a_partial_manifest_rewrite_names_every_dropped_member_in_the_reap_ledger() {
     assert!(!written.contains("extraKnownMarketplaces"), "{written}");
 }
 
+/// `settings_payload` with no `settings` container member: the hooks render into a
+/// `settings.json` no member of the program owns, so nothing fingerprints the file.
+fn ownerless_settings_payload(events: &[&str]) -> Payload {
+    let mut payload = settings_payload(events, &[]);
+    payload.members.clear();
+    payload
+}
+
+/// Append a hand-written matcher group under `hooks.<event>` of the on-disk settings file.
+fn hand_add_hook_group(settings: &Path, event: &str) {
+    let mut document: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(settings).unwrap()).unwrap();
+    let group =
+        serde_json::json!({ "hooks": [ { "type": "command", "command": "./my-hook.sh" } ] });
+    match document["hooks"][event].as_array_mut() {
+        Some(groups) => groups.push(group),
+        None => document["hooks"][event] = serde_json::json!([group]),
+    }
+    fs::write(
+        settings,
+        serde_json::to_string_pretty(&document).unwrap() + "\n",
+    )
+    .unwrap();
+}
+
+#[test]
+fn emit_refuses_a_hand_added_hook_group_in_a_settings_manifest_no_member_owns() {
+    for (label, event) in [
+        ("ownerless-hand-group-new-event", "Stop"),
+        ("ownerless-hand-group-shared-event", "PreToolUse"),
+    ] {
+        let (harness, into) = workspace(label);
+        let payload = ownerless_settings_payload(&["PreToolUse"]);
+        drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+        let settings = harness.join(".claude").join("settings.json");
+        hand_add_hook_group(&settings, event);
+        let before = fs::read_to_string(&settings).unwrap();
+
+        for teardown in [false, true] {
+            let err = drift::emit(
+                &payload,
+                &into,
+                EmitOptions {
+                    teardown,
+                    ..EmitOptions::default()
+                },
+            )
+            .unwrap_err();
+            let message = format!("{err}");
+            assert!(message.contains(&format!("`hooks.{event}`")), "{message}");
+            assert!(message.contains(".claude/settings.json"), "{message}");
+            assert_eq!(
+                fs::read_to_string(&settings).unwrap(),
+                before,
+                "the refusal lands before a byte is written: the hand group survives"
+            );
+        }
+    }
+}
+
+#[test]
+fn emit_still_reaps_the_registration_of_a_removed_hook_member() {
+    let (harness, into) = workspace("ownerless-removed-hook-reaps");
+    drift::emit(
+        &ownerless_settings_payload(&["PreToolUse", "SessionStart"]),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+
+    // The PreToolUse hook leaves the program; the prior lock's registration row records the
+    // group emit wrote, so the group is temper's to reap even with no member owning the file.
+    let report = drift::emit(
+        &ownerless_settings_payload(&["SessionStart"]),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(outcome(&report, "PreToolUse"), EmitOutcome::MemberReaped);
+    let written = fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap();
+    assert!(!written.contains("PreToolUse"), "{written}");
+    assert!(written.contains("SessionStart"), "{written}");
+}
+
 #[test]
 fn a_total_collection_drop_refuses_at_the_segment_cliff_unless_teardown() {
     let (harness, into) = workspace("manifest-segment-cliff");

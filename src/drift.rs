@@ -241,6 +241,23 @@ pub enum DriftError {
         keys: Vec<String>,
     },
 
+    /// A manifest no container member owns carries registration entries (a hook group) that
+    /// neither this emit renders nor any prior lock row records. The lock's registration rows
+    /// are the only record of what an earlier emit wrote there, so an entry beyond them is
+    /// hand-added; the whole-file rewrite would delete it, so emit refuses before a byte is
+    /// written, `--teardown` or not.
+    #[error(
+        "refusing to delete registration entries under {} from `{manifest}`: no member of this program owns that file and no lock row records them, so no emit wrote them. Declare a member for each in the program, or delete them by hand.",
+        crate::read::backticked(entries)
+    )]
+    #[diagnostic(code(temper::drift::ownerless_manifest_entries))]
+    OwnerlessManifestEntries {
+        /// The manifest carrying the unrecorded entries, harness-relative.
+        manifest: String,
+        /// Each entry's `<collection>.<key>` address, sorted.
+        entries: Vec<String>,
+    },
+
     /// A projection did not reproduce byte-for-byte across a double-emit: the
     /// authoring surface is nondeterministic (a timestamp, an unordered map surfacing
     /// into a field). Law 5 makes this a loud failure rather than a silent churn the
@@ -2110,8 +2127,17 @@ pub fn emit(
     // rewritten whole, so a member the on-disk file carried and the payload no longer
     // declares would vanish with no finding. The diff runs before any byte is written, so
     // the segment cliff refuses a total collection drop without undoing a write.
-    let (segment_reaps, cached_manifest_raws) =
-        manifest_segment_reaps(&manifests, &kind_facts, &harness_root, options.teardown)?;
+    // A lock whose declaration rows will not lift records no prior registration.
+    let prior_registrations = declarations_from_doc(&lock_doc)
+        .map(|declarations| declarations.registrations)
+        .unwrap_or_default();
+    let (segment_reaps, cached_manifest_raws) = manifest_segment_reaps(
+        &manifests,
+        &kind_facts,
+        &harness_root,
+        &prior_registrations,
+        options.teardown,
+    )?;
 
     let mut entries = Vec::with_capacity(projections.len() + orphans.len() + segment_reaps.len());
     let mut rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
@@ -2510,12 +2536,15 @@ fn write_outcome(
 /// Returns [`DriftError::SegmentReapWave`] when the drop is total — every discovered member
 /// of one collection gone, the payload declaring none in its place — unless `teardown` is
 /// set; [`DriftError::OwnerlessManifestKeys`] when a manifest no container member owns
-/// carries a residue key the build does not declare. Propagates a [`LockRowError`] when a
+/// carries a residue key the build does not declare;
+/// [`DriftError::OwnerlessManifestEntries`] when such a manifest carries registration
+/// entries neither the build renders nor a prior lock row records. Propagates a [`LockRowError`] when a
 /// kind fact's collection address carries a key-path label outside the closed vocabulary.
 fn manifest_segment_reaps(
     manifests: &BTreeMap<HarnessRelativePath, ManifestBuild>,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
     harness_root: &Path,
+    prior_registrations: &[RegistrationRow],
     teardown: bool,
 ) -> Result<(Vec<EmitEntry>, BTreeMap<HarnessRelativePath, String>), DriftError> {
     let mut reaps = Vec::new();
@@ -2587,6 +2616,22 @@ fn manifest_segment_reaps(
                 keys: undeclared,
             });
         }
+        if build.container.is_none() {
+            let entries = unrecorded_registration_entries(
+                path,
+                build,
+                &current,
+                &address_refs,
+                kind_facts,
+                prior_registrations,
+            );
+            if !entries.is_empty() {
+                return Err(DriftError::OwnerlessManifestEntries {
+                    manifest: path.to_string(),
+                    entries,
+                });
+            }
+        }
         for key in undeclared {
             reaps.push(EmitEntry {
                 kind: manifest_label.clone(),
@@ -2617,6 +2662,80 @@ fn manifest_segment_reaps(
         }
     }
     Ok((reaps, cached_raws))
+}
+
+/// The `<collection>.<key>` addresses at which an ownerless manifest carries registration
+/// members no emit can account for, sorted. With no fingerprint over the file, the prior
+/// lock's registration rows are the record of what an earlier emit wrote: a key whose
+/// on-disk members outnumber the rows the prior lock carries for it holds hand-added
+/// content, and when any of its members is one this build does not render equal, the
+/// rewrite could delete that content. Which unmatched member is the hand one is beyond what
+/// the lock can tell, so the key refuses whole. A hand edit that keeps the count stays
+/// invisible: the lock records how many groups emit wrote, never their bytes.
+fn unrecorded_registration_entries(
+    path: &HarnessRelativePath,
+    build: &ManifestBuild,
+    current: &crate::json_manifest::Manifest,
+    address_refs: &[&CollectionAddress],
+    kind_facts: &BTreeMap<&str, &KindFactRow>,
+    prior_registrations: &[RegistrationRow],
+) -> Vec<String> {
+    // The members this build renders, read through the same parser as the disk file so the
+    // two sides compare in one currency; a render that will not parse matches nothing.
+    let segments: Vec<crate::json_manifest::CollectionSegment> = build
+        .segments
+        .iter()
+        .map(
+            |(collection_key, entries)| crate::json_manifest::CollectionSegment {
+                collection_key: collection_key.clone(),
+                entries: entries.clone(),
+            },
+        )
+        .collect();
+    let desired_raw = crate::json_manifest::write_manifest(&segments, &build.residue);
+    let mut desired = crate::json_manifest::Manifest::parse(
+        &current.provenance.source_path,
+        &desired_raw,
+        address_refs,
+    )
+    .map(|manifest| manifest.members)
+    .unwrap_or_default();
+
+    // Per entry key: (members on disk, members this build does not render equal).
+    let mut on_disk: BTreeMap<(&str, &str), (usize, usize)> = BTreeMap::new();
+    for member in &current.members {
+        let counts = on_disk
+            .entry((member.collection.as_str(), member.key.as_str()))
+            .or_default();
+        counts.0 += 1;
+        if let Some(index) = desired.iter().position(|wanted| wanted == member) {
+            desired.swap_remove(index);
+        } else {
+            counts.1 += 1;
+        }
+    }
+
+    let recorded = |collection: &str, key: &str| {
+        prior_registrations
+            .iter()
+            .filter(|row| {
+                row.key == key
+                    && collection_key_of(&row.key_path) == collection
+                    && kind_facts
+                        .get(row.kind.as_str())
+                        .and_then(|facts| manifest_target_path(facts))
+                        .as_ref()
+                        == Some(path)
+            })
+            .count()
+    };
+    on_disk
+        .into_iter()
+        .filter(|((collection, key), (count, unmatched))| {
+            *unmatched > 0 && *count > recorded(collection, key)
+        })
+        .map(|((collection, key), _)| format!("{collection}.{key}"))
+        .collect()
 }
 
 /// What emit derives from one layout source in a single read: its member collections
