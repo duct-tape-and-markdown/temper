@@ -9,14 +9,12 @@ rooted at the harness itself. The value is the contract over it
 One authored unit: an instance of a kind. A member carries
 
 - an **identity**, spelled as an **address**: `<kind>:<name>` for a
-  top-level member, `<host-address>/<kind>/<key>` for a nested one —
-  any member's address may host, so the address nests as deep as the
-  model does — and `/<leaf>` beneath it; every name, key and leaf is
-  one segment (a leaf's child path joins with `.`, never `/`), so a
-  member address has an odd segment count and a leaf address an even
-  one — one grammar every row spells and every verb accepts;
-  resolution is total: an address names exactly one thing or the verb
-  refuses, and coincident addresses are a malformed lock,
+  top-level member, `<host-address>/<kind>/<key>` for a nested one, as deep
+  as the model nests, and `/<leaf>` beneath it; every name, key and leaf is
+  one segment (a leaf's child path joins with `.`), so a member address has
+  an odd segment count and a leaf's an even one — one grammar every row
+  spells and every verb accepts; resolution is total, and coincident
+  addresses are a malformed lock,
 - typed **fields**, projected to frontmatter or structured config,
 - **prose** — its authored words, copied verbatim, byte-for-byte,
 - **edges** — its declared references (`contract.md`),
@@ -32,27 +30,31 @@ The type of a member. A kind declares
 - the **edge fields** — which fields are references, and to what,
 - a **format** — a template literal rendering the member's values into its
   artifact: constant text around interpolated fields, prose, and child
-  layers. The kind's format is the default; a member may dictate its own.
-  A **file**-locus kind's format derives two one-way faces — the canonical
+  layers. The kind's format is the default, a member's own overriding it. A
+  **file**-locus kind's format derives two one-way faces — the canonical
   writer for projections, the lenient reader for sources — never a round
   trip; admissible only when unambiguous (adjacent slots split by constant
   text neither can absorb; the prose slot terminal or fenced), holding no
-  logic and no derived values, and declaring the leniency its source-reads
-  forgive; a structured sublanguage is a slot naming a schema, never syntax
-  spelled as constant text. An **embedded**-locus kind's format, under a
-  composed host, is writer-only with no admissibility bar — a projection
-  whose facts are declared (`pipeline.md`, "The lock"), never read back. It
-  may place a **closed, engine-derived set of facts about its edge fields'
-  targets** — name, address, kind, projection path relative to the host's;
-  instance prose never spells its target, so a rendered reference is true
-  by construction. A format omitting a declared edge is a clause's finding.
+  logic and no derived values, and declaring the leniency its reads forgive;
+  a structured sublanguage is a slot naming a schema. An **embedded**-locus
+  kind's format, under a composed host, is writer-only with no admissibility
+  bar — a projection whose facts are declared (`pipeline.md`, "The lock"),
+  never read back. It may place a **closed, engine-derived set of facts
+  about its edge fields' targets** — name, address, kind, projection path
+  relative to the host's; so a rendered reference is true by construction. A
+  format omitting a declared edge is a clause's finding.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
 
-A kind is data, never code; its extractor is composed from that data. Kind
-identity travels by import, never by string. Built-in and user-declared kinds
-are the same construct — ownership, not privilege (`../builtins.md`): a
-corpus kind of a built-in's name replaces the built-in in that harness.
+A kind is data, never code, its extractor composed from that data; its
+identity travels by import, never by string. Built-in and user-declared
+kinds are the same construct — ownership, not privilege (`../builtins.md`) —
+and a kind may **extend** another. A subkind keeps its base's facts, adds
+fields, edge fields and counsel, and governs a locus within its base's;
+every selection of the base binds its document, and its fields live where
+the base's format admits them, never as an undocumented key. Keeping the
+base's name it is a relocation, and any corpus kind of a built-in's name
+replaces the built-in there.
 
 ## layout
 
@@ -90,9 +92,9 @@ Where a member serializes. Three spellings:
   leading `**/`, less the paths the kind declares **excluded**, a directory
   excluding what lies beneath it. Any other pattern syntax refuses at load;
   names narrow by clause, never by pattern. A document's kind is declared by
-  its position alone, so two kinds never govern one document — judged per
-  discovered document, a collision answered by excluding it from the kind
-  that does not own it; a registration kind's starless locus names its
+  its position alone, so two kinds never govern one document (a subkind's is
+  its base's), judged per document and answered by excluding it from the
+  kind that does not own it; a registration kind's starless locus names its
   manifest and governs no document. A file locus may declare a commitment
   class of **local**: per-machine and uncommitted, the kind reviewed and its
   documents not. A local member is read-side only — the governed source,
@@ -107,22 +109,20 @@ Where a member serializes. Three spellings:
 ## nesting
 
 A kind may template inner layers of members, to arbitrary depth; a nested
-member is a full member with its own kind — one member type in the model;
-nested content never lives in a parallel value shape. Nesting is **model
-containment** and locus is **serialization**, and the two are orthogonal: a
-skill's bundled reference documents are nested in the model yet own their
-files; a hook is nested and embedded in `settings.json`; a spec invariant is
+member is a full member with its own kind — one member type, never a
+parallel value shape. Nesting is **model containment** and locus is
+**serialization**, and the two are orthogonal: a skill's bundled reference
+documents are nested in the model yet own their files; a spec invariant is
 nested and embedded in its document. An embedded member's facts reach the
 lock one of two declared ways: carried from the composing program — a
 projection is never mined for them (`pipeline.md`, "Emit") — or read off a
-layout host's document under its declared layout. A prose **leaf** — one addressable authored string — is a
-nested member at the finest grain; every nested member's own span is its
-reserved `prose` leaf, cut at the first child heading. An embedded member
-type declares no host: which types may compose a kind's body is the
-adopting corpus's **admission** — a contract declaration over the host
-kind — so one type means the same thing in every body that admits it, and
-a shipped kind's composed body admits corpus-declared types by the same
-declaration (`../builtins.md`).
+layout host's document under its declared layout. A prose **leaf** — one
+addressable authored string — is a nested member at the finest grain; every
+nested member's own span is its reserved `prose` leaf, cut at the first
+child heading. An embedded member type declares no host: which types may
+compose a kind's body is the adopting corpus's **admission** — a contract
+declaration over the host kind — so one type means the same in every body
+that admits it, a shipped kind's included (`../builtins.md`).
 
 ## The root member
 
