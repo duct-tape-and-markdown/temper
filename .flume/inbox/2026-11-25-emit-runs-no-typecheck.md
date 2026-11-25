@@ -1,0 +1,5 @@
+# A harness program's types gate nothing: emit strips them and nothing runs tsc
+
+From Cascade, the active SDK adopter (2026-11-25). The harness program's TS types are "decorative until someone runs tsc". Emit runs the program under Node's type stripping, so a wrong field, a removed constant or a `never`-typed field passes emit and check. Cascade's one standing tsc error (`registration: []` on an embedded kind, typed `never` since 0.0.24) went unseen. Intent invariant 8 (amended 2026-11-25) names the compiler's own errors as a delivery channel, and that holds only if the compiler runs. SDK-TYPE-ERRORS-NAME-THEIR-REMEDY (544fcb9c) wrote errors nobody sees.
+
+The question for plan is where the typecheck belongs. Emit could typecheck the program before running it (the SDK ships `typescript` as a dependency, or uses the program's own), refusing with the compiler's errors. Or `check` could report the program's typecheck as a finding. Or `install` could scaffold a `tsconfig` plus a script, leaving it to the author. Sources: `specs/model/authoring.md`, "The SDK" ("typed at the keystroke"); `specs/model/pipeline.md`, "Emit".
