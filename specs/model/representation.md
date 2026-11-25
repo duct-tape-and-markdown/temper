@@ -37,15 +37,14 @@ The type of a member. A kind declares
   trip; admissible only when unambiguous (adjacent slots split by constant
   text neither can absorb; the prose slot terminal or fenced), holding no
   logic and no derived values, and declaring the leniency its reads forgive;
-  a structured sublanguage is a slot naming a schema, never syntax
-  spelled as constant text. An **embedded**-locus
-  kind's format, under a composed host, is writer-only with no admissibility
-  bar — a projection whose facts are declared (`pipeline.md`, "The lock"),
-  never read back. It may place a **closed, engine-derived set of facts
-  about its edge fields' targets** — name, address, kind, projection path
-  relative to the host's; instance prose never spells its target, so a rendered reference
-  is true by construction. A
-  format omitting a declared edge is a clause's finding.
+  a structured sublanguage is a slot naming a schema, never syntax spelled
+  as constant text. An **embedded**-locus kind's format, under a composed
+  host, is writer-only with no admissibility bar — a projection whose facts
+  are declared (`pipeline.md`, "The lock"), never read back. It may place a
+  **closed, engine-derived set of facts about its edge fields' targets** —
+  name, address, kind, projection path relative to the host's; instance
+  prose never spells its target, so a rendered reference is true by
+  construction. A format omitting a declared edge is a clause's finding.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
 
