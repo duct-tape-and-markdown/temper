@@ -704,12 +704,20 @@ pub fn gate(
     // `engine::judge` reads *and* the edges, reusing the hoisted arc
     // resolution, plus the already-resolved mention edges —
     // obligation-free by default, counted only when a `degree` clause opts in.
-    diagnostics.extend(graph::degree(
+    // An unrepresented harness declares no edges, so the reference a supporting doc's
+    // incoming bound asks for is unfillable there: those findings fold into one coverage
+    // line rather than one finding per doc.
+    let represented = workspace.join(crate::LOCK_FILENAME).is_file();
+    let reach_labels = supporting_doc_reach_labels(&selections);
+    let (unreached_docs, degree_findings): (Vec<_>, Vec<_>) = graph::degree(
         &selections,
         resolved_edges,
         &mention_edges,
         containment_edges,
-    ));
+    )
+    .into_iter()
+    .partition(|finding| !represented && reach_labels.contains(finding.rule.as_str()));
+    diagnostics.extend(degree_findings);
 
     // `reached-from`: `degree`'s global counterpart — a clause demands each selected
     // member lie in the forward closure of an author-named root set over a chosen field
@@ -802,7 +810,6 @@ pub fn gate(
     // `read_lock_document` cannot tell an absent lock from an empty one, and where there
     // is no lock every discovered member is undeclared — so the question is the lock's
     // presence, not its contents.
-    let represented = workspace.join(crate::LOCK_FILENAME).is_file();
 
     // Both halves are the root member's own `locus-declared` clause, located the way the
     // `fresh` clause below is: on the one `selections` list already in hand, past the
@@ -853,6 +860,7 @@ pub fn gate(
         &nested_member_counts,
         &undeclared_locus.counts,
         &import_reached_files,
+        unreached_docs.len(),
     ));
 
     // The freshness facts — the root member's own `fresh` clause, whose subject is every
@@ -931,6 +939,28 @@ pub fn gate(
     }
 
     Ok((diagnostics, announcement))
+}
+
+/// The labels of the `supporting-doc` by-kind selection's incoming-bounded `degree`
+/// clauses — the findings an unrepresented harness folds into its coverage line.
+fn supporting_doc_reach_labels<'s>(selections: &'s [engine::Selection]) -> BTreeSet<&'s str> {
+    selections
+        .iter()
+        .filter(|selection| {
+            selection.selector == engine::Selector::Kind("supporting-doc".to_string())
+        })
+        .flat_map(|selection| &selection.clauses)
+        .filter(|clause| {
+            matches!(
+                clause.predicate,
+                contract::Predicate::Degree {
+                    incoming: Some(_),
+                    ..
+                }
+            )
+        })
+        .map(|clause| clause.label.as_str())
+        .collect()
 }
 
 /// Every kind's **by-kind selection**: its whole member population — the universal

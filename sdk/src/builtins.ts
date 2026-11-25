@@ -1974,7 +1974,7 @@ export const supportingDocDefaultContract: readonly Clause[] = [
   clause(degree({ incoming: { min: 1 } }), {
     severity: "advisory",
     guidance:
-      "Reference the file from `SKILL.md` — a supporting file the skill's body never points at is invisible: Claude has no way to learn what it holds or when to load it, and it ships as dead weight in the bundle. Any resolved edge from the host skill counts, a mention included; what the edge cannot decide is whether the reference tells Claude *when* to follow it, and that sentence is the point of writing one.",
+      "No typed reference reaches this file: no resolved edge from the host skill points at it. A supporting file the skill's body never points at is invisible: Claude has no way to learn what it holds or when to load it, and it ships as dead weight in the bundle. Reference it from `SKILL.md` with `mentionOf(doc)`, or its path mention (`mentionOf`'s `path` form) where the body links the file; a hand-typed link in prose is no edge. What the edge cannot decide is whether the reference tells Claude *when* to follow it, and that sentence is the point of writing one.",
     cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16)",
   }),
 ];

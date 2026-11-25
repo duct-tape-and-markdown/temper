@@ -25,6 +25,11 @@ const CHECKED_RULE: &str = "coverage.checked";
 /// [`KNOWN_SURFACES`] does not list.
 const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 
+/// The disclosure rule id for the supporting docs no typed reference reaches on an
+/// unrepresented harness — a note, because there the reference is unfillable: such a
+/// harness declares no edges, so a per-doc advisory would ask for what it cannot hold.
+const UNREACHED_DOCS_RULE: &str = "coverage.unreached-supporting-docs";
+
 /// Compute the wedge's coverage note over the harness at `root`.
 ///
 /// `member_counts` is the per-kind count of members discovered at a `governs` locus,
@@ -49,6 +54,9 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 /// non-member files a memory `@path` import reaches
 /// ([`crate::graph::DirectiveClassing::reached_files`]), spelled under `root`: each is
 /// claimed by its importer through the import edge, so it is no stray.
+/// `unreached_supporting_docs` counts the supporting docs no typed reference reaches on
+/// an unrepresented harness; a non-zero count adds one disclosure line in place of a
+/// finding per doc.
 pub fn check(
     root: &Path,
     declared_kinds: &BTreeMap<String, CustomKind>,
@@ -56,6 +64,7 @@ pub fn check(
     nested_member_counts: &BTreeMap<String, usize>,
     undeclared_counts: &BTreeMap<String, usize>,
     import_reached: &BTreeSet<PathBuf>,
+    unreached_supporting_docs: usize,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
@@ -114,6 +123,20 @@ pub fn check(
             per_kind.join(", "),
         ),
     ));
+
+    if unreached_supporting_docs > 0 {
+        diagnostics.push(Diagnostic::note(
+            UNREACHED_DOCS_RULE,
+            "harness",
+            format!(
+                "{unreached_supporting_docs} supporting doc{} no typed reference reaches: an \
+                 unrepresented harness declares no edges, so a prose link is not one. \
+                 Represent the harness and reference each doc with `mentionOf` or its path \
+                 mention to judge them per doc",
+                crate::display::plural(unreached_supporting_docs),
+            ),
+        ));
+    }
 
     // (2) Name the strays: an entry directly under `.claude/` that no in-scope kind
     // governs AND `KNOWN_SURFACES` does not list is examined by nothing, and silence
@@ -287,6 +310,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
         let summary = diagnostics
             .iter()
@@ -313,6 +337,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("checked 1 member across 1 kind:"));
@@ -333,6 +358,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("command (2)"));
@@ -352,6 +378,7 @@ mod tests {
             &nested,
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(
@@ -383,6 +410,7 @@ mod tests {
             &nested,
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(
@@ -510,6 +538,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
 
         let matches: Vec<_> = diagnostics
@@ -533,6 +562,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
 
         assert!(
@@ -557,6 +587,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
 
         assert!(
@@ -579,6 +610,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
 
         assert!(
@@ -609,6 +641,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeSet::new(),
+            0,
         );
 
         let strays: Vec<&str> = diagnostics

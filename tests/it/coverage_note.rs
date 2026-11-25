@@ -147,6 +147,7 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
         &BTreeMap::new(),
         &BTreeMap::new(),
         &std::collections::BTreeSet::new(),
+        0,
     );
     assert!(
         diagnostics
@@ -737,5 +738,70 @@ fn a_file_a_memory_import_reaches_draws_no_unclaimed_entry_finding() {
     assert!(
         success,
         "the coverage note stays advisory, got: {findings:#?}"
+    );
+}
+
+/// Write a skill whose body links its `reference.md` supporting doc in prose alone — a
+/// hand-typed link, which declares no edge.
+fn write_skill_with_prose_linked_doc(root: &Path, name: &str) {
+    let skill_md = format!(
+        "---\n\
+name: {name}\n\
+description: Use when exercising the {name} path across axes; not for single-axis work.\n\
+---\n\
+# {name}\n\
+\n\
+See [the reference](reference.md) for the playbook.\n"
+    );
+    common::write_skill(root, name, &skill_md);
+    common::write_sibling(
+        root,
+        &format!(".claude/skills/{name}/reference.md"),
+        "# Reference\n",
+    );
+}
+
+#[test]
+fn an_unrepresented_harness_reports_unreached_supporting_docs_as_one_coverage_line() {
+    let harness = common::tmpdir("unrepresented-unreached-docs");
+    write_skill_with_prose_linked_doc(&harness, "alpha");
+    write_skill_with_prose_linked_doc(&harness, "beta");
+
+    let (findings, _success) = check_harness(&harness);
+
+    assert!(
+        common::findings_for(&findings, "supporting-doc.degree").is_empty(),
+        "an unrepresented harness files no per-doc degree finding, got: {findings:#?}"
+    );
+    let line = common::findings_for(&findings, "coverage.unreached-supporting-docs");
+    assert_eq!(
+        line.len(),
+        1,
+        "expected one coverage line, got: {findings:#?}"
+    );
+    assert!(
+        line[0].starts_with("::notice") && line[0].contains("2 supporting docs"),
+        "the one line is a disclosure counting both docs, got: {}",
+        line[0]
+    );
+}
+
+#[test]
+fn a_represented_harness_reports_an_unreached_supporting_doc_per_doc() {
+    let harness = common::tmpdir("represented-unreached-docs");
+    lock_rules(&harness, &["declared"]);
+    write_skill_with_prose_linked_doc(&harness, "alpha");
+    write_skill_with_prose_linked_doc(&harness, "beta");
+
+    let (findings, _success) = check_harness(&harness);
+
+    assert_eq!(
+        common::findings_for(&findings, "supporting-doc.degree").len(),
+        2,
+        "a represented harness judges each unreached doc, got: {findings:#?}"
+    );
+    assert!(
+        common::findings_for(&findings, "coverage.unreached-supporting-docs").is_empty(),
+        "a represented harness folds nothing into a coverage line, got: {findings:#?}"
     );
 }
