@@ -332,7 +332,7 @@ fn nested_file_members(
 /// single-path answer to [`discover_nested_file`], over the same host units: `file` is
 /// placed where it sits under a host unit at the host template's pattern, is not that
 /// host's own entry, is claimed by no declared `governs` locus, and discovery would reach
-/// it ([`discovers_path`]). [`None`] where any of those fails.
+/// it in the host's flavor ([`discovers_path`]). [`None`] where any of those fails.
 pub fn nested_file_placement(
     disc: &Discovery,
     kind: &CustomKind,
@@ -342,9 +342,7 @@ pub fn nested_file_placement(
 ) -> Option<NestedFileUnit> {
     let file = crate::path::normalize_path(file);
     let harness = crate::path::normalize_path(disc.harness());
-    if !discovers_path(&harness, file.strip_prefix(&harness).ok()?) {
-        return None;
-    }
+    let relative = file.strip_prefix(&harness).ok()?;
     let claimed = disc.declared_governed_paths(kinds, over);
     if claimed.contains(&file) {
         return None;
@@ -354,7 +352,8 @@ pub fn nested_file_placement(
         .find_map(|(host, pattern, unit)| {
             let under = crate::path::to_canonical_spelling(file.strip_prefix(&unit.dir).ok()?);
             let placed = file != unit.entry
-                && crate::glob::compile_glob(pattern).is_some_and(|m| m.is_match(&under));
+                && crate::glob::compile_glob(pattern).is_some_and(|m| m.is_match(&under))
+                && discovers_path(&harness, relative, local_governs(host, over));
             placed.then(|| unit.child(host, pattern, file.clone()))
         })
 }
@@ -512,7 +511,7 @@ pub fn discover_kind_files(
 /// Whether `kind`'s walk lets its `governs` declaration override discovery's
 /// presumptions — a local locus under a walk that honors the override, and nothing else.
 /// The `governs` locus alone cannot answer it: the commitment class is the kind's column.
-fn local_governs(kind: &CustomKind, over: LocalOverride) -> bool {
+pub(crate) fn local_governs(kind: &CustomKind, over: LocalOverride) -> bool {
     over == LocalOverride::Honored && kind.commitment == Some(Commitment::Local)
 }
 
@@ -708,10 +707,11 @@ fn fenced(path: &Path, depth: usize, is_dir: bool, local_governs: bool) -> bool 
         || (depth > 0 && is_dir && is_governed_root(path))
 }
 
-/// Whether a committed kind's discovery walk over `harness` would reach the file at the
-/// harness-relative `relative` — the single-path answer to the question
+/// Whether a discovery walk over `harness` in the `local_governs` flavor would reach the
+/// file at the harness-relative `relative` — the single-path answer to the question
 /// [`discoverable_paths`] answers for a whole tree, for a path that may not exist yet (a
-/// pending write) and so cannot be admitted by a walk.
+/// pending write) and so cannot be admitted by a walk. The flavor waives what the walk's
+/// does: the workspace fence and every git ignore declaration.
 ///
 /// Each prefix of `relative` is put to the walk's two tests in walk order: the [`fenced`]
 /// fences, then the git ignore declarations [`ignore_walk`] consults — every `.gitignore`
@@ -720,7 +720,7 @@ fn fenced(path: &Path, depth: usize, is_dir: bool, local_governs: bool) -> bool 
 /// ignored prefix prunes everything below it, exactly as the walk never descends an
 /// ignored directory. A `.gitignore` that fails to parse contributes what it could parse,
 /// as the walk's own builder does.
-pub(crate) fn discovers_path(harness: &Path, relative: &Path) -> bool {
+pub(crate) fn discovers_path(harness: &Path, relative: &Path, local_governs: bool) -> bool {
     use ignore::gitignore::{Gitignore, GitignoreBuilder};
 
     let matcher = |dir: &Path, file: PathBuf| {
@@ -736,14 +736,18 @@ pub(crate) fn discovers_path(harness: &Path, relative: &Path) -> bool {
     let mut excludes = Vec::new();
     let mut dir = harness.to_path_buf();
     for (index, component) in components.iter().enumerate() {
-        gitignores.push(matcher(&dir, dir.join(".gitignore")));
-        excludes.push(matcher(&dir, dir.join(".git").join("info").join("exclude")));
         let path = dir.join(component);
         let last = index + 1 == components.len();
         let is_dir = !last || path.is_dir();
-        if fenced(&path, index + 1, is_dir, false) {
+        if fenced(&path, index + 1, is_dir, local_governs) {
             return false;
         }
+        if local_governs {
+            dir = path;
+            continue;
+        }
+        gitignores.push(matcher(&dir, dir.join(".gitignore")));
+        excludes.push(matcher(&dir, dir.join(".git").join("info").join("exclude")));
         let decision = gitignores
             .iter()
             .rev()
@@ -855,7 +859,7 @@ mod tests {
         ] {
             let candidate = Path::new(candidate);
             let exists = root.join(candidate).is_file();
-            let queried = discovers_path(&root, candidate);
+            let queried = discovers_path(&root, candidate, false);
             if exists {
                 assert_eq!(
                     queried,
@@ -865,10 +869,15 @@ mod tests {
                 );
             }
         }
-        assert!(discovers_path(&root, Path::new(".claude/rules/pending.md")));
+        assert!(discovers_path(
+            &root,
+            Path::new(".claude/rules/pending.md"),
+            false
+        ));
         assert!(!discovers_path(
             &root,
-            Path::new(".claude/rules/pending.local.md")
+            Path::new(".claude/rules/pending.local.md"),
+            false
         ));
         assert!(walked.contains(Path::new(".claude/rules/keep.local.md")));
         assert!(!walked.contains(Path::new("build/x.md")));

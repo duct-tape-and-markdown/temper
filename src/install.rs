@@ -1806,7 +1806,8 @@ impl LayoutGuard {
         });
         let member = match governed {
             Some(locus) => {
-                if !import::discovers_path(root, Path::new(&*normalized)) {
+                let local = import::local_governs(&locus.kind, import::LocalOverride::Honored);
+                if !import::discovers_path(root, Path::new(&*normalized), local) {
                     return None;
                 }
                 crate::compose::governed_member_address(&locus.kind, root, &target, identity)?
@@ -2036,8 +2037,12 @@ fn matches_governed_locus<'a>(
             && !kind_excludes(kinds, &locus.kind, &normalized)
     })?;
     // A path discovery would never reach — gitignored, or behind a fence — is no member
-    // `check` judges, so the guard binds nothing there either.
-    import::discovers_path(root, Path::new(&*normalized)).then_some(locus)
+    // `check` judges, so the guard binds nothing there either. The governing kind's own
+    // walk flavor decides: a local locus's commitment waives both presumptions.
+    let local = kinds
+        .get(&locus.kind)
+        .is_some_and(|kind| import::local_governs(kind, import::LocalOverride::Honored));
+    import::discovers_path(root, Path::new(&*normalized), local).then_some(locus)
 }
 
 /// Whether the kind named `kind` in the effective set `kinds` excludes `path` from its

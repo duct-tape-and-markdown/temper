@@ -4590,3 +4590,91 @@ fn the_pre_edge_names_an_undeclared_named_field_layout_document_by_its_frontmatt
     fs::write(harness.join("docs/charters/stray.md"), stray).unwrap();
     assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, "docs/charters/stray.md");
 }
+
+/// A represented harness whose nested layout child `spec` is templated at `*.md` under
+/// each unit of a `local`-commitment `guide` host — `docs/guides/<name>/GUIDE.md`, the
+/// whole locus gitignored as a per-machine corpus is. The host `operate` sits on disk
+/// with no child declared under it. Rows-or-default: the root `locus-declared` binds,
+/// under `warn`. `check`'s nested-file scan honors the host's commitment, so it reaches
+/// every child in the ignored unit.
+fn local_host_child_harness(label: &str) -> PathBuf {
+    let harness = common::scaffold(label);
+    let unit = harness.join("docs/guides/operate");
+    fs::create_dir_all(&unit).unwrap();
+    fs::write(unit.join("GUIDE.md"), "# Operate\n").unwrap();
+    fs::write(harness.join(".gitignore"), "docs/guides/\n").unwrap();
+    let payload = drift::Payload {
+        version: drift::SEAM_VERSION,
+        declarations: drift::Declarations {
+            kinds: vec![
+                KindFactRow {
+                    commitment: Some("local".to_string()),
+                    unit_shape: Some("directory".to_string()),
+                    templates: vec![drift::TemplateRow {
+                        kind: "spec".to_string(),
+                        path: Some("*.md".to_string()),
+                    }],
+                    ..common::kind_facts("guide", "docs/guides", "*/GUIDE.md")
+                },
+                KindFactRow {
+                    governs_root: None,
+                    governs_glob: None,
+                    unit_shape: Some("file".to_string()),
+                    content: Some(drift::LayoutRow {
+                        regions: vec![common::field_region("intent")],
+                    }),
+                    ..common::kind_facts("spec", "", "")
+                },
+            ],
+            ..Default::default()
+        },
+        members: Vec::new(),
+    };
+    drift::emit(
+        &payload,
+        &harness.join(".temper"),
+        drift::EmitOptions::default(),
+    )
+    .unwrap();
+    harness
+}
+
+/// A child of [`local_host_child_harness`]'s `operate` unit, under the gitignored locus.
+const LOCAL_HOST_STRAY: &str = "docs/guides/operate/stray.md";
+
+#[test]
+fn the_guard_binds_a_pending_write_to_a_gitignored_member_at_a_committed_local_locus_kind() {
+    let harness = local_host_child_harness("guard-local-host-edit");
+    fs::write(harness.join(LOCAL_HOST_STRAY), NESTED_SPEC_DOC).unwrap();
+    let (code, output) =
+        common::run_guard(&harness, &common::guard_write_payload(LOCAL_HOST_STRAY));
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, LOCAL_HOST_STRAY);
+}
+
+#[test]
+fn the_guard_places_a_pending_hosted_child_under_a_local_host_as_check_s_scan_places_it() {
+    let harness = local_host_child_harness("guard-local-host-create");
+    assert!(!harness.join(LOCAL_HOST_STRAY).exists());
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content(LOCAL_HOST_STRAY, NESTED_SPEC_DOC),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+
+    // The host's own entry is no child of its unit, whatever its flavor.
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload("docs/guides/operate/GUIDE.md"),
+    );
+    assert_eq!(code, Some(0));
+    assert!(
+        output.is_empty(),
+        "the host entry places no child, got: {output}"
+    );
+
+    fs::write(harness.join(LOCAL_HOST_STRAY), NESTED_SPEC_DOC).unwrap();
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, LOCAL_HOST_STRAY);
+}
