@@ -55,6 +55,12 @@ the line's words must appear in the name in order. The judge runs
 `.flume/runner.mjs` over `cargo nextest`; integration tests live in the one
 `tests/it/` binary, unit tests beside their flat `src/` module.
 
+**A `tests[]` line's test lives under `tests/it/`, never in a `src/`
+module.** The judge proves the line new by laying the test's file over the
+pre-change tree; a `src/` file carries its module's fix with it, so the line
+passes there by construction and is refused. A unit test pins a `pins[]`
+line, or none.
+
 ## Lanes
 
 | Layer | Artifact | Author | Commit prefix |
