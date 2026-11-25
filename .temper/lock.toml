@@ -39,8 +39,8 @@ emit_hash = "971ad3b86dacb4fea6ed18ca1cbc4e83aaa26008b36a9c0590f9d60b0004a99a"
 [[settings]]
 name = "settings"
 source_path = ".claude/settings.json"
-source_hash = "b9d1a5921edaca9905c87b2f85ea6946f19bac94e9625f86ebced89fe9ff1547"
-emit_hash = "b9d1a5921edaca9905c87b2f85ea6946f19bac94e9625f86ebced89fe9ff1547"
+source_hash = "caf402241bdd83cb0ba36721d7837e353725a39915a56095c3d3a7b4dfcdb371"
+emit_hash = "caf402241bdd83cb0ba36721d7837e353725a39915a56095c3d3a7b4dfcdb371"
 
 [[skill]]
 name = "capture-friction"
@@ -99,7 +99,6 @@ format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
 templates = [{ kind = "supporting-doc", path = "*.md" }]
-guidance = "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `disable-model-invocation: true` for side-effectful workflows you want to time yourself; `user-invocable: false` for background knowledge that is not a command; `metadata` is the sanctioned home for versioning — there is no top-level `version` field."
 
 [[declaration.clause]]
 label = "root.reachable"
@@ -183,13 +182,18 @@ key_path = "hooks.<Event>"
 
 [[declaration.module]]
 member = "root"
+source_path = ".temper/binary.ts"
+import_hash = "bbefae8453962c2684cdb8fce9fd23a7f80d802cc9e26ee026745535eb2cf040"
+
+[[declaration.module]]
+member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "a24ccad885627231e9c8f1f4fca9a91ed6961ab8209d26b63f5521211bd781b1"
+import_hash = "9467b60da1ecef2dcafdef7d002d5cb551e0da15ef8526dfd640abca2181eee4"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/hooks.ts"
-import_hash = "f2a508fcb626a65eeef5aa99249e81865c79882e0bfe17138ff183232225ac1a"
+import_hash = "5ec0559b0f1e2feccc70806fd7d43a300521bd15ceed5ee45140ece92f69e128"
 
 [[declaration.module]]
 member = "root"

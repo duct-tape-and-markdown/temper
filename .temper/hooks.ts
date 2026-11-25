@@ -4,10 +4,9 @@ import { gateHook, hook } from "@dtmd/temper/claude-code";
 // Fields-only registration members: no prose, no adjacent document — each
 // folds into its `hooks.<Event>` entry in the settings.json projection.
 
-// The three gate hooks run the engine the `.temper` workspace installs
-// (`npm -C .temper install`, the fresh-clone step), never a PATH guess. The
-// engine renders each command from that one fact, anchored at the project.
-const binary = ".temper/node_modules/.bin/temper";
+// The three gate hooks run the workspace engine (`./binary.ts`); the engine
+// renders each command from that one fact, anchored at the project.
+import { binary } from "./binary.ts";
 
 /** The advisory gate report at session open — always exits zero. */
 export const hook_sessionStart = gateHook({ name: "SessionStart", binary });

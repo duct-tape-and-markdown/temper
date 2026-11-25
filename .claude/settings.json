@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "temper tap \"$CLAUDE_PROJECT_DIR\"",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v .temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \".temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && .temper/node_modules/.bin/temper tap .",
             "type": "command"
           }
         ],
@@ -33,7 +33,7 @@
       {
         "hooks": [
           {
-            "command": "temper tap \"$CLAUDE_PROJECT_DIR\"",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v .temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \".temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && .temper/node_modules/.bin/temper tap .",
             "type": "command"
           }
         ],
