@@ -1597,6 +1597,47 @@ fn a_lock_without_a_registration_entry_hash_reads_it_as_unknown_on_first_emit() 
 }
 
 #[test]
+fn check_reports_a_hand_edited_ownerless_hook_group_as_drift_on_its_hook_member() {
+    let (harness, into) = workspace("ownerless-hand-edited-group-check");
+    let payload = ownerless_settings_payload(&["PreToolUse", "SessionStart"]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert!(drift::config_stale(&into, &fresh_clause()).is_empty());
+
+    let settings = harness.join(".claude").join("settings.json");
+    hand_edit_hook_command(&settings, "PreToolUse");
+
+    let findings = drift::config_stale(&into, &fresh_clause());
+    assert_eq!(findings.len(), 1, "{findings:?}");
+    let finding = format!("{:?}", findings[0]);
+    assert!(finding.contains("`hook:PreToolUse`"), "{finding}");
+    assert!(!finding.contains("SessionStart"), "{finding}");
+    assert!(finding.contains(".claude/settings.json"), "{finding}");
+    assert!(finding.contains("re-emit"), "{finding}");
+}
+
+#[test]
+fn check_reads_an_ownerless_registration_row_with_no_hash_as_unknown() {
+    let (harness, into) = workspace("ownerless-hashless-lock-check");
+    let payload = ownerless_settings_payload(&["PreToolUse"]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let lock_path = into.join("lock.toml");
+    let mut doc: toml_edit::DocumentMut = fs::read_to_string(&lock_path).unwrap().parse().unwrap();
+    for row in doc["declaration"]["registration"]
+        .as_array_of_tables_mut()
+        .unwrap()
+        .iter_mut()
+    {
+        assert!(row.remove("emit_hash").is_some());
+    }
+    fs::write(&lock_path, doc.to_string()).unwrap();
+
+    hand_edit_hook_command(&harness.join(".claude").join("settings.json"), "PreToolUse");
+    let findings = drift::config_stale(&into, &fresh_clause());
+    assert!(findings.is_empty(), "{findings:?}");
+}
+
+#[test]
 fn emit_still_reaps_the_registration_of_a_removed_hook_member() {
     let (harness, into) = workspace("ownerless-removed-hook-reaps");
     drift::emit(

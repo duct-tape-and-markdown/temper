@@ -2775,8 +2775,13 @@ fn manifest_segment_reaps(
                     entries,
                 });
             }
-            let members =
-                drifted_registration_entries(path, build, &raw, kind_facts, prior_registrations);
+            let members = drifted_registration_entries(
+                path,
+                &build.rendered,
+                &raw,
+                kind_facts,
+                prior_registrations,
+            );
             if !members.is_empty() {
                 return Err(DriftError::OwnerlessRegistrationDrift {
                     manifest: path.to_string(),
@@ -2897,14 +2902,14 @@ fn unrecorded_registration_entries(
 /// The member addresses of the entries in an ownerless manifest a hand edit changed since
 /// the prior emit, sorted. Per `(collection, key)` the prior lock fingerprinted, an entry
 /// on disk is accounted for when it hashes to a prior row's [`RegistrationRow::emit_hash`]
-/// or to what this build renders; an unaccounted entry is drift once a fingerprinted one
-/// has vanished — the edit replaced it. A hand-added entry leaves every fingerprint in
+/// or to an entry of `rendered` (emit's build; `check`, rendering nothing, passes none);
+/// an unaccounted entry is drift once a fingerprinted one has vanished — the edit replaced it. A hand-added entry leaves every fingerprint in
 /// place and is [`unrecorded_registration_entries`]' to refuse. A prior row with no hash
 /// is unknown, never drift. The address names the drifted entry by its own lifted fields,
 /// so a hook group routes to `hook:<Event>:<matcher>`.
 fn drifted_registration_entries(
     path: &HarnessRelativePath,
-    build: &ManifestBuild,
+    rendered: &[RenderedEntry],
     raw: &str,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
     prior_registrations: &[RegistrationRow],
@@ -2964,7 +2969,7 @@ fn drifted_registration_entries(
             continue;
         }
         let rendered = |hash: &str| {
-            build.rendered.iter().any(|entry| {
+            rendered.iter().any(|entry| {
                 entry.collection == *collection && entry.key == *key && entry.hash == hash
             })
         };
@@ -4129,6 +4134,48 @@ pub fn config_stale_from_doc(
                 &source_path as &str,
                 format!(
                     "committed projection `{source_path}` (member `{member}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
+                ),
+            ));
+        }
+    }
+    findings.extend(drifted_ownerless_registrations(doc, &harness_root, clause));
+    findings
+}
+
+/// The fresh findings for hand-edited entries in manifests no member owns, one per drifted
+/// entry, named by its owning member. Only rows carrying an entry hash take part — a
+/// hashless row is unknown, never drift — and an unreadable lock or manifest yields none.
+fn drifted_ownerless_registrations(
+    doc: &DocumentMut,
+    harness_root: &Path,
+    clause: &contract::Clause,
+) -> Vec<crate::check::Diagnostic> {
+    let Ok(declarations) = declarations_from_doc(doc) else {
+        return Vec::new();
+    };
+    let facts = kind_facts_over_floor(&declarations.kinds);
+    let kind_facts: BTreeMap<&str, &KindFactRow> =
+        facts.iter().map(|row| (row.name.as_str(), row)).collect();
+    let manifests: BTreeSet<HarnessRelativePath> = declarations
+        .registrations
+        .iter()
+        .filter(|row| row.emit_hash.is_some())
+        .filter_map(|row| kind_facts.get(row.kind.as_str()))
+        .filter_map(|facts| manifest_target_path(facts))
+        .collect();
+    let mut findings = Vec::new();
+    for path in manifests {
+        let Ok(raw) = fs::read_to_string(harness_root.join(&path)) else {
+            continue;
+        };
+        for member in
+            drifted_registration_entries(&path, &[], &raw, &kind_facts, &declarations.registrations)
+        {
+            findings.push(crate::check::Diagnostic::from_clause(
+                clause,
+                &path as &str,
+                format!(
+                    "registration entry of member `{member}` in `{path}` does not match the lock's emit fingerprint — the entry was hand-edited; move the edit into the owning member's source and re-emit"
                 ),
             ));
         }
