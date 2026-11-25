@@ -2516,3 +2516,116 @@ fn explain_resolves_a_two_layer_address_composing_through_both_hosts() {
         "a one-layer spelling of a two-layer member resolves to nothing: {flattened}"
     );
 }
+
+/// The gate's findings over `roster` once with its verifiers stripped — the baseline a
+/// declared (or absent) verifier must not move.
+fn verdict_without_verifiers(
+    roster: &BTreeMap<String, Requirement>,
+    members: &[Features],
+) -> (Vec<String>, Vec<String>) {
+    let render = |roster: &BTreeMap<String, Requirement>| -> Vec<String> {
+        coverage::check(roster, members)
+            .into_iter()
+            .map(|d| format!("{} {}", d.rule, d.artifact))
+            .collect()
+    };
+    let stripped: BTreeMap<String, Requirement> = roster
+        .iter()
+        .map(|(name, r)| {
+            (
+                name.clone(),
+                Requirement {
+                    verifier: None,
+                    ..r.clone()
+                },
+            )
+        })
+        .collect();
+    (render(roster), render(&stripped))
+}
+
+#[test]
+fn explain_names_a_review_held_requirements_reader() {
+    let members = [feature("filler", &["reviewed-req"])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &members[..])]);
+    let roster = BTreeMap::from([(
+        "reviewed-req".to_string(),
+        Requirement {
+            verifier: Some(temper::compose::Verifier::Review {
+                prose: "a maintainer reads the diff".to_string(),
+            }),
+            ..req("reviewed-req", true)
+        },
+    )]);
+
+    let out = explain(&[], &by_kind, &roster, "requirement:reviewed-req");
+    assert!(
+        out.contains("Held by review: \"a maintainer reads the diff\"."),
+        "a review verifier narrates its reader's prose verbatim: {out}"
+    );
+    assert!(!out.contains("Unheld"), "{out}");
+
+    let (declared, stripped) = verdict_without_verifiers(&roster, &members);
+    assert_eq!(
+        declared, stripped,
+        "a review never moves the gate's verdict"
+    );
+}
+
+#[test]
+fn explain_names_a_requirement_with_no_verifier_as_unheld() {
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+    let roster = BTreeMap::from([("bare-req".to_string(), req("bare-req", false))]);
+
+    let out = explain(&[], &by_kind, &roster, "requirement:bare-req");
+    assert!(
+        out.contains("Unheld — no verifier is declared"),
+        "a requirement declaring no verifier narrates as unheld: {out}"
+    );
+    assert!(!out.contains("Held by"), "{out}");
+
+    let unheld: Vec<String> = coverage::check(&roster, &[])
+        .into_iter()
+        .map(|d| d.rule)
+        .collect();
+    assert!(
+        unheld.is_empty(),
+        "unheld is narration, never a finding: {unheld:?}"
+    );
+}
+
+#[test]
+fn explain_names_script_and_telemetry_verifiers() {
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+    let roster = BTreeMap::from([
+        (
+            "script-req".to_string(),
+            Requirement {
+                verifier: Some(temper::compose::Verifier::Script {
+                    path: "tests/verify.sh".to_string(),
+                }),
+                ..req("script-req", false)
+            },
+        ),
+        (
+            "tap-req".to_string(),
+            Requirement {
+                verifier: Some(temper::compose::Verifier::Telemetry {
+                    events: vec!["SkillInvoked".to_string()],
+                }),
+                ..req("tap-req", false)
+            },
+        ),
+    ]);
+
+    let script = explain(&[], &by_kind, &roster, "requirement:script-req");
+    assert!(
+        script.contains("Held by script: `tests/verify.sh`."),
+        "{script}"
+    );
+    let tap = explain(&[], &by_kind, &roster, "requirement:tap-req");
+    assert!(
+        tap.contains("Held by telemetry over `SkillInvoked`."),
+        "{tap}"
+    );
+}

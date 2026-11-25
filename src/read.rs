@@ -2116,9 +2116,10 @@ fn requirement_detail(
     }
     let _ = writeln!(
         &mut out,
-        "  {}\n",
+        "  {}",
         coverage_state(requirement.required, satisfiers.len())
     );
+    let _ = writeln!(&mut out, "  {}\n", held_by(requirement.verifier.as_ref()));
 
     // Append field strand if the requirement has a telemetry verifier (before early return)
     let mut telemetry_strand = String::new();
@@ -2247,6 +2248,23 @@ fn satisfiers_of(
     }
 
     satisfiers
+}
+
+/// What holds a requirement's behavioral remainder — its declared verifier, or that it
+/// is unheld. Narration only: no species, and no absence of one, ever moves `check`'s
+/// verdict, so an unheld requirement is never a finding unless the author attaches one.
+fn held_by(verifier: Option<&compose::Verifier>) -> String {
+    match verifier {
+        Some(compose::Verifier::Review { prose }) => format!("Held by review: \"{prose}\"."),
+        Some(compose::Verifier::Script { path }) => format!("Held by script: `{path}`."),
+        Some(compose::Verifier::Telemetry { events }) => {
+            let events: Vec<String> = events.iter().map(|e| format!("`{e}`")).collect();
+            format!("Held by telemetry over {}.", events.join(", "))
+        }
+        None => "Unheld — no verifier is declared, so nothing judges its behavior \
+                 (never a finding unless a clause makes it one)."
+            .to_string(),
+    }
 }
 
 /// The coverage-state clause for a requirement given whether it is `required` and how
