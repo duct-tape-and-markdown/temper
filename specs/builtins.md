@@ -9,7 +9,8 @@ author's to invent — and the author adopts them by import. A built-in's
 locus is the harness's too: it claims exactly the paths the harness loads as
 that kind, cited, and where two loaders' documented reach meets, the kind
 whose loader the documentation names owns the path and the other excludes
-it. Kind identity
+it. A relocated built-in keeps each exclusion its new template still
+reaches, since moving one loader's reach moves no other's. Kind identity
 travels by import, never by string: two providers are two modules, so
 collision is impossible and no name-qualification scheme exists. One
 harness holds one kind per name: a corpus kind of a built-in's name

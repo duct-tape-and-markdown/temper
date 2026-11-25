@@ -53,7 +53,8 @@ producer. The gate reads declarations from nowhere but the lock family — the
 committed lock, the read-time rows of local-locus members whose kinds it
 declares, and the locks the invocation joins; no verb compiles a committed
 declaration row anywhere else. Two row families: **provenance** — per member,
-source path plus content hash, the byte hash of each emitted artifact, and
+source path plus content hash, the byte hash of each emitted artifact and
+of each registration entry emit renders into a manifest no member owns, and
 the hash of each module in the program's closure: the fingerprints drift
 compares — and **declaration rows** — the program's
 erased declarations and the rows emit derives from layout sources. The
@@ -100,7 +101,9 @@ only paths the lock names as projections, so with no lock nothing is one.
 ## Telemetry
 
 A telemetry declaration projects as tap hook registrations in the emitted
-manifest — the same rows any hook rides. The tap appends event records to its
+manifest — the same rows any hook rides — and states the temper binary its
+taps run, `temper` on the path unless declared, each tap command anchored
+at the project as a gate command is (`adoption.md`, "Install"). The tap appends event records to its
 own log — the lock's category, never a member's: machine-written,
 bespoke-parsed, versioned in lockstep with the one binary that both writes
 and reads it. The log is per-machine, uncommitted, never an emit input or
