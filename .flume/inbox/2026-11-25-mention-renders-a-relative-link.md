@@ -1,3 +1,0 @@
-# A mention can render as the target's path relative to the host
-
-From Cascade (2026-11-25): a skill router needs "read `landing-a-domain.md` when …", but `mentionOf` renders the bare name. So the router's links were hand-written, which is a typed reference spelled twice (0078). `specs/model/contract.md`, "edge": a mention is a rendering claim. The decision 0093 router (a skill index pointing at its supporting docs) needs this too. Add a mention rendering that emits the target's projection path relative to the host's, for file members (`mentionOf(doc, { as: "path" })` or similar), resolved at emit. It refuses when the target projects no file.
