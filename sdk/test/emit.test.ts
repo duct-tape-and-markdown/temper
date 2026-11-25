@@ -2528,3 +2528,103 @@ test("two hook members on one event share an address and both emit — a registr
     ],
   );
 });
+
+// ---------------------------------------------------------------------------
+// Guidance rules — a guided corpus kind's counsel projects as a path-scoped rule over its
+// locus, synthesized like the tap hooks; a shipped built-in the program only imports
+// projects none.
+// ---------------------------------------------------------------------------
+
+const SPEC_COUNSEL = "State one claim per section; cite the decision that settled it.";
+
+const specDoc = kind<{ readonly title?: string }>({
+  name: "spec-doc",
+  locus: { kind: "at", root: "specs", glob: "**/*.md" },
+  format: "yaml-frontmatter",
+  unitShape: "file",
+  registration: [{ via: "always" }],
+  guidance: SPEC_COUNSEL,
+});
+
+function guidanceRuleMembers(result: ReturnType<typeof emit>) {
+  return result.members.filter((member) => member.kind === "rule" && member.name.startsWith("temper-guidance-"));
+}
+
+test("a guided custom kind emits one rule whose paths are its locus and whose body is its guidance", () => {
+  const result = emit(harness({ members: [specDoc({ name: "intent", prose: text`# Intent` })] }));
+
+  const rules = guidanceRuleMembers(result);
+  assert.equal(rules.length, 1);
+  assert.equal(rules[0]!.name, "temper-guidance-spec-doc");
+  assert.deepEqual(rules[0]!.fields, [["paths", ["specs/**/*.md"]]]);
+  assert.equal(rules[0]!.body, SPEC_COUNSEL);
+  // The rule reaches the lock as a member of the built-in `rule` kind, which is now in play.
+  assert.ok(result.declarations.kinds.some((row) => row.name === "rule"));
+});
+
+test("a guided kind with no member yet still projects its rule — the counsel teaches before the first document", () => {
+  const result = emit(harness({ members: [], expect: [{ kind: specDoc, clauses: [] }] }));
+  assert.deepEqual(
+    guidanceRuleMembers(result).map((member) => member.name),
+    ["temper-guidance-spec-doc"],
+  );
+});
+
+test("importing a built-in unrelocated emits no guidance rule, though the built-in carries guidance", () => {
+  assert.ok(rule.facts.guidance !== undefined && memory.facts.guidance !== undefined);
+  const result = emit(
+    harness({
+      members: [
+        rule({ name: "rust", prose: text`# Rust` }),
+        memory({ name: "root", prose: text`# Root` }),
+        skill({ name: "coordinate", description: "Coordinate the work.", prose: text`# Coordinate` }),
+      ],
+    }),
+  );
+  assert.deepEqual(guidanceRuleMembers(result), []);
+});
+
+test("an embedded guided kind's rule scopes over the loci of the hosts that admit it, stated once", () => {
+  const counsel = "A decision states its rationale, not just its verdict.";
+  const guidedDecision = kind<Record<never, never>>({
+    name: "guided-decision",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    guidance: counsel,
+  });
+  const result = emit(
+    harness({
+      members: [],
+      expect: [
+        { kind: memory, clauses: [] },
+        { kind: specDoc, clauses: [] },
+      ],
+      admit: [
+        { host: memory, admits: [guidedDecision] },
+        { host: specDoc, admits: [guidedDecision] },
+      ],
+    }),
+  );
+  const rule = guidanceRuleMembers(result).find((member) => member.name === "temper-guidance-guided-decision");
+  assert.ok(rule, "the embedded kind's counsel projects one rule");
+  assert.deepEqual(rule.fields, [["paths", ["**/CLAUDE.md", "specs/**/*.md"]]]);
+  assert.equal(rule.body, counsel);
+});
+
+test("an embedded guided kind nothing hosts projects no rule — it has no locus to scope one over", () => {
+  const orphan = kind<Record<never, never>>({
+    name: "orphan",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    guidance: "Never reaches a document.",
+  });
+  const result = emit(harness({ members: [], expect: [{ kind: orphan, clauses: [] }] }));
+  assert.deepEqual(guidanceRuleMembers(result), []);
+});
+
+test("an authored rule at a synthesized guidance rule's name refuses loud", () => {
+  const h = harness({
+    members: [specDoc({ name: "intent" }), rule({ name: "temper-guidance-spec-doc", prose: text`# Mine` })],
+  });
+  assert.throws(() => emit(h), /rule `temper-guidance-spec-doc`: the name is the guidance rule temper synthesizes/);
+});

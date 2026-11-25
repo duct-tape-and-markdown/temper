@@ -35,6 +35,7 @@ import {
   mergedRegistrationRows,
   settingsRows,
   uniqueMap,
+  withGuidanceRules,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
 import {
@@ -1072,7 +1073,8 @@ export function loadedLocalModules(): string[] {
  * against the harness's declared values). Double-emit verified — nondeterministic
  * authoring is a loud failure, never a silent churn.
  */
-export function emit(harness: Harness): EmitResult {
+export function emit(program: Harness): EmitResult {
+  const harness = withGuidanceRules(program);
   refuseBrokenSource(harness);
   const resolve: ResolveOptions = {
     mentionable: declaredAddresses(harness),

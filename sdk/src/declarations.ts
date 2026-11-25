@@ -17,7 +17,9 @@ import type { EmbeddedMemberValue, KindFacts, Layout, Member, Registration } fro
 import { manifestOf } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
-import { isTextSpan, resolveEmbeddedLeaves } from "./prose.js";
+import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
+import * as shippedBuiltins from "./builtins.js";
+import { dial } from "./dial.js";
 import {
   GATE_BINARY_KEY,
   HOOK_HANDLER_KEY,
@@ -27,6 +29,7 @@ import {
   gateHookBinary,
   hook,
   hookCollectionKey,
+  rule,
   tapHookRegistration,
 } from "./builtins.js";
 import { leafAddress, memberAddress, nestedAddress } from "./member-address.js";
@@ -580,6 +583,127 @@ function kindFactKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
       facts.cite !== undefined ||
       facts.leaves !== undefined,
   );
+}
+
+/**
+ * Every kind temper ships, by facts identity — what a program reaches by import alone.
+ * Read off the provider module's exports rather than listed, so a built-in added there
+ * can never project its shipped counsel by being forgotten here.
+ */
+const SHIPPED_KINDS: ReadonlySet<KindFacts> = new Set(
+  [...Object.values(shippedBuiltins), dial].flatMap((value: unknown) =>
+    typeof value === "function" && "facts" in value ? [(value as { readonly facts: KindFacts }).facts] : [],
+  ),
+);
+
+/** The name prefix every synthesized guidance rule takes — `temper-guidance-<kind>`. */
+const GUIDANCE_RULE_PREFIX = "temper-guidance-";
+
+/** The synthesized guidance rules, so a harness already carrying them is not re-synthesized. */
+const SYNTHESIZED_RULES = new WeakSet<Member>();
+
+/**
+ * The repository-relative file globs a kind's members occupy — the `paths` a rule scoped
+ * to them lists. An `at` kind is its own root and glob (an `exclude` is not expressible
+ * in `paths`, so the scope over-reaches it, which advisory counsel tolerates); a nested
+ * file kind sits at each templating host's unit joined with the template's pattern; an
+ * embedded kind owns no file and takes the loci of every host that templates or admits
+ * it, so its counsel is stated once over all of them rather than per host.
+ */
+function locusGlobs(
+  facts: KindFacts,
+  kinds: readonly KindFacts[],
+  admissions: AdmissionsByHost,
+  seen: ReadonlySet<string> = new Set(),
+): string[] {
+  const locus = facts.locus;
+  if (locus.kind === "at") return [[locus.root, locus.glob].filter((part) => part !== "" && part !== ".").join("/")];
+  if (seen.has(facts.name)) return [];
+  const visiting = new Set([...seen, facts.name]);
+  const globs = new Set<string>();
+  for (const host of kinds) {
+    const layers = (host.templates ?? []).filter((template) => template.kind.key === facts.name);
+    if (locus.kind === "nested-file") {
+      for (const layer of layers) {
+        if (layer.path === undefined || host.unitShape !== "directory") continue;
+        for (const hostGlob of locusGlobs(host, kinds, admissions, visiting)) {
+          const slash = hostGlob.lastIndexOf("/");
+          if (slash >= 0) globs.add(`${hostGlob.slice(0, slash)}/${layer.path}`);
+        }
+      }
+    } else if (
+      layers.some((layer) => layer.path === undefined) ||
+      admissions.get(host.name)?.has(facts.name) === true
+    ) {
+      for (const hostGlob of locusGlobs(host, kinds, admissions, visiting)) globs.add(hostGlob);
+    }
+  }
+  return [...globs].sort(compareStrings);
+}
+
+/**
+ * One `rule` member per **guided corpus kind**: a kind in play that carries `guidance` and
+ * that the program authored, never one it only imported (a shipped built-in projects
+ * nothing — every harness would otherwise get rules it never asked for — and a relocated
+ * built-in carries only what its relocation declares). Its `paths` are the kind's
+ * {@link locusGlobs}, its body the counsel, so the runtime hands the counsel to an agent
+ * the first time a session touches a member's document. A kind whose locus resolves to no
+ * file (an embedded kind nothing hosts) has nowhere to scope a rule and projects none.
+ *
+ * Synthesized the way telemetry synthesizes tap hooks: memberless in the program, an
+ * ordinary member at the seam. It takes the program's own `rule` kind when one is in play
+ * (a relocated `rule` places it at the relocated root), else the built-in.
+ *
+ * # Throws
+ * If an authored `rule` member already holds a synthesized rule's name — the
+ * `temper-guidance-` names are temper's, so two writers at one file is a collision.
+ */
+function guidanceRules(harness: Harness): Member[] {
+  const kinds = kindsInPlay(harness);
+  const admissions = admissionsByHost(harness);
+  const ruleFacts = kinds.find((facts) => facts.name === rule.key) ?? rule.facts;
+  const authored = new Set(harness.members.filter((member) => member.kind === rule.key).map((member) => member.name));
+  const rules: Member[] = [];
+  for (const facts of kinds) {
+    const guidance = facts.guidance;
+    if (guidance === undefined || guidance.trim() === "") continue;
+    if (SHIPPED_KINDS.has(facts) || facts.relocates !== undefined) continue;
+    const paths = locusGlobs(facts, kinds, admissions);
+    if (paths.length === 0) continue;
+    const name = `${GUIDANCE_RULE_PREFIX}${facts.name}`;
+    if (authored.has(name)) {
+      throw new Error(
+        `rule \`${name}\`: the name is the guidance rule temper synthesizes for kind ` +
+          `\`${facts.name}\` — the \`${GUIDANCE_RULE_PREFIX}\` names are temper's own, so ` +
+          `rename the authored rule.`,
+      );
+    }
+    const member: Member = {
+      kind: rule.key,
+      facts: ruleFacts,
+      name,
+      prose: span(guidance),
+      fields: [["paths", paths]],
+      satisfies: [],
+      requires: {},
+      needs: [],
+      inputs: [],
+    };
+    SYNTHESIZED_RULES.add(member);
+    rules.push(member);
+  }
+  return rules;
+}
+
+/**
+ * `harness` with its {@link guidanceRules} joined into the member roster — the one view
+ * every compiled face reads, so the declaration rows and the projected members agree on
+ * what was synthesized. Idempotent: a harness already carrying them comes back as is.
+ */
+export function withGuidanceRules(harness: Harness): Harness {
+  if (harness.members.some((member) => SYNTHESIZED_RULES.has(member))) return harness;
+  const rules = guidanceRules(harness);
+  return rules.length === 0 ? harness : { ...harness, members: [...harness.members, ...rules] };
 }
 
 /**
@@ -1208,11 +1332,12 @@ function mentionScope(harness: Harness): MentionScope {
  * or `extent` clause, so a whole compile goes through `emit`, never this alone.
  */
 export function compileDeclarations(
-  harness: Harness,
+  program: Harness,
   placements?: EdgePlacements,
   extents?: RenderedExtents,
   modules: readonly string[] = [],
 ): Declarations {
+  const harness = withGuidanceRules(program);
   const allKinds = kindsInPlay(harness);
   const admissions = admissionsByHost(harness);
   const clauses: ClauseRow[] = [];
