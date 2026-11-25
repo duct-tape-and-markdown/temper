@@ -3,11 +3,13 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "COMMAND-CLAIMS-ITS-NESTED-PLACEMENTS",
-      "RELOCATION-TAKES-AN-AUTHORED-EXCLUDE"
+      "COMMAND-CLAIMS-ITS-NESTED-PLACEMENTS"
     ]
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/builtin_kind.rs",
@@ -65,7 +67,8 @@
         "path": "tests/it/builtin_lock_frozen.rs",
         "description": "re-derived lock agrees"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "skill claims **/.claude/skills/*/SKILL.md; a nested skill's identity prefixes its subdirectory segments joined with : (skill:apps:web:deploy)",
   "per": {
@@ -80,5 +83,6 @@
   "pins": [
     "a nested harness's skills stay outside the outer harness"
   ],
+  "laneTests": [],
   "notes": "Blocked on the authored exclude so the dogfood's fixture skill has its remedy the tick this lands. Watch: a clause tying a skill's `name` field to its identity, and memory's **/CLAUDE.md meeting a nested skill's companions — surface either as a question rather than choose."
 }
