@@ -102,7 +102,10 @@ export type Locus =
       readonly commitment?: "local";
       /** Paths the template would govern that the kind leaves ungoverned — each a
        * starless, harness-relative literal the template matches (`domains/README.md`
-       * under `domains` + `*.md`). Anything else is refused when the engine loads the lock. */
+       * under `domains` + `*.md`), or a bare directory (no trailing `/`) the template
+       * reaches beneath, leaving every path under it ungoverned (`domains/legacy` under
+       * `domains` + `* /SKILL.md`, read without the space). Anything else is refused when
+       * the engine loads the lock. */
       readonly exclude?: readonly string[];
     }
   | { readonly kind: "embedded" }

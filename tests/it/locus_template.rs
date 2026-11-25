@@ -1,7 +1,8 @@
 //! A file locus is a placement template: load refuses a custom kind whose `governs` glob
 //! carries any pattern syntax beyond literal segments, one `*`, and a leading `**/`, and
 //! every built-in kind's glob loads under the same rule. A locus less its declared
-//! excluded paths leaves them ungoverned at discovery, `check` and both guard edges.
+//! excluded paths — a directory among them excluding what lies beneath it — leaves them
+//! ungoverned at discovery, `check` and both guard edges.
 
 use std::collections::BTreeMap;
 
@@ -275,4 +276,126 @@ fn the_coverage_advisory_does_not_count_a_path_its_kind_excludes_as_governed() {
         [".claude/README.md"],
         "the excluded README is unclaimed, the admitted sibling is governed"
     );
+}
+
+/// A `skill`-shaped kind at `skills` + `*/SKILL.md` excluding the directory `exclude`.
+fn skill_excluding(exclude: &str) -> KindFactRow {
+    KindFactRow {
+        unit_shape: Some("directory".to_string()),
+        exclude: vec![exclude.to_string()],
+        ..common::kind_facts("tool", "skills", "*/SKILL.md")
+    }
+}
+
+#[test]
+fn an_excluded_directory_leaves_every_path_beneath_it_ungoverned() {
+    let root = common::tmpdir("locus-exclude-directory");
+    common::write_sibling(&root, "skills/legacy/SKILL.md", "# Legacy\n");
+    common::write_sibling(&root, "skills/live/SKILL.md", "# Live\n");
+    let kind = CustomKind::from_kind_fact_row(&skill_excluding("skills/legacy")).unwrap();
+
+    // Discovery walks past the excluded directory.
+    let disc = import::Discovery::new(&root);
+    let files = import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        import::LocalOverride::Honored,
+    );
+    let relative: Vec<_> = files
+        .iter()
+        .map(|file| {
+            file.strip_prefix(temper::path::normalize_path(&root))
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+        })
+        .collect();
+    assert_eq!(relative, ["skills/live/SKILL.md"]);
+
+    // Membership — the one home every surface asks — subtracts the whole directory, by
+    // whole components only.
+    assert!(!kind.locus_admits("skills/legacy/SKILL.md"));
+    assert!(kind.locus_admits("skills/live/SKILL.md"));
+    assert!(kind.locus_admits("skills/legacy-two/SKILL.md"));
+
+    // Check binds nothing beneath it.
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![skill_excluding("skills/legacy")],
+            clauses: vec![common::clause("locus-declared", "required")],
+            ..Declarations::default()
+        },
+    );
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        run.output.contains("skills/live/SKILL.md"),
+        "the undeclared member at the locus is found, got:\n{}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("skills/legacy"),
+        "nothing beneath the excluded directory draws a finding, got:\n{}",
+        run.output
+    );
+
+    // The guard binds nothing for a write beneath it, and still binds the live member.
+    let root = common::tmpdir("locus-exclude-directory-guard");
+    common::GuardLock::declaring("block")
+        .kind_row(skill_excluding("skills/legacy"))
+        .member("rule", "rust", ".claude/rules/rust.md", "abc", "abc")
+        .write(&root);
+    let (code, output) = common::run_guard(
+        &root,
+        &common::guard_write_payload("skills/legacy/SKILL.md"),
+    );
+    assert_eq!(
+        code,
+        Some(0),
+        "a write beneath the excluded directory is allowed, got: {output}"
+    );
+    let (code, output) =
+        common::run_guard(&root, &common::guard_write_payload("skills/live/SKILL.md"));
+    assert_eq!(
+        code,
+        Some(2),
+        "a write at the locus is still bound, got: {output}"
+    );
+}
+
+#[test]
+fn an_exclude_naming_a_directory_the_template_reaches_beneath_loads() {
+    for dir in ["skills/legacy", "skills"] {
+        CustomKind::from_kind_fact_row(&skill_excluding(dir))
+            .unwrap_or_else(|err| panic!("`{dir}` is a directory the template reaches: {err}"));
+    }
+    // Under a leading `**/`, a directory at any depth is reached.
+    let row = KindFactRow {
+        exclude: vec!["vendor/deep".to_string()],
+        ..common::kind_facts("memo", ".", "**/MEMO.md")
+    };
+    CustomKind::from_kind_fact_row(&row).expect("an any-depth locus reaches every directory");
+}
+
+#[test]
+fn an_exclude_naming_a_directory_the_template_never_reaches_refuses_at_load() {
+    for dir in [
+        "skills/legacy/assets",
+        "docs",
+        "skills/legacy/",
+        "skills//legacy",
+    ] {
+        let err = CustomKind::from_kind_fact_row(&skill_excluding(dir))
+            .expect_err("a directory the template never reaches beneath must refuse");
+        let message = err.to_string();
+        assert!(
+            message.contains(dir) && message.contains(EXCLUDE_COLUMN),
+            "the refusal names `{dir}` and the rule, got: {message}"
+        );
+        assert!(
+            message.contains("or a directory it reaches beneath"),
+            "the rule names the directory form an author may spell, got: {message}"
+        );
+    }
 }

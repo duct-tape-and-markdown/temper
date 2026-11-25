@@ -133,7 +133,8 @@ pub struct CustomKind {
     /// declared content and format. Read back off the row's `commitment` column.
     pub commitment: Option<Commitment>,
     /// The file locus's declared **excluded** paths — harness-relative, each a starless
-    /// path the [`governs`](CustomKind::governs) template matches, which no member of
+    /// path the [`governs`](CustomKind::governs) template matches or a directory it
+    /// reaches beneath (excluding every path under it), which no member of
     /// the kind owns: discovery, `locus-declared` and the guard all leave it ungoverned
     /// ([`locus_admits`](CustomKind::locus_admits)). Read back off the row's `exclude` column.
     pub excluded: Vec<String>,
@@ -853,7 +854,8 @@ pub fn locus_pattern(root: &str, glob: &str) -> String {
 
 /// **Locus membership** — whether `harness_relative`, a `/`-separated harness-relative
 /// path, is in the file locus whose whole pattern is `pattern` ([`locus_pattern`]): the
-/// template matches it and it is none of the locus's `excluded` paths. The one home for
+/// template matches it and it is neither one of the locus's `excluded` paths nor beneath
+/// one (an excluded directory subtracts every path under it). The one home for
 /// "is this path in a kind's file locus": discovery, emit's placement, the guard and the
 /// coverage advisory all ask it here, so no site can admit a path another refuses.
 ///
@@ -863,9 +865,47 @@ pub fn locus_pattern(root: &str, glob: &str) -> String {
 /// kind-holding spelling. An uncompilable pattern admits nothing.
 #[must_use]
 pub fn locus_admits(pattern: &str, excluded: &[String], harness_relative: &str) -> bool {
-    !excluded.iter().any(|path| path == harness_relative)
+    !excluded
+        .iter()
+        .any(|path| is_at_or_beneath(harness_relative, path))
         && crate::glob::compile_glob(pattern)
             .is_some_and(|matcher| matcher.is_match(harness_relative))
+}
+
+/// Whether `path` is `excluded` itself or lies beneath it as a directory — whole
+/// `/`-separated components only, so `domains/legacy` never subtracts `domains/legacy.md`.
+fn is_at_or_beneath(path: &str, excluded: &str) -> bool {
+    path.strip_prefix(excluded)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+}
+
+/// Whether the locus `pattern` ([`locus_pattern`], a placement template) matches some path
+/// strictly beneath the directory `dir` — the test that makes a directory exclusion
+/// subtract something. The template's literal segments and its one `*` are matched per
+/// segment against `dir`'s leading components; under a leading `**/` the directory may
+/// sit at any depth above the template's body, so any directory a match can descend
+/// through counts.
+fn template_reaches_beneath(pattern: &str, dir: &str) -> bool {
+    let (anywhere, body) = match pattern.strip_prefix("**/") {
+        Some(body) => (true, body),
+        None => (false, pattern),
+    };
+    let template: Vec<&str> = body.split('/').collect();
+    let dir: Vec<&str> = dir.split('/').collect();
+    let prefix_matches = |components: &[&str]| {
+        components.len() < template.len()
+            && components
+                .iter()
+                .zip(&template)
+                .all(|(component, segment)| {
+                    crate::glob::compile_glob(segment).is_some_and(|m| m.is_match(component))
+                })
+    };
+    if anywhere {
+        (0..=dir.len()).any(|start| prefix_matches(&dir[start..]))
+    } else {
+        prefix_matches(&dir)
+    }
 }
 
 /// The column a non-template `governs_glob` refuses under, spelled to name the rule it
@@ -956,8 +996,10 @@ pub(crate) fn at_locus_is_under_workspace(root: &str, commitment: Option<Commitm
 }
 
 /// Lift a [`KindFactRow`]'s `exclude` column: each entry must be a starless literal path
-/// the row's own file locus template matches — a pattern would subtract a set no author
-/// can enumerate, and a path off the locus (or a kind with no locus) subtracts nothing.
+/// the row's own file locus template matches, or a starless directory the template
+/// reaches beneath (subtracting every path under it) — a pattern would subtract a set no
+/// author can enumerate, and a path off the locus (or a kind with no locus) subtracts
+/// nothing. A directory is spelled bare, with no trailing `/`: an empty segment refuses.
 ///
 /// # Errors
 ///
@@ -970,9 +1012,11 @@ fn excluded_from_row(row: &KindFactRow) -> Result<Vec<String>, LockRowError> {
         .zip(row.governs_glob.as_ref())
         .map(|(root, glob)| locus_pattern(root, glob));
     for path in &row.exclude {
-        let starless = !path.contains(['*', '?', '[', ']', '{', '}', '\\']);
+        let starless = !path.contains(['*', '?', '[', ']', '{', '}', '\\'])
+            && !path.split('/').any(str::is_empty);
         let governed = pattern.as_deref().is_some_and(|pattern| {
             crate::glob::compile_glob(pattern).is_some_and(|matcher| matcher.is_match(path))
+                || template_reaches_beneath(pattern, path)
         });
         if !(starless && governed) {
             return Err(LockRowError::Vocabulary {
@@ -987,8 +1031,7 @@ fn excluded_from_row(row: &KindFactRow) -> Result<Vec<String>, LockRowError> {
 
 /// The column a malformed `exclude` entry refuses under, spelled to name the rule it
 /// broke.
-pub const EXCLUDE_COLUMN: &str =
-    "exclude (a starless, harness-relative path the kind's file locus template matches)";
+pub const EXCLUDE_COLUMN: &str = "exclude (a starless, harness-relative path the kind's file locus template matches, or a directory it reaches beneath)";
 
 /// Lift a [`KindFactRow`]'s declared commitment label into its typed [`Commitment`] —
 /// `None` for a kind whose file locus is committed (the absent column).
