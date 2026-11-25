@@ -320,6 +320,7 @@ fn the_install_wired_session_start_command_gates_the_full_declared_model() {
         .arg("-c")
         .arg(&cmd)
         .current_dir(&harness)
+        .env_remove("CLAUDE_PROJECT_DIR")
         .output()
         .unwrap();
 

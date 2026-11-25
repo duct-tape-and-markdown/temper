@@ -175,6 +175,119 @@ fn one_gate_finding(findings: &[temper::check::Diagnostic]) -> &str {
 // discovery
 // ---------------------------------------------------------------------------
 
+/// A project root carrying a stand-in temper at `./bin/temper` that prints the directory
+/// it ran in and its arguments, plus a `sub/` directory carrying its own stand-in that
+/// prints `sub` first — so the output names which binary ran, and where.
+#[cfg(unix)]
+fn gate_command_project(label: &str) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let root = common::tmpdir(label).canonicalize().unwrap();
+    for (at, tag) in [(root.clone(), "root"), (root.join("sub"), "sub")] {
+        let bin = at.join("bin").join("temper");
+        fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        fs::write(&bin, format!("#!/bin/sh\necho \"{tag} $PWD $*\"\n")).unwrap();
+        fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    root
+}
+
+/// Runs `command` through `sh -c` in `cwd`, as Claude Code runs a hook, with
+/// `CLAUDE_PROJECT_DIR` at `project_dir` or unset; returns stdout, asserting success.
+#[cfg(unix)]
+fn run_gate_command(command: &str, cwd: &Path, project_dir: Option<&Path>) -> String {
+    let mut sh = Command::new("/bin/sh");
+    sh.arg("-c")
+        .arg(command)
+        .current_dir(cwd)
+        .env_remove("CLAUDE_PROJECT_DIR")
+        .stdin(std::process::Stdio::null());
+    if let Some(dir) = project_dir {
+        sh.env("CLAUDE_PROJECT_DIR", dir);
+    }
+    let output = sh.output().unwrap();
+    assert!(
+        output.status.success(),
+        "{command}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).unwrap()
+}
+
+/// Each gate hook's event and the arguments its rendered command passes temper.
+#[cfg(unix)]
+const GATE_EVENTS: [(&str, &str); 3] = [
+    ("SessionStart", "check . --reporter session-start"),
+    ("PreToolUse", "guard ."),
+    ("PostToolUse", "guard ."),
+];
+
+#[cfg(unix)]
+#[test]
+fn a_rendered_gate_command_run_from_a_subdirectory_invokes_temper_at_the_project_root() {
+    let root = gate_command_project("gate-anchored-root");
+    for (event, args) in GATE_EVENTS {
+        let command = install::gate_hook_command(event, "./bin/temper").unwrap();
+        let stdout = run_gate_command(&command, &root.join("sub"), Some(&root));
+        assert_eq!(
+            stdout.trim_end(),
+            format!("root {} {args}", root.display()),
+            "{event}: the relative binary and `.` resolve at the project root"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_rendered_gate_command_with_the_project_dir_unset_runs_where_it_is_invoked() {
+    let root = gate_command_project("gate-anchored-unset");
+    let sub = root.join("sub");
+    for (event, args) in GATE_EVENTS {
+        let command = install::gate_hook_command(event, "./bin/temper").unwrap();
+        let stdout = run_gate_command(&command, &sub, None);
+        assert_eq!(stdout.trim_end(), format!("sub {} {args}", sub.display()));
+    }
+}
+
+#[test]
+fn a_gate_command_in_the_unanchored_form_reads_as_no_rendered_gate() {
+    // A settings document wiring temper's session-start command in the spelling from
+    // before the project anchor: the probe and the verb, no `cd`. It is not the engine's
+    // rendering, so the gate reads as not installed and install wires the anchored one.
+    let anchored = temper::install::SESSION_START_COMMAND;
+    let unanchored = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start";
+    let root = write_harness("gate-unanchored", false);
+    let settings_path = root.join(".claude").join("settings.json");
+    let unanchored_settings = serde_json::to_string_pretty(&serde_json::json!({
+        "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": unanchored } ] } ] }
+    }))
+    .unwrap();
+    fs::write(&settings_path, format!("{unanchored_settings}\n")).unwrap();
+    fs::create_dir_all(root.join(".temper")).unwrap();
+
+    let message = one_gate_finding(&gate_installed(&root)).to_string();
+    assert!(
+        message.contains("session-start hook"),
+        "an unanchored command is no installed gate, got: {message}"
+    );
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(
+        outcome_of(&outcome, temper::install::Placement::SessionStart),
+        ApplyOutcome::Applied
+    );
+    let json: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+    let commands: Vec<&str> = json["hooks"]["SessionStart"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|group| group["hooks"][0]["command"].as_str())
+        .collect();
+    assert_eq!(commands, [unanchored, anchored]);
+    assert!(gate_installed(&root).is_empty());
+}
+
 #[test]
 fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
     use temper::install::{
@@ -197,7 +310,7 @@ fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
     assert_eq!(
         gate_hook_command("PreToolUse", "./node_modules/.bin/temper").as_deref(),
         Some(
-            "command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper guard ."
+            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper guard ."
         )
     );
 
@@ -205,7 +318,7 @@ fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
     assert_eq!(
         gate_hook_command("SessionStart", "/opt/my tools/it's/temper").as_deref(),
         Some(
-            "command -v '/opt/my tools/it'\\''s/temper' >/dev/null 2>&1 || { echo '/opt/my tools/it'\\''s/temper: command not found' >&2; exit 127; } && '/opt/my tools/it'\\''s/temper' check . --reporter session-start"
+            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v '/opt/my tools/it'\\''s/temper' >/dev/null 2>&1 || { echo '/opt/my tools/it'\\''s/temper: command not found' >&2; exit 127; } && '/opt/my tools/it'\\''s/temper' check . --reporter session-start"
         )
     );
 
@@ -4160,7 +4273,7 @@ fn guard_hook_fails_loud_when_temper_not_on_path() {
     let cmd = temper::install::GUARD_COMMAND;
     let output = Command::new("/bin/sh")
         .arg("-c")
-        .arg(format!("echo '{payload}' | {cmd}"))
+        .arg(format!("echo '{payload}' | {{ {cmd}; }}"))
         .current_dir(&harness)
         .env_clear()
         .output()

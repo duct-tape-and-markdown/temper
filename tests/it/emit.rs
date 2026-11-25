@@ -1096,7 +1096,7 @@ fn a_gate_hook_with_a_declared_binary_projects_a_command_running_that_binary() {
     // Every gate hook probes, names and runs the binary it declared — the workspace path,
     // resolved as itself rather than looked up on the PATH.
     let (manifest, [session_start, guard, post_guard]) = projected_gate_commands(&harness);
-    let probe = "command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper";
+    let probe = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper";
     assert_eq!(
         session_start,
         format!("{probe} check . --reporter session-start")

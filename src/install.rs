@@ -128,7 +128,7 @@ fn sdk_version_range() -> &'static str {
 /// Guarded by a PATH-resolvability check: if `temper` is not found on PATH,
 /// exits non-zero with a clear error message naming the missing binary, per the
 /// fail-loud invariant.
-pub const SESSION_START_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start";
+pub const SESSION_START_COMMAND: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start";
 
 /// The placement kind and its display labels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -191,7 +191,7 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 /// fail-loud invariant.
 ///
 /// Public so the guard-hook acceptance can drive the exact wired command.
-pub const GUARD_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
+pub const GUARD_COMMAND: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
 
 /// The temper binary a gate hook runs when its member declares none — `temper`, resolved
 /// on the PATH. A gate hook member states one fact, the binary it runs, and this is that
@@ -234,8 +234,17 @@ fn shell_word(word: &str) -> std::borrow::Cow<'_, str> {
     }
 }
 
+/// The prefix every gate command opens with: enter the project root Claude Code names, so
+/// a relative binary and the `.` target resolve there whatever directory the session has
+/// `cd`'d to; with the variable unset, stay where invoked. A failed `cd` exits on its own
+/// rather than chaining with `&&`, which would fall into the probe's "command not found"
+/// branch and misreport the failure as a missing binary.
+/// (`CLAUDE_PROJECT_DIR`, double-quoted: `code.claude.com/docs/en/hooks`, retrieved
+/// 2026-11-25.)
+const PROJECT_ANCHOR: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; ";
+
 /// The exec-form command a gate hook firing `verb` runs with `binary` as temper: the
-/// resolvability probe (`command -v`, so a bare name resolves on the PATH and a path
+/// project anchor ([`PROJECT_ANCHOR`]), the resolvability probe (`command -v`, so a bare name resolves on the PATH and a path
 /// resolves as itself), the fail-loud exit 127 naming the binary it could not find, then
 /// the verb. The engine's one home for rendering a gate command (0073): at
 /// [`DEFAULT_GATE_BINARY`] it is today's [`SESSION_START_COMMAND`] / [`GUARD_COMMAND`]
@@ -249,7 +258,7 @@ fn render_gate_command(verb: GateVerb, binary: &str) -> String {
         }
     };
     format!(
-        "command -v {word} >/dev/null 2>&1 || {{ echo {missing} >&2; exit 127; }} && {word} {}",
+        "{PROJECT_ANCHOR}command -v {word} >/dev/null 2>&1 || {{ echo {missing} >&2; exit 127; }} && {word} {}",
         verb.args()
     )
 }
@@ -279,7 +288,9 @@ pub const GATE_COMMAND_BINDINGS: [(&str, &str); 2] = [
 /// projection is recognized as a gate hook member's, whatever binary the member states:
 /// the probe's word is unquoted and re-rendered, so only the engine's own bytes match.
 fn rendered_gate_binary(verb: GateVerb, command: &str) -> Option<String> {
-    let rest = command.strip_prefix("command -v ")?;
+    let rest = command
+        .strip_prefix(PROJECT_ANCHOR)?
+        .strip_prefix("command -v ")?;
     let binary = match rest.strip_prefix('\'') {
         Some(quoted) => {
             let mut binary = String::new();
