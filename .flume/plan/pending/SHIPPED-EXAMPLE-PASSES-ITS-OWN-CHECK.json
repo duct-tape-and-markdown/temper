@@ -50,12 +50,11 @@
   },
   "acceptance": "temper check . --deny-advisories exits 0 from examples/base-harness; the byte-compare emit test pins it",
   "tests": [
-    "the shipped example harness passes its own check with advisories denied",
-    "a plain string prose leaf refuses naming its member and field"
+    "the shipped example harness passes its own check with advisories denied"
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "Inbox record. Find why CLAUDE.md, two rules and settings.json draw root.locus-declared: stale projections or emitted elsewhere; make the committed tree its emit. 0082 removed command-string gate hooks.",
+  "notes": "Inbox record. Find why CLAUDE.md, two rules and settings.json draw root.locus-declared: stale projections or emitted elsewhere; make the committed tree its emit. 0082 removed command-string gate hooks. The plain-string prose refusal is SDK behavior: its test lives in sdk/test/ under the SDK gate (pnpm --dir sdk test), and names no tests[] line, because the judge runs cargo only.",
   "observedFiles": [
     ".flume/plan/notes/SHIPPED-EXAMPLE-PASSES-ITS-OWN-CHECK.md",
     "examples/base-harness/.claude/settings.json",

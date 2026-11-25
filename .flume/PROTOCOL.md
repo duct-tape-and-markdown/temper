@@ -59,7 +59,8 @@ the line's words must appear in the name in order. The judge runs
 module.** The judge proves the line new by laying the test's file over the
 pre-change tree; a `src/` file carries its module's fix with it, so the line
 passes there by construction and is refused. A unit test pins a `pins[]`
-line, or none.
+line, or none. Behavior whose only test is an SDK one (`sdk/test/`) names
+no line at all: the judge runs cargo alone, and the SDK gate holds it.
 
 ## Lanes
 
