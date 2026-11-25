@@ -1825,6 +1825,7 @@ fn a_registration_member_surfaces_in_the_lock_and_reaches_the_read_graph() {
                     ("type".to_string(), serde_json::json!("stdio")),
                     ("command".to_string(), serde_json::json!("npx")),
                 ],
+                emit_hash: None,
             }],
             ..Declarations::default()
         },

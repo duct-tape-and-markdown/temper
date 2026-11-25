@@ -531,6 +531,7 @@ impl GuardLock {
             manifest: manifest.to_string(),
             key_path: key_path.to_string(),
             fields: Vec::new(),
+            emit_hash: None,
         });
         self
     }

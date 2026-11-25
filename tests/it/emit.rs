@@ -956,6 +956,7 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
                     ("type".to_string(), serde_json::json!("command")),
                     ("command".to_string(), serde_json::json!("temper reporter")),
                 ],
+                emit_hash: None,
             }],
             ..Default::default()
         },
@@ -1040,6 +1041,7 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
                         ]),
                     ),
                 ],
+                emit_hash: None,
             }],
             ..Default::default()
         },
@@ -1089,6 +1091,7 @@ fn gate_hook_payload(binary: serde_json::Value) -> Payload {
             manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
             fields,
+            emit_hash: None,
         }
     };
     Payload {
@@ -1217,6 +1220,7 @@ fn harness_settings_residue_folds_into_settings_json_beside_the_hooks_segment() 
                     ("type".to_string(), serde_json::json!("command")),
                     ("command".to_string(), serde_json::json!("temper reporter")),
                 ],
+                emit_hash: None,
             }],
             settings: vec![
                 SettingsRow {
@@ -1286,6 +1290,7 @@ fn settings_payload(events: &[&str], residue: &[(&str, serde_json::Value)]) -> P
                 ("type".to_string(), serde_json::json!("command")),
                 ("command".to_string(), serde_json::json!("temper reporter")),
             ],
+            emit_hash: None,
         })
         .collect();
     let fields = residue
@@ -1432,6 +1437,92 @@ fn emit_refuses_a_hand_added_hook_group_in_a_settings_manifest_no_member_owns() 
             );
         }
     }
+}
+
+/// Rewrite the command of the first matcher group under `hooks.<event>` on disk.
+fn hand_edit_hook_command(settings: &Path, event: &str) {
+    let mut document: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(settings).unwrap()).unwrap();
+    document["hooks"][event][0]["hooks"][0]["command"] = serde_json::json!("./hand-edited.sh");
+    fs::write(
+        settings,
+        serde_json::to_string_pretty(&document).unwrap() + "\n",
+    )
+    .unwrap();
+}
+
+#[test]
+fn emit_refuses_a_hand_edited_registration_entry_in_a_manifest_no_member_owns() {
+    let (harness, into) = workspace("ownerless-hand-edited-group");
+    let payload = ownerless_settings_payload(&["PreToolUse", "SessionStart"]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let settings = harness.join(".claude").join("settings.json");
+    hand_edit_hook_command(&settings, "PreToolUse");
+    let before = fs::read_to_string(&settings).unwrap();
+
+    for teardown in [false, true] {
+        let err = drift::emit(
+            &payload,
+            &into,
+            EmitOptions {
+                teardown,
+                ..EmitOptions::default()
+            },
+        )
+        .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("`hook:PreToolUse`"), "{message}");
+        assert!(!message.contains("SessionStart"), "{message}");
+        assert!(message.contains(".claude/settings.json"), "{message}");
+        assert_eq!(
+            fs::read_to_string(&settings).unwrap(),
+            before,
+            "the refusal lands before a byte is written: the hand edit survives"
+        );
+    }
+
+    // An unedited re-emit stays clean: the fingerprints match what emit rendered.
+    fs::remove_file(&settings).unwrap();
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+}
+
+#[test]
+fn a_lock_without_a_registration_entry_hash_reads_it_as_unknown_on_first_emit() {
+    let (harness, into) = workspace("ownerless-hashless-lock");
+    let payload = ownerless_settings_payload(&["PreToolUse"]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // An older lock: its registration rows carry no entry hash.
+    let lock_path = into.join("lock.toml");
+    let lock = fs::read_to_string(&lock_path).unwrap();
+    let mut doc: toml_edit::DocumentMut = lock.parse().unwrap();
+    let rows = doc["declaration"]["registration"]
+        .as_array_of_tables_mut()
+        .unwrap();
+    for row in rows.iter_mut() {
+        assert!(row.remove("emit_hash").is_some(), "{lock}");
+    }
+    let hashless = doc.to_string();
+    fs::write(&lock_path, hashless).unwrap();
+
+    let settings = harness.join(".claude").join("settings.json");
+    hand_edit_hook_command(&settings, "PreToolUse");
+
+    // Unknown is never drift: the re-emit regenerates the entry and writes its hash.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let written = fs::read_to_string(&settings).unwrap();
+    assert!(!written.contains("hand-edited"), "{written}");
+    let relocked = fs::read_to_string(&lock_path).unwrap();
+    let doc: toml_edit::DocumentMut = relocked.parse().unwrap();
+    let rows = doc["declaration"]["registration"]
+        .as_array_of_tables()
+        .unwrap();
+    assert!(
+        rows.iter().all(|row| row.contains_key("emit_hash")),
+        "{relocked}"
+    );
 }
 
 #[test]
@@ -1660,6 +1751,7 @@ fn a_hook_round_trips_settings_json_read_to_members_to_write_byte_identical() {
             manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
             fields: member.fields.clone().into_iter().collect(),
+            emit_hash: None,
         })
         .collect();
     let payload = Payload {

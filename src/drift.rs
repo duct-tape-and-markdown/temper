@@ -258,6 +258,22 @@ pub enum DriftError {
         entries: Vec<String>,
     },
 
+    /// A manifest no container member owns carries a registration entry whose bytes no
+    /// longer hash to what the prior emit rendered there: a hand edit. The member that
+    /// renders the entry owns it, so the edit belongs in its source; the whole-file rewrite
+    /// would overwrite it, so emit refuses before a byte is written, `--teardown` or not.
+    #[error(
+        "refusing to overwrite hand-edited registration entries in `{manifest}`: {} drifted from what the last emit rendered. Move the edit into the owning member's source, or restore the entry by hand.",
+        crate::read::backticked(members)
+    )]
+    #[diagnostic(code(temper::drift::ownerless_registration_drift))]
+    OwnerlessRegistrationDrift {
+        /// The manifest carrying the drifted entries, harness-relative.
+        manifest: String,
+        /// Each drifted entry's owning member address (`hook:PreToolUse:Bash`), sorted.
+        members: Vec<String>,
+    },
+
     /// A projection did not reproduce byte-for-byte across a double-emit: the
     /// authoring surface is nondeterministic (a timestamp, an unordered map surfacing
     /// into a field). Law 5 makes this a loud failure rather than a silent churn the
@@ -1763,7 +1779,7 @@ pub fn emit(
     // member projects to the same path, that member's opaque residue. Built before the
     // member loop so a container member is recognized by path as the loop reaches it.
     let mut manifests: BTreeMap<HarnessRelativePath, ManifestBuild> = BTreeMap::new();
-    for registration in &payload.declarations.registrations {
+    for (index, registration) in payload.declarations.registrations.iter().enumerate() {
         let facts =
             kind_facts
                 .get(registration.kind.as_str())
@@ -1779,12 +1795,8 @@ pub fn emit(
                 .to_string(),
         })?;
         let collection = collection_key_of(&registration.key_path);
-        let segment = manifests
-            .entry(path)
-            .or_default()
-            .segments
-            .entry(collection.clone())
-            .or_default();
+        let build = manifests.entry(path).or_default();
+        let segment = build.segments.entry(collection.clone()).or_default();
 
         let entry_shape = collection_address_from_row(facts)?
             .map(|addr| addr.entry_shape)
@@ -1793,7 +1805,7 @@ pub fn emit(
                 member: registration.key.clone(),
             })?;
 
-        match entry_shape {
+        let hash = match entry_shape {
             crate::kind::EntryShape::GroupArray {
                 member_key,
                 lifted_fields,
@@ -1807,21 +1819,24 @@ pub fn emit(
                 let fields = gate_rendered_fields(registration)?;
                 let group =
                     crate::json_manifest::hook_matcher_group(&fields, &member_key, &lifted_fields);
+                let hash = entry_hash(&group);
                 if let JsonValue::Array(groups) = segment
                     .entry(registration.key.clone())
                     .or_insert_with(|| JsonValue::Array(Vec::new()))
                 {
                     groups.push(group);
                 }
+                hash
             }
             crate::kind::EntryShape::Scalar { field } => {
                 // A scalar entry's value is the bare value its declared field carries,
                 // not an entry object: render it back through the read face's inverse, so the
                 // map Claude Code loads round-trips rather than an object it does not document.
-                segment.insert(
-                    registration.key.clone(),
-                    crate::json_manifest::enablement_entry_value(&registration.fields, &field),
-                );
+                let entry_value =
+                    crate::json_manifest::enablement_entry_value(&registration.fields, &field);
+                let hash = entry_hash(&entry_value);
+                segment.insert(registration.key.clone(), entry_value);
+                hash
             }
             crate::kind::EntryShape::Object => {
                 let entry_value: JsonValue = registration
@@ -1830,9 +1845,17 @@ pub fn emit(
                     .cloned()
                     .collect::<serde_json::Map<String, JsonValue>>()
                     .into();
+                let hash = entry_hash(&entry_value);
                 segment.insert(registration.key.clone(), entry_value);
+                hash
             }
-        }
+        };
+        build.rendered.push(RenderedEntry {
+            registration: index,
+            collection,
+            key: registration.key.clone(),
+            hash,
+        });
     }
 
     for member in &payload.members {
@@ -2218,6 +2241,15 @@ pub fn emit(
         // `nested_member` family and edge-slot fills into the `satisfies` family, with
         // the layout imports' content-dependency fingerprints alongside.
         let mut declarations = payload.declarations.clone();
+        // An ownerless manifest has no whole-file fingerprint, so each entry it renders
+        // carries its own; a container's rollup row already fingerprints the whole file.
+        for build in manifests.values().filter(|build| build.container.is_none()) {
+            for entry in &build.rendered {
+                if let Some(row) = declarations.registrations.get_mut(entry.registration) {
+                    row.emit_hash = Some(entry.hash.clone());
+                }
+            }
+        }
         declarations.nested_members.extend(layout_rows);
         declarations.satisfies.extend(layout_satisfies);
         stamp_clause_labels(&mut declarations);
@@ -2309,6 +2341,28 @@ struct ManifestBuild {
     residue: BTreeMap<String, JsonValue>,
     /// The container member, when one projects to the manifest's path.
     container: Option<ContainerMember>,
+    /// One per registration row rendered here, in payload order: the row's index among the
+    /// payload's registrations, its `(collection, key)` address, and its entry's hash.
+    rendered: Vec<RenderedEntry>,
+}
+
+/// One registration entry a [`ManifestBuild`] renders, fingerprinted by [`entry_hash`].
+struct RenderedEntry {
+    /// The row's index in the payload's `declarations.registrations`.
+    registration: usize,
+    /// The collection key the entry lands under (`hooks`, `mcpServers`).
+    collection: String,
+    /// The entry key within that collection.
+    key: String,
+    /// The [`entry_hash`] of the value rendered for this one row — a hook's matcher group,
+    /// a server's entry object, a plugin's scalar.
+    hash: String,
+}
+
+/// The hash of one rendered registration entry value: SHA-256 over its compact JSON
+/// serialization, so the comparison is over content, never the manifest's whitespace.
+fn entry_hash(value: &JsonValue) -> String {
+    sha256_hex(value.to_string().as_bytes())
 }
 
 /// The member whose own projection path is a represented manifest's — the identity its
@@ -2578,10 +2632,6 @@ fn manifest_segment_reaps(
             continue;
         };
 
-        // Cache the raw file contents for reuse in emit_manifest, hoisting the read cost
-        // outside the emit loop.
-        cached_raws.insert(path.clone(), raw);
-
         let mut discovered: BTreeMap<&str, usize> = BTreeMap::new();
         for member in &current.members {
             *discovered.entry(member.collection.as_str()).or_default() += 1;
@@ -2631,6 +2681,14 @@ fn manifest_segment_reaps(
                     entries,
                 });
             }
+            let members =
+                drifted_registration_entries(path, build, &raw, kind_facts, prior_registrations);
+            if !members.is_empty() {
+                return Err(DriftError::OwnerlessRegistrationDrift {
+                    manifest: path.to_string(),
+                    members,
+                });
+            }
         }
         for key in undeclared {
             reaps.push(EmitEntry {
@@ -2660,6 +2718,10 @@ fn manifest_segment_reaps(
                 }
             }
         }
+
+        // Cache the raw file contents for reuse in emit_manifest, hoisting the read cost
+        // outside the emit loop.
+        cached_raws.insert(path.clone(), raw);
     }
     Ok((reaps, cached_raws))
 }
@@ -2736,6 +2798,98 @@ fn unrecorded_registration_entries(
         })
         .map(|((collection, key), _)| format!("{collection}.{key}"))
         .collect()
+}
+
+/// The member addresses of the entries in an ownerless manifest a hand edit changed since
+/// the prior emit, sorted. Per `(collection, key)` the prior lock fingerprinted, an entry
+/// on disk is accounted for when it hashes to a prior row's [`RegistrationRow::emit_hash`]
+/// or to what this build renders; an unaccounted entry is drift once a fingerprinted one
+/// has vanished — the edit replaced it. A hand-added entry leaves every fingerprint in
+/// place and is [`unrecorded_registration_entries`]' to refuse. A prior row with no hash
+/// is unknown, never drift. The address names the drifted entry by its own lifted fields,
+/// so a hook group routes to `hook:<Event>:<matcher>`.
+fn drifted_registration_entries(
+    path: &HarnessRelativePath,
+    build: &ManifestBuild,
+    raw: &str,
+    kind_facts: &BTreeMap<&str, &KindFactRow>,
+    prior_registrations: &[RegistrationRow],
+) -> Vec<String> {
+    let Ok(document) = serde_json::from_str::<JsonValue>(raw) else {
+        return Vec::new();
+    };
+    let mut prior: BTreeMap<(String, &str), (&str, Vec<&str>)> = BTreeMap::new();
+    for row in prior_registrations {
+        let Some(hash) = &row.emit_hash else {
+            continue;
+        };
+        let targets_path = kind_facts
+            .get(row.kind.as_str())
+            .and_then(|facts| manifest_target_path(facts))
+            .as_ref()
+            == Some(path);
+        if targets_path {
+            prior
+                .entry((collection_key_of(&row.key_path), row.key.as_str()))
+                .or_insert_with(|| (row.kind.as_str(), Vec::new()))
+                .1
+                .push(hash.as_str());
+        }
+    }
+
+    let mut drifted = BTreeSet::new();
+    for ((collection, key), (kind, hashes)) in &prior {
+        let Some(value) = document
+            .get(collection)
+            .and_then(|entries| entries.get(*key))
+        else {
+            continue;
+        };
+        let shape = kind_facts
+            .get(kind)
+            .and_then(|facts| collection_address_from_row(facts).ok().flatten())
+            .map(|address| address.entry_shape);
+        let (on_disk, lifted): (Vec<&JsonValue>, &[String]) = match &shape {
+            Some(crate::kind::EntryShape::GroupArray { lifted_fields, .. }) => (
+                value
+                    .as_array()
+                    .map(|groups| groups.iter().collect())
+                    .unwrap_or_default(),
+                lifted_fields,
+            ),
+            _ => (vec![value], &[]),
+        };
+        let on_disk: Vec<(String, &JsonValue)> = on_disk
+            .into_iter()
+            .map(|entry| (entry_hash(entry), entry))
+            .collect();
+        let replaced = hashes
+            .iter()
+            .any(|hash| !on_disk.iter().any(|(disk, _)| disk == hash));
+        if !replaced {
+            continue;
+        }
+        let rendered = |hash: &str| {
+            build.rendered.iter().any(|entry| {
+                entry.collection == *collection && entry.key == *key && entry.hash == hash
+            })
+        };
+        for (hash, entry) in &on_disk {
+            if hashes.contains(&hash.as_str()) || rendered(hash) {
+                continue;
+            }
+            let mut name = (*key).to_string();
+            for qualifier in lifted
+                .iter()
+                .filter_map(|field| entry.get(field).and_then(JsonValue::as_str))
+            {
+                name.push(':');
+                name.push_str(qualifier);
+            }
+            drifted.insert(host_address(kind, &name));
+        }
+    }
+    drifted.into_iter().collect()
 }
 
 /// What emit derives from one layout source in a single read: its member collections
@@ -5390,6 +5544,13 @@ pub struct RegistrationRow {
     #[serde(default)]
     #[ts(type = "Array<[string, unknown]>")]
     pub fields: Vec<(String, JsonValue)>,
+    /// The byte hash of the entry emit rendered for this row into a manifest no member
+    /// owns — the provenance a re-emit compares the on-disk entry against. Lock-only, never
+    /// seam-carried; `None` for a container-owned manifest, whose whole file is
+    /// fingerprinted instead, and for an older lock that wrote none (read as unknown).
+    #[serde(skip)]
+    #[ts(skip)]
+    pub emit_hash: Option<String>,
 }
 
 /// One harness-level settings-residue key the SDK erased for the manifest write face — an
@@ -6590,6 +6751,9 @@ impl RegistrationRow {
         table.insert("key", value(self.key.clone()));
         table.insert("manifest", value(self.manifest.clone()));
         table.insert("key_path", value(self.key_path.clone()));
+        if let Some(hash) = &self.emit_hash {
+            table.insert("emit_hash", value(hash.clone()));
+        }
         table
     }
 
@@ -6601,6 +6765,7 @@ impl RegistrationRow {
             key_path: req_str(table, "key_path")?,
             // The fields live in the projected manifest artifact, so a lock row carries none.
             fields: Vec::new(),
+            emit_hash: opt_str(table, "emit_hash")?,
         })
     }
 }

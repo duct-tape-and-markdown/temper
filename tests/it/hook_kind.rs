@@ -309,6 +309,7 @@ fn a_two_handler_group_re_nests_to_the_settings_json_it_was_read_from() {
                 manifest: "settings.json".to_string(),
                 key_path: "hooks.<Event>".to_string(),
                 fields: member.fields.clone().into_iter().collect(),
+                emit_hash: None,
             }],
             ..Default::default()
         },

@@ -1054,6 +1054,7 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
                 manifest: "settings.json".to_string(),
                 key_path: "hooks.onSessionStart".to_string(),
                 fields: vec![("before".to_string(), serde_json::json!("echo starting"))],
+                emit_hash: None,
             }],
             ..Default::default()
         },
