@@ -36,6 +36,8 @@ lock's current contents. On a represented harness a gate hook is a member
 the author owns: install names a missing or stale one with its remedy and
 never re-adds it. The member states one fact, the temper binary it runs
 (`temper` on the path unless declared); the engine renders the command
-from it, and the installed-gate check judges the member, never a command
+from it, anchored at the project root the provider names, so a relative
+binary and the harness target resolve there whatever directory the session
+has moved to; the installed-gate check judges the member, never a command
 string. The verbs target one project's harness at an
 explicit path.
