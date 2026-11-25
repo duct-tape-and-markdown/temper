@@ -6,8 +6,8 @@
 //! same IR by the same lift, off embedded bytes instead of a disk read.
 //!
 //! [`crate::builtin`] projects each built-in kind's floor `Contract` straight off
-//! [`declarations`]'s clause rows; [`crate::builtin_kind`] still carries its own
-//! hand-written kind facts.
+//! [`declarations`]'s clause rows; [`crate::builtin_kind`] lifts each built-in kind off its
+//! kind rows.
 
 use std::path::Path;
 use std::sync::LazyLock;
@@ -42,27 +42,6 @@ mod tests {
     fn the_embedded_lock_parses_into_kind_facts_and_floor_clauses_only() {
         let declarations = declarations();
 
-        // Kind facts: the built-in kinds the memberless emit's `expect` bindings
-        // named — the one enumeration `builtin_kind::definitions()` already spells,
-        // asserted here rather than restated, so a kind added to the Rust population
-        // without a lock regeneration fails this test instead of shipping green.
-        // (`tests/builtin_lock_frozen.rs` pins the other leg, SDK↔embedded lock.)
-        let mut names: Vec<&str> = declarations
-            .kinds
-            .iter()
-            .map(|row| row.name.as_str())
-            .collect();
-        names.sort_unstable();
-        let population = crate::builtin_kind::definitions();
-        // Both sides are derived now, so the comparison needs its own vacuity pin:
-        // two empty sets would agree and prove nothing.
-        assert!(!names.is_empty());
-        // `definitions()` is a `BTreeMap` keyed by bare name — already in the order
-        // `names` was just sorted into.
-        assert_eq!(
-            names,
-            population.keys().map(String::as_str).collect::<Vec<_>>()
-        );
         // No `provider` column, since the SDK module exports none today.
         assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
 
@@ -136,45 +115,39 @@ mod tests {
         );
         assert!(declarations.requirements.is_empty());
         assert!(declarations.satisfies.is_empty());
+        assert!(declarations.mentions.is_empty());
     }
 
     #[test]
-    fn every_lock_kind_row_lifts_to_the_facts_the_rust_population_spells() {
+    fn every_built_in_kind_is_its_lock_rows_lift_plus_only_the_row_less_facts() {
         let declarations = declarations();
         let population = crate::builtin_kind::definitions();
+        let edges = crate::drift::edges_from_declarations(declarations).unwrap();
 
-        // The sibling of the names assertion above, and it carries that assertion's
-        // vacuity pin for the same reason: an empty row set would agree with anything.
+        // Vacuity pin: an empty row set would agree with anything.
         assert!(!declarations.kinds.is_empty());
+        assert!(!edges.is_empty());
 
         for row in &declarations.kinds {
-            let lifted = crate::kind::CustomKind::from_kind_fact_row(row).unwrap_or_else(|err| {
-                panic!("the embedded lock's `{}` row lifts: {err}", row.name)
-            });
-            let spelled = population
-                .get(&row.name)
-                .unwrap_or_else(|| panic!("`{}` ships in the Rust population", row.name));
+            let lifted = crate::kind::CustomKind::from_kind_fact_row(row).unwrap();
+            let built_in = &population[&row.name];
 
-            // Group by group, never a whole-struct compare: three fact groups the Rust
-            // population carries have no `KindFactRow` column to ride, so the lift fills
-            // them with its own fixed answer — `extraction` with the generic
-            // markdown-structure primitive set, `relationships` and `bare_root_file`
-            // empty. Comparing those would assert the lift's defaults, not agreement.
+            // The three row-less groups are the only ones the population may change: the
+            // relationships are exactly the lock's own edge facts from this kind, and the
+            // extraction and bare-root file are `builtin_kind`'s named exceptions. Erasing
+            // them leaves the bare lift, so no row-carried fact is spelled a second time.
             let name = &row.name;
-            assert_eq!(lifted.governs, spelled.governs, "{name}: governs");
-            assert_eq!(lifted.excluded, spelled.excluded, "{name}: excluded");
-            assert_eq!(lifted.commitment, spelled.commitment, "{name}: commitment");
-            assert_eq!(lifted.format, spelled.format, "{name}: format");
-            assert_eq!(lifted.unit_shape, spelled.unit_shape, "{name}: unit_shape");
+            let own_edges: Vec<_> = edges.iter().filter(|e| &e.from == name).cloned().collect();
+            assert_eq!(built_in.relationships, own_edges, "{name}: relationships");
+            let erased = crate::kind::CustomKind {
+                extraction: lifted.extraction.clone(),
+                relationships: Vec::new(),
+                bare_root_file: None,
+                ..built_in.clone()
+            };
             assert_eq!(
-                lifted.registration, spelled.registration,
-                "{name}: registration"
-            );
-            assert_eq!(lifted.templates, spelled.templates, "{name}: templates");
-            assert_eq!(lifted.content, spelled.content, "{name}: content");
-            assert_eq!(
-                lifted.collection_address, spelled.collection_address,
-                "{name}: collection_address"
+                erased, lifted,
+                "{name}: every row-carried fact is the lift's"
             );
         }
     }
