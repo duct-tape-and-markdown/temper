@@ -4103,6 +4103,13 @@ const SHELL_CALL_PAYLOAD: &str = "{\"session_id\":\"s\",\
 /// so the shipped root `fresh` and `locus-declared` clauses bind, under `warn`.
 fn declared_layout_harness(label: &str) -> PathBuf {
     let harness = common::scaffold(label);
+    emit_guide_layout(&harness, vec![common::layout_member("guide")]);
+    harness
+}
+
+/// Emit [`declared_layout_harness`]'s `guide` kind into `harness`, its documents written
+/// and its lock carrying exactly `members`' declaration rows.
+fn emit_guide_layout(harness: &Path, members: Vec<drift::PayloadMember>) {
     fs::write(
         harness.join("specs/guide.md"),
         "# Intent\ntemper makes a harness good.\n",
@@ -4127,7 +4134,7 @@ fn declared_layout_harness(label: &str) -> PathBuf {
             )],
             ..Default::default()
         },
-        members: vec![common::layout_member("guide")],
+        members,
     };
     drift::emit(
         &payload,
@@ -4135,16 +4142,21 @@ fn declared_layout_harness(label: &str) -> PathBuf {
         drift::EmitOptions::default(),
     )
     .unwrap();
-    harness
 }
 
 /// A declared layout document is a declared member — its lock evidence is the
 /// declaration row `emit` lowered it into, never a provenance row — so `check` raises no
 /// `locus-declared` finding over it, and neither may the guard at either edge.
+///
+/// The silence is proven non-vacuous first: with the member's declaration absent, the
+/// guide's starless `specs/guide.md` locus draws the guard's finding at both edges.
 #[test]
 fn the_guard_raises_no_locus_finding_for_a_declared_layout_document() {
-    let harness = declared_layout_harness("guard-declared-layout");
+    let harness = common::scaffold("guard-declared-layout");
+    emit_guide_layout(&harness, Vec::new());
+    assert_the_guard_flags_the_undeclared_guide(&harness);
 
+    emit_guide_layout(&harness, vec![common::layout_member("guide")]);
     let (findings, _) = common::check_harness(&harness);
     assert!(
         common::findings_for(&findings, "root.locus-declared").is_empty(),
@@ -4166,6 +4178,28 @@ fn the_guard_raises_no_locus_finding_for_a_declared_layout_document() {
         output.is_empty(),
         "an edit to a declared layout document is no undeclared member, got: {output}"
     );
+}
+
+/// The populated subject of the declared-layout silence: the guard binds the guide's
+/// locus, flagging `specs/guide.md` at the post edge and in a pending write while no
+/// declaration row names it.
+fn assert_the_guard_flags_the_undeclared_guide(harness: &Path) {
+    let (code, output) = common::run_guard(harness, SHELL_CALL_PAYLOAD);
+    assert_eq!(code, Some(0), "warn allows the call, got: {output}");
+    let in_band = common::guard_in_band(&output, "PostToolUse");
+    assert_check_raises_the_guard_s_layout_finding(harness, &in_band, "specs/guide.md");
+
+    let (code, output) = common::run_guard(harness, &common::guard_write_payload("specs/guide.md"));
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    assert_check_raises_the_guard_s_layout_finding(harness, &in_band, "specs/guide.md");
+}
+
+#[test]
+fn the_guard_flags_the_guide_layout_document_when_its_declaration_is_absent() {
+    let harness = common::scaffold("guard-undeclared-guide");
+    emit_guide_layout(&harness, Vec::new());
+    assert_the_guard_flags_the_undeclared_guide(&harness);
 }
 
 /// The shell edge enumerates its loci the way `check`'s discovery does: an ignored file
