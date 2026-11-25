@@ -1,7 +1,0 @@
-# Locus exclude admits a directory
-
-Spelling: a directory exclude is a bare starless path with no trailing `/` (an empty segment refuses). Membership in `kind::locus_admits` subtracts an entry when the path is the entry itself or sits under it, compared by whole components, so `skills/legacy` never subtracts `skills/legacy-two/...`. Load (`excluded_from_row`) accepts an entry when the template matches it as a file, or when `template_reaches_beneath` finds the template continuing below it: the directory's leading components are matched segment by segment against the template body, and under a leading `**/` the directory may sit at any depth. A directory equal to the locus root (for example `skills`) loads too, which excludes the whole locus. That follows from the rule and is harmless.
-
-Judge risk: `an exclude naming a directory the template never reaches refuses at load` would pass on the base tree, because the base refused every non-file entry. Its test also asserts the refusal names the directory form ("or a directory it reaches beneath"). That text is new to the `EXCLUDE_COLUMN` text, so the test is red on the base. If the judge reads this as restructuring, the tests[] line is plan's to reword.
-
-Discovery still walks into an excluded directory and filters each file it finds. The walk does not prune the directory. That is fine at today's scale, but it could become a cost if large vendored trees get excluded.
