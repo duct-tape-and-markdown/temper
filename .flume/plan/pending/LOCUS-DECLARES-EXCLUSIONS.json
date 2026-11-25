@@ -1,11 +1,9 @@
 {
   "tag": "LOCUS-DECLARES-EXCLUSIONS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "LOCUS-IS-A-PLACEMENT-TEMPLATE"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -60,5 +58,7 @@
     "an excluded path draws no locus declared finding",
     "the guard binds nothing for a write at an excluded path"
   ],
+  "pins": [],
+  "laneTests": [],
   "notes": "Seam change (SDK row builder, Rust reader, embedded lock in one entry). Exclusions are paths, not patterns (\"Any other pattern syntax refuses at load\"). Blocked on the template entry: both edit src/kind.rs's locus validation."
 }
