@@ -32,7 +32,14 @@ program, riding the lock or embedded in the engine — none can drift.
    read a finding, when to challenge the contract versus fix the member, and
    the kernel nouns, because an agent cannot operate a verdict spoken in
    words it does not hold. It never teaches taste: opinions live in default
-   contracts, per the spine rule.
+   contracts, per the spine rule. It is an SDK value, not a fixed text: a
+   harness that declares it emits it as its own member, its body the
+   mechanics plus a **representation of that harness** (its requirements and
+   their intent, their owners, each relationship's intent, each kind's
+   counsel), and its description names the contracted domains. The bundle
+   embeds the same value. The harness's reference is a projection of the
+   harness: committed, reviewed in the diff that changes a contract, and
+   held true by drift.
 
 **The stranger gate:** a bare `temper check` — the binary alone, judging
 against its built-in lock — gates any harness with no Node, no SDK, no
