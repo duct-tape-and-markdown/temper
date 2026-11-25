@@ -1,0 +1,34 @@
+{
+  "tag": "EMIT-NEVER-REAPS-A-HAND-REGISTRATION-FROM-AN-UNDECLARED-SETTINGS",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "manifest_segment_reaps: an undeclared registration entry in a container-less manifest no lock row records refuses, as residue keys do"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "hand hook group in an ownerless settings.json refuses; a removed hook member's registration still reaps"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "emit refuses, never reaps, a hand-added registration entry (a hook group) in a manifest no container member owns",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "Emit"
+  },
+  "acceptance": "emit over an ownerless settings.json carrying a hook group no member or lock row accounts for refuses by name and writes nothing; a hook member removed from the harness still reaps its registration",
+  "tests": [
+    "emit refuses a hand added hook group in a settings manifest no member owns"
+  ],
+  "pins": [
+    "emit still reaps the registration of a removed hook member"
+  ],
+  "notes": "Ship note of EMIT-NEVER-REAPS-A-HAND-KEY-FROM-AN-UNDECLARED-SETTINGS: keys refuse (OwnerlessManifestKeys) but registration members not in build.segments still push MemberReaped. 'Nothing authored is lost'. Tell a prior emission from hand content by the lock's member rows, not the file; if the lock cannot tell them apart, raise a question. Install hoist of refused groups is out of scope."
+}
