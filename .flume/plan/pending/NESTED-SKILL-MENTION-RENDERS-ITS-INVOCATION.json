@@ -1,12 +1,12 @@
 {
   "tag": "NESTED-SKILL-MENTION-RENDERS-ITS-INVOCATION",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "SKILL-CLAIMS-SUBDIRECTORY-SKILLS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "sdk/src/prose.ts",
@@ -16,7 +16,8 @@
         "path": "sdk/test/mention.test.ts",
         "description": "nested skill mention display"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "A mention of a nested skill renders the invocation spelling its placement gives (/apps/web:deploy), never the identity",
   "per": {
@@ -24,5 +25,8 @@
     "section": "The shipped kinds"
   },
   "acceptance": "a mention of skill:apps:web:deploy displays /apps/web:deploy while its address stays the identity; pnpm --dir sdk test green",
+  "tests": [],
+  "pins": [],
+  "laneTests": [],
   "notes": "SDK-only behavior. The rendering rule is builtins.md skill bullet: invocation from the placement, never the identity."
 }
