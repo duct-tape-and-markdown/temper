@@ -5,7 +5,7 @@
 use std::fs;
 use std::path::Path;
 
-use temper::drift::{Declarations, KindFactRow};
+use temper::drift::{ClauseRow, CountBoundRow, Declarations, KindFactRow};
 
 use crate::common;
 
@@ -25,14 +25,40 @@ fn decision(root: &str, glob: &str) -> KindFactRow {
 }
 
 fn check_with(root: &Path, kinds: Vec<KindFactRow>) -> common::CheckRun {
+    check_with_clauses(root, kinds, Vec::new())
+}
+
+fn check_with_clauses(
+    root: &Path,
+    kinds: Vec<KindFactRow>,
+    clauses: Vec<ClauseRow>,
+) -> common::CheckRun {
     common::write_lock(
         root,
         Declarations {
             kinds,
+            clauses,
             ..Declarations::default()
         },
     );
     common::check_in(root, &[], Some("github"))
+}
+
+/// The finding lines at member `member` under clause address `label`.
+fn findings_at(run: &common::CheckRun, label: &str, member: &str) -> usize {
+    run.output
+        .lines()
+        .filter(|line| line.contains(&format!("title={label}::{member}:")))
+        .count()
+}
+
+fn decision_requires_status() -> ClauseRow {
+    ClauseRow {
+        label: Some("decision.required.status".to_string()),
+        kind: Some("decision".to_string()),
+        field: Some("status".to_string()),
+        ..common::clause("required", "required")
+    }
 }
 
 #[test]
@@ -42,14 +68,8 @@ fn a_document_in_a_subkinds_locus_is_one_member_of_the_subkind() {
     write_rule(&root, ".claude/rules/style.md");
     let run = check_with(&root, vec![decision(".claude/rules/decisions", "*.md")]);
     assert!(
-        run.output.contains("rule.forbidden_keys") && run.output.contains("style.md"),
+        run.output.contains("rule.forbidden_keys") && run.output.contains("style"),
         "the base still owns its own documents, got:\n{}",
-        run.output
-    );
-    assert!(
-        !run.output.lines().any(|line| line.contains("0001-adopt")
-            && (line.contains("title=rule.") || line.contains("`rule` kind's"))),
-        "the subkind's document is no member of the base, got:\n{}",
         run.output
     );
     let narration = common::explain_in(&root, "decision:0001-adopt");
@@ -122,5 +142,81 @@ fn explain_narrates_a_subkinds_base() {
     assert!(
         narration.contains("`decision` is a subkind of `rule`"),
         "the kind narration names its base, got:\n{narration}"
+    );
+}
+
+#[test]
+fn a_clause_bound_to_the_base_kind_judges_a_subkinds_member() {
+    let root = common::tmpdir("subkind-base-clause");
+    write_rule(&root, ".claude/rules/decisions/0001-adopt.md");
+    write_rule(&root, ".claude/rules/style.md");
+    let run = check_with_clauses(
+        &root,
+        vec![decision(".claude/rules/decisions", "*.md")],
+        vec![decision_requires_status()],
+    );
+    assert_eq!(
+        findings_at(&run, "rule.forbidden_keys", "0001-adopt"),
+        1,
+        "the base's clause fires once at the subkind member's address, got:\n{}",
+        run.output
+    );
+    assert_eq!(
+        findings_at(&run, "decision.required.status", "0001-adopt"),
+        1,
+        "the subkind's own clause fires beside it, got:\n{}",
+        run.output
+    );
+    assert_eq!(
+        findings_at(&run, "rule.forbidden_keys", "style"),
+        1,
+        "the base's own member is judged as before, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_subkinds_own_clause_binds_only_the_subkinds_members() {
+    let root = common::tmpdir("subkind-own-clause");
+    write_rule(&root, ".claude/rules/decisions/0001-adopt.md");
+    write_rule(&root, ".claude/rules/style.md");
+    let run = check_with_clauses(
+        &root,
+        vec![decision(".claude/rules/decisions", "*.md")],
+        vec![decision_requires_status()],
+    );
+    assert_eq!(
+        findings_at(&run, "decision.required.status", "style"),
+        0,
+        "a base member is never held to its subkind's clause, got:\n{}",
+        run.output
+    );
+    assert_eq!(
+        findings_at(&run, "decision.required.status", "0001-adopt"),
+        1,
+        "the subkind member is, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_by_kind_selection_of_the_base_counts_its_subkinds_members() {
+    let root = common::tmpdir("subkind-base-count");
+    write_rule(&root, ".claude/rules/decisions/0001-adopt.md");
+    write_rule(&root, ".claude/rules/style.md");
+    let run = check_with_clauses(
+        &root,
+        vec![decision(".claude/rules/decisions", "*.md")],
+        vec![ClauseRow {
+            label: Some("rule.count".to_string()),
+            kind: Some("rule".to_string()),
+            count: Some(CountBoundRow { min: 0, max: 1 }),
+            ..common::clause("count", "required")
+        }],
+    );
+    assert!(
+        run.output.contains("title=rule.count"),
+        "the base's selection holds both members, so its count of one is exceeded, got:\n{}",
+        run.output
     );
 }

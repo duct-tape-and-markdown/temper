@@ -366,13 +366,13 @@ fn main() -> miette::Result<ExitCode> {
                                 domain.join(", ")
                             )
                         })?;
-                    let contract = kind_contract(&declarations, &builtin_defs, name)?;
+                    let contract = compose::kind_contract(&declarations, &builtin_defs, name)?;
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
                     for name in &domain {
-                        let contract = kind_contract(&declarations, &builtin_defs, name)?;
+                        let contract = compose::kind_contract(&declarations, &builtin_defs, name)?;
                         map.insert(name.clone(), schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
@@ -658,35 +658,6 @@ fn yaml_frontmatter_kind_domain(
 
     domain.sort();
     Ok(domain)
-}
-
-/// A domain kind's active contract — lock clauses, else the embedded default for a
-/// built-in, else the bare default for a declared custom kind — the same split
-/// [`guarded_manifests`] and `read.rs::explain_target` run, so `schema` never
-/// disagrees with `check`/`explain`/`guard` about a kind's contract.
-///
-/// # Errors
-///
-/// Propagates the clause-lift errors contract resolution raises.
-fn kind_contract(
-    declarations: &drift::Declarations,
-    builtin_defs: &BTreeMap<String, CustomKind>,
-    name: &str,
-) -> miette::Result<temper::contract::Contract> {
-    if builtin_defs.contains_key(name) {
-        compose::builtin_contract(
-            &declarations.clauses,
-            &declarations.kinds,
-            &declarations.assembly,
-            name,
-        )
-    } else {
-        Ok(compose::default_contract_from_rows(
-            &declarations.clauses,
-            &declarations.kinds,
-            name,
-        )?)
-    }
 }
 
 /// Extract the member keys declared in the lock for a given manifest kind: its

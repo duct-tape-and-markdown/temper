@@ -27,21 +27,35 @@ use crate::roster;
 /// collected diagnostics.
 fn two_greens_dispatch(
     mut contract: Contract,
+    mut inherited: Vec<contract::Clause>,
     locus: &engine::Locus,
     features: &[extract::Features],
-    dial: &dial::Dial,
+    dial: Option<&dial::Dial>,
     mode: compose::EnforcementMode,
-    skip_dial: bool,
     dialed: &mut BTreeSet<String>,
 ) -> (Contract, Vec<check::Diagnostic>) {
     let mut diagnostics = Vec::new();
 
-    if !skip_dial {
+    if let Some(dial) = dial {
         dialed.extend(dial.apply(mode, &mut contract.clauses));
+        dialed.extend(dial.apply(mode, &mut inherited));
     }
 
+    // Inherited clauses passed admissibility at their base's own dispatch; a subkind
+    // member is judged by them and its own together, so `closed-keys` admits both
+    // contracts' declared keys.
     diagnostics.extend(engine::admissibility(&contract, locus));
-    diagnostics.extend(engine::validate(&contract, features));
+    if inherited.is_empty() {
+        diagnostics.extend(engine::validate(&contract, features));
+    } else {
+        let own = contract.clauses.clone();
+        let mut whole = Contract {
+            clauses: inherited,
+            ..contract.clone()
+        };
+        whole.clauses.extend(own);
+        diagnostics.extend(engine::validate(&whole, features));
+    }
 
     (contract, diagnostics)
 }
@@ -309,11 +323,11 @@ pub fn gate(
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             contract,
+            Vec::new(),
             &engine::Locus::Document,
             features,
-            &dial,
+            (!skip_dial).then_some(&dial),
             mode,
-            skip_dial,
             &mut dialed,
         );
         diagnostics.extend(dispatch_diags);
@@ -407,11 +421,17 @@ pub fn gate(
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             contract,
+            compose::inherited_clauses(
+                &declarations,
+                &joined_clauses,
+                &declared_kinds,
+                &builtin_defs,
+                &row.name,
+            )?,
             &engine::Locus::Document,
             features,
-            &dial,
+            Some(&dial),
             mode,
-            false,
             &mut dialed,
         );
         diagnostics.extend(dispatch_diags);
@@ -515,25 +535,19 @@ pub fn gate(
     // declared-else-embedded fallback the at-locus built-in loop above takes; the
     // lock-rows-only reader would silently drop the contract such a kind ships with.
     for (kind, features) in &embedded_features {
-        let default = if builtin_defs.contains_key(kind) {
-            compose::builtin_contract(
-                &declarations.clauses,
-                &declarations.kinds,
-                &declarations.assembly,
-                kind,
-            )?
-        } else {
-            compose::default_contract_from_rows(&declarations.clauses, &declarations.kinds, kind)?
-        };
-        let contract = compose::with_joined_clauses(default, &joined_clauses, kind)?;
+        let contract = compose::with_joined_clauses(
+            compose::kind_contract(&declarations, &builtin_defs, kind)?,
+            &joined_clauses,
+            kind,
+        )?;
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             contract,
+            Vec::new(),
             &engine::Locus::Embedded(kind.clone()),
             features,
-            &dial,
+            Some(&dial),
             mode,
-            false,
             &mut dialed,
         );
         diagnostics.extend(dispatch_diags);
@@ -586,7 +600,7 @@ pub fn gate(
     // and the judge resolves that target off this one list — the existential and the
     // universal binding are the same algebra, so neither can be judged in isolation.
     let mut selections = roster::selections(&requirements, &by_kind);
-    selections.extend(kind_selections(&contracts, &by_kind));
+    selections.extend(kind_selections(&contracts, &by_kind, &declared_kinds));
     // The root member's selection ranges over every discovered member of every kind —
     // the whole governed forest. Composed here rather than at its consumer so the dial
     // loop below reaches a root clause by label with no second dial site.
@@ -925,18 +939,31 @@ pub fn gate(
 /// selection: its clauses are already read here, and judging them again would
 /// double-report every one. A kind in `by_kind` with no contract of its own declares no
 /// clause to judge and contributes no selection.
+///
+/// A base's selection binds its subkinds' members beside its own, each tagged with its
+/// own kind; a subkind's selection carries its own clauses alone, so an inherited set
+/// clause judges the base's whole population once.
 fn kind_selections<'a>(
     contracts: &BTreeMap<String, Contract>,
     by_kind: &BTreeMap<&'a str, &'a [extract::Features]>,
+    declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> Vec<engine::Selection<'a>> {
     by_kind
-        .iter()
-        .filter_map(|(kind, features)| {
+        .keys()
+        .filter_map(|kind| {
             let contract = contracts.get(*kind)?;
             Some(engine::Selection {
                 selector: engine::Selector::Kind((*kind).to_string()),
                 clauses: contract.clauses.clone(),
-                members: features.iter().map(|feature| (*kind, feature)).collect(),
+                members: by_kind
+                    .iter()
+                    .filter(|(member_kind, _)| {
+                        compose::is_kind_or_subkind(declared_kinds, member_kind, kind)
+                    })
+                    .flat_map(|(member_kind, features)| {
+                        features.iter().map(move |feature| (*member_kind, feature))
+                    })
+                    .collect(),
             })
         })
         .collect()

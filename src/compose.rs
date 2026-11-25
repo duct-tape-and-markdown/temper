@@ -2209,6 +2209,83 @@ pub fn builtin_contract(
     }
 }
 
+/// A kind's own active contract — lock clauses, else the embedded default for a
+/// built-in, else the bare default for a declared custom kind — the one split `schema`,
+/// `check` and its embedded dispatcher share, so no verb disagrees about a kind's contract.
+/// A subkind's inherited clauses are not part of it: [`inherited_clauses`] carries those.
+///
+/// # Errors
+///
+/// Propagates the clause-lift errors contract resolution raises.
+pub fn kind_contract(
+    declarations: &drift::Declarations,
+    builtin_defs: &BTreeMap<String, CustomKind>,
+    name: &str,
+) -> miette::Result<Contract> {
+    if builtin_defs.contains_key(name) {
+        builtin_contract(
+            &declarations.clauses,
+            &declarations.kinds,
+            &declarations.assembly,
+            name,
+        )
+    } else {
+        Ok(default_contract_from_rows(
+            &declarations.clauses,
+            &declarations.kinds,
+            name,
+        )?)
+    }
+}
+
+/// The clauses a subkind's contract inherits: every ancestor's own contract — joined
+/// clauses included — outermost base first, so a member of `kind` is held to its bases'
+/// clauses beside its own. Empty for a kind naming no base.
+///
+/// # Errors
+///
+/// Propagates the clause-lift errors contract resolution raises.
+pub fn inherited_clauses(
+    declarations: &drift::Declarations,
+    joined: &[ClauseRow],
+    kinds: &BTreeMap<String, CustomKind>,
+    builtin_defs: &BTreeMap<String, CustomKind>,
+    kind: &str,
+) -> miette::Result<Vec<contract::Clause>> {
+    let mut ancestors = Vec::new();
+    let mut at = kinds.get(kind).and_then(|kind| kind.base.as_deref());
+    // The load refuses a cycling base chain, so the bound only fences a map built elsewhere.
+    while let Some(base) = at.filter(|_| ancestors.len() < kinds.len()) {
+        ancestors.push(base);
+        at = kinds.get(base).and_then(|kind| kind.base.as_deref());
+    }
+    let mut clauses = Vec::new();
+    for base in ancestors.into_iter().rev() {
+        let own = with_joined_clauses(
+            kind_contract(declarations, builtin_defs, base)?,
+            joined,
+            base,
+        )?;
+        clauses.extend(own.clauses);
+    }
+    Ok(clauses)
+}
+
+/// Whether `kind` is `base` or one of its subkinds, at any depth — the test a by-kind
+/// selection of `base` binds a member by.
+#[must_use]
+pub fn is_kind_or_subkind(kinds: &BTreeMap<String, CustomKind>, kind: &str, base: &str) -> bool {
+    let mut at = Some(kind);
+    for _ in 0..=kinds.len() {
+        match at {
+            Some(name) if name == base => return true,
+            Some(name) => at = kinds.get(name).and_then(|kind| kind.base.as_deref()),
+            None => return false,
+        }
+    }
+    false
+}
+
 /// The enforcement mode `declarations` declare, for a caller that has already read them —
 /// a harness needing the mode to decide whether a dialed softening binds and must
 /// never reach a second verdict on the posture from a second read.
