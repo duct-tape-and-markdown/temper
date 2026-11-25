@@ -55,5 +55,18 @@
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "Inbox record. Find why CLAUDE.md, two rules and settings.json draw root.locus-declared: stale projections or emitted elsewhere; make the committed tree its emit. 0082 removed command-string gate hooks."
+  "notes": "Inbox record. Find why CLAUDE.md, two rules and settings.json draw root.locus-declared: stale projections or emitted elsewhere; make the committed tree its emit. 0082 removed command-string gate hooks.",
+  "observedFiles": [
+    ".flume/plan/notes/SHIPPED-EXAMPLE-PASSES-ITS-OWN-CHECK.md",
+    "examples/base-harness/.claude/settings.json",
+    "examples/base-harness/.temper/harness.ts",
+    "examples/base-harness/.temper/hooks.ts",
+    "examples/base-harness/.temper/kinds.ts",
+    "examples/base-harness/.temper/lock.toml",
+    "examples/base-harness/README.md",
+    "sdk/src/kind.ts",
+    "sdk/src/prose.ts",
+    "sdk/test/prose.test.ts",
+    "tests/it/emit.rs"
+  ]
 }
