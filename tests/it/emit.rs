@@ -411,6 +411,47 @@ fn a_hand_edited_projection_is_overwritten_not_conflicted() {
 }
 
 #[test]
+fn an_emit_over_a_projection_whose_kind_dropped_its_frontmatter_carries_no_stale_managed_projection_note()
+ {
+    // The prior file carries the `#` note in its frontmatter; the new render has no
+    // frontmatter to hold it, so the overwrite must match an emit onto an absent file.
+    let (harness, into) = workspace("frontmatter-dropped");
+    let with_paths = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
+    drift::emit(&with_paths, &into, EmitOptions::default()).unwrap();
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    assert!(
+        fs::read_to_string(&rule_path)
+            .unwrap()
+            .contains(placement::NOTE_MARKER)
+    );
+
+    let frontmatterless = basic_payload(vec![common::rule_member("rust", None, RUST_BODY)]);
+    let report = drift::emit(&frontmatterless, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
+    let overwritten = fs::read_to_string(&rule_path).unwrap();
+
+    let (fresh_harness, fresh_into) = workspace("frontmatter-dropped-fresh");
+    drift::emit(&frontmatterless, &fresh_into, EmitOptions::default()).unwrap();
+    let fresh =
+        fs::read_to_string(fresh_harness.join(".claude").join("rules").join("rust.md")).unwrap();
+    assert_eq!(
+        overwritten, fresh,
+        "the overwrite carries no placement the new shape cannot hold"
+    );
+    assert!(
+        !overwritten.contains(placement::NOTE_MARKER),
+        "got: {overwritten}"
+    );
+
+    let report = drift::emit(&frontmatterless, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Unchanged);
+}
+
+#[test]
 fn an_emit_over_bytes_no_lock_fingerprinted_is_a_plain_emit() {
     // A first emit — adoption's included: the one reviewable adoption diff overwrites a
     // hand-authored file on purpose, and with no prior row there is no fingerprint to

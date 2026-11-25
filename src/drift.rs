@@ -3464,10 +3464,26 @@ fn emit_one(
             });
         }
     };
-    let mut placements = current
+    // A prior placement carries only where the current shape holds its form: the `#`
+    // comments live inside a frontmatter block, the banner heads a frontmatterless body.
+    // A projection whose kind gained or dropped frontmatter would otherwise carry the old
+    // form into the wrong slot — a stray `#` line atop the body — that the next emit,
+    // reading the new shape, drops again.
+    let frontmatter = renders_frontmatter(projection.format, &projection.fields);
+    let mut placements: Vec<String> = current
         .as_deref()
         .map(|bytes| crate::placement::placement_lines(&String::from_utf8_lossy(bytes)))
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|line| {
+            let line = line.trim_start();
+            if frontmatter {
+                line.starts_with('#')
+            } else {
+                line.starts_with(crate::placement::BANNER_MARKER)
+            }
+        })
+        .collect();
 
     // Emit owns a represented projection's bytes in full, so it places the
     // managed-projection marker itself rather than leaving a freshly emitted file
@@ -3476,7 +3492,7 @@ fn emit_one(
     // leading line, a frontmatterless markdown body carries the HTML-comment banner at
     // its head. A body that renders neither (a JSON document, a frontmatterless
     // non-markdown file) has nowhere inert to hold a marker and takes none.
-    let marker = if renders_frontmatter(projection.format, &projection.fields) {
+    let marker = if frontmatter {
         Some((
             crate::placement::NOTE_MARKER,
             crate::placement::NOTE_COMMENT,
