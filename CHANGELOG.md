@@ -9,6 +9,112 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+## [0.0.24] — 2026-11-25
+
+### Upgrading from 0.0.23
+
+Each line is what a 0.0.23 harness may see first, then what to do.
+[`docs/MIGRATING-0.0.24.md`](docs/MIGRATING-0.0.24.md) walks each one with
+before and after.
+
+- **Your lock changes on the next `emit`.** The `engine` line moves to
+  `0.0.24`, the lock gains `[[declaration.module]]` rows for the program's
+  own modules, and a registration kind's `collection_address` drops its
+  `manifest` key. Re-emit once and commit the lock.
+- **`emit` needs Node 22.15 or later.** It refuses on an older Node rather
+  than write a lock that fingerprints nothing.
+- **A requirement that omits `required` is now required.** An unfilled one
+  fails `check`. Spell `required: false` where you meant it advisory.
+- **`GUARD_COMMAND` and `SESSION_START_COMMAND` are gone from
+  `@dtmd/temper/claude-code`.** Rewrite each gate hook as `gateHook({ name,
+  matcher })`, adding `binary` if temper is not on your PATH.
+- **A locus glob that is not a placement template fails `check`.** Drop
+  character classes, braces, extglobs and `?`; narrow names with an
+  `allowedChars` clause, and leave a sibling file out with the new
+  `exclude`.
+- **`tsc` refuses `registration: []` on an embedded or nested-file kind,
+  and `collectionAddress.manifest` on any kind.** Delete both.
+- **The guard may report what it used to miss**, and stop reporting what it
+  used to invent. It now judges the way `check` does.
+- **Rules in subdirectories of `.claude/rules/` are now governed.** Claude
+  Code loads them, so `check` now reads them. A `CLAUDE.md` under
+  `.claude/rules/`, `agents/`, `commands/` or `skills/` is no longer a
+  memory member.
+
+### Breaking
+
+- **An unset requirement `required` lowers to `true`** (GH #60), the
+  default the model states. `required: false` is the advisory spelling.
+- **`emit` requires Node 22.15 or later**, for the module load hook that
+  records what the program imports.
+- **`GUARD_COMMAND` and `SESSION_START_COMMAND` are no longer exported.** A
+  gate hook is `gateHook({ name, matcher?, binary? })`; the engine renders
+  its command, and `install` scaffolds that form.
+- **A file locus glob must be a placement template**: literal segments with
+  at most one `*`, optionally under a leading `**/`. Anything else is
+  refused at load, where it used to match nothing.
+- **`CollectionAddress` loses `manifest`.** A registration kind's manifest
+  is its starless `at` locus, and a starred or non-`at` locus is refused.
+- **`registration` is `never` on embedded and nested-file kinds**, and a
+  layout `field` region's `slot` must be a key of the kind's typed surface.
+- **A layout kind over a `json-document` or `toml-document` format is
+  refused** at load. A layout types a markdown body.
+- **A layout document's member identity follows its kind's unit shape.** A
+  `named-field` or `directory` layout kind used to key its member by the
+  file stem on `check` and by the program's name in the lock.
+- **`rule` governs `.claude/rules/**/*.md`** and **`memory` excludes**
+  `.claude/agents/`, `.claude/commands/`, `.claude/rules/` and
+  `.claude/skills/`, matching what Claude Code loads as each.
+
+### Added
+
+- **`gateHook()`**, a gate hook that states the temper binary it runs, for a
+  workspace install off the PATH (GH #65).
+- **`exclude` on a file locus**: paths, or directories, the kind does not
+  govern, such as a `README.md` beside its members (GH #64).
+- **Module fingerprinting.** `emit` records every module the program loads
+  that the repository tracks, so editing an imported module reads stale on
+  `check` without an `input()` (GH #61). Gitignored build output and
+  packages under `node_modules` are left out.
+
+### Changed
+
+- **The guard judges with `check`'s judges** (GH #66). Both edges classify
+  sites, walk the tree and judge freshness the way `check` does, so a
+  finding the guard raises is one `check` raises on the same tree. In
+  practice:
+  - declared layout documents no longer draw `root.locus-declared`;
+  - the walk honors ignore rules, including a linked worktree's common
+    `info/exclude`;
+  - the shell edge reports a moved import, include or input;
+  - `.`-rooted loci, nested layout children, named-field layout documents
+    and members at a committed `local` locus are judged at both edges.
+- **`install.gate-installed` judges the gate hook member**, so a hook that
+  runs temper by path reads installed.
+
+### Fixed
+
+- **A layout kind dropped its frontmatter fields** (GH #63). A layout
+  structures the body; frontmatter reads as on any kind.
+- **Clauses on a layout collection's entries never fired** through a host
+  path such as `invariant[*].test` (GH #62).
+- **A character class in a locus glob broke placement** (GH #64): the name
+  replaced `*` and the class stayed literal. The glob is now refused at
+  load instead.
+- **Emit could place a member on an excluded path**, and coverage counted
+  excluded paths as governed.
+
+### Known gaps
+
+Re-reading each built-in locus against the current Claude Code docs found
+two more it does not yet claim. Both land in a later release:
+
+- **Commands in subdirectories of `.claude/commands/`**, which Claude Code
+  loads as `/frontend:component`. The `command` kind reads the top level only.
+- **Nested `<subdir>/.claude/skills/` and `.claude/agents/`**, which load
+  once Claude works in that subdirectory. The built-in kinds claim the root
+  folders only.
+
 ## [0.0.23] — 2026-10-16
 
 ### Upgrading from 0.0.22
