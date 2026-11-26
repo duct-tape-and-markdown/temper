@@ -913,6 +913,9 @@ pub struct InstallOutcome {
     pub emit: Option<EmitReport>,
     /// Every projected placement.
     pub entries: Vec<InstallEntry>,
+    /// Dependencies the existing `.temper/package.json` lacks, left for the
+    /// author's package manager to add.
+    pub missing_dependencies: Vec<MissingDependency>,
 }
 
 /// Run `install` at `root`: the one question already answered as `represent`, over
@@ -935,6 +938,7 @@ pub fn run(
             scaffolded: 0,
             emit: None,
             entries: place_settings_only(root, dry_run)?,
+            missing_dependencies: Vec::new(),
         }),
         Represent::Yes => run_represented(root, discovery, dry_run),
     }
@@ -962,8 +966,9 @@ fn run_represented(
     // Assured before the lift writes a single member module: "no half-scaffolded
     // state" — a dependency spawn failure must never leave a partial `.temper/`
     // program behind it.
+    let mut missing_dependencies = Vec::new();
     if !dry_run {
-        ensure_package_json(&temper_dir)?;
+        missing_dependencies = ensure_package_json(&temper_dir)?;
         if !dependency_resolves(&temper_dir) {
             spawn_npm_install(&temper_dir)?;
         }
@@ -1040,6 +1045,7 @@ fn run_represented(
         scaffolded,
         emit,
         entries,
+        missing_dependencies,
     })
 }
 
@@ -3534,74 +3540,100 @@ fn spawn_npm_install(temper_dir: &Path) -> Result<(), InstallError> {
     Ok(())
 }
 
-/// Ensure `<temper_dir>/package.json` declares [`SDK_PACKAGE`] as a dependency, and
-/// the typecheck's [`TYPECHECK_PACKAGE`] and [`NODE_TYPES_PACKAGE`] as devDependencies —
-/// creating a minimal manifest when absent, adding a missing key when the file exists
-/// but lacks it, and leaving an already-declared one (any version spec — a test's
-/// `file:` pin included) untouched.
-fn ensure_package_json(temper_dir: &Path) -> Result<(), InstallError> {
+/// A dependency the program needs that its existing `package.json` does not
+/// declare — named for the author's package manager to add, never written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingDependency {
+    /// The npm package name.
+    pub package: String,
+    /// The range install would have scaffolded.
+    pub range: String,
+    /// Whether it belongs in `devDependencies` rather than `dependencies`.
+    pub dev: bool,
+}
+
+/// The dependencies the program needs: [`SDK_PACKAGE`] as a dependency, the
+/// typecheck's [`TYPECHECK_PACKAGE`] and [`NODE_TYPES_PACKAGE`] as devDependencies.
+fn required_dependencies() -> [MissingDependency; 3] {
+    [
+        MissingDependency {
+            package: SDK_PACKAGE.to_string(),
+            range: sdk_version_range().to_string(),
+            dev: false,
+        },
+        MissingDependency {
+            package: TYPECHECK_PACKAGE.to_string(),
+            range: sdk_dev_dependency_range(TYPECHECK_PACKAGE),
+            dev: true,
+        },
+        MissingDependency {
+            package: NODE_TYPES_PACKAGE.to_string(),
+            range: sdk_dev_dependency_range(NODE_TYPES_PACKAGE),
+            dev: true,
+        },
+    ]
+}
+
+/// Scaffold `<temper_dir>/package.json` when absent; an existing one is read and
+/// never written — every other writer (the package manager, update bots) owns it.
+/// Returns the required dependencies an existing manifest declares in neither
+/// group (any version spec counts as declared).
+fn ensure_package_json(temper_dir: &Path) -> Result<Vec<MissingDependency>, InstallError> {
     let path = temper_dir.join("package.json");
-    let mut root = match fs::read_to_string(&path) {
-        Ok(text) => serde_json::from_str::<JsonValue>(&text).map_err(|source| {
-            InstallError::PackageJson {
-                path: path.clone(),
-                source,
+    match fs::read_to_string(&path) {
+        Ok(text) => {
+            let root = serde_json::from_str::<JsonValue>(&text).map_err(|source| {
+                InstallError::PackageJson {
+                    path: path.clone(),
+                    source,
+                }
+            })?;
+            let object = root
+                .as_object()
+                .ok_or_else(|| InstallError::PackageJsonShape { path: path.clone() })?;
+            Ok(required_dependencies()
+                .into_iter()
+                .filter(|dep| {
+                    !["dependencies", "devDependencies"].iter().any(|group| {
+                        object
+                            .get(*group)
+                            .is_some_and(|deps| deps.get(&dep.package).is_some())
+                    })
+                })
+                .collect())
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            let mut dependencies = serde_json::Map::new();
+            let mut dev_dependencies = serde_json::Map::new();
+            for dep in required_dependencies() {
+                let group = if dep.dev {
+                    &mut dev_dependencies
+                } else {
+                    &mut dependencies
+                };
+                group.insert(dep.package, json!(dep.range));
             }
-        })?,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => json!({
-            "name": "temper-harness",
-            "private": true,
-            "type": "module",
-        }),
-        Err(source) => {
-            return Err(InstallError::Read {
-                path: path.clone(),
-                source,
+            let root = json!({
+                "name": "temper-harness",
+                "private": true,
+                "type": "module",
+                "dependencies": dependencies,
+                "devDependencies": dev_dependencies,
             });
-        }
-    };
-
-    let object = root
-        .as_object_mut()
-        .ok_or_else(|| InstallError::PackageJsonShape { path: path.clone() })?;
-    let dependencies = object
-        .entry("dependencies")
-        .or_insert_with(|| json!({}))
-        .as_object_mut()
-        .ok_or_else(|| InstallError::PackageJsonShape { path: path.clone() })?;
-    dependencies
-        .entry(SDK_PACKAGE)
-        .or_insert_with(|| json!(sdk_version_range()));
-    // The typecheck's compiler and the Node types the program uses — each kept at
-    // whatever range the adopter already declares, in either group.
-    for package in [TYPECHECK_PACKAGE, NODE_TYPES_PACKAGE] {
-        let declared = ["dependencies", "devDependencies"].iter().any(|group| {
-            object
-                .get(*group)
-                .is_some_and(|deps| deps.get(package).is_some())
-        });
-        if declared {
-            continue;
-        }
-        object
-            .entry("devDependencies")
-            .or_insert_with(|| json!({}))
-            .as_object_mut()
-            .ok_or_else(|| InstallError::PackageJsonShape { path: path.clone() })?
-            .insert(
-                package.to_string(),
-                json!(sdk_dev_dependency_range(package)),
+            let desired = format!(
+                "{}\n",
+                serde_json::to_string_pretty(&root).map_err(|source| {
+                    InstallError::PackageJson {
+                        path: path.clone(),
+                        source,
+                    }
+                })?
             );
+            write_scaffold_file(&path, &desired)?;
+            Ok(Vec::new())
+        }
+        Err(source) => Err(InstallError::Read { path, source }),
     }
-
-    let desired = format!(
-        "{}\n",
-        serde_json::to_string_pretty(&root).map_err(|source| InstallError::PackageJson {
-            path: path.clone(),
-            source,
-        })?
-    );
-    write_scaffold_file(&path, &desired)
 }
 
 /// The relative `$schema` reference a modeline in `source` points at: the
@@ -3712,6 +3744,17 @@ pub fn render(outcome: &InstallOutcome) -> String {
         ));
         if let Some(emit) = &outcome.emit {
             out.push_str(&drift::render_emit(emit));
+        }
+        for dep in &outcome.missing_dependencies {
+            let group = if dep.dev {
+                "devDependencies"
+            } else {
+                "dependencies"
+            };
+            out.push_str(&format!(
+                "missing     .temper/package.json lacks `{}@{}` in {group} — add it with your package manager\n",
+                dep.package, dep.range
+            ));
         }
     } else {
         out.push_str("not represented — session-start reporter only\n");

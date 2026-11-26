@@ -4293,6 +4293,67 @@ fn package_json_written_when_dependency_resolves_via_ancestor() {
     );
 }
 
+#[test]
+fn re_running_install_leaves_an_existing_package_json_byte_identical() {
+    let root = write_harness("pkg-json-byte-identity", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+
+    // Unsorted keys, a field temper never writes, two-column indent, no trailing
+    // newline, and neither typecheck devDependency — any serializer round-trip
+    // would move at least one of these bytes.
+    let authored = "{\n  \"type\": \"module\",\n  \"name\": \"my-harness\",\n  \"private\": true,\n  \"packageManager\": \"pnpm@9.0.0\",\n  \"dependencies\": { \"@dtmd/temper\": \"*\" }\n}";
+    let manifest = temper_dir.join("package.json");
+    fs::write(&manifest, authored).unwrap();
+
+    let discovery = install::discover(&root).unwrap();
+    let first = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(fs::read_to_string(&manifest).unwrap(), authored);
+    let missing: Vec<&str> = first
+        .missing_dependencies
+        .iter()
+        .map(|dep| dep.package.as_str())
+        .collect();
+    assert_eq!(missing, ["typescript", "@types/node"]);
+    assert!(first.missing_dependencies.iter().all(|dep| dep.dev));
+    let rendered = install::render(&first);
+    assert!(
+        rendered.contains("lacks `typescript@") && rendered.contains("lacks `@types/node@"),
+        "the missing dependencies are named for the author's manager: {rendered}"
+    );
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(
+        fs::read_to_string(&manifest).unwrap(),
+        authored,
+        "re-running install never rewrites the program's package.json"
+    );
+}
+
+#[test]
+fn a_first_install_scaffolds_the_package_json() {
+    let root = write_harness("pkg-json-first-install", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+    let manifest = temper_dir.join("package.json");
+    assert!(!manifest.exists());
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    let parsed: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&manifest).unwrap()).unwrap();
+    assert_eq!(parsed["type"], "module");
+    assert!(parsed["dependencies"]["@dtmd/temper"].is_string());
+    for package in ["typescript", "@types/node"] {
+        assert!(parsed["devDependencies"][package].is_string(), "{parsed}");
+    }
+    assert!(outcome.missing_dependencies.is_empty());
+}
+
 // ---------------------------------------------------------------------------
 // Fail-loud invariant: hooks fail loud when temper is not on PATH
 // ---------------------------------------------------------------------------
