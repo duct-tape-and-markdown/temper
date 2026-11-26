@@ -9,10 +9,6 @@
     "new": [],
     "edit": [
       {
-        "path": "src/install.rs",
-        "description": "scaffold writes packageManager (root's, else npm@<version> it ran); install spawns the field's manager; a fieldless package.json refuses with the remedy"
-      },
-      {
         "path": "src/tool.rs",
         "description": "manager from packageManager, not lockfile presence"
       },
@@ -21,20 +17,8 @@
         "description": "agree with tool.rs"
       },
       {
-        "path": "tests/it/common/mod.rs",
-        "description": "wire_sdk_harness fixtures write a package.json carrying the field"
-      },
-      {
-        "path": "tests/it/install.rs",
-        "description": "scaffold, pnpm and refusal tests"
-      },
-      {
         "path": "tests/it/tool_kind.rs",
         "description": "pnpm tool test"
-      },
-      {
-        "path": "examples/base-harness/.temper/package.json",
-        "description": "declare packageManager"
       }
     ],
     "retire": []
@@ -44,18 +28,14 @@
     "path": "specs/model/authoring.md",
     "section": "The SDK"
   },
-  "acceptance": "a fresh install writes packageManager; a root packageManager of pnpm@… is copied and install and the tool use pnpm; a .temper/package.json with no field refuses with the add-the-field remedy; an existing package.json stays byte-identical",
+  "acceptance": "a fresh install writes packageManager; a root packageManager of pnpm@\u2026 is copied and install and the tool use pnpm; a .temper/package.json with no field refuses with the add-the-field remedy; an existing package.json stays byte-identical",
   "tests": [
-    "a fresh install writes the package manager field into the scaffold",
-    "a root package manager field naming pnpm is copied and install runs pnpm",
     "a package manager field naming pnpm makes the tool use pnpm",
     "a program package json with no package manager field refuses naming the remedy"
   ],
-  "pins": [
-    "an existing package json stays byte identical on re install"
-  ],
+  "pins": [],
   "laneTests": [],
-  "notes": "0100; spec 529865c9 answers the park (scaffold: root's field, else npm@<npm --version>). Dogfood .temper/package.json already declares npm. A fieldless harness predating the rule is the release's migration note, not a fallback. yarn/bun keep the by-name refusal. Shares src/install.rs with PACKAGE-JSON-IS-SCAFFOLDED-ONCE's seam (the `missing` render line may name the declared manager).",
+  "notes": "0100; spec 529865c9 answers the park (scaffold: root's field, else npm@<npm --version>). Dogfood .temper/package.json already declares npm. A fieldless harness predating the rule is the release's migration note, not a fallback. yarn/bun keep the by-name refusal. Shares src/install.rs with PACKAGE-JSON-IS-SCAFFOLDED-ONCE's seam (the `missing` render line may name the declared manager). Install's scaffold half split out (inbox 2026-11-26-install-writes-the-package-manager).",
   "observedFiles": [
     ".flume/plan/notes/PACKAGE-MANAGER-FIELD-NAMES-THE-MANAGER.md",
     "examples/base-harness/.temper/package.json",
