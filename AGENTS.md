@@ -22,14 +22,15 @@ agent pipeline, and it is hand-curated — do not edit it, or anything under
 ## Architecture, briefly
 
 Logic lives in the library crate; `src/main.rs` is a thin `clap` dispatch.
-A kind is data, never code: the built-in kinds are declared in
-`builtin_kind.rs`, and `kind.rs`/`extract.rs` compose each kind's extractor
-from that data. The other load-bearing halves: `contract.rs`/`engine.rs`
-(the closed predicate vocabulary and its evaluation), `document.rs` (the
-`+++`-fenced member document), `import.rs`/`drift.rs` (the surface `install`
-lifts and `emit` projects, and drift's one-direction, two-freshness-fact
-model), `compose.rs`/`roster.rs`/`coverage.rs`/`graph.rs`
-(the assembly: bindings, requirements, satisfier sets, the relation graph).
+A kind is data, never code: the built-in kinds are written by the SDK
+(`sdk/src/builtins.ts`) into the embedded lock (`src/builtin_lock.toml`),
+and `builtin_kind.rs` derives the Rust population from it; `kind.rs` and
+`extract.rs` compose each kind's extractor from that data. The other
+load-bearing halves: `contract.rs`/`engine.rs` (the closed predicate
+vocabulary and its evaluation), `import.rs`/`drift.rs` (the surface
+`install` lifts, the projections `emit` renders, and drift's freshness
+model), `compose.rs`/`roster.rs`/`coverage.rs`/`graph.rs` (the assembly:
+bindings, requirements, satisfier sets, the relation graph).
 The evergreen intent lives in `specs/` (start at `specs/intent.md`) — specs
 are human-authored; do not edit them in a PR.
 
@@ -39,8 +40,9 @@ are human-authored; do not edit them in a PR.
   is an unfinished change.
 - NEVER use `unwrap`/`expect`/`panic!` on real code paths — model errors with
   `thiserror`, surface them with `miette`.
-- NEVER re-render markdown bodies or companion files — they are copied
-  byte-for-byte; only structured headers are rewritten, via `toml_edit`.
+- NEVER paraphrase authored prose: it reaches a projection byte for byte.
+  A projection is rendered whole by `emit`, never patched by hand, and a
+  layout document is a source, never regenerated.
 - Comments cite the relevant `specs/` section and state only what the code
   adds; never restate spec narrative.
 - Search before claiming something is not implemented — the surface may exist

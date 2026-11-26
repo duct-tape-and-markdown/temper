@@ -134,8 +134,7 @@ regenerable from the shipped binary, never a screenshot that drifts — and a
 run-before-install quickstart: the stranger gate itself. Honest status is a
 trust feature: pre-1.0 policy stated plainly — pre-1.0 releases carry no
 backward-compatibility burden — a root CHANGELOG, frequent tagged releases;
-`AGENTS.md` at root for contributing agents, distinct from the internal
-pipeline's `CLAUDE.md`.
+`AGENTS.md` at root, `CLAUDE.md` sourcing it.
 
 **License:** MIT OR Apache-2.0, dual (`LICENSE-MIT` + `LICENSE-APACHE`);
 never copyleft — a voluntarily adopted gate cannot carry adoption friction.
