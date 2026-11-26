@@ -1,0 +1,17 @@
+{
+  "tag": "LIFT-DECLARES-LOCATION-WHERE-TEMPLATES-MISPLACE",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/install.rs", "description": "lifted_location: declare a location wherever the read path differs from the templates' whole placement, named-field included" },
+      { "path": "tests/it/install.rs", "description": "named-field member whose field differs from its stem" }
+    ]
+  },
+  "summary": "Install's lift declares a member's location whenever its kind's templates would not place its name back at its read path, so a named-field member re-emits where it was found",
+  "per": { "path": "specs/model/representation.md", "section": "member" },
+  "acceptance": "Represented install over a named-field kind whose `name` differs from the file stem lifts a location; the first emit rewrites no path and check is clean",
+  "tests": [
+    "lift declares a location for a named-field member whose field differs from its file stem"
+  ],
+  "notes": "From build note MEMBER-PLACEMENT-IS-A-DECLARED-ROW-FACT: lifted_location gates on a `:` in the id, so `name: Teaching Mode` in teach.md re-emits at `Teaching Mode.md`. Criterion per the note: read path != whole placement."
+}
