@@ -1,0 +1,54 @@
+{
+  "tag": "NARRATION-MATCHES-THE-MODEL",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": ":298 :370 :442 retired 0091 delivery"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": ":5405 delivery; seven-families counts"
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "temper on the PATH default"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "PATH default; SDK_COUNSEL rule names"
+      },
+      {
+        "path": "sdk/src/emit.ts",
+        "description": ":1059 :1131 counts"
+      },
+      {
+        "path": "src/engine.rs",
+        "description": "admissibility count and pattern"
+      },
+      {
+        "path": "src/install.rs",
+        "description": ":1372 two halves, :871 dry-run pointer"
+      },
+      {
+        "path": "src/bundle.rs",
+        "description": ":235 hook_events"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Doc comments, guidance strings and messages stop asserting retired model text; each states what the model says now, or goes",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "Narration is the ladder's bottom rung"
+  },
+  "acceptance": "no census site asserts 0091/0100/0104-retired text or a hand count; net-neutral or negative",
+  "tests": [],
+  "pins": [],
+  "notes": "Inbox 2026-11-26 fold, narration-drift family second noting (b02a40d3, d2f1d4f9). Census is every such claim found by behavior, not only the named lines. A moved message may re-bless snapshots; that is the whole of it."
+}

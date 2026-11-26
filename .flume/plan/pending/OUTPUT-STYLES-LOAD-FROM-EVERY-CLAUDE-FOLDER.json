@@ -1,0 +1,41 @@
+{
+  "tag": "OUTPUT-STYLES-LOAD-FROM-EVERY-CLAUDE-FOLDER",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "output-style locus reaches nested .claude/output-styles"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-emitted rows; memory exclude"
+      },
+      {
+        "path": "tests/it/output_style_kind.rs",
+        "description": "nested placement"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emit"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "output-style claims every .claude/output-styles/ between the working directory and the repo root, as the runtime loads them",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
+  "acceptance": "a style under a nested .claude/output-styles/ is claimed and an outputStyle naming it resolves",
+  "tests": [
+    "an output style in a nested claude folder is claimed",
+    "a settings output style naming a nested style resolves"
+  ],
+  "pins": [],
+  "notes": "Note OUTPUT-STYLE-KIND-SHIPS, class 0101: docs (code.claude.com/docs/en/output-styles, retrieved 2026-11-25) load project styles from every .claude/output-styles/ up to the repo root, nearest winning a name clash. If the engine's identity rule refuses a same-named style at two depths, park and raise rather than invent a shadowing rule."
+}

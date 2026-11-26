@@ -1,0 +1,41 @@
+{
+  "tag": "LOCKLESS-CHECK-RESOLVES-THE-BUILT-IN-EDGES",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/gate.rs",
+        "description": "assembly edges fall back to the embedded built-in lock's rows"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "edges_from_declarations input"
+      },
+      {
+        "path": "tests/it/output_style_kind.rs",
+        "description": "lockless dangling outputStyle"
+      },
+      {
+        "path": "tests/it/installed_plugin_kind.rs",
+        "description": "lockless dangling marketplace"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A harness with no lock resolves the built-in assembly edges from the embedded lock, so a dangling outputStyle or marketplace is a finding",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "The lock"
+  },
+  "acceptance": "check over a lockless harness reports a settings outputStyle naming no style, and an installed plugin naming no known marketplace",
+  "tests": [
+    "a lockless harness reports a dangling outputStyle",
+    "a lockless harness reports an installed plugin naming no known marketplace"
+  ],
+  "pins": [],
+  "notes": "Note OUTPUT-STYLE-IS-SELECTED-BY-SETTINGS: gate.rs reads declaration.assembly only off the committed lock (read_lock_document yields an empty doc when absent), never the embedded lock. \"A harness with no lock is still fully gated.\" Tests today stand up a committed copy of the built-in declarations. Shares edges_from_declarations with EDGE-FIELD-SET-IS-DERIVED-ONCE."
+}

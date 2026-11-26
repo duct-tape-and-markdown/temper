@@ -1,0 +1,52 @@
+{
+  "tag": "THE-TYPECHECK-REACHES-ITS-TOOL-BY-AN-EDGE",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "the typecheck emits a root runs row"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "reads the root runs row"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "fold_runs folds a root runner"
+      },
+      {
+        "path": "src/graph.rs",
+        "description": "resolved_edges carries the root runs edge"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "root runs edge beside the mention edges"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "seam: embedded lock shape"
+      },
+      {
+        "path": "tests/it/tool_kind.rs",
+        "description": "degree cases"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The typecheck reaches its tool by a declared runs edge from the root, so a tool only the typecheck runs is no tool.degree finding",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Tool"
+  },
+  "acceptance": "a harness whose only runner of a tool is its typecheck draws no tool.degree; the lock carries the edge as a runs row whose runner is the root",
+  "tests": [
+    "a tool reached only by the typecheck draws no degree finding"
+  ],
+  "pins": [],
+  "notes": "Park EMIT-RUNS-THE-DECLARED-TYPECHECK names this prerequisite: TypecheckRow is seam-inbound only; fold_runs/resolved_edges range only over kind members. The harness root declares the typecheck, so the root is its runner (park proposes RunsRow member = \"root\"). Seam is two-sided (PROTOCOL 4)."
+}

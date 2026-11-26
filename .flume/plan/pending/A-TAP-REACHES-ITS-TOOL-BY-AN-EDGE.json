@@ -1,0 +1,48 @@
+{
+  "tag": "A-TAP-REACHES-ITS-TOOL-BY-AN-EDGE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "THE-REQUIREMENT-IS-A-SHIPPED-KIND",
+      "THE-TYPECHECK-REACHES-ITS-TOOL-BY-AN-EDGE"
+    ]
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "a tap emits a runs row keyed on its requirement member"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "reads it"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "fold_runs"
+      },
+      {
+        "path": "src/graph.rs",
+        "description": "resolved_edges"
+      },
+      {
+        "path": "tests/it/tool_kind.rs",
+        "description": "degree case"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A telemetry tap reaches its tool by a runs edge from the requirement that declares it, so a tool only a tap runs is no tool.degree finding",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Tool"
+  },
+  "acceptance": "a harness whose only runner of a tool is a tap draws no tool.degree",
+  "tests": [
+    "a tool reached only by a tap draws no degree finding"
+  ],
+  "pins": [],
+  "notes": "Note RUNNERS-REACH-THE-TEMPER-TOOL-BY-EDGE: a telemetry declaration is a requirement, not a member, so no runs row has a runner address. Once the requirement is a member (blocker), its address is the runner. Shares the runs seam with the typecheck entry."
+}

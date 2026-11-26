@@ -1,0 +1,37 @@
+{
+  "tag": "TOOL-LOCKFILE-READ-FINDS-THE-MANAGERS-LOCK",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/tool.rs",
+        "description": "read_lockfile walks to the workspace-root lock and reads every pnpm document"
+      },
+      {
+        "path": "sdk/src/lockfile.ts",
+        "description": "the SDK twin agrees"
+      },
+      {
+        "path": "tests/it/tool_kind.rs",
+        "description": "lockfile cases"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A package-bin tool's version is read from the lockfile the package manager actually wrote: a workspace-root lock above the program, and a pnpm lock past its env document",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "neither a workspace-root lockfile nor a multi-document pnpm lock draws tool.unlocked for a locked package",
+  "tests": [
+    "a workspace root lockfile above the program locks a package bin tool",
+    "a pnpm lockfile with a leading env document locks a package bin tool"
+  ],
+  "pins": [],
+  "notes": "Note TOOL-PACKAGE-BIN-READS-THE-LOCKFILE: read only from the workspace dir; gray_matter reads only the first YAML document. The pnpm 10 configDependencies env document is the note's claim, UNVERIFIED: cite pnpm docs before encoding it, else drop that line and raise."
+}

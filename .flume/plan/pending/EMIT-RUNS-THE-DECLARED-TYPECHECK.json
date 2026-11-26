@@ -1,7 +1,10 @@
 {
   "tag": "EMIT-RUNS-THE-DECLARED-TYPECHECK",
   "gate": {
-    "kind": "open"
+    "kind": "blockedBy",
+    "tags": [
+      "THE-TYPECHECK-REACHES-ITS-TOOL-BY-AN-EDGE"
+    ]
   },
   "dependsOnForks": [],
   "kind": "work",
@@ -27,6 +30,34 @@
       {
         "path": "tests/it/emit.rs",
         "description": "typecheck cases"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "scaffold the typecheck declaration, tsconfig and devDeps"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "install tests that write their own harness.ts"
+      },
+      {
+        "path": "tests/it/tool_kind.rs",
+        "description": "tool listings gain the fixture tool"
+      },
+      {
+        "path": "tests/it/builtin_lock_frozen.rs",
+        "description": "memberless emit drops or declares the fixture typecheck"
+      },
+      {
+        "path": "tests/it/bundle.rs",
+        "description": "kind-tool.md memberless emit"
+      },
+      {
+        "path": "examples/base-harness/.temper/harness.ts",
+        "description": "the example declares its typecheck"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emit"
       }
     ],
     "retire": []
@@ -38,13 +69,15 @@
   },
   "acceptance": "emit over a program with a type error refuses naming the compiler's diagnostics; a program declaring no typecheck refuses naming the declaration; the project file is a declared input",
   "tests": [
-    "emit refuses a program whose typecheck reports a type error",
-    "emit refuses a program that declares no typecheck",
-    "the typecheck project file is a declared input"
+    "emit refuses a program that declares no typecheck"
   ],
-  "pins": [],
+  "pins": [
+    "emit refuses a program whose typecheck reports a type error",
+    "the typecheck project file is a declared input",
+    "a relative workspace path runs the typecheck from the workspace bin"
+  ],
   "laneTests": [],
-  "notes": "0098 as amended by 0100/0104: the typecheck is a tool reference; command-reference-declaration (in git) held it. Never resolves the compiler by guess. Every emitting fixture gains a declaration via the shared helper. The dogfood `.temper/` must declare one (human) or its emit refuses — name it in the commit body.",
+  "notes": "0098 as amended by 0100/0104. Park (9132d0e8): the refusal makes every harness compose a typecheck tool, so tool.degree must count the typecheck's edge first (blockedBy). Park note's fallout list applies: fixture helper splice, install scaffold, memberless emits. Never resolves the compiler by guess. The dogfood `.temper/` must declare one (human) — name it in the commit body.",
   "interface": {
     "changes": "a program declares its typecheck: a tool plus the project file it checks",
     "hides": "how emit finds and runs the consumer's compiler",

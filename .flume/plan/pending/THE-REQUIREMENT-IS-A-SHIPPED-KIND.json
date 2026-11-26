@@ -1,0 +1,79 @@
+{
+  "tag": "THE-REQUIREMENT-IS-A-SHIPPED-KIND",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "requirement() mints a member of the shipped kind"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "the requirement kind definition"
+      },
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "extend admits the requirement kind"
+      },
+      {
+        "path": "sdk/src/assembly.ts",
+        "description": "harness({ require }) composes requirement members"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "requirement rows as members"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "row reader"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "the requirement kind row"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "requirement map readers"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "assembly_requirements and satisfies resolution"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "requirement_from_row"
+      },
+      {
+        "path": "tests/it/requirement_roster.rs",
+        "description": "subkind and kept cases"
+      },
+      {
+        "path": "tests/it/coverage.rs",
+        "description": "kept fill default"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The requirement is a shipped embedded kind, so extend(requirement, …) mints a subkind whose members fill satisfies targets",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "requirement — a shipped kind, not a primitive"
+  },
+  "acceptance": "a consumer's requirement subkind's members fill satisfies targets; harness({ require }) still declares requirements; an unfilled required requirement still refuses",
+  "tests": [
+    "a requirement subkind's members fill satisfies targets"
+  ],
+  "pins": [
+    "a required requirement with no satisfying artifact fires unfilled"
+  ],
+  "notes": "Inbox 2026-11-26 (verified 9ea727d7; requirement() at contract.ts:542 returns a plain value, no requirement row in builtin_lock.toml). Class 0104, as tool became a shipped embedded kind. Census: every reader of the require map — assembly, declaration rows, explain, reference domain topics (0093), satisfies resolution. Seam two-sided.",
+  "interface": {
+    "changes": "requirement is a kind value extend() accepts; requirement() returns a member of it",
+    "hides": "that requirements ride a separate map beside members",
+    "rejected": "a requirement-only extension hook: a second extension mechanism beside extend (0094/0099)"
+  }
+}
