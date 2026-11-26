@@ -7,7 +7,8 @@
 //! The four read *CLI verbs* (`why`/`requirements`/`impact`/`context`) retired at
 //! CLI-COLLAPSE; `explain <target>` is their sole CLI spelling as of EXPLAIN-UNIFY. The
 //! traversal *engine* survives untouched ([`temper::read`]) for `explain` to reuse, so
-//! this file exercises the read library directly rather than spawning the binary.
+//! this file exercises the read library directly; only the lock-untouched pin spawns
+//! the binary, since what it proves is what the verbs do to disk.
 
 use std::collections::BTreeMap;
 
@@ -2844,4 +2845,69 @@ fn explain_exits_zero_over_a_harness_with_an_error_severity_finding() {
         exit_ok,
         "explain exits zero whatever the gate's verdict:\n{narration}"
     );
+}
+
+/// Every verb but `emit` reads the lock and never writes it — a drifted member included,
+/// since a reader that "repaired" drift in place would be a second lock producer.
+#[test]
+fn check_guard_and_explain_leave_the_lock_byte_identical() {
+    use sha2::{Digest, Sha256};
+
+    let root = common::tmpdir("read-verbs-lock-untouched");
+    let clean = "# Clean\n\nA projected rule.\n";
+    let clean_hash = format!("{:x}", Sha256::new_with_prefix(clean.as_bytes()).finalize());
+    common::write_sibling(&root, ".claude/rules/clean.md", clean);
+    common::write_sibling(
+        &root,
+        ".claude/rules/drifted.md",
+        "# Drifted\n\nHand-edited.\n",
+    );
+    common::GuardLock::declaring("block")
+        .member(
+            "rule",
+            "clean",
+            ".claude/rules/clean.md",
+            &clean_hash,
+            &clean_hash,
+        )
+        .member("rule", "drifted", ".claude/rules/drifted.md", "abc", "abc")
+        .write(&root);
+    let lock = root.join(temper::WORKSPACE_DIR).join(temper::LOCK_FILENAME);
+    let before = std::fs::read(&lock).unwrap();
+    let unchanged = |verb: &str| {
+        assert_eq!(
+            std::fs::read(&lock).unwrap(),
+            before,
+            "`{verb}` must leave the lock byte identical — emit is its sole producer"
+        );
+    };
+
+    common::check_in(&root, &[], None);
+    unchanged("check");
+    common::check_harness_in(&root, None);
+    unchanged("check --harness");
+
+    for (path, code) in [
+        (".claude/rules/clean.md", 2),
+        (".claude/rules/drifted.md", 2),
+        ("README.md", 0),
+    ] {
+        let (exit, output) = common::run_guard(&root, &common::guard_write_payload(path));
+        assert_eq!(
+            exit,
+            Some(code),
+            "guard read the lock's `block` mode: {output}"
+        );
+        unchanged("guard");
+    }
+    common::run_guard(
+        &root,
+        &common::guard_edit_payload(".claude/rules/drifted.md", "Hand", "Re"),
+    );
+    unchanged("guard (edit)");
+
+    for target in ["clean", "rule:drifted", "absent"] {
+        common::explain_in(&root, target);
+        unchanged("explain");
+    }
 }
