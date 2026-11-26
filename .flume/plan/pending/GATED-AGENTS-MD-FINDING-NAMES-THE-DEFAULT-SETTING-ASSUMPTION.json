@@ -1,0 +1,24 @@
+{
+  "tag": "GATED-AGENTS-MD-FINDING-NAMES-THE-DEFAULT-SETTING-ASSUMPTION",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/kind.rs", "description": "the shut-gate reason names that the gate is judged at the instruction-files setting's documented default" },
+      { "path": "src/drift.rs", "description": "locus_loader_claim's open-gate branches name the same assumption" },
+      { "path": "tests/it/memory_gate.rs", "description": "the assumption on the locus-declared and reachability findings over a gated AGENTS.md" }
+    ]
+  },
+  "summary": "A finding on a gated AGENTS.md (reachability, locus-declared, guard/install pending write) names that its gate is judged at the instruction-files setting's documented default",
+  "per": { "path": "specs/builtins.md", "section": "The shipped kinds" },
+  "acceptance": "each finding about a gated AGENTS.md, gate open or shut, names the documented-default assumption; a CLAUDE.md finding does not; cargo test green",
+  "tests": [
+    "an undeclared agents md under an open gate names the default instruction files assumption",
+    "an undeclared agents md under a shut gate names the default instruction files assumption",
+    "an agents md shadowed by a claude md draws a reachability finding naming the default instruction files assumption"
+  ],
+  "pins": [
+    "an undeclared claude md says claude code loads it"
+  ],
+  "notes": "The runtime reads the instruction-files setting only from user, --settings and managed settings, never project or local (code.claude.com/docs/en/memory, 'Choose which instruction files load', retrieved 2026-11-26; 0113 amendment): cite it at the phrase. Both paths route through AbsenceClosure::reason and locus_loader_claim, so install.rs and gate.rs need no edit. explain's gate line is not a finding and is out of scope."
+}
