@@ -1288,8 +1288,8 @@ fn place_session_start(root: &Path, dry_run: bool) -> miette::Result<InstallEntr
 /// kind — exactly the kinds `temper schema` models and the SDK ships a schema for —
 /// pointing at that schema's version-pinned CDN URL ([`crate::placement::cdn_schema_url`]), so
 /// the keystroke placement reaches an unrepresented harness without a schema file in its
-/// tree. A frontmatterless artifact takes none, and an artifact already carrying a
-/// modeline keeps it verbatim ([`project_modeline`]), so a re-run reports `Unchanged`.
+/// tree. A frontmatterless artifact takes none; an existing modeline is re-pointed
+/// unless it already names this URL ([`project_modeline`]).
 fn place_cdn_modelines(
     root: &Path,
     discovery: &DiscoveryReport,
@@ -3992,24 +3992,30 @@ fn schema_ref(root: &Path, source: &Path, kind: &str) -> String {
     format!("{climb}.temper/schema/{kind}.json")
 }
 
-/// Project an artifact source with the schema modeline inserted as the first line
-/// of its frontmatter, or `None` when it has no frontmatter to validate (leave it
-/// untouched rather than synthesise a header). Idempotent: an artifact already
-/// carrying a `yaml-language-server` modeline is returned verbatim, so re-running
-/// neither duplicates nor rewrites it — including one a human pointed elsewhere.
+/// Project an artifact source with the schema modeline pointing at `schema_ref` as
+/// the first line of its frontmatter, or `None` when it has no frontmatter to validate
+/// (leave it untouched rather than synthesise a header).
 ///
-/// Byte-faithful: the modeline is the only inserted bytes; every other byte —
-/// the other frontmatter fields, comments, and the whole body — is preserved
-/// exactly (`.claude/rules/rust.md`, round-trip discipline).
+/// Content-keyed, like [`converge_note_wording`]: a modeline whose bytes already match
+/// the desired one is returned verbatim (no churn); one pointing anywhere else — a
+/// stale `@<version>` CDN URL, a moved schema file — is re-pointed in place.
+///
+/// Byte-faithful: the modeline line is the only inserted or rewritten bytes; every
+/// other byte — the other frontmatter fields, comments, and the whole body — is
+/// preserved exactly (`.claude/rules/rust.md`, round-trip discipline).
 fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
     let (rest, matter) = frontmatter::frontmatter_matter(source)?;
-    if matter
-        .lines()
-        .any(|line| line.trim_start().starts_with(MODELINE_MARKER))
-    {
-        return Some(source.to_string());
-    }
     let modeline = format!("{MODELINE_MARKER} $schema={schema_ref}");
+    if let Some(existing) = matter
+        .lines()
+        .find(|line| line.trim_start().starts_with(MODELINE_MARKER))
+    {
+        if existing == modeline {
+            return Some(source.to_string());
+        }
+        // The frontmatter leads the source, so the first occurrence is this line.
+        return Some(source.replacen(existing, &modeline, 1));
+    }
     Some(format!("---\n{modeline}\n{rest}"))
 }
 

@@ -591,7 +591,7 @@ fn an_unrepresented_install_places_a_version_pinned_cdn_schema_modeline_in_a_gov
 }
 
 #[test]
-fn re_running_an_unrepresented_install_leaves_the_cdn_schema_modeline_unchanged() {
+fn install_re_run_leaves_a_current_modeline_unchanged() {
     let root = write_harness("no-represent-modeline-rerun", false);
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::No, false).unwrap();
@@ -616,6 +616,47 @@ fn re_running_an_unrepresented_install_leaves_the_cdn_schema_modeline_unchanged(
             .iter()
             .all(|(_, outcome)| *outcome == ApplyOutcome::Unchanged),
         "a re-run converges, got: {placed:?}"
+    );
+}
+
+#[test]
+fn unrepresented_install_re_run_re_points_a_stale_version_cdn_modeline_at_the_current_version() {
+    let root = write_harness("no-represent-modeline-stale", false);
+    let skill_path = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    // A modeline an older engine seated: same package, retired version.
+    let stale =
+        "# yaml-language-server: $schema=https://unpkg.com/@dtmd/temper@0.0.1/schemas/skill.json";
+    fs::write(&skill_path, format!("---\n{stale}\n{}", &SKILL[4..])).unwrap();
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::No, false).unwrap();
+
+    // Only the modeline line's bytes are rewritten.
+    assert_eq!(
+        fs::read_to_string(&skill_path).unwrap(),
+        format!("---\n{}\n{}", cdn_modeline("skill"), &SKILL[4..])
+    );
+    let placed = modeline_entries(&outcome);
+    assert!(
+        placed.contains(&(skill_path.clone(), ApplyOutcome::Applied)),
+        "the stale modeline is re-placed, got: {placed:?}"
+    );
+
+    // Converged: a further run is Unchanged and byte-identical.
+    let converged = fs::read_to_string(&skill_path).unwrap();
+    let discovery = install::discover(&root).unwrap();
+    let again = install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(fs::read_to_string(&skill_path).unwrap(), converged);
+    assert!(
+        modeline_entries(&again)
+            .iter()
+            .all(|(_, outcome)| *outcome == ApplyOutcome::Unchanged),
+        "got: {:?}",
+        modeline_entries(&again)
     );
 }
 
@@ -1895,6 +1936,61 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     .unwrap();
     assert!(extra_md_final.contains(temper::placement::MODELINE_MARKER));
     assert!(extra_md_final.contains(temper::placement::NOTE_MARKER));
+}
+
+#[test]
+fn represented_install_re_run_re_points_a_modeline_whose_schema_ref_differs_from_the_locks() {
+    let root = write_harness("represented-modeline-stale", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    fs::create_dir_all(temper_dir.join("schema")).unwrap();
+    fs::write(temper_dir.join("schema").join("skill.json"), "{}").unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    let skill_path = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let current = fs::read_to_string(&skill_path).unwrap();
+    let desired = format!(
+        "{} $schema=../../../.temper/schema/skill.json",
+        temper::placement::MODELINE_MARKER
+    );
+    assert!(current.contains(&desired), "got:\n{current}");
+
+    // Point the modeline somewhere the lock's schema ref does not.
+    let stale = format!(
+        "{} $schema=https://example.invalid/skill.json",
+        temper::placement::MODELINE_MARKER
+    );
+    fs::write(&skill_path, current.replacen(&desired, &stale, 1)).unwrap();
+
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(fs::read_to_string(&skill_path).unwrap(), current);
+    let placed: Vec<ApplyOutcome> = outcome
+        .entries
+        .iter()
+        .filter(|e| e.placement == temper::install::Placement::Modeline && e.path == skill_path)
+        .map(|e| e.outcome)
+        .collect();
+    assert_eq!(placed, vec![ApplyOutcome::Applied]);
+
+    // An already-current modeline is Unchanged and byte-identical.
+    let again = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(fs::read_to_string(&skill_path).unwrap(), current);
+    assert!(
+        again
+            .entries
+            .iter()
+            .filter(|e| e.placement == temper::install::Placement::Modeline)
+            .all(|e| e.outcome == ApplyOutcome::Unchanged),
+        "got: {:?}",
+        again.entries
+    );
 }
 
 #[test]
