@@ -610,6 +610,36 @@ rendered_chars = 155
 
 [[declaration.nested_member]]
 host = "root"
+kind = "requirement"
+key = "conduct"
+
+[[declaration.nested_member]]
+host = "root"
+kind = "requirement"
+key = "documented-spine"
+
+[[declaration.nested_member]]
+host = "root"
+kind = "requirement"
+key = "governance"
+
+[[declaration.nested_member]]
+host = "root"
+kind = "requirement"
+key = "operations"
+
+[[declaration.nested_member]]
+host = "root"
+kind = "requirement"
+key = "orientation"
+
+[[declaration.nested_member]]
+host = "root"
+kind = "requirement"
+key = "standards"
+
+[[declaration.nested_member]]
+host = "root"
 kind = "tool"
 key = "tsc"
 leaves = { bin = "tsc", package = "typescript" }

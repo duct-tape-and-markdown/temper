@@ -1606,8 +1606,9 @@ fn a_requirement_subkinds_members_fill_satisfies_targets() {
         run.output
     );
     assert!(
-        run.output.contains("requirement (1 embedded)"),
-        "the checked line counts the requirement as a member of its kind, got:\n{}",
+        run.output.contains("decision (1 embedded)"),
+        "the checked line counts the requirement as the root's nested member of its own \
+         subkind, got:\n{}",
         run.output
     );
 
@@ -1654,4 +1655,77 @@ fn a_requirement_clause_carrying_a_root_family_predicate_is_refused_as_inadmissi
             run.output
         );
     }
+}
+
+/// A program declaring two `decision` requirements, one carrying its `tell` and one not,
+/// both filled, under an `expect` over the shipped `requirement` kind that requires a
+/// `tell` — the kind's whole contract, so its fill default rides beside it.
+const EXPECT_OVER_REQUIREMENT_PROGRAM: &str = r#"
+import { clause, count, emit, extend, harness, requirement, required, resolves, text } from "@dtmd/temper";
+import type { RequirementFields } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+
+interface Decision extends RequirementFields {
+  readonly tell?: string;
+}
+const decision = extend<RequirementFields, Decision>(requirement, { name: "decision" });
+
+const program = harness({
+  members: [
+    decision({ name: "pinned-toolchain", prose: text`The toolchain is pinned.`, tell: "a bumped compiler" }),
+    decision({ name: "one-engine", prose: text`One engine.` }),
+    rule({ name: "toolchain", prose: text`Pin the toolchain.`, satisfies: ["pinned-toolchain", "one-engine"] }),
+  ],
+  expect: [{ kind: requirement, clauses: [
+    clause(required("tell"), { severity: "required", guidance: "a decision names its tell" }),
+    clause(count({ min: 1 }), { severity: "required" }),
+    clause(resolves(), { severity: "required" }),
+  ] }],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn an_expect_over_the_requirement_kind_judges_each_requirement_member() {
+    let (harness, into) =
+        common::wire_sdk_harness("expect-over-requirement", EXPECT_OVER_REQUIREMENT_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let run = common::check_in(&harness, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "a requirement member missing the expected field must fail the run, got:\n{}",
+        run.output
+    );
+    let reported = run.findings();
+    let findings = common::findings_for(&reported, "requirement.required.tell");
+    assert!(
+        findings.iter().any(|f| f.contains("one-engine")),
+        "the requirement member missing `tell` is named, got:\n{}",
+        run.output
+    );
+    assert!(
+        !findings.iter().any(|f| f.contains("pinned-toolchain")),
+        "the requirement member carrying `tell` is clean, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_member_satisfying_a_requirement_still_fills_it() {
+    // The requirements are the root's nested members now, and the `satisfies` claim still
+    // names each by its bare name: the rule fills both, so no fill clause reports.
+    let (harness, into) =
+        common::wire_sdk_harness("requirement-member-filled", EXPECT_OVER_REQUIREMENT_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let run = common::check_in(&harness, &[], Some("github"));
+    let reported = run.findings();
+    assert!(
+        common::findings_for(&reported, "requirement.count").is_empty()
+            && common::findings_for(&reported, "requirement.resolves").is_empty(),
+        "the rule satisfying both requirements fills them, got:\n{}",
+        run.output
+    );
 }

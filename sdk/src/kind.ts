@@ -1349,6 +1349,11 @@ export function extend<B extends object, T extends B>(
  */
 const BASES = new WeakMap<KindFacts, KindFacts>();
 
+/** The kind `facts` is a subkind of, by identity, or `undefined` for a kind {@link extend} minted no subkind from. */
+export function baseOf(facts: KindFacts): KindFacts | undefined {
+  return BASES.get(facts);
+}
+
 /**
  * Whether `facts` is `ancestor`'s own facts or a subkind's anywhere down its
  * {@link extend} chain. Identity travels by import: a same-named kind defined apart is

@@ -44,7 +44,7 @@
 //! set, READ-EDGE-UNIFY), so only the `satisfies` walk widens here.
 
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
@@ -460,6 +460,7 @@ pub fn explain(
             custom,
             roster,
             by_kind,
+            &admissibility::requirement_kinds(kind_facts),
             tap_records,
             tap_older_version,
             name,
@@ -1501,6 +1502,12 @@ pub fn resolve_leaf<'a>(
     // `<kind>:<name>`, which that bare id used to share. Cut once, ahead of the scan —
     // the head is the same for every member — and cut by the grammar's own reader, so
     // which member a head names is the reading every other consumer of the address gets.
+    if parsed.member == member_address::ROOT_HOST {
+        let value = root_hosted_leaves(by_kind, parsed.kind, parsed.key)
+            .into_iter()
+            .find_map(|(child_path, value)| (child_path == parsed.child_path).then_some(value))?;
+        return Some((member_address::ROOT_HOST.to_string(), value));
+    }
     let qualified = member_address::parse_host_address(parsed.member);
     for (&outer_kind, members) in by_kind {
         for features in *members {
@@ -1868,6 +1875,63 @@ fn context_member_one_impl(
     narrate_satisfied_impl(out, member_index, &features.id);
 }
 
+/// Narrate the requirement `name` as the root's nested member: the kind it is a member
+/// of (a subkind's own name, or `requirement`), its address, and each leaf its row
+/// carries — a subkind's own fields, at the address a leaf read takes. Silent when no
+/// requirement kind's member carries the name (a lock an older engine wrote).
+fn narrate_requirement_leaves(
+    out: &mut String,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    requirement_kinds: &BTreeSet<String>,
+    name: &str,
+) {
+    for kind in requirement_kinds {
+        let address = member_address::nested_address(member_address::ROOT_HOST, kind, name);
+        let held = by_kind
+            .get(kind.as_str())
+            .is_some_and(|members| members.iter().any(|features| features.id == address));
+        if !held {
+            continue;
+        }
+        let _ = writeln!(out, "  A member of kind `{kind}`, at `{address}`.");
+        let leaves = root_hosted_leaves(by_kind, kind, name);
+        if leaves.is_empty() {
+            let _ = writeln!(
+                out,
+                "  Leaves: none — it carries no field beyond its template.\n"
+            );
+            continue;
+        }
+        let _ = writeln!(out, "  Leaves:");
+        for (child_path, value) in leaves {
+            let _ = writeln!(out, "    • `{address}/{child_path}` — \"{value}\"");
+        }
+        out.push('\n');
+    }
+}
+
+/// The leaves of the root's nested member `root/<kind>/<key>` (a tool, a requirement),
+/// paired with their authored values in the lock's stable order. The root carries no
+/// features of its own to hold them as embedded leaves, so they are read off the member's
+/// own lifted features, whose fields are exactly its row's leaves
+/// (`crate::compose`'s `embedded_member_features`). Empty when no such member is in the
+/// corpus.
+fn root_hosted_leaves<'a>(
+    by_kind: &BTreeMap<&str, &'a [Features]>,
+    kind: &str,
+    key: &str,
+) -> Vec<(String, &'a str)> {
+    let address = member_address::nested_address(member_address::ROOT_HOST, kind, key);
+    by_kind
+        .get(kind)
+        .into_iter()
+        .flat_map(|members| members.iter())
+        .filter(|features| features.id == address)
+        .flat_map(|features| &features.fields)
+        .filter_map(|(field, value)| Some((field.clone(), value.as_str()?)))
+        .collect()
+}
+
 /// The other leaves of the nested member `(member, kind, key)` — every serialized leaf of
 /// that member except the one at `child_path`, paired with its authored value in the
 /// lock's stable order. The co-resident siblings `context` reports beside an addressed
@@ -1879,6 +1943,12 @@ fn sibling_leaves<'a>(
     key: &str,
     child_path: &str,
 ) -> Vec<(String, &'a str)> {
+    if member == member_address::ROOT_HOST {
+        return root_hosted_leaves(by_kind, kind, key)
+            .into_iter()
+            .filter(|(path, _)| path != child_path)
+            .collect();
+    }
     let mut out = Vec::new();
     for members in by_kind.values() {
         for features in *members {
@@ -2069,12 +2139,15 @@ fn impact_one_impl(
 /// The `roster` is the requirement namespace `check` gates. `by_kind` is the same
 /// decidable corpus the gate's own selections count satisfiers from,
 /// so `explain` cannot report a requirement unfilled that `check`
-/// counts as covered.
+/// counts as covered. `requirement_kinds` is `requirement` and every subkind of it, the
+/// kinds a requirement's own root-hosted member — and so its leaves — may be found under.
 #[must_use]
+#[allow(clippy::too_many_arguments)]
 fn requirements(
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
+    requirement_kinds: &BTreeSet<String>,
     tap_records: &[TapRecord],
     tap_older_version: usize,
     name: &str,
@@ -2084,6 +2157,7 @@ fn requirements(
     requirement_detail(
         &members,
         by_kind,
+        requirement_kinds,
         roster,
         tap_records,
         tap_older_version,
@@ -2097,9 +2171,11 @@ fn requirements(
 /// `satisfies` link would dangle, and, for a `required` requirement resting on a
 /// single satisfier, that removing that one member leaves it unfilled and fails the
 /// gate.
+#[allow(clippy::too_many_arguments)]
 fn requirement_detail(
     members: &[Member],
     by_kind: &BTreeMap<&str, &[Features]>,
+    requirement_kinds: &BTreeSet<String>,
     roster: &BTreeMap<String, Requirement>,
     tap_records: &[TapRecord],
     tap_older_version: usize,
@@ -2152,6 +2228,7 @@ fn requirement_detail(
         coverage_state(requirement.required, satisfiers.len())
     );
     let _ = writeln!(&mut out, "  {}\n", held_by(requirement.verifier.as_ref()));
+    narrate_requirement_leaves(&mut out, by_kind, requirement_kinds, name);
 
     // Append field strand if the requirement has a telemetry verifier (before early return)
     let mut telemetry_strand = String::new();

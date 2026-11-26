@@ -49,8 +49,46 @@ pub fn admitted_embedded_kinds(row: &drift::KindFactRow) -> Vec<&str> {
 }
 
 /// The embedded kinds the root member templates, whatever the lock declares: a roster
-/// member of one is a `nested_member` row hosted at the root.
-pub const ROOT_HOSTED_KINDS: &[&str] = &["tool"];
+/// member of one — or of a subkind of one ([`root_hosted_kinds`]) — is a `nested_member`
+/// row hosted at the root.
+pub const ROOT_HOSTED_KINDS: &[&str] = &["tool", compose::REQUIREMENT_KIND];
+
+/// The kinds whose members the root hosts: each of [`ROOT_HOSTED_KINDS`], and each kind
+/// row whose `base` chain reaches one — a requirement subkind's members are the root's
+/// nested members exactly as a `requirement(…)` member is.
+pub fn root_hosted_kinds(kinds: &[drift::KindFactRow]) -> BTreeSet<String> {
+    kinds_extending(kinds, ROOT_HOSTED_KINDS)
+}
+
+/// The kinds a declared requirement is a member of: [`compose::REQUIREMENT_KIND`] and
+/// every kind row whose `base` chain reaches it.
+pub fn requirement_kinds(kinds: &[drift::KindFactRow]) -> BTreeSet<String> {
+    kinds_extending(kinds, &[compose::REQUIREMENT_KIND])
+}
+
+/// Each of `roots`, and each kind row whose `base` chain reaches one of them.
+fn kinds_extending(kinds: &[drift::KindFactRow], roots: &[&str]) -> BTreeSet<String> {
+    let bases: BTreeMap<&str, &str> = kinds
+        .iter()
+        .filter_map(|row| Some((row.name.as_str(), row.base.as_deref()?)))
+        .collect();
+    let mut reached: BTreeSet<String> = roots.iter().map(|kind| (*kind).to_string()).collect();
+    for name in bases.keys() {
+        // A chain is at most as long as the rows that spell it, so a cyclic `base` ends.
+        let mut at = Some(*name);
+        for _ in 0..=bases.len() {
+            match at {
+                Some(kind) if roots.contains(&kind) => {
+                    reached.insert((*name).to_string());
+                    break;
+                }
+                Some(kind) => at = bases.get(kind).copied(),
+                None => break,
+            }
+        }
+    }
+    reached
+}
 
 /// The embedded kinds the lock declares, the root's included: every child kind a host names, whether through
 /// its `templates` column — a *path-less* entry, the embedded layer; a `path` templates a
@@ -63,7 +101,7 @@ pub fn declared_embedded_kinds(declarations: &drift::Declarations) -> BTreeSet<S
         .kinds
         .iter()
         .flat_map(|row| admitted_embedded_kinds(row).into_iter().map(String::from))
-        .chain(ROOT_HOSTED_KINDS.iter().map(|kind| (*kind).to_string()))
+        .chain(root_hosted_kinds(&declarations.kinds))
         .collect()
 }
 

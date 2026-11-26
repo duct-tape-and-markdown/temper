@@ -2914,3 +2914,50 @@ fn check_guard_and_explain_leave_the_lock_byte_identical() {
         unchanged("explain");
     }
 }
+
+/// A program minting a requirement subkind, `decision`, with its own `tell` field, and
+/// declaring one member of it that a rule fills.
+const DECISION_REQUIREMENT_PROGRAM: &str = r#"
+import { emit, extend, harness, requirement, text } from "@dtmd/temper";
+import type { RequirementFields } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+
+interface Decision extends RequirementFields {
+  readonly tell?: string;
+}
+const decision = extend<RequirementFields, Decision>(requirement, { name: "decision" });
+
+const program = harness({
+  members: [
+    decision({ name: "pinned-toolchain", prose: text`The toolchain is pinned.`, tell: "a bumped compiler" }),
+    rule({ name: "toolchain", prose: text`Pin the toolchain.`, satisfies: ["pinned-toolchain"] }),
+  ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_requirement_subkinds_field_reaches_explain_as_a_leaf() {
+    let (harness, into) =
+        common::wire_sdk_harness("explain-requirement-leaf", DECISION_REQUIREMENT_PROGRAM);
+    drift::emit_program(&into, drift::EmitOptions::default()).unwrap();
+
+    // The requirement's own read names its kind, its address, and its leaf.
+    let narration = common::explain_in(&harness, "pinned-toolchain");
+    assert!(
+        narration.contains("Requirement `pinned-toolchain`")
+            && narration
+                .contains("A member of kind `decision`, at `root/decision/pinned-toolchain`")
+            && narration.contains("`root/decision/pinned-toolchain/tell` — \"a bumped compiler\""),
+        "the requirement's narration carries its subkind leaf, got:\n{narration}"
+    );
+
+    // The leaf address resolves at leaf grain, under the root host.
+    let leaf = common::explain_in(&harness, "root/decision/pinned-toolchain/tell");
+    assert!(
+        leaf.contains("Leaf `root/decision/pinned-toolchain/tell`")
+            && leaf.contains("Authored value: \"a bumped compiler\""),
+        "the subkind's field reads as a leaf, got:\n{leaf}"
+    );
+}

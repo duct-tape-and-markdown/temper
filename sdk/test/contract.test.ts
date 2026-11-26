@@ -700,6 +700,15 @@ test("a requirement subkind's members fill satisfies targets", () => {
     [["pinned-toolchain", true, "The toolchain is pinned.", "review"]],
   );
   assert.deepEqual(declarations.satisfies, [{ member: "rule:toolchain", requirement: "pinned-toolchain" }]);
+  // The requirement is the root's nested member under its subkind, its own field a leaf,
+  // and the subkind's row names its base so the engine binds it where `requirement` reaches.
+  assert.deepEqual(declarations.nested_members, [
+    { host: "root", kind: "decision", key: "pinned-toolchain", leaves: { tell: "a bumped compiler" }, collections: {} },
+  ]);
+  assert.deepEqual(
+    declarations.kinds.filter((row) => row.name === "decision").map((row) => row.base),
+    ["requirement"],
+  );
   // The fill claim resolves: emit refuses a `satisfies` naming no declared requirement.
   assert.doesNotThrow(() => emit(program));
   assert.throws(() => emit(harness({ members: [holder] })), /dangling join/);

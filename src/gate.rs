@@ -991,13 +991,26 @@ pub fn gate(
         *nested_member_counts.entry(member.kind.clone()).or_default() += 1;
     }
     // A declared requirement is a member of the root-hosted `requirement` kind, and its
-    // lock row is its whole representation — judged by its fill default and its clauses —
-    // so the line counts the rows, never disclosing `requirement (0)` over a harness that
-    // declares some.
-    if !committed.requirements.is_empty() {
+    // `nested_member` row (counted above, under its own kind) is how it reaches the lock.
+    // A lock an older engine wrote carries the requirement row alone, so each requirement
+    // no root-hosted row represents is counted off that row — never disclosing
+    // `requirement (0)` over a harness that declares some, nor one requirement twice.
+    let requirement_kinds = admissibility::requirement_kinds(&committed.kinds);
+    let unrepresented = committed
+        .requirements
+        .iter()
+        .filter(|requirement| {
+            !committed.nested_members.iter().any(|row| {
+                row.host == member_address::ROOT_HOST
+                    && row.key == requirement.name
+                    && requirement_kinds.contains(&row.kind)
+            })
+        })
+        .count();
+    if unrepresented > 0 {
         *nested_member_counts
             .entry(compose::REQUIREMENT_KIND.to_string())
-            .or_default() += committed.requirements.len();
+            .or_default() += unrepresented;
     }
     // A file is claimed by whatever reaches it from the roster: a memory import's target
     // by its importer, and a declared input — a `{ file }` tool's script among them — by

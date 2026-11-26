@@ -344,8 +344,11 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
   assert.deepEqual(declarations.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
   // No member declares a composed-prose include in this harness.
   assert.deepEqual(declarations.includes, []);
-  // No member declares a blocks()-composed embedded member in this harness.
-  assert.deepEqual(declarations.nested_members, []);
+  // No member declares a blocks()-composed embedded member in this harness; the one
+  // nested member is the declared requirement, the root's.
+  assert.deepEqual(declarations.nested_members, [
+    { host: "root", kind: "requirement", key: "dev-standards", leaves: {}, collections: {} },
+  ]);
 });
 
 test("compileDeclarations emits no uncoined `authority` fact, and the root member's declared mode round-trips", () => {

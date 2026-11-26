@@ -793,13 +793,28 @@ export function requirementOf(name: string, value: RequirementValue): Requiremen
     );
   }
   const field = (key: keyof RequirementFields): unknown => value.fields.find(([held]) => held === key)?.[1];
-  return {
+  const read: Requirement = {
     prose: renderText(value.prose),
     kind: field("kind") as RequirementFields["kind"],
     required: field("required") as boolean | undefined,
     clauses: field("clauses") as readonly Clause[] | undefined,
     verifier: field("verifier") as Verifier | undefined,
   };
+  REQUIREMENT_MEMBERS.set(read, value);
+  return read;
+}
+
+/**
+ * The member each requirement {@link requirementOf} read off a member came from, keyed by
+ * the requirement it returned — so the lowering that keys a requirement as the root's
+ * nested member reads its kind (a subkind's own name) and its leaves (a subkind's own
+ * fields) off the member, while every other reader keeps the erased {@link Requirement}.
+ */
+const REQUIREMENT_MEMBERS = new WeakMap<Requirement, Member>();
+
+/** The member a requirement was read off ({@link requirementOf}), or `undefined` for a literal. */
+export function requirementSource(requirement: Requirement): Member | undefined {
+  return REQUIREMENT_MEMBERS.get(requirement);
 }
 
 /** The embedded kinds the root member hosts — the grammar's set, re-exported beside the kinds. */

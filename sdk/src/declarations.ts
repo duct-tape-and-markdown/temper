@@ -14,7 +14,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
 import type { EdgeField, EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
-import { collectionAddressOf, edgeTargetNames, manifestOf, registrationOf } from "./kind.js";
+import { baseOf, collectionAddressOf, edgeTargetNames, manifestOf, registrationOf } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
@@ -34,6 +34,7 @@ import {
   hookCollectionKey,
   requirement,
   requirementOf,
+  requirementSource,
   rule,
   settings,
   tapHookRegistration,
@@ -576,6 +577,14 @@ export function kindsInPlay(harness: Harness): KindFacts[] {
   // A synthesized tap is a hook registration row, so it brings the hook kind with it:
   // a program whose only hook content is a tap still owes `hook` its kind-fact row.
   if (tapHookRows(harness).length > 0) admit(hook.facts);
+  // A requirement subkind's members are the root's nested members, never roster members,
+  // so the requirement map is what puts the subkind — and each subkind up its chain to the
+  // shipped `requirement` — in play: its row's `base` is how the engine binds its members
+  // where a selection of `requirement` reaches.
+  for (const [, declared] of requirementEntries(harness)) {
+    const source = requirementSource(declared)?.facts;
+    for (let facts = source; facts !== undefined && facts.base !== undefined; facts = baseOf(facts)) admit(facts);
+  }
   for (let facts = pending.pop(); facts !== undefined; facts = pending.pop()) {
     for (const template of facts.templates ?? []) {
       const child = template.kind.facts;
@@ -1234,6 +1243,24 @@ function rootHostedRow(member: Member): NestedMemberRow {
   return { host: ROOT_ADDRESS, kind: member.kind, key: member.name, leaves, collections: {} };
 }
 
+/**
+ * The `nested_member` rows of the declared requirements — each the root's nested member
+ * `root/<kind>/<name>`, its kind the member's own (a subkind's name, `requirement` for a
+ * literal) and its string fields its leaves, so a subkind's own fields reach `check` and
+ * the read verbs at leaf grain. The requirement row still carries the contract-facing
+ * template (fill posture, clauses, verifier, prose); this row is the member's identity.
+ */
+function requirementHostedRows(harness: Harness): NestedMemberRow[] {
+  return [...uniqueMap(requirementEntries(harness)).entries()].map(([name, declared]) => {
+    const source = requirementSource(declared);
+    const leaves: Record<string, string> = {};
+    for (const [field, value] of source?.fields ?? []) {
+      if (typeof value === "string") leaves[field] = value;
+    }
+    return { host: ROOT_ADDRESS, kind: source?.kind ?? requirement.key, key: name, leaves, collections: {} };
+  });
+}
+
 /** Each host kind's admitted embedded kinds, by host kind name — the corpus's `admit`, indexed. */
 type AdmissionsByHost = ReadonlyMap<string, ReadonlySet<string>>;
 
@@ -1311,6 +1338,7 @@ function nestedMemberRows(
       rows.push(nestedMemberRow(host, value, scope, placements, extents));
  }
  }
+  rows.push(...requirementHostedRows(harness));
   return rows.sort(
     (a, b) => compareStrings(a.host, b.host) || compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key),
  );
