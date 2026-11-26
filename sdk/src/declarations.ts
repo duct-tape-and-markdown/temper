@@ -25,6 +25,7 @@ import {
   GATE_BINARY_KEY,
   HOOK_HANDLER_KEY,
   HOOK_MATCHER_KEY,
+  ROOT_HOSTED_KINDS,
   SETTINGS_MANIFEST,
   TELEMETRY_EVENT_HOOKS,
   gateHookBinary,
@@ -33,7 +34,7 @@ import {
   rule,
   tapHookRegistration,
 } from "./builtins.js";
-import { leafAddress, memberAddress, nestedAddress } from "./member-address.js";
+import { ROOT_ADDRESS, leafAddress, memberAddress, nestedAddress } from "./member-address.js";
 
 import type {
   AssemblyFactRow,
@@ -1187,6 +1188,15 @@ function nestedMemberRow(
   };
 }
 
+/** The `nested_member` row of a root-hosted roster member, its string fields its leaves. */
+function rootHostedRow(member: Member): NestedMemberRow {
+  const leaves: Record<string, string> = {};
+  for (const [field, value] of member.fields) {
+    if (typeof value === "string") leaves[field] = value;
+  }
+  return { host: ROOT_ADDRESS, kind: member.kind, key: member.name, leaves, collections: {} };
+}
+
 /** Each host kind's admitted embedded kinds, by host kind name — the corpus's `admit`, indexed. */
 type AdmissionsByHost = ReadonlyMap<string, ReadonlySet<string>>;
 
@@ -1223,7 +1233,8 @@ function admissionsByHost(harness: Harness): AdmissionsByHost {
  * values, host-then-kind-then-key sorted, each keyed to its host's own
  * {@link memberAddress} so a host that is itself a nested file child keys by the
  * host-qualified address `check` resolves it at. Only a composed body's embedded values
- * carry them (a `file()`/`text` body — and a composed body's prose spans — name none); the
+ * carry them (a `file()`/`text` body — and a composed body's prose spans — name none),
+ * beside each root-hosted roster member ({@link rootHostedRow}); the
  * fence rendering itself is unchanged
  * (`emit.ts`'s `resolveBody`) — this row is a second *read* of the same authored
  * value, never a second copy the engine reads back (0018).
@@ -1244,6 +1255,10 @@ function nestedMemberRows(
 ): NestedMemberRow[] {
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
+    if (ROOT_HOSTED_KINDS.has(member.kind)) {
+      rows.push(rootHostedRow(member));
+      continue;
+    }
     if (member.prose?.kind !== "blocks") continue;
     const host = memberAddress(member);
     for (const value of member.prose.values) {
@@ -1284,7 +1299,7 @@ function nestedMemberRows(
  */
 function registrationRows(harness: Harness): RegistrationRow[] {
   return harness.members
-    .filter((member) => member.facts.shape === "fields")
+    .filter((member) => member.facts.shape === "fields" && member.facts.locus.kind !== "embedded")
     .map((member): RegistrationRow => {
       const address = collectionAddressOf(member.facts);
       if (address === undefined) {

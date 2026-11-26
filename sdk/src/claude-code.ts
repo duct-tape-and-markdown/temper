@@ -30,6 +30,9 @@ export type {
   SettingsLocal,
   Skill,
   SupportingDoc,
+  Tool,
+  ToolFields,
+  ToolInit,
 } from "./builtins.js";
 export {
   agent,
@@ -67,6 +70,8 @@ export {
   skillDefaultContract,
   supportingDoc,
   supportingDocDefaultContract,
+  tool,
+  toolDefaultContract,
 } from "./builtins.js";
 
 // Retired exports, declared for the type checker alone: no runtime binding carries

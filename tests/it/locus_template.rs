@@ -285,7 +285,7 @@ fn skill_excluding(exclude: &str) -> KindFactRow {
     KindFactRow {
         unit_shape: Some("directory".to_string()),
         exclude: vec![exclude.to_string()],
-        ..common::kind_facts("tool", "skills", "*/SKILL.md")
+        ..common::kind_facts("toolkit", "skills", "*/SKILL.md")
     }
 }
 

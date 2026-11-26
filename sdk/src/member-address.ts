@@ -63,6 +63,9 @@ export interface LeafAddress {
   readonly childPath: string;
 }
 
+/** The root member's own address — the harness itself, host of its embedded children. */
+export const ROOT_ADDRESS = "root";
+
 /** Spell a top-level member's own `<kind>:<name>` address. */
 export function hostAddress(kind: string, name: string): string {
   return `${kind}:${name}`;

@@ -48,7 +48,11 @@ pub fn admitted_embedded_kinds(row: &drift::KindFactRow) -> Vec<&str> {
     kinds
 }
 
-/// The embedded kinds the lock declares: every child kind a host names, whether through
+/// The embedded kinds the root member templates, whatever the lock declares: a roster
+/// member of one is a `nested_member` row hosted at the root.
+pub const ROOT_HOSTED_KINDS: &[&str] = &["tool"];
+
+/// The embedded kinds the lock declares, the root's included: every child kind a host names, whether through
 /// its `templates` column — a *path-less* entry, the embedded layer; a `path` templates a
 /// file child, which owns its own unit — or a layout member collection's `member_kind`. The set a
 /// `nested_member` row's kind must belong to — a row of any other kind is an orphan no
@@ -59,6 +63,7 @@ pub fn declared_embedded_kinds(declarations: &drift::Declarations) -> BTreeSet<S
         .kinds
         .iter()
         .flat_map(|row| admitted_embedded_kinds(row).into_iter().map(String::from))
+        .chain(ROOT_HOSTED_KINDS.iter().map(|kind| (*kind).to_string()))
         .collect()
 }
 

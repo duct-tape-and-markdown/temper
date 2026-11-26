@@ -17,6 +17,8 @@ import { manifestOf } from "../src/kind.js";
 import { tapHookRegistration } from "../src/builtins.js";
 import type { Handler, Hook, Memory, Rule, Skill } from "../src/claude-code.js";
 import {
+  tool,
+  toolDefaultContract,
   agent,
   agentDefaultContract,
   command,
@@ -1117,6 +1119,47 @@ test("output-style is a lenient markdown file named by its name field, else its 
     ["name", "terse"],
     ["keep-coding-instructions", true],
   ]);
+});
+
+test("tool is a root-hosted embedded kind carried as nested rows and projected nowhere", () => {
+  assert.equal(tool.key, "tool");
+  assert.deepEqual(tool.facts.locus, { kind: "embedded" });
+  assert.equal(tool.facts.shape, "fields");
+  assert.equal(toolDefaultContract.length, 1);
+  assert.deepEqual(toolDefaultContract[0].predicate, { key: "degree", args: { incoming_min: 1 } });
+  assert.equal(toolDefaultContract[0].severity, "advisory");
+
+  const result = emit(
+    harness({
+      members: [
+        tool(),
+        tool({ system: "jq" }),
+        tool({ file: "scripts/check.sh" }),
+        tool({ name: "tsc", package: "typescript", bin: "tsc" }),
+      ],
+    }),
+  );
+  assert.deepEqual(
+    result.declarations.nested_members.map((row) => [row.host, row.kind, row.key, row.leaves]),
+    [
+      ["root", "tool", "check.sh", { file: "scripts/check.sh" }],
+      ["root", "tool", "jq", { system: "jq" }],
+      ["root", "tool", "temper", { package: "@dtmd/temper", bin: "temper" }],
+      ["root", "tool", "tsc", { package: "typescript", bin: "tsc" }],
+    ],
+  );
+  assert.equal(result.members.filter((m) => m.kind === "tool").length, 0, "a tool projects no file");
+  assert.equal(result.registrations.length, 0, "a tool registers nothing");
+  const row = result.declarations.kinds.find((k) => k.name === "tool")!;
+  assert.deepEqual(row.leaves, ["package", "bin", "file", "system"]);
+});
+
+test("a tool states exactly one non-blank variant", () => {
+  assert.throws(() => tool({ system: "" }), /`system` is blank/);
+  assert.throws(
+    () => tool({ system: "jq", file: "x.sh" } as unknown as Parameters<typeof tool>[0]),
+    /exactly one of/,
+  );
 });
 
 test("skill/command register on both documented invocation channels; agent/rule/memory carry a singleton set", () => {

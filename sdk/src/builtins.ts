@@ -556,6 +556,84 @@ export const handler: KindDefinition<Handler> = kind<Handler>({
 });
 
 /**
+ * A tool — the one home of a command the harness runs: a package's bin, a committed file,
+ * or a system tool. Exactly one variant; its runners point at the member by edge.
+ */
+export type Tool =
+  | { readonly package: string; readonly bin: string }
+  | { readonly file: string }
+  | { readonly system: string };
+
+/** Every leaf a tool member may carry — the union of {@link Tool}'s variants, flat. */
+export interface ToolFields {
+  readonly package?: string;
+  readonly bin?: string;
+  readonly file?: string;
+  readonly system?: string;
+}
+
+/** What `tool(...)` takes: one {@link Tool} variant, plus an optional member `name`. */
+export type ToolInit = Tool & { readonly name?: string };
+
+/** The default tool: the temper package's own bin. */
+const TEMPER_TOOL: Tool = { package: "@dtmd/temper", bin: "temper" };
+
+/**
+ * `tool` at the embedded locus, hosted by the root member: it owns no file, projects
+ * nothing, and registers nothing. Fields-only.
+ */
+const toolKind: KindDefinition<ToolFields> = kind<ToolFields>({
+  name: "tool",
+  locus: { kind: "embedded" },
+  unitShape: "file",
+  shape: "fields",
+  leaves: { package: true, bin: true, file: true, system: true },
+});
+
+/**
+ * A tool member's name, absent an authored one: the bin, the file's last segment, or the
+ * system tool's name.
+ */
+function toolName(init: Tool): string {
+  if ("package" in init) return init.bin;
+  if ("file" in init) return init.file.split("/").filter((segment) => segment !== "").pop() ?? init.file;
+  return init.system;
+}
+
+/**
+ * Build a tool member. Absent an init, the tool is the temper package's bin.
+ *
+ * # Throws
+ * If a variant's value is blank, or the init carries more than one variant.
+ */
+function toolMember(init: ToolInit = TEMPER_TOOL): Member {
+  const variants = (["package", "file", "system"] as const).filter((key) => key in init);
+  if (variants.length !== 1) {
+    throw new Error(
+      `tool: state exactly one of \`{ package, bin }\`, \`{ file }\` or \`{ system }\` — ` +
+        `got ${variants.length === 0 ? "none" : variants.map((key) => `\`${key}\``).join(", ")}.`,
+    );
+  }
+  const { name, ...variant } = init;
+  for (const [key, value] of Object.entries(variant)) {
+    if (typeof value !== "string" || value.trim() === "") {
+      throw new Error(`tool: \`${key}\` is blank — a tool names what it runs.`);
+    }
+  }
+  const tool = variant as Tool;
+  return toolKind({ ...tool, name: name ?? toolName(tool) });
+}
+
+/** The embedded kinds the root member hosts: a roster member of one is the root's child. */
+export const ROOT_HOSTED_KINDS: ReadonlySet<string> = new Set([toolKind.key]);
+
+/** The authored `tool` constructor — {@link toolKind}'s facts over {@link toolMember}. */
+export const tool: KindDefinition<ToolFields, ToolInit> & ((init?: ToolInit) => Member) = Object.assign(toolMember, {
+  facts: toolKind.facts,
+  key: toolKind.key,
+});
+
+/**
  * A Claude Code hook — a fields-only registration member surfacing inside
  * `settings.json`, keyed under its lifecycle event. It owns no artifact of its own: one
  * `hook(...)` call mints one **matcher group**, carrying the group's own `matcher` beside
@@ -2077,6 +2155,18 @@ export const commandDefaultContract: readonly Clause[] = [];
  * requirement a clause could gate, so the honest encoding is no clause at all.
  */
 export const outputStyleDefaultContract: readonly Clause[] = [];
+
+/**
+ * The default contract for `tool` — one advisory `degree` clause, incoming at least one: a
+ * tool no runner reaches is a command nothing runs.
+ */
+export const toolDefaultContract: readonly Clause[] = [
+  clause(degree({ incoming: { min: 1 } }), {
+    severity: "advisory",
+    guidance:
+      "Nothing runs this tool: no gate hook, tap, typecheck or script verifier reaches it by an edge. A tool is the one home of a command the harness runs, so one nothing points at is a declaration that governs nothing — a reader takes it for a live dependency, and its package, file or system claim is checked for no runner. Point the runner that executes this command at the tool, or delete the tool. Advisory because a tool declared ahead of its runner is ordinary work in progress; dial this label to `required` once every declared tool should be run.",
+  }),
+];
 
 /**
  * The default contract for `agent` — Anthropic's documented subagent contract

@@ -89,3 +89,4 @@ Read the topic file for what you are about to change before changing it: it carr
 - When you add or change a `settings` member, read [kind-settings.md](kind-settings.md).
 - When you add or change a `skill` member, read [kind-skill.md](kind-skill.md).
 - When you add or change a `supporting-doc` member, read [kind-supporting-doc.md](kind-supporting-doc.md).
+- When you add or change a `tool` member, read [kind-tool.md](kind-tool.md).

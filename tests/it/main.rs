@@ -76,6 +76,7 @@ mod settings_local_kind;
 mod shape_predicate;
 mod tap;
 mod toml_document;
+mod tool_kind;
 mod type_predicate;
 mod version_parity;
 

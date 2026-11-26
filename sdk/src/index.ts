@@ -130,8 +130,11 @@ export { emit } from "./emit.js";
 export type { ReferenceInit } from "./reference.js";
 export { reference } from "./reference.js";
 
-// The dial — temper's own shipped kind, and the one kind value the root exports: it
-// declares how this machine reads temper's gate, which is a fact about temper rather
-// than about any provider's harness. A provider's kinds stay behind their own subpath.
+// temper's own shipped kinds, the kind values the root exports: the dial declares how
+// this machine reads temper's gate, and a tool is the one home of a command the harness
+// runs — facts about temper, not about any provider's harness. A provider's kinds stay
+// behind their own subpath.
 export type { Dial, DialEntry } from "./dial.js";
 export { dial, dialDefaultContract } from "./dial.js";
+export type { Tool, ToolFields, ToolInit } from "./builtins.js";
+export { tool, toolDefaultContract } from "./builtins.js";

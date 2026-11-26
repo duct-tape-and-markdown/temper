@@ -132,6 +132,10 @@ pub const BUNDLED_REFERENCE: &[(&str, &str)] = &[
         "kind-supporting-doc.md",
         include_str!("bundled_reference/kind-supporting-doc.md"),
     ),
+    (
+        "kind-tool.md",
+        include_str!("bundled_reference/kind-tool.md"),
+    ),
 ];
 
 /// Errors raised while composing the plugin tree — the write side `bundle` owns.

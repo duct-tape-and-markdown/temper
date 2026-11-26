@@ -18,7 +18,7 @@
 import type { Harness } from "./assembly.js";
 import type { Clause, Verifier } from "./contract.js";
 import type { KindFacts, Member } from "./kind.js";
-import { skill, supportingDoc } from "./builtins.js";
+import { ROOT_HOSTED_KINDS, skill, supportingDoc } from "./builtins.js";
 import {
   clauseField,
   compareStrings,
@@ -208,6 +208,7 @@ function locusSection(facts: KindFacts, globs: readonly string[]): string {
         ? "Each member is a file nested in a host's unit, and no host in play templates it."
         : `Each member is a file nested in a host's unit, at:\n\n${listed}`;
     case "embedded":
+      if (ROOT_HOSTED_KINDS.has(facts.name)) return "Each member is embedded in the harness root and owns no file.";
       return globs.length === 0
         ? "Each member is embedded in a host's document, and no host in play templates or admits it."
         : `Each member is embedded in a host's document, at:\n\n${listed}`;

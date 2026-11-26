@@ -78,6 +78,8 @@ import {
   skillDefaultContract,
   supportingDoc,
   supportingDocDefaultContract,
+  tool,
+  toolDefaultContract,
 } from "@dtmd/temper/claude-code";
 
 const program = harness({
@@ -101,6 +103,7 @@ const program = harness({
     { kind: settingsLocal, clauses: settingsLocalDefaultContract },
     { kind: skill, clauses: skillDefaultContract },
     { kind: supportingDoc, clauses: supportingDocDefaultContract },
+    { kind: tool, clauses: toolDefaultContract },
   ],
 });
 
@@ -280,8 +283,8 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
 
     assert_eq!(
         declarations.kinds.len(),
-        18,
-        "the derived lock carries all 18 built-in kind facts"
+        19,
+        "the derived lock carries all 19 built-in kind facts"
     );
 
     for kind_row in &declarations.kinds {

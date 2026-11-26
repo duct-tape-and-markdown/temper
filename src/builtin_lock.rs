@@ -89,7 +89,7 @@ mod tests {
                 Some(
                     "agent" | "command" | "dial" | "handler" | "hook" | "marketplace"
                     | "mcp-server" | "plugin-manifest" | "settings" | "settings-local" | "skill"
-                    | "supporting-doc" | "rule" | "memory",
+                    | "supporting-doc" | "rule" | "memory" | "tool",
                 ) => {}
                 None => root_labels.push(
                     clause

@@ -1,12 +1,12 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the eighteen built-in kinds' facts and their default contract clauses, the **root
+# the nineteen built-in kinds' facts and their default contract clauses, the **root
 # member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the four
 # clause rows here naming no kind, that absence being what makes them the root's), plus
-# twenty assembly facts — the unconditional `mode = "warn"` (the root member's own
+# twenty-one assembly facts — the unconditional `mode = "warn"` (the root member's own
 # enforcement mode, specs/model/representation.md, "The root member", every harness carries
 # absent an authored mode), one `contract` declaredness marker per `expect`-bound kind
-# (eighteen, each naming its kind in `from`; no marker names no kind, because the program
+# (nineteen, each naming its kind in `from`; no marker names no kind, because the program
 # declares no root `contract` of its own and an undeclared contract writes none), and the
 # `installed-plugin` → `known-marketplace` edge, the marketplace
 # half of an enablement's `<plugin>@<marketplace>` key (decision 0039). No requirements,
@@ -30,7 +30,8 @@
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
 # `memoryAnthropicDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
 # *root* — temper's own kind, whose entries re-read these very clauses at a machine's
-# declared severity, so it ships wherever they do — and, from that same root,
+# declared severity, so it ships wherever they do — `tool`/`toolDefaultContract`, temper's
+# other own kind, the one home of a command the harness runs, and, from that same root,
 # `rootDefaultContract`, which `harness()` composes whenever an author declares no
 # `contract` of their own, so a memberless emit carries it exactly as an adopted one
 # does. They are the identical rows an
@@ -39,7 +40,7 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's eighteen kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's nineteen kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -50,8 +51,8 @@
 # `json-document` does have one, but the local class keeps emit away from the machine's own
 # overlay just the same.
 #
-# `supporting-doc` and `handler` are the two host-composed kinds here, so their two rows
-# alone carry no `governs` pair — one spelling each of the two no-glob loci.
+# `supporting-doc`, `handler` and `tool` are the host-composed kinds here, so their rows
+# alone carry no `governs` pair.
 # `supporting-doc` is the nested-file one: its members' paths compose from their host
 # skill's unit and `skill`'s own `templates` pattern, the only home that fact has. Its
 # default contract is one clause — the format documents no schema to gate, so the only
@@ -61,10 +62,13 @@
 # `hook`'s `templates` entry naming it carries no `path`. Its six clauses are the
 # handler-level half of the hooks contract and the only binding they have: a `hook` member
 # is its whole matcher group, so `hook` carries the group's event clause and nothing more.
+# `tool` is embedded too, hosted by the root member rather than a kind's `templates`: it
+# registers nothing, and its one clause is the graph fact that a tool no runner reaches is
+# a command nothing runs.
 #
 # `command`, `output-style`, `installed-plugin`, `known-marketplace` and `mcp` are the five
 # kinds here contributing a kind fact and no clause row at all: each default contract is
-# empty, so eighteen kinds carry thirteen contracts' clauses. A command's and an output
+# empty, so nineteen kinds carry fourteen contracts' clauses. A command's and an output
 # style's frontmatter is wholly optional, so neither documents a requirement to gate. No
 # other format among them documents a gateable schema the member's
 # own type does not already hold — an installed plugin is one scalar under an identity key, a
@@ -249,6 +253,12 @@ name = "supporting-doc"
 unit_shape = "file"
 guidance = "a supporting doc never loads on its own: it reaches context only when its skill's body sends Claude to it, after the skill is invoked — so the body names the file and says when to open it, and a doc the body never mentions is never read. Keep each doc to one concern, so following one pointer loads only what that step needs."
 cite = "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)"
+
+[[declaration.kind]]
+name = "tool"
+unit_shape = "file"
+shape = "fields"
+leaves = ["package", "bin", "file", "system"]
 
 [[declaration.clause]]
 label = "agent.required.name"
@@ -1289,6 +1299,14 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
 degree = { incoming = { min = 1 } }
 
 [[declaration.clause]]
+label = "tool.degree"
+kind = "tool"
+predicate = "degree"
+severity = "advisory"
+guidance = "Nothing runs this tool: no gate hook, tap, typecheck or script verifier reaches it by an edge. A tool is the one home of a command the harness runs, so one nothing points at is a declaration that governs nothing — a reader takes it for a live dependency, and its package, file or system claim is checked for no runner. Point the runner that executes this command at the tool, or delete the tool. Advisory because a tool declared ahead of its runner is ordinary work in progress; dial this label to `required` once every declared tool should be run."
+degree = { incoming = { min = 1 } }
+
+[[declaration.clause]]
 label = "root.reachable"
 predicate = "reachable"
 severity = "advisory"
@@ -1388,6 +1406,10 @@ from = "skill"
 [[declaration.assembly]]
 fact = "contract"
 from = "supporting-doc"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "tool"
 
 [[declaration.assembly]]
 fact = "edge"

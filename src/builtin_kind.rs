@@ -536,7 +536,8 @@ mod tests {
                 "settings",
                 "settings-local",
                 "skill",
-                "supporting-doc"
+                "supporting-doc",
+                "tool"
             ]
         );
     }
