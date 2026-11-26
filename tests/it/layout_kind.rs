@@ -435,6 +435,56 @@ fn re_emitting_a_layout_source_never_reaps_it() {
 }
 
 #[test]
+fn a_keyless_retitle_of_a_collection_heading_is_a_delete_plus_a_create() {
+    let harness = common::tmpdir("layout-keyless-retitle");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    let doc_path = harness.join("specs").join("intent.md");
+    fs::create_dir_all(doc_path.parent().unwrap()).unwrap();
+
+    // The `intent` collection declares no explicit key, so a member's identity is its
+    // slugged heading alone.
+    let invariant_keys = |into: &std::path::Path| -> BTreeSet<(String, Option<String>)> {
+        drift::read_declarations(into)
+            .unwrap()
+            .nested_members
+            .into_iter()
+            .filter(|row| row.host == "intent:intent" && row.kind == "invariant")
+            .map(|row| {
+                let span = row.leaves.get(temper::layout::OWN_SPAN_LEAF).cloned();
+                (row.key, span)
+            })
+            .collect()
+    };
+
+    fs::write(&doc_path, INTENT_DOC).unwrap();
+    drift::emit(&intent_payload(), &into, EmitOptions::default()).unwrap();
+    let before = invariant_keys(&into);
+
+    // Retitle one member's heading, its body byte-identical.
+    let retitled = INTENT_DOC.replace("## Loud or nothing", "## Fail loud");
+    assert_ne!(retitled, INTENT_DOC);
+    fs::write(&doc_path, &retitled).unwrap();
+    drift::emit(&intent_payload(), &into, EmitOptions::default()).unwrap();
+    let after = invariant_keys(&into);
+
+    let body = Some("A gate never fabricates absence.".to_string());
+    let deleted: Vec<_> = before.difference(&after).cloned().collect();
+    let created: Vec<_> = after.difference(&before).cloned().collect();
+
+    // The old identity leaves the lock and a new one enters carrying the same body — no
+    // member survives the retitle under either key, and the untouched sibling stays put.
+    assert_eq!(deleted, vec![("loud-or-nothing".to_string(), body.clone())]);
+    assert_eq!(created, vec![("fail-loud".to_string(), body)]);
+    assert!(
+        after
+            .iter()
+            .any(|(key, _)| key == "the-projection-is-not-the-database")
+    );
+    assert!(after.iter().all(|(key, _)| key != "loud-or-nothing"));
+}
+
+#[test]
 fn emit_refuses_a_non_fitting_layout_document() {
     let harness = common::tmpdir("layout-nonfit");
     let into = harness.join(".temper");
