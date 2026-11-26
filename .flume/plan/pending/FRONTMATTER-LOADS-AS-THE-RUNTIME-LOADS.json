@@ -1,0 +1,72 @@
+{
+  "tag": "FRONTMATTER-LOADS-AS-THE-RUNTIME-LOADS",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/compose.rs",
+        "description": "frontmatter_fault_diagnostic: a lenient kind loads the member with no fields"
+      },
+      {
+        "path": "src/frontmatter.rs",
+        "description": "malformed YAML yields an empty field set where the kind declares the leniency"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "the leniency as a kind fact, not a built-in name check"
+      },
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "kind definition carries the declared leniency"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "skill and command declare it; agent does not"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "kind row carries the leniency"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "reads the row's leniency"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived kind rows"
+      },
+      {
+        "path": "tests/it/command_kind.rs",
+        "description": "unparseable command frontmatter loads"
+      },
+      {
+        "path": "tests/it/agent_kind.rs",
+        "description": "agent keeps the fault"
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "row shape, if it moves"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A skill or command whose frontmatter YAML does not parse loads with no fields set, with a non-portable-YAML advisory; an agent keeps the load fault",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Built-ins — what ships"
+  },
+  "acceptance": "the 0.0.25 probe shape (unquoted `description:` holding `\": \"`) draws no `member.load-fault` on a skill or command, one advisory naming the YAML, and the cascade of supporting-doc findings is gone",
+  "tests": [
+    "a skill whose frontmatter yaml does not parse loads with no fields set",
+    "a command whose frontmatter yaml does not parse loads with no fields set",
+    "unparseable skill frontmatter draws the non portable yaml advisory"
+  ],
+  "pins": [
+    "an agent whose frontmatter yaml does not parse keeps the load fault"
+  ],
+  "notes": "0101 instance: docs bind (skills: loads with no fields set; sub-agents: skipped). The advisory's guidance carries the lab result (Claude Code 2.1.x lists such a skill with its description verbatim, 2026-11-25; question frontmatter-runtime-leniency in git). Leniency is a kind fact (representation.md 'kind': the reader declares the leniency its reads forgive), never keyed on built-in names (0068). Output styles adopt it in OUTPUT-STYLE-KIND-SHIPS."
+}

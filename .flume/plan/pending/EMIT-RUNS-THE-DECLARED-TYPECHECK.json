@@ -1,0 +1,54 @@
+{
+  "tag": "EMIT-RUNS-THE-DECLARED-TYPECHECK",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "TOOL-KIND-SHIPS"
+    ]
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "tool kind seam shared by every tool entry"
+      },
+      {
+        "path": "sdk/src/assembly.ts",
+        "description": "the typecheck declaration (tool + project)"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "emit_program runs the typecheck first"
+      },
+      {
+        "path": "tests/it/common/mod.rs",
+        "description": "wire_sdk_harness fixtures declare a typecheck"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "typecheck cases"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Before running the program, emit runs the typecheck tool the program declares with its project, refusing on a type error or on no declaration",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "Emit"
+  },
+  "acceptance": "emit over a program with a type error refuses naming the compiler's diagnostics; a program declaring no typecheck refuses naming the declaration; the project file is a declared input",
+  "tests": [
+    "emit refuses a program whose typecheck reports a type error",
+    "emit refuses a program that declares no typecheck",
+    "the typecheck project file is a declared input"
+  ],
+  "pins": [],
+  "notes": "0098 as amended by 0100/0104: the typecheck is a tool reference; command-reference-declaration (in git) held it. Never resolves the compiler by guess. Every emitting fixture gains a declaration via the shared helper. The dogfood `.temper/` must declare one (human) or its emit refuses — name it in the commit body.",
+  "interface": {
+    "changes": "a program declares its typecheck: a tool plus the project file it checks",
+    "hides": "how emit finds and runs the consumer's compiler",
+    "rejected": "resolving tsc by guess, or skipping when undeclared: 0098 refuses both"
+  }
+}

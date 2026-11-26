@@ -1,0 +1,72 @@
+{
+  "tag": "AGENT-NAME-REFUSES-A-COLON-AND-A-LEADING-DASH",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "Charset gains negation and a leading position"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "allowed_chars row carries the widened charset"
+      },
+      {
+        "path": "src/contract.rs",
+        "description": "allowed_chars evaluates negation and the leading position"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "reads the widened charset"
+      },
+      {
+        "path": "src/schema.rs",
+        "description": "projects the widened charset faithfully"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "agentDefaultContract gains the two clauses; header Hold paragraph retires"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived agent rows"
+      },
+      {
+        "path": "tests/it/agent_kind.rs",
+        "description": "colon and leading-dash names"
+      },
+      {
+        "path": "tests/it/snapshots/it__builtin_contract_matrix__builtin_contract_matrix.snap",
+        "description": "agent rows"
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "description": "charset shape"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "`allowedChars` widens with a negated charset and a leading position, and the agent contract refuses a `name` with `:` anywhere or a leading `-`",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Built-ins — what ships"
+  },
+  "acceptance": "an agent named `my:reviewer` or `-reviewer` fails check under the agent name clauses; `reviewer-v2` and `Explore` pass",
+  "tests": [
+    "an agent name containing a colon fails check",
+    "an agent name with a leading dash fails check"
+  ],
+  "pins": [
+    "an agent named explore passes the name clauses"
+  ],
+  "notes": "0101 instance: one primitive widened, not two added. Docs: code.claude.com/docs/en/sub-agents (retrieved 2026-11-25) skip a file whose name contains `:` or starts with `-`. A seam change, two-sided (PROTOCOL 4).",
+  "interface": {
+    "changes": "allowedChars' Charset accepts a negated form and a leading-position form",
+    "hides": "authors no longer approximate a blacklist with a whitelist or guidance",
+    "rejected": "two new predicates (forbidden chars, leading char): 0101 widens one primitive instead"
+  }
+}

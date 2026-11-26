@@ -1,0 +1,38 @@
+{
+  "tag": "BUNDLE-STRIPS-THE-MANAGED-NOTE",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/bundle.rs",
+        "description": "strip the note at the bundle write, reusing placement's note constants"
+      },
+      {
+        "path": "tests/it/bundle.rs",
+        "description": "plugin skill files carry no note"
+      },
+      {
+        "path": "tests/it/snapshots/it__bundle__bundle_is_deterministic.snap",
+        "description": "bundle bytes"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "The bundled plugin reference ships without emit's managed-projection note, which is false in an installed plugin",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "Read verbs"
+  },
+  "acceptance": "every file under the bundle's `skills/temper/` carries no managed-projection note, and `src/bundled_reference/` still byte-equals the SDK's emit",
+  "tests": [
+    "the bundled plugin skill carries no managed projection note"
+  ],
+  "pins": [
+    "the bundled reference byte equals the sdks memberless emit"
+  ],
+  "notes": "0103: 0093's 'same value' means the same content. The note's spellings live in src/placement.rs (NOTE_COMMENT, BANNER); strip by that one home, never a second literal."
+}

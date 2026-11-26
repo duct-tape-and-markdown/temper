@@ -1,0 +1,55 @@
+{
+  "tag": "TOOL-PACKAGE-BIN-READS-THE-LOCKFILE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "TOOL-KIND-SHIPS"
+    ]
+  },
+  "kind": "work",
+  "files": {
+    "new": [
+      {
+        "path": "src/tool.rs",
+        "description": "lockfile reads, if no existing module fits"
+      }
+    ],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "tool kind seam shared by every tool entry"
+      },
+      {
+        "path": "src/lib.rs",
+        "description": "module"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "explain shows the version"
+      },
+      {
+        "path": "sdk/src/reference.ts",
+        "description": "the reference shows the version"
+      },
+      {
+        "path": "tests/it/tool_kind.rs",
+        "description": "lockfile cases"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "A { package, bin } tool takes its version from package-lock.json or pnpm-lock.yaml; another lockfile refuses loudly, an absent package is a finding",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "a package-bin tool shows its locked version in explain and the reference; one missing from the lock draws a finding; a yarn.lock-only program refuses naming the lockfile",
+  "tests": [
+    "a package bin tool reads its version from package lock json",
+    "a package bin tool reads its version from pnpm lock yaml",
+    "a package bin tool missing from the lockfile is a finding",
+    "an unsupported lockfile refuses naming it"
+  ],
+  "pins": [],
+  "notes": "0104. pnpm-lock.yaml only where a sanctioned crate's YAML reader covers it: yaml-rust2 is already in Cargo.lock under gray_matter — build confirms it is reachable as sanctioned; if not, drop that test line in a park note, never add a crate."
+}

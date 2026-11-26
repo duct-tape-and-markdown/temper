@@ -1,0 +1,84 @@
+{
+  "tag": "RUNNERS-REACH-THE-TEMPER-TOOL-BY-EDGE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "TOOL-KIND-SHIPS"
+    ]
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "tool kind seam shared by every tool entry"
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "telemetry binary becomes a tool edge"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "gate/tap binary keys give way to tool edges"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "reads the edge"
+      },
+      {
+        "path": "src/tap.rs",
+        "description": "renders the tool's command"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "gate hook render"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived rows"
+      },
+      {
+        "path": "tests/it/hook_kind.rs",
+        "description": "gate hook render"
+      },
+      {
+        "path": "tests/it/tap.rs",
+        "description": "tap render"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "default render"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "gateHook shape"
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "description": "telemetry shape"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "Gate hooks and taps reach a `tool` by edge in place of their `binary` strings; the default is the temper package's bin at the anchored `.bin` path",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Tool"
+  },
+  "acceptance": "a gate hook and a tap render the command of the tool they point at; with none declared they run the temper package bin's anchored `.bin` path; an unrepresented harness still runs `temper` on the PATH",
+  "tests": [
+    "a gate hook runs the command of the tool it reaches",
+    "a tap runs the command of its declaration's tool",
+    "a gate hook declaring no tool runs the temper package bin's anchored path"
+  ],
+  "pins": [
+    "an unrepresented harness's gate hook runs temper on the path"
+  ],
+  "notes": "0104 consequence: the three `binary` fields lower onto tool members (rg `binary` across sdk/src and src/; GATE_BINARY_KEY, TAP_BINARY_KEY retire). Breaking SDK change: the dogfood `.temper/` (human territory) adapts after it ships — say so in the commit body.",
+  "interface": {
+    "changes": "gateHook and telemetry take a tool reference where they took `binary`",
+    "hides": "the render path and package-manager layout of the temper bin",
+    "rejected": "keeping `binary` strings beside tools: two homes for one command"
+  }
+}
