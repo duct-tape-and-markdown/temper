@@ -42,9 +42,13 @@ program, riding the lock or embedded in the engine — none can drift.
    request it, so an author sees what the shape could do before it does. The
    playbook derives what a hand-authored harness gets wrong: a user-only
    playbook's rule says to ask the user to run it, and its skill keeps its
-   own required description because a path rule never loads before a file is
-   touched. Its router wording is a default renderer the consumer replaces,
-   never fixed phrasing. `starter()` composes every shape with its defaults.
+   own required description, because a path rule loads only on a read, never
+   before a file is touched and never on a search hit. A path-triggered
+   playbook's skill stays listed by default, so a question asked before any
+   file is read can find it; listing it only once its area is read is the
+   trigger's option, which spends no listing budget until then. Its router
+   wording is a default renderer the consumer replaces, never fixed
+   phrasing. `starter()` composes every shape with its defaults.
    Customization is typed options, with `extend()` the escape hatch, and the
    starter carries no taste: no memory content, no conventions, telemetry
    opt-in. An upgrade improves the shapes while the content stays the

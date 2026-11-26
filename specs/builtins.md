@@ -43,21 +43,25 @@ temper's own `dial` and `requirement`. The file members:
   invoked `/apps/web:deploy` (code.claude.com/docs/en/skills, "Load skills
   in monorepos and subdirectories", retrieved 2026-11-25). A nested skill's
   name is prefixed by its subdirectory's segments, each joined with `:`
-  (`apps:web:deploy`). The invocation spelling is rendered from the
-  placement, never the identity, and the frontmatter `name` is the leaf
-  (`deploy`), so the directory and the name still match. Its template names
-  **supporting-doc**, the shipped kind of its bundled reference documents:
-  fields-free, prose-only, channel-less, identity from the filename — the
-  documented shape of a supporting file (code.claude.com/docs/en/skills,
-  "Add supporting files", retrieved 2026-07-16). It ships without joining
-  this surface enumeration; an adopting corpus types it further by extending
-  the host, whose template then names a subkind (`model/representation.md`,
-  "kind"). The template claims the directory's markdown documents — the
-  honest subset the prose-only kind can hold; supporting files of other
-  types remain unmodeled and are named as such. A supporting doc no typed
-  reference reaches is the finding, since a prose link breaks silently; on
-  an unrepresented harness, where no edge can be declared, that collapses to
-  one coverage line.
+  (`apps:web:deploy`). A skill's own `paths` gate its listing, never its
+  body: the skill joins the listing once a matching file is read, and loads
+  only when invoked. A supporting document read in a session returns
+  verbatim after compaction, re-attached beside the summary (probed against
+  Claude Code 2.1.332, 2026-11-26; the docs are silent). The invocation
+  spelling is rendered from the placement, never the identity, and the
+  frontmatter `name` is the leaf (`deploy`), so the directory and the name
+  still match. Its template names **supporting-doc**, the shipped kind of
+  its bundled reference documents: fields-free, prose-only, channel-less,
+  identity from the filename — the documented shape of a supporting file
+  (code.claude.com/docs/en/skills, "Add supporting files", retrieved
+  2026-07-16). It ships without joining this surface enumeration; an
+  adopting corpus types it further by extending the host, whose template
+  then names a subkind (`model/representation.md`, "kind"). The template
+  claims the directory's markdown documents — the honest subset the
+  prose-only kind can hold; supporting files of other types remain unmodeled
+  and are named as such. A supporting doc no typed reference reaches is the
+  finding, since a prose link breaks silently; on an unrepresented harness,
+  where no edge can be declared, that collapses to one coverage line.
 - **command** — the skill surface's legacy file placement (Claude Code
   merged commands into skills; code.claude.com/docs/en/skills, retrieved
   2026-07-07): a lone markdown file, the skill's field schema by import,
@@ -90,8 +94,11 @@ temper's own `dial` and `requirement`. The file members:
   two members, and the nested one draws an advisory that it shadows the root
   style in sessions started at or below its directory. A settings file's
   `outputStyle` resolves against the styles at that file's own level.
-- **rule** — a lone markdown file with an optional path scope; a rule with no
-  scope registers unconditionally.
+- **rule** — a lone markdown file with an optional path scope; a rule with
+  no scope registers unconditionally. A scoped rule loads when a matching
+  file is read, never on a search hit: a Grep or Glob match on its paths
+  loads nothing (probed against Claude Code 2.1.332, 2026-11-26; the docs
+  are silent).
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
   frontmatter: the entire file is prose. `AGENTS.md` and `.claude/AGENTS.md`
   are memory members by position too, and their registration is the

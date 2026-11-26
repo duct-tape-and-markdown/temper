@@ -62,3 +62,19 @@ waits with preloading.
 
 Rejected: four further constructors (fence, report, role, doctrine
 import). A pattern without an area and an intent is a kind or a clause.
+
+## Amendment: the three runtime facts (2026-11-26)
+
+Probed with headless Claude Code 2.1.332 in a trusted throwaway project,
+with canary instructions and transcript inspection (the docs are silent):
+- a skill's own `paths` gate its listing, not its body: the skill joins
+  the listing once a matching file is read, and loads only when invoked;
+- a Grep or Glob hit on a rule's paths loads nothing, only a read does;
+- a supporting document read in a session returns verbatim after
+  compaction, as a file attachment beside the summary.
+
+So a path-triggered playbook keeps its skill listed by default, and
+listing it only on touch is the trigger's option, trading discoverability
+for listing budget. The facts live in `builtins.md` (rule, skill). The
+probe needed a trusted directory: in an untrusted one no project memory
+loads at all.
