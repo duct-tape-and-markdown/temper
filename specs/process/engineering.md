@@ -5,6 +5,16 @@ against. Product intent lives in the model; this page governs shape, and it
 exists so consolidation is citable: a `per` into this file is how a refactor
 becomes a pending entry.
 
+Each section is an invariant. Its heading is the statement. Its **tell** is
+the observable sign of a break at one place, which is what the sweep looks
+for. Its **holder** is the strongest thing that holds it today, on the
+ladder the last section orders (a type, then a test or pin, then a clause,
+then prose and review). The sweep reports tells. A **misfit** is code the
+next holder up would refuse, and dry-running that holder lists the misfits.
+A **downgrade** is a fix that holds the property lower than before: a
+restatement kept in sync by a test, a widened match, a new exemption. A
+downgrade is residue.
+
 ## One job, one home
 
 - A job the tree already performs is extended where it lives, never
@@ -27,6 +37,11 @@ becomes a pending entry.
 - Test scaffolding is a surface too: shared fixtures and builders live in
   one home (`tests/it/common`), never copy-pasted per file.
 
+**Tell:** two functions doing one job under different names; a count or list
+in prose that a structure already knows ("seven families"); a value built by
+hand beside its builder; a "keep in sync" or "mirror of" comment, which is
+usually a downgrade's tell. **Held by:** the sweep's read, which is review.
+
 ## Libraries before hand-rolls
 
 - Where a crate in the sanctioned set (CLAUDE.md, "Tech stack") carries the
@@ -37,6 +52,9 @@ becomes a pending entry.
   (byte-fidelity round-trips, charset mechanics), the implementation
   follows the corpus, and a library is adopted only where its semantics
   match the pinned contract.
+
+**Tell:** a hand-rolled glob, walk, parse or diff where a sanctioned crate
+carries the mechanic. **Held by:** review; the sanctioned set in CLAUDE.md.
 
 ## A shared concept is one type
 
@@ -61,6 +79,11 @@ shape, so it lives here:
   **other consumers** in its own files[] — "who else reads this set?"
   is derivation's question, never the consumer's bug report.
 
+**Tell:** a `_` arm over a shared enumeration; a parallel vec or struct
+beside the canonical one; an entry that widens an enumeration without naming
+its other consumers. **Held by:** exhaustive matches (the compiler) where a
+match exists, and review elsewhere.
+
 ## Derived state is computed, never stored beside its source
 
 A value computable from existing state enters the tree as a
@@ -72,6 +95,9 @@ are computed, never authored twice); the code holds it for itself.
 Caching a derivation is the sanctioned exception, taken for a measured
 cost (per the cost section's measure-first bar), and a cache is one
 home with one invalidation — never ad-hoc copies at call sites.
+
+**Tell:** two fields updated together; a sync step; a cache with more than
+one invalidation. **Held by:** review.
 
 ## The fix lands at the mechanism
 
@@ -90,6 +116,9 @@ claim overrides discovery's presumptions, for exactly its scope."
   collection's deeper nesting — is declared and cited at the site,
   never left looking like an accident.
 
+**Tell:** a branch on one kind's name or one path literal inside code
+generic over its type. **Held by:** review.
+
 ## The gauntlet corpus
 
 Single-feature fixtures cannot find composition seams; the field
@@ -102,6 +131,9 @@ snapshot-tested over it. A feature entry that adds a composable surface
 extends the gauntlet where its feature meets the existing ones: each
 addition pays its composition cost once, at ship time, instead of in a
 consumer's repo later.
+
+**Tell:** a composable surface shipped with single-feature fixtures only.
+**Held by:** the gauntlet's `check` and `emit` snapshots.
 
 ## Cost scale is hoisted, and pinned by count
 
@@ -123,6 +155,9 @@ expectations — decidably:
   cut; the numbers pick the cut, never the guess, and the fix lands
   with its count-pin.
 
+**Tell:** a walk, read or glob compile inside a per-member or per-kind loop;
+a wall-clock threshold in a test. **Held by:** count pins.
+
 ## A green verdict is proven non-vacuous
 
 Three field incidents in one week were the same silence: a judge whose
@@ -141,6 +176,9 @@ invariant 6) gets its code-level enforcement here:
   case **explicitly**, in its own test — vacuous-by-design is spelled,
   never inherited.
 
+**Tell:** a judge test with no populated-set assertion before its verdict.
+**Held by:** vacuity pins, and review where one is missing.
+
 ## A fix ships the test that would have caught it
 
 The cost section's "lands with its count-pin," generalized past
@@ -150,6 +188,9 @@ its gauntlet cell, a false green with its real assertion. The entry's
 tests[] names it and the commit body says what it pins. A fix whose
 regression genuinely cannot be pinned decidably says so out loud in the
 commit body — the named exception, never the default.
+
+**Tell:** a fix whose tests pass on the pre-fix tree. **Held by:** the tests
+judge (`named lines`).
 
 ## A seam gate reads what the real writer wrote
 
@@ -173,6 +214,9 @@ both a writer-vs-writer byte pin and a hand-rowed reader suite.
   tool for "the reader refuses X", never for "writer and reader
   agree".
 
+**Tell:** an agreement test fed hand-authored rows. **Held by:** real-writer
+seam tests (`builtin_lock_frozen.rs` is the shape).
+
 ## An export earns its consumer
 
 Public surface with no consumer is residue: an export born as
@@ -188,6 +232,9 @@ excavate later. Grep-verifiable, so the sweep holds it mechanically:
   against this section only when neither condition holds.
 - A seam opened for a planned second consumer carries that consumer's
   name at the export site; when the plan dies, the export dies with it.
+
+**Tell:** a `pub` item or SDK export with no caller outside its module and
+no public re-export. **Held by:** the sweep's grep, a mechanical read.
 
 ## Narration is the ladder's bottom rung
 
@@ -210,3 +257,7 @@ narration held). Three grades:
   never an archive beside it. Prose asserting a property a test now
   pins, and behavioral paraphrase of code an agent reads directly,
   are residue fileable against this section.
+
+**Tell:** prose asserting what a pin already holds; a paraphrase of code an
+agent reads directly; a doc claim the model retired. **Held by:** review.
+
