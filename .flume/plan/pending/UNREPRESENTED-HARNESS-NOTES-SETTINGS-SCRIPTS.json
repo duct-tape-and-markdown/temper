@@ -3,6 +3,7 @@
   "gate": {
     "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -31,5 +32,12 @@
   "pins": [
     "the claude worktrees unclaimed entry quotes the docs gitignore advice"
   ],
-  "notes": "Inbox 2026-11-26, answering the unrepresented-script-coverage question with option (b); classes 0103/0104. The note never counts or names scripts: parsing commands is mining."
+  "laneTests": [],
+  "notes": "Inbox 2026-11-26, answering the unrepresented-script-coverage question with option (b); classes 0103/0104. The note never counts or names scripts: parsing commands is mining.",
+  "observedFiles": [
+    ".flume/plan/notes/UNREPRESENTED-HARNESS-NOTES-SETTINGS-SCRIPTS.md",
+    "src/coverage_note.rs",
+    "src/gate.rs",
+    "tests/it/coverage_note.rs"
+  ]
 }
