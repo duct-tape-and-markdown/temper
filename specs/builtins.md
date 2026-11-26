@@ -266,6 +266,17 @@ The stance every shipped default contract holds:
   the widening that closes it, keyed in the plan ledger, test-pinned where
   load-bearing — never silent, never permanent-by-default.
 
+**Context cost is decidable, and the shipped contracts judge it.** What each
+surface costs and when it loads is the runtime's documented fact
+(code.claude.com/docs/en/skills and /memory, retrieved 2026-11-26): every
+model-invocable skill's description rides every request, an entry is cut at
+1,536 characters, the listing holds about 1% of the window with the
+least-used descriptions dropped first, and an on-demand rule past the
+per-file limit is truncated. So the advisories judge a harness's skill
+listing against that budget, each rule against the size limit, and a rule's
+globs against its skill's own `paths` where both trigger one area. `explain`
+states, per member, what loads it, when, and roughly what it costs.
+
 ## The clauses live in code
 
 Equal representation applies: the clause instances, their guidance, and their

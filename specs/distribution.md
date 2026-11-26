@@ -25,9 +25,19 @@ program, riding the lock or embedded in the engine — none can drift.
    default. The shapes are the mechanics of using temper well (the gate
    hooks, the typecheck, the emitted harness reference, whose description
    the consumer may hydrate and whose topics derive from what is declared)
-   and opt-in patterns whose only fields are temper's own concepts (a
-   standard over `rule` and a spec layout, each holding invariants with a
-   statement and a holder, and a procedure skill with topics). `starter()`
+   and the **playbook**, the starter's central shape: one area of guidance
+   emitted across the surfaces Claude Code loads for it, a path-bound rule
+   holding the area's standing facts, a skill whose `SKILL.md` routes to one
+   topic file per procedure, every reference between them typed. Its axes
+   are its trigger (paths, a nested location, or none), its invocation
+   (model and user, user only, model only), its execution (inline or forked
+   to an agent), its topics, the agents that preload it, and its enforcement
+   attachments (a clause or a hook, never a prose MUST). The playbook
+   derives what a hand-authored harness gets wrong: a user-only playbook's
+   rule says to ask the user to run it, its skill keeps its own required
+   description because a path rule never loads before a file is touched, and
+   a user-only playbook refuses preloading. Its router wording is a default
+   renderer the consumer replaces, never fixed phrasing. `starter()`
    composes every shape with its defaults. Customization is typed options,
    with `extend()` the escape hatch, and the starter carries no taste: no
    memory content, no conventions, telemetry opt-in. An upgrade improves the
