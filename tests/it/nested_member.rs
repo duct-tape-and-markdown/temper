@@ -2188,3 +2188,36 @@ mod host_unit_cede {
         );
     }
 }
+
+/// A nested skill's frontmatter `name` is its leaf, never its placement-prefixed name
+/// (`specs/builtins.md`, "The shipped kinds"): `apps/web/.claude/skills/deploy/SKILL.md`
+/// is named `deploy`, so `skill.name-matches-dir` holds against its own directory.
+mod nested_skill_leaf_name {
+    use crate::common;
+
+    fn name_matches_dir_findings(frontmatter_name: &str) -> Vec<String> {
+        let harness = common::tmpdir("nested-skill-leaf-name");
+        common::write_sibling(
+            &harness,
+            "apps/web/.claude/skills/deploy/SKILL.md",
+            &common::clean_skill("deploy").replacen(
+                "name: deploy",
+                &format!("name: {frontmatter_name}"),
+                1,
+            ),
+        );
+        let (findings, _) = common::check_harness(&harness);
+        findings
+            .into_iter()
+            .filter(|line| line.contains("skill.name-matches-dir"))
+            .collect()
+    }
+
+    #[test]
+    fn a_nested_skill_leaf_name_passes_skill_name_matches_dir() {
+        assert_eq!(name_matches_dir_findings("deploy"), Vec::<String>::new());
+        // The clause is live over the nested placement: a name that is not the leaf
+        // fires, so the clean run above is the leaf matching, not the clause skipped.
+        assert!(!name_matches_dir_findings("apps-web-deploy").is_empty());
+    }
+}
