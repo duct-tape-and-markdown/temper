@@ -2365,6 +2365,10 @@ mod tests {
                 outgoing: None,
                 fields: None,
             },
+            Predicate::ReachedFrom {
+                roots: "entry-points".to_string(),
+                via: Some(vec!["skills".to_string()]),
+            },
             Predicate::Kind {
                 kind: "skill".to_string(),
             },
@@ -2387,7 +2391,8 @@ mod tests {
     /// The member-grain vocabulary — one live sample of every predicate [`decide`]
     /// answers over one member's own features, each addressing the `model` key the
     /// fixtures carry. The complement of [`set_predicates`]; together with the fenced
-    /// `dependency-exists` they are the closed vocabulary, one sample apiece.
+    /// `dependency-exists` they are the closed vocabulary, one sample apiece — held so
+    /// by [`vocabulary_slot`].
     fn member_predicates() -> Vec<Predicate> {
         vec![
             Predicate::Required {
@@ -2460,6 +2465,73 @@ mod tests {
                 field: "model".to_string(),
             }),
         ]
+    }
+
+    /// The number of [`Predicate`] variants — the slots [`vocabulary_slot`] hands out.
+    const VOCABULARY: usize = 33;
+
+    /// One slot per [`Predicate`] variant. Exhaustive on purpose: a new variant does not
+    /// compile until it takes a slot, and `the_sample_banks_are_the_whole_vocabulary`
+    /// then refuses until a bank samples it. `extent` is one variant with a sample per
+    /// grain, so both land in one slot.
+    fn vocabulary_slot(predicate: &Predicate) -> usize {
+        match predicate {
+            Predicate::Required { .. } => 0,
+            Predicate::Optional { .. } => 1,
+            Predicate::Type { .. } => 2,
+            Predicate::MinLen { .. } => 3,
+            Predicate::MaxLen { .. } => 4,
+            Predicate::Range { .. } => 5,
+            Predicate::Enum { .. } => 6,
+            Predicate::Deny { .. } => 7,
+            Predicate::ForbiddenKeys { .. } => 8,
+            Predicate::ClosedKeys => 9,
+            Predicate::AllowedChars { .. } => 10,
+            Predicate::Shape { .. } => 11,
+            Predicate::Extent { .. } => 12,
+            Predicate::RequireSections { .. } => 13,
+            Predicate::MustDefine { .. } => 14,
+            Predicate::SectionContains { .. } => 15,
+            Predicate::NameMatchesDir => 16,
+            Predicate::UniqueName => 17,
+            Predicate::DependencyExists => 18,
+            Predicate::Count { .. } => 19,
+            Predicate::Unique { .. } => 20,
+            Predicate::Membership { .. } => 21,
+            Predicate::Degree { .. } => 22,
+            Predicate::ReachedFrom { .. } => 23,
+            Predicate::Kind { .. } => 24,
+            Predicate::GlobValid { .. } => 25,
+            Predicate::MentionReachable { .. } => 26,
+            Predicate::Reachable => 27,
+            Predicate::Fresh => 28,
+            Predicate::LocusDeclared => 29,
+            Predicate::EngineMatches => 30,
+            Predicate::FormatPlacesEdges => 31,
+            Predicate::When { .. } => 32,
+        }
+    }
+
+    #[test]
+    fn the_sample_banks_are_the_whole_vocabulary() {
+        // Every pin looping a bank proves its claim only of what the bank samples; a
+        // variant missing from both banks is a variant every such pin silently skips.
+        let mut sampled = BTreeSet::new();
+        for predicate in set_predicates()
+            .into_iter()
+            .chain(member_predicates())
+            .chain([Predicate::DependencyExists])
+        {
+            sampled.insert(vocabulary_slot(&predicate));
+        }
+        let missing: Vec<usize> = (0..VOCABULARY)
+            .filter(|slot| !sampled.contains(slot))
+            .collect();
+        assert!(missing.is_empty(), "no bank samples slot(s) {missing:?}");
+        assert!(
+            sampled.iter().all(|slot| *slot < VOCABULARY),
+            "`VOCABULARY` is behind `vocabulary_slot`: {sampled:?}"
+        );
     }
 
     #[test]
@@ -3880,6 +3952,22 @@ mod tests {
                 diags[0].message
             );
         }
+    }
+
+    #[test]
+    fn a_when_body_refuses_reached_from_by_name() {
+        let reached_from = set_predicates()
+            .into_iter()
+            .find(|predicate| matches!(predicate, Predicate::ReachedFrom { .. }))
+            .expect("the set bank samples `reached-from`");
+        let refusals = inadmissibilities(&when_over(reached_from), &Locus::Document, &[]);
+        assert!(
+            refusals
+                .iter()
+                .any(|message| message.contains("`reached-from`")
+                    && message.contains("`when` guard's body")),
+            "a `when` body must refuse `reached-from` by name, got: {refusals:?}"
+        );
     }
 
     /// Whether [`decide`]'s indeterminate arm is the one that answers `predicate` — the
