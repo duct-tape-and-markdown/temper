@@ -3032,6 +3032,80 @@ fn emit_program_executes_the_sdk_program_and_byte_reproduces_across_a_second_run
     );
 }
 
+/// A fixture SDK program whose skill description interpolates the current time —
+/// authoring code that is a different program on every run, which no render-side
+/// double-emit can see: one payload renders the same bytes twice.
+const CLOCK_PROGRAM: &str = r#"
+import { emit, harness, text } from "@dtmd/temper";
+import { skill } from "@dtmd/temper/claude-code";
+
+const program = harness({
+  members: [
+    skill({
+      name: "stamped",
+      description: `Use when stamping; generated at ${Date.now()}.`,
+      prose: text`# Stamped`,
+    }),
+  ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_program_interpolating_the_current_time_refuses_at_emit_as_nondeterministic() {
+    let (harness, into) = common::wire_sdk_harness("clock-program", CLOCK_PROGRAM);
+    let before = common::tree_bytes(&harness);
+
+    let err = drift::emit_program(&into, EmitOptions::default())
+        .expect_err("a program reading the clock must refuse at emit");
+
+    let drift_err = err
+        .downcast_ref::<drift::DriftError>()
+        .unwrap_or_else(|| panic!("expected a DriftError, got {err:?}"));
+    assert!(
+        matches!(drift_err, drift::DriftError::Nondeterministic { path } if path.ends_with("harness.ts")),
+        "the refusal is nondeterminism naming the program's entry: {drift_err:?}"
+    );
+    assert_eq!(
+        before,
+        common::tree_bytes(&harness),
+        "the refusal lands before a byte is written"
+    );
+}
+
+/// A deterministic program that appends one line to a counter file per run — the
+/// count pin on the program-side double-emit: exactly two `node` runs per emit.
+const COUNTED_PROGRAM: &str = r#"
+import { appendFileSync } from "node:fs";
+import { emit, harness, text } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+
+appendFileSync(new URL("./runs.log", import.meta.url), "run\n");
+
+const program = harness({
+  members: [rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust` })],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_deterministic_program_emits_as_today_across_exactly_two_node_runs() {
+    let (harness, into) = common::wire_sdk_harness("counted-program", COUNTED_PROGRAM);
+
+    let report =
+        drift::emit_program(&into, EmitOptions::default()).expect("a deterministic program emits");
+
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
+    assert!(harness.join(".claude/rules/rust.md").is_file());
+    assert_eq!(
+        fs::read_to_string(into.join("runs.log")).unwrap(),
+        "run\nrun\n",
+        "emit runs the program exactly twice — once to compile, once to verify"
+    );
+}
+
 /// A fixture SDK program declaring a custom kind with `content: Layout` (three
 /// regions: prose, field, collection) and a second custom kind with
 /// `shape: "fields"` + `collectionAddress` — proving the real SDK emits a

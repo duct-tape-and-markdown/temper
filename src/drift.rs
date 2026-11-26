@@ -274,14 +274,17 @@ pub enum DriftError {
         members: Vec<String>,
     },
 
-    /// A projection did not reproduce byte-for-byte across a double-emit: the
-    /// authoring surface is nondeterministic (a timestamp, an unordered map surfacing
-    /// into a field). Law 5 makes this a loud failure rather than a silent churn the
-    /// next `emit` would rewrite.
+    /// The program or a projection did not reproduce byte-for-byte across a
+    /// double-emit — two runs of the SDK program printed differing payloads, or one
+    /// payload rendered a projection two ways: the authoring surface is
+    /// nondeterministic (a timestamp, an unordered map surfacing into a field). Law 5
+    /// makes this a loud failure rather than a silent churn the next `emit` would
+    /// rewrite.
     #[error("emit is nondeterministic for {path} (a double-emit produced differing bytes)")]
     #[diagnostic(code(temper::drift::nondeterministic))]
     Nondeterministic {
-        /// The projection source path whose re-emit diverged.
+        /// The path whose re-emit diverged: the program's entry when its two runs
+        /// printed differing payloads, else the projection's source path.
         path: PathBuf,
     },
 
@@ -1910,7 +1913,8 @@ fn member_projection_path(
 ///
 /// # Errors
 /// Returns a [`DriftError`] if no SDK program exists at the entry point, `node`
-/// cannot be spawned, the program exits non-zero, its output fails to parse, it declares
+/// cannot be spawned, the program exits non-zero, a second run prints a different
+/// payload ([`DriftError::Nondeterministic`]), its output fails to parse, it declares
 /// no typecheck or its declared typecheck refuses, or [`emit`] itself fails.
 pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Result<EmitReport> {
     let harness_entry = workspace_dir.join("harness.ts");
@@ -1921,6 +1925,16 @@ pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Resul
         .into());
     }
     let json = run_sdk_program(&harness_entry)?;
+    // Double-emit covers the program, not only the engine's render: a second,
+    // independent run must print the same payload byte-for-byte. Authoring code that
+    // reads the clock, randomness or an unordered source surfaces here as a loud
+    // refusal before a byte is written, never as churn the next `emit` rewrites.
+    if run_sdk_program(&harness_entry)? != json {
+        return Err(DriftError::Nondeterministic {
+            path: harness_entry,
+        }
+        .into());
+    }
     peek_and_validate_seam_version(&json, &harness_entry)?;
     let payload: Payload =
         serde_json::from_str(&json).map_err(|source| DriftError::PayloadParse {
