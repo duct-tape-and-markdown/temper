@@ -288,15 +288,6 @@ pub fn tap_hook_command(binary: &str) -> String {
     render_gate_command(GateVerb::Tap, binary)
 }
 
-/// temper's gate commands paired with the names they were once exported under across the
-/// SDK seam. Nothing reads the table: a gate hook member states its binary and the engine
-/// renders its command ([`gate_hook_command`]), so no command string is an author surface.
-/// It stands only while [`crate::builtin_kind::TAP_HOOK_BINDINGS`]'s doc still links it.
-pub const GATE_COMMAND_BINDINGS: [(&str, &str); 2] = [
-    ("GUARD_COMMAND", GUARD_COMMAND),
-    ("SESSION_START_COMMAND", SESSION_START_COMMAND),
-];
-
 /// The binary `command` runs as temper when it is exactly the command a gate hook firing
 /// `verb` renders ([`render_gate_command`]) — `None` for any other command. This is how a
 /// projection is recognized as a gate hook member's, whatever binary the member states:

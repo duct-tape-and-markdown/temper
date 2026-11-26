@@ -1452,7 +1452,6 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
         Extraction::new(Vec::new()),
     );
     hook_kind.collection_address = Some(CollectionAddress {
-        manifest: "settings.json".to_string(),
         key_path: CollectionKeyPath::HooksEvent,
         entry_shape: EntryShape::GroupArray {
             member_key: "hooks".to_string(),
@@ -1471,7 +1470,6 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
         Extraction::new(Vec::new()),
     );
     plugin_kind.collection_address = Some(CollectionAddress {
-        manifest: "settings.json".to_string(),
         key_path: CollectionKeyPath::EnabledPlugins,
         entry_shape: EntryShape::Scalar {
             field: "enabled".to_string(),

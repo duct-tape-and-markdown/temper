@@ -1936,7 +1936,6 @@ fn a_hook_round_trips_settings_json_read_to_members_to_write_byte_identical() {
     // Read each hook off the source through the adapter's read face, decomposing the matcher
     // groups back into flat {matcher?, type, command} fields.
     let address = CollectionAddress {
-        manifest: "settings.json".to_string(),
         key_path: CollectionKeyPath::HooksEvent,
         entry_shape: temper::kind::EntryShape::GroupArray {
             member_key: "hooks".to_string(),
@@ -3052,7 +3051,6 @@ fn emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end(
     assert_eq!(
         hook.collection_address,
         Some(temper::kind::CollectionAddress {
-            manifest: "settings.json".to_string(),
             key_path: temper::kind::CollectionKeyPath::HooksEvent,
             entry_shape: temper::kind::EntryShape::GroupArray {
                 member_key: "hooks".to_string(),

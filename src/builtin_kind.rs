@@ -265,10 +265,6 @@ const fn tap_hook_binding(event: TapEvent) -> TapHookBinding {
 /// the seam; [`crate::tap::documented_event_names`] reads the same table for the
 /// admissibility set the roster judges a telemetry verifier's event names against. So the
 /// set `check` admits and the set the SDK synthesizes a hook for are one enumeration.
-///
-/// Public on the terms [`crate::install::GATE_COMMAND_BINDINGS`] is: the seam gate writes
-/// the SDK's copy from these rows, and a second table beside this one is the drift that
-/// generation exists to end.
 pub const TAP_HOOK_BINDINGS: [TapHookBinding; 4] = [
     tap_hook_binding(TapEvent::InstructionsLoaded),
     tap_hook_binding(TapEvent::SkillInvoked),
@@ -670,7 +666,6 @@ mod tests {
         assert_eq!(
             hook.collection_address,
             Some(CollectionAddress {
-                manifest: "settings.json".to_string(),
                 key_path: CollectionKeyPath::HooksEvent,
                 entry_shape: crate::kind::EntryShape::GroupArray {
                     member_key: "hooks".to_string(),
@@ -711,7 +706,6 @@ mod tests {
         assert_eq!(
             mcp.collection_address,
             Some(CollectionAddress {
-                manifest: ".mcp.json".to_string(),
                 key_path: CollectionKeyPath::McpServers,
                 entry_shape: crate::kind::EntryShape::Object,
             })

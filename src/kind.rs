@@ -202,9 +202,6 @@ pub enum EntryShape {
 /// reject [`Format`]/[`UnitShape`]/[`Registration`] carry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollectionAddress {
-    /// The host manifest the registration surfaces in — the kind's locus glob, which the
-    /// lift copies here and no row spells; read it through [`CustomKind::manifest`].
-    pub manifest: String,
     /// The key path within the manifest the member's registration keys at.
     pub key_path: CollectionKeyPath,
     /// The entry's declared shape — whether it's an object, scalar, or group-array.
@@ -1253,7 +1250,7 @@ pub(crate) fn collection_address_from_row(
     match &row.collection_address {
         None => Ok(None),
         Some(address) => {
-            let manifest = match row.governs_glob.as_deref() {
+            match row.governs_glob.as_deref() {
                 None => {
                     return Err(LockRowError::MissingColumn {
                         family: "kind".to_string(),
@@ -1267,8 +1264,8 @@ pub(crate) fn collection_address_from_row(
                         value: glob.to_string(),
                     });
                 }
-                Some(glob) => glob.to_string(),
-            };
+                Some(_) => {}
+            }
             let key_path = kind_vocab(
                 &address.key_path,
                 "collection_address",
@@ -1280,7 +1277,6 @@ pub(crate) fn collection_address_from_row(
                 entry_shape_from_label(&address.entry_shape),
             )?;
             Ok(Some(CollectionAddress {
-                manifest,
                 key_path,
                 entry_shape,
             }))

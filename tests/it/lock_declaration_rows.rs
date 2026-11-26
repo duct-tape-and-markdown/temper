@@ -1706,7 +1706,6 @@ fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reac
     assert_eq!(
         hook.collection_address,
         Some(CollectionAddress {
-            manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::HooksEvent,
             entry_shape: temper::kind::EntryShape::GroupArray {
                 member_key: "hooks".to_string(),

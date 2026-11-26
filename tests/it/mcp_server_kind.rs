@@ -59,7 +59,6 @@ fn the_mcp_server_kind_is_a_fields_only_manifest_kind_at_the_mcp_servers_collect
     assert_eq!(
         mcp.collection_address,
         Some(CollectionAddress {
-            manifest: ".mcp.json".to_string(),
             key_path: CollectionKeyPath::McpServers,
             entry_shape: temper::kind::EntryShape::Object,
         })
