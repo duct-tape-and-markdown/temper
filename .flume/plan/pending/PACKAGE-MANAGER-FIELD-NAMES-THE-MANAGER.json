@@ -9,7 +9,7 @@
     "edit": [
       {
         "path": "src/install.rs",
-        "description": "spawn_npm_install reads packageManager"
+        "description": "scaffold writes packageManager (root's, else npm@<version> it ran); install spawns the field's manager; a fieldless package.json refuses with the remedy"
       },
       {
         "path": "src/tool.rs",
@@ -20,26 +20,38 @@
         "description": "agree with tool.rs"
       },
       {
+        "path": "tests/it/common/mod.rs",
+        "description": "wire_sdk_harness fixtures write a package.json carrying the field"
+      },
+      {
         "path": "tests/it/install.rs",
-        "description": "pnpm install test"
+        "description": "scaffold, pnpm and refusal tests"
       },
       {
         "path": "tests/it/tool_kind.rs",
         "description": "pnpm tool test"
+      },
+      {
+        "path": "examples/base-harness/.temper/package.json",
+        "description": "declare packageManager"
       }
     ],
     "retire": []
   },
-  "summary": "the program's package.json `packageManager` field names the manager install spawns and the tool kind reads, refusing loudly where needed and absent",
+  "summary": "the program's package.json `packageManager` names the manager install spawns and the tool reads; install's scaffold writes it; a fieldless package.json refuses naming the remedy",
   "per": {
     "path": "specs/model/authoring.md",
     "section": "The SDK"
   },
-  "acceptance": "a packageManager of pnpm@\u2026 makes install and the tool use pnpm; a needed manager with no field refuses naming it",
+  "acceptance": "a fresh install writes packageManager; a root packageManager of pnpm@… is copied and install and the tool use pnpm; a .temper/package.json with no field refuses with the add-the-field remedy; an existing package.json stays byte-identical",
   "tests": [
-    "a package manager field naming pnpm makes install run pnpm",
-    "a package manager field naming pnpm makes the tool use pnpm"
+    "a fresh install writes the package manager field into the scaffold",
+    "a root package manager field naming pnpm is copied and install runs pnpm",
+    "a package manager field naming pnpm makes the tool use pnpm",
+    "a program package json with no package manager field refuses naming the remedy"
   ],
-  "pins": [],
-  "notes": "0100. Which manager the first-install scaffold writes into the field is not in the corpus: raise it rather than pick one. Shares src/install.rs with PACKAGE-JSON-IS-SCAFFOLDED-ONCE and src/tool.rs with TOOL-LOCKFILE-READ-STOPS-AT-THE-WORKSPACE-ROOT."
+  "pins": [
+    "an existing package json stays byte identical on re install"
+  ],
+  "notes": "0100; spec 529865c9 answers the park (scaffold: root's field, else npm@<npm --version>). Dogfood .temper/package.json already declares npm. A fieldless harness predating the rule is the release's migration note, not a fallback. yarn/bun keep the by-name refusal. Shares src/install.rs with PACKAGE-JSON-IS-SCAFFOLDED-ONCE's seam (the `missing` render line may name the declared manager)."
 }

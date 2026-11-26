@@ -1,15 +1,28 @@
 {
   "tag": "MEMORY-CLAIMS-AGENTS-MD-WHERE-THE-RUNTIME-LOADS-IT",
   "gate": {
-    "kind": "open"
+    "kind": "parked",
+    "reason": "decision on memory-locus-holds-two-templates: the one-template locus and a registration row for the no-CLAUDE.md-at-or-above condition"
   },
   "kind": "work",
   "files": {
     "new": [],
     "edit": [
       {
+        "path": "sdk/src/kind.ts",
+        "description": "Locus carries the second template, per the question's answer"
+      },
+      {
         "path": "sdk/src/builtins.ts",
-        "description": "memory claims the conditional AGENTS.md; replace the stale 'does not read' cite"
+        "description": "memory governs **/AGENTS.md; its registration names the condition; replace the stale 'does not read' cite"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "lift the widened locus"
+      },
+      {
+        "path": "src/graph.rs",
+        "description": "reachability judges the AGENTS.md condition"
       },
       {
         "path": "src/builtin_lock.toml",
@@ -30,18 +43,18 @@
     ],
     "retire": []
   },
-  "summary": "memory claims an AGENTS.md where Claude Code loads it as memory: a directory with no CLAUDE.md in it or above it",
+  "summary": "memory governs AGENTS.md by position; its registration is Claude Code's condition (no CLAUDE.md in its directory or above), judged by reachability",
   "per": {
     "path": "specs/builtins.md",
     "section": "The shipped kinds"
   },
-  "acceptance": "an AGENTS.md-only harness governs it as memory; an AGENTS.md beside or below a CLAUDE.md is no memory member; an @AGENTS.md import still reaches it by edge",
+  "acceptance": "an AGENTS.md-only harness has it as a reachable memory member; an AGENTS.md a CLAUDE.md shadows and does not import draws the not-loaded reachability finding; an @AGENTS.md import still reaches it",
   "tests": [
-    "a harness with only an agents md at root governs it as memory"
+    "a harness with only an agents md at root has it as a reachable memory member",
+    "an agents md beside a claude md with no import draws a not loaded reachability finding"
   ],
   "pins": [
-    "an agents md beside a claude md is not a memory member",
     "a claude md importing agents md reaches it through the import edge"
   ],
-  "notes": "Class 0101. code.claude.com/docs/en/memory (retrieved 2026-11-26): AGENTS.md read in place of CLAUDE.md only when no CLAUDE.md is in the working directory or above (v2.1.277+). Codex overrides belong to a future provider face. If the locus grammar cannot express 'no CLAUDE.md at or above', park naming the gap rather than hand-roll a claim."
+  "notes": "Class 0101/0103; spec 7b99c08c answers the old park (identity by position, condition is registration). code.claude.com/docs/en/memory (retrieved 2026-11-26): AGENTS.md read only where no CLAUDE.md is at or above (v2.1.277+). Codex overrides belong to a future provider face."
 }
