@@ -334,10 +334,23 @@ pub fn embedded_source_host(address: &str) -> Option<(AddressPair<'_>, AddressPa
 /// nested-member address — the bare short form a reference may spell, read through the
 /// one parser rather than a fresh split at each reader (`crate::read`'s `explain`
 /// resolution is the other one).
+///
+/// A **root-hosted** address (`root/tool/<key>`) is a member address too: its host is the
+/// root member, whose address is the bare [`ROOT_HOST`] rather than a `<kind>:<name>`, so
+/// [`parse_nested_address`] — whose host must be a kind-bearing member for the graph's
+/// host scoping — does not read it, and this reader does.
 #[must_use]
 pub fn nested_key(address: &str) -> Option<&str> {
-    parse_nested_address(address).map(|nested| nested.key)
+    if let Some(nested) = parse_nested_address(address) {
+        return Some(nested.key);
+    }
+    let segments = segment(address)?;
+    (segments.tail.is_none() && segments.host == ROOT_HOST).then_some(segments.key)
 }
+
+/// The root member's own address — the host segment a root-hosted member's address opens
+/// with (`root/tool/<key>`).
+pub const ROOT_HOST: &str = crate::contract::ROOT_OWNER;
 
 #[cfg(test)]
 mod tests {
@@ -670,5 +683,12 @@ mod tests {
         let leaf = "skill:use-when-x/hook/on-enter/command";
         assert_eq!(nested_key(leaf), None);
         assert_eq!(embedded_source_host(leaf), None);
+    }
+
+    #[test]
+    fn a_root_hosted_address_reads_its_key_and_its_leaf_does_not() {
+        assert_eq!(nested_key("root/tool/tsc"), Some("tsc"));
+        assert_eq!(nested_key("root/tool/tsc/package"), None);
+        assert_eq!(nested_key("elsewhere/tool/tsc"), None);
     }
 }

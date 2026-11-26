@@ -260,6 +260,34 @@ fn a_package_bin_tool_reads_its_version_from_package_lock_json() {
 }
 
 #[test]
+fn explain_resolves_a_root_hosted_tool_by_its_address() {
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("tool-explain-address", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(
+        &into,
+        "package-lock.json",
+        r#"{ "lockfileVersion": 3, "packages": {
+  "": { "devDependencies": { "typescript": "5.9.3" } },
+  "node_modules/typescript": { "version": "5.9.3" } } }
+"#,
+    );
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let qualified = common::explain_in(&harness, "member:root/tool/tsc");
+    for target in ["root/tool/tsc", "tsc"] {
+        let narration = common::explain_in(&harness, target);
+        assert!(
+            narration.contains("`typescript` 5.9.3, locked by the program's `package-lock.json`"),
+            "`explain {target}` narrates the tool: {narration}"
+        );
+        assert_eq!(
+            narration, qualified,
+            "`explain {target}` reads as the qualified spelling does"
+        );
+    }
+}
+
+#[test]
 fn a_package_bin_tool_reads_its_version_from_pnpm_lock_yaml() {
     common::ensure_sdk_built();
     let (harness, into) = common::wire_sdk_harness("tool-pnpm-lock", PACKAGE_TOOL_PROGRAM);
