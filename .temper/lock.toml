@@ -9,8 +9,8 @@ emit_hash = "7ec119b0d678f6d3d9869b7631043bd880f6432c13f9a3fb8f2f9dabf2bb6ea9"
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "01e6f0f62c1ac4ebf0c8443617c7175f22ecfbc4f01c942ed3a1952ca4402b29"
-emit_hash = "01e6f0f62c1ac4ebf0c8443617c7175f22ecfbc4f01c942ed3a1952ca4402b29"
+source_hash = "4bd63c4c5566de7d55d23b1533ccf2bfc7a605a95167e14da6eaa4f99e66725d"
+emit_hash = "4bd63c4c5566de7d55d23b1533ccf2bfc7a605a95167e14da6eaa4f99e66725d"
 
 [[rule]]
 name = "collaboration"

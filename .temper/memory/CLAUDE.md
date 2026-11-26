@@ -8,8 +8,9 @@
   The harness is authored as a typed program (`@dtmd/temper`), compiled by a
   deterministic `emit` with drift routed to the authored source, and gated by
   `check` against a declared contract; a kind may type its body's layout, so
-  document content sits under the same gate. Seven verbs ship: `check`,
-  `explain`, `emit`, `schema`, `guard`, `install`, `bundle`. Positioning:
+  document content sits under the same gate. Eight verbs ship: `check`,
+  `explain`, `emit`, `schema`, `guard`, `install`, `bundle`, and `tap`,
+  which hooks run. Positioning:
   `rulesync` makes a harness portable; marketplaces distribute; `temper`
   makes it *correct* — downstream of both.
 
