@@ -42,12 +42,11 @@
   },
   "acceptance": "extend over an embedded base composes under an extended host; its members are checked as the subkind, and the subkind stays in the kinds map",
   "tests": [
-    "extend accepts an embedded base named by an extended host",
     "an embedded member under an extended host is checked against the subkind's fields"
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "The nested-file half shipped (a55ab7e4). The build note: embedded composition keys members by the host's templates name, and an embedded kind takes a kind-fact row only with guidance/cite/leaves, so the subkind could fall out of the kinds map.",
+  "notes": "The nested-file half shipped (a55ab7e4). The build note: embedded composition keys members by the host's templates name, and an embedded kind takes a kind-fact row only with guidance/cite/leaves, so the subkind could fall out of the kinds map. `extend` accepting an embedded base is SDK behavior: its test lives in sdk/test/ under the SDK gate and names no tests[] line (PROTOCOL, Tests).",
   "observedFiles": [
     ".flume/plan/notes/AN-EMBEDDED-SUBKIND-IS-CHOSEN-BY-ITS-HOST.md",
     "sdk/src/declarations.ts",
