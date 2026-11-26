@@ -1,0 +1,33 @@
+{
+  "tag": "SEVERITY-READS-REQUIRED-OR-ADVISORY",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/reporter.rs",
+        "description": "severity spellings at :398,:414"
+      },
+      {
+        "path": "src/main.rs",
+        "description": "help text"
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__check_diagnostics.snap",
+        "description": "re-blessed"
+      }
+    ]
+  },
+  "summary": "Severity reads `required`/`advisory` wherever an author reads it: reporter output and CLI help retire \"error\"/\"warn\"",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "no reporter output or help text spells a severity as error/warn (main.rs:87 'Lint' and :104 'warn-severity' among them); cargo test green",
+  "tests": [
+    "a finding reports its severity as required or advisory"
+  ],
+  "notes": "0114 case 2. Other snapshots that carry the old words join files as build finds them. Owes a migration-note line (docs/, the release cut's half)."
+}

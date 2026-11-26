@@ -1,0 +1,45 @@
+{
+  "tag": "PREDICATE-SEGMENTS-KEBAB-CASE",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "id derivation"
+      },
+      {
+        "path": "src/contract.rs",
+        "description": "predicate ids"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-emitted"
+      },
+      {
+        "path": "src/bundled_reference/kind-skill.md",
+        "description": "ids in text"
+      },
+      {
+        "path": "src/bundled_reference/SKILL.md",
+        "description": "ids in text"
+      },
+      {
+        "path": "tests/it/snapshots/it__gauntlet__check_diagnostics.snap",
+        "description": "re-blessed"
+      }
+    ]
+  },
+  "summary": "A clause id's predicate segment is kebab-case: max-len, min-len, forbidden-keys, allowed-chars, require-sections, must-define, section-contains",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "every compiled clause id spells its predicate kebab-case (skill.max-len.name beside skill.name-matches-dir); pnpm --dir sdk test and cargo test green",
+  "tests": [
+    "a compiled clause id spells its predicate in kebab case"
+  ],
+  "notes": "0114 mechanical. Whether the wire key moves too or only the id segment is build's call against the seam. Remaining bundled kind-*.md and snapshots join files as found. Shares builtin_lock.toml with CLAUSE-ID-KEYED-CLAUSE. Owes a migration-note line (docs/, the release cut's half)."
+}

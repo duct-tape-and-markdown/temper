@@ -1,0 +1,57 @@
+{
+  "tag": "CLAUSE-ID-KEYED-CLAUSE",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/dial.rs",
+        "description": "DialEntry.label"
+      },
+      {
+        "path": "sdk/src/dial.ts",
+        "description": "dial key"
+      },
+      {
+        "path": "src/reporter.rs",
+        "description": "finding field rule"
+      },
+      {
+        "path": "src/check.rs",
+        "description": "finding field"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "label column re-emitted"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "lock reader"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "row field"
+      },
+      {
+        "path": "sdk/src/generated/ClauseRow.ts",
+        "description": "re-blessed binding"
+      },
+      {
+        "path": "src/bundled_reference/SKILL.md",
+        "description": "'the `code`' text"
+      }
+    ]
+  },
+  "summary": "A clause's id is keyed `clause` on every surface naming one: dial entries, the lock column, the finding field, the bundled reference",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "acceptance": "no dial, lock, finding or reference surface keys a clause id as label/rule/code/address; pnpm --dir sdk test and cargo test green",
+  "tests": [
+    "a dial entry names its clause under the clause key"
+  ],
+  "notes": "0114 case 6. *_RULE constants are internal; renaming them is build's call. Two-sided seam. The dogfood's .temper/dial.toml, if it names entries, is the human half. Owes a migration-note line (docs/, the release cut's half)."
+}

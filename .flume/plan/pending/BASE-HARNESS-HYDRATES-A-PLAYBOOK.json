@@ -1,15 +1,29 @@
 {
   "tag": "BASE-HARNESS-HYDRATES-A-PLAYBOOK",
-  "gate": { "kind": "blockedBy", "tags": ["STARTER-SHIPS-THE-PLAYBOOK", "PLAYBOOK-EXECUTION-PRELOADING-AND-ATTACHMENTS"] },
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "STARTER-SHIPS-THE-PLAYBOOK"
+    ]
+  },
   "files": {
     "new": [],
     "edit": [
-      { "path": "examples/base-harness/.temper/harness.ts", "description": "a worked playbook customization in place of a hand-wired rule+skill area" },
-      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emitted" }
+      {
+        "path": "examples/base-harness/.temper/harness.ts",
+        "description": "a worked playbook customization in place of a hand-wired rule+skill area"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emitted"
+      }
     ]
   },
   "summary": "The shipped example hydrates a playbook with a worked customization, so the playbook's structure reads beside its import",
-  "per": { "path": "specs/distribution.md", "section": "What ships — three channels" },
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "What ships — three channels"
+  },
   "acceptance": "examples/base-harness composes a playbook, emits clean and passes check --deny-advisories",
   "tests": [],
   "notes": "Owed per notes/BASE-HARNESS-HYDRATES-THE-STARTER (the example hydrates \"the shapes\"). Its retired hand-written rule/skill files and emitted .claude/ projections join files as build finds them."

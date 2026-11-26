@@ -1,0 +1,57 @@
+{
+  "tag": "RELOCATION-DELTA-SPELLED-AS-LOCUS",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "relocate/extend delta key (:1009)"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "row field"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "row reader"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-emitted"
+      },
+      {
+        "path": "src/builtin_lock.rs",
+        "description": "governs_root/governs_glob"
+      },
+      {
+        "path": "src/admissibility.rs",
+        "description": "kind.governs-collision id"
+      },
+      {
+        "path": "src/check.rs",
+        "description": "id doc"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "consumers"
+      },
+      {
+        "path": "sdk/src/generated/ClauseRow.ts",
+        "description": "re-blessed binding"
+      }
+    ]
+  },
+  "summary": "The locus-moving delta is spelled as the locus it replaces; `governs` retires from the SDK, the lock and the finding ids",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "rg -w governs finds no author-facing name in sdk/src, the lock columns or finding ids; pnpm --dir sdk test and cargo test green",
+  "tests": [
+    "a locus collision reports under the locus finding id"
+  ],
+  "notes": "0114 case 3; seam change is two-sided (PROTOCOL 'What an entry means here' 4). The other governs sites (gate, glob, graph, extract, bundle) join files as build reads them. Owes a migration-note line (docs/, the release cut's half)."
+}

@@ -37,5 +37,5 @@
   },
   "acceptance": "a harness composing a playbook per trigger (paths, nested, none) and invocation emits and passes check --deny-advisories; the router renderer is replaceable; pnpm --dir sdk test green",
   "tests": [],
-  "notes": "SDK-only behavior: the SDK gate holds it. Build over rule, skill, supportingDoc and path-form mentions (reference.ts' fix). The area's content is required, so starter() composes a playbook only when given. Execution, preloading and attachments are PLAYBOOK-EXECUTION-PRELOADING-AND-ATTACHMENTS."
+  "notes": "SDK-only behavior: the SDK gate holds it. Build over rule, skill, supportingDoc and path-form mentions (reference.ts' fix). The area's content is required, so starter() composes a playbook only when given. Execution, preloading and attachments are PLAYBOOK-EXECUTION-PRELOADING-AND-ATTACHMENTS. Per 0114, lands after the vocabulary renames so its options are named once."
 }
