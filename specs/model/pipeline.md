@@ -47,13 +47,14 @@ uncommitted path; a local member is a check-side input, never a target.
   addressing a declared kind whose member is not a composed value defers to
   the gate — the row rides the lock, `check` owns the verdict — and a
   mention addressing no declared kind refuses. Before running the program,
-  emit runs the **typecheck the program declares** (a command reference,
-  `authoring.md`, and its project, the consumer's own toolchain, never
-  resolved by guess) and refuses on a type error, naming the compiler's
-  diagnostics: the compiler's errors are how the author receives the SDK's
-  shape (intent, invariant 8). A program that declares no typecheck refuses,
-  naming the declaration; the project file it names is a declared input.
-  `check` still never needs Node.
+  emit runs the **typecheck the program declares**, as the last lock records
+  it (a first emit, with no lock yet, runs it right after), (a command
+  reference, `authoring.md`, and its project, the consumer's own toolchain,
+  never resolved by guess) and refuses on a type error, naming the
+  compiler's diagnostics: the compiler's errors are how the author receives
+  the SDK's shape (intent, invariant 8). A program that declares no
+  typecheck refuses, naming the declaration; the project file it names is a
+  declared input. `check` still never needs Node.
 
 ## The lock
 

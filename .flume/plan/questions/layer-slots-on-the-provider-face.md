@@ -3,3 +3,6 @@
 `specs/model/authoring.md`, "Layers": slots and their order are cited data on the provider face; the claude-code face emulates the product's precedence, with the user slot named, reserved and ungoverned; later layers win by array surgery. The code already has the two layer mechanisms the section names (local members, joined locks) and no slot data. The section does not say which verb reads slot order, or what a slot changes that a local member or a joined lock does not already change. The two rules that bind (uncommitted hardens without bound; softening only by dial) are stated independently of order. Without that, an entry has no test it could fail on base.
 
 Needed: the behavior slot order drives (for example, which of two layers' clauses `check` reads when both dial one label), and the claude-code precedence cited (code.claude.com/docs/en/settings). Raised by inbox 2026-11-26-layer-slots-are-provider-data, which itself flagged that a design question may come first.
+
+
+Session, 2026-11-26: the claim stays as intent (0105). No entry until a driver defines the behavior slot order changes, such as two layers dialing one label. This waits for a harness that actually layers (an org policy over a repo), as cross-source-edge-correlation waits for its reporter.
