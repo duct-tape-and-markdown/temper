@@ -927,6 +927,9 @@ pub fn gate(
         &claimed_files,
         unreached_docs.len(),
     ));
+    if !represented {
+        diagnostics.extend(coverage_note::script_note(harness_root, &declared_kinds));
+    }
 
     // The freshness facts — the root member's own `fresh` clause, whose subject is every
     // lock row a member owns: the projection's byte fingerprint here, each fingerprinted

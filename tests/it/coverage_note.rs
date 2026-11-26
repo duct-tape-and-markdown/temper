@@ -957,3 +957,79 @@ fn a_folder_of_declared_script_tools_fires_no_unclaimed_entry() {
          got: {unclaimed:#?}"
     );
 }
+
+#[test]
+fn an_unrepresented_harness_whose_settings_hold_a_hook_command_draws_the_script_note() {
+    let harness = common::tmpdir("unrepresented-hook-command");
+    common::write_settings(
+        &harness,
+        r#"{ "hooks": { "PreToolUse": [ { "matcher": "Bash", "hooks": [ { "type": "command", "command": "./scripts/guard.sh" } ] } ] } }"#,
+    );
+
+    let (findings, _success) = check_harness(&harness);
+
+    let note = common::findings_for(&findings, "coverage.unrepresented-scripts");
+    assert_eq!(
+        note.len(),
+        1,
+        "expected one script note, got: {findings:#?}"
+    );
+    assert!(
+        note[0].starts_with("::notice")
+            && note[0].contains("`{ file }` tool")
+            && !note[0].contains("guard.sh"),
+        "the note is a disclosure naming no script, got: {}",
+        note[0]
+    );
+}
+
+#[test]
+fn an_unrepresented_harness_whose_status_line_runs_a_command_draws_the_script_note() {
+    let harness = common::tmpdir("unrepresented-status-line");
+    common::write_sibling(
+        &harness,
+        ".claude/settings.local.json",
+        r#"{ "statusLine": { "type": "command", "command": "~/.claude/statusline.sh" } }"#,
+    );
+
+    let (findings, _success) = check_harness(&harness);
+
+    assert_eq!(
+        common::findings_for(&findings, "coverage.unrepresented-scripts").len(),
+        1,
+        "{findings:#?}"
+    );
+}
+
+#[test]
+fn an_unrepresented_harness_with_no_hook_or_status_line_command_draws_no_script_note() {
+    let harness = common::tmpdir("unrepresented-no-command");
+    common::write_settings(
+        &harness,
+        r#"{ "permissions": { "allow": [] }, "hooks": { "Stop": [ { "hooks": [ { "type": "http", "url": "https://example.test/hook" } ] } ] } }"#,
+    );
+
+    let (findings, _success) = check_harness(&harness);
+
+    assert!(
+        common::findings_for(&findings, "coverage.unrepresented-scripts").is_empty(),
+        "no command runs, so no script note, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_represented_harness_whose_settings_hold_a_hook_command_draws_no_script_note() {
+    let harness = common::tmpdir("represented-hook-command");
+    lock_rules(&harness, &["declared"]);
+    common::write_settings(
+        &harness,
+        r#"{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "echo done" } ] } ] } }"#,
+    );
+
+    let (findings, _success) = check_harness(&harness);
+
+    assert!(
+        common::findings_for(&findings, "coverage.unrepresented-scripts").is_empty(),
+        "a represented harness declares its tools, got: {findings:#?}"
+    );
+}

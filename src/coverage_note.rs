@@ -30,6 +30,15 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 /// harness declares no edges, so a per-doc advisory would ask for what it cannot hold.
 const UNREACHED_DOCS_RULE: &str = "coverage.unreached-supporting-docs";
 
+/// The disclosure rule id for an unrepresented harness whose settings run a command —
+/// a note, because such a harness declares no tools, so the `{ file }` tool a script
+/// would become is unfillable there.
+const SCRIPTS_RULE: &str = "coverage.unrepresented-scripts";
+
+/// The built-in kinds whose documents are Claude Code settings files, where a hook
+/// handler or the status line names a command.
+const SETTINGS_KINDS: [&str; 2] = ["settings", "settings-local"];
+
 /// Compute the wedge's coverage note over the harness at `root`.
 ///
 /// `member_counts` is the per-kind count of members discovered at a `governs` locus,
@@ -171,6 +180,56 @@ pub fn check(
     }
 
     diagnostics
+}
+
+/// The one script note for an unrepresented harness whose settings run a command: a
+/// `command` hook handler under `hooks.<Event>[].hooks[]` or a `command` `statusLine`
+/// (code.claude.com/docs/en/hooks, "Common fields", retrieved 2026-09-25;
+/// code.claude.com/docs/en/statusline, retrieved 2026-11-25). The note names and counts
+/// no script, since telling a script path from an inline command is mining the command
+/// string. A settings file absent or unparseable is read as running nothing — the
+/// settings kind's own read reports a malformed one.
+pub fn script_note(
+    root: &Path,
+    declared_kinds: &BTreeMap<String, CustomKind>,
+) -> Option<Diagnostic> {
+    let runs_command = SETTINGS_KINDS
+        .iter()
+        .filter_map(|name| declared_kinds.get(*name)?.governs.as_ref())
+        .filter_map(|governs| {
+            let path = root.join(normalize_root(&governs.root)).join(&governs.glob);
+            serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(path).ok()?).ok()
+        })
+        .any(|settings| settings_run_a_command(&settings));
+    runs_command.then(|| {
+        Diagnostic::note(
+            SCRIPTS_RULE,
+            "harness",
+            "settings run a hook or status-line command: an unrepresented harness declares \
+             no tools, so its scripts are not checked. Represent the harness and declare \
+             each committed script as a `{ file }` tool the command runs",
+        )
+    })
+}
+
+fn settings_run_a_command(settings: &serde_json::Value) -> bool {
+    let is_command = |handler: &serde_json::Value| {
+        handler.get("type").and_then(serde_json::Value::as_str) == Some("command")
+            && handler
+                .get("command")
+                .is_some_and(serde_json::Value::is_string)
+    };
+    let hook_runs = settings
+        .get("hooks")
+        .and_then(serde_json::Value::as_object)
+        .into_iter()
+        .flat_map(|events| events.values())
+        .filter_map(serde_json::Value::as_array)
+        .flatten()
+        .filter_map(|group| group.get("hooks")?.as_array())
+        .flatten()
+        .any(is_command);
+    hook_runs || settings.get("statusLine").is_some_and(is_command)
 }
 
 /// The documented remedy for an unclaimed entry Claude Code itself writes, where its
