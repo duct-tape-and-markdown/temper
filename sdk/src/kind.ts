@@ -1128,6 +1128,13 @@ export interface KindExtension<T extends object> extends KindRelocation<T> {
    * own body, the base's render builds the `prose` this one receives.
    */
   readonly render?: (values: T) => Prose;
+  /**
+   * A **subkind of a nested kind** this host names as its child: the host's template
+   * layer whose child is `template`'s base takes `template` in its place, keeping the
+   * layer's path. A nested member's kind is its host's template's, so this is the one
+   * way to place a nested subkind's documents — it declares no locus of its own.
+   */
+  readonly template?: KindDefinition<any>;
 }
 
 /**
@@ -1149,8 +1156,9 @@ export interface KindExtension<T extends object> extends KindRelocation<T> {
  * base's. Spell both: `extend<Rule, Standard>(rule, { … })`.
  *
  * # Throws
- * As {@link relocate}; for a subkind, if the base's locus is not `at`, or the subkind's
- * locus does not lie within it; and if a plain field has no place the base's format
+ * As {@link relocate}; for a subkind, if the base's locus is embedded, a nested base's
+ * subkind declares a locus, or an `at` subkind's locus does not lie within its base's; if
+ * a `template` names no subkind of a layer the host templates; and if a plain field has no place the base's format
  * admits, or a `render` places none ({@link placedBody}).
  */
 export function extend<B extends object, T extends B>(
@@ -1160,14 +1168,21 @@ export function extend<B extends object, T extends B>(
   const name = delta.name ?? base.facts.name;
   const subkind = name !== base.facts.name;
   if (subkind) {
-    if (base.facts.locus.kind !== "at") {
+    if (base.facts.locus.kind === "embedded") {
       throw new Error(
         `extending kind \`${base.facts.name}\` as \`${name}\`: a subkind governs a locus within ` +
-          `its base's, and this kind's locus is \`${base.facts.locus.kind}\` — it governs no glob ` +
+          `its base's, and this kind's locus is \`embedded\` — it governs no glob ` +
           `of its own (specs/model/representation.md, "kind").`,
       );
     }
-    if (delta.governs !== undefined) {
+    if (base.facts.locus.kind === "nested-file" && (delta.governs !== undefined || (delta.exclude ?? []).length > 0)) {
+      throw new Error(
+        `extending kind \`${base.facts.name}\` as \`${name}\`: a nested kind's documents are placed by ` +
+          `its host's template, so its subkind declares no locus — name it from an extended host ` +
+          `instead: \`extend(host, { name, template: ${name} })\` (specs/model/representation.md, "kind").`,
+      );
+    }
+    if (delta.governs !== undefined && base.facts.locus.kind === "at") {
       const own = locusPattern(delta.governs.root, delta.governs.glob);
       const held = locusPattern(base.facts.locus.root, base.facts.locus.glob);
       if (!locusWithin(own, held)) {
@@ -1182,9 +1197,11 @@ export function extend<B extends object, T extends B>(
   const declaredEdges = delta.edgeFields ?? [];
   const counselled = delta.guidance !== undefined || delta.fieldGuidance !== undefined;
   const body = placedBody(base, name, delta as KindExtension<Record<string, unknown>>, declaredEdges);
+  const templates = delta.template === undefined ? undefined : hostedTemplates(base, name, delta.template);
   if (
     !subkind &&
     body === base.body &&
+    templates === undefined &&
     declaredEdges.length === 0 &&
     delta.governs === undefined &&
     (delta.exclude ?? []).length === 0 &&
@@ -1192,7 +1209,7 @@ export function extend<B extends object, T extends B>(
   ) {
     throw new Error(
       `relocating kind \`${base.facts.name}\`: a relocation declares at least one diverging ` +
-        `fact — \`edgeFields\`, \`fields\`, \`governs\`, \`exclude\`, or guidance. A delta declaring none mints a ` +
+        `fact — \`edgeFields\`, \`fields\`, \`governs\`, \`exclude\`, \`template\`, or guidance. A delta declaring none mints a ` +
         `second kind of the base's own name that diverges on nothing, which reads as a name ` +
         `collision rather than a relocation (specs/model/representation.md, "kind").`,
     );
@@ -1222,6 +1239,7 @@ export function extend<B extends object, T extends B>(
   const relocated = {
     ...(subkind ? { ...unmarked, name, base: base.facts.name } : { ...uncounselled, relocates: base.facts.name }),
     edgeFields,
+    ...(templates === undefined ? {} : { templates }),
     ...(delta.guidance === undefined ? {} : { guidance: delta.guidance }),
     ...(delta.fieldGuidance === undefined ? {} : { fieldGuidance: delta.fieldGuidance }),
     ...(delta.cite === undefined ? {} : { cite: delta.cite }),
@@ -1248,6 +1266,34 @@ export function extend<B extends object, T extends B>(
   // member carries. `T` here is the widened surface (the base's fields plus the added
   // edges), so re-binding the witness to `keyof T` would demand the edge fields be leaves.
   return defineKind<T>(facts as KindFacts<T>, { render: base.render, ...(body === undefined ? {} : { body }) });
+}
+
+/**
+ * The host's templates with `child` named in place of its base: the one layer whose child
+ * is `child`'s base takes `child`, path kept.
+ *
+ * # Throws
+ * If `child` is no subkind, or the host templates no layer of `child`'s base.
+ */
+function hostedTemplates(host: KindDefinition<any>, name: string, child: KindDefinition<any>): readonly Template[] {
+  const at = `extending kind \`${host.facts.name}\`${name === host.facts.name ? "" : ` as \`${name}\``}`;
+  const childBase = child.facts.base;
+  if (childBase === undefined) {
+    throw new Error(
+      `${at}: \`template\` names kind \`${child.facts.name}\` as the host's child, and it extends no ` +
+        `kind — a template names a subkind of a child the host already templates ` +
+        `(specs/model/representation.md, "kind").`,
+    );
+  }
+  const declared = host.facts.templates ?? [];
+  if (!declared.some((layer) => layer.kind.key === childBase)) {
+    throw new Error(
+      `${at}: \`template\` names \`${child.facts.name}\`, a subkind of \`${childBase}\`, and the ` +
+        `host templates no \`${childBase}\` layer for it to take the place of ` +
+        `(specs/model/representation.md, "kind").`,
+    );
+  }
+  return declared.map((layer) => (layer.kind.key === childBase ? { ...layer, kind: child } : layer));
 }
 
 /**

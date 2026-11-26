@@ -43,10 +43,10 @@ import {
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
 import type { LeafSet, ResolvedEmbeddedMemberValue } from "../src/index.js";
-import type { Rule, Skill } from "../src/claude-code.js";
+import type { Rule, Skill, SupportingDoc } from "../src/claude-code.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
 import { loadedLocalModules } from "../src/emit.js";
-import { agent, command, hook, mcpServer, memory, rule, settings, skill } from "../src/claude-code.js";
+import { agent, command, hook, mcpServer, memory, rule, settings, skill, supportingDoc as builtinSupportingDoc } from "../src/claude-code.js";
 import { SDK_COUNSEL } from "../src/counsel.js";
 import { clauseRow } from "./common.js";
 
@@ -2914,4 +2914,53 @@ test("a guidance rule carries the requirements and edge intent at both endpoint 
     "## Edges\n\n- `owner` → `skill`: The skill that keeps this standard current.",
   );
   assert.deepEqual(standardRule!.fields, [["paths", ["standards/*.md"]]]);
+});
+
+test("extend(skill, { template: topic }) lowers: the host names the nested subkind as its file child", () => {
+  const topic = sdk.extend<SupportingDoc, SupportingDoc>(builtinSupportingDoc, {
+    name: "topic",
+    guidance: "one step of a procedure",
+  });
+  const procedure = sdk.extend<Skill, Skill>(skill, { name: "procedure", template: topic });
+  const deploy = procedure({ name: "deploy", description: "Use when deploying." });
+  const result = emit(harness({ members: [deploy, topic({ name: "steps", host: deploy, prose: text`# Steps` })] }));
+
+  const hostRow = result.declarations.kinds.find((k) => k.name === "procedure")!;
+  assert.equal(hostRow.base, "skill");
+  assert.deepEqual(hostRow.templates, [{ kind: "topic", path: "*.md" }]);
+  // The subkind child governs no locus: its host's template is its whole placement.
+  const childRow = result.declarations.kinds.find((k) => k.name === "topic")!;
+  assert.equal(childRow.base, "supporting-doc");
+  assert.equal(childRow.governs_root, undefined);
+  assert.equal(childRow.governs_glob, undefined);
+  assert.equal(childRow.guidance, "one step of a procedure");
+  const child = result.members.find((m) => m.kind === "topic")!;
+  assert.equal(child.host, "procedure:deploy");
+  assert.equal(child.body, "# Steps");
+  // The built-in skill keeps its own supporting-doc layer.
+  assert.equal(skill.facts.templates?.[0]?.kind, builtinSupportingDoc);
+
+  // Named by its host's template, the subkind is in play with no member of its own.
+  const bare = compileDeclarations(harness({ members: [deploy] }));
+  assert.equal(bare.kinds.find((k) => k.name === "topic")?.base, "supporting-doc");
+});
+
+test("a nested subkind declares no locus, and a host's template names a subkind of a layer it templates", () => {
+  assert.throws(
+    () =>
+      sdk.extend<SupportingDoc, SupportingDoc>(builtinSupportingDoc, {
+        name: "topic",
+        governs: { root: ".claude/skills", glob: "*/*.md" },
+      }),
+    /placed by its host's template, so its subkind declares no locus/,
+  );
+  const topic = sdk.extend<SupportingDoc, SupportingDoc>(builtinSupportingDoc, { name: "topic" });
+  assert.throws(
+    () => sdk.extend<Rule, Rule>(rule, { name: "standard", template: topic }),
+    /the host templates no `supporting-doc` layer/,
+  );
+  assert.throws(
+    () => sdk.extend<Skill, Skill>(skill, { name: "procedure", template: builtinSupportingDoc }),
+    /extends no kind/,
+  );
 });

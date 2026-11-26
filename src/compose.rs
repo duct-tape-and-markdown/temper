@@ -855,8 +855,8 @@ pub fn effective_kinds(
 /// # Errors
 ///
 /// Returns a [`drift::LockRowError::Subkind`] when a base names no kind in play, the base
-/// chain cycles, either side governs no file locus, or the subkind's locus does not lie
-/// within the base's.
+/// chain cycles, exactly one side governs a file locus, or the subkind's locus does not
+/// lie within the base's.
 fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drift::LockRowError> {
     let refuse = |kind: &CustomKind, base: &str, reason: String| drift::LockRowError::Subkind {
         kind: kind.name.clone(),
@@ -895,22 +895,37 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
             continue;
         };
         let base = &kinds[&base_name];
-        let (Some(own), Some(inherited)) = (&sub.governs, &base.governs) else {
-            return Err(refuse(
-                &sub,
-                &base_name,
-                "a subkind governs a locus within its base's, and one of the two governs no file locus".to_string(),
-            ));
+        // A nested subkind governs no path: the host template naming it places its
+        // documents, so it cedes nothing and the base keeps every placement its own hosts give.
+        let ceded = match (&sub.governs, &base.governs) {
+            (None, None) => None,
+            (Some(own), Some(inherited)) => {
+                let pattern = kind::locus_pattern(&own.root, &own.glob);
+                let base_pattern = kind::locus_pattern(&inherited.root, &inherited.glob);
+                if !kind::locus_within(&pattern, &base_pattern) {
+                    return Err(refuse(
+                        &sub,
+                        &base_name,
+                        format!("its locus `{pattern}` lies outside the base's `{base_pattern}`"),
+                    ));
+                }
+                Some(pattern)
+            }
+            (Some(_), None) => {
+                return Err(refuse(
+                    &sub,
+                    &base_name,
+                    "the base is nested, so its host's template places the subkind's documents, and a nested subkind governs no locus of its own".to_string(),
+                ));
+            }
+            (None, Some(_)) => {
+                return Err(refuse(
+                    &sub,
+                    &base_name,
+                    "a subkind governs a locus within its base's, and this one governs no file locus".to_string(),
+                ));
+            }
         };
-        let pattern = kind::locus_pattern(&own.root, &own.glob);
-        let base_pattern = kind::locus_pattern(&inherited.root, &inherited.glob);
-        if !kind::locus_within(&pattern, &base_pattern) {
-            return Err(refuse(
-                &sub,
-                &base_name,
-                format!("its locus `{pattern}` lies outside the base's `{base_pattern}`"),
-            ));
-        }
         let mut bound = sub;
         bound.format = bound.format.or(base.format);
         bound.unit_shape = bound.unit_shape.or_else(|| base.unit_shape.clone());
@@ -927,7 +942,7 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
             bound.commitment = base.commitment;
         }
         kinds.insert(name, bound);
-        if let Some(base) = kinds.get_mut(&base_name) {
+        if let (Some(pattern), Some(base)) = (ceded, kinds.get_mut(&base_name)) {
             base.ceded.push(pattern);
         }
     }

@@ -445,3 +445,88 @@ fn emit_refuses_a_base_member_whose_projection_path_lies_in_a_subkinds_locus() {
     .expect("placement outside any subkind locus is unchanged");
     assert!(root.join(".claude/rules/guides/x.md").is_file());
 }
+
+fn write_skill(root: &Path, dir: &str, docs: &[&str]) {
+    let unit = root.join(".claude/skills").join(dir);
+    fs::create_dir_all(&unit).unwrap();
+    fs::write(
+        unit.join("SKILL.md"),
+        format!(
+            "---\nname: {dir}\ndescription: Use when {dir} is asked for.\n---\n# {dir}\n\nBody.\n"
+        ),
+    )
+    .unwrap();
+    for doc in docs {
+        fs::write(unit.join(format!("{doc}.md")), "# Doc\n\nBody.\n").unwrap();
+    }
+}
+
+/// `procedure` extends `skill` over the `proc-*` skills and templates `topic` — a subkind
+/// of the nested `supporting-doc`, governing no locus — as its file child.
+fn procedure_and_topic() -> Vec<KindFactRow> {
+    vec![
+        KindFactRow {
+            base: Some("skill".to_string()),
+            templates: vec![temper::drift::TemplateRow {
+                kind: "topic".to_string(),
+                path: Some("*.md".to_string()),
+            }],
+            ..common::kind_facts("procedure", ".", "**/.claude/skills/proc-*/SKILL.md")
+        },
+        KindFactRow {
+            base: Some("supporting-doc".to_string()),
+            governs_root: None,
+            governs_glob: None,
+            ..common::kind_facts("topic", "", "")
+        },
+    ]
+}
+
+#[test]
+fn a_nested_subkind_named_by_an_extended_hosts_template_loads() {
+    let root = common::tmpdir("nested-subkind-loads");
+    write_skill(&root, "proc-deploy", &["steps"]);
+    let run = check_with(&root, procedure_and_topic());
+    assert!(
+        !run.output.contains("subkind") && !run.output.contains("governs no file locus"),
+        "a locus-less subkind of a nested base binds, got:\n{}",
+        run.output
+    );
+    let narration = common::explain_in(&root, "topic");
+    assert!(
+        narration.contains("`topic` is a subkind of `supporting-doc`"),
+        "the nested subkind loads with its base, got:\n{narration}"
+    );
+}
+
+#[test]
+fn a_file_child_under_an_extended_hosts_unit_is_a_member_of_the_subkind_its_template_names() {
+    let root = common::tmpdir("nested-subkind-member");
+    write_skill(&root, "proc-deploy", &["steps"]);
+    write_skill(&root, "review", &["checklist"]);
+    check_with(&root, procedure_and_topic());
+    let topic = common::explain_in(&root, "procedure:proc-deploy/topic/steps");
+    assert!(
+        topic.contains("Member `procedure:proc-deploy/topic/steps` (topic)"),
+        "the procedure's child is a `topic` member, got:\n{topic}"
+    );
+    let doc = common::explain_in(&root, "skill:review/supporting-doc/checklist");
+    assert!(
+        doc.contains("Member `skill:review/supporting-doc/checklist` (supporting-doc)"),
+        "an ordinary skill's child is still a supporting doc, got:\n{doc}"
+    );
+}
+
+#[test]
+fn a_clause_bound_to_the_nested_base_judges_the_nested_subkinds_member() {
+    let root = common::tmpdir("nested-subkind-base-clause");
+    write_skill(&root, "proc-deploy", &["steps"]);
+    let run = check_with(&root, procedure_and_topic());
+    assert!(
+        run.output
+            .lines()
+            .any(|line| line.contains("supporting-doc.") && line.contains("steps")),
+        "supporting-doc's own clause judges the unreferenced topic member, got:\n{}",
+        run.output
+    );
+}

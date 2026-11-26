@@ -531,9 +531,11 @@ function resolveNameCollision(held: KindFacts, arriving: KindFacts): KindFacts {
  * column rather than a row of its own, so those channels are the only way one is in play
  * at all — and its declared edge fields are still owed their assembly facts.
  *
- * Only *embedded* children are drawn in. A path-carrying template is the nested-file
- * layer, whose child owns a unit and reaches the lock through `expect` like any other
- * unit kind; pulling one in here would forge it a kind-fact row it never declared.
+ * Beside them, a template's **subkind** child is drawn in: an extended host names it in its
+ * base's place, so the host's own row is what puts it in play. Any other path-carrying
+ * template is the nested-file layer, whose child owns a unit and reaches the lock through
+ * `expect` like any other unit kind; pulling one in here would forge it a kind-fact row
+ * it never declared.
  *
  * Two facts values arriving under one name are decided by {@link resolveNameCollision},
  * never by arrival order: the deduped facts are what `assemblyFactRows` derives every
@@ -556,7 +558,8 @@ export function kindsInPlay(harness: Harness): KindFacts[] {
   for (const { admits } of harness.admit) for (const child of admits) admit(child.facts);
   for (let facts = pending.pop(); facts !== undefined; facts = pending.pop()) {
     for (const template of facts.templates ?? []) {
-      if (template.kind.facts.locus.kind === "embedded") admit(template.kind.facts);
+      const child = template.kind.facts;
+      if (child.locus.kind === "embedded" || child.base !== undefined) admit(child);
     }
   }
   return [...byName.values()].sort((a, b) => compareStrings(a.name, b.name));
