@@ -993,6 +993,7 @@ fn judged_binding(predicate: &crate::contract::Predicate) -> Option<RootFamilyBi
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::TriggerAgrees { .. }
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => None,
     }

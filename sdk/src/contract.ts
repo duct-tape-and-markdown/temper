@@ -50,8 +50,8 @@ export interface Predicate {
    */
   readonly target?: string;
   /**
-   * `mention-reachable`'s **target-side gate field** — a separate slot from `field`
-   * (which carries the source-side scope field) since it is the one predicate naming a
+   * `mention-reachable`'s and `trigger-agrees`'s **target-side gate field** — a separate
+   * slot from `field` (which carries the source-side scope field) since they name a
    * field on *both* ends. Spelled to match the lock's own `gate` column.
    */
   readonly gate?: string;
@@ -229,6 +229,19 @@ export const globValid = (field: string): Predicate => ({ key: "glob-valid", fie
  */
 export const mentionReachable = (scopeField: string, gateField: string): Predicate => ({
   key: "mention-reachable",
+  field: scopeField,
+  gate: gateField,
+});
+/**
+ * The converse of {@link mentionReachable}: where a scoped member mentions a gated one,
+ * the target's `gateField` globs must be contained in the source's `scopeField`, so the
+ * two triggers of one area cannot drift apart. A gate reaching paths the scope does not
+ * leaves the target invocable where the member naming it never loads. Silent on an
+ * unscoped source and an ungated target; containment is judged by the same sample paths,
+ * so a verdict can be wrong.
+ */
+export const triggerAgrees = (scopeField: string, gateField: string): Predicate => ({
+  key: "trigger-agrees",
   field: scopeField,
   gate: gateField,
 });

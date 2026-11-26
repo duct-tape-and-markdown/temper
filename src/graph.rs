@@ -741,8 +741,13 @@ fn edge_host(from: &Node, embedded_hosts: &BTreeMap<Node, Node>) -> Option<Node>
 /// the same leniency *direction* [`dead_registration`] takes with an uncompilable glob:
 /// neither cries wolf about a pattern it cannot decide.
 ///
-/// Like `degree`, this is **opt-in** — selections declaring no `mention-reachable`
-/// clause do no graph work — and ranges over the same unified enumeration `degree`
+/// The same pass judges **`trigger-agrees`**, the converse half over the same pairs: a
+/// scoped source whose scope does not contain the target's gate, so the target can be
+/// invoked where the member mentioning it never loads. One containment witness serves
+/// both directions, so equal glob sets are silent under each.
+///
+/// Like `degree`, this is **opt-in** — selections declaring neither clause do no graph
+/// work — and ranges over the same unified enumeration `degree`
 /// folds: the declared field edges resolved to real targets (pre-computed and passed in)
 /// plus the already-resolved mention and import edges. A reference to a gated target can
 /// fire where that target cannot be invoked whatever locus declared it, so a rendering
@@ -763,7 +768,10 @@ pub fn mention_reachable(
     embedded_hosts: &BTreeMap<Node, Node>,
 ) -> Vec<Diagnostic> {
     if !any_clause_of(selections, |predicate| {
-        matches!(predicate, Predicate::MentionReachable { .. })
+        matches!(
+            predicate,
+            Predicate::MentionReachable { .. } | Predicate::TriggerAgrees { .. }
+        )
     }) {
         return Vec::new();
     }
@@ -773,12 +781,16 @@ pub fn mention_reachable(
     let mut diagnostics = Vec::new();
     for selection in selections {
         for clause in &selection.clauses {
-            let Predicate::MentionReachable {
-                scope_field,
-                gate_field,
-            } = &clause.predicate
-            else {
-                continue;
+            let (scope_field, gate_field, converse) = match &clause.predicate {
+                Predicate::MentionReachable {
+                    scope_field,
+                    gate_field,
+                } => (scope_field, gate_field, false),
+                Predicate::TriggerAgrees {
+                    scope_field,
+                    gate_field,
+                } => (scope_field, gate_field, true),
+                _ => continue,
             };
             for (kind, features) in &selection.members {
                 let source = ((*kind).to_string(), features.id.clone());
@@ -799,7 +811,24 @@ pub fn mention_reachable(
                     }
                     let scope = declared_globs(features, scope_field);
                     let mentioned = render_node(&edge.to);
-                    let message = if scope.is_empty() {
+                    let message = if converse {
+                        // An unscoped source is the forward half's diagnosis.
+                        if scope.is_empty() {
+                            continue;
+                        }
+                        let Some(uncovered) = uncontained(&gate, &scope) else {
+                            continue;
+                        };
+                        format!(
+                            "`{mentioned}`'s `{gate_field}` glob `{uncovered}` is not in \
+                             `{}`'s `{scope_field}` ({}), so the two triggers of one area \
+                             disagree: the member it mentions can be invoked where `{}` \
+                             never loads",
+                            features.id,
+                            quoted(&scope),
+                            features.id,
+                        )
+                    } else if scope.is_empty() {
                         format!(
                             "`{}` is unscoped, but its mention of `{mentioned}` is actionable only \
                              inside that member's `{gate_field}` gate ({}): scope \

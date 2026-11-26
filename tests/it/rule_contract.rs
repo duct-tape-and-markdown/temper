@@ -23,7 +23,7 @@ use crate::common;
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
 /// declaration order — the Cursor-key `forbidden_keys` (required), the `paths`
 /// `glob-valid` (required), the lean-rule `extent` (advisory), the
-/// `mention-reachable` gate check (advisory). Guidance and
+/// `mention-reachable` gate check and its converse `trigger-agrees` (both advisory). Guidance and
 /// `source` ride each clause but are product prose, so they are excluded from this
 /// structural pin. No `optional` clause over `paths`: the SDK floor asserts nothing
 /// decidable for an optional field's *presence*, so the lock carries no such row —
@@ -57,6 +57,13 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
         (
             Severity::Advisory,
             Predicate::MentionReachable {
+                scope_field: "paths".to_string(),
+                gate_field: "paths".to_string(),
+            },
+        ),
+        (
+            Severity::Advisory,
+            Predicate::TriggerAgrees {
                 scope_field: "paths".to_string(),
                 gate_field: "paths".to_string(),
             },
@@ -122,6 +129,7 @@ fn rule_builtin_encodes_only_decidable_clauses() {
             "forbidden_keys",
             "glob-valid",
             "mention-reachable",
+            "trigger-agrees",
         ]),
         "the rule built-in must carry only its declared decidable predicates",
     );
@@ -261,6 +269,44 @@ fn the_rule_floor_is_silent_when_the_scope_is_a_structural_subset_of_the_gate() 
     assert!(
         !run.output.contains("mention-reachable"),
         "a scope glob that is a structural subset of the gate glob is no finding, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
+/// The converse half of the gate check: a rule scoped to `src/core/**` mentioning a skill
+/// gated to `src/**` sits inside the gate, so `mention-reachable` is silent — but the
+/// skill can be invoked across `src/**` where the rule never loads, so the two triggers
+/// of one area disagree and the floor's `trigger-agrees` clause draws one advisory.
+#[test]
+fn a_rule_whose_globs_are_narrower_than_its_mentioned_skills_paths_draws_the_trigger_agreement_advisory()
+ {
+    let run = bare_harness_run("rule-floor-ta", Some("src/core/**"), Some("src/**"));
+    assert_eq!(
+        run.output.matches("trigger-agrees").count(),
+        1,
+        "a rule narrower than its skill's gate draws one trigger agreement advisory, got:\n{}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "the scope sits inside the gate, so the forward half is silent, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "the clause ships advisory ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+/// Equal glob sets are one trigger: neither half of the gate check fires.
+#[test]
+fn a_rule_whose_globs_equal_its_mentioned_skills_paths_draws_no_trigger_agreement_advisory() {
+    let run = bare_harness_run("rule-floor-ta-equal", Some("src/**"), Some("src/**"));
+    assert!(
+        !run.output.contains("trigger-agrees") && !run.output.contains("mention-reachable"),
+        "equal sets are silent, got:\n{}",
         run.output
     );
     assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);

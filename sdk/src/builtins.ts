@@ -35,6 +35,7 @@ import {
   required,
   resolves,
   shape,
+  triggerAgrees,
   type,
   uniqueName,
   unshadowed,
@@ -2669,6 +2670,12 @@ export const ruleDefaultContract: readonly Clause[] = [
   clause(mentionReachable("paths", "paths"), {
     severity: "advisory",
     guidance: pathsGateGuidance("rule"),
+    cite: PATHS_GATE_CITE,
+  }),
+  clause(triggerAgrees("paths", "paths"), {
+    severity: "advisory",
+    guidance:
+      "A path-scoped rule that mentions a path-scoped skill gives one area two triggers: the rule loads when a file tool touches a path its `paths` match, the skill becomes invocable when one touches a path the skill's `paths` match. Where the skill's gate reaches past this rule's scope, the skill can be invoked there without the rule that frames it ever loading, and the two triggers drift apart as either is edited. Keep them one set: widen this rule's `paths` to the skill's gate, or narrow the gate. Advisory because containment is judged over sample paths each glob matches, not decided, so a verdict can be wrong; retune or drop this clause in your own contract when it is.",
     cite: PATHS_GATE_CITE,
   }),
 ];

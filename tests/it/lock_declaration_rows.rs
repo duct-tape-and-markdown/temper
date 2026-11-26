@@ -2636,6 +2636,10 @@ fn floor_quads(kind: &str) -> Vec<ClauseQuad> {
                 Predicate::MentionReachable {
                     scope_field,
                     gate_field,
+                }
+                | Predicate::TriggerAgrees {
+                    scope_field,
+                    gate_field,
                 } => (Some(scope_field.clone()), Some(gate_field.clone())),
                 // Guard and body carry no field of their own (`Predicate::target`), but a
                 // `when` row's `field` column is the *guard's* — the very column

@@ -136,6 +136,7 @@ pub fn emit(contract: &Contract) -> Value {
             // keystroke validation is decidable over one document's own frontmatter,
             // and this predicate is not. The schema channel is honestly silent here.
             | Predicate::MentionReachable { .. }
+            | Predicate::TriggerAgrees { .. }
             // `reachable` reads the registration corpus and the import closure, never a
             // property of the document being validated — the schema channel is silent.
             | Predicate::Reachable

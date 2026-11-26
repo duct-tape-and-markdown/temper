@@ -6166,8 +6166,8 @@ pub struct ClauseRow {
     /// filter.
     #[serde(default)]
     pub fields: Option<Vec<String>>,
-    /// The `mention-reachable` clause's **target-side gate field**, when the predicate
-    /// is `mention-reachable`. The one predicate taking two field arguments: its
+    /// The **target-side gate field**, when the predicate is `mention-reachable` or
+    /// its converse `trigger-agrees`. The two predicates taking two field arguments: the
     /// source-side scope field rides the shared [`field`](ClauseRow::field) column, and
     /// this column carries the other end — the field read off the *mentioned* member,
     /// which `field` alone cannot express.

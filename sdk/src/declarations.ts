@@ -161,7 +161,10 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
       (predicate.key === "degree" || predicate.key === "reached-from") && predicate.fields
         ? [...predicate.fields]
         : undefined,
-    gate: predicate.key === "mention-reachable" ? predicate.gate : undefined,
+    gate:
+      predicate.key === "mention-reachable" || predicate.key === "trigger-agrees"
+        ? predicate.gate
+        : undefined,
     value_type:
       predicate.key === "type" && predicate.value_type ? [...predicate.value_type] : undefined,
     shape: predicate.key === "shape" ? predicate.shape : undefined,

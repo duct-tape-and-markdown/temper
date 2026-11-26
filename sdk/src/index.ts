@@ -58,6 +58,7 @@ export {
   sectionContains,
   shape,
   telemetry,
+  triggerAgrees,
   type,
   unique,
   uniqueName,

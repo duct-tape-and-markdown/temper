@@ -512,6 +512,20 @@ pub enum Predicate {
         /// source's scope.
         gate_field: String,
     },
+    /// `trigger-agrees`: the converse half of [`Predicate::MentionReachable`] — where a
+    /// scoped member mentions a gated one, the target's `gate_field` globs must be
+    /// contained in the source's `scope_field`, so two triggers of one area cannot drift
+    /// apart: a gate reaching paths the source's scope does not leaves the target
+    /// invocable where the member naming it never loads. Silent on an unscoped source
+    /// (`mention-reachable`'s diagnosis) and an ungated target. Containment is the same
+    /// representative-witness judgment, so a clause naming it ships advisory. Judged by
+    /// [`crate::graph::mention_reachable`] beside its sibling.
+    TriggerAgrees {
+        /// The source member's field carrying the scope globs that must cover the gate.
+        scope_field: String,
+        /// The target member's field carrying the gate globs.
+        gate_field: String,
+    },
     /// `reachable`: every selected member's own inbound registration edge from the
     /// world node is live, or a reachable member imports it. A member every channel of
     /// whose kind's declared registration set is provably dead — and that no live
@@ -773,6 +787,10 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             scope_field: row.field.clone()?,
             gate_field: row.gate.clone()?,
         },
+        "trigger-agrees" => Predicate::TriggerAgrees {
+            scope_field: row.field.clone()?,
+            gate_field: row.gate.clone()?,
+        },
         // No argument column to decode: the graph is the argument, as it is for the
         // sibling-read `closed-keys`.
         "reachable" => Predicate::Reachable,
@@ -903,6 +921,7 @@ impl Predicate {
             Predicate::Kind { .. } => "kind",
             Predicate::GlobValid { .. } => "glob-valid",
             Predicate::MentionReachable { .. } => "mention-reachable",
+            Predicate::TriggerAgrees { .. } => "trigger-agrees",
             Predicate::Reachable => "reachable",
             Predicate::Fresh => "fresh",
             Predicate::LocusDeclared => "locus-declared",
@@ -944,6 +963,7 @@ impl Predicate {
                 | Predicate::ReachedFrom { .. }
                 | Predicate::Kind { .. }
                 | Predicate::MentionReachable { .. }
+                | Predicate::TriggerAgrees { .. }
                 | Predicate::Reachable
                 | Predicate::Fresh
                 | Predicate::LocusDeclared
@@ -1003,6 +1023,7 @@ impl Predicate {
             // Two field arguments, so no *one* field is "the" field it constrains —
             // the set predicates' silence here is the precedent.
             | Predicate::MentionReachable { .. }
+            | Predicate::TriggerAgrees { .. }
             // The graph is its argument, so there is no field for it to name — and the
             // lock read against disk is `fresh`'s, the discovery walk read against it
             // `locus-declared`'s, and the lock's own engine stamp `engine-matches`'s, for
@@ -1077,6 +1098,7 @@ impl Predicate {
             // is about the *target*'s gate, not this property's value — guidance about
             // the pair belongs to neither property's hover docs alone.
             | Predicate::MentionReachable { .. }
+            | Predicate::TriggerAgrees { .. }
             | Predicate::Reachable
             | Predicate::Fresh
             | Predicate::LocusDeclared
@@ -1132,6 +1154,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::ReachedFrom { .. }
             | Predicate::Kind { .. }
             | Predicate::MentionReachable { .. }
+            | Predicate::TriggerAgrees { .. }
             | Predicate::Reachable
             | Predicate::Fresh
             | Predicate::LocusDeclared

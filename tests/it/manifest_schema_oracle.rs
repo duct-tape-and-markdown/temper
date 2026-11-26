@@ -183,6 +183,7 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::TriggerAgrees { .. }
         | Predicate::Reachable
         // A lock-vs-disk predicate types no document field, so it states no rule about
         // a manifest's values either.

@@ -385,6 +385,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::ReachedFrom { .. }
         | Predicate::Kind { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::TriggerAgrees { .. }
         | Predicate::Reachable
         | Predicate::Fresh
         | Predicate::LocusDeclared
@@ -496,6 +497,7 @@ fn feature_read(predicate: &Predicate) -> Option<Feature> {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::TriggerAgrees { .. }
         | Predicate::Reachable
         | Predicate::Fresh
         | Predicate::LocusDeclared
@@ -584,6 +586,7 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::TriggerAgrees { .. }
         | Predicate::Reachable
         | Predicate::Fresh
         | Predicate::LocusDeclared
@@ -740,13 +743,18 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         Predicate::MentionReachable {
             scope_field,
             gate_field,
+        }
+        | Predicate::TriggerAgrees {
+            scope_field,
+            gate_field,
         } => {
+            let key = predicate.key();
             let mut messages = Vec::new();
             if scope_field.is_empty() {
-                messages.push("`mention-reachable` clause names an empty scope field".to_string());
+                messages.push(format!("`{key}` clause names an empty scope field"));
             }
             if gate_field.is_empty() {
-                messages.push("`mention-reachable` clause names an empty gate field".to_string());
+                messages.push(format!("`{key}` clause names an empty gate field"));
             }
             messages
         }
@@ -972,6 +980,7 @@ pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> 
                 | Predicate::Degree { .. }
                 | Predicate::ReachedFrom { .. }
                 | Predicate::MentionReachable { .. }
+                | Predicate::TriggerAgrees { .. }
                 | Predicate::Reachable
                 | Predicate::Fresh
                 | Predicate::LocusDeclared
@@ -1493,6 +1502,7 @@ fn guard_admits(guard: &Predicate, value: &FeatureValue) -> bool {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
+        | Predicate::TriggerAgrees { .. }
         | Predicate::Reachable
         | Predicate::Fresh
         | Predicate::LocusDeclared
@@ -1877,6 +1887,7 @@ fn decide(
         // member in hand — so `crate::graph::mention_reachable` judges it, exactly as
         // `degree`'s judge lives there.
         | Predicate::MentionReachable { .. }
+        | Predicate::TriggerAgrees { .. }
         // `reachable` is each-grain over the root selection, but its verdict reads the
         // registration corpus, the repo file-set, and the import closure — none on the
         // member in hand — so `crate::graph::reachable` judges it.
@@ -2598,6 +2609,10 @@ mod tests {
                 scope_field: "paths".to_string(),
                 gate_field: "paths".to_string(),
             },
+            Predicate::TriggerAgrees {
+                scope_field: "paths".to_string(),
+                gate_field: "paths".to_string(),
+            },
             Predicate::Reachable,
             Predicate::Fresh,
             Predicate::LocusDeclared,
@@ -2693,7 +2708,7 @@ mod tests {
     }
 
     /// The number of [`Predicate`] variants — the slots [`vocabulary_slot`] hands out.
-    const VOCABULARY: usize = 36;
+    const VOCABULARY: usize = 37;
 
     /// One slot per [`Predicate`] variant. Exhaustive on purpose: a new variant does not
     /// compile until it takes a slot, and `the_sample_banks_are_the_whole_vocabulary`
@@ -2728,6 +2743,7 @@ mod tests {
             Predicate::Kind { .. } => 24,
             Predicate::GlobValid { .. } => 25,
             Predicate::MentionReachable { .. } => 26,
+            Predicate::TriggerAgrees { .. } => 36,
             Predicate::Reachable => 27,
             Predicate::Fresh => 28,
             Predicate::LocusDeclared => 29,
@@ -4263,6 +4279,7 @@ mod tests {
             | Predicate::ReachedFrom { .. }
             | Predicate::Kind { .. }
             | Predicate::MentionReachable { .. }
+            | Predicate::TriggerAgrees { .. }
             | Predicate::Reachable
             | Predicate::Fresh
             | Predicate::LocusDeclared
@@ -4380,6 +4397,7 @@ mod tests {
             | Predicate::ReachedFrom { .. }
             | Predicate::Kind { .. }
             | Predicate::MentionReachable { .. }
+            | Predicate::TriggerAgrees { .. }
             | Predicate::Reachable
             | Predicate::Fresh
             | Predicate::LocusDeclared
