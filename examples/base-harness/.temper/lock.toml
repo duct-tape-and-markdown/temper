@@ -69,8 +69,8 @@ emit_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
 [[settings]]
 name = "settings"
 source_path = ".claude/settings.json"
-source_hash = "48868641b5c6edc187a4683ed181a450f26ef16d64e64e680b0abde45d4f4ac9"
-emit_hash = "48868641b5c6edc187a4683ed181a450f26ef16d64e64e680b0abde45d4f4ac9"
+source_hash = "e26e0ef5b42be14f59f06a10a12ab7b6510e2b301e7ebb5152135b9f79189ad7"
+emit_hash = "e26e0ef5b42be14f59f06a10a12ab7b6510e2b301e7ebb5152135b9f79189ad7"
 
 [[skill]]
 name = "grow-harness"

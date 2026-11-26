@@ -94,7 +94,7 @@ test("every default contract clause carries a non-empty cite", () => {
  }
 });
 
-test("the provider face exports no gate-command string: a gate hook states its binary", async () => {
+test("the provider face exports no gate-command string: a gate hook reaches its tool", async () => {
   // A gate hook member is `gateHook(...)`; the engine renders its command, so a command
   // string is never an author surface.
   const face = await import("../src/claude-code.js");
@@ -460,34 +460,44 @@ test("hook() mints one matcher group however many handlers it fires — the grou
   ]);
 });
 
-test("gateHook constructor defaults the binary and carries what it declares across the seam", () => {
-  // The member states the binary, never the command: its one handler spells none, and the
-  // registration row carries the binary under the seam's reserved key for the engine to
-  // render from — `null` where none is declared, so `temper` on the PATH is the engine's
-  // one spelling of the default.
+test("gateHook constructor defaults the tool and carries the tool it reaches across the seam", () => {
+  // The member reaches a tool, never a command: its one handler spells none, and the
+  // registration row carries the tool's address under the seam's reserved key for the
+  // engine to render from — `null` where none is declared, so the temper package's bin is
+  // the engine's one spelling of the default.
+  const workspaceTemper = tool({ package: "@dtmd/temper", bin: "temper", name: "workspace-temper" });
   const sessionStart = gateHook({ name: "SessionStart" });
-  const guard = gateHook({ name: "PreToolUse", matcher: "Write|Edit|MultiEdit", binary: "./node_modules/.bin/temper" });
+  const guard = gateHook({ name: "PreToolUse", matcher: "Write|Edit|MultiEdit", tool: workspaceTemper });
   assert.equal(sessionStart.kind, "hook");
   assert.equal(guard.name, "PreToolUse:Write|Edit|MultiEdit");
   assert.deepEqual(sessionStart.fields, [["hooks", [{ type: "command" }]]]);
 
-  const h = harness({ members: [sessionStart, guard] });
-  const rows = compileDeclarations(h).registrations;
+  const h = harness({ members: [sessionStart, guard, workspaceTemper] });
+  const declarations = compileDeclarations(h);
   assert.deepEqual(
-    rows.map((row) => [row.key, row.fields]),
+    declarations.registrations.map((row) => [row.key, row.fields]),
     [
-      ["PreToolUse", [["matcher", "Write|Edit|MultiEdit"], ["hooks", [{ type: "command" }]], ["temper:gate-binary", "./node_modules/.bin/temper"]]],
-      ["SessionStart", [["hooks", [{ type: "command" }]], ["temper:gate-binary", null]]],
+      ["PreToolUse", [["matcher", "Write|Edit|MultiEdit"], ["hooks", [{ type: "command" }]], ["temper:gate-tool", "root/tool/workspace-temper"]]],
+      ["SessionStart", [["hooks", [{ type: "command" }]], ["temper:gate-tool", null]]],
     ],
   );
+  // The gate handler reaches its tool by the `runs` edge the lock records.
+  assert.deepEqual(declarations.runs, [
+    { member: "hook:PreToolUse:Write|Edit|MultiEdit/handler/0", tool: "root/tool/workspace-temper" },
+  ]);
 
   // An ordinary hook carries no gate fact at all.
   const plain = hook({ name: "Stop", hooks: [{ type: "command", command: "true" }] });
   const [plainRow] = compileDeclarations(harness({ members: [plain] })).registrations;
   assert.deepEqual(plainRow?.fields, [["hooks", [{ type: "command", command: "true" }]]]);
 
-  // An empty binary names nothing to run.
-  assert.throws(() => gateHook({ name: "SessionStart", binary: "" }), /`binary` is empty/);
+  // A tool the harness does not compose is an edge to nothing.
+  assert.throws(
+    () => compileDeclarations(harness({ members: [gateHook({ name: "SessionStart", tool: workspaceTemper })] })),
+    /does not compose/,
+  );
+  // Only a tool member is something to run.
+  assert.throws(() => gateHook({ name: "SessionStart", tool: hook({ name: "Stop", hooks: [] }) }), /pass a `tool\(\.\.\.\)` member/);
 });
 
 test("a gate hook declaring satisfies fills its requirement", () => {
@@ -511,11 +521,11 @@ test("tapHookRegistration composes the tap's one command handler inside its matc
   // group, so its `type`/`command` sit inside the single handler and only the `matcher`
   // lifts — the same shape an authored `hook()` builds, which is what lets the join in
   // `declarations.ts` merge one into the other.
-  const { keyPath, fields } = tapHookRegistration([{ binary: "./bin/temper", named: "a" }], "Skill");
+  const { keyPath, fields } = tapHookRegistration([{ tool: "root/tool/temper", named: "a" }], "Skill");
   assert.equal(keyPath, "hooks.<Event>");
   assert.deepEqual(fields, [
     ["matcher", "Skill"],
-    ["hooks", [{ type: "command", "temper:tap-binary": "./bin/temper", "temper:tap-declaration": "a" }]],
+    ["hooks", [{ type: "command", "temper:tap-tool": "root/tool/temper", "temper:tap-declaration": "a" }]],
   ]);
 });
 

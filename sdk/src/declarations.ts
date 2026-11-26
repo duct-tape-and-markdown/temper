@@ -22,14 +22,14 @@ import * as shippedBuiltins from "./builtins.js";
 import { dial } from "./dial.js";
 import { SDK_COUNSEL } from "./counsel.js";
 import {
-  GATE_BINARY_KEY,
+  GATE_TOOL_KEY,
   HOOK_HANDLER_KEY,
   HOOK_MATCHER_KEY,
   ROOT_HOSTED_KINDS,
   RUNS_FIELD,
   SETTINGS_MANIFEST,
   TELEMETRY_EVENT_HOOKS,
-  gateHookBinary,
+  gateHookTool,
   hook,
   hookCollectionKey,
   rule,
@@ -1328,9 +1328,9 @@ function registrationRows(harness: Harness): RegistrationRow[] {
         // copy each pair into a fresh tuple — the same values, a shape the row accepts.
         fields: [
           ...member.fields.map(([name, value]): [string, unknown] => [name, projectedField(member, name, value)]),
-          // A gate hook carries its declared binary across the seam beside its fields; the
+          // A gate hook carries its tool's address across the seam beside its fields; the
           // engine renders the handler's command from it and drops the key ({@link gateHook}).
-          ...gateBinaryField(member),
+          ...gateToolField(harness, member),
         ],
       };
     })
@@ -1447,11 +1447,15 @@ function typecheckRow(harness: Harness): TypecheckRow | null {
   };
 }
 
-/** The gate hook row's binary field — `[GATE_BINARY_KEY, binary]` for a {@link gateHook}
- * member, `null` declaring none, and nothing for every other member. */
-function gateBinaryField(member: Member): Array<[string, unknown]> {
-  const binary = gateHookBinary(member);
-  return binary === undefined ? [] : [[GATE_BINARY_KEY, binary]];
+/** The gate hook row's tool field — `[GATE_TOOL_KEY, address]` for a {@link gateHook}
+ * member, `null` declaring none, and nothing for every other member.
+ *
+ * # Throws
+ * If the gate hook names a tool the harness does not compose ({@link composedToolAddress}). */
+function gateToolField(harness: Harness, member: Member): Array<[string, unknown]> {
+  const reached = gateHookTool(member);
+  if (reached === undefined) return [];
+  return [[GATE_TOOL_KEY, reached === null ? null : composedToolAddress(harness, memberAddress(member), "tool", reached)]];
 }
 
 /**
@@ -1473,18 +1477,21 @@ export function buildTapHookDedupeKey(event: string, matcher: string): string {
  * verifiers name an event it takes exactly one hook — the derived-aggregate precedent
  * the permission union sets ({@link permissionUnion}). Each row is one matcher group
  * under the event's documented matcher ({@link TELEMETRY_EVENT_HOOKS}) whose one handler
- * carries a binary the naming declarations state — the engine renders the tap command
- * from it, anchored at the project (`src/drift.rs`) — its key-path and fields sourced from the provider face
+ * carries the address of the tool the naming declarations reach — the engine renders the
+ * tap command from it, anchored at the project (`src/drift.rs`) — its key-path and fields sourced from the provider face
  * ({@link tapHookRegistration}, `builtins.ts`); an event-name outside that table is the
  * roster's inadmissibility finding, never a row. Synthesized in isolation here — whether a
  * row stands alone or joins an authored group at the same pair is
  * {@link mergedRegistrationRows}'s call, so this pass need not know what the program
  * authored.
  *
- * Declarations sharing a tap but spelling their binary differently each keep a handler,
- * named for the first declaration spelling it: whether two spellings agree is the binary
- * as the engine resolves it (an undeclared one is the engine's default), so the engine
- * merges or refuses them — this pass never resolves the default.
+ * Declarations sharing a tap but naming different tools each keep a handler, named for
+ * the first declaration naming it: whether two tools agree is the command the engine
+ * renders (an undeclared one is the engine's default), so the engine merges or refuses
+ * them — this pass never resolves the default.
+ *
+ * # Throws
+ * If a declaration names a tool the harness does not compose ({@link composedToolAddress}).
  */
 function tapHookRows(harness: Harness): RegistrationRow[] {
   const deduped = new Map<
@@ -1492,20 +1499,21 @@ function tapHookRows(harness: Harness): RegistrationRow[] {
     {
       readonly event: string;
       readonly matcher: string;
-      readonly declarations: { readonly binary: string | null; readonly named: string }[];
+      readonly declarations: { readonly tool: string | null; readonly named: string }[];
     }
   >();
   const collect = (named: string, requirement: Requirement): void => {
     if (requirement.verifier?.species !== "telemetry") return;
-    const binary = requirement.verifier.binary ?? null;
+    const reached = requirement.verifier.tool;
+    const tool = reached === undefined ? null : composedToolAddress(harness, named, "tool", reached);
     for (const name of requirement.verifier.events) {
       const mapping = TELEMETRY_EVENT_HOOKS[name];
       if (mapping === undefined) continue;
       const key = buildTapHookDedupeKey(mapping.event, mapping.matcher);
       const tap = deduped.get(key) ?? { ...mapping, declarations: [] };
       deduped.set(key, tap);
-      if (!tap.declarations.some((declared) => declared.binary === binary)) {
-        tap.declarations.push({ binary, named });
+      if (!tap.declarations.some((declared) => declared.tool === tool)) {
+        tap.declarations.push({ tool, named });
       }
     }
   };

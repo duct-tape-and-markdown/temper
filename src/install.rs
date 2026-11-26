@@ -193,9 +193,9 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 /// Public so the guard-hook acceptance can drive the exact wired command.
 pub const GUARD_COMMAND: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
 
-/// The temper binary a gate hook runs when its member declares none — `temper`, resolved
-/// on the PATH. A gate hook member states one fact, the binary it runs, and this is that
-/// fact's default (`specs/model/adoption.md`, "Install"; decision 0082).
+/// The temper package's bin: the name an unrepresented harness's gate hook resolves on the
+/// PATH, and the bin a represented gate hook declaring no tool runs from the program's
+/// `node_modules/.bin`.
 pub const DEFAULT_GATE_BINARY: &str = "temper";
 
 /// Which temper verb a gate hook fires — the half of its command the binary does not
@@ -269,8 +269,8 @@ fn render_gate_command(verb: GateVerb, binary: &str) -> String {
 }
 
 /// The command the gate hook keyed under lifecycle `event` runs with `binary` as temper —
-/// `None` where `event` is not one temper's gate rides ([`GATE_HOOKS`]). `emit` reads a
-/// gate hook member's declared binary through this, so the bytes a represented harness
+/// `None` where `event` is not one temper's gate rides ([`GATE_HOOKS`]). `emit` renders a
+/// gate hook member's tool through this, so the bytes a represented harness
 /// projects are rendered here and nowhere else.
 pub fn gate_hook_command(event: &str, binary: &str) -> Option<String> {
     GATE_HOOKS
@@ -282,7 +282,7 @@ pub fn gate_hook_command(event: &str, binary: &str) -> Option<String> {
 /// The command a telemetry declaration's tap hook runs with `binary` as temper — the same
 /// anchored, probed rendering a gate command takes ([`render_gate_command`]), firing
 /// `tap .` at the project root the anchor entered. `emit` renders each tap handler through
-/// this from the binary its declaration states, so the tap's bytes have the one home a
+/// this from the tool its declaration reaches, so the tap's bytes have the one home a
 /// gate command's do (`specs/model/pipeline.md`, "Telemetry"; 0088).
 pub fn tap_hook_command(binary: &str) -> String {
     render_gate_command(GateVerb::Tap, binary)
@@ -341,7 +341,7 @@ struct GateHook {
     /// The tool-name filter, absent on an event that fires unconditionally.
     matcher: Option<&'static str>,
     /// The temper verb the hook fires; its command renders from this and a binary
-    /// ([`render_gate_command`]), at [`DEFAULT_GATE_BINARY`] unless the member declares one.
+    /// ([`render_gate_command`]), at the program of the tool the member reaches.
     verb: GateVerb,
 }
 
@@ -3177,7 +3177,7 @@ fn gate_hook_module(hook: &GateHook) -> String {
 }
 
 /// The `gateHook(...)` call one gate hook's member is built with: its event and the
-/// matcher it binds, nothing more — no binary, so `temper` on the PATH. The one spelling of
+/// matcher it binds, nothing more — no tool, so the temper package's bin. The one spelling of
 /// the constructor both the scaffold writes and a stale hook's remedy names.
 fn gate_hook_call(hook: &GateHook) -> String {
     match hook.matcher {

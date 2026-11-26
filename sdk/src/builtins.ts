@@ -837,89 +837,89 @@ export type GateHookEvent = "SessionStart" | "PreToolUse" | "PostToolUse";
 
 /**
  * A gate hook's authored surface: the event and matcher that place its matcher group, and
- * the one fact the member states — the temper `binary` it runs. Absent, the binary is
- * `temper` on the PATH; a workspace install states its path instead
- * (`"./node_modules/.bin/temper"`). The command is never authored: the engine renders it
- * from the binary at emit, so the bytes a gate hook runs have one home
- * (specs/model/adoption.md, "Install"; decision 0082).
+ * the one fact the member states — the {@link tool} it runs. Absent, the tool is the temper
+ * package's bin, run from the program's `node_modules/.bin`. The command is never
+ * authored: the engine renders it from the tool at emit, so the bytes a gate hook runs
+ * have one home.
  */
 export interface GateHookInit {
   /** The lifecycle event — the member's `name`, as on {@link hook}. */
   readonly name: GateHookEvent;
   /** The tool-name filter the group binds, as on {@link Hook}; absent on `SessionStart`. */
   readonly matcher?: string;
-  /** The temper binary the hook runs — a name resolved on the PATH, or a path. */
-  readonly binary?: string;
+  /** The {@link tool} the hook runs as temper — a composed `tool(...)` member. */
+  readonly tool?: Member;
+  readonly binary?: Remedy<"`binary` gave way to `tool`: write `gateHook({ name, tool: tool({ package, bin }) })`, or omit it for the temper package's bin">;
   /** The requirements this member fills — every member's `satisfies` edge, as on
    * {@link hook} (specs/model/contract.md, "edge"). */
   readonly satisfies?: readonly string[];
 }
 
 /**
- * The key a gate hook's registration row carries its declared binary under — the engine's
- * `GATE_BINARY_KEY` (`src/drift.rs`), which consumes it at emit and renders the handler's
- * command in its place. Colon-qualified so no typed {@link Hook} field can spell it.
- * `null` is a gate hook declaring no binary, so the default (`temper`) has one spelling,
- * the engine's.
+ * The key a gate hook's registration row carries the address of the tool it runs under —
+ * the engine's `GATE_TOOL_KEY` (`src/drift.rs`), which consumes it at emit and renders the
+ * handler's command in its place. Colon-qualified so no typed {@link Hook} field can spell
+ * it. `null` is a gate hook declaring no tool, so the default has one spelling, the
+ * engine's.
  */
-export const GATE_BINARY_KEY = "temper:gate-binary";
+export const GATE_TOOL_KEY = "temper:gate-tool";
 
-/** Each gate hook member's declared binary (`null` declaring none) — the fact
- * {@link gateHook} records and {@link gateHookBinary} reads, keyed by the member itself so
+/** Each gate hook member's declared tool (`null` declaring none) — the fact
+ * {@link gateHook} records and {@link gateHookTool} reads, keyed by the member itself so
  * the member's typed fields stay exactly the manifest entry they project to. */
-const gateHookBinaries = new WeakMap<Member, string | null>();
+const gateHookTools = new WeakMap<Member, Member | null>();
 
 /**
  * A temper gate hook — a {@link hook} member whose single `command` handler runs the
- * temper verb its event fires, with the binary it states. The member is an ordinary
+ * temper verb its event fires, with the tool it reaches. The handler carries the tool as
+ * its `runs` edge, so the lock records which tool the gate runs. The member is an ordinary
  * matcher group in every other respect: its name joins its matcher as any hook's does,
  * and a tap hook at the same event and matcher joins it as a further handler.
  *
  * # Throws
- * If `binary` is the empty string — there is nothing to run — or the matcher carries a
- * `/` ({@link hook}).
+ * If `tool` is not a `tool(...)` member, or the matcher carries a `/` ({@link hook}).
  */
 export function gateHook(init: GateHookInit): Member {
-  if (init.binary === "") {
+  if (init.tool !== undefined && init.tool.kind !== toolKind.key) {
     throw new Error(
-      `gate hook \`${init.name}\`: \`binary\` is empty — state the temper binary the hook ` +
-        `runs, or omit it for \`temper\` on the PATH (specs/model/adoption.md, "Install").`,
+      `gate hook \`${init.name}\`: \`tool\` names what the hook runs — pass a \`tool(...)\` ` +
+        `member, or omit it for the temper package's bin.`,
     );
   }
-  const handlers: readonly Handler[] = [{ type: "command" }];
+  const handlers: readonly Handler[] = [init.tool === undefined ? { type: "command" } : { type: "command", runs: init.tool }];
   const satisfies = init.satisfies === undefined ? {} : { satisfies: init.satisfies };
   const member =
     init.matcher === undefined
       ? hook({ name: init.name, hooks: handlers, ...satisfies })
       : hook({ name: init.name, matcher: init.matcher, hooks: handlers, ...satisfies });
-  gateHookBinaries.set(member, init.binary ?? null);
+  gateHookTools.set(member, init.tool ?? null);
   return member;
 }
 
 /**
- * The binary a gate hook member declares — `null` where it declares none (`temper` on the
- * PATH) — or `undefined` where `member` is not a gate hook at all. The one reader is the
- * registration erasure (`declarations.ts`), which carries it under {@link GATE_BINARY_KEY}.
+ * The tool a gate hook member reaches — `null` where it declares none (the temper
+ * package's bin) — or `undefined` where `member` is not a gate hook at all. The one reader
+ * is the registration erasure (`declarations.ts`), which carries its address under
+ * {@link GATE_TOOL_KEY}.
  */
-export function gateHookBinary(member: Member): string | null | undefined {
-  return gateHookBinaries.get(member);
+export function gateHookTool(member: Member): Member | null | undefined {
+  return gateHookTools.get(member);
 }
 
 /**
- * The key a tap handler carries its declaration's temper binary under — the engine's
- * `TAP_BINARY_KEY` (`src/drift.rs`), which consumes it at emit and renders the handler's
+ * The key a tap handler carries its declaration's tool address under — the engine's
+ * `TAP_TOOL_KEY` (`src/drift.rs`), which consumes it at emit and renders the handler's
  * command in its place, anchored at the project. Carried on the **handler**, not the row,
  * because a tap joins an authored group at the same (event, matcher) as a further handler
  * (`declarations.ts`). Colon-qualified so no typed {@link Handler} field can spell it;
- * `null` is a declaration stating no binary, so the default (`temper`) has one spelling,
- * the engine's.
+ * `null` is a declaration naming no tool, so the default has one spelling, the engine's.
  */
-export const TAP_BINARY_KEY = "temper:tap-binary";
+export const TAP_TOOL_KEY = "temper:tap-tool";
 
 /**
  * The key a tap handler carries the name of the telemetry declaration it speaks for — the
  * engine's `TAP_DECLARATION_KEY` (`src/drift.rs`), which names it when two declarations
- * sharing a tap resolve to different binaries, then drops it before a byte is projected.
+ * sharing a tap resolve to different commands, then drops it before a byte is projected.
  */
 export const TAP_DECLARATION_KEY = "temper:tap-declaration";
 
@@ -928,20 +928,19 @@ export const TAP_DECLARATION_KEY = "temper:tap-declaration";
  * provider fact {@link tapHookRows} (`declarations.ts`) fills rather than authors inline.
  * One matcher group like any authored one: the per-event `matcher`
  * {@link TELEMETRY_EVENT_HOOKS} names lifted beside one `command` handler per distinct
- * declared binary, each carrying that binary ({@link TAP_BINARY_KEY}; `null` stating
- * none) and the declaration stating it ({@link TAP_DECLARATION_KEY}) — the engine
- * resolves the binaries, merges the handlers that agree into one tap, and renders its
- * command — so a synthesized row and an
- * authored one are the same shape and the join in `declarations.ts` can merge one into
- * the other.
+ * declared tool, each carrying that tool's address ({@link TAP_TOOL_KEY}; `null` naming
+ * none) and the declaration naming it ({@link TAP_DECLARATION_KEY}) — the engine renders
+ * each tool's command, merges the handlers that agree into one tap, and refuses the rest —
+ * so a synthesized row and an authored one are the same shape and the join in
+ * `declarations.ts` can merge one into the other.
  */
 export function tapHookRegistration(
-  declarations: readonly { readonly binary: string | null; readonly named: string }[],
+  declarations: readonly { readonly tool: string | null; readonly named: string }[],
   matcher: string,
 ): { readonly keyPath: string; readonly fields: Array<[string, unknown]> } {
-  const handlers = declarations.map(({ binary, named }) => ({
+  const handlers = declarations.map(({ tool, named }) => ({
     type: "command",
-    [TAP_BINARY_KEY]: binary,
+    [TAP_TOOL_KEY]: tool,
     [TAP_DECLARATION_KEY]: named,
   }));
   return {

@@ -1050,19 +1050,57 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
     );
 }
 
+/// The project-root-relative program the default tool renders to — the temper package's
+/// bin at the `.bin` path the workspace's package manager lays out.
+const DEFAULT_PROGRAM: &str = "./.temper/node_modules/.bin/temper";
+
+/// A [`workspace`] whose harness carries the committed script the `script` tool of
+/// [`runner_tools`] states, so the tool's file input resolves.
+fn tool_workspace(label: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+    let (harness, into) = workspace(label);
+    fs::create_dir_all(harness.join("bin")).unwrap();
+    fs::write(harness.join("bin").join("temper"), "#!/bin/sh\n").unwrap();
+    (harness, into)
+}
+
+/// The root-hosted tool members a runner payload composes: a workspace package bin, a
+/// committed script, and a system tool.
+fn runner_tools() -> Vec<temper::drift::NestedMemberRow> {
+    let tool = |key: &str, leaves: &[(&str, &str)]| temper::drift::NestedMemberRow {
+        host: "root".to_string(),
+        kind: "tool".to_string(),
+        key: key.to_string(),
+        leaves: leaves
+            .iter()
+            .map(|(name, value)| (name.to_string(), value.to_string()))
+            .collect(),
+        collections: Vec::new(),
+        placed_edges: None,
+        rendered_lines: None,
+        rendered_chars: None,
+    };
+    vec![
+        tool(
+            "workspace-temper",
+            &[("package", "@dtmd/temper"), ("bin", "temper")],
+        ),
+        tool("script", &[("file", "bin/temper")]),
+        tool("system", &[("system", "temper")]),
+    ]
+}
+
 /// A payload carrying one synthesized tap-hook row — the shape the SDK derives from a
-/// telemetry verifier (`sdk/src/declarations.ts`'s `tapHookRows`): `kind` hook, the
-/// group's own `matcher` field, and a single `command` handler carrying the declaration's
-/// binary under the seam's reserved `temper:tap-binary` key (`null` declaring none), since
-/// a tap hook is one ordinary matcher group (0075). A `Skill` invocation surfaces under
+/// telemetry verifier: `kind` hook, the group's own `matcher` field, and a single
+/// `command` handler carrying the declaration's tool address under the seam's reserved
+/// `temper:tap-tool` key (`null` declaring none). A `Skill` invocation surfaces under
 /// `PostToolUse` with the tool-name matcher.
-fn tap_hook_payload(binary: serde_json::Value) -> Payload {
-    tap_hook_payload_with(serde_json::json!([{ "type": "command", "temper:tap-binary": binary }]))
+fn tap_hook_payload(tool: serde_json::Value) -> Payload {
+    tap_hook_payload_with(serde_json::json!([{ "type": "command", "temper:tap-tool": tool }]))
 }
 
 /// [`tap_hook_payload`] with the `PostToolUse` tap's whole handler array given — the shape
-/// the SDK sends when declarations sharing the tap spell their binaries differently: one
-/// handler per spelling, each naming its declaration under `temper:tap-declaration`.
+/// the SDK sends when declarations sharing the tap reach different tools: one handler per
+/// tool, each naming its declaration under `temper:tap-declaration`.
 fn tap_hook_payload_with(handlers: serde_json::Value) -> Payload {
     Payload {
         version: drift::SEAM_VERSION,
@@ -1079,6 +1117,7 @@ fn tap_hook_payload_with(handlers: serde_json::Value) -> Payload {
                 ],
                 emit_hash: None,
             }],
+            nested_members: runner_tools(),
             ..Default::default()
         },
         members: Vec::new(),
@@ -1093,15 +1132,15 @@ fn projected_tap_command(harness: &Path) -> String {
     .unwrap();
     let handler = &manifest["hooks"]["PostToolUse"][0]["hooks"][0];
     assert!(
-        handler.get("temper:tap-binary").is_none(),
-        "the seam's binary key never reaches the manifest: {handler}"
+        handler.get("temper:tap-tool").is_none(),
+        "the seam's tool key never reaches the manifest: {handler}"
     );
     handler["command"].as_str().unwrap().to_owned()
 }
 
 #[test]
 fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_loop() {
-    let (harness, into) = workspace("tap-hook-matcher-group");
+    let (harness, into) = tool_workspace("tap-hook-matcher-group");
     let payload = tap_hook_payload(serde_json::Value::Null);
 
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
@@ -1113,7 +1152,7 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
     entries.insert(
         "PostToolUse".to_string(),
         serde_json::json!([
-            { "matcher": "Skill", "hooks": [ { "type": "command", "command": temper::install::tap_hook_command("temper") } ] }
+            { "matcher": "Skill", "hooks": [ { "type": "command", "command": temper::install::tap_hook_command(DEFAULT_PROGRAM) } ] }
         ]),
     );
     let segment = json_manifest::CollectionSegment {
@@ -1133,30 +1172,12 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
 
 #[test]
 fn a_tap_hook_command_is_anchored_at_the_project() {
-    // A declaration stating no binary runs `temper` on the PATH — entered at the project
-    // root Claude Code names, so the tap's `.` target resolves there whatever directory
-    // the session has moved to, as a gate command's does (`pipeline.md`, "Telemetry").
-    let (harness, into) = workspace("tap-hook-anchored");
+    // A declaration naming no tool runs the temper package's bin — entered at the project
+    // root Claude Code names, so the bin's path and the tap's `.` target resolve there
+    // whatever directory the session has moved to, as a gate command's do.
+    let (harness, into) = tool_workspace("tap-hook-anchored");
     drift::emit(
         &tap_hook_payload(serde_json::Value::Null),
-        &into,
-        EmitOptions::default(),
-    )
-    .unwrap();
-
-    assert_eq!(
-        projected_tap_command(&harness),
-        "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper tap ."
-    );
-}
-
-#[test]
-fn a_tap_hook_runs_its_declared_binary() {
-    // A declaration stating a workspace binary runs that binary, resolved at the project
-    // root the anchor entered — the binary the gate hooks of a temper-off-PATH harness run.
-    let (harness, into) = workspace("tap-hook-declared-binary");
-    drift::emit(
-        &tap_hook_payload(serde_json::json!("./.temper/node_modules/.bin/temper")),
         &into,
         EmitOptions::default(),
     )
@@ -1169,14 +1190,44 @@ fn a_tap_hook_runs_its_declared_binary() {
 }
 
 #[test]
-fn tap_rows_sharing_a_tap_emit_one_tap_when_one_declares_no_binary_and_the_other_declares_temper() {
-    // An undeclared binary is the engine's default, so the two spellings resolve alike and
-    // are one tap — one handler, its command rendered once.
-    let (harness, into) = workspace("tap-hook-resolved-agree");
+fn a_tap_runs_the_command_of_its_declarations_tool() {
+    // A declaration reaching a committed-script tool runs that script, resolved at the
+    // project root the anchor entered; a system tool runs its name on the PATH.
+    let (harness, into) = tool_workspace("tap-hook-declared-tool");
+    drift::emit(
+        &tap_hook_payload(serde_json::json!("root/tool/script")),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        projected_tap_command(&harness),
+        "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./bin/temper >/dev/null 2>&1 || { echo \"./bin/temper: command not found\" >&2; exit 127; } && ./bin/temper tap ."
+    );
+
+    let (harness, into) = tool_workspace("tap-hook-system-tool");
+    drift::emit(
+        &tap_hook_payload(serde_json::json!("root/tool/system")),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        projected_tap_command(&harness),
+        temper::install::tap_hook_command("temper")
+    );
+}
+
+#[test]
+fn tap_rows_sharing_a_tap_emit_one_tap_when_one_declares_no_tool_and_the_other_the_temper_package_bin()
+ {
+    // An undeclared tool is the engine's default, the temper package's bin, so the two
+    // resolve alike and are one tap — one handler, its command rendered once.
+    let (harness, into) = tool_workspace("tap-hook-resolved-agree");
     drift::emit(
         &tap_hook_payload_with(serde_json::json!([
-            { "type": "command", "temper:tap-binary": "temper", "temper:tap-declaration": "a" },
-            { "type": "command", "temper:tap-binary": null, "temper:tap-declaration": "b" },
+            { "type": "command", "temper:tap-tool": "root/tool/workspace-temper", "temper:tap-declaration": "a" },
+            { "type": "command", "temper:tap-tool": null, "temper:tap-declaration": "b" },
         ])),
         &into,
         EmitOptions::default(),
@@ -1190,19 +1241,19 @@ fn tap_rows_sharing_a_tap_emit_one_tap_when_one_declares_no_binary_and_the_other
     assert_eq!(
         manifest["hooks"]["PostToolUse"],
         serde_json::json!([
-            { "matcher": "Skill", "hooks": [ { "type": "command", "command": temper::install::tap_hook_command("temper") } ] }
+            { "matcher": "Skill", "hooks": [ { "type": "command", "command": temper::install::tap_hook_command(DEFAULT_PROGRAM) } ] }
         ])
     );
 }
 
 #[test]
-fn tap_rows_sharing_a_tap_refuse_at_emit_when_their_resolved_binaries_differ_naming_both_declarations()
+fn tap_rows_sharing_a_tap_refuse_at_emit_when_their_tools_render_differently_naming_both_declarations()
  {
-    let (harness, into) = workspace("tap-hook-resolved-disagree");
+    let (harness, into) = tool_workspace("tap-hook-resolved-disagree");
     let err = drift::emit(
         &tap_hook_payload_with(serde_json::json!([
-            { "type": "command", "temper:tap-binary": "./bin/temper", "temper:tap-declaration": "a" },
-            { "type": "command", "temper:tap-binary": null, "temper:tap-declaration": "b" },
+            { "type": "command", "temper:tap-tool": "root/tool/script", "temper:tap-declaration": "a" },
+            { "type": "command", "temper:tap-tool": null, "temper:tap-declaration": "b" },
         ])),
         &into,
         EmitOptions::default(),
@@ -1212,7 +1263,7 @@ fn tap_rows_sharing_a_tap_refuse_at_emit_when_their_resolved_binaries_differ_nam
     assert!(
         message.contains("`a` and `b`")
             && message.contains("`PostToolUse`")
-            && message.contains("`./bin/temper` and `temper`"),
+            && message.contains(&format!("`./bin/temper` and `{DEFAULT_PROGRAM}`")),
         "{message}"
     );
     assert!(
@@ -1222,24 +1273,25 @@ fn tap_rows_sharing_a_tap_refuse_at_emit_when_their_resolved_binaries_differ_nam
 }
 
 #[test]
-fn a_tap_hook_declaring_an_empty_binary_is_refused() {
-    let (_harness, into) = workspace("tap-hook-empty-binary");
+fn a_tap_hook_reaching_a_tool_the_program_does_not_compose_is_refused() {
+    let (_harness, into) = tool_workspace("tap-hook-stray-tool");
     let err = drift::emit(
-        &tap_hook_payload(serde_json::json!("")),
+        &tap_hook_payload(serde_json::json!("root/tool/absent")),
         &into,
         EmitOptions::default(),
     )
     .unwrap_err();
+    let message = err.to_string();
     assert!(
-        err.to_string().contains("tap hook on `PostToolUse`"),
-        "{err}"
+        message.contains("tap hook on `PostToolUse`") && message.contains("`root/tool/absent`"),
+        "{message}"
     );
 }
 
 /// A payload carrying one gate hook per event temper's gate rides, as the SDK's
-/// `gateHook(...)` erases them: one `command` handler spelling no command, and the declared
-/// binary under the seam's reserved `temper:gate-binary` key (`null` declaring none).
-fn gate_hook_payload(binary: serde_json::Value) -> Payload {
+/// `gateHook(...)` erases them: one `command` handler spelling no command, and the tool's
+/// address under the seam's reserved `temper:gate-tool` key (`null` declaring none).
+fn gate_hook_payload(tool: serde_json::Value) -> Payload {
     let row = |key: &str, matcher: Option<&str>| {
         let mut fields = Vec::new();
         if let Some(matcher) = matcher {
@@ -1249,7 +1301,7 @@ fn gate_hook_payload(binary: serde_json::Value) -> Payload {
             "hooks".to_string(),
             serde_json::json!([{ "type": "command" }]),
         ));
-        fields.push(("temper:gate-binary".to_string(), binary.clone()));
+        fields.push(("temper:gate-tool".to_string(), tool.clone()));
         RegistrationRow {
             kind: "hook".to_string(),
             key: key.to_string(),
@@ -1268,6 +1320,7 @@ fn gate_hook_payload(binary: serde_json::Value) -> Payload {
                 row("PreToolUse", Some("Write|Edit|MultiEdit")),
                 row("SessionStart", None),
             ],
+            nested_members: runner_tools(),
             ..Default::default()
         },
         members: Vec::new(),
@@ -1296,16 +1349,16 @@ fn projected_gate_commands(harness: &Path) -> (serde_json::Value, [String; 3]) {
 }
 
 #[test]
-fn a_gate_hook_with_a_declared_binary_projects_a_command_running_that_binary() {
-    let (harness, into) = workspace("gate-hook-declared-binary");
-    let payload = gate_hook_payload(serde_json::json!("./node_modules/.bin/temper"));
+fn a_gate_hook_runs_the_command_of_the_tool_it_reaches() {
+    let (harness, into) = tool_workspace("gate-hook-declared-tool");
+    let payload = gate_hook_payload(serde_json::json!("root/tool/script"));
 
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
-    // Every gate hook probes, names and runs the binary it declared — the workspace path,
-    // resolved as itself rather than looked up on the PATH.
+    // Every gate hook probes, names and runs the script its tool states — resolved at the
+    // project root as itself rather than looked up on the PATH.
     let (manifest, [session_start, guard, post_guard]) = projected_gate_commands(&harness);
-    let probe = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper";
+    let probe = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./bin/temper >/dev/null 2>&1 || { echo \"./bin/temper: command not found\" >&2; exit 127; } && ./bin/temper";
     assert_eq!(
         session_start,
         format!("{probe} check . --reporter session-start")
@@ -1315,8 +1368,8 @@ fn a_gate_hook_with_a_declared_binary_projects_a_command_running_that_binary() {
 
     // The seam's reserved key is consumed, never projected.
     assert!(
-        !manifest.to_string().contains("temper:gate-binary"),
-        "the binary key never reaches the manifest: {manifest}"
+        !manifest.to_string().contains("temper:gate-tool"),
+        "the tool key never reaches the manifest: {manifest}"
     );
 
     // Re-emit is the idempotent no-op.
@@ -1326,11 +1379,23 @@ fn a_gate_hook_with_a_declared_binary_projects_a_command_running_that_binary() {
         fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap(),
         before
     );
+
+    // A system tool runs its name on the PATH: today's commands, byte for byte.
+    let (harness, into) = tool_workspace("gate-hook-system-tool");
+    drift::emit(
+        &gate_hook_payload(serde_json::json!("root/tool/system")),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+    let (_, [session_start, guard, _]) = projected_gate_commands(&harness);
+    assert_eq!(session_start, temper::install::SESSION_START_COMMAND);
+    assert_eq!(guard, temper::install::GUARD_COMMAND);
 }
 
 #[test]
-fn a_gate_hook_with_no_declared_binary_projects_the_path_temper_command() {
-    let (harness, into) = workspace("gate-hook-default-binary");
+fn a_gate_hook_declaring_no_tool_runs_the_temper_package_bins_anchored_path() {
+    let (harness, into) = tool_workspace("gate-hook-default-tool");
 
     drift::emit(
         &gate_hook_payload(serde_json::Value::Null),
@@ -1339,21 +1404,44 @@ fn a_gate_hook_with_no_declared_binary_projects_the_path_temper_command() {
     )
     .unwrap();
 
-    // No binary declared is `temper` on the PATH: today's commands, byte for byte.
+    // No tool declared is the temper package's bin, at the `.bin` path the workspace's
+    // package manager lays out, resolved at the project root the anchor entered.
     let (manifest, [session_start, guard, post_guard]) = projected_gate_commands(&harness);
-    assert_eq!(session_start, temper::install::SESSION_START_COMMAND);
-    assert_eq!(guard, temper::install::GUARD_COMMAND);
-    assert_eq!(post_guard, temper::install::GUARD_COMMAND);
+    let expected_session_start =
+        temper::install::gate_hook_command("SessionStart", DEFAULT_PROGRAM).unwrap();
+    assert_eq!(session_start, expected_session_start);
+    assert!(
+        session_start.contains("&& ./.temper/node_modules/.bin/temper check ."),
+        "{session_start}"
+    );
+    let expected_guard = temper::install::gate_hook_command("PreToolUse", DEFAULT_PROGRAM).unwrap();
+    assert_eq!(guard, expected_guard);
+    assert_eq!(post_guard, expected_guard);
     // The handler is exactly the command handler — the reserved key rides nowhere in it.
     assert_eq!(
         manifest["hooks"]["SessionStart"],
-        serde_json::json!([{ "hooks": [{ "type": "command", "command": temper::install::SESSION_START_COMMAND }] }])
+        serde_json::json!([{ "hooks": [{ "type": "command", "command": expected_session_start }] }])
+    );
+}
+
+#[test]
+fn a_gate_hook_reaching_a_tool_the_program_does_not_compose_refuses_at_emit() {
+    let (_harness, into) = tool_workspace("gate-hook-stray-tool");
+    let err = drift::emit(
+        &gate_hook_payload(serde_json::json!("root/tool/absent")),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("`root/tool/absent`"),
+        "the refusal names the tool: {err}"
     );
 }
 
 #[test]
 fn a_gate_hook_on_an_event_temper_does_not_ride_refuses_at_emit() {
-    let (_harness, into) = workspace("gate-hook-foreign-event");
+    let (_harness, into) = tool_workspace("gate-hook-foreign-event");
     let mut payload = gate_hook_payload(serde_json::Value::Null);
     payload.declarations.registrations[0].key = "Stop".to_string();
 

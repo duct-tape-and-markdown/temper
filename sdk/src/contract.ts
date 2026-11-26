@@ -8,7 +8,7 @@
  */
 
 import type { Shape, ValueType } from "./generated/index.js";
-import type { KindDefinition } from "./kind.js";
+import type { KindDefinition, Member, Remedy } from "./kind.js";
 
 /** A clause's delivery posture: `required` gate-blocks, `advisory` reports. */
 export type Severity = "required" | "advisory";
@@ -447,21 +447,21 @@ export type Verifier =
   | {
       readonly species: "telemetry";
       readonly events: readonly string[];
-      /** The temper binary the declaration's tap hooks run — absent for `temper` on the
-       * PATH ({@link telemetry}). */
-      readonly binary?: string;
+      /** The tool the declaration's tap hooks run — absent for the temper package's bin
+       * ({@link telemetry}). */
+      readonly tool?: Member;
     }
   | { readonly species: "review"; readonly prose: string };
 
 /** What a {@link telemetry} declaration states beyond its events. */
 export interface TelemetryInit {
   /**
-   * The temper binary its tap hooks run — a bare name resolved on the PATH, or a path
-   * resolved at the project root (each tap command is anchored there, as a gate command
-   * is). Omit it for `temper` on the PATH. An author running every hook on one binary
-   * shares one constant between this and each `gateHook(...)`'s `binary`.
+   * The `tool(...)` member its tap hooks run as temper — the same member each
+   * `gateHook(...)`'s `tool` reaches, where an author runs every hook on one tool. Omit it
+   * for the temper package's bin.
    */
-  readonly binary?: string;
+  readonly tool?: Member;
+  readonly binary?: Remedy<"`binary` gave way to `tool`: write `telemetry(events, { tool: tool({ package, bin }) })`, or omit it for the temper package's bin">;
 }
 
 /**
@@ -476,23 +476,23 @@ export const script = (path: string): Verifier => ({ species: "script", path });
  * documented harness lifecycle event — the gate checks each resolves, never records
  * into it. The vocabulary is the engine's own `TAP_HOOK_BINDINGS` table
  * (`src/builtin_kind.rs`), machine-written across the `generated/` seam and read by
- * `builtins.ts`'s `TELEMETRY_EVENT_HOOKS`. The declaration also states the temper binary
- * its taps run (`init.binary`, `temper` on the PATH unless declared); the engine renders
- * each tap command from it, anchored at the project.
+ * `builtins.ts`'s `TELEMETRY_EVENT_HOOKS`. The declaration also names the tool its taps
+ * run (`init.tool`, the temper package's bin unless declared); the engine renders each tap
+ * command from it, anchored at the project.
  *
  * # Throws
- * If `init.binary` is the empty string — there is nothing to run.
+ * If `init.tool` is not a `tool(...)` member.
  */
 export function telemetry(events: readonly string[], init: TelemetryInit = {}): Verifier {
-  if (init.binary === "") {
+  if (init.tool !== undefined && init.tool.kind !== "tool") {
     throw new Error(
-      "telemetry: `binary` is empty — state the temper binary the tap hooks run, or omit it " +
-        'for `temper` on the PATH (specs/model/pipeline.md, "Telemetry").',
+      "telemetry: `tool` names what the tap hooks run — pass a `tool(...)` member, or omit it " +
+        "for the temper package's bin.",
     );
   }
-  return init.binary === undefined
+  return init.tool === undefined
     ? { species: "telemetry", events }
-    : { species: "telemetry", events, binary: init.binary };
+    : { species: "telemetry", events, tool: init.tool };
 }
 
 /**

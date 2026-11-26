@@ -37,6 +37,12 @@ use temper::install::{self, InstallOutcome, KindMembers, Represent};
 use crate::common;
 use crate::common::fresh_clause;
 
+/// The command a represented harness's gate hook keyed under `event` projects when its
+/// member reaches no tool: the temper package's bin at the workspace's anchored `.bin` path.
+fn represented_gate_command(event: &str) -> String {
+    temper::install::gate_hook_command(event, "./.temper/node_modules/.bin/temper").unwrap()
+}
+
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
@@ -702,7 +708,7 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
-        temper::install::GUARD_COMMAND
+        represented_gate_command("PreToolUse")
     );
     assert!(
         !has_entry(&outcome, temper::install::Placement::Modeline),
@@ -1053,15 +1059,23 @@ fn assert_gate_hooks_wired(root: &Path, context: &str) {
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     for (event, matcher, command) in [
-        ("SessionStart", None, temper::install::SESSION_START_COMMAND),
+        (
+            "SessionStart",
+            None,
+            represented_gate_command("SessionStart"),
+        ),
         (
             "PreToolUse",
             Some("Write|Edit|MultiEdit"),
-            temper::install::GUARD_COMMAND,
+            represented_gate_command("PreToolUse"),
         ),
         // The post edge runs the *same* guard command the pre edge does: the payload's own
         // `hook_event_name` says which edge fired, so one command serves both rows.
-        ("PostToolUse", Some("Bash"), temper::install::GUARD_COMMAND),
+        (
+            "PostToolUse",
+            Some("Bash"),
+            represented_gate_command("PostToolUse"),
+        ),
     ] {
         let groups = json["hooks"][event]
             .as_array()
@@ -1557,7 +1571,7 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
-        temper::install::GUARD_COMMAND
+        represented_gate_command("PreToolUse")
     );
 
     let extra_md = fs::read_to_string(
@@ -1755,7 +1769,7 @@ fn the_post_tool_use_row_runs_the_guard_the_pre_tool_use_row_runs() {
         .unwrap_or_else(|| panic!("the `PostToolUse` row carries a command, got:\n{settings}"));
     assert_eq!(
         command,
-        temper::install::GUARD_COMMAND,
+        represented_gate_command("PostToolUse"),
         "the post edge runs the guard, got:\n{settings}"
     );
 
@@ -1913,7 +1927,7 @@ fn a_manifests_registration_entries_each_lift_to_their_own_module_and_survive_th
         "the author's own group survives, got: {commands:?}"
     );
     assert!(
-        commands.contains(&temper::install::SESSION_START_COMMAND),
+        commands.contains(&represented_gate_command("SessionStart").as_str()),
         "temper's gate is wired beside it, got: {commands:?}"
     );
     assert_gate_hooks_wired(&root, "after install");
@@ -2333,8 +2347,8 @@ fn install_scaffolds_gate_hooks_with_the_typed_constructor() {
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
-    // Each gate hook module is the constructor alone: its address, no binary (`temper` on
-    // the PATH) and no command — the engine renders that from the member.
+    // Each gate hook module is the constructor alone: its address, no tool (the temper
+    // package's bin) and no command — the engine renders that from the member.
     for (event, call) in [
         ("SessionStart", "gateHook({ name: \"SessionStart\" })"),
         (
@@ -2359,27 +2373,68 @@ fn install_scaffolds_gate_hooks_with_the_typed_constructor() {
 }
 
 #[test]
-fn a_gate_hook_declaring_an_off_path_binary_is_reported_installed() {
-    let binary = "./node_modules/.bin/temper";
-    let root = reinstall_with_guard_module(
-        "gate-hook-off-path-binary",
-        &format!(
-            "import {{ gateHook }} from \"@dtmd/temper/claude-code\";\n\n\
-             export const hook_PreToolUse = gateHook({{ name: \"PreToolUse\", \
-             matcher: \"Write|Edit|MultiEdit\", binary: {binary:?} }});\n"
-        ),
+fn a_gate_hook_reaching_a_declared_tool_is_reported_installed() {
+    common::ensure_sdk_built();
+    let root = write_harness("gate-hook-declared-tool", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // The guard's module states the tool it runs, and the program composes that tool.
+    fs::write(
+        temper_dir.join("hooks").join("PreToolUse.ts"),
+        "import { gateHook, tool } from \"@dtmd/temper/claude-code\";\n\n\
+         export const tool_temper = tool({ system: \"temper\" });\n\
+         export const hook_PreToolUse = gateHook({ name: \"PreToolUse\", \
+         matcher: \"Write|Edit|MultiEdit\", tool: tool_temper });\n",
+    )
+    .unwrap();
+    let program_path = temper_dir.join("harness.ts");
+    let program = fs::read_to_string(&program_path).unwrap();
+    assert!(program.contains("members: ["), "{program}");
+    let program = format!(
+        "import {{ tool_temper }} from \"./hooks/PreToolUse.ts\";\n{}",
+        program.replacen("members: [", "members: [tool_temper, ", 1)
     );
+    fs::write(&program_path, program).unwrap();
+    temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
+
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"][0]["hooks"][0]["command"].as_str(),
-        temper::install::gate_hook_command("PreToolUse", binary).as_deref(),
-        "the guard runs the declared binary, got:\n{settings}"
+        Some(temper::install::GUARD_COMMAND),
+        "the guard runs the system tool it reaches, got:\n{settings}"
     );
     let findings = gate_installed(&root);
     assert!(
         findings.is_empty(),
-        "a gate hook member is installed at whatever binary it states, got: {findings:?}"
+        "a gate hook member is installed at whatever tool it reaches, got: {findings:?}"
+    );
+}
+
+#[test]
+fn an_unrepresented_harnesss_gate_hook_runs_temper_on_the_path() {
+    // With no program there is no package bin to anchor: the session-start hook the
+    // unrepresented path writes resolves `temper` on the PATH.
+    let root = write_harness("unrepresented-path-temper", true);
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+
+    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    let command = json["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+        .as_str()
+        .unwrap_or_else(|| panic!("the session-start hook carries a command, got:\n{settings}"));
+    assert_eq!(
+        Some(command),
+        temper::install::gate_hook_command("SessionStart", "temper").as_deref()
+    );
+    assert!(
+        command.contains("command -v temper ") && !command.contains("node_modules"),
+        "{command}"
     );
 }
 

@@ -42,7 +42,7 @@ import {
 import type { Predicate, Requirement } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
 import type { ClauseRow, RequirementRow } from "../src/declarations.js";
-import { skill } from "../src/claude-code.js";
+import { hook, skill, tool } from "../src/claude-code.js";
 
 test("count composes a satisfier-set-size bound as an ordinary predicate", () => {
   assert.deepEqual(count({ min: 1, max: 3 }), { key: "count", args: { min: 1, max: 3 } });
@@ -417,6 +417,19 @@ test("the telemetry constructor composes an event-tagged verifier and lowers its
     species: "telemetry",
     events: ["SkillInvoked", "ToolUse"],
   });
+});
+
+test("the telemetry constructor carries the tool its taps reach, and refuses anything else", () => {
+  const workspaceTemper = tool({ package: "@dtmd/temper", bin: "temper" });
+  assert.deepEqual(telemetry(["SkillInvoked"], { tool: workspaceTemper }), {
+    species: "telemetry",
+    events: ["SkillInvoked"],
+    tool: workspaceTemper,
+  });
+  assert.throws(
+    () => telemetry(["SkillInvoked"], { tool: hook({ name: "Stop", hooks: [] }) }),
+    /pass a `tool\(\.\.\.\)` member/,
+  );
 });
 
 test("the review constructor composes a prose-tagged verifier and lowers it verbatim", () => {

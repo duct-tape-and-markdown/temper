@@ -435,54 +435,54 @@ pub enum DriftError {
         member: String,
     },
 
-    /// A tap handler's declared binary cannot be rendered into its command — it is neither
-    /// `null` nor a non-empty string.
+    /// A tap handler's declared tool cannot be rendered into its command — it is neither
+    /// `null` nor the address of a composed tool carrying a command.
     #[error("tap hook on `{event}`: {detail}")]
     #[diagnostic(
         code(temper::drift::tap_hook),
         help(
-            "declare a telemetry verifier with `telemetry(events, {{ binary }})` from `@dtmd/temper`, stating a non-empty `binary` or none (`temper` on the PATH)"
+            "declare a telemetry verifier with `telemetry(events, {{ tool }})` from `@dtmd/temper`, naming a composed `tool(...)` member or none (the temper package's bin)"
         )
     )]
     TapHook {
         /// The lifecycle event the tap's registration keys under.
         event: String,
-        /// What is wrong with the declared binary.
+        /// What is wrong with the declared tool.
         detail: String,
     },
 
-    /// Two telemetry declarations sharing one tap resolve to different binaries — one tap
-    /// runs one binary, so neither is picked.
+    /// Two telemetry declarations sharing one tap resolve to different commands — one tap
+    /// runs one command, so neither is picked.
     #[error(
-        "telemetry declarations `{first}` and `{second}` share the `{event}` tap but resolve to different binaries (`{first_binary}` and `{second_binary}`)"
+        "telemetry declarations `{first}` and `{second}` share the `{event}` tap but resolve to different commands (`{first_command}` and `{second_command}`)"
     )]
     #[diagnostic(
-        code(temper::drift::tap_binary_disagreement),
+        code(temper::drift::tap_tool_disagreement),
         help(
-            "state one binary on every telemetry declaration sharing a tap — one shared constant, or none on each (`temper` on the PATH)"
+            "point every telemetry declaration sharing a tap at one tool — one shared `tool(...)` member, or none on each (the temper package's bin)"
         )
     )]
-    TapBinaryDisagreement {
+    TapToolDisagreement {
         /// The lifecycle event the shared tap's registration keys under.
         event: String,
         /// The first declaration naming the tap.
         first: String,
-        /// The binary the first declaration resolves to.
-        first_binary: String,
+        /// The command the first declaration's tool renders to.
+        first_command: String,
         /// The declaration that disagrees with it.
         second: String,
-        /// The binary the second declaration resolves to.
-        second_binary: String,
+        /// The command the second declaration's tool renders to.
+        second_command: String,
     },
 
     /// A gate hook's declared fact cannot be rendered into the registration it names: no
     /// `hook` registration sits at its event and matcher, its event is not one temper's
-    /// gate rides, or its binary is empty.
+    /// gate rides, or its tool is no composed tool carrying a command.
     #[error("gate hook `{member}`: {detail}")]
     #[diagnostic(
         code(temper::drift::gate_hook),
         help(
-            "build a gate hook with `gateHook(...)` from `@dtmd/temper/claude-code` on `SessionStart`, `PreToolUse` or `PostToolUse`, and declare a non-empty `binary` or none (`temper` on the PATH)"
+            "build a gate hook with `gateHook(...)` from `@dtmd/temper/claude-code` on `SessionStart`, `PreToolUse` or `PostToolUse`, naming a composed `tool(...)` member or none (the temper package's bin)"
         )
     )]
     GateHook {
@@ -1189,44 +1189,102 @@ pub struct Payload {
     pub members: Vec<PayloadMember>,
 }
 
-/// The reserved key a gate hook's registration row carries its declared temper binary
-/// under, among the row's seam-inbound `fields` — the SDK's `GATE_BINARY_KEY`
-/// (`sdk/src/builtins.ts`), which `gateHook(...)` alone writes. Colon-qualified so no
-/// typed `Hook` field can spell it: the key is the seam's, never the manifest's, and
-/// [`gate_rendered_fields`] consumes it before a byte is projected.
-///
-/// The member states the binary, never the command (`specs/model/adoption.md`,
-/// "Install"; 0082): `emit` renders the command here, so the bytes a gate hook runs have
-/// one home, the engine's ([`crate::install::gate_hook_command`]).
-const GATE_BINARY_KEY: &str = "temper:gate-binary";
+/// The reserved key a gate hook's registration row carries the address of the tool it runs
+/// under (`null` declaring none) — the SDK's `GATE_TOOL_KEY`. Colon-qualified so no typed
+/// `Hook` field can spell it; [`gate_rendered_fields`] consumes it before a byte is
+/// projected, so the bytes a gate hook runs have one home, the engine's.
+const GATE_TOOL_KEY: &str = "temper:gate-tool";
 
-/// The reserved key a tap handler carries its telemetry declaration's temper binary under,
-/// inside the handler object — the SDK's `TAP_BINARY_KEY` (`sdk/src/builtins.ts`), which
-/// the synthesized tap alone writes. On the handler, not the row, because a tap joins an
-/// authored group at its (event, matcher) as a further handler. Colon-qualified so no
-/// typed handler field can spell it; [`tap_rendered_handlers`] consumes it before a byte
-/// is projected, so the bytes a tap runs have one home, the engine's
-/// ([`crate::install::tap_hook_command`]; `specs/model/pipeline.md`, "Telemetry").
-const TAP_BINARY_KEY: &str = "temper:tap-binary";
+/// The reserved key a tap handler carries its telemetry declaration's tool address under
+/// (`null` declaring none) — the SDK's `TAP_TOOL_KEY`. On the handler, not the row, because
+/// a tap joins an authored group at its (event, matcher) as a further handler.
+const TAP_TOOL_KEY: &str = "temper:tap-tool";
 
 /// The reserved key a tap handler carries the name of its telemetry declaration under —
-/// the SDK's `TAP_DECLARATION_KEY` (`sdk/src/builtins.ts`). Read only to name both sides
-/// of a binary disagreement; [`tap_rendered_handlers`] drops it before a byte is projected.
+/// the SDK's `TAP_DECLARATION_KEY`. Read only to name both sides of a tool disagreement;
+/// [`tap_rendered_handlers`] drops it before a byte is projected.
 const TAP_DECLARATION_KEY: &str = "temper:tap-declaration";
 
+/// The composed tools a gate hook or tap may name, and where the program's workspace sits
+/// from the project root a rendered command is anchored at.
+struct RunnerTools<'a> {
+    nested_members: &'a [NestedMemberRow],
+    /// The workspace dir as a project-root-relative shell path (`./.temper`).
+    workspace: String,
+}
+
+impl<'a> RunnerTools<'a> {
+    fn new(nested_members: &'a [NestedMemberRow], workspace_dir: &Path) -> Self {
+        let name = crate::path::normalize_path(workspace_dir)
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned());
+        let workspace = name.map_or_else(|| ".".to_string(), |name| format!("./{name}"));
+        Self {
+            nested_members,
+            workspace,
+        }
+    }
+
+    /// The program path a runner's declared tool renders to — the word a gate or tap
+    /// command probes and runs, resolved at the project root. `null` is the temper
+    /// package's bin, at the anchored `.bin` path the program's package manager lays out.
+    fn program(&self, declared: &JsonValue) -> Result<String, String> {
+        let address = match declared {
+            JsonValue::Null => return Ok(self.package_bin(crate::install::DEFAULT_GATE_BINARY)),
+            JsonValue::String(address) => address,
+            _ => {
+                return Err(format!(
+                    "its tool must be `null` or a tool's address, got {declared}"
+                ));
+            }
+        };
+        let tool = self
+            .nested_members
+            .iter()
+            .find(|row| {
+                row.kind == TOOL_KIND
+                    && row.host == contract::ROOT_OWNER
+                    && crate::member_address::nested_address(&row.host, &row.kind, &row.key)
+                        == *address
+            })
+            .ok_or_else(|| {
+                format!("it names tool `{address}`, which the program does not compose")
+            })?;
+        let leaf = |name: &str| tool.leaves.get(name).filter(|value| !value.is_empty());
+        if let Some(bin) = leaf(TOOL_BIN_LEAF).filter(|_| leaf(TOOL_PACKAGE_LEAF).is_some()) {
+            return Ok(self.package_bin(bin));
+        }
+        if let Some(file) = leaf(TOOL_FILE_LEAF) {
+            return Ok(
+                if file.starts_with('/') || file.starts_with("./") || file.starts_with("../") {
+                    file.clone()
+                } else {
+                    format!("./{file}")
+                },
+            );
+        }
+        leaf(TOOL_SYSTEM_LEAF)
+            .cloned()
+            .ok_or_else(|| format!("its tool `{address}` carries no command"))
+    }
+
+    fn package_bin(&self, bin: &str) -> String {
+        format!("{}/node_modules/.bin/{bin}", self.workspace)
+    }
+}
+
 /// Render every tap handler in `fields`' handler array in place: a handler carrying
-/// [`TAP_BINARY_KEY`] drops it and gains the `command` rendered from the declared binary
-/// (`null` declaring none, so [`crate::install::DEFAULT_GATE_BINARY`]). Tap handlers whose
-/// binaries resolve alike are one tap, so every one after the first is dropped. Returns
-/// whether a handler was rendered.
+/// [`TAP_TOOL_KEY`] drops it and gains the `command` rendered from its declared tool. Tap
+/// handlers whose tools render alike are one tap, so every one after the first is dropped.
+/// Returns whether a handler was rendered.
 ///
-/// Refuses a binary that is neither `null` nor a non-empty string — the SDK builds the
-/// fact, so it is a malformed payload, never something to skip — and two tap handlers
-/// whose binaries resolve differently, naming both declarations, since one tap runs one
-/// binary and neither is picked.
+/// Refuses a tool that does not render — the SDK builds the fact, so it is a malformed
+/// payload, never something to skip — and two tap handlers whose tools render differently,
+/// naming both declarations, since one tap runs one command and neither is picked.
 fn tap_rendered_handlers(
     registration_key: &str,
     fields: &mut [(String, JsonValue)],
+    tools: &RunnerTools<'_>,
 ) -> Result<bool, DriftError> {
     let Some(handlers) = fields
         .iter_mut()
@@ -1235,7 +1293,7 @@ fn tap_rendered_handlers(
     else {
         return Ok(false);
     };
-    // The first tap handler's resolved binary and declaration; a later agreeing tap is
+    // The first tap handler's rendered program and declaration; a later agreeing tap is
     // marked for removal by its index.
     let mut first: Option<(String, String)> = None;
     let mut merged = Vec::new();
@@ -1243,44 +1301,38 @@ fn tap_rendered_handlers(
         let Some(handler) = handler.as_object_mut() else {
             continue;
         };
-        let Some(declared) = handler.remove(TAP_BINARY_KEY) else {
+        let Some(declared) = handler.remove(TAP_TOOL_KEY) else {
             continue;
         };
         let named = match handler.remove(TAP_DECLARATION_KEY) {
             Some(JsonValue::String(named)) => named,
             _ => String::new(),
         };
-        let binary = match &declared {
-            JsonValue::Null => crate::install::DEFAULT_GATE_BINARY,
-            JsonValue::String(binary) if !binary.is_empty() => binary.as_str(),
-            _ => {
-                return Err(DriftError::TapHook {
-                    event: registration_key.to_string(),
-                    detail: format!(
-                        "its binary must be `null` or a non-empty string, got {declared}"
-                    ),
-                });
-            }
-        };
+        let program = tools
+            .program(&declared)
+            .map_err(|detail| DriftError::TapHook {
+                event: registration_key.to_string(),
+                detail,
+            })?;
         match &first {
-            Some((resolved, _)) if resolved == binary => {
+            Some((resolved, _)) if *resolved == program => {
                 merged.push(index);
                 continue;
             }
             Some((resolved, prior)) => {
-                return Err(DriftError::TapBinaryDisagreement {
+                return Err(DriftError::TapToolDisagreement {
                     event: registration_key.to_string(),
                     first: prior.clone(),
-                    first_binary: resolved.clone(),
+                    first_command: resolved.clone(),
                     second: named,
-                    second_binary: binary.to_string(),
+                    second_command: program,
                 });
             }
-            None => first = Some((binary.to_string(), named)),
+            None => first = Some((program.clone(), named)),
         }
         handler.insert(
             "command".to_string(),
-            JsonValue::String(crate::install::tap_hook_command(binary)),
+            JsonValue::String(crate::install::tap_hook_command(&program)),
         );
     }
     for index in merged.into_iter().rev() {
@@ -1290,35 +1342,36 @@ fn tap_rendered_handlers(
 }
 
 /// `registration`'s fields as its manifest entry folds them, every tap handler's command
-/// rendered first ([`tap_rendered_handlers`]). A gate hook's row — one
-/// carrying [`GATE_BINARY_KEY`] — drops that key and has its first handler's `command`
-/// rendered from the declared binary (`null` declaring none, so
-/// [`crate::install::DEFAULT_GATE_BINARY`]): the gate handler `gateHook(...)` builds, ahead of
-/// any tap handler the SDK joined after it. Every other row folds its own fields as-is.
+/// rendered first ([`tap_rendered_handlers`]). A gate hook's row — one carrying
+/// [`GATE_TOOL_KEY`] — drops that key and has its first handler's `command` rendered from
+/// the declared tool: the gate handler `gateHook(...)` builds, ahead of any tap handler the
+/// SDK joined after it. Every other row folds its own fields as-is.
 ///
-/// Refuses a gate hook whose binary is neither `null` nor a non-empty string, whose event temper's gate
-/// does not ride, or whose row carries no handler to render into — the SDK builds the
-/// fact and the handler together, so any of these is a malformed payload, never
-/// something to skip.
-fn gate_rendered_fields(
-    registration: &RegistrationRow,
-) -> Result<std::borrow::Cow<'_, [(String, JsonValue)]>, DriftError> {
+/// Refuses a gate hook whose tool does not render, whose event temper's gate does not
+/// ride, or whose row carries no handler to render into — the SDK builds the fact and the
+/// handler together, so any of these is a malformed payload, never something to skip.
+fn gate_rendered_fields<'r>(
+    registration: &'r RegistrationRow,
+    tools: &RunnerTools<'_>,
+) -> Result<std::borrow::Cow<'r, [(String, JsonValue)]>, DriftError> {
     let Some(declared) = registration
         .fields
         .iter()
-        .find_map(|(name, value)| (name == GATE_BINARY_KEY).then_some(value))
+        .find_map(|(name, value)| (name == GATE_TOOL_KEY).then_some(value))
     else {
         let mut fields = registration.fields.clone();
-        return Ok(if tap_rendered_handlers(&registration.key, &mut fields)? {
-            std::borrow::Cow::Owned(fields)
-        } else {
-            std::borrow::Cow::Borrowed(&registration.fields)
-        });
+        return Ok(
+            if tap_rendered_handlers(&registration.key, &mut fields, tools)? {
+                std::borrow::Cow::Owned(fields)
+            } else {
+                std::borrow::Cow::Borrowed(&registration.fields)
+            },
+        );
     };
     let mut fields: Vec<(String, JsonValue)> = registration
         .fields
         .iter()
-        .filter(|(name, _)| name != GATE_BINARY_KEY)
+        .filter(|(name, _)| name != GATE_TOOL_KEY)
         .cloned()
         .collect();
     // The member's name, as the SDK joined it: the event, then the matcher after a `:`.
@@ -1334,18 +1387,8 @@ fn gate_rendered_fields(
         member: member.clone(),
         detail,
     };
-    // `null` is a gate hook declaring no binary: `temper` on the PATH, defaulted here so
-    // the default has one spelling, the engine's.
-    let binary = match declared {
-        JsonValue::Null => crate::install::DEFAULT_GATE_BINARY,
-        JsonValue::String(binary) if !binary.is_empty() => binary.as_str(),
-        _ => {
-            return Err(refuse(format!(
-                "its binary must be `null` or a non-empty string, got {declared}"
-            )));
-        }
-    };
-    let Some(command) = crate::install::gate_hook_command(&registration.key, binary) else {
+    let program = tools.program(declared).map_err(refuse)?;
+    let Some(command) = crate::install::gate_hook_command(&registration.key, &program) else {
         return Err(refuse(format!(
             "`{}` is not an event temper's gate rides (`SessionStart`, `PreToolUse`, `PostToolUse`)",
             registration.key
@@ -1364,7 +1407,7 @@ fn gate_rendered_fields(
     };
     gate_handler.insert("command".to_string(), JsonValue::String(command));
     // A tap joined behind the gate handler renders as any tap does.
-    tap_rendered_handlers(&registration.key, &mut fields)?;
+    tap_rendered_handlers(&registration.key, &mut fields, tools)?;
     Ok(std::borrow::Cow::Owned(fields))
 }
 
@@ -2119,6 +2162,7 @@ pub fn emit(
     // verb may be aimed at a harness from any cwd, so a row that baked in the cwd prefix
     // this emit happened to run under would resolve from nowhere else.
     let harness_root = harness_root_of(workspace_dir);
+    let runner_tools = RunnerTools::new(&payload.declarations.nested_members, workspace_dir);
     let kind_facts: BTreeMap<&str, &KindFactRow> = payload
         .declarations
         .kinds
@@ -2246,7 +2290,7 @@ pub fn emit(
                 // group and append it, so two rows sharing a lifecycle event accumulate as
                 // the two groups they are (the flat object a naive insert would write is
                 // silently ignored).
-                let fields = gate_rendered_fields(registration)?;
+                let fields = gate_rendered_fields(registration, &runner_tools)?;
                 let group =
                     crate::json_manifest::hook_matcher_group(&fields, &member_key, &lifted_fields);
                 let hash = entry_hash(&group);
