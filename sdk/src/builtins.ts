@@ -13,7 +13,7 @@
 import { TAP_EVENT_HOOKS } from "./generated/index.js";
 import { extendsKind, kind } from "./kind.js";
 import type { EdgeField, KindDefinition, Member, MemberInit, Remedy, Residue } from "./kind.js";
-import { isNameQualifier } from "./member-address.js";
+import { ROOT_HOSTED_KINDS, isNameQualifier } from "./member-address.js";
 import type { Prose, Text } from "./prose.js";
 import { renderText } from "./prose.js";
 import {
@@ -802,8 +802,8 @@ export function requirementOf(name: string, value: RequirementValue): Requiremen
   };
 }
 
-/** The embedded kinds the root member hosts: a roster member of one is the root's child. */
-export const ROOT_HOSTED_KINDS: ReadonlySet<string> = new Set([toolKind.key, requirementKind.key]);
+/** The embedded kinds the root member hosts — the grammar's set, re-exported beside the kinds. */
+export { ROOT_HOSTED_KINDS };
 
 /** The authored `tool` constructor — {@link toolKind}'s facts over {@link toolMember}. */
 export const tool: KindDefinition<ToolFields, ToolInit> & ((init?: ToolInit) => Member) = Object.assign(toolMember, {

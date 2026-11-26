@@ -8,8 +8,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { blocks, embeddedMemberValue, emit, harness, kind, text } from "../src/index.js";
-import { memory, rule, skill, supportingDoc } from "../src/claude-code.js";
+import { blocks, embeddedMemberValue, emit, harness, kind, text, tool } from "../src/index.js";
+import { gateHook, memory, rule, skill, supportingDoc } from "../src/claude-code.js";
 import { declaredAddresses } from "../src/declarations.js";
 import {
   bareLookupKey,
@@ -222,6 +222,23 @@ test("a member's own address takes its host when it has one, and its kind alone 
     kind: "supporting-doc",
     key: "home",
   });
+});
+
+test("a tool's one address is the root-hosted nested member, wherever a row names it", () => {
+  // The root hosts its tools, so a tool's own address is `root/tool/<name>` — the spelling
+  // `check` resolves it at — and never a second `tool:<name>` beside it.
+  const lint = tool({ name: "lint", system: "eslint" });
+  assert.equal(memberAddress(lint), nestedAddress("root", "tool", "lint"));
+  assert.equal(memberAddress(lint), "root/tool/lint");
+  assert.deepEqual(parseNestedAddress(memberAddress(lint)), { host: "root", kind: "tool", key: "lint" });
+
+  // The `runs` edge and the mention set spell it by that one address.
+  const gate = gateHook({ name: "SessionStart", tool: lint });
+  const h = harness({ members: [lint, gate] });
+  assert.ok(declaredAddresses(h).has("root/tool/lint"), "the mention set carries the root-hosted spelling");
+  assert.ok(!declaredAddresses(h).has("tool:lint"), "and no `tool:<name>` beside it");
+  const runs = emit(h).declarations.runs.map((row) => row.tool);
+  assert.ok(runs.length > 0 && runs.every((address) => address === memberAddress(lint)));
 });
 
 test("a member's own address composes its host's, to whatever depth the model nests", () => {

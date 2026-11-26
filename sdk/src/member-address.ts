@@ -66,6 +66,14 @@ export interface LeafAddress {
 /** The root member's own address — the harness itself, host of its embedded children. */
 export const ROOT_ADDRESS = "root";
 
+/**
+ * The embedded kinds the root member hosts, by kind key: a roster member of one is the
+ * root's child, so its own address is `root/<kind>/<key>` ({@link memberAddress}). Kept
+ * here rather than beside the kinds (`builtins.ts` re-exports it) because the address is
+ * the grammar's to spell, and the grammar owes the member model nothing.
+ */
+export const ROOT_HOSTED_KINDS: ReadonlySet<string> = new Set(["tool", "requirement"]);
+
 /** Spell a top-level member's own `<kind>:<name>` address. */
 export function hostAddress(kind: string, name: string): string {
   return `${kind}:${name}`;
@@ -103,7 +111,10 @@ export interface AddressedMember {
  * own `host` column).
  *
  * A top-level member's address is its kind joined onto its name ({@link hostAddress}). A
- * nested **file** child's identity *is* its whole `<host-address>/<kind>/<key>` address,
+ * member of a {@link ROOT_HOSTED_KINDS} kind is the root's nested member, so its address
+ * is `root/<kind>/<key>` — the one spelling `check` resolves it at and the lock's `runs`
+ * and `typecheck` rows name it by; a second `<kind>:<name>` spelling would key the same
+ * member two ways across the rows it is declared under. A nested **file** child's identity *is* its whole `<host-address>/<kind>/<key>` address,
  * exactly as an embedded member's is: the host segment is the whole of what tells two
  * same-named children under different hosts apart, so two hosts may each carry a `home`
  * and neither claims the other's. Keying one by `<kind>:<name>` alone made a child's name
@@ -122,7 +133,11 @@ export interface AddressedMember {
  */
 export function memberAddress(member: AddressedMember): string {
   const { host } = member;
-  if (host === undefined) return hostAddress(member.kind, member.name);
+  if (host === undefined) {
+    return ROOT_HOSTED_KINDS.has(member.kind)
+      ? nestedAddress(ROOT_ADDRESS, member.kind, member.name)
+      : hostAddress(member.kind, member.name);
+  }
   return nestedAddress(memberAddress(host), member.kind, member.name);
 }
 
@@ -278,8 +293,8 @@ function segment(address: string): Segments | undefined {
  * Parse a nested-member address, or `undefined` when `address` is not one.
  *
  * The grammar is an **odd** count of non-empty segments, three or more: a host address —
- * every segment but the final two, itself a member address at any depth — then the nested
- * kind and the key. Depth is the model's to choose, not the grammar's: any member's address
+ * every segment but the final two, itself a member address at any depth, or the root's
+ * bare {@link ROOT_ADDRESS} — then the nested kind and the key. Depth is the model's to choose, not the grammar's: any member's address
  * may host, so the reader reads what the model nests rather than capping at one layer.
  *
  * The **leaf tail is ruled out by the count**: a leaf is its own grain, parsed by
@@ -294,8 +309,10 @@ export function parseNestedAddress(address: string): NestedAddress | undefined {
   // The host is itself a member address, read at its own grain: a top-level host address,
   // or a nested one read back through this very parser however deep it runs. Never off a
   // first-colon split, which would take `area` / `a/page/b` out of `area:a/page/b`.
+  // The root member is a host too, at its bare `root` rather than a `<kind>:<name>` — the
+  // engine's `host_identity` reads it the same way — so a root-hosted member reads here.
   const { host } = segments;
-  if (parseHostAddress(host) === undefined && parseNestedAddress(host) === undefined) {
+  if (host !== ROOT_ADDRESS && parseHostAddress(host) === undefined && parseNestedAddress(host) === undefined) {
     return undefined;
   }
   return { host, kind: segments.kind, key: segments.key };

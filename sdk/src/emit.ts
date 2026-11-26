@@ -42,6 +42,7 @@ import {
 import type { PayloadMember } from "./generated/index.js";
 import { withReference } from "./reference.js";
 import {
+  ROOT_HOSTED_KINDS,
   bareLookupKey,
   edgeLookupKey,
   isOneSegment,
@@ -944,9 +945,10 @@ function memberTable(harness: Harness): Map<string, EdgeTarget> {
 }
 
 /**
- * Every nested **file** child under the bare `<kind>:<name>` short form as well as its own
- * host-qualified address — the same second spelling {@link nestedTargets} gives an embedded
- * member, so the two nested grains resolve alike.
+ * Every nested **file** child and every root-hosted member ({@link ROOT_HOSTED_KINDS})
+ * under the bare `<kind>:<name>` short form as well as its own host-qualified address —
+ * the same second spelling {@link nestedTargets} gives an embedded member, so every nested
+ * grain resolves alike.
  *
  * A bare key names a nested member only while a single host carries it, so a name several
  * hosts spell enters under no bare key at all and an edge citing it refuses as an address
@@ -958,7 +960,7 @@ function memberTable(harness: Harness): Map<string, EdgeTarget> {
 function bareFileChildTargets(harness: Harness): Array<[string, EdgeTarget]> {
   const carriers = new Map<string, Member[]>();
   for (const member of harness.members) {
-    if (member.host === undefined || isRegistration(member)) continue;
+    if ((member.host === undefined && !ROOT_HOSTED_KINDS.has(member.kind)) || isRegistration(member)) continue;
     const key = bareLookupKey(member.kind, member.name);
     const carried = carriers.get(key);
     if (carried === undefined) carriers.set(key, [member]);

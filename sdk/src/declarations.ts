@@ -1386,11 +1386,6 @@ export function projectedField(member: Member, name: string, value: unknown): un
   return value;
 }
 
-/** A root-hosted tool member's own address — `root/tool/<name>`, where `check` resolves it. */
-function toolAddress(member: Member): string {
-  return nestedAddress(ROOT_ADDRESS, member.kind, member.name);
-}
-
 /**
  * Each runner a member carries, paired with the `runs` value it names: a hook's handlers,
  * each at its own address (`<hook-address>/handler/<position>`, where the engine reads the
@@ -1467,7 +1462,7 @@ function composedToolAddress(harness: Harness, runner: string, field: string, va
         `does not compose — add it to \`members\`.`,
     );
   }
-  return toolAddress(value as Member);
+  return memberAddress(value as Member);
 }
 
 /**
