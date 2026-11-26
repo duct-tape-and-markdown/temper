@@ -26,11 +26,11 @@
   },
   "acceptance": "one note where settings hold a hook or statusLine command, none otherwise; per-entry unclaimed findings unchanged",
   "tests": [
-    "an unrepresented harness whose settings hold a hook command draws the script note",
-    "an unrepresented harness with no hook or status line command draws no script note"
+    "an unrepresented harness whose settings hold a hook command draws the script note"
   ],
   "pins": [
-    "the claude worktrees unclaimed entry quotes the docs gitignore advice"
+    "the claude worktrees unclaimed entry quotes the docs gitignore advice",
+    "an unrepresented harness with no hook or status line command draws no script note"
   ],
   "laneTests": [],
   "notes": "Inbox 2026-11-26, answering the unrepresented-script-coverage question with option (b); classes 0103/0104. The note never counts or names scripts: parsing commands is mining.",
