@@ -130,3 +130,37 @@ test("the root carries the whole closed predicate vocabulary", () => {
     "an author spells `clause(globValid(...), ...)` over their own kind off the root alone",
   );
 });
+
+/**
+ * The kind values a module exports, by name — a kind is the constructor `kind()` returns,
+ * carrying its `facts` and `key`. Identity is the value, never the export name: an alias
+ * re-exporting a built-in under another name is the same kind on the root.
+ */
+async function kindsOf(specifier: string): Promise<Map<unknown, string>> {
+  const module: Record<string, unknown> = await import(specifier);
+  const kinds = new Map<unknown, string>();
+  for (const [name, value] of Object.entries(module)) {
+    if (typeof value === "function" && "facts" in value && "key" in value) kinds.set(value, name);
+  }
+  return kinds;
+}
+
+test("the package root exports no Claude Code built-in kind", async () => {
+  const root = await kindsOf("../src/index.js");
+  const provider = await kindsOf("../src/claude-code.js");
+  assert.ok(provider.has((await import("../src/claude-code.js")).skill), "the walk should reach `skill` itself");
+
+  // `tool` is the core's own embedded kind (`specs/model/authoring.md`): an
+  // unrepresented harness declares tools too, so the root carries it and the provider
+  // face re-exports it for convenience. Every other provider kind is Claude Code's.
+  const core = new Set<unknown>([(await import("../src/index.js")).tool]);
+  const leaked = [...provider]
+    .filter(([value]) => root.has(value) && !core.has(value))
+    .map(([value, name]) => `\`${name}\` (on the root as \`${root.get(value)}\`)`);
+
+  assert.deepEqual(
+    leaked,
+    [],
+    "built-in kinds export from `@dtmd/temper/claude-code` only, never the package root",
+  );
+});
