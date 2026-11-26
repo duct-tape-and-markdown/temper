@@ -3,6 +3,7 @@
   "gate": {
     "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -53,5 +54,17 @@
   "pins": [
     "an existing package json stays byte identical on re install"
   ],
-  "notes": "0100; spec 529865c9 answers the park (scaffold: root's field, else npm@<npm --version>). Dogfood .temper/package.json already declares npm. A fieldless harness predating the rule is the release's migration note, not a fallback. yarn/bun keep the by-name refusal. Shares src/install.rs with PACKAGE-JSON-IS-SCAFFOLDED-ONCE's seam (the `missing` render line may name the declared manager)."
+  "laneTests": [],
+  "notes": "0100; spec 529865c9 answers the park (scaffold: root's field, else npm@<npm --version>). Dogfood .temper/package.json already declares npm. A fieldless harness predating the rule is the release's migration note, not a fallback. yarn/bun keep the by-name refusal. Shares src/install.rs with PACKAGE-JSON-IS-SCAFFOLDED-ONCE's seam (the `missing` render line may name the declared manager).",
+  "observedFiles": [
+    ".flume/plan/notes/PACKAGE-MANAGER-FIELD-NAMES-THE-MANAGER.md",
+    "examples/base-harness/.temper/package.json",
+    "sdk/src/lockfile.ts",
+    "src/install.rs",
+    "src/tool.rs",
+    "tests/it/common/mod.rs",
+    "tests/it/install.rs",
+    "tests/it/snapshots/it__gauntlet__projection_tree.snap",
+    "tests/it/tool_kind.rs"
+  ]
 }
