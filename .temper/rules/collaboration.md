@@ -35,7 +35,6 @@ instructions to file.
   ruling faithfully and record your objection as the rejected alternative.
   When evidence later moves — field reports, implementation pain — propose
   the amendment, with the same scrutiny on your own past rulings.
-
 - **A ruling lands in the spec.** A ruling, including one that applies a
   class decision to a new case, is a `specs:` edit to the section it
   governs. Derive files its entries from that diff. An inbox record carries

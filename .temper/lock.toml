@@ -9,8 +9,8 @@ emit_hash = "01e6f0f62c1ac4ebf0c8443617c7175f22ecfbc4f01c942ed3a1952ca4402b29"
 [[rule]]
 name = "collaboration"
 source_path = ".claude/rules/collaboration.md"
-source_hash = "fafb1a9f60c2d4224a0a306acc26c78d923bfd3dfb4c7cb497b48435f1e01c51"
-emit_hash = "fafb1a9f60c2d4224a0a306acc26c78d923bfd3dfb4c7cb497b48435f1e01c51"
+source_hash = "458e3d6dccee1e71e93e14ddde2e1ad118206dddfea7666a6d1101581763c1ec"
+emit_hash = "458e3d6dccee1e71e93e14ddde2e1ad118206dddfea7666a6d1101581763c1ec"
 
 [[rule]]
 name = "public-prose"
