@@ -5089,15 +5089,21 @@ pub struct UndeclaredLocusMembers {
 /// pending-write message share. A built-in kind's ungated locus is Claude Code's own, so
 /// the document loads; a custom kind's locus is the author's, and who reads it is not
 /// temper's to assert. A gated document says which gate it sits behind and whether it is
-/// open, and behind a shut gate it names the shutting document and is never said to load.
+/// open, and behind a shut gate it names the shutting document and is never said to load;
+/// a built-in kind's gate, open or shut, also names that it is judged at the
+/// instruction-files setting's documented default.
 #[must_use]
 pub fn locus_loader_claim(gate: Option<&crate::kind::AbsenceGateState>, custom: bool) -> String {
     use crate::kind::AbsenceGateState;
     match (gate, custom) {
-        (Some(AbsenceGateState::Shut(closure)), _) => format!(", and {}", closure.reason()),
+        (Some(AbsenceGateState::Shut(closure)), false) => {
+            format!(", and {}", closure.builtin_reason())
+        }
+        (Some(AbsenceGateState::Shut(closure)), true) => format!(", and {}", closure.reason()),
         (Some(AbsenceGateState::Open(scope)), false) => format!(
-            ", yet its {} gate is open, so Claude Code loads it",
-            scope.label()
+            ", yet its {} gate is open, so Claude Code loads it — the gate {}",
+            scope.label(),
+            crate::kind::DEFAULT_INSTRUCTION_FILES_ASSUMPTION
         ),
         (Some(AbsenceGateState::Open(scope)), true) => {
             format!(", and its {} gate is open", scope.label())

@@ -553,6 +553,60 @@ fn an_undeclared_claude_md_says_claude_code_loads_it() {
         claude.contains("yet Claude Code loads it") && !claude.contains("gate"),
         "an ungated memory document is said to load, got: {claude}"
     );
+    assert!(
+        !claude.contains(DEFAULT_ASSUMPTION),
+        "an ungated memory document names no instruction-files assumption, got: {claude}"
+    );
+}
+
+/// The phrase every finding about a gated `AGENTS.md` names: the gate is judged at the
+/// instruction-files setting's documented default, a setting the harness never holds.
+const DEFAULT_ASSUMPTION: &str = "judged at the instruction-files setting's documented default";
+
+#[test]
+fn an_undeclared_agents_md_under_an_open_gate_names_the_default_instruction_files_assumption() {
+    let harness = common::tmpdir("agents-md-undeclared-open-assumption");
+    represent_with_one_rule(&harness);
+    write_claude_md(&harness, 3);
+    write_memory_file(&harness, "apps/web/AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    let agents = locus_declared_for(&findings, "apps/web/AGENTS.md");
+    assert!(
+        agents.contains(DEFAULT_ASSUMPTION),
+        "an open gate names the default it is judged at, got: {agents}"
+    );
+}
+
+#[test]
+fn an_undeclared_agents_md_under_a_shut_gate_names_the_default_instruction_files_assumption() {
+    let harness = common::tmpdir("agents-md-undeclared-shut-assumption");
+    represent_with_one_rule(&harness);
+    write_claude_md(&harness, 3);
+    write_memory_file(&harness, "AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    let agents = locus_declared_for(&findings, "AGENTS.md");
+    assert!(
+        agents.contains(DEFAULT_ASSUMPTION),
+        "a shut gate names the default it is judged at, got: {agents}"
+    );
+}
+
+#[test]
+fn an_agents_md_shadowed_by_a_claude_md_draws_a_reachability_finding_naming_the_default_instruction_files_assumption()
+ {
+    let harness = common::tmpdir("agents-md-shadowed-assumption");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_claude_md(&harness, 3);
+    write_memory_file(&harness, "AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    let unreached = common::findings_for(&findings, "root.reachable");
+    assert!(
+        unreached.len() == 1 && unreached[0].contains(DEFAULT_ASSUMPTION),
+        "the shadowed AGENTS.md's reachability finding names the default, got: {findings:#?}"
+    );
 }
 
 #[test]

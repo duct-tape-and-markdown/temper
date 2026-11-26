@@ -183,22 +183,30 @@ pub(crate) fn absence_gated(
     builtin: &BTreeMap<String, compose::KindUnitsAndFeatures>,
     custom: &[(CustomKind, compose::KindUnitsAndFeatures)],
 ) -> graph::AbsenceGated {
-    shut_gates(&absence_gate_states(
-        harness_root,
+    shut_gates(
+        &absence_gate_states(harness_root, overlaid_builtin_kinds, builtin, custom),
         overlaid_builtin_kinds,
-        builtin,
-        custom,
-    ))
+    )
 }
 
-/// The shut members of a gate-state map, each with the reason the reach judge names.
+/// The shut members of a gate-state map, each with the reason the reach judge names —
+/// a built-in kind's ([`kind::AbsenceClosure::builtin_reason`]) naming the default
+/// instruction-files assumption its gate is judged at.
 pub(crate) fn shut_gates(
     states: &BTreeMap<graph::Node, kind::AbsenceGateState>,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> graph::AbsenceGated {
     states
         .iter()
         .filter_map(|(node, state)| match state {
-            kind::AbsenceGateState::Shut(closure) => Some((node.clone(), closure.reason())),
+            kind::AbsenceGateState::Shut(closure) => {
+                let reason = if overlaid_builtin_kinds.contains_key(&node.0) {
+                    closure.builtin_reason()
+                } else {
+                    closure.reason()
+                };
+                Some((node.clone(), reason))
+            }
             kind::AbsenceGateState::Open(_) => None,
         })
         .collect()

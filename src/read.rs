@@ -2822,7 +2822,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         &builtin_units_and_features,
         &custom_units_and_features,
     );
-    let gated = crate::gate::shut_gates(&gate_states);
+    let gated = crate::gate::shut_gates(&gate_states, &overlaid_builtin_kinds);
     // The built-in defs, for the corpus-wide fact per kind the classing needs: which
     // kinds seed the directive traversal. The edge set this narrates
     // widens with the traversal — a reached rule's own outbound `@import` shows — because

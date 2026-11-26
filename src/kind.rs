@@ -1523,6 +1523,28 @@ impl AbsenceClosure {
     }
 }
 
+/// The assumption every finding about a built-in kind's absence gate names, open or shut.
+/// Which instruction files load is a setting the runtime reads only from user,
+/// `--settings` and managed settings, never project or local
+/// (code.claude.com/docs/en/memory, "Choose which instruction files load", retrieved
+/// 2026-11-26), so nothing in the harness says how it is set and the gate is judged at
+/// its documented default. A custom kind's gate is its author's own declaration and
+/// names no such setting.
+pub const DEFAULT_INSTRUCTION_FILES_ASSUMPTION: &str = "judged at the instruction-files setting's documented default, since the runtime reads that setting only from user, `--settings` and managed settings, never the harness";
+
+impl AbsenceClosure {
+    /// [`reason`](AbsenceClosure::reason) for a built-in kind's gate: the same sentence,
+    /// naming that the gate is judged at the instruction-files setting's documented
+    /// default ([`DEFAULT_INSTRUCTION_FILES_ASSUMPTION`]).
+    #[must_use]
+    pub fn builtin_reason(&self) -> String {
+        format!(
+            "{} — the gate {DEFAULT_INSTRUCTION_FILES_ASSUMPTION}",
+            self.reason()
+        )
+    }
+}
+
 /// The state of a member's absence gate ([`CustomKind::absence_gate`]) — open, so the
 /// runtime loads the member through it, or shut by a document's presence.
 #[derive(Debug, Clone, PartialEq, Eq)]
