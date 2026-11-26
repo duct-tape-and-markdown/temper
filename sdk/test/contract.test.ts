@@ -14,7 +14,9 @@ import {
   count,
   degree,
   engineMatches,
+  emit,
   enumOf,
+  extend,
   extent,
   formatPlacesEdges,
   fresh,
@@ -29,6 +31,7 @@ import {
   reachedFrom,
   required,
   requireSections,
+  requirement,
   review,
   rootDefaultContract,
   script,
@@ -39,10 +42,10 @@ import {
   unique,
   when,
 } from "../src/index.js";
-import type { Predicate, Requirement } from "../src/index.js";
+import type { Predicate, Requirement, RequirementFields } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
 import type { ClauseRow, RequirementRow } from "../src/declarations.js";
-import { hook, skill, tool } from "../src/claude-code.js";
+import { hook, rule, skill, tool } from "../src/claude-code.js";
 
 test("count composes a satisfier-set-size bound as an ordinary predicate", () => {
   assert.deepEqual(count({ min: 1, max: 3 }), { key: "count", args: { min: 1, max: 3 } });
@@ -604,5 +607,74 @@ test("allowedChars carries a negated and a leading-position charset onto its row
       { chars: ":", negated: true, ranges: undefined },
       { chars: "-", negated: true, position: "leading", ranges: undefined },
     ],
+  );
+});
+
+// The requirement is a shipped kind: `requirement(…)` mints a member of it, and
+// `extend(requirement, …)` a subkind whose members are requirements too.
+
+/** A consumer's requirement subkind, carrying its own `tell` in its own vocabulary. */
+interface Decision extends RequirementFields {
+  readonly tell?: string;
+}
+
+test("a requirement subkind's members fill satisfies targets", () => {
+  const decision = extend<RequirementFields, Decision>(requirement, { name: "decision" });
+  const pinned = decision({
+    name: "pinned-toolchain",
+    prose: text`The toolchain is pinned.`,
+    tell: "a bumped compiler",
+    verifier: review("the reviewer at the diff"),
+  });
+  const holder = rule({ name: "toolchain", prose: text`Pin the toolchain.`, satisfies: ["pinned-toolchain"] });
+  const program = harness({ members: [pinned, holder] });
+
+  // The subkind's member is a requirement the harness declares, not a projected member.
+  assert.deepEqual(program.members, [holder]);
+  const declarations = compileDeclarations(program);
+  assert.deepEqual(
+    declarations.requirements.map((row) => [row.name, row.required, row.prose, row.verifier?.species]),
+    [["pinned-toolchain", true, "The toolchain is pinned.", "review"]],
+  );
+  assert.deepEqual(declarations.satisfies, [{ member: "rule:toolchain", requirement: "pinned-toolchain" }]);
+  // The fill claim resolves: emit refuses a `satisfies` naming no declared requirement.
+  assert.doesNotThrow(() => emit(program));
+  assert.throws(() => emit(harness({ members: [holder] })), /dangling join/);
+});
+
+test("harness({ require }) declares a requirement member under its key, and a literal as before", () => {
+  const program = harness({
+    members: [],
+    require: {
+      "front-door": requirement({ prose: "A skill is the front door.", kind: skill, required: false }),
+      "back-door": { prose: "  Indented prose stays verbatim.\n  Every line." },
+    },
+  });
+  assert.deepEqual(
+    compileDeclarations(program).requirements.map((row) => [row.name, row.kind, row.required, row.prose]),
+    [
+      ["back-door", undefined, true, "  Indented prose stays verbatim.\n  Every line."],
+      ["front-door", "skill", false, "A skill is the front door."],
+    ],
+  );
+});
+
+test("a requirement has one identity: a twice-declared name, a mismatched key and a non-requirement member are refused", () => {
+  const named = requirement({ name: "front-door", prose: "A skill is the front door." });
+  assert.throws(() => harness({ members: [named], require: { "front-door": { prose: "again" } } }), /declared twice/);
+  assert.throws(() => harness({ members: [], require: { "side-door": named } }), /named `front-door`/);
+  assert.throws(() => harness({ members: [requirement({ prose: "nameless" })] }), /names itself/);
+  const notOne = rule({ name: "style", prose: text`Style.` });
+  assert.throws(() => harness({ members: [], require: { style: notOne } }), /member of kind `rule`/);
+});
+
+test("a subkind of a requirement subkind is still a requirement", () => {
+  const decision = extend<RequirementFields, Decision>(requirement, { name: "decision" });
+  const ruling = extend<Decision, Decision>(decision, { name: "ruling" });
+  const program = harness({ members: [ruling({ name: "one-engine", prose: text`One engine.`, required: false })] });
+  assert.deepEqual(program.members, []);
+  assert.deepEqual(
+    compileDeclarations(program).requirements.map((row) => [row.name, row.required]),
+    [["one-engine", false]],
   );
 });

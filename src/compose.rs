@@ -127,6 +127,11 @@ pub struct Edge {
     pub provided: Vec<String>,
 }
 
+/// The shipped kind every declared requirement is a member of — embedded, hosted by the
+/// root member. A requirement member reaches the lock as its [`crate::drift::RequirementRow`]
+/// alone, whatever subkind of this kind the program minted it from.
+pub const REQUIREMENT_KIND: &str = "requirement";
+
 /// A requirement's **typed verifier** — the declared delegate that judges the
 /// behavioral remainder, resolved at admissibility and never run. Three species; a
 /// probe stays a documented pattern until a consumer types its transcript

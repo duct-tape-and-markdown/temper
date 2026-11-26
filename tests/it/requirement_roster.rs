@@ -35,7 +35,8 @@ use crate::common;
 
 use temper::compose::Verifier;
 use temper::drift::{
-    ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow, SatisfiesRow,
+    self, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, RequirementRow,
+    SatisfiesRow,
 };
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
@@ -1408,6 +1409,84 @@ fn a_requirement_row_without_a_required_column_blocks_the_gate_when_unfilled() {
     assert!(
         run.output.contains("requirement.unfilled") && run.output.contains("agents"),
         "the finding names the unfilled rule and the requirement, got:\n{}",
+        run.output
+    );
+}
+
+/// A program minting a consumer's own requirement subkind, `decision`, carrying its own
+/// `tell`, and composing one member of it in `members`. `FILLED` adds a rule whose
+/// `satisfies` names that member.
+fn decision_program(filled: bool) -> String {
+    let rule = if filled {
+        r#"rule({ name: "toolchain", prose: text`Pin the toolchain.`, satisfies: ["pinned-toolchain"] }),"#
+    } else {
+        r#"rule({ name: "toolchain", prose: text`Pin the toolchain.` }),"#
+    };
+    format!(
+        r#"
+import {{ emit, extend, harness, requirement, review, text }} from "@dtmd/temper";
+import type {{ RequirementFields }} from "@dtmd/temper";
+import {{ rule }} from "@dtmd/temper/claude-code";
+
+interface Decision extends RequirementFields {{
+  readonly tell?: string;
+}}
+const decision = extend<RequirementFields, Decision>(requirement, {{ name: "decision" }});
+
+const program = harness({{
+  members: [
+    decision({{
+      name: "pinned-toolchain",
+      prose: text`The toolchain is pinned.`,
+      tell: "a bumped compiler",
+      verifier: review("the reviewer at the diff"),
+    }}),
+    {rule}
+  ],
+}});
+
+process.stdout.write(emit(program).seam);
+"#
+    )
+}
+
+#[test]
+fn a_requirement_subkinds_members_fill_satisfies_targets() {
+    let (harness, into) =
+        common::wire_sdk_harness("requirement-subkind-filled", &decision_program(true));
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let names: Vec<(&str, bool)> = declarations
+        .requirements
+        .iter()
+        .map(|row| (row.name.as_str(), row.required))
+        .collect();
+    assert_eq!(
+        names,
+        vec![("pinned-toolchain", true)],
+        "the subkind's member is a requirement under the shipped fill default"
+    );
+
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        run.ok && !run.output.contains("requirement.unfilled"),
+        "the rule's satisfies fills the subkind member's requirement, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("requirement (1 embedded)"),
+        "the checked line counts the requirement as a member of its kind, got:\n{}",
+        run.output
+    );
+
+    let (unfilled, into) =
+        common::wire_sdk_harness("requirement-subkind-unfilled", &decision_program(false));
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+    let run = common::check_in(&unfilled, &[], None);
+    assert!(
+        !run.ok && run.output.contains("requirement.unfilled"),
+        "with no satisfier the subkind member's requirement refuses, got:\n{}",
         run.output
     );
 }

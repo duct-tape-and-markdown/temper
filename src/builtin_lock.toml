@@ -1,12 +1,12 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the nineteen built-in kinds' facts and their default contract clauses, the **root
+# the twenty built-in kinds' facts and their default contract clauses, the **root
 # member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the four
 # clause rows here naming no kind, that absence being what makes them the root's), plus
-# twenty-five assembly facts — the unconditional `mode = "warn"` (the root member's own
+# twenty-six assembly facts — the unconditional `mode = "warn"` (the root member's own
 # enforcement mode, specs/model/representation.md, "The root member", every harness carries
 # absent an authored mode), one `contract` declaredness marker per `expect`-bound kind
-# (nineteen, each naming its kind in `from`; no marker names no kind, because the program
+# (twenty, each naming its kind in `from`; no marker names no kind, because the program
 # declares no root `contract` of its own and an undeclared contract writes none), the two
 # `runs` edges into `tool` — a hook handler's and the `settings` status line's, each naming
 # the tool its command runs (decision 0104) — the two `outputStyle` edges into
@@ -35,7 +35,9 @@
 # `memoryAnthropicDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
 # *root* — temper's own kind, whose entries re-read these very clauses at a machine's
 # declared severity, so it ships wherever they do — `tool`/`toolDefaultContract`, temper's
-# other own kind, the one home of a command the harness runs, and, from that same root,
+# other own kind, the one home of a command the harness runs,
+# `requirement`/`requirementDefaultContract`, the named obligation satisfies edges target,
+# and, from that same root,
 # `rootDefaultContract`, which `harness()` composes whenever an author declares no
 # `contract` of their own, so a memberless emit carries it exactly as an adopted one
 # does. They are the identical rows an
@@ -44,7 +46,7 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's nineteen kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's twenty kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -55,8 +57,8 @@
 # `json-document` does have one, but the local class keeps emit away from the machine's own
 # overlay just the same.
 #
-# `supporting-doc`, `handler` and `tool` are the host-composed kinds here, so their rows
-# alone carry no `governs` pair.
+# `supporting-doc`, `handler`, `tool` and `requirement` are the host-composed kinds here, so
+# their rows alone carry no `governs` pair.
 # `supporting-doc` is the nested-file one: its members' paths compose from their host
 # skill's unit and `skill`'s own `templates` pattern, the only home that fact has. Its
 # default contract is one clause — the format documents no schema to gate, so the only
@@ -68,11 +70,13 @@
 # is its whole matcher group, so `hook` carries the group's event clause and nothing more.
 # `tool` is embedded too, hosted by the root member rather than a kind's `templates`: it
 # registers nothing, and its one clause is the graph fact that a tool no runner reaches is
-# a command nothing runs.
+# a command nothing runs. `requirement` is root-hosted the same way and carries no clause row:
+# its shipped fill default rides each requirement's own row (its `required` column), a clause
+# over that requirement's selection rather than over the kind's population.
 #
-# `command`, `output-style`, `installed-plugin`, `known-marketplace` and `mcp` are the five
-# kinds here contributing a kind fact and no clause row at all: each default contract is
-# empty, so nineteen kinds carry fourteen contracts' clauses. A command's and an output
+# `command`, `output-style`, `installed-plugin`, `known-marketplace`, `mcp` and `requirement`
+# are the six kinds here contributing a kind fact and no clause row at all: each default
+# contract is empty, so twenty kinds carry fourteen contracts' clauses. A command's and an output
 # style's frontmatter is wholly optional, so neither documents a requirement to gate. No
 # other format among them documents a gateable schema the member's
 # own type does not already hold — an installed plugin is one scalar under an identity key, a
@@ -221,6 +225,12 @@ governs_glob = "plugin.json"
 format = "json-document"
 unit_shape = "named-field(name)"
 guidance = "leave `version` unset while iterating, so the commit SHA drives updates and users are not stranded on a stale pin; set it once the plugin has a release cycle, and bump it every time — pushing commits without bumping is a no-op. Reach for `defaultEnabled: false` when the plugin costs money or scope on load."
+
+[[declaration.kind]]
+name = "requirement"
+unit_shape = "file"
+shape = "fields"
+leaves = ["kind", "required", "clauses", "verifier"]
 
 [[declaration.kind]]
 name = "rule"
@@ -1398,6 +1408,10 @@ from = "output-style"
 [[declaration.assembly]]
 fact = "contract"
 from = "plugin-manifest"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "requirement"
 
 [[declaration.assembly]]
 fact = "contract"

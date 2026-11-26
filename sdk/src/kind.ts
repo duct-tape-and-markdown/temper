@@ -13,7 +13,7 @@
 import type { Prose, Text } from "./prose.js";
 import { memberProse } from "./prose.js";
 import type { Capability } from "./needs.js";
-import type { Requirement } from "./contract.js";
+import type { RequirementValue } from "./contract.js";
 import { isOneSegment } from "./member-address.js";
 
 /** The brand {@link Remedy} keys on — unexported, so no value outside this module can carry it. */
@@ -535,7 +535,7 @@ export interface Member {
   /** String keys naming the requirements this member fills. */
   readonly satisfies: readonly string[];
   /** Requirements the member itself publishes, by name. */
-  readonly requires: Readonly<Record<string, Requirement>>;
+  readonly requires: Readonly<Record<string, RequirementValue>>;
   /** The capabilities the member's behavior uses — the permission union's source. */
   readonly needs: readonly Capability[];
   /** The files this member's claims rest on — fingerprinted, never moved. */
@@ -599,7 +599,7 @@ export type MemberInit<T> = {
   readonly host?: Member;
   readonly prose?: Prose;
   readonly satisfies?: readonly string[];
-  readonly requires?: Readonly<Record<string, Requirement>>;
+  readonly requires?: Readonly<Record<string, RequirementValue>>;
   readonly needs?: readonly Capability[];
   /**
    * The files this member's claims rest on ({@link input}) — fingerprinted by the lock,
@@ -1305,7 +1305,29 @@ export function extend<B extends object, T extends B>(
   // never a leaf, so the set the base's own constructor already bound still names what a
   // member carries. `T` here is the widened surface (the base's fields plus the added
   // edges), so re-binding the witness to `keyof T` would demand the edge fields be leaves.
-  return defineKind<T>(facts as KindFacts<T>, { render: base.render, ...(body === undefined ? {} : { body }) });
+  const extended = defineKind<T>(facts as KindFacts<T>, { render: base.render, ...(body === undefined ? {} : { body }) });
+  if (subkind) BASES.set(extended.facts, base.facts);
+  return extended;
+}
+
+/**
+ * Each subkind's base facts, keyed by the subkind's own facts value. A kind's `base` fact
+ * carries its base's *name*, which is all the lock needs; the SDK reads a lineage by
+ * identity, so a subkind of a subkind still answers {@link extendsKind} for the root of
+ * its chain.
+ */
+const BASES = new WeakMap<KindFacts, KindFacts>();
+
+/**
+ * Whether `facts` is `ancestor`'s own facts or a subkind's anywhere down its
+ * {@link extend} chain. Identity travels by import: a same-named kind defined apart is
+ * no descendant.
+ */
+export function extendsKind(facts: KindFacts, ancestor: KindFacts): boolean {
+  for (let at: KindFacts | undefined = facts; at !== undefined; at = BASES.get(at)) {
+    if (at === ancestor) return true;
+  }
+  return false;
 }
 
 /**

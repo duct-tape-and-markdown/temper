@@ -352,14 +352,14 @@ fn the_cli_bundle_verb_composes_the_plugin() {
 /// the std-lib the stranger gate embeds, and nothing a particular harness adds.
 fn reference_program() -> String {
     let base = crate::builtin_lock_frozen::MEMBERLESS_BUILTIN_PROGRAM;
-    let root_import = "import { dial, dialDefaultContract, emit, harness } from \"@dtmd/temper\";";
+    let root_import = "import { dial, dialDefaultContract, emit, harness, requirement, requirementDefaultContract } from \"@dtmd/temper\";";
     assert!(
         base.contains(root_import) && base.contains("members: [],"),
         "the memberless built-in program still spells its root import and empty members"
     );
     base.replacen(
         root_import,
-        "import { dial, dialDefaultContract, emit, harness, reference } from \"@dtmd/temper\";",
+        "import { dial, dialDefaultContract, emit, harness, reference, requirement, requirementDefaultContract } from \"@dtmd/temper\";",
         1,
     )
     .replacen("members: [],", "members: [reference()],", 1)

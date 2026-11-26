@@ -9,7 +9,8 @@
 
 import type { Input, Member, KindDefinition } from "./kind.js";
 import { clause, engineMatches, fresh, locusDeclared, reachable } from "./contract.js";
-import type { Clause, Requirement } from "./contract.js";
+import type { Clause, Requirement, RequirementValue } from "./contract.js";
+import { isRequirement, requirementOf } from "./builtins.js";
 
 /**
  * One `expect` binding — universal: every member of `kind` owes these clauses.
@@ -67,7 +68,11 @@ export interface Harness {
   readonly expect: readonly ExpectBinding[];
   /** The embedded kinds each host kind's composed body admits, keyed by kind value. */
   readonly admit: readonly Admission[];
-  /** Existential obligations the harness must contain a fill for, keyed by name. */
+  /**
+   * Existential obligations the harness must contain a fill for, keyed by name — every
+   * requirement the assembly declares, whether through `require` or as a requirement
+   * member composed in `members` (which {@link harness} draws out of the roster).
+   */
   readonly require: Readonly<Record<string, Requirement>>;
   /** The residual harness-level settings with no member home (a shrinking list). */
   readonly settings: Readonly<Record<string, unknown>>;
@@ -120,18 +125,19 @@ export function harness(init: {
   members: readonly Member[];
   expect?: readonly ExpectBinding[];
   admit?: readonly Admission[];
-  require?: Readonly<Record<string, Requirement>>;
+  require?: Readonly<Record<string, RequirementValue>>;
   settings?: Readonly<Record<string, unknown>>;
   mode?: EnforcementMode;
   contract?: readonly Clause[];
   typecheck?: Typecheck;
 }): Harness {
+  const { members, require } = assemblyRequirements(init.members, init.require ?? {});
   return {
-    members: init.members,
+    members,
     ...(init.typecheck === undefined ? {} : { typecheck: init.typecheck }),
     expect: init.expect ?? [],
     admit: init.admit ?? [],
-    require: init.require ?? {},
+    require,
     settings: init.settings ?? {},
     mode: init.mode ?? "warn",
     // The one place "a shipped root default applies when the author declares none" is
@@ -144,6 +150,41 @@ export function harness(init: {
     // rather than re-derived from a row count downstream (decision 0072).
     contractDeclared: init.contract !== undefined,
   };
+}
+
+/**
+ * The assembly's requirements, one namespace: each `require` entry under its key, then
+ * each requirement member the roster composes (a `requirement(…)` member, or a member of
+ * a kind extending it) under its own name — drawn out of the roster, since a requirement
+ * is what satisfies edges target, not a member the projection or the member rows carry.
+ *
+ * # Throws
+ * If a name is declared twice, or a roster requirement member states no name.
+ */
+function assemblyRequirements(
+  roster: readonly Member[],
+  declared: Readonly<Record<string, RequirementValue>>,
+): { readonly members: readonly Member[]; readonly require: Readonly<Record<string, Requirement>> } {
+  const require: Record<string, Requirement> = {};
+  for (const [name, value] of Object.entries(declared)) require[name] = requirementOf(name, value);
+  const members: Member[] = [];
+  for (const member of roster) {
+    if (!isRequirement(member)) {
+      members.push(member);
+      continue;
+    }
+    if (member.name === "") {
+      throw new Error(
+        "harness: a requirement member in `members` names itself — pass `requirement({ name, … })`, " +
+          "or declare it under its name in `require`.",
+      );
+    }
+    if (Object.hasOwn(require, member.name)) {
+      throw new Error(`harness: requirement \`${member.name}\` is declared twice — a requirement has one identity.`);
+    }
+    require[member.name] = requirementOf(member.name, member);
+  }
+  return { members, require };
 }
 
 /**

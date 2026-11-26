@@ -42,7 +42,7 @@ use crate::module_closure::without_module_rows;
 /// own, and `hookDefaultContract` spreads them, so the byte-compare below covers the new
 /// kind row, those six rows under it, and `hook`'s new `templates` column.
 pub(crate) const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
-import { dial, dialDefaultContract, emit, harness } from "@dtmd/temper";
+import { dial, dialDefaultContract, emit, harness, requirement, requirementDefaultContract } from "@dtmd/temper";
 import {
   agent,
   agentDefaultContract,
@@ -104,6 +104,7 @@ const program = harness({
     { kind: skill, clauses: skillDefaultContract },
     { kind: supportingDoc, clauses: supportingDocDefaultContract },
     { kind: tool, clauses: toolDefaultContract },
+    { kind: requirement, clauses: requirementDefaultContract },
   ],
 });
 
@@ -283,8 +284,8 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
 
     assert_eq!(
         declarations.kinds.len(),
-        19,
-        "the derived lock carries all 19 built-in kind facts"
+        20,
+        "the derived lock carries all 20 built-in kind facts"
     );
 
     for kind_row in &declarations.kinds {

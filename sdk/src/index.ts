@@ -23,7 +23,7 @@ export type { Capability } from "./needs.js";
 export { bash, capability, permissionUnion } from "./needs.js";
 
 // Contracts — clauses, predicates, requirements.
-export type { Charset, Clause, ExtentUnit, Predicate, Requirement, Severity, TelemetryInit, Verifier } from "./contract.js";
+export type { Charset, Clause, ExtentUnit, Predicate, Requirement, RequirementValue, Severity, TelemetryInit, Verifier } from "./contract.js";
 export {
   allowedChars,
   clause,
@@ -51,7 +51,6 @@ export {
   reachedFrom,
   required,
   requireSections,
-  requirement,
   review,
   script,
   sectionContains,
@@ -131,10 +130,11 @@ export type { ReferenceInit } from "./reference.js";
 export { reference } from "./reference.js";
 
 // temper's own shipped kinds, the kind values the root exports: the dial declares how
-// this machine reads temper's gate, and a tool is the one home of a command the harness
-// runs — facts about temper, not about any provider's harness. A provider's kinds stay
+// this machine reads temper's gate, a tool is the one home of a command the harness
+// runs, and a requirement is a named obligation satisfies edges target — facts about
+// temper, not about any provider's harness. A provider's kinds stay
 // behind their own subpath.
 export type { Dial, DialEntry } from "./dial.js";
 export { dial, dialDefaultContract } from "./dial.js";
-export type { Tool, ToolFields, ToolInit } from "./builtins.js";
-export { tool, toolDefaultContract } from "./builtins.js";
+export type { RequirementFields, RequirementInit, Tool, ToolFields, ToolInit } from "./builtins.js";
+export { requirement, requirementDefaultContract, tool, toolDefaultContract } from "./builtins.js";

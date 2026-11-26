@@ -892,6 +892,15 @@ pub fn gate(
     for member in &composed_embedded {
         *nested_member_counts.entry(member.kind.clone()).or_default() += 1;
     }
+    // A declared requirement is a member of the root-hosted `requirement` kind, and its
+    // lock row is its whole representation — judged by its fill default and its clauses —
+    // so the line counts the rows, never disclosing `requirement (0)` over a harness that
+    // declares some.
+    if !committed.requirements.is_empty() {
+        *nested_member_counts
+            .entry(compose::REQUIREMENT_KIND.to_string())
+            .or_default() += committed.requirements.len();
+    }
     // A file is claimed by whatever reaches it from the roster: a memory import's target
     // by its importer, and a declared input — a `{ file }` tool's script among them — by
     // the member declaring it, since that is how a committed file temper does not write

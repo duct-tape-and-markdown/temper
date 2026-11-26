@@ -549,6 +549,7 @@ mod tests {
                 "memory",
                 "output-style",
                 "plugin-manifest",
+                "requirement",
                 "rule",
                 "settings",
                 "settings-local",

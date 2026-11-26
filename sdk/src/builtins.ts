@@ -11,10 +11,11 @@
  */
 
 import { TAP_EVENT_HOOKS } from "./generated/index.js";
-import { kind } from "./kind.js";
+import { extendsKind, kind } from "./kind.js";
 import type { EdgeField, KindDefinition, Member, MemberInit, Remedy, Residue } from "./kind.js";
 import { isNameQualifier } from "./member-address.js";
-import type { Prose } from "./prose.js";
+import type { Prose, Text } from "./prose.js";
+import { renderText } from "./prose.js";
 import {
   allowedChars,
   clause,
@@ -36,7 +37,7 @@ import {
   uniqueName,
   when,
 } from "./contract.js";
-import type { Clause } from "./contract.js";
+import type { Clause, Requirement, RequirementValue, Verifier } from "./contract.js";
 
 /** A Claude Code skill — a directory whose entry file is `SKILL.md` with YAML frontmatter. */
 export interface Skill {
@@ -662,8 +663,126 @@ function toolMember(init: ToolInit = TEMPER_TOOL): Member {
   return toolKind({ ...tool, name: name ?? toolName(tool) });
 }
 
+/**
+ * A requirement's template beyond its identity and its prose — the slots every member of
+ * the `requirement` kind, and of each subkind of it, carries as fields
+ * (specs/model/contract.md, "requirement — a shipped kind, not a primitive"). The
+ * identity is the member's `name`, the one satisfies edges target; the prose is the
+ * member's own `prose`, a `text` span carried verbatim and never interpreted.
+ */
+export interface RequirementFields {
+  /** What may fill it — a kind's name or its value; absent, any kind's member may. */
+  readonly kind?: string | KindDefinition<any>;
+  /** Whether it must be filled; absent inherits the shipped fill default (at least one satisfier, at error). */
+  readonly required?: boolean;
+  /** Clauses over its opt-in selection — the members whose `satisfies` names it. */
+  readonly clauses?: readonly Clause[];
+  /** The typed delegate judging its behavioral remainder; absent, it is unheld. */
+  readonly verifier?: Verifier;
+}
+
+/** What `requirement(…)` takes: a {@link Requirement} literal, plus the member's `name` where no map key supplies it. */
+export type RequirementInit = Requirement & { readonly name?: string };
+
+/**
+ * `requirement` at the embedded locus, hosted by the root member: it owns no file and
+ * projects nothing. A member of it, or of a subkind `extend(requirement, …)` mints, is a
+ * requirement the harness declares.
+ */
+const requirementKind: KindDefinition<RequirementFields> = kind<RequirementFields>({
+  name: "requirement",
+  locus: { kind: "embedded" },
+  unitShape: "file",
+  shape: "fields",
+  leaves: { kind: true, required: true, clauses: true, verifier: true },
+});
+
+/**
+ * Build a requirement member from a literal. The string prose becomes the member's
+ * `text` span byte for byte — no dedent, since the lock carries a requirement's prose
+ * exactly as authored. Absent a `name`, the requirement map's key supplies one.
+ *
+ * # Throws
+ * If `prose` is not a string, or carries a marker the prose constructors reserve.
+ */
+function requirementMember(init: RequirementInit): Member {
+  const { name, prose, ...fields } = init;
+  if (typeof prose !== "string") {
+    throw new Error(`requirement${name === undefined ? "" : ` \`${name}\``}: \`prose\` is the authored intent, a string.`);
+  }
+  if (prose.includes("\u0000") || prose.includes("\u0001")) {
+    throw new Error(
+      `requirement${name === undefined ? "" : ` \`${name}\``}: \`prose\` carries U+0000 or U+0001, ` +
+        `the markers temper's prose constructors reserve for mentions and includes.`,
+    );
+  }
+  const words: Text = { kind: "text", template: prose, mentions: [], includes: [] };
+  return requirementKind({ ...fields, name: name ?? "", prose: words });
+}
+
+/**
+ * The authored `requirement` constructor — {@link requirementKind}'s facts over
+ * {@link requirementMember}. As a kind value it is what `extend(requirement, { name, … })`
+ * takes, minting a subkind whose members are requirements too.
+ */
+export const requirement: KindDefinition<RequirementFields, RequirementInit> & ((init: RequirementInit) => Member) =
+  Object.assign(requirementMember, {
+    facts: requirementKind.facts,
+    key: requirementKind.key,
+  });
+
+/**
+ * The default contract for `requirement` — empty. The shipped fill default ("this must
+ * be filled": at least one satisfier, at error) is a clause over each requirement's own
+ * selection, so it rides each requirement's row, overridden by `required: false`; no
+ * clause binds over the kind's whole population.
+ */
+export const requirementDefaultContract: readonly Clause[] = [];
+
+/** Whether a member is a requirement: of the `requirement` kind, or a subkind anywhere down its chain. */
+export function isRequirement(member: Member): boolean {
+  return extendsKind(member.facts, requirementKind.facts);
+}
+
+/**
+ * The requirement a map entry declares under `name`, as the declaration rows read it. A
+ * literal is itself; a requirement member yields its template, its prose rendered from
+ * its `text` span.
+ *
+ * # Throws
+ * If the value is a member of no requirement kind, a member named other than `name`, or a
+ * member whose prose is absent or not a `text` span.
+ */
+export function requirementOf(name: string, value: RequirementValue): Requirement {
+  if (!("facts" in value)) return value;
+  const at = `requirement \`${name}\``;
+  if (!isRequirement(value)) {
+    throw new Error(
+      `${at}: a requirement map holds requirements, and \`${value.name}\` is a member of kind ` +
+        `\`${value.kind}\` — pass \`requirement(…)\` or a member of a kind extending it.`,
+    );
+  }
+  if (value.name !== "" && value.name !== name) {
+    throw new Error(`${at}: the member is named \`${value.name}\`, and a requirement has one identity — name it once.`);
+  }
+  if (value.prose?.kind !== "text") {
+    throw new Error(
+      `${at}: a requirement's prose is the authored intent, a \`text\` span — ` +
+        `${value.prose === undefined ? "it states none" : `got a \`${value.prose.kind}\` body`}.`,
+    );
+  }
+  const field = (key: keyof RequirementFields): unknown => value.fields.find(([held]) => held === key)?.[1];
+  return {
+    prose: renderText(value.prose),
+    kind: field("kind") as RequirementFields["kind"],
+    required: field("required") as boolean | undefined,
+    clauses: field("clauses") as readonly Clause[] | undefined,
+    verifier: field("verifier") as Verifier | undefined,
+  };
+}
+
 /** The embedded kinds the root member hosts: a roster member of one is the root's child. */
-export const ROOT_HOSTED_KINDS: ReadonlySet<string> = new Set([toolKind.key]);
+export const ROOT_HOSTED_KINDS: ReadonlySet<string> = new Set([toolKind.key, requirementKind.key]);
 
 /** The authored `tool` constructor — {@link toolKind}'s facts over {@link toolMember}. */
 export const tool: KindDefinition<ToolFields, ToolInit> & ((init?: ToolInit) => Member) = Object.assign(toolMember, {

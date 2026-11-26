@@ -32,6 +32,7 @@ import {
   gateHookTool,
   hook,
   hookCollectionKey,
+  requirementOf,
   rule,
   settings,
   tapHookRegistration,
@@ -743,8 +744,7 @@ export interface ContractedRequirement {
  * sorted, satisfiers in address order.
  */
 export function contractedRequirements(harness: Harness): ContractedRequirement[] {
-  const entries: Array<[string, Requirement]> = Object.entries(harness.require);
-  for (const member of harness.members) entries.push(...Object.entries(member.requires));
+  const entries = requirementEntries(harness);
   const satisfiers = new Map<string, Array<{ kind: string; address: string }>>();
   for (const member of harness.members) {
     for (const name of member.satisfies) {
@@ -899,21 +899,26 @@ export function withGuidanceRules(harness: Harness): Harness {
 }
 
 /**
+ * Every declared requirement as a `[name, requirement]` entry — the assembly's (its
+ * `require` map and the requirement members its roster composed, which `harness()` already
+ * resolved), then each member's published `requires`, a requirement member among them read
+ * through {@link requirementOf}. The one source every requirement reader walks.
+ */
+function requirementEntries(harness: Harness): Array<[string, Requirement]> {
+  const entries: Array<[string, Requirement]> = Object.entries(harness.require);
+  for (const member of harness.members) {
+    for (const [name, value] of Object.entries(member.requires)) entries.push([name, requirementOf(name, value)]);
+  }
+  return entries;
+}
+
+/**
  * The requirement rows — assembly `require` and every member's `requires`, one namespace.
  * An unset `required` lowers the corpus's shipped default — "this must be filled": at
  * least one satisfier, at error — so only an explicit `required: false` is advisory.
  */
 function requirementRows(harness: Harness): RequirementRow[] {
-  const entries: Array<[string, Requirement]> = [];
-  for (const [name, requirement] of Object.entries(harness.require)) {
-    entries.push([name, requirement]);
-  }
-  for (const member of harness.members) {
-    for (const [name, requirement] of Object.entries(member.requires)) {
-      entries.push([name, requirement]);
-    }
-  }
-  const merged = uniqueMap(entries);
+  const merged = uniqueMap(requirementEntries(harness));
   return [...merged.entries()]
     .sort(([a], [b]) => compareStrings(a, b))
     .map(([name, requirement]) => ({
@@ -1517,10 +1522,7 @@ function tapHookRows(harness: Harness): RegistrationRow[] {
       }
     }
   };
-  for (const [named, requirement] of Object.entries(harness.require)) collect(named, requirement);
-  for (const member of harness.members) {
-    for (const [named, requirement] of Object.entries(member.requires)) collect(named, requirement);
-  }
+  for (const [named, requirement] of requirementEntries(harness)) collect(named, requirement);
   return [...deduped.values()]
     .sort((a, b) => compareStrings(a.event, b.event) || compareStrings(a.matcher, b.matcher))
     .map(({ event, matcher, declarations }): RegistrationRow => {

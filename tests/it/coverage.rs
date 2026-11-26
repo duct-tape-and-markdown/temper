@@ -15,11 +15,13 @@
 //!   folding into the other (⇒ non-zero, both rules named);
 //! - a duplicated `satisfies` entry emits exactly ONE dangling finding — the loop dedups
 //!   per artifact (⇒ non-zero, one finding);
-//! - a non-`required` requirement left unfilled does not block (⇒ zero).
+//! - a non-`required` requirement left unfilled does not block (⇒ zero);
+//! - a `harness({ require })` requirement, now a member of the shipped `requirement`
+//!   kind, still lowers under the fill default, so left unfilled it refuses (⇒ non-zero).
 
 use std::fs;
 
-use temper::drift::{Declarations, KindFactRow, TemplateRow};
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, TemplateRow};
 
 use crate::common;
 
@@ -494,6 +496,50 @@ fn a_kind_row_relocating_a_built_ins_governs_fires_no_governs_collision_diagnost
     assert!(
         !run.output.contains("kind.governs-collision"),
         "a governs relocation must never fire the collision rule, got:\n{}",
+        run.output
+    );
+}
+
+/// A program declaring two requirements through `harness({ require })` — a
+/// `requirement(…)` member and a bare literal — and composing nothing that fills either.
+const REQUIRE_MAP_PROGRAM: &str = r#"
+import { emit, harness, requirement } from "@dtmd/temper";
+
+const program = harness({
+  members: [],
+  require: {
+    "front-door": requirement({ prose: "A skill is the front door." }),
+    "side-door": { prose: "An advisory side door.", required: false },
+  },
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_harness_require_requirement_keeps_the_fill_default_and_refuses_unfilled() {
+    let (harness, into) = common::wire_sdk_harness("require-map-unfilled", REQUIRE_MAP_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let rows: Vec<(&str, bool)> = declarations
+        .requirements
+        .iter()
+        .map(|row| (row.name.as_str(), row.required))
+        .collect();
+    assert_eq!(rows, vec![("front-door", true), ("side-door", false)]);
+
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        !run.ok,
+        "the unfilled required requirement blocks ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output
+            .contains("required requirement `front-door` is unfilled")
+            && !run.output.contains("required requirement `side-door`"),
+        "the default-required requirement fires unfilled and the advisory one does not, got:\n{}",
         run.output
     );
 }

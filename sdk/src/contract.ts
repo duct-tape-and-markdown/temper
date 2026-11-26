@@ -538,7 +538,9 @@ export interface Requirement {
   readonly verifier?: Verifier;
 }
 
-/** An identity helper — types a requirement literal at the keystroke. */
-export function requirement(init: Requirement): Requirement {
-  return init;
-}
+/**
+ * What a requirement map (`harness({ require })`, a member's `requires`) holds under each
+ * name: a {@link Requirement} literal, or a member of the shipped `requirement` kind or a
+ * subkind of it (`requirement(…)`, `builtins.ts`), whose identity the map's key supplies.
+ */
+export type RequirementValue = Requirement | Member;
