@@ -407,14 +407,45 @@ fn the_bundled_reference_byte_equals_the_sdks_memberless_emit() {
         );
     }
 
-    // And the plugin writes that embedded tree under skills/temper/, byte for byte.
+    // And the plugin writes that embedded tree under skills/temper/, note-stripped only.
     let out = common::tmpdir("bundled-reference-out");
     bundle::run(&common::tmpdir("bundled-reference-surface"), &out).unwrap();
     for (name, bytes) in &embedded {
         assert_eq!(
-            &fs::read_to_string(out.join("skills/temper").join(name)).unwrap(),
-            bytes,
-            "bundle writes skills/temper/{name} verbatim"
+            fs::read_to_string(out.join("skills/temper").join(name)).unwrap(),
+            bundle::strip_managed_note(bytes),
+            "bundle writes skills/temper/{name} as the embedded bytes less the managed note"
         );
     }
+}
+
+#[test]
+fn the_bundled_plugin_skill_carries_no_managed_projection_note() {
+    // The note's remedy — edit the owning .temper/ source and re-run emit — cannot work in
+    // an installed plugin, so no file the plugin's skill directory carries states it.
+    let out = common::tmpdir("no-note-out");
+    bundle::run(&common::tmpdir("no-note-surface"), &out).unwrap();
+    let skill_dir = out.join("skills/temper");
+    let mut seen = 0;
+    for entry in fs::read_dir(&skill_dir).unwrap() {
+        let path = entry.unwrap().path();
+        let text = fs::read_to_string(&path).unwrap();
+        assert!(
+            !text.contains(temper::placement::NOTE_MARKER)
+                && !text.contains(temper::placement::BANNER_MARKER),
+            "{} still carries the managed-projection note:\n{text}",
+            path.display()
+        );
+        seen += 1;
+    }
+    assert_eq!(seen, bundle::BUNDLED_REFERENCE.len());
+
+    // Only the note goes: the skill keeps its frontmatter, a topic keeps its body head.
+    let skill = fs::read_to_string(skill_dir.join("SKILL.md")).unwrap();
+    assert!(
+        skill.starts_with("---\nname: \"temper\"\n"),
+        "got:\n{skill}"
+    );
+    let topic = fs::read_to_string(skill_dir.join("kind-agent.md")).unwrap();
+    assert!(topic.starts_with("# The `agent` kind\n"), "got:\n{topic}");
 }

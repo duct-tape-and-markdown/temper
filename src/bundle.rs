@@ -20,8 +20,9 @@
 //!
 //! The plugin is a **vendored, generated surface** — itself an instance of what
 //! `temper` projects, so it is **byte-faithful where it carries prose**:
-//! the skill and its topics are copied verbatim from the embedded SDK emit
-//! ([`BUNDLED_REFERENCE`]), never re-rendered. `plugin.json` and `marketplace.json` are members of
+//! the skill and its topics are copied from the embedded SDK emit
+//! ([`BUNDLED_REFERENCE`]), never re-rendered — only emit's managed-projection note is
+//! dropped, since its edit-the-source remedy is false in an installed plugin. `plugin.json` and `marketplace.json` are members of
 //! the `plugin-manifest` and `marketplace` kinds, rendered by the one write dispatch their
 //! declared format names ([`crate::drift::project_bytes`]) — so what `bundle` publishes is
 //! what `temper check` reads back off the same kinds, and no encoder is chosen here.
@@ -216,7 +217,7 @@ pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     // `/`-spelled like every other recorded path, never joined with the host separator.
     for (name, contents) in BUNDLED_REFERENCE {
         let relative = PathBuf::from(format!("skills/{PLUGIN_NAME}/{name}"));
-        write_text(out, &relative, contents, &mut files)?;
+        write_text(out, &relative, &strip_managed_note(contents), &mut files)?;
     }
 
     // The `SessionStart` hook, in its own `hooks.json`.
@@ -234,6 +235,22 @@ pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
         skill_name: PLUGIN_NAME,
         hook_events: vec!["SessionStart"],
     })
+}
+
+/// Drops emit's managed-projection note — the frontmatter `#` note or the leading
+/// banner — from one bundled reference file. The note tells its reader to edit a
+/// `.temper/` source and re-run emit, which an installed plugin's reader has neither of,
+/// so the plugin ships the reference's content without it. Every other byte is kept.
+pub fn strip_managed_note(contents: &str) -> String {
+    use crate::placement::{BANNER, NOTE_COMMENT};
+    let note_open = format!("---\n{NOTE_COMMENT}\n");
+    if let Some(rest) = contents.strip_prefix(&note_open) {
+        return format!("---\n{rest}");
+    }
+    if contents.starts_with(BANNER) {
+        return crate::placement::strip_leading_banner(contents).to_string();
+    }
+    contents.to_string()
 }
 
 /// The `plugin.json` manifest (`.claude-plugin/plugin.json`): the plugin's identity
