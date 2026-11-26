@@ -1,7 +1,5 @@
 <!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
 
-@AGENTS.md
-
 # temper
 
 ## Identity
@@ -82,9 +80,10 @@ routes to `.flume/inbox/`, one record per file.
 
 ## Common commands
 
-The build, test, lint and format commands are `AGENTS.md`'s (imported
-above). Beyond them:
-
+- `cargo build` — compile.
+- `cargo test` — tests (prefer `insta` snapshots for parse/lint output).
+- `cargo clippy --all-targets -- -D warnings` — the lint bar (afterMerge gate).
+- `cargo fmt --all --check` — formatting (afterCommit gate); `cargo fmt --all` to fix.
 - `pnpm --dir sdk test` — SDK gate: strict `tsc` + `node --test` (afterMerge gate;
   run it whenever a change touches `sdk/**`).
 
