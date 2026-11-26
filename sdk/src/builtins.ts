@@ -738,25 +738,38 @@ export function gateHookBinary(member: Member): string | null | undefined {
 export const TAP_BINARY_KEY = "temper:tap-binary";
 
 /**
+ * The key a tap handler carries the name of the telemetry declaration it speaks for — the
+ * engine's `TAP_DECLARATION_KEY` (`src/drift.rs`), which names it when two declarations
+ * sharing a tap resolve to different binaries, then drops it before a byte is projected.
+ */
+export const TAP_DECLARATION_KEY = "temper:tap-declaration";
+
+/**
  * The tap hook registration's `hooks.<Event>` key-path and {@link Hook} fields — the
  * provider fact {@link tapHookRows} (`declarations.ts`) fills rather than authors inline.
  * One matcher group like any authored one: the per-event `matcher`
- * {@link TELEMETRY_EVENT_HOOKS} names lifted beside a single `command` handler carrying
- * the binary the telemetry declaration states ({@link TAP_BINARY_KEY}; `null` stating
- * none) — the engine renders the tap's command from it — so a synthesized row and an
+ * {@link TELEMETRY_EVENT_HOOKS} names lifted beside one `command` handler per distinct
+ * declared binary, each carrying that binary ({@link TAP_BINARY_KEY}; `null` stating
+ * none) and the declaration stating it ({@link TAP_DECLARATION_KEY}) — the engine
+ * resolves the binaries, merges the handlers that agree into one tap, and renders its
+ * command — so a synthesized row and an
  * authored one are the same shape and the join in `declarations.ts` can merge one into
  * the other.
  */
 export function tapHookRegistration(
-  binary: string | null,
+  declarations: readonly { readonly binary: string | null; readonly named: string }[],
   matcher: string,
 ): { readonly keyPath: string; readonly fields: Array<[string, unknown]> } {
-  const handler = { type: "command", [TAP_BINARY_KEY]: binary };
+  const handlers = declarations.map(({ binary, named }) => ({
+    type: "command",
+    [TAP_BINARY_KEY]: binary,
+    [TAP_DECLARATION_KEY]: named,
+  }));
   return {
     keyPath: HOOK_KEY_PATH,
     fields: [
       [HOOK_MATCHER_KEY, matcher],
-      [HOOK_HANDLER_KEY, [handler]],
+      [HOOK_HANDLER_KEY, handlers],
     ],
   };
 }

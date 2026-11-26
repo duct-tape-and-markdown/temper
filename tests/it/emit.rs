@@ -1056,6 +1056,13 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
 /// a tap hook is one ordinary matcher group (0075). A `Skill` invocation surfaces under
 /// `PostToolUse` with the tool-name matcher.
 fn tap_hook_payload(binary: serde_json::Value) -> Payload {
+    tap_hook_payload_with(serde_json::json!([{ "type": "command", "temper:tap-binary": binary }]))
+}
+
+/// [`tap_hook_payload`] with the `PostToolUse` tap's whole handler array given — the shape
+/// the SDK sends when declarations sharing the tap spell their binaries differently: one
+/// handler per spelling, each naming its declaration under `temper:tap-declaration`.
+fn tap_hook_payload_with(handlers: serde_json::Value) -> Payload {
     Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
@@ -1067,10 +1074,7 @@ fn tap_hook_payload(binary: serde_json::Value) -> Payload {
                 key_path: "hooks.<Event>".to_string(),
                 fields: vec![
                     ("matcher".to_string(), serde_json::json!("Skill")),
-                    (
-                        "hooks".to_string(),
-                        serde_json::json!([{ "type": "command", "temper:tap-binary": binary }]),
-                    ),
+                    ("hooks".to_string(), handlers),
                 ],
                 emit_hash: None,
             }],
@@ -1160,6 +1164,59 @@ fn a_tap_hook_runs_its_declared_binary() {
     assert_eq!(
         projected_tap_command(&harness),
         "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./.temper/node_modules/.bin/temper tap ."
+    );
+}
+
+#[test]
+fn tap_rows_sharing_a_tap_emit_one_tap_when_one_declares_no_binary_and_the_other_declares_temper() {
+    // An undeclared binary is the engine's default, so the two spellings resolve alike and
+    // are one tap — one handler, its command rendered once.
+    let (harness, into) = workspace("tap-hook-resolved-agree");
+    drift::emit(
+        &tap_hook_payload_with(serde_json::json!([
+            { "type": "command", "temper:tap-binary": "temper", "temper:tap-declaration": "a" },
+            { "type": "command", "temper:tap-binary": null, "temper:tap-declaration": "b" },
+        ])),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+
+    let manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        manifest["hooks"]["PostToolUse"],
+        serde_json::json!([
+            { "matcher": "Skill", "hooks": [ { "type": "command", "command": temper::install::tap_hook_command("temper") } ] }
+        ])
+    );
+}
+
+#[test]
+fn tap_rows_sharing_a_tap_refuse_at_emit_when_their_resolved_binaries_differ_naming_both_declarations()
+ {
+    let (harness, into) = workspace("tap-hook-resolved-disagree");
+    let err = drift::emit(
+        &tap_hook_payload_with(serde_json::json!([
+            { "type": "command", "temper:tap-binary": "./bin/temper", "temper:tap-declaration": "a" },
+            { "type": "command", "temper:tap-binary": null, "temper:tap-declaration": "b" },
+        ])),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap_err();
+    let message = err.to_string();
+    assert!(
+        message.contains("`a` and `b`")
+            && message.contains("`PostToolUse`")
+            && message.contains("`./bin/temper` and `temper`"),
+        "{message}"
+    );
+    assert!(
+        !harness.join(".claude").join("settings.json").exists(),
+        "a refused emit writes no manifest"
     );
 }
 

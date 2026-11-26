@@ -2299,7 +2299,7 @@ test("a telemetry verifier projects one tap hook per lifecycle event, deduped ac
       collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
       fields: [
         ["matcher", ".*"],
-        ["hooks", [{ type: "command", "temper:tap-binary": null }]],
+        ["hooks", [{ type: "command", "temper:tap-binary": null, "temper:tap-declaration": "rules-load" }]],
       ],
     },
     {
@@ -2308,7 +2308,7 @@ test("a telemetry verifier projects one tap hook per lifecycle event, deduped ac
       collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
       fields: [
         ["matcher", "Skill"],
-        ["hooks", [{ type: "command", "temper:tap-binary": null }]],
+        ["hooks", [{ type: "command", "temper:tap-binary": null, "temper:tap-declaration": "rules-load" }]],
       ],
     },
   ]);
@@ -2369,21 +2369,40 @@ test("a telemetry declaration's tap row carries the binary it states across the 
       Object.fromEntries(r.fields).hooks,
     ]),
     [
-      ["InstructionsLoaded", [{ type: "command", "temper:tap-binary": binary }]],
-      ["PostToolUse", [{ type: "command", "temper:tap-binary": binary }]],
+      ["InstructionsLoaded", [{ type: "command", "temper:tap-binary": binary, "temper:tap-declaration": "rules-load" }]],
+      ["PostToolUse", [{ type: "command", "temper:tap-binary": binary, "temper:tap-declaration": "rules-load" }]],
     ],
   );
 });
 
-test("two telemetry declarations sharing a tap but stating different binaries are refused, neither picked", () => {
+test("telemetry declarations sharing a tap but spelling different binaries each carry theirs, named, to the engine", () => {
+  // Whether `./bin/temper` and an undeclared binary agree is the engine's resolution, so
+  // the SDK neither refuses nor picks: one handler per distinct spelling, each named for
+  // the first declaration stating it, and the engine merges or refuses (`src/drift.rs`).
   const h = harness({
     members: [],
     require: {
       a: { prose: "a", verifier: telemetry(["SkillInvoked"], { binary: "./bin/temper" }) },
       b: { prose: "b", verifier: telemetry(["SkillInvoked"]) },
+      c: { prose: "c", verifier: telemetry(["SkillInvoked"]) },
     },
   });
-  assert.throws(() => emit(h), /share the `PostToolUse` tap .*different binaries/);
+  const seam = JSON.parse(emit(h).seam);
+  assert.deepEqual(
+    seam.declarations.registrations.map((r: { key: string; fields: [string, unknown][] }) => [
+      r.key,
+      Object.fromEntries(r.fields).hooks,
+    ]),
+    [
+      [
+        "PostToolUse",
+        [
+          { type: "command", "temper:tap-binary": "./bin/temper", "temper:tap-declaration": "a" },
+          { type: "command", "temper:tap-binary": null, "temper:tap-declaration": "b" },
+        ],
+      ],
+    ],
+  );
 });
 
 test("a telemetry declaration stating an empty binary is refused at construction", () => {
@@ -2454,7 +2473,7 @@ test("a tap hook joins an authored group at the same (event, matcher) as a furth
           "hooks",
           [
             { type: "command", command: "note the skill" },
-            { type: "command", "temper:tap-binary": null },
+            { type: "command", "temper:tap-binary": null, "temper:tap-declaration": "skills-fire" },
           ],
         ],
       ],
@@ -2465,7 +2484,7 @@ test("a tap hook joins an authored group at the same (event, matcher) as a furth
       collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
       fields: [
         ["matcher", ".*"],
-        ["hooks", [{ type: "command", "temper:tap-binary": null }]],
+        ["hooks", [{ type: "command", "temper:tap-binary": null, "temper:tap-declaration": "skills-fire" }]],
       ],
     },
   ]);

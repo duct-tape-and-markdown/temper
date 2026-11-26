@@ -505,11 +505,11 @@ test("tapHookRegistration composes the tap's one command handler inside its matc
   // group, so its `type`/`command` sit inside the single handler and only the `matcher`
   // lifts — the same shape an authored `hook()` builds, which is what lets the join in
   // `declarations.ts` merge one into the other.
-  const { keyPath, fields } = tapHookRegistration("./bin/temper", "Skill");
+  const { keyPath, fields } = tapHookRegistration([{ binary: "./bin/temper", named: "a" }], "Skill");
   assert.equal(keyPath, "hooks.<Event>");
   assert.deepEqual(fields, [
     ["matcher", "Skill"],
-    ["hooks", [{ type: "command", "temper:tap-binary": "./bin/temper" }]],
+    ["hooks", [{ type: "command", "temper:tap-binary": "./bin/temper", "temper:tap-declaration": "a" }]],
   ]);
 });
 

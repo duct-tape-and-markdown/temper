@@ -401,6 +401,30 @@ pub enum DriftError {
         detail: String,
     },
 
+    /// Two telemetry declarations sharing one tap resolve to different binaries — one tap
+    /// runs one binary, so neither is picked.
+    #[error(
+        "telemetry declarations `{first}` and `{second}` share the `{event}` tap but resolve to different binaries (`{first_binary}` and `{second_binary}`)"
+    )]
+    #[diagnostic(
+        code(temper::drift::tap_binary_disagreement),
+        help(
+            "state one binary on every telemetry declaration sharing a tap — one shared constant, or none on each (`temper` on the PATH)"
+        )
+    )]
+    TapBinaryDisagreement {
+        /// The lifecycle event the shared tap's registration keys under.
+        event: String,
+        /// The first declaration naming the tap.
+        first: String,
+        /// The binary the first declaration resolves to.
+        first_binary: String,
+        /// The declaration that disagrees with it.
+        second: String,
+        /// The binary the second declaration resolves to.
+        second_binary: String,
+    },
+
     /// A gate hook's declared fact cannot be rendered into the registration it names: no
     /// `hook` registration sits at its event and matcher, its event is not one temper's
     /// gate rides, or its binary is empty.
@@ -1135,11 +1159,21 @@ const GATE_BINARY_KEY: &str = "temper:gate-binary";
 /// ([`crate::install::tap_hook_command`]; `specs/model/pipeline.md`, "Telemetry").
 const TAP_BINARY_KEY: &str = "temper:tap-binary";
 
+/// The reserved key a tap handler carries the name of its telemetry declaration under —
+/// the SDK's `TAP_DECLARATION_KEY` (`sdk/src/builtins.ts`). Read only to name both sides
+/// of a binary disagreement; [`tap_rendered_handlers`] drops it before a byte is projected.
+const TAP_DECLARATION_KEY: &str = "temper:tap-declaration";
+
 /// Render every tap handler in `fields`' handler array in place: a handler carrying
 /// [`TAP_BINARY_KEY`] drops it and gains the `command` rendered from the declared binary
-/// (`null` declaring none, so [`crate::install::DEFAULT_GATE_BINARY`]). Returns whether a
-/// handler was rendered. Refuses a binary that is neither `null` nor a non-empty string —
-/// the SDK builds the fact, so it is a malformed payload, never something to skip.
+/// (`null` declaring none, so [`crate::install::DEFAULT_GATE_BINARY`]). Tap handlers whose
+/// binaries resolve alike are one tap, so every one after the first is dropped. Returns
+/// whether a handler was rendered.
+///
+/// Refuses a binary that is neither `null` nor a non-empty string — the SDK builds the
+/// fact, so it is a malformed payload, never something to skip — and two tap handlers
+/// whose binaries resolve differently, naming both declarations, since one tap runs one
+/// binary and neither is picked.
 fn tap_rendered_handlers(
     registration_key: &str,
     fields: &mut [(String, JsonValue)],
@@ -1151,10 +1185,20 @@ fn tap_rendered_handlers(
     else {
         return Ok(false);
     };
-    let mut rendered = false;
-    for handler in handlers.iter_mut().filter_map(JsonValue::as_object_mut) {
+    // The first tap handler's resolved binary and declaration; a later agreeing tap is
+    // marked for removal by its index.
+    let mut first: Option<(String, String)> = None;
+    let mut merged = Vec::new();
+    for (index, handler) in handlers.iter_mut().enumerate() {
+        let Some(handler) = handler.as_object_mut() else {
+            continue;
+        };
         let Some(declared) = handler.remove(TAP_BINARY_KEY) else {
             continue;
+        };
+        let named = match handler.remove(TAP_DECLARATION_KEY) {
+            Some(JsonValue::String(named)) => named,
+            _ => String::new(),
         };
         let binary = match &declared {
             JsonValue::Null => crate::install::DEFAULT_GATE_BINARY,
@@ -1168,13 +1212,31 @@ fn tap_rendered_handlers(
                 });
             }
         };
+        match &first {
+            Some((resolved, _)) if resolved == binary => {
+                merged.push(index);
+                continue;
+            }
+            Some((resolved, prior)) => {
+                return Err(DriftError::TapBinaryDisagreement {
+                    event: registration_key.to_string(),
+                    first: prior.clone(),
+                    first_binary: resolved.clone(),
+                    second: named,
+                    second_binary: binary.to_string(),
+                });
+            }
+            None => first = Some((binary.to_string(), named)),
+        }
         handler.insert(
             "command".to_string(),
             JsonValue::String(crate::install::tap_hook_command(binary)),
         );
-        rendered = true;
     }
-    Ok(rendered)
+    for index in merged.into_iter().rev() {
+        handlers.remove(index);
+    }
+    Ok(first.is_some())
 }
 
 /// `registration`'s fields as its manifest entry folds them, every tap handler's command

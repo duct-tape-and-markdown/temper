@@ -1332,7 +1332,7 @@ export function buildTapHookDedupeKey(event: string, matcher: string): string {
  * verifiers name an event it takes exactly one hook — the derived-aggregate precedent
  * the permission union sets ({@link permissionUnion}). Each row is one matcher group
  * under the event's documented matcher ({@link TELEMETRY_EVENT_HOOKS}) whose one handler
- * carries the binary the naming declarations state — the engine renders the tap command
+ * carries a binary the naming declarations state — the engine renders the tap command
  * from it, anchored at the project (`src/drift.rs`) — its key-path and fields sourced from the provider face
  * ({@link tapHookRegistration}, `builtins.ts`); an event-name outside that table is the
  * roster's inadmissibility finding, never a row. Synthesized in isolation here — whether a
@@ -1340,45 +1340,42 @@ export function buildTapHookDedupeKey(event: string, matcher: string): string {
  * {@link mergedRegistrationRows}'s call, so this pass need not know what the program
  * authored.
  *
- * # Throws
- * If two declarations naming one (event, matcher) state different binaries — one tap or
- * one per binary is undecided (`tap-binary-disagreement`), so neither is picked.
+ * Declarations sharing a tap but spelling their binary differently each keep a handler,
+ * named for the first declaration spelling it: whether two spellings agree is the binary
+ * as the engine resolves it (an undeclared one is the engine's default), so the engine
+ * merges or refuses them — this pass never resolves the default.
  */
 function tapHookRows(harness: Harness): RegistrationRow[] {
   const deduped = new Map<
     string,
-    { readonly event: string; readonly matcher: string; readonly binary: string | null; readonly named: string }
+    {
+      readonly event: string;
+      readonly matcher: string;
+      readonly declarations: { readonly binary: string | null; readonly named: string }[];
+    }
   >();
-  const collect = (requirement: Requirement): void => {
+  const collect = (named: string, requirement: Requirement): void => {
     if (requirement.verifier?.species !== "telemetry") return;
     const binary = requirement.verifier.binary ?? null;
     for (const name of requirement.verifier.events) {
       const mapping = TELEMETRY_EVENT_HOOKS[name];
       if (mapping === undefined) continue;
       const key = buildTapHookDedupeKey(mapping.event, mapping.matcher);
-      const prior = deduped.get(key);
-      // Two declarations whose events share one tap but state different binaries: one tap
-      // or one per binary is an open question (`tap-binary-disagreement`), so neither is
-      // picked — the disagreement is refused, naming both.
-      if (prior !== undefined && prior.binary !== binary) {
-        throw new Error(
-          `telemetry: \`${prior.named}\` and \`${name}\` share the \`${mapping.event}\` tap ` +
-            `(matcher \`${mapping.matcher}\`) but their declarations state different binaries ` +
-            `(${spellBinary(prior.binary)} and ${spellBinary(binary)}) — declare one binary on ` +
-            `every telemetry declaration, one shared constant (specs/model/pipeline.md, "Telemetry").`,
-        );
+      const tap = deduped.get(key) ?? { ...mapping, declarations: [] };
+      deduped.set(key, tap);
+      if (!tap.declarations.some((declared) => declared.binary === binary)) {
+        tap.declarations.push({ binary, named });
       }
-      if (prior === undefined) deduped.set(key, { ...mapping, binary, named: name });
     }
   };
-  for (const requirement of Object.values(harness.require)) collect(requirement);
+  for (const [named, requirement] of Object.entries(harness.require)) collect(named, requirement);
   for (const member of harness.members) {
-    for (const requirement of Object.values(member.requires)) collect(requirement);
+    for (const [named, requirement] of Object.entries(member.requires)) collect(named, requirement);
   }
   return [...deduped.values()]
     .sort((a, b) => compareStrings(a.event, b.event) || compareStrings(a.matcher, b.matcher))
-    .map(({ event, matcher, binary }): RegistrationRow => {
-      const { keyPath, fields } = tapHookRegistration(binary, matcher);
+    .map(({ event, matcher, declarations }): RegistrationRow => {
+      const { keyPath, fields } = tapHookRegistration(declarations, matcher);
       return {
         kind: hook.key,
         key: event,
@@ -1387,12 +1384,6 @@ function tapHookRows(harness: Harness): RegistrationRow[] {
         fields,
       };
     });
-}
-
-/** A telemetry declaration's binary as a refusal names it — the declared one quoted, or
- * the undeclared default. */
-function spellBinary(binary: string | null): string {
-  return binary === null ? "none declared" : `\`${binary}\``;
 }
 
 /** A hook registration row's matcher — the group-level half of its identity, an omitted
