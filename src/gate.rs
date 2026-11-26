@@ -21,15 +21,23 @@ use crate::kind::{self, CustomKind};
 use crate::member_address;
 use crate::roster;
 
+/// One kind's discovered members as [`two_greens_dispatch`] judges them: their features,
+/// and the documented field defaults the kind's format reads them at.
+#[derive(Clone, Copy)]
+struct Members<'a> {
+    features: &'a [extract::Features],
+    field_defaults: &'a engine::FieldDefaults,
+}
+
 /// Dispatch a single kind through the shared "two-greens" contract validation:
 /// admissibility (contract checks the definition) then conformance (artifacts
-/// check the contract). Returns the (possibly dial-modified) contract and the
-/// collected diagnostics.
+/// check the contract), the members read at their kind's documented field defaults.
+/// Returns the (possibly dial-modified) contract and the collected diagnostics.
 fn two_greens_dispatch(
     mut contract: Contract,
     mut inherited: Vec<contract::Clause>,
     locus: &engine::Locus,
-    features: &[extract::Features],
+    members: Members<'_>,
     dial: Option<&dial::Dial>,
     mode: compose::EnforcementMode,
     dialed: &mut BTreeSet<String>,
@@ -54,7 +62,11 @@ fn two_greens_dispatch(
     };
     whole.clauses.extend(contract.clauses.iter().cloned());
     whole.clauses = engine::split_peer_clauses(whole.clauses).0;
-    diagnostics.extend(engine::validate(&whole, features));
+    diagnostics.extend(engine::validate_as_read(
+        &whole,
+        members.features,
+        members.field_defaults,
+    ));
 
     (contract, diagnostics)
 }
@@ -324,7 +336,10 @@ pub fn gate(
             contract,
             Vec::new(),
             &engine::Locus::Document,
-            features,
+            Members {
+                features,
+                field_defaults: &kind.field_defaults,
+            },
             (!skip_dial).then_some(&dial),
             mode,
             &mut dialed,
@@ -428,7 +443,10 @@ pub fn gate(
                 &row.name,
             )?,
             &engine::Locus::Document,
-            features,
+            Members {
+                features,
+                field_defaults: &custom_kind.field_defaults,
+            },
             Some(&dial),
             mode,
             &mut dialed,
@@ -551,7 +569,12 @@ pub fn gate(
                 kind,
             )?,
             &engine::Locus::Embedded(kind.clone()),
-            features,
+            Members {
+                features,
+                field_defaults: declared_kinds
+                    .get(kind)
+                    .map_or(&engine::FieldDefaults::new(), |kind| &kind.field_defaults),
+            },
             Some(&dial),
             mode,
             &mut dialed,
@@ -664,7 +687,12 @@ pub fn gate(
     // alone, so this is the only judge they reach. Scoped to the opt-in half inside
     // `judge_members` — a kind selection carries the same clauses `validate` already
     // read.
-    diagnostics.extend(engine::judge_members(&selections));
+    let field_defaults: BTreeMap<String, engine::FieldDefaults> = declared_kinds
+        .iter()
+        .filter(|(_, kind)| !kind.field_defaults.is_empty())
+        .map(|(name, kind)| (name.clone(), kind.field_defaults.clone()))
+        .collect();
+    diagnostics.extend(engine::judge_members(&selections, &field_defaults));
 
     // The edge scope: build the reference graph over the declared edges and check route
     // resolution — a declared reference must resolve to a real artifact of the

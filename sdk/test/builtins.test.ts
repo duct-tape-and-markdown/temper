@@ -343,8 +343,10 @@ test("mcpServerDefaultContract gates the transport type and per-transport requir
   assert.deepEqual(stdioWhen.when_guard?.values, ["stdio"]);
   assert.equal(stdioWhen.when_body?.length, 1);
   assert.deepEqual(stdioWhen.when_body?.[0]?.predicate, { key: "required", field: "command" });
-  // Guidance mentions the type-absent case.
-  assert.match(stdioWhen.when_body?.[0]?.guidance ?? "", /type.*absent/);
+  // Guidance claims what fires: a `type`-less entry is judged stdio, so a url-only
+  // server draws this finding and is told to declare its remote `type`.
+  assert.match(stdioWhen.when_body?.[0]?.guidance ?? "", /no `type` is a stdio server/);
+  assert.match(stdioWhen.when_body?.[0]?.guidance ?? "", /`url` needs its remote `type`/);
 
   // Third clause: when type is a remote transport, url is required.
   assert.equal(remoteWhen.predicate.key, "when");

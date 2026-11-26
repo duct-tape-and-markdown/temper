@@ -2491,11 +2491,14 @@ const DOCUMENTED_MCP_TRANSPORTS = ["stdio", "http", "streamable-http", "sse", "w
  * cited property that holds across every transport is `type`: a value outside the
  * documented set is a transport Claude Code cannot honor, so the strictest documented
  * profile is that a present `type` names one temper's cited docs carry. An absent `type`
- * passes — Claude Code reads it as `stdio`, the documented default.
+ * passes that clause.
  *
  * The per-transport requirements gate as `when` clauses: a `stdio` server needs a
  * `command`, and a remote server (`http`, `streamable-http`, `sse`, or `ws`) needs a
- * `url`.
+ * `url`. The guards read `type` as Claude Code does — absent is `stdio`, the documented
+ * default {@link McpServer.type} cites, a built-in fact of the `mcp-server` kind's format
+ * (`src/builtin_kind.rs`) — so an entry with no `type` is judged a stdio server, and one
+ * carrying only a `url` draws the stdio `command` finding rather than passing as remote.
  */
 export const mcpServerDefaultContract: readonly Clause[] = [
   clause(enumOf("type", DOCUMENTED_MCP_TRANSPORTS), {
@@ -2508,7 +2511,7 @@ export const mcpServerDefaultContract: readonly Clause[] = [
     clause(required("command"), {
       severity: "required",
       guidance:
-        "A stdio server must specify a `command` — the executable path and arguments to run the server process. Without it, Claude Code cannot start the server. (Note: when `type` is absent, Claude Code reads it as `stdio`; a `command` is also required in that case.)",
+        "A stdio server must specify a `command` — the executable path and arguments to run the server process. Without it, Claude Code cannot start the server. An entry with no `type` is a stdio server, as Claude Code reads it, so this fires there too: a server reached at a `url` needs its remote `type` (`http`, `sse`, or `ws`) declared.",
       cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
     }),
   ], {

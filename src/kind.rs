@@ -159,6 +159,15 @@ pub struct CustomKind {
     /// convention (code.claude.com/docs/en/skills, retrieved 2026-07-16). The mechanism
     /// generalizes to any kind that declares a bare-root file, not hardwired by name.
     pub bare_root_file: Option<String>,
+    /// The **documented defaults** of this kind's top-level fields — the value the runtime
+    /// reads where a member leaves the field unauthored. Empty for every kind today except
+    /// `mcp-server`, whose `type` reads as `stdio` when absent
+    /// (code.claude.com/docs/en/mcp, retrieved 2026-07-15). A row-less built-in fact
+    /// ([`crate::builtin_kind`]), never an authoring surface, and read by exactly one
+    /// judge: a `when` guard over the field locates the default where the member is
+    /// silent ([`crate::engine::validate_as_read`]), so a guarded body binds where the
+    /// runtime would. Every other predicate still reads the authored bytes.
+    pub field_defaults: BTreeMap<String, String>,
     /// The **base** kind this one is a subkind of, by bare name — read off the row's
     /// `base` column. `None` for every other kind, a relocation included.
     pub base: Option<String>,
@@ -571,6 +580,7 @@ impl CustomKind {
             leniency: Vec::new(),
             excluded: Vec::new(),
             bare_root_file: None,
+            field_defaults: BTreeMap::new(),
             base: None,
             ceded: Vec::new(),
         }
@@ -722,6 +732,7 @@ impl CustomKind {
                 .collect::<Result<Vec<_>, _>>()?,
             excluded: excluded_from_row(row)?,
             bare_root_file: None,
+            field_defaults: BTreeMap::new(),
             base: row.base.clone(),
             ..CustomKind::with_locus(
                 row.name.clone(),

@@ -134,7 +134,7 @@ mod tests {
 
             // The three row-less groups are the only ones the population may change: the
             // relationships are exactly the lock's own edge facts from this kind, and the
-            // extraction and bare-root file are `builtin_kind`'s named exceptions. Erasing
+            // extraction, bare-root file and field defaults are `builtin_kind`'s named exceptions. Erasing
             // them leaves the bare lift, so no row-carried fact is spelled a second time.
             let name = &row.name;
             let own_edges: Vec<_> = edges.iter().filter(|e| &e.from == name).cloned().collect();
@@ -143,6 +143,7 @@ mod tests {
                 extraction: lifted.extraction.clone(),
                 relationships: Vec::new(),
                 bare_root_file: None,
+                field_defaults: std::collections::BTreeMap::new(),
                 ..built_in.clone()
             };
             assert_eq!(

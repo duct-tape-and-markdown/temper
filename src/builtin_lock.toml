@@ -698,7 +698,7 @@ label = "mcp-server.when.type=stdio.required.command"
 predicate = "required"
 field = "command"
 severity = "required"
-guidance = "A stdio server must specify a `command` — the executable path and arguments to run the server process. Without it, Claude Code cannot start the server. (Note: when `type` is absent, Claude Code reads it as `stdio`; a `command` is also required in that case.)"
+guidance = "A stdio server must specify a `command` — the executable path and arguments to run the server process. Without it, Claude Code cannot start the server. An entry with no `type` is a stdio server, as Claude Code reads it, so this fires there too: a server reached at a `url` needs its remote `type` (`http`, `sse`, or `ws`) declared."
 cite = "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)"
 
 [[declaration.clause]]

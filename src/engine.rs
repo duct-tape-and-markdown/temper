@@ -62,10 +62,29 @@ use crate::extract::{FeatureValue, Features, ValueType, json_to_feature};
 /// allowed set from another selection, `degree` counts arcs in the reference graph).
 #[must_use]
 pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> {
+    validate_as_read(contract, artifacts, &FieldDefaults::new())
+}
+
+/// The documented defaults a kind's top-level fields read as where a member leaves them
+/// unauthored, field name to value — [`crate::kind::CustomKind::field_defaults`], handed
+/// in as data so the engine still knows no kind.
+pub type FieldDefaults = BTreeMap<String, String>;
+
+/// [`validate`], reading the members as the runtime does: a `when` guard over a field the
+/// kind's format defaults locates the default where a member is silent, so a guarded body
+/// binds a member the runtime reads under that guard. Only the guard's read moves — every
+/// other predicate, and the guarded body's own element, still read the authored bytes, so
+/// a defaulted field is never one a `required`, `closed-keys` or `enum` clause sees.
+#[must_use]
+pub fn validate_as_read(
+    contract: &Contract,
+    artifacts: &[Features],
+    defaults: &FieldDefaults,
+) -> Vec<Diagnostic> {
     let peers: Vec<&Features> = artifacts.iter().collect();
     artifacts
         .iter()
-        .flat_map(|features| member_findings(contract, features, &peers))
+        .flat_map(|features| member_findings(contract, features, &peers, defaults))
         .collect()
 }
 
@@ -81,13 +100,14 @@ fn member_findings(
     contract: &Contract,
     features: &Features,
     peers: &[&Features],
+    defaults: &FieldDefaults,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for clause in &contract.clauses {
         if clause.predicate.ranges_over_selection() {
             continue;
         }
-        for violation in evaluate(contract, &clause.predicate, features, peers) {
+        for violation in evaluate(contract, &clause.predicate, features, peers, defaults) {
             // The asserting clause rides its own violation out. A `when` body clause is
             // the clause that actually failed, so its address, its declared weight and
             // its colocated teaching all win over the enclosing guard's: the reader
@@ -954,8 +974,15 @@ pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> 
 /// declares, so a requirement closing its satisfiers closes them to exactly what it
 /// declares. Findings name the member, at the clause's own address — the
 /// `requirement.<name>.…` label [`crate::roster::selections`] stamps.
+///
+/// `defaults` is each member kind's [`FieldDefaults`], keyed by the kind label a selection
+/// tags its members with, so a guard reads a satisfier as [`validate_as_read`] reads it
+/// under its own kind's contract. A kind absent from the map defaults nothing.
 #[must_use]
-pub fn judge_members(selections: &[Selection]) -> Vec<Diagnostic> {
+pub fn judge_members(
+    selections: &[Selection],
+    defaults: &BTreeMap<String, FieldDefaults>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for selection in selections {
         let clauses = match selection.selector {
@@ -973,8 +1000,10 @@ pub fn judge_members(selections: &[Selection]) -> Vec<Diagnostic> {
             .iter()
             .map(|(_, features)| *features)
             .collect();
-        for (_, features) in &selection.members {
-            diagnostics.extend(member_findings(&contract, features, &peers));
+        for (kind, features) in &selection.members {
+            let no_defaults = FieldDefaults::new();
+            let read = defaults.get(*kind).unwrap_or(&no_defaults);
+            diagnostics.extend(member_findings(&contract, features, &peers, read));
         }
     }
     diagnostics
@@ -1238,8 +1267,9 @@ fn evaluate(
     predicate: &Predicate,
     features: &Features,
     all: &[&Features],
+    defaults: &FieldDefaults,
 ) -> Vec<Violation> {
-    match decide(contract, predicate, features, all) {
+    match decide(contract, predicate, features, all, defaults) {
         Outcome::Holds => Vec::new(),
         Outcome::Violated(violations) => violations,
         // Silence, for the two cases this arm has left. No clause whose *binding* zeroes
@@ -1421,6 +1451,7 @@ fn decide(
     predicate: &Predicate,
     features: &Features,
     all: &[&Features],
+    defaults: &FieldDefaults,
 ) -> Outcome {
     match predicate {
         // A value/presence predicate is the *only* owner of its field's
@@ -1768,7 +1799,9 @@ fn decide(
 
         // `when` evaluates the guard at every element the guard's field locates.
         // Where the guard holds, evaluate every body clause at that element. Silent
-        // (no finding) where the guard doesn't hold or the field is absent.
+        // (no finding) where the guard doesn't hold or the field is absent — absent
+        // meaning absent as the runtime reads it: a top-level field the kind's format
+        // defaults locates its default, while the body's element stays the authored one.
         Predicate::When { guard, body } => {
             let target_field = guard.target();
             if target_field.is_none() {
@@ -1789,7 +1822,8 @@ fn decide(
                     };
                     let mut violations = Vec::new();
                     let root = features.root();
-                    for (address, json_value) in path.locate(&root) {
+                    let read_root = as_read(&root, defaults);
+                    for (address, json_value) in path.locate(&read_root) {
                         let feature_value = json_to_feature(json_value);
                         if !guard_admits(guard.as_ref(), &feature_value) {
                             continue;
@@ -1814,7 +1848,7 @@ fn decide(
                                 .unwrap_or(JsonValue::Null);
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
-                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all) {
+                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all, &FieldDefaults::new()) {
                                     violation.message = format!("{element_address}: {}", violation.message);
                                     violation.attribute_to(body_clause);
                                     violations.push(violation);
@@ -1825,7 +1859,7 @@ fn decide(
                             let element_json = root.clone();
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
-                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all) {
+                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all, &FieldDefaults::new()) {
                                     violation.attribute_to(body_clause);
                                     violations.push(violation);
                                 }
@@ -1841,6 +1875,21 @@ fn decide(
             }
         },
     }
+}
+
+/// The member's root as its runtime reads it: every [`FieldDefaults`] entry the member
+/// leaves unauthored filled in at the top level, an authored value always winning. A body
+/// clause never nests a `when`, so the guard's own read is the only one that needs this.
+fn as_read(root: &JsonValue, defaults: &FieldDefaults) -> JsonValue {
+    let mut read = root.clone();
+    if let JsonValue::Object(fields) = &mut read {
+        for (field, value) in defaults {
+            fields
+                .entry(field.clone())
+                .or_insert_with(|| JsonValue::String(value.clone()));
+        }
+    }
+    read
 }
 
 /// Create a Features object scoped to a single matched element, so that body clauses
@@ -2027,6 +2076,59 @@ mod tests {
             &contract(ClauseSeverity::Required, predicate),
             std::slice::from_ref(&artifact),
         )
+    }
+
+    #[test]
+    fn a_defaulted_field_moves_the_guards_read_and_nothing_else() {
+        let guarded = Contract {
+            name: "mcp-server".to_string(),
+            guidance: None,
+            clauses: vec![clause(
+                "mcp-server",
+                ClauseSeverity::Required,
+                Predicate::When {
+                    guard: Box::new(Predicate::Enum {
+                        field: "type".to_string(),
+                        values: vec!["stdio".to_string()],
+                    }),
+                    body: vec![
+                        clause(
+                            "mcp-server",
+                            ClauseSeverity::Required,
+                            Predicate::Required {
+                                field: "command".to_string(),
+                            },
+                        ),
+                        clause(
+                            "mcp-server",
+                            ClauseSeverity::Required,
+                            Predicate::Required {
+                                field: "type".to_string(),
+                            },
+                        ),
+                    ],
+                },
+            )],
+        };
+        let url_only = features("docs", &[("url", scalar("https://x"))], 1, None);
+        let stdio = FieldDefaults::from([("type".to_string(), "stdio".to_string())]);
+
+        // Read at the authored bytes, the absent guarded field is silent.
+        assert!(validate(&guarded, std::slice::from_ref(&url_only)).is_empty());
+
+        // Read as the runtime reads it, the guard binds — and the body's element is still
+        // the authored one, so its own `required("type")` sees no defaulted value.
+        let read = validate_as_read(&guarded, std::slice::from_ref(&url_only), &stdio);
+        assert_eq!(read.len(), 2, "{read:#?}");
+
+        // An authored value wins over the default.
+        let http = features(
+            "docs",
+            &[("type", scalar("http")), ("url", scalar("https://x"))],
+            1,
+            None,
+        );
+        assert!(validate_as_read(&guarded, std::slice::from_ref(&http), &stdio).is_empty());
     }
 
     #[test]
@@ -2692,13 +2794,19 @@ mod tests {
         let mut over = features("over", &[], 0, None);
         over.rendered_lines = Some(3);
         assert!(matches!(
-            decide(&carrier, &extent, &over, &[&over]),
+            decide(&carrier, &extent, &over, &[&over], &FieldDefaults::new()),
             Outcome::Violated(_)
         ));
         let mut within = features("within", &[], 0, None);
         within.rendered_lines = Some(2);
         assert!(matches!(
-            decide(&carrier, &extent, &within, &[&within]),
+            decide(
+                &carrier,
+                &extent,
+                &within,
+                &[&within],
+                &FieldDefaults::new()
+            ),
             Outcome::Holds
         ));
 
@@ -2709,7 +2817,13 @@ mod tests {
         unrendered.rendered_lines = None;
         unrendered.rendered_chars = None;
         assert!(matches!(
-            decide(&carrier, &extent, &unrendered, &[&unrendered]),
+            decide(
+                &carrier,
+                &extent,
+                &unrendered,
+                &[&unrendered],
+                &FieldDefaults::new()
+            ),
             Outcome::Indeterminate
         ));
     }
@@ -3084,6 +3198,7 @@ mod tests {
                         &predicate,
                         &demo,
                         &[&demo],
+                        &FieldDefaults::new(),
                     ),
                     Outcome::Indeterminate
                 ),
@@ -3122,7 +3237,7 @@ mod tests {
             );
             assert!(
                 !matches!(
-                    decide(&carrier, &predicate, &demo, &[&demo]),
+                    decide(&carrier, &predicate, &demo, &[&demo], &FieldDefaults::new()),
                     Outcome::Indeterminate
                 ),
                 "`{}` reached conformance undecided — it would read as a green pass",
@@ -4200,7 +4315,13 @@ mod tests {
             ));
             assert!(
                 !matches!(
-                    decide(&carrier, &predicate, &element, &[&element]),
+                    decide(
+                        &carrier,
+                        &predicate,
+                        &element,
+                        &[&element],
+                        &FieldDefaults::new()
+                    ),
                     Outcome::Indeterminate
                 ),
                 "`{key}` reached the element binding undecided — it would read as a green \

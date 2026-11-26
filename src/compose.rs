@@ -950,7 +950,7 @@ pub fn effective_kinds(
 
 /// Bind every subkind in `kinds` to its base, bases first: the subkind takes each fact its
 /// row leaves undeclared from the base — the extraction and relationships the base's lift
-/// attaches by name included — and the base cedes the subkind's locus, so a document there
+/// attaches by name included, its documented field defaults too — and the base cedes the subkind's locus, so a document there
 /// is the subkind's one member. A base's bare-root file is a locus fact like its `governs`,
 /// so a subkind, governing its own locus, never takes it.
 ///
@@ -1052,6 +1052,14 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
             bound.commitment = base.commitment;
         }
         bound.extraction = inherited_extraction(&base.extraction, &bound.extraction);
+        // The base's format reads its fields this way, and the subkind's members are read
+        // through it: a field the runtime defaults defaults the same in the subkind.
+        for (field, value) in &base.field_defaults {
+            bound
+                .field_defaults
+                .entry(field.clone())
+                .or_insert_with(|| value.clone());
+        }
         let own_fields: BTreeSet<String> = bound
             .relationships
             .iter()

@@ -3,7 +3,7 @@
 //! Each built-in [`CustomKind`] is lifted off the embedded lock's kind rows
 //! ([`crate::builtin_lock`]) — the same lift a committed lock's custom rows take — with the
 //! few facts no row carries (declared field keys, the at-import directive, `skill`'s
-//! bare-root file) layered on as named per-kind exceptions. Identity is flat: a kind's
+//! bare-root file, `mcp-server`'s documented `type` default) layered on as named per-kind exceptions. Identity is flat: a kind's
 //! bare name is its whole identity.
 //!
 //! This module is also the home for known Claude Code surfaces — the curated registry
@@ -90,11 +90,24 @@ fn declared_bare_root_file(kind: &str) -> Option<&'static str> {
     (kind == "skill").then_some("SKILL.md")
 }
 
+/// The documented defaults a built-in kind's top-level fields read as where a member leaves
+/// them unauthored, the fourth row-less fact: an `mcp-server` entry with no `type` is a
+/// stdio server (code.claude.com/docs/en/mcp, retrieved 2026-07-15 — the default
+/// `McpServer.type` cites in `sdk/src/builtins.ts`). A `when` guard reads the field at this
+/// value, so the stdio transport's `command` requirement binds a `type`-less entry exactly
+/// as Claude Code does (decision 0101).
+fn declared_field_defaults(kind: &str) -> &'static [(&'static str, &'static str)] {
+    match kind {
+        "mcp-server" => &[("type", "stdio")],
+        _ => &[],
+    }
+}
+
 /// Lift one embedded kind-fact row into its built-in [`CustomKind`]: every fact the row
 /// carries comes off [`CustomKind::from_kind_fact_row`], the relationships off the lock's
-/// own `edge` assembly facts, and the row-less extraction and bare-root facts off the
-/// named exceptions above. The markdown-structure primitives the lift composes stay only
-/// where a markdown body exists — never on a fields-only kind or a whole-file document.
+/// own `edge` assembly facts, and the row-less extraction, bare-root and field-default
+/// facts off the named exceptions above. The markdown-structure primitives the lift
+/// composes stay only where a markdown body exists — never on a fields-only kind or a whole-file document.
 /// A subkind's row names none of these exceptions: it takes the extraction and the
 /// relationships off this lifted base when its base binds (`compose::resolve_subkinds`).
 fn lift(row: &KindFactRow, edges: &[Edge]) -> CustomKind {
@@ -125,6 +138,10 @@ fn lift(row: &KindFactRow, edges: &[Edge]) -> CustomKind {
         .cloned()
         .collect();
     kind.bare_root_file = declared_bare_root_file(&kind.name).map(str::to_string);
+    kind.field_defaults = declared_field_defaults(&kind.name)
+        .iter()
+        .map(|(field, value)| ((*field).to_string(), (*value).to_string()))
+        .collect();
     kind
 }
 

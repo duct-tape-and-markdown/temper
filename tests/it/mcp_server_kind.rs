@@ -137,6 +137,70 @@ fn the_mcp_server_default_contract_passes_documented_and_absent_transports() {
     );
 }
 
+/// The stdio transport's `command` requirement, as the `when` body labels it.
+const STDIO_COMMAND: &str = "mcp-server.when.type=stdio.required.command";
+
+/// The remote transports' `url` requirement, as the `when` body labels it.
+const REMOTE_URL: &str = "mcp-server.when.type=http+sse+streamable-http+ws.required.url";
+
+#[test]
+fn a_url_only_mcp_server_with_no_type_draws_the_stdio_command_finding() {
+    let harness = common::tmpdir("mcp-url-only");
+    common::write_mcp_json(
+        &harness,
+        r#"{ "mcpServers": { "docs": { "url": "https://mcp.example.com/mcp" } } }"#,
+    );
+
+    let (findings, ok) = check_harness(&harness);
+
+    // Claude Code reads an absent `type` as `stdio` (code.claude.com/docs/en/mcp,
+    // retrieved 2026-07-15), so the entry is a stdio server with no `command` — never a
+    // remote one passing on its `url`.
+    let fired = common::findings_for(&findings, STDIO_COMMAND);
+    assert_eq!(
+        fired.len(),
+        1,
+        "the stdio guard binds a type-less entry, got: {findings:#?}"
+    );
+    assert!(
+        fired[0].contains("docs"),
+        "the finding names the offending server, got: {}",
+        fired[0]
+    );
+    assert!(
+        common::findings_for(&findings, REMOTE_URL).is_empty(),
+        "an absent type is not a remote transport, got: {findings:#?}"
+    );
+    // The default is the guard's read alone: the authored `type` stays absent, which the
+    // enum clause over a present `type` still passes.
+    assert!(
+        common::findings_for(&findings, "mcp-server.enum.type").is_empty(),
+        "got: {findings:#?}"
+    );
+    assert!(
+        !ok,
+        "a stdio server with no command fails the run, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn an_explicit_http_mcp_server_with_a_url_passes_the_transport_clauses() {
+    let harness = common::tmpdir("mcp-explicit-http");
+    common::write_mcp_json(
+        &harness,
+        r#"{ "mcpServers": { "docs": { "type": "http", "url": "https://mcp.example.com/mcp" } } }"#,
+    );
+
+    let (findings, _ok) = check_harness(&harness);
+
+    for label in ["mcp-server.enum.type", STDIO_COMMAND, REMOTE_URL] {
+        assert!(
+            common::findings_for(&findings, label).is_empty(),
+            "an authored `http` type with its `url` passes `{label}`, got: {findings:#?}"
+        );
+    }
+}
+
 /// A program declaring the connection and nothing else — no container member, so the
 /// document `emit` writes is owned by no member of the kind that governs it.
 const SERVER_ONLY_PROGRAM: &str = r#"

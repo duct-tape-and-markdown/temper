@@ -206,7 +206,7 @@ mod tests {
         requirements: &BTreeMap<String, Requirement>,
         by_kind: &BTreeMap<&str, &[Features]>,
     ) -> Vec<Diagnostic> {
-        engine::judge_members(&selections(requirements, by_kind))
+        engine::judge_members(&selections(requirements, by_kind), &BTreeMap::new())
     }
 
     /// A required-severity clause wrapping `predicate` — the shape every set-scope
