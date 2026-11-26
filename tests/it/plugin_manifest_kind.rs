@@ -375,12 +375,62 @@ fn a_component_path_outside_its_documented_union_fails_the_gate() {
     );
 }
 
+/// Gates a manifest carrying `key: value` and asserts the `type` clause on `key` fires
+/// as an error naming the whole declared kind set.
+fn assert_wrong_typed(label: &str, key: &str, value: &str, kinds: &str) {
+    let harness = common::tmpdir(label);
+    write_plugin_json(
+        &harness,
+        &format!("{{\n  \"name\": \"deployment-tools\",\n  \"{key}\": {value}\n}}\n"),
+    );
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(!ok, "a wrong-typed `{key}` fails the gate: {findings:?}");
+    let typed = common::findings_for(&findings, &format!("plugin-manifest.type.{key}"));
+    assert!(!typed.is_empty(), "{findings:?}");
+    assert!(
+        typed
+            .iter()
+            .all(|f| f.starts_with("::error") && f.contains(kinds)),
+        "{findings:?}"
+    );
+}
+
+#[test]
+fn a_plugin_manifest_with_a_wrong_typed_workflows_draws_a_type_finding() {
+    assert_wrong_typed(
+        "plugin-manifest-workflows-map",
+        "workflows",
+        "{\"a\": 1}",
+        "string|list",
+    );
+}
+
+#[test]
+fn a_plugin_manifest_with_a_wrong_typed_output_styles_draws_a_type_finding() {
+    assert_wrong_typed(
+        "plugin-manifest-output-styles-bool",
+        "outputStyles",
+        "true",
+        "string|list",
+    );
+}
+
+#[test]
+fn a_plugin_manifest_whose_experimental_is_not_a_map_draws_a_type_finding() {
+    assert_wrong_typed(
+        "plugin-manifest-experimental-string",
+        "experimental",
+        "\"./themes/\"",
+        "map",
+    );
+}
+
 #[test]
 fn a_string_keywords_is_the_wrong_typed_field_the_declared_kind_decides() {
     let harness = common::tmpdir("plugin-manifest-keywords-string");
     // Unlike the experimental-key slice above, this one is not a `--strict` warning at all:
-    // a wrong-typed field is a load error on every machine, so the finding is an error in
-    // the forgiving runtime's world too.
+    // a type mismatch fails plain `claude plugin validate`, and the load reports it too.
     write_plugin_json(
         &harness,
         "{\n  \"name\": \"deployment-tools\",\n  \"keywords\": \"deployment\"\n}\n",

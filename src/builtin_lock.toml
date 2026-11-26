@@ -827,8 +827,8 @@ kind = "plugin-manifest"
 predicate = "type"
 field = "keywords"
 severity = "required"
-guidance = '`keywords` is an array of discovery tags, and a bare string is not a shorter spelling of a one-tag list: a wrong-typed field is a load error, so the plugin does not load at all — everywhere, not merely under `--strict`, which is the one rule here the forgiving runtime does not wave through. Write `["deployment"]` for a single tag.'
-cite = "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-16)"
+guidance = '`keywords` is an array of discovery tags, and a bare string is not a shorter spelling of a one-tag list: a type mismatch fails `claude plugin validate` outright, not merely under `--strict`, and Claude Code reports the same problem when it loads the plugin. Write `["deployment"]` for a single tag.'
+cite = "https://code.claude.com/docs/en/plugins-reference#validate-the-manifest (retrieved 2026-11-26)"
 value_type = ["list"]
 
 [[declaration.clause]]
@@ -890,6 +890,36 @@ severity = "required"
 guidance = "`lspServers` is a path to an LSP config JSON file, the config inline as an object keyed by server name — the same shape `.lsp.json` carries — or a list of either. These drive code intelligence (go to definition, find references), so a wrong-typed value costs the capability silently rather than loudly."
 cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)"
 value_type = ["string", "list", "map"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.outputStyles"
+kind = "plugin-manifest"
+predicate = "type"
+field = "outputStyles"
+severity = "required"
+guidance = '`outputStyles` names output-style files or directories as one path or a list of them. Setting it *replaces* the default `output-styles/` scan — to keep the default and add to it, list it explicitly: `["./output-styles/", "./styles/"]`.'
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)"
+value_type = ["string", "list"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.workflows"
+kind = "plugin-manifest"
+predicate = "type"
+field = "workflows"
+severity = "required"
+guidance = '`workflows` names workflow `.js` files or directories as one path or a list of them. Setting it *replaces* the default `workflows/` scan — to keep the default and add to it, list it explicitly: `["./workflows/", "./extras/"]`.'
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)"
+value_type = ["string", "list"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.experimental"
+kind = "plugin-manifest"
+predicate = "type"
+field = "experimental"
+severity = "required"
+guidance = '`experimental` is an object whose keys are the experimental components — `themes`, `monitors`, `evals` — each carrying its own path form: `{ "themes": "./themes/" }`, never a bare path or a list.'
+cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
+value_type = ["map"]
 
 [[declaration.clause]]
 label = "plugin-manifest.optional.$schema"

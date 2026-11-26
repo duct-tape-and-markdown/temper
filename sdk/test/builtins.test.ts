@@ -599,8 +599,8 @@ test("plugin-manifest is a json-document file kind identified by its name key, o
 
 test("pluginManifestDefaultContract gates the --strict profile", () => {
   // `name`'s presence, emptiness and charset; the experimental deny-list slice; every
-  // wrong-typed field — `keywords`' single kind and the six component paths' documented
-  // unions, which a `type` over a set reaches; and the closed key set, which is the rest
+  // wrong-typed field — `keywords`' and `experimental`'s single kinds and the eight
+  // component paths' documented unions, which a `type` over a set reaches; and the closed key set, which is the rest
   // of `--strict`: the `optional` rows declare every other documented key and
   // `closedKeys()` reads them as the allow-list.
   assert.deepEqual(
@@ -625,8 +625,9 @@ test("pluginManifestDefaultContract gates the --strict profile", () => {
   // check is the one-element set, no second spelling for it.
   assert.deepEqual(keywordsType.predicate, { key: "type", field: "keywords", value_type: ["list"] });
 
-  // The six component-path fields, each gated over the whole union its documentation
+  // The eight component-path fields, each gated over the whole union its documentation
   // states: declaring a subset would reject a documented form, so the set is the clause.
+  // `experimental` is the one object-only container among them.
   assert.deepEqual(
     pluginManifestDefaultContract
       .map((entry) => entry.predicate)
@@ -639,6 +640,9 @@ test("pluginManifestDefaultContract gates the --strict profile", () => {
       ["hooks", ["string", "list", "map"]],
       ["mcpServers", ["string", "list", "map"]],
       ["lspServers", ["string", "list", "map"]],
+      ["outputStyles", ["string", "list"]],
+      ["workflows", ["string", "list"]],
+      ["experimental", ["map"]],
     ],
   );
   // The runtime divergence rides the guidance, the one channel that can carry it: the
@@ -646,8 +650,8 @@ test("pluginManifestDefaultContract gates the --strict profile", () => {
   assert.match(experimental.guidance ?? "", /--strict/);
   assert.match(charset.guidance ?? "", /displayName/);
   // The one clause here the forgiving runtime does not wave through, so its guidance is
-  // where the reader learns this is a load error rather than another `--strict` warning.
-  assert.match(keywordsType.guidance ?? "", /load error/);
+  // where the reader learns a type mismatch fails plain validation, not only `--strict`.
+  assert.match(keywordsType.guidance ?? "", /type mismatch/);
 
   // Cited and dated, every one — the audit trail a maintained default contract exists
   // for. Two sources appear: the reference page, and the published schema for the

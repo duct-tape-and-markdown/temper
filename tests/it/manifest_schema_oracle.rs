@@ -31,14 +31,10 @@ const SCHEMA: &str = include_str!("../fixtures/plugin-manifest/schema.json");
 /// widening shrinks this list; re-stating it is how the shrink becomes a reviewable diff.
 ///
 /// The shape of what is here: fifteen `type` rules over fields no clause types at all;
-/// three union-typed *experimental* component fields, which no clause types either; and
+/// the vendored schema's top-level `themes`/`monitors` unions, which the shipped floor
+/// forbids at that level rather than types; and
 /// `homepage`'s `format`, which names no widening — a URI check is not on the books.
 ///
-/// The six documented component-path fields left with the `type` predicate's set
-/// widening: `skills`, `commands`, `agents`, `hooks`, `mcpServers` and `lspServers` are
-/// each gated over their whole documented union now. `monitors`, `outputStyles` and
-/// `themes` are union-typed too and stay — not for want of the set, but because they are
-/// components the shipped floor types with no clause at all.
 const EXPECTED_LAG: &[&str] = &[
     "$schema: type=string",
     "author: type=object",
@@ -50,7 +46,6 @@ const EXPECTED_LAG: &[&str] = &[
     "license: type=string",
     "monitors: type in {array|string}",
     "name: type=string",
-    "outputStyles: type in {array|string}",
     "repository: type=string",
     "settings: type=object",
     "themes: type in {array|string}",
@@ -235,9 +230,9 @@ fn the_lag_behind_the_published_schema_is_the_named_expected_set() {
 #[test]
 fn the_shipped_clauses_carry_the_rules_the_schema_and_the_vocabulary_agree_on() {
     // The other side of the diff: the lag is a real subtraction from a real intersection,
-    // not the whole schema going uncovered because the read is wired wrong. Six of the
-    // nine are the component-path unions, each covered by declaring the property's whole
-    // documented set — the property the `type` widening bought.
+    // not the whole schema going uncovered because the read is wired wrong. Seven of the
+    // ten are the component-path unions, each covered by declaring the property's whole
+    // documented set.
     let covered: BTreeSet<String> = schema_rules()
         .intersection(&covered_rules())
         .cloned()
@@ -254,6 +249,7 @@ fn the_shipped_clauses_carry_the_rules_the_schema_and_the_vocabulary_agree_on() 
             "mcpServers: type in {array|object|string}",
             "name: minLength",
             "name: required",
+            "outputStyles: type in {array|string}",
             "skills: type in {array|string}",
         ],
     );
