@@ -3,6 +3,8 @@
   "gate": {
     "kind": "open"
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
@@ -14,7 +16,8 @@
         "path": "tests/it/read_verbs.rs",
         "description": "load and cost strand"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "explain states, per member, what loads it, when, and roughly what it costs, off its kind's registration and the cited runtime facts",
   "per": {
@@ -26,5 +29,17 @@
     "explain on a member states what loads it and when",
     "explain on a model invocable skill states its listing cost in characters"
   ],
-  "notes": "Read the registration and absence gate the reach judge already reads; no second load model. Cost is the rendered size and, for a skill, its listing entry; name the unit. A gated document states whether its gate is open (builtins.md, registration)."
+  "pins": [],
+  "laneTests": [],
+  "notes": "Read the registration and absence gate the reach judge already reads; no second load model. Cost is the rendered size and, for a skill, its listing entry; name the unit. A gated document states whether its gate is open (builtins.md, registration).",
+  "observedFiles": [
+    ".flume/plan/notes/EXPLAIN-STATES-A-MEMBERS-LOAD-AND-COST.md",
+    "src/gate.rs",
+    "src/graph.rs",
+    "src/kind.rs",
+    "src/read.rs",
+    "tests/it/check_cost.rs",
+    "tests/it/nested_member.rs",
+    "tests/it/read_verbs.rs"
+  ]
 }
