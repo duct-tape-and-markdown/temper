@@ -24,6 +24,23 @@ spellings, and two spellings of one fact are one defect, never a choice.
 A default the SDK lowers is the corpus's default: the model states it once
 and the surface inherits it, never re-decides it.
 
+**One concept, one name.** Every name an author writes or reads — an export,
+an option key, a literal, a clause's id, a flag — names one concept, and a
+concept keeps one name across the SDK, the CLI, the lock and the corpus.
+Where the runtime names a thing, temper uses the runtime's name in the
+runtime's sense, and never borrows a runtime word for another sense. A field
+naming a runtime fact is named for that fact: a hook's lifecycle event is
+its `event`, never its `name`. A delta that moves a kind's locus is spelled
+as the locus it replaces. A clause's id joins its owner, its predicate in
+kebab-case, and the field's own declared name; a kind's default contract is
+exported under the kind's name; every verb takes its workspace the same way.
+A count the docs state is true of the code. A spec-internal term may stay
+precise; a name an author meets is defined where they meet it.
+
+The program's module **exports its harness as its default**. The engine runs
+the module and reads the export through the SDK's one pipe, so a program
+carries no plumbing of its own and never calls an emit of its own.
+
 A member's prose keeps its authored medium — a document in its own file, a
 three-line rule inline — and either way lands byte-identical in the
 projection. A composed body may interleave verbatim prose spans with embedded

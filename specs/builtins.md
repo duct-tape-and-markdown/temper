@@ -32,9 +32,9 @@ relocation, which replaces the built-in there.
 
 ## The shipped kinds
 
-Nineteen kinds ship: eleven file members, four registration members, the
+Twenty kinds ship: eleven file members, four registration members, the
 embedded `handler` and `tool`, the nested-file `supporting-doc`, and
-temper's own `dial`. The file members:
+temper's own `dial` and `requirement`. The file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. It
@@ -237,11 +237,11 @@ contract, never a vendor fact.
 ## The coverage bar
 
 The vocabulary covers documented surface capability: every capability a
-built-in surface documents as real — a user-invoked command, an event hook,
-a connection — gets its registration value and, where it is an artifact,
-its kind, cited to the documentation that settles it. The vocabulary grows
-by documented capability, never by invention. Installed plugins are
-registration members surfacing in the harness's manifests
+built-in surface documents as real — a user-invocable command, an event
+hook, a connection — gets its registration value and, where it is an
+artifact, its kind, cited to the documentation that settles it. The
+vocabulary grows by documented capability, never by invention. Installed
+plugins are registration members surfacing in the harness's manifests
 (`model/representation.md`); the permission list is a derived aggregate
 (`model/pipeline.md`).
 

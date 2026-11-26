@@ -69,14 +69,15 @@ The predicate vocabulary is **closed**: the enum in code is the authority,
 an unknown one refuses at load, never skipped; adding one is a language
 change, and the corpus does not enumerate it.
 
-A clause's compiled label (`pipeline.md`, "The lock") is its **address**:
-deterministic, human-legible, printed by every finding and by `explain` —
-never opaque to the author. The
-shipped **dial** kind consumes it: a temper-owned, local-locus TOML document
-(`.temper/dial.toml`) naming a clause by label and declaring this machine's
-read severity. The dial's schema is the envelope — severity is its only
-verb, deletion is unspellable, a dialed clause still reports; dial semantics
-and the block-mode bound live in `authoring.md`, "Layers".
+A clause's **id**, its compiled label in the lock (`pipeline.md`, "The
+lock"), is deterministic, human-legible, printed by every finding and by
+`explain`, and never opaque to the author; every surface that names a clause
+keys it `clause`. The shipped **dial** kind consumes it: a temper-owned,
+local-locus TOML document (`.temper/dial.toml`) naming a clause by its id
+and declaring this machine's read severity. The dial's schema is the
+envelope — severity is its only verb, deletion is unspellable, a dialed
+clause still reports; dial semantics and the block-mode bound live in
+`authoring.md`, "Layers".
 
 A clause binds to a **selection** and evaluates at one of two grains:
 
@@ -136,8 +137,8 @@ A requirement is a member of a built-in kind (embedded locus). Its template:
   attaches, never a default (intent, invariant 1),
 - **attached clauses** over its opt-in selection. "This must be filled" is
   the shipped default: a whole-grain cardinality clause (at least one
-  satisfier) at error severity — overridable, so an advisory requirement is
-  expressible.
+  satisfier) at required severity — overridable, so an advisory requirement
+  is expressible.
 
 The requirement's prose and verifier are the model's declared boundary
 with the undecidable: the two slots that stay human.
