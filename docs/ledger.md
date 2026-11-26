@@ -26,52 +26,34 @@ hard.
   and is the latent-bug surface. Validate it; never cut capability for
   want of a consumer.
 
-## Next session's one focus (09-23, post-cut)
+## Next session's one focus (11-26, loop stopped)
 
-- **Rotation closed (09-28):** the posture rotation armed at 7d695577
-  closed at dbbb62e1; the loop was stopped after that wave rather than let
-  the sweep re-arm over 7d695577..HEAD. Relaunching starts that new
-  rotation — a choice, not a default.
-- **Forks ruled (09-29):** 18 of 19 closed (0063-0073, 96e6d497); one stays
-  open, `(cross-source-edge-correlation)`, with its stance. The loop's next
-  run is plan deriving the delta and two inbox notes. Still open for John:
-  the consumer's cross-program join, the harness migration.
-- **09-25 session (this machine):** loop set up here and ran; the report
-  work shipped and the sweep hold came and went. Stopped with the stop flag
-  on a usage cap; remove it to relaunch. Open: the cross-program member
-  join (a harness edge into another program's lock) from the consumer's
-  memo reply is unfiled, awaiting John's call; the memo's JOHN placeholders
-  (#1, #5, upgrade date, five pins, warn) are John's to answer.
-- **Loop moves to the second machine (09-25).** flume's own loop holds
-  this box continuously and the two cannot share it. temper's loop was never
-  relaunched after the 0.19 migration (227b3bbb). On the new machine, from a
-  fresh clone: `pnpm install`, `pnpm -C sdk install && pnpm -C sdk build`,
-  `npm -C .temper install`, `cargo install --path .` (hooks run PATH
-  `temper`), then `pnpm exec flume check` and launch per Standing discipline.
-  `.flume/stop` is gitignored, so a fresh clone starts unpaused. The first
-  ticks are plan-only: six inbox notes to drain and 0060-0062 to derive.
-  Build has nothing pickable until then.
-- **09-24 session:** audited GH issues (12 closed; the 10 open all map to a
-  fork or an inbox note), ruled 0060 (the guard judges both edges of a
-  call: the PostToolUse hook was dead, since it sent the wrong
-  hookEventName), and ruled 0061/0062 from an adopter audit (a path gate
-  opens on file tools only; the tap keeps trigger and parent paths). Also
-  found: the guard's `warn` goes to stderr, which Claude never sees
-  (inbox).
-- **0.0.19 shipped 09-23** (9e548318, tag v0.0.19; smoke green; lock synced
-  60002e8b). Pre-cut evidence is in the release commit body. Cascade must
-  rename its embedded `prose` leaves (15 sites, John: adopters rename) and
-  declare a `settings` member; tell cascade's session when it is next up. The
-  consumer program used for the check lives at `~/.cache/consumer-check`.
-- **0.0.20 shipped 09-23** (16e96b16, tag v0.0.20; smoke green). It fixes
-  the consumer's absolute source path and list-valued membership/unique
-  (0058), and the guard now asks the contract (0059). The hand chain now
-  declares build promptDataKeys (b6af91cd): queue text had been a step from
-  shell execution. Add it to the migration carry list below.
-- **Harness migration done 11-24:** flume 0.23's packaged harness replaces
-  the hand chain (`.flume/declaration.ts`; cargo judge `.flume/runner.mjs`
-  over nextest). Unverified in the package: a blocked entry may edit a file
-  its parent creates; the ripple walk's `examples/` reach.
+- **State:** 80 entries shipped since v0.0.25 (net code about +7k), loop
+  stopped with the stop flag after the typecheck entry (10021f1f). Restart:
+  `rm .flume/stop`, then the usual launch.
+- **Queue on restart:** 3 pending entries and 16 inbox records. Most are the
+  census triage (fixed checks become clauses, the install report, the
+  no-lock guard, the script-verifier edge, nine review-only pins), the
+  restored intent (per-member mode, layer slots, loud nondeterminism, typed
+  kind identity, typecheck before the program, the unrepresented modeline,
+  `package.json` never rewritten), memory claiming `AGENTS.md`, and nested
+  output styles. Questions: `cross-source-edge-correlation` (on the
+  reporter) and `out-of-corpus-edge-targets` (new, unread).
+- **0.0.26:** main carries extension, the emitted reference, guidance
+  delivery, edge intent, review verifiers, the tool kind, output styles and
+  the probe fixes. Breaks: emit's declared typecheck, and binaries folded
+  into tools. Cut when the queue settles; record net growth in the commit.
+- **Spec census (0105):** 448 claims, 310 held, 87 review-only, 36 the code
+  does not meet, 15 unclear. Ruled: the spec states intent and conformance
+  is the loop's job. The census tables were in the session scratchpad
+  (volatile); the routed records carry each finding.
+- **Open for John:** self-hosting, meaning this harness declares the 0093
+  reference skill so "the plugin a stranger installs gates this repo"
+  holds; and the target state, a temper-typed spec whose invariants carry
+  holders that `check` reads.
+- **Flume issues filed:** #23-#28 (judge blind spots, environment-fault
+  quarantine, an event stream, debt on disk, a derive reconcile mode;
+  #25 closed as `flume exclusive`).
 
 ## Parked (pointers only)
 
