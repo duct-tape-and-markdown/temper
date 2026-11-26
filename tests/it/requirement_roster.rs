@@ -1621,3 +1621,37 @@ fn a_requirement_subkinds_members_fill_satisfies_targets() {
         run.output
     );
 }
+
+#[test]
+fn a_requirement_clause_carrying_a_root_family_predicate_is_refused_as_inadmissible() {
+    let root = common::tmpdir("requirement-root-family-clause");
+    common::write_rule(&root, "style");
+    common::author_rule_satisfies(&root, "style", &["gate"]);
+    // `fresh` and `reachable` are judged off the root member's selection alone; bound
+    // at a requirement's opt-in selection they would report nothing whatever the tree
+    // holds.
+    common::write_requirements(
+        &root,
+        vec![missing_field_requirement(vec![
+            common::required_clause_row("fresh", None, None, None, None),
+            common::required_clause_row("reachable", None, None, None, None),
+        ])],
+    );
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "a root-family requirement clause must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    let reported = run.findings();
+    let findings = common::findings_for(&reported, "requirement.admissibility");
+    for predicate in ["fresh", "reachable"] {
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.contains("gate") && f.contains(predicate) && f.contains("vacuous")),
+            "an admissibility error names the requirement and `{predicate}`, got:\n{}",
+            run.output
+        );
+    }
+}

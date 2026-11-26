@@ -977,6 +977,14 @@ impl RootFamilyBinding {
     }
 }
 
+/// The binding a **root-family** predicate's judge reads, as a refusal names it — or
+/// `None` for a predicate judged at the selection it is bound on. No root-family judge
+/// reads a requirement's opt-in selection, so the roster fence refuses every `Some`.
+#[must_use]
+pub fn root_family_binding(predicate: &crate::contract::Predicate) -> Option<&'static str> {
+    judged_binding(predicate).map(RootFamilyBinding::named)
+}
+
 /// Refuse a **root-family** clause bound at a kind whose contract its judge never reads
 /// — a vacuous clause. `resolves` on the
 /// `skill` kind's `expect` lifts, dials and labels like any clause, but the route walk

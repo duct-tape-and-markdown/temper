@@ -101,7 +101,9 @@ pub fn selections<'a>(
 ///   reusing [`crate::engine::inadmissibilities`], the same rules a kind's own floor
 ///   clauses are checked against (an inverted `count`/`degree` bound, an empty
 ///   `membership` target), so a requirement's demands and a kind's clauses never carry
-///   two definitions of "vacuous".
+///   two definitions of "vacuous" — and a root-family predicate
+///   ([`crate::admissibility::root_family_binding`]), whose judge never reads an
+///   opt-in selection, is refused as it is at any kind that never judges it.
 ///
 /// `by_kind` supplies only the modeled kinds (its keys), never satisfiers. `base_dir`
 /// is the harness root a script verifier's path resolves against.
@@ -162,6 +164,19 @@ pub fn admissibility(
 
         // (c) Every clause's own predicate must be well-formed.
         for clause in &requirement.clauses {
+            if let Some(binding) = crate::admissibility::root_family_binding(&clause.predicate) {
+                diagnostics.push(Diagnostic::error(
+                    REQUIREMENT_ADMISSIBILITY_RULE,
+                    name,
+                    format!(
+                        "requirement `{name}` carries `{}`, but its judge reads the clause \
+                         off {binding} and never a requirement's opt-in selection, so this \
+                         clause would judge nothing — a vacuous clause. Bind it there instead",
+                        clause.predicate.key(),
+                    ),
+                ));
+                continue;
+            }
             // The document locus, decidably: an opt-in selection draws satisfiers, and
             // an embedded member carries no `satisfies` edge to be drawn by, so every
             // satisfier owns a document of its own.
@@ -740,6 +755,22 @@ mod tests {
             ..requirement("dev-standards")
         };
         assert!(run_admissibility(req, Path::new("")).is_empty());
+    }
+
+    #[test]
+    fn a_root_family_clause_is_inadmissible_even_resolves() {
+        // `resolves` admits the `requirement` kind's contract, never one requirement's
+        // opt-in selection — so it is refused here like the root-only family.
+        for predicate in [Predicate::Resolves, Predicate::EngineMatches] {
+            let req = Requirement {
+                clauses: vec![required_clause("gate", predicate)],
+                ..requirement("gate")
+            };
+            let diags = run_admissibility(req, Path::new(""));
+            assert_eq!(diags.len(), 1, "{diags:?}");
+            assert_eq!(diags[0].rule, "requirement.admissibility");
+            assert!(diags[0].message.contains("vacuous"));
+        }
     }
 
     #[test]
