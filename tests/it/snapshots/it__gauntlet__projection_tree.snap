@@ -1,5 +1,6 @@
 ---
 source: tests/it/gauntlet.rs
+assertion_line: 410
 expression: "projection_tree(&harness, &report)"
 ---
 # emit report
@@ -475,6 +476,10 @@ kind = "known-marketplace"
 key = "acme-marketplace"
 manifest = "settings.json"
 key_path = "extraKnownMarketplaces.*"
+
+[declaration.typecheck]
+tool = "root/tool/fixture-tsc"
+project = ".temper/tsconfig.json"
 
 [[declaration.layout_import]]
 member = "charter:gate"

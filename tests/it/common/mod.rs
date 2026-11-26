@@ -256,8 +256,8 @@ function __typecheckedHarness(init) {{
 }
 
 /// `lock_text` without the rows [`typechecked`]'s splice adds — the fixture tool's
-/// root-hosted member, its root runs edge and its file's input, and the project's root
-/// input — for a
+/// root-hosted member, its root runs edge and its file's input, the project's root
+/// input, and the typecheck row naming them — for a
 /// compare against a lock the splice never touched. A family left empty goes whole.
 pub fn without_fixture_typecheck_rows(lock_text: &str) -> String {
     let mut doc: DocumentMut = lock_text.parse().unwrap();
@@ -267,6 +267,14 @@ pub fn without_fixture_typecheck_rows(lock_text: &str) -> String {
     else {
         return lock_text.to_string();
     };
+    if declaration
+        .get("typecheck")
+        .and_then(|row| row.get("tool"))
+        .and_then(|tool| tool.as_str())
+        == Some(FIXTURE_TSC_ADDRESS)
+    {
+        declaration.remove("typecheck");
+    }
     let fixture_key = FIXTURE_TSC_ADDRESS.rsplit('/').next().unwrap();
     type Spliced<'a> = &'a dyn Fn(&Table) -> bool;
     let families: [(&str, Spliced); 3] = [

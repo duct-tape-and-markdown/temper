@@ -992,6 +992,12 @@ pub enum LockRowError {
         /// The mis-shaped declaration family.
         family: String,
     },
+    /// A present single-row family (the typecheck) is not the one table the reader expects.
+    #[error("lock `{family}` declaration row is not a table")]
+    RowShape {
+        /// The mis-shaped single-row family.
+        family: String,
+    },
     /// A present row carries a label outside its column's closed vocabulary.
     #[error(
         "lock `{family}` declaration row column `{column}` value `{value}` is outside the closed vocabulary"
@@ -1932,6 +1938,11 @@ fn member_projection_path(
 /// cannot be spawned, the program exits non-zero, a second run prints a different
 /// payload ([`DriftError::Nondeterministic`]), its output fails to parse, it declares
 /// no typecheck or its declared typecheck refuses, or [`emit`] itself fails.
+///
+/// The typecheck runs first, as the last lock records it: a program too broken to run
+/// still reaches its author as the compiler's diagnostics. Only a lock that records no
+/// typecheck — a first emit — runs the payload's own declaration, right after the run;
+/// a changed declaration otherwise takes effect from the emit after the one recording it.
 pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Result<EmitReport> {
     let harness_entry = workspace_dir.join("harness.ts");
     if !harness_entry.is_file() {
@@ -1939,6 +1950,10 @@ pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Resul
             path: harness_entry,
         }
         .into());
+    }
+    let locked = locked_typecheck(workspace_dir);
+    if let Some((typecheck, nested_members)) = &locked {
+        run_typecheck(typecheck, nested_members, workspace_dir)?;
     }
     let json = run_sdk_program(&harness_entry)?;
     // Double-emit covers the program, not only the engine's render: a second,
@@ -1965,12 +1980,37 @@ pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Resul
             .ok_or_else(|| DriftError::TypecheckUndeclared {
                 path: harness_entry.clone(),
             })?;
-    run_typecheck(
-        typecheck,
-        &payload.declarations.nested_members,
-        workspace_dir,
-    )?;
+    if locked.is_none() {
+        run_typecheck(
+            typecheck,
+            &payload.declarations.nested_members,
+            workspace_dir,
+        )?;
+    }
     emit(&payload, workspace_dir, options)
+}
+
+/// The typecheck the workspace's last lock records, with the lock's `nested_member` rows
+/// its tool resolves against, its harness-relative project re-rooted at the harness so the
+/// row runs exactly as the payload's absolute one would. `None` when there is no lock, or
+/// the lock records no typecheck: the first-emit case. A lock that cannot be read or
+/// parsed is one emit rewrites whole ([`emit`] reads it with the same tolerance), so it
+/// too records nothing to run.
+fn locked_typecheck(workspace_dir: &Path) -> Option<(TypecheckRow, Vec<NestedMemberRow>)> {
+    let doc = read_lock_document(workspace_dir).ok()?;
+    let table = doc.get(DECLARATION_TABLE)?.as_table_like()?;
+    let typecheck = typecheck_from_table(table).ok()??;
+    let nested_members = family(table, "nested_member", NestedMemberRow::from_table).ok()?;
+    let workspace_dir =
+        std::path::absolute(workspace_dir).unwrap_or_else(|_| workspace_dir.to_path_buf());
+    let project = harness_root_of(&workspace_dir).join(&typecheck.project);
+    Some((
+        TypecheckRow {
+            tool: typecheck.tool,
+            project: project.to_string_lossy().into_owned(),
+        },
+        nested_members,
+    ))
 }
 
 /// The flags every typecheck run passes its compiler: check the declared project and
@@ -2804,6 +2844,21 @@ pub fn emit(
         }
         declarations.nested_members.extend(layout_rows);
         declarations.satisfies.extend(layout_satisfies);
+        // The typecheck rides the lock spelled harness-relative, as every lock path is,
+        // for the next `emit_program` to run before the program.
+        declarations.typecheck = payload
+            .declarations
+            .typecheck
+            .as_ref()
+            .map(|typecheck| {
+                harness_relative(contract::ROOT_OWNER, &typecheck.project, &harness_root).map(
+                    |project| TypecheckRow {
+                        tool: typecheck.tool.clone(),
+                        project: project.to_string(),
+                    },
+                )
+            })
+            .transpose()?;
         stamp_clause_labels(&mut declarations);
         write_rollup(
             workspace_dir,
@@ -5722,9 +5777,10 @@ pub struct Declarations {
     /// so a lock round-trip reads this family empty.
     #[serde(default)]
     pub modules: Vec<String>,
-    /// The program's declared typecheck ([`TypecheckRow`]) — seam-inbound only: run by
-    /// `emit_program` before the payload compiles, its project lowered to a root-owned
-    /// `input`, so a lock round-trip reads none.
+    /// The program's declared typecheck ([`TypecheckRow`]). Off the payload its project is
+    /// the SDK-resolved absolute path; `emit` writes it into the lock as the single
+    /// `[declaration.typecheck]` row with the project harness-relative, and the next
+    /// `emit_program` runs that locked row before it runs the program at all.
     #[serde(default)]
     pub typecheck: Option<TypecheckRow>,
     /// The host members' declared embedded-member facts — captured as declaration
@@ -6314,11 +6370,13 @@ pub struct InputRow {
 }
 
 /// The program's declared **typecheck** — the `tool` that runs its compiler and the
-/// project file the compiler checks. Seam-inbound only, like [`InputRow`]: `emit_program`
-/// runs it before compiling the payload and refuses on a type error, and `emit` lowers the
-/// project to a root-owned `input` source dependency, so the row itself never reaches the
-/// lock. Declared, never guessed: the compiler is the consumer's own toolchain, run
-/// through the tool the program names.
+/// project file the compiler checks. `emit` lowers the project to a root-owned `input`
+/// source dependency and records the row itself in the lock, the project spelled
+/// harness-relative; `emit_program` runs the locked row before running the program (so
+/// a program too broken to run still receives the compiler's diagnostics), and the
+/// payload's own row right after the run only when the lock records none. Declared,
+/// never guessed: the compiler is the consumer's own toolchain, run through the tool the
+/// program names.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct TypecheckRow {
     /// The address of the tool that runs the compiler (`root/tool/<name>`).
@@ -6600,6 +6658,9 @@ impl Declarations {
             "registration",
             self.registrations.iter().map(RegistrationRow::to_table),
         );
+        if let Some(typecheck) = &self.typecheck {
+            table.insert(TYPECHECK_FAMILY, Item::Table(typecheck.to_table()));
+        }
         if !table.is_empty() {
             doc[DECLARATION_TABLE] = Item::Table(table);
         }
@@ -6742,15 +6803,41 @@ pub(crate) fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, L
         inputs: Vec::new(),
         // Loaded modules are seam-inbound only, lowered to the `module` source dependency.
         modules: Vec::new(),
-        // The typecheck is seam-inbound only: run before the compile, its project lowered
-        // to an `input` row, never written into this declaration table.
-        typecheck: None,
+        typecheck: typecheck_from_table(table)?,
         nested_members: family(table, "nested_member", NestedMemberRow::from_table)?,
         registrations: family(table, "registration", RegistrationRow::from_table)?,
         // Settings residue is seam-inbound only — folded into its manifest's opaque residue
         // at emit, never written into this declaration table, so a lock round-trip reads none.
         settings: Vec::new(),
     })
+}
+
+/// The single-row family carrying the program's declared typecheck —
+/// `[declaration.typecheck]`, one table, since a program declares one typecheck.
+const TYPECHECK_FAMILY: &str = "typecheck";
+
+/// Read the locked `[declaration.typecheck]` row — absent is `None`, a present value that
+/// is not a table, or a table missing a column, is a [`LockRowError`].
+fn typecheck_from_table(table: &dyn TableLike) -> Result<Option<TypecheckRow>, LockRowError> {
+    let Some(item) = table.get(TYPECHECK_FAMILY) else {
+        return Ok(None);
+    };
+    let row = item.as_table().ok_or_else(|| LockRowError::RowShape {
+        family: TYPECHECK_FAMILY.to_string(),
+    })?;
+    Ok(Some(TypecheckRow {
+        tool: req_str(row, "tool").map_err(|err| err.at(TYPECHECK_FAMILY))?,
+        project: req_str(row, "project").map_err(|err| err.at(TYPECHECK_FAMILY))?,
+    }))
+}
+
+impl TypecheckRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("tool", value(self.tool.clone()));
+        table.insert("project", value(self.project.clone()));
+        table
+    }
 }
 
 /// Push a family's rows as an `[[declaration.<key>]]` array-of-tables, but only when

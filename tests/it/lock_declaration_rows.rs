@@ -3774,3 +3774,61 @@ fn the_lock_records_a_host_unit_cede() {
         "{lock}"
     );
 }
+
+/// The program's typecheck rides the lock as the single `[declaration.typecheck]` row —
+/// the tool address verbatim, the project spelled harness-relative off the payload's
+/// absolute path — and reads back the same, byte-stable across a re-emit.
+#[test]
+fn emit_records_the_programs_typecheck_in_the_lock() {
+    let harness = common::tmpdir("typecheck-row-src");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    let project = into.join("tsconfig.json");
+    fs::write(&project, "{}\n").unwrap();
+    let payload = golden_payload(Declarations {
+        typecheck: Some(drift::TypecheckRow {
+            tool: "root/tool/tsc".to_string(),
+            project: project.to_string_lossy().into_owned(),
+        }),
+        ..rich_declarations()
+    });
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let lock = into.join("lock.toml");
+    let first = fs::read_to_string(&lock).unwrap();
+    assert!(
+        first.contains(
+            "[declaration.typecheck]\ntool = \"root/tool/tsc\"\nproject = \".temper/tsconfig.json\"\n"
+        ),
+        "the lock records the typecheck harness-relative: {first}"
+    );
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    assert_eq!(
+        declarations.typecheck,
+        Some(drift::TypecheckRow {
+            tool: "root/tool/tsc".to_string(),
+            project: ".temper/tsconfig.json".to_string(),
+        }),
+        "the row reads back off the lock"
+    );
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        first,
+        "a re-emit must not churn the typecheck row"
+    );
+}
+
+/// A payload declaring no typecheck writes no row, and a lock without one reads none.
+#[test]
+fn a_payload_with_no_typecheck_writes_no_typecheck_row() {
+    let payload = golden_payload(rich_declarations());
+    let (_harness, into) = emitted("no-typecheck-row", &payload);
+    assert!(
+        !fs::read_to_string(into.join("lock.toml"))
+            .unwrap()
+            .contains("declaration.typecheck"),
+    );
+    assert_eq!(drift::read_declarations(&into).unwrap().typecheck, None);
+}

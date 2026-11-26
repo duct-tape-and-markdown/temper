@@ -4028,6 +4028,113 @@ fn a_typecheck_naming_a_tool_the_harness_does_not_compose_refuses() {
     );
 }
 
+/// A program whose run fails outright: `node` throws before a payload is printed.
+const UNRUNNABLE_PROGRAM: &str = r#"
+import { emit, harness } from "@dtmd/temper";
+declare const process: { stdout: { write(chunk: string): boolean } };
+throw new Error("the program cannot run");
+process.stdout.write(emit(harness({ members: [] })).seam);
+"#;
+
+/// A plain fixture program — one rule — whose emit the [`common::typechecked`] splice
+/// types through the [`common::FIXTURE_TSC`] stub.
+const PLAIN_PROGRAM: &str = r#"
+import { emit, harness, text } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+declare const process: { stdout: { write(chunk: string): boolean } };
+const program = harness({
+  members: [
+    rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`
+      # Rust conventions
+    ` }),
+  ],
+});
+process.stdout.write(emit(program).seam);
+"#;
+
+/// Rewrite the fixture typecheck's stub as a compiler reporting `diagnostic` and failing.
+fn fail_fixture_compiler(harness: &Path, diagnostic: &str) {
+    let path = harness.join(common::FIXTURE_TSC);
+    if cfg!(windows) {
+        fs::write(&path, format!("@echo {diagnostic}\r\n@exit /b 1\r\n")).unwrap();
+    } else {
+        fs::write(&path, format!("#!/bin/sh\necho '{diagnostic}'\nexit 1\n")).unwrap();
+    }
+}
+
+#[test]
+fn emit_runs_the_typecheck_the_last_lock_records_before_running_the_program() {
+    let (harness, into) = common::wire_sdk_harness("typecheck-locked-first", PLAIN_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).expect("a clean program emits");
+    let lock_before = fs::read(into.join("lock.toml")).unwrap();
+
+    // The lock now records the fixture typecheck. Break the program so it cannot run at
+    // all, and the compiler so it reports a type error: the locked typecheck runs first,
+    // so the author receives the compiler's diagnostics, not the program's crash.
+    fs::write(into.join("harness.ts"), UNRUNNABLE_PROGRAM).unwrap();
+    fail_fixture_compiler(&harness, "harness.ts(4,1): error TS9999: locked typecheck");
+
+    let err = drift::emit_program(&into, EmitOptions::default())
+        .expect_err("the locked typecheck refuses");
+    let Some(drift::DriftError::TypecheckFailed {
+        tool,
+        project,
+        diagnostics,
+    }) = err.downcast_ref::<drift::DriftError>()
+    else {
+        panic!("expected the locked typecheck's refusal, got {err:?}");
+    };
+    assert_eq!(tool, common::FIXTURE_TSC_ADDRESS);
+    assert_eq!(project, ".temper/tsconfig.json");
+    assert!(
+        diagnostics.contains("TS9999: locked typecheck"),
+        "the refusal carries the compiler's diagnostics: {diagnostics}"
+    );
+    assert_eq!(
+        fs::read(into.join("lock.toml")).unwrap(),
+        lock_before,
+        "the refused emit writes no byte of the lock"
+    );
+}
+
+#[test]
+fn a_first_emit_with_no_lock_runs_the_declared_typecheck_after_the_program() {
+    // No lock: the program runs first, so an unrunnable program refuses as itself even
+    // with a failing compiler declared beside it.
+    let (harness, into) = common::wire_sdk_harness("typecheck-first-emit-order", PLAIN_PROGRAM);
+    fail_fixture_compiler(&harness, "harness.ts(1,1): error TS9999: first emit");
+    fs::write(
+        into.join("harness.ts"),
+        common::typechecked(UNRUNNABLE_PROGRAM),
+    )
+    .unwrap();
+    assert!(!into.join("lock.toml").exists(), "a first emit has no lock");
+    let err = drift::emit_program(&into, EmitOptions::default())
+        .expect_err("the unrunnable program refuses");
+    assert!(
+        matches!(
+            err.downcast_ref::<drift::DriftError>(),
+            Some(drift::DriftError::SdkProgramFailed { .. })
+        ),
+        "with no lock the program runs before the typecheck: {err:?}"
+    );
+
+    // A runnable program then reaches the payload's own declared typecheck, run right
+    // after the program.
+    fs::write(into.join("harness.ts"), common::typechecked(PLAIN_PROGRAM)).unwrap();
+    let err = drift::emit_program(&into, EmitOptions::default())
+        .expect_err("the payload's typecheck refuses");
+    assert!(
+        matches!(
+            err.downcast_ref::<drift::DriftError>(),
+            Some(drift::DriftError::TypecheckFailed { diagnostics, .. })
+                if diagnostics.contains("TS9999: first emit")
+        ),
+        "the payload's declared typecheck runs after the program: {err:?}"
+    );
+    assert!(!into.join("lock.toml").exists(), "no lock is written");
+}
+
 /// A custom directory-unit host at `domains/*/DOMAIN.md` beside the built-in `memory` row.
 fn domain_host_and_memory_kinds() -> Vec<KindFactRow> {
     let memory = temper::builtin_lock::declarations()

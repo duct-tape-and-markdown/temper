@@ -716,6 +716,10 @@ key = "SessionStart"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
 
+[declaration.typecheck]
+tool = "root/tool/tsc"
+project = ".temper/tsconfig.json"
+
 [[declaration.input]]
 member = "skill:verify-summary"
 source_path = "src/main.js"

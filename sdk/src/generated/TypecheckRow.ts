@@ -2,11 +2,13 @@
 
 /**
  * The program's declared **typecheck** — the `tool` that runs its compiler and the
- * project file the compiler checks. Seam-inbound only, like [`InputRow`]: `emit_program`
- * runs it before compiling the payload and refuses on a type error, and `emit` lowers the
- * project to a root-owned `input` source dependency, so the row itself never reaches the
- * lock. Declared, never guessed: the compiler is the consumer's own toolchain, run
- * through the tool the program names.
+ * project file the compiler checks. `emit` lowers the project to a root-owned `input`
+ * source dependency and records the row itself in the lock, the project spelled
+ * harness-relative; `emit_program` runs the locked row before running the program (so
+ * a program too broken to run still receives the compiler's diagnostics), and the
+ * payload's own row right after the run only when the lock records none. Declared,
+ * never guessed: the compiler is the consumer's own toolchain, run through the tool the
+ * program names.
  */
 export type TypecheckRow = { 
 /**

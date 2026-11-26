@@ -86,9 +86,10 @@ inputs: Array<InputRow>,
  */
 modules: Array<string>, 
 /**
- * The program's declared typecheck ([`TypecheckRow`]) — seam-inbound only: run by
- * `emit_program` before the payload compiles, its project lowered to a root-owned
- * `input`, so a lock round-trip reads none.
+ * The program's declared typecheck ([`TypecheckRow`]). Off the payload its project is
+ * the SDK-resolved absolute path; `emit` writes it into the lock as the single
+ * `[declaration.typecheck]` row with the project harness-relative, and the next
+ * `emit_program` runs that locked row before it runs the program at all.
  */
 typecheck: TypecheckRow | null, 
 /**
