@@ -1,0 +1,21 @@
+{
+  "tag": "MCP-SERVER-ABSENT-TYPE-READS-AS-STDIO",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "sdk/src/builtins.ts", "description": "mcpServer format declares type's documented stdio default; mcpServerDefaultContract header and stdio guidance claim only what fires" },
+      { "path": "src/engine.rs", "description": "the guard reads a declared field default as the runtime does" },
+      { "path": "src/builtin_lock.toml", "description": "re-derived embedded lock rows for mcp-server" },
+      { "path": "tests/it/mcp_server_kind.rs", "description": "url-only entry draws the stdio command finding; explicit http+url passes" },
+      { "path": "sdk/test/builtins.test.ts", "description": "SDK-side contract shape, if it moves" }
+    ]
+  },
+  "summary": "An .mcp.json server with no `type` is judged as stdio, as Claude Code reads it, so a url-only entry draws the stdio `command` finding",
+  "per": { "path": "specs/decisions/0101-a-builtin-reads-as-the-runtime-reads.md", "section": "Decision" },
+  "acceptance": "`{\"mcpServers\":{\"x\":{\"url\":\"…\"}}}` fails check with the stdio `command` finding; `type: \"http\"` with a `url` passes; the clause's guidance claims exactly what fires (0103)",
+  "tests": [
+    "a url only mcp server with no type draws the stdio command finding",
+    "an explicit http mcp server with a url passes the transport clauses"
+  ],
+  "notes": "Operator ruling (inbox 2026-11-26): the format declares `type`'s documented default and the guard reads the field as the runtime does — no amendment to guard semantics (contract.md 'clause': a truly absent guarded field stays silent). Default cited at McpServer in builtins.ts (code.claude.com/docs/en/mcp, retrieved 2026-07-15). Built-in-internal is enough; a new author-facing default surface is a question, not this entry."
+}
