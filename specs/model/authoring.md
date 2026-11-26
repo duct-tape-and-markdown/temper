@@ -53,15 +53,20 @@ its path the anchored `.bin` the program's package manager lays out), a
 committed file (`{ file }`, a source joining the roster as an input), or a
 system tool (`{ system }`, claiming presence and no version). Its runners (a
 gate hook, a tap, the typecheck, a script verifier) reach it by declared
-edges, and a command nothing runs is an advisory finding. *(Pending:)* the
-program's `package.json` is a source temper scaffolds once and never writes:
-its `packageManager` field is the declared manager, and every other writer
-(the manager on every add, update bots) stays free.
+edges, and a command nothing runs is an advisory finding. the program's
+`package.json` is a source temper scaffolds once and never writes: its
+`packageManager` field is the declared manager, and every other writer (the
+manager on every add, update bots) stays free.
 
 ## Layers
 
-The committed harness is one layer; uncommitted content and joined locks are
-the others, under the two rules below.
+The harness value composes from an ordered stack of layers under the same
+merge the SDK already speaks — later layers win by array surgery, one
+algebra for every layer. Which slots exist and their order is the provider's
+documented fact, carried as cited data on the provider face; the claude-code
+face emulates the product's own precedence, with the user slot named and
+reserved, ungoverned. Temper adopts the provider's ordering, not its
+override semantics: the bounds here are this gate's own rules.
 
 A layer is a locus fact, never a mechanism: a member of a kind whose locus is
 local, or a lock the invocation joins. Two rules attach to anything

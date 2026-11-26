@@ -28,11 +28,11 @@ Five, by placement:
   rejection, and supersession lives in `decisions/` and git tags — never
   inline. Edges run one way: a decision references the sections it governs;
   body text never references decisions.
-- **A claim is true of the code, or marked.** A ruling the code does not
-  carry yet is written *(pending)* at its claim, and the release cut that
-  ships it removes the mark. A design the code never had is cut or restated
-  as what the code does, never kept as aspiration. Each claim's holder is a
-  test, a clause or review; a review-only claim is the queue for a pin.
+- **The spec states the product's intent.** Whether the code conforms is the
+  loop's job: plan reconciles code against the corpus, and a claim the code
+  does not meet is an entry, never an edit to the claim. A claim is cut only
+  by a ruling that it is no longer intent. Each claim's holder is a test, a
+  clause or review, and a review-only claim is the queue for a pin.
 - **Equal representation.** The corpus owns intent and the model's shape;
   code owns all mechanism and all instance data — the predicate enum, the
   default contracts' clauses, the external-fact citations. The corpus never

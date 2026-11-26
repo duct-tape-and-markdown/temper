@@ -47,17 +47,15 @@ The type of a member. A kind declares
   as a file's is by its position, so a nested kind is extended by an
   extended host naming the subkind as its child.
 
-A kind reaches the engine as data, never code: its extractor is composed
-from that data, and an SDK render hook runs at emit and erases at the seam.
-A kind value travels by import; edge target sets and the lock name kinds by
-name, unique in a harness. Built-in and user-declared kinds are the same
-construct — ownership, not privilege (`../builtins.md`) — and a kind may
-**extend** another. A subkind keeps its base's facts, adds fields, edge
-fields and counsel, and governs a locus within its base's; every selection
-of the base binds its document, and its fields live where the base's format
-admits them, never as an undocumented key. Keeping the base's name it is a
-relocation, which replaces the built-in there; any other kind of a
-built-in's name is refused.
+A kind is data, never code, its extractor composed from that data; its
+identity travels by import, never by string. Built-in and user-declared
+kinds are the same construct — ownership, not privilege (`../builtins.md`) —
+and a kind may **extend** another. A subkind keeps its base's facts, adds
+fields, edge fields and counsel, and governs a locus within its base's;
+every selection of the base binds its document, and its fields live where
+the base's format admits them, never as an undocumented key. Keeping the
+base's name it is a relocation, which replaces the built-in there; any other
+kind of a built-in's name is refused.
 
 ## layout
 
@@ -132,7 +130,7 @@ that admits it, a shipped kind's included (`../builtins.md`).
 The harness itself is a member — the root of the forest. Its kind's template
 names the top layers (`.claude/`, the memory files, settings), the contract
 attaches to it as to any member, and harness-wide declarations are its
-fields, the enforcement mode among them.
+fields — the enforcement mode among them — overridable per member.
 
 ## Reach
 

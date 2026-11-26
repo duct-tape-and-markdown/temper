@@ -20,12 +20,12 @@ kinds alike: a subkind over its base, and a host's template over an
 any-depth reach (a `CLAUDE.md` inside any skill's directory is the skill's,
 not memory's). The lock records the resolution, and every verb reads it
 there. An author may add exclusions to a built-in through its relocation.
-That is how a collision with a built-in is answered, and how a
-fixture tree holding harness files is left ungoverned. Kind values travel by
-import, and kinds are named, never qualified: one harness holds one kind per
-name, and two kinds of one name in play are refused. The exception is an
-extension under the built-in's own name, a relocation, which replaces the
-built-in there.
+That is how a collision with a built-in is answered, and how a fixture tree
+holding harness files is left ungoverned. Kind identity travels by import,
+never by string, and no name-qualification scheme exists: one harness holds
+one kind per name, and two kinds of one name in play are refused. The
+exception is an extension under the built-in's own name, a relocation, which
+replaces the built-in there.
 
 ## The shipped kinds
 
@@ -262,20 +262,18 @@ clause must clear:
 
 ## Requirement
 
-*(Pending:)* the requirement is itself a shipped kind, an embedded member
-whose template and default cardinality clause `model/contract.md` owns. The
-code holds it as a value today.
+The requirement is itself a shipped kind — an embedded member whose template
+and default cardinality clause `model/contract.md` owns.
 
 ## Tool
 
 The **tool** is an embedded shipped kind: the one home of a command the
-harness runs (`model/authoring.md`). It registers nothing. Gate hooks, taps
-and the typecheck (and, *pending*, script verifiers) reach it through edges,
-and its default contract is one advisory `degree` clause, incoming at least
-one, so a tool nothing runs is reported. Its default is the temper package's
-bin, rendered as the anchored `.bin` path; an unrepresented harness keeps
-`temper` on the PATH. An unrepresented harness declares no tools, so it
-keeps each unclaimed entry's own finding (its remedy may work there), and
-where settings carry a hook or status-line command it adds *(pending)* one
-note that scripts become `{ file }` tools once represented. That note counts
-nothing it cannot see.
+harness runs (`model/authoring.md`). It registers nothing. Gate hooks, taps,
+the typecheck and script verifiers reach it through edges, and its default
+contract is one advisory `degree` clause, incoming at least one, so a tool
+nothing runs is reported. Its default is the temper package's bin, rendered
+as the anchored `.bin` path; an unrepresented harness keeps `temper` on the
+PATH. An unrepresented harness declares no tools, so it keeps each unclaimed
+entry's own finding (its remedy may work there), and where settings carry a
+hook or status-line command it adds one note that scripts become `{ file }`
+tools once represented. That note counts nothing it cannot see.

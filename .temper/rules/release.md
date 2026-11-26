@@ -6,44 +6,40 @@ the trigger and the published pair is the gate, not the local tree.
 
 ## The cut, in order
 
-1. **Reconcile pending claims.** `rg -n '\*\(Pending|\*\(pending' specs/`
-   lists every claim the code does not carry yet. Remove the mark from each
-   one this cut ships; a mark whose entry is gone is a claim to cut or
-   re-file.
-2. **Mine the draft.** `pnpm changelog` prints an `[Unreleased]` draft from
+1. **Mine the draft.** `pnpm changelog` prints an `[Unreleased]` draft from
    the `build:` commits since the last recorded version, breaks first. It is
    raw material, never pasted as is.
-3. **Curate.** Fold it into `CHANGELOG.md` as `## [X.Y.Z] — <date>` in the
+2. **Curate.** Fold it into `CHANGELOG.md` as `## [X.Y.Z] — <date>` in the
    `public-prose` register: `### Upgrading` and `### Breaking` lead, then
    Added / Changed / Fixed. Drop internal refactors and test work. A break
    the draft missed (a body with no `BREAKING:` line) is still a break —
    read the bodies of anything touching the CLI, the SDK surface, the lock
    or addresses.
-4. **Migration note.** If the entry has `### Breaking`, write
+3. **Migration note.** If the entry has `### Breaking`, write
    `docs/MIGRATING-X.Y.Z.md`: each break before and after, opening with a
    link to the note before it.
-5. **Bump the version in every home together** — a partial bump fails the
+4. **Bump the version in every home together** — a partial bump fails the
    gate:
    - `Cargo.toml`, the version `temper --version` reports;
    - `sdk/package.json`, its own `version` **and** the
      `optionalDependencies` engine pins (`@dtmd/temper-<platform>`).
-6. **Re-emit every committed lock.** Each lock records the engine version
+5. **Re-emit every committed lock.** Each lock records the engine version
    that wrote it, so the bump moves them: `cargo run -- emit` for this
    repo's `.temper/`, and the shipped example with the recipe its
    byte-compare test prints on failure. CI's `emit --frozen` plus
    `git diff --exit-code` fails any lock left behind.
-7. **Gates green**: `cargo test`, `cargo clippy --all-targets -- -D
+6. **Gates green**: `cargo test`, `cargo clippy --all-targets -- -D
    warnings`, `cargo fmt --all --check`, `pnpm --dir sdk test`,
    `cargo run -- check`.
-8. **Commit `chore(release): cut X.Y.Z`**, with the cut's net code
+7. **Commit `chore(release): cut X.Y.Z`**, with the cut's net code
    growth in its body (`git diff --shortstat vPREV -- src sdk/src`), so
    growth no feature explains shows at every cut. Tag `vX.Y.Z` and push
    `main` and the tag. The tag push publishes (`release.yml`).
-9. **Watch the release run.** The cut is shipped only when its smoke job —
+8. **Watch the release run.** The cut is shipped only when its smoke job —
    installing the published pair from the registry and round-tripping
    `install` → `emit` → `check` — is green. Green build jobs and provenance
    do not prove the pair works together.
-10. **Sync both npm locks** once the engines are live: `npm --prefix sdk
+9. **Sync both npm locks** once the engines are live: `npm --prefix sdk
    install` and `npm --prefix .temper install` (`.temper/` links `../sdk`,
    so its lock records the same engine pins), commit `chore(release): sync
    the npm locks to X.Y.Z`. Live means `npm view` returns X.Y.Z for each
@@ -54,11 +50,11 @@ the trigger and the published pair is the gate, not the local tree.
 ## Why the npm locks trail the tag
 
 The new platform packages do not exist on the registry until the release
-publishes them, so `npm install` cannot resolve them before step 10.
+publishes them, so `npm install` cannot resolve them before step 9.
 `release.yml` publishes with `npm install`, regenerating the lock on the
 runner, so a lagging committed lock never blocks a release; the main gate
 uses `npm --prefix sdk ci`, which fails `EUSAGE` on the mismatch. `main` is
-red between steps 8 and 10, which is expected — a red `main` never blocks the
+red between steps 7 and 9, which is expected — a red `main` never blocks the
 release, and a green release never proves `main`; reconcile both. **Never
 hand-edit `sdk/package-lock.json`'s version fields** — a hand-bumped field
 leaves the resolved pins stale.

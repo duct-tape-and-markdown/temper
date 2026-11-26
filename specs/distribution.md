@@ -50,11 +50,10 @@ toolchain; the plugin a stranger installs is the one that gates this repo
 
 - **Keystroke** — represented, the toolchain is the wall: the SDK's types
   deliver the decidable contract as compile-time validation, TSDoc guidance
-  as hover. `temper schema` generates a JSON Schema from the compiled
-  clauses, wired on a represented harness by the `yaml-language-server`
-  modeline each projection carries. An unrepresented harness gets no
-  modeline, and binds the schema in its editor by hand. Validation is the
-  decidable predicates only; guidance is advisory — taste cannot squiggle.
+  as hover. Unrepresented, `temper schema` generates a JSON Schema from the
+  compiled clauses, wired via the `yaml-language-server` modeline `install`
+  places. Validation is the decidable predicates only; guidance is advisory
+  — taste cannot squiggle.
 - **Session start** — **advisory**. The hook is the engine running `check`
   with the session-start reporter: on failure it emits the verdict as
   `additionalContext` (capped to Claude Code's 10k limit) with an instruction

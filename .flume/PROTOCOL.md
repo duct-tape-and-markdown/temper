@@ -129,6 +129,16 @@ commit that drains a note. A family whose census is already whole, such as
 N copies of one derivation, files as a fold at its first noting and never
 waits for a count of three.
 
+## The spec is intent; conformance is the queue
+
+The corpus states the product's intent (0105). A claim the code does not
+meet is an entry, never an edit to the claim, and plan never softens a claim
+to fit the code. Derive reads spec diffs from its cursor, so a claim the code
+drifted from after it was derived is invisible to it. A census record in the
+inbox (the claim, its file and line, and its verdict against the code) is
+how a whole-corpus reconcile arrives, and plan files each unmet claim as an
+entry under the claim's section.
+
 ## Kept on purpose
 
 Deliberate asymmetries, each a ruling with the condition that reopens it.
