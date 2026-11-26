@@ -274,4 +274,8 @@ taps, the typecheck and script verifiers reach it through edges, and its
 default contract is one advisory `degree` clause, incoming at least one, so
 a tool nothing runs is reported. Its default is the temper package's bin,
 rendered as the anchored `.bin` path; an unrepresented harness keeps
-`temper` on the PATH.
+`temper` on the PATH. An unrepresented harness declares no tools, so it
+keeps each unclaimed entry's own finding (its remedy may work there), and
+where settings carry a hook or status-line command it adds one note that
+scripts become `{ file }` tools once represented. That note counts nothing
+it cannot see (0103).
