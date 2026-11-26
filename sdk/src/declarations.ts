@@ -32,6 +32,7 @@ import {
   gateHookTool,
   hook,
   hookCollectionKey,
+  requirement,
   requirementOf,
   rule,
   settings,
@@ -1388,7 +1389,7 @@ function runners(member: Member): Array<readonly [string, unknown]> {
 
 /**
  * The `runs` rows — each runner naming the {@link tool} it runs (a hook handler, a
- * settings status line, the root for its typecheck), keyed to the runner's own address and the tool's
+ * settings status line, the root for its typecheck, a requirement for its telemetry tap), keyed to the runner's own address and the tool's
  * (`root/tool/<name>`), in member-then-position order. The edge is declared, never read
  * off the runner's `command`: the program states which tool a command runs.
  *
@@ -1407,6 +1408,15 @@ function runsRows(harness: Harness): RunsRow[] {
   // The harness root declares the typecheck, so the root is the compiler tool's runner.
   if (harness.typecheck !== undefined) {
     rows.push({ member: ROOT_ADDRESS, tool: composedToolAddress(harness, "typecheck", "tool", harness.typecheck.tool) });
+  }
+  // A telemetry requirement declares the tool its tap hooks run, so the requirement is the runner.
+  const taps = requirementEntries(harness).sort(([a], [b]) => compareStrings(a, b));
+  for (const [named, declared] of taps) {
+    if (declared.verifier?.species !== "telemetry" || declared.verifier.tool === undefined) continue;
+    rows.push({
+      member: nestedAddress(ROOT_ADDRESS, requirement.key, named),
+      tool: composedToolAddress(harness, named, "tool", declared.verifier.tool),
+    });
   }
   return rows;
 }

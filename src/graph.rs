@@ -32,7 +32,8 @@ use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
 use crate::member_address::{
-    address_of, embedded_source_host, parse_host_address, parse_leaf_address, parse_nested_address,
+    address_of, embedded_source_host, is_one_segment, nested_address, parse_host_address,
+    parse_leaf_address, parse_nested_address,
 };
 use crate::read::resolve_leaf;
 
@@ -1900,19 +1901,33 @@ pub fn resolved_mention_edges(mentions: &[MentionDeclaration]) -> Vec<ResolvedEd
         .collect()
 }
 
-/// Lift the tools the harness root runs into [`ResolvedEdge`]s from the root node over
+/// Lift the tools the harness root and its requirements run into [`ResolvedEdge`]s over
 /// the runs field, each target keyed by its whole address as a handler's resolved edge
-/// keys it. The root is no kind member, so its runner rows have no features to fold
-/// onto; the arc rides beside the mention edges instead, where `degree` counts it toward
-/// the tool's incoming bound exactly as a handler's folded edge counts.
+/// keys it. Neither runner is a kind member, so its rows have no features to fold onto;
+/// the arc rides beside the mention edges instead, where `degree` counts it toward the
+/// tool's incoming bound exactly as a handler's folded edge counts. A requirement runner
+/// (`root/requirement/<name>`) leaves the node a mention of the requirement binds; any
+/// other runner is a member's and is skipped.
 #[must_use]
-pub fn root_runs_edges<'a>(tools: impl IntoIterator<Item = &'a str>) -> Vec<ResolvedEdge> {
-    tools
-        .into_iter()
-        .map(|tool| ResolvedEdge {
-            from: (ROOT_OWNER.to_string(), ROOT_OWNER.to_string()),
-            field: crate::drift::RUNS_FIELD.to_string(),
-            to: (crate::tool::TOOL_KIND.to_string(), tool.to_string()),
+pub fn root_runs_edges<'a>(
+    rows: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Vec<ResolvedEdge> {
+    let requirement_host = nested_address(ROOT_OWNER, REQUIREMENT_KIND, "");
+    rows.into_iter()
+        .filter_map(|(runner, tool)| {
+            let from = if runner == ROOT_OWNER {
+                (ROOT_OWNER.to_string(), ROOT_OWNER.to_string())
+            } else {
+                let name = runner
+                    .strip_prefix(&requirement_host)
+                    .filter(|name| is_one_segment(name))?;
+                (REQUIREMENT_KIND.to_string(), name.to_string())
+            };
+            Some(ResolvedEdge {
+                from,
+                field: crate::drift::RUNS_FIELD.to_string(),
+                to: (crate::tool::TOOL_KIND.to_string(), tool.to_string()),
+            })
         })
         .collect()
 }

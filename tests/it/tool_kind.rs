@@ -452,3 +452,54 @@ fn a_tool_reached_only_by_the_typecheck_draws_no_degree_finding() {
         run.output
     );
 }
+
+/// A program whose only runner of its tool is a telemetry requirement's tap. The hook
+/// member brings the hook kind the synthesized tap row needs; its handler runs nothing.
+const TAP_ONLY_PROGRAM: &str = r#"
+import { emit, harness, telemetry, tool } from "@dtmd/temper";
+import { hook } from "@dtmd/temper/claude-code";
+
+declare const process: { stdout: { write(chunk: string): boolean } };
+
+const temper = tool();
+const start = hook({ name: "SessionStart", hooks: [{ type: "command", command: "true" }] });
+
+const program = harness({
+  members: [temper, start],
+  require: {
+    "skill-fires": { prose: "the skill fires", verifier: telemetry(["SkillInvoked"], { tool: temper }) },
+  },
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_tool_reached_only_by_a_tap_draws_no_degree_finding() {
+    let (harness, into) = common::wire_sdk_harness("tool-tap-only", TAP_ONLY_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    assert!(
+        declarations
+            .runs
+            .iter()
+            .any(|row| row.member == "root/requirement/skill-fires"
+                && row.tool == "root/tool/temper"),
+        "the lock carries the tap's edge as a runs row whose runner is its requirement: {:?}",
+        declarations.runs
+    );
+
+    let run = common::check_in(&harness, &["."], Some("github"));
+    let findings = run.findings();
+    assert!(
+        common::findings_for(&findings, "tool.degree").is_empty(),
+        "the tap runs the tool, so the tool is run: {}",
+        run.output
+    );
+    assert!(
+        common::findings_for(&findings, "graph.route").is_empty(),
+        "the requirement's edge resolves: {}",
+        run.output
+    );
+}

@@ -2384,6 +2384,21 @@ test("a telemetry verifier naming every documented event synthesizes each event'
   );
 });
 
+test("a telemetry requirement naming a tool is that tool's runner on a runs row", () => {
+  const script = tool({ file: "scripts/tap.sh" });
+  const h = harness({
+    members: [script],
+    require: {
+      "skill-fires": { prose: "the skill fires", verifier: telemetry(["SkillInvoked"], { tool: script }) },
+      "rules-load": { prose: "the rules load", verifier: telemetry(["InstructionsLoaded"]) },
+    },
+  });
+
+  assert.deepEqual(JSON.parse(emit(h).seam).declarations.runs, [
+    { member: "root/requirement/skill-fires", tool: "root/tool/tap.sh" },
+  ]);
+});
+
 test("a telemetry declaration's tap row carries the tool it reaches across the seam", () => {
   // The declaration reaches a tool; the engine renders the anchored command from it
   // (`src/drift.rs`), so the row carries the tool's address, never a command string.

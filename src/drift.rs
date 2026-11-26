@@ -7817,16 +7817,16 @@ pub fn mention_edges_from_declarations(declarations: &Declarations) -> Vec<graph
     graph::resolved_mention_edges(&mentions)
 }
 
-/// The lock's `runs` rows whose runner is the harness root (the typecheck's tool), lifted
-/// into [`graph::ResolvedEdge`]s ([`graph::root_runs_edges`]). Every other runner's row
-/// folds onto its own member's fields instead.
+/// The lock's `runs` rows whose runner is the harness root or a requirement it hosts (the
+/// typecheck's tool, a telemetry tap's), lifted into [`graph::ResolvedEdge`]s
+/// ([`graph::root_runs_edges`]). Every other runner's row folds onto its own member's
+/// fields instead.
 pub fn root_runs_edges_from_declarations(declarations: &Declarations) -> Vec<graph::ResolvedEdge> {
     graph::root_runs_edges(
         declarations
             .runs
             .iter()
-            .filter(|row| row.member == contract::ROOT_OWNER)
-            .map(|row| row.tool.as_str()),
+            .map(|row| (row.member.as_str(), row.tool.as_str())),
     )
 }
 
