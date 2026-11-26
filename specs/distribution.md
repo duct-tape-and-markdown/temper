@@ -16,15 +16,24 @@ program, riding the lock or embedded in the engine — none can drift.
    default contract is code execution at authoring time — devDependency-tier
    trust, bounded by CI's `emit --frozen` byte-compare. One package, one
    publish: core and provider cannot drift; the engine pin is declared once.
-   The `starter` subpath ships temper's own default harness as importable
-   values: the mechanics of using temper well (the gate hooks, the typecheck
-   tool, the emitted harness reference, the SDK counsel rule) and opt-in
-   patterns as kinds to extend (a standard over `rule`, a spec layout with
-   invariants, a procedure skill with topics). It never carries the
-   consumer's taste: no memory content, no conventions, no vocabulary inside
-   the patterns, and telemetry opt-in. Imported, it upgrades with the
-   package. The shipped example composes the starter and shows a
-   customization over it, so the structure stays readable beside the import.
+   The `starter` subpath ships temper's default harness as **shapes the
+   consumer hydrates**: typed constructors in which temper supplies the
+   structure, wiring, edges, rendering and default contract, and the
+   consumer supplies the content (names, prose, paths, and its own field
+   vocabulary through a type parameter). A required parameter is where taste
+   lives and has no default; an optional one is mechanics, with a sensible
+   default. The shapes are the mechanics of using temper well (the gate
+   hooks, the typecheck, the emitted harness reference, whose description
+   the consumer may hydrate and whose topics derive from what is declared)
+   and opt-in patterns whose only fields are temper's own concepts (a
+   standard over `rule` and a spec layout, each holding invariants with a
+   statement and a holder, and a procedure skill with topics). `starter()`
+   composes every shape with its defaults. Customization is typed options,
+   with `extend()` the escape hatch, and the starter carries no taste: no
+   memory content, no conventions, telemetry opt-in. An upgrade improves the
+   shapes while the content stays the consumer's, as arguments in its own
+   program. The shipped example hydrates the shapes with a worked
+   customization, so the structure stays readable beside the import.
 2. **The engine binary** — pinned by the SDK at an exact version
    (per-platform `optionalDependencies`), also acquirable standalone. It
    embeds a **built-in lock**: the first-party module's own emit — the same

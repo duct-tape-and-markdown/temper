@@ -18,26 +18,36 @@ also keep example and guidance for building with the sdk available."
 
 ## Decision
 
-**The SDK's `starter` subpath ships temper's default harness as importable
-values** (`distribution.md`, "The SDK"):
+**The SDK's `starter` subpath ships temper's default harness as shapes the
+consumer hydrates** (`distribution.md`, "The SDK"). Amended the same day,
+before derivation, on John's refinement: "look at these starter kinds as
+more generic, so the shape of the harness skill can be imported, and
+hydrated to fit the user's need."
 
-- the mechanics of using temper well: gate hooks, the typecheck tool, the
-  emitted harness reference, the SDK counsel rule;
-- opt-in patterns as kinds to extend: a standard over `rule`, a spec layout
-  with invariants, a procedure skill with topics.
+- Each export is a typed constructor. temper supplies the structure,
+  wiring, edges, rendering and default contract. The consumer supplies
+  names, prose, paths, and its own fields through a type parameter.
+- A required parameter is where taste lives and has no default. An
+  optional one is mechanics, with a default.
+- The shapes are the gates, the typecheck, the harness reference (its
+  description hydratable, its topics derived) and opt-in patterns whose
+  only fields are temper's concepts: a standard and a spec layout holding
+  invariants with a statement and a holder, and a procedure skill with
+  topics.
+- `starter()` composes them all with defaults, and a fresh install calls
+  it (`adoption.md`). Customization is typed options, with `extend()` the
+  escape hatch.
 
-It never carries taste. There is no memory content and no conventions, the
-patterns' vocabulary is the consumer's, and telemetry is opt-in. A fresh
-represented install composes it (`adoption.md`, "Install"), and it upgrades
-with the package. The shipped example composes the starter with a worked
-customization, so the structure stays readable, and the SDK's counsel and
-the reference teach building over it.
+The shape split also answers versioning: an upgrade improves the shapes,
+and the content stays the consumer's as arguments in its own program.
 
 ## Rejected
 
 - **A frozen scaffold.** It is visible, but it never upgrades.
 - **A tracked scaffold with three-way merge.** It is right in principle and
   too heavy for the gain.
+- **Fixed members with an `omit` list.** They collide under one kind per
+  name and need a second override mechanism.
 
 ## Consequences
 
