@@ -30,20 +30,27 @@ program, riding the lock or embedded in the engine — none can drift.
    holding the area's standing facts, a skill whose `SKILL.md` routes to one
    topic file per procedure, every reference between them typed. Its axes
    are its trigger (paths, a nested location, or none), its invocation
-   (model and user, user only, model only), its execution (inline or forked
-   to an agent), its topics, the agents that preload it, and its enforcement
-   attachments (a clause or a hook, never a prose MUST). The playbook
-   derives what a hand-authored harness gets wrong: a user-only playbook's
-   rule says to ask the user to run it, its skill keeps its own required
-   description because a path rule never loads before a file is touched, and
-   a user-only playbook refuses preloading. Its router wording is a default
-   renderer the consumer replaces, never fixed phrasing. `starter()`
-   composes every shape with its defaults. Customization is typed options,
-   with `extend()` the escape hatch, and the starter carries no taste: no
-   memory content, no conventions, telemetry opt-in. An upgrade improves the
-   shapes while the content stays the consumer's, as arguments in its own
-   program. The shipped example hydrates the shapes with a worked
-   customization, so the structure stays readable beside the import.
+   (model and user, user only, model only), its topics, its enforcement
+   attachments, its execution (inline or forked to an agent), and the agents
+   that preload it. An attachment holds what must always be true, never a
+   prose MUST: a clause; a guard hook that points an edit on the area's
+   paths at its rule, or refuses it naming the rule; a fence of `ask`
+   permissions over paths that need an owner present; or an allowlisted task
+   script whose allow rule is derived from the command as it is invoked.
+   Execution and preloading are declared but not yet offered: the types name
+   them, and setting one refuses at emit, naming the axis and where to
+   request it, so an author sees what the shape could do before it does. The
+   playbook derives what a hand-authored harness gets wrong: a user-only
+   playbook's rule says to ask the user to run it, and its skill keeps its
+   own required description because a path rule never loads before a file is
+   touched. Its router wording is a default renderer the consumer replaces,
+   never fixed phrasing. `starter()` composes every shape with its defaults.
+   Customization is typed options, with `extend()` the escape hatch, and the
+   starter carries no taste: no memory content, no conventions, telemetry
+   opt-in. An upgrade improves the shapes while the content stays the
+   consumer's, as arguments in its own program. The shipped example hydrates
+   the shapes with a worked customization, so the structure stays readable
+   beside the import.
 2. **The engine binary** — pinned by the SDK at an exact version
    (per-platform `optionalDependencies`), also acquirable standalone. It
    embeds a **built-in lock**: the first-party module's own emit — the same

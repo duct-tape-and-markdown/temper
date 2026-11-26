@@ -45,3 +45,20 @@ STARTER-SHIPS-THE-OPT-IN-PATTERNS retires, and derive files the playbook
 from this diff. Three runtime facts stay UNVERIFIED and are cited before
 build: whether a skill's own `paths` auto-loads it, whether Grep or Glob
 hits load a path rule, and whether read topic files survive compaction.
+
+## Amendment (2026-11-26)
+
+Two inputs narrowed the first version. Jeff's survey of hand-built
+harness patterns found that a guard on edits, a fence of `ask`
+permissions, and an allowlisted task script each hold one area's intent,
+so they are the playbook's attachment types, not separate shapes. Its
+other patterns are a single mechanism each: the session-start report ships
+as the starter's gate hooks, a subagent's declared model is a clause on
+the agent kind, and imported doctrine belongs to layers. John ruled that
+every axis stays visible. Execution and preloading are declared but not
+yet offered, refusing at emit with where to request them, so the shape
+shows what it could do. The refusal of a preloaded user-only playbook
+waits with preloading.
+
+Rejected: four further constructors (fence, report, role, doctrine
+import). A pattern without an area and an intent is a kind or a clause.
