@@ -1,0 +1,30 @@
+{
+  "tag": "EXPLAIN-STATES-A-MEMBERS-LOAD-AND-COST",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/read.rs",
+        "description": "member narration: the channel that loads it, when, and its rough cost"
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "load and cost strand"
+      }
+    ]
+  },
+  "summary": "explain states, per member, what loads it, when, and roughly what it costs, off its kind's registration and the cited runtime facts",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Default contracts"
+  },
+  "acceptance": "explain on a skill, a path-scoped rule and a memory file each names its loading channel, its moment and a character cost; cargo test green",
+  "tests": [
+    "explain on a member states what loads it and when",
+    "explain on a model invocable skill states its listing cost in characters"
+  ],
+  "notes": "Read the registration and absence gate the reach judge already reads; no second load model. Cost is the rendered size and, for a skill, its listing entry; name the unit. A gated document states whether its gate is open (builtins.md, registration)."
+}

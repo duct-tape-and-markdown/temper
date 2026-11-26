@@ -1,0 +1,31 @@
+{
+  "tag": "MEMBER-PLACEMENT-IS-A-DECLARED-ROW-FACT",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "sdk/src/kind.ts", "description": "member init gains an optional location relative to the locus root; identityFieldValue stops parsing the name" },
+      { "path": "sdk/src/emit.ts", "description": "placementInUnit reads the location; placingTemplate retires" },
+      { "path": "sdk/src/declarations.ts", "description": "member row carries the placement" },
+      { "path": "sdk/src/generated/PayloadMember.ts", "description": "regenerated binding" },
+      { "path": "src/drift.rs", "description": "PayloadMember and the member row carry placement; member_projection_path reads it; placing_template and the span parse retire" },
+      { "path": "src/import.rs", "description": "lifted members declare placement from the read path" },
+      { "path": "sdk/test/emit.test.ts", "description": "nested placement from the location" },
+      { "path": "tests/it/emit.rs", "description": "placement from the row, not the name" },
+      { "path": "tests/it/nested_member.rs", "description": "nested skill, memory and output style round-trip" },
+      { "path": "tests/it/seam_bindings_current.rs", "description": "binding bless" }
+    ]
+  },
+  "summary": "A member's placement is declared where its kind's templates cannot place its name whole, carried on its lock row and read by emit, never parsed out of its identity",
+  "per": { "path": "specs/model/representation.md", "section": "member" },
+  "acceptance": "no placement path splits a member name on `:`; both placing_template copies are gone; a nested member emits where its declared location says and round-trips through import; cargo test and pnpm --dir sdk test green",
+  "tests": [
+    "emit places a member at its declared location rather than a path parsed from its name",
+    "a member no template can place whole without a declared location is refused",
+    "import declares a nested member's location from its read path"
+  ],
+  "pins": [
+    "a root and a nested same named output style stay two members"
+  ],
+  "notes": "Ruled by 0113 (closes the old member-placement-path-fact-surface question). Identity keeps its path-derived prefix; the location is the separate fact and must agree with that prefix. Retires debt interim-template-placement (.flume/plan/debt.md)."
+}

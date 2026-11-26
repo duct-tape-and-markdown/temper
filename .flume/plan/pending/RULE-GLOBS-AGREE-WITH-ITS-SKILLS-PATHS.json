@@ -1,0 +1,64 @@
+{
+  "tag": "RULE-GLOBS-AGREE-WITH-ITS-SKILLS-PATHS",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "rule default contract: trigger agreement advisory"
+      },
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "the predicate, or a mentionReachable variant"
+      },
+      {
+        "path": "src/contract.rs",
+        "description": "the predicate and its row lift"
+      },
+      {
+        "path": "src/engine.rs",
+        "description": "judge beside mention-reachable"
+      },
+      {
+        "path": "src/admissibility.rs",
+        "description": "admits the new predicate"
+      },
+      {
+        "path": "src/schema.rs",
+        "description": "exhaustive predicate match"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "the clause rides the contract"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived"
+      },
+      {
+        "path": "src/bundled_reference/kind-rule.md",
+        "description": "re-derived"
+      },
+      {
+        "path": "tests/it/rule_contract.rs",
+        "description": "expected clause vector and the trigger agreement advisory"
+      }
+    ]
+  },
+  "summary": "Where a path-scoped rule mentions a path-scoped skill, an advisory judges the rule's globs against the skill's own paths so the two triggers of one area cannot drift apart",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Default contracts"
+  },
+  "acceptance": "a rule whose globs differ from its mentioned skill's paths draws one advisory; equal sets are silent; cargo test green",
+  "tests": [
+    "a rule whose globs are narrower than its mentioned skills paths draws the trigger agreement advisory"
+  ],
+  "pins": [
+    "a rule whose globs equal its mentioned skills paths draws no trigger agreement advisory"
+  ],
+  "notes": "mention-reachable already indicts a rule scope outside the skill's gate; this adds the converse half (0112, \"can drift apart\"). Reuse its structural subset test, not a second glob comparer."
+}

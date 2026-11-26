@@ -1,0 +1,22 @@
+{
+  "tag": "GATED-DOCUMENT-FINDING-SAYS-WHETHER-ITS-GATE-IS-OPEN",
+  "gate": { "kind": "blockedBy", "tags": ["AGENTS-MD-HAS-A-LAUNCH-GATE-AND-AN-ON-DEMAND-GATE"] },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/drift.rs", "description": "undeclared_locus_members_from_doc: loader claim reads the site's gate; LocusMemberSite carries it" },
+      { "path": "src/gate.rs", "description": "committed_member_sites fills each site's gate state from absence_closer" },
+      { "path": "tests/it/memory_gate.rs", "description": "locus-declared wording over a shut and an open gate" }
+    ]
+  },
+  "summary": "The root locus-declared finding over a gated built-in document says whether its gate is open, and never that Claude Code loads it while the gate is shut",
+  "per": { "path": "specs/builtins.md", "section": "The shipped kinds" },
+  "acceptance": "an undeclared AGENTS.md a CLAUDE.md shadows draws a locus-declared finding naming the shut gate and its closer, with no \"Claude Code loads it\"; cargo test green",
+  "tests": [
+    "an undeclared agents md under a shut gate says its gate is shut rather than that claude code loads it"
+  ],
+  "pins": [
+    "an undeclared claude md says claude code loads it"
+  ],
+  "notes": "Scan every other finding that asserts a built-in document loads (rg \"loads it\" src/) for the same gate; same class (0103)."
+}

@@ -1,0 +1,24 @@
+{
+  "tag": "RULE-SIZE-ADVISORY-AT-THE-ON-DEMAND-LIMIT",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "sdk/src/builtins.ts", "description": "rule default contract: a guarded advisory character extent at the cited on-demand limit" },
+      { "path": "sdk/test/builtins.test.ts", "description": "the clause rides the rule contract" },
+      { "path": "src/builtin_lock.toml", "description": "re-derived" },
+      { "path": "src/bundled_reference/kind-rule.md", "description": "re-derived" },
+      { "path": "tests/it/rule_contract.rs", "description": "expected clause vector and the size advisory" }
+    ]
+  },
+  "summary": "The rule default contract judges an on-demand rule's size against the runtime's per-file truncation limit, advisory and cited",
+  "per": { "path": "specs/builtins.md", "section": "Default contracts" },
+  "acceptance": "a path-scoped rule over the cited limit draws one advisory naming the truncation; an unscoped rule does not; cargo test green",
+  "tests": [
+    "a path scoped rule past the on demand size limit draws the rule size advisory"
+  ],
+  "pins": [
+    "an unscoped rule past the on demand size limit draws no rule size advisory"
+  ],
+  "notes": "memory docs (retrieved 2026-11-26, via summary; re-verify): an on-demand file past 40,000 characters at a 200K window (larger on 1M) is cut to its start; launch-loaded files are whole to 4 MiB. Guard on `paths` presence. Where the docs scale by window, judge the smallest documented and say so in the guidance."
+}

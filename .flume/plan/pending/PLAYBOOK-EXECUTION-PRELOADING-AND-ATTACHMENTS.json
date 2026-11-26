@@ -1,0 +1,16 @@
+{
+  "tag": "PLAYBOOK-EXECUTION-PRELOADING-AND-ATTACHMENTS",
+  "gate": { "kind": "blockedBy", "tags": ["STARTER-SHIPS-THE-PLAYBOOK"] },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "sdk/src/playbook.ts", "description": "execution (inline or forked to an agent), preloading agents, enforcement attachments" },
+      { "path": "sdk/test/playbook.test.ts", "description": "fork, preload, user-only refusal, clause and hook attachments" }
+    ]
+  },
+  "summary": "The playbook gains its execution axis (inline or forked to an agent), the agents that preload it (refused for a user-only playbook), and enforcement attachments as a clause or a hook, never prose",
+  "per": { "path": "specs/distribution.md", "section": "What ships — three channels" },
+  "acceptance": "a forked playbook emits context: fork with its agent; a preloading agent lists its skill; a user-only playbook with a preloading agent throws; an attached clause or hook emits as its own member; pnpm --dir sdk test green",
+  "tests": [],
+  "notes": "SDK-only behavior: the SDK gate holds it. skills docs (2026-11-26): disable-model-invocation also prevents preloading into subagents, the fact behind the refusal; cite it at the throw."
+}

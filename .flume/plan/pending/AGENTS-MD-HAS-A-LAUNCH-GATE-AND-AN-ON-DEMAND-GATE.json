@@ -1,0 +1,33 @@
+{
+  "tag": "AGENTS-MD-HAS-A-LAUNCH-GATE-AND-AN-ON-DEMAND-GATE",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/kind.rs", "description": "absence_closer: launch gate at or above, a subdirectory's own CLAUDE.md files only" },
+      { "path": "src/gate.rs", "description": "absence_gated reason names the gate that shut" },
+      { "path": "src/drift.rs", "description": "AbsenceGateRow carries the gate's scope if the row must spell it" },
+      { "path": "src/builtin_lock.toml", "description": "memory row re-derived: two gates, .claude/AGENTS.md claimed" },
+      { "path": "sdk/src/builtins.ts", "description": "memory templates and cites per the two gates" },
+      { "path": "sdk/src/kind.ts", "description": "GatedTemplate spells the gate's scope" },
+      { "path": "sdk/src/declarations.ts", "description": "absence_gate row builder" },
+      { "path": "sdk/src/generated/AbsenceGateRow.ts", "description": "regenerated binding" },
+      { "path": "src/bundled_reference/kind-memory.md", "description": "re-derived" },
+      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emitted" },
+      { "path": "tests/it/memory_gate.rs", "description": "the two gates and .claude/AGENTS.md" },
+      { "path": "tests/it/seam_bindings_current.rs", "description": "binding bless if the row moves" }
+    ]
+  },
+  "summary": "AGENTS.md and .claude/AGENTS.md take two absence gates: at launch any CLAUDE.md at the root or above shuts one; a subdirectory's shuts only on that subdirectory's own CLAUDE.md files",
+  "per": { "path": "specs/builtins.md", "section": "The shipped kinds" },
+  "acceptance": "a nested AGENTS.md under a root CLAUDE.md is reachable, one beside its own CLAUDE.md is not, and .claude/AGENTS.md is a launch-gated memory member; cargo test green",
+  "tests": [
+    "a nested agents md under only a root claude md is loaded on demand",
+    "a nested agents md beside its own claude local md is shadowed",
+    "a dot claude agents md is a memory member shut by a root claude md"
+  ],
+  "pins": [
+    "an agents md beside a claude md with no import draws a not loaded reachability finding"
+  ],
+  "notes": "Docs re-read 2026-11-26 (code.claude.com/docs/en/memory, \"AGENTS.md\"): launch loads AGENTS.md and .claude/AGENTS.md at or above cwd only where no CLAUDE.md/CLAUDE.local.md sits at or above; a subdirectory's loads on Read when it has \"none of the three CLAUDE.md files of its own\". The setting override is PROJECT-INSTRUCTIONS-SETTING-OPENS-BOTH-AGENTS-MD-GATES."
+}

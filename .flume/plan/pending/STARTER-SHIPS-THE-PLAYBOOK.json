@@ -1,0 +1,41 @@
+{
+  "tag": "STARTER-SHIPS-THE-PLAYBOOK",
+  "gate": {
+    "kind": "parked",
+    "reason": "decision on the three runtime facts 0111 requires cited before build: does a skill's own paths auto-load it, do Grep/Glob hits load a path rule, do read topic files survive compaction; docs re-read 2026-11-26 state none"
+  },
+  "files": {
+    "new": [
+      {
+        "path": "sdk/src/playbook.ts",
+        "description": "the playbook shape: path rule, routing skill, topic supporting docs, typed mentions, default router renderer"
+      },
+      {
+        "path": "sdk/test/playbook.test.ts",
+        "description": "axes, derivations, renderer replacement"
+      }
+    ],
+    "edit": [
+      {
+        "path": "sdk/src/starter.ts",
+        "description": "exports playbook; starter() composes the playbooks it is given"
+      },
+      {
+        "path": "sdk/test/starter.test.ts",
+        "description": "starter() with a playbook option"
+      },
+      {
+        "path": "sdk/test/root_exports.test.ts",
+        "description": "the starter subpath's new export"
+      }
+    ]
+  },
+  "summary": "The starter ships the playbook: one area as a path rule, a routing skill and topic files, typed over trigger, invocation and topics, deriving the user-only wording and own description",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "What ships — three channels"
+  },
+  "acceptance": "a harness composing a playbook per trigger (paths, nested, none) and invocation emits and passes check --deny-advisories; the router renderer is replaceable; pnpm --dir sdk test green",
+  "tests": [],
+  "notes": "SDK-only behavior: the SDK gate holds it. Build over rule, skill, supportingDoc and path-form mentions (reference.ts' fix). The area's content is required, so starter() composes a playbook only when given. Execution, preloading and attachments are PLAYBOOK-EXECUTION-PRELOADING-AND-ATTACHMENTS."
+}

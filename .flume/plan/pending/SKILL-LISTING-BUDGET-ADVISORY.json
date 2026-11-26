@@ -1,0 +1,31 @@
+{
+  "tag": "SKILL-LISTING-BUDGET-ADVISORY",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [
+      { "path": "tests/it/context_cost.rs", "description": "listing budget advisory" }
+    ],
+    "edit": [
+      { "path": "sdk/src/builtins.ts", "description": "skill (and command) default contract: whole-grain listing budget advisory" },
+      { "path": "sdk/src/contract.ts", "description": "the predicate, if extent cannot carry it" },
+      { "path": "src/contract.rs", "description": "the predicate and its row lift, if new" },
+      { "path": "src/engine.rs", "description": "whole-grain judge over model-invocable members" },
+      { "path": "src/drift.rs", "description": "ClauseRow column, if new" },
+      { "path": "sdk/src/generated/ClauseRow.ts", "description": "regenerated binding, if the row moves" },
+      { "path": "sdk/test/builtins.test.ts", "description": "the clause rides the contract" },
+      { "path": "src/builtin_lock.toml", "description": "re-derived" },
+      { "path": "src/bundled_reference/kind-skill.md", "description": "re-derived" },
+      { "path": "tests/it/main.rs", "description": "registers context_cost" },
+      { "path": "tests/it/seam_bindings_current.rs", "description": "binding bless, if the row moves" }
+    ]
+  },
+  "summary": "The shipped skill contract judges the harness's model-invocable skill listing (each entry capped at 1,536 characters) against the runtime's listing budget, advisory and cited",
+  "per": { "path": "specs/builtins.md", "section": "Default contracts" },
+  "acceptance": "a harness whose model-invocable descriptions overrun the cited budget draws one whole-grain advisory; skills with disable-model-invocation are not counted; cargo test green",
+  "tests": [
+    "a skill listing over the listing budget draws one listing budget advisory",
+    "a skill that disables model invocation is not counted against the listing budget",
+    "a description past the per entry cap counts only its first 1536 characters"
+  ],
+  "notes": "skills docs (retrieved 2026-11-26, via summary; re-verify): 1% of the window, entry cut at 1,536 chars of description+when_to_use, least-used dropped first; overrides skillListingBudgetFraction, SLASH_COMMAND_TOOL_CHAR_BUDGET. If the docs give no character figure to judge, leave the entry with a question."
+}
