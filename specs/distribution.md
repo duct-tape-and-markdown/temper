@@ -53,10 +53,10 @@ toolchain; the plugin a stranger installs is the one that gates this repo
   deliver the decidable contract as compile-time validation, TSDoc guidance
   as hover. Unrepresented, `temper schema` generates a JSON Schema from the
   compiled clauses, wired via the `yaml-language-server` modeline `install`
-  places, which points at the schema the engine's npm package ships for its
-  own version (a version-pinned CDN URL), so nothing beyond the modeline is
-  written to the tree. Validation is the decidable predicates only; guidance
-  is advisory — taste cannot squiggle.
+  places, which points at the schema the SDK package (`@dtmd/temper`) ships
+  for its own version (a version-pinned CDN URL), so nothing beyond the
+  modeline is written to the tree. Validation is the decidable predicates
+  only; guidance is advisory — taste cannot squiggle.
 - **Session start** — **advisory**. The hook is the engine running `check`
   with the session-start reporter: on failure it emits the verdict as
   `additionalContext` (capped to Claude Code's 10k limit) with an instruction

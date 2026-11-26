@@ -187,7 +187,10 @@ write) touches a matching path (code.claude.com/docs/en/skills, retrieved
 search tool's, opens no path gate, a skill's or a rule's (probed on 2.1.281,
 2026-09-24), so a reach judgment over a path gate states that it cannot see
 reads made any other way. The gate is the field's documented semantics,
-carried with the field, never a channel entry.
+carried with the field, never a channel entry. A gate may also be a
+document's absence: an `AGENTS.md` opens its channels only where no
+`CLAUDE.md` sits in its directory or above, a gate carried with memory's
+`AGENTS.md` template and judged by reach.
 
 Each kind's format facts are external facts about the harness, cited at the
 point of claim in the kind's own source.

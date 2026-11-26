@@ -15,7 +15,8 @@ One authored unit: an instance of a kind. A member carries
   an odd segment count and a leaf's an even one — one grammar every row
   spells and every verb accepts; resolution is total — an address names
   exactly one thing or the verb refuses — and coincident addresses are a
-  malformed lock,
+  malformed lock; a name derived from a field is opaque, and a member's
+  placement is its own path fact, never parsed out of its identity,
 - typed **fields**, projected to frontmatter or structured config,
 - **prose** — its authored words, copied verbatim, byte-for-byte,
 - **edges** — its declared references (`contract.md`),
@@ -88,19 +89,20 @@ a required section, a minimum member count — is a dialable clause.
 
 Where a member serializes. Three spellings:
 
-- **file** — the member owns a file at a path its kind governs, a
-  **template**: literal segments with at most one `*`, optionally under a
-  leading `**/`, less the paths the kind declares **excluded**, a directory
-  excluding what lies beneath it. Any other pattern syntax refuses at load;
-  names narrow by clause, never by pattern. A document's kind is declared by
-  its position alone, so two kinds never govern one document (a subkind's is
-  its base's), judged per document and answered by excluding it from the
-  kind that does not own it; a registration kind's starless locus names its
-  manifest and governs no document. A file locus may declare a commitment
-  class of **local**: per-machine and uncommitted, the kind reviewed and its
-  documents not. A local member is read-side only — the governed source,
-  read at check under its kind's format, never an emit input or target
-  (`pipeline.md`) — and its rows derive at read time, never in the lock,
+- **file** — the member owns a file at a path its kind governs through one
+  or more **templates**, each literal segments with at most one `*`,
+  optionally under a leading `**/`, less the paths the kind declares
+  **excluded**, a directory excluding what lies beneath it. Any other
+  pattern syntax refuses at load; names narrow by clause, never by pattern.
+  A document's kind is declared by its position alone, so two kinds never
+  govern one document (a subkind's is its base's), judged per document and
+  answered by excluding it from the kind that does not own it; a
+  registration kind's starless locus names its manifest and governs no
+  document. A file locus may declare a commitment class of **local**:
+  per-machine and uncommitted, the kind reviewed and its documents not. A
+  local member is read-side only — the governed source, read at check under
+  its kind's format, never an emit input or target (`pipeline.md`) — and its
+  rows derive at read time, never in the lock,
 - **embedded** — the member lives inside its parent's body, loading through
   its host, never on its own, so it registers nothing — a non-empty
   registration is a well-formedness fault, or
