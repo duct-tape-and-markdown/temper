@@ -9,11 +9,16 @@ author's to invent — and the author adopts them by import. A built-in's
 locus is the harness's too: it claims exactly the paths the harness loads as
 that kind, cited, and where two loaders' documented reach meets, the kind
 whose loader the documentation names owns the path and the other excludes
-it. A relocated built-in keeps each exclusion its new template still
-reaches, since moving one loader's reach moves no other's. A built-in
-host's template claim owns the files under its unit at any depth, so a
-`CLAUDE.md` inside a nested skill's directory is the skill's, as a root
-skill's is (0084), with no exclusion pattern needed. An author
+it. A built-in reads its format as the runtime does: the documented behavior
+binds, a cited lab observation binds where the docs are silent, and
+otherwise the literal bytes bind, with the uncertainty named in guidance. A
+document the runtime loads is never a load fault; one it skips is. A relocated built-in keeps each exclusion its new template still
+reaches, since moving one loader's reach moves no other's. Where claims
+overlap, the most specific documented claim holds the document, for built-in
+and custom kinds alike: a subkind over its base, and a host's template over
+an any-depth reach (a `CLAUDE.md` inside any skill's directory is the
+skill's, not memory's). The lock records the resolution, and every verb
+reads it there. An author
 may add exclusions to a built-in through its relocation. That is how a
 collision with a built-in is answered (0085), and how a fixture tree
 holding harness files is left ungoverned. Kind identity
@@ -24,7 +29,7 @@ replaces the built-in there.
 
 ## The shipped kinds
 
-Fourteen kinds ship. Ten are file members:
+Sixteen kinds ship. Eleven are file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. It
@@ -64,6 +69,12 @@ Fourteen kinds ship. Ten are file members:
   `.claude/agents/**/*.md`: "Claude Code scans `.claude/agents/` …
   recursively, so you can organize definitions into subfolders"
   (code.claude.com/docs/en/sub-agents, retrieved 2026-11-25).
+- **output-style** — a markdown file under `.claude/output-styles/`, its
+  frontmatter optional (`name`, `description`, `keep-coding-instructions`,
+  `force-for-plugin`) and its body the instructions; identity from `name`,
+  else the file stem. Settings select it by exact name with `outputStyle`,
+  an edge from both `settings` and `settings-local`
+  (code.claude.com/docs/en/output-styles, retrieved 2026-11-25).
 - **rule** — a lone markdown file with an optional path scope; a rule with no
   scope registers unconditionally.
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
@@ -254,3 +265,13 @@ clause must clear:
 
 The requirement is itself a shipped kind — an embedded member whose template
 and default cardinality clause `model/contract.md` owns.
+
+## Tool
+
+The **tool** is the other embedded shipped kind: the one home of a command
+the harness runs (`model/authoring.md`). It registers nothing. Gate hooks,
+taps, the typecheck and script verifiers reach it through edges, and its
+default contract is one advisory `degree` clause, incoming at least one, so
+a tool nothing runs is reported. Its default is the temper package's bin,
+rendered as the anchored `.bin` path; an unrepresented harness keeps
+`temper` on the PATH.

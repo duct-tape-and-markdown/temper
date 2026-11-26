@@ -102,6 +102,16 @@ title line, and the byte cap are the package's (`docs/CHAIN-AUTHORING.md`,
 that hit costly harness friction files one note there (the
 `capture-friction` skill); the inbox slice routes it.
 
+## Questions are raised per class
+
+A question names a class of problem, never one instance. Before raising one,
+check whether a ruled class covers the case: a built-in reads as the
+runtime reads (0101); the most specific claim holds a document (0102); a
+finding is true for its reader (0103); one concept is one member kind (0078,
+0104). If a class covers it, the instance is an entry under that record. A
+question is for a case the classes leave open, or where two of them
+conflict.
+
 ## Kept on purpose
 
 Deliberate asymmetries, each a ruling with the condition that reopens it.

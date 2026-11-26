@@ -154,3 +154,9 @@ if one is removed, and its field strand narrates the local telemetry record —
 counts and denominators joined to members through the same lock declarations
 the gate reads: evidence narrated, never judged. Every reading is a
 projection over the same resolved edges the gate uses; it never gates.
+
+**A finding is true for its reader.** A finding or a managed note states only
+what holds in the mode it is read in (a represented harness, an
+unrepresented one, an installed plugin), with a remedy that works there.
+What a mode cannot decide collapses to one coverage note naming what would
+decide it, never a per-member finding whose remedy cannot work.

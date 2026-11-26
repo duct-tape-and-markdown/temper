@@ -46,8 +46,9 @@ nowhere — no bytes reach the projection. A committed file temper does not
 write joins the roster this way: a member whose record temper writes,
 declaring the file as its input.
 
-A **command** the harness runs is one typed reference, stated once and
-pointed at by what runs it: a package's bin (`{ package, bin }`, its
+A **command** the harness runs is one typed reference, a member of the
+shipped `tool` kind (`../builtins.md`), stated once and pointed at by what
+runs it: a package's bin (`{ package, bin }`, its
 version the lockfile's, its path the anchored `.bin` the program's package
 manager lays out), a committed file (`{ file }`, a source joining the
 roster as an input), or a system tool (`{ system }`, claiming presence and
