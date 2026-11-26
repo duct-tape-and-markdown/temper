@@ -31,11 +31,15 @@ Every edge resolves into one enumeration the gate and every read verb share,
 so narration never disagrees with the verdict. Edges are declared, never
 mined from prose. Path-resolved edges resolve against raw disk, never the
 ignore-filtered discovery view: an extra file can only suppress a finding, a
-pruned one can forge one (discovery is the opposite, `adoption.md`). An edge
-carries no obligation of its own: the clauses that range over it decide
-whether it counts; the shipped `mention-reachable` advisory judges only
-declared edges, never derived containment. What an edge **means** is its
-**intent**, never checked: an edge field's guidance (its field counsel,
+pruned one can forge one (discovery is the opposite, `adoption.md`). A
+target the runtime answers from outside the corpus is never dangling: a name
+the provider documents as built in (a **provided** name) resolves, and any
+other name the tree cannot show (user scope, a plugin) is undecidable here
+and collapses to one coverage note naming the scopes temper does not read.
+An edge carries no obligation of its own: the clauses that range over it
+decide whether it counts; the shipped `mention-reachable` advisory judges
+only declared edges, never derived containment. What an edge **means** is
+its **intent**, never checked: an edge field's guidance (its field counsel,
 "clause" below), stated once, or a satisfies entry's requirement prose.
 Delivered at both ends with the requirements and their satisfiers, it lets
 an agent growing the contract set reason over what is contracted.
