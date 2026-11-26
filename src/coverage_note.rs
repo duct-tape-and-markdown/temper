@@ -157,14 +157,48 @@ pub fn check(
         {
             continue;
         }
-        diagnostics.push(Diagnostic::warn(
-            UNCLAIMED_RULE,
-            &*path,
-            format!("`{path}` is present under `.claude/` but no kind or known surface covers it"),
-        ));
+        diagnostics.push(
+            Diagnostic::warn(
+                UNCLAIMED_RULE,
+                &*path,
+                format!(
+                    "`{path}` is present under `.claude/` but no kind or known surface covers it"
+                ),
+            )
+            .with_guidance(cited_remedy(&path, is_dir).map(str::to_string)),
+        );
     }
 
     diagnostics
+}
+
+/// The documented remedy for an unclaimed entry Claude Code itself writes, where its
+/// docs name one — the finding's guidance, so the advisory says what to do rather than
+/// only that nothing covers the entry. Each remedy is an **external fact**, quoted and
+/// cited at its point of claim:
+///
+/// - `.claude/worktrees/` is where `claude --worktree` checks out its worktrees, and
+///   the docs advise "Add `.claude/worktrees/` to your `.gitignore`"
+///   (code.claude.com/docs/en/worktrees, retrieved 2026-11-25). The remedy works where
+///   the finding is read: the scan honors the harness root's `.gitignore`
+///   ([`claude_walk`]), so following it silences the finding.
+fn cited_remedy(path: &HarnessRelativePath, is_dir: bool) -> Option<&'static str> {
+    (is_dir && &**path == ".claude/worktrees").then_some(
+        "Claude Code checks its worktrees out here, and its docs advise: \"Add \
+         `.claude/worktrees/` to your `.gitignore`\" (code.claude.com/docs/en/worktrees)",
+    )
+}
+
+/// A walk over `<root>/.claude` under the shared ignore policy
+/// ([`crate::import::ignore_walk`]), rooted at the harness root and pruned to the
+/// `.claude` subtree, so the root's `.gitignore` and the repository's exclude govern
+/// `.claude/` entries exactly as git reads them — a walk rooted at `.claude` itself
+/// would read neither. `max_depth` is counted from the harness root.
+fn claude_walk(root: &Path, max_depth: Option<usize>) -> ignore::Walk {
+    crate::import::ignore_walk(root, true)
+        .max_depth(max_depth)
+        .filter_entry(|entry| entry.depth() != 1 || entry.file_name() == CLAUDE_ROOT)
+        .build()
 }
 
 /// Every entry directly under `<root>/.claude` (not recursive), as a
@@ -183,11 +217,9 @@ fn claude_entries(root: &Path) -> Vec<(HarnessRelativePath, bool)> {
     if !claude_dir.is_dir() {
         return Vec::new();
     }
-    let walk = crate::import::ignore_walk(&claude_dir, true)
-        .max_depth(Some(1))
-        .build();
-    walk.flatten()
-        .filter(|entry| entry.path() != claude_dir)
+    claude_walk(root, Some(2))
+        .flatten()
+        .filter(|entry| entry.depth() == 2)
         .filter_map(|entry| {
             let rel = entry.path().strip_prefix(root).ok()?;
             let is_dir = entry.file_type().is_some_and(|ft| ft.is_dir());
@@ -212,10 +244,7 @@ fn fully_reached_dirs(
     }
     // Per top-level directory: does every file beneath it sit in `import_reached`?
     let mut all_reached: BTreeMap<PathBuf, bool> = BTreeMap::new();
-    for entry in crate::import::ignore_walk(&claude_dir, true)
-        .build()
-        .flatten()
-    {
+    for entry in claude_walk(root, None).flatten() {
         if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
         }

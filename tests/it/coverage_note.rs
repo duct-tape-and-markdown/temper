@@ -854,3 +854,63 @@ fn a_represented_harness_reports_an_unreached_supporting_doc_per_doc() {
         "a represented harness folds nothing into a coverage line, got: {findings:#?}"
     );
 }
+
+/// A harness holding a `claude --worktree` checkout at `.claude/worktrees/<name>/`.
+fn write_claude_worktree(name: &str) -> std::path::PathBuf {
+    let harness = common::tmpdir(name);
+    common::write_sibling(
+        &harness,
+        ".claude/worktrees/feature/README.md",
+        "# Feature\n",
+    );
+    harness
+}
+
+#[test]
+fn the_claude_worktrees_unclaimed_entry_quotes_the_docs_gitignore_advice() {
+    let harness = write_claude_worktree("worktrees-unignored");
+
+    let run = common::check_harness_in(&harness, None);
+
+    assert_eq!(
+        run.output.matches("coverage.unclaimed-entry").count(),
+        1,
+        "the unignored worktrees folder draws exactly one unclaimed entry, got: {}",
+        run.output
+    );
+    assert!(
+        run.output.contains(".claude/worktrees"),
+        "the finding names the entry, got: {}",
+        run.output
+    );
+    assert!(
+        run.output
+            .contains("\"Add `.claude/worktrees/` to your `.gitignore`\"")
+            && run.output.contains("code.claude.com/docs/en/worktrees"),
+        "the guidance quotes and cites the worktrees docs' advice, got: {}",
+        run.output
+    );
+    assert!(run.ok, "the finding stays advisory, got: {}", run.output);
+}
+
+#[test]
+fn a_gitignored_claude_worktrees_folder_fires_no_unclaimed_entry() {
+    // The remedy the finding quotes, followed as the docs spell it: the harness root's
+    // `.gitignore` names the folder, and the scan reads that file.
+    let harness = write_claude_worktree("worktrees-gitignored");
+    common::write_sibling(&harness, ".gitignore", ".claude/worktrees/\n");
+    fs::write(harness.join(".claude/stray.md"), "").unwrap();
+
+    let (findings, success) = check_harness(&harness);
+
+    let unclaimed = common::findings_for(&findings, "coverage.unclaimed-entry");
+    assert!(
+        unclaimed.iter().any(|f| f.contains(".claude/stray.md")),
+        "the scan is populated, got: {findings:#?}"
+    );
+    assert!(
+        !unclaimed.iter().any(|f| f.contains(".claude/worktrees")),
+        "a gitignored worktrees folder is not authored here, got: {unclaimed:#?}"
+    );
+    assert!(success, "{findings:#?}");
+}
