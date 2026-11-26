@@ -1,0 +1,24 @@
+{
+  "tag": "PLUGIN-MANIFEST-TYPES-ITS-REMAINING-PATH-KEYS",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "sdk/src/builtins.ts", "description": "type clauses for outputStyles, workflows, experimental; re-point the stale #unrecognized-fields type-mismatch cites (re-fetch plugins-reference)" },
+      { "path": "src/builtin_lock.toml", "description": "re-emitted rows" },
+      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emit" },
+      { "path": "src/bundled_reference/kind-plugin-manifest.md", "description": "regenerated" },
+      { "path": "tests/it/plugin_manifest_kind.rs", "description": "wrong-typed key cases" }
+    ],
+    "retire": []
+  },
+  "summary": "plugin-manifest's outputStyles, workflows and experimental keys gain type clauses like the other component-path keys, so a wrong-typed value no longer passes",
+  "per": { "path": "specs/builtins.md", "section": "Default contracts" },
+  "acceptance": "a manifest with a wrong-typed workflows, outputStyles or experimental draws the type finding; type cites resolve to the live plugins-reference anchor",
+  "tests": [
+    "a plugin manifest with a wrong typed workflows draws a type finding",
+    "a plugin manifest with a wrong typed output styles draws a type finding",
+    "a plugin manifest whose experimental is not a map draws a type finding"
+  ],
+  "notes": "From PLUGIN-MANIFEST-ADMITS-THE-DOCUMENTED-KEYS. Union forms per plugins-reference #component-path-forms (re-fetched 2026-11-26 by that tick); build re-verifies. Vendored schema fixture refresh is out of scope."
+}

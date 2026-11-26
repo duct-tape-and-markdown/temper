@@ -1,0 +1,22 @@
+{
+  "tag": "REQUIREMENT-MEMBER-CLAUSES-DIAL-AT-EACH-SATISFIERS-MODE",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/gate.rs", "description": "split a requirement's member-grain selection by each satisfier's own mode before dialing" },
+      { "path": "src/engine.rs", "description": "judge_members over the per-mode splits" },
+      { "path": "src/drift.rs", "description": "input/module source-dependency rows resolve their member's mode, not the root's" },
+      { "path": "tests/it/dial_kind.rs", "description": "block-declaring satisfier cases" }
+    ],
+    "retire": []
+  },
+  "summary": "a requirement's member-grain clauses and input/module source-dependency rows resolve each member's own enforcement mode (member, then kind, then root) instead of the root's",
+  "per": { "path": "specs/model/representation.md", "section": "The root member" },
+  "acceptance": "a satisfier declaring block keeps its requirement member-grain finding unsoftened under a warn root; a source-dependency row for an input member resolves that member's mode",
+  "tests": [
+    "a requirement member grain clause over a satisfier declaring block is not softened by a warn root dial",
+    "an input source dependency finding resolves its member's own mode"
+  ],
+  "notes": "Gap left by GUARD-EDGES-RESOLVE-EACH-FINDINGS-MEMBER-MODE: OptIn selections dial at root mode in two_greens_dispatch; source-dependency rows fall back to root unless `member` parses as an address. Mode resolution is compose::EnforcementModes::for_member."
+}
