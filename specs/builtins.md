@@ -3,8 +3,8 @@
 temper ships the built-in kinds of one harness, Claude Code, as ordinary SDK
 values in a provider module — the `@dtmd/temper/claude-code` subpath, never
 the root export. Every built-in is made with the same constructor any author
-uses: ownership, not privilege. temper maintains them because the formats are
-external and evolving — a skill's shape is the harness's truth, not the
+uses: ownership, not privilege. temper maintains them because the formats
+are external and evolving — a skill's shape is the harness's truth, not the
 author's to invent — and the author adopts them by import. A built-in's
 locus is the harness's too: it claims exactly the paths the harness loads as
 that kind, cited, and where two loaders' documented reach meets, the kind
@@ -12,24 +12,26 @@ whose loader the documentation names owns the path and the other excludes
 it. A built-in reads its format as the runtime does: the documented behavior
 binds, a cited lab observation binds where the docs are silent, and
 otherwise the literal bytes bind, with the uncertainty named in guidance. A
-document the runtime loads is never a load fault; one it skips is. A relocated built-in keeps each exclusion its new template still
-reaches, since moving one loader's reach moves no other's. Where claims
-overlap, the most specific documented claim holds the document, for built-in
-and custom kinds alike: a subkind over its base, and a host's template over
-an any-depth reach (a `CLAUDE.md` inside any skill's directory is the
-skill's, not memory's). The lock records the resolution, and every verb
-reads it there. An author
-may add exclusions to a built-in through its relocation. That is how a
-collision with a built-in is answered (0085), and how a fixture tree
-holding harness files is left ungoverned. Kind identity
-travels by import, never by string: two providers are two modules, so
-collision is impossible and no name-qualification scheme exists. One
-harness holds one kind per name: a corpus kind of a built-in's name
-replaces the built-in there.
+document the runtime loads is never a load fault; one it skips is. A
+relocated built-in keeps each exclusion its new template still reaches,
+since moving one loader's reach moves no other's. Where claims overlap, the
+most specific documented claim holds the document, for built-in and custom
+kinds alike: a subkind over its base, and a host's template over an
+any-depth reach (a `CLAUDE.md` inside any skill's directory is the skill's,
+not memory's). The lock records the resolution, and every verb reads it
+there. An author may add exclusions to a built-in through its relocation.
+That is how a collision with a built-in is answered (0085), and how a
+fixture tree holding harness files is left ungoverned. Kind identity travels
+by import, and no name-qualification scheme exists: one harness holds one
+kind per name, and two kinds of one name in play are refused. The exception
+is an extension under the built-in's own name, a relocation, which replaces
+the built-in there.
 
 ## The shipped kinds
 
-Sixteen kinds ship. Eleven are file members:
+Nineteen kinds ship: eleven file members, four registration members, the
+embedded `handler` and `tool`, the nested-file `supporting-doc`, and
+temper's own `dial`. The file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. It

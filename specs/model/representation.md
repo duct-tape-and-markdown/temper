@@ -58,8 +58,8 @@ and a kind may **extend** another. A subkind keeps its base's facts, adds
 fields, edge fields and counsel, and governs a locus within its base's;
 every selection of the base binds its document, and its fields live where
 the base's format admits them, never as an undocumented key. Keeping the
-base's name it is a relocation, and any corpus kind of a built-in's name
-replaces the built-in there.
+base's name it is a relocation, which replaces the built-in there; any other
+kind of a built-in's name is refused.
 
 ## layout
 

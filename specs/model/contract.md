@@ -34,7 +34,8 @@ against raw disk, never the ignore-filtered discovery view: an extra file
 can only suppress a finding, a pruned one can forge one (discovery is the
 opposite, `adoption.md`). An edge carries no obligation of its own: the
 clauses that range over it decide whether it counts; the shipped
-`mention-reachable` advisory judges only authored mentions. What an edge
+`mention-reachable` advisory judges only declared edges, never derived
+containment. What an edge
 **means** is its **intent**, never checked: an edge field's guidance (0091),
 stated once, or a satisfies entry's requirement prose. Delivered at both
 ends with the requirements and their satisfiers, it lets an agent growing

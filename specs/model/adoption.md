@@ -7,12 +7,14 @@ first, ceremony after: what the walk finds, members by kind, and what the
 built-in default contract says about them. Discovery honors the repository's
 ignore rules — an ignored file is by declaration not authored here, with one
 scoped override: a committed local-locus kind's `governs` declaration is
-itself the authorship claim over its per-machine documents, so discovery sees
-them there and only there — and stops at a nested governed root: a directory
-carrying its own `.temper/lock.toml` is its own corpus, reached only by a
-verb aimed at it on purpose, never the ambient walk. Then one question:
-represent this harness as a typed program? A harness is represented or it is
-not — one genuine fork, so exactly one question.
+itself the authorship claim over its per-machine documents, so the gate's
+discovery sees them there and only there (install's adoption walk withholds
+it: a per-machine document is never lifted into the committed program) — and
+stops at a nested governed root: a directory carrying its own
+`.temper/lock.toml` is its own corpus, reached only by a verb aimed at it on
+purpose, never the ambient walk. Then one question: represent this harness
+as a typed program? A harness is represented or it is not — one genuine
+fork, so exactly one question.
 
 - **No** — install wires the session-start reporter, with consent for the one
   settings write — format-preserving: existing keys, order, and formatting

@@ -29,9 +29,10 @@ uncommitted path; a local member is a check-side input, never a target.
   file is a finding, never a silent delete.
 - **Verbatim.** Every meaning-carrying word in an emitted artifact traces to
   an authored prose leaf or a reference's rendered form; connective tissue —
-  headings, labels, ordering — is projection formatting, and emit stamps
-  nothing of its own. Line endings are layout, never content: projections are
-  written LF uniformly, whatever the source's convention.
+  headings, labels, ordering — is projection formatting. Emit stamps one
+  thing of its own, the managed-projection note naming where to edit, which
+  says nothing about the member. Line endings are layout, never content:
+  projections are written LF uniformly, whatever the source's convention.
 - **Byte-reproducible.** Same program in, same bytes out, verified by
   double-emit comparison on every run; nondeterminism in authoring code is a
   loud emit failure, never silent churn. The program reaches the engine as a
@@ -40,18 +41,18 @@ uncommitted path; a local member is a check-side input, never a target.
   re-emits and byte-compares.
 - **Refusing.** A dangling edge, an unresolvable mention or include, an
   unfilled requirement whose fill clause errors — each refuses before a byte
-  is written. Refusal reaches exactly as far as the program's own universe: a
-  field the kind's schema marks optional is no edge when absent; a mention
+  is written. Refusal reaches exactly as far as the program's own universe:
+  a field the kind's schema marks optional is no edge when absent; a mention
   addressing a declared kind whose member is not a composed value defers to
-  the gate — the row rides the lock, `check` owns the verdict — and a mention
-  addressing no declared kind refuses. Before running the program, emit
-  runs the **typecheck the program declares** (a command reference, `authoring.md`, and its project, the
-  consumer's own toolchain, never resolved by guess) and
-  refuses on a type error, naming the compiler's diagnostics: the
-  compiler's errors are how the author receives the SDK's shape (intent,
-  invariant 8). A program that declares no typecheck refuses, naming the
-  declaration; the project file it names is a declared input. `check`
-  still never needs Node.
+  the gate — the row rides the lock, `check` owns the verdict — and a
+  mention addressing no declared kind refuses. Before running the program,
+  emit runs the **typecheck the program declares** (a command reference,
+  `authoring.md`, and its project, the consumer's own toolchain, never
+  resolved by guess) and refuses on a type error, naming the compiler's
+  diagnostics: the compiler's errors are how the author receives the SDK's
+  shape (intent, invariant 8). A program that declares no typecheck refuses,
+  naming the declaration; the project file it names is a declared input.
+  `check` still never needs Node.
 
 ## The lock
 
@@ -89,15 +90,16 @@ input shape, two sources; there is no third.
 ## Drift
 
 One comparison in one vocabulary: disk versus lock. Two freshness facts, one
-finding shape — an **authored source** differing from its provenance row (the
-source moved; re-emit — for a declared input, re-verify the member's claims
-against it first) and a **committed projection** differing from its byte
-fingerprint (the projection was hand-touched; edit the owning source and
-re-emit). A moved module of the program's closure is an authored source
-the root member owns. Each finding names the member that owns the bytes,
-the side that moved, and the remedy. The comparison is line-ending-blind — an EOL-only
-difference is layout (**Verbatim**, above), so the comparator canonicalizes
-EOL before it hashes; every non-EOL difference remains the hand-edit.
+finding shape — an **authored source** differing from its provenance row
+(the source moved; re-emit — for a declared input, re-verify the member's
+claims against it first) and a **committed projection** differing from its
+byte fingerprint (the projection was hand-touched; edit the owning source
+and re-emit). A moved module of the program's closure is an authored source
+the root member owns. Each finding names the member that owns the bytes, the
+side that moved, and the remedy. The comparison is line-ending-blind — an
+EOL-only difference is layout (**Verbatim**, above), so the comparator
+canonicalizes EOL before it hashes; every non-EOL difference remains the
+hand-edit.
 
 A mismatch is never silently reconciled: no reverse parse from projection to
 source, no merge model — a projection edit routes to the owning member. How
