@@ -97,11 +97,15 @@ export type ExtentUnit = "lines" | "characters";
 /**
  * The character class `allowed_chars` admits — inclusive ranges plus individual
  * characters, e.g. `[a-z0-9-]`. Each range is a `"<lo>-<hi>"` two-character
- * span (`src/contract.rs` `parse_range`'s wire spelling).
+ * span. `negated` turns the class into the forbidden set (`[^:]`); `position:
+ * "leading"` governs only the first character (an empty value holds), where the
+ * default governs every character.
  */
 export interface Charset {
   readonly ranges?: readonly string[];
   readonly chars?: string;
+  readonly negated?: boolean;
+  readonly position?: "leading";
 }
 
 // Node-scope predicates. A value predicate takes an addressing path as its `field` — see

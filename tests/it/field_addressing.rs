@@ -13,7 +13,7 @@ use std::collections::BTreeSet;
 use serde_json::json;
 
 use temper::check::{Diagnostic, Severity, any_error};
-use temper::contract::{Charset, Predicate, Shape};
+use temper::contract::{CharPosition, Charset, Predicate, Shape};
 use temper::extract::{Features, ValueType};
 
 use crate::common;
@@ -240,6 +240,8 @@ fn a_path_beyond_the_declared_subset_is_inadmissible_rather_than_skipped() {
             charset: Charset {
                 ranges: vec![('a', 'z')],
                 chars: BTreeSet::new(),
+                negated: false,
+                position: CharPosition::Every,
             },
         },
         Predicate::Shape {

@@ -164,8 +164,8 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
     charset:
       predicate.key === "allowed_chars" && predicate.charset !== undefined
         ? {
+            ...predicate.charset,
             ranges: predicate.charset.ranges ? [...predicate.charset.ranges] : undefined,
-            chars: predicate.charset.chars,
           }
         : undefined,
     keys: predicate.key === "forbidden_keys" && predicate.keys ? [...predicate.keys] : undefined,

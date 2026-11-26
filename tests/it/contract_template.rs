@@ -17,7 +17,7 @@
 use std::collections::BTreeSet;
 
 use temper::check;
-use temper::contract::{Charset, Contract, ExtentUnit, Predicate, Severity, Shape};
+use temper::contract::{CharPosition, Charset, Contract, ExtentUnit, Predicate, Severity, Shape};
 use temper::engine;
 use temper::extract::Features;
 
@@ -39,6 +39,8 @@ fn slug_charset() -> Charset {
     Charset {
         ranges: vec![('a', 'z'), ('0', '9')],
         chars: BTreeSet::from(['-']),
+        negated: false,
+        position: CharPosition::Every,
     }
 }
 

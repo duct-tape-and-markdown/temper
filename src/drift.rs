@@ -2559,10 +2559,10 @@ fn stamp_clause_labels(declarations: &mut Declarations) {
 /// guards' bodies apart: without it, the `url` and `git-subdir` source guards both compile
 /// a `required.source.url` no dial could reach and no finding could distinguish.
 fn stamp_clause_label(row: &mut ClauseRow, owner: Option<&str>) {
-    let field = if row.predicate == "when" {
-        crate::contract::when_label_field(row)
-    } else {
-        row.field.clone()
+    let field = match row.predicate.as_str() {
+        "when" => crate::contract::when_label_field(row),
+        "allowed_chars" => crate::contract::allowed_chars_label_field(row),
+        _ => row.field.clone(),
     };
     let label = crate::contract::clause_label(owner, &row.predicate, field.as_deref());
     row.label = Some(label.clone());
@@ -5690,7 +5690,8 @@ pub struct BoundRow {
 
 /// An `allowed_chars` clause row's declared character class — the wire form of
 /// [`crate::contract::Charset`]: inclusive `"<lo>-<hi>"` range specs plus a literal
-/// string of individually permitted characters.
+/// string of individually listed characters, an optional negation, and an optional
+/// governed position.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 #[ts(optional_fields)]
 pub struct CharsetRow {
@@ -5698,9 +5699,17 @@ pub struct CharsetRow {
     #[serde(default)]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub ranges: Vec<String>,
-    /// The individually permitted characters, when any are declared.
+    /// The individually listed characters, when any are declared.
     #[serde(default)]
     pub chars: Option<String>,
+    /// Whether the class lists forbidden characters rather than permitted ones;
+    /// absent is a permitted-characters class.
+    #[serde(default)]
+    pub negated: Option<bool>,
+    /// The governed position — `leading` for the first character only; absent
+    /// governs every character.
+    #[serde(default)]
+    pub position: Option<String>,
 }
 
 /// One named requirement's declaration row,
@@ -6996,6 +7005,12 @@ fn charset_table(charset: &CharsetRow) -> InlineTable {
     if let Some(chars) = &charset.chars {
         table.insert("chars", Value::from(chars.clone()));
     }
+    if let Some(negated) = charset.negated {
+        table.insert("negated", Value::from(negated));
+    }
+    if let Some(position) = &charset.position {
+        table.insert("position", Value::from(position.clone()));
+    }
     table
 }
 
@@ -7003,6 +7018,8 @@ fn charset_from_table(table: &dyn TableLike) -> Result<CharsetRow, RowError> {
     Ok(CharsetRow {
         ranges: opt_str_array(table, "ranges")?.unwrap_or_default(),
         chars: opt_str(table, "chars")?,
+        negated: opt_bool(table, "negated")?,
+        position: opt_str(table, "position")?,
     })
 }
 

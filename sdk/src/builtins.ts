@@ -2024,12 +2024,6 @@ export const commandDefaultContract: readonly Clause[] = [];
  * "keep `name` values unique across subfolders" — a same-directory collision
  * loads only one definition.
  *
- * Hold: the docs skip a file whose `name` contains `:` (reserved for
- * plugin-scoped identifiers) or starts with `-`. Both are decidable, but
- * `allowedChars` is a whitelist and `deny` matches whole values, so neither is
- * spellable; the widening that closes it is a forbidden-character (or
- * leading-character) predicate.
- *
  * Deliberately narrow, like `ruleDefaultContract`: undecidable properties (whether the
  * description triggers well, model/permissionMode's semi-open vocabularies) stay
  * out of the gate — the format documents little else that is decidable.
@@ -2044,7 +2038,19 @@ export const agentDefaultContract: readonly Clause[] = [
   clause(maxLen("name", 256), {
     severity: "required",
     guidance:
-      "A name longer than 256 characters is skipped at load — Claude Code writes an error to the debug log and the subagent never exists. Any case and digits are fine (`reviewer-v2`, `Explore` to override the built-in); keep `:` out, which is reserved for plugin-scoped ids like `my-plugin:reviewer`, and don't lead with `-` — both also skip the file. Hooks receive this value as `agent_type`.",
+      "A name longer than 256 characters is skipped at load — Claude Code writes an error to the debug log and the subagent never exists. Any case and digits are fine (`reviewer-v2`, `Explore` to override the built-in). Hooks receive this value as `agent_type`.",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)",
+  }),
+  clause(allowedChars("name", { chars: ":", negated: true }), {
+    severity: "required",
+    guidance:
+      "A name containing `:` is skipped at load — the colon is reserved for plugin-scoped ids like `my-plugin:reviewer`, so the subagent never exists. Use a hyphen instead (`my-reviewer`).",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)",
+  }),
+  clause(allowedChars("name", { chars: "-", negated: true, position: "leading" }), {
+    severity: "required",
+    guidance:
+      "A name starting with `-` is skipped at load, so the subagent never exists. Start with a letter or digit; a hyphen anywhere after the first character is fine (`reviewer-v2`).",
     cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)",
   }),
   clause(uniqueName(), {

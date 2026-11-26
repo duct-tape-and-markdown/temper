@@ -1161,17 +1161,23 @@ test("each instruction-bearing builtin kind's guidance states what reaches conte
   }
 });
 
-test("agentDefaultContract requires name and description, bounds the name at 256 characters, and pins per-scope uniqueness", () => {
+test("agentDefaultContract requires name and description, bounds the name at 256 characters, refuses a colon or a leading dash, and pins per-scope uniqueness", () => {
   assert.deepEqual(
     agentDefaultContract.map((c) => c.predicate.key),
-    ["required", "max_len", "unique-name", "required"],
+    ["required", "max_len", "allowed_chars", "allowed_chars", "unique-name", "required"],
   );
   assert.deepEqual(
     agentDefaultContract.map((c) => c.predicate.field),
-    ["name", "name", undefined, "description"],
+    ["name", "name", "name", "name", undefined, "description"],
   );
   assert.deepEqual(agentDefaultContract[1].predicate.args, { max: 256 });
-  for (const c of agentDefaultContract.slice(0, 3)) {
+  assert.deepEqual(agentDefaultContract[2].predicate.charset, { chars: ":", negated: true });
+  assert.deepEqual(agentDefaultContract[3].predicate.charset, {
+    chars: "-",
+    negated: true,
+    position: "leading",
+  });
+  for (const c of agentDefaultContract.slice(0, 5)) {
     assert.equal(c.cite, "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)");
   }
 });

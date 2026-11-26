@@ -253,9 +253,29 @@ kind = "agent"
 predicate = "max_len"
 field = "name"
 severity = "required"
-guidance = "A name longer than 256 characters is skipped at load — Claude Code writes an error to the debug log and the subagent never exists. Any case and digits are fine (`reviewer-v2`, `Explore` to override the built-in); keep `:` out, which is reserved for plugin-scoped ids like `my-plugin:reviewer`, and don't lead with `-` — both also skip the file. Hooks receive this value as `agent_type`."
+guidance = "A name longer than 256 characters is skipped at load — Claude Code writes an error to the debug log and the subagent never exists. Any case and digits are fine (`reviewer-v2`, `Explore` to override the built-in). Hooks receive this value as `agent_type`."
 cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 bound = { max = 256 }
+
+[[declaration.clause]]
+label = "agent.allowed_chars.name=negated"
+kind = "agent"
+predicate = "allowed_chars"
+field = "name"
+severity = "required"
+guidance = "A name containing `:` is skipped at load — the colon is reserved for plugin-scoped ids like `my-plugin:reviewer`, so the subagent never exists. Use a hyphen instead (`my-reviewer`)."
+cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
+charset = { chars = ":", negated = true }
+
+[[declaration.clause]]
+label = "agent.allowed_chars.name=leading+negated"
+kind = "agent"
+predicate = "allowed_chars"
+field = "name"
+severity = "required"
+guidance = "A name starting with `-` is skipped at load, so the subagent never exists. Start with a letter or digit; a hyphen anywhere after the first character is fine (`reviewer-v2`)."
+cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
+charset = { chars = "-", negated = true, position = "leading" }
 
 [[declaration.clause]]
 label = "agent.unique-name"

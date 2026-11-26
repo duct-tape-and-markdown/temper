@@ -45,7 +45,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::Value as JsonValue;
 
 use crate::check::{self, Diagnostic};
-use crate::contract::{self, Clause, Contract, EdgeBound, ExtentUnit, Predicate};
+use crate::contract::{self, CharPosition, Clause, Contract, EdgeBound, ExtentUnit, Predicate};
 use crate::extract::{FeatureValue, Features, ValueType, json_to_feature};
 
 /// Validate every artifact's [`Features`] against the contract's clauses,
@@ -1549,14 +1549,17 @@ fn decide(
 
         Predicate::AllowedChars { field, charset } => {
             addressed(features, field, |address, value| {
-                let bad: BTreeSet<char> = value
-                    .as_scalar()?
-                    .chars()
-                    .filter(|&c| !charset.allows(c))
-                    .collect();
+                let bad = charset.refused(value.as_scalar()?);
                 (!bad.is_empty()).then(|| {
                     let rendered: String = bad.iter().collect();
-                    format!("field `{address}` has characters outside the allowed set: {rendered}")
+                    match charset.position {
+                        CharPosition::Every => format!(
+                            "field `{address}` has characters outside the allowed set: {rendered}"
+                        ),
+                        CharPosition::Leading => format!(
+                            "field `{address}` leads with a character outside the allowed set: {rendered}"
+                        ),
+                    }
                 })
             })
         }
@@ -1953,7 +1956,7 @@ mod tests {
     use serde_json::{Value as JsonValue, json};
 
     use crate::check::{Severity, any_error};
-    use crate::contract::{Charset, Clause, Severity as ClauseSeverity, Shape};
+    use crate::contract::{CharPosition, Charset, Clause, Severity as ClauseSeverity, Shape};
     use crate::extract::ValueType;
 
     /// Build a `Features` with the given name-keyed scalar fields, body line
@@ -2012,6 +2015,8 @@ mod tests {
         Charset {
             ranges: vec![('a', 'z'), ('0', '9')],
             chars: BTreeSet::from(['-']),
+            negated: false,
+            position: CharPosition::Every,
         }
     }
 
@@ -3203,6 +3208,40 @@ mod tests {
 
         let slug = features("demo-1", &[("name", scalar("demo-1"))], 1, None);
         assert!(run(predicate(), slug).is_empty());
+    }
+
+    #[test]
+    fn allowed_chars_negated_refuses_the_listed_characters_and_leading_governs_the_first() {
+        let colon = || Predicate::AllowedChars {
+            field: "name".to_string(),
+            charset: Charset {
+                ranges: Vec::new(),
+                chars: BTreeSet::from([':']),
+                negated: true,
+                position: CharPosition::Every,
+            },
+        };
+        let dash = || Predicate::AllowedChars {
+            field: "name".to_string(),
+            charset: Charset {
+                ranges: Vec::new(),
+                chars: BTreeSet::from(['-']),
+                negated: true,
+                position: CharPosition::Leading,
+            },
+        };
+        let named = |name: &str| features(name, &[("name", scalar(name))], 1, None);
+
+        let diags = run(colon(), named("my:reviewer"));
+        assert_eq!(diags.len(), 1);
+        assert!(diags[0].message.contains(':'));
+        assert!(run(colon(), named("reviewer-v2")).is_empty());
+
+        let diags = run(dash(), named("-reviewer"));
+        assert_eq!(diags.len(), 1);
+        assert!(diags[0].message.contains("leads with"));
+        assert!(run(dash(), named("reviewer-v2")).is_empty());
+        assert!(run(dash(), named("")).is_empty());
     }
 
     #[test]

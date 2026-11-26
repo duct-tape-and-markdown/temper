@@ -3,7 +3,8 @@
 /**
  * An `allowed_chars` clause row's declared character class — the wire form of
  * [`crate::contract::Charset`]: inclusive `"<lo>-<hi>"` range specs plus a literal
- * string of individually permitted characters.
+ * string of individually listed characters, an optional negation, and an optional
+ * governed position.
  */
 export type CharsetRow = { 
 /**
@@ -11,6 +12,16 @@ export type CharsetRow = {
  */
 ranges?: Array<string>, 
 /**
- * The individually permitted characters, when any are declared.
+ * The individually listed characters, when any are declared.
  */
-chars?: string, };
+chars?: string, 
+/**
+ * Whether the class lists forbidden characters rather than permitted ones;
+ * absent is a permitted-characters class.
+ */
+negated?: boolean, 
+/**
+ * The governed position — `leading` for the first character only; absent
+ * governs every character.
+ */
+position?: string, };

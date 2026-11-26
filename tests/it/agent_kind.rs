@@ -10,13 +10,14 @@
 //! mirroring the real Claude Code layout (`.claude/rules/rust.md`, "Harness-input
 //! fixtures mirror the real Claude Code layout").
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 
 use crate::common;
 
 use temper::builtin_kind;
-use temper::contract::Predicate;
+use temper::contract::{CharPosition, Charset, Predicate};
 use temper::engine;
 use temper::extract::FeatureValue;
 use temper::frontmatter::Member;
@@ -159,6 +160,24 @@ fn agent_builtin_carries_the_decidable_clause_vector() {
                 field: "name".to_string(),
                 max: 256,
             },
+            Predicate::AllowedChars {
+                field: "name".to_string(),
+                charset: Charset {
+                    ranges: Vec::new(),
+                    chars: BTreeSet::from([':']),
+                    negated: true,
+                    position: CharPosition::Every,
+                },
+            },
+            Predicate::AllowedChars {
+                field: "name".to_string(),
+                charset: Charset {
+                    ranges: Vec::new(),
+                    chars: BTreeSet::from(['-']),
+                    negated: true,
+                    position: CharPosition::Leading,
+                },
+            },
             Predicate::UniqueName,
             Predicate::Required {
                 field: "description".to_string()
@@ -212,6 +231,34 @@ fn an_agent_named_after_an_overridable_built_in_draws_no_name_finding() {
 fn a_name_with_digits_draws_no_name_finding() {
     let diagnostics = name_diagnostics("reviewer-v2");
     assert!(diagnostics.is_empty(), "got: {diagnostics:#?}");
+}
+
+#[test]
+fn an_agent_named_explore_passes_the_name_clauses() {
+    let diagnostics = name_diagnostics("explore");
+    assert!(diagnostics.is_empty(), "got: {diagnostics:#?}");
+}
+
+#[test]
+fn an_agent_name_containing_a_colon_fails_check() {
+    let diagnostics = name_diagnostics("my:reviewer");
+    let rules: Vec<&str> = diagnostics.iter().map(|d| d.rule.as_str()).collect();
+    assert_eq!(
+        rules,
+        vec!["agent.allowed_chars.name=negated"],
+        "got: {diagnostics:#?}"
+    );
+}
+
+#[test]
+fn an_agent_name_with_a_leading_dash_fails_check() {
+    let diagnostics = name_diagnostics("-reviewer");
+    let rules: Vec<&str> = diagnostics.iter().map(|d| d.rule.as_str()).collect();
+    assert_eq!(
+        rules,
+        vec!["agent.allowed_chars.name=leading+negated"],
+        "got: {diagnostics:#?}"
+    );
 }
 
 #[test]

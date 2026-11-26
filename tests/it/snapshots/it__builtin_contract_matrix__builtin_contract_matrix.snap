@@ -4,7 +4,7 @@ expression: output
 ---
 kind | allowed_chars | closed-keys | degree | deny | enum | extent | forbidden_keys | glob-valid | max_len | mention-reachable | min_len | name-matches-dir | optional | required | shape | type | unique-name | when
 --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
-agent |  |  |  |  |  |  |  |  | error |  |  |  |  | error |  |  | error | 
+agent | error |  |  |  |  |  |  |  | error |  |  |  |  | error |  |  | error | 
 command |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 dial |  | error |  |  | error |  |  |  |  |  |  |  |  | error |  | error |  | 
 handler |  |  |  |  | error |  |  |  |  |  |  |  |  | error |  |  |  | error

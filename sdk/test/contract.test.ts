@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  allowedChars,
   clause,
   count,
   degree,
@@ -566,4 +567,29 @@ test("a type guard's own argument column rides the when row", () => {
   assert.equal(row.body?.length, 1);
   assert.equal(row.body?.[0]?.predicate, "required");
   assert.equal(row.body?.[0]?.field, "url");
+});
+
+test("allowedChars carries a negated and a leading-position charset onto its row", () => {
+  const h = harness({
+    members: [],
+    expect: [
+      {
+        kind: skill,
+        clauses: [
+          clause(allowedChars("name", { chars: ":", negated: true }), { severity: "required" }),
+          clause(allowedChars("name", { chars: "-", negated: true, position: "leading" }), {
+            severity: "required",
+          }),
+        ],
+      },
+    ],
+  });
+  const rows = compileDeclarations(h).clauses.filter((c) => c.kind === "skill");
+  assert.deepEqual(
+    rows.map((c) => c.charset),
+    [
+      { chars: ":", negated: true, ranges: undefined },
+      { chars: "-", negated: true, position: "leading", ranges: undefined },
+    ],
+  );
 });

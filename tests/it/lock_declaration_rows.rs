@@ -876,6 +876,8 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
         charset: Some(CharsetRow {
             ranges: vec!["a-z".to_string(), "0-9".to_string()],
             chars: Some("-".to_string()),
+            negated: Some(true),
+            position: Some("leading".to_string()),
         }),
         ..common::clause("allowed_chars", "required")
     });

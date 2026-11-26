@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 
 use serde_json::{Map, Value};
 
-use crate::contract::{self, Charset, Contract, Predicate, Shape};
+use crate::contract::{self, CharPosition, Charset, Contract, Predicate, Shape};
 use crate::extract::ValueType;
 
 /// Project `contract` into a JSON Schema [`Value`] over an artifact's frontmatter.
@@ -67,9 +67,18 @@ pub fn emit(contract: &Contract) -> Value {
                 not.insert("enum".to_string(), string_array(values));
                 property(&mut properties, field).insert("not".to_string(), Value::Object(not));
             }
+            // A second charset on one field composes through `allOf`, as a shape does,
+            // so neither clause's `pattern` overwrites the other.
             Predicate::AllowedChars { field, charset } => {
-                property(&mut properties, field)
-                    .insert("pattern".to_string(), Value::from(charclass(charset)));
+                let property = property(&mut properties, field);
+                let pattern = Value::from(charclass(charset));
+                if property.contains_key("pattern") {
+                    let mut subschema = Map::new();
+                    subschema.insert("pattern".to_string(), pattern);
+                    push_subschema(property, Value::Object(subschema));
+                } else {
+                    property.insert("pattern".to_string(), pattern);
+                }
             }
             // A shape is decidable against the flat object in front of the editor, so it
             // rides the validation channel like any other decidable field clause: the
@@ -328,12 +337,13 @@ fn push_description(property: &mut Map<String, Value>, prose: &str) {
     property.insert("description".to_string(), Value::from(joined));
 }
 
-/// The generated `^[<ranges><chars>]*$` character-class pattern for a [`Charset`]
-/// — a faithful projection of the decidable `allowed_chars` clause, not an
-/// authored regex. Ranges render `lo-hi`, then the individual chars follow, each
+/// The generated character-class pattern for a [`Charset`] — a faithful projection of
+/// the decidable `allowed_chars` clause, not an authored regex: `^[<class>]*$` over every
+/// character, `^(?:[<class>]|$)` over the leading one, the class opening `[^` when
+/// negated. Ranges render `lo-hi`, then the individual chars follow, each
 /// metacharacter escaped so the class stays a literal set.
 fn charclass(charset: &Charset) -> String {
-    let mut class = String::from("^[");
+    let mut class = String::from(if charset.negated { "[^" } else { "[" });
     for (lo, hi) in &charset.ranges {
         class.push_str(&escape_in_class(*lo));
         class.push('-');
@@ -342,8 +352,11 @@ fn charclass(charset: &Charset) -> String {
     for c in &charset.chars {
         class.push_str(&escape_in_class(*c));
     }
-    class.push_str("]*$");
-    class
+    class.push(']');
+    match charset.position {
+        CharPosition::Every => format!("^{class}*$"),
+        CharPosition::Leading => format!("^(?:{class}|$)"),
+    }
 }
 
 /// Escape one character for safe literal use inside a `[...]` character class. The
@@ -411,6 +424,8 @@ mod tests {
                     charset: Charset {
                         ranges: vec![('a', 'z'), ('0', '9')],
                         chars: BTreeSet::from(['-']),
+                        negated: false,
+                        position: CharPosition::Every,
                     },
                 }),
                 clause(Predicate::MinLen {
@@ -520,6 +535,8 @@ mod tests {
                 charset: Charset {
                     ranges: vec![('A', 'Z')],
                     chars: BTreeSet::from(['_', '-', ']', '^']),
+                    negated: false,
+                    position: CharPosition::Every,
                 },
             })],
         };
@@ -529,6 +546,33 @@ mod tests {
             .to_string();
         // BTreeSet orders the chars: '-' < ']' < '^' < '_' by codepoint.
         assert_eq!(pattern, "^[A-Z\\-\\]\\^_]*$");
+    }
+
+    #[test]
+    fn a_negated_and_a_leading_charset_on_one_field_both_project() {
+        let charset = |c: char, position| Charset {
+            ranges: Vec::new(),
+            chars: BTreeSet::from([c]),
+            negated: true,
+            position,
+        };
+        let contract = Contract {
+            name: "agent".to_string(),
+            guidance: None,
+            clauses: vec![
+                clause(Predicate::AllowedChars {
+                    field: "name".to_string(),
+                    charset: charset(':', CharPosition::Every),
+                }),
+                clause(Predicate::AllowedChars {
+                    field: "name".to_string(),
+                    charset: charset('-', CharPosition::Leading),
+                }),
+            ],
+        };
+        let name = &emit(&contract)["properties"]["name"];
+        assert_eq!(name["pattern"], json!("^[^:]*$"));
+        assert_eq!(name["allOf"], json!([{ "pattern": "^(?:[^\\-]|$)" }]));
     }
 
     #[test]
@@ -694,6 +738,8 @@ mod tests {
                         charset: Charset {
                             ranges: vec![('a', 'z')],
                             chars: BTreeSet::from(['-']),
+                            negated: false,
+                            position: CharPosition::Every,
                         },
                     },
                     "kebab-case, no spaces",

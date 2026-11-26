@@ -153,6 +153,32 @@ pub fn when_label_field(row: &ClauseRow) -> Option<String> {
     ))
 }
 
+/// The [`clause_label`] `field` **argument** for an `allowed_chars` row: the field,
+/// qualified after an `=` by the charset's non-default form — `negated`, `leading`, or
+/// both `+`-joined — so `name`'s forbidden-colon and no-leading-dash clauses land two
+/// addresses rather than one malformed pair. A plain every-character whitelist keeps
+/// the bare field. Composed into the argument, never the column, as
+/// [`when_label_field`] is.
+#[must_use]
+pub fn allowed_chars_label_field(row: &ClauseRow) -> Option<String> {
+    let field = row.field.as_deref()?;
+    let charset = row.charset.as_ref();
+    let form: Vec<&str> = [
+        charset.and_then(|c| c.position.as_deref()),
+        charset
+            .and_then(|c| c.negated)
+            .filter(|&negated| negated)
+            .map(|_| "negated"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if form.is_empty() {
+        return Some(field.to_string());
+    }
+    Some(format!("{field}={}", form.join("+")))
+}
+
 /// The author-declared weight of a clause. Replaces the tool-baked error/warn
 /// split: the default gate blocks on `Required` clauses only, and a strict CI
 /// policy can promote `Advisory` to blocking.
@@ -595,7 +621,8 @@ pub enum Predicate {
 }
 
 /// Lift one clause row's `charset` column into the typed [`Charset`] — `None`
-/// when a range spec is not the `<lo>-<hi>` shape `emit` always writes.
+/// when a range spec is not the `<lo>-<hi>` shape `emit` always writes, or the
+/// `position` names no [`CharPosition`].
 fn charset_from_row(row: &CharsetRow) -> Option<Charset> {
     let mut ranges = Vec::with_capacity(row.ranges.len());
     for spec in &row.ranges {
@@ -605,7 +632,16 @@ fn charset_from_row(row: &CharsetRow) -> Option<Charset> {
         }
     }
     let chars = row.chars.as_deref().unwrap_or_default().chars().collect();
-    Some(Charset { ranges, chars })
+    let position = match row.position.as_deref() {
+        None => CharPosition::Every,
+        Some(name) => CharPosition::from_name(name)?,
+    };
+    Some(Charset {
+        ranges,
+        chars,
+        negated: row.negated.unwrap_or(false),
+        position,
+    })
 }
 
 /// Lift one lock `ClauseRow` — whichever family sourced it (a kind's own floor
@@ -1068,24 +1104,64 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
         .collect()
 }
 
-/// The in-crate character set for [`Predicate::AllowedChars`]. A character is
-/// permitted iff it falls within one of `ranges` or appears in `chars`. This is
-/// the deliberately weak, decidable substitute for a regex character class — it
-/// expresses `[a-z0-9-]` (as `ranges = ["a-z", "0-9"]`, `chars = "-"`) without
-/// admitting the full `pattern` primitive held behind the regex fork.
+/// The in-crate character set for [`Predicate::AllowedChars`]. The class is the
+/// characters within one of `ranges` or in `chars`; a character is permitted iff it
+/// is in the class, or — when `negated` — iff it is not. `position` says which of the
+/// value's characters must be permitted. This is the deliberately weak, decidable
+/// substitute for a regex character class — it expresses `[a-z0-9-]` (as
+/// `ranges = ["a-z", "0-9"]`, `chars = "-"`), `[^:]`, and "never leads with `-`"
+/// without admitting the full `pattern` primitive held behind the regex fork.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Charset {
     /// Inclusive character ranges, e.g. `('a', 'z')`.
     pub ranges: Vec<(char, char)>,
-    /// Individually permitted characters, e.g. `-`.
+    /// Individually listed characters, e.g. `-`.
     pub chars: BTreeSet<char>,
+    /// Whether the class lists the forbidden characters rather than the permitted ones.
+    pub negated: bool,
+    /// Which of the value's characters the class governs.
+    pub position: CharPosition,
+}
+
+/// Which of a value's characters an [`AllowedChars`](Predicate::AllowedChars) clause
+/// governs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CharPosition {
+    /// Every character — the wire form omits the column.
+    #[default]
+    Every,
+    /// The first character only (`leading`); the empty value has none, so it holds.
+    Leading,
+}
+
+impl CharPosition {
+    /// The position a wire `position` column names — `None` for a name outside the set.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "leading" => Some(Self::Leading),
+            _ => None,
+        }
+    }
 }
 
 impl Charset {
     /// Whether `c` is permitted by this charset.
     #[must_use]
     pub fn allows(&self, c: char) -> bool {
-        self.chars.contains(&c) || self.ranges.iter().any(|&(lo, hi)| (lo..=hi).contains(&c))
+        let listed =
+            self.chars.contains(&c) || self.ranges.iter().any(|&(lo, hi)| (lo..=hi).contains(&c));
+        listed != self.negated
+    }
+
+    /// The characters of `value` this charset refuses, in its governed position.
+    #[must_use]
+    pub fn refused(&self, value: &str) -> BTreeSet<char> {
+        let governed: Box<dyn Iterator<Item = char>> = match self.position {
+            CharPosition::Every => Box::new(value.chars()),
+            CharPosition::Leading => Box::new(value.chars().take(1)),
+        };
+        governed.filter(|&c| !self.allows(c)).collect()
     }
 }
 
