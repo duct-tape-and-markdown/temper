@@ -51,7 +51,7 @@ fn command_members(harness: &std::path::Path) -> Vec<(PathBuf, String)> {
     let command_kind = builtin_kind::definition("command").expect("command is embedded");
     let governs = command_kind.governs.clone().unwrap();
     let disc = import::Discovery::new(harness);
-    let base = temper::drift::fold_base(&harness.join(&governs.root), &governs.glob);
+    let base = temper::drift::fold_base(&harness.join(&governs.root), &governs.globs[0]);
     import::discover_kind_files(
         &disc,
         &command_kind,

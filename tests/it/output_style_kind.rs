@@ -25,7 +25,7 @@ fn style_members(harness: &Path) -> Vec<(PathBuf, String)> {
     let kind = builtin_kind::definition("output-style").expect("output-style is embedded");
     let governs = kind.governs.clone().unwrap();
     let disc = import::Discovery::new(harness);
-    let base = temper::drift::fold_base(&harness.join(&governs.root), &governs.glob);
+    let base = temper::drift::fold_base(&harness.join(&governs.root), &governs.globs[0]);
     import::discover_kind_files(&disc, &kind, &governs, import::LocalOverride::Honored)
         .into_iter()
         .map(|file| {

@@ -250,7 +250,7 @@ impl Member {
             kind.unit_shape.as_ref(),
             source_file,
             base,
-            kind.governs.as_ref().map(|governs| governs.glob.as_str()),
+            kind.template_at(base, source_file),
             |field| parsed.get(field),
         )?;
 

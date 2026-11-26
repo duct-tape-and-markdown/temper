@@ -32,10 +32,13 @@ base?: string,
  */
 governs_root?: string, 
 /**
- * The `governs` locus filename glob, absent for a nested file kind (see
- * [`governs_root`](KindFactRow::governs_root)).
+ * The `governs` locus **templates** under [`governs_root`](KindFactRow::governs_root) —
+ * one or more, a document at any of them governed by the kind; empty for a nested
+ * file kind (see [`governs_root`](KindFactRow::governs_root)). Written as an array;
+ * a bare string reads as the one template it means, the spelling a lock written
+ * before a locus took several carries.
  */
-governs_glob?: string, 
+governs_glob?: Array<string>, 
 /**
  * The file locus's declared **commitment class** label — `local` for a per-machine,
  * uncommitted locus: the kind is declared and reviewed, its members' documents are

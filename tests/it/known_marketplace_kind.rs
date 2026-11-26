@@ -183,7 +183,7 @@ fn the_embedded_builtin_lock_carries_the_known_marketplace_kind_and_no_clause() 
         .collection_address
         .as_ref()
         .expect("the known-marketplace kind carries its collection address");
-    assert_eq!(market.governs_glob.as_deref(), Some("settings.json"));
+    assert_eq!(market.sole_glob(), Some("settings.json"));
     assert_eq!(address.key_path, "extraKnownMarketplaces.*");
 
     // The empty default contract is an assertion, not an omission: the `source` union and

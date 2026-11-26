@@ -243,7 +243,7 @@ impl DocumentMember {
             kind.unit_shape.as_ref(),
             source_file,
             base,
-            kind.governs.as_ref().map(|governs| governs.glob.as_str()),
+            kind.template_at(base, source_file),
             |field| document.get(field),
         )?;
 
@@ -1005,7 +1005,7 @@ mod tests {
             "mcp-server",
             Governs {
                 root: ".".to_string(),
-                glob: ".mcp.json".to_string(),
+                globs: vec![".mcp.json".to_string()],
             },
             Extraction::new(Vec::new()),
         );

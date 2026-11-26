@@ -920,13 +920,19 @@ fn kind_fact_table(row: &KindFactRow) -> Table {
     table["name"] = value(row.name.clone());
     for (column, cell) in [
         ("governs_root", &row.governs_root),
-        ("governs_glob", &row.governs_glob),
         ("format", &row.format),
         ("unit_shape", &row.unit_shape),
     ] {
         if let Some(cell) = cell {
             table[column] = value(cell.clone());
         }
+    }
+    if !row.governs_glob.is_empty() {
+        let mut globs = toml_edit::Array::new();
+        for glob in &row.governs_glob {
+            globs.push(glob.as_str());
+        }
+        table["governs_glob"] = value(globs);
     }
     if !row.exclude.is_empty() {
         table["exclude"] = value(row.exclude.iter().collect::<toml_edit::Array>());
@@ -1414,7 +1420,7 @@ pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFa
         provider: provider.map(str::to_string),
         base: None,
         governs_root: Some(".claude/skills".to_string()),
-        governs_glob: Some("*/SKILL.md".to_string()),
+        governs_glob: vec!["*/SKILL.md".to_string()],
         commitment: None,
         exclude: Vec::new(),
         leniency: Vec::new(),
@@ -1440,7 +1446,7 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
         provider: provider.map(str::to_string),
         base: None,
         governs_root: Some(".claude/rules".to_string()),
-        governs_glob: Some("*.md".to_string()),
+        governs_glob: vec!["*.md".to_string()],
         commitment: None,
         exclude: Vec::new(),
         leniency: Vec::new(),
@@ -1469,7 +1475,7 @@ pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFac
         provider: None,
         base: None,
         governs_root: Some(governs_root.to_string()),
-        governs_glob: Some(governs_glob.to_string()),
+        governs_glob: vec![governs_glob.to_string()],
         commitment: None,
         exclude: Vec::new(),
         leniency: Vec::new(),

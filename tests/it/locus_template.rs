@@ -71,13 +71,12 @@ fn every_built_in_kind_glob_is_a_placement_template() {
             continue;
         };
         seen += 1;
-        let row = common::kind_facts(name, &governs.root, &governs.glob);
-        CustomKind::from_kind_fact_row(&row).unwrap_or_else(|err| {
-            panic!(
-                "built-in `{name}`'s glob `{}` loads as a template: {err}",
-                governs.glob
-            )
-        });
+        for glob in &governs.globs {
+            let row = common::kind_facts(name, &governs.root, glob);
+            CustomKind::from_kind_fact_row(&row).unwrap_or_else(|err| {
+                panic!("built-in `{name}`'s glob `{glob}` loads as a template: {err}")
+            });
+        }
     }
     assert!(
         seen > 0,

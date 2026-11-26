@@ -105,7 +105,7 @@ emit_hash = "22ab29a09137fdbfc484dd462512b1f4cc3da1f77c4160889e6a0daff83e6041"
 [[declaration.kind]]
 name = "decision"
 governs_root = "docs/decisions"
-governs_glob = "*.md"
+governs_glob = ["*.md"]
 unit_shape = "file"
 registration = ["always"]
 templates = [{ kind = "alternative" }]
@@ -113,7 +113,7 @@ templates = [{ kind = "alternative" }]
 [[declaration.kind]]
 name = "flow"
 governs_root = "docs/flows"
-governs_glob = "*.md"
+governs_glob = ["*.md"]
 unit_shape = "file"
 registration = ["always"]
 templates = [{ kind = "step" }]
@@ -121,7 +121,7 @@ templates = [{ kind = "step" }]
 [[declaration.kind]]
 name = "glossary"
 governs_root = "docs"
-governs_glob = "glossary.md"
+governs_glob = ["glossary.md"]
 unit_shape = "file"
 registration = ["always"]
 content = { regions = [{ region = "prose" }, { region = "collection", member_kind = "term" }] }
@@ -135,7 +135,7 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)"
 [[declaration.kind]]
 name = "hook"
 governs_root = ".claude"
-governs_glob = "settings.json"
+governs_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["event(event)"]
 templates = [{ kind = "handler" }]
@@ -146,7 +146,7 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 [[declaration.kind]]
 name = "memory"
 governs_root = "."
-governs_glob = "**/CLAUDE.md"
+governs_glob = ["**/CLAUDE.md"]
 exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
 unit_shape = "file"
 registration = ["always"]
@@ -156,7 +156,7 @@ ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { t
 [[declaration.kind]]
 name = "rule"
 governs_root = ".claude/rules"
-governs_glob = "**/*.md"
+governs_glob = ["**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
@@ -167,14 +167,14 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 [[declaration.kind]]
 name = "settings"
 governs_root = ".claude"
-governs_glob = "settings.json"
+governs_glob = ["settings.json"]
 format = "json-document"
 unit_shape = "file"
 
 [[declaration.kind]]
 name = "skill"
 governs_root = "."
-governs_glob = "**/.claude/skills/*/SKILL.md"
+governs_glob = ["**/.claude/skills/*/SKILL.md"]
 leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
 unit_shape = "directory"
@@ -186,7 +186,7 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)"
 [[declaration.kind]]
 name = "superseded-decision"
 governs_root = "docs/decisions/superseded"
-governs_glob = "*.md"
+governs_glob = ["*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["always"]
@@ -194,7 +194,7 @@ registration = ["always"]
 [[declaration.kind]]
 name = "system"
 governs_root = "docs/systems"
-governs_glob = "*.md"
+governs_glob = ["*.md"]
 unit_shape = "file"
 registration = ["always"]
 templates = [{ kind = "invariant" }]

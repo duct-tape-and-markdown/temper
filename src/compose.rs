@@ -653,8 +653,15 @@ pub fn overlay_builtin_kind(
         return Ok(kind.clone());
     };
     let mut overlaid = kind.clone();
-    if let Some((root, glob)) = row.governs_root.clone().zip(row.governs_glob.clone()) {
-        overlaid.governs = Some(kind::Governs { root, glob });
+    if let Some(root) = row
+        .governs_root
+        .clone()
+        .filter(|_| !row.governs_glob.is_empty())
+    {
+        overlaid.governs = Some(kind::Governs {
+            root,
+            globs: row.governs_glob.clone(),
+        });
         // The row's exclude belongs to the locus it rides beside: a relocation row
         // carries the built-in's exclusions its template still reaches, the rest
         // dropped by the author's emit, then any the author added — an exclude-only
@@ -917,14 +924,15 @@ fn cede_host_units(kinds: &mut BTreeMap<String, CustomKind>) {
     cede_folder_claims(kinds);
     let subtrees: Vec<(String, String)> = kinds
         .iter()
-        .filter_map(|(name, host)| {
-            let governs = host.governs.as_ref()?;
-            if host.unit_shape != Some(kind::UnitShape::Directory) || host.templates.is_empty() {
-                return None;
-            }
-            let subtree =
-                kind::unit_subtree_pattern(&kind::locus_pattern(&governs.root, &governs.glob))?;
-            Some((name.clone(), subtree))
+        .filter(|(_, host)| {
+            host.unit_shape == Some(kind::UnitShape::Directory) && !host.templates.is_empty()
+        })
+        .filter_map(|(name, host)| Some((name, host.governs.as_ref()?)))
+        .flat_map(|(name, governs)| {
+            governs
+                .patterns()
+                .into_iter()
+                .filter_map(|pattern| Some((name.clone(), kind::unit_subtree_pattern(&pattern)?)))
         })
         .collect();
     if subtrees.is_empty() {
@@ -946,17 +954,20 @@ fn cede_host_units(kinds: &mut BTreeMap<String, CustomKind>) {
     };
     let names: Vec<String> = kinds.keys().cloned().collect();
     for name in names {
-        let Some(pattern) = kinds
+        let Some(patterns) = kinds
             .get(&name)
             .and_then(|kind| kind.governs.as_ref())
-            .map(|governs| kind::locus_pattern(&governs.root, &governs.glob))
+            .map(kind::Governs::patterns)
         else {
             continue;
         };
         let cedes: Vec<drift::CedeRow> = subtrees
             .iter()
             .filter(|(host, subtree)| {
-                !descends(kinds, &name, host) && kind::reaches_into_at_any_depth(&pattern, subtree)
+                !descends(kinds, &name, host)
+                    && patterns
+                        .iter()
+                        .any(|pattern| kind::reaches_into_at_any_depth(pattern, subtree))
             })
             .map(|(host, subtree)| drift::CedeRow {
                 to: host.clone(),
@@ -979,29 +990,32 @@ fn cede_host_units(kinds: &mut BTreeMap<String, CustomKind>) {
 /// `.claude/output-styles/` is the output style's, never `memory`'s — the most specific
 /// claim holds it, at every depth the folder can sit.
 fn cede_folder_claims(kinds: &mut BTreeMap<String, CustomKind>) {
-    let pattern_of = |kind: &CustomKind| {
+    let patterns_of = |kind: &CustomKind| {
         kind.governs
             .as_ref()
-            .map(|governs| kind::locus_pattern(&governs.root, &governs.glob))
+            .map_or_else(Vec::new, kind::Governs::patterns)
     };
     let claims: Vec<(String, String)> = kinds
         .iter()
-        .filter_map(|(name, kind)| Some((name.clone(), pattern_of(kind)?)))
+        .flat_map(|(name, kind)| {
+            patterns_of(kind)
+                .into_iter()
+                .map(move |pattern| (name.clone(), pattern))
+        })
         .collect();
     for (name, kind) in kinds.iter_mut() {
-        let Some(reach) = pattern_of(kind) else {
-            continue;
-        };
-        for (holder, claim) in &claims {
-            let cede = drift::CedeRow {
-                to: holder.clone(),
-                pattern: claim.clone(),
-            };
-            if holder != name
-                && kind::yields_to_folder_claim(&reach, claim)
-                && !kind.ceded.contains(&cede)
-            {
-                kind.ceded.push(cede);
+        for reach in patterns_of(kind) {
+            for (holder, claim) in &claims {
+                let cede = drift::CedeRow {
+                    to: holder.clone(),
+                    pattern: claim.clone(),
+                };
+                if holder != name
+                    && kind::yields_to_folder_claim(&reach, claim)
+                    && !kind.ceded.contains(&cede)
+                {
+                    kind.ceded.push(cede);
+                }
             }
         }
     }
@@ -1111,16 +1125,24 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
         let ceded = match (&sub.governs, &base.governs) {
             (None, None) => None,
             (Some(own), Some(inherited)) => {
-                let pattern = kind::locus_pattern(&own.root, &own.glob);
-                let base_pattern = kind::locus_pattern(&inherited.root, &inherited.glob);
-                if !kind::locus_within(&pattern, &base_pattern) {
+                // Each of the subkind's templates lies within one of the base's.
+                let base_patterns = inherited.patterns();
+                let patterns = own.patterns();
+                if let Some(outside) = patterns.iter().find(|pattern| {
+                    !base_patterns
+                        .iter()
+                        .any(|base_pattern| kind::locus_within(pattern, base_pattern))
+                }) {
                     return Err(refuse(
                         &sub,
                         &base_name,
-                        format!("its locus `{pattern}` lies outside the base's `{base_pattern}`"),
+                        format!(
+                            "its locus `{outside}` lies outside the base's `{}`",
+                            base_patterns.join("`, `")
+                        ),
                     ));
                 }
-                Some(pattern)
+                Some(patterns)
             }
             (Some(_), None) => {
                 return Err(refuse(
@@ -1177,8 +1199,13 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
             .collect();
         bound.relationships.extend(inherited_edges);
         kinds.insert(name.clone(), bound);
-        if let (Some(pattern), Some(base)) = (ceded, kinds.get_mut(&base_name)) {
-            base.ceded.push(drift::CedeRow { to: name, pattern });
+        if let (Some(patterns), Some(base)) = (ceded, kinds.get_mut(&base_name)) {
+            for pattern in patterns {
+                base.ceded.push(drift::CedeRow {
+                    to: name.clone(),
+                    pattern,
+                });
+            }
         }
     }
     Ok(())
@@ -1441,11 +1468,11 @@ fn resolve_kind_units(
                 child_units
             }
             (_, _, Some(governs)) => {
-                let base = governed_fold_base(disc, governs);
                 let mut file_units = Vec::new();
                 for file in
                     import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
                 {
+                    let base = governed_fold_base(disc, governs, &file);
                     match read_file_unit(
                         kind,
                         &file,
@@ -1505,9 +1532,12 @@ fn resolve_kind_units(
 /// The fold base a governed kind's top-level member ids fold against: the locus root,
 /// descended through the segments its glob spells literally ([`drift::fold_base`]). The
 /// one spelling of it, read by the `governs` scan above and by the per-site derivations
-/// below, so a member's address is one fact whichever reader asks.
-fn governed_fold_base(disc: &import::Discovery, governs: &kind::Governs) -> PathBuf {
-    drift::fold_base(&disc.locus_root(governs), &governs.glob)
+/// below, so a member's address is one fact whichever reader asks. A several-template
+/// locus folds each document against the template it sits at ([`kind::Governs::glob_at`]).
+fn governed_fold_base(disc: &import::Discovery, governs: &kind::Governs, file: &Path) -> PathBuf {
+    let root = disc.locus_root(governs);
+    let glob = governs.glob_at(&root, file);
+    drift::fold_base(&root, glob)
 }
 
 /// Which bytes a per-site address derivation reads its identity off.
@@ -1540,7 +1570,7 @@ pub fn governed_member_address(
 ) -> Option<String> {
     let governs = kind.governs.as_ref()?;
     let disc = import::Discovery::new(harness_root);
-    let base = governed_fold_base(&disc, governs);
+    let base = governed_fold_base(&disc, governs, file);
     let id = site_id(kind, file, &base, identity)?;
     Some(member_address::address_of(&kind.name, &id))
 }
@@ -1607,7 +1637,7 @@ fn site_id(
                 kind.unit_shape.as_ref(),
                 &file,
                 base,
-                kind.governs.as_ref().map(|governs| governs.glob.as_str()),
+                kind.template_at(base, &file),
                 |_| None,
             )
             .ok()?
@@ -2763,7 +2793,7 @@ mod tests {
             kinds: vec![drift::KindFactRow {
                 base: Some("rule".to_string()),
                 governs_root: Some(".claude/rules/decisions".to_string()),
-                governs_glob: Some("*.md".to_string()),
+                governs_glob: vec!["*.md".to_string()],
                 ..test_support::kind_fact_row("decision")
             }],
             ..drift::Declarations::default()

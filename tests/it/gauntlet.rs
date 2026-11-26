@@ -469,9 +469,9 @@ fn emitted_member_set_matches_independent_discovery() {
             // Nested-file kind: its members are discovered off the host, not directly.
             continue;
         };
-        let Some(ref governs_glob) = kind_fact.governs_glob else {
+        if kind_fact.governs_glob.is_empty() {
             continue;
-        };
+        }
         // Skip kinds with no provenance — registration members embedded in manifests.
         if !lock_members_by_kind.contains_key(kind_name) {
             continue;
@@ -480,7 +480,7 @@ fn emitted_member_set_matches_independent_discovery() {
         // Construct a minimal CustomKind for discover_kind_files.
         let governs = temper::kind::Governs {
             root: governs_root.clone(),
-            glob: governs_glob.clone(),
+            globs: kind_fact.governs_glob.clone(),
         };
         let kind_commitment = kind_fact
             .commitment

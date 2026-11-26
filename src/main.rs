@@ -744,14 +744,20 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
     let loci = compose::effective_kinds(declarations)?
         .into_values()
         .filter(|kind| gate::site_class(kind) == Some(gate::SiteClass::File))
-        .filter_map(|kind| {
-            let governs = kind.governs.as_ref()?;
-            Some(install::GuardedLocus {
-                root: governs.root.clone(),
-                pattern: kind::locus_pattern(&governs.root, &governs.glob),
-                custom: !builtin_defs.contains_key(&kind.name),
-                kind: kind.name,
-            })
+        .filter_map(|kind| Some((kind.governs.clone()?, kind)))
+        // One guarded locus per template: a several-template kind guards each.
+        .flat_map(|(governs, kind)| {
+            let custom = !builtin_defs.contains_key(&kind.name);
+            governs
+                .patterns()
+                .into_iter()
+                .map(move |pattern| install::GuardedLocus {
+                    root: governs.root.clone(),
+                    pattern,
+                    custom,
+                    kind: kind.name.clone(),
+                })
+                .collect::<Vec<_>>()
         })
         .collect();
     Ok(loci)
@@ -769,7 +775,7 @@ fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<instal
 /// the two concepts stay apart.
 fn manifest_path(kind: &CustomKind) -> Option<path::HarnessRelativePath> {
     let governs = kind.governs.as_ref()?;
-    Some(kind::locus_path(&governs.root, &governs.glob))
+    Some(kind::locus_path(&governs.root, governs.sole_glob()?))
 }
 
 /// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)

@@ -97,7 +97,7 @@ fn parse(
         kind.unit_shape.as_ref(),
         source_file,
         base,
-        kind.governs.as_ref().map(|governs| governs.glob.as_str()),
+        kind.template_at(base, source_file),
         |key| fields.get(key),
     )
     .map_err(|fault| TomlDocumentError::NoIdentityValue {

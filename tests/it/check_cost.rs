@@ -1448,7 +1448,7 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
         "hook".to_string(),
         temper::kind::Governs {
             root: ".claude".to_string(),
-            glob: "settings.json".to_string(),
+            globs: vec!["settings.json".to_string()],
         },
         Extraction::new(Vec::new()),
     );
@@ -1466,7 +1466,7 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
         "installed-plugin".to_string(),
         temper::kind::Governs {
             root: ".claude".to_string(),
-            glob: "settings.json".to_string(),
+            globs: vec!["settings.json".to_string()],
         },
         Extraction::new(Vec::new()),
     );

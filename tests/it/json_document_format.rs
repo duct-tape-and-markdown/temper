@@ -60,7 +60,7 @@ fn plugin_kind() -> CustomKind {
         "plugin-manifest",
         Governs {
             root: ".claude-plugin".to_string(),
-            glob: "plugin.json".to_string(),
+            globs: vec!["plugin.json".to_string()],
         },
         Extraction::new(Vec::new()),
     );
@@ -76,7 +76,7 @@ fn plugin_kind() -> CustomKind {
 /// fixture chose.
 fn fold_base(root: &Path, kind: &CustomKind) -> PathBuf {
     let governs = kind.governs.as_ref().unwrap();
-    temper::drift::fold_base(&root.join(&governs.root), &governs.glob)
+    temper::drift::fold_base(&root.join(&governs.root), &governs.globs[0])
 }
 
 /// The fixture kind's lock row — the same declaration the SDK emits, carrying the format
@@ -191,7 +191,7 @@ fn area_kind(shape: UnitShape) -> CustomKind {
         "area",
         Governs {
             root: "docs".to_string(),
-            glob: "*/area.json".to_string(),
+            globs: vec!["*/area.json".to_string()],
         },
         Extraction::new(Vec::new()),
     );
@@ -582,7 +582,7 @@ fn area_kind_row() -> KindFactRow {
 fn page_kind_row() -> KindFactRow {
     KindFactRow {
         governs_root: None,
-        governs_glob: None,
+        governs_glob: Vec::new(),
         format: Some("json-document".to_string()),
         unit_shape: Some("starred-segment".to_string()),
         ..common::kind_facts("page", "", "")

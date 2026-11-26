@@ -238,7 +238,9 @@ pub fn script_note(
         .iter()
         .filter_map(|name| declared_kinds.get(*name)?.governs.as_ref())
         .filter_map(|governs| {
-            let path = root.join(normalize_root(&governs.root)).join(&governs.glob);
+            let path = root
+                .join(normalize_root(&governs.root))
+                .join(governs.sole_glob()?);
             serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(path).ok()?).ok()
         })
         .any(|settings| settings_run_a_command(&settings));
@@ -408,7 +410,10 @@ fn governs(kind: &CustomKind, path: &HarnessRelativePath, is_dir: bool) -> bool 
         let root = normalize_root(&governs.root);
         root == &**path
             || root.starts_with(&format!("{path}/"))
-            || units_sit_under(&governs.root, &governs.glob, path)
+            || governs
+                .globs
+                .iter()
+                .any(|glob| units_sit_under(&governs.root, glob, path))
     } else {
         kind.locus_admits(path)
     }
@@ -456,7 +461,7 @@ mod tests {
             name,
             Governs {
                 root: root.to_string(),
-                glob: glob.to_string(),
+                globs: vec![glob.to_string()],
             },
             Extraction::new(Vec::new()),
         )

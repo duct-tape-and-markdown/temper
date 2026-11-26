@@ -826,7 +826,7 @@ fn the_embedded_builtin_lock_carries_the_hook_kind_and_its_event_clause() {
         .collection_address
         .as_ref()
         .expect("the hook kind carries its collection address");
-    assert_eq!(hook.governs_glob.as_deref(), Some("settings.json"));
+    assert_eq!(hook.sole_glob(), Some("settings.json"));
     assert_eq!(address.key_path, "hooks.<Event>");
 
     let clause = declarations

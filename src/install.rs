@@ -1922,11 +1922,16 @@ pub fn guarded_layout_loci(
             continue;
         }
         match kind.governs.as_ref() {
-            Some(governs) => loci.governed.push(GuardedLayoutLocus {
-                root: governs.root.clone(),
-                pattern: kind::locus_pattern(&governs.root, &governs.glob),
-                kind: kind.clone(),
-            }),
+            // One guarded locus per template: a several-template kind guards each.
+            Some(governs) => {
+                for pattern in governs.patterns() {
+                    loci.governed.push(GuardedLayoutLocus {
+                        root: governs.root.clone(),
+                        pattern,
+                        kind: kind.clone(),
+                    });
+                }
+            }
             None => loci.hosted.push(kind.clone()),
         }
     }
@@ -2950,10 +2955,11 @@ struct LiftedMember {
 /// parent.
 fn lift_base(root: &Path, kind: &CustomKind, file: &Path) -> PathBuf {
     match &kind.governs {
-        Some(governs) => crate::drift::fold_base(
-            &crate::path::normalize_path(&root.join(&governs.root)),
-            &governs.glob,
-        ),
+        Some(governs) => {
+            let locus = crate::path::normalize_path(&root.join(&governs.root));
+            let glob = governs.glob_at(&locus, file);
+            crate::drift::fold_base(&locus, glob)
+        }
         None => file.parent().unwrap_or(file).to_path_buf(),
     }
 }

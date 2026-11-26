@@ -715,7 +715,7 @@ fn narrate_kind(
 /// document it lands in is committed.
 fn declares_a_locus(row: &drift::KindFactRow) -> bool {
     row.governs_root.is_some()
-        || row.governs_glob.is_some()
+        || !row.governs_glob.is_empty()
         || row.collection_address.is_some()
         || !row.registration.is_empty()
         || row.commitment.is_some()
@@ -733,7 +733,7 @@ fn declares_a_locus(row: &drift::KindFactRow) -> bool {
 /// other's absence.
 fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
     let _ = writeln!(out, "Where a member of it lands:");
-    if let (Some(address), Some(manifest)) = (&row.collection_address, &row.governs_glob) {
+    if let (Some(address), Some(manifest)) = (&row.collection_address, row.sole_glob()) {
         let _ = writeln!(
             out,
             "  • keyed at `{}` inside the `{manifest}` manifest — a member of `{name}` is one \
@@ -743,12 +743,17 @@ fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
     }
     // The pair is presence-coupled in every row a kind lift accepts; a half-declared one
     // still names the half it carries rather than going silent on the whole locus.
-    let discovered = match (row.governs_root.as_deref(), row.governs_glob.as_deref()) {
-        (Some(root), Some(glob)) => Some(crate::kind::locus_pattern(root, glob)),
-        (Some(root), None) => Some(format!("{root}/")),
-        (None, Some(glob)) => Some(glob.to_string()),
-        (None, None) => None,
+    // Each template renders, so a several-template locus names every place it governs.
+    let discovered: Vec<String> = match row.governs_root.as_deref() {
+        Some(root) if row.governs_glob.is_empty() => vec![format!("{root}/")],
+        Some(root) => row
+            .governs_glob
+            .iter()
+            .map(|glob| crate::kind::locus_pattern(root, glob))
+            .collect(),
+        None => row.governs_glob.clone(),
     };
+    let discovered = (!discovered.is_empty()).then(|| discovered.join("` or `"));
     if let Some(discovered) = discovered {
         if row.collection_address.is_some() {
             let _ = writeln!(

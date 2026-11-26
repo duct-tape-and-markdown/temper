@@ -266,7 +266,7 @@ fn lock_carries_all_four_declaration_families() {
         .expect("the skill kind fact is recorded");
     assert_eq!(skill.provider.as_deref(), Some("claude-code"));
     assert_eq!(skill.governs_root.as_deref(), Some(".claude/skills"));
-    assert_eq!(skill.governs_glob.as_deref(), Some("*/SKILL.md"));
+    assert_eq!(skill.sole_glob(), Some("*/SKILL.md"));
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
@@ -3666,7 +3666,7 @@ fn a_registration_kind_surfaces_in_the_manifest_its_locus_names() {
 
     // A starred locus governs a family of files, so it names no one manifest to key inside.
     let starred = KindFactRow {
-        governs_glob: Some("*.json".to_string()),
+        governs_glob: vec!["*.json".to_string()],
         ..moved
     };
     let err = CustomKind::from_kind_fact_row(&starred).unwrap_err();
@@ -3831,4 +3831,83 @@ fn a_payload_with_no_typecheck_writes_no_typecheck_row() {
             .contains("declaration.typecheck"),
     );
     assert_eq!(drift::read_declarations(&into).unwrap().typecheck, None);
+}
+
+// ---- a file locus governs through one or more templates -----------------------------
+
+/// The documents the kind a lock row (`row`, a `[[declaration.kind]]` table's body) lifts
+/// to governs under `harness`, harness-relative and sorted — the walk `check` runs.
+fn governed_documents(label: &str, harness: &Path, row: &str) -> Vec<String> {
+    let declarations = read_raw(label, &format!("[[declaration.kind]]\n{row}")).unwrap();
+    let kind = CustomKind::from_kind_fact_row(&declarations.kinds[0]).unwrap();
+    let governs = kind.governs.clone().expect("a file locus governs a path");
+    let disc = temper::import::Discovery::new(harness);
+    let mut found: Vec<String> = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        &governs,
+        temper::import::LocalOverride::Honored,
+    )
+    .iter()
+    .map(|file| {
+        let relative = file.strip_prefix(harness).unwrap();
+        temper::path::HarnessRelativePath::from_path(relative).to_string()
+    })
+    .collect();
+    found.sort();
+    found
+}
+
+/// A tree holding a document at each of two templates plus one at neither.
+fn two_template_tree(label: &str) -> PathBuf {
+    let harness = common::tmpdir(label);
+    for path in ["CLAUDE.md", "apps/web/AGENTS.md", "apps/web/README.md"] {
+        let file = harness.join(path);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(file, "# Notes\n").unwrap();
+    }
+    harness
+}
+
+#[test]
+fn a_file_locus_with_two_templates_governs_a_document_matching_either_template() {
+    let harness = two_template_tree("two-template-locus");
+    let found = governed_documents(
+        "two-template-locus-lock",
+        &harness,
+        "name = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = [\"**/CLAUDE.md\", \"**/AGENTS.md\"]\n",
+    );
+    assert_eq!(
+        found,
+        vec!["CLAUDE.md".to_string(), "apps/web/AGENTS.md".to_string()],
+        "each template governs its own documents, and a document at neither is no member"
+    );
+    // The column writes back as the list it read.
+    let row = &read_raw(
+        "two-template-locus-round-trip",
+        "[[declaration.kind]]\nname = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = [\"**/CLAUDE.md\", \"**/AGENTS.md\"]\n",
+    )
+    .unwrap()
+    .kinds[0];
+    assert_eq!(row.governs_glob, vec!["**/CLAUDE.md", "**/AGENTS.md"]);
+    // A one-element list, the spelling emit now writes for a single template, governs
+    // what the bare string did.
+    let found = governed_documents(
+        "one-element-list-locus-lock",
+        &harness,
+        "name = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = [\"**/CLAUDE.md\"]\n",
+    );
+    assert_eq!(found, vec!["CLAUDE.md".to_string()]);
+}
+
+#[test]
+fn a_single_template_kind_governs_exactly_the_documents_it_governed_before() {
+    let harness = two_template_tree("one-template-locus");
+    // The bare-string spelling every lock committed before a locus took several.
+    let found = governed_documents(
+        "one-template-bare",
+        &harness,
+        "name = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = \"**/CLAUDE.md\"\n",
+    );
+    assert_eq!(found, vec!["CLAUDE.md".to_string()]);
 }

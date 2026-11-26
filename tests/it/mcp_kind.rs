@@ -124,7 +124,7 @@ fn the_mcp_kind_crosses_the_seam_as_a_committed_whole_file_json_document() {
     // The documented singleton locus: the harness root, and a literal glob, so the
     // member's name never splices into the path.
     assert_eq!(facts.governs_root.as_deref(), Some("."));
-    assert_eq!(facts.governs_glob.as_deref(), Some(".mcp.json"));
+    assert_eq!(facts.sole_glob(), Some(".mcp.json"));
     // Committed, not local: absent is the class, and it is what makes the file an emit target.
     assert_eq!(facts.commitment, None);
     // The whole-file JSON format routes it to the document reader, like the settings pair.
@@ -147,7 +147,7 @@ fn the_mcp_kind_crosses_the_seam_as_a_committed_whole_file_json_document() {
         .collection_address
         .as_ref()
         .expect("mcp-server keys at a collection address");
-    assert_eq!(server.governs_glob.as_deref(), Some(".mcp.json"));
+    assert_eq!(server.sole_glob(), Some(".mcp.json"));
     assert_eq!(address.key_path, "mcpServers.*");
 }
 

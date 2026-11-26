@@ -49,7 +49,7 @@ fn the_plugin_manifest_kind_owns_its_file_as_a_json_document_named_by_its_name_k
         manifest.governs,
         Some(Governs {
             root: ".claude-plugin".to_string(),
-            glob: "plugin.json".to_string(),
+            globs: vec!["plugin.json".to_string()],
         })
     );
     // The format label is what routes the artifact to the document reader; a `.json` file
@@ -81,7 +81,7 @@ fn a_plugin_json_surfaces_one_member_whose_identity_is_its_name_field() {
     let member = DocumentMember::read(
         &kind,
         &harness.join(".claude-plugin/plugin.json"),
-        &temper::drift::fold_base(&harness.join(&governs.root), &governs.glob),
+        &temper::drift::fold_base(&harness.join(&governs.root), &governs.globs[0]),
     )
     .unwrap();
 

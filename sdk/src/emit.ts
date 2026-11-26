@@ -21,7 +21,7 @@ import type {
   Member,
   ResolvedEmbeddedMemberValue,
 } from "./kind.js";
-import { edgeTargetNames } from "./kind.js";
+import { edgeTargetNames, templatesOf } from "./kind.js";
 import type { Mentionable, MentionScope, Text } from "./prose.js";
 import { checkMentions, defersToGate, isTextSpan, renderText, resolveEmbeddedLeaves } from "./prose.js";
 import { permissionUnion } from "./needs.js";
@@ -331,8 +331,30 @@ function projectionPath(member: Member): string {
     );
   }
   if (facts.locus.kind === "nested-file") return nestedFilePath(member);
-  const { root, glob } = facts.locus;
-  return joinSlash(root, placementInUnit(facts, glob, member.name));
+  const { root } = facts.locus;
+  return joinSlash(root, placementInUnit(facts, placingTemplate(templatesOf(facts.locus), member.name), member.name));
+}
+
+/**
+ * The template of a locus's `globs` a member named `name` places through — the engine's
+ * `placing_template` (`src/drift.rs`), which the two sides must agree on. A one-template
+ * locus has one answer. Of several, the first that can place the name: one whose star
+ * the name splices into, or one whose starless filename is the name's own leaf — a
+ * `**\/AGENTS.md` places `apps:web:AGENTS`, never `apps:web:CLAUDE`, since the read side
+ * names a lone file by its stem. A name no template can place falls to the first.
+ */
+function placingTemplate(globs: readonly string[], name: string): string {
+  const [first = ""] = globs;
+  if (globs.length < 2) return first;
+  const leaf = name.slice(name.lastIndexOf(":") + 1);
+  const placing = globs.find((glob) => {
+    const under = glob.startsWith("**/") ? glob.slice(3) : glob;
+    if (under.includes("*")) return true;
+    const file = under.slice(under.lastIndexOf("/") + 1);
+    const dot = file.lastIndexOf(".");
+    return (dot > 0 ? file.slice(0, dot) : file) === leaf;
+  });
+  return placing ?? first;
 }
 
 /**

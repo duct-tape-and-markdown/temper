@@ -421,18 +421,19 @@ fn host_units(
             .collect();
     };
     let root = disc.locus_root(governs);
-    let base = crate::drift::fold_base(&root, &governs.glob);
     discover_kind_files(disc, host, governs, over)
         .into_iter()
         .filter_map(|entry| {
             let dir = unit_dir(&root, &entry)?;
+            let glob = governs.glob_at(&root, &entry);
+            let base = crate::drift::fold_base(&root, glob);
             // The host's own name: the id a `directory` unit shape derives, its unit
             // directory's final component behind any `**`-spanned prefix.
             let identity = crate::extract::unit_shape_id(
                 Some(&UnitShape::Directory),
                 &entry,
                 &base,
-                Some(&governs.glob),
+                Some(glob),
                 |_| None,
             )
             .ok()?;
@@ -496,11 +497,11 @@ pub fn discover_kind_files(
         // The walk's files hang off the normalized locus root, so they are read back to
         // harness-relative against the harness normalized the same way.
         let harness = crate::path::normalize_path(disc.harness());
-        let pattern = crate::kind::locus_pattern(&governs.root, &governs.glob);
+        let patterns = governs.patterns();
         files.retain(|file| {
             file.strip_prefix(&harness).is_ok_and(|relative| {
                 let relative = crate::path::HarnessRelativePath::from_path(relative);
-                crate::kind::locus_admits(&pattern, &kind.excluded, &kind.ceded, &relative)
+                crate::kind::locus_admits_any(&patterns, &kind.excluded, &kind.ceded, &relative)
             })
         });
     }
@@ -541,7 +542,18 @@ fn discover_kind_units(disc: &Discovery, governs: &Governs, local_governs: bool)
     // walk, whatever its `governs.root` depth. Shared per flavor across the run so N kinds
     // cost one walk, not N ([`Discovery`]).
     let discoverable = disc.discoverable(local_governs);
-    scan_locus(&disc.locus_root(governs), &governs.glob, discoverable)
+    let root = disc.locus_root(governs);
+    // Each template is walked; a document two templates both match is one member.
+    let mut files: Vec<PathBuf> = governs
+        .globs
+        .iter()
+        .flat_map(|glob| scan_locus(&root, glob, discoverable))
+        .collect();
+    if governs.globs.len() > 1 {
+        files.sort();
+        files.dedup();
+    }
+    files
 }
 
 /// The scan itself: every file under `root` matching `glob`, deterministically ordered.
@@ -1170,7 +1182,7 @@ Last line, no newline.";
 
         let nested = Governs {
             root: ".claude/skills".to_string(),
-            glob: "*/SKILL.md".to_string(),
+            globs: vec!["*/SKILL.md".to_string()],
         };
         assert_eq!(
             disc.locus_root(&nested),
@@ -1179,7 +1191,7 @@ Last line, no newline.";
 
         let root_locus = Governs {
             root: ".".to_string(),
-            glob: "**/CLAUDE.md".to_string(),
+            globs: vec!["**/CLAUDE.md".to_string()],
         };
         assert_eq!(disc.locus_root(&root_locus), harness);
     }
@@ -1243,7 +1255,7 @@ Last line, no newline.";
             "memory",
             Governs {
                 root: "mem".to_string(),
-                glob: "*.md".to_string(),
+                globs: vec!["*.md".to_string()],
             },
             Extraction::new(Vec::new()),
         );
@@ -1276,7 +1288,7 @@ Last line, no newline.";
 
         let governs = Governs {
             root: "things".to_string(),
-            glob: "*/THING.md".to_string(),
+            globs: vec!["*/THING.md".to_string()],
         };
         let found = discover_kind_units(&Discovery::new(&harness), &governs, false);
         assert_eq!(
@@ -1297,7 +1309,7 @@ Last line, no newline.";
             "dial",
             Governs {
                 root: ".claude/local".to_string(),
-                glob: "*.md".to_string(),
+                globs: vec!["*.md".to_string()],
             },
             Extraction::new(Vec::new()),
         );
@@ -1397,7 +1409,7 @@ Last line, no newline.";
             "reference",
             Governs {
                 root: "refs".to_string(),
-                glob: "*.md".to_string(),
+                globs: vec!["*.md".to_string()],
             },
             Extraction::new(Vec::new()),
         );
@@ -1449,7 +1461,7 @@ Last line, no newline.";
             "memory",
             Governs {
                 root: ".".to_string(),
-                glob: "**/CLAUDE.md".to_string(),
+                globs: vec!["**/CLAUDE.md".to_string()],
             },
             Extraction::new(Vec::new()),
         );

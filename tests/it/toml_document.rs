@@ -47,7 +47,7 @@ fn knob_kind() -> CustomKind {
         "knob",
         Governs {
             root: ".claude/local".to_string(),
-            glob: "*.toml".to_string(),
+            globs: vec!["*.toml".to_string()],
         },
         Extraction::new(Vec::new()),
     );

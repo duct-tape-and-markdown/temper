@@ -1828,7 +1828,7 @@ fn refuse_template_cycle(kind_facts: &BTreeMap<&str, &KindFactRow>) -> Result<()
             };
             // Only a child governing no glob composes under this host's unit; one with its
             // own `at` locus is placed by its own glob and roots a chain of its own.
-            if child_facts.governs_root.is_some() || child_facts.governs_glob.is_some() {
+            if child_facts.governs_root.is_some() || !child_facts.governs_glob.is_empty() {
                 continue;
             }
             descend(child, kind_facts, trail, settled)?;
@@ -1877,18 +1877,26 @@ fn member_projection_path(
     }
     // The two governs columns are one spelling: present together at an `at` locus, absent
     // together for a nested file kind, whose path composes from its host instead.
-    let (Some(root), Some(glob)) = (facts.governs_root.as_deref(), facts.governs_glob.as_deref())
+    let Some(root) = facts
+        .governs_root
+        .as_deref()
+        .filter(|_| !facts.governs_glob.is_empty())
     else {
         return nested_file_path(facts, name, host, kind_facts);
     };
+    let glob = placing_template(&facts.governs_glob, name);
     let relative = placement_in_unit(facts, glob, name)?;
     let placed = join_locus(root, &relative);
-    // Placement asks the one membership question discovery asks — the template less the
+    // Placement asks the one membership question discovery asks — the templates less the
     // excluded paths and the recorded cedes — so emit never writes a member `check` would
     // not find.
     let harness_relative = HarnessRelativePath::from_path(&placed);
-    let pattern = crate::kind::locus_pattern(root, glob);
-    if !crate::kind::locus_admits(&pattern, &facts.exclude, &facts.ceded, &harness_relative) {
+    let patterns: Vec<String> = facts
+        .governs_glob
+        .iter()
+        .map(|glob| crate::kind::locus_pattern(root, glob))
+        .collect();
+    if !crate::kind::locus_admits_any(&patterns, &facts.exclude, &facts.ceded, &harness_relative) {
         // `governs_root` is the locus the glob is rooted at, so the relative path is what
         // the glob has to find; a path the template finds failed on the exclusion half or
         // the ceded half.
@@ -1926,6 +1934,31 @@ fn member_projection_path(
         });
     }
     Ok(placed)
+}
+
+/// The template of a locus's `globs` a member named `name` places through. A one-template
+/// locus has one answer. Of several, the first that can place the name: one whose star
+/// the name splices into, or one whose starless filename is the name's own leaf — a
+/// `**/AGENTS.md` places `apps:web:AGENTS`, never `apps:web:CLAUDE`, since the read side
+/// names a lone file by its stem. A name no template can place falls to the first, whose
+/// placement refuses it as the one-template case does.
+fn placing_template<'g>(globs: &'g [String], name: &str) -> &'g str {
+    let first = globs.first().map_or("", String::as_str);
+    if globs.len() < 2 {
+        return first;
+    }
+    let leaf = name.rsplit(':').next().unwrap_or(name);
+    globs
+        .iter()
+        .find(|glob| {
+            let under = glob.strip_prefix("**/").unwrap_or(glob);
+            if under.contains('*') {
+                return true;
+            }
+            let file = under.rsplit('/').next().unwrap_or(under);
+            Path::new(file).file_stem().and_then(|stem| stem.to_str()) == Some(leaf)
+        })
+        .map_or(first, String::as_str)
 }
 
 /// Run the SDK program at `<workspace_dir>/harness.ts` and compile its payload in one
@@ -2474,8 +2507,8 @@ pub fn emit(
         // workspace would emit and lock but never be discoverable, since discovery fences
         // `.temper/` by design. Buried-or-not is `kind`'s call, shared with the check-time
         // judge (`crate::admissibility::at_locus_under_workspace_admissibility`).
-        if let (Some(root), Some(_)) =
-            (facts.governs_root.as_deref(), facts.governs_glob.as_deref())
+        if let Some(root) = facts.governs_root.as_deref()
+            && !facts.governs_glob.is_empty()
             && crate::kind::at_locus_is_under_workspace(root, commitment)
         {
             return Err(DriftError::AtLocusUnderWorkspace {
@@ -2992,7 +3025,7 @@ struct ContainerMember {
 /// host file to register inside.
 fn manifest_target_path(facts: &KindFactRow) -> Option<HarnessRelativePath> {
     let root = facts.governs_root.as_deref()?;
-    let glob = facts.governs_glob.as_deref()?;
+    let glob = facts.sole_glob()?;
     Some(crate::kind::locus_path(root, glob))
 }
 
@@ -3006,9 +3039,7 @@ fn manifest_path_for(
 ) -> Option<HarnessRelativePath> {
     kind_facts
         .values()
-        .find(|facts| {
-            facts.collection_address.is_some() && facts.governs_glob.as_deref() == Some(manifest)
-        })
+        .find(|facts| facts.collection_address.is_some() && facts.sole_glob() == Some(manifest))
         .and_then(|facts| manifest_target_path(facts))
 }
 
@@ -5824,10 +5855,14 @@ pub struct KindFactRow {
     /// no glob of its own and two kinds still never share one.
     #[serde(default)]
     pub governs_root: Option<String>,
-    /// The `governs` locus filename glob, absent for a nested file kind (see
-    /// [`governs_root`](KindFactRow::governs_root)).
+    /// The `governs` locus **templates** under [`governs_root`](KindFactRow::governs_root) —
+    /// one or more, a document at any of them governed by the kind; empty for a nested
+    /// file kind (see [`governs_root`](KindFactRow::governs_root)). Written as an array;
+    /// a bare string reads as the one template it means, the spelling a lock written
+    /// before a locus took several carries.
     #[serde(default)]
-    pub governs_glob: Option<String>,
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub governs_glob: Vec<String>,
     /// The file locus's declared **commitment class** label — `local` for a per-machine,
     /// uncommitted locus: the kind is declared and reviewed, its members' documents are
     /// not. Absent for the committed class every
@@ -6926,10 +6961,11 @@ fn opt_str_array(table: &dyn TableLike, column: &str) -> Result<Option<Vec<Strin
 /// An optional string-array column that also reads a bare string as the one-element
 /// array it means — absent is `Ok(None)`, any other shape a [`RowError`].
 ///
-/// The one column read this way is `value_type`, and the tolerance is a version skew,
-/// not a spelling choice: an engine that predates the `type` predicate's set widening
-/// wrote one lattice name as a bare string, and the row means exactly the one-element
-/// set. Reading it is what an upgraded engine owes a lock a prior version committed;
+/// Two columns read this way, `value_type` and `governs_glob`, and the tolerance is a
+/// version skew, not a spelling choice: an engine that predates the `type` predicate's
+/// set widening wrote one lattice name as a bare string, and one that predates a locus
+/// taking several templates wrote its one template so; either row means exactly the
+/// one-element set. Reading it is what an upgraded engine owes a lock a prior version committed;
 /// the next `emit` writes the file whole in the canonical array form, so the tolerance
 /// never becomes a second spelling temper itself emits.
 fn opt_str_or_str_array(
@@ -6957,6 +6993,16 @@ fn opt_table<'a>(
 }
 
 impl KindFactRow {
+    /// The row's one `governs` template, when it declares exactly one — the shape a locus
+    /// naming a single file (a registration kind's manifest) has.
+    #[must_use]
+    pub fn sole_glob(&self) -> Option<&str> {
+        match self.governs_glob.as_slice() {
+            [one] => Some(one),
+            _ => None,
+        }
+    }
+
     fn to_table(&self) -> Table {
         let mut table = Table::new();
         table.insert("name", value(self.name.clone()));
@@ -6969,8 +7015,8 @@ impl KindFactRow {
         if let Some(root) = &self.governs_root {
             table.insert("governs_root", value(root.clone()));
         }
-        if let Some(glob) = &self.governs_glob {
-            table.insert("governs_glob", value(glob.clone()));
+        if !self.governs_glob.is_empty() {
+            table.insert("governs_glob", value(string_array(&self.governs_glob)));
         }
         if let Some(commitment) = &self.commitment {
             table.insert("commitment", value(commitment.clone()));
@@ -7026,7 +7072,7 @@ impl KindFactRow {
             provider: opt_str(table, "provider")?,
             base: opt_str(table, "base")?,
             governs_root: opt_str(table, "governs_root")?,
-            governs_glob: opt_str(table, "governs_glob")?,
+            governs_glob: opt_str_or_str_array(table, "governs_glob")?.unwrap_or_default(),
             commitment: opt_str(table, "commitment")?,
             exclude: opt_str_array(table, "exclude")?.unwrap_or_default(),
             leniency: opt_str_array(table, "leniency")?.unwrap_or_default(),
@@ -8093,6 +8139,19 @@ mod tests {
     use crate::test_support::tmpdir;
 
     #[test]
+    fn a_member_places_through_the_template_whose_filename_is_its_leaf() {
+        let globs = ["**/CLAUDE.md".to_string(), "**/AGENTS.md".to_string()];
+        assert_eq!(placing_template(&globs, "apps:web:AGENTS"), "**/AGENTS.md");
+        assert_eq!(placing_template(&globs, "CLAUDE"), "**/CLAUDE.md");
+        // A name no template can place falls to the first, which refuses it.
+        assert_eq!(placing_template(&globs, "README"), "**/CLAUDE.md");
+        // A starred template splices any name.
+        let starred = ["README.md".to_string(), "*.md".to_string()];
+        assert_eq!(placing_template(&starred, "guide"), "*.md");
+        assert_eq!(placing_template(&["*.md".to_string()], "x"), "*.md");
+    }
+
+    #[test]
     fn project_bytes_heads_a_frontmatterless_body_with_its_preserved_banner() {
         let banner =
             "<!-- temper: managed projection — edit the owning .temper/ module. -->".to_string();
@@ -8275,7 +8334,7 @@ mod tests {
     fn a_nested_skill_places_its_prefix_segments_ahead_of_its_skills_folder() {
         let row = KindFactRow {
             governs_root: Some(".".to_string()),
-            governs_glob: Some("**/.claude/skills/*/SKILL.md".to_string()),
+            governs_glob: vec!["**/.claude/skills/*/SKILL.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
             ..crate::test_support::kind_fact_row("skill")
@@ -8298,7 +8357,7 @@ mod tests {
     fn a_nested_output_style_places_its_prefix_segments_ahead_of_its_folder() {
         let row = KindFactRow {
             governs_root: Some(".".to_string()),
-            governs_glob: Some("**/.claude/output-styles/*.md".to_string()),
+            governs_glob: vec!["**/.claude/output-styles/*.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("named-field-or-file(name)".to_string()),
             ..crate::test_support::kind_fact_row("output-style")
@@ -8321,7 +8380,7 @@ mod tests {
     fn a_path_shaped_member_places_each_colon_of_its_name_as_a_directory() {
         let row = KindFactRow {
             governs_root: Some(".claude/commands".to_string()),
-            governs_glob: Some("**/*.md".to_string()),
+            governs_glob: vec!["**/*.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("path".to_string()),
             ..crate::test_support::kind_fact_row("command")
@@ -8344,7 +8403,7 @@ mod tests {
     fn kind_fact_row_with_guidance_and_cite_round_trips_unchanged() {
         let row = KindFactRow {
             governs_root: Some(".claude/rules".to_string()),
-            governs_glob: Some("*.md".to_string()),
+            governs_glob: vec!["*.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("file".to_string()),
             registration: vec!["paths-match(paths)".to_string()],
@@ -8363,7 +8422,7 @@ mod tests {
     fn kind_fact_row_omits_absent_guidance_and_cite_columns() {
         let row = KindFactRow {
             governs_root: Some(".claude/rules".to_string()),
-            governs_glob: Some("*.md".to_string()),
+            governs_glob: vec!["*.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("file".to_string()),
             registration: vec!["paths-match(paths)".to_string()],

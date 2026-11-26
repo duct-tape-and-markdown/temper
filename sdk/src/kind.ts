@@ -139,11 +139,12 @@ export type Locus =
   | {
       readonly kind: "at";
       readonly root: string;
-      /** A placement template: literal `/`-separated segments with at most one `*`,
-       * optionally under a leading `**` + `/` for any depth. Any other pattern syntax
-       * (a `?`, a character class, braces, an extglob, a second star) is refused when
-       * the engine loads the lock. */
-      readonly glob: string;
+      /** One or more placement templates under `root`, a document at any of them the
+       * kind's: each literal `/`-separated segments with at most one `*`, optionally
+       * under a leading `**` + `/` for any depth. Any other pattern syntax (a `?`, a
+       * character class, braces, an extglob, a second star) is refused when the engine
+       * loads the lock. A list is the several-template spelling; a lone string is one. */
+      readonly glob: string | Templates;
       readonly commitment?: "local";
       /** Paths the template would govern that the kind leaves ungoverned — each a
        * starless, harness-relative literal the template matches (`domains/README.md`
@@ -155,6 +156,17 @@ export type Locus =
     }
   | { readonly kind: "embedded" }
   | { readonly kind: "nested-file" };
+
+/** A file locus's several templates — one or more, in declared order. */
+export type Templates = readonly [string, ...string[]];
+
+/**
+ * An `at` locus's templates as a list, in declared order — the one normalization of
+ * {@link Locus}'s `glob`, so no reader branches on its two spellings.
+ */
+export function templatesOf(locus: { readonly glob: string | Templates }): readonly string[] {
+  return typeof locus.glob === "string" ? [locus.glob] : locus.glob;
+}
 
 /**
  * One region of a kind's **layout** — one of the three corpus primitives over the
@@ -715,7 +727,7 @@ function orderedFields(
 function identityFieldValue(facts: KindFacts, name: string): string {
   const placed =
     facts.unitShape === "directory" ||
-    (facts.unitShape === "named-field-or-file" && facts.locus.kind === "at" && facts.locus.glob.includes("**"));
+    (facts.unitShape === "named-field-or-file" && facts.locus.kind === "at" && templatesOf(facts.locus).some((glob) => glob.includes("**")));
   return placed ? name.slice(name.lastIndexOf(":") + 1) : name;
 }
 
@@ -881,15 +893,17 @@ export function collectionAddressOf(facts: KindFacts): CollectionAddress | undef
  * If the kind's locus is not `at`, or its glob carries a `*`.
  */
 export function manifestOf(facts: KindFacts): string {
-  if (facts.locus.kind !== "at" || facts.locus.glob.includes("*")) {
-    const spelled = facts.locus.kind === "at" ? `\`${facts.locus.glob}\`` : `a \`${facts.locus.kind}\` locus`;
+  const templates = facts.locus.kind === "at" ? templatesOf(facts.locus) : [];
+  const [manifest] = templates;
+  if (facts.locus.kind !== "at" || templates.length !== 1 || manifest === undefined || manifest.includes("*")) {
+    const spelled = facts.locus.kind === "at" ? `\`${templates.join("`, `")}\`` : `a \`${facts.locus.kind}\` locus`;
     throw new Error(
       `kind \`${facts.name}\`: a collection address keys inside the one manifest the kind's ` +
         `locus names, and ${spelled} names no single file — declare an \`at\` locus whose ` +
         `glob carries no \`*\` (specs/model/representation.md, "Reach").`,
     );
   }
-  return facts.locus.glob;
+  return manifest;
 }
 
 /**
@@ -927,7 +941,7 @@ export interface KindRelocation<T extends object> {
    * a `commitment` delta would author a fact the reader drops in silence — a built-in's
    * commitment class stays the built-in's.
    */
-  readonly governs?: { readonly root: string; readonly glob: string };
+  readonly governs?: { readonly root: string; readonly glob: string | Templates };
   /**
    * Paths the relocated kind leaves ungoverned, *appended* to the base exclusions its
    * template (moved or not) still reaches — the way an author answers a collision with a
@@ -971,9 +985,9 @@ function relocatedLocus(
         `(specs/model/representation.md, "locus").`,
     );
   }
-  const pattern = locusPattern(governs.root, governs.glob);
-  const kept = (base.locus.exclude ?? []).filter(
-    (path) => templateMatches(pattern, path) || templateReachesBeneath(pattern, path),
+  const patterns = templatesOf(governs).map((glob) => locusPattern(governs.root, glob));
+  const kept = (base.locus.exclude ?? []).filter((path) =>
+    patterns.some((pattern) => templateMatches(pattern, path) || templateReachesBeneath(pattern, path)),
   );
   const { exclude: _replaced, ...rest } = base.locus;
   return { ...rest, root: governs.root, glob: governs.glob, ...(kept.length > 0 ? { exclude: kept } : {}) };
@@ -1004,14 +1018,17 @@ function excludedLocus(
     );
   }
   const locus = moved ?? base.locus;
-  const pattern = locusPattern(locus.root, locus.glob);
+  const patterns = templatesOf(locus).map((glob) => locusPattern(locus.root, glob));
   const exclude = [...(locus.exclude ?? [])];
   for (const path of authored) {
     const starless = !/[*?[\]{}\\]/.test(path) && !path.split("/").some((part) => part === "");
-    if (!starless || !(templateMatches(pattern, path) || templateReachesBeneath(pattern, path))) {
+    const governed = patterns.some(
+      (pattern) => templateMatches(pattern, path) || templateReachesBeneath(pattern, path),
+    );
+    if (!starless || !governed) {
       throw new Error(
         `relocating kind \`${base.name}\`: excluded path \`${path}\` must be a starless, ` +
-          `harness-relative path the locus template \`${pattern}\` matches, or a bare ` +
+          `harness-relative path the locus template \`${patterns.join("`, `")}\` matches, or a bare ` +
           `directory it reaches beneath — anything else subtracts nothing ` +
           `(specs/model/representation.md, "locus").`,
       );
@@ -1250,12 +1267,16 @@ export function extend<B extends object, T extends B>(
       );
     }
     if (delta.governs !== undefined && base.facts.locus.kind === "at") {
-      const own = locusPattern(delta.governs.root, delta.governs.glob);
-      const held = locusPattern(base.facts.locus.root, base.facts.locus.glob);
-      if (!locusWithin(own, held)) {
+      const governs = delta.governs;
+      const baseLocus = base.facts.locus;
+      const held = templatesOf(baseLocus).map((glob) => locusPattern(baseLocus.root, glob));
+      const own = templatesOf(governs)
+        .map((glob) => locusPattern(governs.root, glob))
+        .find((pattern) => !held.some((heldPattern) => locusWithin(pattern, heldPattern)));
+      if (own !== undefined) {
         throw new Error(
           `extending kind \`${base.facts.name}\` as \`${name}\`: the subkind's locus \`${own}\` ` +
-            `lies outside the base's \`${held}\`, and a subkind governs a locus within its ` +
+            `lies outside the base's \`${held.join("`, `")}\`, and a subkind governs a locus within its ` +
             `base's (specs/model/representation.md, "kind").`,
         );
       }

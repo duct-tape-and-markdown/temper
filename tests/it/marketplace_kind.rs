@@ -58,7 +58,7 @@ fn the_marketplace_kind_owns_its_file_at_a_glob_its_sibling_never_contends_for()
         marketplace.governs,
         Some(Governs {
             root: ".claude-plugin".to_string(),
-            glob: "marketplace.json".to_string(),
+            globs: vec!["marketplace.json".to_string()],
         })
     );
     assert_eq!(marketplace.format, Some(Format::JsonDocument));
@@ -84,7 +84,7 @@ fn the_marketplace_kind_owns_its_file_at_a_glob_its_sibling_never_contends_for()
         manifest.governs.expect("plugin-manifest governs a locus"),
     );
     assert_eq!(marketplace_governs.root, manifest_governs.root);
-    assert_ne!(marketplace_governs.glob, manifest_governs.glob);
+    assert_ne!(marketplace_governs.globs[0], manifest_governs.globs[0]);
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn a_marketplace_json_surfaces_one_member_whose_identity_is_its_name_field() {
     let member = DocumentMember::read(
         &kind,
         &harness.join(".claude-plugin/marketplace.json"),
-        &temper::drift::fold_base(&harness.join(&governs.root), &governs.glob),
+        &temper::drift::fold_base(&harness.join(&governs.root), &governs.globs[0]),
     )
     .unwrap();
 

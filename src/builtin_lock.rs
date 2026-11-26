@@ -53,7 +53,7 @@ mod tests {
             .find(|row| row.name == "supporting-doc")
             .expect("supporting-doc ships in the embedded lock");
         assert_eq!(doc.governs_root, None);
-        assert_eq!(doc.governs_glob, None);
+        assert!(doc.governs_glob.is_empty());
         let skill = declarations
             .kinds
             .iter()

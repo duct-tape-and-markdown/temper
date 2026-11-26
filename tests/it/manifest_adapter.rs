@@ -133,7 +133,7 @@ fn read_kind_routes_a_manifest_kind_through_its_governs_locus() {
         "mcp-server",
         Governs {
             root: ".".to_string(),
-            glob: ".mcp.json".to_string(),
+            globs: vec![".mcp.json".to_string()],
         },
         Extraction::new(Vec::new()),
     );

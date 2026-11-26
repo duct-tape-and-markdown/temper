@@ -60,7 +60,7 @@ fn the_settings_local_kind_owns_its_file_as_a_local_json_document_named_by_its_s
         kind.governs,
         Some(Governs {
             root: ".claude".to_string(),
-            glob: "settings.local.json".to_string(),
+            globs: vec!["settings.local.json".to_string()],
         })
     );
     // The format routes the artifact to the document reader, exactly as plugin-manifest's does.
@@ -90,7 +90,7 @@ fn a_settings_local_document_surfaces_one_member_named_by_its_fixed_stem() {
     let member = DocumentMember::read(
         &kind,
         &harness.join(".claude/settings.local.json"),
-        &temper::drift::fold_base(&harness.join(&governs.root), &governs.glob),
+        &temper::drift::fold_base(&harness.join(&governs.root), &governs.globs[0]),
     )
     .unwrap();
 

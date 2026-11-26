@@ -23,18 +23,19 @@ use crate::extract::{self, Features};
 use crate::layout::{Layout, LayoutRegion};
 
 /// The file locus a custom kind reads: the root
-/// directory its units live under, and the filename glob that selects them.
-/// `import` scans `root` for files matching `glob`. File placement is itself an
-/// extraction primitive, so the locus is part of the authored definition, not
-/// external config.
+/// directory its units live under, and the one or more **templates** that select them
+/// (`model/representation.md`, "locus"). `import` scans `root` for files matching any
+/// template. File placement is itself an extraction primitive, so the locus is part of
+/// the authored definition, not external config.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Governs {
     /// The root directory the kind's units sit under (`specs`, `docs/adr`), a path
     /// relative to the harness the assembly governs.
     pub root: String,
-    /// The filename glob that selects the kind's units under `root` (`*.md`,
-    /// `[0-9][0-9]-*.md`), stored verbatim.
-    pub glob: String,
+    /// The templates that select the kind's units under `root` (`*.md`,
+    /// `**/CLAUDE.md`), stored verbatim in declared order — never empty: a document at
+    /// any one of them is the kind's.
+    pub globs: Vec<String>,
 }
 
 /// A file locus's declared **commitment class** — whether the documents its members own
@@ -595,13 +596,23 @@ impl CustomKind {
     #[must_use]
     pub fn locus_admits(&self, harness_relative: &str) -> bool {
         self.governs.as_ref().is_some_and(|governs| {
-            locus_admits(
-                &locus_pattern(&governs.root, &governs.glob),
+            locus_admits_any(
+                &governs.patterns(),
                 &self.excluded,
                 &self.ceded,
                 harness_relative,
             )
         })
+    }
+
+    /// The template of this kind's locus a document at `file` sits at, read against the
+    /// fold base `base` ([`Governs::glob_folded_at`]); [`None`] for a kind governing no
+    /// locus.
+    #[must_use]
+    pub fn template_at(&self, base: &Path, file: &Path) -> Option<&str> {
+        self.governs
+            .as_ref()
+            .map(|governs| governs.glob_folded_at(base, file))
     }
 
     /// Declare this kind's file locus **local** — per-machine and uncommitted
@@ -622,7 +633,7 @@ impl CustomKind {
     #[must_use]
     pub fn manifest(&self) -> Option<&str> {
         self.collection_address.as_ref()?;
-        self.governs.as_ref().map(|governs| governs.glob.as_str())
+        self.governs.as_ref()?.sole_glob()
     }
 
     /// Why this kind's declared commitment class is inadmissible, or [`None`] when it is
@@ -696,8 +707,8 @@ impl CustomKind {
     pub fn from_kind_fact_row(row: &KindFactRow) -> Result<Self, LockRowError> {
         if let Some(glob) = row
             .governs_glob
-            .as_ref()
-            .filter(|glob| !crate::glob::is_placement_template(glob))
+            .iter()
+            .find(|glob| !crate::glob::is_placement_template(glob))
         {
             // The closed vocabulary here is the template grammar itself: a glob outside it
             // is a locus no placement can write back to.
@@ -741,8 +752,11 @@ impl CustomKind {
                 // kind neither — so the row is never mined for a root+glob it does not carry.
                 row.governs_root
                     .clone()
-                    .zip(row.governs_glob.clone())
-                    .map(|(root, glob)| Governs { root, glob }),
+                    .filter(|_| !row.governs_glob.is_empty())
+                    .map(|root| Governs {
+                        root,
+                        globs: row.governs_glob.clone(),
+                    }),
                 Extraction::new(vec![
                     Primitive::LineCount,
                     Primitive::Headings,
@@ -856,30 +870,118 @@ impl CustomKind {
     /// mis-dispatching, as does every member of a kind that governs no glob at all.
     #[must_use]
     pub fn owns_source(&self, source_path: &Path) -> bool {
-        let Some(matcher) = self
-            .governs
-            .as_ref()
-            .and_then(|governs| crate::glob::compile_glob(governs.glob_leaf()))
-        else {
+        let (Some(governs), Some(name)) = (
+            self.governs.as_ref(),
+            source_path.file_name().and_then(|name| name.to_str()),
+        ) else {
             return false;
         };
-        source_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| matcher.is_match(name))
+        governs.glob_leaves().any(|leaf| {
+            crate::glob::compile_glob(leaf).is_some_and(|matcher| matcher.is_match(name))
+        })
     }
 }
 
 impl Governs {
-    /// The glob's file-matching **leaf** — its final `/`-separated segment
+    /// A one-template locus — `glob` under `root`, the shape every kind but a
+    /// several-template one declares.
+    #[must_use]
+    pub fn new(root: impl Into<String>, glob: impl Into<String>) -> Self {
+        Self {
+            root: root.into(),
+            globs: vec![glob.into()],
+        }
+    }
+
+    /// Each template's whole harness-relative pattern ([`locus_pattern`]), in declared
+    /// order.
+    #[must_use]
+    pub fn patterns(&self) -> Vec<String> {
+        self.globs
+            .iter()
+            .map(|glob| locus_pattern(&self.root, glob))
+            .collect()
+    }
+
+    /// Each template's harness-relative path ([`locus_path`]), in declared order.
+    #[must_use]
+    pub fn paths(&self) -> Vec<crate::path::HarnessRelativePath> {
+        self.globs
+            .iter()
+            .map(|glob| locus_path(&self.root, glob))
+            .collect()
+    }
+
+    /// The locus's one template, when it declares exactly one — the shape a locus naming
+    /// a single file (a registration kind's manifest, `bundle`'s written member) has.
+    /// [`None`] for a several-template locus, which names no one file.
+    #[must_use]
+    pub fn sole_glob(&self) -> Option<&str> {
+        match self.globs.as_slice() {
+            [one] => Some(one),
+            _ => None,
+        }
+    }
+
+    /// The template a document at `file` sits at — the first, in declared order, whose
+    /// glob matches `file` beneath `locus_root` (the resolved [`root`](Governs::root)).
+    /// A document no template matches answers the first, the one template a
+    /// single-template locus has; every reader asking this already holds a governed
+    /// document.
+    #[must_use]
+    pub fn glob_at(&self, locus_root: &Path, file: &Path) -> &str {
+        let first = self.globs.first().map_or("", String::as_str);
+        let Ok(relative) = file.strip_prefix(locus_root) else {
+            return first;
+        };
+        let relative = crate::path::HarnessRelativePath::from_path(relative).to_string();
+        self.globs
+            .iter()
+            .find(|glob| {
+                crate::glob::compile_glob(glob).is_some_and(|matcher| matcher.is_match(&relative))
+            })
+            .map_or(first, String::as_str)
+    }
+
+    /// The template a document at `file` sits at, read against the **fold base** `base` a
+    /// reader folds its identity against ([`crate::drift::fold_base`]: the locus root
+    /// descended through the template's literal leading segments) — the first template,
+    /// in declared order, whose literal descent `base` ends with and whose remainder
+    /// matches `file` beneath it. A document no template matches answers the first.
+    #[must_use]
+    pub fn glob_folded_at(&self, base: &Path, file: &Path) -> &str {
+        let first = self.globs.first().map_or("", String::as_str);
+        let Ok(relative) = file.strip_prefix(base) else {
+            return first;
+        };
+        let relative = crate::path::HarnessRelativePath::from_path(relative).to_string();
+        self.globs
+            .iter()
+            .find(|glob| {
+                let descent = crate::drift::fold_base(Path::new(""), glob);
+                let rest = glob
+                    .strip_prefix(&format!(
+                        "{}/",
+                        descent.to_string_lossy().replace('\\', "/")
+                    ))
+                    .unwrap_or(glob);
+                base.ends_with(&descent)
+                    && crate::glob::compile_glob(rest)
+                        .is_some_and(|matcher| matcher.is_match(&relative))
+            })
+            .map_or(first, String::as_str)
+    }
+
+    /// Each template's file-matching **leaf** — its final `/`-separated segment
     /// (`*/SKILL.md` → `SKILL.md`, `CLAUDE.md` → `CLAUDE.md`). Its one consumer is
     /// [`CustomKind::owns_source`], a **filename** discriminator for two kinds sharing a
     /// surface locus: the leaf is what an imported member's bare source name can be
     /// matched against. It is not a path matcher — a leaf carries none of the locus's
     /// root or its interior segments, so a path question is [`locus_pattern`]'s.
-    #[must_use]
-    pub fn glob_leaf(&self) -> &str {
-        self.glob.rsplit('/').next().unwrap_or(&self.glob)
+    pub fn glob_leaves(&self) -> impl Iterator<Item = &str> {
+        self.globs
+            .iter()
+            .map(|glob| glob.rsplit('/').next().unwrap_or(glob))
     }
 }
 
@@ -912,7 +1014,7 @@ pub fn locus_path(root: &str, glob: &str) -> crate::path::HarnessRelativePath {
 /// A free function over the two columns rather than a [`Governs`] method, because one
 /// caller (`read`'s kind narration) holds a [`KindFactRow`]'s two `Option<String>` columns
 /// and no [`Governs`] at all; the [`Governs`]-holding callers pass
-/// `(&governs.root, &governs.glob)`.
+/// `(&governs.root, glob)` per template ([`Governs::patterns`]).
 #[must_use]
 pub fn locus_pattern(root: &str, glob: &str) -> String {
     locus_path(root, glob).into()
@@ -945,6 +1047,20 @@ pub fn locus_admits(
         .any(|path| is_at_or_beneath(harness_relative, path))
         && matches(pattern)
         && !ceded.iter().any(|cede| matches(&cede.pattern))
+}
+
+/// [`locus_admits`] over a several-template locus: `harness_relative` is in it when any
+/// one template's pattern admits it, the exclusions and cedes being the kind's whole.
+#[must_use]
+pub fn locus_admits_any(
+    patterns: &[String],
+    excluded: &[String],
+    ceded: &[CedeRow],
+    harness_relative: &str,
+) -> bool {
+    patterns
+        .iter()
+        .any(|pattern| locus_admits(pattern, excluded, ceded, harness_relative))
 }
 
 /// The any-depth subtree of a directory-unit host's unit, as a pattern [`locus_admits`]
@@ -1206,15 +1322,17 @@ pub(crate) fn at_locus_is_under_workspace(root: &str, commitment: Option<Commitm
 /// Returns a [`LockRowError`] naming [`EXCLUDE_COLUMN`] and the first entry that is not
 /// such a path.
 fn excluded_from_row(row: &KindFactRow) -> Result<Vec<String>, LockRowError> {
-    let pattern = row
-        .governs_root
-        .as_ref()
-        .zip(row.governs_glob.as_ref())
-        .map(|(root, glob)| locus_pattern(root, glob));
+    let patterns: Vec<String> = row.governs_root.as_ref().map_or_else(Vec::new, |root| {
+        row.governs_glob
+            .iter()
+            .map(|glob| locus_pattern(root, glob))
+            .collect()
+    });
     for path in &row.exclude {
         let starless = !path.contains(['*', '?', '[', ']', '{', '}', '\\'])
             && !path.split('/').any(str::is_empty);
-        let governed = pattern.as_deref().is_some_and(|pattern| {
+        // An exclusion is the kind's, subtracting from whichever template governs it.
+        let governed = patterns.iter().any(|pattern| {
             crate::glob::compile_glob(pattern).is_some_and(|matcher| matcher.is_match(path))
                 || template_reaches_beneath(pattern, path)
         });
@@ -1368,21 +1486,22 @@ pub(crate) fn collection_address_from_row(
     match &row.collection_address {
         None => Ok(None),
         Some(address) => {
-            match row.governs_glob.as_deref() {
-                None => {
+            // A manifest is one file: one starless template, never a family of them.
+            match row.governs_glob.as_slice() {
+                [] => {
                     return Err(LockRowError::MissingColumn {
                         family: "kind".to_string(),
                         column: "governs_glob".to_string(),
                     });
                 }
-                Some(glob) if glob.contains('*') => {
+                [glob] if !glob.contains('*') => {}
+                globs => {
                     return Err(LockRowError::Vocabulary {
                         family: "kind".to_string(),
                         column: "governs_glob".to_string(),
-                        value: glob.to_string(),
+                        value: globs.join(", "),
                     });
                 }
-                Some(_) => {}
             }
             let key_path = kind_vocab(
                 &address.key_path,
@@ -2148,7 +2267,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     fn spec_row() -> KindFactRow {
         KindFactRow {
             governs_root: Some("specs".to_string()),
-            governs_glob: Some("*.md".to_string()),
+            governs_glob: vec!["*.md".to_string()],
             ..test_support::kind_fact_row("spec")
         }
     }
@@ -2160,7 +2279,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             "spec",
             Governs {
                 root: "specs".to_string(),
-                glob: "*.md".to_string(),
+                globs: vec!["*.md".to_string()],
             },
             Extraction::new(Vec::new()),
         )
@@ -2193,7 +2312,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             kind.governs,
             Some(Governs {
                 root: "specs".to_string(),
-                glob: "*.md".to_string(),
+                globs: vec!["*.md".to_string()],
             })
         );
         assert_eq!(kind.format, Some(Format::YamlFrontmatter));
@@ -2256,7 +2375,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // `skill`'s own two-channel set — both labels lift, order preserved.
         let row = KindFactRow {
             governs_root: Some(".claude/skills".to_string()),
-            governs_glob: Some("*/SKILL.md".to_string()),
+            governs_glob: vec!["*/SKILL.md".to_string()],
             registration: vec![
                 "user-invoked".to_string(),
                 "description-trigger(description)".to_string(),
@@ -2279,7 +2398,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     fn from_kind_fact_row_with_no_optional_facts_yields_the_generic_defaults() {
         let row = KindFactRow {
             governs_root: Some("adr".to_string()),
-            governs_glob: Some("*.md".to_string()),
+            governs_glob: vec!["*.md".to_string()],
             ..test_support::kind_fact_row("adr")
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
@@ -2453,7 +2572,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             "rule",
             Governs {
                 root: ".claude/rules".to_string(),
-                glob: "*.md".to_string(),
+                globs: vec!["*.md".to_string()],
             },
             Extraction::new(vec![Primitive::LineCount, Primitive::Headings]),
         )
@@ -2501,7 +2620,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             "test_kind",
             Governs {
                 root: "test".to_string(),
-                glob: "*.md".to_string(),
+                globs: vec!["*.md".to_string()],
             },
             extraction,
         );

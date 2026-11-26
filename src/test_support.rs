@@ -27,7 +27,7 @@ pub(crate) fn skill_kind() -> CustomKind {
             "test-skill",
             Governs {
                 root: ".".to_string(),
-                glob: "*/*".to_string(),
+                globs: vec!["*/*".to_string()],
             },
             Extraction::new(vec![
                 Primitive::Field {
@@ -55,7 +55,7 @@ pub(crate) fn rule_kind() -> CustomKind {
             "test-rule",
             Governs {
                 root: ".".to_string(),
-                glob: "*".to_string(),
+                globs: vec!["*".to_string()],
             },
             Extraction::new(vec![Primitive::Field {
                 key: "paths".to_string(),
@@ -120,7 +120,7 @@ pub(crate) fn kind_fact_row(name: &str) -> crate::drift::KindFactRow {
         provider: None,
         base: None,
         governs_root: None,
-        governs_glob: None,
+        governs_glob: Vec::new(),
         commitment: None,
         exclude: Vec::new(),
         leniency: Vec::new(),

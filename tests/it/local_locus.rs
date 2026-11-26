@@ -513,7 +513,7 @@ fn a_local_class_on_a_kind_governing_no_glob_is_inadmissible() {
         Declarations {
             kinds: vec![KindFactRow {
                 governs_root: None,
-                governs_glob: None,
+                governs_glob: Vec::new(),
                 commitment: Some("local".to_string()),
                 content: Some(common::knob_layout_row()),
                 ..common::kind_facts("knob", ".claude/local", "*.md")
@@ -616,7 +616,7 @@ fn an_at_locus_under_the_workspace_refuses_at_emit_and_check() {
         declarations: Declarations {
             kinds: vec![drift::KindFactRow {
                 governs_root: Some(".temper".to_string()),
-                governs_glob: Some("*.md".to_string()),
+                governs_glob: vec!["*.md".to_string()],
                 ..common::kind_facts("test_kind", ".temper", "*.md")
             }],
             ..Default::default()
@@ -642,7 +642,7 @@ fn an_at_locus_under_the_workspace_refuses_at_emit_and_check() {
         Declarations {
             kinds: vec![drift::KindFactRow {
                 governs_root: Some(".temper".to_string()),
-                governs_glob: Some("*.md".to_string()),
+                governs_glob: vec!["*.md".to_string()],
                 ..common::kind_facts("test_kind", ".temper", "*.md")
             }],
             ..Default::default()

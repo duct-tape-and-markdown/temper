@@ -116,7 +116,7 @@
 [[declaration.kind]]
 name = "agent"
 governs_root = ".claude/agents"
-governs_glob = "**/*.md"
+governs_glob = ["**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "named-field(name)"
 registration = ["description-trigger(description)"]
@@ -125,7 +125,7 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 [[declaration.kind]]
 name = "command"
 governs_root = ".claude/commands"
-governs_glob = "**/*.md"
+governs_glob = ["**/*.md"]
 leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
 unit_shape = "path"
@@ -137,7 +137,7 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 [[declaration.kind]]
 name = "dial"
 governs_root = ".temper"
-governs_glob = "dial.toml"
+governs_glob = ["dial.toml"]
 commitment = "local"
 format = "toml-document"
 unit_shape = "named-field(name)"
@@ -151,7 +151,7 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)"
 [[declaration.kind]]
 name = "hook"
 governs_root = ".claude"
-governs_glob = "settings.json"
+governs_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["event(event)"]
 templates = [{ kind = "handler" }]
@@ -162,7 +162,7 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 [[declaration.kind]]
 name = "installed-plugin"
 governs_root = ".claude"
-governs_glob = "settings.json"
+governs_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["enablement(enabled)"]
 shape = "fields"
@@ -171,7 +171,7 @@ collection_address = { key_path = "enabledPlugins.*", entry_shape = "scalar(enab
 [[declaration.kind]]
 name = "known-marketplace"
 governs_root = ".claude"
-governs_glob = "settings.json"
+governs_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["registry"]
 shape = "fields"
@@ -180,7 +180,7 @@ collection_address = { key_path = "extraKnownMarketplaces.*", entry_shape = "obj
 [[declaration.kind]]
 name = "marketplace"
 governs_root = ".claude-plugin"
-governs_glob = "marketplace.json"
+governs_glob = ["marketplace.json"]
 format = "json-document"
 unit_shape = "named-field(name)"
 guidance = "a relative-path `source` resolves against a *local copy* of the marketplace, so it silently fails to resolve for users who added the marketplace by direct URL to `marketplace.json` — only that one file is downloaded. Reach for `github`, `url`, or `npm` when the catalog is distributed by URL. Where a git source pins both `ref` and `sha`, the `sha` is the effective pin. A marketplace entry's `defaultEnabled` beats the same field in the plugin's own `plugin.json`, while `version` runs the other way — `plugin.json` wins."
@@ -188,14 +188,14 @@ guidance = "a relative-path `source` resolves against a *local copy* of the mark
 [[declaration.kind]]
 name = "mcp"
 governs_root = "."
-governs_glob = ".mcp.json"
+governs_glob = [".mcp.json"]
 format = "json-document"
 unit_shape = "file"
 
 [[declaration.kind]]
 name = "mcp-server"
 governs_root = "."
-governs_glob = ".mcp.json"
+governs_glob = [".mcp.json"]
 unit_shape = "file"
 registration = ["connection"]
 shape = "fields"
@@ -204,7 +204,7 @@ collection_address = { key_path = "mcpServers.*", entry_shape = "object" }
 [[declaration.kind]]
 name = "memory"
 governs_root = "."
-governs_glob = "**/CLAUDE.md"
+governs_glob = ["**/CLAUDE.md"]
 exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
 unit_shape = "file"
 registration = ["always"]
@@ -214,7 +214,7 @@ ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { t
 [[declaration.kind]]
 name = "output-style"
 governs_root = "."
-governs_glob = "**/.claude/output-styles/*.md"
+governs_glob = ["**/.claude/output-styles/*.md"]
 leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
 unit_shape = "named-field-or-file(name)"
@@ -224,7 +224,7 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 [[declaration.kind]]
 name = "plugin-manifest"
 governs_root = ".claude-plugin"
-governs_glob = "plugin.json"
+governs_glob = ["plugin.json"]
 format = "json-document"
 unit_shape = "named-field(name)"
 guidance = "leave `version` unset while iterating, so the commit SHA drives updates and users are not stranded on a stale pin; set it once the plugin has a release cycle, and bump it every time — pushing commits without bumping is a no-op. Reach for `defaultEnabled: false` when the plugin costs money or scope on load."
@@ -238,7 +238,7 @@ leaves = ["kind", "required", "clauses", "verifier"]
 [[declaration.kind]]
 name = "rule"
 governs_root = ".claude/rules"
-governs_glob = "**/*.md"
+governs_glob = ["**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
@@ -249,14 +249,14 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 [[declaration.kind]]
 name = "settings"
 governs_root = ".claude"
-governs_glob = "settings.json"
+governs_glob = ["settings.json"]
 format = "json-document"
 unit_shape = "file"
 
 [[declaration.kind]]
 name = "settings-local"
 governs_root = ".claude"
-governs_glob = "settings.local.json"
+governs_glob = ["settings.local.json"]
 commitment = "local"
 format = "json-document"
 unit_shape = "file"
@@ -264,7 +264,7 @@ unit_shape = "file"
 [[declaration.kind]]
 name = "skill"
 governs_root = "."
-governs_glob = "**/.claude/skills/*/SKILL.md"
+governs_glob = ["**/.claude/skills/*/SKILL.md"]
 leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
 unit_shape = "directory"

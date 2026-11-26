@@ -5290,7 +5290,7 @@ fn nested_layout_child_harness(label: &str) -> PathBuf {
                 },
                 KindFactRow {
                     governs_root: None,
-                    governs_glob: None,
+                    governs_glob: Vec::new(),
                     unit_shape: Some("file".to_string()),
                     content: Some(drift::LayoutRow {
                         regions: vec![common::field_region("intent")],
@@ -5542,7 +5542,7 @@ fn local_host_child_harness(label: &str) -> PathBuf {
                 },
                 KindFactRow {
                     governs_root: None,
-                    governs_glob: None,
+                    governs_glob: Vec::new(),
                     unit_shape: Some("file".to_string()),
                     content: Some(drift::LayoutRow {
                         regions: vec![common::field_region("intent")],

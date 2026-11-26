@@ -403,7 +403,7 @@ fn emit_refuses_a_base_member_whose_projection_path_lies_in_a_subkinds_locus() {
     use temper::drift::{self, EmitOptions, Payload};
     let root = common::tmpdir("emit-subkind-locus");
     let rule = KindFactRow {
-        governs_glob: Some("**/*.md".to_string()),
+        governs_glob: vec!["**/*.md".to_string()],
         ..common::rule_kind_facts(None, &[])
     };
     let standard = KindFactRow {
@@ -476,7 +476,7 @@ fn procedure_and_topic() -> Vec<KindFactRow> {
         KindFactRow {
             base: Some("supporting-doc".to_string()),
             governs_root: None,
-            governs_glob: None,
+            governs_glob: Vec::new(),
             ..common::kind_facts("topic", "", "")
         },
     ]
@@ -560,7 +560,7 @@ fn charter_and_strict_invariant() -> Vec<KindFactRow> {
         KindFactRow {
             base: Some("invariant".to_string()),
             governs_root: None,
-            governs_glob: None,
+            governs_glob: Vec::new(),
             ..common::kind_facts("strict-invariant", "", "")
         },
     ]

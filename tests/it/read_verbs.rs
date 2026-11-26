@@ -1574,13 +1574,13 @@ fn a_hosted_kind_spells_the_host_qualified_address_form_and_names_the_kinds_that
         // host's template.
         drift::KindFactRow {
             governs_root: None,
-            governs_glob: None,
+            governs_glob: Vec::new(),
             unit_shape: Some("file".to_string()),
             ..common::kind_facts("supporting-doc", "", "")
         },
         drift::KindFactRow {
             governs_root: None,
-            governs_glob: None,
+            governs_glob: Vec::new(),
             ..common::kind_facts("orphan", "", "")
         },
     ];

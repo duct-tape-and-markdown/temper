@@ -470,7 +470,7 @@ mod tests {
             skill.governs,
             Some(Governs {
                 root: ".".to_string(),
-                glob: "**/.claude/skills/*/SKILL.md".to_string(),
+                globs: vec!["**/.claude/skills/*/SKILL.md".to_string()],
             })
         );
         // The composed extractor: the documented frontmatter fields (`version` is
@@ -532,7 +532,7 @@ mod tests {
             rule.governs,
             Some(Governs {
                 root: ".claude/rules".to_string(),
-                glob: "**/*.md".to_string(),
+                globs: vec!["**/*.md".to_string()],
             })
         );
         assert_eq!(
@@ -634,7 +634,7 @@ mod tests {
             agent.governs,
             Some(Governs {
                 root: ".claude/agents".to_string(),
-                glob: "**/*.md".to_string(),
+                globs: vec!["**/*.md".to_string()],
             })
         );
         assert_eq!(
@@ -680,7 +680,7 @@ mod tests {
             command.governs,
             Some(Governs {
                 root: ".claude/commands".to_string(),
-                glob: "**/*.md".to_string(),
+                globs: vec!["**/*.md".to_string()],
             })
         );
         // The skill's field schema, reused verbatim — command is a second placement of
@@ -718,7 +718,7 @@ mod tests {
             hook.governs,
             Some(Governs {
                 root: ".claude".to_string(),
-                glob: "settings.json".to_string(),
+                globs: vec!["settings.json".to_string()],
             })
         );
         // Fields-only: no body slot, distinct from every file-content built-in.
@@ -760,7 +760,7 @@ mod tests {
             mcp.governs,
             Some(Governs {
                 root: ".".to_string(),
-                glob: ".mcp.json".to_string(),
+                globs: vec![".mcp.json".to_string()],
             })
         );
         assert_eq!(mcp.content, Content::Fields);
@@ -830,7 +830,7 @@ mod tests {
             mcp.governs,
             Some(Governs {
                 root: ".".to_string(),
-                glob: ".mcp.json".to_string(),
+                globs: vec![".mcp.json".to_string()],
             })
         );
         assert_eq!(mcp.format, Some(Format::JsonDocument));

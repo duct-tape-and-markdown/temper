@@ -23,7 +23,7 @@ fn decision_kind() -> CustomKind {
         "decision",
         Governs {
             root: "docs/decisions".to_string(),
-            glob: "*.md".to_string(),
+            globs: vec!["*.md".to_string()],
         },
         Extraction::new(Vec::new()),
     )
@@ -407,7 +407,7 @@ fn a_file_childs_projection_composes_from_its_hosts_unit_and_the_templates_patte
         .find(|row| row.name == "supporting-doc")
         .expect("a nested file kind takes a fact row — the engine places its file off one");
     assert_eq!(child_row.governs_root, None);
-    assert_eq!(child_row.governs_glob, None);
+    assert!(child_row.governs_glob.is_empty());
     let host_row = kinds.iter().find(|row| row.name == "guide").unwrap();
     assert_eq!(
         host_row.templates,
@@ -579,7 +579,7 @@ fn a_declared_file_child_template_round_trips_off_the_lock_with_its_path_pattern
         "skill",
         Governs {
             root: ".claude/skills".to_string(),
-            glob: "SKILL.md".to_string(),
+            globs: vec!["SKILL.md".to_string()],
         },
         Extraction::new(Vec::new()),
     )
@@ -595,7 +595,7 @@ fn a_child_kinds_row_reconstructs_governing_no_glob_rather_than_a_fabricated_one
     // declared.
     let row = KindFactRow {
         governs_root: None,
-        governs_glob: None,
+        governs_glob: Vec::new(),
         unit_shape: Some("file".to_string()),
         ..common::kind_facts("supporting-doc", "", "")
     };
@@ -643,7 +643,7 @@ fn skill_templating(child: &str, pattern: &str) -> CustomKind {
 fn nested_file_kind(name: &str) -> CustomKind {
     CustomKind::from_kind_fact_row(&KindFactRow {
         governs_root: None,
-        governs_glob: None,
+        governs_glob: Vec::new(),
         unit_shape: Some("file".to_string()),
         ..common::kind_facts(name, "", "")
     })
@@ -752,7 +752,7 @@ fn a_declared_kinds_exact_path_carves_its_path_out_of_a_host_template() {
         "convention",
         Governs {
             root: ".claude/skills/jobs".to_string(),
-            glob: "conventions.md".to_string(),
+            globs: vec!["conventions.md".to_string()],
         },
         Extraction::new(Vec::new()),
     );
@@ -797,7 +797,7 @@ fn conventions_kind() -> CustomKind {
             "conventions",
             Governs {
                 root: ".claude/skills".to_string(),
-                glob: "*/conventions.md".to_string(),
+                globs: vec!["*/conventions.md".to_string()],
             },
             Extraction::new(Vec::new()),
         )
@@ -913,7 +913,7 @@ mod host_qualified_addresses {
             "service",
             Governs {
                 root: "specs".to_string(),
-                glob: "*.md".to_string(),
+                globs: vec!["*.md".to_string()],
             },
             Extraction::new(Vec::new()),
         )
@@ -1747,7 +1747,7 @@ process.stdout.write(
             declarations: Declarations {
                 kinds: vec![KindFactRow {
                     governs_root: None,
-                    governs_glob: None,
+                    governs_glob: Vec::new(),
                     unit_shape: Some("directory".to_string()),
                     templates: vec![TemplateRow {
                         kind: "page".to_string(),
@@ -1793,7 +1793,7 @@ process.stdout.write(
 
         let page = CustomKind::from_kind_fact_row(&KindFactRow {
             governs_root: None,
-            governs_glob: None,
+            governs_glob: Vec::new(),
             unit_shape: Some("directory".to_string()),
             templates: vec![TemplateRow {
                 kind: "page".to_string(),
@@ -1968,7 +1968,7 @@ mod a_placement_refusal_names_the_members_whole_address {
             },
             KindFactRow {
                 governs_root: None,
-                governs_glob: None,
+                governs_glob: Vec::new(),
                 unit_shape: Some("file".to_string()),
                 ..common::kind_facts("supporting-doc", "", "")
             },
@@ -2067,7 +2067,7 @@ mod a_placement_refusal_names_the_members_whole_address {
             },
             KindFactRow {
                 governs_root: None,
-                governs_glob: None,
+                governs_glob: Vec::new(),
                 unit_shape: Some("directory".to_string()),
                 ..common::kind_facts("page", "", "")
             },

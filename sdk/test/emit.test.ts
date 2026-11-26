@@ -258,7 +258,7 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       provider: undefined,
       base: undefined,
       governs_root: ".claude/rules",
-      governs_glob: "**/*.md",
+      governs_glob: ["**/*.md"],
       commitment: undefined,
       format: "yaml-frontmatter",
       unit_shape: "file",
@@ -1730,7 +1730,7 @@ test("a nested command's `:`-joined name places back at its path under commands/
     "See [frontend:component](.claude/commands/frontend/component.md).\n",
   );
   const row = result.declarations.kinds.find((k) => k.name === "command")!;
-  assert.equal(row.governs_glob, "**/*.md");
+  assert.deepEqual(row.governs_glob, ["**/*.md"]);
   assert.equal(row.unit_shape, "path");
 });
 
@@ -3160,4 +3160,42 @@ test("extend accepts an embedded base named by an extended host", () => {
     () => sdk.extend<Rule, Rule>(rule, { name: "standard", template: strictInvariant }),
     /the host templates no `invariant` layer/,
   );
+});
+
+test("a two-template locus lists both templates and places each member at the template its name fits", () => {
+  // A kind of its own at two any-depth templates; a citation from one memory member
+  // renders where each member of it lands.
+  const memo = kind<object>({
+    name: "memo",
+    locus: { kind: "at", root: ".", glob: ["**/CLAUDE.md", "**/AGENTS.md"] },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [],
+  });
+  const citation = kind<object>(
+    {
+      name: "memo-citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      edgeFields: [{ field: "source", to: [memo] }],
+    },
+    { render: (value) => `See ${value.targets.source.path}.` },
+  );
+  const h = harness({
+    members: [
+      memo({ name: "apps:web:AGENTS", prose: text`# Web` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({ kind: citation, key: "web", leaves: { source: "memo:apps:web:AGENTS" } }),
+        ),
+      }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+
+  const result = emit(h);
+  assert.equal(result.members.find((m) => m.name === "CLAUDE")!.body, "See apps/web/AGENTS.md.\n");
+  const row = result.declarations.kinds.find((k) => k.name === "memo")!;
+  assert.deepEqual(row.governs_glob, ["**/CLAUDE.md", "**/AGENTS.md"]);
 });

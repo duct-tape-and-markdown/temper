@@ -14,7 +14,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
 import type { EdgeField, EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
-import { baseOf, collectionAddressOf, edgeTargetNames, manifestOf, registrationOf } from "./kind.js";
+import { baseOf, collectionAddressOf, edgeTargetNames, manifestOf, registrationOf, templatesOf } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
@@ -426,7 +426,8 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     provider: facts.provider,
     base: facts.base,
     governs_root: governs?.root,
-    governs_glob: governs?.glob,
+    // Always the list: the lock column is one or more templates.
+    governs_glob: governs === undefined ? undefined : [...templatesOf(governs)],
     commitment: governs?.commitment,
     // Spread rather than an `undefined` column: a row excluding nothing carries no key.
     ...(governs?.exclude?.length ? { exclude: [...governs.exclude] } : {}),
@@ -453,7 +454,9 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
 function locusLabel(facts: KindFacts): string {
   const { locus } = facts;
   if (locus.kind !== "at") return `the \`${locus.kind}\` locus`;
-  return `\`${locus.root === "." ? locus.glob : `${locus.root}/${locus.glob}`}\``;
+  return templatesOf(locus)
+    .map((glob) => `\`${locus.root === "." ? glob : `${locus.root}/${glob}`}\``)
+    .join(" and ");
 }
 
 /**
@@ -653,7 +656,10 @@ function locusGlobs(
   seen: ReadonlySet<string> = new Set(),
 ): string[] {
   const locus = facts.locus;
-  if (locus.kind === "at") return [[locus.root, locus.glob].filter((part) => part !== "" && part !== ".").join("/")];
+  if (locus.kind === "at") {
+    const root = locus.root;
+    return templatesOf(locus).map((glob) => [root, glob].filter((part) => part !== "" && part !== ".").join("/"));
+  }
   if (seen.has(facts.name)) return [];
   const visiting = new Set([...seen, facts.name]);
   const globs = new Set<string>();

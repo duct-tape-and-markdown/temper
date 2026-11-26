@@ -342,10 +342,15 @@ fn write_member(
     let Some(definition) = crate::builtin_kind::definition(kind) else {
         return Err(BundleError::MissingKind { kind });
     };
-    let Some(governs) = definition.governs else {
+    // The member is written to the one file its locus names.
+    let Some((root, glob)) = definition
+        .governs
+        .as_ref()
+        .and_then(|governs| Some((&governs.root, governs.sole_glob()?)))
+    else {
         return Err(BundleError::NoGoverns { kind });
     };
-    let relative = crate::kind::locus_path(&governs.root, &governs.glob);
+    let relative = crate::kind::locus_path(root, glob);
     let fields: Vec<(String, JsonValue)> = fields.clone().into_iter().collect();
     let Some(rendered) = crate::drift::project_bytes(definition.format, &fields, "", &[]) else {
         return Err(BundleError::UnwritableFormat { kind });

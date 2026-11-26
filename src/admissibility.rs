@@ -749,18 +749,21 @@ pub fn governs_collision_diagnostics(
         let Some(governs) = &kind.governs else {
             continue;
         };
-        // A base whose subkind shares its whole locus cedes every document there.
-        if kind.collection_address.is_some()
-            || kind.ceded.iter().any(|cede| {
-                cede.pattern == crate::kind::locus_pattern(&governs.root, &governs.glob)
-            })
-        {
+        if kind.collection_address.is_some() {
             continue;
         }
-        by_governs
-            .entry((governs.root.as_str(), governs.glob.as_str()))
-            .or_default()
-            .push(kind.name.as_str());
+        // Each template is its own locus: two kinds sharing any one of them collide there.
+        for glob in &governs.globs {
+            // A base whose subkind shares a whole template cedes every document there.
+            let pattern = crate::kind::locus_pattern(&governs.root, glob);
+            if kind.ceded.iter().any(|cede| cede.pattern == pattern) {
+                continue;
+            }
+            by_governs
+                .entry((governs.root.as_str(), glob.as_str()))
+                .or_default()
+                .push(kind.name.as_str());
+        }
     }
     by_governs
         .into_iter()
@@ -797,8 +800,9 @@ fn governs_collision_diagnostic(root: &str, glob: &str, names: &[&str]) -> check
 /// discovery actually finds, never the templates, so an overlap no document occupies
 /// collides with nothing, and a kind that already excludes the path does not reach it.
 ///
-/// Kinds whose root and glob are identical are left to [`governs_collision_diagnostics`]:
-/// a document that only such a set reaches draws no second finding here. Manifest and
+/// Kinds sharing one template (root and glob) are left to
+/// [`governs_collision_diagnostics`]: a document that only such a set reaches draws no
+/// second finding here. Manifest and
 /// nested-file kinds stay out for the reasons that check states.
 pub fn document_governs_collision_diagnostics(
     declared_kinds: &BTreeMap<String, CustomKind>,
@@ -826,12 +830,21 @@ pub fn document_governs_collision_diagnostics(
     by_document
         .into_iter()
         .filter(|(_, kinds)| {
-            let loci: BTreeSet<(&str, &str)> = kinds
-                .iter()
-                .filter_map(|kind| kind.governs.as_ref())
-                .map(|governs| (governs.root.as_str(), governs.glob.as_str()))
-                .collect();
-            loci.len() > 1
+            // A template every reaching kind declares is the whole-locus collision's.
+            let mut shared: Option<BTreeSet<(&str, &str)>> = None;
+            for governs in kinds.iter().filter_map(|kind| kind.governs.as_ref()) {
+                let own: BTreeSet<(&str, &str)> = governs
+                    .globs
+                    .iter()
+                    .map(|glob| (governs.root.as_str(), glob.as_str()))
+                    .collect();
+                shared = Some(match shared {
+                    None => own,
+                    Some(shared) => shared.intersection(&own).copied().collect(),
+                });
+            }
+            let named: BTreeSet<&str> = kinds.iter().map(|kind| kind.name.as_str()).collect();
+            named.len() > 1 && shared.is_none_or(|shared| shared.is_empty())
         })
         .map(|(document, kinds)| {
             let mut names: Vec<&str> = kinds.iter().map(|kind| kind.name.as_str()).collect();
@@ -1099,7 +1112,7 @@ mod tests {
             name,
             crate::kind::Governs {
                 root: root.to_string(),
-                glob: glob.to_string(),
+                globs: vec![glob.to_string()],
             },
             crate::kind::Extraction::new(Vec::new()),
         )
@@ -1322,7 +1335,7 @@ mod tests {
         // effective kind the judge sees is a built-in rooted under the workspace.
         let relocation = drift::KindFactRow {
             governs_root: Some(".temper/skills".to_string()),
-            governs_glob: Some("*/SKILL.md".to_string()),
+            governs_glob: vec!["*/SKILL.md".to_string()],
             ..test_support::kind_fact_row("skill")
         };
         let declarations = drift::Declarations {
