@@ -1848,6 +1848,7 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    severity: "required",
     guidance:
       "Where a catalog entry's `source` is a string, it is a relative path, resolved from the marketplace root — so the body below holds it to the path form.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
@@ -1860,6 +1861,7 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    severity: "required",
     guidance:
       "Where a catalog entry's source object is a `github` source, the body below holds the field that source type requires: the `owner/repo` repository.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
@@ -1872,6 +1874,7 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    severity: "required",
     guidance:
       "Where a catalog entry's source object is a `url` source, the body below holds the field that source type requires: the git URL to clone.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
@@ -1890,6 +1893,7 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    severity: "required",
     guidance:
       "Where a catalog entry's source object is a `git-subdir` source, the body below holds the fields that source type requires: the repository URL and the subdirectory holding the plugin.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
@@ -1902,6 +1906,7 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    severity: "required",
     guidance:
       "Where a catalog entry's source object is an `npm` source, the body below holds the field that source type requires: the package name.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
@@ -2659,6 +2664,7 @@ export const handlerDefaultContract: readonly Clause[] = [
       }),
     ],
     {
+      severity: "required",
       guidance:
         "Where a handler's `type` is `command`, the body below holds the field that type requires: the command to run.",
       cite: "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)",
@@ -2675,6 +2681,7 @@ export const handlerDefaultContract: readonly Clause[] = [
       }),
     ],
     {
+      severity: "required",
       guidance:
         "Where a handler's `type` is `http`, the body below holds the field that type requires: the endpoint the event's JSON input is POSTed to.",
       cite: "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)",
@@ -2697,6 +2704,7 @@ export const handlerDefaultContract: readonly Clause[] = [
       }),
     ],
     {
+      severity: "required",
       guidance:
         "Where a handler's `type` is `mcp_tool`, the body below holds the fields that type requires: the connected server and the tool to call on it.",
       cite: "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)",
@@ -2713,6 +2721,7 @@ export const handlerDefaultContract: readonly Clause[] = [
       }),
     ],
     {
+      severity: "required",
       guidance:
         "Where a handler's `type` is `prompt` or `agent`, the body below holds the field both types require: the prompt text sent to the model.",
       cite: "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)",
@@ -2809,6 +2818,7 @@ export const mcpServerDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
     }),
   ], {
+    severity: "required",
     guidance:
       "Where a server's transport is `stdio` — the default an entry with no `type` reads as — the body below holds the field a local process requires: the command that starts it.",
     cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
@@ -2821,6 +2831,7 @@ export const mcpServerDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
     }),
   ], {
+    severity: "required",
     guidance:
       "Where a server's transport is remote (`http`, `streamable-http`, `sse` or `ws`), the body below holds the field every remote transport requires: the endpoint URL.",
     cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",

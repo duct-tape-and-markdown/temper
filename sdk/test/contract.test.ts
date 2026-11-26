@@ -570,12 +570,25 @@ test("two reached-from clauses on one kind land two distinct field columns", () 
 test("when composes a guarded clause with a guard predicate and a body of clauses", () => {
   const guardClause = enumOf("source", ["./path", "{ plugin: ... }"]);
   const bodyClause = clause(required("object"), { severity: "required" });
-  const whenClause = when(guardClause, [bodyClause]);
+  const whenClause = when(guardClause, [bodyClause], { severity: "advisory" });
 
   assert.equal(whenClause.predicate.key, "when");
-  assert.equal(whenClause.severity, "required");
+  assert.equal(whenClause.severity, "advisory");
   assert.deepEqual(whenClause.when_guard, guardClause);
   assert.deepEqual(whenClause.when_body, [bodyClause]);
+});
+
+test("when names its severity: the tool never defaults one", () => {
+  const guard = enumOf("source", ["./path"]);
+  const body = [clause(required("url"), { severity: "required" })];
+  // Never called: the refusals are tsc's, so the calls only need to compile-fail.
+  void (() => {
+    // @ts-expect-error — a guarded clause with no options states no severity.
+    when(guard, body);
+    // @ts-expect-error — options without a severity state none either.
+    when(guard, body, { guidance: "Where the source is a path, it needs a url." });
+  });
+  assert.equal(when(guard, body, { severity: "required" }).severity, "required");
 });
 
 test("when round-trips through compileDeclarations with the guard and body landed", () => {
@@ -587,7 +600,7 @@ test("when round-trips through compileDeclarations with the guard and body lande
         clauses: [
           when(enumOf("source", ["./path", "object"]), [
             clause(required("url"), { severity: "required" }),
-          ]),
+          ], { severity: "required" }),
         ],
       },
     ],
@@ -615,7 +628,7 @@ test("a type guard's own argument column rides the when row", () => {
         clauses: [
           when(typeOf("source", ["string", "map"]), [
             clause(required("url"), { severity: "required" }),
-          ]),
+          ], { severity: "required" }),
         ],
       },
     ],

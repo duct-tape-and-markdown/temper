@@ -405,19 +405,20 @@ export const reachedFrom = (roots: string, via?: readonly string[]): Predicate =
  * A guard other than a `type` or `enumOf` predicate over the decidable field it
  * addresses is refused — not here, but by emit's admissibility check.
  *
- * Options for `severity`, `guidance`, and `cite` are supported and follow the
- * same pattern as `clause()`. Default severity is `required`.
+ * Its options follow `clause()`: the author states the guarded clause's severity —
+ * there is no default, since the tool never decides error-versus-warning — with
+ * optional `guidance` and `cite`.
  */
 export function when(
   guard: Predicate,
   body: readonly Clause[],
-  opts?: { severity?: Severity; guidance?: string; cite?: string },
+  opts: { severity: Severity; guidance?: string; cite?: string },
 ): Clause {
   return {
     predicate: { key: "when" },
-    severity: opts?.severity ?? "required",
-    guidance: opts?.guidance,
-    cite: opts?.cite,
+    severity: opts.severity,
+    guidance: opts.guidance,
+    cite: opts.cite,
     when_guard: guard,
     when_body: body,
   };
