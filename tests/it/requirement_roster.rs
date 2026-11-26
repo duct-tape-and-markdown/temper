@@ -1729,3 +1729,109 @@ fn a_member_satisfying_a_requirement_still_fills_it() {
         run.output
     );
 }
+
+/// A program declaring two `decision` requirements — one filled by one rule, one by two —
+/// under an `expect` over the `decision` subkind bounding each member's incoming
+/// `satisfies` and root-containment arcs together at exactly two.
+const ONE_NODE_PROGRAM: &str = r#"
+import { clause, degree, emit, extend, harness, requirement, text } from "@dtmd/temper";
+import type { RequirementFields } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+
+interface Decision extends RequirementFields {
+  readonly tell?: string;
+}
+const decision = extend<RequirementFields, Decision>(requirement, { name: "decision" });
+
+const program = harness({
+  members: [
+    decision({ name: "pinned-toolchain", prose: text`The toolchain is pinned.` }),
+    decision({ name: "one-engine", prose: text`One engine.` }),
+    rule({ name: "toolchain", prose: text`Pin the toolchain.`, satisfies: ["pinned-toolchain", "one-engine"] }),
+    rule({ name: "engine", prose: text`Run one engine.`, satisfies: ["one-engine"] }),
+  ],
+  expect: [{ kind: decision, clauses: [
+    clause(degree({ incoming: { min: 2, max: 2 }, fields: ["satisfies", "contains:decision"] }), { severity: "required" }),
+  ] }],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_satisfies_arc_and_root_containment_land_on_one_requirement_node() {
+    let (harness, into) = common::wire_sdk_harness("requirement-one-node", ONE_NODE_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let run = common::check_in(&harness, &[], Some("github"));
+    let reported = run.findings();
+    let findings: Vec<&String> = reported
+        .iter()
+        .filter(|line| line.contains("title=decision.degree."))
+        .collect();
+    // `pinned-toolchain`: one satisfier plus the root's containment is two, in bound.
+    assert!(
+        !findings.iter().any(|f| f.contains("pinned-toolchain")),
+        "one satisfies arc and the root's containment meet at the requirement's node, got:\n{}",
+        run.output
+    );
+    // `one-engine`: two satisfiers plus containment is three, over the bound.
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.contains("one-engine") && f.contains('3')),
+        "each satisfies arc counts at the requirement's member node, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn explain_of_a_requirement_subkind_member_address_lists_its_satisfiers() {
+    let (harness, into) =
+        common::wire_sdk_harness("requirement-one-node-explain", ONE_NODE_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let narration = common::explain_in(&harness, "root/decision/one-engine");
+    assert!(
+        narration.contains("`toolchain` (rule) satisfies it")
+            && narration.contains("`engine` (rule) satisfies it"),
+        "the requirement's member narrates each satisfier among its edges in, got:\n{narration}"
+    );
+}
+
+/// A required `decision` no member fills.
+const UNFILLED_DECISION_PROGRAM: &str = r#"
+import { clause, count, emit, extend, harness, requirement, text } from "@dtmd/temper";
+import type { RequirementFields } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+
+const decision = extend<RequirementFields, RequirementFields>(requirement, { name: "decision" });
+
+const program = harness({
+  members: [
+    decision({ name: "pinned-toolchain", prose: text`The toolchain is pinned.` }),
+    rule({ name: "toolchain", prose: text`Pin the toolchain.` }),
+  ],
+  expect: [{ kind: requirement, clauses: [clause(count({ min: 1 }), { severity: "required" })] }],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn an_unfilled_requirement_still_draws_the_fill_finding() {
+    let (harness, into) =
+        common::wire_sdk_harness("requirement-one-node-unfilled", UNFILLED_DECISION_PROGRAM);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let run = common::check_in(&harness, &[], Some("github"));
+    let reported = run.findings();
+    assert!(
+        !run.ok
+            && common::findings_for(&reported, "requirement.count")
+                .iter()
+                .any(|f| f.contains("pinned-toolchain")),
+        "a requirement no member satisfies is still reported unfilled, got:\n{}",
+        run.output
+    );
+}

@@ -802,6 +802,14 @@ pub fn gate(
     ));
     let resolved_edges = &resolved_edges_result.resolved;
     let containment_edges = &resolved_edges_result.containment;
+    // A requirement is one node, its root-hosted member's, so a member-grain clause over
+    // its kind counts the satisfies, mention and runs arcs at it beside its containment.
+    let mention_edges = graph::bind_requirement_nodes(
+        mention_edges,
+        &by_kind,
+        &assembly_requirements,
+        &admissibility::requirement_kinds(&declarations.kinds),
+    );
 
     // Mention route resolution: `emit` defers a mention naming a declared kind with no
     // composed member — its row rides the lock — so `check` owns that verdict here,

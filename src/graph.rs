@@ -409,6 +409,9 @@ impl DegreeIndex {
 /// the union of the named fields' edges, containment included where the set names a
 /// [`contains_field`] (decision 0052: counting containment unasked would make a
 /// standing `degree(incoming ≥ 1)` vacuous and silently flip an authored verdict).
+/// A `satisfies` arc ([`bind_requirement_nodes`]) is held out of `None` on the same
+/// terms: every member of an opt-in selection carries one, so counting it unasked would
+/// make a requirement's standing `degree(outgoing ≥ 1)` over its satisfiers vacuous.
 ///
 /// Mention and import edges join the same adjacency a declared reference edge does and
 /// carry their own field (`mention`, the directive's own key), so a filter naming that
@@ -425,7 +428,11 @@ fn filtered_edges<'e>(
     };
     let mut edges: BTreeSet<(&Node, &String, &Node)> = BTreeSet::new();
     for edge in resolved.iter().chain(mentions).chain(counted_containment) {
-        if filter.is_some_and(|fields| !fields.contains(&edge.field)) {
+        let admitted = match filter {
+            Some(fields) => fields.contains(&edge.field),
+            None => edge.field != crate::kind::SATISFIES_EDGE_FIELD,
+        };
+        if !admitted {
             continue;
         }
         edges.insert((&edge.from, &edge.field, &edge.to));
@@ -775,9 +782,11 @@ pub fn mention_reachable(
             };
             for (kind, features) in &selection.members {
                 let source = ((*kind).to_string(), features.id.clone());
+                // A fill claim names a requirement, never an invocable target.
                 for edge in all_edges.iter().filter(|edge| {
-                    edge.from == source
-                        || edge_host(&edge.from, embedded_hosts).as_ref() == Some(&source)
+                    edge.field != crate::kind::SATISFIES_EDGE_FIELD
+                        && (edge.from == source
+                            || edge_host(&edge.from, embedded_hosts).as_ref() == Some(&source))
                 }) {
                     // A mention whose target composes no member has no gate to read —
                     // `route_mentions` owns that verdict, so this clause stays silent.
@@ -1963,6 +1972,88 @@ pub fn root_runs_edges<'a>(
             })
         })
         .collect()
+}
+
+/// The node each declared requirement **is**: its root-hosted member's own node,
+/// `(kind, root/<kind>/<name>)` under whichever of `requirement_kinds` (`requirement` and
+/// every subkind of it) the corpus composes it as (`specs/model/representation.md`, "The
+/// root member"). A requirement no root-hosted member represents — a lock an older engine
+/// wrote carries the requirement row alone — keeps the reserved
+/// `(requirement, name)` node, so its arcs still meet in one place.
+fn requirement_nodes<'r>(
+    by_kind: &BTreeMap<&str, &[Features]>,
+    requirements: &'r BTreeMap<String, Requirement>,
+    requirement_kinds: &BTreeSet<String>,
+) -> BTreeMap<&'r str, Node> {
+    requirements
+        .keys()
+        .map(|name| {
+            let member = requirement_kinds.iter().find_map(|kind| {
+                let address = nested_address(ROOT_OWNER, kind, name);
+                by_kind
+                    .get(kind.as_str())?
+                    .iter()
+                    .any(|features| features.id == address)
+                    .then(|| (kind.clone(), address))
+            });
+            let node = member.unwrap_or_else(|| (REQUIREMENT_KIND.to_string(), name.clone()));
+            (name.as_str(), node)
+        })
+        .collect()
+}
+
+/// Bind every arc at a requirement to its **one** node: the
+/// lifted `edges` (mentions, root runs, imports) have each reserved `(requirement, name)`
+/// endpoint a declared requirement owns folded onto that node, and one `satisfies` arc
+/// joins them from each member to each declared requirement its `satisfies` names. So a
+/// requirement's satisfiers, its mentions, the tool it runs and the root's containment of
+/// it ([`containment_edges`]) all meet at the node a member-grain clause over its kind
+/// keys it by, and the read verbs narrate the same incidence `degree` counts.
+///
+/// A name the roster does not declare binds nothing new: a mention of it keeps the
+/// reserved node [`route_mentions`] refuses as dangling, and a `satisfies` naming it is
+/// the coverage tier's dangling verdict, never an arc here. Satisfies arcs follow
+/// `by_kind`'s stable order; a name listed twice by one member is one arc.
+#[must_use]
+pub fn bind_requirement_nodes(
+    edges: Vec<ResolvedEdge>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    requirements: &BTreeMap<String, Requirement>,
+    requirement_kinds: &BTreeSet<String>,
+) -> Vec<ResolvedEdge> {
+    let nodes = requirement_nodes(by_kind, requirements, requirement_kinds);
+    let fold = |node: Node| -> Node {
+        if node_species(&node) == NodeSpecies::Requirement
+            && let Some(bound) = nodes.get(node.1.as_str())
+        {
+            return bound.clone();
+        }
+        node
+    };
+    let mut bound: Vec<ResolvedEdge> = edges
+        .into_iter()
+        .map(|edge| ResolvedEdge {
+            from: fold(edge.from),
+            field: edge.field,
+            to: fold(edge.to),
+        })
+        .collect();
+    for (kind, members) in by_kind {
+        for features in members.iter() {
+            let named: BTreeSet<&str> = features.satisfies.iter().map(String::as_str).collect();
+            for name in named {
+                let Some(node) = nodes.get(name) else {
+                    continue;
+                };
+                bound.push(ResolvedEdge {
+                    from: ((*kind).to_string(), features.id.clone()),
+                    field: crate::kind::SATISFIES_EDGE_FIELD.to_string(),
+                    to: node.clone(),
+                });
+            }
+        }
+    }
+    bound
 }
 
 /// The route finding a lifted reference edge earns against the **discovered corpus**, or

@@ -1301,7 +1301,11 @@ fn why_one(
     // teaching rather than silently dropped.
     let node: (String, String) = (member.kind.clone(), member.id.clone());
 
-    let outgoing: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.from == node).collect();
+    // A fill claim's arc is narrated above, by the requirement it fills.
+    let outgoing: Vec<&ResolvedEdge> = resolved
+        .iter()
+        .filter(|edge| edge.from == node && edge.field != crate::kind::SATISFIES_EDGE_FIELD)
+        .collect();
     let contains: Vec<&ResolvedEdge> = containment
         .iter()
         .filter(|edge| edge.from == node)
@@ -1362,6 +1366,14 @@ fn why_one(
              composes it):"
         );
         for edge in incoming {
+            if edge.field == crate::kind::SATISFIES_EDGE_FIELD {
+                let _ = writeln!(
+                    out,
+                    "  • {} satisfies it — it opts in via its `satisfies` link",
+                    narrate_node(&edge.from)
+                );
+                continue;
+            }
             let _ = writeln!(
                 out,
                 "  • {} points at it via its `{}` field",
@@ -2569,6 +2581,12 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let mut mention_edges = drift::mention_edges_from_declarations(&declarations);
     mention_edges.extend(drift::root_runs_edges_from_declarations(&declarations));
     mention_edges.extend(drift::import_edges_from_doc(&lock_doc)?);
+    let mention_edges = crate::graph::bind_requirement_nodes(
+        mention_edges,
+        &by_kind,
+        &roster,
+        &admissibility::requirement_kinds(&declarations.kinds),
+    );
 
     // The world's inbound registration channel set into every kind — the overlaid
     // built-ins and each custom kind — through the very derivation the gate's `reachable`
