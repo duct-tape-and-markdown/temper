@@ -1204,7 +1204,7 @@ pub fn reachable(
     };
     let world = world();
     // The two families as one arc set, built past the early return above.
-    let edges: Vec<ResolvedEdge> = resolved.iter().chain(directives).cloned().collect();
+    let edges = reachability_arcs(resolved, directives);
     // The reachability closure: every member reachable from the world — own registration
     // live, or reached along a directive edge from a live importer within the hop cap.
     let live = live_members(registrations, by_kind, repo_files, &edges);
@@ -1226,6 +1226,14 @@ pub fn reachable(
     diagnostics
 }
 
+/// The one arc set liveness propagates along: the resolved declared references chained
+/// with the observed directive (`@import`) occurrences. [`reachable`] and
+/// [`reachability_orphaned`] both build their closure over exactly this, so the read's
+/// blast radius and the gate's verdict range over one edge family (READ-EDGE-UNIFY).
+fn reachability_arcs(resolved: &[ResolvedEdge], directives: &[ResolvedEdge]) -> Vec<ResolvedEdge> {
+    resolved.iter().chain(directives).cloned().collect()
+}
+
 /// The members whose reachability **dies** if the node `removed` is deleted or renamed:
 /// every member live now that is no longer live
 /// once `removed`, and every directive edge touching it, is excised from the graph. The
@@ -1234,10 +1242,14 @@ pub fn reachable(
 /// (READ-EDGE-UNIFY). `removed` itself is excluded — a removed member is trivially gone,
 /// not orphaned. Returned in sorted `(kind, id)` order for a stable narration.
 ///
-/// A member drops out only through the *import* path: its own registration is dead and its
-/// sole live route was a directive edge from `removed` (or a chain through it), so
-/// re-running the closure without `removed` — and without any directive edge into or out
-/// of it — leaves it unreached. A member with a live own registration never drops, so this
+/// `resolved` and `directives` are the same two edge families [`reachable`] takes, chained
+/// by the same [`reachability_arcs`], so a member the gate holds live through a declared
+/// reference is one this read can name as orphaned.
+///
+/// A member drops out only through an *arc*: its own registration is dead and its sole
+/// live route was an edge from `removed` (or a chain through it), so re-running the
+/// closure without `removed` — and without any edge into or out of it — leaves it
+/// unreached. A member with a live own registration never drops, so this
 /// is silent unless `removed` was carrying another's liveness.
 #[must_use]
 pub(crate) fn reachability_orphaned(
@@ -1245,12 +1257,14 @@ pub(crate) fn reachability_orphaned(
     registrations: &BTreeMap<&str, Vec<Registration>>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
-    edges: &[ResolvedEdge],
+    resolved: &[ResolvedEdge],
+    directives: &[ResolvedEdge],
 ) -> Vec<Node> {
-    let live_before = live_members(registrations, by_kind, repo_files, edges);
+    let edges = reachability_arcs(resolved, directives);
+    let live_before = live_members(registrations, by_kind, repo_files, &edges);
 
-    // The graph with `removed` excised: its kind loses the member, and every directive
-    // edge touching it (in or out) goes with it. Owned so the reduced corpus outlives
+    // The graph with `removed` excised: its kind loses the member, and every arc
+    // touching it (in or out) goes with it. Owned so the reduced corpus outlives
     // the borrowed `by_kind` view the closure reads.
     let mut owned: BTreeMap<&str, Vec<Features>> = BTreeMap::new();
     for (&kind, members) in by_kind {

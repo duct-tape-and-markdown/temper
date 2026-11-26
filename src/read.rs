@@ -56,7 +56,7 @@ use crate::document::Satisfies;
 use crate::drift;
 use crate::extract::{self, Features, MemberAddress};
 use crate::graph::{self, DIRECTIVE_FIELD, ResolvedEdge};
-use crate::kind::{self, CustomKind, Registration};
+use crate::kind::{CustomKind, Registration};
 use crate::member_address::{self, ParsedLeaf, nested_key, parse_leaf_address};
 use crate::roster;
 use crate::tap;
@@ -415,10 +415,14 @@ pub fn explain(
                 name,
             );
             out.push('\n');
+            // The resolved declared references, beside the directive arcs: the two edge
+            // families the gate's `reachable` propagates liveness along.
+            let resolved = graph::resolved_edges(edges, by_kind).resolved;
             out.push_str(&impact_impl(
                 roster,
                 by_kind,
                 registrations,
+                &resolved,
                 repo_files,
                 directive_edges,
                 &member_index,
@@ -1411,8 +1415,9 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 ///    resolves to `target`'s file; removing the file leaves that import backing
 ///    nothing, the silent-context-loss class made author-time.
 /// 3. **Reachability that dies with it** — a member live now only because `target`
-///    imports it (its own registration dead); removing `target` unreaches it
-///    ([`graph::reachability_orphaned`], the same closure the gate's `reachable` runs).
+///    references or imports it (its own registration dead); removing `target` unreaches
+///    it ([`graph::reachability_orphaned`], the same closure over the same arc set the
+///    gate's `reachable` runs).
 ///
 /// `target` is a member address — a bare name, or a nested member's own
 /// `<host-address>/<kind>/<key>` identity. [`resolve`] settles the grain by the address
@@ -1422,7 +1427,8 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 ///
 /// A read, never a gate: the caller prints this and exits zero on every input, a name no
 /// member bears included. `roster` is the namespace `check` gates; `by_kind`,
-/// `registrations`, `repo_files`, and `directive_edges` are the exact graph inputs the
+/// `registrations`, `resolved_edges`, `repo_files`, and `directive_edges` are the exact
+/// graph inputs the
 /// gate's predicates range over (READ-EDGE-UNIFY), so the read cannot disagree with a
 /// green `check`.
 #[must_use]
@@ -1431,6 +1437,7 @@ fn impact_impl(
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
+    resolved_edges: &[ResolvedEdge],
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
@@ -1460,6 +1467,7 @@ fn impact_impl(
             roster,
             by_kind,
             registrations,
+            resolved_edges,
             repo_files,
             directive_edges,
         );
@@ -1934,6 +1942,7 @@ fn impact_one_impl(
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
+    resolved_edges: &[ResolvedEdge],
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
 ) {
@@ -2010,9 +2019,15 @@ fn impact_one_impl(
     out.push('\n');
 
     // (3) Members reachable now only because this one carried their liveness across an
-    // import — removing it unreaches them.
-    let orphaned =
-        graph::reachability_orphaned(&node, registrations, by_kind, repo_files, directive_edges);
+    // arc — a declared reference or an `@import` — removing it unreaches them.
+    let orphaned = graph::reachability_orphaned(
+        &node,
+        registrations,
+        by_kind,
+        repo_files,
+        resolved_edges,
+        directive_edges,
+    );
     if orphaned.is_empty() {
         let _ = writeln!(
             out,
@@ -2022,13 +2037,14 @@ fn impact_one_impl(
     } else {
         let _ = writeln!(
             out,
-            "Reachability that dies with it (members live now only because it imports them):"
+            "Reachability that dies with it (members live now only because it references \
+             or imports them):"
         );
         for (orphan_kind, orphan_id) in orphaned {
             let _ = writeln!(
                 out,
                 "  • `{orphan_id}` ({orphan_kind}) — its own registration is dead, and removing \
-                 `{}` leaves no live importer to reach it.",
+                 `{}` leaves no live member to reach it.",
                 features.id
             );
         }
@@ -2467,20 +2483,17 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let mut mention_edges = drift::mention_edges_from_declarations(&declarations);
     mention_edges.extend(drift::import_edges_from_doc(&lock_doc)?);
 
-    // The world's inbound registration channel set into each built-in kind — the same
-    // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
-    let mut registrations: BTreeMap<&str, Vec<kind::Registration>> = BTreeMap::new();
-    for def in builtin_defs.values() {
-        if !def.registration.is_empty() {
-            registrations.insert(def.name.as_str(), def.registration.clone());
-        }
-    }
+    // The world's inbound registration channel set into every kind — the overlaid
+    // built-ins and each custom kind — through the very derivation the gate's `reachable`
+    // reads, keyed by bare kind name to join `by_kind` (READ-EDGE-UNIFY).
+    let registrations =
+        crate::gate::registrations_by_kind(&overlaid_builtin_kinds, &custom_units_and_features);
 
     // The whole file-set stays: `graph::reachability_orphaned` below reads it entire,
     // through `live_members`, and the read verb binds no clause to gate the walk behind.
     let repo_files = compose::repo_file_set(Path::new("."));
-    // The same defs the registration derivation above reads, for the same corpus-wide
-    // fact per kind: which kinds seed the directive traversal. The edge set this narrates
+    // The built-in defs, for the corpus-wide fact per kind the classing needs: which
+    // kinds seed the directive traversal. The edge set this narrates
     // widens with the traversal — a reached rule's own outbound `@import` shows — because
     // it *is* the gate's set (READ-EDGE-UNIFY), never a second enumeration.
     let directive_members = compose::directive_members_from_resolved(
@@ -2628,7 +2641,16 @@ mod impact_tests {
         let registrations = BTreeMap::new();
         let index = build_member_index(&by_kind);
 
-        let solo = impact_impl(&roster, &by_kind, &registrations, &[], &[], &index, "solo");
+        let solo = impact_impl(
+            &roster,
+            &by_kind,
+            &registrations,
+            &[],
+            &[],
+            &[],
+            &index,
+            "solo",
+        );
         assert!(
             solo.contains("Requirements left unfilled (it is the only member filling them):"),
             "{solo}"
@@ -2640,6 +2662,7 @@ mod impact_tests {
             &roster,
             &by_kind,
             &registrations,
+            &[],
             &[],
             &[],
             &index,
@@ -2670,6 +2693,7 @@ mod impact_tests {
             &by_kind,
             &registrations,
             &[],
+            &[],
             &edges,
             &index,
             "leaf",
@@ -2681,7 +2705,16 @@ mod impact_tests {
         );
 
         // `hub` imports but is not imported, so nothing points *at* it.
-        let out = impact_impl(&empty, &by_kind, &registrations, &[], &edges, &index, "hub");
+        let out = impact_impl(
+            &empty,
+            &by_kind,
+            &registrations,
+            &[],
+            &[],
+            &edges,
+            &index,
+            "hub",
+        );
         assert!(out.contains("Directive edges left unbacked: none"), "{out}");
     }
 
@@ -2705,7 +2738,16 @@ mod impact_tests {
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
         let index = build_member_index(&by_kind);
 
-        let out = impact_impl(&empty, &by_kind, &registrations, &[], &edges, &index, "hub");
+        let out = impact_impl(
+            &empty,
+            &by_kind,
+            &registrations,
+            &[],
+            &[],
+            &edges,
+            &index,
+            "hub",
+        );
         assert!(out.contains("Reachability that dies with it"), "{out}");
         assert!(
             out.contains("`leaf` (doc) — its own registration is dead"),
@@ -2717,6 +2759,7 @@ mod impact_tests {
             &empty,
             &by_kind,
             &registrations,
+            &[],
             &[],
             &edges,
             &index,
@@ -2736,7 +2779,16 @@ mod impact_tests {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
         let registrations = BTreeMap::new();
         let index = build_member_index(&by_kind);
-        let out = impact_impl(&empty, &by_kind, &registrations, &[], &[], &index, "ghost");
+        let out = impact_impl(
+            &empty,
+            &by_kind,
+            &registrations,
+            &[],
+            &[],
+            &[],
+            &index,
+            "ghost",
+        );
         assert!(
             out.contains("No member named `ghost` is in the surface"),
             "{out}"

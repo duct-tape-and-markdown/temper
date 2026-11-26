@@ -1010,12 +1010,14 @@ fn kind_selections<'a>(
 
 /// Each kind's declared [`kind::Registration`] set, keyed by its bare row label — the
 /// channel map [`graph::reachable`] asks whether a member's own inbound world edge can
-/// be live.
+/// be live. The overlaid built-ins chained with every custom kind: `explain`'s impact
+/// strand reads this same derivation, so its blast radius cannot disagree with the
+/// gate about which kinds carry a dead-able channel (READ-EDGE-UNIFY).
 ///
 /// A kind declaring no registration contributes no entry: its members load
 /// unconditionally, and the judge reads that absence as unconditional liveness rather
 /// than as an empty dead set.
-fn registrations_by_kind<'a>(
+pub(crate) fn registrations_by_kind<'a>(
     builtin: &'a BTreeMap<String, CustomKind>,
     custom: &'a [(CustomKind, compose::KindUnitsAndFeatures)],
 ) -> BTreeMap<&'a str, Vec<kind::Registration>> {

@@ -2629,3 +2629,97 @@ fn explain_names_script_and_telemetry_verifiers() {
         "{tap}"
     );
 }
+
+/// The impact strand's "reachability that dies with it" over the gate's own inputs: the
+/// registration map across built-in *and* custom kinds, and liveness propagated over the
+/// resolved declared references chained with the `@import` arcs — exactly what the
+/// gate's `reachable` reads, driven end to end through the real binary.
+mod impact_reachability_parity {
+    use std::fs;
+
+    use temper::drift::Declarations;
+
+    use crate::common;
+
+    #[test]
+    fn explain_impact_names_a_custom_kind_member_kept_live_only_by_the_explained_member() {
+        // A custom `note` kind whose only channel is a description trigger: `orphan`'s
+        // blank description makes its own world edge dead, and `CLAUDE.md` (an
+        // unconditionally loaded memory member) `@import`s it — the one arc carrying its
+        // liveness. Removing `CLAUDE` therefore unreaches `orphan`, as the gate's
+        // `reachable` would report it.
+        let harness = common::scaffold("impact-custom-kind-registration");
+        fs::create_dir_all(harness.join("notes")).unwrap();
+        fs::write(
+            harness.join("notes/orphan.md"),
+            "---\ndescription: \"\"\n---\n\n# Orphan\n",
+        )
+        .unwrap();
+        fs::write(
+            harness.join("notes/standalone.md"),
+            "---\ndescription: \"present\"\n---\n\n# Standalone\n",
+        )
+        .unwrap();
+        fs::write(harness.join("CLAUDE.md"), "# Memory\n\n@notes/orphan.md\n").unwrap();
+        common::write_lock(
+            &harness,
+            Declarations {
+                kinds: vec![temper::drift::KindFactRow {
+                    format: Some("yaml-frontmatter".to_string()),
+                    unit_shape: Some("file".to_string()),
+                    registration: vec!["description-trigger(description)".to_string()],
+                    ..common::kind_facts("note", "notes", "*.md")
+                }],
+                ..Default::default()
+            },
+        );
+
+        let out = common::explain_in(&harness, "CLAUDE");
+        assert!(
+            out.contains("`orphan` (note) — its own registration is dead"),
+            "the custom-kind member kept live only by `CLAUDE`'s import dies with it: {out}"
+        );
+        assert!(
+            !out.contains("`standalone` (note)"),
+            "a custom-kind member with a live channel of its own never orphans: {out}"
+        );
+    }
+
+    #[test]
+    fn explain_impact_names_a_member_kept_live_only_by_a_declared_edge_from_the_explained_member() {
+        // `orphan` is a rule whose `paths` glob matches no file, so its own `paths-match`
+        // channel is dead; `hub` (no `paths`, so unconditionally loaded) names it through a
+        // declared `routes_to` reference — no `@import` anywhere. The gate's `reachable`
+        // holds `orphan` live through that resolved edge, so removing `hub` unreaches it.
+        let harness = common::scaffold("impact-declared-edge-carrier");
+        let rules = harness.join(".claude/rules");
+        fs::create_dir_all(&rules).unwrap();
+        fs::write(
+            rules.join("hub.md"),
+            "---\nroutes_to:\n  - orphan\n---\n\n# Hub\n",
+        )
+        .unwrap();
+        fs::write(
+            rules.join("orphan.md"),
+            "---\npaths:\n  - \"nowhere/**/*.never\"\n---\n\n# Orphan\n",
+        )
+        .unwrap();
+        common::write_lock(
+            &harness,
+            Declarations {
+                assembly: vec![common::edge("rule", "routes_to", "rule")],
+                ..Default::default()
+            },
+        );
+
+        let out = common::explain_in(&harness, "hub");
+        assert!(
+            out.contains("points at `orphan`"),
+            "the declared edge resolves, so the fixture exercises it: {out}"
+        );
+        assert!(
+            out.contains("`orphan` (rule) — its own registration is dead"),
+            "the member kept live only by `hub`'s declared edge dies with it: {out}"
+        );
+    }
+}
