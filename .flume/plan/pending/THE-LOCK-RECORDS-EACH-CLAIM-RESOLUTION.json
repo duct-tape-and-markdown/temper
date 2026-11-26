@@ -1,11 +1,9 @@
 {
   "tag": "THE-LOCK-RECORDS-EACH-CLAIM-RESOLUTION",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "A-HOST-CEDES-ITS-UNIT-AGAINST-THE-ANY-DEPTH-REACH"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -54,5 +52,6 @@
   "pins": [
     "emit refuses a placement inside a subkind locus"
   ],
+  "laneTests": [],
   "notes": "0102 consequence: check, emit, the guard and coverage read one answer. Seam change, two-sided (PROTOCOL 4)."
 }
