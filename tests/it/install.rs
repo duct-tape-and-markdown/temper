@@ -2661,25 +2661,36 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
     );
 }
 
-/// With no `lock.toml` at all there is no declared projection set to consult — unlike
-/// a represented harness (below), the guard falls back to binding any `.claude/` write
-/// at the default enforcement mode rather than silently allowing everything: absent evidence
-/// must never *suppress* a guard claim, only ever fail to forge one.
+/// With no `lock.toml` at all the lock names no projection, so every file is an
+/// authored source: a write to a `.claude/` skill draws no projection warning.
 #[test]
-fn guard_defaults_to_warn_when_the_lock_is_absent() {
-    let root = common::tmpdir("lock-mode-absent");
+fn a_no_lock_write_to_a_skill_draws_no_projection_warning() {
+    let root = common::tmpdir("lock-absent-skill-write");
     let (code, stderr) = common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
-    assert_eq!(
-        code,
-        Some(0),
-        "no lock ⇒ default warn, warns but never blocks"
+    assert_eq!(code, Some(0), "with no lock the guard never blocks");
+    assert!(
+        stderr.is_empty(),
+        "with no lock nothing is a projection, got: {stderr}"
     );
-    assert!(stderr.contains("temper-managed projection"));
 
     let (allow_code, allow_stderr) =
         common::run_guard(&root, &common::guard_write_payload("src/main.rs"));
     assert_eq!(allow_code, Some(0));
     assert!(allow_stderr.is_empty());
+}
+
+/// The lock alone names projections: under one, a write to the path it names is still
+/// guarded at the lock's enforcement mode.
+#[test]
+fn with_a_lock_a_write_to_a_lock_named_projection_is_still_guarded() {
+    let root = common::tmpdir("lock-named-projection-guarded");
+    claude_write_lock("warn").write(&root);
+    let (code, output) = common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
+    assert_eq!(code, Some(0), "warn surfaces but never blocks");
+    assert!(
+        output.contains("temper-managed projection"),
+        "a lock-named projection write must be guarded, got: {output}"
+    );
 }
 
 /// When the lock declares an emit-owned target outside `.claude/`, the guard binds
@@ -2904,26 +2915,22 @@ fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
         "the finding names the `settings` kind, got: {settings_stderr}"
     );
 
-    // No lock at all: the `.claude/` fallback is untouched, and it is a substring match
-    // on `.claude/`, so it binds `settings.local.json` too — "never bound" is a claim
-    // about the locus binding under a lock, never about the fallback.
+    // No lock at all: nothing is a projection and no locus declares a member, so no
+    // write binds — `.claude/` or otherwise.
     let bare_root = common::tmpdir("guard-locus-no-lock");
     fs::create_dir_all(&bare_root).unwrap();
-    for bound in [".claude/rules/stray.md", ".claude/settings.local.json"] {
-        let (code, stderr) = common::run_guard(&bare_root, &common::guard_write_payload(bound));
-        assert_eq!(code, Some(0), "the no-lock default mode is warn ({bound})");
+    for path in [
+        ".claude/rules/stray.md",
+        ".claude/settings.local.json",
+        "specs/intent.md",
+    ] {
+        let (code, stderr) = common::run_guard(&bare_root, &common::guard_write_payload(path));
+        assert_eq!(code, Some(0), "with no lock the guard allows ({path})");
         assert!(
-            stderr.contains("temper-managed projection"),
-            "the no-lock fallback binds any `.claude/` path ({bound}), got: {stderr}"
+            stderr.is_empty(),
+            "with no lock nothing binds ({path}), got: {stderr}"
         );
     }
-    let (outside_code, outside_stderr) =
-        common::run_guard(&bare_root, &common::guard_write_payload("specs/intent.md"));
-    assert_eq!(outside_code, Some(0));
-    assert!(
-        outside_stderr.is_empty(),
-        "with no lock nothing outside `.claude/` binds, got: {outside_stderr}"
-    );
 }
 
 /// A manifest a lock's registration rows key inside is emit-owned — `emit` regenerates

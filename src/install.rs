@@ -1950,10 +1950,9 @@ pub struct GuardDecision {
 /// ([`drift::emit_owned_targets`]) — and to `loci`, the governed loci of the
 /// represented committed kinds ([`GuardedLocus`]). `targets` is `None` for a harness
 /// with no `lock.toml` at all (never emitted, or the file removed out from under an
-/// already-installed hook): with no declared set to consult, the guard falls
-/// back to binding any `.claude/` `file_path`, matching the pre-lock behavior —
-/// absent evidence must never silently suppress the guard, and `loci` is not consulted
-/// there because an unrepresented harness declares no member anywhere.
+/// already-installed hook): only the lock names projections, so with no lock every
+/// file is an authored source and the guard allows — `loci` is not consulted either,
+/// because an unrepresented harness declares no member anywhere.
 ///
 /// **Binding scope**: every surfacing verdict closes on [`binding_limit`], which names
 /// the tools this guard's row binds and the writes that bypass it.
@@ -1961,10 +1960,8 @@ pub struct GuardDecision {
 /// Two bindings under a lock, in order: the `file_path` names a declared projection (a
 /// direct edit to an emit-owned file — drift), else it falls inside a governed locus
 /// the lock declares no member at (a document `emit` will never maintain and Claude
-/// Code loads anyway). Representation must not *loosen* the boundary: before the second
-/// binding, creating `.claude/rules/stray.md` in a represented harness passed while the
-/// no-lock fallback bound the very same write. A `file_path` matching neither (or, with
-/// `targets` absent, naming no `.claude/` locus) is [`GuardVerdict::Allow`]. Otherwise
+/// Code loads anyway). A `file_path` matching neither, or any `file_path` with `targets`
+/// absent, is [`GuardVerdict::Allow`]. Otherwise
 /// the finding maps onto the mode vocabulary, split by where it goes: `note` defers
 /// it out-of-band ([`GuardVerdict::Note`]), `warn` surfaces it in-band
 /// ([`GuardVerdict::Warn`]), `block` denies the call ([`GuardVerdict::Block`]).
@@ -1985,27 +1982,18 @@ pub fn guard(
         return allow();
     };
 
-    // When targets are declared, check the file_path against them, then against the
-    // governed loci that declare no member for it.
-    let message = if let Some(targets) = targets {
-        if let Some(owner) = matched_projection(file_path, root, targets) {
-            format!("{}{}", guard_message(), projection_owner_line(owner))
-        } else if let Some(locus) =
-            matches_governed_locus(file_path, root, loci, &layout.loci.kinds)
-        {
-            undeclared_locus_message(&locus.kind, locus.custom)
-        } else if let Some(finding) = layout.pending_finding(payload, file_path, root) {
-            render_guard_findings(guard_layout_message(), &[finding])
-        } else {
-            return allow();
-        }
+    let Some(targets) = targets else {
+        return allow();
+    };
+
+    let message = if let Some(owner) = matched_projection(file_path, root, targets) {
+        format!("{}{}", guard_message(), projection_owner_line(owner))
+    } else if let Some(locus) = matches_governed_locus(file_path, root, loci, &layout.loci.kinds) {
+        undeclared_locus_message(&locus.kind, locus.custom)
+    } else if let Some(finding) = layout.pending_finding(payload, file_path, root) {
+        render_guard_findings(guard_layout_message(), &[finding])
     } else {
-        // Fallback: with no lock, bind only `.claude/` paths (the documented no-lock
-        // fallback behavior — absent evidence must never suppress the guard).
-        if !is_claude_path(file_path) {
-            return allow();
-        }
-        guard_message().to_string()
+        return allow();
     };
 
     let verdict = match mode {
@@ -2044,18 +2032,11 @@ fn tool_input(payload: &JsonValue) -> Option<&JsonValue> {
 /// reaching for, held strictly, and with a JSON-escaped path value arriving whole rather
 /// than truncated at its first escape.
 ///
-/// Extracts any path regardless of locus; the caller determines whether to bind it
-/// (against targets or the `.claude/` fallback).
+/// Extracts any path regardless of locus; the caller determines whether to bind it.
 fn extract_file_path(payload: &JsonValue) -> Option<&str> {
     tool_input(payload)?
         .get("file_path")
         .and_then(JsonValue::as_str)
-}
-
-/// Whether `file_path` names a `.claude/`-rooted artifact — the fallback binding
-/// when no lock-declared targets exist to consult.
-fn is_claude_path(file_path: &str) -> bool {
-    file_path.contains(&format!("{}/", builtin_kind::CLAUDE_ROOT))
 }
 
 /// Whether `file_path` names any candidate — an equality compare against each candidate's
@@ -2112,8 +2093,7 @@ fn matched_projection<'a>(
 /// (`model/pipeline.md`, "Drift"), and [`guard_message`] alone names only the side and the
 /// remedy. Rendered as one indented line under the header, the shape
 /// [`render_guard_findings`] already gives a finding, so the guard's one surface reads one
-/// way. The no-lock fallback appends nothing: with no declared set there is
-/// no member to name.
+/// way.
 fn projection_owner_line(owner: &drift::EmitOwnedEntry) -> String {
     format!(
         "\n  owner: the `{}` member `{}` owns `{}` — edit that member's source and re-emit",
