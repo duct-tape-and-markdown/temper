@@ -492,7 +492,8 @@ fn a_gitignore_still_prunes_the_discovery_walk_in_a_tree_with_no_git() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir() {
+fn declining_wires_the_session_start_reporter_and_neither_guard_nor_note_and_never_creates_temper_dir()
+ {
     let root = write_harness("no-represent", true);
     let discovery = install::discover(&root).unwrap();
 
@@ -501,14 +502,14 @@ fn declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir
     assert_eq!(outcome.scaffolded, 0);
     assert!(outcome.emit.is_none());
 
-    // Only the SessionStart hook is projected — no guard, no note, no modeline.
+    // The SessionStart hook is projected — no guard, no note: those bind emit-owned
+    // paths, and there is no lock to declare one.
     assert_eq!(
         outcome_of(&outcome, temper::install::Placement::SessionStart),
         ApplyOutcome::Applied
     );
     assert!(!has_entry(&outcome, temper::install::Placement::GuardHook));
     assert!(!has_entry(&outcome, temper::install::Placement::Note));
-    assert!(!has_entry(&outcome, temper::install::Placement::Modeline));
 
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
@@ -522,18 +523,120 @@ fn declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir
         "the merge must preserve the human's existing settings"
     );
 
-    // The project is never represented: no workspace, no lock, sources untouched.
+    // The project is never represented: no workspace, no lock, and a frontmatterless
+    // source takes no modeline, so it is untouched.
     assert!(!root.join(".temper").exists());
     assert_eq!(
-        fs::read_to_string(
-            root.join(".claude")
-                .join("skills")
-                .join("coordinate")
-                .join("SKILL.md")
-        )
-        .unwrap(),
-        SKILL
+        fs::read_to_string(root.join(".claude").join("rules").join("collaboration.md")).unwrap(),
+        COLLAB_RULE
     );
+}
+
+/// The modeline an unrepresented install seats for `kind`: the SDK package's own schema
+/// at the engine's version, on unpkg — spelled out here rather than read back off the
+/// engine, so a respelled URL fails this suite.
+fn cdn_modeline(kind: &str) -> String {
+    format!(
+        "# yaml-language-server: $schema=https://unpkg.com/@dtmd/temper@{}/schemas/{kind}.json",
+        temper::VERSION
+    )
+}
+
+/// Every modeline entry `outcome` reported, as (path, outcome) pairs.
+fn modeline_entries(outcome: &InstallOutcome) -> Vec<(PathBuf, ApplyOutcome)> {
+    outcome
+        .entries
+        .iter()
+        .filter(|e| e.placement == temper::install::Placement::Modeline)
+        .map(|e| (e.path.clone(), e.outcome))
+        .collect()
+}
+
+#[test]
+fn an_unrepresented_install_places_a_version_pinned_cdn_schema_modeline_in_a_governed_frontmatter_artifact()
+ {
+    let root = write_harness("no-represent-modeline", false);
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::No, false).unwrap();
+
+    let skill_path = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let rule_path = root.join(".claude").join("rules").join("rust.md");
+    let skill = fs::read_to_string(&skill_path).unwrap();
+    let rule = fs::read_to_string(&rule_path).unwrap();
+
+    // The modeline is the leading frontmatter line and the only inserted bytes.
+    assert_eq!(
+        skill,
+        format!("---\n{}\n{}", cdn_modeline("skill"), &SKILL[4..])
+    );
+    assert_eq!(
+        rule,
+        format!("---\n{}\n{}", cdn_modeline("rule"), &RULE[4..])
+    );
+
+    // Discovery reports kinds in name order, so `rule` precedes `skill`.
+    let placed = modeline_entries(&outcome);
+    let expected = vec![
+        (rule_path, ApplyOutcome::Applied),
+        (skill_path, ApplyOutcome::Applied),
+    ];
+    assert_eq!(
+        placed, expected,
+        "one modeline per governed frontmatter artifact, none for the frontmatterless rule"
+    );
+}
+
+#[test]
+fn re_running_an_unrepresented_install_leaves_the_cdn_schema_modeline_unchanged() {
+    let root = write_harness("no-represent-modeline-rerun", false);
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+    let skill_path = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let first = fs::read_to_string(&skill_path).unwrap();
+    assert!(
+        first.contains(&cdn_modeline("skill")),
+        "the first run seats the CDN modeline, got:\n{first}"
+    );
+
+    let discovery = install::discover(&root).unwrap();
+    let second = install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(fs::read_to_string(&skill_path).unwrap(), first);
+    let placed = modeline_entries(&second);
+    assert_eq!(placed.len(), 2, "got: {placed:?}");
+    assert!(
+        placed
+            .iter()
+            .all(|(_, outcome)| *outcome == ApplyOutcome::Unchanged),
+        "a re-run converges, got: {placed:?}"
+    );
+}
+
+#[test]
+fn an_unrepresented_install_writes_no_schema_file_to_the_tree() {
+    let root = write_harness("no-represent-no-schema", false);
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+
+    // The only JSON install writes is the settings document it merges into.
+    let json_files: Vec<PathBuf> = walkdir::WalkDir::new(&root)
+        .into_iter()
+        .map(|entry| entry.unwrap().into_path())
+        .filter(|path| path.is_file() && path.extension().is_some_and(|ext| ext == "json"))
+        .collect();
+    assert_eq!(
+        json_files,
+        vec![root.join(".claude").join("settings.json")],
+        "an unrepresented install writes no schema file"
+    );
+    assert!(!root.join(".temper").exists());
 }
 
 #[test]

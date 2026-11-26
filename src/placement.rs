@@ -37,6 +37,30 @@ pub const BANNER: &str = "<!-- temper: managed projection — a direct edit here
 /// README (retrieved 2026-07-20).
 pub const MODELINE_MARKER: &str = "# yaml-language-server:";
 
+/// The `$schema` reference an **unrepresented** harness's modeline names: the JSON
+/// Schema the SDK package (`@dtmd/temper`) ships for `kind` under `schemas/<kind>.json`,
+/// at the engine's own version — the one version the SDK carries too, held equal by the
+/// release's version-parity gate — so the URL resolves to the floor this engine checks.
+/// Nothing is written to the tree to back it (`specs/distribution.md`, "Keystroke").
+///
+/// The grammar is unpkg's `https://unpkg.com/:package@:version/:file`, where `:package` is
+/// "the package name on npm, including scope (`@scope/name`)", and "exact versions are
+/// permanent and cache best" (unpkg.com, retrieved 2026-11-26). unpkg over jsDelivr
+/// because jsDelivr's npm grammar (`https://cdn.jsdelivr.net/npm/package@version/file`,
+/// github.com/jsdelivr/jsdelivr README, retrieved 2026-11-26) documents no scoped
+/// spelling, and this package is scoped.
+#[must_use]
+pub fn cdn_schema_url(kind: &str) -> String {
+    format!(
+        "https://unpkg.com/{SDK_PACKAGE}@{version}/schemas/{kind}.json",
+        version = crate::VERSION
+    )
+}
+
+/// The SDK's npm package name — the package whose published `schemas/` the
+/// [`cdn_schema_url`] resolves into.
+pub(crate) const SDK_PACKAGE: &str = "@dtmd/temper";
+
 pub(crate) fn placement_lines(source: &str) -> Vec<String> {
     if let Some((_, matter)) = frontmatter::frontmatter_matter(source) {
         return matter
@@ -107,6 +131,17 @@ fn is_placement_comment(line: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_cdn_schema_url_pins_the_scoped_sdk_package_at_the_engines_version() {
+        assert_eq!(
+            cdn_schema_url("skill"),
+            format!(
+                "https://unpkg.com/@dtmd/temper@{}/schemas/skill.json",
+                crate::VERSION
+            )
+        );
+    }
 
     #[test]
     fn placement_lines_round_trips_the_body_banner_of_a_frontmatterless_source() {

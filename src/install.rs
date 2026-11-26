@@ -4,8 +4,10 @@
 //! members found, by kind — then asks exactly one question via [`Represent`]:
 //! represent this project as a temper program?
 //!
-//! - **No** wires the `SessionStart` reporter alone ([`place_settings_only`]) and
-//!   stops — the stranger gate at session start, Node-free forever.
+//! - **No** wires the `SessionStart` reporter and seats each governed frontmatter
+//!   artifact's schema modeline at the SDK's version-pinned CDN schema
+//!   ([`place_unrepresented`]), and stops — the stranger gate at session start,
+//!   Node-free forever, writing no temper file into the tree.
 //! - **Yes** requires Node (checked up front, refused loud with instructions when
 //!   absent), ensures the `@dtmd/temper` dependency is declared in
 //!   `.temper/package.json` ([`ensure_package_json`]) and spawns the declared manager's install
@@ -35,7 +37,7 @@
 //! `settings.json` the way every other member reaches its
 //! artifact — through `emit`. Splicing them in beside `emit` reported `applied` and wired
 //! nothing: the re-stamp emit below re-rendered the file from the program and erased the
-//! splice in the same run. [`place_settings_only`] keeps the merge for the **no**-path,
+//! splice in the same run. [`place_unrepresented`] keeps the merge for the **no**-path,
 //! where the file is the human's and no program renders it.
 //!
 //! [`gate_installed`] is the read-only shadow `check` folds in: the same placement
@@ -69,7 +71,7 @@ use crate::kind::{
     self, CollectionAddress, CollectionKeyPath, CustomKind, HOOK_HANDLER_KEY, HOOK_MATCHER_KEY,
 };
 use crate::path::HarnessRelativePath;
-use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER};
+use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER, SDK_PACKAGE};
 use crate::toml_document;
 
 thread_local! {
@@ -93,9 +95,6 @@ pub fn locus_member_site_walk_count() -> usize {
 /// The SDK program's entry file — scaffolded once by the lift, run by every
 /// subsequent `emit`.
 const HARNESS_ENTRY: &str = "harness.ts";
-
-/// The npm package name the yes-path ensures as a dependency.
-const SDK_PACKAGE: &str = "@dtmd/temper";
 
 /// The compiler package the scaffolded program's typecheck runs, ensured as a
 /// devDependency — the SDK's own toolchain, so the range is the one it builds with.
@@ -397,7 +396,7 @@ struct GateHook {
 /// them into `.claude/settings.json`'s `hooks` collection, and nothing else writes that
 /// file — the settings document is a projection the program owns whole
 /// ([`builtin_kind`]'s `settings` kind), so a second writer splicing the same bytes would
-/// be erased by the next emit. [`place_settings_only`] is the unrepresented path's own
+/// be erased by the next emit. [`place_session_start`] is the unrepresented path's own
 /// writer and places [`Placement::SessionStart`] alone: with no program there is no
 /// projection to guard and nothing for `emit` to re-render.
 const GATE_HOOKS: [GateHook; GATE_HOOK_COUNT] = [
@@ -955,7 +954,7 @@ pub fn run(
             represented: false,
             scaffolded: 0,
             emit: None,
-            entries: place_settings_only(root, dry_run)?,
+            entries: place_unrepresented(root, discovery, dry_run)?,
             missing_dependencies: Vec::new(),
         }),
         Represent::Yes => run_represented(root, discovery, dry_run),
@@ -1074,7 +1073,7 @@ fn run_represented(
 /// **The one reading every face takes**, so no two of them can disagree about which fork a
 /// harness is on. The lock is not it: a harness carrying a program it has never emitted
 /// carries no lock and is represented all the same, and reading the lock alone there lets
-/// `--no-represent` be accepted and [`place_settings_only`] splice `.claude/settings.json`
+/// `--no-represent` be accepted and [`place_unrepresented`] splice `.claude/settings.json`
 /// — install re-adding a gate hook to a file the program owns whole, which 0073 forbids.
 #[must_use]
 pub fn represented_by(root: &Path) -> Option<PathBuf> {
@@ -1112,7 +1111,7 @@ pub fn gate_installed(root: &Path, lock: &DocumentMut) -> Vec<Diagnostic> {
     let evaluated = if represented {
         evaluate_placements(root, true, None, lock)
     } else {
-        place_settings_only(root, true)
+        place_session_start(root, true).map(|entry| vec![entry])
     };
     let entries = match evaluated {
         Ok(entries) => entries,
@@ -1201,7 +1200,7 @@ fn gate_hook_at(placement: Placement) -> Option<&'static GateHook> {
 ///   `gateHook(...)`, which states a binary and never a command.
 ///
 /// Unrepresented, the session-start hook is install's own write
-/// ([`place_settings_only`]), so the remedy there is the verb.
+/// ([`place_session_start`]), so the remedy there is the verb.
 fn gate_hook_clause(hook: &GateHook, outcome: ApplyOutcome, represented: bool) -> String {
     let label = hook.placement.label();
     if !represented {
@@ -1227,27 +1226,79 @@ fn settings_path(root: &Path) -> PathBuf {
     root.join(builtin_kind::CLAUDE_ROOT).join("settings.json")
 }
 
-/// Project only the `SessionStart` hook into `.claude/settings.json` — the no-path's
-/// whole write, and the only writer that merges this file. No guard, no note, no
-/// modeline: those bind only paths a lock declares emit-owned, and an unrepresented
-/// project has no lock.
+/// The no-path's whole write: the `SessionStart` hook into `.claude/settings.json`
+/// ([`place_session_start`]) and the CDN schema modeline into every governed frontmatter
+/// artifact `discovery` found ([`place_cdn_modelines`]). No guard and no note: those bind
+/// only paths a lock declares emit-owned, and an unrepresented project has no lock.
 ///
 /// **Never reached on a represented harness.** There the settings document is a
-/// projection the program owns whole and this splice would be install re-adding a gate
-/// hook to it, which 0073 forbids outright. [`run`] executes the fork it is handed, so the
-/// one decider is the dispatch that answers it (`src/main.rs`) — and it answers on
+/// projection the program owns whole and the settings splice would be install re-adding a
+/// gate hook to it, which 0073 forbids outright. [`run`] executes the fork it is handed, so
+/// the one decider is the dispatch that answers it (`src/main.rs`) — and it answers on
 /// [`represented_by`], the same reading [`gate_installed`] takes, so neither face can send
 /// a represented harness down this path.
-fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<InstallEntry>> {
+fn place_unrepresented(
+    root: &Path,
+    discovery: &DiscoveryReport,
+    dry_run: bool,
+) -> miette::Result<Vec<InstallEntry>> {
+    let mut entries = vec![place_session_start(root, dry_run)?];
+    entries.extend(place_cdn_modelines(root, discovery, dry_run)?);
+    Ok(entries)
+}
+
+/// Splice the `SessionStart` hook into `.claude/settings.json` — the only writer that
+/// merges this file, and the one placement an unrepresented harness's [`gate_installed`]
+/// verifies.
+fn place_session_start(root: &Path, dry_run: bool) -> miette::Result<InstallEntry> {
     let settings_path = settings_path(root);
     let existing = read_optional(&settings_path)?;
     let settings = project_settings(&settings_path, existing.as_deref())?;
     drift::place(&settings_path, &settings.desired, None, dry_run)?;
-    Ok(vec![InstallEntry {
+    Ok(InstallEntry {
         placement: Placement::SessionStart,
         outcome: placement_outcome(settings.hook_present),
         path: settings_path,
-    }])
+    })
+}
+
+/// Seat the schema modeline in every discovered member of a YAML-frontmatter built-in
+/// kind — exactly the kinds `temper schema` models and the SDK ships a schema for —
+/// pointing at that schema's version-pinned CDN URL ([`crate::placement::cdn_schema_url`]), so
+/// the keystroke placement reaches an unrepresented harness without a schema file in its
+/// tree. A frontmatterless artifact takes none, and an artifact already carrying a
+/// modeline keeps it verbatim ([`project_modeline`]), so a re-run reports `Unchanged`.
+fn place_cdn_modelines(
+    root: &Path,
+    discovery: &DiscoveryReport,
+    dry_run: bool,
+) -> miette::Result<Vec<InstallEntry>> {
+    let kinds = builtin_kind::definitions();
+    let mut entries = Vec::new();
+    for (name, members) in &discovery.members {
+        let frontmatter_kind = kinds
+            .get(name)
+            .is_some_and(|kind| kind.format == Some(kind::Format::YamlFrontmatter));
+        if !frontmatter_kind {
+            continue;
+        }
+        let schema = crate::placement::cdn_schema_url(name);
+        for file in members.files() {
+            let path = root.join(file);
+            let source = fs::read_to_string(&path).map_err(|source| InstallError::Read {
+                path: path.clone(),
+                source,
+            })?;
+            if let Some(desired) = project_modeline(&source, &schema) {
+                entries.push(InstallEntry {
+                    placement: Placement::Modeline,
+                    outcome: drift::place(&path, &desired, None, dry_run)?,
+                    path,
+                });
+            }
+        }
+    }
+    Ok(entries)
 }
 
 /// What `.claude/settings.json` says about one of [`GATE_HOOKS`] right now. Both readings
@@ -2692,7 +2743,7 @@ pub fn render_manifest_findings(findings: &[Diagnostic]) -> String {
 }
 
 /// Map "was this placement already in its desired state" onto the settings outcomes for
-/// the unrepresented path's merge ([`place_settings_only`]). That file carries no
+/// the unrepresented path's merge ([`place_session_start`]). That file carries no
 /// baseline fingerprint (idempotent placement), so its placement is only ever
 /// [`Applied`](ApplyOutcome::Applied) (absent/drifted) or
 /// [`Unchanged`](ApplyOutcome::Unchanged) — never `Conflicted`. The represented path
@@ -2721,7 +2772,7 @@ fn read_optional(path: &Path) -> Result<Option<String>, InstallError> {
 
 /// The desired `.claude/settings.json` plus whether temper's `SessionStart` hook was
 /// already in its desired state before the merge — the **unrepresented** path's whole
-/// projection ([`place_settings_only`]). A represented harness merges nothing here: its
+/// projection ([`place_session_start`]). A represented harness merges nothing here: its
 /// three gate hooks are program members ([`GATE_HOOKS`]) and `emit` is the file's one
 /// writer.
 struct SettingsProjection {
