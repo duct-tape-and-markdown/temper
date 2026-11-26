@@ -58,7 +58,7 @@ fn parse(
     raw: &str,
 ) -> Result<DocumentMember, TomlDocumentError> {
     let field = match &kind.unit_shape {
-        Some(UnitShape::NamedField { field }) => field,
+        Some(UnitShape::NamedField { field } | UnitShape::NamedFieldOrFile { field }) => field,
         Some(UnitShape::File)
         | Some(UnitShape::Directory)
         | Some(UnitShape::StarredSegment)

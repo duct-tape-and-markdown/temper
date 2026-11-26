@@ -83,6 +83,7 @@ Read the topic file for what you are about to change before changing it: it carr
 - When you add or change a `mcp` member, read [kind-mcp.md](kind-mcp.md).
 - When you add or change a `mcp-server` member, read [kind-mcp-server.md](kind-mcp-server.md).
 - When you add or change a `memory` member, read [kind-memory.md](kind-memory.md).
+- When you add or change a `output-style` member, read [kind-output-style.md](kind-output-style.md).
 - When you add or change a `plugin-manifest` member, read [kind-plugin-manifest.md](kind-plugin-manifest.md).
 - When you add or change a `rule` member, read [kind-rule.md](kind-rule.md).
 - When you add or change a `settings` member, read [kind-settings.md](kind-settings.md).

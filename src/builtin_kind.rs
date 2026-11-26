@@ -50,7 +50,8 @@ pub const KNOWN_SURFACES: &[&str] = &[".claude/settings.json"];
 /// exception layered onto the lift ([`lift`]). The keys are the documented ones:
 /// `skill`/`command` share the skill surface's table (code.claude.com/docs/en/skills,
 /// "Frontmatter reference", retrieved 2026-07-16), `agent` its identity and trigger
-/// (code.claude.com/docs/en/sub-agents, retrieved 2026-07-16), `rule` its activation glob
+/// (code.claude.com/docs/en/sub-agents, retrieved 2026-07-16), `output-style` its four
+/// optional fields (code.claude.com/docs/en/output-styles, retrieved 2026-11-25), `rule` its activation glob
 /// (code.claude.com/docs/en/memory, retrieved 2026-11-24), and the named-field document
 /// kinds the `name` key their identity reads from.
 fn declared_field_keys(kind: &str) -> &'static [&'static str] {
@@ -63,6 +64,12 @@ fn declared_field_keys(kind: &str) -> &'static [&'static str] {
             "user-invocable",
         ],
         "agent" => &["name", "description"],
+        "output-style" => &[
+            "name",
+            "description",
+            "keep-coding-instructions",
+            "force-for-plugin",
+        ],
         "rule" => &["paths"],
         "plugin-manifest" | "marketplace" | crate::dial::KIND => &["name"],
         _ => &[],
@@ -523,6 +530,7 @@ mod tests {
                 "mcp",
                 "mcp-server",
                 "memory",
+                "output-style",
                 "plugin-manifest",
                 "rule",
                 "settings",

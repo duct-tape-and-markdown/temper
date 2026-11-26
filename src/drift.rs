@@ -3333,7 +3333,7 @@ fn read_layout_document(
             LayoutDocumentFault::Frontmatter(err) => miette::Report::new(err),
         })?;
     let host = match &kind.unit_shape {
-        Some(UnitShape::NamedField { .. }) => {
+        Some(UnitShape::NamedField { .. } | UnitShape::NamedFieldOrFile { .. }) => {
             member_address_under(member.host.as_deref(), &member.kind, &document.id)
         }
         _ => payload_member_address(member),

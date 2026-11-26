@@ -1492,7 +1492,10 @@ fn site_id(
                 .id
         }
         SiteIdentity::Pending(None) => {
-            if matches!(kind.unit_shape, Some(kind::UnitShape::NamedField { .. })) {
+            if matches!(
+                kind.unit_shape,
+                Some(kind::UnitShape::NamedField { .. } | kind::UnitShape::NamedFieldOrFile { .. })
+            ) {
                 return None;
             }
             extract::unit_shape_id(

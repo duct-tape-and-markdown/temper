@@ -915,6 +915,12 @@ pub(crate) fn unit_shape_id<'v>(
             .and_then(JsonValue::as_str)
             .map(str::to_string)
             .ok_or_else(|| fault(AbsentId::NamedField(field.clone()))),
+        Some(UnitShape::NamedFieldOrFile { field }) => {
+            match named_field(field).and_then(JsonValue::as_str) {
+                Some(id) => Ok(id.to_string()),
+                None => fold_file_id(base, source_file),
+            }
+        }
         // `path` and `file` shape, or an undeclared shape defaulting to a lone file.
         Some(UnitShape::Path | UnitShape::File) | None => fold_file_id(base, source_file),
     }

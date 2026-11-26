@@ -58,6 +58,7 @@ mod memory_contract;
 mod memory_gate;
 mod module_closure;
 mod nested_member;
+mod output_style_kind;
 mod plugin_manifest_kind;
 mod projection_path_seam;
 mod prose_include;

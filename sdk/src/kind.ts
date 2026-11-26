@@ -48,15 +48,22 @@ export type Leniency = "malformed-yaml";
  * Whether a member is a lone file (identity from the stem), a directory with an
  * entry file (identity from the directory name), a lone file whose identity is
  * read from a declared field (`identityField`) instead of derived from the path (an
- * agent's `name`) — on whichever surface the kind's `format` carries its fields — or a
- * lone file keyed by the directory segment its single-`*` segment glob stars
+ * agent's `name`) — on whichever surface the kind's `format` carries its fields — or
+ * read from that field when present and the stem otherwise (`"named-field-or-file"`: an
+ * output style's `name`, else its filename), or a lone file keyed by the directory segment its single-`*` segment glob stars
  * (`"starred-segment"`), coexisting inside another kind's directory rather than owning
  * one — or a lone file named by its whole path under the locus, each `/` a `:` and the
  * extension dropped (`"path"`: a command's `frontend/component.md` is
  * `frontend:component`). The identity source is this spelled fact, never inferred from
  * the glob.
  */
-export type UnitShape = "file" | "directory" | "named-field" | "starred-segment" | "path";
+export type UnitShape =
+  | "file"
+  | "directory"
+  | "named-field"
+  | "named-field-or-file"
+  | "starred-segment"
+  | "path";
 
 /**
  * One **channel** a kind's registration declares — a documented way a member
@@ -276,7 +283,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /**
        * The frontmatter key the member's name writes under. For `unitShape:
        * "named-field"` this is the id **source** — the declared field a member's
-       * identity is read from (an agent's `name`), never the filename or directory.
+       * identity is read from (an agent's `name`), never the filename or directory;
+       * for `"named-field-or-file"` it is read first, the file stem standing in where
+       * the field is absent (an output style's `name`).
        * For `"directory"` it is a projection-order detail only (a skill's `name`
        * still writes into frontmatter, but identity is the directory name); absent
        * when identity is the file stem and no field carries it (a rule), or the
@@ -349,7 +358,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /**
        * The frontmatter key the member's name writes under. For `unitShape:
        * "named-field"` this is the id **source** — the declared field a member's
-       * identity is read from (an agent's `name`), never the filename or directory.
+       * identity is read from (an agent's `name`), never the filename or directory;
+       * for `"named-field-or-file"` it is read first, the file stem standing in where
+       * the field is absent (an output style's `name`).
        * For `"directory"` it is a projection-order detail only (a skill's `name`
        * still writes into frontmatter, but identity is the directory name); absent
        * when identity is the file stem and no field carries it (a rule), or the
@@ -423,7 +434,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /**
        * The frontmatter key the member's name writes under. For `unitShape:
        * "named-field"` this is the id **source** — the declared field a member's
-       * identity is read from (an agent's `name`), never the filename or directory.
+       * identity is read from (an agent's `name`), never the filename or directory;
+       * for `"named-field-or-file"` it is read first, the file stem standing in where
+       * the field is absent (an output style's `name`).
        * For `"directory"` it is a projection-order detail only (a skill's `name`
        * still writes into frontmatter, but identity is the directory name); absent
        * when identity is the file stem and no field carries it (a rule), or the

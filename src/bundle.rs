@@ -109,6 +109,10 @@ pub const BUNDLED_REFERENCE: &[(&str, &str)] = &[
         include_str!("bundled_reference/kind-memory.md"),
     ),
     (
+        "kind-output-style.md",
+        include_str!("bundled_reference/kind-output-style.md"),
+    ),
+    (
         "kind-plugin-manifest.md",
         include_str!("bundled_reference/kind-plugin-manifest.md"),
     ),

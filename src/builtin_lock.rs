@@ -77,8 +77,8 @@ mod tests {
         // a declared severity, and there are no requirements, satisfies, provenance or
         // emit-fingerprint rows (nothing was emitted; there are no members).
         //
-        // The three kinds shipping an empty default contract — `installed-plugin`,
-        // `known-marketplace`, `mcp` — are deliberately *absent* from the list below, so
+        // The kinds shipping an empty default contract — `installed-plugin`,
+        // `known-marketplace`, `mcp`, `output-style` — are deliberately *absent* from the list below, so
         // their emptiness is checked here rather than assumed: a clause appearing under one
         // of those names panics as unowned, which is the signal that the contract grew and
         // the lock's own header arithmetic needs re-reading.

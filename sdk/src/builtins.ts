@@ -360,6 +360,53 @@ export const agent: KindDefinition<Agent> = kind<Agent>({
   identityField: "name",
 });
 
+/**
+ * A Claude Code output style — a markdown file whose body replaces the system prompt's
+ * default style instructions. Every frontmatter field is optional, and a misspelled field
+ * is ignored without an error (code.claude.com/docs/en/output-styles, retrieved
+ * 2026-11-25).
+ */
+export interface OutputStyle {
+  /**
+   * The style's description, shown in the `/config` picker (same source).
+   */
+  readonly description?: string;
+  /**
+   * Set `true` to keep Claude Code's built-in software-engineering instructions alongside
+   * the style; defaults to `false` (same source).
+   */
+  readonly "keep-coding-instructions"?: boolean;
+  /**
+   * Plugin output styles only: set `true` to apply the style whenever the plugin is
+   * enabled, overriding the user's `outputStyle` setting; defaults to `false` (same
+   * source).
+   */
+  readonly "force-for-plugin"?: boolean;
+  readonly prose?: Prose;
+}
+
+/**
+ * `outputStyle` — a markdown file under `.claude/output-styles/`, optional YAML frontmatter
+ * over a body that is the style's instructions. "The file name becomes the style name
+ * unless you set `name` in the frontmatter", so identity is the `name` field, else the
+ * file stem (`unitShape: "named-field-or-file"`); settings select the style by that exact
+ * name (code.claude.com/docs/en/output-styles, retrieved 2026-11-25). "If the YAML doesn't
+ * parse, the style still loads under its file name with no fields set" (same source), so
+ * the kind forgives `malformed-yaml`. The docs say nothing on subdirectories inside
+ * `output-styles/`, so the locus claims its direct `*.md` files only. A style is selected
+ * by a setting rather than invoked or triggered, so it declares no registration channel.
+ */
+export const outputStyle: KindDefinition<OutputStyle> = kind<OutputStyle>({
+  name: "output-style",
+  locus: { kind: "at", root: ".claude/output-styles", glob: "*.md" },
+  format: "yaml-frontmatter",
+  leniency: ["malformed-yaml"],
+  unitShape: "named-field-or-file",
+  registration: [],
+  identityField: "name",
+  cite: "https://code.claude.com/docs/en/output-styles (retrieved 2026-11-25)",
+});
+
 /** A Claude Code rule — a flat markdown file with an optional `paths` scope. */
 export interface Rule {
  /**
@@ -406,7 +453,8 @@ export interface Memory {
  * `CLAUDE.md` and `CLAUDE.local.md` files in subdirectories under your current working
  * directory" (code.claude.com/docs/en/memory, "Choose where to put CLAUDE.md files" and
  * "How CLAUDE.md files load", retrieved 2026-11-24). The locus excludes the `.claude/`
- * folders another built-in loader owns — `agents`, `commands`, `rules`, `skills`: the
+ * folders another built-in loader owns — `agents`, `commands`, `output-styles`, `rules`,
+ * `skills`: the
  * memory docs describe no `CLAUDE.md` inside them loading as memory, and the rules
  * loader discovers every `.md` under `.claude/rules/` recursively
  * (code.claude.com/docs/en/memory, retrieved 2026-11-24; decision 0084).
@@ -417,7 +465,13 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
     kind: "at",
     root: ".",
     glob: "**/CLAUDE.md",
-    exclude: [".claude/agents", ".claude/commands", ".claude/rules", ".claude/skills"],
+    exclude: [
+      ".claude/agents",
+      ".claude/commands",
+      ".claude/output-styles",
+      ".claude/rules",
+      ".claude/skills",
+    ],
   },
   unitShape: "file",
   registration: [{ via: "always" }],
@@ -2014,6 +2068,15 @@ export const supportingDocDefaultContract: readonly Clause[] = [
  * the portable profile for skill directories.
  */
 export const commandDefaultContract: readonly Clause[] = [];
+
+/**
+ * The default contract for `output-style` — deliberately empty, the `command` precedent.
+ * Every output-style field is optional, a misspelled one is ignored without an error, and a
+ * style whose YAML does not parse still loads under its file name
+ * (code.claude.com/docs/en/output-styles, retrieved 2026-11-25): the format documents no
+ * requirement a clause could gate, so the honest encoding is no clause at all.
+ */
+export const outputStyleDefaultContract: readonly Clause[] = [];
 
 /**
  * The default contract for `agent` — Anthropic's documented subagent contract

@@ -264,13 +264,16 @@ function edgeBoundArgs(
 
 /**
  * The lock label for a kind's declared unit shape: `file`/`directory`/`starred-segment`/`path`
- * verbatim, or `named-field(<identityField>)` for the field-sourced mode — the same
+ * verbatim, or `named-field(<identityField>)` / `named-field-or-file(<identityField>)` for
+ * the field-sourced modes — the same
  * `<name>(<field>)` call syntax [`registrationLabel`] uses, so the id source round-trips
  * through the row rather than degrading to a bare, unreconstructable `"named-field"`.
  */
 function unitShapeLabel(facts: KindFacts): string | undefined {
-  if (facts.unitShape !== "named-field") return facts.unitShape;
-  return `named-field(${facts.identityField})`;
+  if (facts.unitShape !== "named-field" && facts.unitShape !== "named-field-or-file") {
+    return facts.unitShape;
+  }
+  return `${facts.unitShape}(${facts.identityField})`;
 }
 
 /** The lock label for one declared registration channel. */

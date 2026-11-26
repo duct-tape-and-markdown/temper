@@ -418,6 +418,14 @@ pub enum UnitShape {
         /// The declared field the id is read from.
         field: String,
     },
+    /// `named-field-or-file` — a lone file whose id is read from a declared field when it
+    /// carries a string, else its filename stem exactly as [`File`](UnitShape::File) folds
+    /// it (an output style's frontmatter `name`, else `<stem>`). A member whose frontmatter
+    /// is absent or forgiven as unparseable takes the stem.
+    NamedFieldOrFile {
+        /// The declared field the id is read from first.
+        field: String,
+    },
     /// `starred-segment` — a lone file whose id is the directory segment its `*/<file>`
     /// glob stars, not its filename stem (a `conventions.md` keyed by its parent folder).
     /// Distinct from [`Directory`](UnitShape::Directory): that shape owns the directory and
@@ -1073,9 +1081,12 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
         _ => {}
     }
     let (name, field) = call_label(label)?;
-    (name == "named-field").then(|| UnitShape::NamedField {
-        field: field.to_string(),
-    })
+    let field = field.to_string();
+    match name {
+        "named-field" => Some(UnitShape::NamedField { field }),
+        "named-field-or-file" => Some(UnitShape::NamedFieldOrFile { field }),
+        _ => None,
+    }
 }
 
 /// Parse a [`KindFactRow::commitment`] label into its typed [`Commitment`] — `None` for
@@ -1794,6 +1805,12 @@ mod tests {
         assert_eq!(
             unit_shape_from_label("named-field(name)"),
             Some(UnitShape::NamedField {
+                field: field("name")
+            })
+        );
+        assert_eq!(
+            unit_shape_from_label("named-field-or-file(name)"),
+            Some(UnitShape::NamedFieldOrFile {
                 field: field("name")
             })
         );

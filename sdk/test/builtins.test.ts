@@ -38,6 +38,8 @@ import {
   mcpServerDefaultContract,
   memory,
   memoryAnthropicDefaultContract,
+  outputStyle,
+  outputStyleDefaultContract,
   pluginManifest,
   pluginManifestDefaultContract,
   rule,
@@ -1093,6 +1095,30 @@ test("agent is a named-field unit whose identity comes from its own name field",
   assert.deepEqual(agent.facts.locus, { kind: "at", root: ".claude/agents", glob: "**/*.md" });
 });
 
+test("output-style is a lenient markdown file named by its name field, else its stem", () => {
+  assert.equal(outputStyle.facts.name, "output-style");
+  assert.deepEqual(outputStyle.facts.locus, { kind: "at", root: ".claude/output-styles", glob: "*.md" });
+  assert.equal(outputStyle.facts.format, "yaml-frontmatter");
+  assert.deepEqual("leniency" in outputStyle.facts && outputStyle.facts.leniency, ["malformed-yaml"]);
+  assert.equal(outputStyle.facts.unitShape, "named-field-or-file");
+  assert.equal(outputStyle.facts.identityField, "name");
+  assert.deepEqual(outputStyle.facts.registration, []);
+  assert.deepEqual(outputStyleDefaultContract, []);
+
+  const result = emit(
+    harness({
+      members: [outputStyle({ name: "terse", "keep-coding-instructions": true, prose: text`Be brief.` })],
+    }),
+  );
+  const row = result.declarations.kinds.find((k) => k.name === "output-style")!;
+  assert.equal(row.unit_shape, "named-field-or-file(name)");
+  const member = result.members.find((m) => m.kind === "output-style")!;
+  assert.deepEqual(member.fields, [
+    ["name", "terse"],
+    ["keep-coding-instructions", true],
+  ]);
+});
+
 test("skill/command register on both documented invocation channels; agent/rule/memory carry a singleton set", () => {
   assert.deepEqual(skill.facts.registration, [
     { via: "user-invoked" },
@@ -1481,7 +1507,13 @@ test("relocating memory off `.` drops the base exclusions its new template no lo
 test("relocating memory onto the same reach keeps every base exclusion", () => {
   const sameReach = relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" } });
   const row = memoryKindRow(sameReach);
-  assert.deepEqual(row.exclude, [".claude/agents", ".claude/commands", ".claude/rules", ".claude/skills"]);
+  assert.deepEqual(row.exclude, [
+    ".claude/agents",
+    ".claude/commands",
+    ".claude/output-styles",
+    ".claude/rules",
+    ".claude/skills",
+  ]);
 });
 
 test("a relocation keeps exactly the base exclusions its new template still reaches", () => {
@@ -1491,6 +1523,7 @@ test("a relocation keeps exactly the base exclusions its new template still reac
   assert.deepEqual(memoryKindRow(underClaude).exclude, [
     ".claude/agents",
     ".claude/commands",
+    ".claude/output-styles",
     ".claude/rules",
     ".claude/skills",
   ]);
@@ -1537,6 +1570,7 @@ test("a relocation's authored exclusion follows the reached base exclusions", ()
   assert.deepEqual(memoryKindRow(docsMemory).exclude, [
     ".claude/agents",
     ".claude/commands",
+    ".claude/output-styles",
     ".claude/rules",
     ".claude/skills",
     "vendor",

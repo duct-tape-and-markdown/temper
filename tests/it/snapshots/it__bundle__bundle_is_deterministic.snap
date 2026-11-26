@@ -17,6 +17,7 @@ expression: files
     "skills/temper/kind-mcp-server.md",
     "skills/temper/kind-mcp.md",
     "skills/temper/kind-memory.md",
+    "skills/temper/kind-output-style.md",
     "skills/temper/kind-plugin-manifest.md",
     "skills/temper/kind-rule.md",
     "skills/temper/kind-settings.md",
