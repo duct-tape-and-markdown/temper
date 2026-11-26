@@ -926,6 +926,9 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
         base: base.to_string(),
         reason,
     };
+    // An embedded kind is named by the host that templates it and need take no row of its
+    // own, so a base hosted that way ends the chain with no facts to inherit.
+    let hosted = hosted_embedded_kinds(kinds);
     let mut ordered: Vec<(usize, String)> = Vec::new();
     for kind in kinds.values() {
         let Some(base) = &kind.base else { continue };
@@ -934,6 +937,9 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
         let mut at = base.as_str();
         loop {
             let Some(next) = kinds.get(at) else {
+                if hosted.contains(at) && kind.governs.is_none() {
+                    break;
+                }
                 return Err(refuse(
                     kind,
                     base,
@@ -957,7 +963,9 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
         let Some(base_name) = sub.base.clone() else {
             continue;
         };
-        let base = &kinds[&base_name];
+        let Some(base) = kinds.get(&base_name) else {
+            continue;
+        };
         // A nested subkind governs no path: the host template naming it places its
         // documents, so it cedes nothing and the base keeps every placement its own hosts give.
         let ceded = match (&sub.governs, &base.governs) {
@@ -1010,6 +1018,29 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
         }
     }
     Ok(())
+}
+
+/// Every kind some kind in `kinds` names as an embedded child: a path-less template layer,
+/// or a layout collection's member kind.
+fn hosted_embedded_kinds(kinds: &BTreeMap<String, CustomKind>) -> BTreeSet<String> {
+    let mut hosted = BTreeSet::new();
+    for kind in kinds.values() {
+        let templated = kind
+            .templates
+            .iter()
+            .filter(|template| template.path.is_none())
+            .map(|template| template.kind.clone());
+        hosted.extend(templated);
+        if let kind::Content::Layout(layout) = &kind.content {
+            hosted.extend(layout.regions.iter().filter_map(|region| match region {
+                crate::layout::LayoutRegion::Collection { member_kind, .. } => {
+                    Some(member_kind.clone())
+                }
+                _ => None,
+            }));
+        }
+    }
+    hosted
 }
 
 /// A custom kind row's own lift, taken off the run's published effective kind set rather

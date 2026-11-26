@@ -543,7 +543,13 @@ pub fn gate(
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             contract,
-            Vec::new(),
+            compose::inherited_clauses(
+                &declarations,
+                &joined_clauses,
+                &declared_kinds,
+                &builtin_defs,
+                kind,
+            )?,
             &engine::Locus::Embedded(kind.clone()),
             features,
             Some(&dial),

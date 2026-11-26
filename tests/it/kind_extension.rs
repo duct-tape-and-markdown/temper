@@ -530,3 +530,105 @@ fn a_clause_bound_to_the_nested_base_judges_the_nested_subkinds_member() {
         run.output
     );
 }
+
+/// `strict-charter` extends the layout kind `charter` over `specs/strict-*.md` and names
+/// `strict-invariant` — a subkind of the embedded `invariant`, which no row declares — as
+/// its collection's member kind in place of its base's. Both hosts are `local`, so `check`
+/// reads their documents in place.
+fn charter_and_strict_invariant() -> Vec<KindFactRow> {
+    let layout = |member_kind: &str| temper::drift::LayoutRow {
+        regions: vec![temper::drift::LayoutRegionRow {
+            region: "collection".to_string(),
+            import: None,
+            slot: None,
+            member_kind: Some(member_kind.to_string()),
+            key: None,
+        }],
+    };
+    vec![
+        KindFactRow {
+            content: Some(layout("invariant")),
+            commitment: Some("local".to_string()),
+            ..common::kind_facts("charter", "specs", "*.md")
+        },
+        KindFactRow {
+            base: Some("charter".to_string()),
+            content: Some(layout("strict-invariant")),
+            commitment: Some("local".to_string()),
+            ..common::kind_facts("strict-charter", "specs", "strict-*.md")
+        },
+        KindFactRow {
+            base: Some("invariant".to_string()),
+            governs_root: None,
+            governs_glob: None,
+            ..common::kind_facts("strict-invariant", "", "")
+        },
+    ]
+}
+
+fn write_charter(root: &Path, name: &str) {
+    let path = root.join("specs").join(format!("{name}.md"));
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(
+        path,
+        "# Charter\n\n## Invariants\n\n### Loud\nNever silent.\n",
+    )
+    .unwrap();
+}
+
+fn strict_invariant_requires_test() -> ClauseRow {
+    ClauseRow {
+        label: Some("strict-invariant.required.test".to_string()),
+        kind: Some("strict-invariant".to_string()),
+        field: Some("test".to_string()),
+        ..common::clause("required", "required")
+    }
+}
+
+#[test]
+fn an_embedded_member_under_an_extended_host_is_checked_against_the_subkinds_fields() {
+    let root = common::tmpdir("embedded-subkind-member");
+    write_charter(&root, "strict-core");
+    write_charter(&root, "plain");
+    let run = check_with_clauses(
+        &root,
+        charter_and_strict_invariant(),
+        vec![strict_invariant_requires_test()],
+    );
+    let flagged: Vec<&str> = run
+        .output
+        .lines()
+        .filter(|line| line.contains("strict-invariant.required.test"))
+        .collect();
+    assert!(
+        flagged.len() == 1 && flagged[0].contains("strict-core"),
+        "the subkind's clause judges the extended host's member alone, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_clause_bound_to_the_embedded_base_judges_the_embedded_subkinds_member() {
+    let root = common::tmpdir("embedded-subkind-base-clause");
+    write_charter(&root, "strict-core");
+    write_charter(&root, "plain");
+    let run = check_with_clauses(
+        &root,
+        charter_and_strict_invariant(),
+        vec![ClauseRow {
+            label: Some("invariant.required.test".to_string()),
+            kind: Some("invariant".to_string()),
+            ..strict_invariant_requires_test()
+        }],
+    );
+    let flagged = run
+        .output
+        .lines()
+        .filter(|line| line.contains("invariant.required.test"))
+        .count();
+    assert_eq!(
+        flagged, 2,
+        "the base's clause judges its own member and the subkind's, got:\n{}",
+        run.output
+    );
+}

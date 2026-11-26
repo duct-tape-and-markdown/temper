@@ -2983,3 +2983,57 @@ test("a nested subkind declares no locus, and a host's template names a subkind 
     /extends no kind/,
   );
 });
+
+test("extend accepts an embedded base named by an extended host", () => {
+  const invariant = embeddedKind<Record<never, never>>("invariant");
+  const charter = kind<Record<never, never>>({
+    name: "charter",
+    locus: { kind: "at", root: "specs", glob: "*.md" },
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    content: { regions: [{ region: "prose" }, { region: "collection", memberKind: "invariant" }] },
+  });
+  const strictInvariant = sdk.extend<Record<never, never>, Record<never, never>>(invariant, {
+    name: "strict-invariant",
+  });
+  assert.equal(strictInvariant.facts.locus.kind, "embedded");
+  assert.equal(strictInvariant.facts.base, "invariant");
+  const strictCharter = sdk.extend<Record<never, never>, Record<never, never>>(charter, {
+    name: "strict-charter",
+    governs: { root: "specs", glob: "strict-*.md" },
+    template: strictInvariant,
+  });
+  const declarations = compileDeclarations(
+    harness({ members: [strictCharter({ name: "strict-core", prose: text`# Core` })] }),
+  );
+
+  // The extended host names the subkind where its base named `invariant`.
+  const hostRow = declarations.kinds.find((k) => k.name === "strict-charter")!;
+  assert.equal(hostRow.base, "charter");
+  assert.deepEqual(hostRow.content?.regions, [
+    { region: "prose", import: undefined },
+    { region: "collection", member_kind: "strict-invariant", key: undefined },
+  ]);
+  assert.deepEqual(hostRow.templates, [{ kind: "strict-invariant", path: undefined }]);
+  // Declaring nothing of its own beyond its base, the subkind still takes a row: the
+  // engine binds it to its base off that row alone.
+  const childRow = declarations.kinds.find((k) => k.name === "strict-invariant")!;
+  assert.equal(childRow.base, "invariant");
+  assert.equal(childRow.governs_root, undefined);
+  assert.equal(childRow.governs_glob, undefined);
+  // The base host keeps its own collection.
+  assert.equal(charter.facts.content?.regions[1]?.region === "collection" && charter.facts.content.regions[1].memberKind, "invariant");
+
+  assert.throws(
+    () =>
+      sdk.extend<Record<never, never>, Record<never, never>>(invariant, {
+        name: "loose-invariant",
+        governs: { root: "specs", glob: "*.md" },
+      }),
+    /placed by its host's template, so its subkind declares no locus/,
+  );
+  assert.throws(
+    () => sdk.extend<Rule, Rule>(rule, { name: "standard", template: strictInvariant }),
+    /the host templates no `invariant` layer/,
+  );
+});

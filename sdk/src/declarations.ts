@@ -575,7 +575,7 @@ function atLocusKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
  * unconditionally (a nested-file kind owns a file the engine must place, and places it
  * off its row, though it governs no glob to be discovered at), plus an embedded kind that
  * has something of its own for a row to carry: `guidance` or `cite` (decision 0045), or a
- * declared leaf set (decision 0053). The leaf set is on this list for the reason the
+ * declared leaf set (decision 0053), or a `base` — a subkind the engine binds off its row. The leaf set is on this list for the reason the
  * column exists — it teaches what a child carries *before* the surface holds a member of
  * it, and an embedded kind taking no row never reaches the lock to teach it. An embedded
  * kind declaring none of the three has nothing for the row to carry, and its members
@@ -586,6 +586,7 @@ function kindFactKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
   return allKinds.filter(
     (facts) =>
       facts.locus.kind !== "embedded" ||
+      facts.base !== undefined ||
       facts.guidance !== undefined ||
       facts.cite !== undefined ||
       facts.leaves !== undefined,
