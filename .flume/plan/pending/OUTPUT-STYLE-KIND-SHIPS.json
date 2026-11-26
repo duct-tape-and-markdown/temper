@@ -1,11 +1,9 @@
 {
   "tag": "OUTPUT-STYLE-KIND-SHIPS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "FRONTMATTER-LOADS-AS-THE-RUNTIME-LOADS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [
@@ -102,5 +100,6 @@
     "a claude output styles folder never fires unclaimed entry"
   ],
   "pins": [],
+  "laneTests": [],
   "notes": "Fields and identity: code.claude.com/docs/en/output-styles (retrieved 2026-11-25): name, description, keep-coding-instructions, force-for-plugin; 'The file name becomes the style name unless you set name'; unparseable YAML loads under the file name with no fields set, so it declares the frontmatter leniency. Template for the change: 4dd7cfb5 (known-marketplace)."
 }
