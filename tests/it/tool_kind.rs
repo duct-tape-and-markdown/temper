@@ -282,6 +282,69 @@ fn a_package_bin_tool_reads_its_version_from_pnpm_lock_yaml() {
     );
 }
 
+/// Assert the reference, `explain` and `check` all read `typescript` 5.9.3 from `lock`.
+fn assert_locked_by(harness: &std::path::Path, lock: &str) {
+    let topic = tool_topic(harness);
+    assert!(
+        topic.contains(&format!("version 5.9.3, locked by `{lock}`")),
+        "the reference shows the locked version: {topic}"
+    );
+    let narration = common::explain_in(harness, "member:root/tool/tsc");
+    assert!(
+        narration.contains(&format!(
+            "`typescript` 5.9.3, locked by the program's `{lock}`"
+        )),
+        "explain shows the locked version: {narration}"
+    );
+    let run = common::check_in(harness, &["."], Some("github"));
+    assert!(
+        common::findings_for(&run.findings(), "tool.unlocked").is_empty(),
+        "a locked package draws no finding: {}",
+        run.output
+    );
+}
+
+#[test]
+fn a_workspace_root_lockfile_above_the_program_locks_a_package_bin_tool() {
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("tool-root-lock", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(&harness, "pnpm-workspace.yaml", "packages:\n  - .temper\n");
+    common::write_sibling(
+        &harness,
+        "pnpm-lock.yaml",
+        "lockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    devDependencies:\n      typescript:\n        specifier: ^4.0.0\n        version: 4.9.5\n\n  .temper:\n    devDependencies:\n      typescript:\n        specifier: ^5.6.0\n        version: 5.9.3\n\npackages:\n\n  typescript@5.9.3:\n    resolution: {integrity: sha512-x}\n",
+    );
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+    assert_locked_by(&harness, "pnpm-lock.yaml");
+
+    // npm's workspace lock: the project's own `node_modules` before the hoisted root.
+    let (harness, into) = common::wire_sdk_harness("tool-root-npm-lock", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(
+        &harness,
+        "package-lock.json",
+        r#"{ "lockfileVersion": 3, "packages": {
+  "": { "workspaces": [".temper"] },
+  "node_modules/typescript": { "version": "4.9.5" },
+  ".temper/node_modules/typescript": { "version": "5.9.3" } } }
+"#,
+    );
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+    assert_locked_by(&harness, "package-lock.json");
+}
+
+#[test]
+fn a_pnpm_lockfile_with_a_leading_env_document_locks_a_package_bin_tool() {
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("tool-pnpm-env-lock", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(
+        &into,
+        "pnpm-lock.yaml",
+        "---\nlockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    configDependencies: {}\n    packageManagerDependencies:\n      pnpm:\n        specifier: 10.0.0\n        version: 10.0.0\n\npackages:\n\n  pnpm@10.0.0:\n    resolution: {integrity: sha512-y}\n\nsnapshots:\n\n  pnpm@10.0.0: {}\n\n---\nlockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n\nimporters:\n\n  .:\n    devDependencies:\n      typescript:\n        specifier: ^5.6.0\n        version: 5.9.3\n\npackages:\n\n  typescript@5.9.3:\n    resolution: {integrity: sha512-x}\n",
+    );
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+    assert_locked_by(&harness, "pnpm-lock.yaml");
+}
+
 #[test]
 fn a_package_bin_tool_missing_from_the_lockfile_is_a_finding() {
     common::ensure_sdk_built();

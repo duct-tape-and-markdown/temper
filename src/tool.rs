@@ -2,23 +2,26 @@
 //! the version a `{ package, bin }` tool runs at — its program's lockfile's, never a
 //! restatement (`specs/model/authoring.md`, "The SDK"; decision 0104).
 //!
-//! Two lockfiles are read, both from the program's workspace (where its `package.json`
-//! sits and its package manager lays out `node_modules/.bin`): npm's
-//! `package-lock.json` and pnpm's `pnpm-lock.yaml`, the latter through `gray_matter`'s
-//! YAML engine, the sanctioned crate's reader. Any other lockfile there, with neither of
-//! those beside it, refuses loudly by name: a version temper cannot read is never guessed
-//! and never silently skipped. A package the lockfile does not record — or a workspace
-//! carrying no lockfile at all — is an advisory finding on the tool.
+//! Two lockfiles are read, from the nearest directory at or above the program's workspace
+//! that carries one — a package-manager workspace keeps its one lock at its root, keyed
+//! by each project's path: npm's `package-lock.json` and pnpm's `pnpm-lock.yaml`, the
+//! latter through `gray_matter`'s YAML engine, the sanctioned crate's reader. Any other
+//! lockfile there, with neither of those beside it, refuses loudly by name: a version
+//! temper cannot read is never guessed and never silently skipped. A package the lockfile
+//! does not record — or no lockfile at all — is an advisory finding on the tool.
 //!
 //! The lockfile formats are external facts:
 //! - `package-lock.json` (lockfileVersion 2/3: `packages["node_modules/<name>"]`, a
 //!   `link: true` entry resolving to `packages[<resolved>]`; lockfileVersion 1:
 //!   `dependencies[<name>].version`) — <https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json>
-//!   (retrieved 2026-11-25).
-//! - `pnpm-lock.yaml` (`importers["."].{dependencies,devDependencies,optionalDependencies}
+//!   (retrieved 2026-11-25); a workspace project's own `<path>/node_modules/<name>`
+//!   before the hoisted root one.
+//! - `pnpm-lock.yaml` (`importers[<path> or "."].{dependencies,devDependencies,optionalDependencies}
 //!   [<name>].version`, a peer-resolution suffix `(…)` after the version; lockfile v5's
 //!   top-level dependency maps of bare version strings) —
-//!   <https://github.com/pnpm/spec/blob/master/lockfile/9.0.md> (retrieved 2026-11-25).
+//!   <https://github.com/pnpm/spec/blob/master/lockfile/9.0.md> (retrieved 2026-11-25);
+//!   a leading boot (env) document before the project's, each opened by a `---` line —
+//!   <https://pnpm.io/lockfile> (retrieved 2026-11-25).
 
 use std::path::{Path, PathBuf};
 
@@ -128,14 +131,18 @@ pub fn package_tools(rows: &[NestedMemberRow]) -> Vec<PackageTool<'_>> {
 #[derive(Debug)]
 enum LockDocument {
     Npm(JsonValue),
-    Pnpm(Pod),
+    /// Every YAML document in the file, in order.
+    Pnpm(Vec<Pod>),
 }
 
-/// The workspace's read lockfile: its file name and its parsed document.
+/// The program's read lockfile: its file name, its parsed document, and the program's
+/// path relative to the lockfile's directory.
 #[derive(Debug)]
 pub struct Lockfile {
     name: &'static str,
     document: LockDocument,
+    /// `/`-separated; empty when the lockfile sits in the program's own workspace.
+    importer: String,
 }
 
 impl Lockfile {
@@ -150,22 +157,45 @@ impl Lockfile {
     #[must_use]
     pub fn version(&self, package: &str) -> Option<String> {
         match &self.document {
-            LockDocument::Npm(document) => npm_version(document, package),
-            LockDocument::Pnpm(document) => pnpm_version(document, package),
+            LockDocument::Npm(document) => npm_version(document, &self.importer, package),
+            LockDocument::Pnpm(documents) => documents
+                .iter()
+                .find_map(|document| pnpm_version(document, &self.importer, package)),
         }
     }
 }
 
-/// Read the lockfile in `workspace`: `package-lock.json`, else `pnpm-lock.yaml`. `None`
-/// when the workspace carries no lockfile at all.
+/// Read the lockfile of the program in `workspace`: from the nearest directory at or above
+/// it carrying any lockfile, `package-lock.json` there, else `pnpm-lock.yaml`. `None` when
+/// no directory up to the filesystem root carries one.
 ///
 /// # Errors
-/// [`ToolLockError::Unsupported`] when only another manager's lockfile is there, naming
-/// it; [`ToolLockError::Read`] / [`ToolLockError::Malformed`] when the read lockfile
-/// cannot be read or parsed.
+/// [`ToolLockError::Unsupported`] when that directory holds only another manager's
+/// lockfile, naming it; [`ToolLockError::Read`] / [`ToolLockError::Malformed`] when the
+/// read lockfile cannot be read or parsed.
 pub fn read_lockfile(workspace: &Path) -> Result<Option<Lockfile>, ToolLockError> {
+    // Absolute so a relative workspace still walks its real ancestors; not canonical, so
+    // the importer path is the one the author's tree spells.
+    let workspace = std::path::absolute(workspace).unwrap_or_else(|_| workspace.to_path_buf());
+    for dir in workspace.ancestors() {
+        if let Some(lockfile) = read_lockfile_in(dir, &workspace)? {
+            return Ok(Some(lockfile));
+        }
+    }
+    Ok(None)
+}
+
+/// The lockfile in `dir` alone, for the program in `workspace` (`dir` or below it).
+fn read_lockfile_in(dir: &Path, workspace: &Path) -> Result<Option<Lockfile>, ToolLockError> {
+    let importer = workspace
+        .strip_prefix(dir)
+        .unwrap_or(Path::new(""))
+        .components()
+        .map(|part| part.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/");
     for name in READ_LOCKFILES {
-        let path = workspace.join(name);
+        let path = dir.join(name);
         if !path.is_file() {
             continue;
         }
@@ -182,33 +212,65 @@ pub fn read_lockfile(workspace: &Path) -> Result<Option<Lockfile>, ToolLockError
                 serde_json::from_str(&text).map_err(|error| malformed(error.to_string()))?,
             )
         } else {
-            // `gray_matter` collapses a YAML parse failure to `Null`, and a lockfile is
-            // never empty, so `Null` is the malformed signal.
-            match YAML::parse(&text) {
-                Pod::Null => return Err(malformed("not a YAML mapping".to_string())),
-                document => LockDocument::Pnpm(document),
-            }
+            LockDocument::Pnpm(pnpm_documents(&text).map_err(malformed)?)
         };
-        return Ok(Some(Lockfile { name, document }));
+        return Ok(Some(Lockfile {
+            name,
+            document,
+            importer,
+        }));
     }
     if let Some(name) = UNREAD_LOCKFILES
         .iter()
-        .find(|name| workspace.join(name).is_file())
+        .find(|name| dir.join(name).is_file())
     {
         return Err(ToolLockError::Unsupported {
-            path: workspace.join(name),
+            path: dir.join(name),
         });
     }
     Ok(None)
 }
 
-/// `package`'s version in an npm lockfile: v2/v3's `packages` map first (a linked
-/// package's entry carries no version, so it resolves through to the linked folder's),
-/// then v1's `dependencies`.
-fn npm_version(document: &JsonValue, package: &str) -> Option<String> {
+/// Every document of a pnpm lockfile. `gray_matter`'s engine yields only a text's first
+/// document, so the text is split at its `---` marker lines — pnpm's block-style output
+/// indents every nested line, so a bare `---` line is only ever a document boundary.
+fn pnpm_documents(text: &str) -> Result<Vec<Pod>, String> {
+    let mut chunks = vec![String::new()];
+    for line in text.lines() {
+        if line.trim_end() == "---" {
+            chunks.push(String::new());
+        } else if let Some(chunk) = chunks.last_mut() {
+            chunk.push_str(line);
+            chunk.push('\n');
+        }
+    }
+    let documents: Vec<Pod> = chunks
+        .iter()
+        .filter(|chunk| !chunk.trim().is_empty())
+        // `gray_matter` collapses a YAML parse failure to `Null`, and a lockfile document
+        // is never empty, so `Null` is the malformed signal.
+        .map(|chunk| match YAML::parse(chunk) {
+            Pod::Null => Err("not a YAML mapping".to_string()),
+            document => Ok(document),
+        })
+        .collect::<Result<_, _>>()?;
+    if documents.is_empty() {
+        return Err("not a YAML mapping".to_string());
+    }
+    Ok(documents)
+}
+
+/// `package`'s version in an npm lockfile: v2/v3's `packages` map first — the importer's
+/// own `node_modules` before the hoisted root one, and a linked package's entry carries
+/// no version, so it resolves through to the linked folder's — then v1's `dependencies`.
+fn npm_version(document: &JsonValue, importer: &str, package: &str) -> Option<String> {
     let string = |value: &JsonValue| value.as_str().map(str::to_string);
     if let Some(packages) = document.get("packages") {
-        let entry = packages.get(format!("node_modules/{package}"))?;
+        let hoisted = format!("node_modules/{package}");
+        let entry = (!importer.is_empty())
+            .then(|| packages.get(format!("{importer}/{hoisted}")))
+            .flatten()
+            .or_else(|| packages.get(&hoisted))?;
         if let Some(version) = entry.get("version").and_then(string) {
             return Some(version);
         }
@@ -227,15 +289,17 @@ fn npm_version(document: &JsonValue, package: &str) -> Option<String> {
         .and_then(string)
 }
 
-/// `package`'s version in a pnpm lockfile: the root importer's dependency groups (v6+),
+/// `package`'s version in one pnpm lockfile document: the importer's dependency groups (v6+),
 /// else the top-level groups (v5). A group entry is a mapping carrying `version`, or (v5)
 /// the bare version string; a peer-resolution suffix is not part of the version.
-fn pnpm_version(document: &Pod, package: &str) -> Option<String> {
+fn pnpm_version(document: &Pod, importer: &str, package: &str) -> Option<String> {
     let Pod::Hash(top) = document else {
         return None;
     };
     let root = match top.get("importers") {
-        Some(Pod::Hash(importers)) => importers.get("."),
+        Some(Pod::Hash(importers)) => {
+            importers.get(if importer.is_empty() { "." } else { importer })
+        }
         _ => Some(document),
     };
     let Some(Pod::Hash(root)) = root else {
@@ -345,9 +409,13 @@ mod tests {
         let document = if name == NPM_LOCKFILE {
             LockDocument::Npm(serde_json::from_str(text).unwrap())
         } else {
-            LockDocument::Pnpm(YAML::parse(text))
+            LockDocument::Pnpm(pnpm_documents(text).unwrap())
         };
-        Lockfile { name, document }
+        Lockfile {
+            name,
+            document,
+            importer: String::new(),
+        }
     }
 
     #[test]
