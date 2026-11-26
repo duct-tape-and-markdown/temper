@@ -467,14 +467,14 @@ export const rule: KindDefinition<Rule> = kind<Rule>({
     "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
 });
 
-/** A Claude Code memory file — `CLAUDE.md`, loaded in full at launch, no frontmatter. */
+/** A Claude Code memory file — `CLAUDE.md` or `AGENTS.md`, loaded whole, no frontmatter. */
 export interface Memory {
   readonly prose?: Prose;
 }
 
 /**
- * `memory` — a root `<name>.md` (`CLAUDE.md`, `AGENTS.md`), a lone file loaded
- * unconditionally, with **no frontmatter** (code.claude.com/docs/en/memory,
+ * `memory` — a `CLAUDE.md` or `AGENTS.md`, a lone file loaded whole, with **no
+ * frontmatter** (code.claude.com/docs/en/memory,
  * retrieved 2026-07-15): the whole file is the body, so the kind declares no
  * `format`. A project `CLAUDE.md` may sit at either `./CLAUDE.md` or
  * `./.claude/CLAUDE.md` — equal documented locations (same source) — and the
@@ -490,13 +490,24 @@ export interface Memory {
  * memory docs describe no `CLAUDE.md` inside them loading as memory, and the rules
  * loader discovers every `.md` under `.claude/rules/` recursively
  * (code.claude.com/docs/en/memory, retrieved 2026-11-24; decision 0084).
+ *
+ * The second template claims `AGENTS.md` at any depth, gated by absence: "By default,
+ * Claude reads `AGENTS.md` only when you have no `CLAUDE.md` in your working directory
+ * or above it", and what counts is "a `CLAUDE.md`, `.claude/CLAUDE.md`, or
+ * `CLAUDE.local.md` in your working directory or any directory above it"; reading it
+ * directly "requires Claude Code v2.1.277 or later" (code.claude.com/docs/en/memory,
+ * "AGENTS.md", retrieved 2026-11-26). An `AGENTS.md` a `CLAUDE.md` shadows is still a
+ * member, and an `@AGENTS.md` import still loads it.
  */
 export const memory: KindDefinition<Memory> = kind<Memory>({
   name: "memory",
   locus: {
     kind: "at",
     root: ".",
-    glob: "**/CLAUDE.md",
+    glob: [
+      "**/CLAUDE.md",
+      { glob: "**/AGENTS.md", absent: ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] },
+    ],
     exclude: [
       ".claude/agents",
       ".claude/commands",

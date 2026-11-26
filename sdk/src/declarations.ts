@@ -14,7 +14,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
 import type { EdgeField, EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
-import { baseOf, collectionAddressOf, edgeTargetNames, manifestOf, registrationOf, templatesOf } from "./kind.js";
+import { absenceGatesOf, baseOf, collectionAddressOf, edgeTargetNames, manifestOf, registrationOf, templatesOf } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
@@ -431,6 +431,9 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     commitment: governs?.commitment,
     // Spread rather than an `undefined` column: a row excluding nothing carries no key.
     ...(governs?.exclude?.length ? { exclude: [...governs.exclude] } : {}),
+    ...(governs !== undefined && absenceGatesOf(governs).length
+      ? { absence_gate: absenceGatesOf(governs).map((gate) => ({ template: gate.glob, absent: [...gate.absent] })) }
+      : {}),
     ...("leniency" in facts && facts.leniency?.length ? { leniency: [...facts.leniency] } : {}),
     format: facts.format,
     unit_shape: unitShapeLabel(facts),

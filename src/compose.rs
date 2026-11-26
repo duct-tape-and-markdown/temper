@@ -668,6 +668,7 @@ pub fn overlay_builtin_kind(
         // relocation's included, whose row repeats the built-in's own root and glob —
         // so the row's column is the whole set.
         overlaid.excluded = row.exclude.clone();
+        overlaid.absence_gates = kind::absence_gates_from_row(row)?;
     }
     if !row.templates.is_empty() {
         overlaid = overlaid.overlay_templates(&row.templates);

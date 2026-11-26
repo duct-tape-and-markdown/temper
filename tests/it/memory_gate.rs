@@ -364,3 +364,93 @@ fn an_unbacked_import_ending_in_a_period_says_the_period_is_part_of_the_path() {
         unbacked[0]
     );
 }
+
+/// Write a memory file at `relative` under `root` with a body of `lines` total lines.
+fn write_memory_file(root: &Path, relative: &str, lines: usize) {
+    let mut body = String::from("# Instructions\n");
+    for i in 1..lines {
+        body.push_str(&format!("Guidance line {i}.\n"));
+    }
+    write_sibling(root, relative, &body);
+}
+
+#[test]
+fn a_harness_with_only_an_agents_md_at_root_has_it_as_a_reachable_memory_member() {
+    let harness = common::tmpdir("agents-md-only");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    // Over the memory budget, so the `extent` advisory proves the file is a memory member.
+    write_memory_file(&harness, "AGENTS.md", 251);
+
+    let findings = check_harness(&harness).0;
+    let extent = common::findings_for(&findings, "memory.extent");
+    assert!(
+        extent.len() == 1 && extent[0].contains("::AGENTS:"),
+        "the root AGENTS.md is a memory member, got: {findings:#?}"
+    );
+    assert!(
+        common::findings_for(&findings, "root.reachable").is_empty(),
+        "with no CLAUDE.md at or above, the AGENTS.md is loaded, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn an_agents_md_beside_a_claude_md_with_no_import_draws_a_not_loaded_reachability_finding() {
+    let harness = common::tmpdir("agents-md-shadowed");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_claude_md(&harness, 3);
+    write_memory_file(&harness, "AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    let unreached = common::findings_for(&findings, "root.reachable");
+    assert_eq!(
+        unreached.len(),
+        1,
+        "the shadowed AGENTS.md alone is unreachable, got: {findings:#?}"
+    );
+    assert!(
+        unreached[0].contains("`AGENTS`") && unreached[0].contains("`CLAUDE.md`"),
+        "the finding names the member and the CLAUDE.md that shadows it, got: {}",
+        unreached[0]
+    );
+}
+
+#[test]
+fn a_nested_agents_md_under_a_claude_local_md_above_it_is_shadowed_and_a_sibling_tree_is_not() {
+    let harness = common::tmpdir("agents-md-nested");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_sibling(&harness, "apps/CLAUDE.local.md", "# Local\n");
+    write_memory_file(&harness, "apps/web/AGENTS.md", 3);
+    write_memory_file(&harness, "tools/AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    let unreached = common::findings_for(&findings, "root.reachable");
+    assert_eq!(
+        unreached.len(),
+        1,
+        "only the AGENTS.md under the CLAUDE.local.md is shadowed, got: {findings:#?}"
+    );
+    assert!(
+        unreached[0].contains("`apps:web:AGENTS`")
+            && unreached[0].contains("`apps/CLAUDE.local.md`"),
+        "the finding names the nested member and its shadowing file, got: {}",
+        unreached[0]
+    );
+}
+
+#[test]
+fn a_claude_md_importing_agents_md_reaches_it_through_the_import_edge() {
+    let harness = common::tmpdir("agents-md-imported");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_memory_file(&harness, "AGENTS.md", 3);
+    write_claude_md_importing(&harness, "@AGENTS.md");
+
+    let findings = check_harness(&harness).0;
+    assert!(
+        common::findings_for(&findings, "root.reachable").is_empty(),
+        "the import reaches the shadowed AGENTS.md, got: {findings:#?}"
+    );
+    assert!(
+        common::findings_for(&findings, "root.import-backed").is_empty(),
+        "the import resolves, got: {findings:#?}"
+    );
+}

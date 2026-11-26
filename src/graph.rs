@@ -1224,6 +1224,7 @@ pub fn reachable(
     registrations: &BTreeMap<&str, Vec<Registration>>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
+    gated: &AbsenceGated,
     resolved: &[ResolvedEdge],
     directives: &[ResolvedEdge],
 ) -> Vec<Diagnostic> {
@@ -1235,23 +1236,47 @@ pub fn reachable(
     let edges = reachability_arcs(resolved, directives);
     // The reachability closure: every member reachable from the world — own registration
     // live, or reached along a directive edge from a live importer within the hop cap.
-    let live = live_members(registrations, by_kind, repo_files, &edges);
+    let live = live_members(registrations, by_kind, repo_files, gated, &edges);
     let mut diagnostics = Vec::new();
-    for (kind, channels) in registrations {
-        let members = by_kind.get(kind).copied().unwrap_or(&[]);
-        for member in members {
-            // Fire only when every channel is dead *and* no live importer reaches the
-            // member — conditional inheritance: a dead-own member imported by a reachable
-            // one is live, so it stays silent.
-            if let Some(reason) = dead_channel_set(channels, member, repo_files) {
-                let node = ((*kind).to_string(), member.id.clone());
-                if !live.contains(&node) {
-                    diagnostics.push(unreachable(&world, kind, &member.id, &reason, clause));
-                }
+    for (kind, members) in by_kind {
+        for member in *members {
+            // Fire only when the member's own edge is dead *and* no live importer reaches
+            // it — conditional inheritance: a dead-own member imported by a reachable one
+            // is live, so it stays silent.
+            let node = ((*kind).to_string(), member.id.clone());
+            if let Some(reason) = own_dead_reason(registrations, kind, member, repo_files, gated)
+                && !live.contains(&node)
+            {
+                diagnostics.push(unreachable(&world, kind, &member.id, &reason, clause));
             }
         }
     }
     diagnostics
+}
+
+/// The members whose template's **absence gate** is closed, each with the reason the
+/// finding names: a document the gate lists sits at or above them, so every channel
+/// their kind declares stays shut whatever its fields say. Built where member paths
+/// and the disk are in hand (`gate::absence_gated`).
+pub type AbsenceGated = BTreeMap<Node, String>;
+
+/// Why a member's own registration edge from the world is dead, or [`None`] when it is
+/// live: a closed absence gate shuts every channel, and otherwise the member is dead
+/// only when its kind declares channels and [`dead_channel_set`] finds each one dead. A
+/// kind declaring no registration loads its members unconditionally.
+fn own_dead_reason(
+    registrations: &BTreeMap<&str, Vec<Registration>>,
+    kind: &str,
+    member: &Features,
+    repo_files: &[String],
+    gated: &AbsenceGated,
+) -> Option<String> {
+    if let Some(reason) = gated.get(&(kind.to_string(), member.id.clone())) {
+        return Some(reason.clone());
+    }
+    registrations
+        .get(kind)
+        .and_then(|channels| dead_channel_set(channels, member, repo_files))
 }
 
 /// The one arc set liveness propagates along: the resolved declared references chained
@@ -1285,11 +1310,12 @@ pub(crate) fn reachability_orphaned(
     registrations: &BTreeMap<&str, Vec<Registration>>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
+    gated: &AbsenceGated,
     resolved: &[ResolvedEdge],
     directives: &[ResolvedEdge],
 ) -> Vec<Node> {
     let edges = reachability_arcs(resolved, directives);
-    let live_before = live_members(registrations, by_kind, repo_files, &edges);
+    let live_before = live_members(registrations, by_kind, repo_files, gated, &edges);
 
     // The graph with `removed` excised: its kind loses the member, and every arc
     // touching it (in or out) goes with it. Owned so the reduced corpus outlives
@@ -1316,7 +1342,13 @@ pub(crate) fn reachability_orphaned(
             to: edge.to.clone(),
         })
         .collect();
-    let live_after = live_members(registrations, &reduced_by_kind, repo_files, &reduced_edges);
+    let live_after = live_members(
+        registrations,
+        &reduced_by_kind,
+        repo_files,
+        gated,
+        &reduced_edges,
+    );
 
     live_before
         .into_iter()
@@ -1336,6 +1368,7 @@ fn live_members(
     registrations: &BTreeMap<&str, Vec<Registration>>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
+    gated: &AbsenceGated,
     edges: &[ResolvedEdge],
 ) -> BTreeSet<Node> {
     LIVE_MEMBERS_COUNT.with(|c| c.set(c.get() + 1));
@@ -1346,11 +1379,7 @@ fn live_members(
     let mut live: BTreeSet<Node> = BTreeSet::new();
     for (kind, members) in by_kind {
         for member in *members {
-            let own_live = match registrations.get(kind) {
-                None => true,
-                Some(channels) => dead_channel_set(channels, member, repo_files).is_none(),
-            };
-            if own_live {
+            if own_dead_reason(registrations, kind, member, repo_files, gated).is_none() {
                 live.insert(((*kind).to_string(), member.id.clone()));
             }
         }

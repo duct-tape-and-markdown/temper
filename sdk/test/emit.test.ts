@@ -2903,7 +2903,7 @@ test("an embedded guided kind's rule scopes over the loci of the hosts that admi
   );
   const rule = guidanceRuleMembers(result).find((member) => member.name === "temper-guidance-guided-decision");
   assert.ok(rule, "the embedded kind's counsel projects one rule");
-  assert.deepEqual(rule.fields, [["paths", ["**/CLAUDE.md", "specs/**/*.md"]]]);
+  assert.deepEqual(rule.fields, [["paths", ["**/AGENTS.md", "**/CLAUDE.md", "specs/**/*.md"]]]);
   assert.equal(rule.body, counsel);
 });
 

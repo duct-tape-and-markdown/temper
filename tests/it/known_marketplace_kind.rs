@@ -132,6 +132,7 @@ fn the_registry_channel_is_never_provably_dead() {
         &registrations,
         &by_kind,
         &[],
+        &Default::default(),
         &[],
         &[],
     );

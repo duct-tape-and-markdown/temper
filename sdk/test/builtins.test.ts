@@ -1969,3 +1969,14 @@ test("a plain field placed in a body region lives under the base layout's field 
   const member = brief({ name: "why", intent: "say why", prose: text`## Intent\n\nsay why` });
   assert.deepEqual(member.fields, []);
 });
+
+test("memory claims AGENTS.md through a second template carrying its absence gate", () => {
+  const row = memoryKindRow(memory);
+  assert.deepEqual(row.governs_glob, ["**/CLAUDE.md", "**/AGENTS.md"]);
+  assert.deepEqual(row.absence_gate, [
+    { template: "**/AGENTS.md", absent: ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] },
+  ]);
+  // A relocation respells the templates, so a gate rides only the templates it names.
+  const moved = memoryKindRow(relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" } }));
+  assert.ok(!("absence_gate" in moved), "a relocated locus with no gated template carries no gate");
+});

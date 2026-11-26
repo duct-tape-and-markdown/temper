@@ -1922,6 +1922,7 @@ fn explain_builds_the_member_index_only_for_a_telemetry_verified_requirement() {
             &[],
             &registrations,
             &[],
+            &Default::default(),
             &[],
             &[],
             &[],

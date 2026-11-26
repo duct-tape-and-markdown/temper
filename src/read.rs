@@ -394,6 +394,7 @@ pub fn explain(
     mention_edges: &[ResolvedEdge],
     registrations: &BTreeMap<&str, Vec<Registration>>,
     repo_files: &[String],
+    gated: &graph::AbsenceGated,
     directive_edges: &[ResolvedEdge],
     citations: &[Citation],
     tap_records: &[TapRecord],
@@ -424,6 +425,7 @@ pub fn explain(
                 registrations,
                 &resolved,
                 repo_files,
+                gated,
                 directive_edges,
                 &member_index,
                 name,
@@ -1466,6 +1468,7 @@ fn impact_impl(
     registrations: &BTreeMap<&str, Vec<Registration>>,
     resolved_edges: &[ResolvedEdge],
     repo_files: &[String],
+    gated: &graph::AbsenceGated,
     directive_edges: &[ResolvedEdge],
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     target: &str,
@@ -1496,6 +1499,7 @@ fn impact_impl(
             registrations,
             resolved_edges,
             repo_files,
+            gated,
             directive_edges,
         );
     }
@@ -2040,6 +2044,7 @@ fn impact_one_impl(
     registrations: &BTreeMap<&str, Vec<Registration>>,
     resolved_edges: &[ResolvedEdge],
     repo_files: &[String],
+    gated: &graph::AbsenceGated,
     directive_edges: &[ResolvedEdge],
 ) {
     let _ = writeln!(
@@ -2121,6 +2126,7 @@ fn impact_one_impl(
         registrations,
         by_kind,
         repo_files,
+        gated,
         resolved_edges,
         directive_edges,
     );
@@ -2602,6 +2608,12 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     // The whole file-set stays: `graph::reachability_orphaned` below reads it entire,
     // through `live_members`, and the read verb binds no clause to gate the walk behind.
     let repo_files = compose::repo_file_set(Path::new("."));
+    let gated = crate::gate::absence_gated(
+        Path::new("."),
+        &overlaid_builtin_kinds,
+        &builtin_units_and_features,
+        &custom_units_and_features,
+    );
     // The built-in defs, for the corpus-wide fact per kind the classing needs: which
     // kinds seed the directive traversal. The edge set this narrates
     // widens with the traversal — a reached rule's own outbound `@import` shows — because
@@ -2649,6 +2661,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         &mention_edges,
         &registrations,
         &repo_files,
+        &gated,
         &directive_edges,
         &citations,
         &readout.records,
@@ -2762,6 +2775,7 @@ mod impact_tests {
             &registrations,
             &[],
             &[],
+            &Default::default(),
             &[],
             &index,
             "solo",
@@ -2779,6 +2793,7 @@ mod impact_tests {
             &registrations,
             &[],
             &[],
+            &Default::default(),
             &[],
             &index,
             "pair-a",
@@ -2809,6 +2824,7 @@ mod impact_tests {
             &registrations,
             &[],
             &[],
+            &Default::default(),
             &edges,
             &index,
             "leaf",
@@ -2826,6 +2842,7 @@ mod impact_tests {
             &registrations,
             &[],
             &[],
+            &Default::default(),
             &edges,
             &index,
             "hub",
@@ -2859,6 +2876,7 @@ mod impact_tests {
             &registrations,
             &[],
             &[],
+            &Default::default(),
             &edges,
             &index,
             "hub",
@@ -2876,6 +2894,7 @@ mod impact_tests {
             &registrations,
             &[],
             &[],
+            &Default::default(),
             &edges,
             &index,
             "leaf",
@@ -2900,6 +2919,7 @@ mod impact_tests {
             &registrations,
             &[],
             &[],
+            &Default::default(),
             &[],
             &index,
             "ghost",

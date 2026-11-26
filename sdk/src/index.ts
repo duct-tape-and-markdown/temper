@@ -97,6 +97,7 @@ export type {
   MemberInit,
   Registration,
   Remedy,
+  GatedTemplate,
   Templates,
   Residue,
   ResolvedEmbeddedMemberCollectionEntry,

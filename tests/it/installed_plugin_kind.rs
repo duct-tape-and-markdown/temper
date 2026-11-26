@@ -140,6 +140,7 @@ fn a_false_valued_entry_gates_its_member_off_every_channel() {
         &registrations,
         &by_kind,
         &[],
+        &Default::default(),
         &[],
         &[],
     );

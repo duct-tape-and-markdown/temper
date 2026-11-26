@@ -18,6 +18,7 @@
 import type { Harness } from "./assembly.js";
 import type { Clause, Verifier } from "./contract.js";
 import type { KindFacts, Member } from "./kind.js";
+import { absenceGatesOf, locusPattern } from "./kind.js";
 import { ROOT_HOSTED_KINDS, skill, supportingDoc } from "./builtins.js";
 import {
   clauseField,
@@ -201,7 +202,15 @@ function item(head: string, text: string | undefined): string {
 
 /** Where a kind's members live, as its topic states it — the locus and the globs it occupies. */
 function locusSection(facts: KindFacts, globs: readonly string[]): string {
-  const listed = globs.map((glob) => `- \`${glob}\``).join("\n");
+  const { locus } = facts;
+  const gates = locus.kind === "at" ? absenceGatesOf(locus) : [];
+  const gateNote = (glob: string): string => {
+    const gate = locus.kind === "at" ? gates.find((g) => locusPattern(locus.root, g.glob) === glob) : undefined;
+    if (gate === undefined) return "";
+    const named = gate.absent.map((path) => `\`${path}\``).join(", ");
+    return ` — loaded only where none of ${named} sits in its directory or above; an import still reaches it`;
+  };
+  const listed = globs.map((glob) => `- \`${glob}\`${gateNote(glob)}`).join("\n");
   switch (facts.locus.kind) {
     case "at":
       return `Each member is its own document, at:\n\n${listed}`;

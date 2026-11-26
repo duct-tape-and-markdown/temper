@@ -157,15 +157,35 @@ export type Locus =
   | { readonly kind: "embedded" }
   | { readonly kind: "nested-file" };
 
+/**
+ * One template that carries an **absence gate**: a document at `glob` is the kind's by
+ * position, and opens its channels only where none of `absent` — paths relative to a
+ * directory — sits in its own directory or any directory above it. The gate shuts reach,
+ * never membership, and an import still reaches the document.
+ */
+export interface GatedTemplate {
+  readonly glob: string;
+  readonly absent: readonly [string, ...string[]];
+}
+
 /** A file locus's several templates — one or more, in declared order. */
-export type Templates = readonly [string, ...string[]];
+export type Templates = readonly [string | GatedTemplate, ...(string | GatedTemplate)[]];
 
 /**
- * An `at` locus's templates as a list, in declared order — the one normalization of
- * {@link Locus}'s `glob`, so no reader branches on its two spellings.
+ * An `at` locus's templates as a list of globs, in declared order — the one
+ * normalization of {@link Locus}'s `glob`, so no reader branches on its spellings.
  */
 export function templatesOf(locus: { readonly glob: string | Templates }): readonly string[] {
-  return typeof locus.glob === "string" ? [locus.glob] : locus.glob;
+  return typeof locus.glob === "string"
+    ? [locus.glob]
+    : locus.glob.map((template) => (typeof template === "string" ? template : template.glob));
+}
+
+/** The gated templates of an `at` locus, in declared order; empty for a locus gating none. */
+export function absenceGatesOf(locus: { readonly glob: string | Templates }): readonly GatedTemplate[] {
+  return typeof locus.glob === "string"
+    ? []
+    : locus.glob.filter((template): template is GatedTemplate => typeof template !== "string");
 }
 
 /**
@@ -1045,7 +1065,7 @@ function excludedLocus(
 }
 
 /** A file locus as one harness-relative template, a root-locus kind's `.` dropped. */
-function locusPattern(root: string, glob: string): string {
+export function locusPattern(root: string, glob: string): string {
   return root === "." ? glob : `${root}/${glob}`;
 }
 

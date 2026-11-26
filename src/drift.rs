@@ -5881,6 +5881,13 @@ pub struct KindFactRow {
     #[serde(default)]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub exclude: Vec<String>,
+    /// The file locus's **absence gates** — each names one of the row's templates and the
+    /// documents whose presence, in a governed document's own directory or any directory
+    /// above it, closes that document's channels. Empty for a locus gating nothing, so
+    /// an ordinary row stays byte-identical.
+    #[serde(default)]
+    #[ts(as = "Option<Vec<AbsenceGateRow>>", optional)]
+    pub absence_gate: Vec<AbsenceGateRow>,
     /// The source malformations the kind's reader forgives, as wire labels
     /// (`malformed-yaml`). Empty for a kind forgiving none, the tolerant round-trip
     /// [`registration`](KindFactRow::registration) takes.
@@ -5950,6 +5957,18 @@ pub struct KindFactRow {
     #[serde(default)]
     #[ts(as = "Option<Vec<CedeRow>>", optional)]
     pub ceded: Vec<CedeRow>,
+}
+
+/// One template's **absence gate** on a [`KindFactRow`]: a document at `template` opens
+/// its channels only where none of `absent` — paths relative to a directory — sits in
+/// its own directory or any directory above it, up to the harness root.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct AbsenceGateRow {
+    /// The gated template, spelled exactly as one of the row's `governs_glob` entries.
+    pub template: String,
+    /// The documents whose presence at or above closes the gate (`CLAUDE.md`,
+    /// `.claude/CLAUDE.md`).
+    pub absent: Vec<String>,
 }
 
 /// One recorded **claim resolution** on a [`KindFactRow`]: the locus `pattern` the row's
@@ -7024,6 +7043,12 @@ impl KindFactRow {
         if !self.exclude.is_empty() {
             table.insert("exclude", value(string_array(&self.exclude)));
         }
+        if !self.absence_gate.is_empty() {
+            table.insert(
+                "absence_gate",
+                value(absence_gate_array(&self.absence_gate)),
+            );
+        }
         if !self.leniency.is_empty() {
             table.insert("leniency", value(string_array(&self.leniency)));
         }
@@ -7075,6 +7100,7 @@ impl KindFactRow {
             governs_glob: opt_str_or_str_array(table, "governs_glob")?.unwrap_or_default(),
             commitment: opt_str(table, "commitment")?,
             exclude: opt_str_array(table, "exclude")?.unwrap_or_default(),
+            absence_gate: absence_gates_from_table(table)?,
             leniency: opt_str_array(table, "leniency")?.unwrap_or_default(),
             format: opt_str(table, "format")?,
             unit_shape: opt_str(table, "unit_shape")?,
@@ -7118,6 +7144,43 @@ fn template_array(templates: &[TemplateRow]) -> Array {
         array.push(Value::InlineTable(inline));
     }
     array
+}
+
+/// Build a [`KindFactRow`]'s `absence_gate` column's wire form: one
+/// `{ template, absent }` inline table per gate, in declared order.
+fn absence_gate_array(gates: &[AbsenceGateRow]) -> Array {
+    let mut array = Array::new();
+    for gate in gates {
+        let mut inline = InlineTable::new();
+        inline.insert("template", Value::from(gate.template.clone()));
+        inline.insert("absent", Value::Array(string_array(&gate.absent)));
+        array.push(Value::InlineTable(inline));
+    }
+    array
+}
+
+/// Read an `absence_gate` column back off its array — absent is no gate; a present
+/// non-array, a non-table element, or an element missing either column is a [`RowError`].
+fn absence_gates_from_table(table: &dyn TableLike) -> Result<Vec<AbsenceGateRow>, RowError> {
+    let Some(item) = table.get("absence_gate") else {
+        return Ok(Vec::new());
+    };
+    let array = item
+        .as_array()
+        .ok_or_else(|| RowError::wrong("absence_gate", "array"))?;
+    array
+        .iter()
+        .map(|element| {
+            let inline = element
+                .as_inline_table()
+                .ok_or_else(|| RowError::wrong("absence_gate", "array of tables"))?;
+            Ok(AbsenceGateRow {
+                template: req_str(inline, "template")?,
+                absent: opt_str_array(inline, "absent")?
+                    .ok_or_else(|| RowError::wrong("absent", "array of strings"))?,
+            })
+        })
+        .collect()
 }
 
 /// Build a [`KindFactRow`]'s `ceded` column's wire form: one `{ to, pattern }` inline

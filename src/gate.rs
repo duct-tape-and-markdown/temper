@@ -174,6 +174,48 @@ pub fn site_class(kind: &CustomKind) -> Option<SiteClass> {
     }
 }
 
+/// Every member whose template's absence gate is closed on disk under `harness_root`,
+/// with the reason [`graph::reachable`] names: the document at or above it whose
+/// presence shuts its channels. The built-ins pair with their discovered units exactly
+/// as [`committed_member_sites`] pairs them, so the judge and the site walk range over
+/// one member set.
+pub(crate) fn absence_gated(
+    harness_root: &Path,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    builtin: &BTreeMap<String, compose::KindUnitsAndFeatures>,
+    custom: &[(CustomKind, compose::KindUnitsAndFeatures)],
+) -> graph::AbsenceGated {
+    let builtin_pairs = overlaid_builtin_kinds
+        .iter()
+        .filter_map(|(name, kind)| builtin.get(name).map(|uaf| (kind, uaf)));
+    let custom_pairs = custom.iter().map(|(kind, uaf)| (kind, uaf));
+    let mut gated = graph::AbsenceGated::new();
+    for (kind, uaf) in builtin_pairs
+        .chain(custom_pairs)
+        .filter(|(kind, _)| !kind.absence_gates.is_empty())
+    {
+        for unit in &uaf.units {
+            let Some(source_path) = crate::path::relativize_against_root(
+                &unit.source_path.to_string_lossy(),
+                harness_root,
+            ) else {
+                continue;
+            };
+            if let Some(closer) = kind.absence_closer(&source_path, |candidate| {
+                harness_root.join(candidate).is_file()
+            }) {
+                gated.insert(
+                    (kind.name.clone(), unit.id.clone()),
+                    format!(
+                        "`{closer}` sits in its directory or above, so the harness loads it only through an import"
+                    ),
+                );
+            }
+        }
+    }
+    gated
+}
+
 /// One site walk over every discovered kind, collecting each admitted member into its
 /// content class's population ([`site_class`] is the sole admission predicate).
 fn committed_member_sites(
@@ -894,6 +936,12 @@ pub fn gate(
         &registrations_by_kind(&overlaid_builtin_kinds, &custom_units_and_features),
         &by_kind,
         &repo_files,
+        &absence_gated(
+            harness_root,
+            &overlaid_builtin_kinds,
+            &builtin_units_and_features,
+            &custom_units_and_features,
+        ),
         resolved_edges,
         &directive_arcs,
     ));

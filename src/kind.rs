@@ -18,7 +18,9 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
-use crate::drift::{AssemblyFactRow, CedeRow, KindFactRow, LayoutRow, LockRowError, TemplateRow};
+use crate::drift::{
+    AbsenceGateRow, AssemblyFactRow, CedeRow, KindFactRow, LayoutRow, LockRowError, TemplateRow,
+};
 use crate::extract::{self, Features};
 use crate::layout::{Layout, LayoutRegion};
 
@@ -154,6 +156,11 @@ pub struct CustomKind {
     /// the kind owns: discovery, `locus-declared` and the guard all leave it ungoverned
     /// ([`locus_admits`](CustomKind::locus_admits)). Read back off the row's `exclude` column.
     pub excluded: Vec<String>,
+    /// The file locus's **absence gates** — a template whose documents open their
+    /// channels only where none of the gate's documents sits at or above them
+    /// ([`absence_closer`](CustomKind::absence_closer)). Read back off the row's
+    /// `absence_gate` column.
+    pub absence_gates: Vec<AbsenceGate>,
     /// The filename a kind additionally recognizes directly at the harness root,
     /// alongside its `governs` subdirectory locus. `None` for every kind today except
     /// `skill`, which declares `Some("SKILL.md".to_string())` — the bare-root-is-a-skill
@@ -581,11 +588,46 @@ impl CustomKind {
             commitment: None,
             leniency: Vec::new(),
             excluded: Vec::new(),
+            absence_gates: Vec::new(),
             bare_root_file: None,
             field_defaults: BTreeMap::new(),
             base: None,
             ceded: Vec::new(),
         }
+    }
+
+    /// The document whose presence closes the absence gate on the member at
+    /// `harness_relative`, when one does — the first, nearest directory first, of the
+    /// gate's `absent` paths that `exists` finds in the member's own directory or any
+    /// directory above it, up to the harness root. [`None`] for a member whose template
+    /// carries no gate, or whose gate stays open.
+    #[must_use]
+    pub fn absence_closer(
+        &self,
+        harness_relative: &str,
+        exists: impl Fn(&str) -> bool,
+    ) -> Option<String> {
+        let governs = self.governs.as_ref()?;
+        let template = governs.globs.iter().find(|glob| {
+            crate::glob::compile_glob(&locus_pattern(&governs.root, glob))
+                .is_some_and(|matcher| matcher.is_match(harness_relative))
+        })?;
+        let gate = self
+            .absence_gates
+            .iter()
+            .find(|gate| &gate.template == template)?;
+        let mut dir = Path::new(harness_relative).parent();
+        while let Some(current) = dir {
+            for absent in &gate.absent {
+                let candidate =
+                    crate::path::HarnessRelativePath::from_path(&current.join(absent)).to_string();
+                if exists(&candidate) {
+                    return Some(candidate);
+                }
+            }
+            dir = current.parent();
+        }
+        None
     }
 
     /// Whether `harness_relative` is a member path of this kind's own file locus — its
@@ -743,6 +785,7 @@ impl CustomKind {
                 .map(|label| kind_vocab(label, "leniency", leniency_from_label(label)))
                 .collect::<Result<Vec<_>, _>>()?,
             excluded: excluded_from_row(row)?,
+            absence_gates: absence_gates_from_row(row)?,
             bare_root_file: None,
             field_defaults: BTreeMap::new(),
             base: row.base.clone(),
@@ -1345,6 +1388,62 @@ fn excluded_from_row(row: &KindFactRow) -> Result<Vec<String>, LockRowError> {
         }
     }
     Ok(row.exclude.clone())
+}
+
+/// Lift a [`KindFactRow`]'s `absence_gate` column into its [`AbsenceGate`]s.
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when a gate names a template the row's `governs_glob`
+/// does not carry, or an `absent` entry that is not a starless relative path
+/// ([`ABSENCE_GATE_COLUMN`]).
+pub(crate) fn absence_gates_from_row(row: &KindFactRow) -> Result<Vec<AbsenceGate>, LockRowError> {
+    row.absence_gate
+        .iter()
+        .map(|gate: &AbsenceGateRow| {
+            let refuse = |value: &str| LockRowError::Vocabulary {
+                family: "kind".to_string(),
+                column: ABSENCE_GATE_COLUMN.to_string(),
+                value: value.to_string(),
+            };
+            if !row.governs_glob.contains(&gate.template) {
+                return Err(refuse(&gate.template));
+            }
+            if gate.absent.is_empty() {
+                return Err(refuse(&gate.template));
+            }
+            if let Some(bad) = gate.absent.iter().find(|path| {
+                path.contains(['*', '?', '[', ']', '{', '}', '\\'])
+                    || path.starts_with('/')
+                    || path
+                        .split('/')
+                        .any(|segment| matches!(segment, "" | "." | ".."))
+            }) {
+                return Err(refuse(bad));
+            }
+            Ok(AbsenceGate {
+                template: gate.template.clone(),
+                absent: gate.absent.clone(),
+            })
+        })
+        .collect()
+}
+
+/// The column a malformed `absence_gate` entry refuses under, spelled to name the rule
+/// it broke.
+pub const ABSENCE_GATE_COLUMN: &str =
+    "absence_gate (one of the row's own templates, and one or more starless relative paths)";
+
+/// One template's **absence gate**: a document at [`template`](AbsenceGate::template)
+/// opens its channels only where none of [`absent`](AbsenceGate::absent) sits in its own
+/// directory or any directory above it. The gate rides the template, never a channel
+/// entry, so the member is the kind's either way and only its reach changes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AbsenceGate {
+    /// The gated template, one of the locus's own [`Governs::globs`].
+    pub template: String,
+    /// The documents, relative to a directory, whose presence closes the gate.
+    pub absent: Vec<String>,
 }
 
 /// The column a malformed `exclude` entry refuses under, spelled to name the rule it
@@ -2295,6 +2394,68 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         assert!(kind.relationships.is_empty());
         assert!(kind.templates.is_empty());
         assert_eq!(kind.content, Content::File);
+    }
+
+    /// A memory-shaped row: two templates, the second behind an absence gate.
+    fn gated_memory_row(template: &str, absent: &[&str]) -> KindFactRow {
+        KindFactRow {
+            name: "memo".to_string(),
+            governs_root: Some(".".to_string()),
+            governs_glob: vec!["**/CLAUDE.md".to_string(), "**/AGENTS.md".to_string()],
+            absence_gate: vec![AbsenceGateRow {
+                template: template.to_string(),
+                absent: absent.iter().map(ToString::to_string).collect(),
+            }],
+            ..spec_row()
+        }
+    }
+
+    #[test]
+    fn an_absence_gate_closes_on_a_listed_document_at_or_above_and_never_below() {
+        let kind = CustomKind::from_kind_fact_row(&gated_memory_row(
+            "**/AGENTS.md",
+            &["CLAUDE.md", ".claude/CLAUDE.md"],
+        ))
+        .unwrap();
+        let on_disk = |files: &'static [&'static str]| move |path: &str| files.contains(&path);
+
+        assert_eq!(
+            kind.absence_closer("apps/web/AGENTS.md", on_disk(&[".claude/CLAUDE.md"])),
+            Some(".claude/CLAUDE.md".to_string())
+        );
+        assert_eq!(
+            kind.absence_closer("apps/web/AGENTS.md", on_disk(&["apps/web/CLAUDE.md"])),
+            Some("apps/web/CLAUDE.md".to_string())
+        );
+        assert_eq!(
+            kind.absence_closer("AGENTS.md", on_disk(&["apps/CLAUDE.md"])),
+            None,
+            "a CLAUDE.md below the document never shadows it"
+        );
+        assert_eq!(
+            kind.absence_closer("CLAUDE.md", on_disk(&["CLAUDE.md"])),
+            None,
+            "an ungated template's document has no gate to close"
+        );
+    }
+
+    #[test]
+    fn an_absence_gate_on_a_foreign_template_or_a_glob_path_refuses_at_lift() {
+        for row in [
+            gated_memory_row("**/README.md", &["CLAUDE.md"]),
+            gated_memory_row("**/AGENTS.md", &["*.md"]),
+            gated_memory_row("**/AGENTS.md", &["../CLAUDE.md"]),
+            gated_memory_row("**/AGENTS.md", &[]),
+        ] {
+            assert!(
+                matches!(
+                    CustomKind::from_kind_fact_row(&row),
+                    Err(LockRowError::Vocabulary { ref column, .. }) if column == ABSENCE_GATE_COLUMN
+                ),
+                "{:?} must refuse",
+                row.absence_gate
+            );
+        }
     }
 
     #[test]

@@ -2342,6 +2342,7 @@ mod reachability {
                 &registrations,
                 &by_kind,
                 &files,
+                &Default::default(),
                 &[],
                 &[],
             )
@@ -2365,6 +2366,7 @@ mod reachability {
             &registrations,
             &by_kind,
             &[],
+            &Default::default(),
             &[],
             &[],
         );
@@ -2382,6 +2384,7 @@ mod reachability {
             &registrations,
             &by_kind,
             &[],
+            &Default::default(),
             &[],
             &[],
         );
@@ -2406,6 +2409,7 @@ mod reachability {
             &registrations,
             &by_kind,
             &files,
+            &Default::default(),
             &[],
             &[],
         );
@@ -2438,6 +2442,7 @@ mod reachability {
                 &registrations,
                 &by_kind,
                 &files,
+                &Default::default(),
                 &[],
                 &[],
             )
@@ -2463,6 +2468,7 @@ mod reachability {
                 &registrations,
                 &by_kind,
                 &[],
+                &Default::default(),
                 &[],
                 &[],
             )
@@ -2495,6 +2501,7 @@ mod reachability {
                 &registrations,
                 &by_kind,
                 &files,
+                &Default::default(),
                 &[],
                 &edges,
             )
@@ -2526,6 +2533,7 @@ mod reachability {
             &registrations,
             &by_kind,
             &[],
+            &Default::default(),
             &[],
             &edges,
         );
@@ -2567,6 +2575,7 @@ mod reachability {
             &registrations,
             &by_kind,
             &files,
+            &Default::default(),
             &[],
             &edges,
         );
@@ -2600,6 +2609,7 @@ mod reachability {
                 &registrations,
                 &by_kind,
                 &[],
+                &Default::default(),
                 &[],
                 &[],
             )
@@ -2632,6 +2642,7 @@ mod reachability {
             &registrations,
             &by_kind,
             &[],
+            &Default::default(),
             &[],
             &[],
         );
@@ -2652,6 +2663,7 @@ mod reachability {
             &registrations,
             &by_kind,
             &[],
+            &Default::default(),
             &[],
             &[],
         );
@@ -2680,8 +2692,30 @@ mod reachability {
             None,
             Vec::new(),
         )];
-        assert!(reachable(&other, &registrations, &by_kind, &[], &[], &[]).is_empty());
-        assert!(reachable(&[], &registrations, &by_kind, &[], &[], &[]).is_empty());
+        assert!(
+            reachable(
+                &other,
+                &registrations,
+                &by_kind,
+                &[],
+                &Default::default(),
+                &[],
+                &[]
+            )
+            .is_empty()
+        );
+        assert!(
+            reachable(
+                &[],
+                &registrations,
+                &by_kind,
+                &[],
+                &Default::default(),
+                &[],
+                &[]
+            )
+            .is_empty()
+        );
     }
 }
 

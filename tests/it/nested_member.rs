@@ -1041,6 +1041,7 @@ mod host_qualified_addresses {
             &[],
             &BTreeMap::new(),
             &[],
+            &Default::default(),
             &[],
             &[],
             &[],

@@ -9,6 +9,7 @@ a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLA
 Each member is its own document, at:
 
 - `**/CLAUDE.md`
+- `**/AGENTS.md` — loaded only where none of `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md` sits in its directory or above; an import still reaches it
 
 ## Clauses
 

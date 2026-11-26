@@ -45,10 +45,11 @@
 # re-running that memberless emit and re-embedding the resulting lock's declaration rows
 # verbatim; never hand-edit a row here.
 #
-# The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's twenty kind facts carry no `provider`
-# column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
-# retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
+# The SDK module exports one `memory` kind and no `provider`-qualified kind values, so
+# this lock's twenty kind facts carry no `provider` column. Memory's locus holds two
+# templates: `**/CLAUDE.md`, and `**/AGENTS.md` behind an absence gate, since Claude Code
+# reads an `AGENTS.md` only where no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md`
+# sits in its directory or above (code.claude.com/docs/en/memory, retrieved 2026-11-26).
 #
 # `dial` and `settings-local` are the two kinds here declaring a `local` commitment class:
 # read in place at check, never an emit input or target, and no row of their members' ever
@@ -204,8 +205,9 @@ collection_address = { key_path = "mcpServers.*", entry_shape = "object" }
 [[declaration.kind]]
 name = "memory"
 governs_root = "."
-governs_glob = ["**/CLAUDE.md"]
+governs_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
 exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
+absence_gate = [{ template = "**/AGENTS.md", absent = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] }]
 unit_shape = "file"
 registration = ["always"]
 guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."

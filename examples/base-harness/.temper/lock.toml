@@ -39,8 +39,8 @@ emit_hash = "8dd9d20e794cfbafb152e7bfd487f68f47df1f816df8b5e12dd28042ee001cf0"
 [[rule]]
 name = "temper-guidance-memory"
 source_path = ".claude/rules/temper-guidance-memory.md"
-source_hash = "22c7891972befff18713de6eb47fe365ea3fd97e7958db06ddc04b975c9d8e55"
-emit_hash = "22c7891972befff18713de6eb47fe365ea3fd97e7958db06ddc04b975c9d8e55"
+source_hash = "adab677fd2778eeca5b2db64b0c0741e63006228ce7e3b2bc330874b005ca520"
+emit_hash = "adab677fd2778eeca5b2db64b0c0741e63006228ce7e3b2bc330874b005ca520"
 
 [[rule]]
 name = "temper-guidance-rule"
@@ -146,8 +146,9 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 [[declaration.kind]]
 name = "memory"
 governs_root = "."
-governs_glob = ["**/CLAUDE.md"]
+governs_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
 exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
+absence_gate = [{ template = "**/AGENTS.md", absent = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] }]
 unit_shape = "file"
 registration = ["always"]
 guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."

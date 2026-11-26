@@ -123,6 +123,7 @@ pub(crate) fn kind_fact_row(name: &str) -> crate::drift::KindFactRow {
         governs_glob: Vec::new(),
         commitment: None,
         exclude: Vec::new(),
+        absence_gate: Vec::new(),
         leniency: Vec::new(),
         format: None,
         unit_shape: None,
