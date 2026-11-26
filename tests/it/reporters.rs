@@ -18,6 +18,10 @@
 //! dialed clause, every joined lock — and a run judged by the committed harness
 //! alone says nothing extra. The resolved harness root rides the same channel where
 //! it is not the path the invocation named, keyed as its own family on every face.
+//!
+//! Fourth, the one-source claim across all four reporters (terminal, github,
+//! SARIF, session-start): one non-empty diagnostic set, read back out of each
+//! rendering, is the same finding set every time.
 
 use crate::common;
 
@@ -382,5 +386,167 @@ fn a_clause_finding_prints_its_label_and_explain_narrates_the_same_one() {
         narration.contains("skill.allowed_chars.name"),
         "`explain` narrates the governing contract's clauses by the same address the \
          finding printed, got:\n{narration}"
+    );
+}
+
+/// One finding as every reporter carries it: `(severity word, rule, artifact, message)`.
+type Finding = (String, String, String, String);
+
+/// Strip ANSI SGR escapes so the terminal render reads as plain text whatever theme
+/// the graphical handler picked for this host.
+fn strip_ansi(text: &str) -> String {
+    let mut out = String::new();
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            for next in chars.by_ref() {
+                if next.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+#[test]
+fn all_four_reporters_render_the_same_non_empty_finding_set() {
+    // One finding per severity, every field distinct, so a reporter that drops,
+    // duplicates, or cross-wires a finding cannot still match.
+    let diagnostics = vec![
+        Diagnostic::error("alpha-rule", "alpha-artifact", "alpha message"),
+        Diagnostic::warn("beta-rule", "beta-artifact", "beta message"),
+        Diagnostic::note("gamma-rule", "gamma-artifact", "gamma message"),
+    ];
+    let announcement = Announcement::default();
+    let word = |severity: &str| severity.to_string();
+    let mut source: Vec<Finding> = vec![
+        (
+            word("error"),
+            "alpha-rule".into(),
+            "alpha-artifact".into(),
+            "alpha message".into(),
+        ),
+        (
+            word("warn"),
+            "beta-rule".into(),
+            "beta-artifact".into(),
+            "beta message".into(),
+        ),
+        (
+            word("note"),
+            "gamma-rule".into(),
+            "gamma-artifact".into(),
+            "gamma message".into(),
+        ),
+    ];
+    source.sort();
+    assert!(!source.is_empty(), "the pin is over a non-empty set");
+
+    // github: one workflow-command line per finding, `::<cmd> title=<rule>::<artifact>: <message>`.
+    let mut github: Vec<Finding> = reporter::github(&diagnostics, &announcement)
+        .lines()
+        .map(|line| {
+            let rest = line.strip_prefix("::").expect("a workflow command line");
+            let (command, rest) = rest.split_once(" title=").expect("a title property");
+            let (rule, body) = rest.split_once("::").expect("a command body");
+            let (artifact, message) = body.split_once(": ").expect("artifact: message");
+            let severity = match command {
+                "error" => "error",
+                "warning" => "warn",
+                "notice" => "note",
+                other => panic!("unexpected workflow command {other}"),
+            };
+            (word(severity), rule.into(), artifact.into(), message.into())
+        })
+        .collect();
+    github.sort();
+
+    // sarif: one result per finding.
+    let log: serde_json::Value =
+        serde_json::from_str(&reporter::sarif(&diagnostics, &announcement))
+            .expect("SARIF is valid JSON");
+    let mut sarif: Vec<Finding> = log["runs"][0]["results"]
+        .as_array()
+        .expect("results is an array")
+        .iter()
+        .map(|result| {
+            let severity = match result["level"].as_str().expect("a level") {
+                "error" => "error",
+                "warning" => "warn",
+                "note" => "note",
+                other => panic!("unexpected SARIF level {other}"),
+            };
+            (
+                word(severity),
+                result["ruleId"].as_str().expect("a ruleId").into(),
+                result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+                    .as_str()
+                    .expect("an artifact uri")
+                    .into(),
+                result["message"]["text"]
+                    .as_str()
+                    .expect("a message")
+                    .into(),
+            )
+        })
+        .collect();
+    sarif.sort();
+
+    // session-start: `  - [<rule>] <artifact>: <message>` bullets under a heading per severity.
+    let payload: serde_json::Value =
+        serde_json::from_str(&reporter::session_start(&diagnostics, &announcement))
+            .expect("the session-start payload is valid JSON");
+    let context = payload["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .expect("a failing run injects additionalContext");
+    let mut heading = "";
+    let mut session: Vec<Finding> = Vec::new();
+    for line in context.lines() {
+        match line {
+            "Blocking findings:" => heading = "error",
+            "Advisory findings:" => heading = "warn",
+            "Checked:" => heading = "note",
+            _ => {
+                if let Some(bullet) = line.strip_prefix("  - [") {
+                    let (rule, rest) = bullet.split_once("] ").expect("a bracketed rule");
+                    let (artifact, message) = rest.split_once(": ").expect("artifact: message");
+                    assert!(!heading.is_empty(), "a bullet sits under a heading: {line}");
+                    session.push((word(heading), rule.into(), artifact.into(), message.into()));
+                }
+            }
+        }
+    }
+    session.sort();
+
+    assert_eq!(github, source, "github renders the source set");
+    assert_eq!(sarif, source, "sarif renders the source set");
+    assert_eq!(session, source, "session-start renders the source set");
+
+    // terminal: miette's graphical render is prose, not a parseable record, so the
+    // pin reads it per finding — every field of every source finding present, each
+    // rule exactly once, and no finding beyond the source.
+    let terminal = strip_ansi(&temper::check::render(&diagnostics, &announcement));
+    for (_, rule, artifact, message) in &source {
+        assert_eq!(
+            terminal.matches(rule.as_str()).count(),
+            1,
+            "the terminal names {rule} once, got:\n{terminal}"
+        );
+        assert!(
+            terminal.contains(artifact.as_str()),
+            "{artifact} in:\n{terminal}"
+        );
+        assert!(
+            terminal.contains(message.as_str()),
+            "{message} in:\n{terminal}"
+        );
+    }
+    assert_eq!(
+        terminal.matches("-rule").count(),
+        source.len(),
+        "the terminal renders no finding beyond the source, got:\n{terminal}"
     );
 }
