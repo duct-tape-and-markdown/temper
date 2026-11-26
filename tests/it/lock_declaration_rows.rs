@@ -3663,3 +3663,69 @@ fn a_collection_address_row_carries_no_manifest() {
         "no embedded collection_address row spells a manifest"
     );
 }
+
+/// A custom directory-unit host — `domains/*/DOMAIN.md`, templating a file child — beside
+/// the built-in `memory` row, whose `**/CLAUDE.md` reaches into the host's unit.
+fn domain_host_and_memory_rows() -> Vec<KindFactRow> {
+    let memory = builtin_lock::declarations()
+        .kinds
+        .iter()
+        .find(|row| row.name == "memory")
+        .expect("the built-in lock declares memory")
+        .clone();
+    vec![
+        KindFactRow {
+            unit_shape: Some("directory".to_string()),
+            templates: vec![TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }],
+            ..common::kind_facts("domain", "domains", "*/DOMAIN.md")
+        },
+        KindFactRow {
+            ceded: Vec::new(),
+            ..memory
+        },
+    ]
+}
+
+#[test]
+fn the_lock_records_a_host_unit_cede() {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: domain_host_and_memory_rows(),
+            ..Default::default()
+        },
+        members: Vec::new(),
+    };
+    let (_harness, into) = emitted("host-unit-cede", &payload);
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let memory = declarations
+        .kinds
+        .iter()
+        .find(|row| row.name == "memory")
+        .unwrap();
+    // The program's row carried no resolution: emit derived it over the whole kind set
+    // and the lock records it, the host named beside the subtree it holds.
+    assert!(
+        memory.ceded.contains(&drift::CedeRow {
+            to: "domain".to_string(),
+            pattern: "domains/*/**".to_string(),
+        }),
+        "{:?}",
+        memory.ceded
+    );
+    let domain = declarations
+        .kinds
+        .iter()
+        .find(|row| row.name == "domain")
+        .unwrap();
+    assert!(domain.ceded.is_empty(), "{:?}", domain.ceded);
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert!(
+        lock.contains(r#"{ to = "domain", pattern = "domains/*/**" }"#),
+        "{lock}"
+    );
+}

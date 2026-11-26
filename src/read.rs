@@ -762,6 +762,15 @@ fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
             );
         }
     }
+    // The lock's recorded resolution, never a re-derivation: explain reads the answer
+    // emit placed by.
+    for cede in &row.ceded {
+        let _ = writeln!(
+            out,
+            "  • never under `{}`: `{}` holds that claim, the more specific one.",
+            cede.pattern, cede.to
+        );
+    }
     if !row.registration.is_empty() {
         let _ = writeln!(
             out,

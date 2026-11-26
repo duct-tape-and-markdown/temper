@@ -21,11 +21,11 @@ use temper::builtin_kind::{TAP_HOOK_BINDINGS, TapHookBinding};
 use temper::compose::Verifier;
 use temper::contract::Shape;
 use temper::drift::{
-    AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow, CollectionEntryRow,
-    CollectionEntryWire, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, IncludeRow,
-    InputRow, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload,
-    PayloadMember, RangeBoundRow, RegistrationRow, RequirementRow, RunsRow, SatisfiesRow,
-    SectionContainsRow, SettingsRow, TemplateRow, TypecheckRow,
+    AssemblyFactRow, BoundRow, CedeRow, CharsetRow, ClauseRow, CollectionAddressRow,
+    CollectionEntryRow, CollectionEntryWire, CountBoundRow, Declarations, DegreeBoundRow,
+    EdgeBoundRow, IncludeRow, InputRow, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow,
+    NestedMemberRow, Payload, PayloadMember, RangeBoundRow, RegistrationRow, RequirementRow,
+    RunsRow, SatisfiesRow, SectionContainsRow, SettingsRow, TemplateRow, TypecheckRow,
 };
 use temper::extract::{
     EmbeddedMember, EmbeddedMemberCollectionEntry, FeatureValue, Features, FencedBlock, Section,
@@ -171,6 +171,7 @@ fn fresh_bindings() -> BTreeMap<String, String> {
         Declarations,
         KindFactRow,
         TemplateRow,
+        CedeRow,
         CollectionAddressRow,
         LayoutRow,
         LayoutRegionRow,

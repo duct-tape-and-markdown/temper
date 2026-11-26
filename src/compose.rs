@@ -919,12 +919,15 @@ fn cede_host_units(kinds: &mut BTreeMap<String, CustomKind>) {
         else {
             continue;
         };
-        let cedes: Vec<String> = subtrees
+        let cedes: Vec<drift::CedeRow> = subtrees
             .iter()
             .filter(|(host, subtree)| {
                 !descends(kinds, &name, host) && kind::reaches_into_at_any_depth(&pattern, subtree)
             })
-            .map(|(_, subtree)| subtree.clone())
+            .map(|(host, subtree)| drift::CedeRow {
+                to: host.clone(),
+                pattern: subtree.clone(),
+            })
             .collect();
         let Some(kind) = kinds.get_mut(&name) else {
             continue;
@@ -935,6 +938,31 @@ fn cede_host_units(kinds: &mut BTreeMap<String, CustomKind>) {
             }
         }
     }
+}
+
+/// The program's kind rows, each carrying its **claim resolutions** — the cedes the
+/// effective kind set ([`effective_kinds`]) derives — so the lock records them and emit's
+/// placement reads them off the row. Computed here once, over the whole kind set, so the
+/// answer emit records is the one `check` derives; a cede the program's row carried is
+/// replaced, never merged.
+///
+/// A kind set that does not lift records no resolution: emit is not where a corrupt kind
+/// row is refused — every verb's load refuses that lock, naming the row — so the rows pass
+/// through with their cedes cleared.
+#[must_use]
+pub fn resolved_kind_rows(declarations: &drift::Declarations) -> Vec<drift::KindFactRow> {
+    let effective = effective_kinds(declarations).unwrap_or_default();
+    declarations
+        .kinds
+        .iter()
+        .map(|row| drift::KindFactRow {
+            ceded: effective
+                .get(&row.name)
+                .map(|kind| kind.ceded.clone())
+                .unwrap_or_default(),
+            ..row.clone()
+        })
+        .collect()
 }
 
 /// The effective kind set — every built-in overlaid by its relocation, every custom kind,
@@ -1081,9 +1109,9 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
             })
             .collect();
         bound.relationships.extend(inherited_edges);
-        kinds.insert(name, bound);
+        kinds.insert(name.clone(), bound);
         if let (Some(pattern), Some(base)) = (ceded, kinds.get_mut(&base_name)) {
-            base.ceded.push(pattern);
+            base.ceded.push(drift::CedeRow { to: name, pattern });
         }
     }
     Ok(())

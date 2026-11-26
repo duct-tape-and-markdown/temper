@@ -1207,6 +1207,7 @@ pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFa
         collection_address: None,
         guidance: None,
         cite: None,
+        ceded: Vec::new(),
     }
 }
 
@@ -1232,6 +1233,7 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
         collection_address: None,
         guidance: None,
         cite: None,
+        ceded: Vec::new(),
     }
 }
 
@@ -1260,6 +1262,7 @@ pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFac
         collection_address: None,
         guidance: None,
         cite: None,
+        ceded: Vec::new(),
     }
 }
 

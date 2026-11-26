@@ -761,6 +761,25 @@ pub enum DriftError {
         path: String,
     },
 
+    /// A derived projection path the deriving kind's glob finds but a directory-unit host's
+    /// member unit holds: the kind's any-depth reach cedes that subtree to the host's
+    /// template, so a member written there would read back as the host's file. Refused
+    /// before a byte is written; the repair is to place the member outside the host's unit.
+    #[error(
+        "member `{member}` projects to `{path}`, which lies inside a `{host}` member's unit — kind `{kind}` cedes that subtree to `{host}`'s template, so this projection would never read back as a `{kind}` member"
+    )]
+    #[diagnostic(code(temper::drift::host_unit_projection))]
+    HostUnitProjection {
+        /// The kind whose member was placed inside the host's unit.
+        kind: String,
+        /// The directory-unit host whose unit subtree holds the path.
+        host: String,
+        /// The member's **whole address**.
+        member: String,
+        /// The derived path, harness-relative.
+        path: String,
+    },
+
     /// A **cycle** in the declared kind graph's file-template edges: a kind whose nested
     /// file layer reaches, through its children's own layers, back to itself. A nested
     /// file child's unit composes under its host's, so a cycle declares a member whose
@@ -1802,7 +1821,8 @@ fn refuse_template_cycle(kind_facts: &BTreeMap<&str, &KindFactRow>) -> Result<()
 /// supplies no unit and pattern to compose against, or
 /// [`DriftError::UngovernedProjection`] when the derived path is one the deriving glob
 /// cannot find, [`DriftError::ExcludedProjection`] when the kind excludes it, or
-/// [`DriftError::SubkindProjection`] when it lies in a subkind's ceded locus.
+/// [`DriftError::SubkindProjection`] or [`DriftError::HostUnitProjection`] when it lies in
+/// a locus the kind's row records ceded.
 fn member_projection_path(
     facts: &KindFactRow,
     name: &str,
@@ -1827,41 +1847,45 @@ fn member_projection_path(
     let relative = placement_in_unit(facts, glob, name)?;
     let placed = join_locus(root, &relative);
     // Placement asks the one membership question discovery asks — the template less the
-    // excluded paths — so emit never writes a member `check` would not find.
-    // A subkind's locus is ceded from its base's, so the ceded half derives off the rows
-    // naming this kind their `base` — the same patterns `compose::bind_subkinds` cedes.
+    // excluded paths and the recorded cedes — so emit never writes a member `check` would
+    // not find.
     let harness_relative = HarnessRelativePath::from_path(&placed);
     let pattern = crate::kind::locus_pattern(root, glob);
-    let ceded: Vec<(&str, String)> = kind_facts
-        .values()
-        .filter(|row| row.base.as_deref() == Some(facts.name.as_str()))
-        .filter_map(|row| {
-            let (root, glob) = (row.governs_root.as_deref()?, row.governs_glob.as_deref()?);
-            Some((row.name.as_str(), crate::kind::locus_pattern(root, glob)))
-        })
-        .collect();
-    let ceded_patterns: Vec<String> = ceded.iter().map(|(_, pattern)| pattern.clone()).collect();
-    if !crate::kind::locus_admits(&pattern, &facts.exclude, &ceded_patterns, &harness_relative) {
+    if !crate::kind::locus_admits(&pattern, &facts.exclude, &facts.ceded, &harness_relative) {
         // `governs_root` is the locus the glob is rooted at, so the relative path is what
         // the glob has to find; a path the template finds failed on the exclusion half or
         // the ceded half.
         refuse_ungoverned(&facts.name, host, name, glob, &relative)?;
         let member = member_address_under(host, &facts.name, name);
-        if let Some((subkind, _)) = ceded
+        let path = harness_relative.to_string();
+        if let Some(cede) = facts
+            .ceded
             .iter()
-            .find(|(_, sub)| crate::kind::locus_admits(sub, &[], &[], &harness_relative))
+            .find(|cede| crate::kind::locus_admits(&cede.pattern, &[], &[], &harness_relative))
         {
-            return Err(DriftError::SubkindProjection {
-                kind: facts.name.clone(),
-                subkind: (*subkind).to_string(),
-                member,
-                path: harness_relative.to_string(),
+            let to_subkind = kind_facts
+                .get(cede.to.as_str())
+                .is_some_and(|row| row.base.as_deref() == Some(facts.name.as_str()));
+            return Err(if to_subkind {
+                DriftError::SubkindProjection {
+                    kind: facts.name.clone(),
+                    subkind: cede.to.clone(),
+                    member,
+                    path,
+                }
+            } else {
+                DriftError::HostUnitProjection {
+                    kind: facts.name.clone(),
+                    host: cede.to.clone(),
+                    member,
+                    path,
+                }
             });
         }
         return Err(DriftError::ExcludedProjection {
             kind: facts.name.clone(),
             member,
-            path: harness_relative.to_string(),
+            path,
         });
     }
     Ok(placed)
@@ -2163,9 +2187,10 @@ pub fn emit(
     // this emit happened to run under would resolve from nowhere else.
     let harness_root = harness_root_of(workspace_dir);
     let runner_tools = RunnerTools::new(&payload.declarations.nested_members, workspace_dir);
-    let kind_facts: BTreeMap<&str, &KindFactRow> = payload
-        .declarations
-        .kinds
+    // Each row carries its claim resolutions from here on: placement reads the cedes off
+    // the row, and the lock records the same rows.
+    let resolved_kinds = compose::resolved_kind_rows(&payload.declarations);
+    let kind_facts: BTreeMap<&str, &KindFactRow> = resolved_kinds
         .iter()
         .map(|row| (row.name.as_str(), row))
         .collect();
@@ -2715,6 +2740,7 @@ pub fn emit(
         // `nested_member` family and edge-slot fills into the `satisfies` family, with
         // the layout imports' content-dependency fingerprints alongside.
         let mut declarations = payload.declarations.clone();
+        declarations.kinds.clone_from(&resolved_kinds);
         // An ownerless manifest has no whole-file fingerprint, so each entry it renders
         // carries its own; a container's rollup row already fingerprints the whole file.
         for build in manifests.values().filter(|build| build.container.is_none()) {
@@ -5709,6 +5735,25 @@ pub struct KindFactRow {
     /// External-fact source backing the guidance — a doc URL plus retrieved date.
     #[serde(default)]
     pub cite: Option<String>,
+    /// The **claim resolutions** this kind's locus cedes — each overlap where a more
+    /// specific claim holds the document: a subkind's locus, a directory host's unit
+    /// subtree its any-depth reach enters. Engine-derived at emit from the whole kind set
+    /// ([`compose::resolved_kind_rows`]) and recorded here so placement reads the answer
+    /// rather than re-deriving it; a row the program supplies is overwritten. Empty for a
+    /// kind ceding nothing, so its row stays byte-identical.
+    #[serde(default)]
+    #[ts(as = "Option<Vec<CedeRow>>", optional)]
+    pub ceded: Vec<CedeRow>,
+}
+
+/// One recorded **claim resolution** on a [`KindFactRow`]: the locus `pattern` the row's
+/// kind cedes and the kind it cedes `to`, whose claim holds every document there.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct CedeRow {
+    /// The kind holding the ceded documents — a subkind, or a directory-unit host.
+    pub to: String,
+    /// The ceded locus pattern ([`crate::kind::locus_pattern`] spelling, harness-relative).
+    pub pattern: String,
 }
 
 /// A kind's declared **nesting template** row — one inner layer of nested members the
@@ -6762,6 +6807,9 @@ impl KindFactRow {
         if let Some(cite) = &self.cite {
             table.insert("cite", value(cite.clone()));
         }
+        if !self.ceded.is_empty() {
+            table.insert("ceded", value(cede_array(&self.ceded)));
+        }
         table
     }
 
@@ -6791,6 +6839,7 @@ impl KindFactRow {
             },
             guidance: opt_str(table, "guidance")?,
             cite: opt_str(table, "cite")?,
+            ceded: cedes_from_table(table)?,
         })
     }
 
@@ -6816,6 +6865,42 @@ fn template_array(templates: &[TemplateRow]) -> Array {
         array.push(Value::InlineTable(inline));
     }
     array
+}
+
+/// Build a [`KindFactRow`]'s `ceded` column's wire form: one `{ to, pattern }` inline
+/// table per recorded resolution, in resolution order.
+fn cede_array(cedes: &[CedeRow]) -> Array {
+    let mut array = Array::new();
+    for cede in cedes {
+        let mut inline = InlineTable::new();
+        inline.insert("to", Value::from(cede.to.clone()));
+        inline.insert("pattern", Value::from(cede.pattern.clone()));
+        array.push(Value::InlineTable(inline));
+    }
+    array
+}
+
+/// Read a `ceded` column back off its array — absent is no resolution; a present
+/// non-array, a non-table element, or an element missing either column is a [`RowError`].
+fn cedes_from_table(table: &dyn TableLike) -> Result<Vec<CedeRow>, RowError> {
+    let Some(item) = table.get("ceded") else {
+        return Ok(Vec::new());
+    };
+    let array = item
+        .as_array()
+        .ok_or_else(|| RowError::wrong("ceded", "array"))?;
+    array
+        .iter()
+        .map(|element| {
+            let inline = element
+                .as_inline_table()
+                .ok_or_else(|| RowError::wrong("ceded", "array of tables"))?;
+            Ok(CedeRow {
+                to: req_str(inline, "to")?,
+                pattern: req_str(inline, "pattern")?,
+            })
+        })
+        .collect()
 }
 
 /// Read a `templates` column back off its array — an absent column is an empty set; a

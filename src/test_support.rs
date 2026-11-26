@@ -107,7 +107,7 @@ pub(crate) fn features(id: &str) -> crate::extract::Features {
 }
 
 /// A [`KindFactRow`](crate::drift::KindFactRow) naming `name` and declaring nothing else
-/// — the other seventeen columns absent — so an in-src fixture spells only the facts its
+/// — the other eighteen columns absent — so an in-src fixture spells only the facts its
 /// case exercises via struct update:
 /// `KindFactRow { unit_shape: Some("file".into()), ..test_support::kind_fact_row("skill") }`.
 ///
@@ -133,6 +133,7 @@ pub(crate) fn kind_fact_row(name: &str) -> crate::drift::KindFactRow {
         collection_address: None,
         guidance: None,
         cite: None,
+        ceded: Vec::new(),
     }
 }
 

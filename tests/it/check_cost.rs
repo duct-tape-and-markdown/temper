@@ -1823,6 +1823,9 @@ fn emit_compiles_each_kinds_glob_once_however_many_members_it_places() {
         members,
     };
 
+    // The claim resolution emit records compiles its own fixed set of patterns once per
+    // kind set, never per member; warmed here so the count isolates placement's.
+    let _ = temper::compose::resolved_kind_rows(&payload.declarations);
     let before = glob::glob_compile_count();
     let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let compiles = glob::glob_compile_count() - before;

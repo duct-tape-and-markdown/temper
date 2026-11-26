@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
-use crate::drift::{KindFactRow, LayoutRow, LockRowError, TemplateRow};
+use crate::drift::{CedeRow, KindFactRow, LayoutRow, LockRowError, TemplateRow};
 use crate::extract::{self, Features};
 use crate::layout::{Layout, LayoutRegion};
 
@@ -171,12 +171,13 @@ pub struct CustomKind {
     /// The **base** kind this one is a subkind of, by bare name — read off the row's
     /// `base` column. `None` for every other kind, a relocation included.
     pub base: Option<String>,
-    /// The locus patterns ([`locus_pattern`]) this kind's own locus cedes: each subkind's,
-    /// whose documents are that subkind's member alone, and each directory-unit host's unit
-    /// subtree ([`unit_subtree_pattern`]) this locus reaches into at any depth
-    /// ([`reaches_into_at_any_depth`]), whose files the host's template claim holds. Derived when the run's effective kind set is assembled, never read off a
-    /// row.
-    pub ceded: Vec<String>,
+    /// The locus patterns ([`locus_pattern`]) this kind's own locus cedes, each with the
+    /// kind it cedes to: each subkind's, whose documents are that subkind's member alone,
+    /// and each directory-unit host's unit subtree ([`unit_subtree_pattern`]) this locus
+    /// reaches into at any depth ([`reaches_into_at_any_depth`]), whose files the host's
+    /// template claim holds. Derived when the run's effective kind set is assembled; emit
+    /// records it on the lock row ([`KindFactRow::ceded`]).
+    pub ceded: Vec<CedeRow>,
 }
 
 /// A kind's declared **content** — how a member's authored body is shaped. The body is
@@ -927,7 +928,7 @@ pub fn locus_pattern(root: &str, glob: &str) -> String {
 pub fn locus_admits(
     pattern: &str,
     excluded: &[String],
-    ceded: &[String],
+    ceded: &[CedeRow],
     harness_relative: &str,
 ) -> bool {
     let matches = |pattern: &str| {
@@ -937,7 +938,7 @@ pub fn locus_admits(
         .iter()
         .any(|path| is_at_or_beneath(harness_relative, path))
         && matches(pattern)
-        && !ceded.iter().any(|ceded| matches(ceded))
+        && !ceded.iter().any(|cede| matches(&cede.pattern))
 }
 
 /// The any-depth subtree of a directory-unit host's unit, as a pattern [`locus_admits`]
@@ -957,7 +958,9 @@ pub fn unit_subtree_pattern(pattern: &str) -> Option<String> {
 /// inside the subtree — so its reach enters the host's unit from outside it
 /// (`**/CLAUDE.md`, `docs/**/*.md`). A fixed-depth locus, or one whose root already lies
 /// in the host's unit (`domains/*/notes/**/*.md` under `domains/*/**`), claims there
-/// deliberately and is never one.
+/// deliberately and is never one. Nor is a root the subtree can never lie under
+/// (`.claude/rules/**` against `docs/guides/*/**`): two literal segments at one depth
+/// differ, so the reach and the unit share no path.
 #[must_use]
 pub fn reaches_into_at_any_depth(pattern: &str, subtree: &str) -> bool {
     let segments: Vec<&str> = pattern.split('/').collect();
@@ -965,7 +968,25 @@ pub fn reaches_into_at_any_depth(pattern: &str, subtree: &str) -> bool {
         return false;
     };
     let root = &segments[..any_depth];
-    root.is_empty() || !locus_within(&format!("{}/*", root.join("/")), subtree)
+    if root.is_empty() {
+        return true;
+    }
+    may_lie_under(root, subtree) && !locus_within(&format!("{}/*", root.join("/")), subtree)
+}
+
+/// Whether some path under the literal-rooted directory `root` can lie in `subtree`:
+/// segment by segment until the subtree's first `**`, no two literal segments differ.
+/// Conservative — a segment carrying `*` on either side is taken to agree.
+fn may_lie_under(root: &[&str], subtree: &str) -> bool {
+    for (own, theirs) in root.iter().zip(subtree.split('/')) {
+        if theirs == "**" {
+            return true;
+        }
+        if !own.contains('*') && !theirs.contains('*') && own != &theirs {
+            return false;
+        }
+    }
+    true
 }
 
 /// Whether every path the placement template `sub` matches, the template `base` matches
@@ -1717,6 +1738,30 @@ mod tests {
     use super::*;
     use crate::extract::{FeatureValue, ValueType};
     use crate::test_support;
+
+    #[test]
+    fn an_any_depth_reach_rooted_where_the_unit_cannot_lie_reaches_nothing() {
+        assert!(reaches_into_at_any_depth(
+            "**/CLAUDE.md",
+            "docs/guides/*/**"
+        ));
+        assert!(reaches_into_at_any_depth(
+            "docs/**/*.md",
+            "docs/guides/*/**"
+        ));
+        assert!(reaches_into_at_any_depth(
+            ".claude/rules/**/*.md",
+            "**/.claude/skills/*/**"
+        ));
+        assert!(!reaches_into_at_any_depth(
+            ".claude/rules/**/*.md",
+            "docs/guides/*/**"
+        ));
+        assert!(!reaches_into_at_any_depth(
+            "domains/*/notes/**/*.md",
+            "domains/*/**"
+        ));
+    }
 
     #[test]
     fn a_locus_lies_within_another_only_when_every_path_it_matches_the_other_does() {

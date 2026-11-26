@@ -3867,3 +3867,86 @@ fn a_typecheck_naming_a_tool_the_harness_does_not_compose_refuses() {
         "the refusal names the uncomposed tool: {err}"
     );
 }
+
+/// A custom directory-unit host at `domains/*/DOMAIN.md` beside the built-in `memory` row.
+fn domain_host_and_memory_kinds() -> Vec<KindFactRow> {
+    let memory = temper::builtin_lock::declarations()
+        .kinds
+        .iter()
+        .find(|row| row.name == "memory")
+        .expect("the built-in lock declares memory")
+        .clone();
+    vec![
+        KindFactRow {
+            unit_shape: Some("directory".to_string()),
+            templates: vec![drift::TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }],
+            ..common::kind_facts("domain", "domains", "*/DOMAIN.md")
+        },
+        KindFactRow {
+            ceded: Vec::new(),
+            ..memory
+        },
+    ]
+}
+
+#[test]
+fn emit_refuses_a_memory_placement_inside_a_custom_host_unit() {
+    let (harness, into) = workspace("memory-inside-custom-host-unit");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: domain_host_and_memory_kinds(),
+            ..Default::default()
+        },
+        members: vec![plain_member("memory", "domains:billing:CLAUDE")],
+    };
+
+    // `check` reads `domains/billing/CLAUDE.md` as the `domain` host's file, so a memory
+    // member written there would never read back as memory.
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    let message = format!("{err}");
+    assert!(
+        message.contains("`domains/billing/CLAUDE.md`") && message.contains("`domain`"),
+        "{message}"
+    );
+    assert!(!harness.join("domains/billing/CLAUDE.md").exists());
+
+    // Outside every host's unit, the same kind places as it always has.
+    let payload = Payload {
+        members: vec![plain_member("memory", "apps:web:CLAUDE")],
+        ..payload
+    };
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert!(harness.join("apps/web/CLAUDE.md").is_file());
+}
+
+#[test]
+fn emit_refuses_a_placement_inside_a_subkind_locus() {
+    let (harness, into) = workspace("placement-inside-subkind-locus");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                flat_file_kind_facts("note", "notes", "*.md"),
+                KindFactRow {
+                    base: Some("note".to_string()),
+                    ..common::kind_facts("draft", "notes", "draft-*.md")
+                },
+            ],
+            ..Default::default()
+        },
+        members: vec![plain_member("note", "draft-plan")],
+    };
+
+    // A document's kind is its position: `notes/draft-plan.md` is the `draft` subkind's.
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    let message = format!("{err}");
+    assert!(
+        message.contains("subkind `draft`") && message.contains("`notes/draft-plan.md`"),
+        "{message}"
+    );
+    assert!(!harness.join("notes/draft-plan.md").exists());
+}

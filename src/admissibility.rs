@@ -713,9 +713,9 @@ pub fn governs_collision_diagnostics(
         };
         // A base whose subkind shares its whole locus cedes every document there.
         if kind.collection_address.is_some()
-            || kind
-                .ceded
-                .contains(&crate::kind::locus_pattern(&governs.root, &governs.glob))
+            || kind.ceded.iter().any(|cede| {
+                cede.pattern == crate::kind::locus_pattern(&governs.root, &governs.glob)
+            })
         {
             continue;
         }
