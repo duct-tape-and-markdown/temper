@@ -1,10 +1,7 @@
 {
   "tag": "A-TAP-REACHES-ITS-TOOL-BY-AN-EDGE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "THE-TYPECHECK-REACHES-ITS-TOOL-BY-AN-EDGE"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
