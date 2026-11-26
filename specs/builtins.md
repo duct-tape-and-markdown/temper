@@ -98,12 +98,15 @@ temper's own `dial`. The file members:
   runtime's condition (code.claude.com/docs/en/memory, retrieved
   2026-11-26): at launch one loads only where no `CLAUDE.md` sits in the
   working directory or above, and a subdirectory's loads on demand only
-  where that subdirectory has none of the `CLAUDE.md` files of its own;
-  where the project-instructions setting loads both files, neither gate
-  applies, so one a `CLAUDE.md` shadows and does not import is never loaded,
-  and reachability says so. A nested one is named by the same grammar as a
-  nested skill, its subdirectory's segments joined with `:`
-  (`memory:apps:web:CLAUDE`), so emit places it where it was found.
+  where that subdirectory has none of the `CLAUDE.md` files of its own. One
+  a `CLAUDE.md` shadows and does not import is never loaded, and
+  reachability says so. Which instruction files load is a setting the
+  runtime reads only from outside the harness (user, `--settings` and
+  managed settings, never project or local), so the gates are judged at its
+  documented default and a finding on a gated `AGENTS.md` names that
+  assumption. A nested one is named by the same grammar as a nested skill,
+  its subdirectory's segments joined with `:` (`memory:apps:web:CLAUDE`), so
+  emit places it where it was found.
 - **plugin-manifest** — the pack's identity at
   `.claude-plugin/plugin.json`, a JSON document; identity from its `name`
   field, the one required field (kebab-case). Its contract mirrors the
@@ -193,8 +196,7 @@ reads made any other way. The gate is the field's documented semantics,
 carried with the field, never a channel entry. A gate may also be a
 document's absence: an `AGENTS.md` opens its channels only where the
 `CLAUDE.md` the runtime would load instead is absent, a gate carried with
-memory's `AGENTS.md` templates, reading the project-instructions setting
-where settings declare it, and judged by reach. A finding about a gated
+memory's `AGENTS.md` templates and judged by reach. A finding about a gated
 document says whether its gate is open, never that the runtime loads it when
 the gate is shut.
 

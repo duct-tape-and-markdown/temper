@@ -22,8 +22,9 @@ Three plan questions, triaged under John's direction:
 - **`AGENTS.md` has two gates, each read from the docs** (`builtins.md`,
   memory, and registration). At launch, any `CLAUDE.md` in the working
   directory or above suppresses it. On demand, only the subdirectory's own
-  `CLAUDE.md` files do. Where the project-instructions setting loads both,
-  neither gate applies. Memory claims `.claude/AGENTS.md` too.
+  `CLAUDE.md` files do. The instruction-files setting is read only outside
+  the harness, so the gates are judged at its default and a finding names
+  that assumption. Memory claims `.claude/AGENTS.md` too.
 - **Placement is declared where the templates cannot place the name whole**
   (`representation.md`, "member"). It is carried on the member's lock row
   and never parsed out of identity. A field-derived identity keeps its
@@ -46,3 +47,12 @@ Three plan questions, triaged under John's direction:
 
 The shipped absence gate narrows for subdirectories. The member init gains
 an optional location, relative to its kind's locus root.
+
+## Amendment (2026-11-26)
+
+The first text read the project-instructions setting where settings declare
+it. The memory docs ("Choose which instruction files load", retrieved
+2026-11-26) say the runtime ignores the key in project and local settings,
+so no harness-declared value is the one that applies. Raised by the build of
+PROJECT-INSTRUCTIONS-SETTING-OPENS-BOTH-AGENTS-MD-GATES, which retires, and
+the question on values that close the gates, answered here.
