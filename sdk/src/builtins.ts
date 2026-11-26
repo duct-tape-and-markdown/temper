@@ -2632,6 +2632,21 @@ export const agentDefaultContract: readonly Clause[] = [
 ];
 
 /**
+ * The per-file character limit an on-demand rules file is truncated past, at the smallest
+ * documented context window: "**200K context window**: 40,000 characters"; "**1M context
+ * window**: 200,000 characters on Claude Opus 4.6 and Claude Sonnet 4.6, and 150,000
+ * characters on later models" — and "Before v2.1.309, Claude Code didn't apply this limit
+ * to files that load on demand." Judging the smallest window keeps a passing rule whole on
+ * every one. The limit covers "Path-scoped rules in your project's `.claude/rules/`", so
+ * the clause is guarded on `paths`: a launch-loaded file arrives whole up to 4 MiB.
+ */
+const ON_DEMAND_RULE_CHARACTER_LIMIT = 40_000;
+
+/** The memory docs' section stating the on-demand per-file size limit. */
+const ON_DEMAND_SIZE_LIMIT_CITE =
+  "https://code.claude.com/docs/en/memory#claude-ignores-the-end-of-my-subdirectory-claude-md (retrieved 2026-11-26)";
+
+/**
  * The default contract for `rule` — Anthropic's documented contract for a Claude Code
  * rules file, sourced from the memory docs (`.claude/rules/` landed in
  * v2.0.64). All sources retrieved 2026-07-15.
@@ -2664,9 +2679,26 @@ export const ruleDefaultContract: readonly Clause[] = [
   clause(extent("lines", 200), {
     severity: "advisory",
     guidance:
-      "Unconditional rules are always-on context, paid every session: the docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md; rules load in full regardless of length.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it.",
+      "Unconditional rules are always-on context, paid every session: the docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md. A rule that loads at launch arrives whole up to 4 MiB; a path-scoped rule is cut at a per-file character limit, which the clause below judges.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it.",
     cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
   }),
+  when(
+    type("paths", ["string", "list"]),
+    [
+      clause(extent("characters", ON_DEMAND_RULE_CHARACTER_LIMIT), {
+        severity: "advisory",
+        guidance:
+          "A rule with `paths` loads on demand, and an on-demand rules file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a rule that passes is whole on every window. Measured render-side, as `wc -m` counts the projected file. Trim the rule, or split it into several rules files, each of which counts against the limit on its own. Launch-loaded rules (no `paths`) are not cut this way, so this clause binds only where `paths` is set.",
+        cite: ON_DEMAND_SIZE_LIMIT_CITE,
+      }),
+    ],
+    {
+      severity: "advisory",
+      guidance:
+        "A rule that carries `paths` loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 rendered characters, the smallest documented window's. A rule without `paths` loads at launch, arrives whole, and is not judged by this clause.",
+      cite: ON_DEMAND_SIZE_LIMIT_CITE,
+    },
+  ),
   clause(mentionReachable("paths", "paths"), {
     severity: "advisory",
     guidance: pathsGateGuidance("rule"),

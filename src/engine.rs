@@ -286,6 +286,14 @@ fn when_restrictions(predicate: &Predicate, locus: &Locus) -> Vec<String> {
         messages.extend(inadmissibilities(guard.as_ref(), locus, body));
     }
 
+    // A guard over a top-level field (no `[*]`) locates the member itself, so its body
+    // binds where a top-level clause does; an each-grain guard's body binds at the
+    // element, the fields-only projection.
+    let body_binding = match guard.target().and_then(addressing) {
+        Some(path) if path.split_element().is_none() => Binding::Member(locus),
+        _ => Binding::Element,
+    };
+
     // Body clauses bind at the *element* the guard locates, which is three refusals.
     // They must not nest another `when`; they must not range over the selection, which
     // has no element to range over — evaluating one under the guard would narrow a
@@ -305,7 +313,7 @@ fn when_restrictions(predicate: &Predicate, locus: &Locus) -> Vec<String> {
                  each-grain clause over that selection, never a second selector",
                 clause.predicate.key()
             ));
-        } else if let Some(message) = bodyless(&clause.predicate, Binding::Element) {
+        } else if let Some(message) = bodyless(&clause.predicate, body_binding) {
             messages.push(message);
         } else {
             messages.extend(inadmissibilities(&clause.predicate, locus, body));
@@ -400,12 +408,15 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
 
 /// What a clause binds to — the projection whose features its judge reads, and the axis
 /// [`bodyless`] fences on. Two of the three carry less than a document.
+#[derive(Clone, Copy)]
 enum Binding<'a> {
     /// A member of the selection at `locus`: its own document at [`Locus::Document`], a
     /// leaf of its host's declared surface at [`Locus::Embedded`].
     Member(&'a Locus),
-    /// One element inside a member's declared surface, located by a `when` guard — the
-    /// fields-only projection [`scoped_element_features`] builds.
+    /// One element inside a member's declared surface, located by an each-grain `when`
+    /// guard (one whose path carries a `[*]`) — the fields-only projection
+    /// [`scoped_element_features`] builds. A guard over a top-level field locates the
+    /// member itself, so its body binds as [`Binding::Member`].
     Element,
 }
 
@@ -1968,11 +1979,11 @@ fn decide(
                                 }
                             }
                         } else {
-                            // Path has no [*]: treat the root as the element.
-                            let element_json = root.clone();
-                            let scoped_features = scoped_element_features(features, &element_json);
+                            // Path has no [*]: the element the guard locates is the member
+                            // itself, so the body binds at the member — its document in
+                            // scope, the way a top-level clause's is.
                             for body_clause in body {
-                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all, &FieldDefaults::new()) {
+                                for mut violation in evaluate(&body_contract, &body_clause.predicate, features, all, &FieldDefaults::new()) {
                                     violation.attribute_to(body_clause);
                                     violations.push(violation);
                                 }
@@ -4182,9 +4193,10 @@ mod tests {
         );
     }
 
-    /// The `when` predicate whose guard is a live `enum` over `model` and whose body is
-    /// the one clause under test beside an inert `optional` over the same key — the shape
-    /// the body fence ranges over.
+    /// The `when` predicate whose guard is a live `enum` over each `agents[*].model` — an
+    /// each-grain guard, so its body binds at the element — and whose body is the one
+    /// clause under test beside an inert `optional` over `model` — the shape the body
+    /// fence ranges over.
     ///
     /// The sibling is there for `closed-keys` alone, whose allow-list is its siblings'
     /// declared keys: alone in a body it would be the vacuous clause admissibility
@@ -4193,7 +4205,7 @@ mod tests {
     fn when_over(body_predicate: Predicate) -> Predicate {
         Predicate::When {
             guard: Box::new(Predicate::Enum {
-                field: "model".to_string(),
+                field: "agents[*].model".to_string(),
                 values: vec!["opus".to_string()],
             }),
             body: vec![
@@ -4491,6 +4503,48 @@ mod tests {
         assert!(
             decided.len() > fenced.len(),
             "the admissible body vocabulary must be the larger half, got: {decided:?}"
+        );
+    }
+
+    #[test]
+    fn a_top_level_guard_binds_its_body_at_the_member_so_a_document_read_decides_there() {
+        // A guard over a top-level field locates the member itself, so its body is
+        // judged where a top-level clause is: the fence that refuses `extent` under an
+        // each-grain guard admits it here, and the verdict reads the member's rendered
+        // extent rather than an element's zero.
+        let guarded = Predicate::When {
+            guard: Box::new(Predicate::Type {
+                field: "paths".to_string(),
+                kinds: BTreeSet::from([ValueType::List]),
+            }),
+            body: vec![clause(
+                "rule",
+                ClauseSeverity::Advisory,
+                Predicate::Extent {
+                    unit: ExtentUnit::Lines,
+                    max: 2,
+                    whole: false,
+                },
+            )],
+        };
+        assert!(
+            inadmissibilities(&guarded, &Locus::Document, &[]).is_empty(),
+            "a top-level guard's body binds at the member, where `extent` is decidable"
+        );
+
+        let carrier = contract(ClauseSeverity::Advisory, guarded.clone());
+        let scoped = features("scoped", &[("paths", json!(["src/**"]))], 3, None);
+        let unscoped = features("unscoped", &[], 3, None);
+        let decide_at = |member: &Features| {
+            decide(&carrier, &guarded, member, &[member], &FieldDefaults::new())
+        };
+        assert!(
+            matches!(decide_at(&scoped), Outcome::Violated(_)),
+            "the guard holds, so the member's three lines break the two-line bound"
+        );
+        assert!(
+            matches!(decide_at(&unscoped), Outcome::Holds),
+            "the guarded field is absent, so the body is silent"
         );
     }
 }

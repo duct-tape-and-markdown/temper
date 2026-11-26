@@ -14,15 +14,17 @@
 
 use std::collections::BTreeSet;
 
-use temper::contract::{ExtentUnit, Predicate, Severity};
+use temper::contract::{Clause, ExtentUnit, Predicate, Severity};
 use temper::drift::Declarations;
 use temper::engine;
+use temper::extract::ValueType;
 
 use crate::common;
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
 /// declaration order — the Cursor-key `forbidden_keys` (required), the `paths`
-/// `glob-valid` (required), the lean-rule `extent` (advisory), the
+/// `glob-valid` (required), the lean-rule `extent` (advisory), the on-demand size
+/// advisory (a `when` over `paths` guarding a character `extent`), the
 /// `mention-reachable` gate check and its converse `trigger-agrees` (both advisory). Guidance and
 /// `source` ride each clause but are product prose, so they are excluded from this
 /// structural pin. No `optional` clause over `paths`: the SDK floor asserts nothing
@@ -56,6 +58,26 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
         ),
         (
             Severity::Advisory,
+            Predicate::When {
+                guard: Box::new(Predicate::Type {
+                    field: "paths".to_string(),
+                    kinds: BTreeSet::from([ValueType::String, ValueType::List]),
+                }),
+                body: vec![Clause {
+                    label: "rule.when.paths=list+string.extent".to_string(),
+                    severity: Severity::Advisory,
+                    predicate: Predicate::Extent {
+                        unit: ExtentUnit::Characters,
+                        max: 40_000,
+                        whole: false,
+                    },
+                    guidance: None,
+                    source: None,
+                }],
+            },
+        ),
+        (
+            Severity::Advisory,
             Predicate::MentionReachable {
                 scope_field: "paths".to_string(),
                 gate_field: "paths".to_string(),
@@ -71,6 +93,25 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
     ]
 }
 
+/// A `when`'s body clauses with their guidance and source dropped — product prose this
+/// structural pin excludes at every depth, the body's included.
+fn without_body_prose(predicate: &Predicate) -> Predicate {
+    match predicate {
+        Predicate::When { guard, body } => Predicate::When {
+            guard: guard.clone(),
+            body: body
+                .iter()
+                .map(|clause| Clause {
+                    guidance: None,
+                    source: None,
+                    ..clause.clone()
+                })
+                .collect(),
+        },
+        other => other.clone(),
+    }
+}
+
 /// The embedded rule built-in carries exactly the decidable clause vector at its
 /// declared severities, and its display name is its bare kind label, `rule` — the
 /// projection's argument payload (the `forbidden_keys` list, the `extent` bound)
@@ -83,7 +124,7 @@ fn rule_builtin_carries_the_decidable_clause_vector() {
     let clauses: Vec<(Severity, Predicate)> = contract
         .clauses
         .iter()
-        .map(|clause| (clause.severity, clause.predicate.clone()))
+        .map(|clause| (clause.severity, without_body_prose(&clause.predicate)))
         .collect();
     assert_eq!(clauses, expected_clauses());
 }
@@ -130,6 +171,7 @@ fn rule_builtin_encodes_only_decidable_clauses() {
             "glob-valid",
             "mention-reachable",
             "trigger-agrees",
+            "when",
         ]),
         "the rule built-in must carry only its declared decidable predicates",
     );
@@ -307,6 +349,62 @@ fn a_rule_whose_globs_equal_its_mentioned_skills_paths_draws_no_trigger_agreemen
     assert!(
         !run.output.contains("trigger-agrees") && !run.output.contains("mention-reachable"),
         "equal sets are silent, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
+/// A rule whose body runs past `chars` characters, scoped by `paths` or not.
+fn sized_rule_run(slug: &str, paths: Option<&str>, chars: usize) -> common::CheckRun {
+    let root = common::tmpdir(slug);
+    let scope = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
+    // Few long lines, so the 200-line advisory stays silent and only the size limit can
+    // speak.
+    let line = format!("{}\n", "x".repeat(999));
+    let body = line.repeat(chars / line.len() + 1);
+    common::write_sibling(
+        &root,
+        ".claude/rules/big.md",
+        &format!("---\n{scope}---\n# Big\n\n{body}"),
+    );
+    common::write_lock(&root, Declarations::default());
+    common::check_in(&root, &[], None)
+}
+
+/// A path-scoped rule loads on demand, and the runtime cuts an on-demand file past its
+/// per-file character limit (40,000 at the smallest documented window) to its start, so
+/// the floor draws one advisory naming the truncation — advisory, so the run stays zero.
+#[test]
+fn a_path_scoped_rule_past_the_on_demand_size_limit_draws_the_rule_size_advisory() {
+    let run = sized_rule_run("rule-size-scoped", Some("src/**"), 40_001);
+    assert_eq!(
+        run.output
+            .matches("rule.when.paths=list+string.extent")
+            .count(),
+        1,
+        "a scoped rule over the limit draws one size advisory, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("truncated"),
+        "the advisory names the truncation, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "the clause ships advisory ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+/// A rule with no `paths` loads at launch and arrives whole, so the same size draws no
+/// size advisory: the guard holds only where `paths` is set.
+#[test]
+fn an_unscoped_rule_past_the_on_demand_size_limit_draws_no_rule_size_advisory() {
+    let run = sized_rule_run("rule-size-unscoped", None, 40_001);
+    assert!(
+        !run.output.contains("rule.when.paths"),
+        "a launch-loaded rule is not cut, so no size advisory, got:\n{}",
         run.output
     );
     assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);

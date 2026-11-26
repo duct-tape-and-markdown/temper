@@ -206,7 +206,7 @@ test("an exclude-only relocation of skill fences the fixture tree its any-depth 
 test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {
   assert.deepEqual(
     ruleDefaultContract.map((c) => c.predicate.key),
-    ["forbidden_keys", "glob-valid", "extent", "mention-reachable", "trigger-agrees"],
+    ["forbidden_keys", "glob-valid", "extent", "when", "mention-reachable", "trigger-agrees"],
   );
   assert.deepEqual(ruleDefaultContract[0].predicate.keys, ["description", "globs", "alwaysApply"]);
   // The `glob-valid` clause ranges over the one documented rules key, `paths`.
@@ -214,14 +214,30 @@ test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets bod
   // Both ends of `mention-reachable` are `paths`: the rule's own scope is the source,
   // the mentioned member's is the gate. Advisory — literal containment can be wrong, so
   // it must not block (0028).
-  assert.equal(ruleDefaultContract[3].predicate.field, "paths");
-  assert.equal(ruleDefaultContract[3].predicate.gate, "paths");
-  assert.equal(ruleDefaultContract[3].severity, "advisory");
-  // `trigger-agrees` reads the same pair the other way: the skill's gate inside the
-  // rule's scope. Advisory for the same sampled containment.
   assert.equal(ruleDefaultContract[4].predicate.field, "paths");
   assert.equal(ruleDefaultContract[4].predicate.gate, "paths");
   assert.equal(ruleDefaultContract[4].severity, "advisory");
+  // `trigger-agrees` reads the same pair the other way: the skill's gate inside the
+  // rule's scope. Advisory for the same sampled containment.
+  assert.equal(ruleDefaultContract[5].predicate.field, "paths");
+  assert.equal(ruleDefaultContract[5].predicate.gate, "paths");
+  assert.equal(ruleDefaultContract[5].severity, "advisory");
+});
+
+test("the rule contract judges an on-demand rule against the per-file truncation limit", () => {
+  // Guarded on `paths`: only a path-scoped rule loads on demand, so only it is cut.
+  const sized = ruleDefaultContract[3];
+  assert.equal(sized.severity, "advisory");
+  assert.equal(sized.when_guard?.key, "type");
+  assert.equal(sized.when_guard?.field, "paths");
+  assert.equal(sized.when_body?.length, 1);
+  const body = sized.when_body![0];
+  // The smallest documented window's limit, so a passing rule is whole on every window.
+  assert.equal(body.predicate.key, "extent");
+  assert.equal(body.predicate.unit, "characters");
+  assert.deepEqual(body.predicate.args, { max: 40_000 });
+  assert.equal(body.severity, "advisory");
+  assert.match(body.cite ?? "", /code\.claude\.com\/docs\/en\/memory/);
 });
 
 test("memoryAnthropicDefaultContract is a single advisory size budget", () => {
