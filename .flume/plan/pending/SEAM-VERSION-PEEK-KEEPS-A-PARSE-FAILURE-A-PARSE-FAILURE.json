@@ -3,11 +3,8 @@
   "gate": {
     "kind": "open"
   },
-  "summary": "peek_and_validate_seam_version maps any JSON parse failure to UnsupportedSeamVersion { got: 0 }, so a non-JSON program stdout is misreported as SDK/engine version skew",
-  "per": {
-    "path": "specs/model/pipeline.md",
-    "section": "Emit"
-  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
@@ -18,11 +15,20 @@
     ],
     "retire": []
   },
+  "summary": "peek_and_validate_seam_version maps any JSON parse failure to UnsupportedSeamVersion { got: 0 }, so a non-JSON program stdout is misreported as SDK/engine version skew",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "Emit"
+  },
   "acceptance": "a non-JSON or version-less payload refuses naming the parse failure, and a mismatched version still refuses as a seam-version mismatch",
   "tests": [
     "a payload that is not JSON refuses as a payload parse error, not a seam version mismatch"
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "Scenario: a stray console.log in harness.ts puts a second line on stdout and emit says \"payload declares seam version 0\". The three existing peek tests (drift.rs ~7680) cover only well-formed JSON."
+  "notes": "Scenario: a stray console.log in harness.ts puts a second line on stdout and emit says \"payload declares seam version 0\". The three existing peek tests (drift.rs ~7680) cover only well-formed JSON.",
+  "observedFiles": [
+    ".flume/plan/notes/SEAM-VERSION-PEEK-KEEPS-A-PARSE-FAILURE-A-PARSE-FAILURE.md",
+    "src/drift.rs"
+  ]
 }
