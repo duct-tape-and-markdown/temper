@@ -243,10 +243,9 @@ fn an_undocumented_top_level_key_fails_the_gate_as_the_strict_bar() {
 fn every_documented_key_of_a_full_manifest_passes_the_closed_key_set() {
     let harness = common::tmpdir("plugin-manifest-full");
     // The failure this widening can produce is a documented key left out of the contract's
-    // own rows, which would indict every manifest carrying it. So the fixture is the
-    // reference's complete-schema example — every documented key at once — and it gates
-    // clean (code.claude.com/docs/en/plugins-reference, "Complete schema", retrieved
-    // 2026-07-17).
+    // own rows, which would indict every manifest carrying it. So the fixture carries every
+    // key the reference's field table documents at once, and it gates clean
+    // (code.claude.com/docs/en/plugins-reference, "Fields", retrieved 2026-11-26).
     write_plugin_json(
         &harness,
         r#"{
@@ -260,7 +259,17 @@ fn every_documented_key_of_a_full_manifest_passes_the_closed_key_set() {
   "repository": "https://github.com/author/plugin",
   "license": "MIT",
   "keywords": ["keyword1", "keyword2"],
+  "metadata": {},
+  "icon": "./icon.png",
+  "documentationUrl": "https://docs.example.com/plugin",
+  "supportUrl": "https://example.com/support",
+  "privacyPolicyUrl": "https://example.com/privacy",
+  "termsOfServiceUrl": "https://example.com/terms",
   "defaultEnabled": false,
+  "engines": { "claude-code": ">=2.1.400" },
+  "network": { "hosts": ["api.example.com"] },
+  "types": "./mod.d.ts",
+  "workflows": "./workflows/",
   "skills": "./custom/skills/",
   "commands": ["./custom/commands/special.md"],
   "agents": ["./custom/agents/reviewer.md"],
@@ -271,7 +280,7 @@ fn every_documented_key_of_a_full_manifest_passes_the_closed_key_set() {
   "settings": {},
   "userConfig": {},
   "channels": [],
-  "experimental": { "themes": "./themes/", "monitors": "./monitors.json" },
+  "experimental": { "themes": "./themes/", "monitors": "./monitors.json", "evals": "./evals/" },
   "dependencies": ["helper-lib"]
 }
 "#,
@@ -279,6 +288,43 @@ fn every_documented_key_of_a_full_manifest_passes_the_closed_key_set() {
 
     let (findings, ok) = check_harness(&harness);
     assert!(ok, "every documented key is a declared key: {findings:?}");
+}
+
+#[test]
+fn a_plugin_manifest_carrying_the_documented_metadata_and_url_keys_draws_no_closed_keys_finding() {
+    let harness = common::tmpdir("plugin-manifest-listing-keys");
+    // The keys the reference's field table documents beyond the component paths: free-form
+    // `metadata`, the directory listing fields, `engines`, `network`, `types`, `workflows`,
+    // and `experimental.evals` (code.claude.com/docs/en/plugins-reference, "Fields",
+    // retrieved 2026-11-26). A key no source documents beside them is still indicted.
+    write_plugin_json(
+        &harness,
+        r#"{
+  "name": "deployment-tools",
+  "metadata": { "catalog": "internal" },
+  "icon": "./icon.png",
+  "documentationUrl": "https://docs.example.com/plugin",
+  "supportUrl": "https://example.com/support",
+  "privacyPolicyUrl": "https://example.com/privacy",
+  "termsOfServiceUrl": "https://example.com/terms",
+  "engines": { "claude-code": ">=2.1.400" },
+  "network": { "hosts": ["api.example.com"] },
+  "types": "./mod.d.ts",
+  "workflows": ["./workflows/"],
+  "experimental": { "evals": "./custom-evals/" },
+  "contributes": {}
+}
+"#,
+    );
+
+    let (findings, _) = check_harness(&harness);
+    let undeclared = common::findings_for(&findings, "plugin-manifest.closed-keys");
+    assert_eq!(
+        undeclared.len(),
+        1,
+        "only the undocumented key: {findings:?}"
+    );
+    assert!(undeclared[0].contains("contributes"), "{findings:?}");
 }
 
 #[test]

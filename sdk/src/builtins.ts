@@ -1309,6 +1309,23 @@ export interface PluginManifest {
   readonly license?: string;
   /** Discovery tags. */
   readonly keywords?: readonly string[];
+  /** Free-form data of your own; Claude Code does not read it. */
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  /** Anthropic directory listing fields; Claude Code does not read them. */
+  readonly icon?: string;
+  readonly documentationUrl?: string;
+  readonly supportUrl?: string;
+  readonly privacyPolicyUrl?: string;
+  readonly termsOfServiceUrl?: string;
+  /**
+   * Supported Claude Code versions, a semver range under `claude-code`. Requires v2.1.323+;
+   * v2.0.15 through v2.1.75 reject a manifest carrying it.
+   */
+  readonly engines?: Readonly<{ "claude-code"?: string }>;
+  /** Hosts the plugin reaches, reported by `claude plugin validate`; allows and blocks nothing. */
+  readonly network?: Readonly<{ hosts?: readonly string[] }>;
+  /** A `.d.ts` file declaring a mod's `$.state` values and `$` nouns. */
+  readonly types?: string;
   /**
    * Whether the plugin starts enabled when the user has not set a state; defaults to
    * `true`. A `enabledPlugins` entry at any settings scope and a dependency requirement
@@ -1330,6 +1347,8 @@ export interface PluginManifest {
   readonly outputStyles?: readonly string[] | string;
   /** Language Server Protocol configs powering code intelligence. */
   readonly lspServers?: readonly string[] | string | Readonly<Record<string, unknown>>;
+  /** Workflow `.js` files or directories; replaces the default `workflows/` scan. */
+  readonly workflows?: readonly string[] | string;
   /**
    * The components whose manifest schema may still change between releases. Declaring
    * `themes`/`monitors` at the top level instead still works today, but `claude plugin
@@ -1338,6 +1357,8 @@ export interface PluginManifest {
   readonly experimental?: Readonly<{
     themes?: readonly string[] | string;
     monitors?: readonly string[] | string;
+    /** The eval-case directory when it is not the default `evals/`. */
+    evals?: readonly string[] | string;
   }>;
   /** User-configurable values Claude Code prompts for when the plugin is enabled. */
   readonly userConfig?: Readonly<Record<string, unknown>>;
@@ -1401,25 +1422,25 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
     severity: "required",
     guidance:
       "A manifest declares a `name` — the pack's identity and the namespace its components surface under (`plugin-dev:agent-creator`). Omitting the manifest entirely is supported and Claude Code then derives the name from the directory; a manifest that exists and has no `name` is the one case the loader rejects outright: `name: Invalid input: expected string, received undefined`.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-11-26)",
   }),
   clause(minLen("name", 1), {
     severity: "required",
     guidance:
       "A present-but-empty name cannot namespace a component or key an install. Drop the field to let Claude Code derive the name from the directory, or give it a real one.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-11-26)",
   }),
   clause(allowedChars("name", { ranges: ["a-z", "0-9"], chars: "-" }), {
     severity: "required",
     guidance:
       "Kebab-case, no spaces — lowercase letters, digits, and hyphens. The name is a namespace prefix and an install key, so a space or a capital makes it unquotable in the places it is typed. Use `displayName` for the human-readable label: it may carry spaces and any casing, and is never used for lookup.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-11-26)",
   }),
   clause(forbiddenKeys(["themes", "monitors"]), {
     severity: "required",
     guidance:
       "`themes` and `monitors` are experimental components and belong under the `experimental` key. Declaring them at the top level still loads today and `claude plugin validate` only warns — but `--strict` fails it, and a future release will require `experimental.*`, so a top-level spelling is a migration already scheduled against you.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-16)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(type("keywords", ["list"]), {
     severity: "required",
@@ -1430,38 +1451,38 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
   clause(type("skills", ["string", "list"]), {
     severity: "required",
     guidance:
-      "`skills` names custom skill directories — each holding a `<name>/SKILL.md` — as one `\"./custom/skills/\"` path or a list of them. Unlike its neighbours it *adds* to the default `skills/` scan rather than replacing it, so listing `\"./skills/\"` alongside your extra path is redundant, not required.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+      "`skills` names custom skill directories — each holding a `<name>/SKILL.md` — as one `\"./custom/skills/\"` path or a list of them; `\".\"` names the plugin root. Unlike its neighbours it *adds* to the default `skills/` scan rather than replacing it, so listing `\"./skills/\"` alongside your extra path is redundant, not required.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)",
   }),
   clause(type("commands", ["string", "list", "map"]), {
     severity: "required",
     guidance:
-      "`commands` names flat `.md` skill files or directories, as one path, a list of them, or an object keyed by command name (each entry carrying `source` or inline `content`). Setting it *replaces* the default `commands/` scan — to keep the default and add to it, list it explicitly: `[\"./commands/\", \"./extras/\"]`. The reference table names only the string and array forms; the object form is the published schema's, so a manifest using it is valid and this clause admits all three.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17); object form per https://json.schemastore.org/claude-code-plugin-manifest.json (retrieved 2026-07-16)",
+      "`commands` names flat `.md` skill files or directories, as one path, a list of them, or an object keyed by command name (each entry setting exactly one of `source` or inline `content`). Setting it *replaces* the default `commands/` scan — to keep the default and add to it, list it explicitly: `[\"./commands/\", \"./extras/\"]`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)",
   }),
   clause(type("agents", ["string", "list"]), {
     severity: "required",
     guidance:
-      "`agents` names custom agent files as one path or a list of them, and *replaces* the default `agents/` scan — a manifest that sets it and expects `agents/` to still be read ships a plugin missing every agent in that folder. Claude Code v2.1.140 and later warns about the ignored folder in `claude plugin list`.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+      "`agents` names custom agent `.md` files as one path or a list of them — directories are not accepted — and *replaces* the default `agents/` scan — a manifest that sets it and expects `agents/` to still be read ships a plugin missing every agent in that folder. Claude Code v2.1.140 and later warns about the ignored folder in `claude plugin list`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)",
   }),
   clause(type("hooks", ["string", "list", "map"]), {
     severity: "required",
     guidance:
-      "`hooks` is a path to a hook config JSON file, a list of them, or the config inline as an object keyed by event name. The inline object is the whole `hooks.json` body, not a fragment of it — the same shape `hooks/hooks.json` carries.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+      "`hooks` is a path to a hook config JSON file, the config inline as an object keyed by event name, or a list of either; it loads together with `hooks/hooks.json`. The inline object is the whole `hooks.json` body, not a fragment of it — the same shape `hooks/hooks.json` carries.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)",
   }),
   clause(type("mcpServers", ["string", "list", "map"]), {
     severity: "required",
     guidance:
-      "`mcpServers` is a path to an MCP config JSON file, a list of them, or the config inline as an object keyed by server name — the same shape `.mcp.json` carries. A `channels` entry's `server` must match a key here, so the inline object is the form to reach for when the two are authored together.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+      "`mcpServers` is a path to an MCP config JSON file or an `.mcpb`/`.dxt` bundle, the config inline as an object keyed by server name — the same shape `.mcp.json` carries — or a list of either. A `channels` entry's `server` must match a key here, so the inline object is the form to reach for when the two are authored together.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)",
   }),
   clause(type("lspServers", ["string", "list", "map"]), {
     severity: "required",
     guidance:
-      "`lspServers` is a path to an LSP config JSON file, a list of them, or the config inline as an object keyed by server name — the same shape `.lsp.json` carries. These drive code intelligence (go to definition, find references), so a wrong-typed value costs the capability silently rather than loudly.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+      "`lspServers` is a path to an LSP config JSON file, the config inline as an object keyed by server name — the same shape `.lsp.json` carries — or a list of either. These drive code intelligence (go to definition, find references), so a wrong-typed value costs the capability silently rather than loudly.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-forms (retrieved 2026-11-26)",
   }),
 
   // Every documented top-level key the manifest recognizes, `name` (required, above)
@@ -1473,127 +1494,187 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
     severity: "required",
     guidance:
       "`$schema` is a JSON Schema URL for editor autocomplete; Claude Code ignores it at load time, so it costs nothing at runtime.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("displayName"), {
     severity: "required",
     guidance:
       "`displayName` is the name the UI shows in place of `name` — it may carry spaces and any casing and is never used for lookup. A marketplace entry's own `displayName` takes precedence over this one.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("version"), {
     severity: "required",
     guidance:
       "`version` is not checked as semver, and setting it pins users to that version until you change it — so bump it with every release, or leave it out.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("description"), {
     severity: "required",
     guidance:
       "`description` is a short explanation of what the plugin provides, shown wherever the plugin is listed.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("author"), {
     severity: "required",
     guidance:
       "`author` is an object: `name` is required, `email` and `url` optional.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("homepage"), {
     severity: "required",
     guidance:
       "`homepage` is the plugin's documentation URL, and it must parse as a URL.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("repository"), {
     severity: "required",
     guidance:
       "`repository` is the source repository URL; Claude Code does not validate it.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("license"), {
     severity: "required",
     guidance:
       "`license` is an SPDX identifier such as `MIT`.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("keywords"), {
     severity: "required",
     guidance:
       "`keywords` is an array of discovery tags.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("metadata"), {
+    severity: "required",
+    guidance:
+      "`metadata` is a free-form object for your own data, such as catalog or entitlement fields. Claude Code does not read it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("icon"), {
+    severity: "required",
+    guidance:
+      "`icon` is the plugin's icon in Anthropic's directory listing. Claude Code does not read it, and `claude plugin validate` before v2.1.281 reports it as unknown, so a `--strict` run on those versions fails.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("documentationUrl"), {
+    severity: "required",
+    guidance:
+      "`documentationUrl` is the documentation link in Anthropic's directory listing. Claude Code does not read it, and `claude plugin validate` before v2.1.281 reports it as unknown, so a `--strict` run on those versions fails.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("supportUrl"), {
+    severity: "required",
+    guidance:
+      "`supportUrl` is the support link in Anthropic's directory listing. Claude Code does not read it, and `claude plugin validate` before v2.1.281 reports it as unknown, so a `--strict` run on those versions fails.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("privacyPolicyUrl"), {
+    severity: "required",
+    guidance:
+      "`privacyPolicyUrl` is the privacy policy link in Anthropic's directory listing. Claude Code does not read it, and `claude plugin validate` before v2.1.281 reports it as unknown, so a `--strict` run on those versions fails.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("termsOfServiceUrl"), {
+    severity: "required",
+    guidance:
+      "`termsOfServiceUrl` is the terms of service link in Anthropic's directory listing. Claude Code does not read it, and `claude plugin validate` before v2.1.281 reports it as unknown, so a `--strict` run on those versions fails.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("engines"), {
+    severity: "required",
+    guidance:
+      "`engines` declares the Claude Code versions the plugin works on, as a semver range under `claude-code` (`{ \"claude-code\": \">=2.1.400\" }`); it needs v2.1.323 or later. Versions v2.0.15 through v2.1.75 reject a manifest carrying it with `Unrecognized key`, so omit it to keep those working.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("network"), {
+    severity: "required",
+    guidance:
+      "`network` lists the hosts the plugin reaches (`{ \"hosts\": [\"api.example.com\"] }`, in `sandbox.network.allowedDomains` syntax) for `claude plugin validate` to report; it allows and blocks nothing. Requires v2.1.328 or later.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("types"), {
+    severity: "required",
+    guidance:
+      "`types` is a path to a `.d.ts` file declaring a mod's `$.state` values and `$` nouns.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("defaultEnabled"), {
     severity: "required",
     guidance:
       "`defaultEnabled` (a boolean, default `true`) sets whether the plugin starts enabled when the user has no `enabledPlugins` entry for it. Once that entry is written, later changes to this field no longer reach that user.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("skills"), {
     severity: "required",
     guidance:
       "`skills` names extra directories scanned for `<name>/SKILL.md` skills. It adds to the default `skills/` scan rather than replacing it.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("commands"), {
     severity: "required",
     guidance:
       "`commands` names flat `.md` files or directories, or maps command names to entries. Setting it replaces the default `commands/` scan; list `./commands/` explicitly to keep it.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("agents"), {
     severity: "required",
     guidance:
-      "`agents` names agent `.md` files. Setting it replaces the default `agents/` scan; list `./agents/` explicitly to keep it.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+      "`agents` names agent `.md` files; directories are not accepted. Setting it replaces the default `agents/` scan; list `./agents/` explicitly to keep it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("hooks"), {
     severity: "required",
     guidance:
       "`hooks` is a hook config `.json` path, an inline hooks object, or a list of either. It merges with `hooks/hooks.json` rather than replacing it.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("mcpServers"), {
     severity: "required",
     guidance:
-      "`mcpServers` is an MCP config path, an inline server map, or a list of them. It merges with `.mcp.json`, and a server name declared later replaces an earlier one.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+      "`mcpServers` is an MCP config path or `.mcpb`/`.dxt` bundle, an inline server map, or a list of either. It merges with `.mcp.json`, and a server name declared later replaces an earlier one.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("outputStyles"), {
     severity: "required",
     guidance:
       "`outputStyles` names output-style files or directories. Setting it replaces the default `output-styles/` scan; list `./output-styles/` explicitly to keep it.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("lspServers"), {
     severity: "required",
     guidance:
-      "`lspServers` is an LSP config `.json` path, an inline server map, or a list of them. It merges with `.lsp.json`.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+      "`lspServers` is an LSP config `.json` path, an inline server map, or a list of either. It merges with `.lsp.json`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
+  }),
+  clause(optional("workflows"), {
+    severity: "required",
+    guidance:
+      "`workflows` names workflow `.js` files or directories. Setting it replaces the default `workflows/` scan; list `./workflows/` explicitly to keep it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("experimental"), {
     severity: "required",
     guidance:
-      "`experimental` is the container for components whose shape may still change — `themes` and `monitors` among them. Declare those under it, not at the top level.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+      "`experimental` is the container for components whose manifest shape may still change: `themes`, `monitors`, and `evals` (the eval-case directory when it is not the default `evals/`). Declare `themes` and `monitors` under it, not at the top level.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("userConfig"), {
     severity: "required",
     guidance:
       "`userConfig` declares the values Claude Code prompts for when the plugin is enabled. Each option carries a `type`, `title` and `description`. A `sensitive` option's value goes to the secure credential store rather than to settings.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("channels"), {
     severity: "required",
     guidance:
       "`channels` lists the message channels the plugin provides. Each entry's `server` must be the key of one of the plugin's `mcpServers`.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("dependencies"), {
     severity: "required",
     guidance:
       "`dependencies` lists plugins that must be enabled for this one to work, each as `\"name\"`, `\"name@marketplace\"`, or a `{ name, marketplace, version }` object.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   // Recognized at the top level, and separately denied there by the `forbiddenKeys` clause
   // above: the migration is where they are declared, not whether the key is known. Leaving
@@ -1603,13 +1684,13 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
     severity: "required",
     guidance:
       "`themes` is recognized here only so the `forbidden_keys` clause can name the move: theme files belong under `experimental.themes`.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("monitors"), {
     severity: "required",
     guidance:
       "`monitors` is recognized here only so the `forbidden_keys` clause can name the move: monitors belong under `experimental.monitors`.",
-    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-11-26)",
+    cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   // The published schema's own property, absent from the reference's field tables. The
   // allow-list spans both sources: this contract already treats the schema as documentation

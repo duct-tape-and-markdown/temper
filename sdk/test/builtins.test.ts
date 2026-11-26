@@ -650,8 +650,7 @@ test("pluginManifestDefaultContract gates the --strict profile", () => {
   assert.match(keywordsType.guidance ?? "", /load error/);
 
   // Cited and dated, every one — the audit trail a maintained default contract exists
-  // for. Two sources appear: the reference page, and the published schema wherever it
-  // documents what the reference's tables do not — the `commands` object form, and the
+  // for. Two sources appear: the reference page, and the published schema for the
   // `settings` key, which is declared by the schema alone.
   for (const entry of pluginManifestDefaultContract) {
     assert.match(
@@ -659,10 +658,10 @@ test("pluginManifestDefaultContract gates the --strict profile", () => {
       /^https:\/\/(code\.claude\.com\/docs\/en\/plugins-reference#\S+|json\.schemastore\.org\/claude-code-plugin-manifest\.json) \(retrieved 2026-\d\d-\d\d\)/,
     );
   }
-  const commandsType = pluginManifestDefaultContract.find(
-    (entry) => entry.predicate.key === "type" && entry.predicate.field === "commands",
+  const settingsRow = pluginManifestDefaultContract.find(
+    (entry) => entry.predicate.key === "optional" && entry.predicate.field === "settings",
   );
-  assert.match(commandsType?.cite ?? "", /json\.schemastore\.org\/claude-code-plugin-manifest\.json \(retrieved 2026-07-16\)$/);
+  assert.match(settingsRow?.cite ?? "", /json\.schemastore\.org\/claude-code-plugin-manifest\.json \(retrieved 2026-07-16\)$/);
 });
 
 test("pluginManifestDefaultContract's closed key set is the union of both documented sources", () => {
@@ -687,22 +686,32 @@ test("pluginManifestDefaultContract's closed key set is the union of both docume
       "dependencies",
       "description",
       "displayName",
+      "documentationUrl",
+      "engines",
       "experimental",
       "homepage",
       "hooks",
+      "icon",
       "keywords",
       "license",
       "lspServers",
       "mcpServers",
+      "metadata",
       "monitors",
       "name",
+      "network",
       "outputStyles",
+      "privacyPolicyUrl",
       "repository",
       "settings",
       "skills",
+      "supportUrl",
+      "termsOfServiceUrl",
       "themes",
+      "types",
       "userConfig",
       "version",
+      "workflows",
     ],
   );
 
