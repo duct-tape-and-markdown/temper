@@ -591,6 +591,8 @@ pub fn gate(
         &joined_clauses,
         &contracts,
     )?);
+    // A root-family clause on a kind whose contract its judge never reads judges nothing.
+    diagnostics.extend(admissibility::root_predicate_admissibility(&contracts));
 
     let by_kind = compose::assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 

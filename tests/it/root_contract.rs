@@ -668,3 +668,62 @@ fn a_paths_glob_matches_relative_to_the_harness_root_however_the_root_is_spelled
         );
     }
 }
+
+#[test]
+fn a_resolves_clause_bound_at_the_skill_kind_is_refused_as_a_vacuous_clause() {
+    // The route walk reads `resolves` off the root's selection alone, so the same
+    // predicate on the `skill` kind's contract would judge nothing whatever the tree holds.
+    let root = dead_registration_harness("root-resolves-at-skill");
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![ClauseRow {
+                kind: Some("skill".to_string()),
+                ..common::clause("resolves", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (findings, ok) = common::check_harness(&root);
+    let reported = common::findings_for(&findings, "skill.resolves");
+    assert_eq!(
+        reported.len(),
+        1,
+        "the skill-bound `resolves` is one admissibility finding, got:\n{findings:#?}"
+    );
+    assert!(
+        reported[0].starts_with("::error") && reported[0].contains("vacuous"),
+        "and it is an error naming the clause vacuous, got: {}",
+        reported[0]
+    );
+    assert!(
+        reported[0].contains("root member's contract"),
+        "the refusal names the binding the predicate judges, got: {}",
+        reported[0]
+    );
+    assert!(!ok, "and the run fails, got:\n{findings:#?}");
+}
+
+#[test]
+fn the_shipped_root_and_requirement_contracts_are_admitted() {
+    // The shipped lock binds `resolves` at the root and at the `requirement` kind, and
+    // the other root predicates at the root alone: none of them is a vacuous binding.
+    let root = dead_registration_harness("root-family-shipped-admitted");
+    let (findings, _) = common::check_harness(&root);
+    assert!(
+        !findings
+            .iter()
+            .any(|finding| finding.starts_with("::error") && finding.contains("vacuous")),
+        "no shipped root-family clause is refused, got:\n{findings:#?}"
+    );
+    let shipped = ["root.resolves", "requirement.resolves"];
+    for label in shipped {
+        assert!(
+            common::findings_for(&findings, label)
+                .iter()
+                .all(|finding| !finding.starts_with("::error")),
+            "`{label}` is admitted, got:\n{findings:#?}"
+        );
+    }
+}

@@ -892,6 +892,128 @@ pub fn joined_kind_admissibility(
     Ok(diagnostics)
 }
 
+/// The binding a **root-family** predicate judges, or `None` for every predicate whose
+/// judge reads the selection it is bound at.
+///
+/// Each of these is decided once over the whole input by a judge that reads its clause
+/// off the root member's selection ([`engine::root_clause`]) and nowhere else — the
+/// route walk (`resolves`), the import classifier (`import-backed`), the reachability
+/// closure (`reachable`), the discovery walk (`locus-declared`), the lock-versus-disk
+/// read (`fresh`), the lock's engine stamp (`engine-matches`). `resolves` alone has a
+/// second reader: the requirement-coverage tier judges a dangling `satisfies` link under
+/// the `requirement` kind's `resolves` clause ([`crate::coverage::check`]).
+///
+/// The match names every arm rather than defaulting, so the next root-bound predicate
+/// is asked this question at compile time rather than admitted anywhere by omission.
+fn judged_binding(predicate: &crate::contract::Predicate) -> Option<RootFamilyBinding> {
+    use crate::contract::Predicate;
+    match predicate {
+        Predicate::Resolves => Some(RootFamilyBinding::RootOrRequirement),
+        Predicate::ImportBacked
+        | Predicate::Reachable
+        | Predicate::LocusDeclared
+        | Predicate::Fresh
+        | Predicate::EngineMatches => Some(RootFamilyBinding::Root),
+        Predicate::Required { .. }
+        | Predicate::Optional { .. }
+        | Predicate::Type { .. }
+        | Predicate::MinLen { .. }
+        | Predicate::MaxLen { .. }
+        | Predicate::Range { .. }
+        | Predicate::Enum { .. }
+        | Predicate::Deny { .. }
+        | Predicate::ForbiddenKeys { .. }
+        | Predicate::ClosedKeys
+        | Predicate::AllowedChars { .. }
+        | Predicate::Shape { .. }
+        | Predicate::Extent { .. }
+        | Predicate::RequireSections { .. }
+        | Predicate::MustDefine { .. }
+        | Predicate::SectionContains { .. }
+        | Predicate::NameMatchesDir
+        | Predicate::UniqueName
+        | Predicate::Unshadowed
+        | Predicate::DependencyExists
+        | Predicate::Count { .. }
+        | Predicate::Unique { .. }
+        | Predicate::Membership { .. }
+        | Predicate::Degree { .. }
+        | Predicate::ReachedFrom { .. }
+        | Predicate::Kind { .. }
+        | Predicate::GlobValid { .. }
+        | Predicate::MentionReachable { .. }
+        | Predicate::FormatPlacesEdges
+        | Predicate::When { .. } => None,
+    }
+}
+
+/// Where a root-family predicate's judge reads its clause ([`judged_binding`]).
+#[derive(Clone, Copy)]
+enum RootFamilyBinding {
+    /// The root member's selection alone.
+    Root,
+    /// The root member's selection, or the `requirement` kind's contract.
+    RootOrRequirement,
+}
+
+impl RootFamilyBinding {
+    /// Whether a clause on `kind`'s contract reaches this predicate's judge.
+    fn admits_kind(self, kind: &str) -> bool {
+        match self {
+            Self::Root => false,
+            Self::RootOrRequirement => kind == compose::REQUIREMENT_KIND,
+        }
+    }
+
+    /// The binding the judge reads, as the refusal names it.
+    fn named(self) -> &'static str {
+        match self {
+            Self::Root => "the root member's contract (a clause row naming no kind)",
+            Self::RootOrRequirement => {
+                "the root member's contract (a clause row naming no kind) or the \
+                 `requirement` kind's"
+            }
+        }
+    }
+}
+
+/// Refuse a **root-family** clause bound at a kind whose contract its judge never reads
+/// — a vacuous clause. `resolves` on the
+/// `skill` kind's `expect` lifts, dials and labels like any clause, but the route walk
+/// reads only the root's `resolves`, so the skill clause would report nothing whatever
+/// the tree holds: a green that judged nothing. Refused naming the binding the predicate
+/// does judge, so the author moves the clause rather than drops the intent.
+///
+/// A selection-grain predicate whose judge reads the selection it sits on — `count`,
+/// `unique`, `degree` — judges the kind's population and is no part of this family.
+pub fn root_predicate_admissibility(
+    contracts: &BTreeMap<String, Contract>,
+) -> Vec<check::Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for (kind, contract) in contracts {
+        for clause in &contract.clauses {
+            let Some(binding) = judged_binding(&clause.predicate) else {
+                continue;
+            };
+            if binding.admits_kind(kind) {
+                continue;
+            }
+            diagnostics.push(check::Diagnostic::error(
+                &clause.label,
+                &contract.name,
+                format!(
+                    "`{}` is bound at the `{kind}` kind, but its judge reads the clause \
+                     off {} and nowhere else, so this clause would judge nothing — a \
+                     vacuous clause. Bind it there instead",
+                    clause.predicate.key(),
+                    binding.named(),
+                ),
+            ));
+        }
+    }
+    diagnostics
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
