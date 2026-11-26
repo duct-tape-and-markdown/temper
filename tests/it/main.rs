@@ -68,6 +68,7 @@ mod reporters;
 mod requirement_roster;
 mod root_contract;
 mod rule_contract;
+mod sdk_schemas_shipped;
 mod seam_bindings_current;
 mod section_contains;
 mod session_start;

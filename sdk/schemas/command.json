@@ -1,0 +1,5 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "a command loads as a skill does: its `description` is listed from session start, and its body reaches context only when invoked — by `/` plus its path under `commands/` with each `/` a `:`, or by Claude matching the description. It is one file, so it bundles no supporting files; reach for `.claude/skills/<name>/SKILL.md` when the procedure needs reference material loaded on demand.",
+  "type": "object"
+}

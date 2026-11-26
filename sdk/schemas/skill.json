@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "allOf": [
+    {
+      "not": {
+        "required": [
+          "globs"
+        ]
+      }
+    },
+    {
+      "not": {
+        "required": [
+          "alwaysApply"
+        ]
+      }
+    }
+  ],
+  "description": "a skill reaches context in two steps: its `description` is listed from session start, and its body loads only when the skill is invoked — by `/name`, or by Claude matching the description — so the description carries the trigger and the body the procedure. A `paths` list withholds even the listing until Read, Write or Edit touches a matching file, and supporting files load only when the body sends Claude to one. Set `disable-model-invocation: true` for side-effectful workflows you want to time yourself — it drops the description from context too, so only `/name` loads the skill; `user-invocable: false` for background knowledge that is not a command. Prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `metadata` is the sanctioned home for versioning — there is no top-level `version` field.",
+  "properties": {
+    "compatibility": {
+      "description": "Optional field; when present the spec caps it at 500 characters. Most skills do not need it.",
+      "maxLength": 500
+    },
+    "description": {
+      "allOf": [
+        {
+          "not": {
+            "pattern": "</?[A-Za-z_:][-A-Za-z0-9._:]*(\\s+[A-Za-z_:][-A-Za-z0-9._:]*\\s*=\\s*(\"[^\"]*\"|'[^']*'))*\\s*/?>"
+          }
+        }
+      ],
+      "description": "The description is how the model chooses this skill from potentially 100+ available — it is the skill's API. Claude Code would fall back to the body's first paragraph; the spec and upload validation require it declared.\n\nSay both what the skill does and when to use it, with the keywords a user would naturally say. Write in third person — the text is injected into the system prompt, and inconsistent point-of-view causes discovery problems.\n\nThe spec's cap. Claude Code additionally truncates the skill listing at 1,536 combined characters (description + when_to_use) — truncation, not rejection, but text past the fold cannot help the model choose.\n\nAnthropic's platform upload validation rejects a description carrying an XML tag — the description is injected into the system prompt, where a tag is markup rather than text. Neither the open spec nor Claude Code's runtime enforces it, so this is the clause that keeps a skill portable through the API and claude.ai. Prose spelling a comparison (`use when x < y`) is not a tag and does not fire.",
+      "maxLength": 1024,
+      "minLength": 1
+    },
+    "name": {
+      "allOf": [
+        {
+          "pattern": "^([^-]+(-[^-]+)*)?$"
+        }
+      ],
+      "description": "Every skill declares a `name` — the slug the harness binds to. Claude Code alone would default it from the directory name, but a nameless skill is not portable: the spec and Anthropic's upload validation both require it.\n\nA present-but-empty name fails the spec's 1-64 character bound.\n\nLowercase letters, digits, and hyphens only — `PDF-Processing` is the spec's own counter-example. The charset also keeps XML out of the name, which Anthropic's upload validation separately forbids.\n\nKeep the name short and slug-like; it becomes a directory and an id.\n\nA hyphen separates segments, so it may not lead, trail, or double — `-pdf`, `pdf-`, and `pdf--processing` are the spec's own counter-examples. The charset clause above admits the hyphen; this places it.\n\nReserved words, enforced by Anthropic's platform upload validation (not by the open spec, and not by Claude Code's runtime — which itself ships a `claude-api` skill). Keep them out if the skill will ever travel through the API or claude.ai.",
+      "maxLength": 64,
+      "minLength": 1,
+      "not": {
+        "enum": [
+          "anthropic",
+          "claude"
+        ]
+      },
+      "pattern": "^[a-z0-9\\-]*$"
+    },
+    "paths": {
+      "description": "The optional `paths` scope gates every invocation channel until a file tool (read, edit, write) touches a path its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field."
+    }
+  },
+  "required": [
+    "name",
+    "description"
+  ],
+  "type": "object"
+}

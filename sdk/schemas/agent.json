@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "description": {
+      "description": "The description is how Claude decides when to delegate to this subagent — write it so the trigger is unambiguous."
+    },
+    "name": {
+      "allOf": [
+        {
+          "pattern": "^(?:[^\\-]|$)"
+        }
+      ],
+      "description": "Every subagent declares a `name` — its unique identifier. Claude Code binds identity to this field alone, never the filename, so a nameless subagent cannot be delegated to.\n\nA name longer than 256 characters is skipped at load — Claude Code writes an error to the debug log and the subagent never exists. Any case and digits are fine (`reviewer-v2`, `Explore` to override the built-in). Hooks receive this value as `agent_type`.\n\nA name containing `:` is skipped at load — the colon is reserved for plugin-scoped ids like `my-plugin:reviewer`, so the subagent never exists. Use a hyphen instead (`my-reviewer`).\n\nA name starting with `-` is skipped at load, so the subagent never exists. Start with a letter or digit; a hyphen anywhere after the first character is fine (`reviewer-v2`).",
+      "maxLength": 256,
+      "pattern": "^[^:]*$"
+    }
+  },
+  "required": [
+    "name",
+    "description"
+  ],
+  "type": "object"
+}

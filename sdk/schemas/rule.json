@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "allOf": [
+    {
+      "not": {
+        "required": [
+          "description"
+        ]
+      }
+    },
+    {
+      "not": {
+        "required": [
+          "globs"
+        ]
+      }
+    },
+    {
+      "not": {
+        "required": [
+          "alwaysApply"
+        ]
+      }
+    }
+  ],
+  "description": "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
+  "properties": {
+    "paths": {
+      "description": "`paths` is the one documented rules key: globs (brace expansion supported) that load the rule when a file tool (read, edit, write) touches a matching path. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it."
+    }
+  },
+  "type": "object"
+}
