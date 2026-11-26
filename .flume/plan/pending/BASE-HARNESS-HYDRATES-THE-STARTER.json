@@ -1,20 +1,51 @@
 {
   "tag": "BASE-HARNESS-HYDRATES-THE-STARTER",
-  "gate": { "kind": "blockedBy", "tags": ["STARTER-SHIPS-THE-MECHANICS-SHAPES", "STARTER-SHIPS-THE-OPT-IN-PATTERNS"] },
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "STARTER-SHIPS-THE-OPT-IN-PATTERNS"
+    ]
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
-      { "path": "examples/base-harness/.temper/harness.ts", "description": "compose starter() with a worked customization" },
-      { "path": "examples/base-harness/.temper/hooks.ts", "description": "gates come from the starter" },
-      { "path": "examples/base-harness/.temper/kinds.ts", "description": "hydrate the patterns" },
-      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emitted" },
-      { "path": "examples/base-harness/.claude/settings.json", "description": "re-emitted" },
-      { "path": "examples/base-harness/README.md", "description": "explain starter plus customization" }
-    ]
+      {
+        "path": "examples/base-harness/.temper/harness.ts",
+        "description": "compose starter() with a worked customization"
+      },
+      {
+        "path": "examples/base-harness/.temper/hooks.ts",
+        "description": "gates come from the starter"
+      },
+      {
+        "path": "examples/base-harness/.temper/kinds.ts",
+        "description": "hydrate the patterns"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emitted"
+      },
+      {
+        "path": "examples/base-harness/.claude/settings.json",
+        "description": "re-emitted"
+      },
+      {
+        "path": "examples/base-harness/README.md",
+        "description": "explain starter plus customization"
+      }
+    ],
+    "retire": []
   },
   "summary": "examples/base-harness folds into starter plus customization: it hydrates the starter's shapes and shows one worked customization over them",
-  "per": { "path": "specs/distribution.md", "section": "What ships — three channels" },
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "What ships — three channels"
+  },
   "acceptance": "the example's program imports @dtmd/temper/starter, re-emits with emit --frozen green, and temper check passes over it",
   "tests": [],
+  "pins": [],
+  "laneTests": [],
   "notes": "0110 Consequences. The reference skill may project new files under examples/base-harness/.claude/skills/; whatever emit writes is in scope. This repo's own .temper composing the starter is a human chore(harness) change, not this entry."
 }

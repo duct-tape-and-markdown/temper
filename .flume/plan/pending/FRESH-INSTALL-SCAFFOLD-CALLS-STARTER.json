@@ -1,15 +1,29 @@
 {
   "tag": "FRESH-INSTALL-SCAFFOLD-CALLS-STARTER",
-  "gate": { "kind": "blockedBy", "tags": ["STARTER-SHIPS-THE-MECHANICS-SHAPES"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
-      { "path": "src/install.rs", "description": "harness_entry_source calls starter(); scaffold stops minting the gate hook and tsc members starter supplies" },
-      { "path": "tests/it/install.rs", "description": "scaffolded program composes starter" }
-    ]
+      {
+        "path": "src/install.rs",
+        "description": "harness_entry_source calls starter(); scaffold stops minting the gate hook and tsc members starter supplies"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "scaffolded program composes starter"
+      }
+    ],
+    "retire": []
   },
   "summary": "A fresh represented install scaffolds a program that calls the SDK's starter(), which supplies the gates and the typecheck the scaffold mints today",
-  "per": { "path": "specs/model/adoption.md", "section": "Install" },
+  "per": {
+    "path": "specs/model/adoption.md",
+    "section": "Install"
+  },
   "acceptance": "a fresh represented install's harness.ts composes starter() beside the lifted members, emits, and the three gate hooks read wired",
   "tests": [
     "a fresh represented install scaffolds a program that calls starter"
@@ -17,5 +31,6 @@
   "pins": [
     "a fresh represented install wires the three gate hooks"
   ],
+  "laneTests": [],
   "notes": "Lifted members stay their own modules. The gate hooks and the tsc tool move into the starter's defaults, so the scaffold no longer writes them as members, or the names would collide."
 }
