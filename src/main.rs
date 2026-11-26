@@ -399,7 +399,6 @@ fn main() -> miette::Result<ExitCode> {
             let workspace_dir = path.join(temper::WORKSPACE_DIR);
             let declarations = drift::read_declarations(&workspace_dir)?;
             let modes = compose::modes_from_declarations(&declarations)?;
-            let mode = modes.root();
             let mut stdin_payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut stdin_payload).into_diagnostic()?;
 
@@ -437,19 +436,16 @@ fn main() -> miette::Result<ExitCode> {
             // refuses the call's *result* in-band and names the restore, which is why this
             // arm exits zero at every mode: the refusal is the payload, not the exit code.
             if install::guard_edge(&payload) == install::GuardEdge::PostToolUse {
-                let Some(report) =
-                    install::shell_edge_findings(&workspace_dir, &declarations, &loci)?
-                else {
-                    return Ok(ExitCode::SUCCESS);
-                };
-                match mode {
-                    compose::EnforcementMode::Note => {}
-                    compose::EnforcementMode::Warn => println!(
+                let decision =
+                    install::shell_edge_findings(&workspace_dir, &declarations, &loci, &modes)?;
+                match decision.verdict {
+                    install::GuardVerdict::Allow | install::GuardVerdict::Note => {}
+                    install::GuardVerdict::Warn => println!(
                         "{}",
-                        reporter::tool_use(reporter::HookEvent::PostToolUse, &report)
+                        reporter::tool_use(reporter::HookEvent::PostToolUse, &decision.message)
                     ),
-                    compose::EnforcementMode::Block => {
-                        println!("{}", reporter::post_tool_use_block(&report));
+                    install::GuardVerdict::Block => {
+                        println!("{}", reporter::post_tool_use_block(&decision.message));
                     }
                 }
                 return Ok(ExitCode::SUCCESS);
@@ -469,37 +465,20 @@ fn main() -> miette::Result<ExitCode> {
             // runs. It is consulted first: when the write targets such a manifest, its verdict
             // is authoritative. A manifest a container member owns whole is a projection like
             // any other — it carries no residue to co-own — so the manifest binding declines it
-            // and the projection binding below decides. Both act at the one enforcement mode
-            // the lock declares.
-            if let Some(findings) = install::manifest_write_findings(&payload, &path, &manifests) {
-                if findings.is_empty() {
-                    return Ok(ExitCode::SUCCESS);
-                }
-                let report = install::render_manifest_findings(&findings);
-                return Ok(match mode {
-                    compose::EnforcementMode::Note => ExitCode::SUCCESS,
-                    compose::EnforcementMode::Warn => {
-                        println!(
-                            "{}",
-                            reporter::tool_use(reporter::HookEvent::PreToolUse, &report)
-                        );
-                        ExitCode::SUCCESS
-                    }
-                    compose::EnforcementMode::Block => {
-                        eprintln!("{report}");
-                        ExitCode::from(2)
-                    }
-                });
-            }
-
-            let decision = install::guard(
-                &payload,
-                &modes,
-                &path,
-                lock_present.then_some(targets.as_slice()),
-                &loci,
-                &layout,
-            );
+            // and the projection binding below decides. Both act at each finding's own
+            // member's enforcement mode.
+            let decision =
+                match install::manifest_write_findings(&payload, &path, &manifests, &modes) {
+                    Some(decision) => decision,
+                    None => install::guard(
+                        &payload,
+                        &modes,
+                        &path,
+                        lock_present.then_some(targets.as_slice()),
+                        &loci,
+                        &layout,
+                    ),
+                };
             Ok(match decision.verdict {
                 install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
                 install::GuardVerdict::Warn => {

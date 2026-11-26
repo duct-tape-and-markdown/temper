@@ -34,21 +34,47 @@ struct Members<'a> {
 /// Dispatch a single kind through the shared "two-greens" contract validation:
 /// admissibility (contract checks the definition) then conformance (artifacts
 /// check the contract), the members read at their kind's documented field defaults.
-/// Returns the (possibly dial-modified) contract and the collected diagnostics.
+/// Returns the contract as dialed at the kind's own enforcement mode, and the collected
+/// diagnostics.
+///
+/// The dial's softening is inert under `block`, and whether it binds is each member's
+/// own mode's to decide ([`compose::EnforcementModes::for_member`]): a member whose mode
+/// falls on the other side of `block` from its kind's is judged by the contract dialed at
+/// its own.
+#[allow(clippy::too_many_arguments)]
 fn two_greens_dispatch(
+    kind: &str,
     mut contract: Contract,
     mut inherited: Vec<contract::Clause>,
     locus: &engine::Locus,
     members: Members<'_>,
     dial: Option<&dial::Dial>,
-    mode: compose::EnforcementMode,
+    modes: &compose::EnforcementModes,
     dialed: &mut BTreeSet<String>,
 ) -> (Contract, Vec<check::Diagnostic>) {
     let mut diagnostics = Vec::new();
+    let kind_mode = modes.for_kind(kind);
+    let softening_inert = |mode| mode == compose::EnforcementMode::Block;
+    // The members whose own mode reads the dial the other way from their kind's, with the
+    // undialed contract their judge is dialed from. Empty without a dial or an override,
+    // the common case, which then clones nothing.
+    let diverging: Vec<extract::Features> = match dial {
+        Some(_) => members
+            .features
+            .iter()
+            .filter(|member| {
+                let mode = modes.for_member(&member_address::address_of(kind, &member.id));
+                softening_inert(mode) != softening_inert(kind_mode)
+            })
+            .cloned()
+            .collect(),
+        None => Vec::new(),
+    };
+    let undialed = (!diverging.is_empty()).then(|| (contract.clone(), inherited.clone()));
 
     if let Some(dial) = dial {
-        dialed.extend(dial.apply(mode, &mut contract.clauses));
-        dialed.extend(dial.apply(mode, &mut inherited));
+        dialed.extend(dial.apply(kind_mode, &mut contract.clauses));
+        dialed.extend(dial.apply(kind_mode, &mut inherited));
     }
 
     // Inherited clauses passed admissibility at their base's own dispatch; a subkind
@@ -58,18 +84,41 @@ fn two_greens_dispatch(
     // A peer clause decides over the kind's whole by-kind selection, which only exists
     // once every dispatcher has run: `engine::judge_members` judges it there, so an
     // inherited one is withheld here with the kind's own, `when`-nested ones included.
-    let mut whole = Contract {
-        clauses: inherited,
-        ..contract.clone()
+    let whole = |contract: &Contract, inherited: Vec<contract::Clause>| {
+        let mut whole = Contract {
+            clauses: inherited,
+            ..contract.clone()
+        };
+        whole.clauses.extend(contract.clauses.iter().cloned());
+        whole.clauses = engine::split_peer_clauses(whole.clauses).0;
+        whole
     };
-    whole.clauses.extend(contract.clauses.iter().cloned());
-    whole.clauses = engine::split_peer_clauses(whole.clauses).0;
-    diagnostics.extend(engine::validate_as_read(
-        &whole,
-        members.features,
-        members.field_defaults,
-        members.forgiven,
-    ));
+    let validate = |contract: &Contract, features: &[extract::Features]| {
+        engine::validate_as_read(contract, features, members.field_defaults, members.forgiven)
+    };
+    let kind_whole = whole(&contract, inherited);
+    match (dial, undialed) {
+        (Some(dial), Some((mut own_contract, mut own_inherited))) => {
+            let own_mode = if softening_inert(kind_mode) {
+                compose::EnforcementMode::Warn
+            } else {
+                compose::EnforcementMode::Block
+            };
+            dialed.extend(dial.apply(own_mode, &mut own_contract.clauses));
+            dialed.extend(dial.apply(own_mode, &mut own_inherited));
+            let diverging_ids: BTreeSet<&str> =
+                diverging.iter().map(|member| member.id.as_str()).collect();
+            let at_kind: Vec<extract::Features> = members
+                .features
+                .iter()
+                .filter(|member| !diverging_ids.contains(member.id.as_str()))
+                .cloned()
+                .collect();
+            diagnostics.extend(validate(&kind_whole, &at_kind));
+            diagnostics.extend(validate(&whole(&own_contract, own_inherited), &diverging));
+        }
+        _ => diagnostics.extend(validate(&kind_whole, members.features)),
+    }
 
     (contract, diagnostics)
 }
@@ -141,19 +190,12 @@ pub fn source_dependency_stale(
     harness_root: &Path,
     clause: &contract::Clause,
 ) -> Result<Vec<check::Diagnostic>, drift::DriftError> {
-    let mut findings = drift::layout_import_stale_from_doc(lock_doc, harness_root, clause)?;
-    findings.extend(drift::include_stale_from_doc(
-        lock_doc,
-        harness_root,
-        clause,
-    )?);
-    findings.extend(drift::input_stale_from_doc(lock_doc, harness_root, clause)?);
-    findings.extend(drift::module_stale_from_doc(
-        lock_doc,
-        harness_root,
-        clause,
-    )?);
-    Ok(findings)
+    Ok(
+        drift::source_dependency_stale_members_from_doc(lock_doc, harness_root, clause)?
+            .into_iter()
+            .map(|finding| finding.finding)
+            .collect(),
+    )
 }
 
 /// One site walk over every discovered kind, collecting each admitted member into its
@@ -227,10 +269,10 @@ pub fn gate(
     // cache is threaded through every discovery call below; a run walks each consulted
     // flavor exactly once, pinned at run granularity by [`import::walk_count`].
     let discovery = import::Discovery::new(harness_root);
-    // The dial's softening is inert under `block`, so the mode is resolved before any
+    // The dial's softening is inert under `block`, so the modes are resolved before any
     // contract is, and off the same declarations the family assembles from — a run whose
     // gate and whose guard disagreed about the harness's own posture would be two gates.
-    let mode = compose::mode_from_declarations(&committed)?;
+    let modes = compose::modes_from_declarations(&committed)?;
     // Empty cache for early assembly; will build a proper cache after lock_family returns.
     let empty_cache: compose::ManifestCache = BTreeMap::new();
     let compose::LockFamily {
@@ -337,6 +379,7 @@ pub fn gate(
         let forgiven = uaf.forgiven_ids();
 
         let (contract, dispatch_diags) = two_greens_dispatch(
+            kind_name,
             contract,
             Vec::new(),
             &engine::Locus::Document,
@@ -346,7 +389,7 @@ pub fn gate(
                 forgiven: &forgiven,
             },
             (!skip_dial).then_some(&dial),
-            mode,
+            &modes,
             &mut dialed,
         );
         diagnostics.extend(dispatch_diags);
@@ -440,6 +483,7 @@ pub fn gate(
         let forgiven = uaf.forgiven_ids();
 
         let (contract, dispatch_diags) = two_greens_dispatch(
+            &row.name,
             contract,
             compose::inherited_clauses(
                 &declarations,
@@ -455,7 +499,7 @@ pub fn gate(
                 forgiven: &forgiven,
             },
             Some(&dial),
-            mode,
+            &modes,
             &mut dialed,
         );
         diagnostics.extend(dispatch_diags);
@@ -559,6 +603,7 @@ pub fn gate(
         )?;
 
         let (contract, dispatch_diags) = two_greens_dispatch(
+            kind,
             contract,
             compose::inherited_clauses(
                 &declarations,
@@ -576,7 +621,7 @@ pub fn gate(
                 forgiven: &BTreeSet::new(),
             },
             Some(&dial),
-            mode,
+            &modes,
             &mut dialed,
         );
         diagnostics.extend(dispatch_diags);
@@ -663,6 +708,12 @@ pub fn gate(
         if selection.selector == engine::Selector::Kind(dial::KIND.to_string()) {
             continue;
         }
+        // A kind selection's clauses read at its kind's mode, as its contract did above;
+        // a requirement's and the root's span kinds, so they read at the root's.
+        let mode = match &selection.selector {
+            engine::Selector::Kind(kind) => modes.for_kind(kind),
+            engine::Selector::OptIn(_) | engine::Selector::Root => modes.root(),
+        };
         dialed.extend(dial.apply(mode, &mut selection.clauses));
     }
     diagnostics.extend(dial.refusals(&dialed));

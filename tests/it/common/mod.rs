@@ -1852,3 +1852,18 @@ pub fn root_reachable_binding() -> Vec<temper::engine::Selection<'static>> {
         Vec::new(),
     )]
 }
+
+/// The reason a `block`-mode post-edge run refused the call's result with — the top-level
+/// `decision`/`reason` pair this event decides through, not the envelope a `warn` rides.
+pub fn post_edge_refusal(output: &str) -> String {
+    let payload: serde_json::Value = serde_json::from_str(output.trim())
+        .unwrap_or_else(|err| panic!("block must emit the refusal: {err}, got: {output}"));
+    assert_eq!(
+        payload["decision"], "block",
+        "the call's result is refused in-band, got: {output}"
+    );
+    payload["reason"]
+        .as_str()
+        .unwrap_or_else(|| panic!("the refusal must carry a reason, got: {output}"))
+        .to_string()
+}

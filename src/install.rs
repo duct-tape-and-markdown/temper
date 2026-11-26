@@ -1443,7 +1443,7 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
 ///   ([`drift::config_stale_from_doc`]), re-hashing each lock row's `source_path` against
 ///   the `emit_hash` the lock recorded;
 /// - the **source-dependency** half of the same clause
-///   ([`crate::gate::source_dependency_stale`], the door `check` takes), re-hashing each
+///   ([`drift::source_dependency_stale_members_from_doc`], the door `check` takes), re-hashing each
 ///   fingerprinted layout import, prose include and declared input;
 /// - the **locus** half of its `locus-declared` clause
 ///   ([`drift::undeclared_locus_members_from_doc`]), asking the lock's provenance rows
@@ -1453,8 +1453,10 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
 ///   kind's governed locus ([`guarded_layout_loci`]), each addressed as `check`'s scan
 ///   addresses it ([`crate::compose::governed_member_address`]).
 ///
-/// [`None`] where every half is silent — a pass prints nothing — and for each half
-/// whose clause the root contract does not bind at all. One judge in one vocabulary per
+/// Each finding is decided at its own member's mode — its kind's for a stranger at a file
+/// locus — the way the pending-write edge decides its one ([`guard`]); the call is refused
+/// where any finding's mode is `block`. [`GuardVerdict::Allow`] where every half is
+/// silent, and a half whose clause the root contract does not bind is silent. One judge in one vocabulary per
 /// half, so the boundary and the gate cannot disagree about either fact. Clauses are
 /// located the way [`crate::compose::root_contract`]'s rows-or-default rule locates every
 /// root clause, off the `declarations` already in hand — no walk — and the dial is not
@@ -1480,41 +1482,125 @@ pub fn shell_edge_findings(
     workspace_dir: &Path,
     declarations: &drift::Declarations,
     loci: &[GuardedLocus],
-) -> miette::Result<Option<String>> {
+    modes: &EnforcementModes,
+) -> miette::Result<GuardDecision> {
     let root = crate::compose::root_contract(&declarations.clauses, &declarations.assembly)?;
     let clause = |predicate| root.clauses.iter().find(|c| c.predicate == predicate);
     let fresh = clause(crate::contract::Predicate::Fresh);
     let locus_declared = clause(crate::contract::Predicate::LocusDeclared);
     if fresh.is_none() && locus_declared.is_none() {
-        return Ok(None);
+        return Ok(decide_by_mode(Vec::new(), render_shell_edge_report));
     }
 
     let doc = drift::read_lock_document(workspace_dir)?;
     let harness_root = drift::harness_root_of(workspace_dir);
-    let drifted = fresh
-        .map(|clause| drift::config_stale_from_doc(&doc, workspace_dir, clause))
-        .unwrap_or_default();
-    let stale_sources = match fresh {
-        Some(clause) => crate::gate::source_dependency_stale(&doc, &harness_root, clause)?,
-        None => Vec::new(),
+    // Each finding carries the half it reports under and the mode its own member — or,
+    // for a stranger at a file locus, its kind — resolves to.
+    let mut findings: Vec<(EnforcementMode, ShellEdgeFinding)> = Vec::new();
+    let mut push_members = |half, members: Vec<drift::MemberFinding>| {
+        findings.extend(members.into_iter().map(|member| {
+            (
+                modes.for_member(&member.member),
+                ShellEdgeFinding {
+                    half,
+                    finding: member.finding,
+                },
+            )
+        }));
     };
+    if let Some(clause) = fresh {
+        push_members(
+            ShellEdgeHalf::Projection,
+            drift::config_stale_members_from_doc(&doc, workspace_dir, clause),
+        );
+        push_members(
+            ShellEdgeHalf::Source,
+            drift::source_dependency_stale_members_from_doc(&doc, &harness_root, clause)?,
+        );
+    }
     let lock_present = workspace_dir.join(crate::LOCK_FILENAME).is_file();
     // Both halves of the one clause, in the order `check` reports them: the layout half
     // (a layout document no `layout_source` row names) then the file-locus half.
-    let mut strays = Vec::new();
     if let Some(clause) = locus_declared.filter(|_| lock_present) {
         let layout_loci = guarded_layout_loci(declarations)?;
         let layout_sites = layout_member_sites(&harness_root, &layout_loci);
-        strays.extend(drift::undeclared_layout_members_from_doc(
-            &doc,
-            &layout_sites,
-            clause,
-        ));
+        push_members(
+            ShellEdgeHalf::Locus,
+            drift::undeclared_layout_member_findings_from_doc(&doc, &layout_sites, clause),
+        );
         let sites = locus_member_sites(&harness_root, loci, &layout_loci.kinds);
-        strays.extend(drift::undeclared_locus_members_from_doc(&doc, &sites, clause).findings);
+        // A stranger names no member, so its kind's mode is the most specific one; the
+        // sites are judged one kind at a time so each finding keeps its kind.
+        for chunk in sites.chunk_by(|a, b| a.kind == b.kind) {
+            let mode = modes.for_kind(&chunk[0].kind);
+            findings.extend(
+                drift::undeclared_locus_members_from_doc(&doc, chunk, clause)
+                    .findings
+                    .into_iter()
+                    .map(|finding| {
+                        (
+                            mode,
+                            ShellEdgeFinding {
+                                half: ShellEdgeHalf::Locus,
+                                finding,
+                            },
+                        )
+                    }),
+            );
+        }
     }
 
-    Ok(render_shell_edge_report(&drifted, &stale_sources, &strays))
+    Ok(decide_by_mode(findings, render_shell_edge_report))
+}
+
+/// Which section of the shell edge's report a finding rides under.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ShellEdgeHalf {
+    /// A drifted projection or registration entry.
+    Projection,
+    /// A drifted source dependency.
+    Source,
+    /// An undeclared document at a governed locus.
+    Locus,
+}
+
+/// One shell edge finding and the section it reports under.
+struct ShellEdgeFinding {
+    half: ShellEdgeHalf,
+    finding: Diagnostic,
+}
+
+/// The guard's decision over `findings`, each sent where its own mode sends it: a `note`
+/// finding is dropped from the in-band surface, a `warn` one surfaces in-band, and the
+/// call is refused where any is `block` — the refusal names the blocking findings first
+/// and then the warned ones, so a warned finding still reaches the session.
+fn decide_by_mode<T>(
+    findings: Vec<(EnforcementMode, T)>,
+    render: impl Fn(&[T]) -> String,
+) -> GuardDecision {
+    let mut block = Vec::new();
+    let mut warn = Vec::new();
+    let mut noted = false;
+    for (mode, finding) in findings {
+        match mode {
+            EnforcementMode::Note => noted = true,
+            EnforcementMode::Warn => warn.push(finding),
+            EnforcementMode::Block => block.push(finding),
+        }
+    }
+    let (verdict, sections) = match (block.is_empty(), warn.is_empty()) {
+        (false, _) => (GuardVerdict::Block, [block, warn]),
+        (true, false) => (GuardVerdict::Warn, [warn, Vec::new()]),
+        (true, true) if noted => (GuardVerdict::Note, [Vec::new(), Vec::new()]),
+        (true, true) => (GuardVerdict::Allow, [Vec::new(), Vec::new()]),
+    };
+    let message = sections
+        .iter()
+        .filter(|section| !section.is_empty())
+        .map(|section| render(section))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    GuardDecision { verdict, message }
 }
 
 /// Every document on disk at a locus `loci` names, as the site shape the locus judge asks
@@ -1663,30 +1749,28 @@ fn locus_files(
 }
 
 /// Render the post edge's three halves for the guard's in-band surface — each non-empty
-/// half under its own preamble, blank-line separated, [`None`] when all are silent. The
+/// half under its own preamble, blank-line separated, empty when all are silent. The
 /// halves are separate sections because the preamble is a *claim*: drift asserts a
 /// fingerprinted projection moved, a stale source asserts a dependency moved under a
 /// projection that did not, and a stray at a governed locus is neither — the lock never
 /// named it, so there is no fingerprint to restore.
-fn render_shell_edge_report(
-    drifted: &[Diagnostic],
-    stale_sources: &[Diagnostic],
-    strays: &[Diagnostic],
-) -> Option<String> {
-    let sections: Vec<String> = [
-        (GUARD_SHELL_EDGE_MESSAGE, drifted),
-        (GUARD_SHELL_EDGE_SOURCE_MESSAGE, stale_sources),
-        (GUARD_SHELL_EDGE_LOCUS_MESSAGE, strays),
+fn render_shell_edge_report(findings: &[ShellEdgeFinding]) -> String {
+    [
+        (GUARD_SHELL_EDGE_MESSAGE, ShellEdgeHalf::Projection),
+        (GUARD_SHELL_EDGE_SOURCE_MESSAGE, ShellEdgeHalf::Source),
+        (GUARD_SHELL_EDGE_LOCUS_MESSAGE, ShellEdgeHalf::Locus),
     ]
     .into_iter()
-    .filter(|(_, findings)| !findings.is_empty())
-    .map(|(preamble, findings)| render_guard_findings(preamble, findings))
-    .collect();
-    if sections.is_empty() {
-        None
-    } else {
-        Some(sections.join("\n\n"))
-    }
+    .filter_map(|(preamble, half)| {
+        let section: Vec<Diagnostic> = findings
+            .iter()
+            .filter(|finding| finding.half == half)
+            .map(|finding| finding.finding.clone())
+            .collect();
+        (!section.is_empty()).then(|| render_guard_findings(preamble, &section))
+    })
+    .collect::<Vec<_>>()
+    .join("\n\n")
 }
 
 /// Render one stretch of the guard's in-band surface: its `preamble`, then one
@@ -2391,11 +2475,11 @@ fn unparseable_manifest_finding(
 /// member the file is a whole projection, so it carries no residue a hand write could
 /// legitimately touch, and passing such a write here would contradict the
 /// projection-drift verdict `check`'s root `fresh` clause gives the very same bytes.
-/// Returns `Some(findings)` when the write does
-/// target a co-owned manifest: `findings` is empty for a conforming one (a write touching only
-/// opaque residue, or members that all pass), or the error-severity findings its members trip,
-/// to be surfaced at the
-/// author's declared enforcement mode. `Write` and `Edit`/`MultiEdit` are judged by one rule —
+/// Returns `Some(decision)` when the write does
+/// target a co-owned manifest: [`GuardVerdict::Allow`] for a conforming one (a write touching
+/// only opaque residue, or members that all pass), else the decision over the error-severity
+/// findings its members trip, each at its own member's mode — the manifest kind's for a
+/// finding no single member owns. `Write` and `Edit`/`MultiEdit` are judged by one rule —
 /// the manifest the write would land ([`pending_manifest`]) — and an edit the guard cannot
 /// reconstruct earns its own finding rather than falling through to the projection binding,
 /// whose wording denies a co-owned manifest wholesale. A write whose reconstructed bytes are
@@ -2407,7 +2491,37 @@ pub fn manifest_write_findings(
     payload: &JsonValue,
     root: &Path,
     manifests: &[GuardedManifest],
-) -> Option<Vec<Diagnostic>> {
+    modes: &EnforcementModes,
+) -> Option<GuardDecision> {
+    let findings = manifest_member_findings(payload, root, manifests)?;
+    let findings = findings
+        .into_iter()
+        .map(|(subject, finding)| {
+            let mode = match subject {
+                ManifestSubject::Member(address) => modes.for_member(&address),
+                ManifestSubject::Kind(kind) => modes.for_kind(&kind),
+            };
+            (mode, finding)
+        })
+        .collect();
+    Some(decide_by_mode(findings, |findings: &[Diagnostic]| {
+        render_manifest_findings(findings)
+    }))
+}
+
+/// What a manifest write finding indicts: one registration member, or — for a write the
+/// guard could not read member by member — the manifest kind as a whole.
+enum ManifestSubject {
+    Member(String),
+    Kind(String),
+}
+
+/// [`manifest_write_findings`]'s findings, each with the subject whose mode decides it.
+fn manifest_member_findings(
+    payload: &JsonValue,
+    root: &Path,
+    manifests: &[GuardedManifest],
+) -> Option<Vec<(ManifestSubject, Diagnostic)>> {
     let input = tool_input(payload)?;
     let file_path = extract_file_path(payload)?;
 
@@ -2437,7 +2551,12 @@ pub fn manifest_write_findings(
             return Some(
                 matched
                     .into_iter()
-                    .map(unreconstructable_edit_finding)
+                    .map(|manifest| {
+                        (
+                            ManifestSubject::Kind(manifest.kind.name.clone()),
+                            unreconstructable_edit_finding(manifest),
+                        )
+                    })
                     .collect(),
             );
         }
@@ -2463,7 +2582,10 @@ pub fn manifest_write_findings(
             Ok(parsed) => parsed,
             Err(error) => {
                 if reported_unparseable.insert(&manifest.path) {
-                    findings.push(unparseable_manifest_finding(manifest, &error));
+                    findings.push((
+                        ManifestSubject::Kind(manifest.kind.name.clone()),
+                        unparseable_manifest_finding(manifest, &error),
+                    ));
                 }
                 continue;
             }
@@ -2474,13 +2596,17 @@ pub fn manifest_write_findings(
             parsed.members.iter().map(|m| &m.key).collect();
         for expected_key in &manifest.expected_keys {
             if !present_keys.contains(expected_key) {
-                findings.push(Diagnostic::error(
-                    "guard.manifest-dropped-member",
-                    expected_key,
-                    format!(
-                        "lock declares member `{}` at `{}` but write omits it",
+                let member = crate::member_address::address_of(&manifest.kind.name, expected_key);
+                findings.push((
+                    ManifestSubject::Member(member),
+                    Diagnostic::error(
+                        "guard.manifest-dropped-member",
                         expected_key,
-                        manifest.address.key_path.wire_label()
+                        format!(
+                            "lock declares member `{}` at `{}` but write omits it",
+                            expected_key,
+                            manifest.address.key_path.wire_label()
+                        ),
                     ),
                 ));
             }
@@ -2497,10 +2623,25 @@ pub fn manifest_write_findings(
                 )
             })
             .collect();
+        // A member-grain finding names its member's id as its artifact; anything else
+        // speaks for the manifest's kind.
+        let ids: std::collections::BTreeSet<&str> =
+            features.iter().map(|member| member.id.as_str()).collect();
         findings.extend(
             engine::validate(&manifest.contract, &features)
                 .into_iter()
-                .filter(|finding| finding.severity == Severity::Error),
+                .filter(|finding| finding.severity == Severity::Error)
+                .map(|finding| {
+                    let subject = if ids.contains(finding.artifact.as_str()) {
+                        ManifestSubject::Member(crate::member_address::address_of(
+                            &manifest.kind.name,
+                            &finding.artifact,
+                        ))
+                    } else {
+                        ManifestSubject::Kind(manifest.kind.name.clone())
+                    };
+                    (subject, finding)
+                }),
         );
     }
     Some(findings)

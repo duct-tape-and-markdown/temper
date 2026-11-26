@@ -1637,13 +1637,19 @@ fn a_guard_shell_edge_walks_each_declared_locus_root_once() {
     ];
 
     let before = install::locus_member_site_walk_count();
-    let report = install::shell_edge_findings(&workspace, &declarations, &loci).unwrap();
+    let modes = temper::compose::modes_from_declarations(&declarations).unwrap();
+    let report = install::shell_edge_findings(&workspace, &declarations, &loci, &modes).unwrap();
     let walks = install::locus_member_site_walk_count() - before;
 
     // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a call whose
     // walk found nothing would pin its cost over an empty subject, so the report must name
     // the stray under each root before the count is asserted.
-    let report = report.expect("two undeclared documents at governed loci must report");
+    assert_ne!(
+        report.verdict,
+        install::GuardVerdict::Allow,
+        "two undeclared documents at governed loci must report"
+    );
+    let report = report.message;
     assert!(
         report.contains(".claude/rules/rust.md")
             && report.contains(".claude/skills/coordinate/SKILL.md"),

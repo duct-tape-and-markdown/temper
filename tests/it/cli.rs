@@ -694,7 +694,7 @@ fn guard_judges_the_tree_a_shell_call_left_at_the_post_edge() {
                 );
             }
             "block" => {
-                let reason = post_edge_refusal(&output);
+                let reason = common::post_edge_refusal(&output);
                 assert!(
                     reason.contains("temper emit"),
                     "the refusal names the restore, got: {reason}"
@@ -781,7 +781,7 @@ fn the_post_edge_binds_a_document_a_shell_call_left_at_a_governed_locus() {
                 );
             }
             "block" => {
-                let reason = post_edge_refusal(&output);
+                let reason = common::post_edge_refusal(&output);
                 assert!(
                     reason.contains("temper-governed locus"),
                     "the refusal speaks the locus preamble, got: {reason}"
@@ -938,21 +938,6 @@ fn post_edge_harness(
     }
     lock.write(&root);
     root
-}
-
-/// The reason a `block`-mode post-edge run refused the call's result with — the top-level
-/// `decision`/`reason` pair this event decides through, not the envelope a `warn` rides.
-fn post_edge_refusal(output: &str) -> String {
-    let payload: serde_json::Value = serde_json::from_str(output.trim())
-        .unwrap_or_else(|err| panic!("block must emit the refusal: {err}, got: {output}"));
-    assert_eq!(
-        payload["decision"], "block",
-        "the call's result is refused in-band, got: {output}"
-    );
-    payload["reason"]
-        .as_str()
-        .unwrap_or_else(|| panic!("the refusal must carry a reason, got: {output}"))
-        .to_string()
 }
 
 /// Lowercase hex SHA-256 — the emit fingerprint spelling the lock carries, so the clean

@@ -4601,6 +4601,30 @@ pub fn config_stale_from_doc(
     workspace_dir: &Path,
     clause: &contract::Clause,
 ) -> Vec<crate::check::Diagnostic> {
+    config_stale_members_from_doc(doc, workspace_dir, clause)
+        .into_iter()
+        .map(|finding| finding.finding)
+        .collect()
+}
+
+/// A finding paired with the address of the member it indicts — what a caller resolving
+/// the member's own enforcement mode reads ([`crate::compose::EnforcementModes`]).
+#[derive(Debug, Clone)]
+pub struct MemberFinding {
+    /// The indicted member's whole address.
+    pub member: String,
+    /// The finding itself.
+    pub finding: crate::check::Diagnostic,
+}
+
+/// [`config_stale_from_doc`]'s findings, each paired with the member whose projection or
+/// registration entry drifted.
+#[must_use]
+pub fn config_stale_members_from_doc(
+    doc: &DocumentMut,
+    workspace_dir: &Path,
+    clause: &contract::Clause,
+) -> Vec<MemberFinding> {
     let mut findings = Vec::new();
     let harness_root = harness_root_of(workspace_dir);
     for raw in walk_lock_rows_from_doc(doc) {
@@ -4622,13 +4646,14 @@ pub fn config_stale_from_doc(
             // same-keyed children under different hosts are two findings a reader can
             // tell apart (`specs/model/representation.md`, "member").
             let member = member_address_under(raw.host.as_deref(), &raw.kind, &name);
-            findings.push(crate::check::Diagnostic::from_clause(
+            let finding = crate::check::Diagnostic::from_clause(
                 clause,
                 &source_path as &str,
                 format!(
                     "committed projection `{source_path}` (member `{member}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
                 ),
-            ));
+            );
+            findings.push(MemberFinding { member, finding });
         }
     }
     findings.extend(drifted_ownerless_registrations(doc, &harness_root, clause));
@@ -4642,7 +4667,7 @@ fn drifted_ownerless_registrations(
     doc: &DocumentMut,
     harness_root: &Path,
     clause: &contract::Clause,
-) -> Vec<crate::check::Diagnostic> {
+) -> Vec<MemberFinding> {
     let Ok(declarations) = declarations_from_doc(doc) else {
         return Vec::new();
     };
@@ -4664,13 +4689,14 @@ fn drifted_ownerless_registrations(
         for member in
             drifted_registration_entries(&path, &[], &raw, &kind_facts, &declarations.registrations)
         {
-            findings.push(crate::check::Diagnostic::from_clause(
+            let finding = crate::check::Diagnostic::from_clause(
                 clause,
                 &path as &str,
                 format!(
                     "registration entry of member `{member}` in `{path}` does not match the lock's emit fingerprint — the entry was hand-edited; move the edit into the owning member's source and re-emit"
                 ),
-            ));
+            );
+            findings.push(MemberFinding { member, finding });
         }
     }
     findings
@@ -4739,21 +4765,35 @@ pub fn undeclared_layout_members_from_doc(
     sites: &[LayoutMemberSite],
     clause: &contract::Clause,
 ) -> Vec<crate::check::Diagnostic> {
+    undeclared_layout_member_findings_from_doc(doc, sites, clause)
+        .into_iter()
+        .map(|finding| finding.finding)
+        .collect()
+}
+
+/// [`undeclared_layout_members_from_doc`]'s findings, each paired with its site's member.
+#[must_use]
+pub fn undeclared_layout_member_findings_from_doc(
+    doc: &DocumentMut,
+    sites: &[LayoutMemberSite],
+    clause: &contract::Clause,
+) -> Vec<MemberFinding> {
     let Some(declared) = declared_member_addresses(doc) else {
         return Vec::new();
     };
     sites
         .iter()
         .filter(|site| !declared.contains(&site.member))
-        .map(|site| {
-            crate::check::Diagnostic::from_clause(
+        .map(|site| MemberFinding {
+            member: site.member.clone(),
+            finding: crate::check::Diagnostic::from_clause(
                 clause,
                 &*site.source_path,
                 format!(
                     "layout document `{}` (member `{}`) is discovered but the lock declares no member for it — its body's members, prose, and leaf addresses are absent from every read, so its collections count zero and `explain` reports none; declare the member in the program and re-emit, or declare its kind `local` so `check` derives the rows at read time",
                     site.source_path, site.member
                 ),
-            )
+            ),
         })
         .collect()
 }
@@ -5286,6 +5326,24 @@ pub fn source_dep_stale_from_doc(
     remedy: &str,
     clause: &contract::Clause,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+    Ok(
+        source_dep_stale_members_from_doc(doc, harness_root, family, noun, remedy, clause)?
+            .into_iter()
+            .map(|finding| finding.finding)
+            .collect(),
+    )
+}
+
+/// [`source_dep_stale_from_doc`]'s findings, each paired with the member the row records
+/// as referencing the dependency.
+fn source_dep_stale_members_from_doc(
+    doc: &DocumentMut,
+    harness_root: &Path,
+    family: &str,
+    noun: &str,
+    remedy: &str,
+    clause: &contract::Clause,
+) -> Result<Vec<MemberFinding>, DriftError> {
     let mut findings = Vec::new();
     for row in source_deps_from_doc(doc, family)? {
         let message = match fs::read(harness_root.join(&row.source_path)) {
@@ -5299,11 +5357,41 @@ pub fn source_dep_stale_from_doc(
                 row.source_path, row.member
             ),
         };
-        findings.push(crate::check::Diagnostic::from_clause(
+        findings.push(MemberFinding {
+            finding: crate::check::Diagnostic::from_clause(clause, &*row.source_path, message),
+            member: row.member,
+        });
+    }
+    Ok(findings)
+}
+
+/// Every source-dependency drift finding over an already-parsed lock — fingerprinted
+/// layout imports, prose includes, declared inputs and program modules, in that order —
+/// each paired with the member its row records as the referencer.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if a present row in any of the four families is malformed.
+pub fn source_dependency_stale_members_from_doc(
+    doc: &DocumentMut,
+    harness_root: &Path,
+    clause: &contract::Clause,
+) -> Result<Vec<MemberFinding>, DriftError> {
+    let mut findings = Vec::new();
+    for (family, noun, remedy) in [
+        (LAYOUT_IMPORT_FAMILY, "layout import", REEMIT_REMEDY),
+        (INCLUDE_FAMILY, "prose include", REEMIT_REMEDY),
+        (INPUT_FAMILY, "declared input", INPUT_REMEDY),
+        (MODULE_FAMILY, "program module", REEMIT_REMEDY),
+    ] {
+        findings.extend(source_dep_stale_members_from_doc(
+            doc,
+            harness_root,
+            family,
+            noun,
+            remedy,
             clause,
-            &*row.source_path,
-            message,
-        ));
+        )?);
     }
     Ok(findings)
 }

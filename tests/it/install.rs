@@ -2705,6 +2705,101 @@ fn with_no_member_override_the_harness_mode_governs() {
     assert_eq!(code, Some(0), "the member's own mode is the most specific");
 }
 
+/// The skill beside [`CLAUDE_WRITE_PATH`] that declares no mode of its own.
+const SIBLING_WRITE_PATH: &str = ".claude/skills/y/SKILL.md";
+
+/// A lock at `mode` declaring two emit-owned skill projections, `skill:x` at
+/// [`CLAUDE_WRITE_PATH`] (its own mode `member_mode`) and `skill:y` at
+/// [`SIBLING_WRITE_PATH`] (none), with both projections on disk drifted from the
+/// fingerprint the lock recorded — the tree a shell call left.
+fn drifted_pair_harness(label: &str, mode: &str, member_mode: &str) -> PathBuf {
+    let root = common::tmpdir(label);
+    claude_write_lock(mode)
+        .member("skill", "y", SIBLING_WRITE_PATH, "abc", "abc")
+        .member_mode("skill:x", member_mode)
+        .write(&root);
+    for path in [CLAUDE_WRITE_PATH, SIBLING_WRITE_PATH] {
+        common::write_sibling(&root, path, "---\nname: drifted\n---\n");
+    }
+    root
+}
+
+#[test]
+fn a_shell_edge_finding_on_a_member_declaring_block_refuses_the_result_under_a_warn_root() {
+    let root = drifted_pair_harness("member-mode-shell-block", "warn", "block");
+    let (code, output) = common::run_guard(&root, SHELL_CALL_PAYLOAD);
+    assert_eq!(
+        code,
+        Some(0),
+        "the post edge refuses in-band, got: {output}"
+    );
+    let reason = common::post_edge_refusal(&output);
+    assert!(
+        reason.contains(CLAUDE_WRITE_PATH),
+        "the blocking member's drift is the refusal, got: {reason}"
+    );
+    assert!(
+        reason.contains(SIBLING_WRITE_PATH),
+        "the warned sibling still reaches the session, got: {reason}"
+    );
+    assert!(
+        reason.find(CLAUDE_WRITE_PATH) < reason.find(SIBLING_WRITE_PATH),
+        "the blocking finding leads the refusal, got: {reason}"
+    );
+
+    // A member declaring `note` under a `block` root is recorded only: the root's
+    // sibling refuses, and the noted member is named nowhere in-band.
+    let root = drifted_pair_harness("member-mode-shell-note", "block", "note");
+    let (code, output) = common::run_guard(&root, SHELL_CALL_PAYLOAD);
+    assert_eq!(code, Some(0), "got: {output}");
+    let reason = common::post_edge_refusal(&output);
+    assert!(reason.contains(SIBLING_WRITE_PATH), "got: {reason}");
+    assert!(
+        !reason.contains(CLAUDE_WRITE_PATH),
+        "the noted member's finding rides no in-band surface, got: {reason}"
+    );
+}
+
+#[test]
+fn a_manifest_write_finding_follows_the_members_declared_mode() {
+    // A write dropping the `gmail` server: its own `block` refuses the write under a
+    // `warn` root.
+    let root = common::tmpdir("member-mode-manifest-block");
+    common::GuardLock::declaring("warn")
+        .registration("mcp-server", "gmail", ".mcp.json", "mcpServers.*")
+        .member_mode("mcp-server:gmail", "block")
+        .write(&root);
+    let dropped = common::guard_write_payload_with_content(".mcp.json", r#"{"mcpServers":{}}"#);
+    let (code, stderr) = common::run_guard(&root, &dropped);
+    assert_eq!(
+        code,
+        Some(2),
+        "the member's own `block` denies it: {stderr}"
+    );
+    assert!(stderr.contains("gmail"), "got: {stderr}");
+
+    // A contract violation on the same member is decided at the same mode.
+    let violating = common::guard_write_payload_with_content(
+        ".mcp.json",
+        r#"{"mcpServers":{"gmail":{"type":"carrier-pigeon","command":"npx"}}}"#,
+    );
+    let (code, stderr) = common::run_guard(&root, &violating);
+    assert_eq!(code, Some(2), "got: {stderr}");
+    assert!(stderr.contains("carrier-pigeon"), "got: {stderr}");
+
+    // A member declaring `note` under a `block` root is recorded only.
+    let noted = common::tmpdir("member-mode-manifest-note");
+    common::GuardLock::declaring("block")
+        .registration("mcp-server", "gmail", ".mcp.json", "mcpServers.*")
+        .member_mode("mcp-server:gmail", "note")
+        .write(&noted);
+    for payload in [&dropped, &violating] {
+        let (code, output) = common::run_guard(&noted, payload);
+        assert_eq!(code, Some(0), "note allows the write: {output}");
+        assert!(output.is_empty(), "and surfaces nothing in-band: {output}");
+    }
+}
+
 #[test]
 fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
     let root = common::tmpdir("lock-mode-block");
@@ -5142,13 +5237,16 @@ fn the_guard_names_an_undeclared_nested_layout_child_at_the_post_edge() {
 
     fs::write(harness.join(NESTED_STRAY), NESTED_SPEC_DOC).unwrap();
     let before = temper::import::walk_count();
+    let declarations = drift::read_declarations(&harness.join(".temper")).unwrap();
     let report = install::shell_edge_findings(
         &harness.join(".temper"),
-        &drift::read_declarations(&harness.join(".temper")).unwrap(),
+        &declarations,
         &[],
+        &temper::compose::modes_from_declarations(&declarations).unwrap(),
     )
     .unwrap()
-    .expect("the undeclared child reports");
+    .message;
+    assert!(!report.is_empty(), "the undeclared child reports");
     assert!(report.contains(NESTED_STRAY), "got: {report}");
     let walks = temper::import::walk_count() - before;
     assert!(

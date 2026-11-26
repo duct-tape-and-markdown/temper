@@ -191,6 +191,78 @@ fn a_dialed_softening_is_inert_in_block_mode() {
     );
 }
 
+/// A harness at `mode` carrying two undescribed skills — `coordinate`, whose own mode is
+/// `member_mode`, and `relay`, which declares none — dialing their shared
+/// `skill.required.description` clause down to `advisory`.
+fn softened_pair_at_modes(label: &str, mode: &str, member_mode: &str) -> std::path::PathBuf {
+    let harness = harness_at_mode(label, mode, UNDESCRIBED_SKILL);
+    common::write_skill(
+        &harness,
+        "relay",
+        &UNDESCRIBED_SKILL.replace("coordinate", "relay"),
+    );
+    let mut declarations = drift::read_declarations(&harness.join(".temper")).unwrap();
+    declarations.assembly.push(AssemblyFactRow {
+        fact: "mode".to_string(),
+        value: Some(member_mode.to_string()),
+        from: None,
+        field: None,
+        to: None,
+        provided: None,
+        member: Some("skill:coordinate".to_string()),
+    });
+    common::write_lock(&harness, declarations);
+    write_dial(
+        &harness,
+        &dial_entry("skill.required.description", "advisory"),
+    );
+    harness
+}
+
+/// The severity the github reporter printed for `rule` over the member named `name`.
+fn reported_severity_of(findings: &[String], rule: &str, name: &str) -> Option<String> {
+    let line = common::findings_for(findings, rule)
+        .into_iter()
+        .find(|line| line.contains(name))?;
+    Some(line.trim_start_matches("::").split(' ').next()?.to_string())
+}
+
+#[test]
+fn a_member_declaring_block_does_not_take_dial_softening_under_a_warn_root() {
+    let harness = softened_pair_at_modes("dial-member-block", "warn", "block");
+    let (findings, ok) = common::check_harness(&harness);
+    assert_eq!(
+        reported_severity_of(&findings, "skill.required.description", "coordinate").as_deref(),
+        Some("error"),
+        "the member's own `block` leaves the authored severity standing: {findings:?}"
+    );
+    assert_eq!(
+        reported_severity_of(&findings, "skill.required.description", "relay").as_deref(),
+        Some("warning"),
+        "its sibling at the root's `warn` still takes the softening: {findings:?}"
+    );
+    assert!(
+        !ok,
+        "the unsoftened member still fails the run: {findings:?}"
+    );
+
+    // The other direction: a member declaring `warn` under a `block` root takes the
+    // softening its own mode admits, while the root holds its sibling to the authored
+    // severity.
+    let harness = softened_pair_at_modes("dial-member-warn", "block", "warn");
+    let (findings, _) = common::check_harness(&harness);
+    assert_eq!(
+        reported_severity_of(&findings, "skill.required.description", "coordinate").as_deref(),
+        Some("warning"),
+        "the member's own `warn` admits the softening: {findings:?}"
+    );
+    assert_eq!(
+        reported_severity_of(&findings, "skill.required.description", "relay").as_deref(),
+        Some("error"),
+        "the `block` root leaves its sibling's authored severity standing: {findings:?}"
+    );
+}
+
 #[test]
 fn a_dial_cannot_spell_deletion() {
     // The envelope's structural half. Every spelling a machine might reach for to make a
