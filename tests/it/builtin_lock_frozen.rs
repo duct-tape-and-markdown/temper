@@ -240,17 +240,11 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
         root.iter().all(|row| row.guidance.is_some()),
         "every shipped root clause teaches"
     );
-    // Cited exactly where a verdict rests on Claude Code's documented behaviour:
-    // `reachable`'s dead channels, `resolves`' by-name field resolution, and
-    // `import-backed`'s import expansion. The other three compare temper's own lock
-    // against disk or temper's own version, so a URL there would be invented.
-    assert_eq!(
-        root.iter()
-            .filter(|row| row.cite.is_some())
-            .map(|row| row.predicate.as_str())
-            .collect::<Vec<_>>(),
-        vec!["reachable", "resolves", "import-backed"],
-        "the cited root rows, got {root:#?}"
+    // Cited, every one: Claude Code's docs where a verdict rests on documented
+    // behaviour, temper's own corpus where it compares temper's lock or version.
+    assert!(
+        root.iter().all(|row| row.cite.is_some()),
+        "every shipped root clause is cited, got {root:#?}"
     );
 
     // And they lift back through the engine's own root-contract reader, so what ships is

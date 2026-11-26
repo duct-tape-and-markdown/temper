@@ -750,11 +750,13 @@ export const requirementDefaultContract: readonly Clause[] = [
     severity: "required",
     guidance:
       "No member opts in to fill this requirement: nothing in the harness declares a `satisfies` link naming it, so the intent its prose states has no home. Add the requirement's name to the `satisfies` of the member that carries the intent, or author that member. A requirement declared `required: false` reads this clause at advisory, so an aspiration still reports; dial this label to `advisory` while a tree mid-adoption has not filled its requirements yet.",
+    cite: "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#requirement--a-shipped-kind-not-a-primitive (retrieved 2026-11-26)",
   }),
   clause(resolves(), {
     severity: "required",
     guidance:
       "This member's `satisfies` names a requirement the harness does not declare, so the claim fills nothing — most often a typo, or a requirement renamed or retired under it. Fix the name, declare the requirement in the harness `require` map or a member's `requires`, or drop the link. Dial this label to `advisory` while a renamed requirement's old claims are still being moved.",
+    cite: "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#requirement--a-shipped-kind-not-a-primitive (retrieved 2026-11-26)",
   }),
 ];
 
@@ -1469,87 +1471,129 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
   // absent from this block is one `closedKeys()` indicts.
   clause(optional("$schema"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`$schema` is a JSON Schema URL for editor autocomplete; Claude Code ignores it at load time, so it costs nothing at runtime.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("displayName"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`displayName` is the name the UI shows in place of `name` — it may carry spaces and any casing and is never used for lookup. A marketplace entry's own `displayName` takes precedence over this one.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("version"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`version` is not checked as semver, and setting it pins users to that version until you change it — so bump it with every release, or leave it out.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("description"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`description` is a short explanation of what the plugin provides, shown wherever the plugin is listed.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("author"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`author` is an object: `name` is required, `email` and `url` optional.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("homepage"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`homepage` is the plugin's documentation URL, and it must parse as a URL.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("repository"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`repository` is the source repository URL; Claude Code does not validate it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("license"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`license` is an SPDX identifier such as `MIT`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("keywords"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`keywords` is an array of discovery tags.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("defaultEnabled"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+    guidance:
+      "`defaultEnabled` (a boolean, default `true`) sets whether the plugin starts enabled when the user has no `enabledPlugins` entry for it. Once that entry is written, later changes to this field no longer reach that user.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-11-26)",
   }),
   clause(optional("skills"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`skills` names extra directories scanned for `<name>/SKILL.md` skills. It adds to the default `skills/` scan rather than replacing it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("commands"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`commands` names flat `.md` files or directories, or maps command names to entries. Setting it replaces the default `commands/` scan; list `./commands/` explicitly to keep it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("agents"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`agents` names agent `.md` files. Setting it replaces the default `agents/` scan; list `./agents/` explicitly to keep it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("hooks"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`hooks` is a hook config `.json` path, an inline hooks object, or a list of either. It merges with `hooks/hooks.json` rather than replacing it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("mcpServers"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`mcpServers` is an MCP config path, an inline server map, or a list of them. It merges with `.mcp.json`, and a server name declared later replaces an earlier one.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("outputStyles"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`outputStyles` names output-style files or directories. Setting it replaces the default `output-styles/` scan; list `./output-styles/` explicitly to keep it.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("lspServers"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`lspServers` is an LSP config `.json` path, an inline server map, or a list of them. It merges with `.lsp.json`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("experimental"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`experimental` is the container for components whose shape may still change — `themes` and `monitors` among them. Declare those under it, not at the top level.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("userConfig"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`userConfig` declares the values Claude Code prompts for when the plugin is enabled. Each option carries a `type`, `title` and `description`. A `sensitive` option's value goes to the secure credential store rather than to settings.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("channels"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`channels` lists the message channels the plugin provides. Each entry's `server` must be the key of one of the plugin's `mcpServers`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   clause(optional("dependencies"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+    guidance:
+      "`dependencies` lists plugins that must be enabled for this one to work, each as `\"name\"`, `\"name@marketplace\"`, or a `{ name, marketplace, version }` object.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-11-26)",
   }),
   // Recognized at the top level, and separately denied there by the `forbiddenKeys` clause
   // above: the migration is where they are declared, not whether the key is known. Leaving
@@ -1557,11 +1601,15 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
   // the format, and a second finding for one mistake.
   clause(optional("themes"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-17)",
+    guidance:
+      "`themes` is recognized here only so the `forbidden_keys` clause can name the move: theme files belong under `experimental.themes`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-11-26)",
   }),
   clause(optional("monitors"), {
     severity: "required",
-    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-17)",
+    guidance:
+      "`monitors` is recognized here only so the `forbidden_keys` clause can name the move: monitors belong under `experimental.monitors`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-11-26)",
   }),
   // The published schema's own property, absent from the reference's field tables. The
   // allow-list spans both sources: this contract already treats the schema as documentation
@@ -1569,6 +1617,8 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
   // false positive.
   clause(optional("settings"), {
     severity: "required",
+    guidance:
+      "`settings` is a property of the published manifest schema, though the reference's field tables omit it. It is admitted here so a schema-valid manifest never draws a `closed-keys` finding.",
     cite: "https://json.schemastore.org/claude-code-plugin-manifest.json (retrieved 2026-07-16)",
   }),
 
@@ -1798,6 +1848,8 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    guidance:
+      "Where a catalog entry's `source` is a string, it is a relative path, resolved from the marketplace root — so the body below holds it to the path form.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
   }),
   when(enumOf("plugins[*].source.source", ["github"]), [
@@ -1808,6 +1860,8 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    guidance:
+      "Where a catalog entry's source object is a `github` source, the body below holds the field that source type requires: the `owner/repo` repository.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
   }),
   when(enumOf("plugins[*].source.source", ["url"]), [
@@ -1818,6 +1872,8 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    guidance:
+      "Where a catalog entry's source object is a `url` source, the body below holds the field that source type requires: the git URL to clone.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
   }),
   when(enumOf("plugins[*].source.source", ["git-subdir"]), [
@@ -1834,6 +1890,8 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    guidance:
+      "Where a catalog entry's source object is a `git-subdir` source, the body below holds the fields that source type requires: the repository URL and the subdirectory holding the plugin.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
   }),
   when(enumOf("plugins[*].source.source", ["npm"]), [
@@ -1844,6 +1902,8 @@ export const marketplaceDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
     }),
   ], {
+    guidance:
+      "Where a catalog entry's source object is an `npm` source, the body below holds the field that source type requires: the package name.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
   }),
 ];
@@ -2382,6 +2442,7 @@ export const toolDefaultContract: readonly Clause[] = [
     severity: "advisory",
     guidance:
       "Nothing runs this tool: no gate hook, tap, typecheck or script verifier reaches it by an edge. A tool is the one home of a command the harness runs, so one nothing points at is a declaration that governs nothing — a reader takes it for a live dependency, and its package, file or system claim is checked for no runner. Point the runner that executes this command at the tool, or delete the tool. Advisory because a tool declared ahead of its runner is ordinary work in progress; dial this label to `required` once every declared tool should be run.",
+    cite: "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/builtins.md#tool (retrieved 2026-11-26)",
   }),
 ];
 
@@ -2597,7 +2658,11 @@ export const handlerDefaultContract: readonly Clause[] = [
         cite: "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)",
       }),
     ],
-    { cite: "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)" },
+    {
+      guidance:
+        "Where a handler's `type` is `command`, the body below holds the field that type requires: the command to run.",
+      cite: "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)",
+    },
   ),
   when(
     enumOf("type", ["http"]),
@@ -2609,7 +2674,11 @@ export const handlerDefaultContract: readonly Clause[] = [
         cite: "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)",
       }),
     ],
-    { cite: "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)" },
+    {
+      guidance:
+        "Where a handler's `type` is `http`, the body below holds the field that type requires: the endpoint the event's JSON input is POSTed to.",
+      cite: "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)",
+    },
   ),
   when(
     enumOf("type", ["mcp_tool"]),
@@ -2627,7 +2696,11 @@ export const handlerDefaultContract: readonly Clause[] = [
         cite: "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)",
       }),
     ],
-    { cite: "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)" },
+    {
+      guidance:
+        "Where a handler's `type` is `mcp_tool`, the body below holds the fields that type requires: the connected server and the tool to call on it.",
+      cite: "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)",
+    },
   ),
   when(
     enumOf("type", ["prompt", "agent"]),
@@ -2639,7 +2712,11 @@ export const handlerDefaultContract: readonly Clause[] = [
         cite: "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)",
       }),
     ],
-    { cite: "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)" },
+    {
+      guidance:
+        "Where a handler's `type` is `prompt` or `agent`, the body below holds the field both types require: the prompt text sent to the model.",
+      cite: "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)",
+    },
   ),
 ];
 
@@ -2732,6 +2809,8 @@ export const mcpServerDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
     }),
   ], {
+    guidance:
+      "Where a server's transport is `stdio` — the default an entry with no `type` reads as — the body below holds the field a local process requires: the command that starts it.",
     cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
   }),
   when(enumOf("type", ["http", "streamable-http", "sse", "ws"]), [
@@ -2742,6 +2821,8 @@ export const mcpServerDefaultContract: readonly Clause[] = [
       cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
     }),
   ], {
+    guidance:
+      "Where a server's transport is remote (`http`, `streamable-http`, `sse` or `ws`), the body below holds the field every remote transport requires: the endpoint URL.",
     cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
   }),
 ];

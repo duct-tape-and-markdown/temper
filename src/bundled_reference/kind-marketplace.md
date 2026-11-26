@@ -21,8 +21,8 @@ Each member is its own document, at:
 - `required` on `plugins` (required): The `plugins` array is the catalog — a marketplace without it lists nothing. An empty array is a valid, if empty, catalog.
 - `required` on `plugins[*].name` (required): Every catalog entry declares a `name` — the plugin identifier users type when installing (`/plugin install my-plugin@marketplace`), kebab-case and without spaces. An entry with no name cannot be installed, and this clause names the entry that omitted it by its own index.
 - `required` on `plugins[*].source` (required): Every catalog entry declares a `source` — where the plugin is fetched from. A listed plugin with no source resolves to nothing. Note that a relative-path source resolves against a *local copy* of the marketplace, so it fails to resolve for users who added the marketplace by direct URL to `marketplace.json`.
-- `when` (required)
-- `when` (required)
-- `when` (required)
-- `when` (required)
-- `when` (required)
+- `when` (required): Where a catalog entry's `source` is a string, it is a relative path, resolved from the marketplace root — so the body below holds it to the path form.
+- `when` (required): Where a catalog entry's source object is a `github` source, the body below holds the field that source type requires: the `owner/repo` repository.
+- `when` (required): Where a catalog entry's source object is a `url` source, the body below holds the field that source type requires: the git URL to clone.
+- `when` (required): Where a catalog entry's source object is a `git-subdir` source, the body below holds the fields that source type requires: the repository URL and the subdirectory holding the plugin.
+- `when` (required): Where a catalog entry's source object is an `npm` source, the body below holds the field that source type requires: the package name.

@@ -253,12 +253,19 @@ test("reachable composes a field-less graph-scope predicate lowering to a kind-l
     rootDefaultContract.every((c) => c.guidance),
     "every shipped floor clause teaches",
   );
-  // And cites exactly where its verdict rests on Claude Code's documented behaviour;
-  // the other three compare temper's own lock or version, so a URL would be invented.
+  // And cites Claude Code's docs where its verdict rests on documented behaviour; the
+  // other three compare temper's own lock or version, so they cite temper's own corpus.
   assert.deepEqual(
-    rootDefaultContract.filter((c) => c.cite).map((c) => c.predicate.key),
+    rootDefaultContract.filter((c) => c.cite?.startsWith("https://code.claude.com/")).map((c) => c.predicate.key),
     ["reachable", "resolves", "import-backed"],
-    "the cited root clauses",
+    "the clauses cited to Claude Code's docs",
+  );
+  assert.deepEqual(
+    rootDefaultContract
+      .filter((c) => c.cite?.startsWith("https://github.com/duct-tape-and-markdown/temper/blob/main/specs/"))
+      .map((c) => c.predicate.key),
+    ["fresh", "locus-declared", "engine-matches"],
+    "the clauses cited to temper's own corpus",
   );
 });
 

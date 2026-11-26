@@ -74,6 +74,9 @@ export const dial: KindDefinition<Dial> = kind<Dial>({
   identityField: "name",
 });
 
+/** The corpus section that rules the dial envelope — a temper-owned format, cited to its own spec. */
+const DIAL_CITE = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#clause (retrieved 2026-11-26)";
+
 /**
  * The default contract for `dial` — the envelope, stated as clauses.
  *
@@ -91,32 +94,46 @@ export const dialDefaultContract: readonly Clause[] = [
     severity: "required",
     guidance:
       "A dial names the machine it speaks for — its identity, and what its findings are reported under. There is no filename fallback: every machine's dial is `dial.toml`.",
+    cite: DIAL_CITE,
   }),
-  clause(type("name", ["string"]), { severity: "required" }),
+  clause(type("name", ["string"]), {
+    severity: "required",
+    guidance: "The machine's name is a string — the label its findings report under, written `name = \"laptop\"`.",
+    cite: DIAL_CITE,
+  }),
   clause(type("clause", ["list"]), {
     severity: "required",
     guidance:
       "The dialed clauses are an array of tables — `[[clause]]` per entry, each naming one `label` and one `severity`.",
+    cite: DIAL_CITE,
   }),
   clause(required("clause[*].label"), {
     severity: "required",
     guidance:
       "An entry names the clause it dials by the address the finding printed as its `rule` id — spell it back verbatim. An entry naming a label no clause in this harness carries is a finding, never a silent no-op.",
+    cite: DIAL_CITE,
   }),
-  clause(type("clause[*].label", ["string"]), { severity: "required" }),
+  clause(type("clause[*].label", ["string"]), {
+    severity: "required",
+    guidance: "A label is a string — the clause's printed `rule` id, quoted verbatim: `label = \"skill/description/max_len\"`.",
+    cite: DIAL_CITE,
+  }),
   clause(required("clause[*].severity"), {
     severity: "required",
     guidance:
       "Severity is an entry's only verb: it is what a dial says, and all a dial says.",
+    cite: DIAL_CITE,
   }),
   clause(enumOf("clause[*].severity", ["required", "advisory"]), {
     severity: "required",
     guidance:
       "The two severities an authored clause declares under are the two a dial re-declares under — there is no third value that means `off`. Softening a clause to `advisory` still reports it, and is inert in block mode; hardening one to `required` binds in every mode.",
+    cite: DIAL_CITE,
   }),
   clause(closedKeys(), {
     severity: "required",
     guidance:
       "The dial's key set is exhaustive: `name` and `clause`, nothing else. A key outside it is a verb this schema does not have — most likely an attempt to spell deletion, which it cannot.",
+    cite: DIAL_CITE,
   }),
 ];

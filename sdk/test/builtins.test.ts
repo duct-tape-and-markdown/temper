@@ -1,6 +1,6 @@
 /**
  * The built-in default contracts: every default contract exported from `claude-code.ts` is a
- * well-formed clause array, and every clause carries a non-empty `cite` — the
+ * well-formed clause array, and every clause carries guidance and a dated `cite` — the
  * auditability guarantee a maintained default contract exists to keep. The provider face's
  * non-kind exports are pinned present here too, the gate commands included.
  */
@@ -57,41 +57,77 @@ import {
   text,
 } from "../src/claude-code.js";
 
-const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
-  agentDefaultContract,
-  skillDefaultContract,
-  commandDefaultContract,
-  handlerDefaultContract,
-  hookDefaultContract,
-  installedPluginDefaultContract,
-  mcpDefaultContract,
-  mcpServerDefaultContract,
-  ruleDefaultContract,
-  memoryAnthropicDefaultContract,
-  pluginManifestDefaultContract,
-  marketplaceDefaultContract,
-  supportingDocDefaultContract,
-  settingsLocalDefaultContract,
-  settingsDefaultContract,
-  knownMarketplaceDefaultContract,
-];
+/**
+ * Every shipped default contract, derived from the built-in kinds rather than listed: each
+ * kind value either face exports (anything carrying `facts`) pairs with its
+ * `<export>DefaultContract`, so a kind added without one fails here, and so does one whose
+ * contract this file forgot to name. `memory`'s contract is the one named for its provider;
+ * the root's is the one contract no kind carries.
+ */
+async function shippedContracts(): Promise<ReadonlyArray<readonly [string, readonly Clause[]]>> {
+  const faces: ReadonlyArray<Record<string, unknown>> = [
+    await import("../src/claude-code.js"),
+    await import("../src/index.js"),
+  ];
+  const exported = (name: string): unknown => faces.find((face) => name in face)?.[name];
+  const contractName: Record<string, string> = { memory: "memoryAnthropicDefaultContract" };
+  const kinds = new Set<string>();
+  for (const face of faces) {
+    for (const [name, value] of Object.entries(face)) {
+      if (typeof value === "function" && "facts" in value) kinds.add(name);
+    }
+  }
+  assert.ok(kinds.size >= 20, `found only ${kinds.size} built-in kinds`);
+  const contracts: Array<readonly [string, readonly Clause[]]> = [];
+  for (const name of [...kinds].sort()) {
+    const label = contractName[name] ?? `${name}DefaultContract`;
+    const contract = exported(label);
+    assert.ok(Array.isArray(contract), `built-in kind \`${name}\` exports no \`${label}\``);
+    contracts.push([label, contract as readonly Clause[]]);
+  }
+  const { rootDefaultContract } = await import("../src/index.js");
+  contracts.push(["rootDefaultContract", rootDefaultContract]);
+  return contracts;
+}
 
-test("every exported default contract is a well-formed clause array", () => {
-  for (const defaultContract of DEFAULT_CONTRACTS) {
-    assert.ok(Array.isArray(defaultContract));
-    for (const entry of defaultContract) {
+/** Every clause of a contract, a `when` clause's body included. */
+function* clausesOf(contract: readonly Clause[]): Generator<Clause> {
+  for (const entry of contract) {
+    yield entry;
+    if (entry.when_body) yield* clausesOf(entry.when_body);
+  }
+}
+
+const RETRIEVED = /retrieved (\d{4}-\d{2}-\d{2})/g;
+
+test("every shipped default contract is a well-formed clause array", async () => {
+  for (const [, contract] of await shippedContracts()) {
+    for (const entry of clausesOf(contract)) {
       assert.ok(entry.predicate && typeof entry.predicate.key === "string" && entry.predicate.key.length > 0);
       assert.ok(entry.severity === "required" || entry.severity === "advisory");
- }
- }
+    }
+  }
 });
 
-test("every default contract clause carries a non-empty cite", () => {
-  for (const defaultContract of DEFAULT_CONTRACTS) {
-    for (const entry of defaultContract) {
-      assert.ok(typeof entry.cite === "string" && entry.cite.length > 0, `clause \`${entry.predicate.key}\` is uncited`);
- }
- }
+test("every shipped clause carries guidance and a cite dated by its retrieval", async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  for (const [label, contract] of await shippedContracts()) {
+    for (const [position, entry] of [...clausesOf(contract)].entries()) {
+      const at = `${label}[${position}] \`${entry.predicate.key}\`${entry.predicate.field ? ` on \`${entry.predicate.field}\`` : ""}`;
+      assert.ok(typeof entry.guidance === "string" && entry.guidance.trim().length > 0, `${at} carries no guidance`);
+      assert.ok(typeof entry.cite === "string" && entry.cite.length > 0, `${at} is uncited`);
+      const dates = [...entry.cite.matchAll(RETRIEVED)].map((match) => match[1]);
+      assert.ok(dates.length > 0, `${at}'s cite names no \`retrieved YYYY-MM-DD\` date: ${entry.cite}`);
+      for (const date of dates) {
+        const parsed = new Date(`${date}T00:00:00Z`);
+        assert.ok(
+          !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date,
+          `${at}'s cite carries an impossible date \`${date}\``,
+        );
+        assert.ok(date <= today, `${at}'s cite is dated in the future: \`${date}\``);
+      }
+    }
+  }
 });
 
 test("the provider face exports no gate-command string: a gate hook reaches its tool", async () => {
@@ -620,7 +656,7 @@ test("pluginManifestDefaultContract gates the --strict profile", () => {
   for (const entry of pluginManifestDefaultContract) {
     assert.match(
       entry.cite ?? "",
-      /^https:\/\/(code\.claude\.com\/docs\/en\/plugins-reference#\S+|json\.schemastore\.org\/claude-code-plugin-manifest\.json) \(retrieved 2026-07-\d\d\)/,
+      /^https:\/\/(code\.claude\.com\/docs\/en\/plugins-reference#\S+|json\.schemastore\.org\/claude-code-plugin-manifest\.json) \(retrieved 2026-\d\d-\d\d\)/,
     );
   }
   const commandsType = pluginManifestDefaultContract.find(

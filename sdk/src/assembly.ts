@@ -228,16 +228,19 @@ export const rootDefaultContract: readonly Clause[] = [
     severity: "advisory",
     guidance:
       "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency has moved: a layout import, a prose include, a declared input, or — on the root member — a module the program itself loaded. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved declared input re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI.",
+    cite: "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/pipeline.md#drift (retrieved 2026-11-26)",
   }),
   clause(locusDeclared(), {
     severity: "advisory",
     guidance:
       "A document sits at a governed locus that your program declares no member for. temper maintains nothing about it: `emit` never reaps it, and where your registrations write into it, `emit` renders their entries and refuses to delete any key it does not own; `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Where the locus is one the harness itself loads — a built-in kind's — it is live context on top of that; where the kind is your own, who reads it is yours to know and not temper's to claim. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared.",
+    cite: "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/decisions/0054-the-root-member-carries-a-contract.md (retrieved 2026-11-26)",
   }),
   clause(engineMatches(), {
     severity: "advisory",
     guidance:
       "Your committed lock records a different temper version than the one running this gate. The rows being read were compiled by a compiler this binary is not, so every verdict below rests on a translation: an older spelling normalizes at read time, but a genuine change in what a row means reads the same from the inside. Re-run `emit` — it rewrites the lock whole in this engine's canonical form, and the stamp goes back to matching. Advisory because a lagging stamp is the ordinary state of every checkout between an upgrade and the next emit, and blocking there would make an upgrade a hard stop; dial this label to `required` — or re-declare the clause — once your CI should refuse a lock it did not compile.",
+    cite: "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/pipeline.md#the-lock (retrieved 2026-11-26)",
   }),
   clause(resolves(), {
     severity: "required",

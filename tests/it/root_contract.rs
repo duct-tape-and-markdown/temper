@@ -430,16 +430,12 @@ fn the_shipped_root_default_binds_the_six_root_predicates_and_rides_a_harness_th
         "and every shipped clause teaches, got {:?}",
         contract.clauses
     );
-    assert_eq!(
+    assert!(
         contract
             .clauses
             .iter()
-            .filter(|clause| clause.source.is_some())
-            .map(|clause| clause.label.as_str())
-            .collect::<Vec<_>>(),
-        vec!["root.reachable", "root.resolves", "root.import-backed"],
-        "cited exactly where a verdict rests on Claude Code's documented behaviour; the \
-         other three compare temper's own lock or version, got {:?}",
+            .all(|clause| clause.source.is_some()),
+        "and every shipped clause is cited, got {:?}",
         contract.clauses
     );
 
