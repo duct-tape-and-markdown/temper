@@ -1,11 +1,9 @@
 {
   "tag": "OUTPUT-STYLE-IS-SELECTED-BY-SETTINGS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "OUTPUT-STYLE-KIND-SHIPS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -44,5 +42,6 @@
     "a settings local output style naming an output style member resolves to it"
   ],
   "pins": [],
+  "laneTests": [],
   "notes": "Exact, case-sensitive match (docs, output-styles, retrieved 2026-11-25). The runtime also ships built-in styles selected by the same field: verify their names on that page and keep them from reading as a dangling edge (0101: the runtime loads them, so no finding). UNVERIFIED here."
 }
