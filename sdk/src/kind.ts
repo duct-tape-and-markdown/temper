@@ -94,6 +94,14 @@ export interface EdgeField {
    * never resolve.
    */
   readonly to: readonly [string, ...string[]];
+  /**
+   * The names the **runtime itself** answers at the far end, with no member behind
+   * them — a settings `outputStyle` naming one of Claude Code's built-in styles. A value
+   * spelling one exactly resolves to no member and draws no dangling-route finding,
+   * because the runtime loads what it names (decision 0101); a member of the same name
+   * still takes the resolution. Omitted when the runtime supplies none, the common case.
+   */
+  readonly provided?: readonly string[];
 }
 
 /**

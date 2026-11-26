@@ -81,6 +81,7 @@ fn harness_at_mode(label: &str, mode: &str, skill: &str) -> std::path::PathBuf {
                 from: None,
                 field: None,
                 to: None,
+                provided: None,
             }],
             ..Default::default()
         },
@@ -420,6 +421,7 @@ fn a_lock_relocating_the_dial_kind_governs_is_honored() {
                 from: None,
                 field: None,
                 to: None,
+                provided: None,
             }],
             ..Default::default()
         },

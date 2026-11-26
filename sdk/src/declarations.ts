@@ -971,7 +971,13 @@ function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
   if (harness.contractDeclared) facts.push({ fact: "contract" });
   for (const kind of kinds) {
     for (const edge of kind.edgeFields ?? []) {
-      facts.push({ fact: "edge", from: kind.name, field: edge.field, to: [...edge.to] });
+      facts.push({
+        fact: "edge",
+        from: kind.name,
+        field: edge.field,
+        to: [...edge.to],
+        ...(edge.provided !== undefined ? { provided: [...edge.provided] } : {}),
+      });
  }
  }
   return facts;

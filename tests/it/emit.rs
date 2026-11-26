@@ -243,6 +243,7 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
         from: None,
         field: None,
         to: None,
+        provided: None,
     });
     payload.declarations.satisfies.push(drift::SatisfiesRow {
         member: "rule:rust".to_string(),

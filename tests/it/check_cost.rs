@@ -882,6 +882,7 @@ fn the_reached_from_closure_is_opt_in_and_walks_once_per_root_and_via_pair() {
     let edges = [compose::Edge {
         field: "routes_to".to_string(),
         from: "skill".to_string(),
+        provided: Vec::new(),
         to: vec!["skill".to_string()],
     }];
     let mut a_fields = BTreeMap::new();

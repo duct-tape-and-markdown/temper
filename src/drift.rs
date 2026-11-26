@@ -6328,6 +6328,12 @@ pub struct AssemblyFactRow {
     /// An `edge` fact's target kinds — the non-empty set the field may resolve into.
     #[serde(default)]
     pub to: Option<Vec<String>>,
+    /// An `edge` fact's **runtime-provided** names: the values the runtime itself answers
+    /// at the far end with no member behind them (a settings `outputStyle` naming one of
+    /// Claude Code's built-in styles). Such a value resolves to no member and dangles
+    /// never. Absent when the runtime supplies none, the common case.
+    #[serde(default)]
+    pub provided: Option<Vec<String>>,
 }
 
 impl Declarations {
@@ -7331,6 +7337,12 @@ impl AssemblyFactRow {
         if let Some(to) = &self.to {
             table.insert("to", value(Array::from_iter(to.iter().cloned())));
         }
+        if let Some(provided) = &self.provided {
+            table.insert(
+                "provided",
+                value(Array::from_iter(provided.iter().cloned())),
+            );
+        }
         table
     }
 
@@ -7341,6 +7353,7 @@ impl AssemblyFactRow {
             from: opt_str(table, "from")?,
             field: opt_str(table, "field")?,
             to: edge_to_from_table(table)?,
+            provided: opt_str_array(table, "provided")?,
         })
     }
 }
@@ -7657,6 +7670,7 @@ pub fn edges_from_declarations(
                 field: edge_column(fact.field.clone(), "field")?,
                 from: edge_column(fact.from.clone(), "from")?,
                 to,
+                provided: fact.provided.clone().unwrap_or_default(),
             })
         })
         .collect()

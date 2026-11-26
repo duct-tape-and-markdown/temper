@@ -1755,6 +1755,10 @@ pub fn resolved_edges(
                             &hosts,
                         ));
                     }
+                    // A name the runtime itself answers is no member and no fault: the
+                    // runtime loads it (decision 0101), so it neither resolves nor dangles.
+                    // Matched on the authored bytes, exactly as the runtime matches them.
+                    Some((_, _, Membership::Missing)) if edge.provided.contains(&target) => {}
                     Some((_, _, Membership::Missing)) | None => {
                         dangling_diagnostics.push(dangling(edge, source.id.as_str(), &target));
                     }
@@ -2518,6 +2522,7 @@ mod tests {
             field: "routes_to".to_string(),
             from: "rule".to_string(),
             to: vec!["skill".to_string()],
+            provided: Vec::new(),
         }
     }
 
@@ -2528,6 +2533,7 @@ mod tests {
             field: "routes_to".to_string(),
             from: "rule".to_string(),
             to: vec!["agent".to_string()],
+            provided: Vec::new(),
         }
     }
 
@@ -2634,6 +2640,7 @@ mod tests {
             field: "routes_to".to_string(),
             from: "rule".to_string(),
             to: vec!["command".to_string()],
+            provided: Vec::new(),
         }
     }
 
@@ -2760,6 +2767,7 @@ mod tests {
                 field: "cites".to_string(),
                 from: "rule".to_string(),
                 to: vec!["skill".to_string()],
+                provided: Vec::new(),
             },
         ];
 
@@ -2775,6 +2783,7 @@ mod tests {
             field: String::new(),
             from: "rule".to_string(),
             to: vec!["skill".to_string()],
+            provided: Vec::new(),
         };
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
@@ -2816,6 +2825,7 @@ mod tests {
             field: "routes_to".to_string(),
             from: "skill".to_string(),
             to: vec!["rule".to_string()],
+            provided: Vec::new(),
         }
     }
 

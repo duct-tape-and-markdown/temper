@@ -520,6 +520,7 @@ impl GuardLock {
                     from: None,
                     field: None,
                     to: None,
+                    provided: None,
                 }],
                 ..Declarations::default()
             },
@@ -945,6 +946,7 @@ pub fn edge_to_set(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
         from: Some(from.to_string()),
         field: Some(field.to_string()),
         to: Some(to.iter().map(|kind| (*kind).to_string()).collect()),
+        provided: None,
     }
 }
 

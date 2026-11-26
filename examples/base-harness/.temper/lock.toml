@@ -488,6 +488,13 @@ to = ["tool"]
 
 [[declaration.assembly]]
 fact = "edge"
+from = "settings"
+field = "outputStyle"
+to = ["output-style"]
+provided = ["default", "Proactive", "Concise", "Explanatory", "Learning"]
+
+[[declaration.assembly]]
+fact = "edge"
 from = "superseded-decision"
 field = "superseded-by"
 to = ["decision"]

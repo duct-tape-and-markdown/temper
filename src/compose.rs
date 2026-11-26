@@ -119,6 +119,12 @@ pub struct Edge {
     /// models, else that element's routes can never resolve (a graph-admissibility
     /// concern, [`crate::graph`]).
     pub to: Vec<String>,
+    /// The names the **runtime itself** answers at the far end, with no member behind
+    /// them — Claude Code's built-in output styles for a settings `outputStyle`. A value
+    /// naming one resolves to no member and is no dangling route either: the runtime
+    /// loads what it names (decision 0101). A member of the same name still wins the
+    /// resolution, so the set only ever silences a finding. Empty for most edges.
+    pub provided: Vec<String>,
 }
 
 /// A requirement's **typed verifier** — the declared delegate that judges the
@@ -2921,6 +2927,7 @@ mod tests {
                     from: Some("citation".to_string()),
                     field: Some((*field).to_string()),
                     to: Some(vec!["rule".to_string()]),
+                    provided: None,
                     value: None,
                 })
                 .collect(),

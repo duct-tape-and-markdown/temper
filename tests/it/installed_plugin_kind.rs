@@ -227,6 +227,7 @@ fn the_marketplace_half_of_an_enablement_key_is_a_declared_edge_to_known_marketp
             field: "marketplace".to_string(),
             from: "installed-plugin".to_string(),
             to: vec!["known-marketplace".to_string()],
+            provided: Vec::new(),
         }],
         "installed-plugin declares the marketplace edge to known-marketplace"
     );

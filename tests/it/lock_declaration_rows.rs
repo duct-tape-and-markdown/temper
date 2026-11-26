@@ -203,6 +203,7 @@ fn rich_declarations() -> Declarations {
             from: None,
             field: None,
             to: None,
+            provided: None,
         }],
         satisfies: vec![
             SatisfiesRow {
@@ -1261,6 +1262,7 @@ fn contract_marker(kind: Option<&str>) -> AssemblyFactRow {
         from: kind.map(str::to_string),
         field: None,
         to: None,
+        provided: None,
     }
 }
 

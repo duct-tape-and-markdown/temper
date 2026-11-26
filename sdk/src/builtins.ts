@@ -12,7 +12,7 @@
 
 import { TAP_EVENT_HOOKS } from "./generated/index.js";
 import { kind } from "./kind.js";
-import type { KindDefinition, Member, MemberInit, Remedy, Residue } from "./kind.js";
+import type { EdgeField, KindDefinition, Member, MemberInit, Remedy, Residue } from "./kind.js";
 import { isNameQualifier } from "./member-address.js";
 import type { Prose } from "./prose.js";
 import {
@@ -406,6 +406,30 @@ export const outputStyle: KindDefinition<OutputStyle> = kind<OutputStyle>({
   identityField: "name",
   cite: "https://code.claude.com/docs/en/output-styles (retrieved 2026-11-25)",
 });
+
+/**
+ * The styles Claude Code ships itself, selectable by the same `outputStyle` field as a
+ * project style: "write the built-in names as `Proactive`, `Concise`, `Explanatory`, and
+ * `Learning`", and "`default` appears in the `/output-style` list with the other styles"
+ * (code.claude.com/docs/en/output-styles, retrieved 2026-11-25). Spelled exactly, since
+ * "the value is case-sensitive" (same source). The runtime loads them, so naming one is no
+ * dangling edge (decision 0101).
+ */
+const BUILTIN_OUTPUT_STYLES: readonly string[] = ["default", "Proactive", "Concise", "Explanatory", "Learning"];
+
+/**
+ * The `outputStyle` edge `settings` and `settings-local` both carry: the key selects the
+ * {@link outputStyle} member whose name it spells exactly — "A value that doesn't match a
+ * style name exactly, such as `explanatory`, gives you the Default style"
+ * (code.claude.com/docs/en/output-styles, retrieved 2026-11-25) — so a value naming no
+ * project style and no {@link BUILTIN_OUTPUT_STYLES} entry silently selects the default,
+ * and dangles. The field stays the documented string the file carries; the edge reads it.
+ */
+const OUTPUT_STYLE_EDGE: EdgeField = {
+  field: "outputStyle",
+  to: ["output-style"],
+  provided: BUILTIN_OUTPUT_STYLES,
+};
 
 /** A Claude Code rule — a flat markdown file with an optional `paths` scope. */
 export interface Rule {
@@ -1720,7 +1744,7 @@ export interface SettingsLocal {
   readonly disabledMcpjsonServers?: readonly string[];
   /** Whether to add a Claude co-author trailer to git commits. */
   readonly includeCoAuthoredBy?: boolean;
-  /** The output rendering style. */
+  /** The {@link outputStyle} member, or built-in style, this file selects — by its exact, case-sensitive name; an edge ({@link BUILTIN_OUTPUT_STYLES}). */
   readonly outputStyle?: string;
   /** Whether to enable auto-memory for this project (code.claude.com/docs/en/memory, retrieved 2026-07-26). */
   readonly autoMemoryEnabled?: boolean;
@@ -1756,6 +1780,7 @@ export const settingsLocal: KindDefinition<SettingsLocal> = kind<SettingsLocal>(
   format: "json-document",
   unitShape: "file",
   registration: [],
+  edgeFields: [OUTPUT_STYLE_EDGE],
 });
 
 /**
@@ -1859,7 +1884,7 @@ export interface Settings {
   readonly enabledMcpjsonServers?: readonly string[];
   /** MCP servers from `.mcp.json` to reject. */
   readonly disabledMcpjsonServers?: readonly string[];
-  /** The output rendering style. */
+  /** The {@link outputStyle} member, or built-in style, this file selects — by its exact, case-sensitive name; an edge ({@link BUILTIN_OUTPUT_STYLES}). */
   readonly outputStyle?: string;
   /** Whether to enable auto-memory for this project. */
   readonly autoMemoryEnabled?: boolean;
@@ -1909,7 +1934,7 @@ export const settings: KindDefinition<Settings> = kind<Settings>({
   unitShape: "file",
   registration: [],
   // The tool its `statusLine` command runs: carried on the lock, never in the file.
-  edgeFields: [{ field: RUNS_FIELD, to: ["tool"] }],
+  edgeFields: [{ field: RUNS_FIELD, to: ["tool"] }, OUTPUT_STYLE_EDGE],
 });
 
 /**

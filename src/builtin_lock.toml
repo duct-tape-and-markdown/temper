@@ -3,13 +3,15 @@
 # the nineteen built-in kinds' facts and their default contract clauses, the **root
 # member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the four
 # clause rows here naming no kind, that absence being what makes them the root's), plus
-# twenty-three assembly facts — the unconditional `mode = "warn"` (the root member's own
+# twenty-five assembly facts — the unconditional `mode = "warn"` (the root member's own
 # enforcement mode, specs/model/representation.md, "The root member", every harness carries
 # absent an authored mode), one `contract` declaredness marker per `expect`-bound kind
 # (nineteen, each naming its kind in `from`; no marker names no kind, because the program
 # declares no root `contract` of its own and an undeclared contract writes none), the two
 # `runs` edges into `tool` — a hook handler's and the `settings` status line's, each naming
-# the tool its command runs (decision 0104) — and the `installed-plugin` →
+# the tool its command runs (decision 0104) — the two `outputStyle` edges into
+# `output-style`, `settings`'s and `settings-local`'s, each carrying the built-in style
+# names the runtime itself answers (`provided`, decision 0101) — and the `installed-plugin` →
 # `known-marketplace` edge, the marketplace half of an enablement's
 # `<plugin>@<marketplace>` key (decision 0039). No requirements,
 # no satisfies, no provenance or emit-fingerprint rows — nothing was emitted, no members.
@@ -1430,3 +1432,17 @@ fact = "edge"
 from = "settings"
 field = "runs"
 to = ["tool"]
+
+[[declaration.assembly]]
+fact = "edge"
+from = "settings"
+field = "outputStyle"
+to = ["output-style"]
+provided = ["default", "Proactive", "Concise", "Explanatory", "Learning"]
+
+[[declaration.assembly]]
+fact = "edge"
+from = "settings-local"
+field = "outputStyle"
+to = ["output-style"]
+provided = ["default", "Proactive", "Concise", "Explanatory", "Learning"]

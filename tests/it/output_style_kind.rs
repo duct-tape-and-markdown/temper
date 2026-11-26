@@ -126,3 +126,87 @@ fn a_claude_md_inside_the_output_styles_folder_is_never_memory() {
     );
     assert_eq!(found, vec![harness.join("CLAUDE.md")]);
 }
+
+/// Stand `harness` up as an adopted harness whose program composes the built-in kinds and
+/// no member: the shipped lock's declaration rows, committed. The gate reads its edges off
+/// the committed lock, so this is the lock an `emit` of a memberless program writes.
+fn adopt_builtins(harness: &Path) {
+    common::write_lock(harness, temper::builtin_lock::declarations().clone());
+}
+
+/// The `graph.route` findings a `check --harness` run over `harness` reports.
+fn route_findings(harness: &Path) -> Vec<String> {
+    let (findings, _) = common::check_harness(harness);
+    common::findings_for(&findings, "graph.route")
+        .into_iter()
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn a_settings_output_style_naming_an_output_style_member_resolves_to_it() {
+    let harness = common::tmpdir("output-style-settings-edge");
+    write_style(
+        &harness,
+        "teaching",
+        "---\nname: Teaching Mode\n---\n\nExplain each change before making it.\n",
+    );
+    common::write_settings(&harness, "{ \"outputStyle\": \"Teaching Mode\" }\n");
+    adopt_builtins(&harness);
+
+    let narration = common::explain_in(&harness, "settings");
+    assert!(
+        narration
+            .contains("it points at `Teaching Mode` (output-style) via its `outputStyle` field"),
+        "the settings member selects the style it names, got: {narration}"
+    );
+    let style = common::explain_in(&harness, "output-style:Teaching Mode");
+    assert!(
+        style.contains("`settings`") && style.contains("`outputStyle`"),
+        "the style narrates the settings edge that selects it, got: {style}"
+    );
+    assert_eq!(route_findings(&harness), Vec::<String>::new());
+}
+
+#[test]
+fn a_settings_output_style_matches_a_style_name_exactly_and_case_sensitively() {
+    let harness = common::tmpdir("output-style-settings-exact");
+    write_style(&harness, "terse", "Answer in one sentence.\n");
+    // The documented case-mismatch example: the runtime falls back to the default style.
+    common::write_settings(&harness, "{ \"outputStyle\": \"Terse\" }\n");
+    adopt_builtins(&harness);
+
+    let routes = route_findings(&harness);
+    assert_eq!(
+        routes.len(),
+        1,
+        "exactly the mis-cased name dangles, got: {routes:#?}"
+    );
+    assert!(
+        routes[0].contains("`outputStyle` routes to `Terse`"),
+        "the finding names the field and the value it wrote, got: {routes:#?}"
+    );
+}
+
+#[test]
+fn a_settings_output_style_naming_a_built_in_style_draws_no_dangling_edge() {
+    // The runtime ships these styles itself, spelled as the output-styles page spells them
+    // (code.claude.com/docs/en/output-styles, retrieved 2026-11-25): it loads what they
+    // name, so no member behind them is no fault (decision 0101).
+    for builtin in ["default", "Proactive", "Concise", "Explanatory", "Learning"] {
+        let harness = common::tmpdir("output-style-settings-builtin");
+        common::write_settings(&harness, &format!("{{ \"outputStyle\": \"{builtin}\" }}\n"));
+        adopt_builtins(&harness);
+        assert_eq!(
+            route_findings(&harness),
+            Vec::<String>::new(),
+            "`{builtin}` is a style the runtime provides"
+        );
+    }
+
+    // The exemption is the exact spelling, never a case-folded one.
+    let harness = common::tmpdir("output-style-settings-builtin-cased");
+    common::write_settings(&harness, "{ \"outputStyle\": \"explanatory\" }\n");
+    adopt_builtins(&harness);
+    assert_eq!(route_findings(&harness).len(), 1);
+}

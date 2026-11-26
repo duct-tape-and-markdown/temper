@@ -29,4 +29,11 @@ field?: string,
 /**
  * An `edge` fact's target kinds — the non-empty set the field may resolve into.
  */
-to?: Array<string>, };
+to?: Array<string>, 
+/**
+ * An `edge` fact's **runtime-provided** names: the values the runtime itself answers
+ * at the far end with no member behind them (a settings `outputStyle` naming one of
+ * Claude Code's built-in styles). Such a value resolves to no member and dangles
+ * never. Absent when the runtime supplies none, the common case.
+ */
+provided?: Array<string>, };

@@ -15,6 +15,7 @@ Each member is its own document, at:
 ### Out
 
 - `runs` → `tool`: no intent declared.
+- `outputStyle` → `output-style`: no intent declared.
 
 ## Clauses
 

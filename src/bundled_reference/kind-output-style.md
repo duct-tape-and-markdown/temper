@@ -10,6 +10,12 @@ Each member is its own document, at:
 
 - `.claude/output-styles/*.md`
 
+## Edges
+
+### In
+
+- `settings`.`outputStyle` → here: no intent declared.
+
 ## Clauses
 
 The program binds it an empty contract — no clause holds its members.

@@ -380,6 +380,13 @@ from = "settings"
 field = "runs"
 to = ["tool"]
 
+[[declaration.assembly]]
+fact = "edge"
+from = "settings"
+field = "outputStyle"
+to = ["output-style"]
+provided = ["default", "Proactive", "Concise", "Explanatory", "Learning"]
+
 [[declaration.nested_member]]
 host = "rule:authoring"
 kind = "citation"

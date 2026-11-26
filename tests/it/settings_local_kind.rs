@@ -241,3 +241,45 @@ fn emit_writes_nothing_at_the_overlays_path_and_rows_none_of_it() {
         "no provenance/emit-hash row of the local overlay lands in the lock:\n{lock}"
     );
 }
+
+#[test]
+fn a_settings_local_output_style_naming_an_output_style_member_resolves_to_it() {
+    let harness = common::tmpdir("settings-local-output-style");
+    // A stem-named style: the file name is the style name absent a frontmatter `name`
+    // (code.claude.com/docs/en/output-styles, retrieved 2026-11-25).
+    write_sibling(
+        &harness,
+        ".claude/output-styles/terse.md",
+        "Answer in one sentence.\n",
+    );
+    write_sibling(
+        &harness,
+        ".claude/settings.local.json",
+        "{ \"outputStyle\": \"terse\" }\n",
+    );
+    // Adopted over the built-in kinds alone: the gate reads its edges off the committed
+    // lock, and the machine's overlay is read in place beside it.
+    common::write_lock(&harness, temper::builtin_lock::declarations().clone());
+
+    let narration = common::explain_in(&harness, "settings-local:settings.local");
+    assert!(
+        narration.contains("it points at `terse` (output-style) via its `outputStyle` field"),
+        "the local overlay selects the style it names, got: {narration}"
+    );
+    let (findings, _) = check_harness(&harness);
+    assert!(
+        common::findings_for(&findings, "graph.route").is_empty(),
+        "the selected style resolves, got: {findings:#?}"
+    );
+
+    // A local overlay naming no style dangles exactly as the committed file's would.
+    write_sibling(
+        &harness,
+        ".claude/settings.local.json",
+        "{ \"outputStyle\": \"ghost\" }\n",
+    );
+    let (findings, _) = check_harness(&harness);
+    let routes = common::findings_for(&findings, "graph.route");
+    assert_eq!(routes.len(), 1, "got: {findings:#?}");
+    assert!(routes[0].contains("`ghost`"), "got: {routes:#?}");
+}
