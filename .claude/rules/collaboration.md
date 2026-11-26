@@ -38,6 +38,13 @@ instructions to file.
   When evidence later moves — field reports, implementation pain — propose
   the amendment, with the same scrutiny on your own past rulings.
 
+- **A ruling lands in the spec.** A ruling, including one that applies a
+  class decision to a new case, is a `specs:` edit to the section it
+  governs. Derive files its entries from that diff. An inbox record carries
+  an observation (a finding, a probe, debt) and never a ruling, because a
+  ruling recorded anywhere but the spec is the decision ledger the spec must
+  not be.
+
 ## Challenge gaps, never paper over them
 
 - **Derive before declaring a gap.** Most questions met mid-work are already
