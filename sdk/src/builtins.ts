@@ -20,6 +20,7 @@ import {
   allowedChars,
   clause,
   closedKeys,
+  count,
   degree,
   deny,
   enumOf,
@@ -32,6 +33,7 @@ import {
   nameMatchesDir,
   optional,
   required,
+  resolves,
   shape,
   type,
   uniqueName,
@@ -737,12 +739,24 @@ export const requirement: KindDefinition<RequirementFields, RequirementInit> & (
   });
 
 /**
- * The default contract for `requirement` — empty. The shipped fill default ("this must
- * be filled": at least one satisfier, at error) is a clause over each requirement's own
- * selection, so it rides each requirement's row, overridden by `required: false`; no
- * clause binds over the kind's whole population.
+ * The default contract for `requirement` — two clauses, each judged over every declared
+ * requirement's own opt-in selection rather than over the kind's population. `count` is
+ * the fill default, at least one satisfier; a requirement declared `required: false`
+ * reads it at advisory rather than not at all. `resolves` holds every `satisfies` link to a
+ * declared requirement.
  */
-export const requirementDefaultContract: readonly Clause[] = [];
+export const requirementDefaultContract: readonly Clause[] = [
+  clause(count({ min: 1 }), {
+    severity: "required",
+    guidance:
+      "No member opts in to fill this requirement: nothing in the harness declares a `satisfies` link naming it, so the intent its prose states has no home. Add the requirement's name to the `satisfies` of the member that carries the intent, or author that member. A requirement declared `required: false` reads this clause at advisory, so an aspiration still reports; dial this label to `advisory` while a tree mid-adoption has not filled its requirements yet.",
+  }),
+  clause(resolves(), {
+    severity: "required",
+    guidance:
+      "This member's `satisfies` names a requirement the harness does not declare, so the claim fills nothing — most often a typo, or a requirement renamed or retired under it. Fix the name, declare the requirement in the harness `require` map or a member's `requires`, or drop the link. Dial this label to `advisory` while a renamed requirement's old claims are still being moved.",
+  }),
+];
 
 /** Whether a member is a requirement: of the `requirement` kind, or a subkind anywhere down its chain. */
 export function isRequirement(member: Member): boolean {

@@ -1620,6 +1620,15 @@ pub fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     author_satisfies(root, "rules", name, requirements);
 }
 
+/// The shipped `requirement` kind's contract clauses — the fill and dangling clauses
+/// [`temper::coverage::check`] judges under, as the gate hands them over absent a lock
+/// that re-declares the kind's contract.
+pub fn shipped_requirement_clauses() -> Vec<temper::contract::Clause> {
+    temper::builtin::contract(compose::REQUIREMENT_KIND)
+        .expect("the requirement kind ships a default contract")
+        .clauses
+}
+
 /// A bare `RequirementRow` naming `name`, otherwise the union of the shapes
 /// callers need: `required` and an optional `kind` narrowing.
 pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> RequirementRow {

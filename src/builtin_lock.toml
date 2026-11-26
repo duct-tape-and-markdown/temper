@@ -1071,6 +1071,21 @@ guidance = "This key is not one the manifest format documents. Claude Code ignor
 cite = "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-17)"
 
 [[declaration.clause]]
+label = "requirement.count"
+kind = "requirement"
+predicate = "count"
+severity = "required"
+guidance = "No member opts in to fill this requirement: nothing in the harness declares a `satisfies` link naming it, so the intent its prose states has no home. Add the requirement's name to the `satisfies` of the member that carries the intent, or author that member. A requirement declared `required: false` reads this clause at advisory, so an aspiration still reports; dial this label to `advisory` while a tree mid-adoption has not filled its requirements yet."
+count = { min = 1, max = 9007199254740991 }
+
+[[declaration.clause]]
+label = "requirement.resolves"
+kind = "requirement"
+predicate = "resolves"
+severity = "required"
+guidance = "This member's `satisfies` names a requirement the harness does not declare, so the claim fills nothing — most often a typo, or a requirement renamed or retired under it. Fix the name, declare the requirement in the harness `require` map or a member's `requires`, or drop the link. Dial this label to `advisory` while a renamed requirement's old claims are still being moved."
+
+[[declaration.clause]]
 label = "rule.forbidden_keys"
 kind = "rule"
 predicate = "forbidden_keys"

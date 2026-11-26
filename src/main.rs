@@ -940,7 +940,7 @@ fn gate_verdict(
 /// A [`HarnessPath::Workspace`] gates against its enclosing root, never against itself:
 /// rooting it at itself would read the lock from `<path>` while walking `<path>` for a
 /// corpus that lives beside it — declared requirements arriving with nothing behind
-/// them, so every one of them false-fires `requirement.unfilled`.
+/// them, so every one of them false-fires `requirement.count`.
 ///
 /// That re-rooting is the one answer whose root is not the path the invocation gave, so
 /// it is the one that reaches [`check::Announcement::harness_root`]: this is the only

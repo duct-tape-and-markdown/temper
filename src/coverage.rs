@@ -8,106 +8,93 @@
 //! wired `verifier`. What `check` gates is the **decidable shadow**: referential
 //! coverage over the declared requirements and the authored `satisfies` edges.
 //!
-//! # Kinship with the graph scope — and why coverage stays here
+//! Both checks are clauses of the `requirement` kind's contract, judged over each
+//! requirement's opt-in selection: a `count` bound is the fill (shipped at least one
+//! satisfier), and `resolves` holds every `satisfies` link to a declared requirement. A
+//! finding carries its clause's label and severity, so the dial reaches both; a contract
+//! binding neither clause leaves its check silent.
 //!
-//! The two checks are the graph-scope predicates ([`crate::graph`]) re-cast over a
-//! *requirement* target set instead of an artifact one:
-//!
-//! - [`REQUIREMENT_DANGLING_RULE`] mirrors [`graph::check`](crate::graph::check)'s
-//!   **route resolution** — a declared reference (`satisfies` here, a `routes_to`-style
-//!   edge there) that resolves to no target is a dangling no-op. Both range over
-//!   authored links and fire once per unresolved name.
-//! - [`REQUIREMENT_UNFILLED_RULE`] mirrors [`graph::degree`](crate::graph::degree)'s
-//!   **min-in-degree** bound — "≥1 artifact must point at this requirement" is exactly
-//!   a `degree = { incoming = at_least(1) }` over the `satisfies` arcs.
-//!
-//! The difference that keeps this a separate module: the target set is the declared
-//! **requirements**, *not* an artifact kind. Unifying into `graph.rs` would force a
-//! synthetic `requirement` node kind into its `by_kind` corpus map — a fake artifact
-//! kind that imports nothing and conforms to no contract, muddying the graph's honest
-//! "artifact routes to artifact" model to reuse two small loops. The kinship is real
-//! and worth naming; the merge is rejected — the duplication is cheaper than the lie.
+//! The target set is the declared **requirements**, not an artifact kind, which is why
+//! this stays apart from [`crate::graph`]: its degree and route walks would need a
+//! synthetic `requirement` node kind that imports nothing and conforms to nothing.
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::check::Diagnostic;
+use crate::check::{Diagnostic, Severity};
 use crate::compose::Requirement;
+use crate::contract::{Clause, Predicate};
 use crate::extract::Features;
 
-/// A `required` requirement with no artifact opting in to satisfy it — the intent
-/// has no resolving home.
-const REQUIREMENT_UNFILLED_RULE: &str = "requirement.unfilled";
-
-/// A `satisfies` link on an artifact that names no declared requirement — a
-/// dangling reference.
-const REQUIREMENT_DANGLING_RULE: &str = "requirement.dangling";
-
 /// Gate referential coverage over the declared requirements and the authored
-/// `satisfies` edges. Two
-/// decidable checks over the flattened artifact stream:
+/// `satisfies` edges, under the `requirement` kind's `clauses`:
 ///
-/// 1. **Unfilled** — each `required` requirement must be named by ≥1 artifact's
-///    resolving `satisfies` link, else the intent has no home ([`REQUIREMENT_UNFILLED_RULE`]).
-/// 2. **Dangling** — each `satisfies` entry on any artifact must name a declared
-///    requirement, else the link resolves to nothing ([`REQUIREMENT_DANGLING_RULE`]).
+/// 1. **Fill** — the contract's `count` clause bounds how many artifacts opt in to each
+///    requirement. A requirement declared `required: false` reads it at advisory: an
+///    optional requirement left unfilled still reports, it never blocks.
+/// 2. **Dangling** — the contract's `resolves` clause holds each `satisfies` entry on
+///    any artifact to a declared requirement.
 ///
-/// Both findings are `error` severity: a `required` requirement unfilled, or a
-/// dangling `satisfies`, blocks the gate. `artifacts` is every opt-in-capable
-/// artifact's features across every modeled kind, already flattened kind-blind by
-/// the caller — the same unified satisfier set [`crate::roster`]/[`crate::graph`]
-/// range over, so a requirement filled by
-/// *any* kind is covered regardless of its own `kind` facet. `prose` is never
-/// judged — coverage is the whole of the gate.
+/// `artifacts` is every opt-in-capable artifact's features across every modeled kind,
+/// flattened kind-blind by the caller, so a requirement filled by *any* kind is covered.
+/// `prose` is never judged.
 #[must_use]
 pub fn check(
     requirements: &BTreeMap<String, Requirement>,
     artifacts: &[Features],
+    clauses: &[Clause],
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    // The set of requirement names any artifact opts into — one pass over the
-    // stream, so both checks read a decided fact rather than re-scanning.
-    let satisfied: BTreeSet<&str> = artifacts
-        .iter()
-        .flat_map(|features| features.satisfies.iter().map(String::as_str))
-        .collect();
-
-    // (1) Unfilled: every `required` requirement needs a resolving `satisfies` home —
-    // opt-in `satisfies` is the sole fill. Iteration is over the name-sorted `BTreeMap`,
-    // so the diagnostic set is stable.
-    for (name, requirement) in requirements {
-        if requirement.required && !satisfied.contains(name.as_str()) {
-            diagnostics.push(Diagnostic::error(
-                REQUIREMENT_UNFILLED_RULE,
-                name,
- format!(
-                    "required requirement `{name}` is unfilled: no artifact declares a `satisfies` link naming it"
- ),
- ));
+    let fill = clauses.iter().find_map(|clause| match clause.predicate {
+        Predicate::Count { min, max } => Some((clause, min, max)),
+        _ => None,
+    });
+    if let Some((clause, min, max)) = fill {
+        // Iteration is over the name-sorted `BTreeMap`, so the diagnostic set is stable.
+        for (name, requirement) in requirements {
+            let filled = artifacts
+                .iter()
+                .filter(|features| features.satisfies.iter().any(|target| target == name))
+                .count();
+            if (min..=max).contains(&filled) {
+                continue;
+            }
+            let message = if filled == 0 {
+                format!(
+                    "requirement `{name}` is unfilled: no artifact declares a `satisfies` link naming it"
+                )
+            } else {
+                format!(
+                    "requirement `{name}` is filled by {filled} artifact(s), outside its fill bound of {min}..={max}"
+                )
+            };
+            let mut finding = Diagnostic::from_clause(clause, name, message);
+            if !requirement.required {
+                finding.severity = Severity::Warn;
+            }
+            diagnostics.push(finding);
         }
     }
 
-    // (2) Dangling: every authored `satisfies` link must resolve to a declared
-    // requirement. Ranges over the artifacts in load order (already name-sorted per
-    // kind), each link checked against the declared requirement names. Each artifact's
-    // links are deduped first (a `BTreeSet` — the unfilled side's `satisfied` set does
-    // the same collapse implicitly), so a link duplicated within one artifact's
-    // `satisfies` emits ONE diagnostic, not one per repeat: the fault is the
-    // unresolvable name, and it is named once. Dedup is per-artifact, so the *same*
-    // dangling name on two different artifacts still fires once each — that is two
-    // faults, one per opting-in artifact.
-    for features in artifacts {
-        let links: BTreeSet<&str> = features.satisfies.iter().map(String::as_str).collect();
-        for target in links {
-            if !requirements.contains_key(target) {
-                diagnostics.push(Diagnostic::error(
-                    REQUIREMENT_DANGLING_RULE,
-                    &features.id,
- format!(
-                        "artifact `{}` declares `satisfies = [\"{target}\"]`, but no requirement `{target}` is declared",
-                        features.id
- ),
- ));
+    // Each artifact's links are deduped first, so a link repeated within one artifact is
+    // one fault named once; the same dangling name on two artifacts is two faults.
+    if let Some(clause) = clauses
+        .iter()
+        .find(|clause| clause.predicate == Predicate::Resolves)
+    {
+        for features in artifacts {
+            let links: BTreeSet<&str> = features.satisfies.iter().map(String::as_str).collect();
+            for target in links {
+                if !requirements.contains_key(target) {
+                    diagnostics.push(Diagnostic::from_clause(
+                        clause,
+                        &features.id,
+                        format!(
+                            "artifact `{}` declares `satisfies = [\"{target}\"]`, but no requirement `{target}` is declared",
+                            features.id
+                        ),
+                    ));
+                }
             }
         }
     }
@@ -118,9 +105,22 @@ pub fn check(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::check::Severity;
     use crate::extract::Features;
     use crate::test_support;
+
+    /// The fill and dangling clauses' labels in the shipped `requirement` contract.
+    const REQUIREMENT_UNFILLED_RULE: &str = "requirement.count";
+    const REQUIREMENT_DANGLING_RULE: &str = "requirement.resolves";
+
+    /// The coverage check under the shipped `requirement` contract.
+    fn check(
+        requirements: &BTreeMap<String, Requirement>,
+        artifacts: &[Features],
+    ) -> Vec<Diagnostic> {
+        let shipped = crate::builtin::contract(crate::compose::REQUIREMENT_KIND)
+            .expect("the requirement kind ships a default contract");
+        super::check(requirements, artifacts, &shipped.clauses)
+    }
 
     /// A minimal [`Features`] carrying just an id and its `satisfies` edges — the
     /// only fields the coverage check reads.
@@ -217,15 +217,28 @@ mod tests {
     }
 
     #[test]
-    fn a_non_required_unfilled_requirement_does_not_block() {
+    fn a_non_required_unfilled_requirement_reports_at_advisory() {
         let requirements = BTreeMap::from([(
             "nice-to-have".to_string(),
             requirement("nice-to-have", Some("an optional convenience"), false),
         )]);
-        // Nothing opts into it, but it is advisory intent — no gate fires.
         let artifacts = vec![artifact("some-skill", &[])];
 
-        assert!(check(&requirements, &artifacts).is_empty());
+        let diagnostics = check(&requirements, &artifacts);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].rule, REQUIREMENT_UNFILLED_RULE);
+        assert_eq!(diagnostics[0].severity, Severity::Warn);
+    }
+
+    #[test]
+    fn a_contract_binding_neither_clause_judges_nothing() {
+        let requirements = BTreeMap::from([(
+            "dev-standards".to_string(),
+            requirement("dev-standards", None, true),
+        )]);
+        let artifacts = vec![artifact("stray-skill", &["ghost"])];
+
+        assert!(super::check(&requirements, &artifacts, &[]).is_empty());
     }
 
     #[test]

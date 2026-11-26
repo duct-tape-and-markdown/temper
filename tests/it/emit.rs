@@ -2894,7 +2894,7 @@ fn a_gate_hook_declaring_satisfies_fills_its_requirement() {
     // And the gate counts it: the requirement is filled at check.
     let run = common::check_in(&harness, &[], None);
     assert!(
-        !run.output.contains("requirement.unfilled"),
+        !run.output.contains("requirement.count"),
         "the gate hook's satisfies fills `session-gate`, got:\n{}",
         run.output
     );

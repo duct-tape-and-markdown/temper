@@ -71,7 +71,7 @@ fn a_required_requirement_with_no_satisfying_artifact_fires_unfilled() {
         run.output
     );
     assert!(
-        run.output.contains("requirement.unfilled"),
+        run.output.contains("requirement.count"),
         "the finding names the unfilled rule, got:\n{}",
         run.output
     );
@@ -101,7 +101,7 @@ fn a_satisfies_naming_no_requirement_fires_dangling() {
         run.output
     );
     assert!(
-        run.output.contains("requirement.dangling"),
+        run.output.contains("requirement.resolves"),
         "the finding names the dangling rule, got:\n{}",
         run.output
     );
@@ -134,12 +134,12 @@ fn a_typo_in_a_satisfies_link_yields_paired_unfilled_and_dangling() {
         run.output
     );
     assert!(
-        run.output.contains("requirement.unfilled"),
+        run.output.contains("requirement.count"),
         "the real requirement is unfilled, got:\n{}",
         run.output
     );
     assert!(
-        run.output.contains("requirement.dangling"),
+        run.output.contains("requirement.resolves"),
         "the misspelled link dangles, got:\n{}",
         run.output
     );
@@ -176,7 +176,7 @@ fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
         "a dangling link must block ⇒ non-zero, got:\n{}",
         run.output
     );
-    let dangling = run.output.matches("requirement.dangling").count();
+    let dangling = run.output.matches("requirement.resolves").count();
     assert_eq!(
         dangling, 1,
         "a duplicated `satisfies` must emit exactly one dangling finding, got {dangling} in:\n{}",
@@ -184,7 +184,7 @@ fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
     );
     // And no spurious unfilled — the requirement is covered by the first link.
     assert_eq!(
-        run.output.matches("requirement.unfilled").count(),
+        run.output.matches("requirement.count").count(),
         0,
         "the covered requirement must not fire unfilled, got:\n{}",
         run.output
@@ -226,7 +226,7 @@ fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
         run.output
     );
     assert!(
-        run.output.contains("requirement.unfilled"),
+        run.output.contains("requirement.count"),
         "the finding names the unfilled rule, got:\n{}",
         run.output
     );
@@ -251,7 +251,7 @@ fn a_prose_less_required_requirement_still_gates() {
         run.output
     );
     assert!(
-        run.output.contains("requirement.unfilled"),
+        run.output.contains("requirement.count"),
         "the finding names the unfilled rule, got:\n{}",
         run.output
     );
@@ -537,9 +537,9 @@ fn a_harness_require_requirement_keeps_the_fill_default_and_refuses_unfilled() {
     );
     assert!(
         run.output
-            .contains("required requirement `front-door` is unfilled")
-            && !run.output.contains("required requirement `side-door`"),
-        "the default-required requirement fires unfilled and the advisory one does not, got:\n{}",
+            .contains("x requirement `front-door` is unfilled")
+            && run.output.contains("! requirement `side-door` is unfilled"),
+        "the default-required requirement fires unfilled at error and the optional one at advisory, got:\n{}",
         run.output
     );
 }

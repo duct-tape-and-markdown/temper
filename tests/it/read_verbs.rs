@@ -207,13 +207,14 @@ fn a_requirements_kind_facet_never_narrows_its_satisfier_set() {
         "and the satisfier is named, with its own kind, rather than dropped: {out}"
     );
 
-    // The same corpus through the gate: no `requirement.unfilled`, so read and verdict
+    // The same corpus through the gate: no `requirement.count`, so read and verdict
     // state one fact between them.
-    let unfilled: Vec<String> = coverage::check(&roster, &members)
-        .into_iter()
-        .filter(|diagnostic| diagnostic.rule == "requirement.unfilled")
-        .map(|diagnostic| diagnostic.artifact)
-        .collect();
+    let unfilled: Vec<String> =
+        coverage::check(&roster, &members, &common::shipped_requirement_clauses())
+            .into_iter()
+            .filter(|diagnostic| diagnostic.rule == "requirement.count")
+            .map(|diagnostic| diagnostic.artifact)
+            .collect();
     assert!(
         unfilled.is_empty(),
         "the gate reports nothing unfilled over the same stream the read narrated as \
@@ -2525,7 +2526,7 @@ fn verdict_without_verifiers(
     members: &[Features],
 ) -> (Vec<String>, Vec<String>) {
     let render = |roster: &BTreeMap<String, Requirement>| -> Vec<String> {
-        coverage::check(roster, members)
+        coverage::check(roster, members, &common::shipped_requirement_clauses())
             .into_iter()
             .map(|d| format!("{} {}", d.rule, d.artifact))
             .collect()
@@ -2585,9 +2586,11 @@ fn explain_names_a_requirement_with_no_verifier_as_unheld() {
     );
     assert!(!out.contains("Held by"), "{out}");
 
-    let unheld: Vec<String> = coverage::check(&roster, &[])
+    // The optional requirement's unfilled advisory is the fill clause's, not unheldness.
+    let unheld: Vec<String> = coverage::check(&roster, &[], &common::shipped_requirement_clauses())
         .into_iter()
         .map(|d| d.rule)
+        .filter(|rule| rule != "requirement.count")
         .collect();
     assert!(
         unheld.is_empty(),

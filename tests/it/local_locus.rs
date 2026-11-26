@@ -172,7 +172,7 @@ fn check_derives_a_local_members_rows_at_read_time_under_the_declared_kind() {
         "the local document reads and gates under the declared layout: {findings:?}"
     );
     assert!(
-        common::findings_for(&findings, "requirement.unfilled").is_empty(),
+        common::findings_for(&findings, "requirement.count").is_empty(),
         "the document's own `satisfies` fill reaches the roster: {findings:?}"
     );
 }
@@ -290,7 +290,7 @@ fn check_derives_a_local_members_collection_members_off_its_document() {
         "the finding names the members read off the document: {count:?}"
     );
     assert!(
-        common::findings_for(&findings, "requirement.dangling").is_empty(),
+        common::findings_for(&findings, "requirement.resolves").is_empty(),
         "the local member's derived fill reaches the roster, so its requirement resolves: \
          {findings:?}"
     );

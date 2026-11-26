@@ -25,9 +25,9 @@ What the harness demonstrates:
   and re-emit, and `temper check` fails:
 
   ```
-  requirement.unfilled
+  requirement.count
 
-    x required requirement `conduct` is unfilled: no artifact declares a `satisfies` link naming it
+    x requirement `conduct` is unfilled: no artifact declares a `satisfies` link naming it
   ```
 
 - **One fact, one home.** Commands and expected outputs that more than one

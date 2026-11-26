@@ -3719,7 +3719,7 @@ pub fn lower_layout_reading(
 
     // A `satisfies` edge slot's entries are the host's own fill claims, keyed by its own
     // member address (the label `resolve_kind_units` folds them back onto) — a dangling
-    // one is the gate's existing `requirement.dangling` refusal to catch, never a new one.
+    // one is the gate's existing `requirement.resolves` refusal to catch, never a new one.
     let satisfies = reading
         .edges
         .get(crate::kind::SATISFIES_EDGE_FIELD)

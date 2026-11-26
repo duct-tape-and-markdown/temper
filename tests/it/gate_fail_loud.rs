@@ -44,7 +44,7 @@ fn an_adopted_root_resolves_its_own_lock_rather_than_half_gating() {
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let unfilled = common::findings_for(&findings, "requirement.unfilled");
+    let unfilled = common::findings_for(&findings, "requirement.count");
     assert_eq!(
         unfilled.len(),
         1,
@@ -67,7 +67,7 @@ fn a_workspace_dir_argument_resolves_the_enclosing_roots_corpus() {
     // carries the lock at its top, so it resolves whole — gated against the harness root
     // enclosing it, the corpus its declarations were written about. Rooting it at itself
     // would read the lock from `.temper` while walking `.temper` for members that live
-    // beside it, so the filled requirement below would false-fire `requirement.unfilled`
+    // beside it, so the filled requirement below would false-fire `requirement.count`
     // and the member count would collapse to whatever prose sits inside the workspace.
     let root = common::tmpdir("workspace-dir-arg");
     common::write_skill(&root, "coordinate", CLEAN_SKILL);
@@ -78,7 +78,7 @@ fn a_workspace_dir_argument_resolves_the_enclosing_roots_corpus() {
     let (from_workspace, workspace_ok) = check_in(&root, &[".temper"]);
 
     assert!(
-        common::findings_for(&from_workspace, "requirement.unfilled").is_empty(),
+        common::findings_for(&from_workspace, "requirement.count").is_empty(),
         "the skill fills `docs`, so no unfilled requirement may fire, got: {from_workspace:#?}"
     );
     // Every spelling of one harness earns one verdict: same members discovered, same
@@ -105,7 +105,9 @@ fn a_non_required_requirement_with_no_members_is_legitimately_clean() {
     let (findings, success) = check_in(&root, &["."]);
 
     assert!(
-        common::findings_for(&findings, "requirement.unfilled").is_empty(),
+        common::findings_for(&findings, "requirement.count")
+            .iter()
+            .all(|line| line.starts_with("::warning")),
         "a non-required requirement must not fire an unfilled error, got: {findings:#?}"
     );
     assert!(

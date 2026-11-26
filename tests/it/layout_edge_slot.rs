@@ -6,7 +6,7 @@
 //! the roster/coverage/read tiers exactly as a file member's SDK-emitted fills do; a
 //! declared relationship's entries resolve live off the host's features, the same
 //! reference graph a file member's frontmatter list feeds. Either way a dangling entry is
-//! the gate's existing finding — the `requirement.dangling` coverage check for a fill, the
+//! the gate's existing finding — the `requirement.resolves` coverage check for a fill, the
 //! `root.resolves` resolution check for a relationship — never a silent drop.
 
 use std::collections::BTreeMap;
@@ -97,7 +97,12 @@ fn a_satisfies_edge_slot_derives_fill_rows_the_gate_and_read_verbs_range_over() 
     ]);
     let features = [guide_features(&fills)];
     assert!(
-        coverage::check(&requirements, &features).is_empty(),
+        coverage::check(
+            &requirements,
+            &features,
+            &common::shipped_requirement_clauses()
+        )
+        .is_empty(),
         "the derived fills cover their requirements with no dangle"
     );
 
@@ -150,12 +155,16 @@ fn a_dangling_satisfies_edge_slot_entry_refuses_through_the_existing_coverage_re
 
     // The derived row flows into the gate's existing dangling refusal — no new one: an
     // empty roster leaves the fill resolving to nothing, so coverage fires
-    // `requirement.dangling` naming the host and the unresolvable target.
+    // `requirement.resolves` naming the host and the unresolvable target.
     let features = [guide_features(&["no-such-requirement".to_string()])];
-    let diagnostics = coverage::check(&BTreeMap::new(), &features);
+    let diagnostics = coverage::check(
+        &BTreeMap::new(),
+        &features,
+        &common::shipped_requirement_clauses(),
+    );
     let dangling: Vec<_> = diagnostics
         .iter()
-        .filter(|d| d.rule == "requirement.dangling")
+        .filter(|d| d.rule == "requirement.resolves")
         .collect();
     assert_eq!(dangling.len(), 1, "one dangling finding: {diagnostics:?}");
     assert_eq!(dangling[0].severity, Severity::Error);

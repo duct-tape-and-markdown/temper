@@ -1354,21 +1354,22 @@ fn a_requirement_declared_without_required_fails_check_when_unfilled() {
         run.output
     );
     assert!(
-        run.output.contains("requirement.unfilled") && run.output.contains("agents"),
+        run.output.contains("requirement.count") && run.output.contains("agents"),
         "the finding names the unfilled rule and the requirement, got:\n{}",
         run.output
     );
 }
 
 #[test]
-fn a_requirement_declared_required_false_stays_advisory_when_unfilled() {
+fn an_optional_requirement_left_unfilled_draws_an_advisory() {
     let run = emit_and_check(
         "explicit-advisory",
         &unfilled_requirement_program(", required: false"),
     );
     assert!(
-        !run.output.contains("requirement.unfilled"),
-        "`required: false` is the advisory override ⇒ no unfilled finding, got:\n{}",
+        run.output.contains(FILL_LABEL)
+            && run.output.contains("! requirement `agents` is unfilled"),
+        "`required: false` lowers the fill clause to advisory, never silences it, got:\n{}",
         run.output
     );
     assert!(
@@ -1376,6 +1377,136 @@ fn a_requirement_declared_required_false_stays_advisory_when_unfilled() {
         "an advisory requirement never blocks, got:\n{}",
         run.output
     );
+}
+
+// ---- the fill and dangling checks ride the requirement kind's clauses ----
+
+/// The shipped fill clause's address: the `requirement` kind's `count` bound.
+const FILL_LABEL: &str = "requirement.count";
+
+/// The shipped dangling clause's address: the `requirement` kind's `resolves`.
+const DANGLING_LABEL: &str = "requirement.resolves";
+
+/// The github-reporter severity of `rule`'s first finding — `error` or `warning` — or
+/// `None` when it did not fire.
+fn reported_severity(findings: &[String], rule: &str) -> Option<String> {
+    let line = common::findings_for(findings, rule).first().copied()?;
+    Some(line.trim_start_matches("::").split(' ').next()?.to_string())
+}
+
+/// A harness with one floor-clean skill and a lock declaring `requirements`; the skill
+/// opts in to each name in `satisfies`. Enforcement mode `warn`, so a dial may soften.
+fn coverage_harness(
+    label: &str,
+    requirements: Vec<RequirementRow>,
+    satisfies: &[&str],
+) -> std::path::PathBuf {
+    let root = common::tmpdir(label);
+    common::write_skill(&root, "coordinate", &common::clean_skill("coordinate"));
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![temper::drift::AssemblyFactRow {
+                fact: "mode".to_string(),
+                value: Some("warn".to_string()),
+                from: None,
+                field: None,
+                to: None,
+                provided: None,
+                member: None,
+            }],
+            requirements,
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "coordinate", satisfies);
+    root
+}
+
+#[test]
+fn an_unfilled_requirement_finding_carries_a_clause_label() {
+    let root = coverage_harness(
+        "fill-labelled",
+        vec![common::requirement("agents", true, None)],
+        &[],
+    );
+    let (findings, _) = common::check_harness(&root);
+    let fill = common::findings_for(&findings, FILL_LABEL);
+    assert_eq!(
+        fill.len(),
+        1,
+        "one fill finding, under the clause's label: {findings:#?}"
+    );
+    assert!(fill[0].contains("agents"), "{findings:#?}");
+}
+
+#[test]
+fn a_dangling_requirement_finding_carries_a_clause_label() {
+    let root = coverage_harness(
+        "dangling-labelled",
+        vec![common::requirement("agents", true, None)],
+        &["agents", "agnets"],
+    );
+    let (findings, ok) = common::check_harness(&root);
+    let dangling = common::findings_for(&findings, DANGLING_LABEL);
+    assert_eq!(
+        dangling.len(),
+        1,
+        "one dangling finding, under the clause's label: {findings:#?}"
+    );
+    assert!(dangling[0].contains("agnets"), "{findings:#?}");
+    assert_eq!(
+        reported_severity(&findings, DANGLING_LABEL).as_deref(),
+        Some("error"),
+        "{findings:#?}"
+    );
+    assert!(
+        !ok,
+        "a dangling `satisfies` blocks at the shipped severity: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_dial_over_the_requirement_fill_clause_lowers_its_severity_and_it_still_reports() {
+    let root = coverage_harness(
+        "fill-dialed",
+        vec![common::requirement("agents", true, None)],
+        &[],
+    );
+    common::write_sibling(
+        &root,
+        ".temper/dial.toml",
+        &format!(
+            "name = \"workstation\"\n\n[[clause]]\nlabel = \"{FILL_LABEL}\"\nseverity = \"advisory\"\n"
+        ),
+    );
+    let (findings, ok) = common::check_harness(&root);
+    assert_eq!(
+        reported_severity(&findings, FILL_LABEL).as_deref(),
+        Some("warning"),
+        "the dialed fill clause still reports, at the machine's severity: {findings:#?}"
+    );
+    assert!(
+        ok,
+        "an advisory fill finding no longer blocks: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_required_requirement_left_unfilled_fires_at_error_severity() {
+    let root = coverage_harness(
+        "fill-required",
+        vec![common::requirement("agents", true, None)],
+        &[],
+    );
+    let (findings, ok) = common::check_harness(&root);
+    assert!(
+        findings.iter().any(|line| line.starts_with("::error")
+            && line.contains("agents")
+            && line.contains("unfilled")),
+        "a required requirement left unfilled fires at error: {findings:#?}"
+    );
+    assert!(!ok, "{findings:#?}");
 }
 
 #[test]
@@ -1407,7 +1538,7 @@ fn a_requirement_row_without_a_required_column_blocks_the_gate_when_unfilled() {
         run.output
     );
     assert!(
-        run.output.contains("requirement.unfilled") && run.output.contains("agents"),
+        run.output.contains("requirement.count") && run.output.contains("agents"),
         "the finding names the unfilled rule and the requirement, got:\n{}",
         run.output
     );
@@ -1470,7 +1601,7 @@ fn a_requirement_subkinds_members_fill_satisfies_targets() {
 
     let run = common::check_in(&harness, &[], None);
     assert!(
-        run.ok && !run.output.contains("requirement.unfilled"),
+        run.ok && !run.output.contains("requirement.count"),
         "the rule's satisfies fills the subkind member's requirement, got:\n{}",
         run.output
     );
@@ -1485,7 +1616,7 @@ fn a_requirement_subkinds_members_fill_satisfies_targets() {
     drift::emit_program(&into, EmitOptions::default()).unwrap();
     let run = common::check_in(&unfilled, &[], None);
     assert!(
-        !run.ok && run.output.contains("requirement.unfilled"),
+        !run.ok && run.output.contains("requirement.count"),
         "with no satisfier the subkind member's requirement refuses, got:\n{}",
         run.output
     );

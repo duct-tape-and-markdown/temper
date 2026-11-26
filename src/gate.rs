@@ -835,15 +835,18 @@ pub fn gate(
         &graph::embedded_hosts_by_key(&by_kind),
     ));
 
-    // The requirement-coverage tier: every `required`
-    // requirement must have a resolving home (≥1 artifact opting in via
-    // `satisfies`) and every authored `satisfies` must resolve to a declared
-    // requirement. Kind-blind: it ranges over every opt-in-capable artifact —
-    // built-in kinds *and* each custom kind's members — so temper's own `spec`
-    // corpus can opt in exactly as a skill does. The
-    // requirement set is the *unioned* namespace, so a member-published obligation
-    // is gated here exactly as an assembly-published one.
-    diagnostics.extend(coverage::check(&requirements, &all_features));
+    // The requirement-coverage tier: the fill and dangling checks, judged under the
+    // `requirement` kind's dialed contract. Kind-blind: it ranges over every
+    // opt-in-capable artifact, built-in and custom alike, and over the unioned
+    // requirement namespace.
+    let requirement_clauses = contracts
+        .get(compose::REQUIREMENT_KIND)
+        .map_or(&[][..], |contract| &contract.clauses[..]);
+    diagnostics.extend(coverage::check(
+        &requirements,
+        &all_features,
+        requirement_clauses,
+    ));
 
     // The install self-verify: temper checking its
     // *own* gate is wired. Advisory (warn) only — a not-yet-installed gate nudges
@@ -1070,6 +1073,9 @@ fn kind_selections<'a>(
 ) -> Vec<engine::Selection<'a>> {
     by_kind
         .keys()
+        // The `requirement` kind's clauses bind each requirement's own opt-in selection,
+        // never the population of requirements: `coverage::check` judges them there.
+        .filter(|kind| **kind != compose::REQUIREMENT_KIND)
         .filter_map(|kind| {
             let contract = contracts.get(*kind)?;
             Some(engine::Selection {
