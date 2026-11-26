@@ -952,6 +952,7 @@ mod host_qualified_addresses {
                 field: Some("serves".to_string()),
                 to: Some(vec!["domain".to_string()]),
                 provided: None,
+                member: None,
             }],
             nested_members: vec![
                 domain_row("service:alpha", "common"),

@@ -369,6 +369,26 @@ test("compileDeclarations emits no uncoined `authority` fact, and the root membe
   );
 });
 
+test("a kind's and a member's own enforcement modes lower to `mode` rows beneath the root's", () => {
+  const guarded = relocate(rule, { mode: "block" });
+  const declared = harness({
+    members: [
+      skill({ name: "deploy", description: "Deploy the app.", mode: "note", prose: text`Run it.` }),
+      guarded({ name: "safety", prose: text`Be safe.` }),
+    ],
+  });
+  assert.deepEqual(
+    compileDeclarations(declared).assembly.filter((fact) => fact.fact === "mode"),
+    [
+      { fact: "mode", value: "warn" },
+      { fact: "mode", value: "block", from: "rule" },
+      { fact: "mode", value: "note", member: "skill:deploy" },
+    ],
+  );
+  // The framework key never projects as a typed field.
+  assert.ok(!declared.members.some((member) => member.fields.some(([key]) => key === "mode")));
+});
+
 test("the declared-contract marker rides every `expect` binding and an authored root contract, and omits itself where the author declared none", () => {
   // Decision 0072's whole mechanism at the writer. An authored empty clause array writes
   // no clause row — identical to a kind the program never bound — so declaredness needs a

@@ -6429,12 +6429,12 @@ where
 pub struct AssemblyFactRow {
     /// The fact discriminator: `mode`, `contract` or `edge`.
     pub fact: String,
-    /// The scalar value a `mode` fact carries (the root member's declared
-    /// enforcement mode).
+    /// The scalar value a `mode` fact carries (the enforcement mode the root, a kind or
+    /// a member declares).
     #[serde(default)]
     pub value: Option<String>,
-    /// An `edge` fact's source kind, or the kind a `contract` fact marks a declared
-    /// contract for — absent on a `contract` fact, which makes it the root's, the same
+    /// An `edge` fact's source kind, or the kind a `contract` or `mode` fact binds —
+    /// absent on a `contract` or `mode` fact, which makes it the root's, the same
     /// kind-absent-means-root discriminator a top-level clause row uses.
     #[serde(default)]
     pub from: Option<String>,
@@ -6450,6 +6450,11 @@ pub struct AssemblyFactRow {
     /// never. Absent when the runtime supplies none, the common case.
     #[serde(default)]
     pub provided: Option<Vec<String>>,
+    /// The member address a `mode` fact overrides the enforcement mode for. A `mode`
+    /// fact carrying neither this nor `from` is the root's; one carrying `from` alone is
+    /// that kind's.
+    #[serde(default)]
+    pub member: Option<String>,
 }
 
 impl Declarations {
@@ -7499,6 +7504,9 @@ impl AssemblyFactRow {
                 value(Array::from_iter(provided.iter().cloned())),
             );
         }
+        if let Some(member) = &self.member {
+            table.insert("member", value(member.clone()));
+        }
         table
     }
 
@@ -7510,6 +7518,7 @@ impl AssemblyFactRow {
             field: opt_str(table, "field")?,
             to: edge_to_from_table(table)?,
             provided: opt_str_array(table, "provided")?,
+            member: opt_str(table, "member")?,
         })
     }
 }

@@ -15,6 +15,7 @@ import { memberProse } from "./prose.js";
 import type { Capability } from "./needs.js";
 import type { RequirementValue } from "./contract.js";
 import { isOneSegment } from "./member-address.js";
+import type { EnforcementMode } from "./assembly.js";
 
 /** The brand {@link Remedy} keys on — unexported, so no value outside this module can carry it. */
 declare const remedy: unique symbol;
@@ -334,6 +335,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */
       readonly cite?: string;
+      /** The enforcement mode the guard holds this kind's members to, overriding the
+       * harness's; a member's own outranks it. Absent defers to the harness. */
+      readonly mode?: EnforcementMode;
       /** Advisory counsel per field, keyed by the kind's typed surface `T` — a key naming a
        * field the surface lacks fails `tsc` (decision 0091, bounded as 0078 bounds a leaf
        * set). It carries no predicate and rides the kind's guidance rule beside the kind's
@@ -408,6 +412,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */
       readonly cite?: string;
+      /** The enforcement mode the guard holds this kind's members to, overriding the
+       * harness's; a member's own outranks it. Absent defers to the harness. */
+      readonly mode?: EnforcementMode;
       /** Advisory counsel per field, keyed by the kind's typed surface `T` — a key naming a
        * field the surface lacks fails `tsc` (decision 0091, bounded as 0078 bounds a leaf
        * set). It carries no predicate and rides the kind's guidance rule beside the kind's
@@ -484,6 +491,9 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */
       readonly cite?: string;
+      /** The enforcement mode the guard holds this kind's members to, overriding the
+       * harness's; a member's own outranks it. Absent defers to the harness. */
+      readonly mode?: EnforcementMode;
       /** Advisory counsel per field, keyed by the kind's typed surface `T` — a key naming a
        * field the surface lacks fails `tsc` (decision 0091, bounded as 0078 bounds a leaf
        * set). It carries no predicate and rides the kind's guidance rule beside the kind's
@@ -547,10 +557,12 @@ export interface Member {
   readonly needs: readonly Capability[];
   /** The files this member's claims rest on — fingerprinted, never moved. */
   readonly inputs: readonly Input[];
+  /** The member's own enforcement mode, outranking its kind's and the harness's. */
+  readonly mode?: EnforcementMode;
 }
 
 /** The framework keys of a member init — everything else is a typed field (flat). */
-const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs", "inputs", "residue"]);
+const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs", "inputs", "mode", "residue"]);
 
 /**
  * The **reserved leaf key** a nested member's own span lands under (0051) —
@@ -614,6 +626,8 @@ export type MemberInit<T> = {
    * value takes no `MemberInit`, and its claims are its host's.
    */
   readonly inputs?: readonly Input[];
+  /** The enforcement mode the guard holds this member to, outranking its kind's and the harness's. */
+  readonly mode?: EnforcementMode;
 } & T;
 
 /**
@@ -830,6 +844,7 @@ function defineKind<T extends object>(typed: KindFacts<T>, options: DefineOption
     requires: init.requires ?? {},
     needs: init.needs ?? [],
     inputs: init.inputs ?? [],
+    ...(init.mode === undefined ? {} : { mode: init.mode }),
   });
   return Object.assign(construct, {
     facts,
@@ -928,6 +943,8 @@ export interface KindRelocation<T extends object> {
   readonly fieldGuidance?: FieldGuidance<T>;
   /** External-fact source backing the relocation's guidance. */
   readonly cite?: string;
+  /** The enforcement mode the guard holds the kind's members to; absent keeps the base's. */
+  readonly mode?: EnforcementMode;
 }
 
 /**
@@ -1256,11 +1273,12 @@ export function extend<B extends object, T extends B>(
     declaredEdges.length === 0 &&
     delta.governs === undefined &&
     (delta.exclude ?? []).length === 0 &&
-    !counselled
+    !counselled &&
+    delta.mode === undefined
   ) {
     throw new Error(
       `relocating kind \`${base.facts.name}\`: a relocation declares at least one diverging ` +
-        `fact — \`edgeFields\`, \`fields\`, \`governs\`, \`exclude\`, \`template\`, or guidance. A delta declaring none mints a ` +
+        `fact — \`edgeFields\`, \`fields\`, \`governs\`, \`exclude\`, \`template\`, \`mode\`, or guidance. A delta declaring none mints a ` +
         `second kind of the base's own name that diverges on nothing, which reads as a name ` +
         `collision rather than a relocation (specs/model/representation.md, "kind").`,
     );
@@ -1295,6 +1313,7 @@ export function extend<B extends object, T extends B>(
     ...(delta.guidance === undefined ? {} : { guidance: delta.guidance }),
     ...(delta.fieldGuidance === undefined ? {} : { fieldGuidance: delta.fieldGuidance }),
     ...(delta.cite === undefined ? {} : { cite: delta.cite }),
+    ...(delta.mode === undefined ? {} : { mode: delta.mode }),
   };
   // Two spellings, not one with an optional `locus`: `KindFacts` is a union discriminated
   // on the locus, so the moved case must carry the `at` locus as its own literal branch.

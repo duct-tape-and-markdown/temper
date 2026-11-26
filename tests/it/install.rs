@@ -2640,6 +2640,72 @@ fn a_guard_fixtures_lock_declares_its_enforcement_mode_rather_than_inheriting_th
 }
 
 #[test]
+fn a_member_declaring_block_is_blocked_while_the_harness_is_in_warn() {
+    let root = common::tmpdir("member-mode-block");
+    claude_write_lock("warn")
+        .member_mode("skill:x", "block")
+        .write(&root);
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
+    assert_eq!(
+        code,
+        Some(2),
+        "the member's own `block` outranks the harness's `warn`"
+    );
+    assert!(
+        stderr.contains("temper-managed projection"),
+        "got: {stderr}"
+    );
+}
+
+#[test]
+fn a_kind_declaring_block_blocks_its_members_while_the_harness_is_in_warn() {
+    let root = common::tmpdir("kind-mode-block");
+    claude_write_lock("warn")
+        .kind_mode("skill", "block")
+        .write(&root);
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
+    assert_eq!(
+        code,
+        Some(2),
+        "the kind's `block` outranks the harness's `warn`"
+    );
+    assert!(
+        stderr.contains("temper-managed projection"),
+        "got: {stderr}"
+    );
+}
+
+/// Overrides naming another member and another kind leave this member at the root's mode,
+/// and a member's own mode outranks its kind's in either direction.
+#[test]
+fn with_no_member_override_the_harness_mode_governs() {
+    let root = common::tmpdir("member-mode-absent");
+    claude_write_lock("warn")
+        .member("skill", "y", ".claude/skills/y/SKILL.md", "abc", "abc")
+        .member_mode("skill:y", "block")
+        .kind_mode("rule", "block")
+        .write(&root);
+    let (code, output) = common::run_guard(&root, &common::guard_write_payload(CLAUDE_WRITE_PATH));
+    assert_eq!(
+        code,
+        Some(0),
+        "the harness's `warn` governs an unoverridden member"
+    );
+    assert!(
+        output.contains("temper-managed projection"),
+        "got: {output}"
+    );
+
+    let softened = common::tmpdir("member-mode-softens-kind");
+    claude_write_lock("block")
+        .kind_mode("skill", "block")
+        .member_mode("skill:x", "warn")
+        .write(&softened);
+    let (code, _) = common::run_guard(&softened, &common::guard_write_payload(CLAUDE_WRITE_PATH));
+    assert_eq!(code, Some(0), "the member's own mode is the most specific");
+}
+
+#[test]
 fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
     let root = common::tmpdir("lock-mode-block");
     claude_write_lock("block").write(&root);

@@ -2633,36 +2633,109 @@ pub fn is_kind_or_subkind(kinds: &BTreeMap<String, CustomKind>, kind: &str, base
     false
 }
 
-/// The enforcement mode `declarations` declare, for a caller that has already read them —
-/// a harness needing the mode to decide whether a dialed softening binds and must
+/// The root's enforcement mode `declarations` declare, for a caller that has already read
+/// them — a harness needing the mode to decide whether a dialed softening binds and must
 /// never reach a second verdict on the posture from a second read.
 ///
 /// # Errors
 ///
-/// Returns a [`drift::LockRowError::Vocabulary`] when the `mode` fact carries an
+/// Returns a [`drift::LockRowError::Vocabulary`] when a `mode` fact carries an
 /// unrecognized value outside the closed `{note, warn, block}` vocabulary.
 pub fn mode_from_declarations(
     declarations: &drift::Declarations,
 ) -> miette::Result<EnforcementMode> {
-    let Some(value) = declarations
+    Ok(modes_from_declarations(declarations)?.root())
+}
+
+/// Every enforcement mode the root, a kind or a member declares — the guard resolves the
+/// most specific one binding a finding: the member's own, else its kind's, else the
+/// root's.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct EnforcementModes {
+    root: EnforcementMode,
+    kinds: BTreeMap<String, EnforcementMode>,
+    members: BTreeMap<String, EnforcementMode>,
+}
+
+impl EnforcementModes {
+    /// One mode at every grain, no kind or member overriding it.
+    #[must_use]
+    pub fn uniform(mode: EnforcementMode) -> Self {
+        Self {
+            root: mode,
+            ..Self::default()
+        }
+    }
+
+    /// The root member's own mode — the harness-wide posture.
+    #[must_use]
+    pub fn root(&self) -> EnforcementMode {
+        self.root
+    }
+
+    /// The mode binding a member of `kind` with no override of its own.
+    #[must_use]
+    pub fn for_kind(&self, kind: &str) -> EnforcementMode {
+        self.kinds.get(kind).copied().unwrap_or(self.root)
+    }
+
+    /// The mode binding the member at `address` — its own, else its kind's, else the root's.
+    #[must_use]
+    pub fn for_member(&self, address: &str) -> EnforcementMode {
+        if let Some(mode) = self.members.get(address) {
+            return *mode;
+        }
+        let kind = crate::member_address::parse_nested_address(address)
+            .map(|nested| nested.kind)
+            .or_else(|| crate::member_address::parse_host_address(address).map(|(kind, _)| kind));
+        kind.map_or(self.root, |kind| self.for_kind(kind))
+    }
+}
+
+/// The enforcement modes `declarations` declare at every grain ([`EnforcementModes`]); a
+/// grain declaring none inherits the next coarser one, and the root defaults to
+/// [`EnforcementMode::Warn`].
+///
+/// # Errors
+///
+/// Returns a [`drift::LockRowError::Vocabulary`] when a `mode` fact carries an
+/// unrecognized value outside the closed `{note, warn, block}` vocabulary.
+pub fn modes_from_declarations(
+    declarations: &drift::Declarations,
+) -> miette::Result<EnforcementModes> {
+    let mut modes = EnforcementModes::default();
+    for row in declarations
         .assembly
         .iter()
-        .find(|row| row.fact == "mode")
-        .and_then(|row| row.value.as_deref())
-    else {
-        return Ok(EnforcementMode::default());
-    };
-    match value {
-        "note" => Ok(EnforcementMode::Note),
-        "warn" => Ok(EnforcementMode::Warn),
-        "block" => Ok(EnforcementMode::Block),
-        other => Err(drift::LockRowError::Vocabulary {
-            family: "assembly".to_string(),
-            column: "mode".to_string(),
-            value: other.to_string(),
+        .filter(|row| row.fact == "mode")
+    {
+        let Some(value) = row.value.as_deref() else {
+            continue;
+        };
+        let mode = match value {
+            "note" => EnforcementMode::Note,
+            "warn" => EnforcementMode::Warn,
+            "block" => EnforcementMode::Block,
+            other => {
+                return Err(drift::LockRowError::Vocabulary {
+                    family: "assembly".to_string(),
+                    column: "mode".to_string(),
+                    value: other.to_string(),
+                }
+                .into());
+            }
+        };
+        match (&row.member, &row.from) {
+            (Some(member), _) => {
+                modes.members.insert(member.clone(), mode);
+            }
+            (None, Some(kind)) => {
+                modes.kinds.insert(kind.clone(), mode);
+            }
+            (None, None) => modes.root = mode,
         }
-        .into()),
     }
+    Ok(modes)
 }
 
 #[cfg(test)]
@@ -3002,6 +3075,7 @@ mod tests {
                     field: Some((*field).to_string()),
                     to: Some(vec!["rule".to_string()]),
                     provided: None,
+                    member: None,
                     value: None,
                 })
                 .collect(),

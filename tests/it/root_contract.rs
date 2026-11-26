@@ -307,6 +307,7 @@ fn root_contract_marker() -> AssemblyFactRow {
         field: None,
         to: None,
         provided: None,
+        member: None,
     }
 }
 

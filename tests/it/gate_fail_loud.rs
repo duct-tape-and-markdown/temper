@@ -340,6 +340,7 @@ fn write_embedded_citation_harness(
                 field: Some("source".to_string()),
                 to: Some(vec!["standard".to_string()]),
                 provided: None,
+                member: None,
             }],
             nested_members: vec![temper::drift::NestedMemberRow {
                 host: "standard:the-charter".to_string(),

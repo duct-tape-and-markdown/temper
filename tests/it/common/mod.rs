@@ -685,6 +685,7 @@ impl GuardLock {
                     field: None,
                     to: None,
                     provided: None,
+                    member: None,
                 }],
                 ..Declarations::default()
             },
@@ -708,6 +709,31 @@ impl GuardLock {
             source_path: source_path.to_string(),
             source_hash: source_hash.to_string(),
             emit_hash: emit_hash.to_string(),
+        });
+        self
+    }
+
+    /// Declare `mode` as the enforcement mode of the member at `address` alone.
+    #[must_use]
+    pub fn member_mode(self, address: &str, mode: &str) -> Self {
+        self.mode_override(None, Some(address), mode)
+    }
+
+    /// Declare `mode` as the enforcement mode of every member of `kind`.
+    #[must_use]
+    pub fn kind_mode(self, kind: &str, mode: &str) -> Self {
+        self.mode_override(Some(kind), None, mode)
+    }
+
+    fn mode_override(mut self, kind: Option<&str>, member: Option<&str>, mode: &str) -> Self {
+        self.declarations.assembly.push(AssemblyFactRow {
+            fact: "mode".to_string(),
+            value: Some(mode.to_string()),
+            from: kind.map(str::to_string),
+            field: None,
+            to: None,
+            provided: None,
+            member: member.map(str::to_string),
         });
         self
     }
@@ -852,8 +878,14 @@ fn insert_declaration_family(table: &mut Table, family: &str, rows: impl Iterato
 fn assembly_fact_table(row: &AssemblyFactRow) -> Table {
     let mut table = Table::new();
     table["fact"] = value(row.fact.clone());
-    if let Some(cell) = &row.value {
-        table["value"] = value(cell.clone());
+    for (column, cell) in [
+        ("value", &row.value),
+        ("from", &row.from),
+        ("member", &row.member),
+    ] {
+        if let Some(cell) = cell {
+            table[column] = value(cell.clone());
+        }
     }
     table
 }
@@ -1111,6 +1143,7 @@ pub fn edge_to_set(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
         field: Some(field.to_string()),
         to: Some(to.iter().map(|kind| (*kind).to_string()).collect()),
         provided: None,
+        member: None,
     }
 }
 

@@ -398,7 +398,8 @@ fn main() -> miette::Result<ExitCode> {
             // `.claude/` write since there is no declared set to consult.
             let workspace_dir = path.join(temper::WORKSPACE_DIR);
             let declarations = drift::read_declarations(&workspace_dir)?;
-            let mode = compose::mode_from_declarations(&declarations)?;
+            let modes = compose::modes_from_declarations(&declarations)?;
+            let mode = modes.root();
             let mut stdin_payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut stdin_payload).into_diagnostic()?;
 
@@ -493,7 +494,7 @@ fn main() -> miette::Result<ExitCode> {
 
             let decision = install::guard(
                 &payload,
-                mode,
+                &modes,
                 &path,
                 lock_present.then_some(targets.as_slice()),
                 &loci,

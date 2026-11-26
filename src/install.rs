@@ -57,7 +57,7 @@ use toml_edit::DocumentMut;
 
 use crate::builtin_kind;
 use crate::check::{Diagnostic, Severity};
-use crate::compose::EnforcementMode;
+use crate::compose::{EnforcementMode, EnforcementModes};
 use crate::contract::Contract;
 use crate::drift::{self, ApplyOutcome, EmitReport};
 use crate::engine;
@@ -1903,7 +1903,7 @@ impl LayoutGuard {
         payload: &JsonValue,
         file_path: &str,
         root: &Path,
-    ) -> Option<Diagnostic> {
+    ) -> Option<(String, Diagnostic)> {
         let (doc, clause) = self.judge.as_ref()?;
         let normalized = harness_relative(file_path, root)?;
         let pending = tool_input(payload).map(|input| pending_manifest(input, file_path, root));
@@ -1929,12 +1929,13 @@ impl LayoutGuard {
             None => self.hosted_member(root, &target, identity)?,
         };
         let site = drift::LayoutMemberSite {
-            member,
+            member: member.clone(),
             source_path: normalized,
         };
         drift::undeclared_layout_members_from_doc(doc, std::slice::from_ref(&site), clause)
             .into_iter()
             .next()
+            .map(|finding| (member, finding))
     }
 }
 
@@ -1951,8 +1952,8 @@ pub struct GuardDecision {
     pub message: String,
 }
 
-/// Decide `temper guard`'s verdict over a decoded `PreToolUse` `payload` at `mode`'s
-/// enforcement mode, bound to `targets` — the lock's emit-owned projection set
+/// Decide `temper guard`'s verdict over a decoded `PreToolUse` `payload` at the most
+/// specific enforcement mode `modes` declares for the finding's member, bound to `targets` — the lock's emit-owned projection set
 /// ([`drift::emit_owned_targets`]) — and to `loci`, the governed loci of the
 /// represented committed kinds ([`GuardedLocus`]). `targets` is `None` for a harness
 /// with no `lock.toml` at all (never emitted, or the file removed out from under an
@@ -1974,7 +1975,7 @@ pub struct GuardDecision {
 #[must_use]
 pub fn guard(
     payload: &JsonValue,
-    mode: EnforcementMode,
+    modes: &EnforcementModes,
     root: &Path,
     targets: Option<&[drift::EmitOwnedEntry]>,
     loci: &[GuardedLocus],
@@ -1992,12 +1993,21 @@ pub fn guard(
         return allow();
     };
 
-    let message = if let Some(owner) = matched_projection(file_path, root, targets) {
-        format!("{}{}", guard_message(), projection_owner_line(owner))
+    let (message, mode) = if let Some(owner) = matched_projection(file_path, root, targets) {
+        (
+            format!("{}{}", guard_message(), projection_owner_line(owner)),
+            modes.for_member(&crate::member_address::address_of(&owner.kind, &owner.name)),
+        )
     } else if let Some(locus) = matches_governed_locus(file_path, root, loci, &layout.loci.kinds) {
-        undeclared_locus_message(&locus.kind, locus.custom)
-    } else if let Some(finding) = layout.pending_finding(payload, file_path, root) {
-        render_guard_findings(guard_layout_message(), &[finding])
+        (
+            undeclared_locus_message(&locus.kind, locus.custom),
+            modes.for_kind(&locus.kind),
+        )
+    } else if let Some((member, finding)) = layout.pending_finding(payload, file_path, root) {
+        (
+            render_guard_findings(guard_layout_message(), &[finding]),
+            modes.for_member(&member),
+        )
     } else {
         return allow();
     };

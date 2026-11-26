@@ -468,6 +468,7 @@ function relocationInvariants(facts: KindFacts): Record<string, unknown> {
   delete bare.guidance;
   delete bare.fieldGuidance;
   delete bare.cite;
+  delete bare.mode;
   if (facts.locus.kind === "at") bare.locus = { ...facts.locus, root: "", glob: "" };
   return bare;
 }
@@ -946,8 +947,8 @@ function verifierRow(verifier: Verifier | undefined): VerifierRow | undefined {
 }
 
 /**
- * The assembly-scope facts, in a stable order: the root member's declared `mode`, then
- * one `contract` declaredness marker per `expect`-bound kind (kind-sorted, as `expect`'s
+ * The assembly-scope facts, in a stable order: the root member's declared `mode` and the
+ * kind and member overrides beneath it, then one `contract` declaredness marker per `expect`-bound kind (kind-sorted, as `expect`'s
  * own clause rows are) plus the root's where the author declared one, then one edge row
  * per kind edge field.
  *
@@ -965,7 +966,7 @@ function verifierRow(verifier: Verifier | undefined): VerifierRow | undefined {
  * through its host's `templates` column alone.
  */
 function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): AssemblyFactRow[] {
-  const facts: AssemblyFactRow[] = [{ fact: "mode", value: harness.mode }];
+  const facts: AssemblyFactRow[] = [{ fact: "mode", value: harness.mode }, ...modeOverrideRows(harness, kinds)];
   for (const binding of [...harness.expect].sort((a, b) => compareStrings(a.kind.key, b.kind.key))) {
     facts.push({ fact: "contract", from: binding.kind.key });
  }
@@ -982,6 +983,23 @@ function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
  }
  }
   return facts;
+}
+
+/**
+ * The `mode` overrides beneath the root's: one per kind declaring its own (kind-sorted,
+ * named in `from` as a `contract` marker names its kind), then one per member declaring
+ * its own (address-sorted, named in `member`).
+ */
+function modeOverrideRows(harness: Harness, kinds: readonly KindFacts[]): AssemblyFactRow[] {
+  const byKind: AssemblyFactRow[] = kinds
+    .flatMap((kind) => (kind.mode === undefined ? [] : [{ fact: "mode", value: kind.mode, from: kind.name }]))
+    .sort((a, b) => compareStrings(a.from ?? "", b.from ?? ""));
+  const byMember: AssemblyFactRow[] = harness.members
+    .flatMap((member) =>
+      member.mode === undefined ? [] : [{ fact: "mode", value: member.mode, member: memberAddress(member) }],
+    )
+    .sort((a, b) => compareStrings(a.member ?? "", b.member ?? ""));
+  return [...byKind, ...byMember];
 }
 
 /**
