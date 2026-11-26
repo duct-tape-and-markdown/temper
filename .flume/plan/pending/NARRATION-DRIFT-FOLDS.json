@@ -1,0 +1,21 @@
+{
+  "tag": "NARRATION-DRIFT-FOLDS",
+  "gate": { "kind": "open" },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "tests/it/module_closure.rs", "description": "header omits resolve_modules' tracked-only filter" },
+      { "path": "src/compose.rs", "description": "overlay_builtin_kind doc's \"Three facts overlay\" (five are)" },
+      { "path": "src/lib.rs", "description": "crate header: reorganize-surface framing and per-entry build narration" },
+      { "path": "src/frontmatter.rs", "description": "Member::from_source doc claims companion scan and provenance hash; retired-IR history in header" },
+      { "path": "src/display.rs", "description": "header's \"future custom-kind emit face\" island narration" },
+      { "path": "src/dial.rs", "description": "is_empty doc names callers that do not exist" },
+      { "path": "sdk/src/needs.ts", "description": "\"once those kinds land\" — hooks and MCP kinds shipped" }
+    ]
+  },
+  "summary": "Fold the narration-drift family: doc claims the code no longer holds shrink to what it does, or to nothing",
+  "per": { "path": "specs/process/engineering.md", "section": "Narration is the ladder's bottom rung" },
+  "acceptance": "each named doc states only what its code does; cargo test and pnpm --dir sdk test green",
+  "tests": [],
+  "notes": "Family noted thrice (b02a40d3, d2f1d4f9, this tick), so it files once and claims no property. Comment-only diff; cut rather than rewrite (rust.md exit clause)."
+}
