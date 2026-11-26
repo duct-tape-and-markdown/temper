@@ -2723,3 +2723,90 @@ mod impact_reachability_parity {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Checking never needs Node — the read verbs over an emitted harness.
+// ---------------------------------------------------------------------------
+
+/// A real SDK program the node-free read runs below emit once: a rule and a skill,
+/// enough for a lock carrying member rows, the module closure, and the typecheck.
+const NODELESS_PROGRAM: &str = r#"
+import { emit, harness, text } from "@dtmd/temper";
+import { rule, skill } from "@dtmd/temper/claude-code";
+
+const program = harness({
+  members: [
+    rule({
+      name: "rust",
+      paths: ["src/**/*.rs"],
+      prose: text`
+        # Rust conventions
+
+        Errors via miette/thiserror.
+      `,
+    }),
+    skill({
+      name: "coordinate",
+      description: "Use when coordinating agents across axes.",
+      prose: text`
+        # Coordinate
+
+        Drive the team.
+      `,
+    }),
+  ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+/// Running the program is the author's act (`emit`, with Node); reading what it
+/// emitted is not. The harness is emitted through the real seam, then `check` and
+/// `explain` run with `PATH` pointing at an empty directory — no `node`, no `npm`,
+/// no `tsc` resolvable — and must read the committed lock and projections exactly as
+/// they do with the full `PATH`.
+#[test]
+fn check_and_explain_run_over_an_emitted_harness_with_node_absent_from_the_path() {
+    let (harness, into) = common::wire_sdk_harness("nodeless-read", NODELESS_PROGRAM);
+    drift::emit_program(&into, temper::drift::EmitOptions::default()).unwrap();
+
+    let empty_path = common::tmpdir("nodeless-path");
+    assert_eq!(
+        std::fs::read_dir(&empty_path).unwrap().count(),
+        0,
+        "the stand-in PATH must resolve nothing"
+    );
+
+    let with_node = common::check_in(&harness, &[], Some("github"));
+    let without_node = common::check_in_on_path(&harness, &[], Some("github"), Some(&empty_path));
+    assert!(
+        with_node.ok,
+        "the freshly emitted harness checks green:\n{}",
+        with_node.output
+    );
+    assert!(
+        without_node.ok,
+        "check passes with node absent from the PATH:\n{}",
+        without_node.output
+    );
+    assert_eq!(
+        without_node.output, with_node.output,
+        "check reads the same verdict with or without node on the PATH"
+    );
+
+    for (target, header) in [
+        ("coordinate", "Member `coordinate` (skill)"),
+        ("rule:rust", "Member `rust` (rule)"),
+    ] {
+        let with_node = common::explain_in(&harness, target);
+        let without_node = common::explain_in_on_path(&harness, target, Some(&empty_path));
+        assert!(
+            with_node.contains(header),
+            "explain `{target}` narrates the member:\n{with_node}"
+        );
+        assert_eq!(
+            without_node, with_node,
+            "explain `{target}` reads the same with or without node on the PATH"
+        );
+    }
+}

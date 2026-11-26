@@ -496,10 +496,25 @@ impl CheckRun {
 /// is a caller driving a command string that carries the verb itself, since
 /// `check` is prepended here.
 pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun {
+    check_in_on_path(root, args, reporter, None)
+}
+
+/// [`check_in`] with the child's `PATH` replaced by `path` when one is given — the
+/// one variable a run proving what `check` does *not* need from its environment
+/// varies (an empty `PATH` dir, so no `node` resolves).
+pub fn check_in_on_path(
+    root: &Path,
+    args: &[&str],
+    reporter: Option<&str>,
+    path: Option<&Path>,
+) -> CheckRun {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_temper"));
     cmd.current_dir(root).arg("check").args(args);
     if let Some(reporter) = reporter {
         cmd.arg("--reporter").arg(reporter);
+    }
+    if let Some(path) = path {
+        cmd.env("PATH", path);
     }
     let out = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
@@ -537,12 +552,18 @@ pub fn check_harness(harness: &Path) -> (Vec<String>, bool) {
 /// binary reaches the verb here — the four private copies this replaced disagreed on
 /// exactly that, two of them stdout-only.
 pub fn explain_in(root: &Path, target: &str) -> String {
-    let out = Command::new(env!("CARGO_BIN_EXE_temper"))
-        .current_dir(root)
-        .arg("explain")
-        .arg(target)
-        .output()
-        .unwrap();
+    explain_in_on_path(root, target, None)
+}
+
+/// [`explain_in`] with the child's `PATH` replaced by `path` when one is given — the
+/// `explain` twin of [`check_in_on_path`].
+pub fn explain_in_on_path(root: &Path, target: &str, path: Option<&Path>) -> String {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_temper"));
+    cmd.current_dir(root).arg("explain").arg(target);
+    if let Some(path) = path {
+        cmd.env("PATH", path);
+    }
+    let out = cmd.output().unwrap();
     let mut narration = String::from_utf8_lossy(&out.stdout).into_owned();
     narration.push_str(&String::from_utf8_lossy(&out.stderr));
     narration
