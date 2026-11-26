@@ -30,7 +30,7 @@ use temper::reporter;
 use temper::schema;
 use temper::tap;
 
-/// The SDK surface workspace under the cwd — the emit `--into` default and the
+/// The SDK surface workspace under the cwd — the `emit` workspace default and the
 /// path `schema` / `explain` / `bundle` read the committed lock from.
 ///
 /// Explicitly `./`-prefixed: the default is the one relative shape `emit` re-resolves
@@ -134,10 +134,11 @@ enum Command {
     /// names; a direct edit to the projection is drift routed to the authored source,
     /// never something emit merges around.
     Emit {
-        /// The surface workspace to project (defaults to `./.temper`). The lock
-        /// under it carries the emit fingerprints freshness stands on.
-        #[arg(long, default_value = DEFAULT_WORKSPACE.as_str())]
-        into: PathBuf,
+        /// The surface workspace to project (defaults to `./.temper`), taken
+        /// positionally as every verb takes its workspace. The lock under it carries
+        /// the emit fingerprints freshness stands on.
+        #[arg(default_value = DEFAULT_WORKSPACE.as_str())]
+        workspace: PathBuf,
         /// Refuse network access — the CI posture.
         /// `emit` performs no network I/O today, so this is accepted for CI parity.
         #[arg(long)]
@@ -148,7 +149,7 @@ enum Command {
         dry_run: bool,
         /// Spell a full teardown: let a reap wave that would delete every live
         /// projection through instead of refusing at the cliff. Off by default, so
-        /// an `--into` re-root that strands the whole projection tree refuses rather
+        /// a workspace re-root that strands the whole projection tree refuses rather
         /// than mass-deleting silently.
         #[arg(long)]
         teardown: bool,
@@ -360,17 +361,17 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Emit {
-            into,
+            workspace,
             frozen,
             dry_run,
             teardown,
         } => {
             // The seam:
-            // `node` runs the SDK program at `<into>/harness.ts`, and the engine becomes the
+            // `node` runs the SDK program at `<workspace>/harness.ts`, and the engine becomes the
             // sole compiler of every projection and the whole lock from its JSON payload — no
             // harness root is re-supplied here, the payload IS the source.
             let report = drift::emit_program(
-                &into,
+                &workspace,
                 drift::EmitOptions {
                     dry_run,
                     frozen,

@@ -91,7 +91,7 @@ same contract as any file.
 | --- | --- |
 | `temper check` | Gate the harness against the active contract |
 | `temper explain <name>` | Narrate one member or requirement: what fills it, what references it, its blast radius |
-| `temper emit` | Compile the authored surface into the projected files and the lock |
+| `temper emit [workspace]` | Compile the authored surface (default `.temper/`) into the projected files and the lock |
 | `temper schema` | Emit the active contract as an editor JSON Schema |
 | `temper guard` | `PreToolUse` hook body that protects projected files from hand edits |
 | `temper install` | Wire the gate into a project |

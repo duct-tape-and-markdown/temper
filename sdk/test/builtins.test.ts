@@ -39,7 +39,7 @@ import {
   mcpServer,
   mcpServerDefaultContract,
   memory,
-  memoryAnthropicDefaultContract,
+  memoryDefaultContract,
   outputStyle,
   outputStyleDefaultContract,
   pluginManifest,
@@ -61,8 +61,7 @@ import {
  * Every shipped default contract, derived from the built-in kinds rather than listed: each
  * kind value either face exports (anything carrying `facts`) pairs with its
  * `<export>DefaultContract`, so a kind added without one fails here, and so does one whose
- * contract this file forgot to name. `memory`'s contract is the one named for its provider;
- * the root's is the one contract no kind carries.
+ * contract this file forgot to name. The root's is the one contract no kind carries.
  */
 async function shippedContracts(): Promise<ReadonlyArray<readonly [string, readonly Clause[]]>> {
   const faces: ReadonlyArray<Record<string, unknown>> = [
@@ -70,7 +69,6 @@ async function shippedContracts(): Promise<ReadonlyArray<readonly [string, reado
     await import("../src/index.js"),
   ];
   const exported = (name: string): unknown => faces.find((face) => name in face)?.[name];
-  const contractName: Record<string, string> = { memory: "memoryAnthropicDefaultContract" };
   const kinds = new Set<string>();
   for (const face of faces) {
     for (const [name, value] of Object.entries(face)) {
@@ -80,7 +78,7 @@ async function shippedContracts(): Promise<ReadonlyArray<readonly [string, reado
   assert.ok(kinds.size >= 20, `found only ${kinds.size} built-in kinds`);
   const contracts: Array<readonly [string, readonly Clause[]]> = [];
   for (const name of [...kinds].sort()) {
-    const label = contractName[name] ?? `${name}DefaultContract`;
+    const label = `${name}DefaultContract`;
     const contract = exported(label);
     assert.ok(Array.isArray(contract), `built-in kind \`${name}\` exports no \`${label}\``);
     contracts.push([label, contract as readonly Clause[]]);
@@ -254,10 +252,10 @@ test("the rule contract judges an on-demand rule against the per-file truncation
   assert.match(body.cite ?? "", /code\.claude\.com\/docs\/en\/memory/);
 });
 
-test("memoryAnthropicDefaultContract is a single advisory size budget", () => {
-  assert.equal(memoryAnthropicDefaultContract.length, 1);
-  assert.equal(memoryAnthropicDefaultContract[0].predicate.key, "extent");
-  assert.equal(memoryAnthropicDefaultContract[0].severity, "advisory");
+test("memoryDefaultContract is a single advisory size budget", () => {
+  assert.equal(memoryDefaultContract.length, 1);
+  assert.equal(memoryDefaultContract[0].predicate.key, "extent");
+  assert.equal(memoryDefaultContract[0].severity, "advisory");
 });
 
 test("mcpServer is a fields-only manifest kind at the mcpServers.* collection address", () => {

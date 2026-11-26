@@ -176,12 +176,12 @@ pub enum DriftError {
     },
 
     /// The reap wave would delete every live projection the lock owns while
-    /// emitting nothing in their place — the `--into` re-root of an adopted
+    /// emitting nothing in their place — the workspace re-root of an adopted
     /// harness turns the whole projection tree ownerless at once. Refused at the
     /// cliff (decision 0024) rather than mass-deleted silently; a genuine full
     /// teardown is the `--teardown` flag the author spells.
     #[error(
-        "refusing to reap {count} live projections at once: this would delete every projection the lock owns while emitting nothing in their place (an `--into` re-root strands the whole tree). Pass `--teardown` to tear the harness down on purpose."
+        "refusing to reap {count} live projections at once: this would delete every projection the lock owns while emitting nothing in their place (a workspace re-root strands the whole tree). Pass `--teardown` to tear the harness down on purpose."
     )]
     #[diagnostic(code(temper::drift::total_reap_wave))]
     TotalReapWave {
@@ -1122,7 +1122,7 @@ pub struct EmitOptions {
     pub frozen: bool,
     /// Spell a full teardown: let a reap wave that would delete every live
     /// projection through instead of refusing it. Off by default, so the cliff
-    /// refusal guards a re-rooted `--into` (or any wholesale ownerless sweep)
+    /// refusal guards a re-rooted workspace (or any wholesale ownerless sweep)
     /// unless the author names the teardown on purpose.
     pub teardown: bool,
 }
@@ -2207,7 +2207,7 @@ fn run_typecheck(
     nested_members: &[NestedMemberRow],
     workspace_dir: &Path,
 ) -> Result<(), DriftError> {
-    // The run moves into the workspace, so a relative `--into` would re-resolve the
+    // The run moves into the workspace, so a relative workspace would re-resolve the
     // command against that new working directory and name a path that is not there.
     let workspace_dir =
         &std::path::absolute(workspace_dir).unwrap_or_else(|_| workspace_dir.to_path_buf());

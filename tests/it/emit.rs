@@ -2579,7 +2579,7 @@ fn a_dot_slash_spelled_lock_row_names_its_stale_projection_by_the_bare_spelling(
 
 #[test]
 fn a_lock_emitted_from_a_foreign_cwd_carries_the_rows_of_one_emitted_at_the_harness_root() {
-    // `--into`'s only non-default use is naming a workspace off the cwd, so the cwd an
+    // The workspace argument's only non-default use is naming a workspace off the cwd, so the cwd an
     // emit happens to run under must reach no row: the lock is committed, and a row
     // carrying the prefix `examples/base-harness/` resolves from the repo root and
     // nowhere else. Same payload, two cwds, one set of bytes.
@@ -3344,8 +3344,8 @@ throw new Error("the SDK program is broken");
 "#;
 
 #[test]
-fn emit_cli_resolves_the_default_relative_into_without_doubling_the_path() {
-    // `temper emit` with no `--into` uses the CLI's own relative default
+fn emit_cli_resolves_the_default_relative_workspace_without_doubling_the_path() {
+    // `temper emit` with no workspace argument uses the CLI's own relative default
     // (`./.temper`, `DEFAULT_WORKSPACE`) — the exact shape the cascade field
     // report hit: `current_dir` moves to the entry's parent, so a still-relative
     // `node` arg re-resolves against the new cwd and doubles the path
@@ -3360,20 +3360,59 @@ fn emit_cli_resolves_the_default_relative_into_without_doubling_the_path() {
 
     assert!(
         output.status.success(),
-        "emit over the default relative --into must resolve <into>/harness.ts without \
+        "emit over the default relative workspace must resolve <workspace>/harness.ts without \
          doubling the path: stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
         !harness.join(".temper").join(".temper").exists(),
-        "the relative --into must never double onto itself"
+        "the relative workspace must never double onto itself"
     );
 
     let rule_path = harness.join(".claude").join("rules").join("rust.md");
     assert!(
         rule_path.is_file(),
         "emit should have run the program and projected the rule at {rule_path:?}"
+    );
+}
+
+/// `emit` takes its workspace as a positional argument, the way `check` and `bundle` take
+/// theirs: one spelling for one concept across the verbs (decision 0114). Run from a cwd
+/// that holds no workspace, so only the positional can be what names it.
+#[test]
+fn emit_takes_its_workspace_positionally() {
+    let (harness, workspace) = wire_sdk_harness("positional-workspace");
+    let elsewhere = common::tmpdir("positional-workspace-cwd");
+
+    let output = Command::new(BIN)
+        .arg("emit")
+        .arg(&workspace)
+        .current_dir(&elsewhere)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "`temper emit <workspace>` must project the named workspace: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        harness
+            .join(".claude")
+            .join("rules")
+            .join("rust.md")
+            .is_file(),
+        "emit should have projected the named workspace's rule under its harness root"
+    );
+    assert!(
+        workspace.join("lock.toml").is_file(),
+        "emit should have written the named workspace's lock"
+    );
+    assert!(
+        !elsewhere.join(".claude").exists() && !elsewhere.join(".temper").exists(),
+        "the cwd names no workspace, so emit writes nothing under it"
     );
 }
 
@@ -3550,7 +3589,7 @@ fn emit_program_runs_the_shipped_example_harness() {
              That emit needs the SDK resolvable from the example's own root first — \
              vendor it the way `vendor_sdk` does, `ln -s $PWD/sdk \
              examples/base-harness/.temper/node_modules/@dtmd/temper` (gitignored, \
-             never committed) — then re-run `cargo run -- emit --into \
+             never committed) — then re-run `cargo run -- emit \
              examples/base-harness/.temper` and commit what moves.",
             entry.kind,
             entry.name,
@@ -3586,7 +3625,7 @@ fn emit_program_runs_the_shipped_example_harness() {
          (`ln -s $PWD/sdk examples/base-harness/.temper/node_modules/@dtmd/temper` — \
          gitignored, never committed; without it the program cannot resolve \
          `@dtmd/temper` and the emit fails to link), then re-run `cargo run -- emit \
-         --into examples/base-harness/.temper` and commit what moves — never hand-edit \
+         examples/base-harness/.temper` and commit what moves — never hand-edit \
          a row."
     );
 
@@ -3967,7 +4006,7 @@ fn emit_refuses_a_program_whose_typecheck_reports_a_type_error() {
 #[test]
 fn a_relative_workspace_path_runs_the_typecheck_from_the_workspace_bin() {
     // Under this process's working directory, so the workspace spells downward from it,
-    // as `temper emit --into examples/base-harness/.temper` spells it from the checkout.
+    // as `temper emit examples/base-harness/.temper` spells it from the checkout.
     // Held for the whole run: a chdir'ing case elsewhere would move the cwd under it.
     let _cwd = CWD_MUTEX.lock().unwrap();
     let cwd = std::env::current_dir().unwrap();

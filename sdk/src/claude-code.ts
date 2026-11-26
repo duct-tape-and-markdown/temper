@@ -55,7 +55,7 @@ export {
   mcpServer,
   mcpServerDefaultContract,
   memory,
-  memoryAnthropicDefaultContract,
+  memoryDefaultContract,
   outputStyle,
   outputStyleDefaultContract,
   pluginManifest,

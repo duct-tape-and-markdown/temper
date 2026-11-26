@@ -32,7 +32,7 @@
 # `pluginManifestDefaultContract`, `settingsDefaultContract`,
 # `settingsLocalDefaultContract`, `skillDefaultContract`,
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
-# `memoryAnthropicDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
+# `memoryDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
 # *root* — temper's own kind, whose entries re-read these very clauses at a machine's
 # declared severity, so it ships wherever they do — `tool`/`toolDefaultContract`, temper's
 # other own kind, the one home of a command the harness runs,

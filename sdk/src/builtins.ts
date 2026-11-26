@@ -2755,7 +2755,7 @@ export const ruleDefaultContract: readonly Clause[] = [
  * would fake a check the format does not carry. The single clause is a context-cost
  * budget; everything else the contract could say is guidance.
  */
-export const memoryAnthropicDefaultContract: readonly Clause[] = [
+export const memoryDefaultContract: readonly Clause[] = [
   clause(extent("lines", 200), {
     severity: "advisory",
     guidance:

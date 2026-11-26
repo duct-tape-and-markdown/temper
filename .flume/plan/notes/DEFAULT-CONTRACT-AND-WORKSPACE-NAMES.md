@@ -1,0 +1,5 @@
+# DEFAULT-CONTRACT-AND-WORKSPACE-NAMES: shipped; the human half is outside build's paths
+
+- `emit` now takes its workspace as an optional positional (default `./.temper`), the way `bundle` takes it. `--into` is gone with no alias, which is a 0.0.x break. The positional names a **workspace** only. Unlike `check`, it does not also accept a harness root and resolve its `.temper/`. The acceptance asked for `emit <workspace>`, and nothing in the corpus says emit should take a root too. If "the same way" was meant to include check's root-or-workspace resolution (`resolve_harness_path` in src/main.rs), that is a separate entry.
+- `.claude/` and `.temper` hooks use no `emit --into`. Stale spellings that remain, all outside build's paths: `docs/horizons.md` (`emit --into`) and `docs/proposals/posture-recursion/harness.ts` (`memoryAnthropicDefaultContract`). docs/cli.md also needs its emit synopsis updated, and the release cut still owes the migration-note lines for both renames.
+- The sdk test's `contractName` special case for memory is removed: every kind's contract is now `<kind>DefaultContract`, with no exceptions.

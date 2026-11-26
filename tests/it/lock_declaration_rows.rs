@@ -2685,7 +2685,7 @@ fn lock_quads(kind: &str) -> Vec<ClauseQuad> {
 /// hand-picked roster: a floor that grows a predicate `floor_quads` cannot project is
 /// then caught by the kind that grows it, instead of surviving because no listed kind
 /// happened to carry that predicate. The memberless emit binds
-/// `memoryAnthropicDefaultContract` to the SDK's one exported `memory` kind, so that
+/// `memoryDefaultContract` to the SDK's one exported `memory` kind, so that
 /// module floor's rows ride under the `memory` kind here.
 #[test]
 fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
