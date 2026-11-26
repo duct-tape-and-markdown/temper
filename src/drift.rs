@@ -1898,8 +1898,8 @@ fn member_projection_path(
 ///
 /// # Errors
 /// Returns a [`DriftError`] if no SDK program exists at the entry point, `node`
-/// cannot be spawned, the program exits non-zero, its output fails to parse, or
-/// [`emit`] itself fails.
+/// cannot be spawned, the program exits non-zero, its output fails to parse, its declared
+/// typecheck refuses, or [`emit`] itself fails.
 pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Result<EmitReport> {
     let harness_entry = workspace_dir.join("harness.ts");
     if !harness_entry.is_file() {
@@ -1948,6 +1948,10 @@ fn run_typecheck(
     nested_members: &[NestedMemberRow],
     workspace_dir: &Path,
 ) -> Result<(), DriftError> {
+    // The run moves into the workspace, so a relative `--into` would re-resolve the
+    // command against that new working directory and name a path that is not there.
+    let workspace_dir =
+        &std::path::absolute(workspace_dir).unwrap_or_else(|_| workspace_dir.to_path_buf());
     let harness_root = harness_root_of(workspace_dir);
     let command = typecheck_command(typecheck, nested_members, workspace_dir, &harness_root)?;
     let output = Command::new(&command)

@@ -25,7 +25,6 @@ export const invariant: KindDefinition<Record<never, never>> = kind(
     name: "invariant",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [{ via: "always" }],
   },
   { render: (value) => `### ${value.leaves.title}\n\n${value.leaves.body}` },
 );
@@ -44,7 +43,6 @@ export const stepKind: KindDefinition<Record<never, never>> = kind(
     name: "step",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [{ via: "always" }],
   },
   { render: (value) => `### ${value.leaves.title}\n\n${value.leaves.body}\n\nSystem: ${value.leaves.in}.` },
 );
@@ -89,7 +87,6 @@ export const alternative: KindDefinition<Record<never, never>> = kind(
     name: "alternative",
     locus: { kind: "embedded" },
     unitShape: "file",
-    registration: [{ via: "always" }],
   },
   { render: (value) => `### ${value.leaves.title}\n\n${value.leaves.body}` },
 );

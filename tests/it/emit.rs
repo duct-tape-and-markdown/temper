@@ -3827,6 +3827,37 @@ fn emit_refuses_a_program_whose_typecheck_reports_a_type_error() {
 
 #[cfg(unix)]
 #[test]
+fn a_relative_workspace_path_runs_the_typecheck_from_the_workspace_bin() {
+    // Under this process's working directory, so the workspace spells downward from it,
+    // as `temper emit --into examples/base-harness/.temper` spells it from the checkout.
+    let cwd = std::env::current_dir().unwrap();
+    let harness = tempfile::Builder::new()
+        .prefix("typecheck-relative-into")
+        .tempdir_in(env!("CARGO_TARGET_TMPDIR"))
+        .unwrap();
+    let into = harness.path().join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    let program = TYPECHECKED_PROGRAM.replace("BODY", "const width: string = 80;");
+    fs::write(into.join("harness.ts"), program).unwrap();
+    common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
+    common::wire_typescript_compiler(&into);
+    let relative = into
+        .strip_prefix(&cwd)
+        .expect("the target tmpdir sits under the crate root");
+
+    let err = drift::emit_program(relative, EmitOptions::default())
+        .expect_err("the compiler runs and reports the type error");
+    let drift_err = err
+        .downcast_ref::<drift::DriftError>()
+        .expect("a typed drift error");
+    assert!(
+        matches!(drift_err, drift::DriftError::TypecheckFailed { diagnostics, .. } if diagnostics.contains("TS2322")),
+        "the anchored `.bin/tsc` is found from a relative workspace path: {drift_err:?}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn the_typecheck_project_file_is_a_declared_input() {
     let program = TYPECHECKED_PROGRAM.replace("BODY", "");
     let (_harness, into) = common::wire_sdk_harness("typecheck-project-input", &program);
