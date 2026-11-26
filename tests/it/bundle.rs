@@ -385,7 +385,15 @@ fn the_bundled_reference_byte_equals_the_sdks_memberless_emit() {
         .map(|entry| {
             let path = entry.unwrap().path();
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
-            (name, fs::read_to_string(&path).unwrap())
+            // The fixture typecheck's tool is the one command the splice composes; the
+            // std-lib the bundle embeds composes none, so its line is held out.
+            let fixture_commands = format!(
+                "## Commands\n\n- `{}`: the committed file `{}`.\n\n",
+                common::FIXTURE_TSC_ADDRESS,
+                common::FIXTURE_TSC
+            );
+            let text = fs::read_to_string(&path).unwrap();
+            (name, text.replacen(&fixture_commands, "", 1))
         })
         .collect();
     let embedded: BTreeMap<String, String> = bundle::BUNDLED_REFERENCE

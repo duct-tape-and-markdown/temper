@@ -612,12 +612,55 @@ fn the_session_start_merge_appends_after_a_sibling_tools_existing_hook() {
 // the yes-path — the lift + first emit over the real, built SDK
 // ---------------------------------------------------------------------------
 
+/// The scaffold declares its typecheck and it passes: a real `tsc` over the program
+/// install just wrote, under the project and devDependencies it wrote beside it.
+#[cfg(unix)]
+#[test]
+fn a_fresh_scaffold_declares_its_typecheck_and_passes_it() {
+    let root = write_harness("represent-typecheck", true);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::link_typescript_bin(&temper_dir);
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false)
+        .expect("the scaffolded program typechecks under its own project");
+
+    let program = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
+    assert!(
+        program.contains("const tsc = tool({ package: \"typescript\", bin: \"tsc\" });")
+            && program.contains(
+                "typecheck: { tool: tsc, project: input(import.meta.url, \"./tsconfig.json\") }"
+            ),
+        "the program declares its typecheck: {program}"
+    );
+    assert!(
+        temper_dir.join("tsconfig.json").is_file(),
+        "the project file is scaffolded"
+    );
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(temper_dir.join("package.json")).unwrap())
+            .unwrap();
+    for package in ["typescript", "@types/node"] {
+        assert!(
+            manifest["devDependencies"][package].is_string(),
+            "the manifest declares `{package}` for the typecheck: {manifest}"
+        );
+    }
+    let lock = fs::read_to_string(temper_dir.join("lock.toml")).unwrap();
+    assert!(
+        lock.contains("source_path = \".temper/tsconfig.json\""),
+        "the project rides the lock as an input"
+    );
+}
+
 #[test]
 fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claimed_projection() {
     let root = write_harness("represent", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -772,7 +815,7 @@ fn a_command_and_an_agent_sharing_a_member_id_scaffold_to_distinct_paths() {
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -806,7 +849,7 @@ fn a_nested_skill_lifts_under_its_prefixed_name_and_re_emits_where_it_was_found(
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -834,7 +877,7 @@ fn nested_skill_emitted(label: &str) -> (PathBuf, PathBuf) {
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -876,7 +919,7 @@ fn a_nested_command_lifts_under_its_path_name_and_re_emits_where_it_was_found() 
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -925,7 +968,7 @@ fn install_lifts_two_nested_memory_files_as_two_members() {
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -987,7 +1030,7 @@ fn a_document_body_scaffolds_to_a_module_adjacent_file_never_the_original_path()
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -1044,7 +1087,7 @@ fn write_document_harness(label: &str) -> (PathBuf, PathBuf) {
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
     (root, temper_dir)
 }
 
@@ -1273,7 +1316,7 @@ fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
     let root = write_harness("re-represent", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -1324,7 +1367,7 @@ fn a_frontmatterless_memory_projection_carries_the_html_banner_and_a_re_run_conv
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -1385,7 +1428,7 @@ fn lifting_a_banner_carrying_markdown_member_scaffolds_with_no_embedded_banner()
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     // Install (lift) the existing CLAUDE.md that already carries the banner.
     let discovery = install::discover(&root).unwrap();
@@ -1518,7 +1561,7 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     let root = write_harness("deepen", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     let first = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -1545,12 +1588,13 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
 .unwrap();
     fs::write(
         temper_dir.join("harness.ts"),
-        "import { emit, harness } from \"@dtmd/temper\";\n\
+        "import { emit, harness, input, tool } from \"@dtmd/temper\";\n\
          import { skill_coordinate } from \"./skills/coordinate.ts\";\n\
          import { rule_rust } from \"./rules/rust.ts\";\n\
          import { rule_collaboration } from \"./rules/collaboration.ts\";\n\
          import { extra } from \"./skills/extra.ts\";\n\n\
-         const program = harness({\n  members: [skill_coordinate, rule_rust, rule_collaboration, extra],\n});\n\n\
+         const tsc = tool({ package: \"typescript\", bin: \"tsc\" });\n\n\
+         const program = harness({\n  members: [skill_coordinate, rule_rust, rule_collaboration, extra, tsc],\n  typecheck: { tool: tsc, project: input(import.meta.url, \"./tsconfig.json\") },\n});\n\n\
          process.stdout.write(emit(program).seam);\n",
  )
 .unwrap();
@@ -1688,7 +1732,7 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
     let root = write_harness("gate-hooks-projected", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -1756,7 +1800,7 @@ fn the_post_tool_use_row_runs_the_guard_the_pre_tool_use_row_runs() {
     let root = write_harness("post-edge-runs-the-guard", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -1820,7 +1864,7 @@ fn a_manifests_registration_entries_each_lift_to_their_own_module_and_survive_th
     common::write_settings(&root, REGISTERING_SETTINGS);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     // Discovery counts the *entries* at each kind's collection address. The count used to
     // be the host manifest's file count, so every one of these read `1` no matter what the
@@ -1954,7 +1998,7 @@ fn a_registration_key_windows_reserves_refuses_the_lift_before_it_writes_a_modul
     common::write_settings(&root, UNPORTABLY_REGISTERING_SETTINGS);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     // Discovery reads the keys off the manifest like any others — the judgment is the
     // lift's, at the one point a key becomes a file name.
@@ -2012,7 +2056,7 @@ fn an_authored_group_on_a_gate_event_never_overwrites_the_gate_hooks_own_module(
     common::write_settings(&root, REGISTERING_SETTINGS);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -2106,7 +2150,7 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     // A workspace dir and no program is still unrepresented, and there the session-start
     // hook is install's own write — so the remedy the advisory names is the verb, never a
@@ -2140,7 +2184,7 @@ fn gate_installed_names_stale_noted_files() {
     let root = write_harness("gate-drifted", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     // Represent and install: the managed-by notes land on the skill and rules.
     let discovery = install::discover(&root).unwrap();
@@ -2201,7 +2245,7 @@ fn an_unreadable_emit_owned_projection_makes_the_installed_gate_check_report_rat
     let root = write_harness("gate-unreadable", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert!(gate_installed(&root).is_empty());
@@ -2243,7 +2287,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
     let root = write_harness("hook-supersede", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     let first = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -2327,7 +2371,7 @@ fn reinstall_with_guard_module(label: &str, module: &str) -> PathBuf {
     let root = write_harness(label, false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert!(gate_installed(&root).is_empty());
@@ -2343,7 +2387,7 @@ fn install_scaffolds_gate_hooks_with_the_typed_constructor() {
     let root = write_harness("gate-hooks-typed-constructor", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
@@ -2378,7 +2422,7 @@ fn a_gate_hook_reaching_a_declared_tool_is_reported_installed() {
     let root = write_harness("gate-hook-declared-tool", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
@@ -2476,7 +2520,7 @@ fn gate_installed_names_a_deleted_gate_hook_member_with_its_module_and_import_li
     let root = write_harness("hook-deleted", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -3877,13 +3921,15 @@ fn emit_from_harness(harness: &Path) {
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     let payload = payload_from_harness(harness);
+    // The hand-built payload is a narrower program than install's: it composes no
+    // typecheck tool, so after an install it drops the root's embedded layer, on purpose.
     temper::drift::emit(
         &payload,
         &into,
         temper::drift::EmitOptions {
             dry_run: false,
             frozen: false,
-            teardown: false,
+            teardown: true,
         },
     )
     .unwrap();
@@ -3963,7 +4009,7 @@ fn the_cli_install_verb_represents_on_yes_and_dry_runs_a_re_represent() {
     let root = write_harness("cli-yes", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     let status = Command::new(BIN)
         .arg("install")
@@ -4003,7 +4049,7 @@ fn represent_for_real(label: &str) -> PathBuf {
     let root = write_harness(label, false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
     let status = Command::new(BIN)
         .arg("install")
         .arg(&root)
@@ -4153,6 +4199,10 @@ fn package_json_written_when_dependency_resolves_via_ancestor() {
     // dependency_resolves finds it via ancestor walk-up and npm install is
     // skipped — but .temper/package.json should still be written.
     common::vendor_sdk(&root.join("node_modules").join("@dtmd"));
+    // The compiler is the workspace's own: the typecheck runs its anchored `.bin`.
+    let bin = temper_dir.join("node_modules").join(".bin");
+    fs::create_dir_all(&bin).unwrap();
+    common::write_stub_compiler(&bin.join(if cfg!(windows) { "tsc.cmd" } else { "tsc" }));
 
     let discovery = install::discover(&root).unwrap();
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -4265,7 +4315,7 @@ fn crlf_checkouts_preserve_managed_projections_through_install_emit_cycle() {
     let root = write_harness("crlf-preserve", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
 
     // Convert all projections to CRLF.
     convert_tree_to_crlf(&root);
@@ -4328,7 +4378,7 @@ fn crlf_lf_twins_both_converge_on_install() {
     let lf_root = write_harness("crlf-lf-twin-lf", false);
     let lf_temper_dir = lf_root.join(".temper");
     fs::create_dir_all(&lf_temper_dir).unwrap();
-    common::vendor_sdk(&lf_temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&lf_temper_dir);
 
     let lf_discovery = install::discover(&lf_root).unwrap();
     install::run(&lf_root, &lf_discovery, Represent::Yes, false).unwrap();
@@ -4349,7 +4399,7 @@ fn crlf_lf_twins_both_converge_on_install() {
 
     let crlf_temper_dir = crlf_root.join(".temper");
     fs::create_dir_all(&crlf_temper_dir).unwrap();
-    common::vendor_sdk(&crlf_temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&crlf_temper_dir);
 
     let crlf_discovery = install::discover(&crlf_root).unwrap();
     install::run(&crlf_root, &crlf_discovery, Represent::Yes, false).unwrap();
@@ -4397,7 +4447,7 @@ fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_
         let root = write_harness(name, false);
         let temper_dir = root.join(".temper");
         fs::create_dir_all(&temper_dir).unwrap();
-        common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+        common::vendor_install_workspace(&temper_dir);
 
         // First install::run.
         let discovery = install::discover(&root).unwrap();
@@ -4449,7 +4499,7 @@ fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_
 
         let temper_dir = root.join(".temper");
         fs::create_dir_all(&temper_dir).unwrap();
-        common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+        common::vendor_install_workspace(&temper_dir);
 
         // First install::run.
         let discovery = install::discover(&root).unwrap();

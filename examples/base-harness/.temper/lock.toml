@@ -199,6 +199,12 @@ unit_shape = "file"
 registration = ["always"]
 templates = [{ kind = "invariant" }]
 
+[[declaration.kind]]
+name = "tool"
+unit_shape = "file"
+shape = "fields"
+leaves = ["package", "bin", "file", "system"]
+
 [[declaration.clause]]
 label = "decision.unique-name"
 kind = "decision"
@@ -549,6 +555,10 @@ target = "system:scanner"
 member = "flow:summarize/step/summarize/in"
 target = "system:renderer"
 
+[[declaration.runs]]
+member = "root"
+tool = "root/tool/tsc"
+
 [[declaration.nested_member]]
 host = "decision:authority-arrow"
 kind = "alternative"
@@ -580,6 +590,12 @@ key = "summarize"
 leaves = { body = "The surviving items tally into the summary line: done over total. The document itself is out of reach by design.", in = "renderer", title = "Render the summary" }
 rendered_lines = 5
 rendered_chars = 155
+
+[[declaration.nested_member]]
+host = "root"
+kind = "tool"
+key = "tsc"
+leaves = { bin = "tsc", package = "typescript" }
 
 [[declaration.nested_member]]
 host = "system:renderer"
@@ -698,6 +714,11 @@ member = "system:renderer"
 source_path = "src/render.js"
 import_hash = "a666ecae6b7f26437c5c13f680d1473eb522ff294bedc2a399847874600767da"
 
+[[declaration.input]]
+member = "root"
+source_path = ".temper/tsconfig.json"
+import_hash = "d8c8ac6c8957c602ac0d9397c08e0d8667917cf7150c3ceaf51db66d7ce09835"
+
 [[declaration.module]]
 member = "root"
 source_path = ".temper/docs/decisions/authority-arrow.ts"
@@ -731,7 +752,7 @@ import_hash = "aa75a0eb2ddf78bdf6523400863e0e5eb8d04a21bb15a8fe7001477702b26bc2"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "2f478f79f9b993fe8ff37fa72c590ce57c95a69f7b9b6c2954d0232ea41e76de"
+import_hash = "9a08509024a33265657217bd6fd9b75e17373a5eb2bfe69cab3a3b0c5dac97f7"
 
 [[declaration.module]]
 member = "root"

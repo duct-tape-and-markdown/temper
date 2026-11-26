@@ -173,9 +173,129 @@ pub fn wire_sdk_harness(label: &str, program: &str) -> (PathBuf, PathBuf) {
     let harness = tmpdir(label);
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
-    fs::write(into.join("harness.ts"), program).unwrap();
+    fs::write(into.join("harness.ts"), typechecked(program)).unwrap();
+    wire_fixture_typecheck(&into);
     vendor_sdk(&into.join("node_modules").join("@dtmd"));
     (harness, into)
+}
+
+/// Ready an install fixture's `.temper/` workspace the way a real `npm install` leaves
+/// it: the SDK vendored, and a stub compiler at `node_modules/.bin/tsc` — the anchored
+/// bin install's scaffolded typecheck runs — exiting 0, so no case spawns `npm`.
+pub fn vendor_install_workspace(temper_dir: &Path) {
+    vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    let bin = temper_dir.join("node_modules").join(".bin");
+    fs::create_dir_all(&bin).unwrap();
+    write_stub_compiler(&bin.join(if cfg!(windows) { "tsc.cmd" } else { "tsc" }));
+}
+
+/// Write an executable script at `path` that exits 0 — a compiler reporting no error.
+pub fn write_stub_compiler(path: &Path) {
+    if cfg!(windows) {
+        fs::write(path, "@exit /b 0\r\n").unwrap();
+    } else {
+        fs::write(path, "#!/bin/sh\nexit 0\n").unwrap();
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+/// The fixture compiler's file, harness-relative — a `{ file }` tool, so it draws no
+/// `tool.unlocked` (that finding is a `{ package, bin }` tool's alone). On Windows a
+/// `Command` spawns a `.cmd` script by its full name, so the name carries it.
+#[cfg(not(windows))]
+pub const FIXTURE_TSC: &str = ".temper/fixture-tsc";
+/// The fixture compiler's file, harness-relative (see the non-Windows twin).
+#[cfg(windows)]
+pub const FIXTURE_TSC: &str = ".temper/fixture-tsc.cmd";
+
+/// The address the fixture typecheck's tool composes at.
+pub const FIXTURE_TSC_ADDRESS: &str = "root/tool/fixture-tsc";
+
+/// `program` with the fixture typecheck spliced in: emit refuses a program that declares
+/// none, so every fixture declares one — a [`FIXTURE_TSC`] `{ file }` tool composed beside
+/// the program's own members, over the workspace's `tsconfig.json`. Each `harness(` call
+/// routes through a wrapper that adds both; Node strips the types, so the untyped wrapper
+/// runs as written. A program that declares its own typecheck, or composes no harness (a
+/// raw seam writer), is returned untouched.
+pub fn typechecked(program: &str) -> String {
+    let call = regex::Regex::new(r"\bharness\(").unwrap();
+    if program.contains("typecheck:") || !call.is_match(program) {
+        return program.to_string();
+    }
+    let body = call.replace_all(program, "__typecheckedHarness(");
+    format!(
+        r#"import {{ harness as __fixtureHarness, input as __fixtureInput, tool as __fixtureTool }} from "@dtmd/temper";
+function __typecheckedHarness(init) {{
+  const tsc = __fixtureTool({{ file: "{FIXTURE_TSC}" }});
+  return __fixtureHarness({{
+    ...init,
+    members: [...init.members, tsc],
+    typecheck: {{ tool: tsc, project: __fixtureInput(import.meta.url, "./tsconfig.json") }},
+  }});
+}}
+{body}"#
+    )
+}
+
+/// `lock_text` without the rows [`typechecked`]'s splice adds — the fixture tool's
+/// root-hosted member, its root runs edge and its file's input, and the project's root
+/// input — for a
+/// compare against a lock the splice never touched. A family left empty goes whole.
+pub fn without_fixture_typecheck_rows(lock_text: &str) -> String {
+    let mut doc: DocumentMut = lock_text.parse().unwrap();
+    let Some(declaration) = doc
+        .get_mut("declaration")
+        .and_then(|item| item.as_table_mut())
+    else {
+        return lock_text.to_string();
+    };
+    let fixture_key = FIXTURE_TSC_ADDRESS.rsplit('/').next().unwrap();
+    type Spliced<'a> = &'a dyn Fn(&Table) -> bool;
+    let families: [(&str, Spliced); 3] = [
+        ("runs", &|row| {
+            row["tool"].as_str() == Some(FIXTURE_TSC_ADDRESS)
+        }),
+        ("nested_member", &|row| {
+            row["host"].as_str() == Some("root")
+                && row["kind"].as_str() == Some("tool")
+                && row["key"].as_str() == Some(fixture_key)
+        }),
+        ("input", &|row| {
+            let member = row["member"].as_str();
+            member == Some(FIXTURE_TSC_ADDRESS)
+                || (member == Some("root")
+                    && row["source_path"].as_str() == Some(".temper/tsconfig.json"))
+        }),
+    ];
+    for (family, spliced) in families {
+        let Some(rows) = declaration
+            .get_mut(family)
+            .and_then(|item| item.as_array_of_tables_mut())
+        else {
+            continue;
+        };
+        rows.retain(|row| !spliced(row));
+        if rows.is_empty() {
+            declaration.remove(family);
+        }
+    }
+    doc.to_string()
+}
+
+/// Write the fixture typecheck's two files into the workspace `into`: the [`FIXTURE_TSC`]
+/// stub that exits 0 — a fixture program is under test for what it emits, not for its
+/// types, and a real `tsc` costs a second per emit — and the `tsconfig.json` it names.
+/// An existing project file is kept: a case that wires a real compiler owns its own.
+pub fn wire_fixture_typecheck(into: &Path) {
+    write_stub_compiler(&into.parent().unwrap().join(FIXTURE_TSC));
+    let project = into.join("tsconfig.json");
+    if !project.exists() {
+        fs::write(project, TYPECHECK_PROJECT).unwrap();
+    }
 }
 
 /// Give a fixture workspace a real TypeScript compiler and a project for it to check:
@@ -186,19 +306,35 @@ pub fn wire_sdk_harness(label: &str, program: &str) -> (PathBuf, PathBuf) {
 /// A symlink, so unix-only, as [`vendor_sdk`]'s link is outside Windows.
 #[cfg(unix)]
 pub fn wire_typescript_compiler(into: &Path) {
-    let bin = into.join("node_modules").join(".bin");
-    fs::create_dir_all(&bin).unwrap();
-    let tsc = bin.join("tsc");
-    if !tsc.exists() {
-        std::os::unix::fs::symlink(sdk_root().join("node_modules/typescript/bin/tsc"), &tsc)
-            .unwrap();
-    }
+    link_typescript_bin(into);
     fs::write(into.join("tsconfig.json"), TYPECHECK_PROJECT).unwrap();
     // NodeNext reads the module format off the nearest `package.json`, as a real
     // `.temper/` workspace's declares it; without one, `import.meta` reads as CommonJS.
     let manifest = into.join("package.json");
     if !manifest.exists() {
         fs::write(manifest, "{ \"type\": \"module\" }\n").unwrap();
+    }
+}
+
+/// Link the repo SDK's own `typescript` devDependency at `<into>/node_modules/.bin/tsc`,
+/// and its `@types/node` beside it — the two packages a real workspace's devDependencies
+/// install for its typecheck — leaving the workspace's own project file alone.
+#[cfg(unix)]
+pub fn link_typescript_bin(into: &Path) {
+    let modules = into.join("node_modules");
+    let bin = modules.join(".bin");
+    fs::create_dir_all(&bin).unwrap();
+    let tsc = bin.join("tsc");
+    if !tsc.exists() {
+        std::os::unix::fs::symlink(sdk_root().join("node_modules/typescript/bin/tsc"), &tsc)
+            .unwrap();
+    }
+    let types = modules.join("@types");
+    fs::create_dir_all(&types).unwrap();
+    let node_types = types.join("node");
+    if !node_types.exists() {
+        std::os::unix::fs::symlink(sdk_root().join("node_modules/@types/node"), &node_types)
+            .unwrap();
     }
 }
 

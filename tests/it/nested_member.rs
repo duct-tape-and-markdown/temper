@@ -1880,8 +1880,9 @@ process.stdout.write(
                 && lock.contains("host = \"guide:adopt-the-harness\""),
             "each child's roll-up row carries its host's own address: {lock}"
         );
+        // The fixture typecheck's tool is the root's own child, so its row names `root`.
         assert_eq!(
-            lock.matches("host = ").count(),
+            lock.matches("host = ").count() - lock.matches("host = \"root\"").count(),
             2,
             "and only the two children carry one — a top-level row keeps its four \
              columns: {lock}"

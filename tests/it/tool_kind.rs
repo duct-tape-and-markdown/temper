@@ -42,8 +42,8 @@ fn a_tool_nothing_runs_draws_the_advisory_degree_finding() {
     assert!(
         checked
             .iter()
-            .any(|line| line.contains("tool (3 embedded)")),
-        "every tool is a checked member: {checked:#?}"
+            .any(|line| line.contains("tool (4 embedded)")),
+        "every tool is a checked member, the fixture typecheck's included: {checked:#?}"
     );
 }
 
@@ -72,8 +72,13 @@ fn a_tool_member_projects_no_file() {
         .collect();
     assert_eq!(
         tools,
-        vec![("root", "check.sh"), ("root", "jq"), ("root", "temper")],
-        "the lock carries each tool as a root-hosted member"
+        vec![
+            ("root", "check.sh"),
+            ("root", "fixture-tsc"),
+            ("root", "jq"),
+            ("root", "temper")
+        ],
+        "the lock carries each tool as a root-hosted member, the fixture typecheck's included"
     );
     assert!(
         declarations.registrations.is_empty(),

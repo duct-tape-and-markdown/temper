@@ -1,4 +1,4 @@
-import { clause, count, emit, extent, harness, uniqueName } from "@dtmd/temper";
+import { clause, count, emit, extent, harness, input, tool, uniqueName } from "@dtmd/temper";
 import { settings, skill, skillDefaultContract } from "@dtmd/temper/claude-code";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_conduct } from "./rules/conduct.ts";
@@ -13,7 +13,12 @@ import { flow_summarize } from "./docs/flows/summarize.ts";
 import { decision_authorityArrow } from "./docs/decisions/authority-arrow.ts";
 import { decision_perChangeDocDuty } from "./docs/decisions/per-change-doc-duty.ts";
 
+// The compiler emit runs over this program before running it: the workspace's own
+// `typescript` devDependency, over the project that checks every module here.
+const tsc = tool({ package: "typescript", bin: "tsc" });
+
 const program = harness({
+  typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
   require: {
     // The five domains — the whole skeleton, declared on day one. Growth is
     // additive: a new member names the domain it fills; no domain is ever
@@ -80,6 +85,7 @@ const program = harness({
     // The committed `.claude/settings.json` as one member: it carries no keys
     // of its own, so the file renders whole from the hook registrations.
     settings({ name: "settings" }),
+    tsc,
   ],
   // Admission is the corpus's declaration, not the type's: an embedded kind
   // declares no host, and each host names what its composed body admits.

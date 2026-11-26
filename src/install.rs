@@ -97,6 +97,41 @@ const HARNESS_ENTRY: &str = "harness.ts";
 /// The npm package name the yes-path ensures as a dependency.
 const SDK_PACKAGE: &str = "@dtmd/temper";
 
+/// The compiler package the scaffolded program's typecheck runs, ensured as a
+/// devDependency — the SDK's own toolchain, so the range is the one it builds with.
+const TYPECHECK_PACKAGE: &str = "typescript";
+
+/// The bin [`TYPECHECK_PACKAGE`] lays out at `node_modules/.bin`.
+const TYPECHECK_BIN: &str = "tsc";
+
+/// The ambient Node types the scaffolded program's `process.stdout.write` needs,
+/// ensured as a devDependency beside the compiler.
+const NODE_TYPES_PACKAGE: &str = "@types/node";
+
+/// The project file the scaffolded typecheck names, beside `harness.ts`.
+const TYPECHECK_PROJECT: &str = "tsconfig.json";
+
+/// The project the scaffold writes when the workspace has none: every module of the
+/// program, checked strictly, written nowhere. `NodeNext` reads the module format off
+/// the manifest's `"type": "module"`; `allowImportingTsExtensions` admits the
+/// scaffold's `./rules/x.ts` specifiers, which Node's type stripping requires
+/// (typescriptlang.org/tsconfig, retrieved 2026-11-25).
+const TYPECHECK_PROJECT_SOURCE: &str = r#"{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}
+"#;
+
 /// `sdk/package.json`'s own text, embedded at compile time so the dependency
 /// range `install` writes can never independently drift from the workspace
 /// SDK's real released version.
@@ -115,6 +150,18 @@ fn sdk_version_range() -> &'static str {
         format!("^{version}")
     });
     &RANGE
+}
+
+/// The range `sdk/package.json` pins `package` at among its devDependencies — the
+/// toolchain the SDK itself is checked with, so the scaffold never names a range of
+/// its own.
+fn sdk_dev_dependency_range(package: &str) -> String {
+    let manifest: JsonValue = serde_json::from_str(SDK_PACKAGE_JSON)
+        .expect("sdk/package.json is a committed, well-formed manifest");
+    manifest["devDependencies"][package]
+        .as_str()
+        .unwrap_or_else(|| panic!("sdk/package.json pins `{package}` as a devDependency"))
+        .to_string()
 }
 
 /// The exec-form command Claude Code runs at session start: the `temper` binary
@@ -3078,6 +3125,12 @@ fn scaffold(
         });
     }
 
+    // The project the program's typecheck names. An adopter's own is kept: the
+    // declaration names the file, never its contents.
+    let project = temper_dir.join(TYPECHECK_PROJECT);
+    if !project.exists() {
+        write_scaffold_file(&project, TYPECHECK_PROJECT_SOURCE)?;
+    }
     write_scaffold_file(
         &temper_dir.join(HARNESS_ENTRY),
         &harness_entry_source(&scaffolded),
@@ -3368,20 +3421,29 @@ fn escape_template_literal(line: &str) -> String {
 /// The `harness.ts` skeleton: import every scaffolded member, compose them into
 /// `harness({ members: [...] })`, and print `emit`'s seam to stdout — the whole
 /// program `emit_program` then runs.
+///
+/// The program declares its typecheck — emit refuses one that declares none: the
+/// workspace's own `typescript` devDependency ([`ensure_package_json`]) as a composed
+/// `tool`, over the [`TYPECHECK_PROJECT`] the scaffold writes beside it.
 fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
-    let mut out = String::from("import { emit, harness } from \"@dtmd/temper\";\n");
+    let mut out = String::from("import { emit, harness, input, tool } from \"@dtmd/temper\";\n");
     for member in members {
         out.push_str(&format!(
             "import {{ {} }} from {:?};\n",
             member.ident, member.import_path
         ));
     }
+    out.push_str(&format!(
+        "\nconst tsc = tool({{ package: {TYPECHECK_PACKAGE:?}, bin: {TYPECHECK_BIN:?} }});\n"
+    ));
     out.push_str("\nconst program = harness({\n  members: [");
     for member in members {
         out.push_str(&member.ident);
         out.push_str(", ");
     }
-    out.push_str("],\n});\n\nprocess.stdout.write(emit(program).seam);\n");
+    out.push_str(&format!(
+        "tsc],\n  typecheck: {{ tool: tsc, project: input(import.meta.url, \"./{TYPECHECK_PROJECT}\") }},\n}});\n\nprocess.stdout.write(emit(program).seam);\n"
+    ));
     out
 }
 
@@ -3413,11 +3475,31 @@ fn ensure_node_available() -> Result<(), InstallError> {
     }
 }
 
-/// Whether `@dtmd/temper` already resolves from `temper_dir` — walking up through
-/// `node_modules` the way Node's own resolution would, so a project nested under an
-/// already-`npm install`ed ancestor (or a test's pre-vendored fixture) is recognized
-/// without a redundant `npm install`.
+/// Whether the program's dependencies are already in place: `@dtmd/temper` resolves
+/// from `temper_dir` — walking up through `node_modules` the way Node's own resolution
+/// would, so a project nested under an already-`npm install`ed ancestor (or a test's
+/// pre-vendored fixture) is recognized without a redundant `npm install` — and the
+/// typecheck's compiler sits at `temper_dir`'s own `node_modules/.bin`, the anchored
+/// path emit runs it from, never an ancestor's.
 fn dependency_resolves(temper_dir: &Path) -> bool {
+    let bin = if cfg!(windows) {
+        format!("{TYPECHECK_BIN}.cmd")
+    } else {
+        TYPECHECK_BIN.to_string()
+    };
+    if !temper_dir
+        .join("node_modules")
+        .join(".bin")
+        .join(bin)
+        .exists()
+    {
+        return false;
+    }
+    sdk_resolves(temper_dir)
+}
+
+/// Whether `@dtmd/temper` resolves from `temper_dir`, walking up as Node does.
+fn sdk_resolves(temper_dir: &Path) -> bool {
     let mut dir = Some(temper_dir);
     while let Some(candidate) = dir {
         if candidate
@@ -3462,10 +3544,11 @@ fn spawn_npm_install(temper_dir: &Path) -> Result<(), InstallError> {
     Ok(())
 }
 
-/// Ensure `<temper_dir>/package.json` declares [`SDK_PACKAGE`] as a dependency —
-/// creating a minimal manifest when absent, adding the dependency key when the file
-/// exists but lacks it, and leaving an already-declared dependency (any version
-/// spec — a test's `file:` pin included) untouched.
+/// Ensure `<temper_dir>/package.json` declares [`SDK_PACKAGE`] as a dependency, and
+/// the typecheck's [`TYPECHECK_PACKAGE`] and [`NODE_TYPES_PACKAGE`] as devDependencies —
+/// creating a minimal manifest when absent, adding a missing key when the file exists
+/// but lacks it, and leaving an already-declared one (any version spec — a test's
+/// `file:` pin included) untouched.
 fn ensure_package_json(temper_dir: &Path) -> Result<(), InstallError> {
     let path = temper_dir.join("package.json");
     let mut root = match fs::read_to_string(&path) {
@@ -3499,6 +3582,27 @@ fn ensure_package_json(temper_dir: &Path) -> Result<(), InstallError> {
     dependencies
         .entry(SDK_PACKAGE)
         .or_insert_with(|| json!(sdk_version_range()));
+    // The typecheck's compiler and the Node types the program uses — each kept at
+    // whatever range the adopter already declares, in either group.
+    for package in [TYPECHECK_PACKAGE, NODE_TYPES_PACKAGE] {
+        let declared = ["dependencies", "devDependencies"].iter().any(|group| {
+            object
+                .get(*group)
+                .is_some_and(|deps| deps.get(package).is_some())
+        });
+        if declared {
+            continue;
+        }
+        object
+            .entry("devDependencies")
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .ok_or_else(|| InstallError::PackageJsonShape { path: path.clone() })?
+            .insert(
+                package.to_string(),
+                json!(sdk_dev_dependency_range(package)),
+            );
+    }
 
     let desired = format!(
         "{}\n",

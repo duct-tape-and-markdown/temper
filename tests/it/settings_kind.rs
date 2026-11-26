@@ -312,7 +312,7 @@ fn hook_only_harness_with_a_hand_added_key(
     common::write_sibling(&root, ".claude/rules/rust.md", "Run `cargo fmt`.\n");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    common::vendor_install_workspace(&temper_dir);
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert!(

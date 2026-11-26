@@ -157,7 +157,8 @@ fn the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit() {
         !embedded_lock_text().contains("[[declaration.module]]"),
         "the embedded lock carries no module rows"
     );
-    let derived_text = without_module_rows(&derived_text, |_| true);
+    let derived_text =
+        common::without_fixture_typecheck_rows(&without_module_rows(&derived_text, |_| true));
     let (derived_prefix, derived) = split_at_declaration_rows("derived", &derived_text);
     let (_header, embedded) = split_at_declaration_rows("embedded", &embedded_lock_text());
 

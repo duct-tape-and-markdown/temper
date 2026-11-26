@@ -3523,6 +3523,10 @@ fn shipped_example_copy(committed: &Path) -> PathBuf {
     let harness = common::tmpdir("shipped-example");
     common::copy_tree(committed, &harness);
     common::vendor_sdk(&harness.join(".temper").join("node_modules").join("@dtmd"));
+    // The example declares its typecheck over its own `typescript` devDependency, which
+    // a real `npm install` lays out beside the SDK.
+    #[cfg(unix)]
+    common::link_typescript_bin(&harness.join(".temper"));
     harness
 }
 
@@ -3786,6 +3790,44 @@ const program = harness({
 process.stdout.write(emit(program).seam);
 "#;
 
+#[test]
+fn emit_refuses_a_program_that_declares_no_typecheck() {
+    // Written past `wire_sdk_harness`'s splice: this program is the one that declares none.
+    let harness = common::tmpdir("typecheck-undeclared");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    let program = TYPECHECKED_PROGRAM
+        .replace("BODY", "")
+        .replace("    tsc,\n  ],", "  ],")
+        .replace(
+            "  typecheck: { tool: tsc, project: input(import.meta.url, \"./tsconfig.json\") },\n",
+            "",
+        );
+    assert!(!program.contains("typecheck:"), "the fixture declares none");
+    fs::write(into.join("harness.ts"), program).unwrap();
+    common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
+
+    let err = drift::emit_program(&into, EmitOptions::default())
+        .expect_err("a program declaring no typecheck refuses");
+    assert!(
+        matches!(
+            err.downcast_ref::<drift::DriftError>(),
+            Some(drift::DriftError::TypecheckUndeclared { .. })
+        ),
+        "the refusal is the undeclared typecheck: {err:?}"
+    );
+    let rendered = format!("{err:?}");
+    assert!(
+        rendered.contains("declares no typecheck") && rendered.contains("typecheck: {"),
+        "the refusal names the declaration it wants: {rendered}"
+    );
+    assert!(!into.join("lock.toml").exists(), "no lock is written");
+    assert!(
+        !harness.join(".claude/rules/rust.md").exists(),
+        "no projection is written"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn emit_refuses_a_program_whose_typecheck_reports_a_type_error() {
@@ -3830,6 +3872,8 @@ fn emit_refuses_a_program_whose_typecheck_reports_a_type_error() {
 fn a_relative_workspace_path_runs_the_typecheck_from_the_workspace_bin() {
     // Under this process's working directory, so the workspace spells downward from it,
     // as `temper emit --into examples/base-harness/.temper` spells it from the checkout.
+    // Held for the whole run: a chdir'ing case elsewhere would move the cwd under it.
+    let _cwd = CWD_MUTEX.lock().unwrap();
     let cwd = std::env::current_dir().unwrap();
     let harness = tempfile::Builder::new()
         .prefix("typecheck-relative-into")

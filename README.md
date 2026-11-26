@@ -52,30 +52,34 @@ ordinary imports, and requirements are declared next to the members that fill
 them:
 
 ```ts
-import { emit, harness } from "@dtmd/temper";
+import { emit, harness, input, tool } from "@dtmd/temper";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
 
+const tsc = tool({ package: "typescript", bin: "tsc" });
+
 const program = harness({
+  typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
   require: {
     "friction-capture-procedure": {
       prose: "an agent that hits harness friction needs a procedure for filing the capture",
       required: true,
     },
   },
-  members: [memory_CLAUDE, rule_collaboration, skill_captureFriction],
+  members: [memory_CLAUDE, rule_collaboration, skill_captureFriction, tsc],
 });
 
 process.stdout.write(emit(program).seam);
 ```
 
-`emit` compiles the program into the projected `.claude/` files and a lock,
-byte-for-byte reproducible; it verifies itself by emitting twice. `check`
-gates against the lock, so it can answer what fills each requirement and what
-would strand it, coverage a file-by-file linter cannot see. A hand edit to a
-generated file surfaces as drift routed to its authored source, never merged
-around.
+`emit` first runs the typecheck the program declares (its own compiler over
+its own project, refusing on a type error), then compiles the program into the
+projected `.claude/` files and a lock, byte-for-byte reproducible; it verifies
+itself by emitting twice. `check` gates against the lock, so it can answer
+what fills each requirement and what would strand it, coverage a file-by-file
+linter cannot see. A hand edit to a generated file surfaces as drift routed to
+its authored source, never merged around.
 
 A kind may also declare the layout of a document's body, so a document's
 sections and the members inside them are typed, addressable, and under the

@@ -339,6 +339,20 @@ pub enum DriftError {
         stderr: String,
     },
 
+    /// The program declares no typecheck — emit runs no program the consumer's own
+    /// compiler has not checked, and never guesses which compiler that is.
+    #[error("the SDK program {path} declares no typecheck")]
+    #[diagnostic(
+        code(temper::drift::typecheck_undeclared),
+        help(
+            "declare the compiler emit runs first: compose `const tsc = tool({{ package: \"typescript\", bin: \"tsc\" }})` in `members` and pass `typecheck: {{ tool: tsc, project: input(import.meta.url, \"./tsconfig.json\") }}` to `harness(...)`"
+        )
+    )]
+    TypecheckUndeclared {
+        /// The harness entry whose program declares none.
+        path: PathBuf,
+    },
+
     /// The typecheck the program declares names a tool the payload composes no member
     /// for, or a tool whose command has no runnable spelling — there is no compiler to run.
     #[error(
@@ -1896,8 +1910,8 @@ fn member_projection_path(
 ///
 /// # Errors
 /// Returns a [`DriftError`] if no SDK program exists at the entry point, `node`
-/// cannot be spawned, the program exits non-zero, its output fails to parse, its declared
-/// typecheck refuses, or [`emit`] itself fails.
+/// cannot be spawned, the program exits non-zero, its output fails to parse, it declares
+/// no typecheck or its declared typecheck refuses, or [`emit`] itself fails.
 pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Result<EmitReport> {
     let harness_entry = workspace_dir.join("harness.ts");
     if !harness_entry.is_file() {
@@ -1913,13 +1927,19 @@ pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Resul
             path: harness_entry.clone(),
             source,
         })?;
-    if let Some(typecheck) = &payload.declarations.typecheck {
-        run_typecheck(
-            typecheck,
-            &payload.declarations.nested_members,
-            workspace_dir,
-        )?;
-    }
+    let typecheck =
+        payload
+            .declarations
+            .typecheck
+            .as_ref()
+            .ok_or_else(|| DriftError::TypecheckUndeclared {
+                path: harness_entry.clone(),
+            })?;
+    run_typecheck(
+        typecheck,
+        &payload.declarations.nested_members,
+        workspace_dir,
+    )?;
     emit(&payload, workspace_dir, options)
 }
 

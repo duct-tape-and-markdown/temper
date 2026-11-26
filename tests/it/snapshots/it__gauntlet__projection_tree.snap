@@ -148,6 +148,10 @@ projections of it.
 === .gitignore ===
 .claude/local/
 
+=== .temper/fixture-tsc ===
+#!/bin/sh
+exit 0
+
 === .temper/lock.toml ===
 engine = "<VERSION>"
 
@@ -283,6 +287,12 @@ name = "spec"
 unit_shape = "file"
 content = { regions = [{ region = "prose" }, { region = "field", slot = "intent" }, { region = "collection", member_kind = "invariant" }] }
 
+[[declaration.kind]]
+name = "tool"
+unit_shape = "file"
+shape = "fields"
+leaves = ["package", "bin", "file", "system"]
+
 [[declaration.clause]]
 label = "decision.required.status"
 kind = "decision"
@@ -388,6 +398,16 @@ field = "outputStyle"
 to = ["output-style"]
 provided = ["default", "Proactive", "Concise", "Explanatory", "Learning"]
 
+[[declaration.runs]]
+member = "root"
+tool = "root/tool/fixture-tsc"
+
+[[declaration.nested_member]]
+host = "root"
+kind = "tool"
+key = "fixture-tsc"
+leaves = { file = ".temper/fixture-tsc" }
+
 [[declaration.nested_member]]
 host = "rule:authoring"
 kind = "citation"
@@ -444,10 +464,20 @@ member = "charter:gate"
 source_path = "docs/preamble.md"
 import_hash = "7240f751ea8dd0ae24f270af57ea630716a5acf78741302a6e35f18426de5683"
 
+[[declaration.input]]
+member = "root"
+source_path = ".temper/tsconfig.json"
+import_hash = "637805008d2d6602d0462c964670effe6dd164ac96ba5a13676290c6f1488eb8"
+
+[[declaration.input]]
+member = "root/tool/fixture-tsc"
+source_path = ".temper/fixture-tsc"
+import_hash = "306c6ca7407560340797866e077e053627ad409277d1b9da58106fce4cf717cb"
+
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "5f0f80d427270efa69902a45e9924c6232e643bfb8ed510ce55cce3e9785c3cf"
+import_hash = "6f00fc13be5ccaa6833fe3c50df0574497ef1d5a8f90c422e87f786215648bba"
 
 [[declaration.layout_prose]]
 member = "guide:operate-the-gate/spec/representation"
@@ -465,6 +495,21 @@ source_path = "docs/decisions/0001.md"
 [[declaration.layout_source]]
 member = "guide:operate-the-gate/spec/representation"
 source_path = "docs/guides/operate-the-gate/representation.md"
+
+=== .temper/tsconfig.json ===
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "files": ["harness.ts"]
+}
 
 === docs/charters/gate.md ===
 # Intent

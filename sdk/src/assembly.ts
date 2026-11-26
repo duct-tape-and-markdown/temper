@@ -51,7 +51,7 @@ export type EnforcementMode = "note" | "warn" | "block";
  * whose command runs the compiler (`tool({ package: "typescript", bin: "tsc" })` runs the
  * program's own `node_modules/.bin/tsc`), and `project` is the project file it checks,
  * stated as an {@link input} so a change to it marks the lock stale. Emit passes the
- * compiler `--noEmit --project <project>`.
+ * compiler `--noEmit --project <project>`, and refuses a program that declares none.
  */
 export interface Typecheck {
   /** The {@link tool} member that runs the compiler — composed in `members` like any tool. */
@@ -76,7 +76,7 @@ export interface Harness {
   readonly require: Readonly<Record<string, Requirement>>;
   /** The residual harness-level settings with no member home (a shrinking list). */
   readonly settings: Readonly<Record<string, unknown>>;
-  /** The program's declared {@link Typecheck}; absent where the program declares none. */
+  /** The program's declared {@link Typecheck}; absent where the program declares none, which `emit` refuses. */
   readonly typecheck?: Typecheck;
   /**
    * The **root member's own contract** — the clauses that bind to the whole governed
