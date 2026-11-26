@@ -55,7 +55,9 @@ system tool (`{ system }`, claiming presence and no version). Its runners (a
 gate hook, a tap, the typecheck, a script verifier) reach it by declared
 edges, and a command nothing runs is an advisory finding. the program's
 `package.json` is a source temper scaffolds once and never writes: its
-`packageManager` field is the declared manager, and every other writer (the
+`packageManager` field is the declared manager, which install's scaffold
+writes as the repository root's own `packageManager` where that is declared,
+else the manager install ran, with its version, and every other writer (the
 manager on every add, update bots) stays free.
 
 ## Layers

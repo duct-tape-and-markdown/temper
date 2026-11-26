@@ -8,5 +8,6 @@
   "devDependencies": {
     "@types/node": "22.20.1",
     "typescript": "5.9.3"
-  }
+  },
+  "packageManager": "npm@11.6.2"
 }
