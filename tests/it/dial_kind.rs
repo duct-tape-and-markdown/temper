@@ -521,3 +521,99 @@ fn a_lock_relocating_the_dial_kind_governs_is_honored() {
         "an advisory finding no longer blocks this machine: {after:?}"
     );
 }
+
+/// A `mode` override row naming `member` at `mode`.
+fn member_mode(member: &str, mode: &str) -> AssemblyFactRow {
+    AssemblyFactRow {
+        fact: "mode".to_string(),
+        value: Some(mode.to_string()),
+        from: None,
+        field: None,
+        to: None,
+        provided: None,
+        member: Some(member.to_string()),
+    }
+}
+
+#[test]
+fn a_requirement_member_grain_clause_over_a_satisfier_declaring_block_is_not_softened_by_a_warn_root_dial()
+ {
+    // Two satisfiers of one requirement whose own `required` clause neither carries:
+    // `coordinate` declares `block`, `relay` inherits the root's `warn`.
+    let harness = harness_at_mode("dial-requirement-member-block", "warn", CLEAN_SKILL);
+    common::write_skill(
+        &harness,
+        "relay",
+        &CLEAN_SKILL.replace("coordinate", "relay"),
+    );
+    let mut declarations = drift::read_declarations(&harness.join(".temper")).unwrap();
+    declarations
+        .assembly
+        .push(member_mode("skill:coordinate", "block"));
+    let mut requirement = common::requirement("review-coverage", false, None);
+    requirement.clauses = vec![common::required_clause_row(
+        "required",
+        Some("zz_missing_field"),
+        None,
+        None,
+        None,
+    )];
+    declarations.requirements = vec![requirement];
+    declarations.satisfies = ["skill:coordinate", "skill:relay"]
+        .into_iter()
+        .map(|member| drift::SatisfiesRow {
+            member: member.to_string(),
+            requirement: "review-coverage".to_string(),
+        })
+        .collect();
+    common::write_lock(&harness, declarations);
+    let rule = "requirement.review-coverage.required.zz_missing_field";
+    write_dial(&harness, &dial_entry(rule, "advisory"));
+
+    let (findings, ok) = common::check_harness(&harness);
+    assert_eq!(
+        reported_severity_of(&findings, rule, "coordinate").as_deref(),
+        Some("error"),
+        "the satisfier's own `block` leaves the authored severity standing: {findings:?}"
+    );
+    assert_eq!(
+        reported_severity_of(&findings, rule, "relay").as_deref(),
+        Some("warning"),
+        "its sibling at the root's `warn` still takes the softening: {findings:?}"
+    );
+    assert!(!ok, "the unsoftened satisfier fails the run: {findings:?}");
+}
+
+#[test]
+fn an_input_source_dependency_finding_resolves_its_members_own_mode() {
+    // A member declaring `block` under a `warn` root, its declared input moved since
+    // emit, and the root's `fresh` clause dialed down to `advisory`.
+    let harness = harness_at_mode("dial-input-member-block", "warn", CLEAN_SKILL);
+    let input = harness.join("snapshot/handler.py");
+    fs::create_dir_all(input.parent().unwrap()).unwrap();
+    fs::write(&input, "def handle(request):\n    validate(request)\n").unwrap();
+    let mut declarations = drift::read_declarations(&harness.join(".temper")).unwrap();
+    declarations
+        .assembly
+        .push(member_mode("skill:coordinate", "block"));
+    // Bound at `required`, so the dial's `advisory` is a softening.
+    declarations.clauses = vec![drift::ClauseRow {
+        label: Some("root.fresh".to_string()),
+        ..common::clause("fresh", "required")
+    }];
+    declarations.inputs = vec![drift::InputRow {
+        member: "skill:coordinate".to_string(),
+        source_path: input.to_string_lossy().into_owned(),
+    }];
+    common::write_lock(&harness, declarations);
+    write_dial(&harness, &dial_entry("root.fresh", "advisory"));
+    fs::write(&input, "def handle(request):\n    pass\n").unwrap();
+
+    let (findings, ok) = common::check_harness(&harness);
+    assert_eq!(
+        reported_severity_of(&findings, "root.fresh", "snapshot/handler.py").as_deref(),
+        Some("error"),
+        "the input's member reads `fresh` at its own `block`, not the root's `warn`: {findings:?}"
+    );
+    assert!(!ok, "the unsoftened finding fails the run: {findings:?}");
+}

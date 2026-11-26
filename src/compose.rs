@@ -2687,6 +2687,7 @@ impl EnforcementModes {
         }
         let kind = crate::member_address::parse_nested_address(address)
             .map(|nested| nested.kind)
+            .or_else(|| crate::member_address::root_hosted_kind(address))
             .or_else(|| crate::member_address::parse_host_address(address).map(|(kind, _)| kind));
         kind.map_or(self.root, |kind| self.for_kind(kind))
     }
@@ -2745,6 +2746,17 @@ mod tests {
     use crate::contract::{Clause, Predicate, Severity};
     use crate::test_support;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn a_root_hosted_member_without_its_own_mode_reads_its_kinds() {
+        let modes = EnforcementModes {
+            root: EnforcementMode::Warn,
+            kinds: BTreeMap::from([("tool".to_string(), EnforcementMode::Block)]),
+            members: BTreeMap::new(),
+        };
+        assert_eq!(modes.for_member("root/tool/tsc"), EnforcementMode::Block);
+        assert_eq!(modes.for_member("root"), EnforcementMode::Warn);
+    }
 
     #[test]
     fn a_subkind_keeps_its_bases_facts_and_its_base_cedes_its_locus() {

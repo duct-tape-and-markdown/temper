@@ -348,6 +348,14 @@ pub fn nested_key(address: &str) -> Option<&str> {
     (segments.tail.is_none() && segments.host == ROOT_HOST).then_some(segments.key)
 }
 
+/// The **kind** segment of a root-hosted member's address (`root/tool/<key>` reads `tool`),
+/// or `None` when `address` is no root-hosted member address.
+#[must_use]
+pub fn root_hosted_kind(address: &str) -> Option<&str> {
+    let segments = segment(address)?;
+    (segments.tail.is_none() && segments.host == ROOT_HOST).then_some(segments.kind)
+}
+
 /// The root member's own address — the host segment a root-hosted member's address opens
 /// with (`root/tool/<key>`).
 pub const ROOT_HOST: &str = crate::contract::ROOT_OWNER;

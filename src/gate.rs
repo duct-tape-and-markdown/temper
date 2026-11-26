@@ -174,30 +174,6 @@ pub fn site_class(kind: &CustomKind) -> Option<SiteClass> {
     }
 }
 
-/// The source-dependency half of the root `fresh` clause over an already-parsed lock: every
-/// fingerprinted layout-import, composed-prose include, declared-input and program-module
-/// target whose bytes no longer match the lock, in that order, under `clause`'s label and
-/// severity.
-///
-/// The one door both `check` and `temper guard`'s post edge take to these four judges, so
-/// a source dependency the gate calls stale is one the guard calls stale too.
-///
-/// # Errors
-///
-/// Propagates the [`drift::DriftError`] a malformed row in any of the four families raises.
-pub fn source_dependency_stale(
-    lock_doc: &toml_edit::DocumentMut,
-    harness_root: &Path,
-    clause: &contract::Clause,
-) -> Result<Vec<check::Diagnostic>, drift::DriftError> {
-    Ok(
-        drift::source_dependency_stale_members_from_doc(lock_doc, harness_root, clause)?
-            .into_iter()
-            .map(|finding| finding.finding)
-            .collect(),
-    )
-}
-
 /// One site walk over every discovered kind, collecting each admitted member into its
 /// content class's population ([`site_class`] is the sole admission predicate).
 fn committed_member_sites(
@@ -704,16 +680,54 @@ pub fn gate(
     // idempotent, and one site over the whole list beats a second rule about which half
     // of it is fresh — the dial's own kind selection excepted, since it carries a copy of
     // the very contract the loop above holds out of reach.
+    //
+    // A kind selection's clauses read at its kind's mode, as its contract did above;
+    // a requirement's and the root's span kinds, so they read at the root's. At the
+    // member grain each satisfier is its own member, so one whose own mode falls on the
+    // other side of `block` is judged by the clauses dialed at that mode instead.
+    let softening_inert = |mode| mode == compose::EnforcementMode::Block;
+    let mut diverging = Vec::new();
+    let mut root_other_side = Vec::new();
     for selection in &mut selections {
         if selection.selector == engine::Selector::Kind(dial::KIND.to_string()) {
             continue;
         }
-        // A kind selection's clauses read at its kind's mode, as its contract did above;
-        // a requirement's and the root's span kinds, so they read at the root's.
         let mode = match &selection.selector {
             engine::Selector::Kind(kind) => modes.for_kind(kind),
             engine::Selector::OptIn(_) | engine::Selector::Root => modes.root(),
         };
+        let other_side = |clauses: &[contract::Clause], dialed: &mut BTreeSet<String>| {
+            let own_mode = if softening_inert(mode) {
+                compose::EnforcementMode::Warn
+            } else {
+                compose::EnforcementMode::Block
+            };
+            let mut clauses = clauses.to_vec();
+            dialed.extend(dial.apply(own_mode, &mut clauses));
+            clauses
+        };
+        if selection.selector == engine::Selector::Root {
+            // A root clause indicting one member — a stale source dependency, a drifted
+            // projection — reads at that member's own mode, so the other side's dialing
+            // is kept beside the root's.
+            root_other_side = other_side(&selection.clauses, &mut dialed);
+        } else {
+            let members: BTreeSet<String> = selection
+                .members
+                .iter()
+                .map(|(kind, member)| member_address::address_of(kind, &member.id))
+                .filter(|address| {
+                    softening_inert(modes.for_member(address)) != softening_inert(mode)
+                })
+                .collect();
+            if !members.is_empty() {
+                diverging.push(engine::DivergingMembers {
+                    selector: selection.selector.clone(),
+                    clauses: other_side(&selection.clauses, &mut dialed),
+                    members,
+                });
+            }
+        }
         dialed.extend(dial.apply(mode, &mut selection.clauses));
     }
     diagnostics.extend(dial.refusals(&dialed));
@@ -745,7 +759,11 @@ pub fn gate(
         .filter(|(_, kind)| !kind.field_defaults.is_empty())
         .map(|(name, kind)| (name.clone(), kind.field_defaults.clone()))
         .collect();
-    diagnostics.extend(engine::judge_members(&selections, &field_defaults));
+    diagnostics.extend(engine::judge_members(
+        &selections,
+        &diverging,
+        &field_defaults,
+    ));
 
     // The edge scope: build the reference graph over the declared edges and check route
     // resolution — a declared reference must resolve to a real artifact of the
@@ -1015,10 +1033,31 @@ pub fn gate(
     // dropped.
     let fresh_clause = engine::root_clause(&selections, &contract::Predicate::Fresh);
 
+    // A `fresh` finding indicts one member, so it reads the clause as that member's own
+    // mode dials it.
+    let fresh_findings = |members: Vec<drift::MemberFinding>| -> Vec<check::Diagnostic> {
+        let other_side = root_other_side
+            .iter()
+            .find(|other| other.predicate == contract::Predicate::Fresh);
+        members
+            .into_iter()
+            .map(|member| {
+                match other_side.filter(|_| {
+                    softening_inert(modes.for_member(&member.member))
+                        != softening_inert(modes.root())
+                }) {
+                    Some(other) => member.finding.under_clause(other),
+                    None => member.finding,
+                }
+            })
+            .collect()
+    };
     // The projection half, read off the surface `workspace`'s lock (where the members
     // were imported and the fingerprints recorded).
     if let Some(clause) = fresh_clause {
-        diagnostics.extend(drift::config_stale_from_doc(&lock_doc, workspace, clause));
+        diagnostics.extend(fresh_findings(drift::config_stale_members_from_doc(
+            &lock_doc, workspace, clause,
+        )));
     }
 
     // The second disk-vs-lock fact, over declaration rows rather than fingerprints: a
@@ -1040,11 +1079,13 @@ pub fn gate(
     // bytes no longer match the lock — the target moved and `emit` has not re-run. All
     // read the pre-parsed lock document, so another family costs no read and no parse.
     if let Some(clause) = fresh_clause {
-        diagnostics.extend(source_dependency_stale(
-            &lock_doc,
-            &drift::harness_root_of(workspace),
-            clause,
-        )?);
+        diagnostics.extend(fresh_findings(
+            drift::source_dependency_stale_members_from_doc(
+                &lock_doc,
+                &drift::harness_root_of(workspace),
+                clause,
+            )?,
+        ));
     }
 
     // The lock's own engine stamp against the binary reading it — the root member's

@@ -1007,23 +1007,37 @@ pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> 
 /// `defaults` is each member kind's [`FieldDefaults`], keyed by the kind label a selection
 /// tags its members with, so a guard reads a satisfier as [`validate_as_read`] reads it
 /// under its own kind's contract. A kind absent from the map defaults nothing.
+///
+/// `diverging` carries, per selector, the clauses a selection's members whose own
+/// enforcement mode reads the dial the other way from the selection's are judged by
+/// instead; their peers are still the whole selection.
 #[must_use]
 pub fn judge_members(
     selections: &[Selection],
+    diverging: &[DivergingMembers],
     defaults: &BTreeMap<String, FieldDefaults>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for selection in selections {
-        let clauses = match selection.selector {
-            Selector::OptIn(_) => selection.clauses.clone(),
-            Selector::Kind(_) => split_peer_clauses(selection.clauses.clone()).1,
-            Selector::Root => continue,
+        let member_grain = |clauses: &[Clause]| {
+            let clauses = match selection.selector {
+                Selector::OptIn(_) => clauses.to_vec(),
+                Selector::Kind(_) => split_peer_clauses(clauses.to_vec()).1,
+                Selector::Root => return None,
+            };
+            Some(Contract {
+                name: selection.selector.label().to_string(),
+                clauses,
+                guidance: None,
+            })
         };
-        let contract = Contract {
-            name: selection.selector.label().to_string(),
-            clauses,
-            guidance: None,
+        let Some(contract) = member_grain(&selection.clauses) else {
+            continue;
         };
+        let split = diverging
+            .iter()
+            .find(|split| split.selector == selection.selector)
+            .and_then(|split| Some((member_grain(&split.clauses)?, &split.members)));
         let peers: Vec<&Features> = selection
             .members
             .iter()
@@ -1032,10 +1046,31 @@ pub fn judge_members(
         for (kind, features) in &selection.members {
             let no_defaults = FieldDefaults::new();
             let read = defaults.get(*kind).unwrap_or(&no_defaults);
-            diagnostics.extend(member_findings(&contract, features, &peers, read));
+            let judged_by = match &split {
+                Some((own, members))
+                    if members.contains(&crate::member_address::address_of(kind, &features.id)) =>
+                {
+                    own
+                }
+                _ => &contract,
+            };
+            diagnostics.extend(member_findings(judged_by, features, &peers, read));
         }
     }
     diagnostics
+}
+
+/// The members of one selection whose own enforcement mode falls on the other side of
+/// `block` from the selection's, with the selection's clauses dialed at theirs — what
+/// [`judge_members`] judges those members by.
+#[derive(Debug, Clone)]
+pub struct DivergingMembers {
+    /// The selection the members belong to.
+    pub selector: Selector,
+    /// The selection's clauses, dialed at the members' own mode.
+    pub clauses: Vec<Clause>,
+    /// The diverging members' whole addresses.
+    pub members: BTreeSet<String>,
 }
 
 /// Partition a kind's clauses into the ones its dispatcher judges over its own slice
