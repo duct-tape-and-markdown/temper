@@ -1823,6 +1823,42 @@ test("an edge field resolves an embedded target by either spelling — the bare 
   assert.throws(() => build("rule:ghost/invariant/law-5"), /resolves to no composed member/);
 });
 
+test("an ambiguous embedded target under two nested hosts names each host by its full address", () => {
+  // Each `invariant:law-5` rides a file child keyed `intro` — one under `alpha`, one under
+  // `beta` — so the carriers share a kind and a key and only their full addresses differ.
+  const alpha = guide({ name: "alpha" });
+  const beta = guide({ name: "beta" });
+  const citation = nestedCitationKind();
+  const invariant = invariantKind();
+  const carrying = (host: ReturnType<typeof guide>) =>
+    supportingDoc({
+      name: "intro",
+      host,
+      prose: blocks(embeddedMemberValue({ kind: invariant, key: "law-5", leaves: {} })),
+    });
+  const h = harness({
+    members: [
+      alpha,
+      beta,
+      carrying(alpha),
+      carrying(beta),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "law-5" } })),
+      }),
+    ],
+    admit: [
+      { host: supportingDoc, admits: [invariant] },
+      { host: memory, admits: [citation] },
+    ],
+  });
+  assert.throws(
+    () => emit(h),
+    (error: Error) =>
+      error.message.includes("(`guide:alpha/supporting-doc/intro`, `guide:beta/supporting-doc/intro`)"),
+  );
+});
+
 test("an edge field's leaf still rides the nested_member row as the authored address, never the rendered reference", () => {
   const citation = citationKind();
   const h = harness({

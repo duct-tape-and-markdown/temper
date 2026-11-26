@@ -42,7 +42,6 @@ import { withReference } from "./reference.js";
 import {
   bareLookupKey,
   edgeLookupKey,
-  hostAddress,
   isOneSegment,
   memberAddress,
   nestedAddress,
@@ -477,7 +476,7 @@ function resolvedTargetFacts(host: Member, target: EdgeTarget, reference: string
     };
   }
   if (target.length > 1) {
-    const hosts = target.map((carrier) => `\`${hostAddress(carrier.host.kind, carrier.host.name)}\``).join(", ");
+    const hosts = target.map((carrier) => `\`${memberAddress(carrier.host)}\``).join(", ");
     throw new Error(
       `${reference}, a bare key ${target.length} hosts carry (${hosts}) — a nested member's address ` +
         `composes through its host, so spell the whole \`<host-address>/<kind>/<key>\` ` +
