@@ -3131,6 +3131,29 @@ fn emit_program_hands_node_an_entry_path_with_no_verbatim_prefix() {
     );
 }
 
+/// A program whose stdout carries a stray log line ahead of the seam — the JSON pipe no
+/// longer parses, which is a broken output, never SDK/engine version skew.
+const NOISY_STDOUT_PROGRAM: &str = r#"
+console.log("debug: building the harness");
+process.stdout.write('{"version": 2, "declarations": {}, "members": []}');
+"#;
+
+#[test]
+fn a_payload_that_is_not_json_refuses_as_a_payload_parse_error_not_a_seam_version_mismatch() {
+    let (_harness, into) = common::wire_sdk_harness("non-json-payload", NOISY_STDOUT_PROGRAM);
+
+    let err = drift::emit_program(&into, EmitOptions::default()).unwrap_err();
+
+    let drift_err = err
+        .downcast_ref::<drift::DriftError>()
+        .unwrap_or_else(|| panic!("expected a DriftError, got {err:?}"));
+    assert!(
+        matches!(drift_err, drift::DriftError::PayloadParse { path, .. } if path.ends_with("harness.ts")),
+        "a non-JSON payload must refuse as a payload parse error naming the entry: {drift_err:?}"
+    );
+    assert!(!format!("{err}").contains("seam version"), "{err}");
+}
+
 #[test]
 fn emit_program_refuses_when_no_sdk_program_exists() {
     let (_harness, into) = workspace("no-program");
