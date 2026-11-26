@@ -25,12 +25,10 @@
     "section": "One job, one home"
   },
   "acceptance": "the refusal lists each carrier's full member address, so two nested hosts sharing a kind and key print distinctly",
-  "tests": [
-    "an ambiguous embedded target under two nested hosts names each host by its full address"
-  ],
+  "tests": [],
   "pins": [],
   "laneTests": [],
-  "notes": "Scenario: area:a/page/intro and area:b/page/intro both carry decision:x; a bare decision:x edge refuses listing `page:intro`, `page:intro`.",
+  "notes": "Scenario: area:a/page/intro and area:b/page/intro both carry decision:x; a bare decision:x edge refuses listing `page:intro`, `page:intro`. SDK-only behavior: its test lives in sdk/test/ under the SDK gate, with no tests[] line (PROTOCOL, Tests).",
   "observedFiles": [
     "sdk/src/emit.ts",
     "sdk/test/emit.test.ts"

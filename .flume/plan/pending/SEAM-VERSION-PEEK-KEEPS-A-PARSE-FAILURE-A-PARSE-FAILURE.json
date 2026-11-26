@@ -11,6 +11,10 @@
       {
         "path": "src/drift.rs",
         "description": "peek_and_validate_seam_version (~1905): a payload that does not parse, or carries no version, reports as PayloadParse; only a read version that differs is a seam mismatch"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": "the tests[] line's test, end to end: a non-JSON SDK payload refuses as a payload parse error. It lives here, never as a drift.rs unit test, which would carry the fix to the base run."
       }
     ],
     "retire": []

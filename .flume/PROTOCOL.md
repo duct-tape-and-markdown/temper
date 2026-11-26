@@ -59,17 +59,23 @@ the line's words must appear in the name in order. The judge runs
 `.flume/runner.mjs` over `cargo nextest`; integration tests live in the one
 `tests/it/` binary, unit tests beside their flat `src/` module.
 
-**A `tests[]` line names behavior the entry introduces; behavior it keeps is
-a `pins[]` line.** The judge refuses a `tests[]` line that already passes at
-the base, so a line saying what still holds ("X still draws Y", "with Z unset
-it runs as before") is always a pin.
+**Every `tests[]` line must be provable by the judge.** The judge runs the
+line's test at the pre-change tree, with the test's own file laid over it,
+and the test must fail there. Before filing a line, answer three questions:
 
-**A `tests[]` line's test lives under `tests/it/`, never in a `src/`
-module.** The judge proves the line new by laying the test's file over the
-pre-change tree; a `src/` file carries its module's fix with it, so the line
-passes there by construction and is refused. A unit test pins a `pins[]`
-line, or none. Behavior whose only test is an SDK one (`sdk/test/`) names
-no line at all: the judge runs cargo alone, and the SDK gate holds it.
+1. **Is the behavior new?** Behavior the entry keeps ("X still draws Y",
+   "with Z unset it runs as before") already passes at the base, so it is a
+   `pins[]` line. A fold has only pins.
+2. **Is it a cargo test?** The judge runs cargo alone. Behavior whose only
+   test is an SDK one (`sdk/test/`) names no line, and the SDK gate holds
+   it.
+3. **Does it live apart from the fix?** The test goes under `tests/it/`,
+   never in the `src/` module it fixes: overlaying that module would carry
+   the fix to the base, and the line would pass by construction. A unit
+   test pins a `pins[]` line, or none.
+
+A line that fails any of the three is refused after a full build, so check
+before filing, never after.
 
 ## Lanes
 
