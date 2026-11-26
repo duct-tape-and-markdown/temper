@@ -33,7 +33,11 @@
     "src/gate.rs",
     "src/read.rs",
     "tests/it/installed_plugin_kind.rs",
-    "tests/it/output_style_kind.rs"
+    "tests/it/output_style_kind.rs",
+    "src/builtin_kind.rs",
+    "src/coverage_note.rs",
+    "src/graph.rs",
+    "tests/it/settings_local_kind.rs"
   ],
   "summary": "A harness with no lock resolves the built-in assembly edges from the embedded lock, so a dangling outputStyle or marketplace is a finding",
   "per": {
