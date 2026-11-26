@@ -1,16 +1,33 @@
 {
   "tag": "UNREPRESENTED-INSTALL-PLACES-THE-CDN-MODELINE",
-  "gate": { "kind": "blockedBy", "tags": ["SDK-PACKAGE-SHIPS-THE-BUILTIN-SCHEMAS"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
-      { "path": "src/install.rs", "description": "place_settings_only also places the modeline per governed frontmatter artifact" },
-      { "path": "src/placement.rs", "description": "the CDN schema reference, cited" },
-      { "path": "tests/it/install.rs", "description": "unrepresented modeline cases" }
-    ]
+      {
+        "path": "src/install.rs",
+        "description": "place_settings_only also places the modeline per governed frontmatter artifact"
+      },
+      {
+        "path": "src/placement.rs",
+        "description": "the CDN schema reference, cited"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "unrepresented modeline cases"
+      }
+    ],
+    "retire": []
   },
   "summary": "An unrepresented install places the yaml-language-server modeline pointing at the SDK's version-pinned CDN schema, writing nothing else",
-  "per": { "path": "specs/distribution.md", "section": "The placements and their enforcement modes" },
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "The placements and their enforcement modes"
+  },
   "acceptance": "temper install on an unrepresented harness seats a modeline naming the version-pinned CDN URL of the SDK's schema for each governed frontmatter artifact, idempotently",
   "tests": [
     "an unrepresented install places a version-pinned CDN schema modeline in a governed frontmatter artifact",
@@ -19,5 +36,6 @@
   "pins": [
     "an unrepresented install writes no schema file to the tree"
   ],
+  "laneTests": [],
   "notes": "0109 Consequences: the CDN URL grammar (jsDelivr or unpkg) is cited at the point of claim when this is built; fetch the CDN's docs. The pinned version is the engine's own, which version_parity holds equal to the SDK's. A frontmatterless artifact takes no modeline."
 }
