@@ -206,8 +206,8 @@ emit_hash = "93bd569bc8c078f7cb7f52b48c30c30dbb18c43bc0bc1e42a79f1aa0a006916c"
 name = "kind-skill"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-skill.md"
-source_hash = "d4ac0ffde0048a50986347ce92a29e3abafc14a4ab139fccea1e802fa0c1e1c3"
-emit_hash = "d4ac0ffde0048a50986347ce92a29e3abafc14a4ab139fccea1e802fa0c1e1c3"
+source_hash = "cdbad5f6ec87f1f5d8b3f3c9017921b7fc22b4d82e571a207c6a1962572f2284"
+emit_hash = "cdbad5f6ec87f1f5d8b3f3c9017921b7fc22b4d82e571a207c6a1962572f2284"
 
 [[supporting-doc]]
 name = "kind-step"
@@ -476,6 +476,18 @@ severity = "required"
 guidance = "Anthropic's platform upload validation rejects a description carrying an XML tag — the description is injected into the system prompt, where a tag is markup rather than text. Neither the open spec nor Claude Code's runtime enforces it, so this is the clause that keeps a skill portable through the API and claude.ai. Prose spelling a comparison (`use when x < y`) is not a tag and does not fire."
 cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#skill-structure (retrieved 2026-07-17)"
 shape = "no-xml-tags"
+
+[[declaration.clause]]
+label = "skill.listing.description+when_to_use"
+kind = "skill"
+predicate = "listing"
+field = "description+when_to_use"
+severity = "advisory"
+guidance = "Every model-invocable skill's `description` and `when_to_use` ride every request in one listing, under a character budget that scales at 1% of the context window, with a fallback of 8,000 characters — the figure this clause judges. Each entry counts up to the 1,536-character cap the listing cuts it at. Over the budget, Claude Code keeps every name but drops descriptions starting with the skills you invoke least, so those skills lose the keywords Claude matches a request against. A skill with `disable-model-invocation: true` is not listed and is not counted. Trim descriptions to the key use case first, set rarely-used skills to `disable-model-invocation: true` or to `name-only` in `skillOverrides`, or raise the budget with `skillListingBudgetFraction` (or `SLASH_COMMAND_TOOL_CHAR_BUDGET`) and retune this clause's bound to match. Counted over this harness's own skills only: plugin, bundled and personal skills share the same listing, so the real headroom is smaller."
+cite = "https://code.claude.com/docs/en/skills#skill-descriptions-are-cut-short; https://code.claude.com/docs/en/env-vars (SLASH_COMMAND_TOOL_CHAR_BUDGET); https://code.claude.com/docs/en/settings-reference#skilllistingmaxdescchars (retrieved 2026-11-26)"
+fields = ["description", "when_to_use"]
+gate = "disable-model-invocation"
+bound = { max = 8000, entry = 1536 }
 
 [[declaration.clause]]
 label = "skill.max_len.compatibility"

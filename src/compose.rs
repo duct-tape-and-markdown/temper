@@ -2846,6 +2846,7 @@ mod tests {
                 bound: Some(crate::drift::BoundRow {
                     min: None,
                     max: Some(150),
+                    entry: None,
                 }),
                 ..test_support::clause_row("extent", "advisory")
             },
@@ -2856,6 +2857,7 @@ mod tests {
                 bound: Some(crate::drift::BoundRow {
                     min: None,
                     max: Some(10),
+                    entry: None,
                 }),
                 ..test_support::clause_row("extent", "required")
             },
@@ -2912,6 +2914,7 @@ mod tests {
             bound: Some(crate::drift::BoundRow {
                 min: None,
                 max: Some(150),
+                entry: None,
             }),
             ..test_support::clause_row("extent", "blocking")
         }];

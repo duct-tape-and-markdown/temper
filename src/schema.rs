@@ -123,6 +123,7 @@ pub fn emit(contract: &Contract) -> Value {
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Unique { .. }
+            | Predicate::Listing { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
             // `reached-from` walks the forward closure over the whole reference graph;

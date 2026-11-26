@@ -6305,7 +6305,8 @@ pub struct ClauseRow {
     #[serde(default)]
     pub degree: Option<DegreeBoundRow>,
     /// The **field set** a by-incidence clause filters its selection to — `degree`'s
-    /// bound and `reached-from`'s via set (`specs/decisions/0056-…`). Shared rather
+    /// bound and `reached-from`'s via set (`specs/decisions/0056-…`) — and the fields a
+    /// `listing` clause lists. Shared rather
     /// than nested inside [`DegreeBoundRow`] because the filter is the *clause's*, not
     /// either direction's, and the two consumers name one concept: a lock spelling it
     /// twice would be the residue class.
@@ -6318,7 +6319,8 @@ pub struct ClauseRow {
     /// its converse `trigger-agrees`. The two predicates taking two field arguments: the
     /// source-side scope field rides the shared [`field`](ClauseRow::field) column, and
     /// this column carries the other end — the field read off the *mentioned* member,
-    /// which `field` alone cannot express.
+    /// which `field` alone cannot express. A `listing` clause's withholding field rides
+    /// it too: the field that, set `true`, gates a member out of the listing.
     #[serde(default)]
     pub gate: Option<String>,
     /// The `type` clause's declared source kinds, when the predicate is `type` — the
@@ -6409,17 +6411,21 @@ pub struct SectionContainsRow {
     pub marker: String,
 }
 
-/// A node-scope clause row's scalar bound — `min_len`'s `min`, `max_len`/`extent`'s
-/// `max`, each endpoint optional so the row carries only what the predicate declared.
+/// A clause row's scalar bound — `min_len`'s `min`, `max_len`/`extent`/`listing`'s
+/// `max`, `listing`'s per-entry cap, each optional so the row carries only what the predicate declared.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, ts_rs::TS)]
 #[ts(optional_fields)]
 pub struct BoundRow {
     /// The inclusive lower bound, when the predicate declares one (`min_len`).
     #[serde(default)]
     pub min: Option<usize>,
-    /// The inclusive upper bound, when the predicate declares one (`max_len`/`extent`).
+    /// The inclusive upper bound, when the predicate declares one
+    /// (`max_len`/`extent`/`listing`).
     #[serde(default)]
     pub max: Option<usize>,
+    /// The per-entry character cap, when the predicate declares one (`listing`).
+    #[serde(default)]
+    pub entry: Option<usize>,
 }
 
 /// An `allowed_chars` clause row's declared character class — the wire form of
@@ -7895,6 +7901,12 @@ fn bound_table(bound: &BoundRow) -> InlineTable {
     if let Some(max) = bound.max {
         table.insert("max", Value::from(i64::try_from(max).unwrap_or(i64::MAX)));
     }
+    if let Some(entry) = bound.entry {
+        table.insert(
+            "entry",
+            Value::from(i64::try_from(entry).unwrap_or(i64::MAX)),
+        );
+    }
     table
 }
 
@@ -7902,6 +7914,7 @@ fn bound_from_table(table: &dyn TableLike) -> Result<BoundRow, RowError> {
     Ok(BoundRow {
         min: opt_usize(table, "min")?,
         max: opt_usize(table, "max")?,
+        entry: opt_usize(table, "entry")?,
     })
 }
 

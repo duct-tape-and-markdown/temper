@@ -21,6 +21,7 @@ mod check_cost;
 mod cli;
 mod closed_keys;
 mod command_kind;
+mod context_cost;
 mod contract_template;
 mod coverage;
 mod coverage_note;

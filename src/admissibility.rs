@@ -987,6 +987,7 @@ fn judged_binding(predicate: &crate::contract::Predicate) -> Option<RootFamilyBi
         | Predicate::DependencyExists
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
+        | Predicate::Listing { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
         | Predicate::ReachedFrom { .. }

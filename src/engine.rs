@@ -388,6 +388,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         // selection, never parsed as a member-local path.
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
+        | Predicate::Listing { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
         | Predicate::ReachedFrom { .. }
@@ -502,6 +503,7 @@ fn feature_read(predicate: &Predicate) -> Option<Feature> {
         | Predicate::DependencyExists
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
+        | Predicate::Listing { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
         | Predicate::ReachedFrom { .. }
@@ -591,6 +593,7 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         | Predicate::Unshadowed
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
+        | Predicate::Listing { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
         | Predicate::ReachedFrom { .. }
@@ -689,6 +692,18 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
             )]
         }
         Predicate::Membership { .. } => Vec::new(),
+        // A listing over no field lists no text, and a zero entry cap counts none of it:
+        // either way every selection sums to zero and the budget can never be broken.
+        Predicate::Listing { fields, entry, .. } => {
+            let mut messages = Vec::new();
+            if fields.is_empty() {
+                messages.push("`listing` clause names no listed field".to_string());
+            }
+            if *entry == 0 {
+                messages.push("`listing` clause caps each entry at 0 characters".to_string());
+            }
+            messages
+        }
         // `degree` with neither direction bounded constrains nothing — vacuous, like
         // an empty-list predicate. A bounded direction whose own `min > max` is
         // likewise vacuous in that direction, the same inverted-bound rule as
@@ -963,6 +978,21 @@ pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> 
                 } => {
                     diagnostics.extend(over_budget(selection, clause, *unit, *max));
                 }
+                Predicate::Listing {
+                    fields,
+                    entry,
+                    max,
+                    withheld_by,
+                } => {
+                    diagnostics.extend(over_listing(
+                        selection,
+                        clause,
+                        fields,
+                        *entry,
+                        *max,
+                        withheld_by.as_deref(),
+                    ));
+                }
                 // `degree` and `reached-from` bind to a selection too, but their
                 // judges need the graph.
                 // Every other predicate binds to a member, not a set — [`judge_members`]
@@ -1199,6 +1229,62 @@ fn over_budget(
             "{} has a summed rendered extent of {total} {} (max {max})",
             selection.selector.noun(),
             unit.name(),
+        ),
+    ))
+}
+
+/// The whole-grain `listing` finding when the text the selection lists sums past `max`
+/// characters. A member's entry is its `fields` values in order, each scalar counted in
+/// characters and the entry cut at `entry`; a member whose `withheld_by` field is
+/// boolean `true` is not listed. A non-scalar value lists no text, as an absent one.
+fn over_listing(
+    selection: &Selection,
+    clause: &Clause,
+    fields: &[String],
+    entry: usize,
+    max: usize,
+    withheld_by: Option<&str>,
+) -> Option<Diagnostic> {
+    let withheld = |features: &Features| {
+        withheld_by.is_some_and(|marker| {
+            matches!(
+                features.field(marker),
+                Some(FeatureValue::Scalar { kind: ValueType::Boolean, text }) if text == "true"
+            )
+        })
+    };
+    let listed: Vec<&Features> = selection
+        .members
+        .iter()
+        .map(|(_, features)| *features)
+        .filter(|features| !withheld(features))
+        .collect();
+    let total: usize = listed
+        .iter()
+        .map(|features| {
+            let length: usize = fields
+                .iter()
+                .filter_map(|field| features.field(field))
+                .filter_map(|value| value.as_scalar().map(|text| text.chars().count()))
+                .sum();
+            length.min(entry)
+        })
+        .sum();
+    if total <= max {
+        return None;
+    }
+    Some(finding(
+        selection,
+        clause,
+        format!(
+            "{} lists {total} characters of {} across {} listed member(s) (max {max}, each entry cut at {entry})",
+            selection.selector.noun(),
+            fields
+                .iter()
+                .map(|field| format!("`{field}`"))
+                .collect::<Vec<_>>()
+                .join(" + "),
+            listed.len(),
         ),
     ))
 }
@@ -1507,6 +1593,7 @@ fn guard_admits(guard: &Predicate, value: &FeatureValue) -> bool {
         | Predicate::DependencyExists
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
+        | Predicate::Listing { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
         | Predicate::ReachedFrom { .. }
@@ -1919,7 +2006,8 @@ fn decide(
         | Predicate::ImportBacked
         // Whole-grain `extent` sums the selection; [`judge`] decides it, not this
         // per-member table.
-        | Predicate::Extent { whole: true, .. } => Outcome::Indeterminate,
+        | Predicate::Extent { whole: true, .. }
+        | Predicate::Listing { .. } => Outcome::Indeterminate,
 
         // `when` evaluates the guard at every element the guard's field locates.
         // Where the guard holds, evaluate every body clause at that element. Silent
@@ -2635,6 +2723,12 @@ mod tests {
                 max: 40,
                 whole: true,
             },
+            Predicate::Listing {
+                fields: vec!["model".to_string()],
+                entry: 9,
+                max: 40,
+                withheld_by: None,
+            },
         ]
     }
 
@@ -2719,7 +2813,7 @@ mod tests {
     }
 
     /// The number of [`Predicate`] variants — the slots [`vocabulary_slot`] hands out.
-    const VOCABULARY: usize = 37;
+    const VOCABULARY: usize = 38;
 
     /// One slot per [`Predicate`] variant. Exhaustive on purpose: a new variant does not
     /// compile until it takes a slot, and `the_sample_banks_are_the_whole_vocabulary`
@@ -2764,6 +2858,7 @@ mod tests {
             Predicate::FormatPlacesEdges => 31,
             Predicate::When { .. } => 32,
             Predicate::Unshadowed => 33,
+            Predicate::Listing { .. } => 37,
         }
     }
 
@@ -4286,6 +4381,7 @@ mod tests {
             Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Unique { .. }
+            | Predicate::Listing { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
             | Predicate::ReachedFrom { .. }
@@ -4404,6 +4500,7 @@ mod tests {
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Unique { .. }
+            | Predicate::Listing { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
             | Predicate::ReachedFrom { .. }

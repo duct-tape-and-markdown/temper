@@ -862,6 +862,7 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
         bound: Some(BoundRow {
             min: None,
             max: Some(64),
+            entry: None,
         }),
         ..common::clause("max_len", "required")
     });
@@ -2646,6 +2647,13 @@ fn floor_quads(kind: &str) -> Vec<ClauseQuad> {
                 // `contract::predicate_from_row` rebuilds the guard off, and the same read
                 // the engine takes to locate the element the guard judges.
                 Predicate::When { guard, .. } => (guard.target().map(str::to_string), None),
+                // A `listing` row's `field` is its listed fields' synthesized label
+                // segment, and its `gate` the withholding field.
+                Predicate::Listing {
+                    fields,
+                    withheld_by,
+                    ..
+                } => (Some(fields.join("+")), withheld_by.clone()),
                 predicate => (predicate.target().map(str::to_string), None),
             };
             (clause.predicate.key(), field, gate, severity)
@@ -3160,6 +3168,7 @@ fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
                     bound: Some(BoundRow {
                         min: None,
                         max: Some(80),
+                        entry: None,
                     }),
                     ..common::clause("max_len", "required")
                 },
@@ -3170,6 +3179,7 @@ fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
                     bound: Some(BoundRow {
                         min: None,
                         max: Some(40),
+                        entry: None,
                     }),
                     ..common::clause("max_len", "required")
                 },
@@ -3180,6 +3190,7 @@ fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
                     bound: Some(BoundRow {
                         min: None,
                         max: Some(150),
+                        entry: None,
                     }),
                     ..common::clause("extent", "advisory")
                 },
@@ -3245,6 +3256,7 @@ fn the_same_program_emits_the_same_clause_labels() {
                 bound: Some(BoundRow {
                     min: None,
                     max: Some(150),
+                    entry: None,
                 }),
                 ..common::clause("extent", "advisory")
             },
@@ -3371,6 +3383,7 @@ fn a_lock_carrying_two_rows_under_one_label_fails_admissibility_loud() {
                     bound: Some(BoundRow {
                         min: None,
                         max: Some(150),
+                        entry: None,
                     }),
                     ..common::clause("extent", "advisory")
                 },
@@ -3380,6 +3393,7 @@ fn a_lock_carrying_two_rows_under_one_label_fails_admissibility_loud() {
                     bound: Some(BoundRow {
                         min: None,
                         max: Some(500),
+                        entry: None,
                     }),
                     ..common::clause("extent", "required")
                 },

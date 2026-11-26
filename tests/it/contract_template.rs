@@ -46,8 +46,8 @@ fn slug_charset() -> Charset {
 
 /// The decidable clause vector the shipped skill built-in must carry, in declaration
 /// order: name required/non-empty/charset/length/deny + matches-dir; description
-/// required/non-empty/length; the optional `compatibility` cap; the advisory body
-/// budget; the forbidden Cursor keys.
+/// required/non-empty/length; the advisory listing budget; the optional
+/// `compatibility` cap; the advisory body budget; the forbidden Cursor keys.
 fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
     vec![
         (
@@ -117,6 +117,15 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
             Predicate::Shape {
                 field: "description".to_string(),
                 shape: Shape::NoXmlTags,
+            },
+        ),
+        (
+            Severity::Advisory,
+            Predicate::Listing {
+                fields: vec!["description".to_string(), "when_to_use".to_string()],
+                entry: 1536,
+                max: 8000,
+                withheld_by: Some("disable-model-invocation".to_string()),
             },
         ),
         (
@@ -211,6 +220,7 @@ fn skill_builtin_encodes_only_decidable_clauses() {
             "forbidden_keys",
             "glob-valid",
             "mention-reachable",
+            "listing",
         ]),
         "the built-in must carry only its declared decidable predicates",
     );

@@ -158,11 +158,16 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
     // `degree` bound — the slot `reached-from`'s via set joins it. Copied into a
     // fresh array: the predicate's set is read-only, the row's column is not.
     fields:
-      (predicate.key === "degree" || predicate.key === "reached-from") && predicate.fields
+      (predicate.key === "degree" ||
+        predicate.key === "reached-from" ||
+        predicate.key === "listing") &&
+      predicate.fields
         ? [...predicate.fields]
         : undefined,
     gate:
-      predicate.key === "mention-reachable" || predicate.key === "trigger-agrees"
+      predicate.key === "mention-reachable" ||
+      predicate.key === "trigger-agrees" ||
+      predicate.key === "listing"
         ? predicate.gate
         : undefined,
     value_type:
@@ -233,6 +238,11 @@ export function clauseField(predicate: Predicate): string | undefined {
     // are a redundancy the author collapses, never a distinction an address must hold.
     return predicate.fields === undefined ? undefined : [...predicate.fields].sort().join("+");
   }
+  if (predicate.key === "listing") {
+    // A `listing` names no field of its own: the fields it lists are its identity, kept
+    // in listed order since the entry joins them in that order.
+    return predicate.fields?.join("+");
+  }
   if (predicate.key === "reached-from") {
     // A `reached-from` clause names no field either: its identity is the pair it walks.
     // The roots requirement leads, and a declared via set follows after a `.` — the
@@ -251,16 +261,26 @@ export function clauseField(predicate: Predicate): string | undefined {
   return predicate.field;
 }
 
-/** `min_len`/`max_len`/`extent`'s scalar bound off their shared `min`/`max`
- * args keys — `undefined` for every other predicate, and for these three when
- * neither endpoint is present. */
-function nodeScopeBoundArgs(predicate: Predicate): { readonly min?: number; readonly max?: number } | undefined {
-  if (predicate.key !== "min_len" && predicate.key !== "max_len" && predicate.key !== "extent") {
+/** `min_len`/`max_len`/`extent`/`listing`'s scalar bound off their shared `min`/`max`
+ * args keys, plus `listing`'s per-entry `entry` cap — `undefined` for every other
+ * predicate, and for these four when no endpoint is present. */
+function nodeScopeBoundArgs(
+  predicate: Predicate,
+): { readonly min?: number; readonly max?: number; readonly entry?: number } | undefined {
+  if (
+    predicate.key !== "min_len" &&
+    predicate.key !== "max_len" &&
+    predicate.key !== "extent" &&
+    predicate.key !== "listing"
+  ) {
     return undefined;
- }
+  }
   const min = predicate.args?.min;
   const max = predicate.args?.max;
-  return min === undefined && max === undefined ? undefined : { min, max };
+  const entry = predicate.args?.entry;
+  if (min === undefined && max === undefined && entry === undefined) return undefined;
+  // `entry` is `listing`'s alone, so the other three rows keep their two-key bound.
+  return entry === undefined ? { min, max } : { min, max, entry };
 }
 
 /** One `degree` direction's `{min, max}` off its flat `<dir>_min`/`<dir>_max` args

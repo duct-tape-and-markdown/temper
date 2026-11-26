@@ -172,6 +172,7 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
         | Predicate::MustDefine { .. }
         | Predicate::SectionContains { .. }
         | Predicate::NameMatchesDir
+        | Predicate::Listing { .. }
         | Predicate::UniqueName
         | Predicate::Unshadowed
         | Predicate::DependencyExists

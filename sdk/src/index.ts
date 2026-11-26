@@ -39,6 +39,7 @@ export {
   fresh,
   globValid,
   importBacked,
+  listing,
   locusDeclared,
   maxLen,
   membership,

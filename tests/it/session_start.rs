@@ -212,6 +212,7 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
                 bound: Some(BoundRow {
                     min: None,
                     max: Some(20),
+                    entry: None,
                 }),
                 unit: Some("lines".to_string()),
                 ..common::clause("extent", "advisory")

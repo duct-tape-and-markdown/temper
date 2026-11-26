@@ -52,7 +52,8 @@ export interface Predicate {
   /**
    * `mention-reachable`'s and `trigger-agrees`'s **target-side gate field** — a separate
    * slot from `field` (which carries the source-side scope field) since they name a
-   * field on *both* ends. Spelled to match the lock's own `gate` column.
+   * field on *both* ends — and `listing`'s withholding field, the one that gates a member
+   * out of the listing. Spelled to match the lock's own `gate` column.
    */
   readonly gate?: string;
   /**
@@ -351,6 +352,22 @@ export const count = (bounds: { min?: number; max?: number }): Predicate => {
 };
 /** The field's extracted value does not repeat across the selection. */
 export const unique = (field: string): Predicate => ({ key: "unique", field });
+/**
+ * The text the selection lists sums to at most `budget` characters. One member's entry is
+ * its `fields` values joined in order, counted in characters and cut at `entry`; a member
+ * whose `withheldBy` field is boolean `true` is not listed and adds nothing. The shape of a
+ * runtime listing that carries every member's trigger text into each request under one
+ * budget — Claude Code's skill listing is the shipped instance.
+ */
+export const listing = (
+  fields: readonly string[],
+  bounds: { readonly entry: number; readonly budget: number; readonly withheldBy?: string },
+): Predicate => ({
+  key: "listing",
+  fields,
+  gate: bounds.withheldBy,
+  args: { entry: bounds.entry, max: bounds.budget },
+});
 /** Every selected member's `field` value is drawn from a feature over the selection `target` declares. */
 export const membership = (field: string, target: string): Predicate => ({
   key: "membership",

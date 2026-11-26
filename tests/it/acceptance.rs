@@ -294,6 +294,7 @@ fn author_custom_kind_lock(corpus: &Path, name: &str, governs_root: &str) {
                 bound: Some(BoundRow {
                     min: None,
                     max: Some(10),
+                    entry: None,
                 }),
                 unit: Some("lines".to_string()),
                 ..common::clause("extent", "advisory")

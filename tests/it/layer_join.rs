@@ -65,6 +65,7 @@ fn description_bound(severity: &str) -> ClauseRow {
         bound: Some(BoundRow {
             min: None,
             max: Some(10),
+            entry: None,
         }),
         ..common::clause("max_len", severity)
     }
@@ -398,6 +399,7 @@ fn description_bound_body() -> ClauseRow {
         bound: Some(BoundRow {
             min: None,
             max: Some(10),
+            entry: None,
         }),
         ..common::clause("max_len", "required")
     }

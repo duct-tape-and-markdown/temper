@@ -222,6 +222,7 @@ fn row(predicate: &str, unit: Option<&str>, max: Option<usize>) -> ClauseRow {
         bound: max.map(|max| BoundRow {
             min: None,
             max: Some(max),
+            entry: None,
         }),
         unit: unit.map(str::to_string),
         ..common::clause(predicate, "advisory")

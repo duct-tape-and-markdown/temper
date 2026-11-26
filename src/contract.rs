@@ -395,6 +395,20 @@ pub enum Predicate {
         /// The field checked for uniqueness across the selection.
         field: String,
     },
+    /// `listing`: the **whole** grain — the text the selection lists, each member's
+    /// `fields` values joined and counted up to `entry` characters, sums to at most `max`
+    /// characters. A member whose `withheld_by` field is boolean `true` lists nothing,
+    /// so it adds nothing to the sum.
+    Listing {
+        /// The fields whose values one member's entry joins, in listed order.
+        fields: Vec<String>,
+        /// The inclusive cap on one entry's counted characters; text past it is cut.
+        entry: usize,
+        /// The inclusive bound on the summed entries, in characters.
+        max: usize,
+        /// The boolean field that, set `true`, withholds a member from the listing.
+        withheld_by: Option<String>,
+    },
     /// `membership`: the **whole** grain — every selected member's `field` value is
     /// drawn from a feature over the selection the named `target` requirement declares.
     /// Shaping that set is the target's own job, so this predicate names it, never
@@ -777,6 +791,18 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "unique" => Predicate::Unique {
             field: row.field.clone()?,
         },
+        // The withholding field rides the `gate` column — the field that gates a member
+        // out of the listing — and the per-entry cap the `bound` column beside the
+        // budget. The `field` column is the synthesized label segment, never read.
+        "listing" => {
+            let bound = row.bound?;
+            Predicate::Listing {
+                fields: row.fields.clone()?,
+                entry: bound.entry?,
+                max: bound.max?,
+                withheld_by: row.gate.clone(),
+            }
+        }
         "glob-valid" => Predicate::GlobValid {
             field: row.field.clone()?,
         },
@@ -915,6 +941,7 @@ impl Predicate {
             Predicate::DependencyExists => "dependency-exists",
             Predicate::Count { .. } => "count",
             Predicate::Unique { .. } => "unique",
+            Predicate::Listing { .. } => "listing",
             Predicate::Membership { .. } => "membership",
             Predicate::Degree { .. } => "degree",
             Predicate::ReachedFrom { .. } => "reached-from",
@@ -958,6 +985,7 @@ impl Predicate {
             self,
             Predicate::Count { .. }
                 | Predicate::Unique { .. }
+                | Predicate::Listing { .. }
                 | Predicate::Membership { .. }
                 | Predicate::Degree { .. }
                 | Predicate::ReachedFrom { .. }
@@ -1015,6 +1043,7 @@ impl Predicate {
             | Predicate::Unshadowed
             | Predicate::DependencyExists
             | Predicate::Count { .. }
+            | Predicate::Listing { .. }
             | Predicate::Degree { .. }
             // Its `roots` is a requirement name and its `via` a field *set*, so it
             // names no one field — `mention-reachable`'s silence below is the precedent.
@@ -1090,6 +1119,7 @@ impl Predicate {
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Unique { .. }
+            | Predicate::Listing { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
             | Predicate::ReachedFrom { .. }
@@ -1149,6 +1179,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Unique { .. }
+            | Predicate::Listing { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
             | Predicate::ReachedFrom { .. }

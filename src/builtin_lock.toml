@@ -1491,6 +1491,18 @@ cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overvi
 shape = "no-xml-tags"
 
 [[declaration.clause]]
+label = "skill.listing.description+when_to_use"
+kind = "skill"
+predicate = "listing"
+field = "description+when_to_use"
+severity = "advisory"
+guidance = "Every model-invocable skill's `description` and `when_to_use` ride every request in one listing, under a character budget that scales at 1% of the context window, with a fallback of 8,000 characters — the figure this clause judges. Each entry counts up to the 1,536-character cap the listing cuts it at. Over the budget, Claude Code keeps every name but drops descriptions starting with the skills you invoke least, so those skills lose the keywords Claude matches a request against. A skill with `disable-model-invocation: true` is not listed and is not counted. Trim descriptions to the key use case first, set rarely-used skills to `disable-model-invocation: true` or to `name-only` in `skillOverrides`, or raise the budget with `skillListingBudgetFraction` (or `SLASH_COMMAND_TOOL_CHAR_BUDGET`) and retune this clause's bound to match. Counted over this harness's own skills only: plugin, bundled and personal skills share the same listing, so the real headroom is smaller."
+cite = "https://code.claude.com/docs/en/skills#skill-descriptions-are-cut-short; https://code.claude.com/docs/en/env-vars (SLASH_COMMAND_TOOL_CHAR_BUDGET); https://code.claude.com/docs/en/settings-reference#skilllistingmaxdescchars (retrieved 2026-11-26)"
+fields = ["description", "when_to_use"]
+gate = "disable-model-invocation"
+bound = { max = 8000, entry = 1536 }
+
+[[declaration.clause]]
 label = "skill.max_len.compatibility"
 kind = "skill"
 predicate = "max_len"

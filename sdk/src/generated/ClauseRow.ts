@@ -94,7 +94,8 @@ target?: string,
 degree?: DegreeBoundRow, 
 /**
  * The **field set** a by-incidence clause filters its selection to — `degree`'s
- * bound and `reached-from`'s via set (`specs/decisions/0056-…`). Shared rather
+ * bound and `reached-from`'s via set (`specs/decisions/0056-…`) — and the fields a
+ * `listing` clause lists. Shared rather
  * than nested inside [`DegreeBoundRow`] because the filter is the *clause's*, not
  * either direction's, and the two consumers name one concept: a lock spelling it
  * twice would be the residue class.
@@ -108,7 +109,8 @@ fields?: Array<string>,
  * its converse `trigger-agrees`. The two predicates taking two field arguments: the
  * source-side scope field rides the shared [`field`](ClauseRow::field) column, and
  * this column carries the other end — the field read off the *mentioned* member,
- * which `field` alone cannot express.
+ * which `field` alone cannot express. A `listing` clause's withholding field rides
+ * it too: the field that, set `true`, gates a member out of the listing.
  */
 gate?: string, 
 /**
