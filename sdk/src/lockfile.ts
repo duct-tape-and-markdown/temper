@@ -1,18 +1,21 @@
 /**
  * The version a `{ package, bin }` tool runs at — its program's lockfile's, read from the
- * nearest directory at or above the workspace the engine runs the program in (its cwd)
- * that carries one, keyed by the program's path below it. The reference states it; the
+ * workspace the engine runs the program in (its cwd), else from the workspace root its
+ * package manager resolves (the nearest ancestor declaring a workspace, read only when it
+ * includes the program), keyed by the program's path below it. The reference states it; the
  * engine's `src/tool.rs` is the same read for `check` and `explain`, and the two must
  * agree: npm's `package-lock.json`, else pnpm's `pnpm-lock.yaml` (every YAML document in
  * it), and any other manager's lockfile refused by name.
  *
  * Formats (external facts): https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json,
  * https://github.com/pnpm/spec/blob/master/lockfile/9.0.md and https://pnpm.io/lockfile
- * (all retrieved 2026-11-25).
+ * (all retrieved 2026-11-25); workspace roots: https://pnpm.io/workspaces,
+ * https://pnpm.io/pnpm-workspace_yaml and https://docs.npmjs.com/cli/v10/using-npm/workspaces
+ * (retrieved 2026-11-26).
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, join, matchesGlob, relative, resolve, sep } from "node:path";
 
 /** npm's lockfile. */
 export const NPM_LOCKFILE = "package-lock.json";
@@ -125,20 +128,97 @@ function pnpmDocumentVersion(document: string[], importer: string, pkg: string):
 }
 
 /**
- * Read the lockfile of the program in `workspace`, from the nearest directory at or above
- * it carrying one; `undefined` when none up to the filesystem root does.
+ * Read the lockfile of the program in `workspace`: its own directory's, else the one at
+ * the nearest ancestor declaring a workspace, read only when that declaration includes
+ * the program; `undefined` otherwise — an ancestor's lockfile no workspace of the
+ * program's names locks some other project, and is never read.
  *
  * # Throws
- * When that directory holds only another manager's lockfile, naming it — a version
+ * When the read directory holds only another manager's lockfile, naming it — a version
  * temper cannot read is never guessed — or when `package-lock.json` is not JSON.
  */
 export function readLockfile(workspace: string): Lockfile | undefined {
   const program = resolve(workspace);
-  for (let dir = program; ; dir = dirname(dir)) {
-    const lockfile = readLockfileIn(dir, relative(dir, program).split(sep).join("/"));
-    if (lockfile !== undefined) return lockfile;
+  const own = readLockfileIn(program, "");
+  if (own !== undefined) return own;
+  for (let dir = dirname(program); ; dir = dirname(dir)) {
+    const globs = workspaceGlobs(dir);
+    if (globs !== undefined) {
+      const importer = relative(dir, program).split(sep).join("/");
+      return includes(globs, importer) ? readLockfileIn(dir, importer) : undefined;
+    }
     if (dirname(dir) === dir) return undefined;
   }
+}
+
+/** pnpm's workspace declaration, beside the root's lockfile. */
+const PNPM_WORKSPACE = "pnpm-workspace.yaml";
+
+/** `path`'s text, `undefined` when it cannot be read. */
+function readText(path: string): string | undefined {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The workspace globs `dir` declares, when it declares a workspace at all: pnpm's
+ * `pnpm-workspace.yaml` `packages` (absent, the root alone), then `package.json`'s
+ * `workspaces` array, npm's. A declaration that cannot be read or parsed declares nothing.
+ */
+function workspaceGlobs(dir: string): string[] | undefined {
+  let globs: string[] | undefined;
+  const pnpm = readText(join(dir, PNPM_WORKSPACE));
+  if (pnpm !== undefined) globs = pnpmPackages(pnpm);
+  const npm = readText(join(dir, "package.json"));
+  if (npm !== undefined) {
+    let manifest: Json | undefined;
+    try {
+      manifest = JSON.parse(npm) as Json;
+    } catch {
+      manifest = undefined;
+    }
+    const workspaces = field(manifest, "workspaces");
+    if (Array.isArray(workspaces)) {
+      globs = [...(globs ?? []), ...workspaces.filter((item): item is string => typeof item === "string")];
+    }
+  }
+  return globs;
+}
+
+/**
+ * The top-level `packages` sequence of a `pnpm-workspace.yaml`, block (`- glob` lines) or
+ * flow (`[a, b]`) style — the shapes pnpm's docs write it in.
+ */
+function pnpmPackages(text: string): string[] {
+  const lines = text.split(/\r?\n/);
+  const at = lines.findIndex((line) => /^packages:(\s|$)/.test(line));
+  if (at < 0) return [];
+  const rest = (lines[at] ?? "").slice("packages:".length).replace(/\s+#.*$/, "").trim();
+  if (rest.startsWith("[") && rest.endsWith("]")) {
+    return rest
+      .slice(1, -1)
+      .split(",")
+      .map(unquote)
+      .filter((glob) => glob !== "");
+  }
+  const globs: string[] = [];
+  for (const line of lines.slice(at + 1)) {
+    const body = line.trim();
+    if (body === "" || body.startsWith("#")) continue;
+    if (line.length === line.trimStart().length && !body.startsWith("-")) break;
+    if (body.startsWith("-")) globs.push(unquote(body.slice(1).replace(/\s+#.*$/, "")));
+  }
+  return globs;
+}
+
+/** Whether `globs` include the project at `path`: a positive one matches, no `!` one does. */
+function includes(globs: readonly string[], path: string): boolean {
+  const matches = (glob: string) => matchesGlob(path, glob.replace(/^(\.\/)+/, "").replace(/\/+$/, ""));
+  const negated = globs.filter((glob) => glob.startsWith("!")).map((glob) => glob.slice(1));
+  return globs.some((glob) => !glob.startsWith("!") && matches(glob)) && !negated.some(matches);
 }
 
 /** The lockfile in `dir` alone, for the program at `importer` below it. */

@@ -2,9 +2,10 @@
 //! the version a `{ package, bin }` tool runs at — its program's lockfile's, never a
 //! restatement (`specs/model/authoring.md`, "The SDK"; decision 0104).
 //!
-//! Two lockfiles are read, from the nearest directory at or above the program's workspace
-//! that carries one — a package-manager workspace keeps its one lock at its root, keyed
-//! by each project's path: npm's `package-lock.json` and pnpm's `pnpm-lock.yaml`, the
+//! Two lockfiles are read, from the program's own directory or the workspace root its
+//! package manager resolves — a package-manager workspace keeps its one lock at its root,
+//! keyed by each project's path, and an ancestor no workspace of the program's names is
+//! never read: npm's `package-lock.json` and pnpm's `pnpm-lock.yaml`, the
 //! latter through `gray_matter`'s YAML engine, the sanctioned crate's reader. Any other
 //! lockfile there, with neither of those beside it, refuses loudly by name: a version
 //! temper cannot read is never guessed and never silently skipped. A package the lockfile
@@ -165,44 +166,127 @@ impl Lockfile {
     }
 }
 
-/// Read the lockfile of the program in `workspace`: from the nearest directory at or above
-/// it carrying any lockfile, `package-lock.json` there, else `pnpm-lock.yaml`. `None` when
-/// no directory up to the filesystem root carries one.
+/// Read the lockfile of the program in `workspace`: its own directory's, else the one at
+/// the workspace root the package manager resolves for it — the nearest ancestor that
+/// declares a workspace, read only when that declaration includes the program. In either
+/// directory `package-lock.json` is read before `pnpm-lock.yaml`. `None` when the program
+/// carries no lockfile and no ancestor's workspace includes it: a lockfile in an ancestor
+/// that is no workspace root of the program's locks some other project, and is never read.
 ///
 /// # Errors
-/// [`ToolLockError::Unsupported`] when that directory holds only another manager's
+/// [`ToolLockError::Unsupported`] when the read directory holds only another manager's
 /// lockfile, naming it; [`ToolLockError::Read`] / [`ToolLockError::Malformed`] when the
 /// read lockfile cannot be read or parsed.
 pub fn read_lockfile(workspace: &Path) -> Result<Option<Lockfile>, ToolLockError> {
     // Absolute so a relative workspace still walks its real ancestors; not canonical, so
     // the importer path is the one the author's tree spells.
     let workspace = std::path::absolute(workspace).unwrap_or_else(|_| workspace.to_path_buf());
-    for dir in workspace.ancestors() {
-        if let Some(lockfile) = read_lockfile_in(dir, &workspace)? {
-            return Ok(Some(lockfile));
-        }
+    if let Some(lockfile) = read_lockfile_in(&workspace, &workspace)? {
+        return Ok(Some(lockfile));
+    }
+    for dir in workspace.ancestors().skip(1) {
+        let Some(globs) = workspace_globs(dir) else {
+            continue;
+        };
+        return if includes(&globs, &relative_path(dir, &workspace)) {
+            read_lockfile_in(dir, &workspace)
+        } else {
+            Ok(None)
+        };
     }
     Ok(None)
 }
 
-/// The lockfile in `dir` alone, for the program in `workspace` (`dir` or below it).
-fn read_lockfile_in(dir: &Path, workspace: &Path) -> Result<Option<Lockfile>, ToolLockError> {
-    let importer = workspace
+/// pnpm's workspace declaration, beside the root's lockfile.
+const PNPM_WORKSPACE: &str = "pnpm-workspace.yaml";
+
+/// The workspace globs `dir` declares, when it declares a workspace at all: pnpm's
+/// `pnpm-workspace.yaml` `packages` (absent, the root alone), then `package.json`'s
+/// `workspaces` array — the field npm reads, and pnpm does not. Both lists join: a
+/// directory declaring both is the root of either manager's workspace.
+///
+/// External facts: "A workspace must have a `pnpm-workspace.yaml` file in its root"; "If
+/// the `packages` field is omitted, only the root package is included"; pnpm "reads the
+/// workspace from `pnpm-workspace.yaml`, not from the `workspaces` field of the root
+/// `package.json`" — <https://pnpm.io/workspaces>, <https://pnpm.io/pnpm-workspace_yaml>
+/// (retrieved 2026-11-26). npm's `workspaces` is an array of folder paths or globs, and
+/// from a directory inside a workspace "`prefix` is set to the root workspace" —
+/// <https://docs.npmjs.com/cli/v10/using-npm/workspaces> (retrieved 2026-11-26).
+///
+/// A declaration that cannot be read or parsed declares nothing: an ancestor's broken
+/// manifest is no workspace of the program's, so it bounds nothing and refuses nothing.
+fn workspace_globs(dir: &Path) -> Option<Vec<String>> {
+    let mut globs = None::<Vec<String>>;
+    if let Ok(text) = std::fs::read_to_string(dir.join(PNPM_WORKSPACE)) {
+        let packages = match YAML::parse(&text) {
+            Pod::Hash(top) => match top.get("packages") {
+                Some(Pod::Array(items)) => items
+                    .iter()
+                    .filter_map(|item| match item {
+                        Pod::String(glob) => Some(glob.clone()),
+                        _ => None,
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            },
+            _ => Vec::new(),
+        };
+        globs = Some(packages);
+    }
+    let manifest = std::fs::read_to_string(dir.join("package.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<JsonValue>(&text).ok());
+    if let Some(JsonValue::Array(items)) = manifest.as_ref().and_then(|m| m.get("workspaces")) {
+        globs.get_or_insert_with(Vec::new).extend(
+            items
+                .iter()
+                .filter_map(JsonValue::as_str)
+                .map(str::to_string),
+        );
+    }
+    globs
+}
+
+/// Whether the workspace `globs` include the project at `path` (`/`-separated, relative to
+/// the root): a positive glob matches it and no `!`-negated one does.
+fn includes(globs: &[String], path: &str) -> bool {
+    let matches = |glob: &str| {
+        let glob = glob.trim_start_matches("./").trim_end_matches('/');
+        crate::glob::compile_glob(glob).is_some_and(|matcher| matcher.is_match(path))
+    };
+    let (negated, positive): (Vec<&String>, Vec<&String>) =
+        globs.iter().partition(|glob| glob.starts_with('!'));
+    positive.iter().any(|glob| matches(glob)) && !negated.iter().any(|glob| matches(&glob[1..]))
+}
+
+/// `workspace`'s path below `dir`, `/`-separated; empty when they are the same directory.
+fn relative_path(dir: &Path, workspace: &Path) -> String {
+    workspace
         .strip_prefix(dir)
         .unwrap_or(Path::new(""))
         .components()
         .map(|part| part.as_os_str().to_string_lossy())
         .collect::<Vec<_>>()
-        .join("/");
+        .join("/")
+}
+
+/// `path`'s text, a failure to read it the refusal naming it.
+fn read_text(path: &Path) -> Result<String, ToolLockError> {
+    std::fs::read_to_string(path).map_err(|source| ToolLockError::Read {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// The lockfile in `dir` alone, for the program in `workspace` (`dir` or below it).
+fn read_lockfile_in(dir: &Path, workspace: &Path) -> Result<Option<Lockfile>, ToolLockError> {
+    let importer = relative_path(dir, workspace);
     for name in READ_LOCKFILES {
         let path = dir.join(name);
         if !path.is_file() {
             continue;
         }
-        let text = std::fs::read_to_string(&path).map_err(|source| ToolLockError::Read {
-            path: path.clone(),
-            source,
-        })?;
+        let text = read_text(&path)?;
         let malformed = |reason: String| ToolLockError::Malformed {
             path: path.clone(),
             reason,

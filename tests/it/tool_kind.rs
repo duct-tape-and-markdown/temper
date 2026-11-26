@@ -352,6 +352,7 @@ fn a_workspace_root_lockfile_above_the_program_locks_a_package_bin_tool() {
 
     // npm's workspace lock: the project's own `node_modules` before the hoisted root.
     let (harness, into) = common::wire_sdk_harness("tool-root-npm-lock", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(&harness, "package.json", r#"{ "workspaces": [".temper"] }"#);
     common::write_sibling(
         &harness,
         "package-lock.json",
@@ -363,6 +364,62 @@ fn a_workspace_root_lockfile_above_the_program_locks_a_package_bin_tool() {
     );
     drift::emit_program(&into, EmitOptions::default()).unwrap();
     assert_locked_by(&harness, "package-lock.json");
+}
+
+#[test]
+fn a_lockfile_in_an_ancestor_outside_the_workspace_is_not_read() {
+    common::ensure_sdk_built();
+    let stray_npm = r#"{ "lockfileVersion": 3, "packages": {
+  "node_modules/typescript": { "version": "5.9.3" } } }
+"#;
+    let stray_pnpm = "lockfileVersion: '9.0'\n\nimporters:\n\n  .temper:\n    devDependencies:\n      typescript:\n        specifier: ^5.6.0\n        version: 5.9.3\n";
+    // No workspace above the program: a stray lock, a lock under a `package.json` with no
+    // `workspaces`, and another manager's lone lock are each some other project's.
+    let cases: [(&str, &[(&str, &str)]); 4] = [
+        ("tool-stray-npm-lock", &[("package-lock.json", stray_npm)]),
+        (
+            "tool-stray-manifest-lock",
+            &[
+                ("package.json", r#"{ "name": "home" }"#),
+                ("package-lock.json", stray_npm),
+            ],
+        ),
+        (
+            "tool-stray-yarn-lock",
+            &[("yarn.lock", "# yarn lockfile v1\n")],
+        ),
+        // A workspace that does not include the program bounds the walk too.
+        (
+            "tool-excluding-workspace-lock",
+            &[
+                (
+                    "pnpm-workspace.yaml",
+                    "packages:\n  - 'packages/*'\n  - '!.temper'\n",
+                ),
+                ("pnpm-lock.yaml", stray_pnpm),
+            ],
+        ),
+    ];
+    for (label, files) in cases {
+        let (harness, into) = common::wire_sdk_harness(label, PACKAGE_TOOL_PROGRAM);
+        for (name, body) in files {
+            common::write_sibling(&harness, name, body);
+        }
+        drift::emit_program(&into, EmitOptions::default())
+            .unwrap_or_else(|err| panic!("{label}: an unrelated lock refuses nothing: {err:?}"));
+        assert!(
+            tool_topic(&harness).contains("no lockfile records it"),
+            "{label}: the reference reads no lockfile"
+        );
+        let run = common::check_in(&harness, &["."], Some("github"));
+        let findings = run.findings();
+        let unlocked = common::findings_for(&findings, "tool.unlocked");
+        assert!(
+            unlocked.len() == 1 && unlocked[0].contains("carries no lockfile"),
+            "{label}: the ancestor's lock is never read: {}",
+            run.output
+        );
+    }
 }
 
 #[test]
