@@ -115,7 +115,7 @@ A question names a class of problem, never one instance. Before raising one,
 check whether a ruled class covers the case: a built-in reads as the
 runtime reads (0101); the most specific claim holds a document (0102); a
 finding is true for its reader (0103); one concept is one member kind (0078,
-0104). If a class covers it, the instance is an entry under that record. A
+0104). If a class covers it, the instance is an entry under that record, and the entry names the spec section its behavior belongs in. A ruled behavior lives in the spec, never only in a decision or an inbox record (0105), and the session lands that text. A
 question is for a case the classes leave open, or where two of them
 conflict.
 

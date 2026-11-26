@@ -14,9 +14,11 @@ of three loci:
   kind. A one-element set resolves a bare name within its one kind; a
   multi-element set requires the kind-qualified address always — resolution
   depends on the written text, never the member population,
-- an **import directive** — a reference the target format itself executes
-  (a memory file's `@path` import), resolved by path; a file an import
-  reaches carries the directives its format executes, whatever its kind,
+- an **import directive** — a reference the target format itself executes (a
+  memory file's `@path` import), resolved by path; a file an import reaches
+  carries the directives its format executes, whatever its kind; its path
+  follows the documented grammar, a backslash-escaped space part of the path
+  and trailing punctuation kept literal,
 - a **satisfies entry** — an edge whose target is a requirement member.
 
 A field-declared edge may also claim a **rendered position** in its member's

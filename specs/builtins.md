@@ -12,20 +12,23 @@ whose loader the documentation names owns the path and the other excludes
 it. A built-in reads its format as the runtime does: the documented behavior
 binds, a cited lab observation binds where the docs are silent, and
 otherwise the literal bytes bind, with the uncertainty named in guidance. A
-document the runtime loads is never a load fault; one it skips is. A
-relocated built-in keeps each exclusion its new template still reaches,
-since moving one loader's reach moves no other's. Where claims overlap, the
-most specific documented claim holds the document, for built-in and custom
-kinds alike: a subkind over its base, and a host's template over an
-any-depth reach (a `CLAUDE.md` inside any skill's directory is the skill's,
-not memory's). The lock records the resolution, and every verb reads it
-there. An author may add exclusions to a built-in through its relocation.
-That is how a collision with a built-in is answered, and how a fixture tree
-holding harness files is left ungoverned. Kind identity travels by import,
-never by string, and no name-qualification scheme exists: one harness holds
-one kind per name, and two kinds of one name in play are refused. The
-exception is an extension under the built-in's own name, a relocation, which
-replaces the built-in there.
+document the runtime loads is never a load fault; one it skips is. A skill,
+command or output style whose frontmatter does not parse loads with no
+fields set, as the docs say, and draws one finding naming the non-portable
+bytes and the fields read as unset; an agent that does not parse is skipped,
+so it is a load fault. A relocated built-in keeps each exclusion its new
+template still reaches, since moving one loader's reach moves no other's.
+Where claims overlap, the most specific documented claim holds the document,
+for built-in and custom kinds alike: a subkind over its base, and a host's
+template over an any-depth reach (a `CLAUDE.md` inside any skill's directory
+is the skill's, not memory's). The lock records the resolution, and every
+verb reads it there. An author may add exclusions to a built-in through its
+relocation. That is how a collision with a built-in is answered, and how a
+fixture tree holding harness files is left ungoverned. Kind identity travels
+by import, never by string, and no name-qualification scheme exists: one
+harness holds one kind per name, and two kinds of one name in play are
+refused. The exception is an extension under the built-in's own name, a
+relocation, which replaces the built-in there.
 
 ## The shipped kinds
 
@@ -51,7 +54,10 @@ temper's own `dial`. The file members:
   the host, whose template then names a subkind (`model/representation.md`,
   "kind"). The template claims the directory's markdown documents — the
   honest subset the prose-only kind can hold; supporting files of other
-  types remain unmodeled and are named as such.
+  types remain unmodeled and are named as such. A supporting doc no typed
+  reference reaches is the finding, since a prose link breaks silently; on
+  an unrepresented harness, where no edge can be declared, that collapses to
+  one coverage line.
 - **command** — the skill surface's legacy file placement (Claude Code
   merged commands into skills; code.claude.com/docs/en/skills, retrieved
   2026-07-07): a lone markdown file, the skill's field schema by import,
@@ -69,13 +75,21 @@ temper's own `dial`. The file members:
   (code.claude.com/docs/en/sub-agents, retrieved 2026-07-07). It claims
   `.claude/agents/**/*.md`: "Claude Code scans `.claude/agents/` …
   recursively, so you can organize definitions into subfolders"
-  (code.claude.com/docs/en/sub-agents, retrieved 2026-11-25).
+  (code.claude.com/docs/en/sub-agents, retrieved 2026-11-25). A `name` with
+  a `:` anywhere or a leading `-` is refused, because Claude Code skips that
+  file (code.claude.com/docs/en/sub-agents, retrieved 2026-11-25).
 - **output-style** — a markdown file under `.claude/output-styles/`, its
   frontmatter optional (`name`, `description`, `keep-coding-instructions`,
   `force-for-plugin`) and its body the instructions; identity from `name`,
   else the file stem. Settings select it by exact name with `outputStyle`,
   an edge from both `settings` and `settings-local`
-  (code.claude.com/docs/en/output-styles, retrieved 2026-11-25).
+  (code.claude.com/docs/en/output-styles, retrieved 2026-11-25). It loads
+  from every `.claude/output-styles/` between the working directory and the
+  repository root. A nested style's name is prefixed with its subdirectory's
+  segments, so a root and a nested style that share a frontmatter `name` are
+  two members, and the nested one draws an advisory that it shadows the root
+  style in sessions started at or below its directory. A settings file's
+  `outputStyle` resolves against the styles at that file's own level.
 - **rule** — a lone markdown file with an optional path scope; a rule with no
   scope registers unconditionally.
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
@@ -146,7 +160,8 @@ collection address, never files of their own (`model/representation.md`,
   retrieved 2026-09-29). Like `supporting-doc`, `handler` ships without
   joining this enumeration.
 - **mcp-server** — one connection under `.mcp.json`'s `mcpServers`; its
-  channel is the connection.
+  channel is the connection. An entry with no `type` reads as `stdio`, as
+  Claude Code reads it, so a `url`-only entry owes the stdio `command`.
 - **installed-plugin** — one enablement entry under `settings.json`'s
   `enabledPlugins`; its channel is the enablement entry itself. The members
   a plugin contributes live in the plugin cache, outside the corpus; their

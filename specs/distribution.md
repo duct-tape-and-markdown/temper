@@ -37,7 +37,8 @@ program, riding the lock or embedded in the engine — none can drift.
    mechanics plus a **representation of that harness** (its requirements and
    their intent, their owners, each relationship's intent, each kind's
    counsel), and its description names the contracted domains. The bundle
-   embeds the same value. The harness's reference is a projection of the
+   embeds the same value, less the managed note, since a plugin install has
+   no program to re-emit. The harness's reference is a projection of the
    harness: committed, reviewed in the diff that changes a contract, and
    held true by drift.
 
