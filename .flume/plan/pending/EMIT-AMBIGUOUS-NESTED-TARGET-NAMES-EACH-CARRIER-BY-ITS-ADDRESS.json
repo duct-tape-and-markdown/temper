@@ -1,15 +1,28 @@
 {
   "tag": "EMIT-AMBIGUOUS-NESTED-TARGET-NAMES-EACH-CARRIER-BY-ITS-ADDRESS",
-  "gate": { "kind": "open" },
-  "summary": "resolvedTargetFacts' ambiguity refusal hand-spells each carrier as hostAddress(kind, name), so carriers under nested hosts print indistinguishably; spell them through memberAddress",
-  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
-      { "path": "sdk/src/emit.ts", "description": "resolvedTargetFacts (~480): each carrier named by memberAddress, as the single-carrier branch below already does" },
-      { "path": "sdk/test/emit.test.ts", "description": "an ambiguous bare key under two nested hosts names both full addresses" }
+      {
+        "path": "sdk/src/emit.ts",
+        "description": "resolvedTargetFacts (~480): each carrier named by memberAddress, as the single-carrier branch below already does"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "description": "an ambiguous bare key under two nested hosts names both full addresses"
+      }
     ],
     "retire": []
+  },
+  "summary": "resolvedTargetFacts' ambiguity refusal hand-spells each carrier as hostAddress(kind, name), so carriers under nested hosts print indistinguishably; spell them through memberAddress",
+  "per": {
+    "path": "specs/process/engineering.md",
+    "section": "One job, one home"
   },
   "acceptance": "the refusal lists each carrier's full member address, so two nested hosts sharing a kind and key print distinctly",
   "tests": [
@@ -17,5 +30,9 @@
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "Scenario: area:a/page/intro and area:b/page/intro both carry decision:x; a bare decision:x edge refuses listing `page:intro`, `page:intro`."
+  "notes": "Scenario: area:a/page/intro and area:b/page/intro both carry decision:x; a bare decision:x edge refuses listing `page:intro`, `page:intro`.",
+  "observedFiles": [
+    "sdk/src/emit.ts",
+    "sdk/test/emit.test.ts"
+  ]
 }
