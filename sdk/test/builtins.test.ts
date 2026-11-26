@@ -1387,11 +1387,11 @@ interface RoutingRule extends Rule {
 
 /** The relocated `rule` the cases below emit. */
 const routingRule = relocate<RoutingRule>(rule, {
-  edgeFields: [{ field: "routes_to", to: ["skill"] }],
+  edgeFields: [{ field: "routes_to", to: [skill] }],
 });
 
 test("a relocated built-in carries the added edge field on its facts, marked as a relocation", () => {
-  assert.deepEqual(routingRule.facts.edgeFields, [{ field: "routes_to", to: ["skill"] }]);
+  assert.deepEqual(routingRule.facts.edgeFields, [{ field: "routes_to", to: [skill] }]);
   // The marker is the authoring layer's provenance fact: same name as the built-in,
   // so a later kinds-in-play check reads a sanctioned relocation, not a collision.
   assert.equal(routingRule.facts.relocates, "rule");
@@ -1434,7 +1434,7 @@ test("relocating a kind refuses an edge field the base already declares", () => 
   assert.throws(
     () =>
       relocate<{ readonly marketplace?: string }>(installedPlugin, {
-        edgeFields: [{ field: "marketplace", to: ["rule"] }],
+        edgeFields: [{ field: "marketplace", to: [rule] }],
       }),
     /already declared/,
   );
@@ -1445,8 +1445,8 @@ test("relocating a kind refuses one delta declaring the same edge field twice", 
     () =>
       relocate<RoutingRule>(rule, {
         edgeFields: [
-          { field: "routes_to", to: ["skill"] },
-          { field: "routes_to", to: ["rule"] },
+          { field: "routes_to", to: [skill] },
+          { field: "routes_to", to: [rule] },
         ],
       }),
     /already declared/,
@@ -1518,7 +1518,7 @@ test("relocating a kind refuses a delta declaring neither diverging fact", () =>
 test("a locus delta and an edge-field delta compose in one relocation", () => {
   const routingDecision = relocate<RoutingRule>(rule, {
     governs: { root: "decisions", glob: "*.md" },
-    edgeFields: [{ field: "routes_to", to: ["skill"] }],
+    edgeFields: [{ field: "routes_to", to: [skill] }],
   });
   const result = emit(
     harness({

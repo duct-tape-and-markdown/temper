@@ -245,7 +245,7 @@ test("a resolved edge target carries both host-relative and repo-rooted path fac
       name: "link",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "target", to: ["rule"] }],
+      edgeFields: [{ field: "target", to: [rule] }],
     },
     {
       render: (value) => {

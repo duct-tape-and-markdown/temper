@@ -275,7 +275,7 @@ function citationKind(render?: (value: ResolvedEmbeddedMemberValue) => string) {
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["rule"] }],
+      edgeFields: [{ field: "source", to: [rule] }],
     },
     render === undefined ? {} : { render },
   );
@@ -349,7 +349,7 @@ test("a bare edge target in a multi element set still refuses at emit", () => {
     name: "citation",
     locus: { kind: "embedded" },
     unitShape: "file",
-    edgeFields: [{ field: "source", to: ["rule", "skill"] }],
+    edgeFields: [{ field: "source", to: [rule, skill] }],
   });
   const h = harness({
     members: [
@@ -430,7 +430,7 @@ test("emit refuses a bare nested key several hosts carry — an ambiguous addres
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["decision"] }],
+      edgeFields: [{ field: "source", to: [decisionKind()] }],
     },
     { render: (value) => `See \`${value.targets.source.address}\`.` },
   );

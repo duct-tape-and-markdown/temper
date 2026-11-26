@@ -948,7 +948,7 @@ function homeCitationKind() {
       name: "home-citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "home", to: ["supporting-doc"] }],
+      edgeFields: [{ field: "home", to: [builtinSupportingDoc] }],
     },
     { render: (value) => `See [${value.targets.home.name}](${value.targets.home.path}) at \`${value.targets.home.address}\`.` },
   );
@@ -1591,7 +1591,7 @@ function citationKind() {
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["rule"] }],
+      edgeFields: [{ field: "source", to: [rule] }],
     },
     {
       render: (value) => {
@@ -1648,7 +1648,7 @@ test("a nested skill's `:`-joined name places back under its subdirectory's skil
       name: "skill-citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["skill"] }],
+      edgeFields: [{ field: "source", to: [skill] }],
     },
     { render: (value) => `See [${value.targets.source.name}](${value.targets.source.path}).` },
   );
@@ -1680,7 +1680,7 @@ test("a nested command's `:`-joined name places back at its path under commands/
       name: "command-citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["command"] }],
+      edgeFields: [{ field: "source", to: [command] }],
     },
     { render: (value) => `See [${value.targets.source.name}](${value.targets.source.path}).` },
   );
@@ -1743,7 +1743,7 @@ test("a multi-element `to` set still demands the kind-qualified address — a ba
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["rule", "skill"] }],
+      edgeFields: [{ field: "source", to: [rule, skill] }],
     },
     { render: (value) => `See \`${value.targets.source.address}\`.` },
   );
@@ -1780,7 +1780,7 @@ function nestedCitationKind() {
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["invariant"] }],
+      edgeFields: [{ field: "source", to: [invariantKind()] }],
     },
     {
       render: (value) => {
@@ -1919,7 +1919,7 @@ function citationHarness(
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["rule"] }],
+      edgeFields: [{ field: "source", to: [rule] }],
     },
     { render },
   );
@@ -2047,7 +2047,7 @@ test("each composed value's placement and extent land on its own row, routed by 
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["rule"] }],
+      edgeFields: [{ field: "source", to: [rule] }],
     },
     // Spells the edge only where the value asks for it, and otherwise projects the value's
     // own key: sibling rows then differ in both placement and span, so a swap is visible.
@@ -2970,7 +2970,7 @@ test("a guidance rule carries the requirements and edge intent at both endpoint 
     format: "yaml-frontmatter",
     unitShape: "file",
     registration: [{ via: "always" }],
-    edgeFields: [{ field: "owner", to: ["skill"] }],
+    edgeFields: [{ field: "owner", to: [skill] }],
     fieldGuidance: { owner: "The skill that keeps this standard current." },
   });
   const result = emit(

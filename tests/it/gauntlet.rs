@@ -102,7 +102,7 @@ const citation = kind(
     name: "citation",
     locus: { kind: "embedded" },
     unitShape: "file",
-    edgeFields: [{ field: "source", to: ["rule"] }],
+    edgeFields: [{ field: "source", to: [rule] }],
   },
   {
     render: (value) => `See [${value.targets.source.name}](${value.targets.source.path}).`,

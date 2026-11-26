@@ -164,7 +164,7 @@ function citationKind() {
       name: "citation",
       locus: { kind: "embedded" },
       unitShape: "file",
-      edgeFields: [{ field: "source", to: ["decision"] }],
+      edgeFields: [{ field: "source", to: [decisionKind()] }],
     },
     { render: (value) => `See \`${value.targets.source.address}\`.` },
   );

@@ -22,6 +22,7 @@ import {
   fresh,
   locusDeclared,
   harness,
+  kind,
   membership,
   mentionReachable,
   mustDefine,
@@ -42,7 +43,7 @@ import {
   unique,
   when,
 } from "../src/index.js";
-import type { Predicate, Requirement, RequirementFields } from "../src/index.js";
+import type { EdgeField, KindDefinition, Predicate, Requirement, RequirementFields } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
 import type { ClauseRow, RequirementRow } from "../src/declarations.js";
 import { hook, rule, skill, tool } from "../src/claude-code.js";
@@ -358,8 +359,7 @@ test("extent composes a render-side budget landing its unit and bound columns", 
 
 // `Requirement.kind` carries only the kind's identity for coverage resolution,
 // never its field type — so a kind whose fields carry required members (skill,
-// hook) assigns, where the former `KindDefinition<never>` rejected it. A bare
-// kind-name string resolves to itself.
+// hook) assigns, where the former `KindDefinition<never>` rejected it.
 function requirementRow(kind: Requirement["kind"]): RequirementRow {
   const h = harness({
     members: [skill({ name: "gate", description: "Use when gating the run.", prose: text`# Gate` })],
@@ -374,8 +374,57 @@ test("a requirement keyed to a required-member kind type-checks and emits its id
   assert.equal(requirementRow(skill).kind, "skill");
 });
 
-test("a requirement keyed to a bare kind-name string emits it verbatim", () => {
-  assert.equal(requirementRow("skill").kind, "skill");
+// A kind's identity travels by import: an edge's `to` set and a requirement's `kind`
+// take kind values, so a name string — misspelled or not — is a compile error, and the
+// lock still records each target by name.
+test("an edge's targets and a requirement's kind are kind values, recorded by name", () => {
+  // @ts-expect-error — a kind-name string is not a kind value, so a misspelling cannot type-check.
+  const misspelledEdge: EdgeField = { field: "owner", to: ["skil"] };
+  // @ts-expect-error — the same holds for a requirement's kind.
+  const misspelledRequirement: Requirement = { prose: "the harness ships a skill", kind: "skil" };
+  void misspelledEdge;
+  void misspelledRequirement;
+
+  const standard = kind<{ readonly owner?: string }>({
+    name: "standard",
+    locus: { kind: "at", root: "standards", glob: "*.md" },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    edgeFields: [{ field: "owner", to: [skill] }],
+  });
+  const h = harness({
+    members: [
+      skill({ name: "gate", description: "Use when gating the run.", prose: text`# Gate` }),
+      standard({ name: "s", owner: "gate", prose: text`# S` }),
+    ],
+  });
+  const edges = compileDeclarations(h).assembly.filter((row) => row.fact === "edge");
+  assert.deepEqual(edges, [{ fact: "edge", from: "standard", field: "owner", to: ["skill"] }]);
+});
+
+test("a self-edge names its own kind through a getter, read once the kind exists", () => {
+  interface Linked {
+    readonly next?: string;
+  }
+  const linked: KindDefinition<Linked> = kind<Linked>({
+    name: "linked",
+    locus: { kind: "at", root: "docs", glob: "*.md" },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    edgeFields: [
+      {
+        field: "next",
+        get to() {
+          return [linked] as const;
+        },
+      },
+    ],
+  });
+  const h = harness({ members: [linked({ name: "a", prose: text`# A` }), linked({ name: "b", next: "a", prose: text`# B` })] });
+  const edges = compileDeclarations(h).assembly.filter((row) => row.fact === "edge");
+  assert.deepEqual(edges, [{ fact: "edge", from: "linked", field: "next", to: ["linked"] }]);
 });
 
 /**

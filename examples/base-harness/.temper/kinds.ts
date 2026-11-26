@@ -152,7 +152,7 @@ export const supersededDecision: KindDefinition<SupersededDecision> = kind<Super
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "always" }],
-  edgeFields: [{ field: "superseded-by", to: ["decision"] }],
+  edgeFields: [{ field: "superseded-by", to: [decision] }],
 });
 
 /**

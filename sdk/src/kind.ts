@@ -91,9 +91,11 @@ export interface EdgeField {
    * set demands the kind-qualified `kind:name` address always, since resolution
    * reads the written text and never infers from the member population. The
    * non-emptiness is the type's to hold — an edge declaring no target kind can
-   * never resolve.
+   * never resolve. Each target is a kind value, since a kind's identity travels by
+   * import, never by string: a misspelled target is a compile error, not a dangling
+   * name. The lock still records each target's name ({@link edgeTargetNames}).
    */
-  readonly to: readonly [string, ...string[]];
+  readonly to: readonly [KindDefinition<any>, ...KindDefinition<any>[]];
   /**
    * The names the **runtime itself** answers at the far end, with no member behind
    * them — a settings `outputStyle` naming one of Claude Code's built-in styles. A value
@@ -102,6 +104,11 @@ export interface EdgeField {
    * still takes the resolution. Omitted when the runtime supplies none, the common case.
    */
   readonly provided?: readonly string[];
+}
+
+/** The kind names an edge's `to` set lists, in declared order — the names the lock records. */
+export function edgeTargetNames(edge: Pick<EdgeField, "to">): string[] {
+  return edge.to.map((target) => target.key);
 }
 
 /**
@@ -896,7 +903,7 @@ export interface KindRelocation<T extends object> {
   /** The edge fields this relocation adds, each over a field of the kind's own surface. */
   readonly edgeFields?: readonly {
     readonly field: keyof T & string;
-    readonly to: readonly [string, ...string[]];
+    readonly to: EdgeField["to"];
   }[];
   /**
    * The locus this relocation moves the kind's members to — root and glob, the two
@@ -1273,7 +1280,7 @@ export function extend<B extends object, T extends B>(
       );
     }
     claimed.add(edge.field);
-    added.push({ field: edge.field, to: edge.to });
+    added.push(edge);
   }
   const edgeFields = [...inherited, ...added];
   // The base's counsel is dropped, not inherited: the relocation's own, where declared,

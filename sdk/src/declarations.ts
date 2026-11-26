@@ -14,7 +14,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
 import type { EdgeField, EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
-import { collectionAddressOf, manifestOf, registrationOf } from "./kind.js";
+import { collectionAddressOf, edgeTargetNames, manifestOf, registrationOf } from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
@@ -702,14 +702,14 @@ export function kindEdges(
   const of = (source: KindFacts, edge: EdgeField): EdgeIntent => ({
     from: source.name,
     field: edge.field,
-    to: edge.to,
+    to: edgeTargetNames(edge),
     intent: fieldCounsel(source, edge.field),
     shipped: SHIPPED_KINDS.has(source),
   });
   return {
     outbound: (facts.edgeFields ?? []).map((edge) => of(facts, edge)),
     inbound: kinds.flatMap((source) =>
-      (source.edgeFields ?? []).filter((edge) => edge.to.includes(facts.name)).map((edge) => of(source, edge)),
+      (source.edgeFields ?? []).filter((edge) => edgeTargetNames(edge).includes(facts.name)).map((edge) => of(source, edge)),
     ),
   };
 }
@@ -753,7 +753,7 @@ export function contractedRequirements(harness: Harness): ContractedRequirement[
     .sort(([a], [b]) => compareStrings(a, b))
     .map(([name, requirement]) => ({
       name,
-      kind: typeof requirement.kind === "string" ? requirement.kind : requirement.kind?.key,
+      kind: requirement.kind?.key,
       prose: requirement.prose,
       verifier: requirement.verifier,
       satisfiers: (satisfiers.get(name) ?? []).sort((a, b) => compareStrings(a.address, b.address)),
@@ -919,7 +919,7 @@ function requirementRows(harness: Harness): RequirementRow[] {
     .sort(([a], [b]) => compareStrings(a, b))
     .map(([name, requirement]) => ({
       name,
-      kind: typeof requirement.kind === "string" ? requirement.kind : requirement.kind?.key,
+      kind: requirement.kind?.key,
       required: requirement.required ?? true,
       clauses: (requirement.clauses ?? []).map((clause) => clauseRow(clause)),
       verifier: verifierRow(requirement.verifier),
@@ -976,7 +976,7 @@ function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
         fact: "edge",
         from: kind.name,
         field: edge.field,
-        to: [...edge.to],
+        to: edgeTargetNames(edge),
         ...(edge.provided !== undefined ? { provided: [...edge.provided] } : {}),
       });
  }

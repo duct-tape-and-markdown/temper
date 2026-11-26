@@ -21,6 +21,7 @@ import type {
   Member,
   ResolvedEmbeddedMemberValue,
 } from "./kind.js";
+import { edgeTargetNames } from "./kind.js";
 import type { Mentionable, MentionScope, Text } from "./prose.js";
 import { checkMentions, defersToGate, isTextSpan, renderText, resolveEmbeddedLeaves } from "./prose.js";
 import { permissionUnion } from "./needs.js";
@@ -382,7 +383,7 @@ function edgeTargetFacts(
   for (const edge of value.edgeFields ?? []) {
     const address = leaves[edge.field];
     if (address === undefined || address === "") continue;
-    const lookup = edgeLookupKey(address, edge.to);
+    const lookup = edgeLookupKey(address, edgeTargetNames(edge));
     const target = options.members?.get(lookup);
     const reference = `${context}: edge field \`${edge.field}\` names \`${address}\``;
     if (target === undefined) {

@@ -776,7 +776,7 @@ import_hash = "f7f7534a42bed65f3b0fb48a3fc73b49d69b10ad579c68cfb235d56285814d49"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/kinds.ts"
-import_hash = "7bcf12ac70cffbf4a2d1ee715f15c96b29dc73e5da615d299a71b879828b1fe7"
+import_hash = "640c4356efd8313110c2f869ff6758892a82819ea4a5aaf3a1de8a9dfe9b9124"
 
 [[declaration.module]]
 member = "root"

@@ -433,7 +433,7 @@ const BUILTIN_OUTPUT_STYLES: readonly string[] = ["default", "Proactive", "Conci
  */
 const OUTPUT_STYLE_EDGE: EdgeField = {
   field: "outputStyle",
-  to: ["output-style"],
+  to: [outputStyle],
   provided: BUILTIN_OUTPUT_STYLES,
 };
 
@@ -581,25 +581,6 @@ export interface Handler {
 export const RUNS_FIELD = "runs";
 
 /**
- * `handler` — one entry in a hook's `hooks` array, at the **embedded** locus: it owns no
- * file and no glob, living inside its host matcher group and keyed by its position there
- * (`…/handler/0`). Fields-only (no body slot) and channel-less: a handler reaches the
- * world only through the hook whose event fires it. Matching handlers run in parallel, so
- * the position is an address and carries no runtime meaning.
- *
- * The kind's own format fact — that a matcher group carries its handlers in a `hooks`
- * array, keyed by position — is cited here, the point of claim.
- */
-export const handler: KindDefinition<Handler> = kind<Handler>({
-  name: "handler",
-  locus: { kind: "embedded" },
-  unitShape: "file",
-  shape: "fields",
-  cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)",
-  edgeFields: [{ field: RUNS_FIELD, to: ["tool"] }],
-});
-
-/**
  * A tool — the one home of a command the harness runs: a package's bin, a committed file,
  * or a system tool. Exactly one variant; its runners point at the member by edge.
  */
@@ -632,6 +613,25 @@ const toolKind: KindDefinition<ToolFields> = kind<ToolFields>({
   unitShape: "file",
   shape: "fields",
   leaves: { package: true, bin: true, file: true, system: true },
+});
+
+/**
+ * `handler` — one entry in a hook's `hooks` array, at the **embedded** locus: it owns no
+ * file and no glob, living inside its host matcher group and keyed by its position there
+ * (`…/handler/0`). Fields-only (no body slot) and channel-less: a handler reaches the
+ * world only through the hook whose event fires it. Matching handlers run in parallel, so
+ * the position is an address and carries no runtime meaning.
+ *
+ * The kind's own format fact — that a matcher group carries its handlers in a `hooks`
+ * array, keyed by position — is cited here, the point of claim.
+ */
+export const handler: KindDefinition<Handler> = kind<Handler>({
+  name: "handler",
+  locus: { kind: "embedded" },
+  unitShape: "file",
+  shape: "fields",
+  cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)",
+  edgeFields: [{ field: RUNS_FIELD, to: [toolKind] }],
 });
 
 /**
@@ -676,8 +676,8 @@ function toolMember(init: ToolInit = TEMPER_TOOL): Member {
  * member's own `prose`, a `text` span carried verbatim and never interpreted.
  */
 export interface RequirementFields {
-  /** What may fill it — a kind's name or its value; absent, any kind's member may. */
-  readonly kind?: string | KindDefinition<any>;
+  /** What may fill it — the kind's value; absent, any kind's member may. */
+  readonly kind?: KindDefinition<any>;
   /** Whether it must be filled; absent inherits the shipped fill default (at least one satisfier, at error). */
   readonly required?: boolean;
   /** Clauses over its opt-in selection — the members whose `satisfies` names it. */
@@ -1147,50 +1147,6 @@ export interface InstalledPlugin {
 }
 
 /**
- * `installedPlugin` — a `settings.json` `enabledPlugins` registration member: a
- * fields-only kind (no body slot), its members discovered off the `.claude/settings.json`
- * manifest at the `enabledPlugins.*` collection address, keyed by plugin identity;
- * registers on the `enablement` channel — the entry's own presence is the registration
- * (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16). The third manifest
- * kind temper ships, and the first whose entries are scalars.
- */
-export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPlugin>({
-  name: "installed-plugin",
-  locus: { kind: "at", root: ".claude", glob: SETTINGS_MANIFEST },
-  unitShape: "file",
-  registration: [{ via: "enablement", field: "enabled" }],
-  shape: "fields",
-  collectionAddress: { keyPath: "enabledPlugins.*", entryShape: "scalar(enabled)" },
-  // The marketplace half of the `<plugin>@<marketplace>` key is a declared edge to the
-  // `known-marketplace` member it names (decision 0039). The half is not an authored field
-  // — the engine splits it off the composite key at read (`src/kind.rs`, the read-time fold
-  // that surfaces it under `marketplace`) — so the edge resolves on the reference graph like
-  // any other, and an enablement naming a marketplace no registration declares dangles.
-  edgeFields: [{ field: "marketplace", to: ["known-marketplace"] }],
-});
-
-/**
- * The default contract for `installed-plugin` — **deliberately empty**. The format
- * documents almost no contract, so it earns an almost-empty default: the honest encoding,
- * not a gap.
- *
- * A charset clause on the `<plugin>@<marketplace>` key has nothing decidable to range
- * over: the key is the member's identity, and the two sources that describe it do not
- * settle a charset — the plugins-reference documents the identity as
- * `formatter@my-marketplace` and schemastore's `claude-code-settings.json` constrains its
- * `enabledPlugins` keys with no `propertyNames` pattern at all (both retrieved
- * 2026-07-16), so a clause against either spelling would forge findings on valid harnesses.
- * The marketplace half of the key is not un-typed, though: it is a declared edge to the
- * `known-marketplace` member it names, resolved on the reference graph rather than by a
- * contract clause — an enablement naming a marketplace no registration declares is a
- * dangling-edge finding, never a convention (decision 0039).
- *
- * `enabled` needs no `required` clause: the type already holds it, and a member that
- * omits it projects the `true` Claude Code itself writes.
- */
-export const installedPluginDefaultContract: readonly Clause[] = [];
-
-/**
  * A Claude Code known marketplace — the consumer half of the plugin-distribution graph, a
  * fields-only registration member surfacing inside `.claude/settings.json` under
  * `extraKnownMarketplaces`, keyed by the marketplace name a user has registered. Distinct
@@ -1248,6 +1204,51 @@ export const knownMarketplace: KindDefinition<KnownMarketplace> = kind<KnownMark
  * contract, not a forged clause — the `installedPluginDefaultContract` precedent.
  */
 export const knownMarketplaceDefaultContract: readonly Clause[] = [];
+
+/**
+ * `installedPlugin` — a `settings.json` `enabledPlugins` registration member: a
+ * fields-only kind (no body slot), its members discovered off the `.claude/settings.json`
+ * manifest at the `enabledPlugins.*` collection address, keyed by plugin identity;
+ * registers on the `enablement` channel — the entry's own presence is the registration
+ * (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16). The third manifest
+ * kind temper ships, and the first whose entries are scalars.
+ */
+export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPlugin>({
+  name: "installed-plugin",
+  locus: { kind: "at", root: ".claude", glob: SETTINGS_MANIFEST },
+  unitShape: "file",
+  registration: [{ via: "enablement", field: "enabled" }],
+  shape: "fields",
+  collectionAddress: { keyPath: "enabledPlugins.*", entryShape: "scalar(enabled)" },
+  // The marketplace half of the `<plugin>@<marketplace>` key is a declared edge to the
+  // `known-marketplace` member it names (decision 0039). The half is not an authored field
+  // — the engine splits it off the composite key at read (`src/kind.rs`, the read-time fold
+  // that surfaces it under `marketplace`) — so the edge resolves on the reference graph like
+  // any other, and an enablement naming a marketplace no registration declares dangles.
+  edgeFields: [{ field: "marketplace", to: [knownMarketplace] }],
+});
+
+/**
+ * The default contract for `installed-plugin` — **deliberately empty**. The format
+ * documents almost no contract, so it earns an almost-empty default: the honest encoding,
+ * not a gap.
+ *
+ * A charset clause on the `<plugin>@<marketplace>` key has nothing decidable to range
+ * over: the key is the member's identity, and the two sources that describe it do not
+ * settle a charset — the plugins-reference documents the identity as
+ * `formatter@my-marketplace` and schemastore's `claude-code-settings.json` constrains its
+ * `enabledPlugins` keys with no `propertyNames` pattern at all (both retrieved
+ * 2026-07-16), so a clause against either spelling would forge findings on valid harnesses.
+ * The marketplace half of the key is not un-typed, though: it is a declared edge to the
+ * `known-marketplace` member it names, resolved on the reference graph rather than by a
+ * contract clause — an enablement naming a marketplace no registration declares is a
+ * dangling-edge finding, never a convention (decision 0039).
+ *
+ * `enabled` needs no `required` clause: the type already holds it, and a member that
+ * omits it projects the `true` Claude Code itself writes.
+ */
+export const installedPluginDefaultContract: readonly Clause[] = [];
+
 
 /**
  * A Claude Code plugin manifest — `.claude-plugin/plugin.json`, the pack's identity and
@@ -2057,7 +2058,7 @@ export const settings: KindDefinition<Settings> = kind<Settings>({
   unitShape: "file",
   registration: [],
   // The tool its `statusLine` command runs: carried on the lock, never in the file.
-  edgeFields: [{ field: RUNS_FIELD, to: ["tool"] }, OUTPUT_STYLE_EDGE],
+  edgeFields: [{ field: RUNS_FIELD, to: [tool] }, OUTPUT_STYLE_EDGE],
 });
 
 /**

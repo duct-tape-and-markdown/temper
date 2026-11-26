@@ -530,9 +530,9 @@ export function review(prose: string): Verifier {
 /**
  * A requirement — a named obligation on the harness. `prose` is the authored
  * intent, carried never interpreted; `kind` constrains what may fill it —
- * either a bare kind-name string or the kind's `KindDefinition`, since the slot
- * carries only the kind's *identity* for coverage resolution, never its field
- * type: a kind whose fields carry required members (skill, hook) assigns here,
+ * the kind's `KindDefinition`, since a kind's identity travels by import, never by
+ * string, and the slot carries only that identity for coverage resolution, never its
+ * field type: a kind whose fields carry required members (skill, hook) assigns here,
  * where `KindDefinition<never>` would have rejected it. `required` is the
  * posture declaration; `clauses` bind to the requirement's **opt-in selection** —
  * ordinary [`Clause`] values, the same four-channel clause as everywhere, judged
@@ -541,7 +541,7 @@ export function review(prose: string): Verifier {
  */
 export interface Requirement {
   readonly prose: string;
-  readonly kind?: string | KindDefinition<any>;
+  readonly kind?: KindDefinition<any>;
   /**
    * Whether the requirement must be filled. Unset inherits the corpus's shipped
    * default — at least one satisfier, at error severity — so an unfilled

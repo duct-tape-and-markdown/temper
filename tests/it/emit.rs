@@ -3389,17 +3389,23 @@ fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
 /// (`specs/model/contract.md`, "selection"). Both bounds hold of the members below,
 /// so the only thing that can refuse this program is its own addressing.
 const FILTERED_DEGREE_PROGRAM: &str = r#"
-import { clause, degree, emit, harness, kind, text } from "@dtmd/temper";
+import { clause, degree, emit, harness, kind, text, type KindDefinition } from "@dtmd/temper";
 
-const service = kind({
+interface Service {
+  readonly "depends-on"?: readonly string[];
+  readonly "reads-from"?: readonly string[];
+}
+
+// A self-edge names its own kind through a getter: `to` is read after `service` exists.
+const service: KindDefinition<Service> = kind<Service>({
   name: "service",
   locus: { kind: "at", root: "docs/services", glob: "*.md" },
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "always" }],
   edgeFields: [
-    { field: "depends-on", to: ["service"] },
-    { field: "reads-from", to: ["service"] },
+    { field: "depends-on", get to() { return [service] as const; } },
+    { field: "reads-from", get to() { return [service] as const; } },
   ],
 });
 
@@ -3776,7 +3782,7 @@ const citation = kind({
   name: "citation",
   locus: { kind: "embedded" },
   unitShape: "file",
-  edgeFields: [{ field: "source", to: ["rule"] }],
+  edgeFields: [{ field: "source", to: [rule] }],
 });
 
 const program = harness({
@@ -3823,7 +3829,11 @@ fn a_bare_edge_target_in_a_multi_element_set_still_refuses_at_emit() {
     // A multi-element set requires the kind-qualified address: a bare name names no
     // kind, so nothing on disk could resolve it and emit refuses rather than defer.
     let program = DANGLING_EDGE_SPELLINGS_PROGRAM
-        .replace(r#"to: ["rule"]"#, r#"to: ["rule", "skill"]"#)
+        .replace(r#"to: [rule]"#, r#"to: [rule, skill]"#)
+        .replace(
+            r#"import { memory, rule } from"#,
+            r#"import { memory, rule, skill } from"#,
+        )
         .replace(
             r#"embeddedMemberValue({ kind: citation, key: "qualified", leaves: { source: "rule:phantom" } }),"#,
             "",

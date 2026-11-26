@@ -170,7 +170,7 @@ test("declared reference renders one kind topic per kind: counsel, locus, fields
     format: "yaml-frontmatter",
     unitShape: "file",
     registration: [{ via: "always" }],
-    edgeFields: [{ field: "owner", to: ["skill"] }],
+    edgeFields: [{ field: "owner", to: [skill] }],
     guidance: "A standard states one rule an agent can follow.",
     fieldGuidance: {
       title: "Name the rule, not the topic.",
@@ -241,18 +241,26 @@ test("declared reference renders one kind topic per kind: counsel, locus, fields
 });
 
 test("a kind topic states an unbound kind and an uncounselled edge plainly", () => {
+  const page = kind<object>({
+    name: "page",
+    locus: { kind: "at", root: "pages", glob: "*.md" },
+    format: "yaml-frontmatter",
+    unitShape: "file",
+    registration: [{ via: "always" }],
+  });
   const linked = kind<{ readonly next?: string }>({
     name: "linked",
     locus: { kind: "at", root: "docs", glob: "*.md" },
     format: "yaml-frontmatter",
     unitShape: "file",
     registration: [{ via: "always" }],
-    edgeFields: [{ field: "next", to: ["linked"] }],
+    edgeFields: [{ field: "next", to: [page] }],
   });
-  const body = kindTopicOf(emit(harness({ members: [reference(), linked({ name: "a" })] })), "linked");
+  const result = emit(harness({ members: [reference(), page({ name: "p" }), linked({ name: "a" })] }));
+  const body = kindTopicOf(result, "linked");
   assert.match(body, /^The kind declares no counsel\.$/m);
-  assert.match(body, /### Out\n\n- `next` → `linked`: no intent declared\./);
-  assert.match(body, /### In\n\n- `linked`\.`next` → here: no intent declared\./);
+  assert.match(body, /### Out\n\n- `next` → `page`: no intent declared\./);
+  assert.match(kindTopicOf(result, "page"), /### In\n\n- `linked`\.`next` → here: no intent declared\./);
   assert.match(body, /## Clauses\n\nThe program binds no clauses over it/);
   assert.doesNotMatch(body, /## Domains/);
 });
