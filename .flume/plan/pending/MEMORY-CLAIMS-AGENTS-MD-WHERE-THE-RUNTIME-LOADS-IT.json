@@ -1,11 +1,9 @@
 {
   "tag": "MEMORY-CLAIMS-AGENTS-MD-WHERE-THE-RUNTIME-LOADS-IT",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "FILE-LOCUS-GOVERNS-THROUGH-TEMPLATES"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -58,5 +56,6 @@
   "pins": [
     "a claude md importing agents md reaches it through the import edge"
   ],
+  "laneTests": [],
   "notes": "Class 0101/0103; 0109 answers the park (two templates; the condition is a gate by a document's absence, carried with the template). code.claude.com/docs/en/memory (retrieved 2026-11-26): AGENTS.md read only where no CLAUDE.md is at or above (v2.1.277+). Codex overrides belong to a future provider face."
 }
