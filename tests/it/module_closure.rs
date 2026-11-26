@@ -1,8 +1,9 @@
 //! The program's module closure — every local module a real `emit` run loaded — is
 //! fingerprinted into the lock's `module` family, owned by the root member, so editing a
 //! module the program imports is drift even when no `input()` names it. An installed
-//! package, whose real path sits under `node_modules`, is its lockfile's to pin and gets
-//! no row. `check` judges the closure off the lock alone, with no Node in the loop.
+//! package, whose real path sits under `node_modules`, is its lockfile's to pin, and a
+//! module the repository's ignore rules exclude is no committed source; neither gets a
+//! row. `check` judges the closure off the lock alone, with no Node in the loop.
 
 use std::fs;
 use std::path::Path;

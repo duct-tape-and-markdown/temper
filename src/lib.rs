@@ -1,16 +1,9 @@
-//! `temper` — a typed maintenance surface for the Claude Code harness.
+//! `temper` — a type system for the documents that program agents, the Claude Code
+//! harness first.
 //!
-//! `temper` imports the whole Claude Code harness (skills, commands, agents,
-//! hooks, MCP/LSP servers, `CLAUDE.md` rules, plugin & marketplace manifests,
-//! settings) into a single typed, validated config surface, lets a human
-//! reorganize it, lints it against the documented schemas + best practices,
-//! composes artifacts into publishable bundles, and writes changes back to disk
-//! with drift-aware, dry-runnable `emit`.
-//!
-//! The evergreen `specs/` corpus is the north star, continuously reconciled
-//! against this code (there is no
-//! frozen release line). This crate is built tick-by-tick by the flume harness
-//! in `.flume/`; modules below are filled in per pending entry.
+//! The harness is authored as a typed program, compiled by a deterministic `emit` with
+//! drift routed to the authored source, and gated by `check` against a declared
+//! contract. The `specs/` corpus is the source of truth this code is reconciled against.
 
 #![deny(rustdoc::broken_intra_doc_links)]
 

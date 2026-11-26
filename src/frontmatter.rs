@@ -1,8 +1,7 @@
 //! The generic `yaml-frontmatter` adapter — one declaration-driven projection for
 //! every kind that names it.
 //!
-//! Replaces the retired per-kind IRs (`src/skill.rs`, `src/rule.rs`) with one
-//! [`Member`]: import-from-source splits the external artifact per
+//! One [`Member`]: reading a source splits the external artifact per
 //! the kind's declared [`unit_shape`](crate::kind::UnitShape) and lifts its declared
 //! `field` extractors into projection order; `emit` renders the member
 //! back byte-deterministically; drift compares the declared fields with no
@@ -169,9 +168,9 @@ impl Member {
     /// Import a member from its source file, driven by the kind's declared unit shape
     /// and `field` extractors: split the YAML frontmatter, derive the id (file stem,
     /// parent directory name, or a declared frontmatter field's value), lift the
-    /// declared fields then the preserved unknown keys into the projection order, scan
-    /// companions (directory shape), and hash the original bytes for provenance. The
-    /// authored `satisfies` layer is never in the source, so it starts empty.
+    /// declared fields then the preserved unknown keys into the projection order, and
+    /// record the source path as provenance. The authored `satisfies` layer is never in
+    /// the source, so it starts empty.
     ///
     /// The body is taken byte-faithfully from after the closing frontmatter delimiter;
     /// a source with no frontmatter parses to no fields and a whole-file body — the
@@ -268,8 +267,7 @@ impl Member {
         })
     }
 
-    /// The frontmatter value at `key`, if the member carries it — the generic accessor
-    /// replacing the retired IRs' typed fields.
+    /// The frontmatter value at `key`, if the member carries it.
     #[must_use]
     pub fn field(&self, key: &str) -> Option<&JsonValue> {
         self.fields

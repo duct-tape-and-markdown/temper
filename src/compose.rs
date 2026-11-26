@@ -627,12 +627,12 @@ pub struct LockFamily {
 /// lock declares one that qualifies for overlay — matched by bare name, the kind's
 /// whole identity — overlaid onto `kind`'s embedded declaration, or `kind` unchanged
 /// when it doesn't: the **built-in lock**, the same declaration shape the engine
-/// carries compiled-in for an unadopted harness. Three facts overlay from the one
-/// matched row: the `governs` locus always (a relocation may declare no other diverging
-/// fact at all), `templates` only when the row declares at least one, and `content` only
-/// when the row declares a layout — an empty row column defers to `kind`'s own (always
-/// empty templates and a `File` body for a built-in), never blanking a nonexistent
-/// override.
+/// carries compiled-in for an unadopted harness. The `governs` locus — with its
+/// exclusions and absence gates — overlays whenever the row declares one (a relocation
+/// may declare no other diverging fact at all), `templates` only when the row declares
+/// at least one, and `content` only when the row declares a layout — an empty row column
+/// defers to `kind`'s own (always empty templates and a `File` body for a built-in),
+/// never blanking a nonexistent override.
 ///
 /// # Errors
 ///

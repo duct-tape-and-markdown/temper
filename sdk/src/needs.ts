@@ -10,8 +10,7 @@
 export interface Capability {
   /**
    * The permission-list entry this capability derives. The union of every
-   * member's needs is the settings `permissions.allow` — the fold hooks and MCP
- * members ride into once those kinds land.
+   * member's needs is the settings `permissions.allow`.
    */
   readonly permission: string;
 }

@@ -10,10 +10,8 @@
 //! labels and heading derive from the member's own declared kind and field keys, so
 //! it is per-kind by data, not a single hard-coded kind name.
 //!
-//! A **standalone formatter island**: the future custom-kind emit face calls it and
-//! must reproduce these exact bytes; it does not wire into `src/drift.rs`'s
-//! skill/rule projection (that projection carries no nested member today). Byte-deterministic
-//! — a double-render of the same member is byte-identical, the property `tests/display_rule.rs` pins as the emit face's contract.
+//! Byte-deterministic: a double-render of the same member is byte-identical
+//! (`tests/it/display_rule.rs`).
 
 use std::fmt::Write;
 
