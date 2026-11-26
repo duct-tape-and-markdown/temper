@@ -1681,12 +1681,21 @@ fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
 /// importing member imports a path that loads nothing, the silent-context-loss failure
 /// class caught at author-time. Mirrors [`dangling`]/[`unreachable()`]: an error naming
 /// the importing member and the dead target.
+///
+/// A target ending in `.` reads that period as part of the path — the harness
+/// documents no punctuation trim, so the literal bytes bind — and the message says
+/// so, since a sentence-ending period glued to an import is the likely cause.
 fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
+    let period = if target.ends_with('.') {
+        " (the trailing `.` is part of the import path, not sentence punctuation — set it off from the import with a space)"
+    } else {
+        ""
+    };
     Diagnostic::error(
         GRAPH_DIRECTIVE_UNBACKED_RULE,
         importing,
         format!(
-            "`{importing}` imports `@{target}`, which resolves to no member and no repository file — an unbacked pointer that loads nothing"
+            "`{importing}` imports `@{target}`, which resolves to no member and no repository file — an unbacked pointer that loads nothing{period}"
         ),
     )
 }

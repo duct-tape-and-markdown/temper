@@ -1045,7 +1045,9 @@ pub(crate) fn body_at_imports(body: &str) -> Vec<String> {
 /// Collect the `at-import` occurrences on a single non-fenced line into `imports`,
 /// skipping inline code spans so a `` `@path` `` mention is typography, not an edge.
 /// An `@` opens an import only at a word boundary; the path is the run of
-/// non-whitespace after it.
+/// non-whitespace after it, a backslash-escaped space (`\ `) continuing it as a literal
+/// space. Trailing punctuation stays part of the path: the docs are silent on it, so the
+/// literal bytes bind (`See @a.md.` imports `a.md.`).
 fn line_at_imports(line: &str, imports: &mut Vec<String>) {
     let chars: Vec<char> = line.chars().collect();
     let mut i = 0;
@@ -1063,11 +1065,22 @@ fn line_at_imports(line: &str, imports: &mut Vec<String>) {
         if c == '@' && boundary {
             let start = i + 1;
             let mut end = start;
+            let mut path = String::new();
             while end < chars.len() && !chars[end].is_whitespace() && chars[end] != '`' {
+                // A backslash before a space escapes it: the space joins the path, the
+                // backslash does not ("Without the backslashes, the path ends at the
+                // first space"; code.claude.com/docs/en/memory, "Import additional
+                // files", retrieved 2026-11-25).
+                if chars[end] == '\\' && chars.get(end + 1) == Some(&' ') {
+                    path.push(' ');
+                    end += 2;
+                    continue;
+                }
+                path.push(chars[end]);
                 end += 1;
             }
-            if end > start {
-                imports.push(chars[start..end].iter().collect());
+            if !path.is_empty() {
+                imports.push(path);
             }
             i = end;
             boundary = false;

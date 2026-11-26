@@ -290,3 +290,77 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
         "the memory advisory fires beside the skill finding, got: {findings:#?}"
     );
 }
+
+#[test]
+fn a_backslash_escaped_space_continues_a_memory_import_path() {
+    let harness = common::tmpdir("escaped-space-import");
+    // `@Design\ Docs/api.md` imports `Design Docs/api.md`: the documented escape keeps
+    // the space inside the path (code.claude.com/docs/en/memory, "Import additional
+    // files", retrieved 2026-11-25), so the real file backs it and nothing fires.
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_sibling(&harness, "Design Docs/api.md", "# API\n\nThe surface.\n");
+    write_claude_md_importing(&harness, "@Design\\ Docs/api.md");
+
+    let findings = check_two_step(&harness);
+    assert!(
+        common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        "the escaped space continues the path to the real file, got: {findings:#?}"
+    );
+
+    fs::remove_file(harness.join("Design Docs/api.md")).unwrap();
+    let findings = check_two_step(&harness);
+    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    assert_eq!(unbacked.len(), 1, "got: {findings:#?}");
+    assert!(
+        unbacked[0].contains("`@Design Docs/api.md`"),
+        "the finding names the unescaped path, got: {}",
+        unbacked[0]
+    );
+}
+
+#[test]
+fn a_trailing_period_stays_part_of_a_memory_import_path() {
+    let harness = common::tmpdir("trailing-period-import");
+    // The docs are silent on trailing punctuation, so the literal bytes bind: `See @a.md.`
+    // imports `a.md.`, which the real `a.md` does not back.
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_sibling(&harness, "a.md", "# A\n");
+    write_claude_md_importing(&harness, "See @a.md.");
+
+    let findings = check_two_step(&harness);
+    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    assert_eq!(unbacked.len(), 1, "got: {findings:#?}");
+    assert!(
+        unbacked[0].contains("`@a.md.`"),
+        "the period stays on the path, got: {}",
+        unbacked[0]
+    );
+}
+
+#[test]
+fn an_unbacked_import_ending_in_a_period_says_the_period_is_part_of_the_path() {
+    let harness = common::tmpdir("trailing-period-guidance");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_sibling(&harness, "a.md", "# A\n");
+    write_claude_md_importing(&harness, "See @a.md.");
+
+    let findings = check_two_step(&harness);
+    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    assert_eq!(unbacked.len(), 1, "got: {findings:#?}");
+    assert!(
+        unbacked[0].contains("trailing `.` is part of the import path"),
+        "the finding names the trailing period as part of the path, got: {}",
+        unbacked[0]
+    );
+
+    // A path not ending in a period carries no such note.
+    write_claude_md_importing(&harness, "@docs/missing.md");
+    let findings = check_two_step(&harness);
+    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    assert_eq!(unbacked.len(), 1, "got: {findings:#?}");
+    assert!(
+        !unbacked[0].contains("trailing `.`"),
+        "no period note without a trailing period, got: {}",
+        unbacked[0]
+    );
+}
