@@ -1007,6 +1007,7 @@ pub fn raw_unit(
     source_path: &str,
 ) -> Unit {
     Unit {
+        forgiven: false,
         id: id.to_string(),
         frontmatter,
         body: body.to_string(),
@@ -1114,6 +1115,7 @@ pub fn copy_tree(from: &Path, to: &Path) {
 /// `check`, with no disk round trip.
 pub fn surface_unit(member: &Member) -> Unit {
     Unit {
+        forgiven: false,
         id: member.id.clone(),
         frontmatter: member.fields.iter().cloned().collect(),
         body: member.body.clone(),

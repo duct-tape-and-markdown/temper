@@ -69,6 +69,7 @@ pub(crate) fn rule_kind() -> CustomKind {
 /// into `check`, with no disk round trip.
 pub(crate) fn surface_unit(member: &crate::frontmatter::Member) -> Unit {
     Unit {
+        forgiven: false,
         id: member.id.clone(),
         frontmatter: member.fields.iter().cloned().collect(),
         body: member.body.clone(),

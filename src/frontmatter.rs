@@ -48,10 +48,20 @@ pub struct Member {
     pub satisfies: Vec<Satisfies>,
     /// Where the member came from.
     pub provenance: Provenance,
-    /// The malformation detail of a frontmatter block the kind's
-    /// [`Leniency::MalformedYaml`] forgave — the member loaded with no fields set, as the
-    /// runtime loads it. `None` for a block that parsed.
-    pub forgiven: Option<String>,
+    /// The frontmatter block the kind's [`Leniency::MalformedYaml`] forgave — the member
+    /// loaded with no fields set, as the runtime loads it. `None` for a block that parsed.
+    pub forgiven: Option<Forgiven>,
+}
+
+/// A frontmatter block a kind's leniency forgave: why it does not parse, and the keys its
+/// author wrote, which the runtime reads as unset.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Forgiven {
+    /// The malformation detail, without the file path.
+    pub detail: String,
+    /// The top-level keys the block spells, in source order, deduplicated — read off its
+    /// lines, since the block does not parse.
+    pub unset: Vec<String>,
 }
 
 /// A member's origin: the source path it was read from. The one shape all three read
@@ -219,7 +229,11 @@ impl Member {
             Err(Malformation::Unparseable(detail))
                 if kind.leniency.contains(&Leniency::MalformedYaml) =>
             {
-                (JsonMap::new(), Some(detail))
+                let unset = split_frontmatter(raw)
+                    .0
+                    .map(authored_keys)
+                    .unwrap_or_default();
+                (JsonMap::new(), Some(Forgiven { detail, unset }))
             }
             Err(Malformation::Unparseable(detail) | Malformation::NotAMapping(detail)) => {
                 return Err(FrontmatterError::Malformed {
@@ -340,6 +354,26 @@ fn parse_frontmatter(raw: &str) -> Result<JsonMap<String, JsonValue>, Malformati
         out.insert(key, pod.into());
     }
     Ok(out)
+}
+
+/// The top-level keys a frontmatter block spells, read line by line rather than parsed: a
+/// line opening at column zero with `key:` names one, a comment, a sequence item, an
+/// indented continuation or a document marker names none. Quotes around a key are dropped.
+fn authored_keys(matter: &str) -> Vec<String> {
+    let mut keys: Vec<String> = Vec::new();
+    for line in matter.lines() {
+        if line.starts_with(|c: char| c.is_whitespace() || c == '#' || c == '-') {
+            continue;
+        }
+        let Some((key, _)) = line.split_once(':') else {
+            continue;
+        };
+        let key = key.trim().trim_matches(|c| c == '"' || c == '\'');
+        if !key.is_empty() && !keys.iter().any(|known| known == key) {
+            keys.push(key.to_string());
+        }
+    }
+    keys
 }
 
 /// Why a present frontmatter block yields no field map, split by whether a kind's
@@ -514,6 +548,15 @@ Last line, no newline.";
 
         let err = Member::from_source(&kind, &dir.join("collab.md")).unwrap_err();
         assert!(matches!(err, FrontmatterError::Malformed { .. }));
+    }
+
+    #[test]
+    fn a_forgiven_block_names_the_top_level_keys_it_spells() {
+        let keys = authored_keys(
+            "# lead comment\nname: probe\ndescription: Use when: probing\n  nested: x\n\
+             - item\n\"quoted\": y\nname: again\nno colon here\n",
+        );
+        assert_eq!(keys, ["name", "description", "quoted"]);
     }
 
     #[test]

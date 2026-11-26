@@ -159,6 +159,7 @@ impl RegistrationMember {
                 .or_insert_with(|| JsonValue::String(value));
         }
         Unit {
+            forgiven: false,
             id: self.name(address),
             frontmatter,
             body: String::new(),
@@ -263,6 +264,7 @@ impl DocumentMember {
     #[must_use]
     pub fn to_unit(&self) -> Unit {
         Unit {
+            forgiven: false,
             id: self.id.clone(),
             frontmatter: self.fields.clone(),
             body: String::new(),

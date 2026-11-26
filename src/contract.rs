@@ -993,6 +993,19 @@ impl Predicate {
         }
     }
 
+    /// Whether this predicate judges a member's frontmatter — a per-field predicate, a
+    /// key-set one, or a `when` guarded on a field. These are the clauses a member whose
+    /// frontmatter was forgiven as unparseable skips: its fields read as unset, and the
+    /// one advisory naming them is the finding that holds.
+    #[must_use]
+    pub fn reads_frontmatter(&self) -> bool {
+        self.documented_field().is_some()
+            || matches!(
+                self,
+                Predicate::ForbiddenKeys { .. } | Predicate::ClosedKeys | Predicate::When { .. }
+            )
+    }
+
     /// The **frontmatter field** this predicate documents — the property a clause's
     /// [`guidance`](Clause::guidance) rides as a JSON Schema `description` in the
     /// emitted schema's docs channel. `Some` for the per-field frontmatter predicates whose property

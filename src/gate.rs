@@ -27,6 +27,8 @@ use crate::roster;
 struct Members<'a> {
     features: &'a [extract::Features],
     field_defaults: &'a engine::FieldDefaults,
+    /// The ids of the members whose frontmatter the kind's leniency forgave.
+    forgiven: &'a BTreeSet<String>,
 }
 
 /// Dispatch a single kind through the shared "two-greens" contract validation:
@@ -66,6 +68,7 @@ fn two_greens_dispatch(
         &whole,
         members.features,
         members.field_defaults,
+        members.forgiven,
     ));
 
     (contract, diagnostics)
@@ -330,6 +333,7 @@ pub fn gate(
             &declared_kinds,
         )?;
         let features = &uaf.features;
+        let forgiven = uaf.forgiven_ids();
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             contract,
@@ -338,6 +342,7 @@ pub fn gate(
             Members {
                 features,
                 field_defaults: &kind.field_defaults,
+                forgiven: &forgiven,
             },
             (!skip_dial).then_some(&dial),
             mode,
@@ -431,6 +436,7 @@ pub fn gate(
             &declared_kinds,
         )?;
         let features = &uaf.features;
+        let forgiven = uaf.forgiven_ids();
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             contract,
@@ -445,6 +451,7 @@ pub fn gate(
             Members {
                 features,
                 field_defaults: &custom_kind.field_defaults,
+                forgiven: &forgiven,
             },
             Some(&dial),
             mode,
@@ -573,6 +580,7 @@ pub fn gate(
                 field_defaults: declared_kinds
                     .get(kind)
                     .map_or(&engine::FieldDefaults::new(), |kind| &kind.field_defaults),
+                forgiven: &BTreeSet::new(),
             },
             Some(&dial),
             mode,

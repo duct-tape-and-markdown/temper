@@ -685,6 +685,60 @@ fn a_skill_whose_frontmatter_yaml_does_not_parse_loads_with_no_fields_set() {
     );
 }
 
+/// The lines a run reports as findings — every error and warning, the coverage notes aside.
+fn error_and_warning_lines(findings: &[String]) -> Vec<&String> {
+    findings
+        .iter()
+        .filter(|line| line.starts_with("::error") || line.starts_with("::warning"))
+        .collect()
+}
+
+#[test]
+fn a_skill_whose_frontmatter_does_not_parse_draws_exactly_one_finding() {
+    let root = common::tmpdir("non-portable-skill-one-finding");
+    common::write_skill(&root, "probe", NON_PORTABLE_SKILL);
+
+    let (findings, _) = check_in(&root, &["."]);
+
+    let reported = error_and_warning_lines(&findings);
+    assert_eq!(reported.len(), 1, "one finding: {findings:#?}");
+    assert!(
+        reported[0].contains("title=member.non-portable-yaml::"),
+        "the one finding is the YAML advisory: {findings:#?}"
+    );
+}
+
+#[test]
+fn the_non_portable_yaml_finding_names_the_fields_the_runtime_reads_as_unset() {
+    let root = common::tmpdir("non-portable-skill-names-unset");
+    common::write_skill(&root, "probe", NON_PORTABLE_SKILL);
+
+    let (findings, _) = check_in(&root, &["."]);
+
+    let advisories = common::findings_for(&findings, "member.non-portable-yaml");
+    assert_eq!(advisories.len(), 1, "{findings:#?}");
+    assert!(
+        advisories[0].contains("`name`, `description` read as unset"),
+        "the advisory names the unset fields: {}",
+        advisories[0]
+    );
+}
+
+#[test]
+fn a_skill_whose_yaml_parses_with_no_description_still_draws_the_required_description_finding() {
+    let root = common::tmpdir("parsed-skill-no-description");
+    common::write_skill(&root, "probe", "---\nname: probe\n---\n# Probe\n");
+
+    let (findings, _) = check_in(&root, &["."]);
+
+    assert_eq!(
+        common::findings_for(&findings, "skill.required.description").len(),
+        1,
+        "{findings:#?}"
+    );
+    assert!(common::findings_for(&findings, "member.non-portable-yaml").is_empty());
+}
+
 #[test]
 fn unparseable_skill_frontmatter_draws_the_non_portable_yaml_advisory() {
     let root = common::tmpdir("non-portable-skill-advisory");

@@ -62,7 +62,7 @@ use crate::extract::{FeatureValue, Features, ValueType, json_to_feature};
 /// allowed set from another selection, `degree` counts arcs in the reference graph).
 #[must_use]
 pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> {
-    validate_as_read(contract, artifacts, &FieldDefaults::new())
+    validate_as_read(contract, artifacts, &FieldDefaults::new(), &BTreeSet::new())
 }
 
 /// The documented defaults a kind's top-level fields read as where a member leaves them
@@ -75,16 +75,38 @@ pub type FieldDefaults = BTreeMap<String, String>;
 /// binds a member the runtime reads under that guard. Only the guard's read moves — every
 /// other predicate, and the guarded body's own element, still read the authored bytes, so
 /// a defaulted field is never one a `required`, `closed-keys` or `enum` clause sees.
+///
+/// A member whose id is in `forgiven` loaded with its frontmatter forgiven as unparseable,
+/// so its fields read as unset: the clauses that judge frontmatter
+/// ([`Predicate::reads_frontmatter`]) skip it, leaving the advisory that names the unset
+/// fields as its one finding.
 #[must_use]
 pub fn validate_as_read(
     contract: &Contract,
     artifacts: &[Features],
     defaults: &FieldDefaults,
+    forgiven: &BTreeSet<String>,
 ) -> Vec<Diagnostic> {
     let peers: Vec<&Features> = artifacts.iter().collect();
+    let as_loaded = Contract {
+        clauses: contract
+            .clauses
+            .iter()
+            .filter(|clause| !clause.predicate.reads_frontmatter())
+            .cloned()
+            .collect(),
+        ..contract.clone()
+    };
     artifacts
         .iter()
-        .flat_map(|features| member_findings(contract, features, &peers, defaults))
+        .flat_map(|features| {
+            let contract = if forgiven.contains(&features.id) {
+                &as_loaded
+            } else {
+                contract
+            };
+            member_findings(contract, features, &peers, defaults)
+        })
         .collect()
 }
 
@@ -2110,7 +2132,12 @@ mod tests {
 
         // Read as the runtime reads it, the guard binds — and the body's element is still
         // the authored one, so its own `required("type")` sees no defaulted value.
-        let read = validate_as_read(&guarded, std::slice::from_ref(&url_only), &stdio);
+        let read = validate_as_read(
+            &guarded,
+            std::slice::from_ref(&url_only),
+            &stdio,
+            &BTreeSet::new(),
+        );
         assert_eq!(read.len(), 2, "{read:#?}");
 
         // An authored value wins over the default.
@@ -2120,7 +2147,15 @@ mod tests {
             1,
             None,
         );
-        assert!(validate_as_read(&guarded, std::slice::from_ref(&http), &stdio).is_empty());
+        assert!(
+            validate_as_read(
+                &guarded,
+                std::slice::from_ref(&http),
+                &stdio,
+                &BTreeSet::new()
+            )
+            .is_empty()
+        );
     }
 
     #[test]

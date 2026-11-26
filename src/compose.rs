@@ -555,6 +555,18 @@ pub struct KindUnitsAndFeatures {
     pub composed_embedded: Vec<ComposedEmbeddedMember>,
 }
 
+impl KindUnitsAndFeatures {
+    /// The ids of the units whose frontmatter the kind's leniency forgave.
+    #[must_use]
+    pub fn forgiven_ids(&self) -> BTreeSet<String> {
+        self.units
+            .iter()
+            .filter(|unit| unit.forgiven)
+            .map(|unit| unit.id.clone())
+            .collect()
+    }
+}
+
 /// The run's whole declaration family, assembled once for every consumer below.
 pub struct LockFamily {
     /// The committed lock's rows, joined with every local-locus kind's read-time derived
@@ -700,6 +712,7 @@ fn layout_unit(
             drift::LayoutDocumentFault::Frontmatter(err) => miette::Report::new(err),
         })?;
     advisories.extend(forgiven_yaml_advisory(&document));
+    let forgiven = document.forgiven.is_some();
     let mut reading = layout.read(&document.body, file, edge_fields)?;
     let id = host_qualified(host, &kind.name, document.id);
     // The key every row below lowers under, spelled off the id just folded through the
@@ -743,6 +756,7 @@ fn layout_unit(
             source_path: file.to_path_buf(),
             satisfies: Vec::new(),
             satisfies_clauses: Vec::new(),
+            forgiven,
         },
         rows,
     ))
@@ -795,6 +809,7 @@ fn read_file_unit(
                 source_path: source.provenance.source_path.clone(),
                 satisfies: Vec::new(),
                 satisfies_clauses: Vec::new(),
+                forgiven: source.forgiven.is_some(),
             }
         }
     };
@@ -803,17 +818,30 @@ fn read_file_unit(
 }
 
 /// The advisory a member draws when its kind's leniency forgave frontmatter YAML that does
-/// not parse: the member loads with no fields set, so nothing judged its fields, and a
-/// strict YAML reader elsewhere refuses the file outright.
+/// not parse: the member loads with no fields set, so its field clauses stay silent and
+/// this one finding names the keys its author wrote, which the runtime reads as unset.
 fn forgiven_yaml_advisory(member: &frontmatter::Member) -> Option<crate::check::Diagnostic> {
-    let detail = member.forgiven.as_ref()?;
+    let forgiven = member.forgiven.as_ref()?;
+    let unset = if forgiven.unset.is_empty() {
+        "the member loads with no fields set".to_string()
+    } else {
+        let names: Vec<String> = forgiven
+            .unset
+            .iter()
+            .map(|key| format!("`{key}`"))
+            .collect();
+        format!(
+            "the member loads with no fields set, so {} read as unset",
+            names.join(", ")
+        )
+    };
     Some(
         crate::check::Diagnostic::warn(
             "member.non-portable-yaml",
             member.provenance.source_path.display().to_string(),
             format!(
-                "{detail}; the member loads with no fields set, so none of its fields is \
-                 checked"
+                "{}; {unset}, and none of its field clauses is checked",
+                forgiven.detail
             ),
         )
         .with_guidance(Some(NON_PORTABLE_YAML_GUIDANCE.to_string())),

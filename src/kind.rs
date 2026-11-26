@@ -1655,6 +1655,9 @@ pub struct Unit {
     /// needs the rationale the decidable [`satisfies`](Unit::satisfies) name-vec drops.
     /// Empty when the member authors none.
     pub satisfies_clauses: Vec<crate::document::Satisfies>,
+    /// Whether the kind's leniency forgave this unit's frontmatter as unparseable YAML:
+    /// it loads with no fields set, so its field clauses judge nothing true of it.
+    pub forgiven: bool,
 }
 
 impl Extraction {
@@ -1969,6 +1972,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
 `inside-a-fence.md` is illustration, not a heading\n\
 ```\n";
         Unit {
+            forgiven: false,
             id: "15-kinds".to_string(),
             frontmatter: BTreeMap::new(),
             body: body.to_string(),
@@ -2030,6 +2034,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         frontmatter.insert("name".to_string(), JsonValue::String("demo".to_string()));
         frontmatter.insert("priority".to_string(), JsonValue::from(7));
         let unit = Unit {
+            forgiven: false,
             id: "demo".to_string(),
             frontmatter,
             body: "# Demo\n".to_string(),
@@ -2065,6 +2070,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
 
         let body = "# Doc\n\nprose\n\n```toml member.manifest\nname = \"x\"\n```\n";
         let unit = Unit {
+            forgiven: false,
             id: "doc".to_string(),
             frontmatter: BTreeMap::new(),
             body: body.to_string(),
@@ -2088,6 +2094,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             key: "license".to_string(),
         }]);
         let unit = Unit {
+            forgiven: false,
             id: "demo".to_string(),
             frontmatter: BTreeMap::new(),
             body: String::new(),
