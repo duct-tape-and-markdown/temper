@@ -639,6 +639,22 @@ enum InstallError {
     )]
     NodeMissing,
 
+    /// A discovered skill takes the name the starter's harness reference is composed
+    /// under, so the scaffolded program would declare two members over one projection.
+    #[error(
+        "the discovered skill {name:?} collides with the harness reference the starter composes under that name"
+    )]
+    #[diagnostic(
+        code(temper::install::reference_name_collision),
+        help(
+            "a represented program composes temper's reference skill at `.claude/skills/temper/`; rename your skill (its directory and `name`), or delete it if it is a copy of temper's own reference — the first emit regenerates that one — then re-run `temper install --yes`"
+        )
+    )]
+    ReferenceNameCollision {
+        /// The colliding skill's name.
+        name: String,
+    },
+
     /// `.temper/package.json` exists but is not valid JSON.
     #[error("{path} is not valid JSON")]
     #[diagnostic(code(temper::install::package_json))]
@@ -763,7 +779,7 @@ pub enum KindMembers {
     Registrations {
         /// The host manifests the walk found for this kind — the files its collection
         /// address is read at, carried whether or not one holds an entry, because the
-        /// address claims its key in the manifest either way ([`scaffold`] keeps that
+        /// address claims its key in the manifest either way ([`plan_lift`] keeps that
         /// key off the container member that owns the file).
         manifests: Vec<PathBuf>,
         /// The entries found at that address, across every one of them.
@@ -979,6 +995,14 @@ fn run_represented(
     // hook this run wired ([`ApplyOutcome::Applied`]) and one already in place.
     let gate_before = gate_hooks_state(&settings_path(root))?.map(|state| state.wired);
 
+    // Read and judged before any write: an artifact the lift cannot convert, or one the
+    // starter's own members would collide with, refuses with `.temper/` untouched.
+    let lift = if already_scaffolded {
+        None
+    } else {
+        Some(plan_lift(root, &temper_dir, discovery)?)
+    };
+
     // Assured before the lift writes a single member module: "no half-scaffolded
     // state" — a dependency spawn failure must never leave a partial `.temper/`
     // program behind it.
@@ -991,10 +1015,9 @@ fn run_represented(
         }
     }
 
-    let scaffolded = if already_scaffolded {
-        0
-    } else {
-        scaffold(root, &temper_dir, discovery, dry_run)?
+    let scaffolded = match &lift {
+        Some(lift) => scaffold(&temper_dir, lift, dry_run)?,
+        None => 0,
     };
 
     // A fresh (never-scaffolded) `--dry-run` preview has no `harness.ts` on disk to
@@ -3271,28 +3294,26 @@ fn unclaimed_stem(base: &str, mut claimed: impl FnMut(&str) -> bool) -> String {
     stem
 }
 
-/// Scaffold the SDK program from `discovery`'s findings — the lift's whole
-/// output, a **whole conversion** (0016), never an intermediate state: a member
-/// module per discovered member hoisting every present field into a typed
-/// property ([`member_module_source`]) and moving its prose module-side, plus
-/// a `harness.ts` skeleton composing them all beside the SDK's `starter()`
-/// ([`harness_entry_source`]), which supplies the gate hooks and the typecheck. Writes nothing
-/// under `dry_run`, returning only the count a real run would scaffold.
-///
-/// The conversion covers a manifest's **registration** segments as well as the container
-/// member holding them: a `settings.json` hook group and an `enabledPlugins` entry each
-/// reach their own module, so the container's first emit re-renders every segment it
-/// arrived with rather than shedding the ones no member declares.
+/// The skill name the starter's harness reference takes (`REFERENCE_NAME` in the SDK's
+/// `reference.ts`). A lifted skill of that name would be a second member over the
+/// reference's `.claude/skills/temper/` projection.
+const STARTER_REFERENCE_NAME: &str = "temper";
+
+/// A fresh program's conversion, read and judged but not yet written: each lifted member
+/// beside the module file stem it will be written under.
+struct Lift {
+    lifted: Vec<(String, LiftedMember)>,
+    stems: Vec<String>,
+}
+
+/// Read every discovered artifact the lift converts and judge the result before anything
+/// is written, so a refusal leaves no half-scaffolded `.temper/` behind it.
 ///
 /// # Errors
-/// Returns a [`miette::Report`] if a member's source cannot be parsed, an id cannot name
-/// a module file ([`module_stems`]), or a scaffold file cannot be written.
-fn scaffold(
-    root: &Path,
-    temper_dir: &Path,
-    discovery: &DiscoveryReport,
-    dry_run: bool,
-) -> miette::Result<usize> {
+/// Returns a [`miette::Report`] if a member's source cannot be parsed, a skill collides
+/// with the starter's reference ([`InstallError::ReferenceNameCollision`]), or an id cannot
+/// name a module file ([`module_stems`]).
+fn plan_lift(root: &Path, temper_dir: &Path, discovery: &DiscoveryReport) -> miette::Result<Lift> {
     let kinds = builtin_kind::definitions();
     let claimed = claimed_collection_keys(discovery);
 
@@ -3335,16 +3356,43 @@ fn scaffold(
     }
     lifted.sort_by(|(a_kind, a), (b_kind, b)| (a_kind, &a.id).cmp(&(b_kind, &b.id)));
 
-    // Allocated before the preview returns, so an id that cannot name a module file
-    // refuses identically whether or not this run writes.
-    let stems = module_stems(temper_dir, &lifted)?;
+    if let Some((_, member)) = lifted
+        .iter()
+        .find(|(kind, member)| kind == "skill" && member.id == STARTER_REFERENCE_NAME)
+    {
+        return Err(InstallError::ReferenceNameCollision {
+            name: member.id.clone(),
+        }
+        .into());
+    }
 
+    let stems = module_stems(temper_dir, &lifted)?;
+    Ok(Lift { lifted, stems })
+}
+
+/// Scaffold the SDK program from `discovery`'s findings — the lift's whole
+/// output, a **whole conversion** (0016), never an intermediate state: a member
+/// module per discovered member hoisting every present field into a typed
+/// property ([`member_module_source`]) and moving its prose module-side, plus
+/// a `harness.ts` skeleton composing them all beside the SDK's `starter()`
+/// ([`harness_entry_source`]), which supplies the gate hooks and the typecheck. Writes nothing
+/// under `dry_run`, returning only the count a real run would scaffold.
+///
+/// The conversion covers a manifest's **registration** segments as well as the container
+/// member holding them: a `settings.json` hook group and an `enabledPlugins` entry each
+/// reach their own module, so the container's first emit re-renders every segment it
+/// arrived with rather than shedding the ones no member declares.
+///
+/// # Errors
+/// Returns a [`miette::Report`] if a scaffold file cannot be written.
+fn scaffold(temper_dir: &Path, lift: &Lift, dry_run: bool) -> miette::Result<usize> {
+    let Lift { lifted, stems } = lift;
     if dry_run {
         return Ok(lifted.len());
     }
 
     let mut scaffolded = Vec::with_capacity(lifted.len());
-    for ((kind, member), stem) in lifted.iter().zip(&stems) {
+    for ((kind, member), stem) in lifted.iter().zip(stems) {
         let ident = member_ident(kind, stem);
         let dir = temper_dir.join(member_dir(kind));
         write_scaffold_file(

@@ -5729,3 +5729,47 @@ fn the_guard_places_a_pending_hosted_child_under_a_local_host_as_check_s_scan_pl
     fs::write(harness.join(LOCAL_HOST_STRAY), NESTED_SPEC_DOC).unwrap();
     assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, LOCAL_HOST_STRAY);
 }
+
+#[test]
+fn represented_install_refuses_a_discovered_skill_named_like_the_starter_reference_before_writing()
+{
+    common::ensure_sdk_built();
+    let root = common::tmpdir("reference-name-collision");
+    common::write_skill(
+        &root,
+        "temper",
+        "---\nname: temper\ndescription: Use when operating our own temper wrapper.\n---\n\nAuthored here.\n",
+    );
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+    let before = common::tree_bytes(&root);
+
+    let output = Command::new(BIN)
+        .arg("install")
+        .arg(&root)
+        .arg("--yes")
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "a skill named like the starter's reference refuses the represented install"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    for stated in [
+        "reference_name_collision",
+        "\"temper\"",
+        "rename your skill",
+    ] {
+        assert!(
+            stderr.contains(stated),
+            "the refusal states `{stated}`, got: {stderr}"
+        );
+    }
+    assert_eq!(
+        before,
+        common::tree_bytes(&root),
+        "the refusal lands before any write under .temper/"
+    );
+    assert!(!temper_dir.join("harness.ts").exists());
+}
