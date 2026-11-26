@@ -644,9 +644,21 @@ function orderedFields(
     if (!FRAMEWORK_KEYS.has(key) && !plain.has(key)) typed.push([key, value]);
   }
   const head: Array<readonly [string, unknown]> =
-    facts.identityField !== undefined ? [[facts.identityField, init.name]] : [];
+    facts.identityField !== undefined ? [[facts.identityField, identityFieldValue(facts, init.name)]] : [];
   const projected = [...head, ...typed];
   return [...projected, ...residueFields(facts, init, projected)];
+}
+
+/**
+ * The value a member's name writes under its kind's identity field. A named-field kind
+ * (an agent) reads its identity from the field, so the field carries the whole name. A
+ * directory-shaped kind (a skill) takes identity from the directory, and a nested one's
+ * name is its placement's segments then the directory, each joined with `:`
+ * (`apps:web:deploy`); the frontmatter carries only the leaf (`deploy`), so the directory
+ * and the documented `name` still match (specs/builtins.md, "The shipped kinds").
+ */
+function identityFieldValue(facts: KindFacts, name: string): string {
+  return facts.unitShape === "directory" ? name.slice(name.lastIndexOf(":") + 1) : name;
 }
 
 /**

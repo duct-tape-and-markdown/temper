@@ -818,6 +818,47 @@ fn a_nested_skill_lifts_under_its_prefixed_name_and_re_emits_where_it_was_found(
     );
 }
 
+/// A nested skill lifted and emitted once: the root it lives in, and its re-emitted
+/// `SKILL.md`.
+fn nested_skill_emitted(label: &str) -> (PathBuf, PathBuf) {
+    let root = common::tmpdir(label);
+    let nested = root.join("apps/web/.claude/skills/deploy/SKILL.md");
+    fs::create_dir_all(nested.parent().unwrap()).unwrap();
+    fs::write(&nested, SKILL).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    (root, nested)
+}
+
+#[test]
+fn a_nested_skill_emits_its_frontmatter_name_as_the_leaf_of_its_identity() {
+    let (root, nested) = nested_skill_emitted("nested-skill-leaf-name");
+    let module = fs::read_to_string(root.join(".temper/skills/apps-web-deploy.ts")).unwrap();
+    assert!(module.contains("name: \"apps:web:deploy\""), "{module}");
+    let emitted = fs::read_to_string(&nested).unwrap();
+    assert!(
+        emitted.contains("\nname: \"deploy\"\n"),
+        "the frontmatter name is the leaf, never the placement-prefixed identity: {emitted}"
+    );
+}
+
+#[test]
+fn an_emitted_nested_skill_draws_no_name_finding_from_the_skill_contract() {
+    let (root, _) = nested_skill_emitted("nested-skill-leaf-check");
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.output.contains("name-matches-dir") && !run.output.contains("allowed_chars"),
+        "{}",
+        run.output
+    );
+    assert!(run.ok, "{}", run.output);
+}
+
 #[test]
 fn a_nested_command_lifts_under_its_path_name_and_re_emits_where_it_was_found() {
     let root = common::tmpdir("nested-command-lift");
