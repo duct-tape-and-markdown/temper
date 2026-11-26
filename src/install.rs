@@ -1009,7 +1009,8 @@ pub fn represented_by(root: &Path) -> Option<PathBuf> {
 /// Evaluates the placements a *represented* project's current lock justifies
 /// ([`represented_by`]), or — unrepresented — the session-start hook alone, both dry-run,
 /// folded into **one advisory** [`Diagnostic`]. Always `warn`, never `error`; empty when
-/// every placement is already in place.
+/// every placement is already in place, and a placement that could not be read is itself
+/// the advisory, never silence.
 ///
 /// `lock` is the caller's already-parsed `.temper/lock.toml`, **required rather than
 /// optional**: this face runs inside `check`, which reads the lock once for every tier,
@@ -1028,12 +1029,26 @@ pub fn gate_installed(root: &Path, lock: &DocumentMut) -> Vec<Diagnostic> {
         return Vec::new();
     }
     let represented = represented_by(root).is_some();
-    let Ok(entries) = (if represented {
+    let evaluated = if represented {
         evaluate_placements(root, true, None, lock)
     } else {
         place_settings_only(root, true)
-    }) else {
-        return Vec::new();
+    };
+    let entries = match evaluated {
+        Ok(entries) => entries,
+        // A failed read is not "every placement in place": silence here would pass a gate
+        // nobody could evaluate, so the failure is the finding.
+        Err(err) => {
+            let cause: Vec<String> = err.chain().map(ToString::to_string).collect();
+            return vec![Diagnostic::warn(
+                GATE_RULE,
+                root.to_string_lossy().into_owned(),
+                format!(
+                    "temper's gate could not be evaluated — {}",
+                    cause.join(": ")
+                ),
+            )];
+        }
     };
 
     // Only `Unchanged` is silence. A gate hook a member superseded is *stale*, not settled:

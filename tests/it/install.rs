@@ -2181,6 +2181,34 @@ fn gate_installed_names_stale_noted_files() {
     );
 }
 
+#[test]
+fn an_unreadable_emit_owned_projection_makes_the_installed_gate_check_report_rather_than_pass_silently()
+ {
+    let root = write_harness("gate-unreadable", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert!(gate_installed(&root).is_empty());
+
+    // A directory where the lock names a projection file: the read fails on every host,
+    // privileged or not, where a permission bit would not.
+    let skill_file = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    fs::remove_file(&skill_file).unwrap();
+    fs::create_dir(&skill_file).unwrap();
+
+    let message = one_gate_finding(&gate_installed(&root)).to_string();
+    assert!(
+        message.contains("could not be evaluated") && message.contains("SKILL.md"),
+        "the failed read is the finding, naming the file, got: {message}"
+    );
+}
+
 /// A retired spelling of temper's session-start command: the bytes before the
 /// PATH-resolvability guard joined them. Exactly the shape 0073's Context describes — a
 /// scaffolded module froze a literal, the command was respelled, and the member kept
