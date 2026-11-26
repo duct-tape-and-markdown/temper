@@ -829,6 +829,13 @@ pub fn gate(
     // and `harness_root`'s workspace is the one `lock_doc` came off.
     diagnostics.extend(install::gate_installed(harness_root, &lock_doc));
 
+    // A `{ package, bin }` tool runs at its lockfile's version: one the lockfile does not
+    // record is advisory, and a lockfile temper cannot read refuses the run by name.
+    diagnostics.extend(crate::tool::unlocked_findings(
+        &committed.nested_members,
+        workspace,
+    )?);
+
     // The one site walk over every discovered kind, feeding both disk-vs-lock facts
     // below and the coverage note's undeclared disclosure above them.
     let sites = committed_member_sites(

@@ -2573,6 +2573,11 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
             narration.push('\n');
             narration.push_str(&strand);
         }
+        let version = crate::tool::version_strand(&declarations.nested_members, &workspace, name)?;
+        if !version.is_empty() {
+            narration.push('\n');
+            narration.push_str(&version);
+        }
     }
     Ok(narration)
 }

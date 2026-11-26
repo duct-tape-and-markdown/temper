@@ -73,3 +73,4 @@ pub mod telemetry;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub mod toml_document;
+pub mod tool;

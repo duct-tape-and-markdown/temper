@@ -3823,15 +3823,7 @@ fn resolve_inputs(
     Ok(resolved)
 }
 
-/// The kind a committed-file tool is a member of, and the leaf naming its file.
-const TOOL_KIND: &str = "tool";
-/// The leaf a `{ file }` tool states its script's harness-relative path under.
-const TOOL_FILE_LEAF: &str = "file";
-/// The leaves a `{ package, bin }` tool states its package and bin under.
-const TOOL_PACKAGE_LEAF: &str = "package";
-const TOOL_BIN_LEAF: &str = "bin";
-/// The leaf a `{ system }` tool states the PATH name it claims under.
-const TOOL_SYSTEM_LEAF: &str = "system";
+use crate::tool::{TOOL_BIN_LEAF, TOOL_FILE_LEAF, TOOL_KIND, TOOL_PACKAGE_LEAF, TOOL_SYSTEM_LEAF};
 
 /// Fingerprint each root-hosted `{ file }` tool's script as the tool's declared `input`:
 /// the path is stated once, on the tool, and the file joins the roster through it —

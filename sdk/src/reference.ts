@@ -7,8 +7,8 @@
  * Each kind and domain the index names gets its topic flat beside `SKILL.md`, a
  * `supporting-doc`: `kind-<k>.md` carries the kind's counsel, locus, fields, edges in and
  * out with their intent, the clauses bound over it and its domains; `domain-<r>.md` the
- * requirement's prose, what holds it, and its owners. A kind topic names no member, so it
- * grows with declarations, never with documents.
+ * requirement's prose, what holds it, and its owners. A kind topic names no member but
+ * the `tool` topic's commands, so it grows with declarations, never with documents.
  *
  * It renders only committed declarations: a kind at a `local` locus (the dial among
  * them) and every member of one stay out of the index, since a committed projection
@@ -29,6 +29,8 @@ import {
   targetList,
 } from "./declarations.js";
 import type { ContractedRequirement, EdgeIntent } from "./declarations.js";
+import { readLockfile } from "./lockfile.js";
+import { nestedAddress } from "./member-address.js";
 import { span } from "./prose.js";
 
 /** The reference's skill name — its member lands at `.claude/skills/temper/SKILL.md`. */
@@ -230,7 +232,40 @@ function clauseLine(clause: Clause): string {
   return item(`\`${clause.predicate.key}\`${on} (${clause.severity})`, clause.guidance);
 }
 
-/** The body of a kind's topic — every declaration over the kind, and no member of it. */
+/**
+ * The commands a `tool` topic lists — each composed tool, its command, and for a
+ * `{ package, bin }` tool the version its program's lockfile records. A tool is a
+ * declaration of what the harness runs, so its topic is where the version is read.
+ */
+function commandLines(view: Harness): string[] {
+  const tools = view.members.filter((member) => member.kind === "tool");
+  if (tools.length === 0) return [];
+  const lockfile = tools.some((tool) => tool.fields.some(([key]) => key === "package"))
+    ? readLockfile(process.cwd())
+    : undefined;
+  return [...tools]
+    .sort((a, b) => compareStrings(a.name, b.name))
+    .map((tool) => {
+      const leaf = (name: string) => tool.fields.find(([key]) => key === name)?.[1] as string | undefined;
+      const head = `\`${nestedAddress("root", tool.kind, tool.name)}\``;
+      const pkg = leaf("package");
+      if (pkg !== undefined) {
+        const version = lockfile?.version(pkg);
+        const locked =
+          lockfile === undefined
+            ? "no lockfile records it"
+            : version === undefined
+              ? `not in \`${lockfile.name}\``
+              : `version ${version}, locked by \`${lockfile.name}\``;
+        return item(head, `the bin \`${leaf("bin") ?? ""}\` of \`${pkg}\` — ${locked}.`);
+      }
+      const file = leaf("file");
+      if (file !== undefined) return item(head, `the committed file \`${file}\`.`);
+      return item(head, `the system tool \`${leaf("system") ?? ""}\` on the PATH, claiming no version.`);
+    });
+}
+
+/** The body of a kind's topic — every declaration over the kind, and no member of it but a tool's command. */
 function kindTopic(
   facts: KindFacts,
   view: Harness,
@@ -239,6 +274,7 @@ function kindTopic(
 ): string {
   const counsel = facts.guidance?.trim();
   const fields = fieldLines(facts);
+  const commands = facts.name === "tool" ? commandLines(view) : [];
   const { outbound, inbound } = kindEdges(facts, kinds);
   const edge = (head: string, intent: EdgeIntent["intent"]) => item(head, intent ?? "no intent declared.");
   const edges = [
@@ -273,6 +309,7 @@ function kindTopic(
     `## Locus\n\n${locusSection(facts, kindLocusGlobs(facts, view))}`,
     ...(fields.length === 0 ? [] : [`## Fields\n\n${fields.join("\n")}`]),
     ...(edges.length === 0 ? [] : [`## Edges\n\n${edges.join("\n\n")}`]),
+    ...(commands.length === 0 ? [] : [`## Commands\n\n${commands.join("\n")}`]),
     `## Clauses\n\n${contract}`,
     ...(domains.length === 0 ? [] : [`## Domains\n\n${domains.join("\n")}`]),
   ].join("\n\n");

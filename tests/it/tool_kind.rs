@@ -208,3 +208,137 @@ fn the_settings_status_line_reaches_the_file_tool_it_runs() {
         run.output
     );
 }
+
+/// A program composing the reference and one `{ package, bin }` tool that the reference
+/// renders and nothing runs.
+const PACKAGE_TOOL_PROGRAM: &str = r#"
+import { emit, harness, reference, tool } from "@dtmd/temper";
+
+const program = harness({
+  members: [reference(), tool({ package: "typescript", bin: "tsc" })],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+/// The tool's topic beside the reference's `SKILL.md`.
+fn tool_topic(harness: &std::path::Path) -> String {
+    std::fs::read_to_string(harness.join(".claude/skills/temper/kind-tool.md")).unwrap()
+}
+
+#[test]
+fn a_package_bin_tool_reads_its_version_from_package_lock_json() {
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("tool-npm-lock", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(
+        &into,
+        "package-lock.json",
+        r#"{ "lockfileVersion": 3, "packages": {
+  "": { "devDependencies": { "typescript": "5.9.3" } },
+  "node_modules/typescript": { "version": "5.9.3" } } }
+"#,
+    );
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let topic = tool_topic(&harness);
+    assert!(
+        topic.contains("`root/tool/tsc`")
+            && topic.contains("version 5.9.3, locked by `package-lock.json`"),
+        "the reference shows the locked version: {topic}"
+    );
+    let narration = common::explain_in(&harness, "member:root/tool/tsc");
+    assert!(
+        narration.contains("`typescript` 5.9.3, locked by the program's `package-lock.json`"),
+        "explain shows the locked version: {narration}"
+    );
+    let run = common::check_in(&harness, &["."], Some("github"));
+    assert!(
+        common::findings_for(&run.findings(), "tool.unlocked").is_empty(),
+        "a locked package draws no finding: {}",
+        run.output
+    );
+}
+
+#[test]
+fn a_package_bin_tool_reads_its_version_from_pnpm_lock_yaml() {
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("tool-pnpm-lock", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(
+        &into,
+        "pnpm-lock.yaml",
+        "lockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    devDependencies:\n      typescript:\n        specifier: ^5.6.0\n        version: 5.9.3\n\npackages:\n\n  typescript@5.9.3:\n    resolution: {integrity: sha512-x}\n",
+    );
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let topic = tool_topic(&harness);
+    assert!(
+        topic.contains("version 5.9.3, locked by `pnpm-lock.yaml`"),
+        "the reference shows the locked version: {topic}"
+    );
+    let narration = common::explain_in(&harness, "member:root/tool/tsc");
+    assert!(
+        narration.contains("`typescript` 5.9.3, locked by the program's `pnpm-lock.yaml`"),
+        "explain shows the locked version: {narration}"
+    );
+}
+
+#[test]
+fn a_package_bin_tool_missing_from_the_lockfile_is_a_finding() {
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("tool-unlocked", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(
+        &into,
+        "package-lock.json",
+        r#"{ "lockfileVersion": 3, "packages": { "": {} } }
+"#,
+    );
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    assert!(
+        tool_topic(&harness).contains("not in `package-lock.json`"),
+        "the reference names the missing version"
+    );
+    let run = common::check_in(&harness, &["."], Some("github"));
+    let findings = run.findings();
+    let unlocked = common::findings_for(&findings, "tool.unlocked");
+    assert!(
+        unlocked.len() == 1
+            && unlocked[0].starts_with("::warning")
+            && unlocked[0].contains("root/tool/tsc")
+            && unlocked[0].contains("package-lock.json"),
+        "a package the lockfile does not record is an advisory finding: {}",
+        run.output
+    );
+}
+
+#[test]
+fn an_unsupported_lockfile_refuses_naming_it() {
+    common::ensure_sdk_built();
+    let (_harness, into) = common::wire_sdk_harness("tool-yarn-lock", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(&into, "yarn.lock", "# yarn lockfile v1\n");
+
+    let err = drift::emit_program(&into, EmitOptions::default()).unwrap_err();
+    assert!(
+        format!("{err:?}").contains("yarn.lock"),
+        "emit refuses naming the lockfile: {err:?}"
+    );
+
+    // A program composing no reference still meets the refusal at `check`.
+    let (harness_b, into_b) = common::wire_sdk_harness(
+        "tool-yarn-lock-check",
+        &PACKAGE_TOOL_PROGRAM.replace("reference(), ", ""),
+    );
+    drift::emit_program(&into_b, EmitOptions::default()).unwrap();
+    common::write_sibling(&into_b, "yarn.lock", "# yarn lockfile v1\n");
+    let run = common::check_in(&harness_b, &["."], Some("github"));
+    assert!(
+        !run.ok && run.output.contains("yarn.lock"),
+        "check refuses naming the lockfile: {}",
+        run.output
+    );
+    let narration = common::explain_in(&harness_b, "member:root/tool/tsc");
+    assert!(
+        narration.contains("yarn.lock"),
+        "explain refuses naming the lockfile: {narration}"
+    );
+}
