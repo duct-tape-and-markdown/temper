@@ -106,7 +106,9 @@ The set a contract binds to. Selectors are declared, decidable expressions:
   the existential binding,
 - **by incidence** — the edges at a member, filtered by direction and a
   field set; a bound ranges over the union, an unfiltered one over every
-  edge but containment, which counts only where a filter names it.
+  edge but containment and satisfies, relations the selections already
+  judge, each counted only where a filter names it. A selection over the
+  requirement kind judges like any kind's.
 
 A selection picks members or edges; the set predicates are one algebra over
 selections, and the quantifier is the clause's grain — no separate

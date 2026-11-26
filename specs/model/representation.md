@@ -15,8 +15,10 @@ One authored unit: an instance of a kind. A member carries
   an odd segment count and a leaf's an even one — one grammar every row
   spells and every verb accepts; resolution is total — an address names
   exactly one thing or the verb refuses — and coincident addresses are a
-  malformed lock; a name derived from a field is opaque, and a member's
-  placement is its own path fact, never parsed out of its identity,
+  malformed lock; a name derived from a field is opaque behind any
+  path-derived prefix, and a member's placement is its own path fact,
+  declared where its kind's templates cannot place its name whole, carried
+  on its lock row, and never parsed out of its identity,
 - typed **fields**, projected to frontmatter or structured config,
 - **prose** — its authored words, copied verbatim, byte-for-byte,
 - **edges** — its declared references (`contract.md`),

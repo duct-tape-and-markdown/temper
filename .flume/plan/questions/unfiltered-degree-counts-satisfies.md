@@ -1,5 +1,0 @@
-# Does an unfiltered degree bound count satisfies arcs?
-
-`specs/model/contract.md`, "selection": an unfiltered incidence bound ranges over "every edge but containment". Since REQUIREMENT-IS-ONE-GRAPH-NODE (ecf53c72) the graph carries one `satisfies` arc per satisfier; counting it unfiltered makes a requirement's `degree(outgoing >= 1)` over its satisfiers vacuous and flipped `graph::containment_incidence::the_same_floor_unfiltered_counts_no_containment_arc`. Build held satisfies out of the unfiltered set (`filtered_edges`; mention-reachable skips it too), which the sentence does not say. Two answers fit: amend the sentence to hold satisfies out like containment, or count it and rule the vacuity acceptable.
-
-Adjacent, same section family ("requirement"): `gate::kind_selections` filters `requirement`, so a `degree` clause in `expect: [{kind: requirement}]` routes only to coverage/opt-in and is judged nowhere; a subkind (`kind: decision`) does reach `degree`. Whether a literal requirement's population clause should judge, or refuse as malformed, is the same ruling's neighbor.

@@ -93,14 +93,17 @@ temper's own `dial`. The file members:
 - **rule** — a lone markdown file with an optional path scope; a rule with no
   scope registers unconditionally.
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
-  frontmatter: the entire file is prose. `AGENTS.md` is a memory member by
-  position too, and its registration is the runtime's condition: Claude Code
-  loads it only where no `CLAUDE.md` sits in its directory or above
-  (code.claude.com/docs/en/memory, retrieved 2026-11-26), so one a
-  `CLAUDE.md` shadows and does not import is never loaded, and reachability
-  says so. A nested one is named by the same grammar as a nested skill, its
-  subdirectory's segments joined with `:` (`memory:apps:web:CLAUDE`), so
-  emit places it where it was found.
+  frontmatter: the entire file is prose. `AGENTS.md` and `.claude/AGENTS.md`
+  are memory members by position too, and their registration is the
+  runtime's condition (code.claude.com/docs/en/memory, retrieved
+  2026-11-26): at launch one loads only where no `CLAUDE.md` sits in the
+  working directory or above, and a subdirectory's loads on demand only
+  where that subdirectory has none of the `CLAUDE.md` files of its own;
+  where the project-instructions setting loads both files, neither gate
+  applies, so one a `CLAUDE.md` shadows and does not import is never loaded,
+  and reachability says so. A nested one is named by the same grammar as a
+  nested skill, its subdirectory's segments joined with `:`
+  (`memory:apps:web:CLAUDE`), so emit places it where it was found.
 - **plugin-manifest** — the pack's identity at
   `.claude-plugin/plugin.json`, a JSON document; identity from its `name`
   field, the one required field (kebab-case). Its contract mirrors the
@@ -188,9 +191,10 @@ search tool's, opens no path gate, a skill's or a rule's (probed on 2.1.281,
 2026-09-24), so a reach judgment over a path gate states that it cannot see
 reads made any other way. The gate is the field's documented semantics,
 carried with the field, never a channel entry. A gate may also be a
-document's absence: an `AGENTS.md` opens its channels only where no
-`CLAUDE.md` sits in its directory or above, a gate carried with memory's
-`AGENTS.md` template and judged by reach.
+document's absence: an `AGENTS.md` opens its channels only where the
+`CLAUDE.md` the runtime would load instead is absent, a gate carried with
+memory's `AGENTS.md` templates, reading the project-instructions setting
+where settings declare it, and judged by reach.
 
 Each kind's format facts are external facts about the harness, cited at the
 point of claim in the kind's own source.
