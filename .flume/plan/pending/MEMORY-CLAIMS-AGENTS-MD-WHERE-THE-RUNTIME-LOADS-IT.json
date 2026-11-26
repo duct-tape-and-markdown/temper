@@ -1,8 +1,10 @@
 {
   "tag": "MEMORY-CLAIMS-AGENTS-MD-WHERE-THE-RUNTIME-LOADS-IT",
   "gate": {
-    "kind": "parked",
-    "reason": "decision on memory-locus-holds-two-templates: the one-template locus and a registration row for the no-CLAUDE.md-at-or-above condition"
+    "kind": "blockedBy",
+    "tags": [
+      "FILE-LOCUS-GOVERNS-THROUGH-TEMPLATES"
+    ]
   },
   "kind": "work",
   "files": {
@@ -10,19 +12,19 @@
     "edit": [
       {
         "path": "sdk/src/kind.ts",
-        "description": "Locus carries the second template, per the question's answer"
+        "description": "a template carries its absence gate (builtins.md registration)"
       },
       {
         "path": "sdk/src/builtins.ts",
-        "description": "memory governs **/AGENTS.md; its registration names the condition; replace the stale 'does not read' cite"
+        "description": "memory's second template **/AGENTS.md with its gate; replace the stale 'does not read' cite"
       },
       {
         "path": "src/kind.rs",
-        "description": "lift the widened locus"
+        "description": "lift the template's absence gate"
       },
       {
         "path": "src/graph.rs",
-        "description": "reachability judges the AGENTS.md condition"
+        "description": "reachability judges the AGENTS.md absence gate"
       },
       {
         "path": "src/builtin_lock.toml",
@@ -43,7 +45,7 @@
     ],
     "retire": []
   },
-  "summary": "memory governs AGENTS.md by position; its registration is Claude Code's condition (no CLAUDE.md in its directory or above), judged by reachability",
+  "summary": "memory governs AGENTS.md through a second template; its gate is a CLAUDE.md's absence at or above, judged by reach",
   "per": {
     "path": "specs/builtins.md",
     "section": "The shipped kinds"
@@ -56,5 +58,5 @@
   "pins": [
     "a claude md importing agents md reaches it through the import edge"
   ],
-  "notes": "Class 0101/0103; spec 7b99c08c answers the old park (identity by position, condition is registration). code.claude.com/docs/en/memory (retrieved 2026-11-26): AGENTS.md read only where no CLAUDE.md is at or above (v2.1.277+). Codex overrides belong to a future provider face."
+  "notes": "Class 0101/0103; 0109 answers the park (two templates; the condition is a gate by a document's absence, carried with the template). code.claude.com/docs/en/memory (retrieved 2026-11-26): AGENTS.md read only where no CLAUDE.md is at or above (v2.1.277+). Codex overrides belong to a future provider face."
 }
