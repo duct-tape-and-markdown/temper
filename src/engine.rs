@@ -1245,31 +1245,12 @@ fn over_listing(
     max: usize,
     withheld_by: Option<&str>,
 ) -> Option<Diagnostic> {
-    let withheld = |features: &Features| {
-        withheld_by.is_some_and(|marker| {
-            matches!(
-                features.field(marker),
-                Some(FeatureValue::Scalar { kind: ValueType::Boolean, text }) if text == "true"
-            )
-        })
-    };
-    let listed: Vec<&Features> = selection
+    let entries: Vec<usize> = selection
         .members
         .iter()
-        .map(|(_, features)| *features)
-        .filter(|features| !withheld(features))
+        .filter_map(|(_, features)| listing_entry(features, fields, entry, withheld_by))
         .collect();
-    let total: usize = listed
-        .iter()
-        .map(|features| {
-            let length: usize = fields
-                .iter()
-                .filter_map(|field| features.field(field))
-                .filter_map(|value| value.as_scalar().map(|text| text.chars().count()))
-                .sum();
-            length.min(entry)
-        })
-        .sum();
+    let total: usize = entries.iter().sum();
     if total <= max {
         return None;
     }
@@ -1284,9 +1265,35 @@ fn over_listing(
                 .map(|field| format!("`{field}`"))
                 .collect::<Vec<_>>()
                 .join(" + "),
-            listed.len(),
+            entries.len(),
         ),
     ))
+}
+
+/// The characters one member's listing entry costs: its `fields` values in order, each
+/// scalar counted in characters, the sum cut at `entry`. [`None`] when the member's
+/// `withheld_by` field is boolean `true`, so it is not listed at all.
+pub(crate) fn listing_entry(
+    features: &Features,
+    fields: &[String],
+    entry: usize,
+    withheld_by: Option<&str>,
+) -> Option<usize> {
+    let withheld = withheld_by.is_some_and(|marker| {
+        matches!(
+            features.field(marker),
+            Some(FeatureValue::Scalar { kind: ValueType::Boolean, text }) if text == "true"
+        )
+    });
+    if withheld {
+        return None;
+    }
+    let length: usize = fields
+        .iter()
+        .filter_map(|field| features.field(field))
+        .filter_map(|value| value.as_scalar().map(|text| text.chars().count()))
+        .sum();
+    Some(length.min(entry))
 }
 
 /// The whole-grain `unique` findings for one declared `field` — one per value two or

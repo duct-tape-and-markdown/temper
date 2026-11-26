@@ -176,20 +176,49 @@ pub fn site_class(kind: &CustomKind) -> Option<SiteClass> {
 
 /// Every member whose template's absence gate is closed on disk under `harness_root`,
 /// with the reason [`graph::reachable`] names: which gate shut — launch or on demand —
-/// and the document whose presence shut it. The built-ins pair with their discovered units exactly
-/// as [`committed_member_sites`] pairs them, so the judge and the site walk range over
-/// one member set.
+/// and the document whose presence shut it. The shut half of [`absence_gate_states`].
 pub(crate) fn absence_gated(
     harness_root: &Path,
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
     builtin: &BTreeMap<String, compose::KindUnitsAndFeatures>,
     custom: &[(CustomKind, compose::KindUnitsAndFeatures)],
 ) -> graph::AbsenceGated {
+    shut_gates(&absence_gate_states(
+        harness_root,
+        overlaid_builtin_kinds,
+        builtin,
+        custom,
+    ))
+}
+
+/// The shut members of a gate-state map, each with the reason the reach judge names.
+pub(crate) fn shut_gates(
+    states: &BTreeMap<graph::Node, kind::AbsenceGateState>,
+) -> graph::AbsenceGated {
+    states
+        .iter()
+        .filter_map(|(node, state)| match state {
+            kind::AbsenceGateState::Shut(closure) => Some((node.clone(), closure.reason())),
+            kind::AbsenceGateState::Open(_) => None,
+        })
+        .collect()
+}
+
+/// The absence-gate state of every member whose template carries one, open or shut, as
+/// it stands on disk under `harness_root`. The built-ins pair with their discovered units
+/// exactly as [`committed_member_sites`] pairs them, so the judge and the site walk
+/// range over one member set.
+pub(crate) fn absence_gate_states(
+    harness_root: &Path,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    builtin: &BTreeMap<String, compose::KindUnitsAndFeatures>,
+    custom: &[(CustomKind, compose::KindUnitsAndFeatures)],
+) -> BTreeMap<graph::Node, kind::AbsenceGateState> {
     let builtin_pairs = overlaid_builtin_kinds
         .iter()
         .filter_map(|(name, kind)| builtin.get(name).map(|uaf| (kind, uaf)));
     let custom_pairs = custom.iter().map(|(kind, uaf)| (kind, uaf));
-    let mut gated = graph::AbsenceGated::new();
+    let mut states = BTreeMap::new();
     for (kind, uaf) in builtin_pairs
         .chain(custom_pairs)
         .filter(|(kind, _)| !kind.absence_gates.is_empty())
@@ -201,15 +230,14 @@ pub(crate) fn absence_gated(
             ) else {
                 continue;
             };
-            if let Some(closure) = kind.absence_closer(&source_path, |candidate| {
+            if let Some(state) = kind.absence_gate(&source_path, |candidate| {
                 harness_root.join(candidate).is_file()
             }) {
-                let reason = closure.reason();
-                gated.insert((kind.name.clone(), unit.id.clone()), reason);
+                states.insert((kind.name.clone(), unit.id.clone()), state);
             }
         }
     }
-    gated
+    states
 }
 
 /// One site walk over every discovered kind, collecting each admitted member into its

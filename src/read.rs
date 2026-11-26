@@ -56,7 +56,7 @@ use crate::document::Satisfies;
 use crate::drift;
 use crate::extract::{self, Features, MemberAddress};
 use crate::graph::{self, DIRECTIVE_FIELD, ResolvedEdge};
-use crate::kind::{CustomKind, Registration};
+use crate::kind::{AbsenceClosure, AbsenceGateScope, AbsenceGateState, CustomKind, Registration};
 use crate::member_address::{self, ParsedLeaf, nested_key, parse_leaf_address};
 use crate::roster;
 use crate::tap;
@@ -2449,6 +2449,214 @@ fn prose_strand(rows: &[drift::LayoutProseRow], member: &str) -> String {
     out
 }
 
+/// `explain`'s **load** strand — what loads `name`, when, and roughly what it costs:
+/// each channel its kind registers, judged live or dead by the reach judge's own
+/// [`graph::dead_registration`]; its absence gate's state where its template carries
+/// one; its rendered size; and, where its kind's contract carries a `listing` clause,
+/// the listing entry that rides every request. Every count is in characters. Empty for
+/// a name no top-level member bears.
+fn load_strand(
+    name: &str,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    registrations: &BTreeMap<&str, Vec<Registration>>,
+    contracts: &BTreeMap<String, Contract>,
+    gates: &BTreeMap<graph::Node, AbsenceGateState>,
+    repo_files: &[String],
+) -> String {
+    let mut out = String::new();
+    for (&kind, members) in by_kind {
+        let Some(member) = members.iter().find(|features| features.id == name) else {
+            continue;
+        };
+        let listing = contracts.get(kind).and_then(|contract| {
+            contract
+                .clauses
+                .iter()
+                .find_map(|clause| match &clause.predicate {
+                    Predicate::Listing {
+                        fields,
+                        entry,
+                        withheld_by,
+                        ..
+                    } => Some((fields, *entry, withheld_by.as_deref())),
+                    _ => None,
+                })
+        });
+        let _ = writeln!(
+            out,
+            "`{name}` ({kind}) — what loads it, when, and what it costs:"
+        );
+        let gate = gates.get(&(kind.to_string(), name.to_string()));
+        match registrations
+            .get(kind)
+            .filter(|channels| !channels.is_empty())
+        {
+            None => {
+                let _ = writeln!(
+                    out,
+                    "  • Its kind registers no channel, so the harness loads it unconditionally, wherever it is carried."
+                );
+            }
+            Some(channels) => {
+                for channel in channels {
+                    let _ = writeln!(
+                        out,
+                        "  • {}",
+                        narrate_channel(channel, member, repo_files, gate, listing)
+                    );
+                }
+            }
+        }
+        if let Some(state) = gate {
+            let _ = writeln!(out, "  • {}", narrate_gate(state));
+        }
+        if let Some((fields, entry, withheld_by)) = listing {
+            let spelled = fields
+                .iter()
+                .map(|field| format!("`{field}`"))
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let _ = match crate::engine::listing_entry(member, fields, entry, withheld_by) {
+                Some(chars) => writeln!(
+                    out,
+                    "  • Its listing entry costs {chars} characters on every request ({spelled}, cut at {entry})."
+                ),
+                None => writeln!(
+                    out,
+                    "  • It is withheld from the listing (`{}: true`), so it costs no characters until invoked.",
+                    withheld_by.unwrap_or_default()
+                ),
+            };
+        }
+        let _ = match member.rendered_chars {
+            Some(chars) => writeln!(
+                out,
+                "  • Loaded, its rendered body costs about {chars} characters of context."
+            ),
+            None => writeln!(
+                out,
+                "  • Its rendered size is unknown: nothing rendered a projection of it to measure."
+            ),
+        };
+    }
+    out
+}
+
+/// One registration channel's sentence: the channel, and when it loads the member — or
+/// why it never does, in the reach judge's words.
+fn narrate_channel(
+    channel: &Registration,
+    member: &Features,
+    repo_files: &[String],
+    gate: Option<&AbsenceGateState>,
+    listing: Option<(&Vec<String>, usize, Option<&str>)>,
+) -> String {
+    if let Some(reason) = graph::dead_registration(channel, member, repo_files) {
+        return format!("{}: dead — {reason}.", channel_label(channel));
+    }
+    let label = channel_label(channel);
+    match channel {
+        Registration::Always => match gate {
+            Some(AbsenceGateState::Open(AbsenceGateScope::OnDemand))
+            | Some(AbsenceGateState::Shut(AbsenceClosure {
+                scope: AbsenceGateScope::OnDemand,
+                ..
+            })) => format!(
+                "{label}: loaded on demand, the first time Claude reads a file in its subdirectory."
+            ),
+            Some(_) => format!("{label}: loaded at launch, while its absence gate is open."),
+            None => format!("{label}: loaded at launch, unconditionally."),
+        },
+        Registration::UserInvoked => {
+            format!("{label}: its body loads when it is invoked by name.")
+        }
+        Registration::DescriptionTrigger { field } => {
+            let withheld = listing.and_then(|(fields, entry, withheld_by)| {
+                crate::engine::listing_entry(member, fields, entry, withheld_by)
+                    .is_none()
+                    .then_some(withheld_by)
+                    .flatten()
+            });
+            match withheld {
+                Some(marker) => format!(
+                    "{label}: withheld — its `{marker}` is `true`, so its `{field}` is never listed and Claude cannot invoke it on its own."
+                ),
+                None => format!(
+                    "{label}: its `{field}` is listed from session start, and its body loads when Claude matches a request to it."
+                ),
+            }
+        }
+        Registration::PathsMatch { field } => {
+            let globs = member
+                .field(field)
+                .map(|value| graph::extract_globs(&value))
+                .unwrap_or_default();
+            if globs.is_empty() {
+                format!(
+                    "{label}: it declares no `{field}`, so it loads at launch, unconditionally."
+                )
+            } else {
+                format!(
+                    "{label}: loaded when Claude reads a file matching {}.",
+                    globs
+                        .iter()
+                        .map(|glob| format!("`{glob}`"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+        }
+        Registration::Event { field } => match member.field(field) {
+            Some(value) if value.as_scalar().is_some() => format!(
+                "{label}: runs when the `{}` lifecycle event fires.",
+                value.as_scalar().unwrap_or_default()
+            ),
+            _ => format!("{label}: runs at the lifecycle event its `{field}` names."),
+        },
+        Registration::Connection => {
+            format!("{label}: reaches the session when the harness connects to it.")
+        }
+        Registration::Enablement { field } => {
+            format!("{label}: loaded while its `{field}` entry enables it.")
+        }
+        Registration::Registry => format!(
+            "{label}: carried in the harness's registry; whether it resolves is a fetch-time fact."
+        ),
+    }
+}
+
+/// A channel's spelling as the kind declares it (`paths-match(paths)`).
+fn channel_label(channel: &Registration) -> String {
+    match channel {
+        Registration::Always => "`always`".to_string(),
+        Registration::UserInvoked => "`user-invoked`".to_string(),
+        Registration::DescriptionTrigger { field } => format!("`description-trigger({field})`"),
+        Registration::PathsMatch { field } => format!("`paths-match({field})`"),
+        Registration::Event { field } => format!("`event({field})`"),
+        Registration::Connection => "`connection`".to_string(),
+        Registration::Enablement { field } => format!("`enablement({field})`"),
+        Registration::Registry => "`registry`".to_string(),
+    }
+}
+
+/// An absence gate's sentence: open, so its channels load the member, or shut and by
+/// which document.
+fn narrate_gate(state: &AbsenceGateState) -> String {
+    match state {
+        AbsenceGateState::Open(scope) => format!(
+            "Its {} absence gate is open: no document that would shut it is present, so its channels load it.",
+            scope.label()
+        ),
+        AbsenceGateState::Shut(closure) => {
+            let reason = closure.reason();
+            let mut chars = reason.chars();
+            chars.next().map_or_else(String::new, |first| {
+                format!("{}{}.", first.to_uppercase(), chars.as_str())
+            })
+        }
+    }
+}
+
 /// Assemble the corpus for the explain verb and dispatch to [`explain`] with the target:
 /// read the workspace, discover all features, build contracts, rosters, and edge sets
 /// exactly as `gate` does, so a read cannot disagree with the gate.
@@ -2608,12 +2816,13 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     // The whole file-set stays: `graph::reachability_orphaned` below reads it entire,
     // through `live_members`, and the read verb binds no clause to gate the walk behind.
     let repo_files = compose::repo_file_set(Path::new("."));
-    let gated = crate::gate::absence_gated(
+    let gate_states = crate::gate::absence_gate_states(
         Path::new("."),
         &overlaid_builtin_kinds,
         &builtin_units_and_features,
         &custom_units_and_features,
     );
+    let gated = crate::gate::shut_gates(&gate_states);
     // The built-in defs, for the corpus-wide fact per kind the classing needs: which
     // kinds seed the directive traversal. The edge set this narrates
     // widens with the traversal — a reached rule's own outbound `@import` shows — because
@@ -2686,6 +2895,18 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         if !strand.is_empty() {
             narration.push('\n');
             narration.push_str(&strand);
+        }
+        let load = load_strand(
+            name,
+            &by_kind,
+            &registrations,
+            &contracts,
+            &gate_states,
+            &repo_files,
+        );
+        if !load.is_empty() {
+            narration.push('\n');
+            narration.push_str(&load);
         }
         let version = crate::tool::version_strand(&declarations.nested_members, &workspace, name)?;
         if !version.is_empty() {

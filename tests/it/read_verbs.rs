@@ -2970,3 +2970,109 @@ fn a_requirement_subkinds_field_reaches_explain_as_a_leaf() {
         "the subkind's field reads as a leaf, got:\n{leaf}"
     );
 }
+
+#[test]
+fn explain_on_a_member_states_what_loads_it_and_when() {
+    // One harness carrying a skill, a path-scoped rule and a memory file behind an open
+    // absence gate: each names the channel its kind registers, the moment that channel
+    // loads it, and its rendered size in characters.
+    let harness = common::scaffold("explain-load-and-moment");
+    common::write_skill(&harness, "demo", &common::clean_skill("demo"));
+    common::write_sibling(
+        &harness,
+        ".claude/rules/style.md",
+        &common::scoped_rule(Some("src/**/*.rs")),
+    );
+    common::write_sibling(&harness, "src/lib.rs", "fn main() {}\n");
+    common::write_sibling(&harness, "AGENTS.md", "# Notes\n");
+
+    let skill = common::explain_in(&harness, "demo");
+    assert!(
+        skill.contains("`demo` (skill) — what loads it, when, and what it costs"),
+        "the skill carries the load strand: {skill}"
+    );
+    assert!(
+        skill.contains("`user-invoked`: its body loads when it is invoked by name."),
+        "the skill names its by-name channel: {skill}"
+    );
+    assert!(
+        skill.contains(
+            "`description-trigger(description)`: its `description` is listed from session start"
+        ),
+        "the skill names its listing channel and moment: {skill}"
+    );
+
+    let rule = common::explain_in(&harness, "style");
+    assert!(
+        rule.contains(
+            "`paths-match(paths)`: loaded when Claude reads a file matching `src/**/*.rs`."
+        ),
+        "the path-scoped rule names its channel and the reads that load it: {rule}"
+    );
+    assert!(
+        rule.contains("its rendered body costs about"),
+        "the rule states its cost: {rule}"
+    );
+
+    let memory = common::explain_in(&harness, "AGENTS");
+    assert!(
+        memory.contains("`always`: loaded at launch, while its absence gate is open."),
+        "the memory file names its channel and launch moment: {memory}"
+    );
+    assert!(
+        memory.contains("Its launch absence gate is open"),
+        "a gated document states its gate is open: {memory}"
+    );
+    assert!(
+        memory.contains("its rendered body costs about 8 characters of context"),
+        "the memory file states its rendered size in characters: {memory}"
+    );
+
+    // Shut the gate: the same member now states which document shut it.
+    common::write_sibling(&harness, "CLAUDE.md", "# Claude\n");
+    let shut = common::explain_in(&harness, "AGENTS");
+    assert!(
+        shut.contains("Its launch gate is shut: `CLAUDE.md` sits in the working directory"),
+        "a shut gate names its closer: {shut}"
+    );
+}
+
+#[test]
+fn explain_on_a_model_invocable_skill_states_its_listing_cost_in_characters() {
+    // The listing entry is the skill contract's own `listing` clause measure: the
+    // `description` + `when_to_use` characters, cut at the per-entry cap. A skill
+    // withheld by `disable-model-invocation: true` is not listed, and says so.
+    let harness = common::scaffold("explain-listing-cost");
+    let description = "Use when listing is the task at hand.";
+    common::write_skill(
+        &harness,
+        "listed",
+        &format!(
+            "---\nname: listed\ndescription: {description}\nwhen_to_use: Now.\n---\n# listed\n\nBody.\n"
+        ),
+    );
+    common::write_skill(
+        &harness,
+        "quiet",
+        "---\nname: quiet\ndescription: Use when quiet is the task.\ndisable-model-invocation: true\n---\n# quiet\n\nBody.\n",
+    );
+
+    let listed = common::explain_in(&harness, "listed");
+    let chars = description.chars().count() + "Now.".chars().count();
+    assert!(
+        listed.contains(&format!(
+            "Its listing entry costs {chars} characters on every request (`description` + `when_to_use`"
+        )),
+        "a model-invocable skill states its listing cost in characters: {listed}"
+    );
+
+    let quiet = common::explain_in(&harness, "quiet");
+    assert!(
+        quiet.contains("withheld from the listing (`disable-model-invocation: true`)"),
+        "a withheld skill states it costs no listing characters: {quiet}"
+    );
+    assert!(
+        quiet.contains("withheld — its `disable-model-invocation` is `true`"),
+        "and its description channel reads as withheld: {quiet}"
+    );
+}

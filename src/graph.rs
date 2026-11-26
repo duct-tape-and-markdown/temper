@@ -1464,7 +1464,7 @@ fn dead_channel_set(
 /// `enablement` entry the harness is documented not to load. `always`/`user-invoked`
 /// (unconditionally live), `event`, and `connection`/`registry` (no repo-decidable
 /// criterion) never do.
-fn dead_registration(
+pub(crate) fn dead_registration(
     registration: &Registration,
     member: &Features,
     repo_files: &[String],
