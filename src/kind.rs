@@ -57,6 +57,18 @@ pub enum Commitment {
     Local,
 }
 
+/// A source malformation a kind's reader **forgives** — the runtime loads the document
+/// anyway, so the read yields a member rather than a load fault. Declared per kind,
+/// because runtimes disagree per surface: one loads a document the next skips.
+///
+/// A closed vocabulary, the same load-time guard [`Format`] and [`UnitShape`] carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Leniency {
+    /// `malformed-yaml` — a frontmatter block that does not parse as YAML loads with no
+    /// fields set; the body still reads.
+    MalformedYaml,
+}
+
 /// A kind's declared definition — a constructor plus its runtime residue: the
 /// [`governs`](CustomKind::governs) locus, the composed [`Extraction`], the declared
 /// [`relationships`](CustomKind::relationships), and the declared shape facts
@@ -132,6 +144,9 @@ pub struct CustomKind {
     /// [`local_locus_fault`](CustomKind::local_locus_fault) states; admissible over any
     /// declared content and format. Read back off the row's `commitment` column.
     pub commitment: Option<Commitment>,
+    /// The source malformations the kind's reader forgives ([`Leniency`]); empty ⇒ every
+    /// malformation is a load fault. Read back off the row's `leniency` column.
+    pub leniency: Vec<Leniency>,
     /// The file locus's declared **excluded** paths — harness-relative, each a starless
     /// path the [`governs`](CustomKind::governs) template matches or a directory it
     /// reaches beneath (excluding every path under it), which no member of
@@ -545,6 +560,7 @@ impl CustomKind {
             content: Content::File,
             collection_address: None,
             commitment: None,
+            leniency: Vec::new(),
             excluded: Vec::new(),
             bare_root_file: None,
             base: None,
@@ -691,6 +707,11 @@ impl CustomKind {
             content: content_from_row(row)?,
             collection_address: collection_address_from_row(row)?,
             commitment: commitment_from_row(row)?,
+            leniency: row
+                .leniency
+                .iter()
+                .map(|label| kind_vocab(label, "leniency", leniency_from_label(label)))
+                .collect::<Result<Vec<_>, _>>()?,
             excluded: excluded_from_row(row)?,
             bare_root_file: None,
             base: row.base.clone(),
@@ -1046,6 +1067,15 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
 fn commitment_from_label(label: &str) -> Option<Commitment> {
     match label {
         "local" => Some(Commitment::Local),
+        _ => None,
+    }
+}
+
+/// Parse a [`KindFactRow::leniency`] label into its typed [`Leniency`] — `None` for any
+/// label outside the closed vocabulary.
+fn leniency_from_label(label: &str) -> Option<Leniency> {
+    match label {
+        "malformed-yaml" => Some(Leniency::MalformedYaml),
         _ => None,
     }
 }

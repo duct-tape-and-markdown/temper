@@ -200,3 +200,38 @@ fn a_command_member_can_optionally_carry_frontmatter_fields() {
         ))
     );
 }
+
+#[test]
+fn a_command_whose_frontmatter_yaml_does_not_parse_loads_with_no_fields_set() {
+    let harness = common::tmpdir("non-portable-command");
+    let path = write_command(
+        &harness,
+        "deploy",
+        "---\ndescription: Deploy: ship the release\n---\n# Deploy\n\nRun the release pipeline.\n",
+    );
+    let command_kind = builtin_kind::definition("command").expect("command is embedded");
+
+    let member = Member::from_source(&command_kind, &path)
+        .expect("the command loads as the runtime loads it");
+
+    assert_eq!(member.id, "deploy");
+    assert!(
+        member.fields.is_empty(),
+        "no field is set: {:?}",
+        member.fields
+    );
+    assert!(member.body.contains("# Deploy"));
+    assert!(member.forgiven.is_some());
+
+    let run = common::check_in(&harness, &["."], Some("github"));
+    let findings = run.findings();
+    assert!(
+        common::findings_for(&findings, "member.load-fault").is_empty(),
+        "a command the runtime loads is never a load fault: {findings:#?}"
+    );
+    assert_eq!(
+        common::findings_for(&findings, "member.non-portable-yaml").len(),
+        1,
+        "{findings:#?}"
+    );
+}

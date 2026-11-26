@@ -78,6 +78,7 @@ export type {
   EmbeddedMemberValue,
   FieldGuidance,
   Format,
+  Leniency,
   Input,
   KindDefinition,
   KindFacts,

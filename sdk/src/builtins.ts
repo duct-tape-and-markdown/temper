@@ -196,11 +196,15 @@ export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>(
  * `.claude/skills/` loads once Claude works there, its skill named by the subdirectory's
  * segments joined with `:` (`apps/web/.claude/skills/deploy` is `apps:web:deploy`;
  * same source, "Load skills in monorepos and subdirectories", retrieved 2026-11-25).
+ *
+ * A skill whose frontmatter YAML does not parse still loads, with no fields set (same
+ * source, retrieved 2026-11-25), so the kind forgives `malformed-yaml`.
  */
 export const skill: KindDefinition<Skill> = kind<Skill>({
   name: "skill",
   locus: { kind: "at", root: ".", glob: "**/.claude/skills/*/SKILL.md" },
   format: "yaml-frontmatter",
+  leniency: ["malformed-yaml"],
   unitShape: "directory",
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
   identityField: "name",
@@ -223,11 +227,16 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
  * load", retrieved 2026-11-24), and a subdirectory names the command —
  * `.claude/commands/frontend/component.md` is `/frontend:component`
  * (code.claude.com/docs/en/skills, retrieved 2026-11-25).
+ *
+ * It loads as a skill does, so it forgives `malformed-yaml` as `skill` does. `agent`
+ * forgives nothing: a subagent whose YAML does not parse is skipped
+ * (code.claude.com/docs/en/sub-agents, retrieved 2026-11-25).
  */
 export const command: KindDefinition<Skill> = kind<Skill>({
   name: "command",
   locus: { kind: "at", root: ".claude/commands", glob: "**/*.md" },
   format: "yaml-frontmatter",
+  leniency: ["malformed-yaml"],
   unitShape: "path",
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
   cite: "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)",

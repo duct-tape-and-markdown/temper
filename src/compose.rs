@@ -677,6 +677,7 @@ fn layout_unit(
     base: &Path,
     edge_fields: &BTreeSet<String>,
     host: Option<&str>,
+    advisories: &mut Vec<crate::check::Diagnostic>,
 ) -> miette::Result<(Unit, drift::LayoutDocumentRows)> {
     // Through the counted door: this and the row derivation's own reach are the two sites
     // that load a layout document, and a count taken at one of them would pin a share of
@@ -687,6 +688,7 @@ fn layout_unit(
             drift::LayoutDocumentFault::Read(err) => miette::Report::new(LayoutError::from(err)),
             drift::LayoutDocumentFault::Frontmatter(err) => miette::Report::new(err),
         })?;
+    advisories.extend(forgiven_yaml_advisory(&document));
     let mut reading = layout.read(&document.body, file, edge_fields)?;
     let id = host_qualified(host, &kind.name, document.id);
     // The key every row below lowers under, spelled off the id just folded through the
@@ -755,12 +757,13 @@ fn read_file_unit(
     base: &Path,
     edge_fields: &BTreeSet<String>,
     host: Option<&str>,
+    advisories: &mut Vec<crate::check::Diagnostic>,
 ) -> miette::Result<(Unit, drift::LayoutDocumentRows)> {
     // The layout adapter qualifies its own id: the rows it lowers beside the unit key by
     // the member's address, so the host must be in hand before the lowering, not folded on
     // after it. Every other adapter yields the unit alone and qualifies below.
     if let kind::Content::Layout(layout) = &kind.content {
-        return layout_unit(kind, layout, file, base, edge_fields, host);
+        return layout_unit(kind, layout, file, base, edge_fields, host, advisories);
     }
     let mut unit = match &kind.format {
         // Both document faces fold against the very base the frontmatter arm below receives
@@ -773,6 +776,7 @@ fn read_file_unit(
         Some(kind::Format::TomlDocument) => toml_document::read(kind, file, base)?.to_unit(),
         Some(kind::Format::YamlFrontmatter) | None => {
             let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
+            advisories.extend(forgiven_yaml_advisory(&source));
             Unit {
                 id: source.id.clone(),
                 frontmatter: source.fields.iter().cloned().collect(),
@@ -786,6 +790,33 @@ fn read_file_unit(
     unit.id = host_qualified(host, &kind.name, unit.id);
     Ok((unit, drift::LayoutDocumentRows::default()))
 }
+
+/// The advisory a member draws when its kind's leniency forgave frontmatter YAML that does
+/// not parse: the member loads with no fields set, so nothing judged its fields, and a
+/// strict YAML reader elsewhere refuses the file outright.
+fn forgiven_yaml_advisory(member: &frontmatter::Member) -> Option<crate::check::Diagnostic> {
+    let detail = member.forgiven.as_ref()?;
+    Some(
+        crate::check::Diagnostic::warn(
+            "member.non-portable-yaml",
+            member.provenance.source_path.display().to_string(),
+            format!(
+                "{detail}; the member loads with no fields set, so none of its fields is \
+                 checked"
+            ),
+        )
+        .with_guidance(Some(NON_PORTABLE_YAML_GUIDANCE.to_string())),
+    )
+}
+
+/// The teaching [`forgiven_yaml_advisory`] carries: what each reader does with the block.
+const NON_PORTABLE_YAML_GUIDANCE: &str = "Claude Code still loads a skill or command whose \
+     frontmatter is not valid YAML: its docs say it loads with no fields set \
+     (code.claude.com/docs/en/skills, retrieved 2026-11-25), and in the lab Claude Code 2.1.x \
+     lists such a skill with its `description` verbatim (2026-11-25) — which of the two a \
+     given release does is not settled. A strict YAML parser, as other harnesses use, \
+     rejects the file. The usual cause is an unquoted value holding `: ` — quote it \
+     (`description: \"Use when: …\"`) so every reader sees the same fields.";
 
 /// This unit's **identity**: the whole `<host-address>/<kind>/<key>` address when the file
 /// composed under a host's unit, the folded id itself when it is its own kind's top-level
@@ -1281,7 +1312,14 @@ fn resolve_kind_units(
                     // address** — `address_of` makes that discrimination once, and reads
                     // it at whatever depth the walk descended to.
                     let (host, base) = nested_host_and_base(&found);
-                    match read_file_unit(kind, &found.file, &base, &edge_fields, Some(&host)) {
+                    match read_file_unit(
+                        kind,
+                        &found.file,
+                        &base,
+                        &edge_fields,
+                        Some(&host),
+                        &mut load_fault_diagnostics,
+                    ) {
                         Ok(read) => child_units.push(read),
                         Err(err) => match frontmatter_fault_diagnostic(err) {
                             Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
@@ -1297,7 +1335,14 @@ fn resolve_kind_units(
                 for file in
                     import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
                 {
-                    match read_file_unit(kind, &file, &base, &edge_fields, None) {
+                    match read_file_unit(
+                        kind,
+                        &file,
+                        &base,
+                        &edge_fields,
+                        None,
+                        &mut load_fault_diagnostics,
+                    ) {
                         Ok(read) => file_units.push(read),
                         Err(err) => match frontmatter_fault_diagnostic(err) {
                             Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),

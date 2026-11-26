@@ -38,6 +38,13 @@ export type Remedy<Message extends string> = { readonly [remedy]: Message };
 export type Format = "yaml-frontmatter" | "json-document" | "toml-document";
 
 /**
+ * A source malformation a kind's reader forgives, because the runtime loads the document
+ * anyway — a closed vocabulary. `"malformed-yaml"`: a frontmatter block that does not
+ * parse as YAML loads with no fields set and draws an advisory, never a load fault.
+ */
+export type Leniency = "malformed-yaml";
+
+/**
  * Whether a member is a lone file (identity from the stem), a directory with an
  * entry file (identity from the directory name), a lone file whose identity is
  * read from a declared field (`identityField`) instead of derived from the path (an
@@ -259,6 +266,8 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly locus: Extract<Locus, { kind: "at" }>;
       /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
       readonly format?: Format;
+      /** The source malformations the kind's reader forgives; absent forgives none. */
+      readonly leniency?: readonly Leniency[];
       /** Fact 3b, projection — the on-disk unit shape. */
       readonly unitShape: UnitShape;
       /** Fact 4, registration — the declared channel set naming every documented way
@@ -403,6 +412,8 @@ export type KindFacts<T extends object = Record<string, unknown>> =
       readonly locus: { readonly kind: "nested-file" };
       /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
       readonly format?: Format;
+      /** The source malformations the kind's reader forgives; absent forgives none. */
+      readonly leniency?: readonly Leniency[];
       /** Fact 3b, projection — the on-disk unit shape. */
       readonly unitShape: UnitShape;
       /** Fact 4, registration — derived, never declared: a nested-file member registers

@@ -5360,6 +5360,12 @@ pub struct KindFactRow {
     #[serde(default)]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub exclude: Vec<String>,
+    /// The source malformations the kind's reader forgives, as wire labels
+    /// (`malformed-yaml`). Empty for a kind forgiving none, the tolerant round-trip
+    /// [`registration`](KindFactRow::registration) takes.
+    #[serde(default)]
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub leniency: Vec<String>,
     /// The declared projection format label, when declared.
     #[serde(default)]
     pub format: Option<String>,
@@ -6379,6 +6385,9 @@ impl KindFactRow {
         if !self.exclude.is_empty() {
             table.insert("exclude", value(string_array(&self.exclude)));
         }
+        if !self.leniency.is_empty() {
+            table.insert("leniency", value(string_array(&self.leniency)));
+        }
         if let Some(format) = &self.format {
             table.insert("format", value(format.clone()));
         }
@@ -6424,6 +6433,7 @@ impl KindFactRow {
             governs_glob: opt_str(table, "governs_glob")?,
             commitment: opt_str(table, "commitment")?,
             exclude: opt_str_array(table, "exclude")?.unwrap_or_default(),
+            leniency: opt_str_array(table, "leniency")?.unwrap_or_default(),
             format: opt_str(table, "format")?,
             unit_shape: opt_str(table, "unit_shape")?,
             registration: opt_str_array(table, "registration")?.unwrap_or_default(),

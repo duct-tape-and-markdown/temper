@@ -334,3 +334,29 @@ fn a_source_missing_the_name_field_is_a_load_error() {
         temper::frontmatter::FrontmatterError::NoNamedFieldId { .. }
     ));
 }
+
+#[test]
+fn an_agent_whose_frontmatter_yaml_does_not_parse_keeps_the_load_fault() {
+    let harness = common::tmpdir("non-portable-agent");
+    let path = harness.join(".claude/agents/reviewer.md");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(
+        &path,
+        "---\nname: reviewer\ndescription: Use when: reviewing a pull request\n---\n# Reviewer\n",
+    )
+    .unwrap();
+
+    assert!(matches!(
+        Member::from_source(&agent_kind(), &path),
+        Err(temper::frontmatter::FrontmatterError::Malformed { .. })
+    ));
+
+    let run = common::check_in(&harness, &["."], Some("github"));
+    let findings = run.findings();
+    assert_eq!(
+        common::findings_for(&findings, "member.load-fault").len(),
+        1,
+        "the runtime skips the agent, so the read faults: {findings:#?}"
+    );
+    assert!(common::findings_for(&findings, "member.non-portable-yaml").is_empty());
+}

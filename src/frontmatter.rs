@@ -22,7 +22,7 @@ use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
 use crate::document::Satisfies;
-use crate::kind::CustomKind;
+use crate::kind::{CustomKind, Leniency};
 
 /// A member projected through the generic frontmatter adapter: the declared and
 /// preserved frontmatter fields, a byte-faithful body, the companions that travel
@@ -48,6 +48,10 @@ pub struct Member {
     pub satisfies: Vec<Satisfies>,
     /// Where the member came from.
     pub provenance: Provenance,
+    /// The malformation detail of a frontmatter block the kind's
+    /// [`Leniency::MalformedYaml`] forgave — the member loaded with no fields set, as the
+    /// runtime loads it. `None` for a block that parsed.
+    pub forgiven: Option<String>,
 }
 
 /// A member's origin: the source path it was read from. The one shape all three read
@@ -210,10 +214,20 @@ impl Member {
         source_file: &Path,
         base: &Path,
     ) -> Result<Self, FrontmatterError> {
-        let parsed = parse_frontmatter(raw).map_err(|detail| FrontmatterError::Malformed {
-            path: source_file.to_path_buf(),
-            detail,
-        })?;
+        let (parsed, forgiven) = match parse_frontmatter(raw) {
+            Ok(parsed) => (parsed, None),
+            Err(Malformation::Unparseable(detail))
+                if kind.leniency.contains(&Leniency::MalformedYaml) =>
+            {
+                (JsonMap::new(), Some(detail))
+            }
+            Err(Malformation::Unparseable(detail) | Malformation::NotAMapping(detail)) => {
+                return Err(FrontmatterError::Malformed {
+                    path: source_file.to_path_buf(),
+                    detail,
+                });
+            }
+        };
 
         // Identity comes off the one derivation over `unit_shape`
         // (`extract::unit_shape_id`), with this face supplying only its own field lookup and
@@ -236,6 +250,7 @@ impl Member {
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),
             },
+            forgiven,
         })
     }
 
@@ -288,9 +303,9 @@ fn order_fields(
 ///
 /// # Errors
 ///
-/// Returns the malformation detail (without the file path — the caller attaches it) when
-/// a present, non-empty block is not a YAML mapping.
-fn parse_frontmatter(raw: &str) -> Result<JsonMap<String, JsonValue>, String> {
+/// Returns the [`Malformation`] (its detail without the file path — the caller attaches
+/// it) when a present, non-empty block is not a YAML mapping.
+fn parse_frontmatter(raw: &str) -> Result<JsonMap<String, JsonValue>, Malformation> {
     let Some(matter) = split_frontmatter(raw).0 else {
         return Ok(JsonMap::new());
     };
@@ -302,12 +317,20 @@ fn parse_frontmatter(raw: &str) -> Result<JsonMap<String, JsonValue>, String> {
     let fields = match YAML::parse(trimmed) {
         Pod::Hash(hash) => hash,
         Pod::Null => {
-            return Err("frontmatter block is not valid YAML, or is an explicit null".to_string());
+            return Err(Malformation::Unparseable(
+                "frontmatter block is not valid YAML, or is an explicit null".to_string(),
+            ));
         }
         Pod::Array(_) => {
-            return Err("frontmatter block is a YAML sequence, not a mapping".to_string());
+            return Err(Malformation::NotAMapping(
+                "frontmatter block is a YAML sequence, not a mapping".to_string(),
+            ));
         }
-        _ => return Err("frontmatter block is a bare YAML scalar, not a mapping".to_string()),
+        _ => {
+            return Err(Malformation::NotAMapping(
+                "frontmatter block is a bare YAML scalar, not a mapping".to_string(),
+            ));
+        }
     };
     let mut out = JsonMap::new();
     for (key, pod) in fields {
@@ -317,6 +340,16 @@ fn parse_frontmatter(raw: &str) -> Result<JsonMap<String, JsonValue>, String> {
         out.insert(key, pod.into());
     }
     Ok(out)
+}
+
+/// Why a present frontmatter block yields no field map, split by whether a kind's
+/// [`Leniency::MalformedYaml`] forgives it: only a block YAML cannot parse is forgiven.
+enum Malformation {
+    /// The block does not parse as YAML (or is an explicit null — `gray_matter` collapses
+    /// the two).
+    Unparseable(String),
+    /// The block parses, but to a sequence or a bare scalar rather than a mapping.
+    NotAMapping(String),
 }
 
 /// Split a source file into its YAML frontmatter block and a byte-faithful body.
@@ -459,6 +492,27 @@ Last line, no newline.";
         .unwrap();
 
         let err = Member::from_source(&rule_kind(), &dir.join("rust.md")).unwrap_err();
+        assert!(matches!(err, FrontmatterError::Malformed { .. }));
+    }
+
+    #[test]
+    fn a_lenient_kind_forgives_unparseable_yaml_but_not_a_non_mapping_block() {
+        let dir = tmpdir("lenient-frontmatter");
+        let mut kind = rule_kind();
+        kind.leniency = vec![Leniency::MalformedYaml];
+        fs::write(
+            dir.join("rust.md"),
+            "---\npaths: [\"unterminated\n---\n# Rust\n\nBody.\n",
+        )
+        .unwrap();
+        fs::write(dir.join("collab.md"), "---\n- a\n- b\n---\n# Collab\n").unwrap();
+
+        let member = Member::from_source(&kind, &dir.join("rust.md")).unwrap();
+        assert!(member.fields.is_empty());
+        assert!(member.forgiven.is_some());
+        assert_eq!(member.body, "# Rust\n\nBody.\n");
+
+        let err = Member::from_source(&kind, &dir.join("collab.md")).unwrap_err();
         assert!(matches!(err, FrontmatterError::Malformed { .. }));
     }
 

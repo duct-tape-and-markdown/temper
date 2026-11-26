@@ -644,3 +644,83 @@ fn a_load_fault_over_another_engines_lock_names_both_versions_and_the_remedy() {
         "a same-stamp lock's fault must carry no engine-skew sentence, got: {same_fault}"
     );
 }
+
+/// A skill whose `description` holds an unquoted `": "` — YAML a strict parser refuses
+/// and Claude Code still loads.
+const NON_PORTABLE_SKILL: &str = "---\n\
+name: probe\n\
+description: Use when: the user asks for a probe\n\
+---\n\
+# Probe\n\
+\n\
+Read [the reference](reference.md).\n";
+
+#[test]
+fn a_skill_whose_frontmatter_yaml_does_not_parse_loads_with_no_fields_set() {
+    let root = common::tmpdir("non-portable-skill-loads");
+    common::write_skill(&root, "probe", NON_PORTABLE_SKILL);
+    let skill = temper::builtin_kind::definition("skill").expect("skill is embedded");
+
+    let member = temper::frontmatter::Member::from_source(
+        &skill,
+        &root.join(".claude/skills/probe/SKILL.md"),
+    )
+    .expect("the skill loads as the runtime loads it");
+
+    assert_eq!(member.id, "probe");
+    assert!(
+        member.fields.is_empty(),
+        "no field is set: {:?}",
+        member.fields
+    );
+    assert!(
+        member.body.contains("# Probe"),
+        "the body still reads: {}",
+        member.body
+    );
+    assert!(
+        member.forgiven.is_some(),
+        "the forgiven malformation is carried"
+    );
+}
+
+#[test]
+fn unparseable_skill_frontmatter_draws_the_non_portable_yaml_advisory() {
+    let root = common::tmpdir("non-portable-skill-advisory");
+    common::write_skill(&root, "probe", NON_PORTABLE_SKILL);
+    common::write_sibling(
+        &root,
+        ".claude/skills/probe/reference.md",
+        "# Reference\n\nThe probe's details.\n",
+    );
+
+    let (findings, _) = check_in(&root, &["."]);
+
+    assert!(
+        common::findings_for(&findings, "member.load-fault").is_empty(),
+        "a skill the runtime loads is never a load fault: {findings:#?}"
+    );
+    let advisories = common::findings_for(&findings, "member.non-portable-yaml");
+    assert_eq!(advisories.len(), 1, "one advisory: {findings:#?}");
+    assert!(
+        advisories[0].starts_with("::warning") && advisories[0].contains("SKILL.md"),
+        "an advisory naming the file: {}",
+        advisories[0]
+    );
+    assert!(
+        advisories[0].contains("YAML"),
+        "the advisory names the YAML: {}",
+        advisories[0]
+    );
+    assert!(
+        !findings
+            .iter()
+            .any(|line| line.contains("title=supporting-doc.")),
+        "the host loads, so its supporting doc draws no cascade: {findings:#?}"
+    );
+    let coverage = common::findings_for(&findings, "coverage.checked");
+    assert!(
+        coverage.iter().any(|line| line.contains("skill (1)")),
+        "the skill is a checked member: {coverage:#?}"
+    );
+}

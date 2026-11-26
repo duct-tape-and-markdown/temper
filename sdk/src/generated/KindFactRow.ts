@@ -55,6 +55,12 @@ commitment?: string,
  */
 exclude?: Array<string>, 
 /**
+ * The source malformations the kind's reader forgives, as wire labels
+ * (`malformed-yaml`). Empty for a kind forgiving none, the tolerant round-trip
+ * [`registration`](KindFactRow::registration) takes.
+ */
+leniency?: Array<string>, 
+/**
  * The declared projection format label, when declared.
  */
 format?: string, 

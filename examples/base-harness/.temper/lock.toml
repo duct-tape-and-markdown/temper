@@ -173,6 +173,7 @@ unit_shape = "file"
 name = "skill"
 governs_root = "."
 governs_glob = "**/.claude/skills/*/SKILL.md"
+leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]

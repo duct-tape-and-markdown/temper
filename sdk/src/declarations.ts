@@ -418,6 +418,7 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     commitment: governs?.commitment,
     // Spread rather than an `undefined` column: a row excluding nothing carries no key.
     ...(governs?.exclude?.length ? { exclude: [...governs.exclude] } : {}),
+    ...("leniency" in facts && facts.leniency?.length ? { leniency: [...facts.leniency] } : {}),
     format: facts.format,
     unit_shape: unitShapeLabel(facts),
     // An embedded or nested-file kind declares no set — its locus already states it empty.
