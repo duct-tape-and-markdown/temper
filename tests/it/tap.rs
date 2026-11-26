@@ -470,3 +470,43 @@ fn log_path_unchanged_for_non_git_directory() {
     assert_eq!(readout.records.len(), 1);
     assert_eq!(readout.records[0].identity, "Tool");
 }
+
+/// A program whose only hook content is the tap a telemetry requirement synthesizes —
+/// no authored hook member brings the hook kind for the tap row to resolve against.
+const TAP_ONLY_PROGRAM: &str = r#"
+import { emit, harness, telemetry } from "@dtmd/temper";
+
+declare const process: { stdout: { write(chunk: string): boolean } };
+
+const program = harness({
+  members: [],
+  require: {
+    "skill-fires": { prose: "the skill fires", verifier: telemetry(["SkillInvoked"]) },
+  },
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn a_program_whose_only_hook_content_is_a_telemetry_tap_emits() {
+    let (harness, into) = common::wire_sdk_harness("tap-only-hook-content", TAP_ONLY_PROGRAM);
+    temper::drift::emit_program(&into, temper::drift::EmitOptions::default())
+        .expect("the synthesized tap row brings the hook kind, so emit resolves it");
+
+    let declarations = temper::drift::read_declarations(&into).unwrap();
+    assert!(
+        declarations.kinds.iter().any(|row| row.name == "hook"),
+        "the lock carries the hook kind's fact row: {:?}",
+        declarations
+            .kinds
+            .iter()
+            .map(|row| &row.name)
+            .collect::<Vec<_>>()
+    );
+    let settings = std::fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap();
+    assert!(
+        settings.contains("PostToolUse") && settings.contains(" tap"),
+        "the tap's registration reaches the manifest: {settings}"
+    );
+}

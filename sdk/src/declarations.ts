@@ -550,6 +550,10 @@ function resolveNameCollision(held: KindFacts, arriving: KindFacts): KindFacts {
  * `expect` like any other unit kind; pulling one in here would forge it a kind-fact row
  * it never declared.
  *
+ * A synthesized tap hook ({@link tapHookRows}) puts the `hook` kind in play as an authored
+ * hook member would: its row lands in `registrations` under `hook`, so the kind is owed
+ * the fact row the engine resolves that row's kind against.
+ *
  * Two facts values arriving under one name are decided by {@link resolveNameCollision},
  * never by arrival order: the deduped facts are what `assemblyFactRows` derives every
  * `edge` row from, so first-wins would drop a relocation's added edge on the floor
@@ -569,6 +573,9 @@ export function kindsInPlay(harness: Harness): KindFacts[] {
   for (const member of harness.members) admit(member.facts);
   for (const binding of harness.expect) admit(binding.kind.facts);
   for (const { admits } of harness.admit) for (const child of admits) admit(child.facts);
+  // A synthesized tap is a hook registration row, so it brings the hook kind with it:
+  // a program whose only hook content is a tap still owes `hook` its kind-fact row.
+  if (tapHookRows(harness).length > 0) admit(hook.facts);
   for (let facts = pending.pop(); facts !== undefined; facts = pending.pop()) {
     for (const template of facts.templates ?? []) {
       const child = template.kind.facts;

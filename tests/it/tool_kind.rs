@@ -486,19 +486,16 @@ fn a_tool_reached_only_by_the_typecheck_draws_no_degree_finding() {
     );
 }
 
-/// A program whose only runner of its tool is a telemetry requirement's tap. The hook
-/// member brings the hook kind the synthesized tap row needs; its handler runs nothing.
+/// A program whose only runner of its tool is a telemetry requirement's tap, and whose
+/// only hook content is that tap.
 const TAP_ONLY_PROGRAM: &str = r#"
 import { emit, harness, telemetry, tool } from "@dtmd/temper";
-import { hook } from "@dtmd/temper/claude-code";
 
 declare const process: { stdout: { write(chunk: string): boolean } };
 
 const temper = tool();
-const start = hook({ name: "SessionStart", hooks: [{ type: "command", command: "true" }] });
-
 const program = harness({
-  members: [temper, start],
+  members: [temper],
   require: {
     "skill-fires": { prose: "the skill fires", verifier: telemetry(["SkillInvoked"], { tool: temper }) },
   },
