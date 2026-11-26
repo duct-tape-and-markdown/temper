@@ -493,3 +493,79 @@ fn a_claude_md_importing_agents_md_reaches_it_through_the_import_edge() {
         "the import resolves, got: {findings:#?}"
     );
 }
+
+/// Commit a lock declaring one rule member — a *represented* harness, so the root
+/// `locus-declared` clause asks the lock about every memory document on disk.
+fn represent_with_one_rule(root: &Path) {
+    use temper::drift::{self, Declarations, EmitOptions, Payload};
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::rule_kind_facts(None, &[])],
+            ..Declarations::default()
+        },
+        members: vec![common::rule_member(
+            "declared",
+            None,
+            "# declared\n\nBody.\n",
+        )],
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+/// The `locus-declared` finding naming `path`, out of `findings`.
+fn locus_declared_for<'a>(findings: &'a [String], path: &str) -> &'a String {
+    common::findings_for(findings, "root.locus-declared")
+        .into_iter()
+        .find(|f| f.contains(&format!("`{path}`")))
+        .unwrap_or_else(|| panic!("`{path}` draws a locus-declared finding, got: {findings:#?}"))
+}
+
+#[test]
+fn an_undeclared_agents_md_under_a_shut_gate_says_its_gate_is_shut_rather_than_that_claude_code_loads_it()
+ {
+    let harness = common::tmpdir("agents-md-undeclared-shut");
+    represent_with_one_rule(&harness);
+    write_claude_md(&harness, 3);
+    write_memory_file(&harness, "AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    let agents = locus_declared_for(&findings, "AGENTS.md");
+    assert!(
+        agents.contains("launch gate is shut") && agents.contains("`CLAUDE.md`"),
+        "the finding names the shut gate and the CLAUDE.md that shut it, got: {agents}"
+    );
+    assert!(
+        !agents.contains("Claude Code loads it"),
+        "a document behind a shut gate is never said to load, got: {agents}"
+    );
+}
+
+#[test]
+fn an_undeclared_claude_md_says_claude_code_loads_it() {
+    let harness = common::tmpdir("claude-md-undeclared");
+    represent_with_one_rule(&harness);
+    write_claude_md(&harness, 3);
+
+    let findings = check_harness(&harness).0;
+    let claude = locus_declared_for(&findings, "CLAUDE.md");
+    assert!(
+        claude.contains("yet Claude Code loads it") && !claude.contains("gate"),
+        "an ungated memory document is said to load, got: {claude}"
+    );
+}
+
+#[test]
+fn an_undeclared_agents_md_under_an_open_gate_says_its_gate_is_open_and_claude_code_loads_it() {
+    let harness = common::tmpdir("agents-md-undeclared-open");
+    represent_with_one_rule(&harness);
+    write_claude_md(&harness, 3);
+    write_memory_file(&harness, "apps/web/AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    let agents = locus_declared_for(&findings, "apps/web/AGENTS.md");
+    assert!(
+        agents.contains("its on-demand gate is open, so Claude Code loads it"),
+        "a document behind an open gate says the gate is open and that it loads, got: {agents}"
+    );
+}

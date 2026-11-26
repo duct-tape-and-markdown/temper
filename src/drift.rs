@@ -4903,6 +4903,10 @@ pub struct LocusMemberSite {
     /// committed class, and `relocate`'s delta is edge-fields-only — so the `local`
     /// remedy is offered only where the author actually owns the kind's declaration.
     pub custom: bool,
+    /// The absence gate the document sits behind, read off the disk the site was found
+    /// on ([`crate::kind::CustomKind::absence_gate`]); [`None`] where its template carries none.
+    /// The loader claim turns on it: a document whose gate is shut is never said to load.
+    pub gate: Option<crate::kind::AbsenceGateState>,
 }
 
 /// The undeclared-member verdict over a represented harness's governed file loci: the
@@ -4920,6 +4924,29 @@ pub struct UndeclaredLocusMembers {
     /// whatever severity the clause declares, so dialing the clause changes a finding's
     /// weight and never the count the note prints.
     pub counts: BTreeMap<String, usize>,
+}
+
+/// The loader claim a finding about an undeclared document at a governed locus makes —
+/// the one spelling `check`'s [`undeclared_locus_members_from_doc`] and `temper guard`'s
+/// pending-write message share. A built-in kind's ungated locus is Claude Code's own, so
+/// the document loads; a custom kind's locus is the author's, and who reads it is not
+/// temper's to assert. A gated document says which gate it sits behind and whether it is
+/// open, and behind a shut gate it names the shutting document and is never said to load.
+#[must_use]
+pub fn locus_loader_claim(gate: Option<&crate::kind::AbsenceGateState>, custom: bool) -> String {
+    use crate::kind::AbsenceGateState;
+    match (gate, custom) {
+        (Some(AbsenceGateState::Shut(closure)), _) => format!(", and {}", closure.reason()),
+        (Some(AbsenceGateState::Open(scope)), false) => format!(
+            ", yet its {} gate is open, so Claude Code loads it",
+            scope.label()
+        ),
+        (Some(AbsenceGateState::Open(scope)), true) => {
+            format!(", and its {} gate is open", scope.label())
+        }
+        (None, false) => ", yet Claude Code loads it".to_string(),
+        (None, true) => String::new(),
+    }
 }
 
 /// The undeclared-member findings for the discovered committed file documents
@@ -4941,7 +4968,9 @@ pub struct UndeclaredLocusMembers {
 /// The loader claim rides [`LocusMemberSite::custom`], the same discriminator the `local`
 /// remedy does: a built-in kind's locus is Claude Code's own, so the finding says Claude
 /// Code loads the document; a custom kind's locus is the author's, and who reads it is
-/// not temper's to assert.
+/// not temper's to assert. A gated document ([`LocusMemberSite::gate`]) says which gate
+/// it sits behind and whether it is open, and one whose gate is shut names the document
+/// that shut it and is never said to load.
 ///
 /// `clause` is the root member's own [`contract::Predicate::LocusDeclared`] clause, read
 /// for all three channels exactly as [`undeclared_layout_members_from_doc`] reads it:
@@ -4974,14 +5003,12 @@ pub fn undeclared_locus_members_from_doc(
         // would name a move that refuses. The loader claim is a built-in kind's alone:
         // Claude Code loads its locus, and nothing temper holds says who reads a locus
         // the author's own kind declares.
-        let (loader_claim, local_remedy) = if site.custom {
-            (
-                "",
-                ", or declare its kind `local` so `check` derives its rows at read time",
-            )
+        let local_remedy = if site.custom {
+            ", or declare its kind `local` so `check` derives its rows at read time"
         } else {
-            (", yet Claude Code loads it", "")
+            ""
         };
+        let loader_claim = locus_loader_claim(site.gate.as_ref(), site.custom);
         verdict.findings.push(crate::check::Diagnostic::from_clause(
             clause,
             &*site.source_path,

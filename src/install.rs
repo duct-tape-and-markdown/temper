@@ -460,16 +460,15 @@ fn guard_message() -> &'static str {
 /// the program declares nothing about, so the finding names the governing kind rather
 /// than an owning module.
 ///
-/// `custom` is the governing kind's own ([`GuardedLocus::custom`]), and it decides the
-/// loader claim exactly as it does in `check`'s finding: Claude Code loads a built-in
-/// kind's locus, and who reads a locus the author's own kind declares is not temper's to
-/// assert.
-fn undeclared_locus_message(kind: &str, custom: bool) -> String {
-    let loader_claim = if custom {
-        ""
-    } else {
-        ", yet Claude Code loads it"
-    };
+/// `custom` is the governing kind's own ([`GuardedLocus::custom`]) and `gate` the absence
+/// gate the pending document would sit behind; together they decide the loader claim in
+/// the one spelling `check`'s finding speaks ([`drift::locus_loader_claim`]).
+fn undeclared_locus_message(
+    kind: &str,
+    custom: bool,
+    gate: Option<&kind::AbsenceGateState>,
+) -> String {
+    let loader_claim = drift::locus_loader_claim(gate, custom);
     format!(
         "temper-governed locus: this write lands a document at the `{kind}` kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared{loader_claim}; declare the member in the program and re-emit. {}",
         binding_limit()
@@ -1691,10 +1690,16 @@ fn locus_member_sites(
             if !locus_admits(kinds, locus, &source_path) {
                 continue;
             }
+            let gate = kinds.get(&locus.kind).and_then(|kind| {
+                kind.absence_gate(&source_path, |candidate| {
+                    harness_root.join(candidate).is_file()
+                })
+            });
             sites.push(drift::LocusMemberSite {
                 kind: locus.kind.clone(),
                 source_path,
                 custom: locus.custom,
+                gate,
             });
         }
     }
@@ -2158,8 +2163,15 @@ pub fn guard(
             modes.for_member(&crate::member_address::address_of(&owner.kind, &owner.name)),
         )
     } else if let Some(locus) = matches_governed_locus(file_path, root, loci, &layout.loci.kinds) {
+        let gate = harness_relative(file_path, root).and_then(|path| {
+            layout
+                .loci
+                .kinds
+                .get(&locus.kind)?
+                .absence_gate(&path, |candidate| root.join(candidate).is_file())
+        });
         (
-            undeclared_locus_message(&locus.kind, locus.custom),
+            undeclared_locus_message(&locus.kind, locus.custom, gate.as_ref()),
             modes.for_kind(&locus.kind),
         )
     } else if let Some((member, finding)) = layout.pending_finding(payload, file_path, root) {
@@ -4035,6 +4047,25 @@ mod tests {
     /// binding limit, and that limit's tool list is [`GUARD_MATCHER`]'s own alternation
     /// — a message that re-spells the list instead of composing the tail fails here the
     /// moment the matcher widens.
+    /// The pending-write twin of `check`'s gated finding: a write behind a shut absence
+    /// gate names the gate and its closer, and never says Claude Code loads the document.
+    #[test]
+    fn a_pending_write_behind_a_shut_gate_is_never_said_to_load() {
+        let shut = kind::AbsenceGateState::Shut(kind::AbsenceClosure {
+            scope: kind::AbsenceGateScope::Launch,
+            closer: "CLAUDE.md".to_string(),
+        });
+        let message = undeclared_locus_message("memory", false, Some(&shut));
+        assert!(
+            message.contains("launch gate is shut") && message.contains("`CLAUDE.md`"),
+            "the message names the shut gate and its closer, got: {message}"
+        );
+        assert!(
+            !message.contains("Claude Code loads it"),
+            "a document behind a shut gate is never said to load, got: {message}"
+        );
+    }
+
     #[test]
     fn every_pending_write_guard_message_closes_on_the_matchers_binding_limit() {
         let tools = GUARD_MATCHER.replace('|', "/");
@@ -4046,8 +4077,8 @@ mod tests {
 
         // Both spellings of the locus message: the loader claim moves with the kind's
         // `custom`, and the limit is owed by either tail.
-        let undeclared = undeclared_locus_message("skill", false);
-        let undeclared_custom = undeclared_locus_message("widget", true);
+        let undeclared = undeclared_locus_message("skill", false, None);
+        let undeclared_custom = undeclared_locus_message("widget", true, None);
         let messages: [&str; 6] = [
             guard_message(),
             &undeclared,

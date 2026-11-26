@@ -597,21 +597,36 @@ impl CustomKind {
     }
 
     /// The gate that shuts on the member at `harness_relative`, and the document whose
-    /// presence shuts it, when one does. The member is judged from its **home** — its
-    /// own directory, a `.claude/` folder folded into the directory holding it, so
-    /// `.claude/AGENTS.md` and `AGENTS.md` share one. A member homed at the harness root
-    /// (the working directory) loads at launch, and its [`AbsenceGateScope::Launch`] gate
-    /// shuts on any `absent` path there or above; the harness root bounds the walk, so
-    /// that is the root itself. A member homed in a subdirectory loads on demand, and its
-    /// [`AbsenceGateScope::OnDemand`] gate shuts only on that subdirectory's own `absent`
-    /// paths, never one above it. [`None`] for a member whose template carries no gate,
-    /// or whose gate stays open.
+    /// presence shuts it, when one does — the shut arm of
+    /// [`absence_gate`](CustomKind::absence_gate). [`None`] for a member whose template
+    /// carries no gate, or whose gate stays open.
     #[must_use]
     pub fn absence_closer(
         &self,
         harness_relative: &str,
         exists: impl Fn(&str) -> bool,
     ) -> Option<AbsenceClosure> {
+        match self.absence_gate(harness_relative, exists)? {
+            AbsenceGateState::Shut(closure) => Some(closure),
+            AbsenceGateState::Open(_) => None,
+        }
+    }
+
+    /// The state of the absence gate the member at `harness_relative` sits behind. The
+    /// member is judged from its **home** — its own directory, a `.claude/` folder folded
+    /// into the directory holding it, so `.claude/AGENTS.md` and `AGENTS.md` share one. A
+    /// member homed at the harness root (the working directory) loads at launch, and its
+    /// [`AbsenceGateScope::Launch`] gate shuts on any `absent` path there or above; the
+    /// harness root bounds the walk, so that is the root itself. A member homed in a
+    /// subdirectory loads on demand, and its [`AbsenceGateScope::OnDemand`] gate shuts
+    /// only on that subdirectory's own `absent` paths, never one above it. [`None`] for a
+    /// member whose template carries no gate.
+    #[must_use]
+    pub fn absence_gate(
+        &self,
+        harness_relative: &str,
+        exists: impl Fn(&str) -> bool,
+    ) -> Option<AbsenceGateState> {
         let governs = self.governs.as_ref()?;
         let template = governs.globs.iter().find(|glob| {
             crate::glob::compile_glob(&locus_pattern(&governs.root, glob))
@@ -630,14 +645,15 @@ impl CustomKind {
         } else {
             AbsenceGateScope::OnDemand
         };
-        gate.absent.iter().find_map(|absent| {
+        let closure = gate.absent.iter().find_map(|absent| {
             let candidate =
                 crate::path::HarnessRelativePath::from_path(&home.join(absent)).to_string();
             exists(&candidate).then_some(AbsenceClosure {
                 scope,
                 closer: candidate,
             })
-        })
+        });
+        Some(closure.map_or(AbsenceGateState::Open(scope), AbsenceGateState::Shut))
     }
 
     /// Whether `harness_relative` is a member path of this kind's own file locus — its
@@ -1476,6 +1492,45 @@ pub struct AbsenceClosure {
     pub scope: AbsenceGateScope,
     /// The document that shut it.
     pub closer: String,
+}
+
+impl AbsenceGateScope {
+    /// The gate's name as a finding spells it — `launch` or `on-demand`.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            AbsenceGateScope::Launch => "launch",
+            AbsenceGateScope::OnDemand => "on-demand",
+        }
+    }
+}
+
+impl AbsenceClosure {
+    /// The one sentence every finding about a shut gate speaks: which gate shut, the
+    /// document that shut it, and that the harness then loads the member only through an
+    /// import — never that it loads it outright.
+    #[must_use]
+    pub fn reason(&self) -> String {
+        let Self { scope, closer } = self;
+        match scope {
+            AbsenceGateScope::Launch => format!(
+                "its launch gate is shut: `{closer}` sits in the working directory, so the harness loads it only through an import"
+            ),
+            AbsenceGateScope::OnDemand => format!(
+                "its on-demand gate is shut: `{closer}` is its own subdirectory's, so the harness loads it only through an import"
+            ),
+        }
+    }
+}
+
+/// The state of a member's absence gate ([`CustomKind::absence_gate`]) — open, so the
+/// runtime loads the member through it, or shut by a document's presence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AbsenceGateState {
+    /// The gate is open: no document that would shut it is present.
+    Open(AbsenceGateScope),
+    /// The gate is shut, and by which document.
+    Shut(AbsenceClosure),
 }
 
 /// The column a malformed `exclude` entry refuses under, spelled to name the rule it

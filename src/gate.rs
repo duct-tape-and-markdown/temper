@@ -201,19 +201,10 @@ pub(crate) fn absence_gated(
             ) else {
                 continue;
             };
-            if let Some(kind::AbsenceClosure { scope, closer }) = kind
-                .absence_closer(&source_path, |candidate| {
-                    harness_root.join(candidate).is_file()
-                })
-            {
-                let reason = match scope {
-                    kind::AbsenceGateScope::Launch => format!(
-                        "its launch gate is shut: `{closer}` sits in the working directory, so the harness loads it only through an import"
-                    ),
-                    kind::AbsenceGateScope::OnDemand => format!(
-                        "its on-demand gate is shut: `{closer}` is its own subdirectory's, so the harness loads it only through an import"
-                    ),
-                };
+            if let Some(closure) = kind.absence_closer(&source_path, |candidate| {
+                harness_root.join(candidate).is_file()
+            }) {
+                let reason = closure.reason();
                 gated.insert((kind.name.clone(), unit.id.clone()), reason);
             }
         }
@@ -254,6 +245,9 @@ fn committed_member_sites(
                 }),
                 SiteClass::File => sites.file.push(drift::LocusMemberSite {
                     kind: kind.name.clone(),
+                    gate: kind.absence_gate(&source_path, |candidate| {
+                        harness_root.join(candidate).is_file()
+                    }),
                     source_path,
                     custom: is_custom,
                 }),
