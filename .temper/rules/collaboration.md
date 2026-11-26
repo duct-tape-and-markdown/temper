@@ -69,6 +69,11 @@ instructions to file.
   comment that encodes it.
 - If you cannot cite it, **verify before encoding it** (fetch the current
   docs), or mark it `UNVERIFIED` and surface the gap.
+- When the docs are silent or partial on a surface's load behavior, **probe
+  the whole surface once before encoding any of it**: headless Claude Code
+  in a trusted throwaway project (an untrusted one loads no project
+  memory), canary instructions, and the session transcript as the record.
+  The probe, its version and date are the citation.
 - The product already holds this bar for its own default contracts (per-clause
   `cite`, `specs/builtins.md`). The project holds itself to the bar it ships.
 
