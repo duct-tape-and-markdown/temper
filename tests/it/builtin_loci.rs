@@ -82,6 +82,50 @@ fn a_claude_md_under_the_agents_commands_or_skills_folder_is_not_discovered_as_m
 }
 
 #[test]
+fn a_claude_md_inside_a_nested_skills_directory_is_not_discovered_as_memory() {
+    let harness = common::tmpdir("memory-under-nested-skill");
+    common::write_sibling(&harness, "CLAUDE.md", "# Root\n");
+    common::write_sibling(&harness, "apps/web/CLAUDE.md", "# Web\n");
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/skills/deploy/SKILL.md",
+        "---\nname: deploy\ndescription: Deploy the web app.\n---\n# Deploy\n",
+    );
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/skills/deploy/CLAUDE.md",
+        "# x\n",
+    );
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/skills/deploy/notes/deep/CLAUDE.md",
+        "# x\n",
+    );
+
+    let kinds = compose::effective_kinds(temper::builtin_lock::declarations())
+        .expect("the embedded kinds compose");
+    let memory = &kinds["memory"];
+    // Ceded by the skill's own template claim, never an exclusion on memory's row.
+    assert!(
+        !memory.excluded.iter().any(|path| path.contains("apps")),
+        "{:?}",
+        memory.excluded
+    );
+    assert_eq!(
+        discover(&harness, memory),
+        vec![
+            harness.join("CLAUDE.md"),
+            harness.join("apps/web/CLAUDE.md")
+        ]
+    );
+    // The skill's own walk still finds its entry file.
+    assert_eq!(
+        discover(&harness, &kinds["skill"]),
+        vec![harness.join("apps/web/.claude/skills/deploy/SKILL.md")]
+    );
+}
+
+#[test]
 fn a_claude_md_under_claude_outside_the_loader_folders_stays_memory() {
     let harness = common::tmpdir("memory-under-claude");
     common::write_sibling(&harness, ".claude/CLAUDE.md", "# Project\n");

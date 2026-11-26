@@ -828,7 +828,70 @@ fn declared_kinds_with_overlaid(
         kinds.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
     }
     resolve_subkinds(&mut kinds)?;
+    cede_builtin_host_units(&mut kinds, overlaid_builtin_kinds);
     Ok(kinds)
+}
+
+/// Cede each built-in host's unit subtree from every other kind's locus: a built-in kind
+/// whose unit is a directory and whose template names a child kind owns every file under a
+/// member's directory at any depth ([`kind::unit_subtree_pattern`]), so a `CLAUDE.md`
+/// inside a nested skill's directory is the skill's and never `memory`'s, with no
+/// exclusion pattern on `memory`'s row. Derived off the host's effective — overlaid —
+/// locus, so a relocated host cedes where it now lives. The host's own subkinds keep its
+/// subtree: their documents lie in it by construction.
+fn cede_builtin_host_units(
+    kinds: &mut BTreeMap<String, CustomKind>,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+) {
+    let subtrees: Vec<(String, String)> = overlaid_builtin_kinds
+        .keys()
+        .filter_map(|name| {
+            let host = kinds.get(name)?;
+            let governs = host.governs.as_ref()?;
+            if host.unit_shape != Some(kind::UnitShape::Directory) || host.templates.is_empty() {
+                return None;
+            }
+            let subtree =
+                kind::unit_subtree_pattern(&kind::locus_pattern(&governs.root, &governs.glob))?;
+            Some((name.clone(), subtree))
+        })
+        .collect();
+    if subtrees.is_empty() {
+        return;
+    }
+    let descends = |kinds: &BTreeMap<String, CustomKind>, name: &str, host: &str| {
+        let mut seen = BTreeSet::new();
+        let mut at = name;
+        while seen.insert(at) {
+            if at == host {
+                return true;
+            }
+            match kinds.get(at).and_then(|kind| kind.base.as_deref()) {
+                Some(base) => at = base,
+                None => break,
+            }
+        }
+        false
+    };
+    let names: Vec<String> = kinds.keys().cloned().collect();
+    for name in names {
+        let cedes: Vec<String> = subtrees
+            .iter()
+            .filter(|(host, _)| !descends(kinds, &name, host))
+            .map(|(_, subtree)| subtree.clone())
+            .collect();
+        let Some(kind) = kinds.get_mut(&name) else {
+            continue;
+        };
+        if kind.governs.is_none() {
+            continue;
+        }
+        for subtree in cedes {
+            if !kind.ceded.contains(&subtree) {
+                kind.ceded.push(subtree);
+            }
+        }
+    }
 }
 
 /// The effective kind set — every built-in overlaid by its relocation, every custom kind,
@@ -1632,8 +1695,8 @@ pub fn assemble_lock_family(
     }
 
     let all_declared = declared_kinds_with_overlaid(&overlaid_builtin_kinds, committed)?;
-    // A built-in base cedes its subkinds' loci on both maps, or its own walk would still
-    // read their documents.
+    // A built-in cedes its subkinds' loci and every built-in host's unit subtree on both
+    // maps, or its own walk would still read their documents.
     for (name, kind) in &mut overlaid_builtin_kinds {
         if let Some(declared) = all_declared.get(name) {
             kind.ceded.clone_from(&declared.ceded);

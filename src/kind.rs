@@ -147,9 +147,11 @@ pub struct CustomKind {
     /// The **base** kind this one is a subkind of, by bare name — read off the row's
     /// `base` column. `None` for every other kind, a relocation included.
     pub base: Option<String>,
-    /// The locus patterns ([`locus_pattern`]) of this kind's subkinds: a document one of
-    /// them matches is that subkind's member alone, so this kind's own locus cedes it.
-    /// Derived when the run's effective kind set is assembled, never read off a row.
+    /// The locus patterns ([`locus_pattern`]) this kind's own locus cedes: each subkind's,
+    /// whose documents are that subkind's member alone, and each built-in host's unit
+    /// subtree at any depth ([`unit_subtree_pattern`]), whose files the host's template
+    /// claim owns. Derived when the run's effective kind set is assembled, never read off a
+    /// row.
     pub ceded: Vec<String>,
 }
 
@@ -899,6 +901,17 @@ pub fn locus_admits(
         .any(|path| is_at_or_beneath(harness_relative, path))
         && matches(pattern)
         && !ceded.iter().any(|ceded| matches(ceded))
+}
+
+/// The any-depth subtree of a directory-unit host's unit, as a pattern [`locus_admits`]
+/// cedes: the host's locus pattern with its entry file's segment spelled `**`
+/// (`**/.claude/skills/*/SKILL.md` → `**/.claude/skills/*/**`), so every file under a
+/// member's directory, however deep, matches it. `None` for a pattern of one segment,
+/// whose unit is the harness root itself — ceding that would cede every path.
+#[must_use]
+pub fn unit_subtree_pattern(pattern: &str) -> Option<String> {
+    let (unit, _entry) = pattern.rsplit_once('/')?;
+    Some(format!("{unit}/**"))
 }
 
 /// Whether every path the placement template `sub` matches, the template `base` matches
