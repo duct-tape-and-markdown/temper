@@ -321,8 +321,8 @@ export type KindFacts<T extends object = Record<string, unknown>> =
        * what a read verb renders where the surface holds no member of the kind yet.
        * Absent for a kind whose constructor declares no witness. */
       readonly leaves?: LeafSet<T>;
-      /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
-       * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
+      /** Advisory authoring counsel for the kind as a whole, carrying no predicate or
+       * severity; it rides the kind's guidance rule over its locus. */
       readonly guidance?: string;
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */
@@ -395,8 +395,8 @@ export type KindFacts<T extends object = Record<string, unknown>> =
        * what a read verb renders where the surface holds no member of the kind yet.
        * Absent for a kind whose constructor declares no witness. */
       readonly leaves?: LeafSet<T>;
-      /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
-       * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
+      /** Advisory authoring counsel for the kind as a whole, carrying no predicate or
+       * severity; it rides the kind's guidance rule over its locus. */
       readonly guidance?: string;
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */
@@ -471,8 +471,8 @@ export type KindFacts<T extends object = Record<string, unknown>> =
        * what a read verb renders where the surface holds no member of the kind yet.
        * Absent for a kind whose constructor declares no witness. */
       readonly leaves?: LeafSet<T>;
-      /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
-       * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
+      /** Advisory authoring counsel for the kind as a whole, carrying no predicate or
+       * severity; it rides the kind's guidance rule over its locus. */
       readonly guidance?: string;
       /** External-fact source backing the guidance — a doc URL plus retrieved date,
        * carried as data. */

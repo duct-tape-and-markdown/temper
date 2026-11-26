@@ -494,12 +494,9 @@ pub enum Predicate {
     /// `paths-match` registration channel (a skill's `paths` is exactly that —
     /// `sdk/src/builtins.ts`).
     ///
-    /// **Declared leniency:** containment is *literal* — every source glob must appear
-    /// verbatim in the target's gate set — because true glob-set containment is
-    /// undecidable. It therefore false-fires on a semantically contained narrower glob
-    /// (`src/**/*.ts` inside `src/**`), which is why a clause naming it ships at
-    /// advisory severity: a check that can be wrong must not block
-    /// (`specs/decisions/0028-a-mention-must-be-reachable-where-it-fires.md`).
+    /// **Declared leniency:** containment is judged over sample paths each scope glob
+    /// matches, not decided, so a verdict can be wrong — which is why a clause naming it
+    /// ships at advisory severity: a check that can be wrong must not block.
     ///
     /// Judged by [`crate::graph::mention_reachable`], not the per-member table: the
     /// verdict needs the mention graph and the *target* member's features, neither of

@@ -87,7 +87,7 @@ projections of it.
   (`skillDefaultContract`, ...) and add to it rather than restating it.
 - A check enters only as a decidable clause. Behavior no predicate can decide belongs
   to a wired verifier or to your own review — never a clause that approximates it. A
-  clause that can false-fire (`mentionReachable`'s literal containment) is advisory.
+  clause that can false-fire (`mentionReachable`'s glob containment) is advisory.
 
 ## Kinds
 
@@ -178,8 +178,8 @@ emit_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
 [[rule]]
 name = "temper-sdk"
 source_path = ".claude/rules/temper-sdk.md"
-source_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
-emit_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
+source_hash = "f023fc979933978e574c2094dfe0623a9c9620f0405e99326b70016fa96c465e"
+emit_hash = "f023fc979933978e574c2094dfe0623a9c9620f0405e99326b70016fa96c465e"
 
 [[settings]]
 name = "settings"

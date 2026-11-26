@@ -2179,7 +2179,7 @@ function pathsGateGuidance(member: "skill" | "rule"): string {
   return (
     "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. " +
     `So a ${member} that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this ${member}'s \`paths\` to the target's gate, or ungate the target. ` +
-    "Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that."
+    "Advisory because containment is judged over sample paths each glob here matches, not decided, so a verdict can be wrong; retune or drop this clause in your own contract when it is. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that."
   );
 }
 

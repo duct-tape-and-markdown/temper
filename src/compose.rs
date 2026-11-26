@@ -2424,7 +2424,7 @@ pub fn backed_on_disk(root: &Path) -> impl Fn(&Path) -> bool + use<> {
 /// Build a shared manifest cache for a single gate/explain invocation, grouping manifest
 /// kinds by their manifest file path and reading each file once with all governing kinds'
 /// addresses. This hoisting ensures manifest files are read exactly once per run, never
-/// once per governing kind (GATE-MANIFEST-SHARED-READ-HOIST).
+/// once per governing kind.
 ///
 /// `declared_kinds` is the run's hoisted effective kind set
 /// ([`LockFamily::declared_kinds`]): which kinds govern a manifest is a whole-lock fact,

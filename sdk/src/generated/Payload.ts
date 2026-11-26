@@ -3,10 +3,8 @@ import type { Declarations } from "./Declarations.js";
 import type { PayloadMember } from "./PayloadMember.js";
 
 /**
- * The whole seam payload the SDK program prints to stdout:
- * the
- * declaration rows (the lock's seven families) and every projected member's erased
- * payload. The engine is the sole compiler of every projection and the whole lock
+ * The whole seam payload the SDK program prints to stdout: the declaration rows and
+ * every projected member's erased payload. The engine is the sole compiler of every projection and the whole lock
  * from this one value — no harness re-supply, the payload IS the source.
  *
  * Not `Eq`: its declarations may carry `f64` `range` bounds ([`RangeBoundRow`]).
@@ -17,7 +15,7 @@ export type Payload = {
  */
 version: number, 
 /**
- * The seven declaration families.
+ * The program's declaration rows.
  */
 declarations: Declarations, 
 /**

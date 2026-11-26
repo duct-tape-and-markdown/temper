@@ -14,7 +14,7 @@
 //! enumeration ([`resolved_edges`]), computed once per `gate()` invocation — the gate
 //! takes the route verdict off that one walk's dangling half, never through [`check`] —
 //! and the same enumeration `crate::read`'s narration ranges over, so gate and read
-//! never disagree (READ-EDGE-UNIFY).
+//! never disagree.
 //!
 //! [`acyclic`] is the one check scoped to a *sub*-relation: `contract.md`
 //! ("well-formedness") founds it on the imports the target format itself executes, so
@@ -119,7 +119,7 @@ const CONTAINS_FIELD_PREFIX: &str = "contains:";
 /// forge or mask a cycle.
 ///
 /// Exposed so the read family (`crate::read`) keys a member's resolved in/out
-/// edges on the *same* `(kind, id)` node the gate does (READ-EDGE-UNIFY), and so the
+/// edges on the *same* `(kind, id)` node the gate does, and so the
 /// directive classing ([`classify_directives`]) names the endpoints of the edges it
 /// yields.
 pub type Node = (String, String);
@@ -138,7 +138,7 @@ fn world() -> Node {
 /// A **resolved edge** — a `(from, field, to)` triple over `(kind, id)` [`Node`]s,
 /// both endpoints naming a real artifact. The element type of [`ResolvedEdgesResult::resolved`], the
 /// one arc-resolution enumeration [`DegreeIndex`] counts and `crate::read` narrates per
-/// node, so gate and read range over one identical edge set (READ-EDGE-UNIFY). Carries
+/// node, so gate and read range over one identical edge set. Carries
 /// the reference `field` a bare arc drops, so a reader can see which declared reference
 /// produced the edge and a `degree` filter can select on it. Also the type [`classify_directives`]
 /// yields a member-class directive occurrence as, so an observed `@import` edge enters
@@ -806,13 +806,10 @@ fn member_at<'f>(node: &Node, by_kind: &BTreeMap<&str, &'f [Features]>) -> Optio
 }
 
 /// The first source glob whose resolved path set is not contained in the gate's resolved
-/// path set, or `None` when every scope glob is a subset of the gate globs. Containment
-/// is a structural-subset check over resolved path sets via `globset`: for each scope
-/// glob, representative paths are tested against the gate glob set; if all representatives
-/// match at least one gate glob, the scope glob is contained. True glob-language containment
-/// is undecidable, so this check errs toward firing on a semantically contained narrower
-/// glob rather than staying silent (same leniency `dead_registration` takes with an
-/// uncompilable glob). A clause naming the predicate therefore ships at advisory severity.
+/// path set, or `None` when every scope glob is a subset of the gate globs: for each scope
+/// glob, representative paths are tested against the gate glob set, and the scope glob is
+/// contained when every representative matches some gate glob. A sample is not a proof, so
+/// a clause naming the predicate ships at advisory severity.
 fn uncontained(scope: &[String], gate: &[String]) -> Option<String> {
     for scope_glob in scope {
         if !is_scope_contained_in_gate(scope_glob, gate) {
@@ -1229,7 +1226,7 @@ pub fn reachable(
 /// The one arc set liveness propagates along: the resolved declared references chained
 /// with the observed directive (`@import`) occurrences. [`reachable`] and
 /// [`reachability_orphaned`] both build their closure over exactly this, so the read's
-/// blast radius and the gate's verdict range over one edge family (READ-EDGE-UNIFY).
+/// blast radius and the gate's verdict range over one edge family.
 fn reachability_arcs(resolved: &[ResolvedEdge], directives: &[ResolvedEdge]) -> Vec<ResolvedEdge> {
     resolved.iter().chain(directives).cloned().collect()
 }
@@ -1238,8 +1235,8 @@ fn reachability_arcs(resolved: &[ResolvedEdge], directives: &[ResolvedEdge]) -> 
 /// every member live now that is no longer live
 /// once `removed`, and every directive edge touching it, is excised from the graph. The
 /// blast radius the graph promises, read over the
-/// same [`live_members`] closure [`reachable`] stands on so the read agrees with the gate
-/// (READ-EDGE-UNIFY). `removed` itself is excluded — a removed member is trivially gone,
+/// same [`live_members`] closure [`reachable`] stands on so the read agrees with the gate.
+/// `removed` itself is excluded — a removed member is trivially gone,
 /// not orphaned. Returned in sorted `(kind, id)` order for a stable narration.
 ///
 /// `resolved` and `directives` are the same two edge families [`reachable`] takes, chained
@@ -1710,7 +1707,7 @@ fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
 /// (when the target resolves to a real artifact of its `to` kind) or a dangling
 /// diagnostic (when it resolves to nothing). The resolved half feeds [`DegreeIndex`]
 /// for [`degree`] and `crate::read` filters per node so
-/// gate and read narrate the same edges (READ-EDGE-UNIFY). Sources and targets iterate
+/// gate and read narrate the same edges. Sources and targets iterate
 /// in name-sorted order for a stable enumeration; a target named twice under one field
 /// yields two edges, counted once by [`DegreeIndex`].
 #[must_use]
@@ -1975,7 +1972,7 @@ fn edge_resolves(
 /// corpus and those that dangle ([`edge_resolves`]). The read verbs narrate the two
 /// halves differently — a resolved mention as an edge, a dangling one as the gate's route
 /// finding — over the exact split [`route_mentions`] fires on, so read never disagrees
-/// with the gate (READ-EDGE-UNIFY).
+/// with the gate.
 #[must_use]
 pub fn partition_mentions(
     mentions: &[ResolvedEdge],

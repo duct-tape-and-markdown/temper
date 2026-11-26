@@ -20,7 +20,7 @@ import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
 import * as shippedBuiltins from "./builtins.js";
 import { dial } from "./dial.js";
-import { SDK_COUNSEL } from "./counsel.js";
+import { COUNSEL_RULE_NAME, GUIDANCE_RULE_PREFIX, SDK_COUNSEL } from "./counsel.js";
 import {
   GATE_TOOL_KEY,
   HOOK_HANDLER_KEY,
@@ -615,11 +615,6 @@ const SHIPPED_KINDS: ReadonlySet<KindFacts> = new Set(
   ),
 );
 
-/** The name prefix every synthesized guidance rule takes — `temper-guidance-<kind>`. */
-const GUIDANCE_RULE_PREFIX = "temper-guidance-";
-
-/** The rule carrying {@link SDK_COUNSEL}, scoped over the program directory. */
-const COUNSEL_RULE_NAME = "temper-sdk";
 const COUNSEL_RULE_PATHS = ".temper/**";
 
 /** The synthesized guidance rules, so a harness already carrying them is not re-synthesized. */
@@ -1678,7 +1673,7 @@ function mentionScope(harness: Harness): MentionScope {
 }
 
 /**
- * Compile a harness into its seven declaration families — the erased program.
+ * Compile a harness into its declaration families — the erased program.
  *
  * `placements` and `extents` are `emit`'s record of what each embedded value's format
  * rendered (`emit.ts`'s `edgePlacements`) and the span it spanned (`renderedExtents`); this

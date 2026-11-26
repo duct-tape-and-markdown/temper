@@ -1,3 +1,9 @@
+/** The rule carrying {@link SDK_COUNSEL}, scoped over the program directory. */
+export const COUNSEL_RULE_NAME = "temper-sdk";
+
+/** The name prefix every synthesized guidance rule takes — `temper-guidance-<kind>`. */
+export const GUIDANCE_RULE_PREFIX = "temper-guidance-";
+
 /**
  * The SDK's authoring counsel — what an agent writing a harness program is told the
  * first time it touches one. `emit` projects it as a rule scoped to the program
@@ -45,7 +51,7 @@ projections of it.
   (\`skillDefaultContract\`, ...) and add to it rather than restating it.
 - A check enters only as a decidable clause. Behavior no predicate can decide belongs
   to a wired verifier or to your own review — never a clause that approximates it. A
-  clause that can false-fire (\`mentionReachable\`'s literal containment) is advisory.
+  clause that can false-fire (\`mentionReachable\`'s glob containment) is advisory.
 
 ## Kinds
 
@@ -59,6 +65,6 @@ projections of it.
   extend the interface, and spread the value into each \`extend\` delta.
 - Narrow a kind's members with a clause, never a richer locus glob. A \`render\` hook
   treats every \`value.targets\` entry as possibly absent.
-- The rule names \`temper-sdk\` and \`temper-guidance-<kind>\` are temper's own; an
+- The rule names \`${COUNSEL_RULE_NAME}\` and \`${GUIDANCE_RULE_PREFIX}<kind>\` are temper's own; an
   authored rule at either refuses.
 `;

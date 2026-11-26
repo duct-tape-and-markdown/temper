@@ -43,7 +43,7 @@ projections of it.
   (`skillDefaultContract`, ...) and add to it rather than restating it.
 - A check enters only as a decidable clause. Behavior no predicate can decide belongs
   to a wired verifier or to your own review — never a clause that approximates it. A
-  clause that can false-fire (`mentionReachable`'s literal containment) is advisory.
+  clause that can false-fire (`mentionReachable`'s glob containment) is advisory.
 
 ## Kinds
 

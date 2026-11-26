@@ -31,8 +31,8 @@
 //!
 //! ## Scope: every opt-in kind, built-in and custom
 //!
-//! This tier reads every opt-in kind's members — built-in (skill ⊕ rule) and custom
-//! alike — the caller threads in as [`CustomMember`]s (READ-CUSTOM-SATISFIERS):
+//! This tier reads every opt-in kind's members — built-in and custom alike — the
+//! caller threads in as [`CustomMember`]s:
 //! temper's own `spec`s, or any consumer's
 //! custom kind whose member fills a requirement. The decidable
 //! [`crate::extract::Features`] drops the `satisfies` rationale, so a custom member
@@ -82,7 +82,7 @@ pub fn build_member_index_count() -> usize {
 /// [`crate::extract::Features`] view drops the rationale from but the read family needs
 /// whole. Edges are **not** carried here: `why` narrates the gate's resolved edge set
 /// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never
-/// re-derived here (READ-EDGE-UNIFY).
+/// re-derived here.
 #[derive(Clone)]
 struct Member {
     /// The artifact kind (`skill`, `rule`, or a custom kind's name) — part of the
@@ -96,7 +96,7 @@ struct Member {
     satisfies: Vec<Satisfies>,
 }
 
-/// A custom-kind member as the read family needs it (READ-CUSTOM-SATISFIERS): its
+/// A custom-kind member as the read family needs it: its
 /// kind name, its id, and its rationale-carrying `satisfies` clauses. The caller
 /// threads every opt-in kind's members in this way (loaded off
 /// [`crate::kind::Unit::satisfies_clauses`]) — built-in and custom alike. Kept whole
@@ -135,7 +135,7 @@ pub struct Citation {
 
 /// Project every caller-threaded opt-in member into the read family's [`Member`]
 /// view, name-sorted by its load, so every traversal below is deterministic without
-/// a re-sort (READ-CUSTOM-SATISFIERS).
+/// a re-sort.
 fn members(custom: &[CustomMember]) -> Vec<Member> {
     custom
         .iter()
@@ -375,7 +375,7 @@ fn resolve<'a>(
 /// `repo_files`, and `directive_edges` are the exact reachability/directive inputs
 /// the blast-radius strand ([`impact_impl`]) ranges over; `citations` are the declared one-way edges a
 /// leaf-grain answer reports separately from fallout. Every one is the identical input
-/// the gate's own predicates range over (READ-EDGE-UNIFY), so `explain` cannot disagree
+/// the gate's own predicates range over, so `explain` cannot disagree
 /// with a green `check`.
 ///
 /// `tap_records` and `tap_older_version` are the per-machine tap log's readout — the
@@ -505,7 +505,7 @@ pub fn explain(
 /// folding in `mention_edges` — the already-resolved mention edges `graph::degree` also
 /// ranges over — so a member whose only outgoing reference is a mention narrates it
 /// rather than reading "it points at no member".
-/// So `why`'s edge narration cannot disagree with the gate (READ-EDGE-UNIFY): a
+/// So `why`'s edge narration cannot disagree with the gate: a
 /// `routes_to` edge the gate resolves is the exact edge `why` narrates, and a member
 /// with no resolved edge stays silent. The **containment** family rides the same walk
 /// ([`graph::containment_edges`]) and narrates in its own voice — a host contains the
@@ -1187,7 +1187,7 @@ fn why_impl(
         graph::partition_mentions(mention_edges, by_kind, roster);
     resolved.extend(resolved_mentions);
     // The derived containment family, off the same walk the gate's `degree` counts
-    // (READ-EDGE-UNIFY) — kept beside the resolved set rather than folded into it,
+    // — kept beside the resolved set rather than folded into it,
     // because containment is an incidence a body composes, never a reference field an
     // author declared, and the two narrate in different voices.
     let containment = walk.containment;
@@ -1293,7 +1293,7 @@ fn why_one(
     narrate_governing_contract(out, contracts, &member.kind);
 
     // The edges in and out — the member's node in the **gate's resolved edge set**
-    // (`crate::graph::resolved_edges`), not a private re-derivation (READ-EDGE-UNIFY).
+    // (`crate::graph::resolved_edges`), not a private re-derivation.
     // A dangling declared reference resolves to no node, so it appears in neither list —
     // route resolution is the gate's finding to report, not `why`'s. A dangling *mention*
     // is narrated below its own way: the gate's `route_mentions` verdict, surfaced as
@@ -1438,7 +1438,7 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 /// member bears included. `roster` is the namespace `check` gates; `by_kind`,
 /// `registrations`, `resolved_edges`, `repo_files`, and `directive_edges` are the exact
 /// graph inputs the
-/// gate's predicates range over (READ-EDGE-UNIFY), so the read cannot disagree with a
+/// gate's predicates range over, so the read cannot disagree with a
 /// green `check`.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
@@ -1596,7 +1596,7 @@ fn impact_leaf(
 /// Select citations matching a predicate — the shared filter both `narrate_citers` and
 /// `context_member_one_impl` use to identify relevant citations. Extracted so the two call sites
 /// cannot disagree on what cites a leaf or member, exactly as the edge walk shares the
-/// gate's resolved set (READ-EDGE-UNIFY).
+/// gate's resolved set.
 fn select_citers<F>(citations: &[Citation], predicate: F) -> Vec<&Citation>
 where
     F: Fn(&Citation) -> bool,
@@ -1610,7 +1610,7 @@ where
 /// Narrate the **citations** naming a leaf — the declared one-way edges (obligation-free,
 /// resolution-checked) both `impact` and `context` report at leaf grain.
 /// Shared so the two verbs cannot disagree on
-/// what cites a leaf, exactly as the edge walk shares the gate's resolved set (READ-EDGE-UNIFY).
+/// what cites a leaf, exactly as the edge walk shares the gate's resolved set.
 fn narrate_citers(
     out: &mut String,
     citations: &[Citation],
@@ -2067,8 +2067,8 @@ fn impact_one_impl(
 /// A read, never a gate — the caller prints this and exits zero on every input.
 ///
 /// The `roster` is the requirement namespace `check` gates. `by_kind` is the same
-/// decidable corpus the gate's own selections count satisfiers from
-/// (REQUIREMENT-GATE), so `explain` cannot report a requirement unfilled that `check`
+/// decidable corpus the gate's own selections count satisfiers from,
+/// so `explain` cannot report a requirement unfilled that `check`
 /// counts as covered.
 #[must_use]
 fn requirements(
@@ -2351,7 +2351,7 @@ fn prose_strand(rows: &[drift::LayoutProseRow], member: &str) -> String {
 
 /// Assemble the corpus for the explain verb and dispatch to [`explain`] with the target:
 /// read the workspace, discover all features, build contracts, rosters, and edge sets
-/// exactly as `gate` does (READ-EDGE-UNIFY), so a read cannot disagree with the gate.
+/// exactly as `gate` does, so a read cannot disagree with the gate.
 /// A read, never a gate — the caller prints the result and exits zero on every input.
 ///
 /// # Errors
@@ -2390,8 +2390,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let manifest_cache = compose::build_manifest_cache(&discovery, &declared_kinds)?;
 
     // Every embedded built-in kind's discovered features — the same generic loop
-    // `gate`'s two-greens runs, not a hardcoded skill/rule pair
-    // (MEMORY-ENTERS-REQUIREMENT-CORPUS), so a memory member's declared `satisfies`
+    // `gate`'s two-greens runs, so a memory member's declared `satisfies`
     // reaches `explain` exactly as it reaches the gate's roster/graph/coverage tiers.
     let builtin_defs = builtin_kind::definitions();
     let builtin_units_and_features = compose::builtin_units_and_features_by_kind(
@@ -2407,7 +2406,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         .collect();
 
     // Each kind's resolved contract, lifted exactly as `gate` lifts it, so the clause
-    // addresses `explain` narrates are the ones a finding prints (READ-EDGE-UNIFY).
+    // addresses `explain` narrates are the ones a finding prints.
     let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
     for kind in builtin_defs.values() {
         contracts.insert(
@@ -2421,8 +2420,8 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         );
     }
 
-    // Every lock-declared kind that is not a built-in — the same synthesis `gate` runs
-    // (READ-EDGE-UNIFY), so a read cannot disagree with the gate about which kinds and
+    // Every lock-declared kind that is not a built-in — the same synthesis `gate` runs,
+    // so a read cannot disagree with the gate about which kinds and
     // members exist.
     let mut custom_kinds: Vec<compose::CustomKindEntry> = Vec::new();
     let mut custom_units_and_features: Vec<(CustomKind, compose::KindUnitsAndFeatures)> =
@@ -2459,8 +2458,8 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         custom_kinds.push((custom_kind.clone(), features.clone()));
         custom_units_and_features.push((custom_kind, uaf));
     }
-    // The embedded corpus over **both** its contributors, exactly as the gate assembles it
-    // (READ-EDGE-UNIFY): the lock's own `nested_member` rows, and the embedded members each
+    // The embedded corpus over **both** its contributors, exactly as the gate assembles it:
+    // the lock's own `nested_member` rows, and the embedded members each
     // host kind's read composed. A hook matcher group's handlers are the second — a
     // registration row drops its `fields` at the lock (0018), so the manifest carrying the
     // group is the only place its handlers' values exist to be read back from, and a read
@@ -2488,14 +2487,14 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     // Authored mentions (route-resolved at check) and layout prose imports (path-resolved
     // at emit) both lift off the lock; `why` route-resolves them against this same corpus,
     // narrating a dangling mention as the gate's route finding rather than a resolved edge,
-    // so a read cannot disagree with the gate (READ-EDGE-UNIFY).
+    // so a read cannot disagree with the gate.
     let mut mention_edges = drift::mention_edges_from_declarations(&declarations);
     mention_edges.extend(drift::root_runs_edges_from_declarations(&declarations));
     mention_edges.extend(drift::import_edges_from_doc(&lock_doc)?);
 
     // The world's inbound registration channel set into every kind — the overlaid
     // built-ins and each custom kind — through the very derivation the gate's `reachable`
-    // reads, keyed by bare kind name to join `by_kind` (READ-EDGE-UNIFY).
+    // reads, keyed by bare kind name to join `by_kind`.
     let registrations =
         crate::gate::registrations_by_kind(&overlaid_builtin_kinds, &custom_units_and_features);
 
@@ -2505,7 +2504,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     // The built-in defs, for the corpus-wide fact per kind the classing needs: which
     // kinds seed the directive traversal. The edge set this narrates
     // widens with the traversal — a reached rule's own outbound `@import` shows — because
-    // it *is* the gate's set (READ-EDGE-UNIFY), never a second enumeration.
+    // it *is* the gate's set, never a second enumeration.
     let directive_members = compose::directive_members_from_resolved(
         &builtin_defs,
         &builtin_units_and_features,

@@ -222,10 +222,8 @@ export const globValid = (field: string): Predicate => ({ key: "glob-valid", fie
  * in the target's gate, and on an unscoped source mentioning a gated target.
  *
  * Generic over both ends, hard-coding no kind: the trigger is the target's gate field
- * carrying a value, never its registration set. Containment is *literal* — every source
- * glob must appear verbatim in the gate — since true glob-set containment is
- * undecidable, so it false-fires on a semantically contained narrower glob
- * (`src/**\/*.ts` inside `src/**`).
+ * carrying a value, never its registration set. Containment is judged over sample paths
+ * each source glob matches, not decided, so a verdict can be wrong.
  */
 export const mentionReachable = (scopeField: string, gateField: string): Predicate => ({
   key: "mention-reachable",

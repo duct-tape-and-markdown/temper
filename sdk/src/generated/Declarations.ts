@@ -15,17 +15,10 @@ import type { TypecheckRow } from "./TypecheckRow.js";
 
 /**
  * The lock's **declaration-row family** — the composed program's erased declarations,
- * beside the
- * per-member provenance and emit-fingerprint rows. Seven sub-families: the program's
- * [kind facts](KindFactRow), its [clauses](ClauseRow), its [requirements](RequirementRow),
- * its assembly facts, its
- * [`satisfies`](SatisfiesRow) fill edges, its [`mention`](MentionRow) edges, and its
- * [`nested_member`](NestedMemberRow) rows.
+ * beside the per-member provenance and emit-fingerprint rows, one sub-family per field.
  *
  * Written into the lock by [`emit`] off the SDK's own payload ([`Declarations::write_into`])
- * and read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison —
- * `import`'s own extraction still writes this family for the `check` path it feeds
- * (`GATE-READ-LOCK-DEMOLITION`, next in the chain, moves that read onto the lock too).
+ * and read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison.
  * Each family's columns are owned scalars (or small owned collections for a set-scope
  * facet) so the read and write sides are the same shape: the lock is the vocabulary,
  * not a typed IR. `#[derive(Deserialize)]` doubles this shape as the SDK payload's own

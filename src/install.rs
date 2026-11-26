@@ -1,7 +1,7 @@
 //! `temper install` — the one on-ramp.
 //!
-//! `install` opens with a discovery report ([`discover`]/[`render_discovery`]) —
-//! findings first, ceremony after — then asks exactly one question via [`Represent`]:
+//! `install` opens with a discovery report ([`discover`]/[`render_discovery`]) — the
+//! members found, by kind — then asks exactly one question via [`Represent`]:
 //! represent this project as a temper program?
 //!
 //! - **No** wires the `SessionStart` reporter alone ([`place_settings_only`]) and
@@ -20,7 +20,7 @@
 //!   **registration** entries convert beside the container member holding them,
 //!   one module per entry, so no segment reaches the first emit unowned — plus a
 //!   `harness.ts`
-//!   skeleton, and temper's own gate as three `hook` members ([`GATE_HOOKS`]) —
+//!   skeleton, and temper's own gate as `hook` members ([`GATE_HOOKS`]) —
 //!   runs the first `emit` (the adoption moment,
 //!   [`drift::emit_program`]), which regenerates every composed kind's artifact as a
 //!   canonical projection — a layout kind's document stays a source at either depth,
@@ -803,7 +803,7 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     Ok(DiscoveryReport { members })
 }
 
-/// Render the discovery report for the terminal — findings first, ceremony after:
+/// Render the discovery report for the terminal:
 /// `mark`, the file [`represented_by`] found if any, naming what already answered the
 /// represent question on disk — the question below the report is skipped, so the answer is
 /// stated rather than left invisible — then member counts by kind, or a plain statement
@@ -861,9 +861,7 @@ pub struct InstallOutcome {
 /// Run `install` at `root`: the one question already answered as `represent`, over
 /// the `discovery` report the caller printed before asking it. Nothing is written
 /// under `dry_run`; every outcome is still computed and reported where that is
-/// possible without actually scaffolding, installing a dependency, or emitting (see
-/// the module header for exactly what a fresh `--dry-run` yes-path can and cannot
-/// preview).
+/// possible without actually scaffolding, installing a dependency, or emitting.
 ///
 /// # Errors
 /// Returns a [`miette::Report`] on any read/write/subprocess failure along the
@@ -1375,8 +1373,8 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
 }
 
 /// The finding `temper guard` surfaces at the **post** edge over the harness whose
-/// surface workspace is `workspace_dir` — two halves of the tree the call left, each the
-/// judge `check` already runs over that same fact:
+/// surface workspace is `workspace_dir` — each half the judge `check` already runs over
+/// that same fact:
 ///
 /// - the **projection** half of the root member's `fresh` clause
 ///   ([`drift::config_stale_from_doc`]), re-hashing each lock row's `source_path` against
@@ -1401,7 +1399,7 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
 /// not what decides here: the *enforcement mode* does, exactly as it does for the
 /// pending-write edge.
 ///
-/// **One lock read.** Both judges take the parsed document, read once here through
+/// **One lock read.** Every judge takes the parsed document, read once here through
 /// [`drift::read_lock_document`], so a post-edge call parses one lock however many halves
 /// speak.
 ///

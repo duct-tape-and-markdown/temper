@@ -1,5 +1,5 @@
 //! Telemetry field strand — narrate the local telemetry the tap recorded, per-event
-//! counts joined to members through the corpus the gate reads (READ-EDGE-UNIFY).
+//! counts joined to members through the corpus the gate reads.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
@@ -43,7 +43,7 @@ fn normalized_record_identity(record: &TapRecord, path_to_id: &BTreeMap<String, 
 
 /// `explain`'s **field** strand — narrate the local telemetry the tap recorded for
 /// `member`: its per-event counts and the denominators they range against, both joined
-/// to members through the same member index the gate reads (READ-EDGE-UNIFY), so the
+/// to members through the same member index the gate reads, so the
 /// strand cannot disagree with a green `check`. Evidence narrated, never judged: it
 /// reports what fired and scores nothing, and no verdict enters an exit code.
 ///

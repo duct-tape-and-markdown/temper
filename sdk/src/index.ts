@@ -1,8 +1,8 @@
 /**
- * temper's authoring face — the six-noun core as a typed module library.
+ * temper's authoring face as a typed module library.
  * A harness author imports plain nouns — `harness()`, the generic `kind`
- * constructor, the clause and requirement constructors, `needs`, and the four
- * prose constructors — and composes members as typed values. `emit` compiles the
+ * constructor, the clause and requirement constructors, `needs`, and the prose
+ * constructors — and composes members as typed values. `emit` compiles the
  * whole into the declaration rows and the projected members' erased payload —
  * the JSON pipe printed to stdout; the engine is the sole compiler of every
  * projection and the whole lock.

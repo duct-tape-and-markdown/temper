@@ -1191,10 +1191,8 @@ pub struct PayloadMember {
     pub source_path: Option<String>,
 }
 
-/// The whole seam payload the SDK program prints to stdout:
-/// the
-/// declaration rows (the lock's seven families) and every projected member's erased
-/// payload. The engine is the sole compiler of every projection and the whole lock
+/// The whole seam payload the SDK program prints to stdout: the declaration rows and
+/// every projected member's erased payload. The engine is the sole compiler of every projection and the whole lock
 /// from this one value — no harness re-supply, the payload IS the source.
 ///
 /// Not `Eq`: its declarations may carry `f64` `range` bounds ([`RangeBoundRow`]).
@@ -1202,7 +1200,7 @@ pub struct PayloadMember {
 pub struct Payload {
     /// The pinned seam version this payload was compiled against.
     pub version: u32,
-    /// The seven declaration families.
+    /// The program's declaration rows.
     pub declarations: Declarations,
     /// Every projected member.
     pub members: Vec<PayloadMember>,
@@ -5542,17 +5540,10 @@ pub fn emit_owned_targets_from_doc(doc: &DocumentMut) -> Vec<EmitOwnedEntry> {
 // ---------------------------------------------------------------------------
 
 /// The lock's **declaration-row family** — the composed program's erased declarations,
-/// beside the
-/// per-member provenance and emit-fingerprint rows. Seven sub-families: the program's
-/// [kind facts](KindFactRow), its [clauses](ClauseRow), its [requirements](RequirementRow),
-/// its assembly facts, its
-/// [`satisfies`](SatisfiesRow) fill edges, its [`mention`](MentionRow) edges, and its
-/// [`nested_member`](NestedMemberRow) rows.
+/// beside the per-member provenance and emit-fingerprint rows, one sub-family per field.
 ///
 /// Written into the lock by [`emit`] off the SDK's own payload ([`Declarations::write_into`])
-/// and read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison —
-/// `import`'s own extraction still writes this family for the `check` path it feeds
-/// (`GATE-READ-LOCK-DEMOLITION`, next in the chain, moves that read onto the lock too).
+/// and read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison.
 /// Each family's columns are owned scalars (or small owned collections for a set-scope
 /// facet) so the read and write sides are the same shape: the lock is the vocabulary,
 /// not a typed IR. `#[derive(Deserialize)]` doubles this shape as the SDK payload's own
@@ -5724,8 +5715,8 @@ pub struct KindFactRow {
     /// file-locus kind, so an ordinary row stays byte-identical.
     #[serde(default)]
     pub collection_address: Option<CollectionAddressRow>,
-    /// Advisory authoring counsel for the kind as a whole — teaching at authoring time via
-    /// `schema` hover or `explain`, carrying no predicate or severity (decision 0045).
+    /// Advisory authoring counsel for the kind as a whole, carrying no predicate or
+    /// severity; it rides the kind's guidance rule over its locus.
     #[serde(default)]
     pub guidance: Option<String>,
     /// External-fact source backing the guidance — a doc URL plus retrieved date.
@@ -6584,7 +6575,7 @@ pub fn parse_declarations(path: &Path, text: &str) -> Result<Declarations, Drift
     Ok(declarations_from_doc(&doc)?)
 }
 
-/// Extract the seven declaration families off a parsed lock's `[declaration]` table. A
+/// Extract the declaration families off a parsed lock's `[declaration]` table. A
 /// present row that fails its lift — a required column absent, a column the wrong type,
 /// a malformed nested element — is a [`LockRowError`]; an absent family or an absent
 /// optional column is legitimate absence.

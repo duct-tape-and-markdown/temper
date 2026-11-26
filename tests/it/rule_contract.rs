@@ -214,7 +214,7 @@ fn bare_harness_run(
 /// outside the gate of the skill it mentions — with no opt-in anywhere. The rule loads
 /// under `src/**`; the skill is invocable only once a `docs/**` file is read, and
 /// invoking it outside that gate hard-errors. The finding is **advisory**, so the gate
-/// does not block: literal containment can be wrong, and a check that can be wrong must
+/// does not block: glob containment can be wrong, and a check that can be wrong must
 /// not fail a run (0028; intent.md invariant 5 leaves escalation to the corpus).
 #[test]
 fn the_rule_floor_flags_a_mention_of_a_gated_skill_with_zero_opt_in() {
@@ -226,7 +226,7 @@ fn the_rule_floor_flags_a_mention_of_a_gated_skill_with_zero_opt_in() {
     );
     assert!(
         run.ok,
-        "the clause ships advisory — literal containment can be wrong, so the finding must \
+        "the clause ships advisory — glob containment can be wrong, so the finding must \
          not block the run ⇒ zero, got:\n{}",
         run.output
     );

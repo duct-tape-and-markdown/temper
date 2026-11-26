@@ -271,16 +271,14 @@ pub fn gate(
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
     // label: each kind's members — resolved by
     // [`compose::kind_units_and_features`] straight off harness disk, shared with `explain`
-    // (READ-EDGE-UNIFY) so a read cannot disagree with the gate about which members
+    // so a read cannot disagree with the gate about which members
     // exist — are dispatched to its default contract and validated, so a discovered `CLAUDE.md`
-    // memory member fires its `memory` clauses exactly as a skill/rule does — no
-    // longer silently skipped by a hardcoded skill/rule pair. The resolved features
-    // feed straight into `builtin_features` (MEMORY-ENTERS-REQUIREMENT-CORPUS): every
-    // built-in's satisfies edges reach the roster/graph/coverage tiers below, not only
-    // skill/rule's.
+    // memory member fires its `memory` clauses exactly as a skill/rule does. The resolved
+    // features feed straight into `builtin_features`: every built-in's satisfies edges
+    // reach the roster/graph/coverage tiers below.
     let mut diagnostics = Vec::new();
     // Per-kind checked-member counts, keyed by bare row label — carried out of
-    // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
+    // the dispatch loop for the advisory coverage note below,
     // so "checked N members" is stated rather than left as bare silence.
     let mut member_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut builtin_features: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
@@ -290,7 +288,7 @@ pub fn gate(
     let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
 
     // Build a shared manifest cache: one read per manifest file, shared across all
-    // manifest kinds that govern it (GATE-MANIFEST-SHARED-READ-HOIST).
+    // manifest kinds that govern it.
     let manifest_cache = compose::build_manifest_cache(&discovery, &declared_kinds)?;
 
     // Every clause's address is unique across the lock, decided before a single contract
@@ -1067,7 +1065,7 @@ fn kind_selections<'a>(
 /// channel map [`graph::reachable`] asks whether a member's own inbound world edge can
 /// be live. The overlaid built-ins chained with every custom kind: `explain`'s impact
 /// strand reads this same derivation, so its blast radius cannot disagree with the
-/// gate about which kinds carry a dead-able channel (READ-EDGE-UNIFY).
+/// gate about which kinds carry a dead-able channel.
 ///
 /// A kind declaring no registration contributes no entry: its members load
 /// unconditionally, and the judge reads that absence as unconditional liveness rather

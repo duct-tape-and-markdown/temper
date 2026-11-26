@@ -2,7 +2,7 @@
  * The `@dtmd/temper/claude-code` subpath — the first-party Claude Code
  * provider face. A harness author who
  * targets Claude Code imports the built-in kinds from here, never the root:
- * the root carries only the six-noun core, and identity travels by import,
+ * the root carries only the core, and identity travels by import,
  * so a subpath specifier is a full module
  * specifier like any other. The built-in default contracts join the kinds here
  * too: adoption is `import { skill, skillDefaultContract } from "@dtmd/temper/claude-code"`.

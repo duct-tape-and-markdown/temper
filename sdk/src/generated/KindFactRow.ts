@@ -114,8 +114,8 @@ leaves?: Array<string>,
  */
 collection_address?: CollectionAddressRow, 
 /**
- * Advisory authoring counsel for the kind as a whole — teaching at authoring time via
- * `schema` hover or `explain`, carrying no predicate or severity (decision 0045).
+ * Advisory authoring counsel for the kind as a whole, carrying no predicate or
+ * severity; it rides the kind's guidance rule over its locus.
  */
 guidance?: string, 
 /**

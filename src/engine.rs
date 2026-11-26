@@ -142,12 +142,8 @@ fn member_findings(
 /// Admissibility composes *on top* of loading, never re-doing it. Closed-
 /// vocabulary rejection (an unknown predicate) and charset-range validity are
 /// already enforced as load errors in [`crate::contract`]; a [`Contract`] that
-/// reached this engine has cleared both. The only admissibility clause decidable
-/// today over the current algebra is **list non-emptiness**: an `enum` or `deny`
-/// with no values, or a `forbidden_keys` / `require_sections` with no entries, is
-/// a vacuous clause that can never decide anything — inadmissible. (The
-/// `pattern`-compiles and `verifier`-resolves clauses the spec also names extend
-/// this same pass when those primitives land.)
+/// reached this engine has cleared both. What remains is a clause that could never
+/// decide anything at its binding — the rules [`inadmissibilities`] gathers.
 ///
 /// Every finding is [`check::Severity::Error`]: an inadmissible contract must
 /// fail the run, exactly as a `required` conformance violation does — there is no
@@ -233,10 +229,7 @@ pub(crate) fn inadmissibilities(
 /// predicate alone, here over the predicate at its locus.
 ///
 /// The admissible root vocabulary is therefore exactly the selection grain
-/// ([`Predicate::ranges_over_selection`]): `count`/`unique`/`membership`/`degree`/`kind`
-/// over the forest, `mention-reachable` and `reachable` over the graph, `fresh` over the
-/// committed lock against disk, `locus-declared` over the discovery walk against the
-/// lock's declarations, and `engine-matches` over the lock's own engine stamp.
+/// ([`Predicate::ranges_over_selection`]).
 fn rootless(predicate: &Predicate, locus: &Locus) -> Option<String> {
     if !matches!(locus, Locus::Root) || predicate.ranges_over_selection() {
         return None;
@@ -851,8 +844,7 @@ impl Selection<'_> {
 ///
 /// Yields the clause rather than a bool because a finding reads three channels off it —
 /// the author's declared `severity`, the `label` it reports under, and the `guidance`
-/// the gate teaches through at the moment of failure — and threading a subset of those
-/// is the gap ROOT-REACHABLE-GUIDANCE-REACHES-ITS-FINDING closed.
+/// the gate teaches through at the moment of failure.
 ///
 /// Read **after** the dial's pass over this same `selections` list ([`crate::gate`]), so
 /// a dialed severity is the one the finding carries. Matched on the predicate by value:
@@ -3500,7 +3492,7 @@ mod tests {
     fn dependency_exists_is_inadmissible() {
         // `dependency-exists` is held back — it names no decidable reference
         // syntax or extractor, so a hand-authored clause must fail admissibility
-        // loudly rather than silently decide `Indeterminate`. The fence is mirrored on the full `pattern` primitive.
+        // loudly rather than silently decide `Indeterminate`.
         let held = contract(ClauseSeverity::Required, Predicate::DependencyExists);
         let diags = admissibility(&held, &Locus::Document);
         assert_eq!(diags.len(), 1);

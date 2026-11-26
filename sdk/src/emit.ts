@@ -1,5 +1,5 @@
 /**
- * Emit — the compile from the six-noun face to the seam's JSON pipe.
+ * Emit — the compile from the authoring face to the seam's JSON pipe.
  * The SDK implements **no semantics**: emit
  * produces plain data — the declaration rows the engine reads and, per projected
  * member, its ordered typed fields and resolved prose body. The engine is the
@@ -925,10 +925,8 @@ function settingsResidue(harness: Harness): SettingsResidue[] {
  * `<kind>:<name>` keying raised for a corpus that is perfectly well-formed. A registration
  * member's address is its *group key* — a `hook` registers on its event, and Claude Code
  * admits any number of matcher groups per event — so several legitimately share one address
- * and the table keeps the last composed (the pre-0.0.16 reading; an edge targeting that
- * shared address resolves ambiguously, the open fork `(hook-member-identity)` in
- * `.flume/plan/open-questions.md`). Refusing them broke `emit` on every harness with two
- * hooks on one event (0.0.16).
+ * and the table keeps the last composed; an edge targeting that shared address resolves
+ * ambiguously.
  */
 function memberTable(harness: Harness): Map<string, EdgeTarget> {
   const table = uniqueMap([
@@ -1056,7 +1054,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
  * double-verifies it.
  */
 export interface EmitResult {
-  /** The declaration rows — the erased program the lock's seven families carry. */
+  /** The declaration rows — the erased program the lock's declaration families carry. */
   readonly declarations: Declarations;
   /** The projected members — the engine's sole input for every projection. */
   readonly members: readonly PayloadMember[];
@@ -1067,22 +1065,19 @@ export interface EmitResult {
   readonly seam: string;
   /**
    * The derived permission list — the union of every member's `needs`, deduped and
- * sorted.
-   * Folds into the settings artifact once hook/MCP members land; carried here as
-   * data until then.
+   * sorted. Off the seam: no projection writes it.
    */
   readonly permissions: readonly string[];
   /**
    * The fields-only registration members erased for the manifest write face — each
-   * a name, its collection address, and its folded fields. Folds into the manifest
-   * artifacts once the engine write face lands; carried here as data until then, the
-   * way `permissions` is.
+   * a name, its collection address, and its folded fields — a view of the rows
+   * `declarations.registrations` carries to the engine's write face.
    */
   readonly registrations: readonly RegistrationFact[];
   /**
    * The harness-level settings residue erased for the manifest write face — each an opaque
    * settings.json key and its value. Folds into the settings.json manifest's residue at
-   * emit, the way `registrations` builds its collection segments; carried here as data too.
+   * emit, the way `registrations` builds its collection segments.
    */
   readonly settings: readonly SettingsResidue[];
 }
@@ -1127,8 +1122,8 @@ export function loadedLocalModules(): string[] {
 }
 
 /**
- * Compile the whole face in one deterministic pass: the declaration rows (its
- * rollup and its seven families) and every projected member's erased payload.
+ * Compile the whole face in one deterministic pass: the declaration rows and
+ * every projected member's erased payload.
  * Prose resolves once (`file()` assets read in, mentions resolution-checked
  * against the harness's declared values). Double-emit verified — nondeterministic
  * authoring is a loud failure, never a silent churn.

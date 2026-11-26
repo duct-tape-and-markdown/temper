@@ -245,7 +245,7 @@ pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     Ok(BundleReport {
         files,
         skill_name: PLUGIN_NAME,
-        hook_events: vec!["SessionStart"],
+        hook_events: vec![BUNDLED_HOOK_EVENT],
     })
 }
 
@@ -300,6 +300,9 @@ fn marketplace_manifest() -> BTreeMap<String, JsonValue> {
     ])
 }
 
+/// The one event the bundled `hooks.json` registers a group on.
+const BUNDLED_HOOK_EVENT: &str = "SessionStart";
+
 /// The `hooks.json` manifest carrying the advisory `SessionStart` hook — the
 /// exec-form `temper check . --reporter session-start` command Claude Code spawns at
 /// session start. Same shape `temper install` merges into `.claude/settings.json`, so the
@@ -310,7 +313,7 @@ fn hooks_manifest() -> BTreeMap<String, JsonValue> {
     BTreeMap::from([(
         "hooks".to_string(),
         json!({
-            "SessionStart": [crate::install::session_start_group()]
+            BUNDLED_HOOK_EVENT: [crate::install::session_start_group()]
         }),
     )])
 }

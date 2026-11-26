@@ -1055,7 +1055,7 @@ fn a_scoped_source_outside_the_mentioned_targets_gate_is_an_advisory_finding() {
     );
     assert!(
         run.ok,
-        "the clause is advisory — literal containment can be wrong, so it must not block \
+        "the clause is advisory — glob containment can be wrong, so it must not block \
          the run ⇒ zero, got:\n{}",
         run.output
     );
