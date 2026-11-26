@@ -11,6 +11,7 @@ import type { RequirementRow } from "./RequirementRow.js";
 import type { RunsRow } from "./RunsRow.js";
 import type { SatisfiesRow } from "./SatisfiesRow.js";
 import type { SettingsRow } from "./SettingsRow.js";
+import type { TypecheckRow } from "./TypecheckRow.js";
 
 /**
  * The lock's **declaration-row family** — the composed program's erased declarations,
@@ -91,6 +92,12 @@ inputs: Array<InputRow>,
  * so a lock round-trip reads this family empty.
  */
 modules: Array<string>, 
+/**
+ * The program's declared typecheck ([`TypecheckRow`]) — seam-inbound only: run by
+ * `emit_program` before the payload compiles, its project lowered to a root-owned
+ * `input`, so a lock round-trip reads none.
+ */
+typecheck: TypecheckRow | null, 
 /**
  * The host members' declared embedded-member facts — captured as declaration
  * rows rather than a second copy the engine reads back off the rendered fence

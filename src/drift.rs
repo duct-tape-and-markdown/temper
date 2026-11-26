@@ -339,6 +339,56 @@ pub enum DriftError {
         stderr: String,
     },
 
+    /// The typecheck the program declares names a tool the payload composes no member
+    /// for, or a tool whose command has no runnable spelling — there is no compiler to run.
+    #[error(
+        "the program's typecheck names tool `{tool}`, which the harness does not compose as a `tool(...)` member with a `package`/`bin`, `file` or `system` command"
+    )]
+    #[diagnostic(code(temper::drift::typecheck_tool))]
+    TypecheckTool {
+        /// The tool address the typecheck declaration names.
+        tool: String,
+    },
+
+    /// The typecheck's compiler could not be spawned — its command is not where the tool
+    /// says it is (a `{ package, bin }` tool's anchored `.bin`, a `{ file }` tool's script,
+    /// a `{ system }` tool on the PATH).
+    #[error("failed to run the program's typecheck `{command}` (tool `{tool}`)")]
+    #[diagnostic(
+        code(temper::drift::typecheck_spawn),
+        help(
+            "install the compiler the typecheck's tool names (a `{{ package, bin }}` tool runs from the program's own `node_modules/.bin`), or point the typecheck at the tool that runs it"
+        )
+    )]
+    TypecheckSpawn {
+        /// The tool address the typecheck runs.
+        tool: String,
+        /// The command path emit tried to spawn.
+        command: PathBuf,
+        /// The underlying spawn error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// The program's declared typecheck reported errors — the program is not the shape
+    /// the SDK types it as, so emit runs none of it into the lock. The compiler's own
+    /// diagnostics are the message.
+    #[error(
+        "the program's typecheck (`{tool}`, project {project}) reported errors:\n{diagnostics}"
+    )]
+    #[diagnostic(
+        code(temper::drift::typecheck_failed),
+        help("correct what the compiler reports, then re-run `emit`")
+    )]
+    TypecheckFailed {
+        /// The tool address the typecheck ran.
+        tool: String,
+        /// The project file the compiler checked, harness-relative.
+        project: String,
+        /// The compiler's captured stdout and stderr.
+        diagnostics: String,
+    },
+
     /// The SDK program's stdout was not valid UTF-8 — the JSON pipe is text.
     #[error("the SDK program {path} printed non-UTF-8 output")]
     #[diagnostic(code(temper::drift::sdk_program_output))]
@@ -1798,7 +1848,123 @@ pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Resul
             path: harness_entry.clone(),
             source,
         })?;
+    if let Some(typecheck) = &payload.declarations.typecheck {
+        run_typecheck(
+            typecheck,
+            &payload.declarations.nested_members,
+            workspace_dir,
+        )?;
+    }
     emit(&payload, workspace_dir, options)
+}
+
+/// The flags every typecheck run passes its compiler: check the declared project and
+/// write nothing. `tsc`'s own spellings — `--project` compiles "the project given the path
+/// to its configuration file", `--noEmit` disables "emitting files from a compilation"
+/// (typescriptlang.org/docs/handbook/compiler-options.html, retrieved 2026-11-25).
+const TYPECHECK_FLAGS: [&str; 2] = ["--noEmit", "--project"];
+
+/// Run the program's declared typecheck: the compiler the declaration's `tool` names,
+/// over its project, before any byte of the payload is compiled. The command is read off
+/// the tool and never guessed — a `{ package, bin }` tool runs the program's own
+/// `node_modules/.bin/<bin>` (the anchored `.bin`, never a PATH lookup), a `{ file }`
+/// tool its harness-relative script, a `{ system }` tool the name on the PATH it claims.
+/// The run's working directory is the workspace, the program's own package.
+///
+/// # Errors
+/// [`DriftError::TypecheckTool`] when the tool is not a composed root-hosted tool with a
+/// command, [`DriftError::TypecheckSpawn`] when its command cannot be spawned, and
+/// [`DriftError::TypecheckFailed`] — carrying the compiler's own diagnostics — when it
+/// exits non-zero.
+fn run_typecheck(
+    typecheck: &TypecheckRow,
+    nested_members: &[NestedMemberRow],
+    workspace_dir: &Path,
+) -> Result<(), DriftError> {
+    let harness_root = harness_root_of(workspace_dir);
+    let command = typecheck_command(typecheck, nested_members, workspace_dir, &harness_root)?;
+    let output = Command::new(&command)
+        .args(TYPECHECK_FLAGS)
+        .arg(&typecheck.project)
+        .current_dir(workspace_dir)
+        .output()
+        .map_err(|source| DriftError::TypecheckSpawn {
+            tool: typecheck.tool.clone(),
+            command: command.clone(),
+            source,
+        })?;
+    if output.status.success() {
+        return Ok(());
+    }
+    // `tsc` prints its diagnostics on stdout; stderr carries anything the command itself
+    // failed on. Both are the compiler's words, so both reach the author verbatim.
+    let mut diagnostics = String::from_utf8_lossy(&output.stdout)
+        .trim_end()
+        .to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !stderr.trim().is_empty() {
+        if !diagnostics.is_empty() {
+            diagnostics.push('\n');
+        }
+        diagnostics.push_str(stderr.trim_end());
+    }
+    if diagnostics.is_empty() {
+        diagnostics = format!(
+            "(the compiler printed nothing; it exited with {})",
+            output.status
+        );
+    }
+    let project = harness_relative(contract::ROOT_OWNER, &typecheck.project, &harness_root)
+        .map_or_else(|_| typecheck.project.clone(), String::from);
+    Err(DriftError::TypecheckFailed {
+        tool: typecheck.tool.clone(),
+        project,
+        diagnostics,
+    })
+}
+
+/// The command path the typecheck's tool runs — the one place a tool member's leaves
+/// become a spawnable program.
+///
+/// # Errors
+/// [`DriftError::TypecheckTool`] when no composed root-hosted tool carries the address,
+/// or the tool carries no command leaf.
+fn typecheck_command(
+    typecheck: &TypecheckRow,
+    nested_members: &[NestedMemberRow],
+    workspace_dir: &Path,
+    harness_root: &Path,
+) -> Result<PathBuf, DriftError> {
+    let refused = || DriftError::TypecheckTool {
+        tool: typecheck.tool.clone(),
+    };
+    let tool = nested_members
+        .iter()
+        .find(|row| {
+            row.kind == TOOL_KIND
+                && row.host == contract::ROOT_OWNER
+                && crate::member_address::nested_address(&row.host, &row.kind, &row.key)
+                    == typecheck.tool
+        })
+        .ok_or_else(refused)?;
+    let leaf = |name: &str| tool.leaves.get(name).filter(|value| !value.is_empty());
+    if let Some(bin) = leaf(TOOL_BIN_LEAF).filter(|_| leaf(TOOL_PACKAGE_LEAF).is_some()) {
+        // npm lays a package bin out as `node_modules/.bin/<bin>`, and on Windows as the
+        // `<bin>.cmd` shim beside it, which `Command` names exactly (it never consults
+        // `PATHEXT`) — the same shim rule `install::npm_program` follows.
+        let bin = if cfg!(windows) {
+            format!("{bin}.cmd")
+        } else {
+            bin.clone()
+        };
+        return Ok(workspace_dir.join("node_modules").join(".bin").join(bin));
+    }
+    if let Some(file) = leaf(TOOL_FILE_LEAF) {
+        return Ok(harness_root.join(file));
+    }
+    leaf(TOOL_SYSTEM_LEAF)
+        .map(PathBuf::from)
+        .ok_or_else(refused)
 }
 
 /// Execute the SDK program at `harness_entry` (`node <path>`) and capture its
@@ -1988,6 +2154,18 @@ pub fn emit(
     // or not, and moves no byte into that member's artifact. A dangling input refuses
     // here, before any projection is derived, the same posture an include takes.
     let mut input_rows = resolve_inputs(&payload.declarations.inputs, &harness_root)?;
+    // The typecheck's project is the root's declared input: the compiler's verdict rests
+    // on it, so a moved project marks the lock stale like any input's moved bytes.
+    if let Some(typecheck) = &payload.declarations.typecheck {
+        let project = InputRow {
+            member: contract::ROOT_OWNER.to_string(),
+            source_path: typecheck.project.clone(),
+        };
+        input_rows.extend(resolve_inputs(
+            std::slice::from_ref(&project),
+            &harness_root,
+        )?);
+    }
     input_rows.extend(resolve_tool_files(
         &payload.declarations.nested_members,
         &harness_root,
@@ -3579,6 +3757,11 @@ fn resolve_inputs(
 const TOOL_KIND: &str = "tool";
 /// The leaf a `{ file }` tool states its script's harness-relative path under.
 const TOOL_FILE_LEAF: &str = "file";
+/// The leaves a `{ package, bin }` tool states its package and bin under.
+const TOOL_PACKAGE_LEAF: &str = "package";
+const TOOL_BIN_LEAF: &str = "bin";
+/// The leaf a `{ system }` tool states the PATH name it claims under.
+const TOOL_SYSTEM_LEAF: &str = "system";
 
 /// Fingerprint each root-hosted `{ file }` tool's script as the tool's declared `input`:
 /// the path is stated once, on the tool, and the file joins the roster through it —
@@ -5354,6 +5537,11 @@ pub struct Declarations {
     /// so a lock round-trip reads this family empty.
     #[serde(default)]
     pub modules: Vec<String>,
+    /// The program's declared typecheck ([`TypecheckRow`]) — seam-inbound only: run by
+    /// `emit_program` before the payload compiles, its project lowered to a root-owned
+    /// `input`, so a lock round-trip reads none.
+    #[serde(default)]
+    pub typecheck: Option<TypecheckRow>,
     /// The host members' declared embedded-member facts — captured as declaration
     /// rows rather than a second copy the engine reads back off the rendered fence
     /// (0018, "the projection is not the database").
@@ -5921,6 +6109,20 @@ pub struct InputRow {
     pub source_path: String,
 }
 
+/// The program's declared **typecheck** — the `tool` that runs its compiler and the
+/// project file the compiler checks. Seam-inbound only, like [`InputRow`]: `emit_program`
+/// runs it before compiling the payload and refuses on a type error, and `emit` lowers the
+/// project to a root-owned `input` source dependency, so the row itself never reaches the
+/// lock. Declared, never guessed: the compiler is the consumer's own toolchain, run
+/// through the tool the program names.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct TypecheckRow {
+    /// The address of the tool that runs the compiler (`root/tool/<name>`).
+    pub tool: String,
+    /// The project file's SDK-resolved absolute path.
+    pub project: String,
+}
+
 /// One fields-only registration member the SDK erased for the manifest write face — a
 /// hook, an MCP server — carried across the seam so `emit` routes its host manifest whole
 /// through the canonical write face ([`crate::json_manifest::write_manifest`]) rather than
@@ -6325,6 +6527,9 @@ pub(crate) fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, L
         inputs: Vec::new(),
         // Loaded modules are seam-inbound only, lowered to the `module` source dependency.
         modules: Vec::new(),
+        // The typecheck is seam-inbound only: run before the compile, its project lowered
+        // to an `input` row, never written into this declaration table.
+        typecheck: None,
         nested_members: family(table, "nested_member", NestedMemberRow::from_table)?,
         registrations: family(table, "registration", RegistrationRow::from_table)?,
         // Settings residue is seam-inbound only — folded into its manifest's opaque residue

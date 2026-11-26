@@ -3670,3 +3670,111 @@ fn a_bare_edge_target_in_a_multi_element_set_still_refuses_at_emit() {
         "the refusal names the bare target: {err:?}"
     );
 }
+
+/// A fixture program declaring its typecheck: the TypeScript compiler as a composed
+/// `{ package, bin }` tool, over the workspace's own `tsconfig.json`. `BODY` is the slot a
+/// case writes a statement into — a type error, or nothing.
+const TYPECHECKED_PROGRAM: &str = r#"
+import { emit, harness, input, text, tool } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+
+declare const process: { stdout: { write(chunk: string): boolean } };
+
+BODY
+
+const tsc = tool({ package: "typescript", bin: "tsc" });
+
+const program = harness({
+  members: [
+    rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`
+      # Rust conventions
+    ` }),
+    tsc,
+  ],
+  typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[cfg(unix)]
+#[test]
+fn emit_refuses_a_program_whose_typecheck_reports_a_type_error() {
+    let program = TYPECHECKED_PROGRAM.replace("BODY", "const width: string = 80;");
+    let (harness, into) = common::wire_sdk_harness("typecheck-type-error", &program);
+    common::wire_typescript_compiler(&into);
+
+    let err = drift::emit_program(&into, EmitOptions::default())
+        .expect_err("a type error refuses the emit");
+    let drift_err = err
+        .downcast_ref::<drift::DriftError>()
+        .expect("a typed drift error");
+    let drift::DriftError::TypecheckFailed {
+        tool,
+        project,
+        diagnostics,
+    } = drift_err
+    else {
+        panic!("expected TypecheckFailed, got {drift_err:?}");
+    };
+    assert_eq!(tool, "root/tool/tsc");
+    assert_eq!(project, ".temper/tsconfig.json");
+    // The compiler's own diagnostic, verbatim: TS2322 at the offending line.
+    assert!(
+        diagnostics.contains("harness.ts") && diagnostics.contains("TS2322"),
+        "the refusal carries tsc's diagnostics: {diagnostics}"
+    );
+    assert!(
+        format!("{err}").contains("TS2322"),
+        "the rendered refusal names the diagnostics: {err}"
+    );
+    // Refused before a byte is written: no lock, no projection.
+    assert!(!into.join("lock.toml").exists(), "no lock is written");
+    assert!(
+        !harness.join(".claude/rules/rust.md").exists(),
+        "no projection is written"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn the_typecheck_project_file_is_a_declared_input() {
+    let program = TYPECHECKED_PROGRAM.replace("BODY", "");
+    let (_harness, into) = common::wire_sdk_harness("typecheck-project-input", &program);
+    common::wire_typescript_compiler(&into);
+
+    drift::emit_program(&into, EmitOptions::default()).expect("a clean program emits");
+
+    let inputs = drift::inputs(&into).unwrap();
+    let project = inputs
+        .iter()
+        .find(|row| row.source_path.as_ref() as &str == ".temper/tsconfig.json")
+        .unwrap_or_else(|| panic!("the project rides the lock as an input: {inputs:?}"));
+    assert_eq!(
+        project.member, "root",
+        "the root member owns the project input"
+    );
+    assert_eq!(
+        project.import_hash,
+        format!("{:x}", Sha256::digest(common::TYPECHECK_PROJECT.as_bytes())),
+        "the project's bytes are fingerprinted"
+    );
+}
+
+#[test]
+fn a_typecheck_naming_a_tool_the_harness_does_not_compose_refuses() {
+    // The tool is constructed but left out of `members`: the reference would point at
+    // nothing the lock carries, so the SDK refuses before the engine runs anything.
+    let program = TYPECHECKED_PROGRAM
+        .replace("BODY", "")
+        .replace("    tsc,\n  ],", "  ],");
+    let (_harness, into) = common::wire_sdk_harness("typecheck-uncomposed-tool", &program);
+
+    let err = drift::emit_program(&into, EmitOptions::default())
+        .expect_err("an uncomposed typecheck tool refuses");
+    assert!(
+        format!("{err}")
+            .contains("`typecheck`: `tool` names tool `tsc`, which the harness does not compose"),
+        "the refusal names the uncomposed tool: {err}"
+    );
+}

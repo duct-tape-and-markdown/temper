@@ -58,6 +58,7 @@ import type {
   SatisfiesRow,
   SettingsRow,
   TemplateRow,
+  TypecheckRow,
   Verifier as VerifierRow,
 } from "./generated/index.js";
 
@@ -1390,24 +1391,54 @@ function runners(member: Member): Array<readonly [string, unknown]> {
  * the edge would point at nothing the lock carries.
  */
 function runsRows(harness: Harness): RunsRow[] {
-  const composed = new Set(harness.members.filter((member) => member.kind === tool.key));
   const rows: RunsRow[] = [];
   for (const member of harness.members) {
     for (const [runner, runs] of runners(member)) {
       if (runs === undefined) continue;
-      if (typeof runs !== "object" || runs === null || (runs as Member).kind !== tool.key) {
-        throw new Error(`\`${runner}\`: \`runs\` names the tool the command runs — pass a \`tool(...)\` member.`);
-      }
-      if (!composed.has(runs as Member)) {
-        throw new Error(
-          `\`${runner}\`: \`runs\` names tool \`${(runs as Member).name}\`, which the harness ` +
-            `does not compose — add it to \`members\`.`,
-        );
-      }
-      rows.push({ member: runner, tool: toolAddress(runs as Member) });
+      rows.push({ member: runner, tool: composedToolAddress(harness, runner, "runs", runs) });
     }
   }
   return rows;
+}
+
+/**
+ * The address (`root/tool/<name>`) of the composed {@link tool} a runner names under
+ * `field` — the one check every runner→tool reference passes, a `runs` edge and the
+ * typecheck alike.
+ *
+ * # Throws
+ * If the value is not a `tool(...)` member, or names a tool the harness does not compose —
+ * the reference would point at nothing the lock carries.
+ */
+function composedToolAddress(harness: Harness, runner: string, field: string, value: unknown): string {
+  if (typeof value !== "object" || value === null || (value as Member).kind !== tool.key) {
+    throw new Error(`\`${runner}\`: \`${field}\` names the tool the command runs — pass a \`tool(...)\` member.`);
+  }
+  if (!harness.members.includes(value as Member)) {
+    throw new Error(
+      `\`${runner}\`: \`${field}\` names tool \`${(value as Member).name}\`, which the harness ` +
+        `does not compose — add it to \`members\`.`,
+    );
+  }
+  return toolAddress(value as Member);
+}
+
+/**
+ * The typecheck row — the declared compiler's tool address and the project file, resolved
+ * against the stating module like any {@link input} — or `null` where the program declares
+ * none. Seam-inbound only: the engine runs it before compiling and lowers the project to a
+ * root-owned input.
+ *
+ * # Throws
+ * If the typecheck's `tool` is not a composed `tool(...)` member ({@link composedToolAddress}).
+ */
+function typecheckRow(harness: Harness): TypecheckRow | null {
+  const declared = harness.typecheck;
+  if (declared === undefined) return null;
+  return {
+    tool: composedToolAddress(harness, "typecheck", "tool", declared.tool),
+    project: fileURLToPath(new URL(declared.project.path, declared.project.moduleUrl)),
+  };
 }
 
 /** The gate hook row's binary field — `[GATE_BINARY_KEY, binary]` for a {@link gateHook}
@@ -1671,6 +1702,7 @@ export function compileDeclarations(
     includes: includeRows(harness),
     inputs: inputRows(harness),
     modules: moduleRows(modules),
+    typecheck: typecheckRow(harness),
     nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements, extents),
     registrations: mergedRegistrationRows(harness),
     settings: settingsRows(harness),

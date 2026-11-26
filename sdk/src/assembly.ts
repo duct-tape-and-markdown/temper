@@ -7,7 +7,7 @@
  * composing partial harnesses is ordinary code.
  */
 
-import type { Member, KindDefinition } from "./kind.js";
+import type { Input, Member, KindDefinition } from "./kind.js";
 import { clause, engineMatches, fresh, locusDeclared, reachable } from "./contract.js";
 import type { Clause, Requirement } from "./contract.js";
 
@@ -43,6 +43,22 @@ export interface Admission {
  */
 export type EnforcementMode = "note" | "warn" | "block";
 
+/**
+ * The program's **typecheck** — the compiler `emit` runs over the program before running
+ * it, refusing on a type error with the compiler's own diagnostics. It is the consumer's
+ * own toolchain, declared and never guessed: `tool` is the composed {@link tool} member
+ * whose command runs the compiler (`tool({ package: "typescript", bin: "tsc" })` runs the
+ * program's own `node_modules/.bin/tsc`), and `project` is the project file it checks,
+ * stated as an {@link input} so a change to it marks the lock stale. Emit passes the
+ * compiler `--noEmit --project <project>`.
+ */
+export interface Typecheck {
+  /** The {@link tool} member that runs the compiler — composed in `members` like any tool. */
+  readonly tool: Member;
+  /** The project file the compiler checks — `input(import.meta.url, "./tsconfig.json")`. */
+  readonly project: Input;
+}
+
 /** The composed harness — the root member's own fields, erased to rows at the seam. */
 export interface Harness {
   /** The member roster — the assembly's imports. */
@@ -55,6 +71,8 @@ export interface Harness {
   readonly require: Readonly<Record<string, Requirement>>;
   /** The residual harness-level settings with no member home (a shrinking list). */
   readonly settings: Readonly<Record<string, unknown>>;
+  /** The program's declared {@link Typecheck}; absent where the program declares none. */
+  readonly typecheck?: Typecheck;
   /**
    * The **root member's own contract** — the clauses that bind to the whole governed
    * forest rather than to one kind's population. Lowered to top-level clause rows
@@ -93,7 +111,7 @@ export interface Harness {
 }
 
 /**
- * Compose the harness from its six fields — ordinary code, Turing-completeness
+ * Compose the harness from its fields — ordinary code, Turing-completeness
  * quarantined at authoring time. Absent
  * fields default empty (`mode` defaults `warn`); the member list is the
  * only required part.
@@ -106,9 +124,11 @@ export function harness(init: {
   settings?: Readonly<Record<string, unknown>>;
   mode?: EnforcementMode;
   contract?: readonly Clause[];
+  typecheck?: Typecheck;
 }): Harness {
   return {
     members: init.members,
+    ...(init.typecheck === undefined ? {} : { typecheck: init.typecheck }),
     expect: init.expect ?? [],
     admit: init.admit ?? [],
     require: init.require ?? {},

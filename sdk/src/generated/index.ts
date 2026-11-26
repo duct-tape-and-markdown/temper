@@ -34,6 +34,7 @@ export type { SectionContainsRow } from "./SectionContainsRow.js";
 export type { SettingsRow } from "./SettingsRow.js";
 export type { Shape } from "./Shape.js";
 export type { TemplateRow } from "./TemplateRow.js";
+export type { TypecheckRow } from "./TypecheckRow.js";
 export type { ValueType } from "./ValueType.js";
 export type { Verifier } from "./Verifier.js";
 export { TAP_EVENT_HOOKS } from "./tap-hooks.js";

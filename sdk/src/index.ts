@@ -110,7 +110,7 @@ export { embeddedMemberValue, extend, kind, relocate } from "./kind.js";
 export { input } from "./kind.js";
 
 // The assembly — `harness()` and its six fields.
-export type { Admission, EnforcementMode, ExpectBinding, Harness } from "./assembly.js";
+export type { Admission, EnforcementMode, ExpectBinding, Harness, Typecheck } from "./assembly.js";
 export { harness, rootDefaultContract } from "./assembly.js";
 
 // Emit — the compile to the seam's JSON pipe; the engine is the sole compiler

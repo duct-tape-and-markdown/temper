@@ -178,6 +178,48 @@ pub fn wire_sdk_harness(label: &str, program: &str) -> (PathBuf, PathBuf) {
     (harness, into)
 }
 
+/// Give a fixture workspace a real TypeScript compiler and a project for it to check:
+/// `<into>/node_modules/.bin/tsc` links the repo SDK's own `typescript` devDependency —
+/// the anchored `.bin` a `tool({ package: "typescript", bin: "tsc" })` runs — and
+/// `<into>/tsconfig.json` checks `harness.ts` strictly against the vendored SDK's types,
+/// under the `"type": "module"` manifest a real workspace carries.
+/// A symlink, so unix-only, as [`vendor_sdk`]'s link is outside Windows.
+#[cfg(unix)]
+pub fn wire_typescript_compiler(into: &Path) {
+    let bin = into.join("node_modules").join(".bin");
+    fs::create_dir_all(&bin).unwrap();
+    let tsc = bin.join("tsc");
+    if !tsc.exists() {
+        std::os::unix::fs::symlink(sdk_root().join("node_modules/typescript/bin/tsc"), &tsc)
+            .unwrap();
+    }
+    fs::write(into.join("tsconfig.json"), TYPECHECK_PROJECT).unwrap();
+    // NodeNext reads the module format off the nearest `package.json`, as a real
+    // `.temper/` workspace's declares it; without one, `import.meta` reads as CommonJS.
+    let manifest = into.join("package.json");
+    if !manifest.exists() {
+        fs::write(manifest, "{ \"type\": \"module\" }\n").unwrap();
+    }
+}
+
+/// The project [`wire_typescript_compiler`] writes: strict, NodeNext modules, `.ts`
+/// import specifiers allowed, and no ambient `@types` — a fixture program declares the
+/// one Node global it touches (`process`) itself.
+pub const TYPECHECK_PROJECT: &str = r#"{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "files": ["harness.ts"]
+}
+"#;
+
 /// Write `body` at `<root>/<rel>`, creating the parent directories — the
 /// create-parents-then-write primitive every locus writer below composes, and the
 /// direct route for a file at no modeled locus at all (a plain repo file an
