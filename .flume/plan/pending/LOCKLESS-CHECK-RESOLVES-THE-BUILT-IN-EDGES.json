@@ -3,6 +3,7 @@
   "gate": {
     "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -37,5 +38,14 @@
     "a lockless harness reports an installed plugin naming no known marketplace"
   ],
   "pins": [],
-  "notes": "Note OUTPUT-STYLE-IS-SELECTED-BY-SETTINGS: gate.rs reads declaration.assembly only off the committed lock (read_lock_document yields an empty doc when absent), never the embedded lock. \"A harness with no lock is still fully gated.\" Tests today stand up a committed copy of the built-in declarations. Shares edges_from_declarations with EDGE-FIELD-SET-IS-DERIVED-ONCE."
+  "laneTests": [],
+  "notes": "Note OUTPUT-STYLE-IS-SELECTED-BY-SETTINGS: gate.rs reads declaration.assembly only off the committed lock (read_lock_document yields an empty doc when absent), never the embedded lock. \"A harness with no lock is still fully gated.\" Tests today stand up a committed copy of the built-in declarations. Shares edges_from_declarations with EDGE-FIELD-SET-IS-DERIVED-ONCE.",
+  "observedFiles": [
+    ".flume/plan/notes/LOCKLESS-CHECK-RESOLVES-THE-BUILT-IN-EDGES.md",
+    "src/drift.rs",
+    "src/gate.rs",
+    "src/read.rs",
+    "tests/it/installed_plugin_kind.rs",
+    "tests/it/output_style_kind.rs"
+  ]
 }
