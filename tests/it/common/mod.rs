@@ -174,9 +174,23 @@ pub fn wire_sdk_harness(label: &str, program: &str) -> (PathBuf, PathBuf) {
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     fs::write(into.join("harness.ts"), typechecked(program)).unwrap();
+    declare_package_manager(&into, FIXTURE_PACKAGE_MANAGER);
     wire_fixture_typecheck(&into);
     vendor_sdk(&into.join("node_modules").join("@dtmd"));
     (harness, into)
+}
+
+/// The manager a fixture program's `package.json` declares unless its case says otherwise.
+pub const FIXTURE_PACKAGE_MANAGER: &str = "npm@10.9.0";
+
+/// Write the workspace `into`'s `package.json` as a real `.temper/` one reads: an ES module
+/// whose `packageManager` field is `manager`.
+pub fn declare_package_manager(into: &Path, manager: &str) {
+    fs::write(
+        into.join("package.json"),
+        format!("{{ \"type\": \"module\", \"packageManager\": \"{manager}\" }}\n"),
+    )
+    .unwrap();
 }
 
 /// Ready an install fixture's `.temper/` workspace the way a real `npm install` leaves

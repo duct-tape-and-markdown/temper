@@ -513,6 +513,9 @@ source_path = "docs/decisions/0001.md"
 member = "guide:operate-the-gate/spec/representation"
 source_path = "docs/guides/operate-the-gate/representation.md"
 
+=== .temper/package.json ===
+{ "type": "module", "packageManager": "npm@10.9.0" }
+
 === .temper/tsconfig.json ===
 {
   "compilerOptions": {

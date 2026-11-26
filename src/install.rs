@@ -8,9 +8,9 @@
 //!   stops — the stranger gate at session start, Node-free forever.
 //! - **Yes** requires Node (checked up front, refused loud with instructions when
 //!   absent), ensures the `@dtmd/temper` dependency is declared in
-//!   `.temper/package.json` ([`ensure_package_json`]) and spawns `npm install`
+//!   `.temper/package.json` ([`ensure_package_json`]) and spawns the declared manager's install
 //!   to fetch it when not already resolved via an ancestor `node_modules`
-//!   ([`spawn_npm_install`]) — before a single file of the lift is written, so
+//!   ([`spawn_manager_install`]) — before a single file of the lift is written, so
 //!   a spawn failure never leaves a half-scaffolded `.temper/` behind it — then
 //!   scaffolds the SDK
 //!   program once if none exists yet — the lift ([`scaffold`]): a whole
@@ -661,10 +661,12 @@ enum InstallError {
         path: PathBuf,
     },
 
-    /// `npm install` could not be spawned in the `.temper/` workspace.
-    #[error("failed to spawn \"npm install\" in {path}")]
+    /// The declared manager's install could not be spawned in the `.temper/` workspace.
+    #[error("failed to spawn \"{program} install\" in {path}")]
     #[diagnostic(code(temper::install::dependency_spawn))]
     DependencySpawn {
+        /// The manager executable spawned.
+        program: String,
         /// The workspace directory the spawn was attempted in.
         path: PathBuf,
         /// The underlying I/O error.
@@ -708,13 +710,29 @@ enum InstallError {
     },
 
     /// `npm install` exited non-zero while ensuring the `@dtmd/temper` dependency.
-    #[error("\"npm install\" failed in {path}:\n{stderr}")]
+    #[error("\"{program} install\" failed in {path}:\n{stderr}")]
     #[diagnostic(code(temper::install::dependency_install))]
     DependencyInstall {
-        /// The workspace directory `npm install` ran in.
+        /// The manager executable spawned.
+        program: String,
+        /// The workspace directory the install ran in.
         path: PathBuf,
         /// The subprocess's captured stderr.
         stderr: String,
+    },
+
+    /// The scaffold's `packageManager` names npm with its version, and `npm --version`
+    /// could not report one.
+    #[error("could not read npm's version for the scaffold's `packageManager`: {detail}")]
+    #[diagnostic(
+        code(temper::install::npm_version),
+        help(
+            "put npm on the PATH, or declare `packageManager` in the repository root's `package.json` for the scaffold to copy"
+        )
+    )]
+    NpmVersion {
+        /// Why the version could not be read.
+        detail: String,
     },
 }
 
@@ -968,9 +986,10 @@ fn run_represented(
     // program behind it.
     let mut missing_dependencies = Vec::new();
     if !dry_run {
-        missing_dependencies = ensure_package_json(&temper_dir)?;
+        missing_dependencies = ensure_package_json(root, &temper_dir)?;
+        let manager = crate::tool::declared_manager(&temper_dir)?;
         if !dependency_resolves(&temper_dir) {
-            spawn_npm_install(&temper_dir)?;
+            spawn_manager_install(&temper_dir, manager)?;
         }
     }
 
@@ -3662,28 +3681,33 @@ fn sdk_resolves(temper_dir: &Path) -> bool {
     false
 }
 
-/// The npm executable name to spawn: `Command`'s child-process launch does not
-/// consult `PATHEXT`, so it resolves only an exact-match filename. Windows ships
-/// npm as `npm.cmd` (no bare `npm.exe`), so a `windows` spawn must name the shim
-/// explicitly; everywhere else `npm` on `PATH` is the real executable.
+/// The npm executable name to spawn ([`PackageManager::program`]'s npm arm).
+///
+/// [`PackageManager::program`]: crate::tool::PackageManager::program
+#[must_use]
 pub fn npm_program() -> &'static str {
-    if cfg!(windows) { "npm.cmd" } else { "npm" }
+    crate::tool::PackageManager::Npm.program()
 }
 
-/// Spawn `npm install` to fetch the `@dtmd/temper` dependency into
-/// `.temper/node_modules`, assuming `.temper/package.json` already declares it.
-/// Skipped when the dependency resolves via an ancestor `node_modules`.
-fn spawn_npm_install(temper_dir: &Path) -> Result<(), InstallError> {
-    let output = Command::new(npm_program())
+/// Spawn the declared manager's `install` to fetch the program's dependencies into
+/// `.temper/node_modules`, assuming `.temper/package.json` already declares them.
+fn spawn_manager_install(
+    temper_dir: &Path,
+    manager: crate::tool::PackageManager,
+) -> Result<(), InstallError> {
+    let program = manager.program();
+    let output = Command::new(program)
         .arg("install")
         .current_dir(temper_dir)
         .output()
         .map_err(|source| InstallError::DependencySpawn {
+            program: program.to_string(),
             path: temper_dir.to_path_buf(),
             source,
         })?;
     if !output.status.success() {
         return Err(InstallError::DependencyInstall {
+            program: program.to_string(),
             path: temper_dir.to_path_buf(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         });
@@ -3725,11 +3749,46 @@ fn required_dependencies() -> [MissingDependency; 3] {
     ]
 }
 
-/// Scaffold `<temper_dir>/package.json` when absent; an existing one is read and
-/// never written — every other writer (the package manager, update bots) owns it.
+/// The `packageManager` the scaffold writes: the repository root's own declaration, else
+/// npm — the manager install runs — at the version it reports. A root `package.json`
+/// that does not parse declares nothing.
+fn scaffold_package_manager(root: &Path) -> Result<String, InstallError> {
+    let declared = fs::read_to_string(root.join("package.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<JsonValue>(&text).ok())
+        .and_then(|manifest| {
+            manifest
+                .get(crate::tool::PACKAGE_MANAGER_FIELD)
+                .and_then(JsonValue::as_str)
+                .map(str::to_string)
+        });
+    if let Some(declared) = declared {
+        return Ok(declared);
+    }
+    let output = Command::new(npm_program())
+        .arg("--version")
+        .output()
+        .map_err(|error| InstallError::NpmVersion {
+            detail: error.to_string(),
+        })?;
+    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !output.status.success() || version.is_empty() {
+        return Err(InstallError::NpmVersion {
+            detail: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        });
+    }
+    Ok(format!("npm@{version}"))
+}
+
+/// Scaffold `<temper_dir>/package.json` when absent, its `packageManager` the one
+/// [`scaffold_package_manager`] reads off `root`; an existing one is read and never
+/// written — every other writer (the package manager, update bots) owns it.
 /// Returns the required dependencies an existing manifest declares in neither
 /// group (any version spec counts as declared).
-fn ensure_package_json(temper_dir: &Path) -> Result<Vec<MissingDependency>, InstallError> {
+fn ensure_package_json(
+    root: &Path,
+    temper_dir: &Path,
+) -> Result<Vec<MissingDependency>, InstallError> {
     let path = temper_dir.join("package.json");
     match fs::read_to_string(&path) {
         Ok(text) => {
@@ -3770,6 +3829,7 @@ fn ensure_package_json(temper_dir: &Path) -> Result<Vec<MissingDependency>, Inst
                 "type": "module",
                 "dependencies": dependencies,
                 "devDependencies": dev_dependencies,
+                (crate::tool::PACKAGE_MANAGER_FIELD): scaffold_package_manager(root)?,
             });
             let desired = format!(
                 "{}\n",
@@ -4281,8 +4341,15 @@ mod tests {
 
     #[test]
     fn ensure_package_json_pins_a_range_past_the_file_export() {
-        let dir = tmpdir("package-json-seam");
-        ensure_package_json(&dir).unwrap();
+        let root = tmpdir("package-json-seam");
+        fs::write(
+            root.join("package.json"),
+            r#"{ "packageManager": "pnpm@9.0.0" }"#,
+        )
+        .unwrap();
+        let dir = root.join(crate::WORKSPACE_DIR);
+        fs::create_dir_all(&dir).unwrap();
+        ensure_package_json(&root, &dir).unwrap();
         let written: JsonValue =
             serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
         assert_eq!(written["dependencies"][SDK_PACKAGE], sdk_version_range());

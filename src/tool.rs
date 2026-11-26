@@ -1,17 +1,17 @@
 //! The `tool` kind's engine-side facts: the leaves a tool states its command under, and
 //! the version a `{ package, bin }` tool runs at — its program's lockfile's, never a
-//! restatement (`specs/model/authoring.md`, "The SDK"; decision 0104).
+//! restatement.
 //!
-//! Two lockfiles are read, from the program's own directory or the workspace root its
-//! package manager resolves — a package-manager workspace keeps its one lock at its root,
-//! keyed by each project's path, and an ancestor no workspace of the program's names is
-//! never read: npm's `package-lock.json` and pnpm's `pnpm-lock.yaml`, the
-//! latter through `gray_matter`'s YAML engine, the sanctioned crate's reader. Any other
-//! lockfile there, with neither of those beside it, refuses loudly by name: a version
-//! temper cannot read is never guessed and never silently skipped. A package the lockfile
-//! does not record — or no lockfile at all — is an advisory finding on the tool.
+//! The program's `package.json` `packageManager` field names its manager, read and never
+//! guessed: npm's `package-lock.json` or pnpm's `pnpm-lock.yaml` (through `gray_matter`'s
+//! YAML engine) is read from the program's own directory, else the workspace root its
+//! manager resolves — an ancestor no workspace of the program's names is never read. A
+//! field that is absent, or names another manager, refuses by name. A package the
+//! lockfile does not record — or no lockfile at all — is an advisory finding on the tool.
 //!
-//! The lockfile formats are external facts:
+//! The formats are external facts:
+//! - `packageManager` (`<name>@<version>`, an optional `+<hash>` suffix) —
+//!   <https://github.com/nodejs/corepack/blob/main/README.md> (retrieved 2026-11-26).
 //! - `package-lock.json` (lockfileVersion 2/3: `packages["node_modules/<name>"]`, a
 //!   `link: true` entry resolving to `packages[<resolved>]`; lockfileVersion 1:
 //!   `dependencies[<name>].version`) — <https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json>
@@ -49,11 +49,90 @@ pub const TOOL_SYSTEM_LEAF: &str = "system";
 pub const NPM_LOCKFILE: &str = "package-lock.json";
 /// pnpm's lockfile.
 pub const PNPM_LOCKFILE: &str = "pnpm-lock.yaml";
-/// The lockfiles temper reads, in the order it looks for them.
-const READ_LOCKFILES: [&str; 2] = [NPM_LOCKFILE, PNPM_LOCKFILE];
-/// The other package managers' lockfiles: present without a read one beside them, the
-/// program's packages are held by a file temper cannot read, so it refuses by name.
-const UNREAD_LOCKFILES: [&str; 4] = ["yarn.lock", "bun.lock", "bun.lockb", "npm-shrinkwrap.json"];
+/// npm's publishable lockfile, which npm reads before `package-lock.json`: beside an npm
+/// program it holds the packages in a file temper does not read, so it refuses by name.
+const NPM_SHRINKWRAP: &str = "npm-shrinkwrap.json";
+
+/// The `package.json` field declaring the program's package manager.
+pub const PACKAGE_MANAGER_FIELD: &str = "packageManager";
+
+/// A package manager the program's `packageManager` field names, and temper reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackageManager {
+    /// npm, locking by `package-lock.json`.
+    Npm,
+    /// pnpm, locking by `pnpm-lock.yaml`.
+    Pnpm,
+}
+
+impl PackageManager {
+    /// The manager's name, as the field spells it before its `@`.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Npm => "npm",
+            Self::Pnpm => "pnpm",
+        }
+    }
+
+    /// The lockfile the manager writes.
+    #[must_use]
+    pub fn lockfile(self) -> &'static str {
+        match self {
+            Self::Npm => NPM_LOCKFILE,
+            Self::Pnpm => PNPM_LOCKFILE,
+        }
+    }
+
+    /// The executable to spawn: `Command` does not consult `PATHEXT`, and Windows ships
+    /// both managers as `.cmd` shims.
+    #[must_use]
+    pub fn program(self) -> &'static str {
+        match (self, cfg!(windows)) {
+            (Self::Npm, false) => "npm",
+            (Self::Npm, true) => "npm.cmd",
+            (Self::Pnpm, false) => "pnpm",
+            (Self::Pnpm, true) => "pnpm.cmd",
+        }
+    }
+}
+
+/// The manager the `package.json` in `workspace` declares in its `packageManager` field.
+///
+/// # Errors
+/// [`ToolLockError::NoManager`] when the manifest is absent or declares no field;
+/// [`ToolLockError::UnsupportedManager`] when the field names a manager temper does not
+/// read; [`ToolLockError::Read`] / [`ToolLockError::Malformed`] when the manifest cannot
+/// be read or parsed.
+pub fn declared_manager(workspace: &Path) -> Result<PackageManager, ToolLockError> {
+    let path = workspace.join("package.json");
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Err(ToolLockError::NoManager { path });
+        }
+        Err(source) => return Err(ToolLockError::Read { path, source }),
+    };
+    let manifest: JsonValue =
+        serde_json::from_str(&text).map_err(|error| ToolLockError::Malformed {
+            path: path.clone(),
+            reason: error.to_string(),
+        })?;
+    let Some(declared) = manifest
+        .get(PACKAGE_MANAGER_FIELD)
+        .and_then(JsonValue::as_str)
+    else {
+        return Err(ToolLockError::NoManager { path });
+    };
+    match declared.split('@').next().unwrap_or_default() {
+        "npm" => Ok(PackageManager::Npm),
+        "pnpm" => Ok(PackageManager::Pnpm),
+        _ => Err(ToolLockError::UnsupportedManager {
+            path,
+            declared: declared.to_string(),
+        }),
+    }
+}
 
 /// The fixed-check id a `{ package, bin }` tool the lockfile does not record reports under.
 pub const UNLOCKED_RULE: &str = "tool.unlocked";
@@ -61,6 +140,38 @@ pub const UNLOCKED_RULE: &str = "tool.unlocked";
 /// Why a tool's lockfile could not be read.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ToolLockError {
+    /// The program's `package.json` declares no `packageManager`.
+    #[error(
+        "`{}` declares no `packageManager`, so the program's package manager is unknown — temper never guesses it",
+        path.display()
+    )]
+    #[diagnostic(
+        code(temper::tool::no_package_manager),
+        help(
+            "add `\"packageManager\": \"npm@<version>\"` (or `pnpm@<version>`) to it, naming the manager that installs the program's packages"
+        )
+    )]
+    NoManager {
+        /// The program's `package.json`.
+        path: PathBuf,
+    },
+    /// The program's `package.json` names a manager temper does not read.
+    #[error(
+        "`{}` declares the package manager `{declared}`, which temper does not read — a `{{ package, bin }}` tool's version is read from npm's or pnpm's lockfile",
+        path.display()
+    )]
+    #[diagnostic(
+        code(temper::tool::unsupported_package_manager),
+        help(
+            "install the program's packages with npm or pnpm and declare it in `packageManager`, or declare the tool as a `{{ file }}` or `{{ system }}` tool"
+        )
+    )]
+    UnsupportedManager {
+        /// The program's `package.json`.
+        path: PathBuf,
+        /// The field's value.
+        declared: String,
+    },
     /// The workspace's packages are held by a lockfile temper does not read.
     #[error(
         "the program's packages are locked by `{}`, which temper does not read — a `{{ package, bin }}` tool's version is read from `package-lock.json` or `pnpm-lock.yaml`",
@@ -166,22 +277,23 @@ impl Lockfile {
     }
 }
 
-/// Read the lockfile of the program in `workspace`: its own directory's, else the one at
-/// the workspace root the package manager resolves for it — the nearest ancestor that
-/// declares a workspace, read only when that declaration includes the program. In either
-/// directory `package-lock.json` is read before `pnpm-lock.yaml`. `None` when the program
-/// carries no lockfile and no ancestor's workspace includes it: a lockfile in an ancestor
-/// that is no workspace root of the program's locks some other project, and is never read.
+/// Read the lockfile of the program in `workspace` — the one its declared manager writes:
+/// its own directory's, else the one at the workspace root the manager resolves for it —
+/// the nearest ancestor that declares a workspace, read only when that declaration
+/// includes the program. `None` when the program carries no lockfile and no ancestor's
+/// workspace includes it: a lockfile in an ancestor that is no workspace root of the
+/// program's locks some other project, and is never read.
 ///
 /// # Errors
-/// [`ToolLockError::Unsupported`] when the read directory holds only another manager's
-/// lockfile, naming it; [`ToolLockError::Read`] / [`ToolLockError::Malformed`] when the
-/// read lockfile cannot be read or parsed.
+/// [`declared_manager`]'s refusals; [`ToolLockError::Unsupported`] when an npm program's
+/// directory holds `npm-shrinkwrap.json`; [`ToolLockError::Read`] /
+/// [`ToolLockError::Malformed`] when the read lockfile cannot be read or parsed.
 pub fn read_lockfile(workspace: &Path) -> Result<Option<Lockfile>, ToolLockError> {
     // Absolute so a relative workspace still walks its real ancestors; not canonical, so
     // the importer path is the one the author's tree spells.
     let workspace = std::path::absolute(workspace).unwrap_or_else(|_| workspace.to_path_buf());
-    if let Some(lockfile) = read_lockfile_in(&workspace, &workspace)? {
+    let manager = declared_manager(&workspace)?;
+    if let Some(lockfile) = read_lockfile_in(&workspace, &workspace, manager)? {
         return Ok(Some(lockfile));
     }
     for dir in workspace.ancestors().skip(1) {
@@ -189,7 +301,7 @@ pub fn read_lockfile(workspace: &Path) -> Result<Option<Lockfile>, ToolLockError
             continue;
         };
         return if includes(&globs, &relative_path(dir, &workspace)) {
-            read_lockfile_in(dir, &workspace)
+            read_lockfile_in(dir, &workspace, manager)
         } else {
             Ok(None)
         };
@@ -278,41 +390,38 @@ fn read_text(path: &Path) -> Result<String, ToolLockError> {
     })
 }
 
-/// The lockfile in `dir` alone, for the program in `workspace` (`dir` or below it).
-fn read_lockfile_in(dir: &Path, workspace: &Path) -> Result<Option<Lockfile>, ToolLockError> {
-    let importer = relative_path(dir, workspace);
-    for name in READ_LOCKFILES {
-        let path = dir.join(name);
-        if !path.is_file() {
-            continue;
-        }
-        let text = read_text(&path)?;
-        let malformed = |reason: String| ToolLockError::Malformed {
-            path: path.clone(),
-            reason,
-        };
-        let document = if name == NPM_LOCKFILE {
-            LockDocument::Npm(
-                serde_json::from_str(&text).map_err(|error| malformed(error.to_string()))?,
-            )
-        } else {
-            LockDocument::Pnpm(pnpm_documents(&text).map_err(malformed)?)
-        };
-        return Ok(Some(Lockfile {
-            name,
-            document,
-            importer,
-        }));
-    }
-    if let Some(name) = UNREAD_LOCKFILES
-        .iter()
-        .find(|name| dir.join(name).is_file())
-    {
+/// `manager`'s lockfile in `dir` alone, for the program in `workspace` (`dir` or below it).
+fn read_lockfile_in(
+    dir: &Path,
+    workspace: &Path,
+    manager: PackageManager,
+) -> Result<Option<Lockfile>, ToolLockError> {
+    if manager == PackageManager::Npm && dir.join(NPM_SHRINKWRAP).is_file() {
         return Err(ToolLockError::Unsupported {
-            path: dir.join(name),
+            path: dir.join(NPM_SHRINKWRAP),
         });
     }
-    Ok(None)
+    let name = manager.lockfile();
+    let path = dir.join(name);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let text = read_text(&path)?;
+    let malformed = |reason: String| ToolLockError::Malformed {
+        path: path.clone(),
+        reason,
+    };
+    let document = match manager {
+        PackageManager::Npm => LockDocument::Npm(
+            serde_json::from_str(&text).map_err(|error| malformed(error.to_string()))?,
+        ),
+        PackageManager::Pnpm => LockDocument::Pnpm(pnpm_documents(&text).map_err(malformed)?),
+    };
+    Ok(Some(Lockfile {
+        name,
+        document,
+        importer: relative_path(dir, workspace),
+    }))
 }
 
 /// Every document of a pnpm lockfile. `gray_matter`'s engine yields only a text's first
@@ -440,7 +549,7 @@ pub fn unlocked_findings(
             };
             Some(
                 Diagnostic::warn(UNLOCKED_RULE, tool.address, message).with_guidance(Some(
-                    "install the package with the program's package manager (npm or pnpm), so its lockfile records the version the tool runs at".to_string(),
+                    "install the package with the program's package manager, so its lockfile records the version the tool runs at".to_string(),
                 )),
             )
         })

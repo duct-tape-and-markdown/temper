@@ -1,13 +1,16 @@
 /**
- * The version a `{ package, bin }` tool runs at — its program's lockfile's, read from the
- * workspace the engine runs the program in (its cwd), else from the workspace root its
- * package manager resolves (the nearest ancestor declaring a workspace, read only when it
- * includes the program), keyed by the program's path below it. The reference states it; the
- * engine's `src/tool.rs` is the same read for `check` and `explain`, and the two must
- * agree: npm's `package-lock.json`, else pnpm's `pnpm-lock.yaml` (every YAML document in
- * it), and any other manager's lockfile refused by name.
+ * The version a `{ package, bin }` tool runs at — its program's lockfile's: the one the
+ * `packageManager` field of the program's `package.json` names (npm's `package-lock.json`,
+ * pnpm's `pnpm-lock.yaml`), read from the workspace the engine runs the program in (its
+ * cwd), else from the workspace root its package manager resolves (the nearest ancestor
+ * declaring a workspace, read only when it includes the program), keyed by the program's
+ * path below it. The reference states it; the engine's `src/tool.rs` is the same read for
+ * `check` and `explain`, and the two must agree: an absent field, or another manager,
+ * refuses by name.
  *
- * Formats (external facts): https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json,
+ * Formats (external facts): `packageManager` (`<name>@<version>`, an optional `+<hash>`) —
+ * https://github.com/nodejs/corepack/blob/main/README.md (retrieved 2026-11-26);
+ * https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json,
  * https://github.com/pnpm/spec/blob/master/lockfile/9.0.md and https://pnpm.io/lockfile
  * (all retrieved 2026-11-25); workspace roots: https://pnpm.io/workspaces,
  * https://pnpm.io/pnpm-workspace_yaml and https://docs.npmjs.com/cli/v10/using-npm/workspaces
@@ -21,8 +24,11 @@ import { dirname, join, matchesGlob, relative, resolve, sep } from "node:path";
 export const NPM_LOCKFILE = "package-lock.json";
 /** pnpm's lockfile. */
 export const PNPM_LOCKFILE = "pnpm-lock.yaml";
-/** The other managers' lockfiles: alone in the workspace, they refuse by name. */
-const UNREAD_LOCKFILES = ["yarn.lock", "bun.lock", "bun.lockb", "npm-shrinkwrap.json"] as const;
+/** npm's publishable lockfile, read before `package-lock.json`: beside an npm program it refuses by name. */
+const NPM_SHRINKWRAP = "npm-shrinkwrap.json";
+
+/** The managers temper reads, by the name `packageManager` spells before its `@`. */
+const MANAGER_LOCKFILES: Readonly<Record<string, string>> = { npm: NPM_LOCKFILE, pnpm: PNPM_LOCKFILE };
 
 /** A read lockfile: its file name, and the version it records for a direct dependency. */
 export interface Lockfile {
@@ -134,21 +140,51 @@ function pnpmDocumentVersion(document: string[], importer: string, pkg: string):
  * program's names locks some other project, and is never read.
  *
  * # Throws
- * When the read directory holds only another manager's lockfile, naming it — a version
- * temper cannot read is never guessed — or when `package-lock.json` is not JSON.
+ * When the program's `package.json` declares no `packageManager` or names a manager temper
+ * does not read — a manager is never guessed — when an npm program's directory holds
+ * `npm-shrinkwrap.json`, or when `package-lock.json` is not JSON.
  */
 export function readLockfile(workspace: string): Lockfile | undefined {
   const program = resolve(workspace);
-  const own = readLockfileIn(program, "");
+  const lockfile = declaredLockfile(program);
+  const own = readLockfileIn(program, "", lockfile);
   if (own !== undefined) return own;
   for (let dir = dirname(program); ; dir = dirname(dir)) {
     const globs = workspaceGlobs(dir);
     if (globs !== undefined) {
       const importer = relative(dir, program).split(sep).join("/");
-      return includes(globs, importer) ? readLockfileIn(dir, importer) : undefined;
+      return includes(globs, importer) ? readLockfileIn(dir, importer, lockfile) : undefined;
     }
     if (dirname(dir) === dir) return undefined;
   }
+}
+
+/** The lockfile of the manager the `packageManager` field of `program`'s `package.json` names. */
+function declaredLockfile(program: string): string {
+  const path = join(program, "package.json");
+  const text = readText(path);
+  let declared: Json | undefined;
+  if (text !== undefined) {
+    try {
+      declared = field(JSON.parse(text) as Json, "packageManager");
+    } catch (error) {
+      throw new Error(`\`${path}\` does not parse: ${String(error)}`);
+    }
+  }
+  if (typeof declared !== "string") {
+    throw new Error(
+      `\`${path}\` declares no \`packageManager\`, so the program's package manager is unknown — temper never guesses it. ` +
+        "Add `\"packageManager\": \"npm@<version>\"` (or `pnpm@<version>`) to it, naming the manager that installs the program's packages.",
+    );
+  }
+  const lockfile = MANAGER_LOCKFILES[declared.split("@")[0] ?? ""];
+  if (lockfile === undefined) {
+    throw new Error(
+      `\`${path}\` declares the package manager \`${declared}\`, which temper does not read — ` +
+        "a `{ package, bin }` tool's version is read from npm's or pnpm's lockfile.",
+    );
+  }
+  return lockfile;
 }
 
 /** pnpm's workspace declaration, beside the root's lockfile. */
@@ -221,24 +257,20 @@ function includes(globs: readonly string[], path: string): boolean {
   return globs.some((glob) => !glob.startsWith("!") && matches(glob)) && !negated.some(matches);
 }
 
-/** The lockfile in `dir` alone, for the program at `importer` below it. */
-function readLockfileIn(dir: string, importer: string): Lockfile | undefined {
-  const npm = join(dir, NPM_LOCKFILE);
-  if (existsSync(npm)) {
-    const document = JSON.parse(readFileSync(npm, "utf8")) as Json;
-    return { name: NPM_LOCKFILE, version: (pkg) => npmVersion(document, importer, pkg) };
-  }
-  const pnpm = join(dir, PNPM_LOCKFILE);
-  if (existsSync(pnpm)) {
-    const text = readFileSync(pnpm, "utf8");
-    return { name: PNPM_LOCKFILE, version: (pkg) => pnpmVersion(text, importer, pkg) };
-  }
-  const other = UNREAD_LOCKFILES.find((name) => existsSync(join(dir, name)));
-  if (other !== undefined) {
+/** The lockfile named `lockfile` in `dir` alone, for the program at `importer` below it. */
+function readLockfileIn(dir: string, importer: string, lockfile: string): Lockfile | undefined {
+  if (lockfile === NPM_LOCKFILE && existsSync(join(dir, NPM_SHRINKWRAP))) {
     throw new Error(
-      `the program's packages are locked by \`${join(dir, other)}\`, which temper does not read — ` +
+      `the program's packages are locked by \`${join(dir, NPM_SHRINKWRAP)}\`, which temper does not read — ` +
         "a `{ package, bin }` tool's version is read from `package-lock.json` or `pnpm-lock.yaml`.",
     );
   }
-  return undefined;
+  const path = join(dir, lockfile);
+  if (!existsSync(path)) return undefined;
+  const text = readFileSync(path, "utf8");
+  if (lockfile === NPM_LOCKFILE) {
+    const document = JSON.parse(text) as Json;
+    return { name: NPM_LOCKFILE, version: (pkg) => npmVersion(document, importer, pkg) };
+  }
+  return { name: PNPM_LOCKFILE, version: (pkg) => pnpmVersion(text, importer, pkg) };
 }

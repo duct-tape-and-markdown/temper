@@ -296,6 +296,7 @@ fn explain_resolves_a_root_hosted_tool_by_its_address() {
 fn a_package_bin_tool_reads_its_version_from_pnpm_lock_yaml() {
     common::ensure_sdk_built();
     let (harness, into) = common::wire_sdk_harness("tool-pnpm-lock", PACKAGE_TOOL_PROGRAM);
+    common::declare_package_manager(&into, "pnpm@9.15.0");
     common::write_sibling(
         &into,
         "pnpm-lock.yaml",
@@ -341,6 +342,7 @@ fn assert_locked_by(harness: &std::path::Path, lock: &str) {
 fn a_workspace_root_lockfile_above_the_program_locks_a_package_bin_tool() {
     common::ensure_sdk_built();
     let (harness, into) = common::wire_sdk_harness("tool-root-lock", PACKAGE_TOOL_PROGRAM);
+    common::declare_package_manager(&into, "pnpm@9.15.0");
     common::write_sibling(&harness, "pnpm-workspace.yaml", "packages:\n  - .temper\n");
     common::write_sibling(
         &harness,
@@ -426,6 +428,7 @@ fn a_lockfile_in_an_ancestor_outside_the_workspace_is_not_read() {
 fn a_pnpm_lockfile_with_a_leading_env_document_locks_a_package_bin_tool() {
     common::ensure_sdk_built();
     let (harness, into) = common::wire_sdk_harness("tool-pnpm-env-lock", PACKAGE_TOOL_PROGRAM);
+    common::declare_package_manager(&into, "pnpm@10.0.0");
     common::write_sibling(
         &into,
         "pnpm-lock.yaml",
@@ -465,34 +468,83 @@ fn a_package_bin_tool_missing_from_the_lockfile_is_a_finding() {
 }
 
 #[test]
-fn an_unsupported_lockfile_refuses_naming_it() {
+fn a_package_manager_field_naming_pnpm_makes_the_tool_use_pnpm() {
     common::ensure_sdk_built();
-    let (_harness, into) = common::wire_sdk_harness("tool-yarn-lock", PACKAGE_TOOL_PROGRAM);
+    let (harness, into) = common::wire_sdk_harness("tool-declared-pnpm", PACKAGE_TOOL_PROGRAM);
+    common::declare_package_manager(&into, "pnpm@9.15.0");
+    // npm's lockfile beside it records another version: the declared manager's is read.
+    common::write_sibling(
+        &into,
+        "package-lock.json",
+        r#"{ "lockfileVersion": 3, "packages": {
+  "node_modules/typescript": { "version": "4.9.5" } } }
+"#,
+    );
+    common::write_sibling(
+        &into,
+        "pnpm-lock.yaml",
+        "lockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    devDependencies:\n      typescript:\n        specifier: ^5.6.0\n        version: 5.9.3\n",
+    );
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+    assert_locked_by(&harness, "pnpm-lock.yaml");
+}
+
+#[test]
+fn a_program_package_json_with_no_package_manager_field_refuses_the_tool_read() {
+    common::ensure_sdk_built();
+    let fieldless = "{ \"type\": \"module\" }\n";
+    let (_harness, into) = common::wire_sdk_harness("tool-no-manager", PACKAGE_TOOL_PROGRAM);
+    common::write_sibling(&into, "package.json", fieldless);
+    let err = drift::emit_program(&into, EmitOptions::default()).unwrap_err();
+    assert!(
+        format!("{err:?}").contains("declares no `packageManager`"),
+        "emit refuses naming the field: {err:?}"
+    );
+
+    let (harness_b, into_b) = common::wire_sdk_harness(
+        "tool-no-manager-check",
+        &PACKAGE_TOOL_PROGRAM.replace("reference(), ", ""),
+    );
+    drift::emit_program(&into_b, EmitOptions::default()).unwrap();
+    common::write_sibling(&into_b, "package.json", fieldless);
+    let run = common::check_in(&harness_b, &["."], Some("github"));
+    assert!(
+        !run.ok && run.output.contains("packageManager"),
+        "check refuses naming the field: {}",
+        run.output
+    );
+}
+
+#[test]
+fn an_unsupported_package_manager_refuses_naming_it() {
+    common::ensure_sdk_built();
+    let (_harness, into) = common::wire_sdk_harness("tool-yarn-manager", PACKAGE_TOOL_PROGRAM);
+    common::declare_package_manager(&into, "yarn@4.5.0");
     common::write_sibling(&into, "yarn.lock", "# yarn lockfile v1\n");
 
     let err = drift::emit_program(&into, EmitOptions::default()).unwrap_err();
     assert!(
-        format!("{err:?}").contains("yarn.lock"),
-        "emit refuses naming the lockfile: {err:?}"
+        format!("{err:?}").contains("yarn@4.5.0"),
+        "emit refuses naming the manager: {err:?}"
     );
 
     // A program composing no reference still meets the refusal at `check`.
     let (harness_b, into_b) = common::wire_sdk_harness(
-        "tool-yarn-lock-check",
+        "tool-yarn-manager-check",
         &PACKAGE_TOOL_PROGRAM.replace("reference(), ", ""),
     );
     drift::emit_program(&into_b, EmitOptions::default()).unwrap();
-    common::write_sibling(&into_b, "yarn.lock", "# yarn lockfile v1\n");
+    common::declare_package_manager(&into_b, "yarn@4.5.0");
     let run = common::check_in(&harness_b, &["."], Some("github"));
     assert!(
-        !run.ok && run.output.contains("yarn.lock"),
-        "check refuses naming the lockfile: {}",
+        !run.ok && run.output.contains("yarn@4.5.0"),
+        "check refuses naming the manager: {}",
         run.output
     );
     let narration = common::explain_in(&harness_b, "member:root/tool/tsc");
     assert!(
-        narration.contains("yarn.lock"),
-        "explain refuses naming the lockfile: {narration}"
+        narration.contains("yarn@4.5.0"),
+        "explain refuses naming the manager: {narration}"
     );
 }
 

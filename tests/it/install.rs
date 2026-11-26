@@ -1464,56 +1464,54 @@ fn lifting_a_banner_carrying_markdown_member_scaffolds_with_no_embedded_banner()
     );
 }
 
-/// Serializes the one test below that shadows the process-wide `PATH` — no other
-/// test in this suite spawns a real `npm` (every other yes-path test vendors the
-/// dependency via [`common::vendor_sdk`], so `dependency_resolves` short-circuits before
-/// ever reaching a spawn), but a shared `PATH` is process state, not per-test.
-static PATH_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// Write an executable `name` script into `bin` whose body is `script`.
+#[cfg(unix)]
+fn fake_manager(bin: &Path, name: &str, script: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    fs::create_dir_all(bin).unwrap();
+    let path = bin.join(name);
+    fs::write(&path, format!("#!/bin/sh\n{script}")).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+}
 
+/// Run `temper install --yes` at `root` with `bin` ahead of the inherited `PATH` — the
+/// child's own environment, so no other test's spawn sees the shadow.
+#[cfg(unix)]
+fn install_with_shadowed_path(root: &Path, bin: &Path) -> std::process::Output {
+    let mut path = std::ffi::OsString::from(bin);
+    path.push(":");
+    path.push(std::env::var_os("PATH").unwrap_or_default());
+    Command::new(env!("CARGO_BIN_EXE_temper"))
+        .args(["install", "--yes"])
+        .arg(root)
+        .env("PATH", path)
+        .output()
+        .unwrap()
+}
+
+#[cfg(unix)]
 #[test]
 fn a_dependency_spawn_failure_leaves_no_half_scaffolded_state() {
-    // Force the SDK's own `npm run build` (real `npm`, gated by a `Once`) to finish
-    // first — otherwise a concurrently first-triggered `ensure_sdk_built` elsewhere
-    // could race the shadowed `npm` this test installs below.
-    common::ensure_sdk_built();
-
     let root = write_harness("dependency-spawn-failure", false);
     let temper_dir = root.join(".temper");
-    let discovery = install::discover(&root).unwrap();
 
-    let guard = PATH_MUTEX.lock().unwrap();
-    let original_path = std::env::var_os("PATH").unwrap_or_default();
-
-    // A shadow `npm`/`npm.cmd` on `PATH` ahead of the real one, always failing —
-    // standing in for "only npm.cmd exists and this Windows spawn can't find it"
-    // without actually requiring a Windows host to prove the ordering.
+    // An npm that reports its version but always fails to install.
     let fake_bin = common::tmpdir("dependency-spawn-failure-fake-npm");
-    let fake_npm = fake_bin.join(if cfg!(windows) { "npm.cmd" } else { "npm" });
-    fs::write(&fake_npm, "#!/bin/sh\nexit 1\n").unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(&fake_npm).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&fake_npm, perms).unwrap();
-    }
-    let mut shadowed_path = std::ffi::OsString::from(&fake_bin);
-    shadowed_path.push(if cfg!(windows) { ";" } else { ":" });
-    shadowed_path.push(&original_path);
-    // SAFETY: serialized by `PATH_MUTEX`, and no other test in this binary spawns a
-    // real `npm` (see the mutex doc comment) — no other thread reads/writes `PATH`
-    // concurrently with this block.
-    unsafe { std::env::set_var("PATH", &shadowed_path) };
-
-    let result = install::run(&root, &discovery, Represent::Yes, false);
-
-    // SAFETY: see above.
-    unsafe { std::env::set_var("PATH", &original_path) };
-    drop(guard);
+    fake_manager(
+        &fake_bin,
+        "npm",
+        "[ \"$1\" = --version ] && { echo 10.9.0; exit 0; }\nexit 1\n",
+    );
+    let output = install_with_shadowed_path(&root, &fake_bin);
 
     assert!(
-        result.is_err(),
+        !output.status.success(),
         "the shadowed, always-failing npm must fail the install"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("npm install"),
+        "the refusal names the spawn: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
     assert!(
         !temper_dir.join("harness.ts").exists(),
@@ -1526,6 +1524,50 @@ fn a_dependency_spawn_failure_leaves_no_half_scaffolded_state() {
     assert!(
         !temper_dir.join("rules").exists(),
         "dependency assurance must run before any member module is scaffolded"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_root_package_manager_field_naming_pnpm_is_copied_and_install_runs_pnpm() {
+    let root = write_harness("root-pnpm-manager", false);
+    fs::write(
+        root.join("package.json"),
+        "{ \"private\": true, \"packageManager\": \"pnpm@9.15.0\" }\n",
+    )
+    .unwrap();
+    let temper_dir = root.join(".temper");
+    // The SDK resolves, the compiler does not: install must spawn the manager.
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    // A pnpm whose install records itself and lays out the compiler; no npm at all.
+    let fake_bin = common::tmpdir("root-pnpm-manager-fake-bin");
+    fake_manager(
+        &fake_bin,
+        "pnpm",
+        "echo \"$@\" > pnpm-ran\nmkdir -p node_modules/.bin\nprintf '#!/bin/sh\\nexit 0\\n' > node_modules/.bin/tsc\nchmod +x node_modules/.bin/tsc\n",
+    );
+    fake_manager(&fake_bin, "npm", "exit 1\n");
+    let output = install_with_shadowed_path(&root, &fake_bin);
+    assert!(
+        output.status.success(),
+        "install succeeds under pnpm: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(temper_dir.join("package.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        manifest["packageManager"], "pnpm@9.15.0",
+        "the scaffold copies the root's declaration"
+    );
+    assert_eq!(
+        fs::read_to_string(temper_dir.join("pnpm-ran"))
+            .unwrap()
+            .trim(),
+        "install",
+        "install spawned the declared manager in the workspace"
     );
 }
 
@@ -4455,7 +4497,7 @@ fn package_json_written_when_dependency_resolves_via_ancestor() {
 }
 
 #[test]
-fn re_running_install_leaves_an_existing_package_json_byte_identical() {
+fn an_existing_package_json_stays_byte_identical_on_re_install() {
     let root = write_harness("pkg-json-byte-identity", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
@@ -4490,6 +4532,59 @@ fn re_running_install_leaves_an_existing_package_json_byte_identical() {
         fs::read_to_string(&manifest).unwrap(),
         authored,
         "re-running install never rewrites the program's package.json"
+    );
+}
+
+#[test]
+fn a_fresh_install_writes_the_package_manager_field_into_the_scaffold() {
+    let root = write_harness("pkg-json-manager-field", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    let version = Command::new(install::npm_program())
+        .arg("--version")
+        .output()
+        .unwrap();
+    let expected = format!("npm@{}", String::from_utf8_lossy(&version.stdout).trim());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(temper_dir.join("package.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        parsed["packageManager"], *expected,
+        "with no root declaration the scaffold names the npm install ran, at its version"
+    );
+}
+
+#[test]
+fn a_program_package_json_with_no_package_manager_field_refuses_naming_the_remedy() {
+    let root = write_harness("pkg-json-no-manager", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+    let authored = "{ \"type\": \"module\", \"dependencies\": { \"@dtmd/temper\": \"*\" } }\n";
+    let manifest = temper_dir.join("package.json");
+    fs::write(&manifest, authored).unwrap();
+
+    let discovery = install::discover(&root).unwrap();
+    let err = install::run(&root, &discovery, Represent::Yes, false).unwrap_err();
+    let rendered = format!("{err:?}");
+    assert!(
+        rendered.contains("declares no `packageManager`")
+            && rendered.contains("add `\"packageManager\": \"npm@<version>\"`"),
+        "the refusal names the field and the remedy: {rendered}"
+    );
+    assert_eq!(
+        fs::read_to_string(&manifest).unwrap(),
+        authored,
+        "the refusal never writes the author's manifest"
+    );
+    assert!(
+        !temper_dir.join("harness.ts").exists(),
+        "the refusal lands before the lift"
     );
 }
 
