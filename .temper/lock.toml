@@ -1,6 +1,12 @@
 engine = "0.0.25"
 
 [[memory]]
+name = "AGENTS"
+source_path = "AGENTS.md"
+source_hash = "7ec119b0d678f6d3d9869b7631043bd880f6432c13f9a3fb8f2f9dabf2bb6ea9"
+emit_hash = "7ec119b0d678f6d3d9869b7631043bd880f6432c13f9a3fb8f2f9dabf2bb6ea9"
+
+[[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
 source_hash = "01e6f0f62c1ac4ebf0c8443617c7175f22ecfbc4f01c942ed3a1952ca4402b29"
@@ -55,6 +61,12 @@ source_hash = "7a5d7df4710032bb6b2ee726ad279f7864eb0ef78799005866591fa8b8f122fe"
 emit_hash = "7a5d7df4710032bb6b2ee726ad279f7864eb0ef78799005866591fa8b8f122fe"
 
 [[skill]]
+name = "blind-review"
+source_path = ".claude/skills/blind-review/SKILL.md"
+source_hash = "c88bb50fcd00c3fcfd96ec34a79daceb44fd1dc4bd0f08638493a46c24639915"
+emit_hash = "c88bb50fcd00c3fcfd96ec34a79daceb44fd1dc4bd0f08638493a46c24639915"
+
+[[skill]]
 name = "capture-friction"
 source_path = ".claude/skills/capture-friction/SKILL.md"
 source_hash = "7acc21ac45319601a5645fed222fdd3ac696d3aa2c974f5a786f50df56a0260b"
@@ -69,7 +81,7 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)"
 [[declaration.kind]]
 name = "hook"
 governs_root = ".claude"
-governs_glob = "settings.json"
+governs_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["event(event)"]
 templates = [{ kind = "handler" }]
@@ -80,8 +92,9 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 [[declaration.kind]]
 name = "memory"
 governs_root = "."
-governs_glob = "**/CLAUDE.md"
+governs_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
 exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
+absence_gate = [{ template = "**/AGENTS.md", absent = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] }]
 unit_shape = "file"
 registration = ["always"]
 guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."
@@ -90,7 +103,7 @@ ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { t
 [[declaration.kind]]
 name = "rule"
 governs_root = ".claude/rules"
-governs_glob = "**/*.md"
+governs_glob = ["**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
@@ -101,14 +114,14 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 [[declaration.kind]]
 name = "settings"
 governs_root = ".claude"
-governs_glob = "settings.json"
+governs_glob = ["settings.json"]
 format = "json-document"
 unit_shape = "file"
 
 [[declaration.kind]]
 name = "skill"
 governs_root = "."
-governs_glob = "**/.claude/skills/*/SKILL.md"
+governs_glob = ["**/.claude/skills/*/SKILL.md"]
 exclude = ["tests/fixtures"]
 leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
@@ -134,18 +147,35 @@ label = "root.fresh"
 predicate = "fresh"
 severity = "advisory"
 guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency has moved: a layout import, a prose include, a declared input, or — on the root member — a module the program itself loaded. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved declared input re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
+cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/pipeline.md#drift (retrieved 2026-11-26)"
 
 [[declaration.clause]]
 label = "root.locus-declared"
 predicate = "locus-declared"
 severity = "advisory"
 guidance = "A document sits at a governed locus that your program declares no member for. temper maintains nothing about it: `emit` never reaps it, and where your registrations write into it, `emit` renders their entries and refuses to delete any key it does not own; `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Where the locus is one the harness itself loads — a built-in kind's — it is live context on top of that; where the kind is your own, who reads it is yours to know and not temper's to claim. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared."
+cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/decisions/0054-the-root-member-carries-a-contract.md (retrieved 2026-11-26)"
 
 [[declaration.clause]]
 label = "root.engine-matches"
 predicate = "engine-matches"
 severity = "advisory"
 guidance = "Your committed lock records a different temper version than the one running this gate. The rows being read were compiled by a compiler this binary is not, so every verdict below rests on a translation: an older spelling normalizes at read time, but a genuine change in what a row means reads the same from the inside. Re-run `emit` — it rewrites the lock whole in this engine's canonical form, and the stamp goes back to matching. Advisory because a lagging stamp is the ordinary state of every checkout between an upgrade and the next emit, and blocking there would make an upgrade a hard stop; dial this label to `required` — or re-declare the clause — once your CI should refuse a lock it did not compile."
+cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/pipeline.md#the-lock (retrieved 2026-11-26)"
+
+[[declaration.clause]]
+label = "root.resolves"
+predicate = "resolves"
+severity = "required"
+guidance = "A reference this member declares — a field naming another member, or a mention in its prose — names a target the tree does not hold, or a bare key several hosts carry. The runtime resolves such a field by name: a subagent's `skills` list, for one, preloads each skill it names, so a name that matches no skill delivers nothing. Fix the name, author the missing member, or spell the whole `<host-address>/<kind>/<key>` address where hosts share a key. Required because the program's own `emit` refuses the same reference; dial this label to `advisory` while a tree mid-adoption still carries one."
+cite = "https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents (retrieved 2026-11-26)"
+
+[[declaration.clause]]
+label = "root.import-backed"
+predicate = "import-backed"
+severity = "advisory"
+guidance = "This member's `@path` import names no member and no repository file. Claude Code expands an import into context beside the file that carries it, resolving a relative path against that file rather than the working directory, so a path that reaches nothing loads nothing, silently. Fix the path relative to the importing file — a trailing `.` reads as part of it — or set the text off in backticks if it was never meant as an import. Advisory because the importing file still loads; dial this label to `required` — or re-declare the clause — once a dead import should fail CI."
+cite = "https://code.claude.com/docs/en/memory#import-additional-files (retrieved 2026-11-26)"
 
 [[declaration.requirement]]
 name = "context-arrives"
@@ -191,6 +221,16 @@ tool = "root/tool/tsc"
 
 [[declaration.nested_member]]
 host = "root"
+kind = "requirement"
+key = "context-arrives"
+
+[[declaration.nested_member]]
+host = "root"
+kind = "requirement"
+key = "friction-capture-procedure"
+
+[[declaration.nested_member]]
+host = "root"
 kind = "tool"
 key = "tsc"
 leaves = { bin = "tsc", package = "typescript" }
@@ -231,6 +271,10 @@ key = "PostToolUse"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
 
+[declaration.typecheck]
+tool = "root/tool/tsc"
+project = ".temper/tsconfig.json"
+
 [[declaration.input]]
 member = "root"
 source_path = ".temper/tsconfig.json"
@@ -239,7 +283,7 @@ import_hash = "3513a2dd05c72537a95430096150cb3880a14abcfae52295ebdc64ce3306cc37"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "ddf3268dea3eb278a5ed91571ef3a2fd2888b975d14170760b8815ea056665c2"
+import_hash = "5a53338c8c7a4847955a4104e4276c774d0d3761f46f351b400a868b5c03e82f"
 
 [[declaration.module]]
 member = "root"
@@ -250,6 +294,11 @@ import_hash = "5c6589efe347ac3a8cf54d3c7e0ac484da13c54739fb1a2e511391c28826c04f"
 member = "root"
 source_path = ".temper/kinds.ts"
 import_hash = "7862c5d59f0fa59298d5e080ecf43c2ce78e980f4d935c9cb3462296d7c04f21"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/memory/AGENTS.ts"
+import_hash = "53759f9b644dbd50ed9c7c3dd3a6d7fa8ada36ef1dcae69bd1aa8fde8b91c67c"
 
 [[declaration.module]]
 member = "root"
@@ -280,6 +329,11 @@ import_hash = "1005a62faaed4cea59e14957033e719f5e223756af52d47c571a17c6fa2df2c0"
 member = "root"
 source_path = ".temper/rules/sdk.ts"
 import_hash = "4356541e8ec5157dacbc1cc711935acb4465dfc335ef666432acc9a8140aa824"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/skills/blind-review.ts"
+import_hash = "19efd0ae571816bde1b3a8d32e43399397dcbfd3711e442388a2c0367f57bb51"
 
 [[declaration.module]]
 member = "root"

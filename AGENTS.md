@@ -1,3 +1,5 @@
+<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
+
 # AGENTS.md
 
 This repository's agent instructions live in [`CLAUDE.md`](CLAUDE.md). Read

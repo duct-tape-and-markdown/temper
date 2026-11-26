@@ -194,7 +194,9 @@ carried with the field, never a channel entry. A gate may also be a
 document's absence: an `AGENTS.md` opens its channels only where the
 `CLAUDE.md` the runtime would load instead is absent, a gate carried with
 memory's `AGENTS.md` templates, reading the project-instructions setting
-where settings declare it, and judged by reach.
+where settings declare it, and judged by reach. A finding about a gated
+document says whether its gate is open, never that the runtime loads it when
+the gate is shut.
 
 Each kind's format facts are external facts about the harness, cited at the
 point of claim in the kind's own source.

@@ -1,11 +1,13 @@
 import { emit, harness, input, requirement, telemetry, tool } from "@dtmd/temper";
 import { settings } from "@dtmd/temper/claude-code";
+import { memory_AGENTS } from "./memory/AGENTS.ts";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
 import { rule_publicProse } from "./rules/public-prose.ts";
 import { rule_release } from "./rules/release.ts";
 import { rule_rust } from "./rules/rust.ts";
 import { rule_sdk } from "./rules/sdk.ts";
+import { skill_blindReview } from "./skills/blind-review.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
 import {
   hook_fmtOnWrite,
@@ -80,12 +82,14 @@ const program = harness({
   members: [
     tsc,
     memory_CLAUDE,
+    memory_AGENTS,
     rule_collaboration,
     rule_publicProse,
     rule_release,
     rule_rust,
     rule_sdk,
     skill_captureFriction,
+    skill_blindReview,
     hook_sessionStart,
     hook_guard,
     hook_postToolUseBash,
