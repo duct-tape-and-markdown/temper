@@ -1,0 +1,26 @@
+{
+  "tag": "EMIT-RUNS-THE-LOCKED-TYPECHECK-FIRST",
+  "gate": { "kind": "open" },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/drift.rs", "description": "lock writes and reads the typecheck row; emit_program runs the locked one before run_sdk_program, the payload's right after only when no lock exists" },
+      { "path": "tests/it/emit.rs", "description": "ordering cases" },
+      { "path": "tests/it/lock_declaration_rows.rs", "description": "typecheck row round-trips" },
+      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emit: gains the typecheck row" }
+    ],
+    "retire": []
+  },
+  "summary": "emit runs the typecheck the last lock records before running the program; a first emit, with no lock, runs it right after",
+  "per": { "path": "specs/model/pipeline.md", "section": "Emit" },
+  "acceptance": "with a lock recording a failing typecheck, emit refuses with the typecheck's diagnostics even when the program itself would fail to run",
+  "tests": [
+    "emit runs the typecheck the last lock records before running the program",
+    "emit records the program's typecheck in the lock"
+  ],
+  "pins": [
+    "a first emit with no lock runs the declared typecheck after the program"
+  ],
+  "notes": "Spec 9f21c8fe (0108). Today emit_program (src/drift.rs ~1943) runs the program twice, then the payload's typecheck; the lock drops the row (drift.rs ~6745 'seam-inbound only'). The locked row's tool resolves against the locked root/tool nested rows. A changed declaration takes effect from the emit after the one recording it (0108 Consequences)."
+}

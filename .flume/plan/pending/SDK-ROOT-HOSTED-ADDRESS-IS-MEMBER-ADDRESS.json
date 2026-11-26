@@ -1,0 +1,20 @@
+{
+  "tag": "SDK-ROOT-HOSTED-ADDRESS-IS-MEMBER-ADDRESS",
+  "gate": { "kind": "open" },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "sdk/src/member-address.ts", "description": "memberAddress spells a root-hosted member root/<kind>/<key>" },
+      { "path": "sdk/src/declarations.ts", "description": "toolAddress folds into memberAddress" },
+      { "path": "sdk/test/member-address.test.ts", "description": "a tool's one address" }
+    ],
+    "retire": []
+  },
+  "summary": "the SDK's two tool addresses (memberAddress's tool:<name>, toolAddress's root/tool/<name>) fold into one",
+  "per": { "path": "specs/model/representation.md", "section": "The root member" },
+  "acceptance": "memberAddress of a tool is root/tool/<name>; toolAddress is gone; builtin_lock_frozen and the base-harness lock stay byte-identical",
+  "tests": [],
+  "pins": [],
+  "notes": "Spec c5864624 (0107 Consequences). SDK-only, so no tests[] line; the SDK gate holds it. Engine twin payload_member_address (src/drift.rs:3509) already nests under a host column."
+}

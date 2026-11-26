@@ -1,0 +1,27 @@
+{
+  "tag": "ROOT-HOSTED-ADDRESS-HAS-ONE-READER",
+  "gate": { "kind": "open" },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/member_address.rs", "description": "parse_nested_address reads a root host; fold nested_key/root_hosted_kind's second reader" },
+      { "path": "src/graph.rs", "description": "containment_edges arcs from the root to each root-hosted member" },
+      { "path": "src/read.rs", "description": "callers of the folded reader" },
+      { "path": "src/compose.rs", "description": "callers of the folded reader" },
+      { "path": "src/admissibility.rs", "description": "callers of the folded reader" },
+      { "path": "tests/it/nested_member.rs", "description": "root containment case" }
+    ],
+    "retire": []
+  },
+  "summary": "one grammar reads root/<kind>/<key> everywhere, and a root-hosted member's containment is an edge from the root",
+  "per": { "path": "specs/model/representation.md", "section": "The root member" },
+  "acceptance": "parse_nested_address and nested_key agree on root/tool/<key>; the root's containment edges name each root-hosted tool",
+  "tests": [
+    "a root hosted tool is a containment edge from the root"
+  ],
+  "pins": [
+    "explain resolves a root hosted tool by its address"
+  ],
+  "notes": "Spec c5864624 (0107). member_address.rs:338 documents the split: parse_nested_address/host_identity refuse a bare root host, nested_key admits it. Containment from the root makes its out-degree judgeable (0107 Consequences)."
+}

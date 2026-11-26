@@ -1,0 +1,30 @@
+{
+  "tag": "REQUIREMENT-IS-A-ROOT-HOSTED-NESTED-MEMBER",
+  "gate": { "kind": "blockedBy", "tags": ["ROOT-HOSTED-ADDRESS-HAS-ONE-READER"] },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "sdk/src/declarations.ts", "description": "a requirement lowers to a root-hosted nested_member row carrying its leaves" },
+      { "path": "src/drift.rs", "description": "lock reads/writes requirement members as root/requirement/<name> nested rows" },
+      { "path": "src/read.rs", "description": "explain narrates a requirement's leaves" },
+      { "path": "src/graph.rs", "description": "satisfies targets and expect over requirement bind the nested members" },
+      { "path": "src/builtin_lock.toml", "description": "re-emitted" },
+      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emit" },
+      { "path": "tests/it/requirement_roster.rs", "description": "expect over requirement" },
+      { "path": "tests/it/read_verbs.rs", "description": "subkind leaf in explain" }
+    ],
+    "retire": []
+  },
+  "summary": "a requirement reaches the lock as a root-hosted nested member, so a requirement subkind's fields reach check and explain",
+  "per": { "path": "specs/model/representation.md", "section": "The root member" },
+  "acceptance": "a requirement subkind's field shows in explain as a leaf; expect over requirement judges each requirement member",
+  "tests": [
+    "a requirement subkind's field reaches explain as a leaf",
+    "an expect over the requirement kind judges each requirement member"
+  ],
+  "pins": [
+    "a member satisfying a requirement still fills it"
+  ],
+  "notes": "Spec c5864624 (0107). Today requirements are flat [[declaration.requirement]] rows (base-harness lock :431), so expect over requirement is vacuous. Seam change is two-sided (PROTOCOL 4). Shares sdk/src/declarations.ts with SDK-ROOT-HOSTED-ADDRESS-IS-MEMBER-ADDRESS."
+}
