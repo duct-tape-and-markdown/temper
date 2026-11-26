@@ -364,9 +364,21 @@ to = ["rule"]
 
 [[declaration.assembly]]
 fact = "edge"
+from = "handler"
+field = "runs"
+to = ["tool"]
+
+[[declaration.assembly]]
+fact = "edge"
 from = "installed-plugin"
 field = "marketplace"
 to = ["known-marketplace"]
+
+[[declaration.assembly]]
+fact = "edge"
+from = "settings"
+field = "runs"
+to = ["tool"]
 
 [[declaration.nested_member]]
 host = "rule:authoring"

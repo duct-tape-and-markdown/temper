@@ -10,6 +10,12 @@ Each member is embedded in a host's document, at:
 
 - `.claude/settings.json`
 
+## Edges
+
+### Out
+
+- `runs` → `tool`: no intent declared.
+
 ## Clauses
 
 - `required` on `type` (required): A handler names how it fires, and the documented common-fields table gives `type` no default — so a handler carrying none is dead configuration: nothing to run, and no per-kind requirement for temper to hold it to either. Name one of the documented five (`command`, `http`, `mcp_tool`, `prompt`, `agent`).

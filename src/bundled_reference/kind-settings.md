@@ -10,6 +10,12 @@ Each member is its own document, at:
 
 - `.claude/settings.json`
 
+## Edges
+
+### Out
+
+- `runs` → `tool`: no intent declared.
+
 ## Clauses
 
 - `type` on `permissions` (required): `permissions` is the tool-permission object — `allow`, `ask` and `deny` rule arrays plus `defaultMode`. A value that is not an object carries no rules Claude Code can read, so the rules a whole team relies on silently apply nothing.

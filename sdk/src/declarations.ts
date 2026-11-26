@@ -26,13 +26,16 @@ import {
   HOOK_HANDLER_KEY,
   HOOK_MATCHER_KEY,
   ROOT_HOSTED_KINDS,
+  RUNS_FIELD,
   SETTINGS_MANIFEST,
   TELEMETRY_EVENT_HOOKS,
   gateHookBinary,
   hook,
   hookCollectionKey,
   rule,
+  settings,
   tapHookRegistration,
+  tool,
 } from "./builtins.js";
 import { ROOT_ADDRESS, leafAddress, memberAddress, nestedAddress } from "./member-address.js";
 
@@ -51,6 +54,7 @@ import type {
   Payload,
   RegistrationRow,
   RequirementRow,
+  RunsRow,
   SatisfiesRow,
   SettingsRow,
   TemplateRow,
@@ -1316,7 +1320,7 @@ function registrationRows(harness: Harness): RegistrationRow[] {
         // The generated row carries a mutable field list; the member's is read-only, so
         // copy each pair into a fresh tuple — the same values, a shape the row accepts.
         fields: [
-          ...member.fields.map(([name, value]): [string, unknown] => [name, value]),
+          ...member.fields.map(([name, value]): [string, unknown] => [name, projectedField(member, name, value)]),
           // A gate hook carries its declared binary across the seam beside its fields; the
           // engine renders the handler's command from it and drops the key ({@link gateHook}).
           ...gateBinaryField(member),
@@ -1324,6 +1328,86 @@ function registrationRows(harness: Harness): RegistrationRow[] {
       };
     })
     .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key));
+}
+
+/** The settings key a status line rides under — {@link Settings}' `statusLine`. */
+const STATUS_LINE_KEY = "statusLine";
+
+/** `value` without its {@link RUNS_FIELD} edge, where it is an object carrying one. */
+function withoutRuns(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value) || !(RUNS_FIELD in value)) return value;
+  const { [RUNS_FIELD]: _runs, ...projected } = value as Record<string, unknown>;
+  return projected;
+}
+
+/**
+ * A member's field as its artifact carries it: a hook's handlers and a settings member's
+ * `statusLine` each lose the {@link RUNS_FIELD} edge, which is temper's and rides the lock
+ * as a `runs` row ({@link runsRows}), never a key in `settings.json`. Every other field is
+ * as authored. The one projection of a runner's fields, read by the registration rows here
+ * and by the payload members `emit.ts` hands the engine.
+ */
+export function projectedField(member: Member, name: string, value: unknown): unknown {
+  if (member.kind === hook.key && name === HOOK_HANDLER_KEY && Array.isArray(value)) return value.map(withoutRuns);
+  if (member.kind === settings.key && name === STATUS_LINE_KEY) return withoutRuns(value);
+  return value;
+}
+
+/** A root-hosted tool member's own address — `root/tool/<name>`, where `check` resolves it. */
+function toolAddress(member: Member): string {
+  return nestedAddress(ROOT_ADDRESS, member.kind, member.name);
+}
+
+/**
+ * Each runner a member carries, paired with the `runs` value it names: a hook's handlers,
+ * each at its own address (`<hook-address>/handler/<position>`, where the engine reads the
+ * handler back), and a settings member's `statusLine`, at the member's own address.
+ */
+function runners(member: Member): Array<readonly [string, unknown]> {
+  const field = (name: string): unknown => member.fields.find(([key]) => key === name)?.[1];
+  const runsOf = (value: unknown): unknown =>
+    typeof value === "object" && value !== null ? (value as Record<string, unknown>)[RUNS_FIELD] : undefined;
+  if (member.kind === hook.key) {
+    const handlers = field(HOOK_HANDLER_KEY);
+    if (!Array.isArray(handlers)) return [];
+    return handlers.map(
+      (handler: unknown, position) =>
+        [nestedAddress(memberAddress(member), "handler", String(position)), runsOf(handler)] as const,
+    );
+  }
+  if (member.kind === settings.key) return [[memberAddress(member), runsOf(field(STATUS_LINE_KEY))]];
+  return [];
+}
+
+/**
+ * The `runs` rows — each runner naming the {@link tool} it runs (a hook handler, a
+ * settings status line), keyed to the runner's own address and the tool's
+ * (`root/tool/<name>`), in member-then-position order. The edge is declared, never read
+ * off the runner's `command`: the program states which tool a command runs.
+ *
+ * # Throws
+ * If a `runs` is not a `tool(...)` member, or names a tool the harness does not compose —
+ * the edge would point at nothing the lock carries.
+ */
+function runsRows(harness: Harness): RunsRow[] {
+  const composed = new Set(harness.members.filter((member) => member.kind === tool.key));
+  const rows: RunsRow[] = [];
+  for (const member of harness.members) {
+    for (const [runner, runs] of runners(member)) {
+      if (runs === undefined) continue;
+      if (typeof runs !== "object" || runs === null || (runs as Member).kind !== tool.key) {
+        throw new Error(`\`${runner}\`: \`runs\` names the tool the command runs — pass a \`tool(...)\` member.`);
+      }
+      if (!composed.has(runs as Member)) {
+        throw new Error(
+          `\`${runner}\`: \`runs\` names tool \`${(runs as Member).name}\`, which the harness ` +
+            `does not compose — add it to \`members\`.`,
+        );
+      }
+      rows.push({ member: runner, tool: toolAddress(runs as Member) });
+    }
+  }
+  return rows;
 }
 
 /** The gate hook row's binary field — `[GATE_BINARY_KEY, binary]` for a {@link gateHook}
@@ -1583,6 +1667,7 @@ export function compileDeclarations(
     assembly: assemblyFactRows(harness, allKinds),
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
+    runs: runsRows(harness),
     includes: includeRows(harness),
     inputs: inputRows(harness),
     modules: moduleRows(modules),

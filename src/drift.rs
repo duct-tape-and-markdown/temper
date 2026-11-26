@@ -1987,7 +1987,11 @@ pub fn emit(
     // rather than inside the projection loop below: an input rides any member, composed
     // or not, and moves no byte into that member's artifact. A dangling input refuses
     // here, before any projection is derived, the same posture an include takes.
-    let input_rows = resolve_inputs(&payload.declarations.inputs, &harness_root)?;
+    let mut input_rows = resolve_inputs(&payload.declarations.inputs, &harness_root)?;
+    input_rows.extend(resolve_tool_files(
+        &payload.declarations.nested_members,
+        &harness_root,
+    )?);
     let module_rows = resolve_modules(&payload.declarations.modules, &harness_root)?;
 
     let mut projections = Vec::with_capacity(payload.members.len());
@@ -3571,6 +3575,42 @@ fn resolve_inputs(
     Ok(resolved)
 }
 
+/// The kind a committed-file tool is a member of, and the leaf naming its file.
+const TOOL_KIND: &str = "tool";
+/// The leaf a `{ file }` tool states its script's harness-relative path under.
+const TOOL_FILE_LEAF: &str = "file";
+
+/// Fingerprint each root-hosted `{ file }` tool's script as the tool's declared `input`:
+/// the path is stated once, on the tool, and the file joins the roster through it —
+/// claimed by its tool, and its moved bytes the input's drift. The path is the harness
+/// root's, where the command that runs it resolves it, so it reads as a harness-relative
+/// path and never against a stating module. A tool naming a file that is not there
+/// refuses exactly as any dangling input does.
+///
+/// # Errors
+/// Returns [`DriftError::DanglingImport`] when a tool's file does not exist, or
+/// [`DriftError::Read`] when it exists but cannot be read.
+fn resolve_tool_files(
+    rows: &[NestedMemberRow],
+    harness_root: &Path,
+) -> Result<Vec<LayoutImportRow>, DriftError> {
+    let no_members = BTreeMap::new();
+    let mut resolved = Vec::new();
+    for row in rows {
+        if row.kind != TOOL_KIND || row.host != contract::ROOT_OWNER {
+            continue;
+        }
+        let Some(file) = row.leaves.get(TOOL_FILE_LEAF) else {
+            continue;
+        };
+        let member = crate::member_address::nested_address(&row.host, &row.kind, &row.key);
+        let (input, _bytes) =
+            resolve_source_dependency(&member, file, Path::new("."), harness_root, &no_members)?;
+        resolved.push(input);
+    }
+    Ok(resolved)
+}
+
 /// Fingerprint every local module the program's run loaded that its repository tracks
 /// into the lock's `module` source-dependency family, each row owned by the root member:
 /// a moved module changes what the whole program compiles to, so no one member answers
@@ -4760,6 +4800,17 @@ pub fn inputs(workspace_dir: &Path) -> miette::Result<Vec<LayoutImportRow>> {
     source_deps(workspace_dir, INPUT_FAMILY)
 }
 
+/// Every declared-input row from an already-parsed lock document — the committed files
+/// the members' claims rest on, each one a file that has joined the roster through the
+/// member declaring it (`coverage_note`'s claim on a `.claude/` entry reads these).
+///
+/// # Errors
+///
+/// Returns a [`DriftError::LockRow`] if a present row is malformed.
+pub fn inputs_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutImportRow>, DriftError> {
+    source_deps_from_doc(doc, INPUT_FAMILY)
+}
+
 // ---------------------------------------------------------------------------
 // layout prose regions — what a verbatim prose region captured
 // ---------------------------------------------------------------------------
@@ -5278,6 +5329,12 @@ pub struct Declarations {
     /// mentions, so the reference graph carries them alongside every other declared
     /// edge locus.
     pub mentions: Vec<MentionRow>,
+    /// The runner→tool edges — each member that runs a `tool` naming it, declared on the
+    /// lock because the runner's projection (a settings handler entry) carries no key the
+    /// edge could ride. `check` folds each onto its runner's [`RUNS_FIELD`], where the
+    /// runner kind's `edge` fact resolves it like any other declared edge.
+    #[serde(default)]
+    pub runs: Vec<RunsRow>,
     /// The composed-prose includes — a seam-inbound family only: `emit` resolves each
     /// against disk, splices the target's bytes into the host's projection, and lowers
     /// it to a fingerprinted `include` source dependency (never written back into this
@@ -5815,6 +5872,24 @@ pub struct MentionRow {
     pub target: String,
 }
 
+/// The edge field a runner's [`RunsRow`]s fold onto — the field a runner kind's `edge`
+/// fact declares into `tool`, so the declared edge resolves on the reference graph and a
+/// tool's incoming `degree` counts it.
+pub const RUNS_FIELD: &str = "runs";
+
+/// One **runner→tool** edge's declaration row — the running member's own address (a hook
+/// handler's `<hook-address>/handler/<position>`) and the address of the `tool` it runs
+/// (`root/tool/<name>`). Declared, never mined: the runner's command string is the
+/// harness's to parse, not temper's (intent invariant 1), so the program states which
+/// tool a command runs and the row carries that statement onto the lock.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct RunsRow {
+    /// The running member's own address.
+    pub member: String,
+    /// The address of the tool it runs.
+    pub tool: String,
+}
+
 /// One composed-prose include the SDK declares — the host member's own `kind:name`
 /// address and the include target's path, resolved by the SDK against the stating
 /// module (never the workspace) to an absolute path. A seam-inbound row only: `emit`
@@ -6057,7 +6132,7 @@ impl Declarations {
     /// Serialize the declaration families into `doc` under an implicit `[declaration]`
     /// table — `[[declaration.kind]]`, `[[declaration.clause]]`, `[[declaration.requirement]]`,
     /// `[[declaration.assembly]]`, `[[declaration.satisfies]]`, `[[declaration.mention]]`,
-    /// `[[declaration.nested_member]]` —
+    /// `[[declaration.runs]]`, `[[declaration.nested_member]]` —
     /// each family in its producer's order so a re-emit is
     /// byte-identical. An empty family writes no array (an empty `ArrayOfTables`
     /// vanishes on the toml round-trip, so omitting it keeps write and re-parse symmetric),
@@ -6097,6 +6172,7 @@ impl Declarations {
             "mention",
             self.mentions.iter().map(MentionRow::to_table),
         );
+        insert_family(&mut table, "runs", self.runs.iter().map(RunsRow::to_table));
         insert_family(
             &mut table,
             "nested_member",
@@ -6238,6 +6314,7 @@ pub(crate) fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, L
         assembly: family(table, "assembly", AssemblyFactRow::from_table)?,
         satisfies: family(table, "satisfies", SatisfiesRow::from_table)?,
         mentions: family(table, "mention", MentionRow::from_table)?,
+        runs: family(table, "runs", RunsRow::from_table)?,
         // Includes are seam-inbound only — lowered to the fingerprinted `include` source
         // dependency at emit, never written into this declaration table, so a lock
         // round-trip reads none.
@@ -7091,6 +7168,22 @@ impl MentionRow {
         Ok(Self {
             member: req_str(table, "member")?,
             target: req_str(table, "target")?,
+        })
+    }
+}
+
+impl RunsRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("member", value(self.member.clone()));
+        table.insert("tool", value(self.tool.clone()));
+        table
+    }
+
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        Ok(Self {
+            member: req_str(table, "member")?,
+            tool: req_str(table, "tool")?,
         })
     }
 }

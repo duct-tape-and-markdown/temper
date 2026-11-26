@@ -27,6 +27,7 @@ export type { PayloadMember } from "./PayloadMember.js";
 export type { RangeBoundRow } from "./RangeBoundRow.js";
 export type { RegistrationRow } from "./RegistrationRow.js";
 export type { RequirementRow } from "./RequirementRow.js";
+export type { RunsRow } from "./RunsRow.js";
 export type { SatisfiesRow } from "./SatisfiesRow.js";
 export type { Section } from "./Section.js";
 export type { SectionContainsRow } from "./SectionContainsRow.js";

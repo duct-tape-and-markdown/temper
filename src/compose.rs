@@ -1609,6 +1609,10 @@ pub fn kind_units_and_features(
             if let kind::Content::Layout(layout) = &kind.content {
                 fold_collection_entries(layout, &mut features);
             }
+            // A top-level runner's edge — a settings member's status line naming its tool
+            // — folds on at the member's own address, exactly as a handler's does.
+            let address = member_address::address_of(&kind.name, &unit.id);
+            fold_runs(&mut features.fields, &address, &declarations.runs);
             features
         })
         .collect();
@@ -2076,12 +2080,37 @@ pub fn embedded_features_by_kind_with_composed(
     // reach no such row, so `entry` rather than `get_mut`: the kind is modeled by the host
     // that named it, whether or not the lock spells the host out.
     for member in composed {
+        let mut features = composed_embedded_features(member);
+        fold_runs(&mut features.fields, &member.address, &declarations.runs);
         by_kind
             .entry(member.kind.clone())
             .or_default()
-            .push(composed_embedded_features(member));
+            .push(features);
     }
     by_kind
+}
+
+/// Fold the lock's [`RunsRow`](drift::RunsRow)s naming `address` onto its fields under
+/// [`drift::RUNS_FIELD`] — the runner→tool edge the projection cannot carry (a settings
+/// handler entry has no key for it), surfaced where the runner kind's `edge` fact reads it
+/// so the edge resolves, dangles and counts on the one reference graph. One tool is a
+/// scalar, several a list, in row order; a runner no row names is left untouched.
+fn fold_runs(
+    fields: &mut BTreeMap<String, serde_json::Value>,
+    address: &str,
+    runs: &[drift::RunsRow],
+) {
+    let tools: Vec<serde_json::Value> = runs
+        .iter()
+        .filter(|row| row.member == address)
+        .map(|row| serde_json::Value::String(row.tool.clone()))
+        .collect();
+    let value = match <[serde_json::Value; 1]>::try_from(tools) {
+        Ok([only]) => only,
+        Err(tools) if tools.is_empty() => return,
+        Err(tools) => serde_json::Value::Array(tools),
+    };
+    fields.insert(drift::RUNS_FIELD.to_string(), value);
 }
 
 /// Lift one [`ComposedEmbeddedMember`] into the [`extract::Features`] a clause and an edge

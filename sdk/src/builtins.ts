@@ -535,7 +535,20 @@ export interface Handler {
   readonly prompt?: string;
   /** The model a `prompt` or `agent` handler evaluates under; absent means a fast default (same source). */
   readonly model?: string;
+  /**
+   * The {@link tool} a `command` handler runs — a `{ file }` tool for a committed script.
+   * temper's own edge, never projected: the handler entry in `settings.json` keeps the
+   * documented fields alone, and the edge rides the lock to the tool, whose file is a
+   * declared input. Declared rather than read off `command`, because parsing a command
+   * string for the path it runs is mining (intent invariant 1); the script's path is
+   * stated once, on the tool.
+   */
+  readonly runs?: Member;
 }
+
+/** The edge field a runner names the {@link tool} it runs under — temper's own, never a
+ * projected key. The engine's `RUNS_FIELD` (`src/drift.rs`). */
+export const RUNS_FIELD = "runs";
 
 /**
  * `handler` — one entry in a hook's `hooks` array, at the **embedded** locus: it owns no
@@ -553,6 +566,7 @@ export const handler: KindDefinition<Handler> = kind<Handler>({
   unitShape: "file",
   shape: "fields",
   cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)",
+  edgeFields: [{ field: RUNS_FIELD, to: ["tool"] }],
 });
 
 /**
@@ -1794,6 +1808,33 @@ export const settingsLocalDefaultContract: readonly Clause[] = [
  * registers there and this container never types the key. Declaring one here would author
  * the same segment twice.
  */
+/**
+ * The `statusLine` settings key — the command Claude Code runs to render the status line.
+ * Its documented fields, each quoted from the docs' "Manually configure a status line"
+ * (code.claude.com/docs/en/statusline, retrieved 2026-11-25), plus temper's own
+ * {@link RUNS_FIELD} edge.
+ */
+export interface StatusLine {
+  /** Set to `"command"` — "run this shell command". */
+  readonly type: "command";
+  /** "a script path or an inline shell command"; it "runs in a shell". */
+  readonly command: string;
+  /** Extra horizontal spacing, in characters, beside the built-in spacing; defaults to `0`. */
+  readonly padding?: number;
+  /** Re-runs the command every N seconds beside the event-driven updates; the minimum is `1`. */
+  readonly refreshInterval?: number;
+  /** Suppresses the built-in `-- INSERT --` text, for a script that renders `vim.mode` itself. */
+  readonly hideVimModeIndicator?: boolean;
+  /**
+   * The {@link tool} the command runs — a `{ file }` tool for a committed script.
+   * temper's own edge, never projected: `settings.json` keeps the documented fields alone,
+   * and the edge rides the lock from the settings member to the tool. Declared rather than
+   * read off `command`, because parsing a command string for its path is mining (intent
+   * invariant 1).
+   */
+  readonly runs?: Member;
+}
+
 export interface Settings {
   /** JSON Schema URL for editor autocomplete; Claude Code ignores it at load time. */
   readonly $schema?: string;
@@ -1824,6 +1865,8 @@ export interface Settings {
   readonly autoMemoryEnabled?: boolean;
   /** Absolute or `~/`-prefixed path for auto-memory storage, honored at any settings scope. */
   readonly autoMemoryDirectory?: string;
+  /** The status line command, and the {@link tool} it runs (code.claude.com/docs/en/statusline, retrieved 2026-11-25). */
+  readonly statusLine?: StatusLine;
   /**
    * The opaque residue — every documented-but-untyped top-level key the committed file
    * carries, projected flat and key-sorted after the typed fields above. The settings
@@ -1865,6 +1908,8 @@ export const settings: KindDefinition<Settings> = kind<Settings>({
   format: "json-document",
   unitShape: "file",
   registration: [],
+  // The tool its `statusLine` command runs: carried on the lock, never in the file.
+  edgeFields: [{ field: RUNS_FIELD, to: ["tool"] }],
 });
 
 /**

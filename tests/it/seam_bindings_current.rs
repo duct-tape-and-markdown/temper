@@ -24,7 +24,7 @@ use temper::drift::{
     AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow, CollectionEntryRow,
     CollectionEntryWire, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, IncludeRow,
     InputRow, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload,
-    PayloadMember, RangeBoundRow, RegistrationRow, RequirementRow, SatisfiesRow,
+    PayloadMember, RangeBoundRow, RegistrationRow, RequirementRow, RunsRow, SatisfiesRow,
     SectionContainsRow, SettingsRow, TemplateRow,
 };
 use temper::extract::{
@@ -185,6 +185,7 @@ fn fresh_bindings() -> BTreeMap<String, String> {
         EdgeBoundRow,
         SatisfiesRow,
         MentionRow,
+        RunsRow,
         IncludeRow,
         InputRow,
         NestedMemberRow,

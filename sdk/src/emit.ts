@@ -33,6 +33,7 @@ import {
   declaredRequirements,
   encodeSeam,
   mergedRegistrationRows,
+  projectedField,
   settingsRows,
   uniqueMap,
   withGuidanceRules,
@@ -1042,7 +1043,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
         host: member.host && memberAddress(member.host),
         // The generated row carries a mutable field list; the member's is read-only,
         // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
-        fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
+        fields: member.fields.map(([name, value]): [string, unknown] => [name, projectedField(member, name, value)]),
         body: resolveBody(member, options),
         source_path: fileSourcePath(member),
       };

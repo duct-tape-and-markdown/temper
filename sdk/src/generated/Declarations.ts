@@ -8,6 +8,7 @@ import type { MentionRow } from "./MentionRow.js";
 import type { NestedMemberRow } from "./NestedMemberRow.js";
 import type { RegistrationRow } from "./RegistrationRow.js";
 import type { RequirementRow } from "./RequirementRow.js";
+import type { RunsRow } from "./RunsRow.js";
 import type { SatisfiesRow } from "./SatisfiesRow.js";
 import type { SettingsRow } from "./SettingsRow.js";
 
@@ -61,6 +62,13 @@ satisfies: Array<SatisfiesRow>,
  * edge locus.
  */
 mentions: Array<MentionRow>, 
+/**
+ * The runner→tool edges — each member that runs a `tool` naming it, declared on the
+ * lock because the runner's projection (a settings handler entry) carries no key the
+ * edge could ride. `check` folds each onto its runner's [`RUNS_FIELD`], where the
+ * runner kind's `edge` fact resolves it like any other declared edge.
+ */
+runs: Array<RunsRow>, 
 /**
  * The composed-prose includes — a seam-inbound family only: `emit` resolves each
  * against disk, splices the target's bytes into the host's projection, and lowers

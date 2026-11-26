@@ -476,6 +476,18 @@ from = "system"
 
 [[declaration.assembly]]
 fact = "edge"
+from = "handler"
+field = "runs"
+to = ["tool"]
+
+[[declaration.assembly]]
+fact = "edge"
+from = "settings"
+field = "runs"
+to = ["tool"]
+
+[[declaration.assembly]]
+fact = "edge"
 from = "superseded-decision"
 field = "superseded-by"
 to = ["decision"]

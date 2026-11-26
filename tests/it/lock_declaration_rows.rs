@@ -218,6 +218,7 @@ fn rich_declarations() -> Declarations {
             member: "skill:coordinate".to_string(),
             target: "rule:rust".to_string(),
         }],
+        runs: Vec::new(),
         includes: Vec::new(),
         inputs: Vec::new(),
         modules: Vec::new(),

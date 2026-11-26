@@ -885,13 +885,23 @@ pub fn gate(
     for member in &composed_embedded {
         *nested_member_counts.entry(member.kind.clone()).or_default() += 1;
     }
+    // A file is claimed by whatever reaches it from the roster: a memory import's target
+    // by its importer, and a declared input — a `{ file }` tool's script among them — by
+    // the member declaring it, since that is how a committed file temper does not write
+    // joins the roster.
+    let mut claimed_files = import_reached_files.clone();
+    claimed_files.extend(
+        drift::inputs_from_doc(&lock_doc)?
+            .into_iter()
+            .map(|input| crate::path::normalize_path(&harness_root.join(&*input.source_path))),
+    );
     diagnostics.extend(coverage_note::check(
         harness_root,
         &declared_kinds,
         &member_counts,
         &nested_member_counts,
         &undeclared_locus.counts,
-        &import_reached_files,
+        &claimed_files,
         unreached_docs.len(),
     ));
 

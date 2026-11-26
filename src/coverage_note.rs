@@ -50,10 +50,11 @@ const UNREACHED_DOCS_RULE: &str = "coverage.unreached-supporting-docs";
 /// a `note`-severity **disclosure** (no clause declares it, so `--deny-advisories` never
 /// promotes it), and each stray `.claude/` entry nothing claims is a `warn`-severity
 /// advisory — a real gap the corpus closes by modelling it — so the gate's silence about
-/// an unexamined entry never reads as "checked". `import_reached` is the set of
-/// non-member files a memory `@path` import reaches
-/// ([`crate::graph::DirectiveClassing::reached_files`]), spelled under `root`: each is
-/// claimed by its importer through the import edge, so it is no stray.
+/// an unexamined entry never reads as "checked". `claimed_files` is the set of
+/// non-member files the roster reaches, spelled under `root`: each one a memory `@path`
+/// import reaches ([`crate::graph::DirectiveClassing::reached_files`]), claimed by its
+/// importer through the import edge, and each declared input (a `{ file }` tool's
+/// script among them), claimed by the member declaring it — so neither is a stray.
 /// `unreached_supporting_docs` counts the supporting docs no typed reference reaches on
 /// an unrepresented harness; a non-zero count adds one disclosure line in place of a
 /// finding per doc.
@@ -63,7 +64,7 @@ pub fn check(
     member_counts: &BTreeMap<String, usize>,
     nested_member_counts: &BTreeMap<String, usize>,
     undeclared_counts: &BTreeMap<String, usize>,
-    import_reached: &BTreeSet<PathBuf>,
+    claimed_files: &BTreeSet<PathBuf>,
     unreached_supporting_docs: usize,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -144,12 +145,12 @@ pub fn check(
     // run's effective one, so a locked custom kind claims its own locus and a relocated
     // built-in claims its new one — the raw embedded definitions would read a relocated
     // built-in's pre-relocation locus and name its real one a stray.
-    let fully_reached = fully_reached_dirs(root, import_reached);
+    let fully_reached = fully_reached_dirs(root, claimed_files);
     for (path, is_dir) in claude_entries(root) {
         let reached = if is_dir {
             fully_reached.contains(&path)
         } else {
-            import_reached.contains(&crate::path::normalize_path(&root.join(&*path)))
+            claimed_files.contains(&crate::path::normalize_path(&root.join(&*path)))
         };
         if reached
             || governed_by_any_path(declared_kinds, &path, is_dir)
@@ -229,20 +230,20 @@ fn claude_entries(root: &Path) -> Vec<(HarnessRelativePath, bool)> {
 }
 
 /// The directories directly under `<root>/.claude` holding at least one file, every one
-/// of which an import reaches — claimed by their importers as a reached file is. `every`,
-/// never `some`: the scan names direct children only, so a partly reached directory
+/// of which the roster claims (an import reaches it, or a member declares it its input)
+/// — claimed whole, as each of its files is. `every`, never `some`: the scan names direct children only, so a partly reached directory
 /// claimed whole would hide its unreached file. An empty directory reaches nothing and
 /// stays unclaimed. One walk under the scan's own ignore policy, so a gitignored file
 /// neither claims nor blocks a claim.
 fn fully_reached_dirs(
     root: &Path,
-    import_reached: &BTreeSet<PathBuf>,
+    claimed_files: &BTreeSet<PathBuf>,
 ) -> BTreeSet<HarnessRelativePath> {
     let claude_dir = root.join(CLAUDE_ROOT);
     if !claude_dir.is_dir() {
         return BTreeSet::new();
     }
-    // Per top-level directory: does every file beneath it sit in `import_reached`?
+    // Per top-level directory: does every file beneath it sit in `claimed_files`?
     let mut all_reached: BTreeMap<PathBuf, bool> = BTreeMap::new();
     for entry in claude_walk(root, None).flatten() {
         if !entry.file_type().is_some_and(|ft| ft.is_file()) {
@@ -255,7 +256,7 @@ fn fully_reached_dirs(
         let (Some(top), Some(_)) = (components.next(), components.next()) else {
             continue;
         };
-        let reached = import_reached.contains(&crate::path::normalize_path(entry.path()));
+        let reached = claimed_files.contains(&crate::path::normalize_path(entry.path()));
         *all_reached
             .entry(Path::new(CLAUDE_ROOT).join(top))
             .or_insert(true) &= reached;

@@ -914,3 +914,46 @@ fn a_gitignored_claude_worktrees_folder_fires_no_unclaimed_entry() {
     );
     assert!(success, "{findings:#?}");
 }
+
+/// A program declaring each script in `.claude/hooks/` as a `{ file }` tool, one hook
+/// handler running each.
+const SCRIPT_TOOLS_PROGRAM: &str = r#"
+import { emit, harness, tool } from "@dtmd/temper";
+import { hook } from "@dtmd/temper/claude-code";
+
+const lint = tool({ file: ".claude/hooks/lint.sh" });
+const audit = tool({ file: ".claude/hooks/audit.sh" });
+const after = hook({
+  name: "PostToolUse",
+  matcher: "Edit",
+  hooks: [
+    { type: "command", command: ".claude/hooks/lint.sh", runs: lint },
+    { type: "command", command: ".claude/hooks/audit.sh", runs: audit },
+  ],
+});
+
+process.stdout.write(emit(harness({ members: [lint, audit, after] })).seam);
+"#;
+
+#[test]
+fn a_folder_of_declared_script_tools_fires_no_unclaimed_entry() {
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness("script-tools-claimed", SCRIPT_TOOLS_PROGRAM);
+    common::write_sibling(&harness, ".claude/hooks/lint.sh", "#!/bin/sh\n");
+    common::write_sibling(&harness, ".claude/hooks/audit.sh", "#!/bin/sh\n");
+    common::write_sibling(&harness, ".claude/scratch/notes.sh", "#!/bin/sh\n");
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let (findings, _) = check_harness(&harness);
+
+    let unclaimed = common::findings_for(&findings, "coverage.unclaimed-entry");
+    assert!(
+        unclaimed.iter().any(|f| f.contains(".claude/scratch")),
+        "the scan is populated: an undeclared script folder still fires, got: {findings:#?}"
+    );
+    assert!(
+        !unclaimed.iter().any(|f| f.contains(".claude/hooks")),
+        "every script in the folder is a declared tool's input, so the folder is claimed, \
+         got: {unclaimed:#?}"
+    );
+}
