@@ -1,11 +1,9 @@
 {
   "tag": "EMIT-RUNS-THE-DECLARED-TYPECHECK",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "TOOL-KIND-SHIPS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -45,6 +43,7 @@
     "the typecheck project file is a declared input"
   ],
   "pins": [],
+  "laneTests": [],
   "notes": "0098 as amended by 0100/0104: the typecheck is a tool reference; command-reference-declaration (in git) held it. Never resolves the compiler by guess. Every emitting fixture gains a declaration via the shared helper. The dogfood `.temper/` must declare one (human) or its emit refuses — name it in the commit body.",
   "interface": {
     "changes": "a program declares its typecheck: a tool plus the project file it checks",

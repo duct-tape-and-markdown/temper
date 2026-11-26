@@ -1,11 +1,9 @@
 {
   "tag": "RUNNERS-REACH-THE-TEMPER-TOOL-BY-EDGE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "TOOL-KIND-SHIPS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -75,6 +73,7 @@
   "pins": [
     "an unrepresented harness's gate hook runs temper on the path"
   ],
+  "laneTests": [],
   "notes": "0104 consequence: the three `binary` fields lower onto tool members (rg `binary` across sdk/src and src/; GATE_BINARY_KEY, TAP_BINARY_KEY retire). Breaking SDK change: the dogfood `.temper/` (human territory) adapts after it ships — say so in the commit body.",
   "interface": {
     "changes": "gateHook and telemetry take a tool reference where they took `binary`",

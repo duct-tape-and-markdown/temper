@@ -1,11 +1,9 @@
 {
   "tag": "A-SETTINGS-SCRIPT-IS-A-FILE-TOOL",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "TOOL-KIND-SHIPS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [],
@@ -44,6 +42,7 @@
     "a folder of declared script tools fires no unclaimed entry"
   ],
   "pins": [],
+  "laneTests": [],
   "notes": "0104, represented mode only. Parsing the command string for a path is mining (intent invariant 1), so the edge is declared. The unrepresented grouped note is question unrepresented-script-coverage.",
   "interface": {
     "changes": "a hook handler and the settings status line may name the { file } tool they run",

@@ -1,11 +1,9 @@
 {
   "tag": "TOOL-PACKAGE-BIN-READS-THE-LOCKFILE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "TOOL-KIND-SHIPS"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [
@@ -51,5 +49,6 @@
     "an unsupported lockfile refuses naming it"
   ],
   "pins": [],
+  "laneTests": [],
   "notes": "0104. pnpm-lock.yaml only where a sanctioned crate's YAML reader covers it: yaml-rust2 is already in Cargo.lock under gray_matter — build confirms it is reachable as sanctioned; if not, drop that test line in a park note, never add a crate."
 }
