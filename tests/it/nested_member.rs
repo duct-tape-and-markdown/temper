@@ -2085,3 +2085,103 @@ mod a_placement_refusal_names_the_members_whole_address {
         );
     }
 }
+
+/// Host-unit cedes, resolved over the effective kind set `check` composes: a directory-unit
+/// host's template holds its unit's files over an any-depth reach, and never over a kind
+/// that claims inside the unit deliberately.
+mod host_unit_cede {
+    use std::path::{Path, PathBuf};
+
+    use temper::compose;
+    use temper::drift::{KindFactRow, TemplateRow};
+    use temper::import;
+    use temper::kind::CustomKind;
+
+    use crate::common;
+
+    fn effective_with(rows: Vec<KindFactRow>) -> std::collections::BTreeMap<String, CustomKind> {
+        let mut declarations = temper::builtin_lock::declarations().clone();
+        declarations.kinds.extend(rows);
+        compose::effective_kinds(&declarations).expect("the kinds compose")
+    }
+
+    fn discover(harness: &Path, kind: &CustomKind) -> Vec<PathBuf> {
+        import::discover_kind_files(
+            &import::Discovery::new(harness),
+            kind,
+            kind.governs.as_ref().expect("a file locus"),
+            import::LocalOverride::Honored,
+        )
+    }
+
+    #[test]
+    fn a_custom_directory_host_cedes_its_unit_subtree_from_memory() {
+        let harness = common::tmpdir("custom-host-cedes-memory");
+        common::write_sibling(&harness, "CLAUDE.md", "# Root\n");
+        common::write_sibling(&harness, "domains/billing/DOMAIN.md", "# Billing\n");
+        common::write_sibling(&harness, "domains/billing/CLAUDE.md", "# x\n");
+        common::write_sibling(&harness, "domains/billing/notes/deep/CLAUDE.md", "# x\n");
+        let kinds = effective_with(vec![KindFactRow {
+            unit_shape: Some("directory".to_string()),
+            templates: vec![TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }],
+            ..common::kind_facts("domain", "domains", "*/DOMAIN.md")
+        }]);
+        assert_eq!(
+            discover(&harness, &kinds["memory"]),
+            vec![harness.join("CLAUDE.md")]
+        );
+        assert_eq!(
+            discover(&harness, &kinds["domain"]),
+            vec![harness.join("domains/billing/DOMAIN.md")]
+        );
+    }
+
+    #[test]
+    fn a_custom_kind_claiming_inside_a_skill_directory_keeps_its_document() {
+        let harness = common::tmpdir("custom-claimant-inside-skill");
+        common::write_sibling(
+            &harness,
+            ".claude/skills/deploy/SKILL.md",
+            "---\nname: deploy\ndescription: Deploy the app.\n---\n# Deploy\n",
+        );
+        common::write_sibling(&harness, ".claude/skills/deploy/conventions.md", "# x\n");
+        let kinds = effective_with(vec![common::kind_facts(
+            "conventions",
+            ".claude/skills",
+            "*/conventions.md",
+        )]);
+        assert!(kinds["conventions"].ceded.is_empty());
+        assert_eq!(
+            discover(&harness, &kinds["conventions"]),
+            vec![harness.join(".claude/skills/deploy/conventions.md")]
+        );
+    }
+
+    #[test]
+    fn a_claude_md_inside_a_nested_skill_directory_is_the_skills() {
+        let harness = common::tmpdir("claude-md-in-nested-skill");
+        common::write_sibling(&harness, "apps/web/CLAUDE.md", "# Web\n");
+        common::write_sibling(
+            &harness,
+            "apps/web/.claude/skills/deploy/SKILL.md",
+            "---\nname: deploy\ndescription: Deploy the web app.\n---\n# Deploy\n",
+        );
+        common::write_sibling(
+            &harness,
+            "apps/web/.claude/skills/deploy/CLAUDE.md",
+            "# x\n",
+        );
+        let kinds = effective_with(Vec::new());
+        let claimed = "apps/web/.claude/skills/deploy/CLAUDE.md";
+        assert!(!kinds["memory"].locus_admits(claimed));
+        let skill = &kinds["skill"];
+        assert!(skill.ceded.is_empty(), "{:?}", skill.ceded);
+        assert_eq!(
+            discover(&harness, &kinds["memory"]),
+            vec![harness.join("apps/web/CLAUDE.md")]
+        );
+    }
+}

@@ -163,9 +163,9 @@ pub struct CustomKind {
     /// `base` column. `None` for every other kind, a relocation included.
     pub base: Option<String>,
     /// The locus patterns ([`locus_pattern`]) this kind's own locus cedes: each subkind's,
-    /// whose documents are that subkind's member alone, and each built-in host's unit
-    /// subtree at any depth ([`unit_subtree_pattern`]), whose files the host's template
-    /// claim owns. Derived when the run's effective kind set is assembled, never read off a
+    /// whose documents are that subkind's member alone, and each directory-unit host's unit
+    /// subtree ([`unit_subtree_pattern`]) this locus reaches into at any depth
+    /// ([`reaches_into_at_any_depth`]), whose files the host's template claim holds. Derived when the run's effective kind set is assembled, never read off a
     /// row.
     pub ceded: Vec<String>,
 }
@@ -930,6 +930,23 @@ pub fn locus_admits(
 pub fn unit_subtree_pattern(pattern: &str) -> Option<String> {
     let (unit, _entry) = pattern.rsplit_once('/')?;
     Some(format!("{unit}/**"))
+}
+
+/// Whether the locus `pattern` ([`locus_pattern`], a placement template) is an
+/// **any-depth reach** into the host unit subtree `subtree` ([`unit_subtree_pattern`]):
+/// it carries a `**` segment, and the literal root above that `**` does not itself lie
+/// inside the subtree — so its reach enters the host's unit from outside it
+/// (`**/CLAUDE.md`, `docs/**/*.md`). A fixed-depth locus, or one whose root already lies
+/// in the host's unit (`domains/*/notes/**/*.md` under `domains/*/**`), claims there
+/// deliberately and is never one.
+#[must_use]
+pub fn reaches_into_at_any_depth(pattern: &str, subtree: &str) -> bool {
+    let segments: Vec<&str> = pattern.split('/').collect();
+    let Some(any_depth) = segments.iter().position(|segment| *segment == "**") else {
+        return false;
+    };
+    let root = &segments[..any_depth];
+    root.is_empty() || !locus_within(&format!("{}/*", root.join("/")), subtree)
 }
 
 /// Whether every path the placement template `sub` matches, the template `base` matches

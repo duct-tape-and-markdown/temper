@@ -859,25 +859,25 @@ fn declared_kinds_with_overlaid(
         kinds.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
     }
     resolve_subkinds(&mut kinds)?;
-    cede_builtin_host_units(&mut kinds, overlaid_builtin_kinds);
+    cede_host_units(&mut kinds);
     Ok(kinds)
 }
 
-/// Cede each built-in host's unit subtree from every other kind's locus: a built-in kind
-/// whose unit is a directory and whose template names a child kind owns every file under a
-/// member's directory at any depth ([`kind::unit_subtree_pattern`]), so a `CLAUDE.md`
-/// inside a nested skill's directory is the skill's and never `memory`'s, with no
-/// exclusion pattern on `memory`'s row. Derived off the host's effective — overlaid —
+/// Cede each directory-unit host's unit subtree from the any-depth reaches that overlap
+/// it: a kind — built-in or custom alike, ownership never privilege — whose unit is a
+/// directory and whose template names a child kind holds every file under a member's
+/// directory at any depth ([`kind::unit_subtree_pattern`]) over a locus whose `**` reaches
+/// into that directory from outside it ([`kind::reaches_into_at_any_depth`]), so a
+/// `CLAUDE.md` inside a nested skill's directory is the skill's and never `memory`'s, with
+/// no exclusion pattern on `memory`'s row. The more specific claim holds the document: a
+/// fixed-depth locus, or one whose reach starts inside the host's unit, claims there
+/// deliberately and keeps its documents. Derived off the host's effective — overlaid —
 /// locus, so a relocated host cedes where it now lives. The host's own subkinds keep its
 /// subtree: their documents lie in it by construction.
-fn cede_builtin_host_units(
-    kinds: &mut BTreeMap<String, CustomKind>,
-    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-) {
-    let subtrees: Vec<(String, String)> = overlaid_builtin_kinds
-        .keys()
-        .filter_map(|name| {
-            let host = kinds.get(name)?;
+fn cede_host_units(kinds: &mut BTreeMap<String, CustomKind>) {
+    let subtrees: Vec<(String, String)> = kinds
+        .iter()
+        .filter_map(|(name, host)| {
             let governs = host.governs.as_ref()?;
             if host.unit_shape != Some(kind::UnitShape::Directory) || host.templates.is_empty() {
                 return None;
@@ -906,17 +906,23 @@ fn cede_builtin_host_units(
     };
     let names: Vec<String> = kinds.keys().cloned().collect();
     for name in names {
+        let Some(pattern) = kinds
+            .get(&name)
+            .and_then(|kind| kind.governs.as_ref())
+            .map(|governs| kind::locus_pattern(&governs.root, &governs.glob))
+        else {
+            continue;
+        };
         let cedes: Vec<String> = subtrees
             .iter()
-            .filter(|(host, _)| !descends(kinds, &name, host))
+            .filter(|(host, subtree)| {
+                !descends(kinds, &name, host) && kind::reaches_into_at_any_depth(&pattern, subtree)
+            })
             .map(|(_, subtree)| subtree.clone())
             .collect();
         let Some(kind) = kinds.get_mut(&name) else {
             continue;
         };
-        if kind.governs.is_none() {
-            continue;
-        }
         for subtree in cedes {
             if !kind.ceded.contains(&subtree) {
                 kind.ceded.push(subtree);
