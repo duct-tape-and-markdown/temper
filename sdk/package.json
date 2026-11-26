@@ -28,6 +28,10 @@
     "./claude-code": {
       "types": "./dist/src/claude-code.d.ts",
       "default": "./dist/src/claude-code.js"
+    },
+    "./starter": {
+      "types": "./dist/src/starter.d.ts",
+      "default": "./dist/src/starter.js"
     }
   },
   "files": [

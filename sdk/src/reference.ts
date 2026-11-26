@@ -37,8 +37,19 @@ import { span } from "./prose.js";
 /** The reference's skill name — its member lands at `.claude/skills/temper/SKILL.md`. */
 export const REFERENCE_NAME = "temper";
 
-/** What the reference may declare of its own: the domains it fills. */
+/**
+ * What the reference may declare of its own: the trigger its description opens with, and
+ * the domains it fills. Its body and topics are never authored — they derive from the
+ * harness listing it.
+ */
 export interface ReferenceInit {
+  /**
+   * The trigger the skill's description opens with — when a session should load it.
+   * Absent, temper's own trigger. Either way the rendered description closes by naming
+   * the harness's contracted domains, which derive from what is declared.
+   */
+  readonly description?: string;
+  /** The requirements this member fills — every member's `satisfies` edge. */
   readonly satisfies?: readonly string[];
 }
 
@@ -123,13 +134,24 @@ const TRIGGER =
 
 /**
  * Declare the harness reference: a `skill` member named {@link REFERENCE_NAME} whose
- * description and body `emit` renders from the harness listing it. `satisfies` lets it
- * fill a domain — and so list itself as that domain's owner.
+ * description and body `emit` renders from the harness listing it. `description`
+ * hydrates the description's trigger; `satisfies` lets it fill a domain — and so list
+ * itself as that domain's owner.
+ *
+ * # Throws
+ * If `description` is blank — a skill's description is how a session finds it.
  */
 export function reference(init: ReferenceInit = {}): Member {
+  const trigger = init.description ?? TRIGGER;
+  if (trigger.trim() === "") {
+    throw new Error(
+      "reference: `description` is the trigger a session loads the skill by — write one, " +
+        "or omit it for temper's own.",
+    );
+  }
   const member = skill({
     name: REFERENCE_NAME,
-    description: TRIGGER,
+    description: trigger,
     prose: span(MECHANICS),
     satisfies: [...(init.satisfies ?? [])],
   });
@@ -331,10 +353,13 @@ interface Topic {
 }
 
 /**
- * The rendered reference over `harness`: its description, its body, and its topics —
- * one per kind in play, then one per contracted domain.
+ * The rendered reference over `harness`: its description — `trigger`, then the contracted
+ * domains — its body, and its topics, one per kind in play, then one per contracted domain.
  */
-export function renderReference(harness: Harness): {
+export function renderReference(
+  harness: Harness,
+  trigger: string = TRIGGER,
+): {
   readonly description: string;
   readonly body: string;
   readonly topics: readonly Topic[];
@@ -360,7 +385,7 @@ export function renderReference(harness: Harness): {
   ].join("\n\n");
   const named = domains.map((name) => `\`${name}\``).join(", ");
   const description =
-    domains.length === 0 ? TRIGGER : `${TRIGGER} Its contracted domains: ${named}.`;
+    domains.length === 0 ? trigger : `${trigger} Its contracted domains: ${named}.`;
   return {
     description,
     body: `${MECHANICS}\n${index}\n`,
@@ -385,11 +410,16 @@ export function renderReference(harness: Harness): {
  */
 export function withReference(harness: Harness): Harness {
   if (!harness.members.some((member) => DECLARED.has(member))) return harness;
-  const { description, body, topics } = renderReference(harness);
   return {
     ...harness,
     members: harness.members.flatMap((member) => {
       if (!DECLARED.has(member)) return [member];
+      // The declared trigger is the member's own authored description.
+      const declared = member.fields.find(([key]) => key === "description")?.[1];
+      const { description, body, topics } = renderReference(
+        harness,
+        typeof declared === "string" ? declared : TRIGGER,
+      );
       const rendered: Member = {
         ...member,
         prose: span(body),

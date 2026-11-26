@@ -22,19 +22,20 @@ import ts from "typescript";
 
 const DIST_SRC = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
 const INDEX_DTS = resolve(DIST_SRC, "index.d.ts");
+const STARTER_DTS = resolve(DIST_SRC, "starter.d.ts");
 const GENERATED = resolve(DIST_SRC, "generated");
 
-/** The root module's symbol plus the checker that resolves references out of it. */
-function rootModule(): { checker: ts.TypeChecker; symbol: ts.Symbol } {
-  const program = ts.createProgram([INDEX_DTS], {
+/** A module's symbol plus the checker that resolves references out of it — the root's by default. */
+function rootModule(dts: string = INDEX_DTS): { checker: ts.TypeChecker; symbol: ts.Symbol } {
+  const program = ts.createProgram([dts], {
     module: ts.ModuleKind.NodeNext,
     moduleResolution: ts.ModuleResolutionKind.NodeNext,
     target: ts.ScriptTarget.ES2022,
     skipLibCheck: true,
   });
   const checker = program.getTypeChecker();
-  const source = program.getSourceFile(INDEX_DTS);
-  assert.ok(source, `${INDEX_DTS} should exist — \`tsc -p\` runs before \`node --test\``);
+  const source = program.getSourceFile(dts);
+  assert.ok(source, `${dts} should exist — \`tsc -p\` runs before \`node --test\``);
   const symbol = checker.getSymbolAtLocation(source);
   assert.ok(symbol, "the root's emitted declaration file should resolve as a module");
   return { checker, symbol };
@@ -98,6 +99,35 @@ test("every type a root-exported declaration names is itself root-exported", () 
     [],
     "a type an author cannot import defeats a surface typed at the keystroke",
   );
+});
+
+test("every type a starter-exported declaration names is exported by the starter or the root", () => {
+  const { checker, symbol } = rootModule(STARTER_DTS);
+  const exported = checker.getExportsOfModule(symbol);
+  const names = new Set(exported.map((e) => e.getName()));
+  for (const shape of ["starter", "gateHooks", "typecheck", "reference", "Starter", "StarterOptions"]) {
+    assert.ok(names.has(shape), `the starter subpath exports \`${shape}\``);
+  }
+
+  const root = rootModule();
+  const face = new Set([
+    ...exported.map((e) => target(checker, e)),
+    ...root.checker.getExportsOfModule(root.symbol).map((e) => target(root.checker, e)),
+  ]);
+  const faceNames = new Set([...face].map((s) => `${s.getName()}@${s.getDeclarations()?.[0]?.getSourceFile().fileName}`));
+
+  const holes: string[] = [];
+  for (const entry of exported) {
+    for (const declaration of target(checker, entry).getDeclarations() ?? []) {
+      for (const named of referencedTypes(checker, declaration)) {
+        // Two programs mint two symbols for one declaration, so the face matches by declaration site.
+        const site = `${named.getName()}@${named.getDeclarations()?.[0]?.getSourceFile().fileName}`;
+        if (!isAuthoringNoun(named) || face.has(named) || faceNames.has(site)) continue;
+        holes.push(`\`${entry.getName()}\` names \`${named.getName()}\`, which neither the starter nor the root exports`);
+      }
+    }
+  }
+  assert.deepEqual([...new Set(holes)].sort(), [], "a shape's options are typed at the keystroke only if they are nameable");
 });
 
 test("the root carries the whole closed predicate vocabulary", () => {
