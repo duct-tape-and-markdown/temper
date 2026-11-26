@@ -632,11 +632,10 @@ fn a_fresh_scaffold_declares_its_typecheck_and_passes_it() {
 
     let program = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
     assert!(
-        program.contains("const tsc = tool({ package: \"typescript\", bin: \"tsc\" });")
-            && program.contains(
-                "typecheck: { tool: tsc, project: input(import.meta.url, \"./tsconfig.json\") }"
-            ),
-        "the program declares its typecheck: {program}"
+        program.contains(
+            "starter({ typecheck: { project: input(import.meta.url, \"./tsconfig.json\") } })"
+        ),
+        "the program declares its typecheck through the starter: {program}"
     );
     assert!(
         temper_dir.join("tsconfig.json").is_file(),
@@ -1208,24 +1207,15 @@ fn a_settings_document_lifts_into_a_fields_bearing_member_whose_emit_re_renders_
     assert_eq!(projected["permissions"]["allow"][0], "Bash(cargo test:*)");
 
     // The gate rides the same projection. Its three hook groups are `hook` **members**
-    // the lift scaffolded, so they land in the file emit renders whole — where a splice
+    // the starter composes, so they land in the file emit renders whole — where a splice
     // beside emit reported `applied` and was erased by the very next re-render, leaving
     // this file with no `hooks` key at all.
     assert_gate_hooks_wired(&root, "after install");
-    // Each module is the typed gate constructor — no command, no binary.
-    for hook in ["SessionStart", "PreToolUse", "PostToolUse"] {
-        let module = fs::read_to_string(temper_dir.join("hooks").join(format!("{hook}.ts")))
-            .unwrap_or_else(|_| panic!("the lift scaffolds a gate hook module for {hook}"));
-        assert!(
-            module.contains(&format!("gateHook({{ name: {hook:?}")),
-            "got:\n{module}"
-        );
-    }
     assert!(
         fs::read_to_string(temper_dir.join("harness.ts"))
             .unwrap()
-            .contains("hook_SessionStart"),
-        "the entry point composes the gate hook members"
+            .contains("members: [...base.members, "),
+        "the entry point composes the starter's members, the gate hooks among them"
     );
 
     // And a second emit keeps them — the assertion the splice could never pass: the
@@ -1794,23 +1784,10 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
     }
     assert_gate_hooks_wired(&root, "after install");
 
-    // The lift minted one member module per group, all three composed into the entry
+    // The starter supplies all three as members of the program, composed into the entry
     // point.
     let harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
-    for (event, ident) in [
-        ("SessionStart", "hook_SessionStart"),
-        ("PreToolUse", "hook_PreToolUse"),
-        ("PostToolUse", "hook_PostToolUse"),
-    ] {
-        assert!(
-            temper_dir
-                .join("hooks")
-                .join(format!("{event}.ts"))
-                .is_file(),
-            "no module scaffolded for {event}"
-        );
-        assert!(harness.contains(ident), "got:\n{harness}");
-    }
+    assert!(harness.contains("...base.members"), "got:\n{harness}");
     // Strip the guard group by hand, the drift the `PreToolUse` guard itself exists to
     // catch. A plain `emit` — no `install` behind it — puts it back, because the member
     // is where the hook lives.
@@ -2095,7 +2072,7 @@ fn a_registration_key_windows_reserves_refuses_the_lift_before_it_writes_a_modul
 }
 
 #[test]
-fn an_authored_group_on_a_gate_event_never_overwrites_the_gate_hooks_own_module() {
+fn an_authored_group_on_a_gate_event_never_takes_the_gate_hooks_remedy_path() {
     common::ensure_sdk_built();
     let root = common::tmpdir("lift-registration-no-clobber");
     common::write_settings(&root, REGISTERING_SETTINGS);
@@ -2106,15 +2083,12 @@ fn an_authored_group_on_a_gate_event_never_overwrites_the_gate_hooks_own_module(
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
-    // Two writers, one kind directory, one lifecycle event. `GATE_HOOKS` keeps the fixed
-    // `hooks/<Event>.ts` name its remedy can cite; the authored group takes the next free
-    // one. Sharing a stem, whichever ran second silently erased the other.
-    let gate_module = fs::read_to_string(temper_dir.join("hooks").join("SessionStart.ts")).unwrap();
-    // What identifies this module as the gate's is the typed constructor it is built with
-    // — the authored group's own command is a string it spells inline.
+    // The starter composes the gate hooks, so the scaffold writes no module for them — but
+    // a missing one's remedy cites the fixed `hooks/<Event>.ts`, so the authored group
+    // takes the next free name rather than the path the remedy tells an author to write.
     assert!(
-        gate_module.contains("gateHook("),
-        "temper's own gate module is still the gate's, got:\n{gate_module}"
+        !temper_dir.join("hooks").join("SessionStart.ts").exists(),
+        "the gate's remedy path stays free"
     );
     let authored_module =
         fs::read_to_string(temper_dir.join("hooks").join("SessionStart-2.ts")).unwrap();
@@ -2123,22 +2097,14 @@ fn an_authored_group_on_a_gate_event_never_overwrites_the_gate_hooks_own_module(
         "the authored group has a module of its own, got:\n{authored_module}"
     );
 
-    // Distinct modules mean distinct exported identifiers: `harness.ts` imports both, and
-    // one name declared twice is a TS redeclaration the emit could never run.
     let harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
-    for (ident, module) in [
-        ("hook_SessionStart", "./hooks/SessionStart.ts"),
-        ("hook_SessionStart_2", "./hooks/SessionStart-2.ts"),
-    ] {
-        assert!(
-            harness.contains(&format!("import {{ {ident} }} from \"{module}\";")),
-            "`{ident}` is imported from its own module, got:\n{harness}"
-        );
-        assert!(
-            harness.contains(&format!("{ident}, ")),
-            "`{ident}` is composed into the program, got:\n{harness}"
-        );
-    }
+    assert!(
+        harness.contains("import { hook_SessionStart_2 } from \"./hooks/SessionStart-2.ts\";")
+            && harness.contains(", hook_SessionStart_2"),
+        "the authored group is imported from its own module and composed, got:\n{harness}"
+    );
+    // The authored group rides beside the gate, never in its place.
+    assert_gate_hooks_wired(&root, "beside an authored group on the gate's event");
 }
 
 #[test]
@@ -2325,9 +2291,9 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
     // let a represented harness run a retired command spelling and read green forever
     // (0073), so the advisory names it and names the module to fix.
     //
-    // The fixture rewrites the scaffolded `SessionStart` module rather than adding a second
-    // member beside it: a hook authored *alongside* temper's leaves the gate wired, which is
-    // the unchanged case, not this one.
+    // The fixture replaces the starter's `SessionStart` gate hook rather than adding a
+    // second member beside it: a hook authored *alongside* temper's leaves the gate wired,
+    // which is the unchanged case, not this one.
     common::ensure_sdk_built();
     let root = write_harness("hook-supersede", false);
     let temper_dir = root.join(".temper");
@@ -2346,8 +2312,9 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
         "gate must be clean after a successful install"
     );
 
-    // Author over the scaffolded module: the same member identity and address, the retired
-    // command spelling. `harness.ts` already composes this identifier, so nothing else moves.
+    // Replace the starter's gate hook with a member at the same identity and address, the
+    // retired command spelling.
+    fs::create_dir_all(temper_dir.join("hooks")).unwrap();
     fs::write(
         temper_dir.join("hooks").join("SessionStart.ts"),
         format!(
@@ -2359,6 +2326,12 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
         ),
     )
     .unwrap();
+    replace_starter_gate_hook(
+        &temper_dir,
+        "SessionStart",
+        "./hooks/SessionStart.ts",
+        &["hook_SessionStart"],
+    );
 
     let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(
@@ -2409,8 +2382,8 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
     );
 }
 
-/// Install a represented harness under `label`, then overwrite its scaffolded guard module
-/// with `module` and re-emit, so the projection is that module's.
+/// Install a represented harness under `label`, then replace the starter's guard with the
+/// `hook_PreToolUse` that `module` exports and re-emit, so the projection is that module's.
 fn reinstall_with_guard_module(label: &str, module: &str) -> PathBuf {
     common::ensure_sdk_built();
     let root = write_harness(label, false);
@@ -2421,44 +2394,105 @@ fn reinstall_with_guard_module(label: &str, module: &str) -> PathBuf {
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert!(gate_installed(&root).is_empty());
 
+    fs::create_dir_all(temper_dir.join("hooks")).unwrap();
     fs::write(temper_dir.join("hooks").join("PreToolUse.ts"), module).unwrap();
+    replace_starter_gate_hook(
+        &temper_dir,
+        "PreToolUse",
+        "./hooks/PreToolUse.ts",
+        &["hook_PreToolUse"],
+    );
     temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
     root
 }
 
 #[test]
-fn install_scaffolds_gate_hooks_with_the_typed_constructor() {
+fn a_fresh_represented_install_scaffolds_a_program_that_calls_starter() {
     common::ensure_sdk_built();
-    let root = write_harness("gate-hooks-typed-constructor", false);
+    let root = write_harness("fresh-install-calls-starter", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_install_workspace(&temper_dir);
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
-    // Each gate hook module is the constructor alone: its address, no tool (the temper
-    // package's bin) and no command — the engine renders that from the member.
-    for (event, call) in [
-        ("SessionStart", "gateHook({ name: \"SessionStart\" })"),
-        (
-            "PreToolUse",
-            "gateHook({ name: \"PreToolUse\", matcher: \"Write|Edit|MultiEdit\" })",
-        ),
-        (
-            "PostToolUse",
-            "gateHook({ name: \"PostToolUse\", matcher: \"Bash\" })",
-        ),
+    // The default is the starter's: the gate hooks and the typecheck come from one call,
+    // and the lifted members compose after its members, each still its own module.
+    let program = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
+    assert_eq!(
+        program,
+        "import { emit, harness, input } from \"@dtmd/temper\";\n\
+         import { starter } from \"@dtmd/temper/starter\";\n\
+         import { rule_collaboration } from \"./rules/collaboration.ts\";\n\
+         import { rule_rust } from \"./rules/rust.ts\";\n\
+         import { skill_coordinate } from \"./skills/coordinate.ts\";\n\n\
+         const base = starter({ typecheck: { project: input(import.meta.url, \"./tsconfig.json\") } });\n\n\
+         const program = harness({\n  ...base,\n  \
+         members: [...base.members, rule_collaboration, rule_rust, skill_coordinate],\n});\n\n\
+         process.stdout.write(emit(program).seam);\n"
+    );
+    // What the starter supplies the scaffold no longer writes, or the names would collide.
+    assert!(
+        !temper_dir.join("hooks").exists(),
+        "no gate hook module is scaffolded beside the starter's gate hooks"
+    );
+    assert!(
+        !program.contains("tool("),
+        "no compiler tool is declared beside the starter's"
+    );
+}
+
+#[test]
+fn a_fresh_represented_install_wires_the_three_gate_hooks() {
+    common::ensure_sdk_built();
+    let root = write_harness("fresh-install-wires-gates", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    for placement in [
+        temper::install::Placement::SessionStart,
+        temper::install::Placement::GuardHook,
+        temper::install::Placement::PostToolUseHook,
     ] {
-        let module =
-            fs::read_to_string(temper_dir.join("hooks").join(format!("{event}.ts"))).unwrap();
         assert_eq!(
-            module,
-            format!(
-                "import {{ gateHook }} from \"@dtmd/temper/claude-code\";\n\nexport const hook_{event} = {call};\n"
-            )
+            outcome_of(&outcome, placement),
+            ApplyOutcome::Applied,
+            "the first emit wires {placement}"
         );
     }
-    assert_gate_hooks_wired(&root, "after install");
+    assert_gate_hooks_wired(&root, "after a fresh represented install");
+    assert!(
+        gate_installed(&root).is_empty(),
+        "the installed-gate check reads every gate hook wired"
+    );
+}
+
+/// Take temper's gate hook at `event` (a hook member's name is its event, then `:` and any
+/// matcher) out of the starter's members in `harness.ts` and
+/// compose `idents`, imported from `module`, in its place — how an author replaces one of
+/// the starter's defaults by ordinary code. An empty `idents` drops the gate hook whole.
+fn replace_starter_gate_hook(temper_dir: &Path, event: &str, module: &str, idents: &[&str]) {
+    let path = temper_dir.join("harness.ts");
+    let program = fs::read_to_string(&path).unwrap();
+    assert!(program.contains("...base.members"), "{program}");
+    let mut composed = format!(
+        "...base.members.filter((member) => !(member.kind === \"hook\" && member.name.split(\":\")[0] === {event:?}))"
+    );
+    for ident in idents {
+        composed.push_str(", ");
+        composed.push_str(ident);
+    }
+    let mut out = String::new();
+    if !idents.is_empty() {
+        out.push_str(&format!(
+            "import {{ {} }} from {module:?};\n",
+            idents.join(", ")
+        ));
+    }
+    out.push_str(&program.replacen("...base.members", &composed, 1));
+    fs::write(&path, out).unwrap();
 }
 
 #[test]
@@ -2471,7 +2505,9 @@ fn a_gate_hook_reaching_a_declared_tool_is_reported_installed() {
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
-    // The guard's module states the tool it runs, and the program composes that tool.
+    // The guard's module states the tool it runs, and the program composes that tool in
+    // place of the starter's guard.
+    fs::create_dir_all(temper_dir.join("hooks")).unwrap();
     fs::write(
         temper_dir.join("hooks").join("PreToolUse.ts"),
         "import { gateHook, tool } from \"@dtmd/temper/claude-code\";\n\n\
@@ -2480,14 +2516,12 @@ fn a_gate_hook_reaching_a_declared_tool_is_reported_installed() {
          matcher: \"Write|Edit|MultiEdit\", tool: tool_temper });\n",
     )
     .unwrap();
-    let program_path = temper_dir.join("harness.ts");
-    let program = fs::read_to_string(&program_path).unwrap();
-    assert!(program.contains("members: ["), "{program}");
-    let program = format!(
-        "import {{ tool_temper }} from \"./hooks/PreToolUse.ts\";\n{}",
-        program.replacen("members: [", "members: [tool_temper, ", 1)
+    replace_starter_gate_hook(
+        &temper_dir,
+        "PreToolUse",
+        "./hooks/PreToolUse.ts",
+        &["tool_temper", "hook_PreToolUse"],
     );
-    fs::write(&program_path, program).unwrap();
     temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
 
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
@@ -2571,21 +2605,9 @@ fn gate_installed_names_a_deleted_gate_hook_member_with_its_module_and_import_li
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert!(gate_installed(&root).is_empty());
 
-    // Delete the guard's member whole — the module and both lines of `harness.ts` that
-    // reach it — so the program declares no hook at `(PreToolUse, Write|Edit|MultiEdit)`.
-    fs::remove_file(temper_dir.join("hooks").join("PreToolUse.ts")).unwrap();
-    let harness_entry = temper_dir.join("harness.ts");
-    let harness = fs::read_to_string(&harness_entry).unwrap();
-    fs::write(
-        &harness_entry,
-        harness
-            .replace(
-                "import { hook_PreToolUse } from \"./hooks/PreToolUse.ts\";\n",
-                "",
-            )
-            .replace("hook_PreToolUse, ", ""),
-    )
-    .unwrap();
+    // Drop the starter's guard from the program, so it declares no hook at
+    // `(PreToolUse, Write|Edit|MultiEdit)`.
+    replace_starter_gate_hook(&temper_dir, "PreToolUse", "", &[]);
 
     let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(

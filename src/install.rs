@@ -1311,8 +1311,8 @@ fn gate_hooks_state(path: &Path) -> Result<[GateHookState; GATE_HOOK_COUNT], Ins
 ///   it holds temper's gate address and runs something else, which is exactly the shape a
 ///   respelled command leaves behind.
 /// - not wired, nothing seated there → [`Conflicted`](ApplyOutcome::Conflicted): the
-///   member is *missing*. Surfaced rather than clobbered — `install` scaffolds the gate
-///   hook members with the rest of the lift and never edits an authored `harness.ts`
+///   member is *missing*. Surfaced rather than clobbered — the lift's `harness.ts`
+///   composes the gate hooks through `starter()`, and `install` never edits an authored `harness.ts`
 ///   afterwards (0073).
 ///
 /// The seated half is read off the projection, never off the lock: see [`gate_hooks_state`].
@@ -3123,9 +3123,10 @@ fn is_reserved_device_name(head: &str) -> bool {
 /// instead is ruled out by [`LiftedMember::id`]: the joined name is not a portable file
 /// name. The module's `name` property stays the id either way.
 ///
-/// [`GATE_HOOKS`]' stems are reserved before any of them, so temper's own gate modules
-/// keep the fixed `hooks/<Event>.ts` names whatever the adopted project's `settings.json`
-/// carries, and [`scaffold`]'s two writers never land on one path.
+/// [`GATE_HOOKS`]' stems are reserved before any of them. The scaffold writes no gate hook
+/// module — the starter composes the gate hooks ([`harness_entry_source`]) — but a missing
+/// one's remedy tells the author to write the fixed `hooks/<Event>.ts` ([`gate_hook_clause`]),
+/// so a lifted hook never takes that path whatever the adopted `settings.json` carries.
 ///
 /// # Errors
 /// Returns [`InstallError::MemberFileName`] for an id that is not a portable file name
@@ -3186,7 +3187,8 @@ fn unclaimed_stem(base: &str, mut claimed: impl FnMut(&str) -> bool) -> String {
 /// output, a **whole conversion** (0016), never an intermediate state: a member
 /// module per discovered member hoisting every present field into a typed
 /// property ([`member_module_source`]) and moving its prose module-side, plus
-/// a `harness.ts` skeleton importing them all. Writes nothing
+/// a `harness.ts` skeleton composing them all beside the SDK's `starter()`
+/// ([`harness_entry_source`]), which supplies the gate hooks and the typecheck. Writes nothing
 /// under `dry_run`, returning only the count a real run would scaffold.
 ///
 /// The conversion covers a manifest's **registration** segments as well as the container
@@ -3273,27 +3275,6 @@ fn scaffold(
         scaffolded.push(ScaffoldedMember {
             ident,
             import_path: format!("./{}/{stem}.ts", member_dir(kind)),
-        });
-    }
-
-    // temper's own gate rides the program like any other member: one `gateHook(...)`
-    // module per group in [`GATE_HOOKS`], composed into `harness.ts` below, so `emit`
-    // projects all three into `.claude/settings.json`'s `hooks` collection and nothing
-    // splices that file behind emit's back. The module states no binary and no command:
-    // `emit` renders the command, so a respelling follows into every represented harness.
-    //
-    // They are not counted in the lift's total: the lift converts *discovered artifacts*,
-    // and these are members temper authors.
-    for hook in &GATE_HOOKS {
-        let ident = member_ident(GATE_HOOK_KIND, hook.event);
-        let module = gate_hook_module(hook);
-        write_scaffold_file(
-            &temper_dir.join(&module),
-            &gate_hook_module_source(hook, &ident),
-        )?;
-        scaffolded.push(ScaffoldedMember {
-            ident,
-            import_path: format!("./{module}"),
         });
     }
 
@@ -3397,15 +3378,15 @@ pub(crate) const GATE_HOOK_KIND: &str = "hook";
 
 /// Where one gate hook's member module sits under the workspace dir — also, prefixed
 /// `./`, the `harness.ts` import specifier that reaches it. One home for both, so the
-/// remedy [`gate_hook_clause`] tells an author to write names the module [`scaffold`]
-/// actually writes.
+/// remedy [`gate_hook_clause`] tells an author to write names the path [`module_stems`]
+/// keeps free of lifted members.
 fn gate_hook_module(hook: &GateHook) -> String {
     format!("{}/{}.ts", member_dir(GATE_HOOK_KIND), hook.event)
 }
 
 /// The `gateHook(...)` call one gate hook's member is built with: its event and the
 /// matcher it binds, nothing more — no tool, so the temper package's bin. The one spelling of
-/// the constructor both the scaffold writes and a stale hook's remedy names.
+/// the constructor a stale hook's remedy names — the call the starter's gate hooks make.
 fn gate_hook_call(hook: &GateHook) -> String {
     match hook.matcher {
         Some(matcher) => format!(
@@ -3414,15 +3395,6 @@ fn gate_hook_call(hook: &GateHook) -> String {
         ),
         None => format!("gateHook({{ name: {:?} }})", hook.event),
     }
-}
-
-/// One gate hook's scaffolded member module: the typed constructor alone
-/// ([`gate_hook_call`]), bound under `ident`.
-fn gate_hook_module_source(hook: &GateHook, ident: &str) -> String {
-    format!(
-        "import {{ gateHook }} from \"{SDK_PACKAGE}/claude-code\";\n\nexport const {ident} = {};\n",
-        gate_hook_call(hook)
-    )
 }
 
 /// A member module's TS identifier: kind-prefixed so a skill and a rule sharing a
@@ -3590,15 +3562,22 @@ fn escape_template_literal(line: &str) -> String {
         .replace("${", "\\${")
 }
 
-/// The `harness.ts` skeleton: import every scaffolded member, compose them into
-/// `harness({ members: [...] })`, and print `emit`'s seam to stdout — the whole
-/// program `emit_program` then runs.
+/// The `harness.ts` skeleton: import every scaffolded member, compose them beside the
+/// SDK's `starter()` into `harness({ ...base, members: [...] })`, and print `emit`'s seam
+/// to stdout — the whole program `emit_program` then runs.
 ///
-/// The program declares its typecheck — emit refuses one that declares none: the
-/// workspace's own `typescript` devDependency ([`ensure_package_json`]) as a composed
-/// `tool`, over the [`TYPECHECK_PROJECT`] the scaffold writes beside it.
+/// The starter supplies the mechanics a fresh program owes: temper's three gate hooks, the
+/// harness reference, and the typecheck emit refuses a program without — the workspace's
+/// own `typescript` devDependency ([`ensure_package_json`]) as a composed `tool`, over the
+/// [`TYPECHECK_PROJECT`] the scaffold writes beside it. The scaffold writes none of those
+/// as members of its own: one more declaration of a gate hook or of the compiler would
+/// collide with the starter's. The lifted members stay their own modules, composed after
+/// the starter's, so the program reads as the default plus what was adopted — re-hydrated
+/// or replaced by ordinary code.
 fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
-    let mut out = String::from("import { emit, harness, input, tool } from \"@dtmd/temper\";\n");
+    let mut out = format!(
+        "import {{ emit, harness, input }} from \"{SDK_PACKAGE}\";\nimport {{ starter }} from \"{SDK_PACKAGE}/starter\";\n"
+    );
     for member in members {
         out.push_str(&format!(
             "import {{ {} }} from {:?};\n",
@@ -3606,16 +3585,14 @@ fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
         ));
     }
     out.push_str(&format!(
-        "\nconst tsc = tool({{ package: {TYPECHECK_PACKAGE:?}, bin: {TYPECHECK_BIN:?} }});\n"
+        "\nconst base = starter({{ typecheck: {{ project: input(import.meta.url, \"./{TYPECHECK_PROJECT}\") }} }});\n"
     ));
-    out.push_str("\nconst program = harness({\n  members: [");
+    out.push_str("\nconst program = harness({\n  ...base,\n  members: [...base.members");
     for member in members {
-        out.push_str(&member.ident);
         out.push_str(", ");
+        out.push_str(&member.ident);
     }
-    out.push_str(&format!(
-        "tsc],\n  typecheck: {{ tool: tsc, project: input(import.meta.url, \"./{TYPECHECK_PROJECT}\") }},\n}});\n\nprocess.stdout.write(emit(program).seam);\n"
-    ));
+    out.push_str("],\n});\n\nprocess.stdout.write(emit(program).seam);\n");
     out
 }
 
