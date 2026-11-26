@@ -130,7 +130,10 @@ that admits it, a shipped kind's included (`../builtins.md`).
 The harness itself is a member — the root of the forest. Its kind's template
 names the top layers (`.claude/`, the memory files, settings), the contract
 attaches to it as to any member, and harness-wide declarations are its
-fields — the enforcement mode among them — overridable per member.
+fields — the enforcement mode among them — overridable per member. Its
+address is `root`, so a member it hosts (a tool, a requirement) is a nested
+member, `root/<kind>/<key>`, whose leaves reach the lock and the read verbs
+like any nested member's, and whose containment is an edge from the root.
 
 ## Reach
 
