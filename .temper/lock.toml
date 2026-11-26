@@ -45,8 +45,8 @@ emit_hash = "54a1501e820b65bced55a662304efdeb30e831666d58ee566cbd7a742fb512ca"
 [[rule]]
 name = "temper-sdk"
 source_path = ".claude/rules/temper-sdk.md"
-source_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
-emit_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
+source_hash = "f023fc979933978e574c2094dfe0623a9c9620f0405e99326b70016fa96c465e"
+emit_hash = "f023fc979933978e574c2094dfe0623a9c9620f0405e99326b70016fa96c465e"
 
 [[settings]]
 name = "settings"
@@ -116,6 +116,12 @@ unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
 templates = [{ kind = "supporting-doc", path = "*.md" }]
 
+[[declaration.kind]]
+name = "tool"
+unit_shape = "file"
+shape = "fields"
+leaves = ["package", "bin", "file", "system"]
+
 [[declaration.clause]]
 label = "root.reachable"
 predicate = "reachable"
@@ -179,6 +185,16 @@ provided = ["default", "Proactive", "Concise", "Explanatory", "Learning"]
 member = "skill:capture-friction"
 requirement = "friction-capture-procedure"
 
+[[declaration.runs]]
+member = "root"
+tool = "root/tool/tsc"
+
+[[declaration.nested_member]]
+host = "root"
+kind = "tool"
+key = "tsc"
+leaves = { bin = "tsc", package = "typescript" }
+
 [[declaration.registration]]
 kind = "hook"
 key = "PostToolUse"
@@ -215,20 +231,20 @@ key = "PostToolUse"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
 
-[[declaration.module]]
+[[declaration.input]]
 member = "root"
-source_path = ".temper/binary.ts"
-import_hash = "bbefae8453962c2684cdb8fce9fd23a7f80d802cc9e26ee026745535eb2cf040"
+source_path = ".temper/tsconfig.json"
+import_hash = "3513a2dd05c72537a95430096150cb3880a14abcfae52295ebdc64ce3306cc37"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "9467b60da1ecef2dcafdef7d002d5cb551e0da15ef8526dfd640abca2181eee4"
+import_hash = "ddf3268dea3eb278a5ed91571ef3a2fd2888b975d14170760b8815ea056665c2"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/hooks.ts"
-import_hash = "5ec0559b0f1e2feccc70806fd7d43a300521bd15ceed5ee45140ece92f69e128"
+import_hash = "5c6589efe347ac3a8cf54d3c7e0ac484da13c54739fb1a2e511391c28826c04f"
 
 [[declaration.module]]
 member = "root"

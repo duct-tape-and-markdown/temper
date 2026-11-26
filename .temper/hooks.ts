@@ -4,18 +4,17 @@ import { gateHook, hook } from "@dtmd/temper/claude-code";
 // Fields-only registration members: no prose, no adjacent document — each
 // folds into its `hooks.<Event>` entry in the settings.json projection.
 
-// The three gate hooks run the workspace engine (`./binary.ts`); the engine
+// The three gate hooks run the temper package's own bin, the default tool; the engine
 // renders each command from that one fact, anchored at the project.
-import { binary } from "./binary.ts";
 
 /** The advisory gate report at session open — always exits zero. */
-export const hook_sessionStart = gateHook({ name: "SessionStart", binary });
+export const hook_sessionStart = gateHook({ name: "SessionStart" });
 
 /** The write-boundary guard; mode is read live from the lock (default warn). */
-export const hook_guard = gateHook({ name: "PreToolUse", matcher: "Write|Edit|MultiEdit", binary });
+export const hook_guard = gateHook({ name: "PreToolUse", matcher: "Write|Edit|MultiEdit" });
 
 /** The guard's other edge: a Bash write carries no file path, so it is judged after the call. */
-export const hook_postToolUseBash = gateHook({ name: "PostToolUse", matcher: "Bash", binary });
+export const hook_postToolUseBash = gateHook({ name: "PostToolUse", matcher: "Bash" });
 
 /** Keep Rust formatted as the agent edits; never fails the tool call. */
 export const hook_fmtOnWrite = hook({

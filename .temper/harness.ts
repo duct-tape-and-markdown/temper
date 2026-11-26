@@ -1,6 +1,5 @@
-import { emit, harness, requirement, telemetry } from "@dtmd/temper";
+import { emit, harness, input, requirement, telemetry, tool } from "@dtmd/temper";
 import { settings } from "@dtmd/temper/claude-code";
-import { binary } from "./binary.ts";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
 import { rule_publicProse } from "./rules/public-prose.ts";
@@ -46,7 +45,12 @@ const settings_project = settings({
   residue: { worktree: { bgIsolation: "none" } },
 });
 
+// The harness program's own compiler: emit runs it before the program, so
+// the SDK's types reach whoever edits this tree.
+const tsc = tool({ package: "typescript", bin: "tsc" });
+
 const program = harness({
+  typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
   // The write-boundary guard blocks: a hand-edit to a managed projection is
   // denied (exit 2), not merely surfaced. `warn`'s PreToolUse exit-0 stdout is
   // not read back to the model, so an advisory nudge is inert for an agent —
@@ -67,13 +71,14 @@ const program = harness({
     "context-arrives": requirement({
       prose:
         "every always-on member this harness declares should actually reach the model, and every skill should be reachable by its description — the failure intent.md names (a rule that fails to load, a skill that never triggers), judged by reading the field record, never by check",
-      verifier: telemetry(["InstructionsLoaded", "SkillInvoked"], { binary }),
+      verifier: telemetry(["InstructionsLoaded", "SkillInvoked"]),
       // Advisory by design: the field record judges it, so nothing satisfies
       // it and the shipped fill default would refuse emit.
       required: false,
     }),
   },
   members: [
+    tsc,
     memory_CLAUDE,
     rule_collaboration,
     rule_publicProse,
