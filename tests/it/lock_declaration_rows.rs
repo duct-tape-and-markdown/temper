@@ -1225,6 +1225,49 @@ fn check_rejects_a_lock_when_row_naming_when_as_its_own_guard() {
     );
 }
 
+/// A `when` row whose body carries another `when` row fails the run loud: guards do not
+/// nest. The lock can spell this shape — a body row is a whole clause row — so the
+/// refusal is admissibility's, and it names the rule rather than judging the inner guard.
+#[test]
+fn a_nested_guard_is_refused() {
+    let root = common::tmpdir("reject-nested-when");
+    let inner = ClauseRow {
+        field: Some("owner".to_string()),
+        values: Some(vec!["alice".to_string()]),
+        guard_predicate: Some("enum".to_string()),
+        body: Some(vec![ClauseRow {
+            field: Some("reviewer".to_string()),
+            ..common::clause("required", "required")
+        }]),
+        ..common::clause("when", "required")
+    };
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            clauses: vec![ClauseRow {
+                kind: Some("spec".to_string()),
+                field: Some("status".to_string()),
+                values: Some(vec!["draft".to_string()]),
+                guard_predicate: Some("enum".to_string()),
+                body: Some(vec![inner]),
+                ..common::clause("when", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "a `when` nested in a `when` body must fail the run loud, got:\n{output}"
+    );
+    assert!(
+        output.contains("`when` guard body cannot nest another `when` clause"),
+        "the refusal names the no-nesting rule, got:\n{output}"
+    );
+}
+
 /// A payload with no requirements/satisfies/assembly facts at all still emits and
 /// round-trips: those families are simply empty, never an error or a malformed row —
 /// the bootstrap's tolerant-read discipline extends to the new facets exactly as it
