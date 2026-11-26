@@ -1,0 +1,30 @@
+{
+  "tag": "A-NESTED-SUBKIND-IS-CHOSEN-BY-ITS-HOST",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "sdk/src/kind.ts", "description": "extend admits a nested base, and an extended host's `template` names the subkind as its child" },
+      { "path": "sdk/test/emit.test.ts", "description": "extend(skill, { template: topic }) lowers; the subkind child's rows" },
+      { "path": "src/compose.rs", "description": "resolve_subkinds binds a nested subkind (no locus) placed by its host's template instead of refusing it" },
+      { "path": "src/kind.rs", "description": "subkind-binding facts for a locus-less nested subkind" },
+      { "path": "tests/it/kind_extension.rs", "description": "lock-row cases: host template naming a nested subkind" }
+    ]
+  },
+  "summary": "A nested member's kind is declared by its host's template: an extended host names a subkind of a nested kind as its child, and base selections bind it (0099)",
+  "per": { "path": "specs/model/representation.md", "section": "kind" },
+  "acceptance": "a `procedure` subkind of skill templating `topic` (a supporting-doc subkind) loads, and a .md under a procedure's unit is a `topic` member",
+  "tests": [
+    "a nested subkind named by an extended hosts template loads",
+    "a file child under an extended hosts unit is a member of the subkind its template names",
+    "a clause bound to the nested base judges the nested subkinds member"
+  ],
+  "pins": [
+    "a subkind whose locus lies outside its bases refuses at load"
+  ],
+  "interface": {
+    "changes": "extend(host, { name, template }) names a subkind child; extend accepts a nested base such as supportingDoc",
+    "hides": "where a nested subkind's documents live: the host's template says it, no path pattern is authored",
+    "rejected": "a path pattern on the nested subkind: a second spelling of the placement the host template owns (0099)"
+  },
+  "notes": "compose.rs:902 refuses today: a nested base governs no file locus. Embedded-admission subkinds (Cascade's invariant) ride the same rule; take them here only if the host's admission row already names a child kind."
+}

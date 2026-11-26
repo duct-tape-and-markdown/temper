@@ -1,0 +1,22 @@
+{
+  "tag": "HOST-TEMPLATE-CLAIM-OWNS-ITS-UNITS-FILES",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/compose.rs", "description": "derive the cede: a built-in host's unit subtree leaves every other kind's locus (memory's any-depth reach), beside the subkind cede" },
+      { "path": "src/kind.rs", "description": "ceded patterns carry a host unit's any-depth subtree if locus_admits needs it" },
+      { "path": "tests/it/builtin_loci.rs", "description": "nested-skill CLAUDE.md is the skill's, not memory's" }
+    ]
+  },
+  "summary": "A built-in host's template claim owns every file under its unit at any depth, so a CLAUDE.md inside a nested skill's directory is the skill's, not memory's (0096)",
+  "per": { "path": "specs/builtins.md", "section": "Built-ins — what ships" },
+  "acceptance": "apps/web/.claude/skills/deploy/CLAUDE.md is not discovered as memory, with no exclusion pattern added to memory's row",
+  "tests": [
+    "a claude md inside a nested skills directory is not discovered as memory"
+  ],
+  "pins": [
+    "a claude md under the agents commands or skills folder is not discovered as memory",
+    "a claude md under claude outside the loader folders stays memory"
+  ],
+  "notes": "Derived by kind, never a `**/` exclusion (0081 keeps exclusions literal). Folding 0084's literal memory exclusions into this cede is a candidate, not owed here; the embedded lock row stays as is."
+}
