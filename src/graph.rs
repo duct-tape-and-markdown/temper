@@ -27,7 +27,7 @@ use std::path::{Path, PathBuf};
 use crate::builtin_kind::MAX_IMPORT_HOPS;
 use crate::check::Diagnostic;
 use crate::compose::{Edge, Requirement};
-use crate::contract::{EdgeBound, Predicate};
+use crate::contract::{EdgeBound, Predicate, ROOT_OWNER};
 use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
@@ -1899,6 +1899,23 @@ pub fn resolved_mention_edges(mentions: &[MentionDeclaration]) -> Vec<ResolvedEd
             from: node_from_address(&mention.member),
             field: MENTION_FIELD.to_string(),
             to: node_from_address(&mention.target),
+        })
+        .collect()
+}
+
+/// Lift the tools the harness root runs into [`ResolvedEdge`]s from the root node over
+/// the runs field, each target keyed by its whole address as a handler's resolved edge
+/// keys it. The root is no kind member, so its runner rows have no features to fold
+/// onto; the arc rides beside the mention edges instead, where `degree` counts it toward
+/// the tool's incoming bound exactly as a handler's folded edge counts.
+#[must_use]
+pub fn root_runs_edges<'a>(tools: impl IntoIterator<Item = &'a str>) -> Vec<ResolvedEdge> {
+    tools
+        .into_iter()
+        .map(|tool| ResolvedEdge {
+            from: (ROOT_OWNER.to_string(), ROOT_OWNER.to_string()),
+            field: crate::drift::RUNS_FIELD.to_string(),
+            to: (crate::tool::TOOL_KIND.to_string(), tool.to_string()),
         })
         .collect()
 }

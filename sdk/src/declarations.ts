@@ -1393,7 +1393,7 @@ function runners(member: Member): Array<readonly [string, unknown]> {
 
 /**
  * The `runs` rows — each runner naming the {@link tool} it runs (a hook handler, a
- * settings status line), keyed to the runner's own address and the tool's
+ * settings status line, the root for its typecheck), keyed to the runner's own address and the tool's
  * (`root/tool/<name>`), in member-then-position order. The edge is declared, never read
  * off the runner's `command`: the program states which tool a command runs.
  *
@@ -1408,6 +1408,10 @@ function runsRows(harness: Harness): RunsRow[] {
       if (runs === undefined) continue;
       rows.push({ member: runner, tool: composedToolAddress(harness, runner, "runs", runs) });
     }
+  }
+  // The harness root declares the typecheck, so the root is the compiler tool's runner.
+  if (harness.typecheck !== undefined) {
+    rows.push({ member: ROOT_ADDRESS, tool: composedToolAddress(harness, "typecheck", "tool", harness.typecheck.tool) });
   }
   return rows;
 }

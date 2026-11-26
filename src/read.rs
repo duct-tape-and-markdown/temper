@@ -2490,6 +2490,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     // narrating a dangling mention as the gate's route finding rather than a resolved edge,
     // so a read cannot disagree with the gate (READ-EDGE-UNIFY).
     let mut mention_edges = drift::mention_edges_from_declarations(&declarations);
+    mention_edges.extend(drift::root_runs_edges_from_declarations(&declarations));
     mention_edges.extend(drift::import_edges_from_doc(&lock_doc)?);
 
     // The world's inbound registration channel set into every kind — the overlaid

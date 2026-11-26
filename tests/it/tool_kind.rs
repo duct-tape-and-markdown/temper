@@ -405,3 +405,50 @@ fn an_unsupported_lockfile_refuses_naming_it() {
         "explain refuses naming the lockfile: {narration}"
     );
 }
+
+/// A program whose only runner of its `{ package, bin }` compiler tool is its typecheck.
+const TYPECHECK_ONLY_PROGRAM: &str = r#"
+import { emit, harness, input, tool } from "@dtmd/temper";
+
+declare const process: { stdout: { write(chunk: string): boolean } };
+
+const tsc = tool({ package: "typescript", bin: "tsc" });
+
+const program = harness({
+  members: [tsc],
+  typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[cfg(unix)]
+#[test]
+fn a_tool_reached_only_by_the_typecheck_draws_no_degree_finding() {
+    let (harness, into) = common::wire_sdk_harness("tool-typecheck-only", TYPECHECK_ONLY_PROGRAM);
+    common::wire_typescript_compiler(&into);
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    assert!(
+        declarations
+            .runs
+            .iter()
+            .any(|row| row.member == "root" && row.tool == "root/tool/tsc"),
+        "the lock carries the typecheck's edge as a runs row whose runner is the root: {:?}",
+        declarations.runs
+    );
+
+    let run = common::check_in(&harness, &["."], Some("github"));
+    let findings = run.findings();
+    assert!(
+        common::findings_for(&findings, "tool.degree").is_empty(),
+        "the typecheck runs the tool, so the tool is run: {}",
+        run.output
+    );
+    assert!(
+        common::findings_for(&findings, "graph.route").is_empty(),
+        "the root's edge resolves: {}",
+        run.output
+    );
+}

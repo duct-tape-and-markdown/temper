@@ -7826,6 +7826,19 @@ pub fn mention_edges_from_declarations(declarations: &Declarations) -> Vec<graph
     graph::resolved_mention_edges(&mentions)
 }
 
+/// The lock's `runs` rows whose runner is the harness root (the typecheck's tool), lifted
+/// into [`graph::ResolvedEdge`]s ([`graph::root_runs_edges`]). Every other runner's row
+/// folds onto its own member's fields instead.
+pub fn root_runs_edges_from_declarations(declarations: &Declarations) -> Vec<graph::ResolvedEdge> {
+    graph::root_runs_edges(
+        declarations
+            .runs
+            .iter()
+            .filter(|row| row.member == contract::ROOT_OWNER)
+            .map(|row| row.tool.as_str()),
+    )
+}
+
 /// Extract import edges from an already-parsed lock document, avoiding redundant
 /// reads/parses.
 ///

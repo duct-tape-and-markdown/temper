@@ -261,6 +261,7 @@ pub fn gate(
     // owns a deferred mention's dangling verdict) and layout prose imports (path-resolved
     // at emit), each lifted off the lock's own declaration family.
     let mut mention_edges = drift::mention_edges_from_declarations(&declarations);
+    mention_edges.extend(drift::root_runs_edges_from_declarations(&declarations));
     // The layout-prose imports are kept in their own binding as well: they are half the
     // **import relation** `acyclic` is scoped to (`contract.md`, "well-formedness"),
     // which the mention family is not.
