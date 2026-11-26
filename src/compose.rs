@@ -2687,7 +2687,6 @@ impl EnforcementModes {
         }
         let kind = crate::member_address::parse_nested_address(address)
             .map(|nested| nested.kind)
-            .or_else(|| crate::member_address::root_hosted_kind(address))
             .or_else(|| crate::member_address::parse_host_address(address).map(|(kind, _)| kind));
         kind.map_or(self.root, |kind| self.for_kind(kind))
     }

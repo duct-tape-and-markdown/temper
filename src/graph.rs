@@ -2393,7 +2393,10 @@ pub fn contains_field(kind: &str) -> String {
 /// ([`embedded_source_host`](crate::member_address::embedded_source_host)), the same
 /// reader [`embedded_hosts_by_key`] beside it uses. A *file* child — a `path`-carrying
 /// template's member — owns its own unit rather than a fence in the host's body, so its
-/// identity is no nested address and it yields no containment arc.
+/// identity is no nested address and it yields no containment arc. A **root-hosted**
+/// member (`root/tool/<key>`) reads its host as the root's own `(root, root)` node, so the
+/// root's containment of each tool it hosts rides this family like any host's
+/// (`specs/model/representation.md`, "The root member").
 ///
 /// The arc runs host → member: `from` is the host's `(kind, name)` node, `to` the
 /// embedded member's own `(kind, id)` node, where the id is its whole

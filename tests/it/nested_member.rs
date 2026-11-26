@@ -2221,3 +2221,42 @@ mod nested_skill_leaf_name {
         assert!(!name_matches_dir_findings("apps-web-deploy").is_empty());
     }
 }
+
+/// **A root-hosted member's containment is an edge from the root**
+/// (`specs/model/representation.md`, "The root member"). The root's address is the bare
+/// `root`, so a tool it hosts wears `root/tool/<key>` and the one address grammar reads its
+/// host as the root's own `(root, root)` node — the node every root-sourced arc keys by —
+/// so the containment family carries the arc and the root's out-degree is judgeable.
+#[test]
+fn a_root_hosted_tool_is_a_containment_edge_from_the_root() {
+    let tools = [
+        common::features("root/tool/tsc"),
+        common::features("root/tool/jq"),
+    ];
+    let by_kind: BTreeMap<&str, &[temper::extract::Features]> =
+        BTreeMap::from([("tool", &tools[..])]);
+
+    let arcs: Vec<(temper::graph::Node, String, temper::graph::Node)> =
+        temper::graph::containment_edges(&by_kind)
+            .into_iter()
+            .map(|edge| (edge.from, edge.field, edge.to))
+            .collect();
+    let root = ("root".to_string(), "root".to_string());
+    let field = temper::graph::contains_field("tool");
+    assert_eq!(
+        arcs,
+        vec![
+            (
+                root.clone(),
+                field.clone(),
+                ("tool".to_string(), "root/tool/tsc".to_string())
+            ),
+            (
+                root,
+                field,
+                ("tool".to_string(), "root/tool/jq".to_string())
+            ),
+        ],
+        "each root-hosted tool is contained by the root"
+    );
+}

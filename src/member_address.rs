@@ -247,7 +247,16 @@ fn segment(address: &str) -> Option<Segments<'_>> {
 /// a name no member bears. A host that is neither grain names nothing: the top-level
 /// split is refused unless the host is exactly one segment, since [`parse_host_address`]
 /// cuts at the first colon and would otherwise read `a/b:c/d` as one.
+///
+/// The **root member** is a host too: its address is the bare [`ROOT_HOST`] rather than a
+/// `<kind>:<name>`, and its node is `(root, root)` — the identity every root-sourced arc
+/// already keys it by (`crate::graph`'s `root_runs_edges`) — so a root-hosted member
+/// (`root/tool/<key>`) reads through this one grammar like any nested member
+/// (`specs/model/representation.md`, "The root member").
 fn host_identity(host: &str) -> Option<AddressPair<'_>> {
+    if host == ROOT_HOST {
+        return Some((ROOT_HOST, ROOT_HOST));
+    }
     if let Some(nested) = parse_nested_address(host) {
         return Some((nested.kind, host));
     }
@@ -333,27 +342,10 @@ pub fn embedded_source_host(address: &str) -> Option<(AddressPair<'_>, AddressPa
 /// The **key** segment of a nested member's own address, or `None` when `address` is no
 /// nested-member address — the bare short form a reference may spell, read through the
 /// one parser rather than a fresh split at each reader (`crate::read`'s `explain`
-/// resolution is the other one).
-///
-/// A **root-hosted** address (`root/tool/<key>`) is a member address too: its host is the
-/// root member, whose address is the bare [`ROOT_HOST`] rather than a `<kind>:<name>`, so
-/// [`parse_nested_address`] — whose host must be a kind-bearing member for the graph's
-/// host scoping — does not read it, and this reader does.
+/// resolution is the other one). A root-hosted address (`root/tool/<key>`) is one too.
 #[must_use]
 pub fn nested_key(address: &str) -> Option<&str> {
-    if let Some(nested) = parse_nested_address(address) {
-        return Some(nested.key);
-    }
-    let segments = segment(address)?;
-    (segments.tail.is_none() && segments.host == ROOT_HOST).then_some(segments.key)
-}
-
-/// The **kind** segment of a root-hosted member's address (`root/tool/<key>` reads `tool`),
-/// or `None` when `address` is no root-hosted member address.
-#[must_use]
-pub fn root_hosted_kind(address: &str) -> Option<&str> {
-    let segments = segment(address)?;
-    (segments.tail.is_none() && segments.host == ROOT_HOST).then_some(segments.kind)
+    parse_nested_address(address).map(|nested| nested.key)
 }
 
 /// The root member's own address — the host segment a root-hosted member's address opens
@@ -695,6 +687,22 @@ mod tests {
 
     #[test]
     fn a_root_hosted_address_reads_its_key_and_its_leaf_does_not() {
+        // One grammar: the parser and every reader built on it agree on the root host.
+        let parsed = parse_nested_address("root/tool/tsc").expect("a root-hosted address");
+        assert_eq!(
+            (
+                parsed.host,
+                parsed.host_kind,
+                parsed.host_name,
+                parsed.kind,
+                parsed.key
+            ),
+            ("root", "root", "root", "tool", "tsc")
+        );
+        assert_eq!(
+            embedded_source_host("root/tool/tsc"),
+            Some((("tool", "tsc"), ("root", "root")))
+        );
         assert_eq!(nested_key("root/tool/tsc"), Some("tsc"));
         assert_eq!(nested_key("root/tool/tsc/package"), None);
         assert_eq!(nested_key("elsewhere/tool/tsc"), None);
