@@ -854,9 +854,16 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
 /// `mark`, the file [`represented_by`] found if any, naming what already answered the
 /// represent question on disk — the question below the report is skipped, so the answer is
 /// stated rather than left invisible — then member counts by kind, or a plain statement
-/// that nothing was found.
+/// that nothing was found, then `findings`: what the gate bare `check` runs over this
+/// root says, rendered as `check` renders it, so the author reads the contract's verdict
+/// before answering the question.
 #[must_use]
-pub fn render_discovery(report: &DiscoveryReport, mark: Option<&Path>) -> String {
+pub fn render_discovery(
+    report: &DiscoveryReport,
+    mark: Option<&Path>,
+    findings: &[Diagnostic],
+    announcement: &crate::check::Announcement,
+) -> String {
     let mut out = String::from("discovery:\n");
     if let Some(mark) = mark {
         out.push_str(&format!(
@@ -866,13 +873,16 @@ pub fn render_discovery(report: &DiscoveryReport, mark: Option<&Path>) -> String
     }
     if report.total() == 0 {
         out.push_str("  no members found under this project's known kinds\n");
-        return out;
     }
     for (kind, found) in &report.members {
         if found.is_empty() {
             continue;
         }
         out.push_str(&format!("  {kind:<20} {}\n", found.len()));
+    }
+    if !findings.is_empty() {
+        out.push_str("\ncontract:\n");
+        out.push_str(&crate::check::render(findings, announcement));
     }
     out
 }

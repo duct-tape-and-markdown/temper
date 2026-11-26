@@ -340,7 +340,7 @@ fn discover_reports_member_counts_by_kind() {
     assert_eq!(report.members.get("rule").map(KindMembers::len), Some(2));
     assert_eq!(report.total(), 3);
 
-    let rendered = install::render_discovery(&report, None);
+    let rendered = install::render_discovery(&report, None, &[], &Default::default());
     assert!(rendered.contains("skill"));
     assert!(rendered.contains("rule"));
 }
@@ -350,7 +350,10 @@ fn an_empty_project_reports_no_members_found() {
     let root = common::tmpdir("discover-empty");
     let report = install::discover(&root).unwrap();
     assert_eq!(report.total(), 0);
-    assert!(install::render_discovery(&report, None).contains("no members found"));
+    assert!(
+        install::render_discovery(&report, None, &[], &Default::default())
+            .contains("no members found")
+    );
 }
 
 /// A `CLAUDE.md` under `.temper/` (the surface workspace: temper's own authored
@@ -2114,7 +2117,7 @@ fn a_manifest_carrying_no_registration_segment_reports_zero_for_those_kinds() {
         );
     }
 
-    let rendered = install::render_discovery(&discovery, None);
+    let rendered = install::render_discovery(&discovery, None, &[], &Default::default());
     assert!(rendered.contains("settings"), "got:\n{rendered}");
     assert!(
         !rendered.contains("hook"),
@@ -4002,6 +4005,61 @@ fn the_cli_install_verb_prompts_exactly_once_with_no_flag() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains(install::REPRESENT_QUESTION));
     assert!(stdout.contains("not represented"));
+}
+
+/// Run `temper install` over `root`, answering the one question `n`, and return stdout.
+fn install_prompted(root: &Path) -> String {
+    use std::io::Write as _;
+    let mut child = Command::new(BIN)
+        .arg("install")
+        .arg(root)
+        .arg("--dry-run")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"n\n").unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(output.status.success());
+    String::from_utf8(output.stdout).unwrap()
+}
+
+#[test]
+fn the_install_discovery_report_shows_a_missing_skill_description_before_the_represent_question() {
+    let root = common::tmpdir("cli-report-contract");
+    let skill = root.join(".claude").join("skills").join("undescribed");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: undescribed\n---\nBody.\n",
+    )
+    .unwrap();
+
+    let stdout = install_prompted(&root);
+    let finding = stdout
+        .find("skill.required.description")
+        .unwrap_or_else(|| panic!("no description finding in the report:\n{stdout}"));
+    let question = stdout.find(install::REPRESENT_QUESTION).unwrap();
+    assert!(finding < question, "finding after the question:\n{stdout}");
+}
+
+#[test]
+fn the_install_discovery_report_prints_a_count_per_kind() {
+    let root = write_harness("cli-report-counts", false);
+    let stdout = install_prompted(&root);
+    let question = stdout.find(install::REPRESENT_QUESTION).unwrap();
+    let report = &stdout[..question];
+    let count = |kind: &str| {
+        report
+            .lines()
+            .find_map(|line| {
+                let mut words = line.split_whitespace();
+                (words.next() == Some(kind)).then(|| words.next().map(str::to_owned))
+            })
+            .flatten()
+    };
+    assert_eq!(count("skill").as_deref(), Some("1"), "{report}");
+    assert_eq!(count("rule").as_deref(), Some("2"), "{report}");
 }
 
 #[test]

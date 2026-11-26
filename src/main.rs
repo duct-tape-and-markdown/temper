@@ -275,46 +275,7 @@ fn main() -> miette::Result<ExitCode> {
             // different place than it discovers the corpus from, nor from a different
             // place than the session-start reporter does.
             let harness_path = harness.or(root).unwrap_or_else(|| PathBuf::from("."));
-            // A harness that cannot be *loaded* is still a verdict, and it reaches the
-            // selected reporter like any other: propagating the report here would abort
-            // before the match below, so `--reporter session-start` would print an empty
-            // stdout — the shape a clean pass is read from — while the failure went to
-            // stderr, where the hook does not look. Both `?` sites inside
-            // `harness_diagnostics` are covered by catching at this one call site.
-            // `check::load_fault` lowers the report to one `error` diagnostic, so the
-            // exit rule below is unchanged: the hard placements still exit non-zero.
-            let (diagnostics, announced) = match harness_diagnostics(&harness_path, &layers) {
-                Ok(gated) => gated,
-                Err(report) => {
-                    // A load fault over a lock *another* engine wrote leads with the
-                    // skew: the `engine-matches` clause that ordinarily says so is
-                    // judged inside a gate this run never reached, so without this the
-                    // author reads a closed-vocabulary rejection of rows their own
-                    // engine never wrote (`specs/model/pipeline.md`, "The lock").
-                    //
-                    // A failure-path-only second lock read — the healthy run below
-                    // never takes it, so the `lock_read_count` pins
-                    // (`tests/check_cost.rs`) are untouched. Both reads are
-                    // best-effort: a workspace that will not resolve, and a lock that
-                    // will not parse, pass `None` — *unknown*, never a forged stamp,
-                    // and never a second fault stacked on the one being reported.
-                    let lock_engine = resolve_harness_path(&harness_path)
-                        .ok()
-                        .and_then(|resolved| {
-                            let (workspace, _) = resolved.gate_pair(&harness_path);
-                            drift::read_engine(&workspace).ok()
-                        })
-                        .flatten();
-                    (
-                        vec![check::load_fault(
-                            &report,
-                            harness_path.display().to_string(),
-                            lock_engine.as_deref(),
-                        )],
-                        check::Announcement::default(),
-                    )
-                }
-            };
+            let (diagnostics, announced) = gate_verdict(&harness_path, &layers);
 
             match reporter {
                 Reporter::Terminal => print!("{}", check::render(&diagnostics, &announced)),
@@ -605,9 +566,10 @@ fn main() -> miette::Result<ExitCode> {
             let settled = install::represented_by(&path).or(lock);
 
             let discovery = install::discover(&path)?;
+            let (findings, announced) = gate_verdict(&path, &[]);
             print!(
                 "{}",
-                install::render_discovery(&discovery, settled.as_deref())
+                install::render_discovery(&discovery, settled.as_deref(), &findings, &announced)
             );
 
             // A settled fork skips both the prompt and `ask_represent`'s conservative
@@ -920,6 +882,55 @@ fn resolve_harness_path(path: &Path) -> miette::Result<HarnessPath> {
         });
     }
     Ok(HarnessPath::Raw)
+}
+
+/// The gate bare `check` runs over a path argument, a load fault lowered to its one
+/// `error` diagnostic — shared by `check` and `install`'s discovery report so the two
+/// can never judge a harness by different contracts.
+fn gate_verdict(
+    harness_path: &Path,
+    layers: &[PathBuf],
+) -> (Vec<check::Diagnostic>, check::Announcement) {
+    // A harness that cannot be *loaded* is still a verdict, and it reaches the
+    // selected reporter like any other: propagating the report would abort before
+    // `check`'s reporter match, so `--reporter session-start` would print an empty
+    // stdout — the shape a clean pass is read from — while the failure went to
+    // stderr, where the hook does not look. Both `?` sites inside
+    // `harness_diagnostics` are covered by catching at this one call site.
+    // `check::load_fault` lowers the report to one `error` diagnostic, so `check`'s
+    // exit rule is unchanged: the hard placements still exit non-zero.
+    match harness_diagnostics(harness_path, layers) {
+        Ok(gated) => gated,
+        Err(report) => {
+            // A load fault over a lock *another* engine wrote leads with the
+            // skew: the `engine-matches` clause that ordinarily says so is
+            // judged inside a gate this run never reached, so without this the
+            // author reads a closed-vocabulary rejection of rows their own
+            // engine never wrote (`specs/model/pipeline.md`, "The lock").
+            //
+            // A failure-path-only second lock read — the healthy run never
+            // takes it, so the `lock_read_count` pins
+            // (`tests/check_cost.rs`) are untouched. Both reads are
+            // best-effort: a workspace that will not resolve, and a lock that
+            // will not parse, pass `None` — *unknown*, never a forged stamp,
+            // and never a second fault stacked on the one being reported.
+            let lock_engine = resolve_harness_path(harness_path)
+                .ok()
+                .and_then(|resolved| {
+                    let (workspace, _) = resolved.gate_pair(harness_path);
+                    drift::read_engine(&workspace).ok()
+                })
+                .flatten();
+            (
+                vec![check::load_fault(
+                    &report,
+                    harness_path.display().to_string(),
+                    lock_engine.as_deref(),
+                )],
+                check::Announcement::default(),
+            )
+        }
+    }
 }
 
 /// The one-shot gate over a path argument — shared by `check` and the session-start
