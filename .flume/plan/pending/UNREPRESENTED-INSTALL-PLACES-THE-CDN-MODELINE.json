@@ -1,0 +1,23 @@
+{
+  "tag": "UNREPRESENTED-INSTALL-PLACES-THE-CDN-MODELINE",
+  "gate": { "kind": "blockedBy", "tags": ["SDK-PACKAGE-SHIPS-THE-BUILTIN-SCHEMAS"] },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/install.rs", "description": "place_settings_only also places the modeline per governed frontmatter artifact" },
+      { "path": "src/placement.rs", "description": "the CDN schema reference, cited" },
+      { "path": "tests/it/install.rs", "description": "unrepresented modeline cases" }
+    ]
+  },
+  "summary": "An unrepresented install places the yaml-language-server modeline pointing at the SDK's version-pinned CDN schema, writing nothing else",
+  "per": { "path": "specs/distribution.md", "section": "The placements and their enforcement modes" },
+  "acceptance": "temper install on an unrepresented harness seats a modeline naming the version-pinned CDN URL of the SDK's schema for each governed frontmatter artifact, idempotently",
+  "tests": [
+    "an unrepresented install places a version-pinned CDN schema modeline in a governed frontmatter artifact",
+    "re-running an unrepresented install leaves the CDN schema modeline unchanged"
+  ],
+  "pins": [
+    "an unrepresented install writes no schema file to the tree"
+  ],
+  "notes": "0109 Consequences: the CDN URL grammar (jsDelivr or unpkg) is cited at the point of claim when this is built; fetch the CDN's docs. The pinned version is the engine's own, which version_parity holds equal to the SDK's. A frontmatterless artifact takes no modeline."
+}
