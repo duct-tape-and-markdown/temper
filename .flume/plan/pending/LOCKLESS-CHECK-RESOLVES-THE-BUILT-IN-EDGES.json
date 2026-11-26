@@ -42,10 +42,12 @@
   },
   "acceptance": "check over a lockless harness reports a settings outputStyle naming no style, and an installed plugin naming no known marketplace",
   "tests": [
-    "a lockless harness reports a dangling outputStyle",
-    "a lockless harness reports an installed plugin naming no known marketplace"
+    "a lockless harness resolves a provided outputStyle name",
+    "a lockless harness notes an off-tree outputStyle as one coverage note"
   ],
-  "pins": [],
+  "pins": [
+    "a lockless harness resolves an installed plugin against a known marketplace the settings declare"
+  ],
   "laneTests": [],
-  "notes": "Note OUTPUT-STYLE-IS-SELECTED-BY-SETTINGS: gate.rs reads declaration.assembly only off the committed lock (read_lock_document yields an empty doc when absent), never the embedded lock. \"A harness with no lock is still fully gated.\" Tests today stand up a committed copy of the built-in declarations. Shares edges_from_declarations with EDGE-FIELD-SET-IS-DERIVED-ONCE."
+  "notes": "Note OUTPUT-STYLE-IS-SELECTED-BY-SETTINGS: gate.rs reads declaration.assembly only off the committed lock (read_lock_document yields an empty doc when absent), never the embedded lock. \"A harness with no lock is still fully gated.\" Tests today stand up a committed copy of the built-in declarations. Shares edges_from_declarations with EDGE-FIELD-SET-IS-DERIVED-ONCE. Re-scoped 2026-11-26 to 0106 (an off-tree target is never dangling): an outputStyle or marketplace the tree cannot show is user-scope or plugin-provided, so it collapses to one coverage note and is never reported as dangling; a provided name (a documented built-in style) resolves."
 }
