@@ -1,3 +1,0 @@
-# Layer slots and their order are cited data on the provider face
-
-`specs/model/authoring.md`, "Layers": which slots exist and their order is the provider's documented fact, carried as cited data on the provider face, and the claude-code face emulates the product's own precedence with the user slot named, reserved and ungoverned. Later layers win by array surgery. The code has local members and joined locks, but no slot data, precedence or user slot (census, 2026-11-26). This is intent the code does not meet (0105). Plan may judge it needs a design question first: the merge algebra over slots is underspecified, and the claude-code precedence must be cited (code.claude.com/docs/en/settings).

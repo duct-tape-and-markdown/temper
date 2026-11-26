@@ -1,0 +1,48 @@
+{
+  "tag": "DANGLING-EDGE-AND-UNBACKED-IMPORT-ARE-CLAUSES",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/graph.rs",
+        "description": "graph.route and unbacked import ride a clause label"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "root default contract gains the two clauses"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-emitted rows"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emit"
+      },
+      {
+        "path": "tests/it/graph.rs",
+        "description": "label + dial tests"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "the dangling-edge (graph.route) and unbacked-import checks become labelled, dialable shipped clauses at their present severity",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "well-formedness"
+  },
+  "acceptance": "both findings carry a clause label with guidance and cite; a dial lowers the read severity and the finding still reports",
+  "tests": [
+    "a dangling edge finding carries a clause label",
+    "an unbacked import finding carries a clause label",
+    "a dial over the dangling edge clause lowers its severity and it still reports"
+  ],
+  "pins": [
+    "a dangling edge fires at error severity by default"
+  ],
+  "notes": "Intent, 'The engine ships no baked judgment': only admissibility and acyclicity stay fixed. Sites from the census: src/graph.rs:83, :2383 (route), :1694 (unbacked import). Shares builtins.ts/builtin_lock.toml with REQUIREMENT-FILL-AND-DANGLING-ARE-CLAUSES. Spec (pending) marks come off at the human cut."
+}

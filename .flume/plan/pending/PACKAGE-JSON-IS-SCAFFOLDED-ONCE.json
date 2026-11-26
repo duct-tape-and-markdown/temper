@@ -1,0 +1,34 @@
+{
+  "tag": "PACKAGE-JSON-IS-SCAFFOLDED-ONCE",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "ensure_package_json writes only on absence"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "byte-identity test"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "install writes the program's package.json only when it is absent, never rewriting an existing one",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "re-running install leaves an existing package.json byte-identical; a first install scaffolds it",
+  "tests": [
+    "re running install leaves an existing package json byte identical"
+  ],
+  "pins": [
+    "a first install scaffolds the package json"
+  ],
+  "notes": "0100. Today ensure_package_json (src/install.rs:3552) rewrites through serde_json, sorting keys. A dependency an existing file lacks is named for the author's manager to add, never written. Shares src/install.rs with PACKAGE-MANAGER-FIELD-NAMES-THE-MANAGER."
+}

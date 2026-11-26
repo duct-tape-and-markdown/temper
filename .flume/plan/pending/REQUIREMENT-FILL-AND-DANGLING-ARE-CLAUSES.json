@@ -1,0 +1,53 @@
+{
+  "tag": "REQUIREMENT-FILL-AND-DANGLING-ARE-CLAUSES",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/coverage.rs",
+        "description": "the two checks ride clause labels; required:false lowers, never silences"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "requirement contract gains the two clauses"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-emitted rows"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emit"
+      },
+      {
+        "path": "src/bundled_reference/kind-requirement.md",
+        "description": "regenerated"
+      },
+      {
+        "path": "tests/it/requirement_roster.rs",
+        "description": "label + dial + advisory tests"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "requirement.unfilled and requirement.dangling become labelled, dialable shipped clauses; required: false makes the fill clause advisory, not silent",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "requirement \u2014 a shipped kind, not a primitive"
+  },
+  "acceptance": "both findings carry a clause label; a dial lowers them and they still report; an optional requirement unfilled draws an advisory",
+  "tests": [
+    "an unfilled requirement finding carries a clause label",
+    "a dangling requirement finding carries a clause label",
+    "a dial over the requirement fill clause lowers its severity and it still reports",
+    "an optional requirement left unfilled draws an advisory"
+  ],
+  "pins": [
+    "a required requirement left unfilled fires at error severity"
+  ],
+  "notes": "contract.md calls the fill default a whole-grain cardinality clause at error severity. Sites: src/coverage.rs:79 (unfilled), :103 (dangling). Fixes the THE-REQUIREMENT-IS-A-SHIPPED-KIND note's 'no clause holds its members' reference wording. Shares builtins.ts/builtin_lock.toml with DANGLING-EDGE-AND-UNBACKED-IMPORT-ARE-CLAUSES."
+}

@@ -1,0 +1,28 @@
+{
+  "tag": "PIN-CHECK-AND-EXPLAIN-RUN-WITHOUT-NODE",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "pin test"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "pin the review-only claim that checking never needs Node",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "`check and explain run over an emitted harness with node absent from the path` is green",
+  "tests": [],
+  "pins": [
+    "check and explain run over an emitted harness with node absent from the path"
+  ],
+  "notes": "Pin-only (census 2026-11-26, 87 review-only claims). If the property does not hold, it is a defect: park naming it, never weaken the line."
+}

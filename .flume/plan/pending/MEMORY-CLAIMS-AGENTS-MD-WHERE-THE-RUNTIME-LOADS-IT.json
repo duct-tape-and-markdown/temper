@@ -1,0 +1,47 @@
+{
+  "tag": "MEMORY-CLAIMS-AGENTS-MD-WHERE-THE-RUNTIME-LOADS-IT",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "memory claims the conditional AGENTS.md; replace the stale 'does not read' cite"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-emitted rows + comment at :50"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emit"
+      },
+      {
+        "path": "src/bundled_reference/kind-memory.md",
+        "description": "regenerated"
+      },
+      {
+        "path": "tests/it/memory_gate.rs",
+        "description": "AGENTS.md cases"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "memory claims an AGENTS.md where Claude Code loads it as memory: a directory with no CLAUDE.md in it or above it",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
+  "acceptance": "an AGENTS.md-only harness governs it as memory; an AGENTS.md beside or below a CLAUDE.md is no memory member; an @AGENTS.md import still reaches it by edge",
+  "tests": [
+    "a harness with only an agents md at root governs it as memory"
+  ],
+  "pins": [
+    "an agents md beside a claude md is not a memory member",
+    "a claude md importing agents md reaches it through the import edge"
+  ],
+  "notes": "Class 0101. code.claude.com/docs/en/memory (retrieved 2026-11-26): AGENTS.md read in place of CLAUDE.md only when no CLAUDE.md is in the working directory or above (v2.1.277+). Codex overrides belong to a future provider face. If the locus grammar cannot express 'no CLAUDE.md at or above', park naming the gap rather than hand-roll a claim."
+}

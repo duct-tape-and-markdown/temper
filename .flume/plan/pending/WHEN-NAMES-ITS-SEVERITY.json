@@ -1,0 +1,34 @@
+{
+  "tag": "WHEN-NAMES-ITS-SEVERITY",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/contract.ts",
+        "description": "severity required (:402)"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "shipped when clauses state severity"
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "description": "type test"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "`when()` requires its author to state a severity, as `clause()` does; shipped when clauses state theirs",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "acceptance": "a when() with no severity fails tsc (SDK type test); every shipped when clause compiles with its stated severity",
+  "tests": [],
+  "pins": [],
+  "notes": "'The tool never decides error-versus-warning.' SDK-only, no tests[] line; builtin_lock.toml stays byte-identical."
+}

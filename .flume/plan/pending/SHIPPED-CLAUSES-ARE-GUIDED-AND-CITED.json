@@ -1,0 +1,50 @@
+{
+  "tag": "SHIPPED-CLAUSES-ARE-GUIDED-AND-CITED",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "guidance + dated cite on each bare clause"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "widen to every built-in kind's contract; check the date"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-emitted rows"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emit"
+      },
+      {
+        "path": "src/bundled_reference/kind-plugin-manifest.md",
+        "description": "regenerated guidance"
+      },
+      {
+        "path": "src/bundled_reference/kind-tool.md",
+        "description": "regenerated"
+      },
+      {
+        "path": "src/bundled_reference/kind-output-style.md",
+        "description": "regenerated"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "every shipped clause carries guidance and a dated cite, and the SDK test holding it derives its contract set from the built-in kinds",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The clauses live in code"
+  },
+  "acceptance": "SDK suite fails on any shipped clause with no guidance or no dated cite; the test's contract set derives from the built-in kinds",
+  "tests": [],
+  "pins": [],
+  "notes": "Census 2026-11-26: 35 rows lack guidance (plugin-manifest.optional.*, when guards on handler/marketplace/mcp-server, dial.type.name), 12 lack cite (tool.degree, dial.*, 3 root). External cites are fetched, not recalled (collaboration rule); a temper-owned clause (dial.*) cites the corpus section that rules it. SDK-only test, so no tests[] line."
+}

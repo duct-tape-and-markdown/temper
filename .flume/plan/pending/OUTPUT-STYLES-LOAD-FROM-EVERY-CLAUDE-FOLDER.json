@@ -9,15 +9,31 @@
     "edit": [
       {
         "path": "sdk/src/builtins.ts",
-        "description": "output-style locus reaches nested .claude/output-styles"
+        "description": "locus reaches nested .claude/output-styles; shadowing advisory clause"
+      },
+      {
+        "path": "src/extract.rs",
+        "description": "nested identity joins subdirectory segments (unit_shape_id)"
+      },
+      {
+        "path": "src/graph.rs",
+        "description": "settings outputStyle resolves at the settings file's own level"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "memory cedes nested output-styles CLAUDE.md (0102)"
       },
       {
         "path": "src/builtin_lock.toml",
-        "description": "re-emitted rows; memory exclude"
+        "description": "re-emitted rows"
+      },
+      {
+        "path": "src/bundled_reference/kind-output-style.md",
+        "description": "regenerated"
       },
       {
         "path": "tests/it/output_style_kind.rs",
-        "description": "nested placement"
+        "description": "nested placement, shadowing, root resolution"
       },
       {
         "path": "examples/base-harness/.temper/lock.toml",
@@ -26,16 +42,20 @@
     ],
     "retire": []
   },
-  "summary": "output-style claims every .claude/output-styles/ between the working directory and the repo root, as the runtime loads them",
+  "summary": "output-style claims every nested .claude/output-styles/; a nested style's identity carries its directory segments, so a same-named root and nested style are two members",
   "per": {
     "path": "specs/builtins.md",
     "section": "The shipped kinds"
   },
-  "acceptance": "a style under a nested .claude/output-styles/ is claimed and an outputStyle naming it resolves",
+  "acceptance": "a root terse.md and apps/web/.claude/output-styles/terse.md check with no member.admissibility, the pair draws the shadowing advisory, and root outputStyle: terse resolves to the root style",
   "tests": [
     "an output style in a nested claude folder is claimed",
-    "a settings output style naming a nested style resolves"
+    "a root and a nested output style sharing a name check with no admissibility finding",
+    "a nested output style sharing a root style name draws the shadowing advisory"
   ],
-  "pins": [],
-  "notes": "Note OUTPUT-STYLE-KIND-SHIPS, class 0101: docs (code.claude.com/docs/en/output-styles, retrieved 2026-11-25) load project styles from every .claude/output-styles/ up to the repo root, nearest winning a name clash. If the engine's identity rule refuses a same-named style at two depths, park and raise rather than invent a shadowing rule."
+  "pins": [
+    "a root settings output style resolves to the root style",
+    "a claude md in a nested output styles folder draws no governs collision"
+  ],
+  "notes": "Park answered (inbox 2026-11-26): identity 0096 (output-style:apps:web:terse), selection 0101 (an outputStyle edge resolves at its settings file's level; code.claude.com/docs/en/output-styles, retrieved 2026-11-25), finding 0103 (advisory, a dialable clause, never admissibility). Memory overlap: most specific claim (0102). Emit places a nested identity under its segments' directory (0096)."
 }

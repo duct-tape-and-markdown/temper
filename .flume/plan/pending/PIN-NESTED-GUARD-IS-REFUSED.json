@@ -1,0 +1,28 @@
+{
+  "tag": "PIN-NESTED-GUARD-IS-REFUSED",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "pin test"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "pin the review-only claim that a when nests no when",
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
+  "acceptance": "`a nested guard is refused` is green",
+  "tests": [],
+  "pins": [
+    "a nested guard is refused"
+  ],
+  "notes": "Pin-only (census 2026-11-26, 87 review-only claims). If the property does not hold, it is a defect: park naming it, never weaken the line."
+}

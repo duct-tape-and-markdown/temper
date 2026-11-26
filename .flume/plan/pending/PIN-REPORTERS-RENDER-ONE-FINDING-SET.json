@@ -1,0 +1,28 @@
+{
+  "tag": "PIN-REPORTERS-RENDER-ONE-FINDING-SET",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "tests/it/reporters.rs",
+        "description": "pin test"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "pin the review-only claim that every reporter renders one diagnostic source",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "The placements and their enforcement modes"
+  },
+  "acceptance": "`all four reporters render the same non empty finding set` is green",
+  "tests": [],
+  "pins": [
+    "all four reporters render the same non empty finding set"
+  ],
+  "notes": "Pin-only (census 2026-11-26, 87 review-only claims). If the property does not hold, it is a defect: park naming it, never weaken the line."
+}

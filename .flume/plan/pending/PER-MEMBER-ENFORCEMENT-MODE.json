@@ -1,0 +1,55 @@
+{
+  "tag": "PER-MEMBER-ENFORCEMENT-MODE",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "mode rows per member/kind"
+      },
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "kind mode field"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "read the rows"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "most specific mode (:2598)"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "guard reads it"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "row shape"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "guard tests"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "a member or a kind may declare its own enforcement mode, and the guard reads the most specific one",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "The root member"
+  },
+  "acceptance": "a member or kind declaring block is blocked under a warn harness; with no override the harness mode governs",
+  "tests": [
+    "a member declaring block is blocked while the harness is in warn",
+    "a kind declaring block blocks its members while the harness is in warn"
+  ],
+  "pins": [
+    "with no member override the harness mode governs"
+  ],
+  "notes": "0105. A seam change is two-sided (PROTOCOL): SDK row builders, src/read.rs, the embedded lock in one entry."
+}

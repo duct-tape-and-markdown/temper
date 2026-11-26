@@ -1,0 +1,45 @@
+{
+  "tag": "PACKAGE-MANAGER-FIELD-NAMES-THE-MANAGER",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "spawn_npm_install reads packageManager"
+      },
+      {
+        "path": "src/tool.rs",
+        "description": "manager from packageManager, not lockfile presence"
+      },
+      {
+        "path": "sdk/src/lockfile.ts",
+        "description": "agree with tool.rs"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "pnpm install test"
+      },
+      {
+        "path": "tests/it/tool_kind.rs",
+        "description": "pnpm tool test"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "the program's package.json `packageManager` field names the manager install spawns and the tool kind reads, refusing loudly where needed and absent",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "a packageManager of pnpm@\u2026 makes install and the tool use pnpm; a needed manager with no field refuses naming it",
+  "tests": [
+    "a package manager field naming pnpm makes install run pnpm",
+    "a package manager field naming pnpm makes the tool use pnpm"
+  ],
+  "pins": [],
+  "notes": "0100. Which manager the first-install scaffold writes into the field is not in the corpus: raise it rather than pick one. Shares src/install.rs with PACKAGE-JSON-IS-SCAFFOLDED-ONCE and src/tool.rs with TOOL-LOCKFILE-READ-STOPS-AT-THE-WORKSPACE-ROOT."
+}

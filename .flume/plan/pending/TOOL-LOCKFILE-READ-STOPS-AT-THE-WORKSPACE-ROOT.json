@@ -1,0 +1,36 @@
+{
+  "tag": "TOOL-LOCKFILE-READ-STOPS-AT-THE-WORKSPACE-ROOT",
+  "gate": {
+    "kind": "open"
+  },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/tool.rs",
+        "description": "bound the ancestor walk"
+      },
+      {
+        "path": "sdk/src/lockfile.ts",
+        "description": "agree with tool.rs"
+      },
+      {
+        "path": "tests/it/tool_kind.rs",
+        "description": "stray ancestor lock test"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "the tool's lockfile walk stops at the workspace root the package manager itself resolves, never reading an unrelated ancestor's lockfile",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Tool"
+  },
+  "acceptance": "a lockfile in an ancestor the program's workspace does not include is never read",
+  "tests": [
+    "a lockfile in an ancestor outside the workspace is not read"
+  ],
+  "pins": [],
+  "notes": "Class 0101: the manager is the runtime here. From TOOL-LOCKFILE-READ-FINDS-THE-MANAGERS-LOCK's note: a stray ~/package-lock.json draws false tool.unlocked; a lone yarn.lock refuses the run. Cite pnpm (pnpm-workspace.yaml) and npm (`workspaces`) root rules from fetched docs before encoding. Shares src/tool.rs with PACKAGE-MANAGER-FIELD-NAMES-THE-MANAGER."
+}
