@@ -75,7 +75,8 @@ and the test must fail there. Before filing a line, answer three questions:
    test pins a `pins[]` line, or none.
 
 A line that fails any of the three is refused after a full build, so check
-before filing, never after.
+before filing, never after. An inbox record's acceptance marks each line
+**new** or **kept**, so a kept one is never read as a test.
 
 ## Lanes
 

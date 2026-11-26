@@ -36,14 +36,15 @@
     "path": "specs/decisions/0101-a-builtin-reads-as-the-runtime-reads.md",
     "section": "Decision"
   },
-  "acceptance": "`{\"mcpServers\":{\"x\":{\"url\":\"…\"}}}` fails check with the stdio `command` finding; `type: \"http\"` with a `url` passes; the clause's guidance claims exactly what fires (0103)",
+  "acceptance": "`{\"mcpServers\":{\"x\":{\"url\":\"\u2026\"}}}` fails check with the stdio `command` finding; `type: \"http\"` with a `url` passes; the clause's guidance claims exactly what fires (0103)",
   "tests": [
-    "a url only mcp server with no type draws the stdio command finding",
+    "a url only mcp server with no type draws the stdio command finding"
+  ],
+  "pins": [
     "an explicit http mcp server with a url passes the transport clauses"
   ],
-  "pins": [],
   "laneTests": [],
-  "notes": "Operator ruling (inbox 2026-11-26): the format declares `type`'s documented default and the guard reads the field as the runtime does — no amendment to guard semantics (contract.md 'clause': a truly absent guarded field stays silent). Default cited at McpServer in builtins.ts (code.claude.com/docs/en/mcp, retrieved 2026-07-15). Built-in-internal is enough; a new author-facing default surface is a question, not this entry.",
+  "notes": "Operator ruling (inbox 2026-11-26): the format declares `type`'s documented default and the guard reads the field as the runtime does \u2014 no amendment to guard semantics (contract.md 'clause': a truly absent guarded field stays silent). Default cited at McpServer in builtins.ts (code.claude.com/docs/en/mcp, retrieved 2026-07-15). Built-in-internal is enough; a new author-facing default surface is a question, not this entry.",
   "observedFiles": [
     ".flume/plan/notes/MCP-SERVER-ABSENT-TYPE-READS-AS-STDIO.md",
     "sdk/src/builtins.ts",
