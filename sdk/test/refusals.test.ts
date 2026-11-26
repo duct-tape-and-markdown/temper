@@ -317,7 +317,7 @@ test("emit defers an edge field naming a declared at-locus kind's uncomposed mem
   const result = emit(ghostCitingHarness(citationKind()));
   // The authored address rides the lock's `nested_member` row as written — the leaf the
   // engine lifts into the member's fields and route-resolves against the discovered
-  // corpus (tests/it/graph.rs, the `graph.route` twin).
+  // corpus (tests/it/graph.rs, the `root.resolves` twin).
   assert.deepEqual(result.declarations.nested_members[0].leaves, { source: "rule:ghost" });
   // A deferred field carries no facts, so it is no `format-places-edges` obligation:
   // there is nothing to place, and the route verdict is the gate's.

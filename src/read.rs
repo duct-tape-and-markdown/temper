@@ -1338,7 +1338,7 @@ fn why_one(
     }
 
     // Dangling mentions out: a deferred mention whose target is absent from the discovered
-    // corpus. It fired the gate's `graph.route` finding, so it reads as dangling here, not
+    // corpus. It fired the gate's `root.resolves` finding, so it reads as dangling here, not
     // as a resolved edge.
     for edge in dangling_mentions.iter().filter(|edge| edge.from == node) {
         let _ = writeln!(

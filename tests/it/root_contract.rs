@@ -384,8 +384,7 @@ fn a_harness_declaring_no_root_reachable_clause_asks_the_graph_nothing() {
 }
 
 #[test]
-fn the_shipped_root_default_binds_the_four_root_predicates_and_rides_a_harness_that_declares_none()
-{
+fn the_shipped_root_default_binds_the_six_root_predicates_and_rides_a_harness_that_declares_none() {
     // The default is shipped, not merely reachable through an authored clause: a lock
     // carrying no root row at all takes the rows-or-default fallback to the embedded
     // lock's own root rows, which the SDK's `rootDefaultContract` put there.
@@ -413,6 +412,12 @@ fn the_shipped_root_default_binds_the_four_root_predicates_and_rides_a_harness_t
                 Predicate::EngineMatches,
                 Severity::Advisory
             ),
+            ("root.resolves", Predicate::Resolves, Severity::Required),
+            (
+                "root.import-backed",
+                Predicate::ImportBacked,
+                Severity::Advisory
+            ),
         ],
         "the emitted default's kind-less rows lift back into the root contract"
     );
@@ -424,19 +429,16 @@ fn the_shipped_root_default_binds_the_four_root_predicates_and_rides_a_harness_t
         "and every shipped clause teaches, got {:?}",
         contract.clauses
     );
-    assert!(
-        contract.clauses[0].source.is_some(),
-        "and cites where its verdict rests on an external fact — `reachable`'s \
-         dead-channel criteria are Claude Code's, while `fresh` and `locus-declared` \
-         compare temper's own lock against disk and `engine-matches` its stamp against \
-         temper's own version, so none of the three has anything external to cite, got {:?}",
-        contract.clauses[0]
-    );
-    assert!(
-        contract.clauses[1..]
+    assert_eq!(
+        contract
+            .clauses
             .iter()
-            .all(|clause| clause.source.is_none()),
-        "and `reachable` is the only cited root clause, got {:?}",
+            .filter(|clause| clause.source.is_some())
+            .map(|clause| clause.label.as_str())
+            .collect::<Vec<_>>(),
+        vec!["root.reachable", "root.resolves", "root.import-backed"],
+        "cited exactly where a verdict rests on Claude Code's documented behaviour; the \
+         other three compare temper's own lock or version, got {:?}",
         contract.clauses
     );
 

@@ -81,7 +81,7 @@ fn the_two_step_check_path_backs_a_real_repo_root_import() {
     write_claude_md_importing(&harness, "@docs/ledger.md");
 
     assert!(
-        common::findings_for(&check_two_step(&harness), "graph.directive-unbacked").is_empty(),
+        common::findings_for(&check_two_step(&harness), "root.import-backed").is_empty(),
         "the two-step path must enumerate the whole repo and back a real sibling, got: {:#?}",
         check_two_step(&harness)
     );
@@ -91,7 +91,7 @@ fn the_two_step_check_path_backs_a_real_repo_root_import() {
     // so no re-import is needed; the backing set is re-walked from disk each gate).
     fs::remove_file(harness.join("docs/ledger.md")).unwrap();
     let findings = check_two_step(&harness);
-    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "root.import-backed");
     assert_eq!(
         unbacked.len(),
         1,
@@ -115,7 +115,7 @@ fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
     write_claude_md_importing(&harness, "@docs/missing.md");
 
     let findings = check_harness(&harness).0;
-    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "root.import-backed");
 
     // Exactly one unbacked-pointer finding, on the memory member — the wedge path now
     // collects the CLAUDE.md's `at-import` targets and classes them.
@@ -147,7 +147,7 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
     let findings = check_harness(&harness).0;
 
     assert!(
-        common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        common::findings_for(&findings, "root.import-backed").is_empty(),
         "a directive resolving to a real member must fire no unbacked-pointer finding, got: {findings:#?}"
     );
 }
@@ -163,7 +163,7 @@ fn an_unbacked_at_import_fires_a_non_gating_advisory_with_zero_config() {
     write_claude_md_importing(&harness, "@docs/missing.md");
 
     let findings = check_harness(&harness).0;
-    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "root.import-backed");
 
     // Exactly one unbacked-pointer finding, on the memory member, drawn with zero config.
     assert_eq!(
@@ -198,7 +198,7 @@ fn a_backed_at_import_fires_nothing_with_zero_config() {
     let findings = check_harness(&harness).0;
 
     assert!(
-        common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        common::findings_for(&findings, "root.import-backed").is_empty(),
         "a backed `@import` fires no unbacked-pointer finding on the floor, got: {findings:#?}"
     );
 }
@@ -303,13 +303,13 @@ fn a_backslash_escaped_space_continues_a_memory_import_path() {
 
     let findings = check_two_step(&harness);
     assert!(
-        common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        common::findings_for(&findings, "root.import-backed").is_empty(),
         "the escaped space continues the path to the real file, got: {findings:#?}"
     );
 
     fs::remove_file(harness.join("Design Docs/api.md")).unwrap();
     let findings = check_two_step(&harness);
-    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "root.import-backed");
     assert_eq!(unbacked.len(), 1, "got: {findings:#?}");
     assert!(
         unbacked[0].contains("`@Design Docs/api.md`"),
@@ -328,7 +328,7 @@ fn a_trailing_period_stays_part_of_a_memory_import_path() {
     write_claude_md_importing(&harness, "See @a.md.");
 
     let findings = check_two_step(&harness);
-    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "root.import-backed");
     assert_eq!(unbacked.len(), 1, "got: {findings:#?}");
     assert!(
         unbacked[0].contains("`@a.md.`"),
@@ -345,7 +345,7 @@ fn an_unbacked_import_ending_in_a_period_says_the_period_is_part_of_the_path() {
     write_claude_md_importing(&harness, "See @a.md.");
 
     let findings = check_two_step(&harness);
-    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "root.import-backed");
     assert_eq!(unbacked.len(), 1, "got: {findings:#?}");
     assert!(
         unbacked[0].contains("trailing `.` is part of the import path"),
@@ -356,7 +356,7 @@ fn an_unbacked_import_ending_in_a_period_says_the_period_is_part_of_the_path() {
     // A path not ending in a period carries no such note.
     write_claude_md_importing(&harness, "@docs/missing.md");
     let findings = check_two_step(&harness);
-    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "root.import-backed");
     assert_eq!(unbacked.len(), 1, "got: {findings:#?}");
     assert!(
         !unbacked[0].contains("trailing `.`"),

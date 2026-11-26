@@ -347,6 +347,20 @@ predicate = "engine-matches"
 severity = "advisory"
 guidance = "Your committed lock records a different temper version than the one running this gate. The rows being read were compiled by a compiler this binary is not, so every verdict below rests on a translation: an older spelling normalizes at read time, but a genuine change in what a row means reads the same from the inside. Re-run `emit` — it rewrites the lock whole in this engine's canonical form, and the stamp goes back to matching. Advisory because a lagging stamp is the ordinary state of every checkout between an upgrade and the next emit, and blocking there would make an upgrade a hard stop; dial this label to `required` — or re-declare the clause — once your CI should refuse a lock it did not compile."
 
+[[declaration.clause]]
+label = "root.resolves"
+predicate = "resolves"
+severity = "required"
+guidance = "A reference this member declares — a field naming another member, or a mention in its prose — names a target the tree does not hold, or a bare key several hosts carry. The runtime resolves such a field by name: a subagent's `skills` list, for one, preloads each skill it names, so a name that matches no skill delivers nothing. Fix the name, author the missing member, or spell the whole `<host-address>/<kind>/<key>` address where hosts share a key. Required because the program's own `emit` refuses the same reference; dial this label to `advisory` while a tree mid-adoption still carries one."
+cite = "https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents (retrieved 2026-11-26)"
+
+[[declaration.clause]]
+label = "root.import-backed"
+predicate = "import-backed"
+severity = "advisory"
+guidance = "This member's `@path` import names no member and no repository file. Claude Code expands an import into context beside the file that carries it, resolving a relative path against that file rather than the working directory, so a path that reaches nothing loads nothing, silently. Fix the path relative to the importing file — a trailing `.` reads as part of it — or set the text off in backticks if it was never meant as an import. Advisory because the importing file still loads; dial this label to `required` — or re-declare the clause — once a dead import should fail CI."
+cite = "https://code.claude.com/docs/en/memory#import-additional-files (retrieved 2026-11-26)"
+
 [[declaration.assembly]]
 fact = "mode"
 value = "warn"

@@ -80,8 +80,10 @@ pub fn containment_edges_count() -> usize {
     CONTAINMENT_EDGES_COUNT.with(std::cell::Cell::get)
 }
 
-/// The diagnostic `rule` id every route-resolution finding reports under.
-const GRAPH_ROUTE_RULE: &str = "graph.route";
+/// The address every route-resolution finding reports under: the shipped root `resolves`
+/// clause's label. The gate rebinds each finding to the clause it reads, so this is only
+/// what a standalone caller ([`check`]) sees.
+const GRAPH_ROUTE_RULE: &str = "root.resolves";
 
 /// The diagnostic `rule` id every graph-admissibility finding reports under.
 const GRAPH_ADMISSIBILITY_RULE: &str = "graph.admissibility";
@@ -89,8 +91,9 @@ const GRAPH_ADMISSIBILITY_RULE: &str = "graph.admissibility";
 /// The diagnostic `rule` id the acyclicity finding reports under.
 const GRAPH_ACYCLIC_RULE: &str = "graph.acyclic";
 
-/// The diagnostic `rule` id every unbacked-pointer directive finding reports under.
-const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
+/// The address every unbacked-pointer finding reports under: the shipped root
+/// `import-backed` clause's label, rebound by the gate exactly as [`GRAPH_ROUTE_RULE`] is.
+const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "root.import-backed";
 
 /// The reference `field` a directive-produced [`ResolvedEdge`] records — the
 /// `at-import` syntax that observed it, not a frontmatter field. Lets a reader
@@ -1695,7 +1698,7 @@ fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
 /// The finding for an **unbacked pointer** — a directive occurrence resolving to
 /// neither a member nor a repo file: the
 /// importing member imports a path that loads nothing, the silent-context-loss failure
-/// class caught at author-time. Mirrors [`dangling`]/[`unreachable()`]: an error naming
+/// class caught at author-time. Mirrors [`dangling`]/[`unreachable()`]: a finding naming
 /// the importing member and the dead target.
 ///
 /// A target ending in `.` reads that period as part of the path — the harness
@@ -1707,7 +1710,7 @@ fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
     } else {
         ""
     };
-    Diagnostic::error(
+    Diagnostic::warn(
         GRAPH_DIRECTIVE_UNBACKED_RULE,
         importing,
         format!(

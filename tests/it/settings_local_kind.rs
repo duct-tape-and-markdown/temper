@@ -268,7 +268,7 @@ fn a_settings_local_output_style_naming_an_output_style_member_resolves_to_it() 
     );
     let (findings, _) = check_harness(&harness);
     assert!(
-        common::findings_for(&findings, "graph.route").is_empty(),
+        common::findings_for(&findings, "root.resolves").is_empty(),
         "the selected style resolves, got: {findings:#?}"
     );
 
@@ -281,7 +281,7 @@ fn a_settings_local_output_style_naming_an_output_style_member_resolves_to_it() 
     );
     let (findings, _) = check_harness(&harness);
     assert!(
-        common::findings_for(&findings, "graph.route").is_empty(),
+        common::findings_for(&findings, "root.resolves").is_empty(),
         "got: {findings:#?}"
     );
     let notes = common::findings_for(&findings, "coverage.off-tree-targets");

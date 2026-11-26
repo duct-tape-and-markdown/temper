@@ -7,7 +7,7 @@
 //! declared relationship's entries resolve live off the host's features, the same
 //! reference graph a file member's frontmatter list feeds. Either way a dangling entry is
 //! the gate's existing finding — the `requirement.dangling` coverage check for a fill, the
-//! `graph.route` resolution check for a relationship — never a silent drop.
+//! `root.resolves` resolution check for a relationship — never a silent drop.
 
 use std::collections::BTreeMap;
 use std::fs;

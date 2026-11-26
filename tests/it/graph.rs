@@ -1213,7 +1213,7 @@ fn a_mention_naming_no_discovered_member_leaves_the_target_unreached() {
     // rule's mention names `skill:ghost` — no such skill is discovered. The mention reaches
     // the real `standards` never, whose incoming degree stays zero, so the degree bound is
     // missed: the gate refuses, the same verdict a dangling declared edge earns (a dangling
-    // mention also trips its own `graph.route` finding — this case pins the degree miss).
+    // mention also trips its own `root.resolves` finding — this case pins the degree miss).
     common::write_rule_skill_harness(
         &root,
         "style",
@@ -1258,7 +1258,7 @@ fn a_deferred_mention_to_an_absent_member_fires_a_route_finding() {
     let root = common::tmpdir("mention-route-dangles");
     // The rule `style` mentions `skill:ghost`, absent from the discovered corpus, and no
     // degree clause opts the mention into counting — so the deferred mention's own dangling
-    // verdict is check's to own: a `graph.route` finding naming the citing member and the
+    // verdict is check's to own: a `root.resolves` finding naming the citing member and the
     // dangling target, the same verb a dangling declared edge trips.
     common::write_rule_skill_harness(
         &root,
@@ -1282,7 +1282,7 @@ fn a_deferred_mention_to_an_absent_member_fires_a_route_finding() {
         run.output
     );
     assert!(
-        run.output.contains("graph.route")
+        run.output.contains("root.resolves")
             && run.output.contains("rule:style")
             && run.output.contains("ghost"),
         "the route finding names its citing member and the dangling mention target, got:\n{}",
@@ -1398,7 +1398,7 @@ fn a_mention_to_an_undeclared_requirement_fires_a_route_finding() {
         run.output
     );
     assert!(
-        run.output.contains("graph.route")
+        run.output.contains("root.resolves")
             && run.output.contains("rule:style")
             && run.output.contains("gate"),
         "the route finding names its citing member and the dangling requirement target, got:\n{}",
@@ -1721,7 +1721,7 @@ mod embedded_edge_targets {
             run.output
         );
         let findings = run.findings();
-        let route = common::findings_for(&findings, "graph.route");
+        let route = common::findings_for(&findings, "root.resolves");
         assert_eq!(
             route.len(),
             1,
@@ -1885,7 +1885,7 @@ mod embedded_edge_targets {
             run.output
         );
         let findings = run.findings();
-        let route = common::findings_for(&findings, "graph.route");
+        let route = common::findings_for(&findings, "root.resolves");
         assert_eq!(
             route.len(),
             1,
@@ -1934,7 +1934,7 @@ mod embedded_edge_targets {
             run.output
         );
         let findings = run.findings();
-        let route = common::findings_for(&findings, "graph.route");
+        let route = common::findings_for(&findings, "root.resolves");
         assert_eq!(
             route.len(),
             1,
@@ -2058,7 +2058,7 @@ mod embedded_edge_sources {
         // than dropping one: `skill:ghost` names the edge's own target kind, so emit derived
         // no facts and wrote the address through (`sdk/src/emit.ts`'s `edgeTargetFacts`).
         // No skill named `ghost` is discovered here, so the lifted edge dangles and
-        // `graph.route` fires — no degree clause needed to opt the reference into counting.
+        // `root.resolves` fires — no degree clause needed to opt the reference into counting.
         common::write_lock(
             &root,
             Declarations {
@@ -2076,7 +2076,7 @@ mod embedded_edge_sources {
             run.output
         );
         assert!(
-            run.output.contains("graph.route")
+            run.output.contains("root.resolves")
                 && run.output.contains("article:article/citation/the-standard")
                 && run.output.contains("ghost"),
             "the route finding names the citing embedded member at nested-address grain and \
@@ -2925,7 +2925,7 @@ mod target_set {
                 run.output
             );
             assert!(
-                run.output.contains("graph.route"),
+                run.output.contains("root.resolves"),
                 "the finding is a route one, got:\n{}",
                 run.output
             );
@@ -2997,7 +2997,7 @@ mod target_set {
                 "a mention targeting a bogus embedded leaf key dangles ⇒ non-zero"
             );
             assert!(
-                run.output.contains("graph.route"),
+                run.output.contains("root.resolves"),
                 "the finding is a route one, got:\n{}",
                 run.output
             );
@@ -3072,7 +3072,7 @@ mod target_set {
                 "a mention targeting a key no host carries dangles ⇒ non-zero"
             );
             assert!(
-                run.output.contains("graph.route"),
+                run.output.contains("root.resolves"),
                 "the finding is a route one, got:\n{}",
                 run.output
             );
@@ -3372,4 +3372,140 @@ mod node_grain {
             leaf[0]
         );
     }
+}
+
+/// The dangling-route harness the clause cases share: a rule whose `routes_to` names
+/// `absent` beside the one skill `standards`, under a lock declaring the edge and no root
+/// row, so the shipped root default binds.
+fn dangling_route_harness(label: &str) -> std::path::PathBuf {
+    let root = common::tmpdir(label);
+    common::write_rule_skill_harness(
+        &root,
+        "style",
+        &common::scoped_routing_rule(None, Some("absent")),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_edge(),
+            ..Declarations::default()
+        },
+    );
+    root
+}
+
+/// The shipped `resolves` clause's guidance opens with this sentence; a finding carrying
+/// it carries the clause's teaching, not a fixed check's bare message.
+const RESOLVES_GUIDANCE: &str = "A reference this member declares";
+
+#[test]
+fn a_dangling_edge_finding_carries_a_clause_label() {
+    let root = dangling_route_harness("dangling-label");
+
+    let run = common::check_in(&root, &[], Some("github"));
+    let findings = run.findings();
+    let route = common::findings_for(&findings, "root.resolves");
+    assert_eq!(
+        route.len(),
+        1,
+        "the dangling route reports under the root `resolves` clause's label, got: \
+         {findings:#?}"
+    );
+    assert!(
+        route[0].contains("absent") && route[0].contains("routes_to"),
+        "the labelled finding still names the target and the field, got: {}",
+        route[0]
+    );
+
+    let human = common::check_in(&root, &[], None);
+    assert!(
+        human.output.contains(RESOLVES_GUIDANCE),
+        "and it carries the clause's guidance, got:\n{}",
+        human.output
+    );
+}
+
+#[test]
+fn a_dangling_edge_fires_at_error_severity_by_default() {
+    let root = dangling_route_harness("dangling-default-severity");
+
+    let run = common::check_in(&root, &[], Some("github"));
+    let findings = run.findings();
+    // Located by its message rather than its label, so the property holds whatever
+    // address the finding reports under.
+    let route: Vec<_> = findings
+        .iter()
+        .filter(|line| line.contains("routes to `absent`"))
+        .collect();
+    assert!(
+        !route.is_empty() && route.iter().all(|line| line.starts_with("::error")),
+        "a dangling route is an error by default, got: {findings:#?}"
+    );
+    assert!(!run.ok, "and it fails the run, got:\n{}", run.output);
+}
+
+#[test]
+fn a_dial_over_the_dangling_edge_clause_lowers_its_severity_and_it_still_reports() {
+    let root = dangling_route_harness("dangling-dialed");
+    common::write_sibling(
+        &root,
+        ".temper/dial.toml",
+        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.resolves\"\nseverity = \"advisory\"\n",
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    let findings = run.findings();
+    let route = common::findings_for(&findings, "root.resolves");
+    assert_eq!(
+        route.len(),
+        1,
+        "a dial never deletes: the dangling route still reports, got: {findings:#?}"
+    );
+    assert!(
+        route[0].starts_with("::warning"),
+        "at the dialed `advisory` severity, got: {}",
+        route[0]
+    );
+    assert!(
+        run.ok,
+        "so the dangling route alone no longer fails the run, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn an_unbacked_import_finding_carries_a_clause_label() {
+    let root = common::tmpdir("unbacked-label");
+    common::write_skill(&root, "standards", &common::clean_skill("standards"));
+    common::write_sibling(
+        &root,
+        "CLAUDE.md",
+        "# Memory\n\nSee @docs/missing.md for more.\n",
+    );
+
+    let run = common::check_harness_in(&root, Some("github"));
+    let findings = run.findings();
+    let unbacked = common::findings_for(&findings, "root.import-backed");
+    assert_eq!(
+        unbacked.len(),
+        1,
+        "the unbacked import reports under the root `import-backed` clause's label, got: \
+         {findings:#?}"
+    );
+    assert!(
+        unbacked[0].starts_with("::warning") && unbacked[0].contains("docs/missing.md"),
+        "at the clause's advisory default, naming the target, got: {}",
+        unbacked[0]
+    );
+
+    let human = common::check_harness_in(&root, None);
+    assert!(
+        human
+            .output
+            .contains("This member's `@path` import names no member"),
+        "and it carries the clause's guidance, got:\n{}",
+        human.output
+    );
 }

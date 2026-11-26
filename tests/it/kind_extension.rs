@@ -650,7 +650,7 @@ fn a_subkind_of_memory_reports_an_unbacked_import_in_its_own_document() {
     fs::write(&path, "# App\n\nSee @missing.md for more.\n").unwrap();
     let run = check_with(&root, vec![package_memory()]);
     assert!(
-        run.output.contains("graph.directive-unbacked") && run.output.contains("missing.md"),
+        run.output.contains("root.import-backed") && run.output.contains("missing.md"),
         "the subkind's document seeds the import traversal, got:\n{}",
         run.output
     );

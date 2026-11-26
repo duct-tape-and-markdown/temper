@@ -151,6 +151,14 @@ impl Diagnostic {
         .with_guidance(clause.guidance.clone())
     }
 
+    /// Rebind a finding a shared walk produced to the clause that owns its verdict: the
+    /// clause's severity, label and guidance replace whatever the walk stamped, so the
+    /// finding reads exactly as [`Diagnostic::from_clause`] would have built it.
+    #[must_use]
+    pub fn under_clause(self, clause: &crate::contract::Clause) -> Self {
+        Self::from_clause(clause, self.artifact, self.message)
+    }
+
     /// Attach a clause's [`guidance`](crate::contract::Clause::guidance) to this
     /// finding — the just-in-time delivery of the hover-sized *why* on the
     /// violation. A builder so the base

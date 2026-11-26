@@ -389,6 +389,8 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::Fresh
         | Predicate::LocusDeclared
         | Predicate::EngineMatches
+        | Predicate::Resolves
+        | Predicate::ImportBacked
         | Predicate::FormatPlacesEdges
         // Guard and body carry no field to address.
         | Predicate::When { .. } => None,
@@ -498,6 +500,8 @@ fn feature_read(predicate: &Predicate) -> Option<Feature> {
         | Predicate::Fresh
         | Predicate::LocusDeclared
         | Predicate::EngineMatches
+        | Predicate::Resolves
+        | Predicate::ImportBacked
         | Predicate::When { .. } => None,
     }
 }
@@ -584,6 +588,8 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         | Predicate::Fresh
         | Predicate::LocusDeclared
         | Predicate::EngineMatches
+        | Predicate::Resolves
+        | Predicate::ImportBacked
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => None,
     }
@@ -767,6 +773,8 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         | Predicate::Fresh
         | Predicate::LocusDeclared
         | Predicate::EngineMatches
+        | Predicate::Resolves
+        | Predicate::ImportBacked
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => Vec::new(),
     }
@@ -968,6 +976,8 @@ pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> 
                 | Predicate::Fresh
                 | Predicate::LocusDeclared
                 | Predicate::EngineMatches
+                | Predicate::Resolves
+                | Predicate::ImportBacked
                 | Predicate::FormatPlacesEdges
                 | Predicate::When { .. } => {}
             }
@@ -1452,6 +1462,8 @@ fn guard_admits(guard: &Predicate, value: &FeatureValue) -> bool {
         | Predicate::Fresh
         | Predicate::LocusDeclared
         | Predicate::EngineMatches
+        | Predicate::Resolves
+        | Predicate::ImportBacked
         | Predicate::FormatPlacesEdges
         | Predicate::When { .. } => false,
     }
@@ -1846,6 +1858,8 @@ fn decide(
         // own stamp against `crate::VERSION` — neither is on the member in hand — so
         // `crate::gate` decides it off the parsed lock document.
         | Predicate::EngineMatches
+        | Predicate::Resolves
+        | Predicate::ImportBacked
         // Whole-grain `extent` sums the selection; [`judge`] decides it, not this
         // per-member table.
         | Predicate::Extent { whole: true, .. } => Outcome::Indeterminate,
@@ -2553,6 +2567,8 @@ mod tests {
             Predicate::Fresh,
             Predicate::LocusDeclared,
             Predicate::EngineMatches,
+            Predicate::Resolves,
+            Predicate::ImportBacked,
             Predicate::Extent {
                 unit: ExtentUnit::Lines,
                 max: 40,
@@ -2642,7 +2658,7 @@ mod tests {
     }
 
     /// The number of [`Predicate`] variants — the slots [`vocabulary_slot`] hands out.
-    const VOCABULARY: usize = 34;
+    const VOCABULARY: usize = 36;
 
     /// One slot per [`Predicate`] variant. Exhaustive on purpose: a new variant does not
     /// compile until it takes a slot, and `the_sample_banks_are_the_whole_vocabulary`
@@ -2681,6 +2697,8 @@ mod tests {
             Predicate::Fresh => 28,
             Predicate::LocusDeclared => 29,
             Predicate::EngineMatches => 30,
+            Predicate::Resolves => 34,
+            Predicate::ImportBacked => 35,
             Predicate::FormatPlacesEdges => 31,
             Predicate::When { .. } => 32,
             Predicate::Unshadowed => 33,
@@ -4213,7 +4231,9 @@ mod tests {
             | Predicate::Reachable
             | Predicate::Fresh
             | Predicate::LocusDeclared
-            | Predicate::EngineMatches => true,
+            | Predicate::EngineMatches
+            | Predicate::Resolves
+            | Predicate::ImportBacked => true,
             // The one predicate carrying its own grain: the whole-grain budget sums the
             // selection, the each-grain one reads the member in hand.
             Predicate::Extent { whole, .. } => *whole,
@@ -4329,6 +4349,8 @@ mod tests {
             | Predicate::Fresh
             | Predicate::LocusDeclared
             | Predicate::EngineMatches
+            | Predicate::Resolves
+            | Predicate::ImportBacked
             | Predicate::When { .. } => false,
         }
     }

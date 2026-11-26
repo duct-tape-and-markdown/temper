@@ -301,6 +301,20 @@ export const locusDeclared = (): Predicate => ({ key: "locus-declared" });
  */
 export const engineMatches = (): Predicate => ({ key: "engine-matches" });
 /**
+ * Every declared reference and mention a member carries resolves to exactly one target —
+ * neither dangling nor a bare key several hosts share. Names no field, like
+ * {@link fresh}: the route walk is one pass over the whole forest, so it composes into a
+ * root `contract`.
+ */
+export const resolves = (): Predicate => ({ key: "resolves" });
+/**
+ * Every `@path` import a member's format executes resolves to a member or a repository
+ * file. Names no field, and composes into a root `contract`, for the reason
+ * {@link resolves} does; kept apart from it because an import resolves by path against
+ * disk, never by identity.
+ */
+export const importBacked = (): Predicate => ({ key: "import-backed" });
+/**
  * Every edge the member's kind declares is placed by the format that renders the member
  * — a format that omits one renders a contract the prose does not represent. Names no
  * field: the selection is the member's whole incident edge set, at the `each` grain.

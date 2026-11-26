@@ -8,7 +8,7 @@
  */
 
 import type { Input, Member, KindDefinition } from "./kind.js";
-import { clause, engineMatches, fresh, locusDeclared, reachable } from "./contract.js";
+import { clause, engineMatches, fresh, importBacked, locusDeclared, reachable, resolves } from "./contract.js";
 import type { Clause, Requirement, RequirementValue } from "./contract.js";
 import { isRequirement, requirementOf } from "./builtins.js";
 
@@ -195,7 +195,7 @@ function assemblyRequirements(
  * Homed beside the root member's other fields, the precedent `dialDefaultContract` sets
  * in `dial.ts`: a default contract lives with the surface it governs.
  *
- * Four clauses, all predicates only the root can bind: their selection is the whole
+ * Six clauses, all predicates only the root can bind: their selection is the whole
  * forest and their judges read the reference graph, the committed lock and the discovery
  * walk, none of which any one kind's population carries. `reachable` is the one check
  * that catches authored configuration the harness never loads at all; `fresh` is the one
@@ -204,7 +204,12 @@ function assemblyRequirements(
  * governed locus that the program never declared; `engine-matches` is the one that
  * catches a lock compiled by an engine other than the one now reading it.
  *
- * All advisory — today's posture for each, so no adopter turns red on the upgrade. A
+ * `resolves` and `import-backed` close the set: a reference naming nothing, and an `@path`
+ * import loading nothing. Both judge the reference graph, so they bind at the root too.
+ *
+ * `resolves` ships at `required`: a reference naming nothing is a broken program, which
+ * `emit` already refuses, and the gate holds the same line on a tree it did not write.
+ * The rest are advisory — today's posture for each, so no adopter turns red on the upgrade. A
  * dead registration is often deliberate work-in-progress, a drifted projection is usually
  * a re-emit away, an undeclared document is often a surface mid-adoption, and a stale
  * engine stamp is the ordinary state of every checkout between an upgrade and the next
@@ -233,5 +238,17 @@ export const rootDefaultContract: readonly Clause[] = [
     severity: "advisory",
     guidance:
       "Your committed lock records a different temper version than the one running this gate. The rows being read were compiled by a compiler this binary is not, so every verdict below rests on a translation: an older spelling normalizes at read time, but a genuine change in what a row means reads the same from the inside. Re-run `emit` — it rewrites the lock whole in this engine's canonical form, and the stamp goes back to matching. Advisory because a lagging stamp is the ordinary state of every checkout between an upgrade and the next emit, and blocking there would make an upgrade a hard stop; dial this label to `required` — or re-declare the clause — once your CI should refuse a lock it did not compile.",
+  }),
+  clause(resolves(), {
+    severity: "required",
+    guidance:
+      "A reference this member declares — a field naming another member, or a mention in its prose — names a target the tree does not hold, or a bare key several hosts carry. The runtime resolves such a field by name: a subagent's `skills` list, for one, preloads each skill it names, so a name that matches no skill delivers nothing. Fix the name, author the missing member, or spell the whole `<host-address>/<kind>/<key>` address where hosts share a key. Required because the program's own `emit` refuses the same reference; dial this label to `advisory` while a tree mid-adoption still carries one.",
+    cite: "https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents (retrieved 2026-11-26)",
+  }),
+  clause(importBacked(), {
+    severity: "advisory",
+    guidance:
+      "This member's `@path` import names no member and no repository file. Claude Code expands an import into context beside the file that carries it, resolving a relative path against that file rather than the working directory, so a path that reaches nothing loads nothing, silently. Fix the path relative to the importing file — a trailing `.` reads as part of it — or set the text off in backticks if it was never meant as an import. Advisory because the importing file still loads; dial this label to `required` — or re-declare the clause — once a dead import should fail CI.",
+    cite: "https://code.claude.com/docs/en/memory#import-additional-files (retrieved 2026-11-26)",
   }),
 ];

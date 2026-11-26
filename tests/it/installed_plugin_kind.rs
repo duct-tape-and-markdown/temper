@@ -299,7 +299,7 @@ fn a_lockless_harness_resolves_an_installed_plugin_against_a_known_marketplace_t
 
     let (findings, _) = check_harness(&harness);
     assert!(
-        common::findings_for(&findings, "graph.route").is_empty(),
+        common::findings_for(&findings, "root.resolves").is_empty(),
         "no marketplace dangles, got: {findings:#?}"
     );
     let notes = common::findings_for(&findings, "coverage.off-tree-targets");

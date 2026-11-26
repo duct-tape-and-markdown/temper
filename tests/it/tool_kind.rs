@@ -135,7 +135,7 @@ fn a_hook_handler_reaches_the_file_tool_it_runs() {
         run.output
     );
     assert!(
-        common::findings_for(&findings, "graph.route").is_empty(),
+        common::findings_for(&findings, "root.resolves").is_empty(),
         "the edge resolves: {}",
         run.output
     );
@@ -480,7 +480,7 @@ fn a_tool_reached_only_by_the_typecheck_draws_no_degree_finding() {
         run.output
     );
     assert!(
-        common::findings_for(&findings, "graph.route").is_empty(),
+        common::findings_for(&findings, "root.resolves").is_empty(),
         "the root's edge resolves: {}",
         run.output
     );
@@ -531,7 +531,7 @@ fn a_tool_reached_only_by_a_tap_draws_no_degree_finding() {
         run.output
     );
     assert!(
-        common::findings_for(&findings, "graph.route").is_empty(),
+        common::findings_for(&findings, "root.resolves").is_empty(),
         "the requirement's edge resolves: {}",
         run.output
     );

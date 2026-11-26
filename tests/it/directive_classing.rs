@@ -126,16 +126,16 @@ fn a_target_backed_by_a_repo_file_is_no_finding_and_no_member_edge() {
 #[test]
 fn a_target_resolving_to_nothing_is_one_unbacked_pointer_finding() {
     // `docs/CLAUDE.md` imports `./ghost.md` → `docs/ghost.md`, which names no member and
-    // no repo file — an unbacked pointer that loads nothing. Exactly one error finding,
-    // keyed to the importing member, naming the target.
+    // no repo file — an unbacked pointer that loads nothing. Exactly one finding, at the
+    // shipped clause's advisory default, keyed to the importing member, naming the target.
     let members = [member("memory", "root", "docs/CLAUDE.md", &["./ghost.md"])];
     let classing = classify_directives(&members, &repo(&["docs/CLAUDE.md"]));
 
     assert!(classing.edges.is_empty());
     assert_eq!(classing.findings.len(), 1);
     let finding = &classing.findings[0];
-    assert_eq!(finding.severity, Severity::Error);
-    assert_eq!(finding.rule, "graph.directive-unbacked");
+    assert_eq!(finding.severity, Severity::Warn);
+    assert_eq!(finding.rule, "root.import-backed");
     assert_eq!(finding.artifact, "root");
     assert!(
         finding.message.contains("ghost.md"),
@@ -435,7 +435,7 @@ fn a_directory_target_is_unbacked_by_stat() {
         "a directory target is unbacked, got: {:?}",
         classing.findings
     );
-    assert_eq!(classing.findings[0].rule, "graph.directive-unbacked");
+    assert_eq!(classing.findings[0].rule, "root.import-backed");
 }
 
 /// Unix only: the verdict under test is what a symlink's *own* file type decides, and
@@ -467,7 +467,7 @@ fn a_symlink_target_is_unbacked_by_stat() {
             "`{target}` resolves through a symlink the walk never entered, got: {:?}",
             classing.findings
         );
-        assert_eq!(classing.findings[0].rule, "graph.directive-unbacked");
+        assert_eq!(classing.findings[0].rule, "root.import-backed");
     }
 
     // Non-vacuity: the same corpus over the real file the links point at is backed, so
@@ -509,7 +509,7 @@ fn a_target_outside_the_harness_root_is_unbacked_by_stat() {
         "a target above the harness root is unbacked, got: {:?}",
         classing.findings
     );
-    assert_eq!(classing.findings[0].rule, "graph.directive-unbacked");
+    assert_eq!(classing.findings[0].rule, "root.import-backed");
 
     // Non-vacuity: the sibling *under* the root, written by the same fixture, is backed.
     let inside = classify_directives(
@@ -551,7 +551,7 @@ fn an_unbacked_pointer_warns_without_failing_the_run() {
         "an unbacked pointer is advisory ⇒ zero, got:\n{}",
         run.output
     );
-    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "root.import-backed");
     assert_eq!(
         unbacked.len(),
         1,
@@ -584,7 +584,7 @@ fn a_cross_kind_ring_reaches_the_acyclicity_gate() {
     let run = common::check_in(&root, &["."], Some("github"));
     let findings = run.findings();
     assert!(
-        common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        common::findings_for(&findings, "root.import-backed").is_empty(),
         "both imports resolve to members, so nothing is unbacked, got: {findings:#?}"
     );
     let acyclic = common::findings_for(&findings, "graph.acyclic");

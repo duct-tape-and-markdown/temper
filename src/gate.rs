@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::admissibility;
 use crate::builtin_kind;
-use crate::check::{self, Severity};
+use crate::check;
 use crate::compose;
 use crate::contract::{self, Contract};
 use crate::coverage;
@@ -466,14 +466,10 @@ pub fn gate(
         custom_units_and_features.push((custom_kind.clone(), uaf));
     }
 
-    // Directive-target classing on the FLOOR tier: an unbacked `@import` is a **pure fact** about the importing member —
-    // the silent-context-loss failure class made author-time — so it surfaces with zero
-    // config. Over the built-in kinds' members (empty custom slice), the unbacked findings
-    // extend as a **non-gating advisory**: the fact is stated, the run never fails on it
-    // alone. The graph-scope escalation stays assembly-gated (WEDGE ruling 2026-07-03: an
-    // unbacked import is a pure fact, not a graph-scope opinion like reachability).
-    // `directive_arcs` is the other half of the import relation, carried down to
-    // `acyclic` at the graph tier; the findings are this tier's alone.
+    // Directive-target classing: an unbacked `@import` is the silent-context-loss failure
+    // class made author-time. Its findings are judged under the root `import-backed`
+    // clause once the dial has run, below; `directive_arcs` is the other half of the
+    // import relation, carried down to `acyclic`.
     let graph::DirectiveClassing {
         edges: directive_arcs,
         findings: unbacked_pointers,
@@ -493,10 +489,6 @@ pub fn gate(
         // tree.
         &compose::backed_on_disk(harness_root),
     );
-    diagnostics.extend(unbacked_pointers.into_iter().map(|mut finding| {
-        finding.severity = Severity::Warn;
-        finding
-    }));
 
     // The harness-contract tier: the set predicates over the parsed roster, each
     // quantified over a requirement's opt-in selection.
@@ -714,7 +706,26 @@ pub fn gate(
     // reachability and mention-reachability range over, and its containment half the
     // derived family `degree` and `reached-from` count only under a `contains:` filter.
     let resolved_edges_result = graph::resolved_edges(&edges, &by_kind);
-    diagnostics.extend(resolved_edges_result.dangling_diagnostics);
+    // Route resolution and import backing are clauses on the root member, opt-in through
+    // the same door as `fresh`: located past the dial, so a dialed severity is the one a
+    // finding carries, and silent where the root contract binds neither.
+    let resolves_clause = engine::root_clause(&selections, &contract::Predicate::Resolves);
+    if let Some(clause) = resolves_clause {
+        diagnostics.extend(
+            resolved_edges_result
+                .dangling_diagnostics
+                .iter()
+                .cloned()
+                .map(|finding| finding.under_clause(clause)),
+        );
+    }
+    if let Some(clause) = engine::root_clause(&selections, &contract::Predicate::ImportBacked) {
+        diagnostics.extend(
+            unbacked_pointers
+                .into_iter()
+                .map(|finding| finding.under_clause(clause)),
+        );
+    }
     diagnostics.extend(coverage_note::off_tree_targets(
         &resolved_edges_result.off_tree,
     ));
@@ -724,13 +735,15 @@ pub fn gate(
     // Mention route resolution: `emit` defers a mention naming a declared kind with no
     // composed member — its row rides the lock — so `check` owns that verdict here,
     // resolving each mention's target against the discovered corpus (members) and the
-    // roster (bare requirement names). A dangler fires `graph.route` exactly as a declared
-    // reference does.
-    diagnostics.extend(graph::route_mentions(
-        &mention_edges,
-        &by_kind,
-        &assembly_requirements,
-    ));
+    // roster (bare requirement names). A dangler fires under the `resolves` clause exactly as
+    // a declared reference does.
+    if let Some(clause) = resolves_clause {
+        diagnostics.extend(
+            graph::route_mentions(&mention_edges, &by_kind, &assembly_requirements)
+                .into_iter()
+                .map(|finding| finding.under_clause(clause)),
+        );
+    }
 
     // `acyclic`: the **import relation** must be well-founded — `contract.md`
     // ("well-formedness") scopes acyclicity there and nowhere else, so the declared-field

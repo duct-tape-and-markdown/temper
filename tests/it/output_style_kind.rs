@@ -143,9 +143,9 @@ fn findings_of(harness: &Path, rule: &str) -> Vec<String> {
         .collect()
 }
 
-/// The `graph.route` findings a `check --harness` run over `harness` reports.
+/// The `root.resolves` findings a `check --harness` run over `harness` reports.
 fn route_findings(harness: &Path) -> Vec<String> {
-    findings_of(harness, "graph.route")
+    findings_of(harness, "root.resolves")
 }
 
 /// The off-tree coverage notes a `check --harness` run over `harness` reports.

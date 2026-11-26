@@ -151,6 +151,8 @@ pub fn emit(contract: &Contract) -> Value {
             // binary's version — a fact about the two ends of the toolchain, with no
             // document in it at all, so the same silence.
             | Predicate::EngineMatches
+            | Predicate::Resolves
+            | Predicate::ImportBacked
             | Predicate::GlobValid { .. }
             // `when` is a guard conditioning a body; the guard and body are evaluated
             // at the engine level, not expressed as schema constraints. Any frontmatter

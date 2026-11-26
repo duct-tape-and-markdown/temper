@@ -700,16 +700,16 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
 
     // Non-vacuity, the walk: the declared route resolved here, so the route verdict is
     // silent — and the same corpus with the reference pointed at an absent skill fires
-    // `graph.route`, which proves the counted walk really reads the declared edge rather
+    // `root.resolves`, which proves the counted walk really reads the declared edge rather
     // than ranging over nothing.
     assert!(
-        !diagnostics.iter().any(|d| d.rule == "graph.route"),
+        !diagnostics.iter().any(|d| d.rule == "root.resolves"),
         "the declared route resolves to the composed skill, got: {diagnostics:#?}",
     );
     let dangling = write_routing_harness("gate-edge-walk-pin-dangling", "absent");
     let (control, _) = gate::gate(&dangling.join(".temper"), &dangling, &[]).unwrap();
     assert!(
-        control.iter().any(|d| d.rule == "graph.route"),
+        control.iter().any(|d| d.rule == "root.resolves"),
         "the same edge, pointed at no artifact, must fire the route verdict, got: {control:#?}",
     );
 

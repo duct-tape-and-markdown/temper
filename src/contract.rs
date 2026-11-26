@@ -596,6 +596,17 @@ pub enum Predicate {
     /// [`Predicate::Fresh`]: one lock carries one stamp, so a per-kind binding beside
     /// the root's would report the same fact once per kind.
     EngineMatches,
+    /// `resolves`: every declared reference and mention a member carries resolves to
+    /// exactly one target — the route verdict [`crate::graph::resolved_edges`] and
+    /// [`crate::graph::route_mentions`] compute, dangling or ambiguous. Field-less and
+    /// root-bound like [`Predicate::Fresh`]: the walk is one whole-corpus pass, so a
+    /// per-kind binding would split one enumeration across owners.
+    Resolves,
+    /// `import-backed`: every `@path` import a member's format executes resolves to a
+    /// member or a repository file ([`crate::graph::classify_directives`]). Field-less
+    /// and root-bound for the same reason as [`Predicate::Resolves`]; distinct from it
+    /// because an import is path-resolved against disk, never by identity.
+    ImportBacked,
     /// `format-places-edges`: the edge scope, at the **each** grain — the selection is
     /// the edges incident on the member, and every one of them must be placed by the
     /// format that renders the member. A format that omits an edge its kind declares
@@ -774,6 +785,8 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         // And the lock's own engine stamp read against `crate::VERSION` is
         // `engine-matches`'s, for the same absence of a column.
         "engine-matches" => Predicate::EngineMatches,
+        "resolves" => Predicate::Resolves,
+        "import-backed" => Predicate::ImportBacked,
         "format-places-edges" => Predicate::FormatPlacesEdges,
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
@@ -894,6 +907,8 @@ impl Predicate {
             Predicate::Fresh => "fresh",
             Predicate::LocusDeclared => "locus-declared",
             Predicate::EngineMatches => "engine-matches",
+            Predicate::Resolves => "resolves",
+            Predicate::ImportBacked => "import-backed",
             Predicate::FormatPlacesEdges => "format-places-edges",
             Predicate::When { .. } => "when",
         }
@@ -933,6 +948,8 @@ impl Predicate {
                 | Predicate::Fresh
                 | Predicate::LocusDeclared
                 | Predicate::EngineMatches
+                | Predicate::Resolves
+                | Predicate::ImportBacked
                 | Predicate::Extent { whole: true, .. }
         )
     }
@@ -994,6 +1011,8 @@ impl Predicate {
             | Predicate::Fresh
             | Predicate::LocusDeclared
             | Predicate::EngineMatches
+            | Predicate::Resolves
+            | Predicate::ImportBacked
             | Predicate::FormatPlacesEdges
             // Guard and body carry no field or schema key of their own.
             | Predicate::When { .. } => None,
@@ -1062,6 +1081,8 @@ impl Predicate {
             | Predicate::Fresh
             | Predicate::LocusDeclared
             | Predicate::EngineMatches
+            | Predicate::Resolves
+            | Predicate::ImportBacked
             | Predicate::FormatPlacesEdges
             // Guard and body carry no frontmatter field to document.
             | Predicate::When { .. } => None,
@@ -1115,6 +1136,8 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::Fresh
             | Predicate::LocusDeclared
             | Predicate::EngineMatches
+            | Predicate::Resolves
+            | Predicate::ImportBacked
             | Predicate::FormatPlacesEdges
             | Predicate::When { .. } => None,
         })

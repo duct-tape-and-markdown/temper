@@ -231,6 +231,8 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
             (Some("root.fresh"), "fresh", "advisory"),
             (Some("root.locus-declared"), "locus-declared", "advisory"),
             (Some("root.engine-matches"), "engine-matches", "advisory"),
+            (Some("root.resolves"), "resolves", "required"),
+            (Some("root.import-backed"), "import-backed", "advisory"),
         ],
         "the memberless emit contributes the root default's rows, got {root:#?}"
     );
@@ -238,16 +240,17 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
         root.iter().all(|row| row.guidance.is_some()),
         "every shipped root clause teaches"
     );
-    assert!(
-        root[0].cite.is_some(),
-        "and cites where its verdict rests on an external fact — `reachable`'s dead-channel \
-         criteria are Claude Code's. `fresh` and `locus-declared` compare temper's own lock \
-         against disk and `engine-matches` its stamp against temper's own version, so there \
-         is nothing external for any of the three to cite"
-    );
-    assert!(
-        root.iter().skip(1).all(|row| row.cite.is_none()),
-        "and `reachable` is the only cited root row, got {root:#?}"
+    // Cited exactly where a verdict rests on Claude Code's documented behaviour:
+    // `reachable`'s dead channels, `resolves`' by-name field resolution, and
+    // `import-backed`'s import expansion. The other three compare temper's own lock
+    // against disk or temper's own version, so a URL there would be invented.
+    assert_eq!(
+        root.iter()
+            .filter(|row| row.cite.is_some())
+            .map(|row| row.predicate.as_str())
+            .collect::<Vec<_>>(),
+        vec!["reachable", "resolves", "import-backed"],
+        "the cited root rows, got {root:#?}"
     );
 
     // And they lift back through the engine's own root-contract reader, so what ships is
@@ -263,7 +266,9 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
             contract::Predicate::Reachable,
             contract::Predicate::Fresh,
             contract::Predicate::LocusDeclared,
-            contract::Predicate::EngineMatches
+            contract::Predicate::EngineMatches,
+            contract::Predicate::Resolves,
+            contract::Predicate::ImportBacked,
         ]
     );
 }

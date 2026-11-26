@@ -234,10 +234,9 @@ test("reachable composes a field-less graph-scope predicate lowering to a kind-l
   assert.equal(rows[0]!.field, undefined);
   assert.equal(rows[0]!.severity, "advisory");
 
-  // And the shipped default binds this clause, `fresh`, `locus-declared` and
-  // `engine-matches`, all four at advisory — the tool never decides that a dead
-  // registration, a drifted projection, an undeclared document or a lock another engine
-  // wrote blocks.
+  // And the shipped default binds this clause, `fresh`, `locus-declared`,
+  // `engine-matches`, `resolves` and `import-backed`, each at the severity it ships —
+  // `resolves` alone at required, the line `emit` already holds.
   assert.deepEqual(
     rootDefaultContract.map((c) => [c.predicate.key, c.severity]),
     [
@@ -245,25 +244,20 @@ test("reachable composes a field-less graph-scope predicate lowering to a kind-l
       ["fresh", "advisory"],
       ["locus-declared", "advisory"],
       ["engine-matches", "advisory"],
+      ["resolves", "required"],
+      ["import-backed", "advisory"],
     ],
   );
   assert.ok(
     rootDefaultContract.every((c) => c.guidance),
     "every shipped floor clause teaches",
   );
-  // And cites where its verdict rests on an external fact: `reachable`'s dead-channel
-  // criteria are Claude Code's documented behaviour. `fresh` and `locusDeclared` compare
-  // temper's own lock against disk and `engineMatches` its stamp against temper's own
-  // version, so there is no external fact for any of the three to cite and a URL here
-  // would be invented.
-  assert.ok(
-    rootDefaultContract.find((c) => c.predicate.key === "reachable")?.cite,
-    "`reachable` cites the docs its dead-channel criteria read off",
-  );
+  // And cites exactly where its verdict rests on Claude Code's documented behaviour;
+  // the other three compare temper's own lock or version, so a URL would be invented.
   assert.deepEqual(
     rootDefaultContract.filter((c) => c.cite).map((c) => c.predicate.key),
-    ["reachable"],
-    "`reachable` is the only cited root clause",
+    ["reachable", "resolves", "import-backed"],
+    "the cited root clauses",
   );
 });
 

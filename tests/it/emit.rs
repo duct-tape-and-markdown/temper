@@ -3805,7 +3805,7 @@ fn a_bare_edge_target_in_a_one_element_set_defers_to_check_like_its_qualified_sp
         .expect("both spellings of a dangling one-element target defer to check");
 
     let run = common::check_in(&harness, &[], None);
-    assert!(run.output.contains("graph.route"), "got:\n{}", run.output);
+    assert!(run.output.contains("root.resolves"), "got:\n{}", run.output);
     for (value, target) in [("bare", "ghost"), ("qualified", "rule:phantom")] {
         let finding = format!(
             "`memory:CLAUDE/citation/{value}` `source` routes to `{target}`, which resolves to no `rule` artifact"
