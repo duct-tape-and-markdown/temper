@@ -2943,15 +2943,24 @@ fn module_stems(
                 dir,
             });
         }
-        let mut stem = base_stem.clone();
-        let mut ordinal = 1usize;
-        while !taken.insert((module_dir.clone(), stem.clone())) {
-            ordinal += 1;
-            stem = format!("{base_stem}-{ordinal}");
-        }
-        stems.push(stem);
+        stems.push(unclaimed_stem(&base_stem, |stem| {
+            !taken.insert((module_dir.clone(), stem.to_string()))
+        }));
     }
     Ok(stems)
+}
+
+/// The first of `base`, `base-2`, `base-3`, … that `claimed` refuses — the one ordinal
+/// scheme every scaffolded module stem takes, whether the claim is a sibling stem this
+/// lift already handed out or a module already on disk.
+fn unclaimed_stem(base: &str, mut claimed: impl FnMut(&str) -> bool) -> String {
+    let mut stem = base.to_string();
+    let mut ordinal = 1usize;
+    while claimed(&stem) {
+        ordinal += 1;
+        stem = format!("{base}-{ordinal}");
+    }
+    stem
 }
 
 /// Scaffold the SDK program from `discovery`'s findings — the lift's whole
@@ -3112,12 +3121,7 @@ fn hoist_settings_residue(root: &Path, temper_dir: &Path, keys: &[String]) -> mi
     member.fields.retain(|(key, _)| keys.contains(key));
 
     let dir = temper_dir.join(member_dir(KIND));
-    let mut stem = member.id.clone();
-    let mut ordinal = 1usize;
-    while dir.join(format!("{stem}.ts")).exists() {
-        stem = format!("{}-{ordinal}", member.id);
-        ordinal += 1;
-    }
+    let stem = unclaimed_stem(&member.id, |stem| dir.join(format!("{stem}.ts")).exists());
     let ident = member_ident(KIND, &stem);
 
     let entry_path = temper_dir.join(HARNESS_ENTRY);

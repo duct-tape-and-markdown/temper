@@ -675,48 +675,32 @@ pub(crate) fn body_sections(body: &str) -> Vec<Section> {
 /// fence logic.
 pub(crate) fn body_fenced_blocks(body: &str) -> Vec<FencedBlock> {
     let mut blocks = Vec::new();
-    // The open fence's char, run length, info string, and the interior lines
-    // gathered so far — `Some` while inside a fenced block.
-    let mut open: Option<(char, usize, String, Vec<String>)> = None;
+    let mut fence = None;
+    // The open block's info string and the interior lines gathered so far.
+    let mut open: Option<(String, Vec<String>)> = None;
     for line in body.lines() {
-        if let Some((fence_char, fence_len)) = fence_marker(line) {
-            match open.take() {
-                None => {
-                    // A fence opens: its info string is the text after the fence run.
-                    open = Some((
-                        fence_char,
-                        fence_len,
-                        fence_info(line, fence_char),
-                        Vec::new(),
-                    ));
+        let was_open = fence.is_some();
+        // A marker that leaves the fence state unchanged is interior content.
+        if track_fence(line, &mut fence) && was_open != fence.is_some() {
+            match (fence, open.take()) {
+                (Some((fence_char, _)), _) => {
+                    open = Some((fence_info(line, fence_char), Vec::new()))
                 }
-                Some((open_char, open_len, info, content))
-                    if fence_char == open_char && fence_len >= open_len =>
-                {
-                    // A matching closing fence — the block is complete. `open` stays
-                    // `None` (taken above).
-                    blocks.push(FencedBlock {
-                        info,
-                        content: content.join("\n"),
-                    });
-                }
-                Some((open_char, open_len, info, mut content)) => {
-                    // A marker of a different char or shorter length inside an open
-                    // block is interior content, not a close (the `Some(_) => {}` case
-                    // `body_headings` treats as non-heading, captured here).
-                    content.push(line.to_string());
-                    open = Some((open_char, open_len, info, content));
-                }
+                (None, Some((info, content))) => blocks.push(FencedBlock {
+                    info,
+                    content: content.join("\n"),
+                }),
+                (None, None) => {}
             }
             continue;
         }
-        if let Some((.., content)) = &mut open {
+        if let Some((_, content)) = &mut open {
             content.push(line.to_string());
         }
     }
     // An unterminated fence extends to the end of the body (CommonMark) — yield its
     // block rather than lose the captured content.
-    if let Some((.., info, content)) = open {
+    if let Some((info, content)) = open {
         blocks.push(FencedBlock {
             info,
             content: content.join("\n"),
@@ -757,7 +741,7 @@ fn fence_marker(line: &str) -> Option<(char, usize)> {
 /// returns whether `line` was a fence marker, so callers `continue` past it.
 /// A closing fence matches the opener's char and is at least as long;
 /// anything else inside a fence is just content. Shared by [`body_headings`],
-/// [`body_sections`], and [`body_at_imports`], whose fence exclusion is
+/// [`body_sections`], [`body_at_imports`] and [`body_fenced_blocks`], whose fence exclusion is
 /// otherwise a byte-identical match on [`fence_marker`]'s result.
 fn track_fence(line: &str, fence: &mut Option<(char, usize)>) -> bool {
     let Some((fence_char, fence_len)) = fence_marker(line) else {

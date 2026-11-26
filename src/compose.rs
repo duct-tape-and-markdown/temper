@@ -1328,11 +1328,7 @@ fn resolve_kind_units(
     declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<KindUnits> {
     RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
-    let mut edge_fields = kind.edge_field_slots();
-    edge_fields.extend(drift::layout_edge_fields(
-        &declarations.assembly,
-        &kind.name,
-    )?);
+    let edge_fields = kind.edge_field_slots(&declarations.assembly)?;
     let mut load_fault_diagnostics = Vec::new();
 
     // Each read member paired with the rows its own document declared, so the two travel
@@ -2104,7 +2100,9 @@ pub fn embedded_features_by_kind_with_composed(
     // kind no host declares is an orphan rejected at admissibility
     // ([`nested_member_admissibility`]), so this `get_mut` now backstops that already-loud
     // unreachable state rather than swallowing a live one.
-    let edge_fields = edge_fields_by_kind(declarations);
+    // A malformed edge fact is `edges_from_declarations`' own load error, raised before
+    // any check runs, so this read never raises the identical fault a second time.
+    let edge_fields = drift::edge_fields_by_kind(&declarations.assembly).unwrap_or_default();
     let no_edges = BTreeSet::new();
     for row in &declarations.nested_members {
         if let Some(features) = by_kind.get_mut(&row.kind) {
@@ -2175,25 +2173,6 @@ fn composed_embedded_features(member: &ComposedEmbeddedMember) -> extract::Featu
     }
 }
 
-/// The edge fields each kind declares, off the lock's `assembly` `edge` facts — the
-/// declared set a `format-places-edges` clause measures a value's own
-/// [`placed_edges`](drift::NestedMemberRow::placed_edges) against
-/// ([`embedded_member_features`]). A malformed edge fact is
-/// [`edges_from_declarations`](crate::drift::edges_from_declarations)'s own load error, raised before any check runs, so this
-/// fold reads the well-formed rows rather than raise the identical fault twice.
-fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, BTreeSet<String>> {
-    let mut by_kind: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for fact in &declarations.assembly {
-        if fact.fact != "edge" {
-            continue;
-        }
-        if let (Some(from), Some(field)) = (fact.from.clone(), fact.field.clone()) {
-            by_kind.entry(from).or_default().insert(field);
-        }
-    }
-    by_kind
-}
-
 /// Lift one [`NestedMemberRow`](drift::NestedMemberRow) into the
 /// [`Features`](extract::Features) an edge resolves against: the row's key is the member
 /// id an edge matches by identity, and its leaves surface as string fields so a clause
@@ -2201,7 +2180,7 @@ fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, B
 /// body-derived features are empty — an embedded member has no document of its own; it is
 /// read off its host's declared surface.
 ///
-/// `edge_fields` is what the member's kind declares ([`edge_fields_by_kind`]); pairing the
+/// `edge_fields` is what the member's kind declares ([`drift::edge_fields_by_kind`]); pairing the
 /// ones this row actually fills with its own `placed_edges` is what makes a
 /// `format-places-edges` clause decidable without the engine ever seeing the format that
 /// rendered the value. An unfilled field is no edge, so it is no obligation: ranging over
@@ -2984,7 +2963,7 @@ mod tests {
     /// The placement feature of the row `declarations` carries, against its kind's
     /// declared edges — the join the lift performs.
     fn placement_feature(declarations: &drift::Declarations) -> Option<BTreeMap<String, bool>> {
-        let edges = edge_fields_by_kind(declarations);
+        let edges = drift::edge_fields_by_kind(&declarations.assembly).unwrap();
         embedded_member_features(
             &declarations.nested_members[0],
             edges.get("citation").unwrap(),

@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
-use crate::drift::{CedeRow, KindFactRow, LayoutRow, LockRowError, TemplateRow};
+use crate::drift::{AssemblyFactRow, CedeRow, KindFactRow, LayoutRow, LockRowError, TemplateRow};
 use crate::extract::{self, Features};
 use crate::layout::{Layout, LayoutRegion};
 
@@ -794,19 +794,25 @@ impl CustomKind {
     }
 
     /// The kind's **edge-field slot** names — its declared [`relationships`](
-    /// CustomKind::relationships) fields plus the framework
+    /// CustomKind::relationships) fields, the lock's `assembly` edge facts from this kind
+    /// (a custom kind's relationships live only there), plus the framework
     /// [`satisfies`](SATISFIES_EDGE_FIELD) key every kind carries. A layout field
     /// section whose slot is one of these is an edge slot: its entries are addresses,
     /// not a verbatim span.
-    #[must_use]
-    pub fn edge_field_slots(&self) -> BTreeSet<String> {
-        let mut slots: BTreeSet<String> = self
-            .relationships
-            .iter()
-            .map(|edge| edge.field.clone())
-            .collect();
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`LockRowError`] when an `edge` fact omits its `field` column.
+    pub fn edge_field_slots(
+        &self,
+        assembly: &[AssemblyFactRow],
+    ) -> Result<BTreeSet<String>, LockRowError> {
+        let mut slots = crate::drift::edge_fields_by_kind(assembly)?
+            .remove(&self.name)
+            .unwrap_or_default();
+        slots.extend(self.relationships.iter().map(|edge| edge.field.clone()));
         slots.insert(SATISFIES_EDGE_FIELD.to_string());
-        slots
+        Ok(slots)
     }
 
     /// The kind's declared frontmatter fields, in declaration order — the `field`

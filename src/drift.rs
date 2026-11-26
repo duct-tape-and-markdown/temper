@@ -2425,8 +2425,8 @@ pub fn emit(
             continue;
         }
         if let Content::Layout(layout) = content_from_row(facts)? {
-            let edge_fields = layout_edge_fields(&payload.declarations.assembly, &member.kind)?;
             let kind = CustomKind::from_kind_fact_row(facts)?;
+            let edge_fields = kind.edge_field_slots(&payload.declarations.assembly)?;
             let derivation = derive_layout_rows(
                 &kind,
                 &layout,
@@ -3421,39 +3421,29 @@ struct LayoutDerivation {
     satisfies: Vec<SatisfiesRow>,
 }
 
-/// The edge-field slots a layout kind's document reads as **addresses** rather than a
-/// verbatim span: the kind's declared relationship fields — its assembly `edge` facts
-/// whose `from` is the kind — plus the framework `satisfies` key every kind carries.
-///
-/// A custom kind's relationships live only in the lock's assembly facts, never on its
-/// kind-fact row, so both the emit read (here) and the gate read (`resolve_kind_units`)
-/// range over this one set — a relationship section never parses as a verbatim field on
-/// one path and as addresses on the other.
+/// The edge fields each kind declares, off the lock's `assembly` `edge` facts, keyed by
+/// the fact's `from` kind — the one derivation every edge-field reader folds over
+/// ([`CustomKind::edge_field_slots`], the embedded-member placement lift). A fact with no
+/// `from` names no kind to key under; [`edges_from_declarations`] rejects it at load.
 ///
 /// # Errors
 ///
-/// Returns a [`LockRowError`] when a present `edge` fact for this kind omits its required
-/// `field` column — a corrupt assembly row surfaced loud, never a silently dropped slot.
-pub fn layout_edge_fields(
+/// Returns a [`LockRowError`] when an `edge` fact omits its required `field` column — a
+/// corrupt assembly row surfaced loud, never a silently dropped slot.
+pub fn edge_fields_by_kind(
     assembly: &[AssemblyFactRow],
-    kind: &str,
-) -> Result<BTreeSet<String>, LockRowError> {
-    let mut slots = BTreeSet::new();
-    for fact in assembly
-        .iter()
-        .filter(|fact| fact.fact == "edge" && fact.from.as_deref() == Some(kind))
-    {
-        let field = fact
-            .field
-            .clone()
-            .ok_or_else(|| LockRowError::MissingColumn {
-                family: "assembly".to_string(),
-                column: "field".to_string(),
-            })?;
-        slots.insert(field);
+) -> Result<BTreeMap<String, BTreeSet<String>>, LockRowError> {
+    let mut by_kind: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for fact in assembly.iter().filter(|fact| fact.fact == "edge") {
+        let Some(from) = fact.from.clone() else {
+            continue;
+        };
+        by_kind
+            .entry(from)
+            .or_default()
+            .insert(edge_column(fact.field.clone(), "field")?);
     }
-    slots.insert(crate::kind::SATISFIES_EDGE_FIELD.to_string());
-    Ok(slots)
+    Ok(by_kind)
 }
 
 /// The member address `member` wears — [`crate::member_address::address_of`]'s **emit-side
@@ -3543,7 +3533,7 @@ fn derive_layout_rows(
 /// ([`derive_layout_rows`], which adds the prose imports it also fingerprints); `check`
 /// derives a **local**-locus member's rows at read time, because a local locus's rows
 /// never enter the lock to be read back. One lowering means the two faces can never
-/// disagree about what a document declares — the same posture `layout_edge_fields`
+/// disagree about what a document declares — the same posture [`CustomKind::edge_field_slots`]
 /// takes for the slots this read is handed. Only the *reach* differs: `emit` reads and
 /// parses the document ([`read_layout_document`]), `check` lowers the reading its unit
 /// adapter already parsed.
