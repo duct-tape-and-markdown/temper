@@ -134,13 +134,23 @@ fn adopt_builtins(harness: &Path) {
     common::write_lock(harness, temper::builtin_lock::declarations().clone());
 }
 
-/// The `graph.route` findings a `check --harness` run over `harness` reports.
-fn route_findings(harness: &Path) -> Vec<String> {
+/// The findings of rule `rule` a `check --harness` run over `harness` reports.
+fn findings_of(harness: &Path, rule: &str) -> Vec<String> {
     let (findings, _) = common::check_harness(harness);
-    common::findings_for(&findings, "graph.route")
+    common::findings_for(&findings, rule)
         .into_iter()
         .cloned()
         .collect()
+}
+
+/// The `graph.route` findings a `check --harness` run over `harness` reports.
+fn route_findings(harness: &Path) -> Vec<String> {
+    findings_of(harness, "graph.route")
+}
+
+/// The off-tree coverage notes a `check --harness` run over `harness` reports.
+fn off_tree_notes(harness: &Path) -> Vec<String> {
+    findings_of(harness, "coverage.off-tree-targets")
 }
 
 #[test]
@@ -176,15 +186,14 @@ fn a_settings_output_style_matches_a_style_name_exactly_and_case_sensitively() {
     common::write_settings(&harness, "{ \"outputStyle\": \"Terse\" }\n");
     adopt_builtins(&harness);
 
-    let routes = route_findings(&harness);
-    assert_eq!(
-        routes.len(),
-        1,
-        "exactly the mis-cased name dangles, got: {routes:#?}"
-    );
+    // The mis-cased name never resolves to `terse`; a user or plugin style may still carry
+    // it, so it is noted off-tree rather than dangling.
+    assert_eq!(route_findings(&harness), Vec::<String>::new());
+    let notes = off_tree_notes(&harness);
+    assert_eq!(notes.len(), 1, "got: {notes:#?}");
     assert!(
-        routes[0].contains("`outputStyle` routes to `Terse`"),
-        "the finding names the field and the value it wrote, got: {routes:#?}"
+        notes[0].contains("`settings` `outputStyle` → `Terse`"),
+        "the note names the field and the value it wrote, got: {notes:#?}"
     );
 }
 
@@ -202,11 +211,68 @@ fn a_settings_output_style_naming_a_built_in_style_draws_no_dangling_edge() {
             Vec::<String>::new(),
             "`{builtin}` is a style the runtime provides"
         );
+        assert_eq!(off_tree_notes(&harness), Vec::<String>::new());
     }
 
     // The exemption is the exact spelling, never a case-folded one.
     let harness = common::tmpdir("output-style-settings-builtin-cased");
     common::write_settings(&harness, "{ \"outputStyle\": \"explanatory\" }\n");
     adopt_builtins(&harness);
-    assert_eq!(route_findings(&harness).len(), 1);
+    assert_eq!(off_tree_notes(&harness).len(), 1);
+}
+
+#[test]
+fn a_lockless_harness_resolves_a_provided_outputstyle_name() {
+    // No committed lock: the embedded built-in lock's edges are the ones judged. The
+    // project's style resolves to its member; a built-in style is provided.
+    let harness = common::tmpdir("output-style-lockless-provided");
+    write_style(&harness, "terse", "Answer in one sentence.\n");
+    common::write_settings(&harness, "{ \"outputStyle\": \"Proactive\" }\n");
+    common::write_sibling(
+        &harness,
+        ".claude/settings.local.json",
+        "{ \"outputStyle\": \"terse\" }\n",
+    );
+
+    let narration = common::explain_in(&harness, "settings-local:settings.local");
+    assert!(
+        narration.contains("it points at `terse` (output-style) via its `outputStyle` field"),
+        "the lockless overlay selects the style it names, got: {narration}"
+    );
+    assert_eq!(route_findings(&harness), Vec::<String>::new());
+    assert_eq!(
+        off_tree_notes(&harness),
+        Vec::<String>::new(),
+        "a provided name is never off-tree"
+    );
+}
+
+#[test]
+fn a_lockless_harness_notes_an_off_tree_outputstyle_as_one_coverage_note() {
+    let harness = common::tmpdir("output-style-lockless-off-tree");
+    write_style(&harness, "terse", "Answer in one sentence.\n");
+    common::write_settings(&harness, "{ \"outputStyle\": \"Nowhere\" }\n");
+    common::write_sibling(
+        &harness,
+        ".claude/settings.local.json",
+        "{ \"outputStyle\": \"Personal\" }\n",
+    );
+
+    assert_eq!(
+        route_findings(&harness),
+        Vec::<String>::new(),
+        "a name the tree cannot show is never dangling"
+    );
+    let notes = off_tree_notes(&harness);
+    assert_eq!(
+        notes.len(),
+        1,
+        "one note for every off-tree name, got: {notes:#?}"
+    );
+    assert!(
+        notes[0].contains("`settings` `outputStyle` → `Nowhere`")
+            && notes[0].contains("`settings.local` `outputStyle` → `Personal`")
+            && notes[0].contains("~/.claude/output-styles"),
+        "the note names each reference and the scopes temper does not read, got: {notes:#?}"
+    );
 }

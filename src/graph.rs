@@ -24,7 +24,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use crate::builtin_kind::MAX_IMPORT_HOPS;
+use crate::builtin_kind::{MAX_IMPORT_HOPS, off_tree_scopes};
 use crate::check::Diagnostic;
 use crate::compose::{Edge, Requirement};
 use crate::contract::{EdgeBound, Predicate, ROOT_OWNER};
@@ -154,6 +154,20 @@ pub struct ResolvedEdge {
     pub to: Node,
 }
 
+/// One reference whose target the tree cannot show but a scope `temper` does not read may
+/// carry — a user-scope or plugin-provided member.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OffTreeReference {
+    /// The referencing member's `(kind, id)`.
+    pub from: Node,
+    /// The reference field the edge was declared under.
+    pub field: String,
+    /// The name the reference wrote.
+    pub target: String,
+    /// The scopes outside the tree that may answer the name.
+    pub scopes: &'static [&'static str],
+}
+
 /// The outcome of computing the resolved edges over declared references: the arcs
 /// that form real member→member relationships, the dangling-route diagnostics
 /// for references that resolve to no artifact, and the derived containment family —
@@ -166,6 +180,10 @@ pub struct ResolvedEdgesResult {
     /// The route-resolution findings — one per dangling reference, named to the
     /// importing member.
     pub dangling_diagnostics: Vec<Diagnostic>,
+    /// The references to a target the runtime may answer from a scope outside the
+    /// tree ([`crate::builtin_kind::off_tree_scopes`]) that the tree does not show —
+    /// undecidable here, so never dangling.
+    pub off_tree: Vec<OffTreeReference>,
     /// The derived **containment** family ([`containment_edges`]) — a host's incidence
     /// on each embedded member its body composes. A whole-corpus pass like the
     /// resolution walk itself, so it rides it: every consumer that ranges over
@@ -1719,6 +1737,7 @@ pub fn resolved_edges(
     RESOLVED_EDGES_COUNT.with(|c| c.set(c.get() + 1));
     let mut resolved = Vec::new();
     let mut dangling_diagnostics = Vec::new();
+    let mut off_tree = Vec::new();
     // The whole-set half of admissibility, computed once here because `is_admissible`'s
     // per-edge signature cannot see a coincidence.
     let coincident = coincident_slots(edges);
@@ -1757,6 +1776,16 @@ pub fn resolved_edges(
                     // runtime loads it (decision 0101), so it neither resolves nor dangles.
                     // Matched on the authored bytes, exactly as the runtime matches them.
                     Some((_, _, Membership::Missing)) if edge.provided.contains(&target) => {}
+                    // A name a scope outside the tree may answer is undecidable here, so it
+                    // collects for one coverage note rather than dangling.
+                    Some((kind, _, Membership::Missing)) if !off_tree_scopes(kind).is_empty() => {
+                        off_tree.push(OffTreeReference {
+                            from: (edge.from.clone(), source.id.clone()),
+                            field: edge.field.clone(),
+                            target: target.clone(),
+                            scopes: off_tree_scopes(kind),
+                        });
+                    }
                     Some((_, _, Membership::Missing)) | None => {
                         dangling_diagnostics.push(dangling(edge, source.id.as_str(), &target));
                     }
@@ -1767,6 +1796,7 @@ pub fn resolved_edges(
     ResolvedEdgesResult {
         resolved,
         dangling_diagnostics,
+        off_tree,
         // The derived containment family rides the walk rather than each opting-in
         // predicate: both are whole-corpus passes, and deriving it per predicate made a
         // corpus declaring two clause families pay for the corpus twice in one run.

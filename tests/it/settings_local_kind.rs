@@ -272,14 +272,19 @@ fn a_settings_local_output_style_naming_an_output_style_member_resolves_to_it() 
         "the selected style resolves, got: {findings:#?}"
     );
 
-    // A local overlay naming no style dangles exactly as the committed file's would.
+    // A local overlay naming no style the tree shows may name a user or plugin style, so
+    // it is noted off-tree exactly as the committed file's would be — never dangling.
     write_sibling(
         &harness,
         ".claude/settings.local.json",
         "{ \"outputStyle\": \"ghost\" }\n",
     );
     let (findings, _) = check_harness(&harness);
-    let routes = common::findings_for(&findings, "graph.route");
-    assert_eq!(routes.len(), 1, "got: {findings:#?}");
-    assert!(routes[0].contains("`ghost`"), "got: {routes:#?}");
+    assert!(
+        common::findings_for(&findings, "graph.route").is_empty(),
+        "got: {findings:#?}"
+    );
+    let notes = common::findings_for(&findings, "coverage.off-tree-targets");
+    assert_eq!(notes.len(), 1, "got: {findings:#?}");
+    assert!(notes[0].contains("`ghost`"), "got: {notes:#?}");
 }

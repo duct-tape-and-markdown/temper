@@ -30,6 +30,38 @@ pub const CLAUDE_ROOT: &str = ".claude";
 /// deeper than this loads nothing at runtime and cannot carry liveness either.
 pub const MAX_IMPORT_HOPS: usize = 4;
 
+/// The kinds whose members the runtime also loads from scopes a check of the project does
+/// not read, each with those scopes: a name such a kind's member does not carry in the tree
+/// is undecidable there, never dangling. External facts: output styles load from
+/// `~/.claude/output-styles`, the managed settings directory and plugins as well as the
+/// project (code.claude.com/docs/en/output-styles, retrieved 2026-11-26); a marketplace a
+/// user adds is "declared in user settings" (code.claude.com/docs/en/plugin-marketplaces,
+/// retrieved 2026-11-26).
+pub const OFF_TREE_SCOPES: &[(&str, &[&str])] = &[
+    (
+        "known-marketplace",
+        &["marketplaces declared in user settings"],
+    ),
+    (
+        "output-style",
+        &[
+            "user styles (`~/.claude/output-styles`)",
+            "managed-policy styles",
+            "plugin-provided styles",
+        ],
+    ),
+];
+
+/// The scopes outside the tree that may carry a member of `kind` — empty for a kind the
+/// runtime loads from the tree alone ([`OFF_TREE_SCOPES`]).
+#[must_use]
+pub fn off_tree_scopes(kind: &str) -> &'static [&'static str] {
+    OFF_TREE_SCOPES
+        .iter()
+        .find(|(name, _)| *name == kind)
+        .map_or(&[], |(_, scopes)| scopes)
+}
+
 /// The curated exclusion list for the coverage note's stray-entry scan: each entry is a
 /// documented Claude Code path directly under `.claude/` (verified against the settings
 /// docs, code.claude.com/docs/en/settings, retrieved 2026-07-16 — an external fact cited

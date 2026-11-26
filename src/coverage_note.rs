@@ -38,6 +38,47 @@ const SCRIPTS_RULE: &str = "coverage.unrepresented-scripts";
 /// The built-in kinds whose documents are Claude Code settings files, where a hook
 /// handler or the status line names a command.
 const SETTINGS_KINDS: [&str; 2] = ["settings", "settings-local"];
+/// The disclosure rule id for the references naming a target the tree does not show and a
+/// scope `temper` does not read may answer — a note, because the verdict is undecidable in
+/// a check of the project.
+const OFF_TREE_RULE: &str = "coverage.off-tree-targets";
+
+/// Fold every off-tree reference into one disclosure naming each reference and the scopes
+/// `temper` does not read — `None` when there is none.
+#[must_use]
+pub fn off_tree_targets(references: &[crate::graph::OffTreeReference]) -> Option<Diagnostic> {
+    if references.is_empty() {
+        return None;
+    }
+    let named: Vec<String> = references
+        .iter()
+        .map(|reference| {
+            format!(
+                "`{}` `{}` → `{}`",
+                reference.from.1, reference.field, reference.target
+            )
+        })
+        .collect();
+    let scopes: BTreeSet<&str> = references
+        .iter()
+        .flat_map(|reference| reference.scopes.iter().copied())
+        .collect();
+    let scopes: Vec<&str> = scopes.into_iter().collect();
+    Some(Diagnostic::note(
+        OFF_TREE_RULE,
+        "harness",
+        format!(
+            "{} reference{} name{} a target the tree does not show ({}); temper does not read \
+             {}, which may answer {}, so none is judged dangling",
+            references.len(),
+            crate::display::plural(references.len()),
+            if references.len() == 1 { "s" } else { "" },
+            named.join(", "),
+            scopes.join(", "),
+            if references.len() == 1 { "it" } else { "them" },
+        ),
+    ))
+}
 
 /// Compute the wedge's coverage note over the harness at `root`.
 ///

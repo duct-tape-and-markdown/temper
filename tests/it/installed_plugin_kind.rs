@@ -260,23 +260,66 @@ fn the_marketplace_half_of_an_enablement_key_is_a_declared_edge_to_known_marketp
         ("installed-plugin", plugins.as_slice()),
         ("known-marketplace", marketplaces.as_slice()),
     ]);
-    let findings = temper::graph::check(&plugin.relationships, &by_kind);
+    let result = temper::graph::resolved_edges(&plugin.relationships, &by_kind);
 
     // `formatter@acme` and `linter@acme` resolve to the declared `acme` registry entry;
-    // `stray@ghost-mk` names a marketplace no registration declares — exactly one dangling
-    // edge, keyed to the offending plugin and naming the marketplace it wrote.
+    // `stray@ghost-mk` names a marketplace no project registration declares, which user
+    // settings may — off-tree, never dangling, keyed to the plugin and the name it wrote.
+    let resolved: Vec<(&str, &str)> = result
+        .resolved
+        .iter()
+        .map(|edge| (edge.from.1.as_str(), edge.to.1.as_str()))
+        .collect();
     assert_eq!(
-        findings.len(),
-        1,
-        "exactly the undeclared marketplace dangles, got: {findings:#?}"
-    );
-    let rendered = format!("{:#?}", findings[0]);
-    assert!(
-        rendered.contains("stray@ghost-mk") && rendered.contains("ghost-mk"),
-        "the finding names the enablement and the marketplace it named, got: {rendered}"
+        resolved,
+        vec![("formatter@acme", "acme"), ("linter@acme", "acme")]
     );
     assert!(
-        rendered.contains("known-marketplace"),
-        "the finding names the target kind the marketplace half resolves within, got: {rendered}"
+        result.dangling_diagnostics.is_empty(),
+        "got: {:#?}",
+        result.dangling_diagnostics
+    );
+    assert_eq!(
+        result.off_tree,
+        vec![temper::graph::OffTreeReference {
+            from: ("installed-plugin".to_string(), "stray@ghost-mk".to_string()),
+            field: "marketplace".to_string(),
+            target: "ghost-mk".to_string(),
+            scopes: temper::builtin_kind::off_tree_scopes("known-marketplace"),
+        }]
+    );
+}
+
+#[test]
+fn a_lockless_harness_resolves_an_installed_plugin_against_a_known_marketplace_the_settings_declare()
+ {
+    // No committed lock: the embedded built-in lock's edges are the ones judged.
+    let harness = common::tmpdir("enabled-plugins-lockless-resolves");
+    write_settings(&harness, SETTINGS_WITH_MARKETPLACES);
+
+    let (findings, _) = check_harness(&harness);
+    assert!(
+        common::findings_for(&findings, "graph.route").is_empty(),
+        "no marketplace dangles, got: {findings:#?}"
+    );
+    let notes = common::findings_for(&findings, "coverage.off-tree-targets");
+    assert!(
+        notes.iter().all(|note| !note.contains("@acme")),
+        "the declared marketplace resolves, never off-tree, got: {notes:#?}"
+    );
+}
+
+#[test]
+fn a_lockless_harness_notes_an_installed_plugin_naming_no_known_marketplace() {
+    let harness = common::tmpdir("enabled-plugins-lockless-off-tree");
+    write_settings(&harness, SETTINGS_WITH_MARKETPLACES);
+
+    let (findings, _) = check_harness(&harness);
+    let notes = common::findings_for(&findings, "coverage.off-tree-targets");
+    assert_eq!(notes.len(), 1, "got: {findings:#?}");
+    assert!(
+        notes[0].contains("`stray@ghost-mk` `marketplace` → `ghost-mk`")
+            && notes[0].contains("user settings"),
+        "the note names the enablement, the marketplace it named and the unread scope, got: {notes:#?}"
     );
 }

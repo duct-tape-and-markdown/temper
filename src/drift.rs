@@ -7765,6 +7765,18 @@ pub fn clause_from_row(row: &ClauseRow) -> Result<contract::Clause, compose::Cla
     })
 }
 
+/// The declaration family the assembly's edges are read off: the lock family where
+/// `workspace` commits a lock, else the embedded built-in lock — a lockless harness is
+/// gated by the default program's edges, never by none.
+#[must_use]
+pub fn edge_declarations<'a>(declarations: &'a Declarations, workspace: &Path) -> &'a Declarations {
+    if workspace.join(crate::LOCK_FILENAME).is_file() {
+        declarations
+    } else {
+        crate::builtin_lock::declarations()
+    }
+}
+
 /// The assembly's declared edges off the lock's `assembly` fact family — every
 /// `fact = "edge"` row. A present edge row missing a required `field`/`from`/`to` column
 /// is a load error naming the assembly family, never a silently absent edge — as is a

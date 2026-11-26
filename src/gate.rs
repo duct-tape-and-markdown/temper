@@ -258,7 +258,8 @@ pub fn gate(
             .collect::<Result<Vec<_>, compose::ClauseRowError>>()?;
         compose::collect_to_btree_refusing_duplicates(rows)?
     };
-    let assembly_edges = drift::edges_from_declarations(&declarations)?;
+    let assembly_edges =
+        drift::edges_from_declarations(drift::edge_declarations(&declarations, workspace))?;
     // The lifted reference edges the graph predicates and read verbs fold in alongside the
     // declared-field arcs: authored mentions (route-resolved at check — `route_mentions`
     // owns a deferred mention's dangling verdict) and layout prose imports (path-resolved
@@ -714,6 +715,9 @@ pub fn gate(
     // derived family `degree` and `reached-from` count only under a `contains:` filter.
     let resolved_edges_result = graph::resolved_edges(&edges, &by_kind);
     diagnostics.extend(resolved_edges_result.dangling_diagnostics);
+    diagnostics.extend(coverage_note::off_tree_targets(
+        &resolved_edges_result.off_tree,
+    ));
     let resolved_edges = &resolved_edges_result.resolved;
     let containment_edges = &resolved_edges_result.containment;
 
@@ -743,7 +747,7 @@ pub fn gate(
     // `engine::judge` reads *and* the edges, reusing the hoisted arc
     // resolution, plus the already-resolved mention edges —
     // obligation-free by default, counted only when a `degree` clause opts in.
-    // An unrepresented harness declares no edges, so the reference a supporting doc's
+    // An unrepresented harness carries no mention rows, so the reference a supporting doc's
     // incoming bound asks for is unfillable there: those findings fold into one coverage
     // line rather than one finding per doc.
     let represented = workspace.join(crate::LOCK_FILENAME).is_file();

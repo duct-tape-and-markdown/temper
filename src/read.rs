@@ -2483,7 +2483,8 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         .iter()
         .map(|row| Ok((row.name.clone(), drift::requirement_from_row(row)?)))
         .collect::<Result<_, compose::ClauseRowError>>()?;
-    let assembly_edges = drift::edges_from_declarations(&declarations)?;
+    let assembly_edges =
+        drift::edges_from_declarations(drift::edge_declarations(&declarations, &workspace))?;
     // Authored mentions (route-resolved at check) and layout prose imports (path-resolved
     // at emit) both lift off the lock; `why` route-resolves them against this same corpus,
     // narrating a dangling mention as the gate's route finding rather than a resolved edge,
