@@ -144,11 +144,16 @@ pub fn check(
     // run's effective one, so a locked custom kind claims its own locus and a relocated
     // built-in claims its new one — the raw embedded definitions would read a relocated
     // built-in's pre-relocation locus and name its real one a stray.
+    let fully_reached = fully_reached_dirs(root, import_reached);
     for (path, is_dir) in claude_entries(root) {
-        if governed_by_any_path(declared_kinds, &path, is_dir)
+        let reached = if is_dir {
+            fully_reached.contains(&path)
+        } else {
+            import_reached.contains(&crate::path::normalize_path(&root.join(&*path)))
+        };
+        if reached
+            || governed_by_any_path(declared_kinds, &path, is_dir)
             || KNOWN_SURFACES.contains(&&*path)
-            || (!is_dir
-                && import_reached.contains(&crate::path::normalize_path(&root.join(&*path))))
         {
             continue;
         }
@@ -188,6 +193,48 @@ fn claude_entries(root: &Path) -> Vec<(HarnessRelativePath, bool)> {
             let is_dir = entry.file_type().is_some_and(|ft| ft.is_dir());
             Some((HarnessRelativePath::from_path(rel), is_dir))
         })
+        .collect()
+}
+
+/// The directories directly under `<root>/.claude` holding at least one file, every one
+/// of which an import reaches — claimed by their importers as a reached file is. `every`,
+/// never `some`: the scan names direct children only, so a partly reached directory
+/// claimed whole would hide its unreached file. An empty directory reaches nothing and
+/// stays unclaimed. One walk under the scan's own ignore policy, so a gitignored file
+/// neither claims nor blocks a claim.
+fn fully_reached_dirs(
+    root: &Path,
+    import_reached: &BTreeSet<PathBuf>,
+) -> BTreeSet<HarnessRelativePath> {
+    let claude_dir = root.join(CLAUDE_ROOT);
+    if !claude_dir.is_dir() {
+        return BTreeSet::new();
+    }
+    // Per top-level directory: does every file beneath it sit in `import_reached`?
+    let mut all_reached: BTreeMap<PathBuf, bool> = BTreeMap::new();
+    for entry in crate::import::ignore_walk(&claude_dir, true)
+        .build()
+        .flatten()
+    {
+        if !entry.file_type().is_some_and(|ft| ft.is_file()) {
+            continue;
+        }
+        let Ok(rel) = entry.path().strip_prefix(&claude_dir) else {
+            continue;
+        };
+        let mut components = rel.components();
+        let (Some(top), Some(_)) = (components.next(), components.next()) else {
+            continue;
+        };
+        let reached = import_reached.contains(&crate::path::normalize_path(entry.path()));
+        *all_reached
+            .entry(Path::new(CLAUDE_ROOT).join(top))
+            .or_insert(true) &= reached;
+    }
+    all_reached
+        .into_iter()
+        .filter(|(_, reached)| *reached)
+        .map(|(dir, _)| HarnessRelativePath::from_path(&dir))
         .collect()
 }
 

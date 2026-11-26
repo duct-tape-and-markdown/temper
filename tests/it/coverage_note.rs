@@ -741,6 +741,55 @@ fn a_file_a_memory_import_reaches_draws_no_unclaimed_entry_finding() {
     );
 }
 
+/// A root memory file importing `.claude/notes/a.md`, with `.claude/notes/` holding a.md
+/// plus each of `extra` — the directory-claim fixture.
+fn write_notes_dir_importer(name: &str, extra: &[&str]) -> std::path::PathBuf {
+    let harness = common::tmpdir(name);
+    fs::create_dir_all(harness.join(".claude/notes")).unwrap();
+    fs::write(
+        harness.join("CLAUDE.md"),
+        "# Memory\n\nSee @.claude/notes/a.md for notes.\n",
+    )
+    .unwrap();
+    fs::write(harness.join(".claude/notes/a.md"), "# A\n").unwrap();
+    for file in extra {
+        fs::write(harness.join(".claude/notes").join(file), "# Other\n").unwrap();
+    }
+    fs::write(harness.join(".claude/stray.md"), "").unwrap();
+    harness
+}
+
+#[test]
+fn a_directory_whose_every_file_an_import_reaches_draws_no_unclaimed_entry_finding() {
+    let harness = write_notes_dir_importer("import-reached-dir-claimed", &[]);
+
+    let (findings, success) = check_harness(&harness);
+
+    let unclaimed = common::findings_for(&findings, "coverage.unclaimed-entry");
+    assert!(
+        unclaimed.iter().any(|f| f.contains(".claude/stray.md")),
+        "the scan is populated, got: {findings:#?}"
+    );
+    assert!(
+        !unclaimed.iter().any(|f| f.contains(".claude/notes")),
+        "a fully import-reached directory is claimed, got: {unclaimed:#?}"
+    );
+    assert!(success, "{findings:#?}");
+}
+
+#[test]
+fn a_directory_holding_an_unreached_file_still_draws_an_unclaimed_entry_finding() {
+    let harness = write_notes_dir_importer("import-reached-dir-partial", &["b.md"]);
+
+    let (findings, _) = check_harness(&harness);
+
+    let unclaimed = common::findings_for(&findings, "coverage.unclaimed-entry");
+    assert!(
+        unclaimed.iter().any(|f| f.contains(".claude/notes")),
+        "a directory holding an unimported file stays a stray, got: {unclaimed:#?}"
+    );
+}
+
 /// Write a skill whose body links its `reference.md` supporting doc in prose alone — a
 /// hand-typed link, which declares no edge.
 fn write_skill_with_prose_linked_doc(root: &Path, name: &str) {
