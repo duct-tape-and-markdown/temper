@@ -766,6 +766,14 @@ fn plain_member(kind: &str, name: &str) -> PayloadMember {
     common::payload_member(kind, name, None, "# Body\n")
 }
 
+/// A [`plain_member`] declaring its location relative to its kind's locus root.
+fn located_member(kind: &str, name: &str, location: &str) -> PayloadMember {
+    PayloadMember {
+        location: Some(location.to_string()),
+        ..plain_member(kind, name)
+    }
+}
+
 #[test]
 fn a_flat_glob_with_a_literal_leading_segment_places_under_it() {
     let (harness, into) = workspace("flat-glob-literal-segment");
@@ -938,6 +946,7 @@ fn an_any_depth_glob_places_its_own_formats_leaf_never_a_hardcoded_md() {
             kind: "catalog".to_string(),
             name: "tools".to_string(),
             host: None,
+            location: None,
             fields: vec![("name".to_string(), serde_json::json!("tools"))],
             body: String::new(),
             source_path: None,
@@ -1002,6 +1011,7 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
             kind: "settings".to_string(),
             name: "settings".to_string(),
             host: None,
+            location: None,
             fields: vec![(
                 "permissions".to_string(),
                 serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
@@ -1565,6 +1575,7 @@ fn settings_payload(events: &[&str], residue: &[(&str, serde_json::Value)]) -> P
             kind: "settings".to_string(),
             name: "settings".to_string(),
             host: None,
+            location: None,
             fields,
             body: String::new(),
             source_path: None,
@@ -4168,7 +4179,11 @@ fn emit_refuses_a_memory_placement_inside_a_custom_host_unit() {
             kinds: domain_host_and_memory_kinds(),
             ..Default::default()
         },
-        members: vec![plain_member("memory", "domains:billing:CLAUDE")],
+        members: vec![located_member(
+            "memory",
+            "domains:billing:CLAUDE",
+            "domains/billing/CLAUDE.md",
+        )],
     };
 
     // `check` reads `domains/billing/CLAUDE.md` as the `domain` host's file, so a memory
@@ -4183,7 +4198,11 @@ fn emit_refuses_a_memory_placement_inside_a_custom_host_unit() {
 
     // Outside every host's unit, the same kind places as it always has.
     let payload = Payload {
-        members: vec![plain_member("memory", "apps:web:CLAUDE")],
+        members: vec![located_member(
+            "memory",
+            "apps:web:CLAUDE",
+            "apps/web/CLAUDE.md",
+        )],
         ..payload
     };
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
@@ -4216,4 +4235,100 @@ fn emit_refuses_a_placement_inside_a_subkind_locus() {
         "{message}"
     );
     assert!(!harness.join("notes/draft-plan.md").exists());
+}
+
+/// The built-in lock's own row for `kind`.
+fn builtin_row(kind: &str) -> KindFactRow {
+    temper::builtin_lock::declarations()
+        .kinds
+        .iter()
+        .find(|row| row.name == kind)
+        .unwrap_or_else(|| panic!("the built-in lock declares `{kind}`"))
+        .clone()
+}
+
+#[test]
+fn emit_places_a_member_at_its_declared_location_rather_than_a_path_parsed_from_its_name() {
+    let (harness, into) = workspace("placement-from-location");
+    // A field-derived leaf is opaque: `Teaching Mode` names the style, `teach.md` holds it,
+    // and only the declared location says so.
+    let member = PayloadMember {
+        location: Some("apps/.claude/output-styles/teach.md".to_string()),
+        fields: vec![("name".to_string(), "Teaching Mode".into())],
+        ..plain_member("output-style", "apps:Teaching Mode")
+    };
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![builtin_row("output-style")],
+            ..Default::default()
+        },
+        members: vec![member],
+    };
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert!(
+        harness
+            .join("apps/.claude/output-styles/teach.md")
+            .is_file()
+    );
+    assert!(
+        !harness
+            .join("apps/.claude/output-styles/Teaching Mode.md")
+            .exists()
+    );
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert!(
+        lock.contains("location = \"apps/.claude/output-styles/teach.md\""),
+        "the lock row carries the placement: {lock}"
+    );
+}
+
+#[test]
+fn a_member_no_template_can_place_whole_without_a_declared_location_is_refused() {
+    let (harness, into) = workspace("placement-undeclared");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![builtin_row("memory")],
+            ..Default::default()
+        },
+        members: vec![plain_member("memory", "apps:web:CLAUDE")],
+    };
+
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    assert!(
+        matches!(
+            err.downcast_ref::<drift::DriftError>(),
+            Some(drift::DriftError::UnplacedMember { member, .. }) if member == "memory:apps:web:CLAUDE"
+        ),
+        "{err:?}"
+    );
+    assert!(!harness.join("apps/web/CLAUDE.md").exists());
+}
+
+#[test]
+fn emit_refuses_a_location_that_disagrees_with_the_names_prefix() {
+    let (_harness, into) = workspace("placement-disagrees");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![builtin_row("memory")],
+            ..Default::default()
+        },
+        members: vec![located_member(
+            "memory",
+            "apps:web:CLAUDE",
+            "apps/api/CLAUDE.md",
+        )],
+    };
+
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    assert!(
+        matches!(
+            err.downcast_ref::<drift::DriftError>(),
+            Some(drift::DriftError::MemberLocation { detail, .. }) if detail.contains("apps:api:CLAUDE")
+        ),
+        "{err:?}"
+    );
 }

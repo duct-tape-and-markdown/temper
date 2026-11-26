@@ -1180,7 +1180,7 @@ test("output-style is a lenient markdown file named by its name field, else its 
     harness({
       members: [
         outputStyle({ name: "terse", "keep-coding-instructions": true, prose: text`Be brief.` }),
-        outputStyle({ name: "apps:web:terse", prose: text`Be briefer.` }),
+        outputStyle({ name: "apps:web:terse", location: "apps/web/.claude/output-styles/terse.md", prose: text`Be briefer.` }),
       ],
     }),
   );

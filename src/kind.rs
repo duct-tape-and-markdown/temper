@@ -1317,7 +1317,7 @@ fn call_label(label: &str) -> Option<(&str, &str)> {
 /// Parse a [`KindFactRow::unit_shape`] label into its typed [`UnitShape`] — `None`
 /// outside the closed vocabulary. `named-field(<field>)` is the third mode's wire form,
 /// read through [`call_label`].
-fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
+pub(crate) fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     match label {
         "file" => return Some(UnitShape::File),
         "directory" => return Some(UnitShape::Directory),

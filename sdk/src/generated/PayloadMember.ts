@@ -28,6 +28,13 @@ name: string,
  */
 host?: string, 
 /**
+ * Where the member's file sits, relative to its locus root — the kind's `governs`
+ * root, or its host's unit for a nested file child. Declared where no template can
+ * place the name whole (a `:`-prefixed identity such as `apps:web:CLAUDE`); absent,
+ * the name is placed whole through the first template that can.
+ */
+location?: string, 
+/**
  * The kind's typed fields, flat and ordered — the projected frontmatter. The
  * value is arbitrary JSON, so the seam type is `unknown`, never a serde_json
  * binding — the SDK reads the field values, never the engine over this pipe.

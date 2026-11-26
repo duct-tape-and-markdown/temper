@@ -1662,7 +1662,7 @@ test("an embedded format spells an edge target off the derived facts — name, a
   );
 });
 
-test("a nested skill's `:`-joined name places back under its subdirectory's skills folder", () => {
+test("a nested skill places back under its subdirectory's skills folder from its declared location", () => {
   // A nested skill is named by its subdirectory's segments ahead of its own directory —
   // `apps/web/.claude/skills/deploy` is `apps:web:deploy` — so the placement splits the
   // prefix back into the directories the `**` spans.
@@ -1679,7 +1679,12 @@ test("a nested skill's `:`-joined name places back under its subdirectory's skil
     embeddedMemberValue({ kind: citation, key, leaves: { source: target } });
   const h = harness({
     members: [
-      skill({ name: "apps:web:deploy", description: "Use when deploying the web app.", prose: text`# Deploy` }),
+      skill({
+        name: "apps:web:deploy",
+        location: "apps/web/.claude/skills/deploy/SKILL.md",
+        description: "Use when deploying the web app.",
+        prose: text`# Deploy`,
+      }),
       skill({ name: "deploy", description: "Use when deploying.", prose: text`# Deploy` }),
       memory({ name: "CLAUDE", prose: blocks(cite("nested", "skill:apps:web:deploy"), cite("root", "skill:deploy")) }),
     ],
@@ -1694,10 +1699,10 @@ test("a nested skill's `:`-joined name places back under its subdirectory's skil
   );
 });
 
-test("a nested command's `:`-joined name places back at its path under commands/", () => {
-  // A command is named by its path under `commands/`, each `/` a `:` — so the placement
-  // splits the name back into the directories it came from, and the link a citing member
-  // renders lands on the file `check` reads as `command:frontend:component`.
+test("a nested command places back at its path under commands/ from its declared location", () => {
+  // A command is named by its path under `commands/`, each `/` a `:`; its declared
+  // location places it, so the link a citing member renders lands on the file `check`
+  // reads as `command:frontend:component`.
   const citation = kind<object>(
     {
       name: "command-citation",
@@ -1709,7 +1714,12 @@ test("a nested command's `:`-joined name places back at its path under commands/
   );
   const h = harness({
     members: [
-      command({ name: "frontend:component", description: "Use when scaffolding a component.", prose: text`# Component` }),
+      command({
+        name: "frontend:component",
+        location: "frontend/component.md",
+        description: "Use when scaffolding a component.",
+        prose: text`# Component`,
+      }),
       memory({
         name: "CLAUDE",
         prose: blocks(
@@ -3183,7 +3193,7 @@ test("a two-template locus lists both templates and places each member at the te
   );
   const h = harness({
     members: [
-      memo({ name: "apps:web:AGENTS", prose: text`# Web` }),
+      memo({ name: "apps:web:AGENTS", location: "apps/web/AGENTS.md", prose: text`# Web` }),
       memory({
         name: "CLAUDE",
         prose: blocks(
@@ -3198,4 +3208,58 @@ test("a two-template locus lists both templates and places each member at the te
   assert.equal(result.members.find((m) => m.name === "CLAUDE")!.body, "See apps/web/AGENTS.md.\n");
   const row = result.declarations.kinds.find((k) => k.name === "memo")!;
   assert.deepEqual(row.governs_glob, ["**/CLAUDE.md", "**/AGENTS.md"]);
+});
+
+test("a nested member places at its declared location and carries it on its payload row", () => {
+  const citation = kind<object>(
+    {
+      name: "located-citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      edgeFields: [{ field: "source", to: [skill] }],
+    },
+    { render: (value) => `See ${value.targets.source.path}.` },
+  );
+  const location = "apps/web/.claude/skills/deploy/SKILL.md";
+  const h = harness({
+    members: [
+      skill({ name: "apps:web:deploy", location, description: "Use when deploying the web app.", prose: text`# Deploy` }),
+      memory({ name: "CLAUDE", prose: blocks(embeddedMemberValue({ kind: citation, key: "web", leaves: { source: "skill:apps:web:deploy" } })) }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+
+  const result = emit(h);
+  assert.equal(result.members.find((m) => m.name === "CLAUDE")!.body, `See ${location}.\n`);
+  const nested = result.members.find((m) => m.name === "apps:web:deploy")!;
+  assert.equal(nested.location, location);
+  // The frontmatter name is the name less the prefix the location spells.
+  assert.deepEqual(nested.fields[0], ["name", "deploy"]);
+});
+
+test("a member no template can place whole without a declared location is refused at emit", () => {
+  const citation = kind<object>(
+    {
+      name: "unplaced-citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      edgeFields: [{ field: "source", to: [memory] }],
+    },
+    { render: (value) => `See ${value.targets.source.path}.` },
+  );
+  const h = harness({
+    members: [
+      memory({ name: "apps:web:CLAUDE", prose: text`# Web` }),
+      memory({ name: "CLAUDE", prose: blocks(embeddedMemberValue({ kind: citation, key: "web", leaves: { source: "memory:apps:web:CLAUDE" } })) }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+  assert.throws(() => emit(h), /declares no location and no template places its name whole/);
+});
+
+test("a location that does not spell the name's prefix is refused at construction", () => {
+  assert.throws(
+    () => skill({ name: "apps:api:deploy", location: "apps/web/.claude/skills/deploy/SKILL.md", description: "Use when deploying.", prose: text`# Deploy` }),
+    /spells the identity prefix `apps:web`/,
+  );
 });

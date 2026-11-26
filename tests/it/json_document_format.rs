@@ -369,6 +369,7 @@ fn plugin_member() -> PayloadMember {
         kind: "plugin-manifest".to_string(),
         name: "formatter".to_string(),
         host: None,
+        location: None,
         fields: vec![
             ("version".to_string(), json!("1.2.0")),
             ("name".to_string(), json!("formatter")),

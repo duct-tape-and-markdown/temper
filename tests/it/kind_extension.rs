@@ -400,7 +400,7 @@ fn the_guard_judges_a_write_in_a_subkinds_locus_as_the_subkind_alone() {
 /// locus still places.
 #[test]
 fn emit_refuses_a_base_member_whose_projection_path_lies_in_a_subkinds_locus() {
-    use temper::drift::{self, EmitOptions, Payload};
+    use temper::drift::{self, EmitOptions, Payload, PayloadMember};
     let root = common::tmpdir("emit-subkind-locus");
     let rule = KindFactRow {
         governs_glob: vec!["**/*.md".to_string()],
@@ -416,7 +416,12 @@ fn emit_refuses_a_base_member_whose_projection_path_lies_in_a_subkinds_locus() {
             kinds: vec![rule.clone(), standard.clone()],
             ..Declarations::default()
         },
-        members: vec![common::rule_member(name, None, "# Doc\n\nBody.\n")],
+        members: vec![PayloadMember {
+            location: name
+                .contains(':')
+                .then(|| format!("{}.md", name.replace(':', "/"))),
+            ..common::rule_member(name, None, "# Doc\n\nBody.\n")
+        }],
     };
 
     let err = drift::emit(

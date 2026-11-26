@@ -677,6 +677,37 @@ pub enum DriftError {
         detail: String,
     },
 
+    /// A member's name is one no template places whole and it declares no location. A
+    /// `:`-joined identity spells the directories its placement spans, and that
+    /// placement is a declared fact, never parsed back out of the name.
+    #[error(
+        "member `{member}` of kind `{kind}` declares no location and no template places its name whole (templates `{templates}`) — a `:`-prefixed identity's placement is declared as the member's `location`, relative to its locus root"
+    )]
+    #[diagnostic(code(temper::drift::unplaced_member))]
+    UnplacedMember {
+        /// The member's kind.
+        kind: String,
+        /// The member, by its whole address.
+        member: String,
+        /// The kind's templates, joined for display.
+        templates: String,
+    },
+
+    /// A member's declared location cannot place it: not a plain relative path, or one
+    /// the read side names as another identity.
+    #[error("member `{member}` of kind `{kind}` declares location `{location}`: {detail}")]
+    #[diagnostic(code(temper::drift::member_location))]
+    MemberLocation {
+        /// The member's kind.
+        kind: String,
+        /// The member, by its whole address.
+        member: String,
+        /// The declared location, verbatim.
+        location: String,
+        /// Why it cannot place the member.
+        detail: String,
+    },
+
     /// A member's name carries the `/` an address is cut at. A member's identity is a file
     /// stem or the one directory segment its glob stars — one address segment either way
     /// ([`crate::member_address::is_one_segment`]) — so a name carrying the separator
@@ -872,6 +903,9 @@ pub(crate) struct RollupEntry {
     /// member's own key and the address is its kind joined onto it, so every reader of
     /// `name` is unchanged.
     pub(crate) host: Option<String>,
+    /// The member's declared location, carried from the payload — absent where the name
+    /// placed whole, so such a row is byte-identical to one written before the column.
+    pub(crate) location: Option<String>,
     /// Path to the original source file, as given relative to the harness arg.
     pub(crate) source_path: HarnessRelativePath,
     /// SHA-256 of the authored source bytes — the **source freshness fact**, the
@@ -951,6 +985,9 @@ fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
         table["name"] = value(entry.name.clone());
         if let Some(host) = &entry.host {
             table["host"] = value(host.clone());
+        }
+        if let Some(location) = &entry.location {
+            table["location"] = value(location.clone());
         }
         table["source_path"] = value(String::from(entry.source_path.clone()));
         table["source_hash"] = value(entry.source_hash.clone());
@@ -1201,6 +1238,13 @@ pub struct PayloadMember {
     /// (`specs/model/representation.md`, "nesting").
     #[serde(default)]
     pub host: Option<String>,
+    /// Where the member's file sits, relative to its locus root — the kind's `governs`
+    /// root, or its host's unit for a nested file child. Declared where no template can
+    /// place the name whole (a `:`-prefixed identity such as `apps:web:CLAUDE`); absent,
+    /// the name is placed whole through the first template that can.
+    #[serde(default)]
+    #[ts(optional)]
+    pub location: Option<String>,
     /// The kind's typed fields, flat and ordered — the projected frontmatter. The
     /// value is arbitrary JSON, so the seam type is `unknown`, never a serde_json
     /// binding — the SDK reads the field values, never the engine over this pipe.
@@ -1461,6 +1505,8 @@ struct Projection {
     /// address rather than by a `<kind>:<name>` no nested child wears. Absent at every
     /// locus but a nested **file** child's.
     host: Option<String>,
+    /// The member's declared location, for its lock row.
+    location: Option<String>,
     /// The path the artifact projects to — [`emit_one`] joins it onto the harness root
     /// to reach disk.
     source_path: HarnessRelativePath,
@@ -1627,75 +1673,173 @@ fn host_grain(address: &str) -> Option<(&str, &str, Option<&str>)> {
     parse_host_address(address).map(|(kind, name)| (kind, name, None))
 }
 
-/// The placement a member of `facts` named `name` takes **inside the locus its pattern is
-/// rooted at** — the half an `at` kind and a nested file child derive identically, since a
-/// host template's path pattern stands to its host's unit exactly as an `at` kind's glob
-/// stands to its `governs` root (`specs/model/representation.md`, "locus").
-///
-/// A **directory** unit owns a directory and seats its entry file inside it, so the
-/// pattern names that entry file and the member's own name is the directory: the leading
-/// segment is dropped and `<name>/` put in its place, which is what makes `*/SKILL.md`
-/// and a template's `*/PAGE.md` land the same shape. Every other shape places its name
-/// through the one splice rule ([`splice_name`]), a starred-segment kind's `*/<file>`
-/// included; a lone file (`file` or `path` shape) first turns each `:` of its name back
-/// into the `/` its placement spelled.
+/// The placement a member of `facts` named `name` takes **whole** inside the locus its
+/// pattern is rooted at — the half an `at` kind and a nested file child derive
+/// identically. A directory unit's name is its directory, seated where the pattern stars
+/// it; every other shape places its name through the one splice rule ([`splice_name`]).
+/// The name is never cut: a placement its identity's `:`-joined prefix spells is the
+/// member's declared location instead ([`places_whole`]).
 ///
 /// # Errors
 /// Propagates [`DriftError::FlatGlobDepth`] from the splice.
 fn placement_in_unit(facts: &KindFactRow, pattern: &str, name: &str) -> Result<String, DriftError> {
     if facts.unit_shape.as_deref() == Some("directory") {
         if let Some(under) = pattern.strip_prefix("**/") {
-            // The inverse of the read side's `**`-span prefix: every `:`-joined segment
-            // ahead of the leaf is a directory the `**` spans, the leaf the starred unit.
-            let (span, leaf) = name.rsplit_once(':').unwrap_or(("", name));
-            let placed = under.replacen('*', leaf, 1);
-            return Ok(if span.is_empty() {
-                placed
-            } else {
-                format!("{}/{placed}", span.replace(':', "/"))
-            });
+            return Ok(under.replacen('*', name, 1));
         }
         let entry = pattern.split_once('/').map_or(pattern, |(_, rest)| rest);
         return Ok(format!("{name}/{entry}"));
     }
-    if matches!(facts.unit_shape.as_deref(), None | Some("path" | "file")) {
-        // A lone file's name *is* its placement, each `:` a directory separator — the
-        // inverse of the `:` join the read side names it by
-        // ([`crate::extract::unit_shape_id`]). The splice lands the rejoined path in the
-        // leaf's `*`, so `frontend:component` through `**/*.md` is `frontend/component.md`.
-        let path = name.replace(':', "/");
-        // A `*`-free leaf fixes the filename, so the name's segments ahead of its stem are
-        // the directories the `**` spans: `apps:web:CLAUDE` through `**/CLAUDE.md` lands
-        // `apps/web/CLAUDE.md`.
-        if let Some(under) = pattern.strip_prefix("**/")
-            && !under.contains('*')
-        {
-            let leaf = under.rsplit_once('/').map_or(under, |(_, leaf)| leaf);
-            return Ok(match path.rsplit_once('/') {
-                Some((dirs, _)) => format!("{dirs}/{leaf}"),
-                None => leaf.to_string(),
-            });
-        }
-        return splice_name(&facts.name, pattern, &path, false);
-    }
-    if facts
-        .unit_shape
-        .as_deref()
-        .is_some_and(|shape| shape.starts_with("named-field-or-file"))
-        && let Some(under) = pattern.strip_prefix("**/")
-    {
-        // The read side prefixes the leaf with the directories the `**` spans, so every
-        // `:`-joined segment ahead of the leaf is one of them.
-        let (span, leaf) = name.rsplit_once(':').unwrap_or(("", name));
-        let placed = splice_name(&facts.name, under, leaf, false)?;
-        return Ok(if span.is_empty() {
-            placed
-        } else {
-            format!("{}/{placed}", span.replace(':', "/"))
-        });
-    }
     let starred_segment = facts.unit_shape.as_deref() == Some("starred-segment");
     splice_name(&facts.name, pattern, name, starred_segment)
+}
+
+/// Whether `pattern` places `name` whole. A `:` in a path-derived identity is the read
+/// side's join of the directories a placement spans, so only a declared location places
+/// it; a field-derived identity (`named-field`) is opaque and places as spelled. Of
+/// several templates, a starless one places only the name its filename's stem spells —
+/// `**/AGENTS.md` places `AGENTS`, never `CLAUDE`; a lone template places any name.
+fn places_whole(facts: &KindFactRow, pattern: &str, name: &str, lone: bool) -> bool {
+    let opaque = facts
+        .unit_shape
+        .as_deref()
+        .is_some_and(|shape| shape.starts_with("named-field("));
+    if name.contains(':') && !opaque {
+        return false;
+    }
+    let under = pattern.strip_prefix("**/").unwrap_or(pattern);
+    if lone || under.contains('*') {
+        return true;
+    }
+    let file = under.rsplit('/').next().unwrap_or(under);
+    Path::new(file)
+        .file_stem()
+        .and_then(std::ffi::OsStr::to_str)
+        == Some(name)
+}
+
+/// The template and in-locus placement a member takes: its declared `location` through
+/// the first template that finds it, else its name whole through the first template that
+/// places it ([`places_whole`]).
+///
+/// # Errors
+/// Returns [`DriftError::MemberLocation`] for a location that is not a plain relative path
+/// and [`DriftError::UnplacedMember`] for a name no template places whole with no location
+/// declared; propagates [`DriftError::FlatGlobDepth`] from the splice.
+fn placement_through<'g>(
+    facts: &KindFactRow,
+    patterns: &[&'g str],
+    name: &str,
+    host: Option<&str>,
+    location: Option<&str>,
+) -> Result<(&'g str, String), DriftError> {
+    let member = || member_address_under(host, &facts.name, name);
+    let first = patterns.first().copied().unwrap_or("");
+    if let Some(location) = location {
+        if !is_plain_relative(location) {
+            return Err(DriftError::MemberLocation {
+                kind: facts.name.clone(),
+                member: member(),
+                location: location.to_string(),
+                detail: "it is no plain relative path — non-empty `/`-joined segments, none \
+                         empty, `.` or `..`"
+                    .to_string(),
+            });
+        }
+        let pattern = patterns
+            .iter()
+            .copied()
+            .find(|pattern| {
+                crate::glob::compile_glob(pattern).is_some_and(|matcher| matcher.is_match(location))
+            })
+            .unwrap_or(first);
+        return Ok((pattern, location.to_string()));
+    }
+    let lone = patterns.len() < 2;
+    let Some(pattern) = patterns
+        .iter()
+        .copied()
+        .find(|pattern| places_whole(facts, pattern, name, lone))
+    else {
+        return Err(DriftError::UnplacedMember {
+            kind: facts.name.clone(),
+            member: member(),
+            templates: patterns.join("`, `"),
+        });
+    };
+    Ok((pattern, placement_in_unit(facts, pattern, name)?))
+}
+
+/// Whether `location` is a plain relative path: non-empty `/`-joined segments, none empty,
+/// `.`, `..`, or carrying a `\\`.
+fn is_plain_relative(location: &str) -> bool {
+    !location.is_empty()
+        && location
+            .split('/')
+            .all(|segment| !matches!(segment, "" | "." | "..") && !segment.contains('\\'))
+}
+
+/// Refuse a top-level member whose declared location reads back as another identity: the
+/// read side derives identity from the path, so a location disagreeing with the name's
+/// path-derived prefix would emit a member `check` names differently.
+///
+/// # Errors
+/// Returns [`DriftError::MemberLocation`] naming the identity the location reads back as.
+fn refuse_disagreeing_location(
+    facts: &KindFactRow,
+    member: &PayloadMember,
+    root: &str,
+    pattern: &str,
+    location: &str,
+) -> Result<(), DriftError> {
+    let shape = facts
+        .unit_shape
+        .as_deref()
+        .and_then(crate::kind::unit_shape_from_label);
+    let locus = Path::new(root);
+    let read = crate::extract::unit_shape_id(
+        shape.as_ref(),
+        &locus.join(location),
+        &fold_base(locus, pattern),
+        Some(pattern),
+        |field| {
+            member
+                .fields
+                .iter()
+                .find(|(key, _)| key == field)
+                .map(|(_, value)| value)
+        },
+    );
+    match read {
+        Ok(identity) if identity == member.name => Ok(()),
+        Ok(identity) => Err(DriftError::MemberLocation {
+            kind: facts.name.clone(),
+            member: payload_member_address(member),
+            location: location.to_string(),
+            detail: format!(
+                "the read side names that path `{identity}`, so the name's path-derived prefix \
+                 and its location disagree"
+            ),
+        }),
+        Err(fault) => Err(DriftError::MemberLocation {
+            kind: facts.name.clone(),
+            member: payload_member_address(member),
+            location: location.to_string(),
+            detail: format!("the read side derives no identity from it ({fault:?})"),
+        }),
+    }
+}
+
+/// Every declared member location, by the member's whole address — what a host's own
+/// placement is read off when a nested child composes under it.
+fn member_locations(members: &[PayloadMember]) -> BTreeMap<String, &str> {
+    members
+        .iter()
+        .filter_map(|member| {
+            let location = member.location.as_deref()?;
+            Some((payload_member_address(member), location))
+        })
+        .collect()
 }
 
 /// A nested file child's harness-relative locus: its host member's unit joined with the
@@ -1728,6 +1872,7 @@ fn nested_file_path(
     name: &str,
     host: Option<&str>,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
+    locations: &BTreeMap<String, &str>,
 ) -> Result<PathBuf, DriftError> {
     let refuse = |detail: String| DriftError::NestedFileLocus {
         kind: facts.name.clone(),
@@ -1755,13 +1900,17 @@ fn nested_file_path(
             "its host `{address}` owns no directory unit to compose under"
         )));
     }
-    let host_projection = member_projection_path(host_facts, host_identity, host_host, kind_facts)?;
+    let host_projection =
+        member_projection_path(host_facts, host_identity, host_host, kind_facts, locations)?;
     let host_unit = host_projection.parent().ok_or_else(|| {
         refuse(format!(
             "its host `{address}` projects no directory for a child to sit in"
         ))
     })?;
-    let placed = placement_in_unit(facts, pattern, name)?;
+    let location = locations
+        .get(&member_address_under(host, &facts.name, name))
+        .copied();
+    let (pattern, placed) = placement_through(facts, &[pattern], name, host, location)?;
     // The host's unit is the locus the template pattern is rooted at — `import`'s own
     // per-host scan walks the pattern from exactly there — so the placement is what the
     // pattern has to find.
@@ -1865,6 +2014,7 @@ fn member_projection_path(
     name: &str,
     host: Option<&str>,
     kind_facts: &BTreeMap<&str, &KindFactRow>,
+    locations: &BTreeMap<String, &str>,
 ) -> Result<PathBuf, DriftError> {
     // Ahead of the locus dispatch, so the bar is total: the directory-unit branch below
     // composes `<name>/<entry>` and never reaches the splice, so a splice-side guard would
@@ -1882,10 +2032,13 @@ fn member_projection_path(
         .as_deref()
         .filter(|_| !facts.governs_glob.is_empty())
     else {
-        return nested_file_path(facts, name, host, kind_facts);
+        return nested_file_path(facts, name, host, kind_facts, locations);
     };
-    let glob = placing_template(&facts.governs_glob, name);
-    let relative = placement_in_unit(facts, glob, name)?;
+    let globs: Vec<&str> = facts.governs_glob.iter().map(String::as_str).collect();
+    let location = locations
+        .get(&member_address_under(host, &facts.name, name))
+        .copied();
+    let (glob, relative) = placement_through(facts, &globs, name, host, location)?;
     let placed = join_locus(root, &relative);
     // Placement asks the one membership question discovery asks — the templates less the
     // excluded paths and the recorded cedes — so emit never writes a member `check` would
@@ -1934,31 +2087,6 @@ fn member_projection_path(
         });
     }
     Ok(placed)
-}
-
-/// The template of a locus's `globs` a member named `name` places through. A one-template
-/// locus has one answer. Of several, the first that can place the name: one whose star
-/// the name splices into, or one whose starless filename is the name's own leaf — a
-/// `**/AGENTS.md` places `apps:web:AGENTS`, never `apps:web:CLAUDE`, since the read side
-/// names a lone file by its stem. A name no template can place falls to the first, whose
-/// placement refuses it as the one-template case does.
-fn placing_template<'g>(globs: &'g [String], name: &str) -> &'g str {
-    let first = globs.first().map_or("", String::as_str);
-    if globs.len() < 2 {
-        return first;
-    }
-    let leaf = name.rsplit(':').next().unwrap_or(name);
-    globs
-        .iter()
-        .find(|glob| {
-            let under = glob.strip_prefix("**/").unwrap_or(glob);
-            if under.contains('*') {
-                return true;
-            }
-            let file = under.rsplit('/').next().unwrap_or(under);
-            Path::new(file).file_stem().and_then(|stem| stem.to_str()) == Some(leaf)
-        })
-        .map_or(first, String::as_str)
 }
 
 /// Run the SDK program at `<workspace_dir>/harness.ts` and compile its payload in one
@@ -2331,6 +2459,7 @@ pub fn emit(
     // point at a member that appears later in the list, so the whole map must be on hand
     // first. Keyed by lexically-normalized path so a resolved target joins it cleanly.
     let member_index = member_path_index(&payload.members, &kind_facts)?;
+    let locations = member_locations(&payload.members);
 
     // The composed-prose includes each host member declares, grouped by host address in
     // authored order — the same order the body's include slots carry, so the k-th slot
@@ -2498,6 +2627,7 @@ pub fn emit(
             &member.name,
             member.host.as_deref(),
             &kind_facts,
+            &locations,
         )?);
         // The declared commitment class is lifted once, above the locus fence: the fence's
         // own `local` exemption and the skip below are the same class's two consequences,
@@ -2635,6 +2765,7 @@ pub fn emit(
             kind: member.kind.clone(),
             name: member.name.clone(),
             host: member.host.clone(),
+            location: member.location.clone(),
             source_path,
             format,
             fields: member.fields.clone(),
@@ -2801,6 +2932,7 @@ pub fn emit(
             .push(RollupEntry {
                 name: projection.name.clone(),
                 host: projection.host.clone(),
+                location: projection.location.clone(),
                 source_path: projection.source_path.clone(),
                 source_hash: hash.clone(),
                 emit_hash: hash,
@@ -2828,6 +2960,7 @@ pub fn emit(
                 .push(RollupEntry {
                     name: container.name.clone(),
                     host: container.host.clone(),
+                    location: None,
                     source_path: path.clone(),
                     source_hash: hash.clone(),
                     emit_hash: hash,
@@ -4107,6 +4240,7 @@ fn member_path_index(
     kind_facts: &BTreeMap<&str, &KindFactRow>,
 ) -> Result<BTreeMap<PathBuf, String>, DriftError> {
     let mut index = BTreeMap::new();
+    let locations = member_locations(members);
     for member in members {
         let Some(facts) = kind_facts.get(member.kind.as_str()) else {
             continue;
@@ -4116,7 +4250,21 @@ fn member_path_index(
             &member.name,
             member.host.as_deref(),
             kind_facts,
+            &locations,
         )?);
+        if let (Some(location), Some(root)) =
+            (member.location.as_deref(), facts.governs_root.as_deref())
+        {
+            let globs: Vec<&str> = facts.governs_glob.iter().map(String::as_str).collect();
+            let (pattern, _) = placement_through(
+                facts,
+                &globs,
+                &member.name,
+                member.host.as_deref(),
+                Some(location),
+            )?;
+            refuse_disagreeing_location(facts, member, root, pattern, location)?;
+        }
         let address = payload_member_address(member);
         // One path, one owner: two members deriving the same projection would each
         // write it, and whichever the loop reached last would silently win.
@@ -8229,16 +8377,22 @@ mod tests {
     use crate::test_support::tmpdir;
 
     #[test]
-    fn a_member_places_through_the_template_whose_filename_is_its_leaf() {
-        let globs = ["**/CLAUDE.md".to_string(), "**/AGENTS.md".to_string()];
-        assert_eq!(placing_template(&globs, "apps:web:AGENTS"), "**/AGENTS.md");
-        assert_eq!(placing_template(&globs, "CLAUDE"), "**/CLAUDE.md");
-        // A name no template can place falls to the first, which refuses it.
-        assert_eq!(placing_template(&globs, "README"), "**/CLAUDE.md");
-        // A starred template splices any name.
-        let starred = ["README.md".to_string(), "*.md".to_string()];
-        assert_eq!(placing_template(&starred, "guide"), "*.md");
-        assert_eq!(placing_template(&["*.md".to_string()], "x"), "*.md");
+    fn a_member_places_whole_through_the_template_whose_filename_is_its_name() {
+        let row = KindFactRow {
+            governs_root: Some(".".to_string()),
+            governs_glob: vec!["**/CLAUDE.md".to_string(), "**/AGENTS.md".to_string()],
+            unit_shape: Some("file".to_string()),
+            ..crate::test_support::kind_fact_row("memory")
+        };
+        let facts = BTreeMap::new();
+        let none = BTreeMap::new();
+        let place = |name: &str| member_projection_path(&row, name, None, &facts, &none);
+        assert_eq!(place("AGENTS").unwrap(), PathBuf::from("AGENTS.md"));
+        assert_eq!(place("CLAUDE").unwrap(), PathBuf::from("CLAUDE.md"));
+        assert!(matches!(
+            place("README"),
+            Err(DriftError::UnplacedMember { .. })
+        ));
     }
 
     #[test]
@@ -8421,7 +8575,7 @@ mod tests {
     }
 
     #[test]
-    fn a_nested_skill_places_its_prefix_segments_ahead_of_its_skills_folder() {
+    fn a_nested_skill_places_at_its_declared_location() {
         let row = KindFactRow {
             governs_root: Some(".".to_string()),
             governs_glob: vec!["**/.claude/skills/*/SKILL.md".to_string()],
@@ -8430,21 +8584,30 @@ mod tests {
             ..crate::test_support::kind_fact_row("skill")
         };
         let facts = BTreeMap::new();
-        let place = |name: &str| {
-            crate::path::normalize_path(&member_projection_path(&row, name, None, &facts).unwrap())
-                .to_string_lossy()
-                .into_owned()
+        let place = |name: &str, location: Option<&str>| {
+            let locations: BTreeMap<String, &str> = location
+                .map(|location| (member_address_under(None, &row.name, name), location))
+                .into_iter()
+                .collect();
+            crate::path::normalize_path(
+                &member_projection_path(&row, name, None, &facts, &locations).unwrap(),
+            )
+            .to_string_lossy()
+            .into_owned()
         };
 
-        assert_eq!(place("deploy"), ".claude/skills/deploy/SKILL.md");
+        assert_eq!(place("deploy", None), ".claude/skills/deploy/SKILL.md");
         assert_eq!(
-            place("apps:web:deploy"),
+            place(
+                "apps:web:deploy",
+                Some("apps/web/.claude/skills/deploy/SKILL.md")
+            ),
             "apps/web/.claude/skills/deploy/SKILL.md"
         );
     }
 
     #[test]
-    fn a_nested_output_style_places_its_prefix_segments_ahead_of_its_folder() {
+    fn a_nested_output_style_places_at_its_declared_location() {
         let row = KindFactRow {
             governs_root: Some(".".to_string()),
             governs_glob: vec!["**/.claude/output-styles/*.md".to_string()],
@@ -8453,21 +8616,30 @@ mod tests {
             ..crate::test_support::kind_fact_row("output-style")
         };
         let facts = BTreeMap::new();
-        let place = |name: &str| {
-            crate::path::normalize_path(&member_projection_path(&row, name, None, &facts).unwrap())
-                .to_string_lossy()
-                .into_owned()
+        let place = |name: &str, location: Option<&str>| {
+            let locations: BTreeMap<String, &str> = location
+                .map(|location| (member_address_under(None, &row.name, name), location))
+                .into_iter()
+                .collect();
+            crate::path::normalize_path(
+                &member_projection_path(&row, name, None, &facts, &locations).unwrap(),
+            )
+            .to_string_lossy()
+            .into_owned()
         };
 
-        assert_eq!(place("terse"), ".claude/output-styles/terse.md");
+        assert_eq!(place("terse", None), ".claude/output-styles/terse.md");
         assert_eq!(
-            place("apps:web:terse"),
+            place(
+                "apps:web:terse",
+                Some("apps/web/.claude/output-styles/terse.md")
+            ),
             "apps/web/.claude/output-styles/terse.md"
         );
     }
 
     #[test]
-    fn a_path_shaped_member_places_each_colon_of_its_name_as_a_directory() {
+    fn a_path_shaped_member_places_at_its_declared_location() {
         let row = KindFactRow {
             governs_root: Some(".claude/commands".to_string()),
             governs_glob: vec!["**/*.md".to_string()],
@@ -8476,15 +8648,21 @@ mod tests {
             ..crate::test_support::kind_fact_row("command")
         };
         let facts = BTreeMap::new();
-        let place = |name: &str| {
-            crate::path::normalize_path(&member_projection_path(&row, name, None, &facts).unwrap())
-                .to_string_lossy()
-                .into_owned()
+        let place = |name: &str, location: Option<&str>| {
+            let locations: BTreeMap<String, &str> = location
+                .map(|location| (member_address_under(None, &row.name, name), location))
+                .into_iter()
+                .collect();
+            crate::path::normalize_path(
+                &member_projection_path(&row, name, None, &facts, &locations).unwrap(),
+            )
+            .to_string_lossy()
+            .into_owned()
         };
 
-        assert_eq!(place("deploy"), ".claude/commands/deploy.md");
+        assert_eq!(place("deploy", None), ".claude/commands/deploy.md");
         assert_eq!(
-            place("frontend:component"),
+            place("frontend:component", Some("frontend/component.md")),
             ".claude/commands/frontend/component.md"
         );
     }

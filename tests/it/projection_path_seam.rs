@@ -165,7 +165,7 @@ const program = harness({
     noteDoc({ name: "cadence", prose: text`# Cadence` }),
     rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
     agent({ name: "explore", description: "Use when a broad read-only sweep is the task.", prose: text`# Explore` }),
-    command({ name: "frontend:review", description: "Use when reviewing the working diff.", prose: text`# Review` }),
+    command({ name: "frontend:review", location: "frontend/review.md", description: "Use when reviewing the working diff.", prose: text`# Review` }),
     memory({ name: "CLAUDE", prose: text`# Memory` }),
   ],
   admit: [{ host: skill, admits: [waypoint] }],

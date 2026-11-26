@@ -289,6 +289,7 @@ fn knob_member() -> PayloadMember {
         kind: "knob".to_string(),
         name: "workstation".to_string(),
         host: None,
+        location: None,
         fields: vec![
             ("name".to_string(), json!("workstation")),
             ("mode".to_string(), json!("advisory")),

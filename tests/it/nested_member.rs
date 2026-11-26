@@ -2261,3 +2261,100 @@ fn a_root_hosted_tool_is_a_containment_edge_from_the_root() {
         "each root-hosted tool is contained by the root"
     );
 }
+
+/// `files` written under a fresh harness, lifted by `install`'s represent path and emitted
+/// once: the harness root and its `.temper/` workspace.
+fn lifted(label: &str, files: &[(&str, &str)]) -> (std::path::PathBuf, std::path::PathBuf) {
+    let root = common::tmpdir(label);
+    for (path, bytes) in files {
+        let path = root.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, bytes).unwrap();
+    }
+    let temper_dir = root.join(".temper");
+    std::fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+    let discovery = temper::install::discover(&root).unwrap();
+    temper::install::run(&root, &discovery, temper::install::Represent::Yes, false).unwrap();
+    (root, temper_dir)
+}
+
+/// Every `.ts` module the lift scaffolded under `temper_dir`, outside the vendored SDK.
+fn scaffolded_modules(temper_dir: &std::path::Path) -> Vec<String> {
+    walkdir::WalkDir::new(temper_dir)
+        .into_iter()
+        .filter_entry(|entry| entry.file_name() != "node_modules")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "ts"))
+        .map(|entry| std::fs::read_to_string(entry.path()).unwrap())
+        .collect()
+}
+
+const NESTED_SKILL: &str = "---\nname: deploy\ndescription: Use when deploying the web app; not for local runs.\n---\n# Deploy\n\nShip it.\n";
+
+#[test]
+fn import_declares_a_nested_members_location_from_its_read_path() {
+    let (root, temper_dir) = lifted(
+        "nested-location-lift",
+        &[
+            ("apps/web/.claude/skills/deploy/SKILL.md", NESTED_SKILL),
+            ("apps/web/CLAUDE.md", "# Web\n\nWeb memory.\n"),
+            (
+                "apps/web/.claude/output-styles/terse.md",
+                "---\nname: terse\n---\n\nAnswer in one sentence.\n",
+            ),
+        ],
+    );
+    let modules = scaffolded_modules(&temper_dir);
+    for (name, location) in [
+        ("apps:web:deploy", "apps/web/.claude/skills/deploy/SKILL.md"),
+        ("apps:web:CLAUDE", "apps/web/CLAUDE.md"),
+        ("apps:web:terse", "apps/web/.claude/output-styles/terse.md"),
+    ] {
+        assert!(
+            modules
+                .iter()
+                .any(|module| module
+                    .contains(&format!("name: {name:?},\n  location: {location:?},\n"))),
+            "the `{name}` module declares its location: {modules:#?}"
+        );
+        // The first emit wrote it back where it was read, through the declared location.
+        assert!(root.join(location).is_file(), "{location}");
+    }
+    let skill =
+        std::fs::read_to_string(root.join("apps/web/.claude/skills/deploy/SKILL.md")).unwrap();
+    assert!(skill.contains("\nname: \"deploy\"\n"), "{skill}");
+    let lock = std::fs::read_to_string(temper_dir.join("lock.toml")).unwrap();
+    assert!(
+        lock.contains("location = \"apps/web/CLAUDE.md\""),
+        "the lock row carries the placement: {lock}"
+    );
+}
+
+#[test]
+fn a_root_and_a_nested_same_named_output_style_stay_two_members() {
+    let style = "---\nname: terse\n---\n\nAnswer in one sentence.\n";
+    let (root, temper_dir) = lifted(
+        "output-style-two-members",
+        &[
+            (".claude/output-styles/terse.md", style),
+            ("apps/web/.claude/output-styles/terse.md", style),
+        ],
+    );
+    let modules = scaffolded_modules(&temper_dir);
+    for name in ["terse", "apps:web:terse"] {
+        assert!(
+            modules
+                .iter()
+                .any(|module| module.contains(&format!("name: {name:?},"))),
+            "a module names the `{name}` style: {modules:#?}"
+        );
+    }
+    for path in [
+        ".claude/output-styles/terse.md",
+        "apps/web/.claude/output-styles/terse.md",
+    ] {
+        let emitted = std::fs::read_to_string(root.join(path)).unwrap();
+        assert!(emitted.contains("\nname: \"terse\"\n"), "{path}: {emitted}");
+    }
+}

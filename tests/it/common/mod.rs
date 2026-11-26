@@ -1366,6 +1366,7 @@ pub fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember 
         kind: "skill".to_string(),
         name: name.to_string(),
         host: None,
+        location: None,
         fields: vec![
             ("name".to_string(), serde_json::json!(name)),
             ("description".to_string(), serde_json::json!(description)),
@@ -1386,6 +1387,7 @@ pub fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMem
         kind: "rule".to_string(),
         name: name.to_string(),
         host: None,
+        location: None,
         fields,
         body: body.to_string(),
         source_path: None,
@@ -1405,6 +1407,7 @@ pub fn payload_member(kind: &str, name: &str, host: Option<&str>, body: &str) ->
         kind: kind.to_string(),
         name: name.to_string(),
         host: host.map(str::to_string),
+        location: None,
         fields: Vec::new(),
         body: body.to_string(),
         source_path: None,

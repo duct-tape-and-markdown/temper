@@ -3002,6 +3002,9 @@ struct LiftedMember {
     /// have every adopter's emit refused at [`is_portable_file_stem`], over a name the
     /// SDK composes anyway.
     id: String,
+    /// Where the member's file sits relative to its kind's locus root — declared only
+    /// where the id carries a path-derived `:` prefix no template places whole.
+    location: Option<String>,
     /// The fields to hoist into typed properties, in projection order.
     fields: Vec<(String, JsonValue)>,
     /// The prose body, or [`None`] for a whole-document format ([`kind::Format::JsonDocument`],
@@ -3027,6 +3030,24 @@ fn lift_base(root: &Path, kind: &CustomKind, file: &Path) -> PathBuf {
     }
 }
 
+/// The location a lifted member declares: its read path relative to its kind's locus
+/// root, where its id carries the `:`-joined prefix a path-derived identity spells its
+/// placement with — the placement no template can recover from the name. A field-derived
+/// identity (`named-field`) is opaque and declares none.
+fn lifted_location(root: &Path, kind: &CustomKind, file: &Path, id: &str) -> Option<String> {
+    if !id.contains(':') || matches!(kind.unit_shape, Some(kind::UnitShape::NamedField { .. })) {
+        return None;
+    }
+    let governs = kind.governs.as_ref()?;
+    let locus = crate::path::normalize_path(&root.join(&governs.root));
+    let relative = crate::path::normalize_path(file)
+        .strip_prefix(&locus)
+        .ok()?
+        .to_path_buf();
+    let segments: Option<Vec<&str>> = relative.iter().map(std::ffi::OsStr::to_str).collect();
+    Some(segments?.join("/"))
+}
+
 /// Read one discovered artifact under the format its kind declares — a `json-document` or
 /// `toml-document` kind's whole artifact through that grammar's adapter, every other file
 /// kind through the frontmatter adapter. Reading a JSON document as frontmatter instead
@@ -3042,6 +3063,7 @@ fn read_lifted_member(kind: &CustomKind, file: &Path, base: &Path) -> miette::Re
             let document = json_manifest::DocumentMember::read(kind, file, base)?;
             Ok(LiftedMember {
                 id: document.id,
+                location: None,
                 fields: document.fields.into_iter().collect(),
                 body: None,
             })
@@ -3050,6 +3072,7 @@ fn read_lifted_member(kind: &CustomKind, file: &Path, base: &Path) -> miette::Re
             let document = toml_document::read(kind, file, base)?;
             Ok(LiftedMember {
                 id: document.id,
+                location: None,
                 fields: document.fields.into_iter().collect(),
                 body: None,
             })
@@ -3058,6 +3081,7 @@ fn read_lifted_member(kind: &CustomKind, file: &Path, base: &Path) -> miette::Re
             let member = frontmatter::Member::from_source_rooted(kind, file, base)?;
             Ok(LiftedMember {
                 id: member.id,
+                location: None,
                 fields: member.fields,
                 body: Some(member.body),
             })
@@ -3084,6 +3108,7 @@ fn read_lifted_member(kind: &CustomKind, file: &Path, base: &Path) -> miette::Re
 fn lifted_registration(entry: &json_manifest::RegistrationMember) -> LiftedMember {
     LiftedMember {
         id: entry.key.clone(),
+        location: None,
         fields: entry.fields.clone().into_iter().collect(),
         body: None,
     }
@@ -3292,6 +3317,7 @@ fn scaffold(
                 }
                 for file in files {
                     let mut member = read_lifted_member(kind, file, &lift_base(root, kind, file))?;
+                    member.location = lifted_location(root, kind, file, &member.id);
                     if let Some(claimed) = claimed.get(file.as_path()) {
                         member
                             .fields
@@ -3326,6 +3352,7 @@ fn scaffold(
             &member_module_source(
                 kind,
                 &member.id,
+                member.location.as_deref(),
                 stem,
                 &ident,
                 &member.fields,
@@ -3410,7 +3437,7 @@ fn hoist_settings_residue(root: &Path, temper_dir: &Path, keys: &[String]) -> mi
 
     write_scaffold_file(
         &dir.join(format!("{stem}.ts")),
-        &member_module_source(KIND, &member.id, &stem, &ident, &member.fields, None),
+        &member_module_source(KIND, &member.id, None, &stem, &ident, &member.fields, None),
     )?;
     write_scaffold_file(&entry_path, &spliced)?;
     Ok(())
@@ -3534,6 +3561,7 @@ fn fits_inline(body: &str) -> bool {
 fn member_module_source(
     kind: &str,
     name: &str,
+    location: Option<&str>,
     stem: &str,
     ident: &str,
     fields: &[(String, JsonValue)],
@@ -3541,6 +3569,9 @@ fn member_module_source(
 ) -> String {
     let constructor = sdk_constructor(kind);
     let mut fields_src = String::new();
+    if let Some(location) = location {
+        fields_src.push_str(&format!("  location: {location:?},\n"));
+    }
     for (key, value) in fields {
         if key == "name" {
             continue;
@@ -4188,6 +4219,7 @@ mod tests {
         let source = member_module_source(
             "skill",
             "coordinate",
+            None,
             "coordinate",
             "skill_coordinate",
             &fields,
@@ -4211,6 +4243,7 @@ mod tests {
         let source = member_module_source(
             "rule",
             "rust",
+            None,
             "rust",
             "rule_rust",
             &fields,
@@ -4241,6 +4274,7 @@ mod tests {
         let source = member_module_source(
             "agent",
             "reviewer",
+            None,
             "reviewer",
             "agent_reviewer",
             &fields,
@@ -4263,6 +4297,7 @@ mod tests {
         let source = member_module_source(
             "settings",
             "settings",
+            None,
             "settings",
             "settings_settings",
             &fields,
@@ -4284,6 +4319,7 @@ mod tests {
         let source = member_module_source(
             "plugin-manifest",
             "demo-pack",
+            None,
             "demo-pack",
             "plugin_manifest_demo_pack",
             &fields,

@@ -156,6 +156,7 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
                 kind: "skill".to_string(),
                 name: "demo".to_string(),
                 host: None,
+                location: None,
                 fields: vec![(
                     "name".to_string(),
                     serde_json::Value::String("demo".to_string()),

@@ -189,49 +189,70 @@ function spliceName(
 }
 
 /**
- * The placement a member of `facts` named `name` takes **inside the locus its pattern is
- * rooted at** — the half an `at` kind and a nested file child derive identically, since a
- * host template's path pattern stands to its host's unit exactly as an `at` kind's glob
- * stands to its `governs` root (`specs/model/representation.md`, "locus").
- *
- * A **directory** unit owns a directory and seats its entry file inside it, so the pattern
- * names that entry file and the member's own name is the directory: the leading segment
- * drops and `<name>/` takes its place, which is what makes `*\/SKILL.md` and a template's
- * `*\/PAGE.md` land the same shape. Every other shape places its name through the one
- * splice rule ({@link spliceName}), a starred-segment kind's `*\/<file>` included; a lone
- * file (`file` or `path` shape) first turns each `:` of its name back into the `/` its
- * placement spelled.
+ * The placement a member of `facts` named `name` takes **whole** inside the locus its
+ * pattern is rooted at — the engine's `placement_in_unit` (`src/drift.rs`). A directory
+ * unit's name is its directory, seated where the pattern stars it; every other shape
+ * places its name through the one splice rule ({@link spliceName}). The name is never
+ * cut: a placement its identity's `:`-joined prefix spells is its declared location.
  *
  * # Throws
  * Whatever {@link spliceName} throws when the pattern maps the name onto no one path.
  */
 function placementInUnit(facts: KindFacts, pattern: string, name: string): string {
   if (facts.unitShape === "directory") {
-    if (pattern.startsWith("**/")) {
-      // The inverse of the read side's `**`-span prefix: every `:`-joined segment ahead of
-      // the leaf is a directory the `**` spans, the leaf the starred unit.
-      const colon = name.lastIndexOf(":");
-      const placed = pattern.slice(3).replace("*", name.slice(colon + 1));
-      return colon < 0 ? placed : joinSlash(name.slice(0, colon).replaceAll(":", "/"), placed);
-    }
+    if (pattern.startsWith("**/")) return pattern.slice(3).replace("*", name);
     const slash = pattern.indexOf("/");
     return joinSlash(name, slash < 0 ? pattern : pattern.slice(slash + 1));
   }
-  if (facts.unitShape === undefined || facts.unitShape === "path" || facts.unitShape === "file") {
-    // A lone file's name *is* its placement, each `:` a directory separator — the inverse
-    // of the `:` join the read side names it by, so `frontend:component` through
-    // `**\/*.md` lands `frontend/component.md`. A `*`-free leaf fixes the filename, so the
-    // name's segments ahead of its stem are the directories the `**` spans:
-    // `apps:web:CLAUDE` through `**\/CLAUDE.md` lands `apps/web/CLAUDE.md`.
-    const path = name.replaceAll(":", "/");
-    if (pattern.startsWith("**/") && !pattern.includes("*", 3)) {
-      const slash = path.lastIndexOf("/");
-      const leaf = pattern.slice(pattern.lastIndexOf("/") + 1);
-      return slash < 0 ? leaf : joinSlash(path.slice(0, slash), leaf);
-    }
-    return spliceName(facts.name, pattern, path, false);
-  }
   return spliceName(facts.name, pattern, name, facts.unitShape === "starred-segment");
+}
+
+/**
+ * Whether `pattern` places `name` whole — the engine's `places_whole`. A `:` in a
+ * path-derived identity joins the directories its placement spans, so only a declared
+ * location places it; a `named-field` identity is opaque. Of several templates, a
+ * starless one places only the name its filename's stem spells; a lone one places any.
+ */
+function placesWhole(facts: KindFacts, pattern: string, name: string, lone: boolean): boolean {
+  if (name.includes(":") && facts.unitShape !== "named-field") return false;
+  const under = pattern.startsWith("**/") ? pattern.slice(3) : pattern;
+  if (lone || under.includes("*")) return true;
+  const file = under.slice(under.lastIndexOf("/") + 1);
+  const dot = file.lastIndexOf(".");
+  return (dot > 0 ? file.slice(0, dot) : file) === name;
+}
+
+/**
+ * The in-locus placement `member` takes through `patterns`: its declared location, else
+ * its name whole through the first pattern that places it ({@link placesWhole}).
+ *
+ * # Throws
+ * If the location is no plain relative path, or no pattern places the name whole and no
+ * location is declared.
+ */
+function placementThrough(member: Member, patterns: readonly string[]): string {
+  const context = `member \`${member.name}\` of kind \`${member.kind}\``;
+  const location = member.location;
+  if (location !== undefined) {
+    const plain = location.split("/").every((segment) => segment !== "" && segment !== "." && segment !== ".." && !segment.includes("\\"));
+    if (!plain) {
+      throw new Error(
+        `${context}: location \`${location}\` is no plain relative path — non-empty \`/\`-joined ` +
+          `segments, none empty, \`.\` or \`..\`.`,
+      );
+    }
+    return location;
+  }
+  const lone = patterns.length < 2;
+  const pattern = patterns.find((candidate) => placesWhole(member.facts, candidate, member.name, lone));
+  if (pattern === undefined) {
+    throw new Error(
+      `${context}: declares no location and no template places its name whole (templates ` +
+        `\`${patterns.join("`, `")}\`) — a \`:\`-prefixed identity's placement is declared as the ` +
+        `member's \`location\`, relative to its locus root (specs/model/representation.md, "member").`,
+    );
+  }
+  return placementInUnit(member.facts, pattern, member.name);
 }
 
 /**
@@ -295,7 +316,7 @@ function nestedFilePath(member: Member): string {
         `none to compose against (specs/model/representation.md, "locus").`,
     );
   }
-  return joinSlash(hostUnit(host, context), placementInUnit(member.facts, template.path, member.name));
+  return joinSlash(hostUnit(host, context), placementThrough(member, [template.path]));
 }
 
 /**
@@ -332,29 +353,7 @@ function projectionPath(member: Member): string {
   }
   if (facts.locus.kind === "nested-file") return nestedFilePath(member);
   const { root } = facts.locus;
-  return joinSlash(root, placementInUnit(facts, placingTemplate(templatesOf(facts.locus), member.name), member.name));
-}
-
-/**
- * The template of a locus's `globs` a member named `name` places through — the engine's
- * `placing_template` (`src/drift.rs`), which the two sides must agree on. A one-template
- * locus has one answer. Of several, the first that can place the name: one whose star
- * the name splices into, or one whose starless filename is the name's own leaf — a
- * `**\/AGENTS.md` places `apps:web:AGENTS`, never `apps:web:CLAUDE`, since the read side
- * names a lone file by its stem. A name no template can place falls to the first.
- */
-function placingTemplate(globs: readonly string[], name: string): string {
-  const [first = ""] = globs;
-  if (globs.length < 2) return first;
-  const leaf = name.slice(name.lastIndexOf(":") + 1);
-  const placing = globs.find((glob) => {
-    const under = glob.startsWith("**/") ? glob.slice(3) : glob;
-    if (under.includes("*")) return true;
-    const file = under.slice(under.lastIndexOf("/") + 1);
-    const dot = file.lastIndexOf(".");
-    return (dot > 0 ? file.slice(0, dot) : file) === leaf;
-  });
-  return placing ?? first;
+  return joinSlash(root, placementThrough(member, templatesOf(facts.locus)));
 }
 
 /**
@@ -1064,6 +1063,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
         // this column to find the host's host when it composes a child's path, so a
         // flattened spelling would strand every layer above the nearest one.
         host: member.host && memberAddress(member.host),
+        location: member.location,
         // The generated row carries a mutable field list; the member's is read-only,
         // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
         fields: member.fields.map(([name, value]): [string, unknown] => [name, projectedField(member, name, value)]),

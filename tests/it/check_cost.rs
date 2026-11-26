@@ -1065,6 +1065,7 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
             kind: "hook".to_string(),
             name: "onSessionStart".to_string(),
             host: None,
+            location: None,
             fields: vec![("before".to_string(), serde_json::json!("echo starting"))],
             body: "".to_string(),
             source_path: None,

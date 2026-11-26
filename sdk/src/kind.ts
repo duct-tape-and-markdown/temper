@@ -581,6 +581,8 @@ export interface Member {
   readonly name: string;
   /** The host member a nested-file child's path composes under; absent at every other locus. */
   readonly host?: Member;
+  /** Where the member's file sits relative to its locus root, when its name is not placed whole. */
+  readonly location?: string;
   /** The member's words. */
   readonly prose?: Prose;
   /** The kind's typed fields, flat and ordered — the projected frontmatter. */
@@ -598,7 +600,7 @@ export interface Member {
 }
 
 /** The framework keys of a member init — everything else is a typed field (flat). */
-const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs", "inputs", "mode", "residue"]);
+const FRAMEWORK_KEYS = new Set(["name", "host", "location", "prose", "satisfies", "requires", "needs", "inputs", "mode", "residue"]);
 
 /**
  * The **reserved leaf key** a nested member's own span lands under (0051) —
@@ -652,6 +654,13 @@ export type MemberInit<T> = {
   readonly name: string;
   /** The host member this member's unit composes under — a nested-file child's, and only its. */
   readonly host?: Member;
+  /**
+   * Where the member's file sits, relative to its locus root (its kind's `governs` root,
+   * or its host's unit). Declared where no template places the name whole — a
+   * `:`-prefixed identity such as `apps:web:CLAUDE` sits at `apps/web/CLAUDE.md` — and
+   * agreeing with that prefix; never parsed out of the name.
+   */
+  readonly location?: string;
   readonly prose?: Prose;
   readonly satisfies?: readonly string[];
   readonly requires?: Readonly<Record<string, RequirementValue>>;
@@ -733,26 +742,57 @@ function orderedFields(
     if (!FRAMEWORK_KEYS.has(key) && !plain.has(key)) typed.push([key, value]);
   }
   const head: Array<readonly [string, unknown]> =
-    facts.identityField !== undefined ? [[facts.identityField, identityFieldValue(facts, init.name)]] : [];
+    facts.identityField !== undefined ? [[facts.identityField, identityFieldValue(facts, init.name, init.location)]] : [];
   const projected = [...head, ...typed];
   return [...projected, ...residueFields(facts, init, projected)];
 }
 
 /**
- * The value a member's name writes under its kind's identity field. A named-field kind
- * (an agent) reads its identity from the field, so the field carries the whole name. A
- * directory-shaped kind (a skill) takes identity from the directory, and a nested one's
- * name is its placement's segments then the directory, each joined with `:`
- * (`apps:web:deploy`); the frontmatter carries only the leaf (`deploy`), so the directory
- * and the documented `name` still match (specs/builtins.md, "The shipped kinds"). A
- * named-field-or-file kind at an any-depth locus (an output style) reads its leaf from the
- * field and its placement from the path the same way, so its field carries the leaf too.
+ * The value a member's name writes under its kind's identity field: the name less the
+ * prefix its declared location's `**`-spanned directories spell (`apps:web:deploy` at
+ * `apps/web/.claude/skills/deploy/SKILL.md` writes `deploy`), and the whole name where no
+ * location is declared. The prefix is read off the location, never cut from the name.
+ *
+ * # Throws
+ * If the name does not carry the prefix its location spells.
  */
-function identityFieldValue(facts: KindFacts, name: string): string {
-  const placed =
-    facts.unitShape === "directory" ||
-    (facts.unitShape === "named-field-or-file" && facts.locus.kind === "at" && templatesOf(facts.locus).some((glob) => glob.includes("**")));
-  return placed ? name.slice(name.lastIndexOf(":") + 1) : name;
+function identityFieldValue(facts: KindFacts, name: string, location: string | undefined): string {
+  if (location === undefined || facts.locus.kind !== "at") return name;
+  const prefix = locationPrefix(templatesOf(facts.locus), location);
+  if (prefix === "") return name;
+  if (!name.startsWith(`${prefix}:`) || name.length === prefix.length + 1) {
+    throw new Error(
+      `member \`${name}\` of kind \`${facts.name}\`: its location \`${location}\` spells the ` +
+        `identity prefix \`${prefix}\`, which the name does not carry — a name's path-derived ` +
+        `prefix and its location agree (specs/model/representation.md, "member").`,
+    );
+  }
+  return name.slice(prefix.length + 1);
+}
+
+/**
+ * The identity prefix a location spells: the directories the one `**` of the first
+ * template it fits spans, `:`-joined — the engine's read-side span over the same path.
+ * Empty where no template carries exactly one `**`, or the location fits none.
+ */
+export function locationPrefix(templates: readonly string[], location: string): string {
+  const components = location.split("/");
+  for (const template of templates) {
+    const segments = template.split("/");
+    let lead = 0;
+    while (lead < segments.length - 1 && !segments[lead]!.includes("*")) lead += 1;
+    const tail = segments.slice(lead);
+    const globstars = tail.flatMap((segment, at) => (segment === "**" ? [at] : []));
+    if (globstars.length !== 1) continue;
+    const at = globstars[0]!;
+    const after = tail.length - at - 1;
+    const placed = components.slice(lead);
+    if (placed.length < at + after || components.slice(0, lead).join("/") !== segments.slice(0, lead).join("/")) continue;
+    const fixed = placed.slice(placed.length - after);
+    const fits = tail.slice(at + 1).every((segment, index) => segment.includes("*") || segment === fixed[index]);
+    if (fits) return placed.slice(at, placed.length - after).join(":");
+  }
+  return "";
 }
 
 /**
@@ -870,6 +910,7 @@ function defineKind<T extends object>(typed: KindFacts<T>, options: DefineOption
     facts,
     name: init.name,
     host: hostOf(facts, init),
+    ...(init.location === undefined ? {} : { location: init.location }),
     prose: memberProse(
       body?.render === undefined ? init.prose : body.render(init as Readonly<Record<string, unknown>>),
       init.name,
