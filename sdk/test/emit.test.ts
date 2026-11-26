@@ -2439,6 +2439,28 @@ test("a telemetry requirement naming a tool is that tool's runner on a runs row"
   ]);
 });
 
+test("a script requirement naming a tool is that tool's runner on a runs row", () => {
+  const runner = tool({ file: "scripts/verify.sh" });
+  const h = harness({
+    members: [runner],
+    require: {
+      "verified": { prose: "the script passes", verifier: script("scripts/verify.sh", { tool: runner }) },
+      "unrun": { prose: "the test passes", verifier: script("tests/it.rs") },
+    },
+  });
+
+  const declarations = JSON.parse(emit(h).seam).declarations;
+  assert.deepEqual(declarations.runs, [{ member: "root/requirement/verified", tool: "root/tool/verify.sh" }]);
+  assert.deepEqual(
+    declarations.requirements.map((row: { verifier: unknown }) => row.verifier),
+    [{ species: "script", path: "tests/it.rs" }, { species: "script", path: "scripts/verify.sh" }],
+  );
+});
+
+test("script rejects a tool that is not a tool(...) member", () => {
+  assert.throws(() => script("scripts/verify.sh", { tool: { kind: "skill" } as never }), /tool\(\.\.\.\)/);
+});
+
 test("a telemetry declaration's tap row carries the tool it reaches across the seam", () => {
   // The declaration reaches a tool; the engine renders the anchored command from it
   // (`src/drift.rs`), so the row carries the tool's address, never a command string.

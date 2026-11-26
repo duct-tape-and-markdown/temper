@@ -7879,7 +7879,7 @@ pub fn mention_edges_from_declarations(declarations: &Declarations) -> Vec<graph
 }
 
 /// The lock's `runs` rows whose runner is the harness root or a requirement it hosts (the
-/// typecheck's tool, a telemetry tap's), lifted into [`graph::ResolvedEdge`]s
+/// typecheck's tool, a telemetry tap's or script verifier's), lifted into [`graph::ResolvedEdge`]s
 /// ([`graph::root_runs_edges`]). Every other runner's row folds onto its own member's
 /// fields instead.
 pub fn root_runs_edges_from_declarations(declarations: &Declarations) -> Vec<graph::ResolvedEdge> {

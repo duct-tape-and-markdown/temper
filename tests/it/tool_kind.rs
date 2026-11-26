@@ -536,3 +536,83 @@ fn a_tool_reached_only_by_a_tap_draws_no_degree_finding() {
         run.output
     );
 }
+
+/// A program whose only runner of its `{ file }` tool is a script verifier, beside a
+/// script verifier that names no tool.
+const SCRIPT_VERIFIER_PROGRAM: &str = r#"
+import { emit, harness, script, tool } from "@dtmd/temper";
+
+declare const process: { stdout: { write(chunk: string): boolean } };
+
+const verify = tool({ file: "scripts/verify.sh" });
+
+const program = harness({
+  members: [verify],
+  require: {
+    "verified": { prose: "the script passes", verifier: script("scripts/verify.sh", { tool: verify }) },
+    "tested": { prose: "the test passes", verifier: script("tests/held.rs") },
+  },
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+/// Wire and emit [`SCRIPT_VERIFIER_PROGRAM`] with both verifier paths present.
+fn script_verifier_harness(label: &str) -> PathBuf {
+    let (harness, into) = common::wire_sdk_harness(label, SCRIPT_VERIFIER_PROGRAM);
+    common::write_sibling(&harness, "scripts/verify.sh", "#!/bin/sh\n");
+    common::write_sibling(&harness, "tests/held.rs", "\n");
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+    harness
+}
+
+#[test]
+fn a_script_verifier_naming_a_file_tool_leaves_that_tool_with_no_degree_finding() {
+    let harness = script_verifier_harness("tool-script-verifier");
+
+    let declarations = drift::read_declarations(&harness.join(".temper")).unwrap();
+    assert!(
+        declarations
+            .runs
+            .iter()
+            .any(|row| row.member == "root/requirement/verified"
+                && row.tool == "root/tool/verify.sh"),
+        "the lock carries the verifier's edge as a runs row whose runner is its requirement: {:?}",
+        declarations.runs
+    );
+
+    let run = common::check_in(&harness, &["."], Some("github"));
+    let findings = run.findings();
+    assert!(
+        common::findings_for(&findings, "tool.degree").is_empty(),
+        "the script verifier runs the tool, so the tool is run: {}",
+        run.output
+    );
+    assert!(
+        common::findings_for(&findings, "graph.route").is_empty(),
+        "the requirement's edge resolves: {}",
+        run.output
+    );
+}
+
+#[test]
+fn a_script_verifier_without_a_tool_is_still_accepted() {
+    let harness = script_verifier_harness("tool-script-verifier-toolless");
+
+    let declarations = drift::read_declarations(&harness.join(".temper")).unwrap();
+    assert!(
+        !declarations
+            .runs
+            .iter()
+            .any(|row| row.member == "root/requirement/tested"),
+        "a toolless verifier runs nothing: {:?}",
+        declarations.runs
+    );
+
+    let run = common::check_in(&harness, &["."], Some("github"));
+    assert!(
+        common::findings_for(&run.findings(), "requirement.admissibility").is_empty(),
+        "a toolless script verifier is admissible: {}",
+        run.output
+    );
+}

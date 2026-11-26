@@ -457,7 +457,12 @@ export function clause(
  * documented pattern until a consumer types it — no `probe()` constructor is minted.
  */
 export type Verifier =
-  | { readonly species: "script"; readonly path: string }
+  | {
+      readonly species: "script";
+      readonly path: string;
+      /** The tool that runs the script — absent where the program names none ({@link script}). */
+      readonly tool?: Member;
+    }
   | {
       readonly species: "telemetry";
       readonly events: readonly string[];
@@ -478,11 +483,35 @@ export interface TelemetryInit {
   readonly binary?: Remedy<"`binary` gave way to `tool`: write `telemetry(events, { tool: tool({ package, bin }) })`, or omit it for the temper package's bin">;
 }
 
+/** What a {@link script} verifier states beyond its path. */
+export interface ScriptInit {
+  /**
+   * The `tool(...)` member that runs the script — the same member a `{ file }` tool
+   * homes the command at. Naming it makes the requirement the tool's runner, so the
+   * tool's `degree` counts it. Omit it where no composed tool runs the script.
+   */
+  readonly tool?: Member;
+}
+
 /**
  * A script verifier — a path-resolved reference to the test or CI job that executes
- * the behavioral judgment. The gate checks the `path` resolves, never runs it.
+ * the behavioral judgment. The gate checks the `path` resolves, never runs it. The
+ * verifier may name the tool that runs it (`init.tool`); that reference is a `runs`
+ * edge from the requirement.
+ *
+ * # Throws
+ * If `init.tool` is not a `tool(...)` member.
  */
-export const script = (path: string): Verifier => ({ species: "script", path });
+export function script(path: string, init: ScriptInit = {}): Verifier {
+  if (init.tool !== undefined && init.tool.kind !== "tool") {
+    throw new Error(
+      "script: `tool` names what runs the script — pass a `tool(...)` member, or omit it.",
+    );
+  }
+  return init.tool === undefined
+    ? { species: "script", path }
+    : { species: "script", path, tool: init.tool };
+}
 
 /**
  * A telemetry verifier — the named documented harness events the emitted tap records
