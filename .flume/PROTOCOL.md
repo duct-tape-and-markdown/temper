@@ -119,6 +119,16 @@ finding is true for its reader (0103); one concept is one member kind (0078,
 question is for a case the classes leave open, or where two of them
 conflict.
 
+## Accepted debt lives on disk
+
+Debt that plan accepts under the bar is never recorded only in a commit body,
+because a note is deleted when it is drained and git log is orientation, not
+authority. `.flume/plan/debt.md` holds one line per family: its name, its
+notings (each with a sha) and its sites. Plan updates the file in the same
+commit that drains a note. A family whose census is already whole, such as
+N copies of one derivation, files as a fold at its first noting and never
+waits for a count of three.
+
 ## Kept on purpose
 
 Deliberate asymmetries, each a ruling with the condition that reopens it.
