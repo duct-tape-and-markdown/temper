@@ -79,9 +79,14 @@ temper's own `dial`. The file members:
 - **rule** — a lone markdown file with an optional path scope; a rule with no
   scope registers unconditionally.
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
-  frontmatter: the entire file is prose. A nested one is named by the same
-  grammar as a nested skill, its subdirectory's segments joined with `:`
-  (`memory:apps:web:CLAUDE`), so emit places it where it was found.
+  frontmatter: the entire file is prose. `AGENTS.md` is a memory member by
+  position too, and its registration is the runtime's condition: Claude Code
+  loads it only where no `CLAUDE.md` sits in its directory or above
+  (code.claude.com/docs/en/memory, retrieved 2026-11-26), so one a
+  `CLAUDE.md` shadows and does not import is never loaded, and reachability
+  says so. A nested one is named by the same grammar as a nested skill, its
+  subdirectory's segments joined with `:` (`memory:apps:web:CLAUDE`), so
+  emit places it where it was found.
 - **plugin-manifest** — the pack's identity at
   `.claude-plugin/plugin.json`, a JSON document; identity from its `name`
   field, the one required field (kebab-case). Its contract mirrors the
