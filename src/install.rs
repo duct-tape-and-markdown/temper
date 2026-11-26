@@ -3026,7 +3026,7 @@ struct LiftedMember {
     /// SDK composes anyway.
     id: String,
     /// Where the member's file sits relative to its kind's locus root — declared only
-    /// where the id carries a path-derived `:` prefix no template places whole.
+    /// where its kind's templates would not place its name whole back there.
     location: Option<String>,
     /// The fields to hoist into typed properties, in projection order.
     fields: Vec<(String, JsonValue)>,
@@ -3054,13 +3054,10 @@ fn lift_base(root: &Path, kind: &CustomKind, file: &Path) -> PathBuf {
 }
 
 /// The location a lifted member declares: its read path relative to its kind's locus
-/// root, where its id carries the `:`-joined prefix a path-derived identity spells its
-/// placement with — the placement no template can recover from the name. A field-derived
-/// identity (`named-field`) is opaque and declares none.
+/// root, wherever its kind's templates would not place its name whole back at that path —
+/// a path-derived id's `:`-joined prefix, or a field-derived name its file stem does not
+/// spell.
 fn lifted_location(root: &Path, kind: &CustomKind, file: &Path, id: &str) -> Option<String> {
-    if !id.contains(':') || matches!(kind.unit_shape, Some(kind::UnitShape::NamedField { .. })) {
-        return None;
-    }
     let governs = kind.governs.as_ref()?;
     let locus = crate::path::normalize_path(&root.join(&governs.root));
     let relative = crate::path::normalize_path(file)
@@ -3068,7 +3065,13 @@ fn lifted_location(root: &Path, kind: &CustomKind, file: &Path, id: &str) -> Opt
         .ok()?
         .to_path_buf();
     let segments: Option<Vec<&str>> = relative.iter().map(std::ffi::OsStr::to_str).collect();
-    Some(segments?.join("/"))
+    let read = segments?.join("/");
+    let placed = crate::builtin_lock::declarations()
+        .kinds
+        .iter()
+        .find(|row| row.name == kind.name)
+        .and_then(|row| crate::drift::whole_placement(row, id));
+    (placed.as_deref() != Some(read.as_str())).then_some(read)
 }
 
 /// Read one discovered artifact under the format its kind declares — a `json-document` or

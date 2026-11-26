@@ -1059,6 +1059,44 @@ fn a_nested_command_lifts_under_its_path_name_and_re_emits_where_it_was_found() 
 }
 
 #[test]
+fn lift_declares_a_location_for_a_named_field_member_whose_field_differs_from_its_file_stem() {
+    let root = common::tmpdir("named-field-location-lift");
+    let agents = root.join(".claude").join("agents");
+    fs::create_dir_all(&agents).unwrap();
+    let source = "---\n\
+name: teaching-mode\n\
+description: Use to teach the codebase.\n\
+---\n\
+# Teach\n\
+\n\
+Walk the reader through the module.\n";
+    fs::write(agents.join("teach.md"), source).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(outcome.scaffolded, 1);
+
+    let module = fs::read_to_string(temper_dir.join("agent").join("teaching-mode.ts")).unwrap();
+    assert!(
+        module.contains("\"teach.md\""),
+        "the lift declares its read path: {module}"
+    );
+    // The first emit rewrites no path: the agent stays where it was found.
+    assert!(!agents.join("teaching-mode.md").exists());
+    assert!(
+        fs::read_to_string(agents.join("teach.md"))
+            .unwrap()
+            .ends_with("# Teach\n\nWalk the reader through the module.\n")
+    );
+    let run = common::check_in(&root, &[], None);
+    assert!(run.ok, "{}", run.output);
+}
+
+#[test]
 fn install_lifts_two_nested_memory_files_as_two_members() {
     let root = common::tmpdir("nested-memory-lift");
     fs::write(root.join("CLAUDE.md"), "# Root\n\nRoot memory.\n").unwrap();

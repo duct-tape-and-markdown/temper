@@ -1770,6 +1770,16 @@ fn placement_through<'g>(
     Ok((pattern, placement_in_unit(facts, pattern, name)?))
 }
 
+/// The in-locus path a member of `facts` named `name` takes with no location declared —
+/// its name placed whole through the first template that places it — or [`None`] where no
+/// template does, so only a declared location places it.
+pub(crate) fn whole_placement(facts: &KindFactRow, name: &str) -> Option<String> {
+    let globs: Vec<&str> = facts.governs_glob.iter().map(String::as_str).collect();
+    placement_through(facts, &globs, name, None, None)
+        .ok()
+        .map(|(_, placement)| placement)
+}
+
 /// Whether `location` is a plain relative path: non-empty `/`-joined segments, none empty,
 /// `.`, `..`, or carrying a `\\`.
 fn is_plain_relative(location: &str) -> bool {
