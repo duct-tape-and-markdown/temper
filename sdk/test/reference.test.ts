@@ -272,3 +272,29 @@ test("the reference's kind topics are only its committed kinds", () => {
     .map((m) => m.name);
   assert.deepEqual(names, ["kind-skill"]);
 });
+
+test("every reference topic is reached by a typed mention, never a hand-typed link", () => {
+  const result = emit(
+    harness({
+      members: [rule({ name: "rust", paths: ["src/**"], satisfies: ["conventions"], prose: text`# Rust` }), reference()],
+      require: { conventions: requirement({ prose: "The code conventions.", required: false }) },
+    }),
+  );
+  const topics = result.members.filter((m) => m.kind === "supporting-doc");
+  assert.ok(topics.length > 0, "the reference carries topics");
+  const reached = new Set(result.declarations.mentions.map((row) => row.target));
+  for (const topic of topics) {
+    assert.ok(
+      reached.has(`skill:temper/supporting-doc/${topic.name}`),
+      `no mention row reaches ${topic.name}: the supporting-doc degree floor would fire on it`,
+    );
+  }
+  // A kind topic's domain links are mentions too, from the topic to its sibling.
+  assert.ok(
+    result.declarations.mentions.some(
+      (row) =>
+        row.member.startsWith("skill:temper/supporting-doc/kind-") &&
+        row.target.startsWith("skill:temper/supporting-doc/domain-"),
+    ),
+  );
+});

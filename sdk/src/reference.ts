@@ -31,8 +31,9 @@ import {
 } from "./declarations.js";
 import type { ContractedRequirement, EdgeIntent } from "./declarations.js";
 import { readLockfile } from "./lockfile.js";
-import { nestedAddress } from "./member-address.js";
-import { span } from "./prose.js";
+import { memberAddress, nestedAddress } from "./member-address.js";
+import { span, text } from "./prose.js";
+import type { Mentionable, Text } from "./prose.js";
 
 /** The reference's skill name — its member lands at `.claude/skills/temper/SKILL.md`. */
 export const REFERENCE_NAME = "temper";
@@ -302,7 +303,8 @@ function kindTopic(
   view: Harness,
   kinds: readonly KindFacts[],
   requirements: readonly ContractedRequirement[],
-): string {
+  link: TopicLink,
+): Linked {
   const counsel = facts.guidance?.trim();
   const fields = fieldLines(facts);
   const commands = facts.name === "tool" ? commandLines(view) : [];
@@ -332,9 +334,9 @@ function kindTopic(
       .filter((part) => part !== "")
       .join("; ");
     const topic = domainTopicName(requirement.name);
-    return [`- \`${requirement.name}\` (${how}) — read [${topic}.md](${topic}.md).`];
+    return [linked`- \`${requirement.name}\` (${how}) — read [${topic}.md](${link(topic)}).`];
   });
-  return [
+  return joined([
     `# The \`${facts.name}\` kind`,
     counsel === undefined || counsel === "" ? "The kind declares no counsel." : counsel,
     `## Locus\n\n${locusSection(facts, kindLocusGlobs(facts, view))}`,
@@ -342,14 +344,64 @@ function kindTopic(
     ...(edges.length === 0 ? [] : [`## Edges\n\n${edges.join("\n\n")}`]),
     ...(commands.length === 0 ? [] : [`## Commands\n\n${commands.join("\n")}`]),
     `## Clauses\n\n${contract}`,
-    ...(domains.length === 0 ? [] : [`## Domains\n\n${domains.join("\n")}`]),
-  ].join("\n\n");
+    ...(domains.length === 0 ? [] : [joined(["## Domains\n", ...domains], "\n")]),
+  ]);
 }
 
 /** A topic the reference carries beside `SKILL.md`: its doc name and its body. */
 interface Topic {
   readonly name: string;
-  readonly body: string;
+  readonly body: Text;
+}
+
+/**
+ * Rendered prose still carrying its links: literal chunks with one mention between each
+ * pair, so a link to a topic is a typed edge to its doc — never a hand-typed path the
+ * gate cannot see — while the rendered bytes stay the path the doc lands at.
+ */
+interface Linked {
+  readonly chunks: readonly string[];
+  readonly targets: readonly Mentionable[];
+}
+
+/** The mention a link to the named topic renders: its doc's path from the linking file. */
+type TopicLink = (topic: string) => Mentionable;
+
+/**
+ * A {@link Linked} from a template — `` linked`read [x.md](${link("x")})` ``: a string
+ * interpolation is literal text, a {@link Mentionable} one a link.
+ */
+function linked(strings: TemplateStringsArray, ...values: (string | Mentionable)[]): Linked {
+  const chunks = [strings[0]];
+  const targets: Mentionable[] = [];
+  values.forEach((value, i) => {
+    if (typeof value === "string") {
+      chunks[chunks.length - 1] += value + strings[i + 1];
+    } else {
+      targets.push(value);
+      chunks.push(strings[i + 1]);
+    }
+  });
+  return { chunks, targets };
+}
+
+/** Join pieces with `separator`, as `Array.join` would, keeping every piece's links. */
+function joined(pieces: readonly (string | Linked)[], separator = "\n\n"): Linked {
+  const chunks: string[] = [""];
+  const targets: Mentionable[] = [];
+  pieces.forEach((piece, i) => {
+    const part = typeof piece === "string" ? { chunks: [piece], targets: [] } : piece;
+    chunks[chunks.length - 1] += (i === 0 ? "" : separator) + part.chunks[0];
+    chunks.push(...part.chunks.slice(1));
+    targets.push(...part.targets);
+  });
+  return { chunks, targets };
+}
+
+/** The prose a {@link Linked} composes to: the same bytes, each link a mention. */
+function prose(value: Linked): Text {
+  const strings = Object.assign([...value.chunks], { raw: [...value.chunks] });
+  return text(strings, ...value.targets);
 }
 
 /**
@@ -358,10 +410,11 @@ interface Topic {
  */
 export function renderReference(
   harness: Harness,
+  link: TopicLink,
   trigger: string = TRIGGER,
 ): {
   readonly description: string;
-  readonly body: string;
+  readonly body: Text;
   readonly topics: readonly Topic[];
 } {
   const view = committedView(harness);
@@ -370,33 +423,33 @@ export function renderReference(
   const requirements = contractedRequirements(view);
   const domains = requirements.map((requirement) => requirement.name);
   const kindLines = kinds.map(
-    ({ name }) => `- When you add or change a \`${name}\` member, read [${kindTopicName(name)}.md](${kindTopicName(name)}.md).`,
+    ({ name }) => linked`- When you add or change a \`${name}\` member, read [${kindTopicName(name)}.md](${link(kindTopicName(name))}).`,
   );
   const domainLines = domains.map(
     (name) =>
-      `- When you fill, change, or move the \`${name}\` domain, read [${domainTopicName(name)}.md](${domainTopicName(name)}.md).`,
+      linked`- When you fill, change, or move the \`${name}\` domain, read [${domainTopicName(name)}.md](${link(domainTopicName(name))}).`,
   );
-  const index = [
+  const index = joined([
     "## This harness",
     "Read the topic file for what you are about to change before changing it: it carries " +
       "what this harness declares there and why.",
-    ...(kindLines.length === 0 ? [] : [`### Kinds\n\n${kindLines.join("\n")}`]),
-    ...(domainLines.length === 0 ? [] : [`### Domains\n\n${domainLines.join("\n")}`]),
-  ].join("\n\n");
+    ...(kindLines.length === 0 ? [] : [joined(["### Kinds\n", ...kindLines], "\n")]),
+    ...(domainLines.length === 0 ? [] : [joined(["### Domains\n", ...domainLines], "\n")]),
+  ]);
   const named = domains.map((name) => `\`${name}\``).join(", ");
   const description =
     domains.length === 0 ? trigger : `${trigger} Its contracted domains: ${named}.`;
   return {
     description,
-    body: `${MECHANICS}\n${index}\n`,
+    body: prose(joined([MECHANICS, index, ""], "\n")),
     topics: [
       ...kinds.map((facts) => ({
         name: kindTopicName(facts.name),
-        body: `${kindTopic(facts, view, inPlay, requirements)}\n`,
+        body: prose(joined([kindTopic(facts, view, inPlay, requirements, link), ""], "\n")),
       })),
       ...requirements.map((requirement) => ({
         name: domainTopicName(requirement.name),
-        body: `${domainTopic(requirement)}\n`,
+        body: prose(joined([domainTopic(requirement), ""], "\n")),
       })),
     ],
   };
@@ -416,20 +469,29 @@ export function withReference(harness: Harness): Harness {
       if (!DECLARED.has(member)) return [member];
       // The declared trigger is the member's own authored description.
       const declared = member.fields.find(([key]) => key === "description")?.[1];
+      // Every topic sits beside `SKILL.md` under this member, so a link from the body or
+      // from a sibling topic is the same path-form mention of the doc's own address.
+      const host = memberAddress(member);
+      const link: TopicLink = (topic) => ({
+        address: nestedAddress(host, supportingDoc.key, topic),
+        display: topic,
+        form: "path",
+      });
       const { description, body, topics } = renderReference(
         harness,
+        link,
         typeof declared === "string" ? declared : TRIGGER,
       );
       const rendered: Member = {
         ...member,
-        prose: span(body),
+        prose: body,
         fields: member.fields.map(([key, value]) =>
           key === "description" ? (["description", description] as const) : ([key, value] as const),
         ),
       };
       return [
         rendered,
-        ...topics.map((topic) => supportingDoc({ name: topic.name, host: rendered, prose: span(topic.body) })),
+        ...topics.map((topic) => supportingDoc({ name: topic.name, host: rendered, prose: topic.body })),
       ];
     }),
   };

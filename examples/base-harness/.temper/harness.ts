@@ -1,11 +1,11 @@
-import { clause, count, emit, extent, harness, input, tool, uniqueName } from "@dtmd/temper";
+import { clause, count, emit, extent, harness, input, uniqueName } from "@dtmd/temper";
 import { settings, skill, skillDefaultContract } from "@dtmd/temper/claude-code";
+import { starter } from "@dtmd/temper/starter";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_conduct } from "./rules/conduct.ts";
 import { rule_docsDiscipline } from "./rules/docs-discipline.ts";
 import { skill_growHarness } from "./skills/grow-harness.ts";
 import { skill_verifySummary } from "./skills/verify-summary.ts";
-import { hook_guard, hook_postToolUseBash, hook_sessionStart } from "./hooks.ts";
 import { alternative, decision, flow, glossary, invariant, stepKind, system } from "./kinds.ts";
 import { system_scanner } from "./docs/systems/scanner.ts";
 import { system_renderer } from "./docs/systems/renderer.ts";
@@ -13,12 +13,26 @@ import { flow_summarize } from "./docs/flows/summarize.ts";
 import { decision_authorityArrow } from "./docs/decisions/authority-arrow.ts";
 import { decision_perChangeDocDuty } from "./docs/decisions/per-change-doc-duty.ts";
 
-// The compiler emit runs over this program before running it: the workspace's own
-// `typescript` devDependency, over the project that checks every module here.
-const tsc = tool({ package: "typescript", bin: "tsc" });
+// The starter supplies the mechanics of using temper well: the typecheck emit
+// runs before the program (the workspace's own `typescript` over the project
+// that checks every module here), the three gate hooks, and the emitted harness
+// reference at `.claude/skills/temper/`. The project file is the one required
+// argument, since the path is ours; everything else is a defaulted option.
+//
+// The worked customization: the reference's description is hydrated with this
+// project's own trigger, and the reference declares the domain it fills. Its
+// body and topics still derive from what this program declares.
+const base = starter({
+  typecheck: { project: input(import.meta.url, "./tsconfig.json") },
+  reference: {
+    description:
+      "How to operate the temper gate over this repository's harness and documentation corpus. Use when a temper finding appears, before editing anything under .claude/ or docs/, or when adding a member to .temper/.",
+    satisfies: ["governance"],
+  },
+});
 
 const program = harness({
-  typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
+  ...base,
   require: {
     // The five domains — the whole skeleton, declared on day one. Growth is
     // additive: a new member names the domain it fills; no domain is ever
@@ -68,6 +82,7 @@ const program = harness({
     },
   },
   members: [
+    ...base.members,
     memory_CLAUDE,
     rule_conduct,
     rule_docsDiscipline,
@@ -79,13 +94,9 @@ const program = harness({
     decision_authorityArrow,
     decision_perChangeDocDuty,
     glossary({ name: "glossary" }),
-    hook_sessionStart,
-    hook_guard,
-    hook_postToolUseBash,
     // The committed `.claude/settings.json` as one member: it carries no keys
     // of its own, so the file renders whole from the hook registrations.
     settings({ name: "settings" }),
-    tsc,
   ],
   // Admission is the corpus's declaration, not the type's: an embedded kind
   // declares no host, and each host names what its composed body admits.

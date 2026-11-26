@@ -14,6 +14,33 @@ $ node src/main.js TODO.md
 2/3 done
 ```
 
+## Starter plus customization
+
+The program is `@dtmd/temper/starter` hydrated, then grown. `starter()`
+supplies the mechanics of using temper well, which no project should
+re-author: the typecheck `emit` runs before the program, the three gate
+hooks (the session-start report and the guard's two edges), and the
+harness reference at `.claude/skills/temper/`, whose topic files derive
+from what the program declares. Its one required argument is the
+project file the typecheck reads, because that path is this project's.
+`.temper/harness.ts` spreads the result into `harness()` and adds its own
+members beside the starter's:
+
+```ts
+const base = starter({
+  typecheck: { project: input(import.meta.url, "./tsconfig.json") },
+  reference: { description: "How to operate the temper gate over this repository's …", satisfies: ["governance"] },
+});
+const program = harness({ ...base, require: { … }, members: [...base.members, memory_CLAUDE, …] });
+```
+
+The worked customization is the reference: its description is hydrated
+with this project's own trigger, and it names the domain it fills. Its
+body and topics are still derived, so declaring a kind or a domain grows
+the reference without anyone writing to it. Everything else here is the
+project's content: the domains, the memory, the rules, the skills, and
+the documentation corpus.
+
 What the harness demonstrates:
 
 - **The harness is organized domain first, mechanism second.** Five
@@ -34,8 +61,8 @@ What the harness demonstrates:
   surface states live once in `.temper/facts.ts`; the memory's map and the
   verify skill's procedure interpolate the same constants, so one edit
   moves every projection and the surfaces cannot contradict each other.
-  The gate hooks state no command at all: each is a `gateHook` member, and
-  the engine renders the command it runs into the settings manifest.
+  The gate hooks state no command at all: they come from the starter, and
+  the engine renders the command each runs into the settings manifest.
 - **A skill can be path-gated, and its claims rest on declared inputs.**
   `verify-summary` declares `paths: ["src/**", "TODO.md"]`, so it
   registers only when the work touches what it knows how to verify, and it
