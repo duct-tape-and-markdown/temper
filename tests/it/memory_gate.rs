@@ -415,10 +415,25 @@ fn an_agents_md_beside_a_claude_md_with_no_import_draws_a_not_loaded_reachabilit
 }
 
 #[test]
-fn a_nested_agents_md_under_a_claude_local_md_above_it_is_shadowed_and_a_sibling_tree_is_not() {
-    let harness = common::tmpdir("agents-md-nested");
+fn a_nested_agents_md_under_only_a_root_claude_md_is_loaded_on_demand() {
+    let harness = common::tmpdir("agents-md-nested-open");
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_claude_md(&harness, 3);
     write_sibling(&harness, "apps/CLAUDE.local.md", "# Local\n");
+    write_memory_file(&harness, "apps/web/AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    assert!(
+        common::findings_for(&findings, "root.reachable").is_empty(),
+        "a subdirectory's AGENTS.md opens on demand past every CLAUDE.md above it, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_nested_agents_md_beside_its_own_claude_local_md_is_shadowed() {
+    let harness = common::tmpdir("agents-md-nested-shut");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_sibling(&harness, "apps/web/CLAUDE.local.md", "# Local\n");
     write_memory_file(&harness, "apps/web/AGENTS.md", 3);
     write_memory_file(&harness, "tools/AGENTS.md", 3);
 
@@ -427,12 +442,36 @@ fn a_nested_agents_md_under_a_claude_local_md_above_it_is_shadowed_and_a_sibling
     assert_eq!(
         unreached.len(),
         1,
-        "only the AGENTS.md under the CLAUDE.local.md is shadowed, got: {findings:#?}"
+        "only the AGENTS.md beside its own CLAUDE.local.md is shadowed, got: {findings:#?}"
     );
     assert!(
         unreached[0].contains("`apps:web:AGENTS`")
-            && unreached[0].contains("`apps/CLAUDE.local.md`"),
-        "the finding names the nested member and its shadowing file, got: {}",
+            && unreached[0].contains("on-demand gate is shut")
+            && unreached[0].contains("`apps/web/CLAUDE.local.md`"),
+        "the finding names the nested member, its on-demand gate and its shadowing file, got: {}",
+        unreached[0]
+    );
+}
+
+#[test]
+fn a_dot_claude_agents_md_is_a_memory_member_shut_by_a_root_claude_md() {
+    let harness = common::tmpdir("agents-md-dot-claude");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_claude_md(&harness, 3);
+    write_memory_file(&harness, ".claude/AGENTS.md", 3);
+
+    let findings = check_harness(&harness).0;
+    let unreached = common::findings_for(&findings, "root.reachable");
+    assert_eq!(
+        unreached.len(),
+        1,
+        "the shadowed .claude/AGENTS.md alone is unreachable, got: {findings:#?}"
+    );
+    assert!(
+        unreached[0].contains("memory `.claude:AGENTS`")
+            && unreached[0].contains("launch gate is shut")
+            && unreached[0].contains("`CLAUDE.md`"),
+        "the finding names the memory member, its launch gate and the root CLAUDE.md, got: {}",
         unreached[0]
     );
 }

@@ -47,9 +47,11 @@
 #
 # The SDK module exports one `memory` kind and no `provider`-qualified kind values, so
 # this lock's twenty kind facts carry no `provider` column. Memory's locus holds two
-# templates: `**/CLAUDE.md`, and `**/AGENTS.md` behind an absence gate, since Claude Code
-# reads an `AGENTS.md` only where no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md`
-# sits in its directory or above (code.claude.com/docs/en/memory, retrieved 2026-11-26).
+# templates: `**/CLAUDE.md`, and `**/AGENTS.md` (`.claude/AGENTS.md` among them) behind
+# two absence gates, since Claude Code reads one at launch only where no `CLAUDE.md`,
+# `.claude/CLAUDE.md` or `CLAUDE.local.md` sits in the working directory or above, and a
+# subdirectory's on demand only where that subdirectory has none of its own
+# (code.claude.com/docs/en/memory, retrieved 2026-11-26).
 #
 # `dial` and `settings-local` are the two kinds here declaring a `local` commitment class:
 # read in place at check, never an emit input or target, and no row of their members' ever

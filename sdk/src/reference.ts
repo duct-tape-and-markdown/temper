@@ -231,7 +231,7 @@ function locusSection(facts: KindFacts, globs: readonly string[]): string {
     const gate = locus.kind === "at" ? gates.find((g) => locusPattern(locus.root, g.glob) === glob) : undefined;
     if (gate === undefined) return "";
     const named = gate.absent.map((path) => `\`${path}\``).join(", ");
-    return ` — loaded only where none of ${named} sits in its directory or above; an import still reaches it`;
+    return ` — at launch, loaded only where none of ${named} sits in the working directory or above; in a subdirectory, on demand only where that subdirectory has none of its own; an import still reaches it`;
   };
   const listed = globs.map((glob) => `- \`${glob}\`${gateNote(glob)}`).join("\n");
   switch (facts.locus.kind) {

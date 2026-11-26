@@ -160,8 +160,12 @@ export type Locus =
 /**
  * One template that carries an **absence gate**: a document at `glob` is the kind's by
  * position, and opens its channels only where none of `absent` — paths relative to a
- * directory — sits in its own directory or any directory above it. The gate shuts reach,
- * never membership, and an import still reaches the document.
+ * directory — closes it. The document is judged from its home, its own directory with a
+ * `.claude/` folder folded into the one holding it, and its position picks one of two
+ * gates: homed at the working directory, it loads at launch and any `absent` path there
+ * or above shuts it; homed in a subdirectory, it loads on demand and only that
+ * subdirectory's own `absent` paths shut it. The gate shuts reach, never membership, and
+ * an import still reaches the document.
  */
 export interface GatedTemplate {
   readonly glob: string;

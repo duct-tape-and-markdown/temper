@@ -185,8 +185,8 @@ emit_hash = "c5f388b888317bbfa62a95e701182b377a8d01ef4f9bad4ddb5b6de56e542df8"
 name = "kind-memory"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-memory.md"
-source_hash = "8b76328188f773b82c8441e0b89afe2cb796cdbaa292bce5ebc04d32c35bddb4"
-emit_hash = "8b76328188f773b82c8441e0b89afe2cb796cdbaa292bce5ebc04d32c35bddb4"
+source_hash = "f693882e371e6ca4e45e8e4952297b684a3fdd82e0da566b7627f62fb7ea6dd0"
+emit_hash = "f693882e371e6ca4e45e8e4952297b684a3fdd82e0da566b7627f62fb7ea6dd0"
 
 [[supporting-doc]]
 name = "kind-rule"

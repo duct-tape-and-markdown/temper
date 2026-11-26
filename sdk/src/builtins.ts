@@ -491,13 +491,15 @@ export interface Memory {
  * loader discovers every `.md` under `.claude/rules/` recursively
  * (code.claude.com/docs/en/memory, retrieved 2026-11-24; decision 0084).
  *
- * The second template claims `AGENTS.md` at any depth, gated by absence: "By default,
- * Claude reads `AGENTS.md` only when you have no `CLAUDE.md` in your working directory
- * or above it", and what counts is "a `CLAUDE.md`, `.claude/CLAUDE.md`, or
- * `CLAUDE.local.md` in your working directory or any directory above it"; reading it
- * directly "requires Claude Code v2.1.277 or later" (code.claude.com/docs/en/memory,
- * "AGENTS.md", retrieved 2026-11-26). An `AGENTS.md` a `CLAUDE.md` shadows is still a
- * member, and an `@AGENTS.md` import still loads it.
+ * The second template claims `AGENTS.md` at any depth — `.claude/AGENTS.md` among them,
+ * which loads at launch beside `AGENTS.md` — behind two absence gates
+ * (code.claude.com/docs/en/memory, "AGENTS.md", retrieved 2026-11-26). At launch one
+ * loads only where there is no "`CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` in
+ * your working directory or any directory above it"; a subdirectory's loads when Claude
+ * reads a file there only where "that subdirectory has none of the three `CLAUDE.md`
+ * files of its own", so a `CLAUDE.md` above it never shuts it. Reading it directly
+ * "requires Claude Code v2.1.277 or later" (same source). An `AGENTS.md` a `CLAUDE.md`
+ * shadows is still a member, and an `@AGENTS.md` import still loads it.
  */
 export const memory: KindDefinition<Memory> = kind<Memory>({
   name: "memory",

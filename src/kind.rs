@@ -596,17 +596,22 @@ impl CustomKind {
         }
     }
 
-    /// The document whose presence closes the absence gate on the member at
-    /// `harness_relative`, when one does — the first, nearest directory first, of the
-    /// gate's `absent` paths that `exists` finds in the member's own directory or any
-    /// directory above it, up to the harness root. [`None`] for a member whose template
-    /// carries no gate, or whose gate stays open.
+    /// The gate that shuts on the member at `harness_relative`, and the document whose
+    /// presence shuts it, when one does. The member is judged from its **home** — its
+    /// own directory, a `.claude/` folder folded into the directory holding it, so
+    /// `.claude/AGENTS.md` and `AGENTS.md` share one. A member homed at the harness root
+    /// (the working directory) loads at launch, and its [`AbsenceGateScope::Launch`] gate
+    /// shuts on any `absent` path there or above; the harness root bounds the walk, so
+    /// that is the root itself. A member homed in a subdirectory loads on demand, and its
+    /// [`AbsenceGateScope::OnDemand`] gate shuts only on that subdirectory's own `absent`
+    /// paths, never one above it. [`None`] for a member whose template carries no gate,
+    /// or whose gate stays open.
     #[must_use]
     pub fn absence_closer(
         &self,
         harness_relative: &str,
         exists: impl Fn(&str) -> bool,
-    ) -> Option<String> {
+    ) -> Option<AbsenceClosure> {
         let governs = self.governs.as_ref()?;
         let template = governs.globs.iter().find(|glob| {
             crate::glob::compile_glob(&locus_pattern(&governs.root, glob))
@@ -616,18 +621,23 @@ impl CustomKind {
             .absence_gates
             .iter()
             .find(|gate| &gate.template == template)?;
-        let mut dir = Path::new(harness_relative).parent();
-        while let Some(current) = dir {
-            for absent in &gate.absent {
-                let candidate =
-                    crate::path::HarnessRelativePath::from_path(&current.join(absent)).to_string();
-                if exists(&candidate) {
-                    return Some(candidate);
-                }
-            }
-            dir = current.parent();
+        let mut home = Path::new(harness_relative).parent()?;
+        if home.file_name().is_some_and(|name| name == ".claude") {
+            home = home.parent()?;
         }
-        None
+        let scope = if home.as_os_str().is_empty() {
+            AbsenceGateScope::Launch
+        } else {
+            AbsenceGateScope::OnDemand
+        };
+        gate.absent.iter().find_map(|absent| {
+            let candidate =
+                crate::path::HarnessRelativePath::from_path(&home.join(absent)).to_string();
+            exists(&candidate).then_some(AbsenceClosure {
+                scope,
+                closer: candidate,
+            })
+        })
     }
 
     /// Whether `harness_relative` is a member path of this kind's own file locus — its
@@ -1435,8 +1445,9 @@ pub const ABSENCE_GATE_COLUMN: &str =
     "absence_gate (one of the row's own templates, and one or more starless relative paths)";
 
 /// One template's **absence gate**: a document at [`template`](AbsenceGate::template)
-/// opens its channels only where none of [`absent`](AbsenceGate::absent) sits in its own
-/// directory or any directory above it. The gate rides the template, never a channel
+/// opens its channels only where none of [`absent`](AbsenceGate::absent) closes it — at
+/// launch, any one at the working directory or above; on demand, only its own
+/// subdirectory's ([`AbsenceGateScope`]). The gate rides the template, never a channel
 /// entry, so the member is the kind's either way and only its reach changes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AbsenceGate {
@@ -1444,6 +1455,27 @@ pub struct AbsenceGate {
     pub template: String,
     /// The documents, relative to a directory, whose presence closes the gate.
     pub absent: Vec<String>,
+}
+
+/// Which of a template's two **absence gates** a member sits behind — read off its
+/// position, never declared: the runtime loads a document homed at the working directory
+/// at launch, and one homed in a subdirectory on demand, when a file there is read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AbsenceGateScope {
+    /// Homed at the harness root: shut by any `absent` document there or above.
+    Launch,
+    /// Homed in a subdirectory: shut only by that subdirectory's own `absent` documents.
+    OnDemand,
+}
+
+/// A shut absence gate ([`CustomKind::absence_closer`]): which gate shut, and the
+/// harness-relative document whose presence shut it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AbsenceClosure {
+    /// The gate that shut.
+    pub scope: AbsenceGateScope,
+    /// The document that shut it.
+    pub closer: String,
 }
 
 /// The column a malformed `exclude` entry refuses under, spelled to name the rule it
@@ -2411,21 +2443,47 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     }
 
     #[test]
-    fn an_absence_gate_closes_on_a_listed_document_at_or_above_and_never_below() {
+    fn an_absence_gate_shuts_at_launch_on_the_root_and_on_demand_only_on_its_own_subdirectory() {
         let kind = CustomKind::from_kind_fact_row(&gated_memory_row(
             "**/AGENTS.md",
             &["CLAUDE.md", ".claude/CLAUDE.md"],
         ))
         .unwrap();
         let on_disk = |files: &'static [&'static str]| move |path: &str| files.contains(&path);
+        let shut = |scope, closer: &str| {
+            Some(AbsenceClosure {
+                scope,
+                closer: closer.to_string(),
+            })
+        };
 
         assert_eq!(
-            kind.absence_closer("apps/web/AGENTS.md", on_disk(&[".claude/CLAUDE.md"])),
-            Some(".claude/CLAUDE.md".to_string())
+            kind.absence_closer("AGENTS.md", on_disk(&[".claude/CLAUDE.md"])),
+            shut(AbsenceGateScope::Launch, ".claude/CLAUDE.md")
+        );
+        assert_eq!(
+            kind.absence_closer(".claude/AGENTS.md", on_disk(&["CLAUDE.md"])),
+            shut(AbsenceGateScope::Launch, "CLAUDE.md"),
+            "a `.claude/` folder is homed at the directory holding it"
         );
         assert_eq!(
             kind.absence_closer("apps/web/AGENTS.md", on_disk(&["apps/web/CLAUDE.md"])),
-            Some("apps/web/CLAUDE.md".to_string())
+            shut(AbsenceGateScope::OnDemand, "apps/web/CLAUDE.md")
+        );
+        assert_eq!(
+            kind.absence_closer(
+                "apps/web/.claude/AGENTS.md",
+                on_disk(&["apps/web/.claude/CLAUDE.md"])
+            ),
+            shut(AbsenceGateScope::OnDemand, "apps/web/.claude/CLAUDE.md")
+        );
+        assert_eq!(
+            kind.absence_closer(
+                "apps/web/AGENTS.md",
+                on_disk(&["CLAUDE.md", "apps/CLAUDE.md"])
+            ),
+            None,
+            "a subdirectory's gate never shuts on a CLAUDE.md above it"
         );
         assert_eq!(
             kind.absence_closer("AGENTS.md", on_disk(&["apps/CLAUDE.md"])),

@@ -175,8 +175,8 @@ pub fn site_class(kind: &CustomKind) -> Option<SiteClass> {
 }
 
 /// Every member whose template's absence gate is closed on disk under `harness_root`,
-/// with the reason [`graph::reachable`] names: the document at or above it whose
-/// presence shuts its channels. The built-ins pair with their discovered units exactly
+/// with the reason [`graph::reachable`] names: which gate shut — launch or on demand —
+/// and the document whose presence shut it. The built-ins pair with their discovered units exactly
 /// as [`committed_member_sites`] pairs them, so the judge and the site walk range over
 /// one member set.
 pub(crate) fn absence_gated(
@@ -201,15 +201,20 @@ pub(crate) fn absence_gated(
             ) else {
                 continue;
             };
-            if let Some(closer) = kind.absence_closer(&source_path, |candidate| {
-                harness_root.join(candidate).is_file()
-            }) {
-                gated.insert(
-                    (kind.name.clone(), unit.id.clone()),
-                    format!(
-                        "`{closer}` sits in its directory or above, so the harness loads it only through an import"
+            if let Some(kind::AbsenceClosure { scope, closer }) = kind
+                .absence_closer(&source_path, |candidate| {
+                    harness_root.join(candidate).is_file()
+                })
+            {
+                let reason = match scope {
+                    kind::AbsenceGateScope::Launch => format!(
+                        "its launch gate is shut: `{closer}` sits in the working directory, so the harness loads it only through an import"
                     ),
-                );
+                    kind::AbsenceGateScope::OnDemand => format!(
+                        "its on-demand gate is shut: `{closer}` is its own subdirectory's, so the harness loads it only through an import"
+                    ),
+                };
+                gated.insert((kind.name.clone(), unit.id.clone()), reason);
             }
         }
     }
