@@ -1,0 +1,36 @@
+{
+  "tag": "A-SUBKIND-KEEPS-ITS-BASES-ROWLESS-FACTS",
+  "gate": {
+    "kind": "open"
+  },
+  "summary": "resolve_subkinds drops the row-less facts builtin_kind::lift attaches by kind name (directive extraction, field keys, bare root file, relationships), so a subkind loses them",
+  "per": {
+    "path": "specs/model/representation.md",
+    "section": "kind"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/compose.rs",
+        "description": "resolve_subkinds (~992): the subkind takes every base fact its row leaves undeclared, extraction and relationships included"
+      },
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "lift's name-keyed row-less facts (declared_directives, declared_field_keys, declared_bare_root_file) reach a subkind through its base"
+      },
+      {
+        "path": "tests/it/kind_extension.rs",
+        "description": "a subkind of memory keeps the @import directive grammar"
+      }
+    ],
+    "retire": []
+  },
+  "acceptance": "a memory subkind's documents seed the @import traversal and report an unbacked import exactly as memory's do",
+  "tests": [
+    "a subkind of memory reports an unbacked import in its own document"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "Sibling of AN-EMBEDDED-SUBKIND-IS-CHOSEN-BY-ITS-HOST over the same section; both name src/compose.rs and tests/it/kind_extension.rs, so they serialize. Scenario: extend(memory, {governs packages/**/CLAUDE.md}) -> directive_members_from_resolved sees no directive_syntax -> unbacked @missing.md silently green."
+}

@@ -1,0 +1,24 @@
+{
+  "tag": "EXPLAIN-IMPACT-READS-THE-GATES-REACHABILITY-INPUTS",
+  "gate": { "kind": "open" },
+  "summary": "explain's impact strand builds registrations from built-in defs only and propagates liveness over @import arcs only, where the gate's reachable reads built-in+custom kinds and resolved+directive edges",
+  "per": { "path": "specs/model/contract.md", "section": "Read verbs" },
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/read.rs", "description": "explain_target (~2470) and impact_one_impl (~2014): take the gate's registration map and its full arc set, never a private partial copy" },
+      { "path": "src/gate.rs", "description": "registrations_by_kind (~1012) and the reachable edge chain become the one derivation both callers read" },
+      { "path": "src/graph.rs", "description": "reachability_orphaned / reachable share the arc-set input" },
+      { "path": "tests/it/read_verbs.rs", "description": "explain impact cases over a custom-kind registration and a declared-edge carrier" }
+    ],
+    "retire": []
+  },
+  "acceptance": "explain's \"reachability that dies with it\" names exactly the members the gate's reachable would report dead with the target removed, for custom-kind registrations and declared edges alike",
+  "tests": [
+    "explain impact names a custom-kind member kept live only by the explained member",
+    "explain impact names a member kept live only by a declared edge from the explained member"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "Both read.rs sites claim READ-EDGE-UNIFY parity in their docs; the gate's inputs are gate.rs registrations_by_kind (overlaid built-ins chained with custom) and graph.rs ~1207 resolved.chain(directives)."
+}
