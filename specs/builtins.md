@@ -20,12 +20,12 @@ kinds alike: a subkind over its base, and a host's template over an
 any-depth reach (a `CLAUDE.md` inside any skill's directory is the skill's,
 not memory's). The lock records the resolution, and every verb reads it
 there. An author may add exclusions to a built-in through its relocation.
-That is how a collision with a built-in is answered (0085), and how a
-fixture tree holding harness files is left ungoverned. Kind identity travels
-by import, and no name-qualification scheme exists: one harness holds one
-kind per name, and two kinds of one name in play are refused. The exception
-is an extension under the built-in's own name, a relocation, which replaces
-the built-in there.
+That is how a collision with a built-in is answered, and how a
+fixture tree holding harness files is left ungoverned. Kind values travel by
+import, and kinds are named, never qualified: one harness holds one kind per
+name, and two kinds of one name in play are refused. The exception is an
+extension under the built-in's own name, a relocation, which replaces the
+built-in there.
 
 ## The shipped kinds
 
@@ -42,17 +42,16 @@ temper's own `dial`. The file members:
   name is prefixed by its subdirectory's segments, each joined with `:`
   (`apps:web:deploy`). The invocation spelling is rendered from the
   placement, never the identity, and the frontmatter `name` is the leaf
-  (`deploy`), so the directory and the name still match. Its
-  template names **supporting-doc**, the shipped kind of its bundled
-  reference documents: fields-free, prose-only, channel-less, identity from
-  the filename — the documented shape of a supporting file
-  (code.claude.com/docs/en/skills, "Add supporting files", retrieved
-  2026-07-16). Like `requirement`, it ships without joining this surface
-  enumeration; an adopting corpus may override the template's child kind by
-  admission where richer typing is wanted. The template claims the
-  directory's markdown documents — the honest subset the prose-only kind
-  can hold; supporting files of other types remain unmodeled and are named
-  as such.
+  (`deploy`), so the directory and the name still match. Its template names
+  **supporting-doc**, the shipped kind of its bundled reference documents:
+  fields-free, prose-only, channel-less, identity from the filename — the
+  documented shape of a supporting file (code.claude.com/docs/en/skills,
+  "Add supporting files", retrieved 2026-07-16). It ships without joining
+  this surface enumeration; an adopting corpus types it further by extending
+  the host, whose template then names a subkind (`model/representation.md`,
+  "kind"). The template claims the directory's markdown documents — the
+  honest subset the prose-only kind can hold; supporting files of other
+  types remain unmodeled and are named as such.
 - **command** — the skill surface's legacy file placement (Claude Code
   merged commands into skills; code.claude.com/docs/en/skills, retrieved
   2026-07-07): a lone markdown file, the skill's field schema by import,
@@ -100,7 +99,7 @@ temper's own `dial`. The file members:
 - **settings-local** — the machine's own settings overlay at
   `.claude/settings.local.json`, a JSON document at the **local**
   commitment class: per-machine, uncommitted, read in place and gated,
-  never emitted (decisions 0032/0034/0036); singleton identity from its
+  never emitted; singleton identity from its
   fixed documented path. Documented keys are typed, the unschematized
   residue stays opaque fields named as such — and it is fields, not
   members: a locally-registered hook or enablement's member-hood and
@@ -114,8 +113,7 @@ temper's own `dial`. The file members:
   collection addresses, which keep their own kinds, and as a member it
   carries the byte fingerprint that makes a hand edit to any part of the
   file `config_stale`: every key is authored in the program, the file
-  renders whole (code.claude.com/docs/en/settings, retrieved 2026-09-22;
-  decision 0050).
+  renders whole (code.claude.com/docs/en/settings, retrieved 2026-09-22).
 
 - **mcp** — the committed `.mcp.json` as a whole, a JSON document at the
   committed commitment class, singleton identity from its documented path.
@@ -126,7 +124,7 @@ temper's own `dial`. The file members:
 
 The two manifest kinds, `settings`, `mcp`, and `settings-local` sit outside the
 domain partition below: distribution metadata and machine configuration,
-never authored session content (decisions 0031, 0036, 0050).
+never authored session content.
 
 Four are registration members — entries a manifest carries at a
 collection address, never files of their own (`model/representation.md`,
@@ -145,16 +143,15 @@ collection address, never files of their own (`model/representation.md`,
 - **mcp-server** — one connection under `.mcp.json`'s `mcpServers`; its
   channel is the connection.
 - **installed-plugin** — one enablement entry under `settings.json`'s
-  `enabledPlugins`; its channel is the enablement entry itself (decision
-  0031). The members a plugin contributes live in the plugin cache,
-  outside the corpus; their reach is unmodeled and named as such — the
-  honest subset. The marketplace half of its `plugin@marketplace` key is
-  a declared edge to the **known-marketplace** member it names (decision
-  0039).
+  `enabledPlugins`; its channel is the enablement entry itself. The members
+  a plugin contributes live in the plugin cache, outside the corpus; their
+  reach is unmodeled and named as such — the honest subset. The marketplace
+  half of its `plugin@marketplace` key is a declared edge to the
+  **known-marketplace** member it names.
 - **known-marketplace** — one consumer-side registry entry under
   `settings.json`'s `extraKnownMarketplaces`: name-keyed, carrying the
   documented `source` union and `autoUpdate`; its channel is the registry
-  entry itself (decision 0039). Distinct from the publisher-side
+  entry itself. Distinct from the publisher-side
   **marketplace** catalog above — two documents, two owners
   (code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-17; the
   product stores these per-user in `known_marketplaces.json`).
@@ -244,7 +241,7 @@ The stance every shipped default contract holds:
 - **A documented, decidable rule the vocabulary cannot yet spell is a
   hold**: named in the contract's header at the point of enforcement with
   the widening that closes it, keyed in the plan ledger, test-pinned where
-  load-bearing — never silent, never permanent-by-default (decision 0033).
+  load-bearing — never silent, never permanent-by-default.
 
 ## The clauses live in code
 
@@ -265,19 +262,20 @@ clause must clear:
 
 ## Requirement
 
-The requirement is itself a shipped kind — an embedded member whose template
-and default cardinality clause `model/contract.md` owns.
+*(Pending:)* the requirement is itself a shipped kind, an embedded member
+whose template and default cardinality clause `model/contract.md` owns. The
+code holds it as a value today.
 
 ## Tool
 
-The **tool** is the other embedded shipped kind: the one home of a command
-the harness runs (`model/authoring.md`). It registers nothing. Gate hooks,
-taps, the typecheck and script verifiers reach it through edges, and its
-default contract is one advisory `degree` clause, incoming at least one, so
-a tool nothing runs is reported. Its default is the temper package's bin,
-rendered as the anchored `.bin` path; an unrepresented harness keeps
+The **tool** is an embedded shipped kind: the one home of a command the
+harness runs (`model/authoring.md`). It registers nothing. Gate hooks, taps
+and the typecheck (and, *pending*, script verifiers) reach it through edges,
+and its default contract is one advisory `degree` clause, incoming at least
+one, so a tool nothing runs is reported. Its default is the temper package's
+bin, rendered as the anchored `.bin` path; an unrepresented harness keeps
 `temper` on the PATH. An unrepresented harness declares no tools, so it
 keeps each unclaimed entry's own finding (its remedy may work there), and
-where settings carry a hook or status-line command it adds one note that
-scripts become `{ file }` tools once represented. That note counts nothing
-it cannot see (0103).
+where settings carry a hook or status-line command it adds *(pending)* one
+note that scripts become `{ file }` tools once represented. That note counts
+nothing it cannot see.

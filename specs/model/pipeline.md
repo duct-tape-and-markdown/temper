@@ -15,44 +15,47 @@ uncommitted path; a local member is a check-side input, never a target.
 
 - **Total, and write-only.** Members are the only source; every artifact is
   its member's format evaluated over its values; no file is part emitted,
-  part hand-maintained. Nothing ever parses a projection back — a hand-edited
-  projection is drift by hash, answered by editing the owning source. An
-  embedded member's serialized form is the artifact only, regenerated whole,
-  its facts captured as declaration rows in the same pass, never a second
-  copy the engine reads back. A layout kind's document is the opposite case
-  and the one governed source: emit reads it under the declared layout,
-  derives its rows in the same pass, and writes nothing at its path — never
-  regenerated, never reaped. Derived facts are computed, never authored
-  twice. Total runs in reverse too: emit reaps a projection whose owning
-  member is gone when the file is byte-identical to its lock fingerprint —
-  temper wrote every byte, so nothing authored is lost; a drifted ownerless
-  file is a finding, never a silent delete.
+  part hand-maintained. Nothing ever parses a projection back for meaning
+  (emit reads one only to carry its managed note and modeline) — a
+  hand-edited projection is drift by hash, answered by editing the owning
+  source. An embedded member's serialized form is the artifact only,
+  regenerated whole, its facts captured as declaration rows in the same
+  pass, never a second copy the engine reads back. A layout kind's document
+  is the opposite case and the one governed source: emit reads it under the
+  declared layout, derives its rows in the same pass, and writes nothing at
+  its path — never regenerated, never reaped. Derived facts are computed,
+  never authored twice. Total runs in reverse too: emit reaps a projection
+  whose owning member is gone when the file is byte-identical to its lock
+  fingerprint — temper wrote every byte, so nothing authored is lost; a
+  drifted ownerless file is a finding, never a silent delete.
 - **Verbatim.** Every meaning-carrying word in an emitted artifact traces to
   an authored prose leaf or a reference's rendered form; connective tissue —
   headings, labels, ordering — is projection formatting. Emit stamps one
   thing of its own, the managed-projection note naming where to edit, which
   says nothing about the member. Line endings are layout, never content:
   projections are written LF uniformly, whatever the source's convention.
-- **Byte-reproducible.** Same program in, same bytes out, verified by
-  double-emit comparison on every run; nondeterminism in authoring code is a
-  loud emit failure, never silent churn. The program reaches the engine as a
-  versioned internal payload — every type erases, the engine sees only plain
-  data — and integrity is verified where it is honestly verifiable: CI
-  re-emits and byte-compares.
+- **Byte-reproducible.** Same program in, same bytes out, the engine's
+  rendering verified by double-emit comparison on every run. The program's
+  own determinism is held where it runs twice, by `emit --frozen` in CI, so
+  nondeterminism in authoring code fails there, never as silent churn. The
+  program reaches the engine as a versioned internal payload — every type
+  erases, the engine sees only plain data — and integrity is verified where
+  it is honestly verifiable: CI re-emits and byte-compares.
 - **Refusing.** A dangling edge, an unresolvable mention or include, an
   unfilled requirement whose fill clause errors — each refuses before a byte
   is written. Refusal reaches exactly as far as the program's own universe:
   a field the kind's schema marks optional is no edge when absent; a mention
   addressing a declared kind whose member is not a composed value defers to
   the gate — the row rides the lock, `check` owns the verdict — and a
-  mention addressing no declared kind refuses. Before running the program,
-  emit runs the **typecheck the program declares** (a command reference,
+  mention addressing no declared kind refuses. After running the program
+  (the declaration lives in its payload) and before writing a byte, emit
+  runs the **typecheck the program declares** (a command reference,
   `authoring.md`, and its project, the consumer's own toolchain, never
   resolved by guess) and refuses on a type error, naming the compiler's
   diagnostics: the compiler's errors are how the author receives the SDK's
-  shape (intent, invariant 8). A program that declares no typecheck refuses,
-  naming the declaration; the project file it names is a declared input.
-  `check` still never needs Node.
+  shape (intent, invariant 8). *(Pending:)* a program that declares no
+  typecheck refuses, naming the declaration; the project file it names is a
+  declared input. `check` still never needs Node.
 
 ## The lock
 

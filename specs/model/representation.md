@@ -29,37 +29,35 @@ The type of a member. A kind declares
 - the **content** — `file`: the body is one verbatim prose value (the
   default; what install hoists), or a **layout** (below),
 - the **edge fields** — which fields are references, and to what,
-- a **format** — a template literal rendering the member's values into its
-  artifact: constant text around interpolated fields, prose, and child
-  layers. The kind's format is the default, a member's own overriding it. A
-  **file**-locus kind's format derives two one-way faces — the canonical
-  writer for projections, the lenient reader for sources — never a round
-  trip; admissible only when unambiguous (adjacent slots split by constant
-  text neither can absorb; the prose slot terminal or fenced), holding no
-  logic and no derived values, and declaring the leniency its reads forgive;
-  a structured sublanguage is a slot naming a schema, never syntax spelled
-  as constant text. An **embedded**-locus kind's format, under a composed
-  host, is writer-only with no admissibility bar — a projection whose facts
-  are declared (`pipeline.md`, "The lock"), never read back. It may place a
-  **closed, engine-derived set of facts about its edge fields' targets** —
-  name, address, kind, projection path relative to the host's; instance
-  prose never spells its target, so a rendered reference is true by
-  construction. A format omitting a declared edge is a clause's finding.
+- a **format**, one of a closed set the engine implements
+  (`yaml-frontmatter`, `json-document`, `toml-document`), each with two
+  one-way faces: the canonical writer for projections and the lenient reader
+  for sources, never a round trip, the reader declaring the leniency it
+  forgives. A structured sublanguage is a field naming a schema, never
+  syntax spelled as constant text. An **embedded**-locus kind renders
+  through its kind's render hook, writer-only, a projection whose facts are
+  declared (`pipeline.md`, "The lock") and never read back. A rendered
+  reference to an edge field's target comes from the engine's facts about it
+  (name, address, kind, projection path relative to the host's), never from
+  instance prose, so it is true by construction. A format omitting a
+  declared edge is a clause's finding.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
   A nested member's kind is declared by its host's template or admission,
   as a file's is by its position, so a nested kind is extended by an
   extended host naming the subkind as its child.
 
-A kind is data, never code, its extractor composed from that data; its
-identity travels by import, never by string. Built-in and user-declared
-kinds are the same construct — ownership, not privilege (`../builtins.md`) —
-and a kind may **extend** another. A subkind keeps its base's facts, adds
-fields, edge fields and counsel, and governs a locus within its base's;
-every selection of the base binds its document, and its fields live where
-the base's format admits them, never as an undocumented key. Keeping the
-base's name it is a relocation, which replaces the built-in there; any other
-kind of a built-in's name is refused.
+A kind reaches the engine as data, never code: its extractor is composed
+from that data, and an SDK render hook runs at emit and erases at the seam.
+A kind value travels by import; edge target sets and the lock name kinds by
+name, unique in a harness. Built-in and user-declared kinds are the same
+construct — ownership, not privilege (`../builtins.md`) — and a kind may
+**extend** another. A subkind keeps its base's facts, adds fields, edge
+fields and counsel, and governs a locus within its base's; every selection
+of the base binds its document, and its fields live where the base's format
+admits them, never as an undocumented key. Keeping the base's name it is a
+relocation, which replaces the built-in there; any other kind of a
+built-in's name is refused.
 
 ## layout
 
@@ -134,7 +132,7 @@ that admits it, a shipped kind's included (`../builtins.md`).
 The harness itself is a member — the root of the forest. Its kind's template
 names the top layers (`.claude/`, the memory files, settings), the contract
 attaches to it as to any member, and harness-wide declarations are its
-fields — the enforcement mode among them — overridable per member.
+fields, the enforcement mode among them.
 
 ## Reach
 

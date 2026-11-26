@@ -17,7 +17,8 @@ of three loci:
 - an **import directive** — a reference the target format itself executes
   (a memory file's `@path` import), resolved by path; a file an import
   reaches carries the directives its format executes, whatever its kind,
-- a **satisfies entry** — an edge whose target is a requirement member.
+- a **satisfies entry** — an edge whose target is a requirement member
+  *(pending: a requirement is a value in code, not yet a member)*.
 
 A field-declared edge may also claim a **rendered position** in its member's
 prose — the **mention**: a rendering claim, never a fourth locus; its target
@@ -28,18 +29,17 @@ declare, and its **containment** of each embedded member its body composes
 (one field per admitted kind, derived) — never a second authored list.
 
 Every edge resolves into one enumeration the gate and every read verb share,
-so narration never disagrees with the verdict.
-Edges are declared, never mined from prose. Path-resolved edges resolve
-against raw disk, never the ignore-filtered discovery view: an extra file
-can only suppress a finding, a pruned one can forge one (discovery is the
-opposite, `adoption.md`). An edge carries no obligation of its own: the
-clauses that range over it decide whether it counts; the shipped
-`mention-reachable` advisory judges only declared edges, never derived
-containment. What an edge
-**means** is its **intent**, never checked: an edge field's guidance (0091),
-stated once, or a satisfies entry's requirement prose. Delivered at both
-ends with the requirements and their satisfiers, it lets an agent growing
-the contract set reason over what is contracted.
+so narration never disagrees with the verdict. Edges are declared, never
+mined from prose. Path-resolved edges resolve against raw disk, never the
+ignore-filtered discovery view: an extra file can only suppress a finding, a
+pruned one can forge one (discovery is the opposite, `adoption.md`). An edge
+carries no obligation of its own: the clauses that range over it decide
+whether it counts; the shipped `mention-reachable` advisory judges only
+declared edges, never derived containment. What an edge **means** is its
+**intent**, never checked: an edge field's guidance (its field counsel,
+"clause" below), stated once, or a satisfies entry's requirement prose.
+Delivered at both ends with the requirements and their satisfiers, it lets
+an agent growing the contract set reason over what is contracted.
 
 ## clause
 
@@ -111,7 +111,8 @@ selector, and a member outside it is a finding, never a silent exclusion.
 
 ## requirement — a shipped kind, not a primitive
 
-A requirement is a member of a built-in kind (embedded locus). Its template:
+*(Pending:)* a requirement is a member of a built-in kind (embedded locus);
+the code holds it as a value today. Its template:
 
 - **identity** — the name satisfies edges target,
 - **prose** — the authored intent the requirement exists to carry; never
@@ -128,9 +129,9 @@ A requirement is a member of a built-in kind (embedded locus). Its template:
   the emitted reference say so; making it a finding is a clause the author
   attaches, never a default (intent, invariant 1),
 - **attached clauses** over its opt-in selection. "This must be filled" is
-  the shipped default: a whole-grain cardinality clause (at least one
-  satisfier) at error severity — overridable, so an advisory requirement
-  is expressible.
+  the shipped default: *(pending: today a fixed check)* a whole-grain
+  cardinality clause (at least one satisfier) at error severity —
+  overridable, so an advisory requirement is expressible.
 
 The requirement's prose and verifier are the model's declared boundary
 with the undecidable: the two slots that stay human.
@@ -145,7 +146,9 @@ The only fixed checks — preconditions of judging, never opinions:
 - **acyclicity** — the import relation is well-founded; a cyclic graph makes
   evaluation itself ill-defined.
 
-If anyone could ever want to dial a check's severity, it is a clause.
+If anyone could ever want to dial a check's severity, it is a clause
+*(pending: the dangling-edge, requirement-fill, dangling-requirement and
+unbacked-import checks are still fixed in code)*.
 
 ## Read verbs
 

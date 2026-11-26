@@ -21,8 +21,8 @@ emit_hash = "a9ff49b47ff62d221ccda83a21406bc7ce2ec97c74cd8f97c46048ee4114148a"
 [[rule]]
 name = "release"
 source_path = ".claude/rules/release.md"
-source_hash = "ce5c6e80c61ded5d3025f3e23d498c09b82e5d55878669e3135d693c3b626fdc"
-emit_hash = "ce5c6e80c61ded5d3025f3e23d498c09b82e5d55878669e3135d693c3b626fdc"
+source_hash = "5c9f98cf2038a325ce856e198ed97348627a028e8e9229e41e39dd7afcb204c4"
+emit_hash = "5c9f98cf2038a325ce856e198ed97348627a028e8e9229e41e39dd7afcb204c4"
 
 [[rule]]
 name = "rust"
@@ -51,8 +51,8 @@ emit_hash = "d926e1a520139d2c9a5d02a0d4f19e413513c00d898c2e8a5bf801fa94e9958e"
 [[settings]]
 name = "settings"
 source_path = ".claude/settings.json"
-source_hash = "caf402241bdd83cb0ba36721d7837e353725a39915a56095c3d3a7b4dfcdb371"
-emit_hash = "caf402241bdd83cb0ba36721d7837e353725a39915a56095c3d3a7b4dfcdb371"
+source_hash = "7a5d7df4710032bb6b2ee726ad279f7864eb0ef78799005866591fa8b8f122fe"
+emit_hash = "7a5d7df4710032bb6b2ee726ad279f7864eb0ef78799005866591fa8b8f122fe"
 
 [[skill]]
 name = "capture-friction"
@@ -85,6 +85,7 @@ exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".clau
 unit_shape = "file"
 registration = ["always"]
 guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."
+ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
 name = "rule"
@@ -95,6 +96,7 @@ unit_shape = "file"
 registration = ["paths-match(paths)"]
 guidance = "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
 cite = "https://code.claude.com/docs/en/memory (retrieved 2026-11-25); path-rule load timing observed on Claude Code 2.1.332"
+ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
 name = "settings"
@@ -165,6 +167,13 @@ fact = "edge"
 from = "settings"
 field = "runs"
 to = ["tool"]
+
+[[declaration.assembly]]
+fact = "edge"
+from = "settings"
+field = "outputStyle"
+to = ["output-style"]
+provided = ["default", "Proactive", "Concise", "Explanatory", "Learning"]
 
 [[declaration.satisfies]]
 member = "skill:capture-friction"
