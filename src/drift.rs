@@ -666,6 +666,27 @@ pub enum DriftError {
         path: String,
     },
 
+    /// A derived projection path the deriving kind's glob finds but one of its subkinds'
+    /// loci governs. A document's kind is its position alone, so a base member written there
+    /// would read back as the subkind's member — locked under one address, discovered under
+    /// another. Refused before a byte is written; the repair is the declaration's — declare
+    /// the member under the subkind, or rename it out of the subkind's locus.
+    #[error(
+        "member `{member}` projects to `{path}`, which lies in subkind `{subkind}`'s locus — kind `{kind}` cedes that locus to its subkind, so this projection would read back as a `{subkind}` member"
+    )]
+    #[diagnostic(code(temper::drift::subkind_projection))]
+    SubkindProjection {
+        /// The base kind whose member was placed in its subkind's locus.
+        kind: String,
+        /// The subkind whose locus governs the path.
+        subkind: String,
+        /// The member's **whole address**, as [`UngovernedProjection`](DriftError::UngovernedProjection)
+        /// names it.
+        member: String,
+        /// The derived path, harness-relative.
+        path: String,
+    },
+
     /// A **cycle** in the declared kind graph's file-template edges: a kind whose nested
     /// file layer reaches, through its children's own layers, back to itself. A nested
     /// file child's unit composes under its host's, so a cycle declares a member whose
@@ -1625,7 +1646,8 @@ fn refuse_template_cycle(kind_facts: &BTreeMap<&str, &KindFactRow>) -> Result<()
 /// ([`splice_name`]), [`DriftError::NestedFileLocus`] when a nested file child's host
 /// supplies no unit and pattern to compose against, or
 /// [`DriftError::UngovernedProjection`] when the derived path is one the deriving glob
-/// cannot find.
+/// cannot find, [`DriftError::ExcludedProjection`] when the kind excludes it, or
+/// [`DriftError::SubkindProjection`] when it lies in a subkind's ceded locus.
 fn member_projection_path(
     facts: &KindFactRow,
     name: &str,
@@ -1651,15 +1673,39 @@ fn member_projection_path(
     let placed = join_locus(root, &relative);
     // Placement asks the one membership question discovery asks — the template less the
     // excluded paths — so emit never writes a member `check` would not find.
+    // A subkind's locus is ceded from its base's, so the ceded half derives off the rows
+    // naming this kind their `base` — the same patterns `compose::bind_subkinds` cedes.
     let harness_relative = HarnessRelativePath::from_path(&placed);
     let pattern = crate::kind::locus_pattern(root, glob);
-    if !crate::kind::locus_admits(&pattern, &facts.exclude, &[], &harness_relative) {
+    let ceded: Vec<(&str, String)> = kind_facts
+        .values()
+        .filter(|row| row.base.as_deref() == Some(facts.name.as_str()))
+        .filter_map(|row| {
+            let (root, glob) = (row.governs_root.as_deref()?, row.governs_glob.as_deref()?);
+            Some((row.name.as_str(), crate::kind::locus_pattern(root, glob)))
+        })
+        .collect();
+    let ceded_patterns: Vec<String> = ceded.iter().map(|(_, pattern)| pattern.clone()).collect();
+    if !crate::kind::locus_admits(&pattern, &facts.exclude, &ceded_patterns, &harness_relative) {
         // `governs_root` is the locus the glob is rooted at, so the relative path is what
-        // the glob has to find; a path the template finds failed on the exclusion half.
+        // the glob has to find; a path the template finds failed on the exclusion half or
+        // the ceded half.
         refuse_ungoverned(&facts.name, host, name, glob, &relative)?;
+        let member = member_address_under(host, &facts.name, name);
+        if let Some((subkind, _)) = ceded
+            .iter()
+            .find(|(_, sub)| crate::kind::locus_admits(sub, &[], &[], &harness_relative))
+        {
+            return Err(DriftError::SubkindProjection {
+                kind: facts.name.clone(),
+                subkind: (*subkind).to_string(),
+                member,
+                path: harness_relative.to_string(),
+            });
+        }
         return Err(DriftError::ExcludedProjection {
             kind: facts.name.clone(),
-            member: member_address_under(host, &facts.name, name),
+            member,
             path: harness_relative.to_string(),
         });
     }

@@ -394,3 +394,54 @@ fn the_guard_judges_a_write_in_a_subkinds_locus_as_the_subkind_alone() {
         "a write elsewhere in the base's locus stays the base's, got: {in_band}"
     );
 }
+
+/// A base member placed at a path inside a subkind's locus would read back as the
+/// subkind's document, so emit refuses it by name; a base member elsewhere in the base's
+/// locus still places.
+#[test]
+fn emit_refuses_a_base_member_whose_projection_path_lies_in_a_subkinds_locus() {
+    use temper::drift::{self, EmitOptions, Payload};
+    let root = common::tmpdir("emit-subkind-locus");
+    let rule = KindFactRow {
+        governs_glob: Some("**/*.md".to_string()),
+        ..common::rule_kind_facts(None, &[])
+    };
+    let standard = KindFactRow {
+        base: Some("rule".to_string()),
+        ..common::kind_facts("standard", ".claude/rules/standards", "*.md")
+    };
+    let payload = |name: &str| Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![rule.clone(), standard.clone()],
+            ..Declarations::default()
+        },
+        members: vec![common::rule_member(name, None, "# Doc\n\nBody.\n")],
+    };
+
+    let err = drift::emit(
+        &payload("standards:x"),
+        &root.join(".temper"),
+        EmitOptions::default(),
+    )
+    .expect_err("a base member in a subkind's locus must refuse");
+    let message = err.to_string();
+    assert!(
+        message.contains("`standard`")
+            && message.contains("rule:standards:x")
+            && message.contains(".claude/rules/standards/x.md"),
+        "the refusal names the subkind, the member and the path, got: {message}"
+    );
+    assert!(
+        !root.join(".claude/rules/standards/x.md").exists(),
+        "refused before a byte is written"
+    );
+
+    drift::emit(
+        &payload("guides:x"),
+        &root.join(".temper"),
+        EmitOptions::default(),
+    )
+    .expect("placement outside any subkind locus is unchanged");
+    assert!(root.join(".claude/rules/guides/x.md").is_file());
+}
