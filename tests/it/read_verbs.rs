@@ -2810,3 +2810,38 @@ fn check_and_explain_run_over_an_emitted_harness_with_node_absent_from_the_path(
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// A read verb never gates.
+// ---------------------------------------------------------------------------
+
+/// `explain` narrates; it never judges. Over a harness `check` refuses with an
+/// error-severity finding, `explain` still reads the failing member and exits zero —
+/// the finding is the gate's verdict, never the read verb's.
+#[test]
+fn explain_exits_zero_over_a_harness_with_an_error_severity_finding() {
+    let harness = common::tmpdir("explain-never-gates");
+    common::write_skill(
+        &harness,
+        "coordinate",
+        "---\nname: coordinate\n---\n\n# Coordinate\n\nDrive the team.\n",
+    );
+
+    let (findings, ok) = common::check_harness(&harness);
+    assert!(!ok, "the fixture fails the gate: {findings:?}");
+    let errors = common::findings_for(&findings, "skill.required.description");
+    assert!(
+        errors.iter().any(|line| line.starts_with("::error")),
+        "the gate's refusal is an error-severity finding: {findings:?}"
+    );
+
+    let (exit_ok, narration) = common::explain_run_in(&harness, "coordinate", None);
+    assert!(
+        narration.contains("Member `coordinate` (skill)"),
+        "explain reads the member the gate refuses:\n{narration}"
+    );
+    assert!(
+        exit_ok,
+        "explain exits zero whatever the gate's verdict:\n{narration}"
+    );
+}

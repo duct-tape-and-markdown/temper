@@ -558,6 +558,13 @@ pub fn explain_in(root: &Path, target: &str) -> String {
 /// [`explain_in`] with the child's `PATH` replaced by `path` when one is given — the
 /// `explain` twin of [`check_in_on_path`].
 pub fn explain_in_on_path(root: &Path, target: &str, path: Option<&Path>) -> String {
+    explain_run_in(root, target, path).1
+}
+
+/// [`explain_in_on_path`] returning the exit status beside the narration as
+/// `(exit success, narration)` — the one run that reads whether `explain` gates
+/// rather than what it says.
+pub fn explain_run_in(root: &Path, target: &str, path: Option<&Path>) -> (bool, String) {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_temper"));
     cmd.current_dir(root).arg("explain").arg(target);
     if let Some(path) = path {
@@ -566,7 +573,7 @@ pub fn explain_in_on_path(root: &Path, target: &str, path: Option<&Path>) -> Str
     let out = cmd.output().unwrap();
     let mut narration = String::from_utf8_lossy(&out.stdout).into_owned();
     narration.push_str(&String::from_utf8_lossy(&out.stderr));
-    narration
+    (out.status.success(), narration)
 }
 
 /// Run `temper guard <root>` from inside `root` with `payload` on stdin, returning the
