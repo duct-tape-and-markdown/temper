@@ -912,8 +912,10 @@ pub fn effective_kinds(
 }
 
 /// Bind every subkind in `kinds` to its base, bases first: the subkind takes each fact its
-/// row leaves undeclared from the base, and the base cedes the subkind's locus, so a
-/// document there is the subkind's one member.
+/// row leaves undeclared from the base — the extraction and relationships the base's lift
+/// attaches by name included — and the base cedes the subkind's locus, so a document there
+/// is the subkind's one member. A base's bare-root file is a locus fact like its `governs`,
+/// so a subkind, governing its own locus, never takes it.
 ///
 /// # Errors
 ///
@@ -1012,12 +1014,41 @@ fn resolve_subkinds(kinds: &mut BTreeMap<String, CustomKind>) -> Result<(), drif
         if bound.commitment.is_none() {
             bound.commitment = base.commitment;
         }
+        bound.extraction = inherited_extraction(&base.extraction, &bound.extraction);
+        let own_fields: BTreeSet<String> = bound
+            .relationships
+            .iter()
+            .map(|edge| edge.field.clone())
+            .collect();
+        let inherited_edges: Vec<Edge> = base
+            .relationships
+            .iter()
+            .filter(|edge| !own_fields.contains(&edge.field))
+            .map(|edge| Edge {
+                from: bound.name.clone(),
+                ..edge.clone()
+            })
+            .collect();
+        bound.relationships.extend(inherited_edges);
         kinds.insert(name, bound);
         if let (Some(pattern), Some(base)) = (ceded, kinds.get_mut(&base_name)) {
             base.ceded.push(pattern);
         }
     }
     Ok(())
+}
+
+/// A subkind's extractor: every primitive its base composes — the base's row-less
+/// extraction facts (declared field keys, a directive grammar) included — in the base's
+/// order, then each primitive the subkind's own row adds.
+fn inherited_extraction(base: &kind::Extraction, own: &kind::Extraction) -> kind::Extraction {
+    let mut primitives = base.primitives().to_vec();
+    for primitive in own.primitives() {
+        if !primitives.contains(primitive) {
+            primitives.push(primitive.clone());
+        }
+    }
+    kind::Extraction::new(primitives)
 }
 
 /// Every kind some kind in `kinds` names as an embedded child: a path-less template layer,

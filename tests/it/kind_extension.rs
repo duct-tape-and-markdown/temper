@@ -632,3 +632,26 @@ fn a_clause_bound_to_the_embedded_base_judges_the_embedded_subkinds_member() {
         run.output
     );
 }
+
+/// A `memory` subkind governing `packages/**/CLAUDE.md` — its documents keep the base's
+/// `@path` import grammar.
+fn package_memory() -> KindFactRow {
+    KindFactRow {
+        base: Some("memory".to_string()),
+        ..common::kind_facts("package-memory", "packages", "**/CLAUDE.md")
+    }
+}
+
+#[test]
+fn a_subkind_of_memory_reports_an_unbacked_import_in_its_own_document() {
+    let root = common::tmpdir("subkind-memory-import");
+    let path = root.join("packages/app/CLAUDE.md");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, "# App\n\nSee @missing.md for more.\n").unwrap();
+    let run = check_with(&root, vec![package_memory()]);
+    assert!(
+        run.output.contains("graph.directive-unbacked") && run.output.contains("missing.md"),
+        "the subkind's document seeds the import traversal, got:\n{}",
+        run.output
+    );
+}

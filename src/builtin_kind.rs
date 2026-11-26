@@ -88,6 +88,8 @@ fn declared_bare_root_file(kind: &str) -> Option<&'static str> {
 /// own `edge` assembly facts, and the row-less extraction and bare-root facts off the
 /// named exceptions above. The markdown-structure primitives the lift composes stay only
 /// where a markdown body exists — never on a fields-only kind or a whole-file document.
+/// A subkind's row names none of these exceptions: it takes the extraction and the
+/// relationships off this lifted base when its base binds (`compose::resolve_subkinds`).
 fn lift(row: &KindFactRow, edges: &[Edge]) -> CustomKind {
     let mut kind = CustomKind::from_kind_fact_row(row).expect(
         "src/builtin_lock.toml is compiled-in data produced by this crate's own emit — \
