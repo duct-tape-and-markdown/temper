@@ -1672,6 +1672,22 @@ fn placement_in_unit(facts: &KindFactRow, pattern: &str, name: &str) -> Result<S
         }
         return splice_name(&facts.name, pattern, &path, false);
     }
+    if facts
+        .unit_shape
+        .as_deref()
+        .is_some_and(|shape| shape.starts_with("named-field-or-file"))
+        && let Some(under) = pattern.strip_prefix("**/")
+    {
+        // The read side prefixes the leaf with the directories the `**` spans, so every
+        // `:`-joined segment ahead of the leaf is one of them.
+        let (span, leaf) = name.rsplit_once(':').unwrap_or(("", name));
+        let placed = splice_name(&facts.name, under, leaf, false)?;
+        return Ok(if span.is_empty() {
+            placed
+        } else {
+            format!("{}/{placed}", span.replace(':', "/"))
+        });
+    }
     let starred_segment = facts.unit_shape.as_deref() == Some("starred-segment");
     splice_name(&facts.name, pattern, name, starred_segment)
 }
@@ -8091,6 +8107,29 @@ mod tests {
         assert_eq!(
             place("apps:web:deploy"),
             "apps/web/.claude/skills/deploy/SKILL.md"
+        );
+    }
+
+    #[test]
+    fn a_nested_output_style_places_its_prefix_segments_ahead_of_its_folder() {
+        let row = KindFactRow {
+            governs_root: Some(".".to_string()),
+            governs_glob: Some("**/.claude/output-styles/*.md".to_string()),
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("named-field-or-file(name)".to_string()),
+            ..crate::test_support::kind_fact_row("output-style")
+        };
+        let facts = BTreeMap::new();
+        let place = |name: &str| {
+            crate::path::normalize_path(&member_projection_path(&row, name, None, &facts).unwrap())
+                .to_string_lossy()
+                .into_owned()
+        };
+
+        assert_eq!(place("terse"), ".claude/output-styles/terse.md");
+        assert_eq!(
+            place("apps:web:terse"),
+            "apps/web/.claude/output-styles/terse.md"
         );
     }
 

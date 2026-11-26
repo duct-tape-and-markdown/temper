@@ -914,6 +914,7 @@ fn declared_kinds_with_overlaid(
 /// locus, so a relocated host cedes where it now lives. The host's own subkinds keep its
 /// subtree: their documents lie in it by construction.
 fn cede_host_units(kinds: &mut BTreeMap<String, CustomKind>) {
+    cede_folder_claims(kinds);
     let subtrees: Vec<(String, String)> = kinds
         .iter()
         .filter_map(|(name, host)| {
@@ -968,6 +969,39 @@ fn cede_host_units(kinds: &mut BTreeMap<String, CustomKind>) {
         for subtree in cedes {
             if !kind.ceded.contains(&subtree) {
                 kind.ceded.push(subtree);
+            }
+        }
+    }
+}
+
+/// Cede each any-depth folder claim's documents from the bare any-depth file reaches that
+/// overlap it ([`kind::yields_to_folder_claim`]): a `CLAUDE.md` in a nested
+/// `.claude/output-styles/` is the output style's, never `memory`'s — the most specific
+/// claim holds it, at every depth the folder can sit.
+fn cede_folder_claims(kinds: &mut BTreeMap<String, CustomKind>) {
+    let pattern_of = |kind: &CustomKind| {
+        kind.governs
+            .as_ref()
+            .map(|governs| kind::locus_pattern(&governs.root, &governs.glob))
+    };
+    let claims: Vec<(String, String)> = kinds
+        .iter()
+        .filter_map(|(name, kind)| Some((name.clone(), pattern_of(kind)?)))
+        .collect();
+    for (name, kind) in kinds.iter_mut() {
+        let Some(reach) = pattern_of(kind) else {
+            continue;
+        };
+        for (holder, claim) in &claims {
+            let cede = drift::CedeRow {
+                to: holder.clone(),
+                pattern: claim.clone(),
+            };
+            if holder != name
+                && kind::yields_to_folder_claim(&reach, claim)
+                && !kind.ceded.contains(&cede)
+            {
+                kind.ceded.push(cede);
             }
         }
     }

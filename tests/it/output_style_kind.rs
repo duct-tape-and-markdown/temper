@@ -276,3 +276,142 @@ fn a_lockless_harness_notes_an_off_tree_outputstyle_as_one_coverage_note() {
         "the note names each reference and the scopes temper does not read, got: {notes:#?}"
     );
 }
+
+/// Write an output style at `<root>/<dir>/.claude/output-styles/<stem>.md`, a nested
+/// `.claude` folder's documented location.
+fn write_nested_style(root: &Path, dir: &str, stem: &str, body: &str) -> PathBuf {
+    let rel = format!("{dir}/.claude/output-styles/{stem}.md");
+    common::write_sibling(root, &rel, body);
+    root.join(rel)
+}
+
+/// A root `terse` and an `apps/web` one sharing its name, the shadowing pair.
+fn shadowing_pair(harness: &Path) {
+    write_style(harness, "terse", "Answer in one sentence.\n");
+    write_nested_style(
+        harness,
+        "apps/web",
+        "terse",
+        "---\nname: terse\n---\n\nAnswer in one short sentence.\n",
+    );
+}
+
+#[test]
+fn an_output_style_in_a_nested_claude_folder_is_claimed() {
+    let harness = common::tmpdir("output-style-nested");
+    let root = write_style(&harness, "plain", "Avoid jargon.\n");
+    let nested = write_nested_style(&harness, "apps/web", "terse", "Answer in one sentence.\n");
+    let named = write_nested_style(
+        &harness,
+        "apps",
+        "teach",
+        "---\nname: Teaching Mode\n---\n\nExplain as you go.\n",
+    );
+
+    assert_eq!(
+        style_members(&harness),
+        vec![
+            (root, "plain".to_string()),
+            (named, "apps:Teaching Mode".to_string()),
+            (nested, "apps:web:terse".to_string()),
+        ],
+        "a nested style's identity is its directory's segments, then its name or stem"
+    );
+}
+
+#[test]
+fn a_root_and_a_nested_output_style_sharing_a_name_check_with_no_admissibility_finding() {
+    let harness = common::tmpdir("output-style-shared-name");
+    shadowing_pair(&harness);
+
+    let (findings, success) = common::check_harness(&harness);
+
+    assert_eq!(
+        common::findings_for(&findings, "member.admissibility"),
+        Vec::<&String>::new(),
+        "two placements are two members, never one address refused"
+    );
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert!(
+        checked.iter().any(|f| f.contains("output-style (2)")),
+        "both styles are checked as output-style members, got: {checked:#?}"
+    );
+    assert!(success, "{findings:#?}");
+}
+
+#[test]
+fn a_nested_output_style_sharing_a_root_style_name_draws_the_shadowing_advisory() {
+    let harness = common::tmpdir("output-style-shadowing");
+    shadowing_pair(&harness);
+    write_nested_style(&harness, "apps/api", "plain", "Avoid jargon.\n");
+
+    let (findings, success) = common::check_harness(&harness);
+
+    let shadowing = common::findings_for(&findings, "output-style.unshadowed");
+    assert_eq!(
+        shadowing.len(),
+        1,
+        "only the shadowing style, got: {findings:#?}"
+    );
+    assert!(
+        shadowing[0].starts_with("::warning")
+            && shadowing[0].contains("apps:web:terse")
+            && shadowing[0].contains("at the root")
+            && shadowing[0].contains("at or below `apps/web`"),
+        "the advisory names the shadowed style and the sessions it applies in, got: {shadowing:#?}"
+    );
+    assert!(success, "an advisory never fails the gate: {findings:#?}");
+}
+
+#[test]
+fn a_root_settings_output_style_resolves_to_the_root_style() {
+    let harness = common::tmpdir("output-style-root-selection");
+    shadowing_pair(&harness);
+    common::write_settings(&harness, "{ \"outputStyle\": \"terse\" }\n");
+
+    let narration = common::explain_in(&harness, "settings");
+    assert!(
+        narration.contains("it points at `terse` (output-style) via its `outputStyle` field"),
+        "the project settings select the style at their own level, got: {narration}"
+    );
+    assert_eq!(route_findings(&harness), Vec::<String>::new());
+    assert_eq!(off_tree_notes(&harness), Vec::<String>::new());
+}
+
+#[test]
+fn a_claude_md_in_a_nested_output_styles_folder_draws_no_governs_collision() {
+    let harness = common::tmpdir("output-style-nested-claude-md");
+    write_nested_style(&harness, "apps/web", "CLAUDE", "A style named CLAUDE.\n");
+    common::write_sibling(&harness, "CLAUDE.md", "# Project\n");
+
+    let (findings, success) = common::check_harness(&harness);
+
+    assert_eq!(
+        common::findings_for(&findings, "kind.governs-collision"),
+        Vec::<&String>::new()
+    );
+    assert!(success, "{findings:#?}");
+}
+
+#[test]
+fn a_claude_md_in_a_nested_output_styles_folder_is_the_output_styles_not_memorys() {
+    let harness = common::tmpdir("output-style-nested-not-memory");
+    let style = write_nested_style(&harness, "apps/web", "CLAUDE", "A style named CLAUDE.\n");
+    common::write_sibling(&harness, "apps/web/CLAUDE.md", "# Web\n");
+
+    let kinds = temper::compose::effective_kinds(temper::builtin_lock::declarations())
+        .expect("the embedded kinds compose");
+    let memory = &kinds["memory"];
+    let governs = memory.governs.clone().unwrap();
+    let found = import::discover_kind_files(
+        &import::Discovery::new(&harness),
+        memory,
+        &governs,
+        import::LocalOverride::Honored,
+    );
+    assert_eq!(found, vec![harness.join("apps/web/CLAUDE.md")]);
+    assert_eq!(
+        style_members(&harness),
+        vec![(style, "apps:web:CLAUDE".to_string())]
+    );
+}

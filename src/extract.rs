@@ -900,7 +900,26 @@ pub(crate) fn unit_shape_id<'v>(
             .map(str::to_string)
             .ok_or_else(|| fault(AbsentId::NamedField(field.clone()))),
         Some(UnitShape::NamedFieldOrFile { field }) => {
-            match named_field(field).and_then(JsonValue::as_str) {
+            let named = named_field(field).and_then(JsonValue::as_str);
+            // At an any-depth locus the placement the `**` spans prefixes the leaf, the
+            // nested-skill grammar; the stem alone is the leaf, since the locus's literal
+            // folders (`.claude/output-styles`) are never identity.
+            if let Some(pattern) = pattern.filter(|pattern| pattern.split('/').any(|s| s == "**")) {
+                let stem = || {
+                    source_file
+                        .file_stem()
+                        .and_then(OsStr::to_str)
+                        .map(str::to_string)
+                        .ok_or_else(|| fault(AbsentId::FileStem))
+                };
+                let mut parts = globstar_span(base, source_file, pattern);
+                parts.push(match named {
+                    Some(id) => id.to_string(),
+                    None => stem()?,
+                });
+                return Ok(parts.join(":"));
+            }
+            match named {
                 Some(id) => Ok(id.to_string()),
                 None => fold_file_id(base, source_file),
             }

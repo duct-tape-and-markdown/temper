@@ -2,25 +2,25 @@
 source: tests/it/builtin_contract_matrix.rs
 expression: output
 ---
-kind | allowed_chars | closed-keys | degree | deny | enum | extent | forbidden_keys | glob-valid | max_len | mention-reachable | min_len | name-matches-dir | optional | required | shape | type | unique-name | when
---- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
-agent | error |  |  |  |  |  |  |  | error |  |  |  |  | error |  |  | error | 
-command |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
-dial |  | error |  |  | error |  |  |  |  |  |  |  |  | error |  | error |  | 
-handler |  |  |  |  | error |  |  |  |  |  |  |  |  | error |  |  |  | error
-hook |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  | 
-installed-plugin |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
-known-marketplace |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
-marketplace | error |  |  | error |  |  |  |  |  |  | error |  |  | error |  |  |  | error
-mcp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
-mcp-server |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  | error
-memory |  |  |  |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  | 
-output-style |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
-plugin-manifest | error | error |  |  |  |  | error |  |  |  | error |  | error | error |  | error |  | 
-requirement |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
-rule |  |  |  |  |  | advisory | error | error |  | advisory |  |  |  |  |  |  |  | 
-settings |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | error |  | 
-settings-local |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | error |  | 
-skill | error |  |  | error |  | advisory | error | error | error | advisory | error | error |  | error | error |  |  | 
-supporting-doc |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
-tool |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+kind | allowed_chars | closed-keys | degree | deny | enum | extent | forbidden_keys | glob-valid | max_len | mention-reachable | min_len | name-matches-dir | optional | required | shape | type | unique-name | unshadowed | when
+--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
+agent | error |  |  |  |  |  |  |  | error |  |  |  |  | error |  |  | error |  | 
+command |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+dial |  | error |  |  | error |  |  |  |  |  |  |  |  | error |  | error |  |  | 
+handler |  |  |  |  | error |  |  |  |  |  |  |  |  | error |  |  |  |  | error
+hook |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+installed-plugin |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+known-marketplace |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+marketplace | error |  |  | error |  |  |  |  |  |  | error |  |  | error |  |  |  |  | error
+mcp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+mcp-server |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  |  | error
+memory |  |  |  |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  |  | 
+output-style |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | advisory | 
+plugin-manifest | error | error |  |  |  |  | error |  |  |  | error |  | error | error |  | error |  |  | 
+requirement |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+rule |  |  |  |  |  | advisory | error | error |  | advisory |  |  |  |  |  |  |  |  | 
+settings |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | error |  |  | 
+settings-local |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | error |  |  | 
+skill | error |  |  | error |  | advisory | error | error | error | advisory | error | error |  | error | error |  |  |  | 
+supporting-doc |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+tool |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |

@@ -59,6 +59,7 @@ export {
   type,
   unique,
   uniqueName,
+  unshadowed,
   when,
 } from "./contract.js";
 

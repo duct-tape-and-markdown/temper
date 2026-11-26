@@ -958,6 +958,28 @@ pub fn unit_subtree_pattern(pattern: &str) -> Option<String> {
     Some(format!("{unit}/**"))
 }
 
+/// Whether the locus `reach`, a bare any-depth file reach (`**/CLAUDE.md`), yields the
+/// documents it shares with `claim`, an any-depth **folder claim** — a `**` then literal
+/// folders then one leaf glob (`**/.claude/output-styles/*.md`). The claim names the folder
+/// a document sits in, the reach only its filename, so the claim is the more specific one
+/// and holds a document both admit. False unless `claim`'s leaf glob admits `reach`'s
+/// filename.
+#[must_use]
+pub fn yields_to_folder_claim(reach: &str, claim: &str) -> bool {
+    let Some(file) = reach.strip_prefix("**/") else {
+        return false;
+    };
+    let Some((folders, leaf)) = claim
+        .strip_prefix("**/")
+        .and_then(|under| under.rsplit_once('/'))
+    else {
+        return false;
+    };
+    !file.contains(['/', '*'])
+        && !folders.contains('*')
+        && crate::glob::compile_glob(leaf).is_some_and(|matcher| matcher.is_match(file))
+}
+
 /// Whether the locus `pattern` ([`locus_pattern`], a placement template) is an
 /// **any-depth reach** into the host unit subtree `subtree` ([`unit_subtree_pattern`]):
 /// it carries a `**` segment, and the literal root above that `**` does not itself lie

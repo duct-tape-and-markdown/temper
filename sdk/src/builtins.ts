@@ -35,6 +35,7 @@ import {
   shape,
   type,
   uniqueName,
+  unshadowed,
   when,
 } from "./contract.js";
 import type { Clause, Requirement, RequirementValue, Verifier } from "./contract.js";
@@ -393,13 +394,17 @@ export interface OutputStyle {
  * file stem (`unitShape: "named-field-or-file"`); settings select the style by that exact
  * name (code.claude.com/docs/en/output-styles, retrieved 2026-11-25). "If the YAML doesn't
  * parse, the style still loads under its file name with no fields set" (same source), so
- * the kind forgives `malformed-yaml`. The docs say nothing on subdirectories inside
- * `output-styles/`, so the locus claims its direct `*.md` files only. A style is selected
+ * the kind forgives `malformed-yaml`. Styles load from every `.claude/output-styles/`
+ * folder, a nested one once Claude works there (same source), so the locus reaches every
+ * depth; a nested style's identity is its subdirectory's segments then its name, each
+ * joined with `:` (`apps:web:terse`), and its frontmatter `name` stays the leaf. The docs
+ * say nothing on subdirectories inside `output-styles/`, so each folder's direct `*.md`
+ * files are claimed and no deeper. A style is selected
  * by a setting rather than invoked or triggered, so it declares no registration channel.
  */
 export const outputStyle: KindDefinition<OutputStyle> = kind<OutputStyle>({
   name: "output-style",
-  locus: { kind: "at", root: ".claude/output-styles", glob: "*.md" },
+  locus: { kind: "at", root: ".", glob: "**/.claude/output-styles/*.md" },
   format: "yaml-frontmatter",
   leniency: ["malformed-yaml"],
   unitShape: "named-field-or-file",
@@ -2336,13 +2341,22 @@ export const supportingDocDefaultContract: readonly Clause[] = [
 export const commandDefaultContract: readonly Clause[] = [];
 
 /**
- * The default contract for `output-style` — deliberately empty, the `command` precedent.
- * Every output-style field is optional, a misspelled one is ignored without an error, and a
- * style whose YAML does not parse still loads under its file name
- * (code.claude.com/docs/en/output-styles, retrieved 2026-11-25): the format documents no
- * requirement a clause could gate, so the honest encoding is no clause at all.
+ * The default contract for `output-style` — one advisory `unshadowed` clause. Every
+ * output-style field is optional, a misspelled one is ignored without an error, and a style
+ * whose YAML does not parse still loads under its file name, so the format documents no
+ * field requirement to gate. Styles load from every `.claude/output-styles/` folder and the
+ * one nearest the working directory wins a shared name (code.claude.com/docs/en/output-styles,
+ * retrieved 2026-11-25), so a nested style named like a shallower one is legal and loads —
+ * the clause says which sessions it takes over, never refuses it.
  */
-export const outputStyleDefaultContract: readonly Clause[] = [];
+export const outputStyleDefaultContract: readonly Clause[] = [
+  clause(unshadowed(), {
+    severity: "advisory",
+    guidance:
+      "A bare `outputStyle` name resolves to the style nearest the directory a session starts in, so a nested style sharing a shallower style's name replaces it for every session started at or below the nested folder. Rename one of them if both should stay selectable there; keep the shared name if the override is the point.",
+    cite: "https://code.claude.com/docs/en/output-styles (retrieved 2026-11-25)",
+  }),
+];
 
 /**
  * The default contract for `tool` — one advisory `degree` clause, incoming at least one: a

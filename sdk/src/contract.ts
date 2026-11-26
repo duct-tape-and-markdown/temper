@@ -185,6 +185,8 @@ export const requireSections = (sections: readonly string[]): Predicate => ({ ke
 export const nameMatchesDir = (): Predicate => ({ key: "name-matches-dir" });
 /** Names are unique within the artifact kind (a scope-wide identity collision). */
 export const uniqueName = (): Predicate => ({ key: "unique-name" });
+/** No member of the kind sits at a shallower placement under the same leaf name (`apps:web:terse` shadows `terse`). */
+export const unshadowed = (): Predicate => ({ key: "unshadowed" });
 /**
  * The named field may be present — always satisfied, recording the key as part of a
  * declared (closed) schema. `dependency-exists` has no constructor: the engine holds

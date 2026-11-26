@@ -687,10 +687,15 @@ function orderedFields(
  * directory-shaped kind (a skill) takes identity from the directory, and a nested one's
  * name is its placement's segments then the directory, each joined with `:`
  * (`apps:web:deploy`); the frontmatter carries only the leaf (`deploy`), so the directory
- * and the documented `name` still match (specs/builtins.md, "The shipped kinds").
+ * and the documented `name` still match (specs/builtins.md, "The shipped kinds"). A
+ * named-field-or-file kind at an any-depth locus (an output style) reads its leaf from the
+ * field and its placement from the path the same way, so its field carries the leaf too.
  */
 function identityFieldValue(facts: KindFacts, name: string): string {
-  return facts.unitShape === "directory" ? name.slice(name.lastIndexOf(":") + 1) : name;
+  const placed =
+    facts.unitShape === "directory" ||
+    (facts.unitShape === "named-field-or-file" && facts.locus.kind === "at" && facts.locus.glob.includes("**"));
+  return placed ? name.slice(name.lastIndexOf(":") + 1) : name;
 }
 
 /**

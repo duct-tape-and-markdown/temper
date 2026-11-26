@@ -374,6 +374,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::SectionContains { .. }
         | Predicate::NameMatchesDir
         | Predicate::UniqueName
+        | Predicate::Unshadowed
         | Predicate::DependencyExists
         // The set predicates' `field` is read by their own judges over a resolved
         // selection, never parsed as a member-local path.
@@ -483,6 +484,7 @@ fn feature_read(predicate: &Predicate) -> Option<Feature> {
         | Predicate::Shape { .. }
         | Predicate::MustDefine { .. }
         | Predicate::UniqueName
+        | Predicate::Unshadowed
         | Predicate::DependencyExists
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
@@ -569,6 +571,7 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         | Predicate::SectionContains { .. }
         | Predicate::NameMatchesDir
         | Predicate::UniqueName
+        | Predicate::Unshadowed
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
@@ -751,6 +754,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         | Predicate::MustDefine { .. }
         | Predicate::NameMatchesDir
         | Predicate::UniqueName
+        | Predicate::Unshadowed
         | Predicate::DependencyExists
         | Predicate::Unique { .. }
         | Predicate::GlobValid { .. }
@@ -955,6 +959,7 @@ pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> 
                 | Predicate::SectionContains { .. }
                 | Predicate::NameMatchesDir
                 | Predicate::UniqueName
+                | Predicate::Unshadowed
                 | Predicate::DependencyExists
                 | Predicate::Degree { .. }
                 | Predicate::ReachedFrom { .. }
@@ -1433,6 +1438,7 @@ fn guard_admits(guard: &Predicate, value: &FeatureValue) -> bool {
         | Predicate::SectionContains { .. }
         | Predicate::NameMatchesDir
         | Predicate::UniqueName
+        | Predicate::Unshadowed
         | Predicate::DependencyExists
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
@@ -1743,6 +1749,39 @@ fn decide(
                     "name `{}` is not unique ({shared} artifacts share it)",
                     features.id
                 )
+            })
+        }
+
+        Predicate::Unshadowed => {
+            // A `:`-joined identity is placement segments then the leaf; a peer at a
+            // proper prefix of those segments under the same leaf is the one a bare name
+            // resolves to outside this member's directory and loses to inside it.
+            let Some((placement, leaf)) = features.id.rsplit_once(':') else {
+                return Outcome::Holds;
+            };
+            let segments: Vec<&str> = placement.split(':').collect();
+            let shadowed: Vec<String> = (0..segments.len())
+                .map(|depth| match depth {
+                    0 => leaf.to_string(),
+                    _ => format!("{}:{leaf}", segments[..depth].join(":")),
+                })
+                .filter(|shallower| all.iter().any(|other| other.id == *shallower))
+                .collect();
+            let directory = segments.join("/");
+            Outcome::check(shadowed.is_empty(), || {
+                shadowed
+                    .iter()
+                    .map(|peer| {
+                        let at = peer.rsplit_once(':').map_or_else(
+                            || "the root".to_string(),
+                            |(dirs, _)| format!("`{}`", dirs.replace(':', "/")),
+                        );
+                        format!(
+                            "`{leaf}` shadows the `{leaf}` at {at} in sessions started at or below `{directory}`, where the nearest definition of a name wins"
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("; ")
             })
         }
 
@@ -2584,6 +2623,7 @@ mod tests {
             },
             Predicate::NameMatchesDir,
             Predicate::UniqueName,
+            Predicate::Unshadowed,
             Predicate::GlobValid {
                 field: "model".to_string(),
             },
@@ -2602,7 +2642,7 @@ mod tests {
     }
 
     /// The number of [`Predicate`] variants — the slots [`vocabulary_slot`] hands out.
-    const VOCABULARY: usize = 33;
+    const VOCABULARY: usize = 34;
 
     /// One slot per [`Predicate`] variant. Exhaustive on purpose: a new variant does not
     /// compile until it takes a slot, and `the_sample_banks_are_the_whole_vocabulary`
@@ -2643,6 +2683,7 @@ mod tests {
             Predicate::EngineMatches => 30,
             Predicate::FormatPlacesEdges => 31,
             Predicate::When { .. } => 32,
+            Predicate::Unshadowed => 33,
         }
     }
 
@@ -4193,6 +4234,7 @@ mod tests {
             | Predicate::SectionContains { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
+            | Predicate::Unshadowed
             | Predicate::GlobValid { .. }
             | Predicate::FormatPlacesEdges
             | Predicate::When { .. } => false,
@@ -4273,6 +4315,7 @@ mod tests {
             // fact is decided correctly — reported once per element, which is a
             // multiplicity question rather than a feature the element lacks.
             | Predicate::UniqueName
+            | Predicate::Unshadowed
             | Predicate::GlobValid { .. }
             | Predicate::DependencyExists
             | Predicate::Count { .. }

@@ -119,6 +119,7 @@ pub fn emit(contract: &Contract) -> Value {
             | Predicate::SectionContains { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
+            | Predicate::Unshadowed
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Unique { .. }

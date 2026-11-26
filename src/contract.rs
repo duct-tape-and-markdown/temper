@@ -369,6 +369,10 @@ pub enum Predicate {
     NameMatchesDir,
     /// `unique-name`: names are unique within the artifact kind.
     UniqueName,
+    /// `unshadowed`: no member of the kind sits at a shallower placement under the same
+    /// leaf name — a nested `apps:web:terse` shadows a root `terse` (and an `apps:terse`)
+    /// wherever the runtime resolves a bare name nearest-first.
+    Unshadowed,
     /// `dependency-exists`: every declared dependency resolves. **Held back** — like
     /// the full `pattern` (regex) primitive: named by the vocabulary so it parses, but
     /// inadmissible until it declares a decidable reference syntax *and* an extractor.
@@ -737,6 +741,7 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         },
         "name-matches-dir" => Predicate::NameMatchesDir,
         "unique-name" => Predicate::UniqueName,
+        "unshadowed" => Predicate::Unshadowed,
         "count" => {
             let bound = row.count?;
             Predicate::Count {
@@ -875,6 +880,7 @@ impl Predicate {
             Predicate::SectionContains { .. } => "section_contains",
             Predicate::NameMatchesDir => "name-matches-dir",
             Predicate::UniqueName => "unique-name",
+            Predicate::Unshadowed => "unshadowed",
             Predicate::DependencyExists => "dependency-exists",
             Predicate::Count { .. } => "count",
             Predicate::Unique { .. } => "unique",
@@ -932,12 +938,12 @@ impl Predicate {
     }
 
     /// Whether this member-grain predicate decides one member against its **peers** —
-    /// `unique-name` — so its verdict depends on which population the clause binds to:
+    /// `unique-name`, `unshadowed` — so its verdict depends on which population the clause binds to:
     /// a kind's clause judges the kind's whole by-kind selection, its subkinds' members
     /// included, never one dispatcher's slice of it.
     #[must_use]
     pub fn decides_over_peers(&self) -> bool {
-        matches!(self, Predicate::UniqueName)
+        matches!(self, Predicate::UniqueName | Predicate::Unshadowed)
     }
 
     /// The field (or marker) this predicate constrains, or `None` for the
@@ -969,6 +975,7 @@ impl Predicate {
             | Predicate::RequireSections { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
+            | Predicate::Unshadowed
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Degree { .. }
@@ -1039,6 +1046,7 @@ impl Predicate {
             | Predicate::SectionContains { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
+            | Predicate::Unshadowed
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Unique { .. }
@@ -1094,6 +1102,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::SectionContains { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
+            | Predicate::Unshadowed
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Unique { .. }

@@ -78,7 +78,7 @@ mod tests {
         // emit-fingerprint rows (nothing was emitted; there are no members).
         //
         // The kinds shipping an empty default contract — `installed-plugin`,
-        // `known-marketplace`, `mcp`, `output-style` — are deliberately *absent* from the list below, so
+        // `known-marketplace`, `mcp` — are deliberately *absent* from the list below, so
         // their emptiness is checked here rather than assumed: a clause appearing under one
         // of those names panics as unowned, which is the signal that the contract grew and
         // the lock's own header arithmetic needs re-reading.
@@ -89,7 +89,7 @@ mod tests {
                 Some(
                     "agent" | "command" | "dial" | "handler" | "hook" | "marketplace"
                     | "mcp-server" | "plugin-manifest" | "settings" | "settings-local" | "skill"
-                    | "supporting-doc" | "rule" | "memory" | "tool",
+                    | "supporting-doc" | "rule" | "memory" | "tool" | "output-style",
                 ) => {}
                 None => root_labels.push(
                     clause

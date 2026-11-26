@@ -1111,26 +1111,36 @@ test("agent is a named-field unit whose identity comes from its own name field",
 
 test("output-style is a lenient markdown file named by its name field, else its stem", () => {
   assert.equal(outputStyle.facts.name, "output-style");
-  assert.deepEqual(outputStyle.facts.locus, { kind: "at", root: ".claude/output-styles", glob: "*.md" });
+  assert.deepEqual(outputStyle.facts.locus, { kind: "at", root: ".", glob: "**/.claude/output-styles/*.md" });
   assert.equal(outputStyle.facts.format, "yaml-frontmatter");
   assert.deepEqual("leniency" in outputStyle.facts && outputStyle.facts.leniency, ["malformed-yaml"]);
   assert.equal(outputStyle.facts.unitShape, "named-field-or-file");
   assert.equal(outputStyle.facts.identityField, "name");
   assert.deepEqual(outputStyle.facts.registration, []);
-  assert.deepEqual(outputStyleDefaultContract, []);
+  assert.deepEqual(
+    outputStyleDefaultContract.map((c) => [c.predicate.key, c.severity]),
+    [["unshadowed", "advisory"]],
+  );
 
   const result = emit(
     harness({
-      members: [outputStyle({ name: "terse", "keep-coding-instructions": true, prose: text`Be brief.` })],
+      members: [
+        outputStyle({ name: "terse", "keep-coding-instructions": true, prose: text`Be brief.` }),
+        outputStyle({ name: "apps:web:terse", prose: text`Be briefer.` }),
+      ],
     }),
   );
   const row = result.declarations.kinds.find((k) => k.name === "output-style")!;
   assert.equal(row.unit_shape, "named-field-or-file(name)");
-  const member = result.members.find((m) => m.kind === "output-style")!;
-  assert.deepEqual(member.fields, [
+  const styles = result.members.filter((m) => m.kind === "output-style");
+  const root = styles.find((m) => m.name === "terse")!;
+  const nested = styles.find((m) => m.name === "apps:web:terse")!;
+  assert.deepEqual(root.fields, [
     ["name", "terse"],
     ["keep-coding-instructions", true],
   ]);
+  // A nested style's frontmatter carries the leaf; its placement spells the prefix.
+  assert.deepEqual(nested.fields, [["name", "terse"]]);
 });
 
 test("tool is a root-hosted embedded kind carried as nested rows and projected nowhere", () => {
