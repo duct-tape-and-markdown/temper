@@ -59,6 +59,11 @@ the line's words must appear in the name in order. The judge runs
 `.flume/runner.mjs` over `cargo nextest`; integration tests live in the one
 `tests/it/` binary, unit tests beside their flat `src/` module.
 
+**A `tests[]` line names behavior the entry introduces; behavior it keeps is
+a `pins[]` line.** The judge refuses a `tests[]` line that already passes at
+the base, so a line saying what still holds ("X still draws Y", "with Z unset
+it runs as before") is always a pin.
+
 **A `tests[]` line's test lives under `tests/it/`, never in a `src/`
 module.** The judge proves the line new by laying the test's file over the
 pre-change tree; a `src/` file carries its module's fix with it, so the line
