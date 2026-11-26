@@ -1,6 +1,12 @@
 {
   "tag": "A-FULLY-IMPORT-REACHED-DIRECTORY-IS-CLAIMED",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
+    "new": [],
     "edit": [
       {
         "path": "src/coverage_note.rs",
@@ -10,10 +16,8 @@
         "path": "tests/it/coverage_note.rs",
         "description": "directory claim tests"
       }
-    ]
-  },
-  "gate": {
-    "kind": "open"
+    ],
+    "retire": []
   },
   "summary": "a `.claude/` directory whose every file an import reaches draws no unclaimed-entry; one holding any unreached file still does",
   "per": {
@@ -25,5 +29,12 @@
     "a directory whose every file an import reaches draws no unclaimed-entry finding",
     "a directory holding an unreached file still draws an unclaimed-entry finding"
   ],
-  "notes": "Residual of AN-IMPORT-REACHED-FILE-IS-CLAIMED (claim is per file entry). `every`, not `some`: a some-reached claim would hide the unreached file, since the scan names direct children only."
+  "pins": [],
+  "laneTests": [],
+  "notes": "Residual of AN-IMPORT-REACHED-FILE-IS-CLAIMED (claim is per file entry). `every`, not `some`: a some-reached claim would hide the unreached file, since the scan names direct children only.",
+  "observedFiles": [
+    ".flume/plan/notes/A-FULLY-IMPORT-REACHED-DIRECTORY-IS-CLAIMED.md",
+    "src/coverage_note.rs",
+    "tests/it/coverage_note.rs"
+  ]
 }
