@@ -33,13 +33,14 @@ The conversion writes no lock and compiles nothing, and there is no
 intermediate depth: unrepresented, every artifact is a source; represented,
 every composed kind's artifact is a projection, and a layout kind's document
 is a source at either depth — its authored home never moves, so the lift
-never converts it. Re-running install converges, placements following the
-lock's current contents. On a represented harness a gate hook is a member
-the author owns: install names a missing or stale one with its remedy and
-never re-adds it. The member states one fact, the command it runs
-(`authoring.md`, a temper package bin unless declared); the engine renders
-it, anchored at the project root the provider names, so a relative
-path and the harness target resolve there whatever directory the session
-has moved to; the installed-gate check judges the member, never a command
-string. The verbs target one project's harness at an
-explicit path.
+never converts it. On a fresh represented harness, the scaffolded program
+composes the SDK's starter (`../distribution.md`), so the default is an
+import the consumer overrides by composition. Re-running install converges,
+placements following the lock's current contents. On a represented harness a
+gate hook is a member the author owns: install names a missing or stale one
+with its remedy and never re-adds it. The member states one fact, the
+command it runs (`authoring.md`, a temper package bin unless declared); the
+engine renders it, anchored at the project root the provider names, so a
+relative path and the harness target resolve there whatever directory the
+session has moved to; the installed-gate check judges the member, never a
+command string. The verbs target one project's harness at an explicit path.
