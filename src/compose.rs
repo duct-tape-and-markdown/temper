@@ -2246,7 +2246,7 @@ pub fn read_committed_declarations(workspace_dir: &Path) -> miette::Result<drift
 /// built-in-named row that would split as a collision ([`partition_kind_rows`]) is that
 /// engine's snapshot of a built-in fact this engine has since moved, never an author's
 /// redeclaration: its format, unit shape, registration, guidance and cite — facts a
-/// relocation never respells — are cleared before any overlay or partition reads it, so the row reads
+/// relocation never respells — are replaced by the embedded row's before any overlay or partition reads it, so the row reads
 /// as the embedded built-in and an authored relocation (locus, exclusions) still rides
 /// it until the re-emit. Under this engine's own stamp, or an unknown one, nothing is
 /// retired and the collision stands.
@@ -2265,14 +2265,21 @@ fn retire_stale_builtin_rows(
     }
     let (_, collisions) = partition_kind_rows(declarations, builtin_defs)?;
     let stale: BTreeSet<String> = collisions.iter().map(|row| row.name.clone()).collect();
+    let embedded = &crate::builtin_lock::declarations().kinds;
     for row in &mut declarations.kinds {
-        if stale.contains(&row.name) {
-            row.format = None;
-            row.unit_shape = None;
-            row.registration.clear();
-            row.guidance = None;
-            row.cite = None;
+        if !stale.contains(&row.name) {
+            continue;
         }
+        // A cleared fact falls back to the embedded row's, never to none: a reader that
+        // takes the row's guidance whole would otherwise narrate the built-in stripped.
+        let builtin = embedded.iter().find(|builtin| builtin.name == row.name);
+        row.format = builtin.and_then(|builtin| builtin.format.clone());
+        row.unit_shape = builtin.and_then(|builtin| builtin.unit_shape.clone());
+        row.registration = builtin
+            .map(|builtin| builtin.registration.clone())
+            .unwrap_or_default();
+        row.guidance = builtin.and_then(|builtin| builtin.guidance.clone());
+        row.cite = builtin.and_then(|builtin| builtin.cite.clone());
     }
     Ok(stale.into_iter().collect())
 }

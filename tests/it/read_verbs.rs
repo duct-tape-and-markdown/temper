@@ -3256,7 +3256,6 @@ fn explain_reads_another_engines_divergent_built_in_row_as_the_embedded_built_in
 }
 
 #[test]
-#[ignore = "hidden defect: explain narrates a stale built-in row stripped (no guidance, the lock's globs) instead of the embedded built-in"]
 fn explain_narrates_a_stale_built_in_rows_kind_with_the_embedded_guidance() {
     let root = stale_builtin_memory_lock();
     let embedded = common::explain_in(&common::tmpdir("explain-embedded-memory"), "memory");
