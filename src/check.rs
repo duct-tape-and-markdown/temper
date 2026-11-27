@@ -35,6 +35,19 @@ pub enum Severity {
     Note,
 }
 
+impl Severity {
+    /// The word an author reads for this severity — the clause vocabulary
+    /// (`required` / `advisory`), with a disclosure named as one.
+    #[must_use]
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Error => "required",
+            Self::Warn => "advisory",
+            Self::Note => "disclosure",
+        }
+    }
+}
+
 /// A single lint finding: which rule fired, on which artifact, with what message.
 /// A finding the engine collects — never a thrown error.
 ///
@@ -275,8 +288,16 @@ impl miette::Diagnostic for Diagnostic {
         // The colocated guidance rides the help line beneath the artifact — the
         // violation is the teaching moment.
         Some(Box::new(match &self.guidance {
-            Some(guidance) => format!("artifact: {}\n{guidance}", self.artifact),
-            None => format!("artifact: {}", self.artifact),
+            Some(guidance) => format!(
+                "severity: {}\nartifact: {}\n{guidance}",
+                self.severity.word(),
+                self.artifact
+            ),
+            None => format!(
+                "severity: {}\nartifact: {}",
+                self.severity.word(),
+                self.artifact
+            ),
         }))
     }
 }

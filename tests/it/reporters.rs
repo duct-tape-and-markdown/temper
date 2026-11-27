@@ -5,7 +5,7 @@
 //! `github` reporter emits one `::error`/`::warning::` workflow-command line per
 //! finding carrying the rule as `title=`, and the `sarif` reporter emits a SARIF
 //! 2.1.0 log with driver `temper` and one `results` entry per diagnostic with the
-//! severity mapped `error`->`error` / `warn`->`warning` and the rule as `ruleId`.
+//! severity mapped `required`->`error` / `advisory`->`warning` and the rule as `ruleId`.
 //! Both derive purely from the diagnostic set — they re-judge nothing.
 //!
 //! Second, a CLI-level assertion (over the real process boundary, as `tests/cli.rs`
@@ -549,4 +549,23 @@ fn all_four_reporters_render_the_same_non_empty_finding_set() {
         source.len(),
         "the terminal renders no finding beyond the source, got:\n{terminal}"
     );
+}
+
+#[test]
+fn a_finding_reports_its_severity_as_required_or_advisory() {
+    // The wire levels stay each format's own (SARIF `error`/`warning`); temper's word
+    // for the severity is what the terminal prints and what SARIF carries beside it.
+    let diagnostics = diagnostic_set();
+    let announcement = Announcement::default();
+
+    let terminal = strip_ansi(&temper::check::render(&diagnostics, &announcement));
+    assert!(terminal.contains("severity: required"), "{terminal}");
+    assert!(terminal.contains("severity: advisory"), "{terminal}");
+
+    let log: serde_json::Value =
+        serde_json::from_str(&reporter::sarif(&diagnostics, &announcement))
+            .expect("SARIF is valid JSON");
+    let results = &log["runs"][0]["results"];
+    assert_eq!(results[0]["properties"]["severity"], "required");
+    assert_eq!(results[1]["properties"]["severity"], "advisory");
 }

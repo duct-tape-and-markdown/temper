@@ -84,7 +84,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Lint a harness against the active contract. The path argument resolves the same
+    /// Gate a harness against the active contract. The path argument resolves the same
     /// way for every reporter — a harness root (gating its `.temper/` workspace when
     /// present, else the raw root off disk), or a workspace directory carrying
     /// `lock.toml`, gated against the harness root enclosing it. Every spelling of one
@@ -93,7 +93,7 @@ enum Command {
     /// this gate, never a verb: it is advisory (always exits zero), so a Claude Code
     /// `SessionStart` hook runs `temper check . --reporter session-start`.
     Check {
-        /// The harness root to lint (defaults to the cwd) — or the `.temper/` workspace
+        /// The harness root to gate (defaults to the cwd) — or the `.temper/` workspace
         /// inside one, which gates against the harness root enclosing it.
         root: Option<PathBuf>,
         /// An explicit spelling of the same harness root, kept as a usage-conflict
@@ -101,9 +101,8 @@ enum Command {
         /// silent precedence pick.
         #[arg(long, conflicts_with = "root")]
         harness: Option<PathBuf>,
-        /// Also fail the run on `advisory` (warn-severity) violations, not just
-        /// `required` ones — the strict CI policy. Disclosure notes are not violations
-        /// and never block.
+        /// Also fail the run on `advisory` violations, not just `required` ones — the
+        /// strict CI policy. Disclosure notes are not violations and never block.
         #[arg(long)]
         deny_advisories: bool,
         /// A policy layer to join, named as the lock that carries it (the lock file, or a

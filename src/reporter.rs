@@ -328,8 +328,9 @@ pub fn github(diagnostics: &[Diagnostic], announcement: &Announcement) -> String
 /// `temper`, one `results` entry per diagnostic.
 ///
 /// Each result maps the rule to `ruleId`, the message to `message.text`, the
-/// [`Severity`] to `level` (`error` / `warning` / `note`), and the artifact to a
-/// `locations` `artifactLocation.uri`. The [`Announcement`] rides the run's
+/// [`Severity`] to `level` (`error` / `warning` / `note`, SARIF's own vocabulary) with
+/// temper's word for it (`required` / `advisory` / `disclosure`) in the result's
+/// `properties.severity`, and the artifact to a `locations` `artifactLocation.uri`. The [`Announcement`] rides the run's
 /// `properties` bag — SARIF's own home for a tool-specific fact about the run,
 /// which is what an announcement is: it names what judged these results rather
 /// than being one. The bag is absent entirely when there is nothing to announce, and
@@ -348,6 +349,7 @@ pub fn sarif(diagnostics: &[Diagnostic], announcement: &Announcement) -> String 
                 "ruleId": diagnostic.rule,
                 "level": level,
                 "message": { "text": diagnostic.message },
+                "properties": { "severity": diagnostic.severity.word() },
                 "locations": [{
                     "physicalLocation": {
                         "artifactLocation": { "uri": diagnostic.artifact }
