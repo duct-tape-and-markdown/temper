@@ -40,5 +40,15 @@
   "tests": [],
   "pins": [],
   "laneTests": [],
-  "notes": "SDK-only: the SDK gate holds it. The guard-hook attachment waits on question playbook-guard-hook-command. Permission rule syntax is an external fact: cite code.claude.com/docs/en/permissions at the site."
+  "notes": "SDK-only: the SDK gate holds it. The guard-hook attachment waits on question playbook-guard-hook-command. Permission rule syntax is an external fact: cite code.claude.com/docs/en/permissions at the site.",
+  "observedFiles": [
+    ".flume/plan/notes/PLAYBOOK-ATTACHMENTS.md",
+    "sdk/src/emit.ts",
+    "sdk/src/index.ts",
+    "sdk/src/needs.ts",
+    "sdk/src/patterns.ts",
+    "sdk/src/playbook.ts",
+    "sdk/test/emit.test.ts",
+    "sdk/test/playbook.test.ts"
+  ]
 }
