@@ -1,0 +1,21 @@
+{
+  "tag": "INSTALL-RERUN-CONVERGES-UNANCHORED-GATE-RENDERING",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/install.rs", "description": "recognize the pre-anchor rendering (the retired exit-127 bytes with no PROJECT_ANCHOR prefix, as v0.0.24 and earlier wrote it) as a retired gate rendering beside render_retired_gate_command, so the merge re-renders it in place and the represented split reads it stale" },
+      { "path": "tests/it/install.rs", "description": "replace a_gate_command_in_the_unanchored_form_reads_as_no_rendered_gate (it pins the duplicating behavior) with re-run convergence over the unanchored form, both harness shapes" }
+    ]
+  },
+  "summary": "Re-running install over a settings.json holding the pre-anchor gate rendering (v0.0.24 and earlier) converges to one group per gate address at today's rendering",
+  "per": { "path": "specs/model/adoption.md", "section": "Install" },
+  "acceptance": "Re-run converges per 'Re-running install converges': a settings.json written by a v0.0.24-or-earlier install ends with one gate group per (event, matcher) at today's anchored rendering, not two; a represented harness names it stale with `emit` as remedy; any non-temper hook is untouched",
+  "tests": [
+    "re-running install over the unanchored gate rendering leaves one group per gate address at today's rendering",
+    "a represented harness reports an unanchored gate rendering as stale with the emit remedy"
+  ],
+  "pins": [
+    "install never rewrites a hook that runs a command other than a temper gate rendering"
+  ],
+  "notes": "Anchor landed cd69d8e5 (first in v0.0.25), so v0.0.24 shipped the unanchored form. Recognize exactly those bytes (retired exit-127 body, no `cd` prefix), not a looser match. The standing test a_gate_command_in_the_unanchored_form_reads_as_no_rendered_gate asserts the append-beside outcome this entry reverses; retire or rewrite it in the same commit."
+}
