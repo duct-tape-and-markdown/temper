@@ -92,7 +92,7 @@ instructions to file.
 - Don't quietly expand scope past the assigned entry to "improve" adjacent code.
 - Consolidation is the one sanctioned expansion: when your change would add
   or extend a duplicate of an existing surface, unifying them is the entry,
-  not creep (`specs/process/engineering.md`) — name the unification in the
+  not creep (the engineering playbook, "One job, one home") — name the unification in the
   commit body. Structural debt you can't take this tick is a build note
   (the `capture-friction` skill), never silence.
 - If you cut a corner (a `// TODO`, a deferred case, a weaker check), say so

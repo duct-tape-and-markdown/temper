@@ -7,6 +7,7 @@ import { rule_publicProse } from "./rules/public-prose.ts";
 import { rule_release } from "./rules/release.ts";
 import { rule_rust } from "./rules/rust.ts";
 import { rule_sdk } from "./rules/sdk.ts";
+import { playbook_engineering } from "./playbooks/engineering.ts";
 import { skill_blindReview } from "./skills/blind-review.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
 import {
@@ -88,6 +89,7 @@ const program = harness({
     rule_release,
     rule_rust,
     rule_sdk,
+    ...playbook_engineering.members,
     skill_captureFriction,
     skill_blindReview,
     hook_sessionStart,

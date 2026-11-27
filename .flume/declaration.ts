@@ -92,7 +92,7 @@ export const declaration = {
     enabled: ["plan-inbox", "plan-derive", "plan-sweep"],
     sweep: {
       domain: ["src/**", "sdk/src/**", "tests/**"],
-      posturePages: ["specs/process/engineering.md", "specs/process/architecture.md"],
+      posturePages: [".claude/skills/engineering/*.md"],
     },
   },
 
