@@ -10,6 +10,11 @@
 /// Crate version, surfaced by the CLI's `--version`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// The engine stamp every lock this build emits records, and the one a gate compares a
+/// committed lock's against: [`VERSION`] for a released build, marked unreleased for
+/// any other ([`engine_stamp::engine_stamp`]).
+pub const ENGINE_STAMP: &str = env!("TEMPER_ENGINE_STAMP");
+
 /// Directory name of the surface workspace — the authored SDK modules and the
 /// committed lock — that `install` scaffolds beside the harness root it governs.
 /// `pub`, not `pub(crate)`: the CLI binary is a separate crate consuming this lib.
@@ -41,6 +46,7 @@ pub mod display;
 pub mod document;
 pub mod drift;
 pub mod engine;
+pub mod engine_stamp;
 pub mod extract;
 pub mod frontmatter;
 pub(crate) mod fs_util;

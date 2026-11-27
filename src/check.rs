@@ -210,7 +210,7 @@ fn engine_skew_lead(lock_engine: &str) -> String {
     format!(
         "the committed lock was written by engine version {lock_engine}, and this gate is \
          running engine version {} — read it with the engine it names",
-        crate::VERSION
+        crate::ENGINE_STAMP
     )
 }
 
@@ -238,7 +238,7 @@ fn engine_skew_lead(lock_engine: &str) -> String {
 ///   `{path} is not valid UTF-8` names the file and nothing about the decode — and
 ///   `Display` alone drops every one of them.
 /// - `lock_engine` is the committed lock's engine stamp as the caller read it, and where
-///   it disagrees with [`crate::VERSION`] the message leads with
+///   it disagrees with [`crate::ENGINE_STAMP`] the message leads with
 ///   [`engine_skew_lead`]: a rejection of rows a *different* compiler wrote is a
 ///   different diagnosis from a rejection of this engine's own, and the author cannot
 ///   tell them apart from a closed-vocabulary complaint alone. `None` is **unknown**, never
@@ -264,7 +264,7 @@ pub fn load_fault(
         .map_or_else(|| LOAD_FAULT_RULE.to_string(), |code| code.to_string());
     let detail: Vec<String> = report.chain().map(ToString::to_string).collect();
     let fault = format!("{LOAD_FAULT_MESSAGE}: {}", detail.join(": "));
-    let message = match lock_engine.filter(|stamp| *stamp != crate::VERSION) {
+    let message = match lock_engine.filter(|stamp| *stamp != crate::ENGINE_STAMP) {
         Some(stamp) => format!("{}: {fault}", engine_skew_lead(stamp)),
         None => fault,
     };
@@ -446,13 +446,16 @@ mod tests {
         // A same-stamp lock is the ordinary case, and reads identically to unknown: the
         // lead is the whole difference between the two messages, never a reshuffle of
         // the detail chain.
-        assert_eq!(load_fault(&report, "/repo", Some(crate::VERSION)), bare);
+        assert_eq!(
+            load_fault(&report, "/repo", Some(crate::ENGINE_STAMP)),
+            bare
+        );
         assert!(bare.message.starts_with(LOAD_FAULT_MESSAGE));
 
         let skewed = load_fault(&report, "/repo", Some("0.0.0-elsewhere"));
         // Both stamps, and the detail the bare fault already carried underneath.
         assert!(skewed.message.contains("0.0.0-elsewhere"));
-        assert!(skewed.message.contains(crate::VERSION));
+        assert!(skewed.message.contains(crate::ENGINE_STAMP));
         assert!(skewed.message.ends_with(&bare.message));
         // One diagnostic either way, under the same rule and severity: the skew is a
         // diagnosis the fault leads with, never a second finding.

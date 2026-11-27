@@ -528,7 +528,7 @@ fn a_member_grain_root_clause_is_refused_at_admissibility_while_reachable_is_adm
 
 /// The root member's `engine-matches` clause row at `severity`. `kind` stays `None`,
 /// like [`root_reachable`]'s, and no argument column is spelled: the comparison is the
-/// lock's own stamp against `temper::VERSION`, never a field of the clause.
+/// lock's own stamp against `temper::ENGINE_STAMP`, never a field of the clause.
 fn root_engine_matches(severity: &str) -> ClauseRow {
     common::clause("engine-matches", severity)
 }
@@ -579,7 +579,7 @@ fn a_root_engine_matches_clause_reports_a_lock_another_engine_wrote_and_stays_si
          is, got:\n{findings:#?}"
     );
     assert!(
-        reported[0].contains("0.0.1") && reported[0].contains(temper::VERSION),
+        reported[0].contains("0.0.1") && reported[0].contains(temper::ENGINE_STAMP),
         "and the finding names the recorded version and the running one, got: {}",
         reported[0]
     );

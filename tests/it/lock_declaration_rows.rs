@@ -3963,3 +3963,149 @@ fn a_clause_row_an_older_engine_keyed_label_reads_as_its_id() {
         Some("skill.required.name")
     );
 }
+
+/// A stamp no build of this crate carries — the engine a skewed lock names.
+const ANOTHER_ENGINE: &str = "0.0.0-elsewhere";
+
+/// Rewrite the engine stamp on `root`'s emitted lock to `stamp`, the way a lock another
+/// engine wrote reads: the rows the pipeline produced, under someone else's stamp.
+fn restamp_lock(root: &Path, stamp: &str) {
+    let path = root.join(temper::WORKSPACE_DIR).join(temper::LOCK_FILENAME);
+    let text = fs::read_to_string(&path).unwrap();
+    let (first, rest) = text.split_once('\n').unwrap();
+    assert!(
+        first.starts_with("engine = "),
+        "the stamp is the first line: {first}"
+    );
+    fs::write(&path, format!("engine = \"{stamp}\"\n{rest}")).unwrap();
+}
+
+/// A harness with one `CLAUDE.md` memory member whose lock snapshots the built-in
+/// `memory` row with a registration the embedded built-in does not carry, beside the
+/// root's `engine-matches` clause at advisory.
+fn diverging_memory_row_harness(label: &str) -> PathBuf {
+    let root = common::tmpdir(label);
+    fs::write(root.join("CLAUDE.md"), "# Project\n\nBuild with cargo.\n").unwrap();
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                unit_shape: Some("file".to_string()),
+                registration: vec!["user-invoked".to_string()],
+                ..common::kind_facts("memory", ".", "**/CLAUDE.md")
+            }],
+            clauses: vec![common::clause("engine-matches", "advisory")],
+            ..Declarations::default()
+        },
+    );
+    root
+}
+
+#[test]
+fn a_built_in_row_snapshotted_by_another_engine_reads_as_the_embedded_built_in_with_a_re_emit_finding()
+ {
+    let root = diverging_memory_row_harness("stale-builtin-row");
+    restamp_lock(&root, ANOTHER_ENGINE);
+
+    let (findings, ok) = common::check_harness(&root);
+    assert!(
+        common::findings_for(&findings, "kind.admissibility").is_empty(),
+        "another engine's snapshot of a built-in is stale, never a collision, got:\n{findings:#?}"
+    );
+    let reemit: Vec<_> = common::findings_for(&findings, "root.engine-matches")
+        .into_iter()
+        .filter(|line| line.contains("`memory`"))
+        .collect();
+    assert_eq!(
+        reemit.len(),
+        1,
+        "the stale built-in row is named with a re-emit finding, got:\n{findings:#?}"
+    );
+    assert!(
+        reemit[0].contains("re-emit") && reemit[0].contains(ANOTHER_ENGINE),
+        "the finding names the engine and the remedy, got: {}",
+        reemit[0]
+    );
+    assert!(
+        reemit[0].starts_with("::warning"),
+        "it rides the engine-matches clause's advisory severity, got: {}",
+        reemit[0]
+    );
+    assert!(ok, "the stale lock still checks ok, got:\n{findings:#?}");
+}
+
+#[test]
+fn a_built_in_named_row_diverging_from_the_embedded_built_in_under_this_engines_own_stamp_is_a_kind_collision()
+ {
+    let root = diverging_memory_row_harness("own-stamp-builtin-collision");
+
+    let (findings, ok) = common::check_harness(&root);
+    let collisions = common::findings_for(&findings, "kind.admissibility");
+    assert_eq!(
+        collisions.len(),
+        1,
+        "this engine's own row diverging from its built-in is a collision, got:\n{findings:#?}"
+    );
+    assert!(collisions[0].contains("`memory`") && collisions[0].contains("registration"));
+    assert!(!ok, "a collision fails the run, got:\n{findings:#?}");
+}
+
+#[test]
+fn a_lock_this_engine_cannot_read_is_reported_as_written_by_another_engine() {
+    // The lock the release this build follows wrote: its stamp is the bare release
+    // version, and one of its rows is a spelling this engine cannot lift.
+    assert_ne!(
+        temper::ENGINE_STAMP,
+        temper::VERSION,
+        "the suite runs on an unreleased checkout build"
+    );
+    let root = common::tmpdir("unreadable-release-lock");
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![ClauseRow {
+                kind: Some("skill".to_string()),
+                ..common::clause("a_predicate_from_elsewhere", "required")
+            }],
+            ..Declarations::default()
+        },
+    );
+    restamp_lock(&root, temper::VERSION);
+
+    let (findings, ok) = common::check_harness(&root);
+    assert!(
+        !ok,
+        "an unreadable lock still fails the run, got:\n{findings:#?}"
+    );
+    let fault = common::findings_for(&findings, "gate.load-fault");
+    assert_eq!(fault.len(), 1, "one load fault, got:\n{findings:#?}");
+    assert!(
+        fault[0].contains(&format!("written by engine version {}", temper::VERSION))
+            && fault[0].contains(temper::ENGINE_STAMP)
+            && fault[0].contains("read it with the engine it names"),
+        "the fault names the engine that wrote the lock and this one, got: {}",
+        fault[0]
+    );
+}
+
+#[test]
+fn an_unreleased_build_stamps_its_lock_distinctly_from_the_release_it_follows() {
+    let release = temper::VERSION;
+    let unreleased = temper::engine_stamp::engine_stamp(release, false);
+    assert_eq!(temper::engine_stamp::engine_stamp(release, true), release);
+    assert_ne!(unreleased, release);
+    assert!(
+        unreleased.starts_with(release),
+        "the stamp still names the release it follows: {unreleased}"
+    );
+
+    // This checkout build is unreleased, and the lock it emits says so.
+    let root = common::tmpdir("unreleased-stamp");
+    common::write_lock(&root, Declarations::default());
+    assert_eq!(
+        drift::read_engine(&root.join(temper::WORKSPACE_DIR))
+            .unwrap()
+            .as_deref(),
+        Some(unreleased.as_str())
+    );
+}

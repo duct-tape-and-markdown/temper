@@ -184,7 +184,7 @@ fn the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit() {
             "engine = \"{}\"\n\n[[rule]]\nname = \"temper-sdk\"\n\
              source_path = \".claude/rules/temper-sdk.md\"\n\
              source_hash = {counsel_hash}\nemit_hash = {counsel_hash}\n\n",
-            temper::VERSION
+            temper::ENGINE_STAMP
         ),
         "the only thing the derived side carries ahead of its declaration rows is the \
          engine stamp; a new root key belongs in this lane's compare, not in the prefix \

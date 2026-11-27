@@ -2175,6 +2175,33 @@ pub fn partition_kind_rows<'a>(
     Ok((custom, collisions))
 }
 
+/// Retire the built-in-named kind rows another engine snapshotted, so the run reads the
+/// embedded built-in in their place, and return their names.
+///
+/// `lock_engine` is the committed lock's stamp. Under another engine's stamp a
+/// built-in-named row that would split as a collision ([`partition_kind_rows`]) is that
+/// engine's snapshot of a built-in fact this engine has since moved, never an author's
+/// redeclaration: it is dropped before any overlay or partition reads it. Under this
+/// engine's own stamp, or an unknown one, nothing is retired and the collision stands.
+///
+/// # Errors
+///
+/// Returns a [`drift::LockRowError`] when a built-in-named row's labels fall outside
+/// their closed vocabulary.
+pub fn retire_stale_builtin_rows(
+    declarations: &mut drift::Declarations,
+    lock_engine: Option<&str>,
+    builtin_defs: &BTreeMap<String, CustomKind>,
+) -> Result<Vec<String>, drift::LockRowError> {
+    if lock_engine.is_none_or(|stamp| stamp == crate::ENGINE_STAMP) {
+        return Ok(Vec::new());
+    }
+    let (_, collisions) = partition_kind_rows(declarations, builtin_defs)?;
+    let stale: BTreeSet<String> = collisions.iter().map(|row| row.name.clone()).collect();
+    declarations.kinds.retain(|row| !stale.contains(&row.name));
+    Ok(stale.into_iter().collect())
+}
+
 /// The embedded-kind corpus: every kind declared at the embedded locus keyed to its
 /// members' [`Features`](extract::Features), so [`assemble_by_kind`] can fold it into the
 /// one `by_kind` map every graph predicate ranges over. An embedded kind is named where a

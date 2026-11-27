@@ -44,7 +44,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      # The published binary is the release: its locks stamp the bare version.
       - run: cargo build --release --target ${{ matrix.target }}
+        env:
+          TEMPER_RELEASE: "1"
       - uses: actions/upload-artifact@v4
         with:
           name: engine-${{ matrix.platform }}

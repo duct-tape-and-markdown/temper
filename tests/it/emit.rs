@@ -283,7 +283,7 @@ fn the_lock_names_the_engine_that_wrote_it_and_an_unstamped_lock_reads_unknown()
 
     assert_eq!(
         drift::read_engine(&into).unwrap().as_deref(),
-        Some(temper::VERSION),
+        Some(temper::ENGINE_STAMP),
         "an emitted lock names the engine version that wrote it"
     );
     let stamped = drift::read_declarations(&into).unwrap();

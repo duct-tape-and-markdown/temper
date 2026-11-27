@@ -616,7 +616,7 @@ pub enum Predicate {
     /// file itself is never patched.
     ///
     /// Carries **no field argument**, exactly as [`Predicate::LocusDeclared`] carries
-    /// none: its argument is the lock's own stamp compared against [`crate::VERSION`],
+    /// none: its argument is the lock's own stamp compared against [`crate::ENGINE_STAMP`],
     /// never a column of the clause.
     ///
     /// Judged in [`crate::gate`] off the already-parsed lock document, offline and
@@ -832,7 +832,7 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         // And the discovery walk read against the lock's declarations is
         // `locus-declared`'s, for the same absence of a column.
         "locus-declared" => Predicate::LocusDeclared,
-        // And the lock's own engine stamp read against `crate::VERSION` is
+        // And the lock's own engine stamp read against `crate::ENGINE_STAMP` is
         // `engine-matches`'s, for the same absence of a column.
         "engine-matches" => Predicate::EngineMatches,
         "resolves" => Predicate::Resolves,

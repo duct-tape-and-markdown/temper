@@ -1,8 +1,16 @@
-//! Build script — stamps this build's commit for the long `--version` form.
+//! Build script — stamps this build's commit for the long `--version` form, and the
+//! engine stamp every emitted lock records.
 //!
 //! The built-in std-lib (packages and kinds) is authored directly as Rust data
 //! (`src/builtin.rs`, `src/builtin_kind.rs`), so there is no tree to walk and embed
 //! here. The script's one job is provenance.
+//!
+//! The lock's engine stamp tells an unreleased build from the release it follows: a
+//! build is released when it carries no git metadata (a crates.io tarball) or when the
+//! release workflow sets `TEMPER_RELEASE`; every other build from a checkout stamps the
+//! release version plus `+unreleased`. A tag on HEAD is deliberately not the signal —
+//! the locks this repository commits are emitted by checkout builds, and a stamp that
+//! flipped at the tag would move them with no source change.
 //!
 //! The engine's version string is the release tag's, identical in every build of that
 //! tag and in every artifact it stamps, with build provenance riding the long
@@ -17,12 +25,27 @@
 use std::path::Path;
 use std::process::Command;
 
+#[path = "src/engine_stamp.rs"]
+mod engine_stamp;
+
 fn main() {
-    let Some(commit) = git(&["rev-parse", "--short=12", "HEAD"]) else {
-        // No git metadata — a released tarball. Emit nothing, and declare no inputs,
+    let commit = git(&["rev-parse", "--short=12", "HEAD"]);
+    let released = commit.is_none() || std::env::var_os("TEMPER_RELEASE").is_some();
+    let release = std::env::var("CARGO_PKG_VERSION").unwrap_or_default();
+    println!(
+        "cargo::rustc-env=TEMPER_ENGINE_STAMP={}",
+        engine_stamp::engine_stamp(&release, released)
+    );
+
+    let Some(commit) = commit else {
+        // No git metadata — a released tarball. Emit no commit, and declare no inputs,
         // so Cargo keeps its default "re-run when a package file changes".
         return;
     };
+    // Declared inputs replace Cargo's default, so the version the stamp carries and
+    // the release switch are inputs too.
+    println!("cargo::rerun-if-env-changed=TEMPER_RELEASE");
+    println!("cargo::rerun-if-changed=Cargo.toml");
 
     // Re-run when HEAD moves; without these the stamp is computed once and then goes
     // silently stale for the rest of the target dir's life. `git rev-parse --git-path`

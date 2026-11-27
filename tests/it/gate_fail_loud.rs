@@ -553,7 +553,7 @@ fn a_lock_carrying_two_requirement_rows_with_the_same_name_refuses_loud() {
 
 /// The stamp the skewed arm rewrites its lock's engine key to — a version string no
 /// build of this crate carries, so the arm cannot pass by coincidence, and deliberately
-/// unordered against [`temper::VERSION`]: the message names both stamps without claiming
+/// unordered against [`temper::ENGINE_STAMP`]: the message names both stamps without claiming
 /// which is newer, because nothing in the sanctioned crate set does semver.
 const OTHER_ENGINE: &str = "0.0.0-elsewhere";
 
@@ -591,10 +591,10 @@ fn a_load_fault_over_another_engines_lock_names_both_versions_and_the_remedy() {
     // restamping the file the writer produced — the shape a real cross-engine lock has.
     let same_stamp = fs::read_to_string(&lock).unwrap();
     assert!(
-        same_stamp.contains(&format!("engine = \"{}\"", temper::VERSION)),
+        same_stamp.contains(&format!("engine = \"{}\"", temper::ENGINE_STAMP)),
         "emit must stamp the lock it writes with this engine, got:\n{same_stamp}"
     );
-    let skewed = same_stamp.replace(temper::VERSION, OTHER_ENGINE);
+    let skewed = same_stamp.replace(temper::ENGINE_STAMP, OTHER_ENGINE);
 
     fs::write(&lock, &skewed).unwrap();
     let (skew_findings, skew_ok) = check_in(&root, &["."]);
@@ -621,7 +621,7 @@ fn a_load_fault_over_another_engines_lock_names_both_versions_and_the_remedy() {
 
     let skew_fault = &common::findings_for(&skew_findings, "gate.load-fault")[0];
     assert!(
-        skew_fault.contains(OTHER_ENGINE) && skew_fault.contains(temper::VERSION),
+        skew_fault.contains(OTHER_ENGINE) && skew_fault.contains(temper::ENGINE_STAMP),
         "the skewed lock's fault must name both engine versions, got: {skew_fault}"
     );
     assert!(

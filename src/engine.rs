@@ -2025,7 +2025,7 @@ fn decide(
         // decide it, over the discovery walk this table never sees.
         | Predicate::LocusDeclared
         // `engine-matches` rides it too, and its verdict compares the committed lock's
-        // own stamp against `crate::VERSION` — neither is on the member in hand — so
+        // own stamp against `crate::ENGINE_STAMP` — neither is on the member in hand — so
         // `crate::gate` decides it off the parsed lock document.
         | Predicate::EngineMatches
         | Predicate::Resolves

@@ -315,7 +315,18 @@ pub fn gate(
     // Never gated on a lock's presence — an unadopted harness's lock declares
     // nothing, so this tier is a no-op over it rather than skipped (never a
     // half-adopted state).
-    let committed = drift::declarations_from_doc(&lock_doc)?;
+    // The stamp is read before any row: which engine wrote the lock decides how its rows
+    // read, and a row this engine cannot lift is reported against it (`check::load_fault`).
+    let lock_engine = drift::engine_from_doc(&lock_doc);
+    let mut committed = drift::declarations_from_doc(&lock_doc)?;
+    // A built-in row another engine snapshotted is stale, never a collision: retired
+    // before the family assembles, so every overlay and partition below reads the
+    // embedded built-in, and reported beside the `engine-matches` finding.
+    let stale_builtin_rows = compose::retire_stale_builtin_rows(
+        &mut committed,
+        lock_engine.as_deref(),
+        &builtin_kind::definitions(),
+    )?;
     // One ignore-honoring walk per flavor, shared across every kind and nested host this
     // gate discovers ([`import::Discovery`]) — the session-open `check` walks the
     // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost. This one
@@ -1225,8 +1236,8 @@ pub fn gate(
     // facts above.
     if let Some(clause) = engine::root_clause(&selections, &contract::Predicate::EngineMatches)
         .filter(|_| represented)
-        && let Some(recorded) = drift::engine_from_doc(&lock_doc)
-        && recorded != crate::VERSION
+        && let Some(recorded) = lock_engine.as_deref()
+        && recorded != crate::ENGINE_STAMP
     {
         diagnostics.push(crate::check::Diagnostic::from_clause(
             clause,
@@ -1236,9 +1247,25 @@ pub fn gate(
                  running engine version {}: the declaration rows being read were compiled \
                  by a compiler this binary is not. Re-run `emit` to rewrite the lock whole \
                  in this engine's canonical form",
-                crate::VERSION
+                crate::ENGINE_STAMP
             ),
         ));
+        // A built-in row the other engine snapshotted was retired at load, so the gate
+        // judged the embedded built-in; say which, so the stale lock is not read as
+        // having been honored.
+        for kind in &stale_builtin_rows {
+            diagnostics.push(crate::check::Diagnostic::from_clause(
+                clause,
+                crate::LOCK_FILENAME,
+                format!(
+                    "the committed lock, written by engine version {recorded}, snapshots \
+                     built-in kind `{kind}` with facts this engine's embedded `{kind}` no \
+                     longer carries: the gate read the embedded built-in instead. The lock \
+                     wants a re-emit — re-run `emit` to rewrite it in this engine's \
+                     canonical form"
+                ),
+            ));
+        }
     }
 
     Ok((diagnostics, announcement))

@@ -926,7 +926,7 @@ pub(crate) struct RollupEntry {
 /// an empty `ArrayOfTables` emits nothing, so a written-then-vanished section would
 /// break idempotence against a re-parse that never sees it.
 ///
-/// The file opens with the engine stamp — [`ENGINE_KEY`] carrying [`crate::VERSION`], the
+/// The file opens with the engine stamp — [`ENGINE_KEY`] carrying [`crate::ENGINE_STAMP`], the
 /// engine that wrote this lock. A root TOML key must precede every table, so the stamp is
 /// the file's first line by necessity, not by taste; the read side lifts it through
 /// [`read_engine`].
@@ -954,7 +954,7 @@ pub(crate) fn write_rollup(
     layout_sources: &[LayoutSourceRow],
 ) -> Result<(), DriftError> {
     let mut doc = DocumentMut::new();
-    doc[ENGINE_KEY] = value(crate::VERSION);
+    doc[ENGINE_KEY] = value(crate::ENGINE_STAMP);
     for (kind, rows) in rollups {
         doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(rows));
     }
