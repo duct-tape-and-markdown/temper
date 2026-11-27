@@ -18,3 +18,18 @@ SIZE-ADVISORY-AT-SUBDIRECTORY-MEMORY-AND-NESTED-RULES parked. The advisory must 
 ## Consequences
 
 The parked size advisory and its blocked sibling, the advisory over local memory and unclaimed imports, both unblock.
+
+## Amendment (2026-11-27)
+
+Plan asked what moment a member reaching context in two steps reads, such
+as a skill that is listed first and whose body loads on invocation. A load
+moment is when the member's own content enters context: an invoked skill or
+agent loads on demand, and its listing stays the listing budget's to judge.
+A guard over a kind whose content never enters context (a hook, an MCP
+server, settings) refuses at load.
+
+Rejected:
+- **No moment for listed or invoked members.** A guard over them would
+  judge vacuously (invariant 6).
+- **The listing as the load.** That conflates a description, which the
+  listing budget judges, with the content.
