@@ -130,12 +130,19 @@ pub fn requirement_owner(name: &str) -> String {
 /// `values` for an `enum` guard, `value_type` for a `type` guard — both already on the
 /// row. A guard predicate carrying neither, or carrying an empty set (a vacuous clause,
 /// admissibility's to refuse), qualifies nothing and the segment is the bare field.
-/// `None` only where the row names no field at all.
+///
+/// A `loads` guard reads no field, so its predicate key stands where the field would:
+/// `memory.when.loads=on-demand`. `None` only where the row names no field and its guard
+/// is not one that reads none.
 #[must_use]
 pub fn when_label_field(row: &ClauseRow) -> Option<String> {
-    let field = row.field.as_deref()?;
+    let field = match (row.field.as_deref(), row.guard_predicate.as_deref()) {
+        (Some(field), _) => field,
+        (None, Some(guard @ "loads")) => guard,
+        (None, _) => return None,
+    };
     let values = match row.guard_predicate.as_deref() {
-        Some("enum") => row.values.as_ref(),
+        Some("enum" | "loads") => row.values.as_ref(),
         Some("type") => row.value_type.as_ref(),
         _ => None,
     };
@@ -651,17 +658,57 @@ pub enum Predicate {
     /// row, because the engine never sees a `render` hook and never reads a projection
     /// back.
     FormatPlacesEdges,
+    /// `loads`: the member loads at the named [`LoadMoment`] — a registration fact the
+    /// engine derives from where the member sits and which channel registers it, never a
+    /// field. A `when` guard form only: it locates the member itself, so a `when` over it
+    /// binds its body at the member.
+    Loads {
+        /// The moment the guard admits.
+        moment: LoadMoment,
+    },
     /// `when`: a guard predicate conditioning a body of ordinary clauses. Evaluates the
     /// guard at every element the guard's field locates; where the guard holds, evaluates
     /// every body clause at that element; silent (no finding, not a vacuity) where the
-    /// guard doesn't hold or the guarded field is absent. Guard must be `enum` or `type`.
-    /// No nesting: a body clause may not itself be a `when` predicate.
+    /// guard doesn't hold or the guarded field is absent. Guard must be `enum`, `type` or
+    /// `loads`. No nesting: a body clause may not itself be a `when` predicate.
     When {
-        /// The guard predicate, restricted to scalar-decidable forms (`Enum`/`Type`).
+        /// The guard predicate, restricted to scalar-decidable forms (`Enum`/`Type`) and
+        /// the member's load moment (`Loads`).
         guard: Box<Predicate>,
         /// The ordinary clauses evaluated where the guard holds.
         body: Vec<Clause>,
     },
+}
+
+/// When a member loads into a session — the one registration fact a [`Predicate::Loads`]
+/// guard reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LoadMoment {
+    /// Loaded at session start.
+    Launch,
+    /// Loaded later, on a read of a file the member's channel names.
+    OnDemand,
+}
+
+impl LoadMoment {
+    /// The moment as the lock and a finding spell it — `launch` or `on-demand`.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            LoadMoment::Launch => "launch",
+            LoadMoment::OnDemand => "on-demand",
+        }
+    }
+
+    /// The moment a wire name spells — `None` for a name outside the set.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "launch" => Some(LoadMoment::Launch),
+            "on-demand" => Some(LoadMoment::OnDemand),
+            _ => None,
+        }
+    }
 }
 
 /// Lift one clause row's `charset` column into the typed [`Charset`] — `None`
@@ -838,6 +885,13 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "resolves" => Predicate::Resolves,
         "import-backed" => Predicate::ImportBacked,
         "format-places-edges" => Predicate::FormatPlacesEdges,
+        // The moment rides the `values` column an `enum` guard's set does, exactly one.
+        "loads" => match row.values.as_deref()? {
+            [moment] => Predicate::Loads {
+                moment: LoadMoment::from_name(moment)?,
+            },
+            _ => return None,
+        },
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
             target: row.target.clone()?,
@@ -962,6 +1016,7 @@ impl Predicate {
             Predicate::Resolves => "resolves",
             Predicate::ImportBacked => "import-backed",
             Predicate::FormatPlacesEdges => "format-places-edges",
+            Predicate::Loads { .. } => "loads",
             Predicate::When { .. } => "when",
         }
     }
@@ -1070,22 +1125,34 @@ impl Predicate {
             | Predicate::Resolves
             | Predicate::ImportBacked
             | Predicate::FormatPlacesEdges
+            // The load moment is a registration fact, never a field.
+            | Predicate::Loads { .. }
             // Guard and body carry no field or schema key of their own.
             | Predicate::When { .. } => None,
         }
     }
 
     /// Whether this predicate judges a member's frontmatter — a per-field predicate, a
-    /// key-set one, or a `when` guarded on a field. These are the clauses a member whose
-    /// frontmatter was forgiven as unparseable skips: its fields read as unset, and the
-    /// one advisory naming them is the finding that holds.
+    /// key-set one, or a `when` guarded on a field or bodied with one. These are the
+    /// clauses a member whose frontmatter was forgiven as unparseable skips: its fields
+    /// read as unset, and the one advisory naming them is the finding that holds.
     #[must_use]
     pub fn reads_frontmatter(&self) -> bool {
-        self.documented_field().is_some()
-            || matches!(
-                self,
-                Predicate::ForbiddenKeys { .. } | Predicate::ClosedKeys | Predicate::When { .. }
-            )
+        match self {
+            Predicate::When { guard, body } => {
+                guard.target().is_some()
+                    || body
+                        .iter()
+                        .any(|clause| clause.predicate.reads_frontmatter())
+            }
+            _ => {
+                self.documented_field().is_some()
+                    || matches!(
+                        self,
+                        Predicate::ForbiddenKeys { .. } | Predicate::ClosedKeys
+                    )
+            }
+        }
     }
 
     /// The **frontmatter field** this predicate documents — the property a clause's
@@ -1142,6 +1209,7 @@ impl Predicate {
             | Predicate::Resolves
             | Predicate::ImportBacked
             | Predicate::FormatPlacesEdges
+            | Predicate::Loads { .. }
             // Guard and body carry no frontmatter field to document.
             | Predicate::When { .. } => None,
         }
@@ -1199,6 +1267,7 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::Resolves
             | Predicate::ImportBacked
             | Predicate::FormatPlacesEdges
+            | Predicate::Loads { .. }
             | Predicate::When { .. } => None,
         })
         .filter_map(|field| crate::address::FieldPath::parse(field).ok())

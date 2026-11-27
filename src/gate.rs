@@ -27,6 +27,8 @@ use crate::roster;
 struct Members<'a> {
     features: &'a [extract::Features],
     field_defaults: &'a engine::FieldDefaults,
+    /// Each member's load moment, the registration fact a `loads` guard reads.
+    load_moments: &'a engine::LoadMoments,
     /// The ids of the members whose frontmatter the kind's leniency forgave.
     forgiven: &'a BTreeSet<String>,
 }
@@ -94,7 +96,13 @@ fn two_greens_dispatch(
         whole
     };
     let validate = |contract: &Contract, features: &[extract::Features]| {
-        engine::validate_as_read(contract, features, members.field_defaults, members.forgiven)
+        engine::validate_as_read(
+            contract,
+            features,
+            members.field_defaults,
+            members.load_moments,
+            members.forgiven,
+        )
     };
     let kind_whole = whole(&contract, inherited);
     match (dial, undialed) {
@@ -262,27 +270,89 @@ pub(crate) fn read_beneath_homes(
         .iter()
         .filter_map(|(name, kind)| builtin.get(name).map(|uaf| (kind, uaf)));
     let custom_pairs = custom.iter().map(|(kind, uaf)| (kind, uaf));
-    let mut homes = BTreeMap::new();
-    for (kind, uaf) in builtin_pairs.chain(custom_pairs).filter(|(kind, _)| {
-        kind.registration
-            .contains(&kind::Registration::OnReadBeneath)
-    }) {
-        for unit in &uaf.units {
-            let Some(source_path) = crate::path::relativize_against_root(
+    builtin_pairs
+        .chain(custom_pairs)
+        .flat_map(|(kind, uaf)| {
+            kind_read_beneath_homes(harness_root, kind, uaf)
+                .into_iter()
+                .map(|(id, home)| ((kind.name.clone(), id), home))
+        })
+        .collect()
+}
+
+/// [`read_beneath_homes`] over one kind's units, by unit id — empty where the kind does
+/// not register [`OnReadBeneath`](kind::Registration::OnReadBeneath).
+fn kind_read_beneath_homes(
+    harness_root: &Path,
+    kind: &CustomKind,
+    uaf: &compose::KindUnitsAndFeatures,
+) -> BTreeMap<String, String> {
+    if !kind
+        .registration
+        .contains(&kind::Registration::OnReadBeneath)
+    {
+        return BTreeMap::new();
+    }
+    uaf.units
+        .iter()
+        .filter_map(|unit| {
+            let source_path = crate::path::relativize_against_root(
                 &unit.source_path.to_string_lossy(),
                 harness_root,
-            ) else {
-                continue;
-            };
-            if let Some(home) = kind::member_home(&source_path) {
-                homes.insert(
-                    (kind.name.clone(), unit.id.clone()),
-                    crate::path::HarnessRelativePath::from_path(home).to_string(),
-                );
-            }
-        }
+            )?;
+            let home = kind::member_home(&source_path)?;
+            Some((
+                unit.id.clone(),
+                crate::path::HarnessRelativePath::from_path(home).to_string(),
+            ))
+        })
+        .collect()
+}
+
+/// Each of one kind's members' [load moment](contract::LoadMoment), by member id, read
+/// off the channels its kind registers: **on demand** where an
+/// [`OnReadBeneath`](kind::Registration::OnReadBeneath) member is homed below the harness
+/// root or a [`PathsMatch`](kind::Registration::PathsMatch) member declares globs, else
+/// **at launch** where the kind registers one of those channels or
+/// [`Always`](kind::Registration::Always). A member of a kind registering none of the
+/// three — invoked, listed, connected — has no load moment, and a `loads` guard is
+/// silent over it.
+fn load_moments(
+    harness_root: &Path,
+    kind: &CustomKind,
+    uaf: &compose::KindUnitsAndFeatures,
+) -> engine::LoadMoments {
+    let loads_into_context = kind.registration.iter().any(|channel| {
+        matches!(
+            channel,
+            kind::Registration::Always
+                | kind::Registration::OnReadBeneath
+                | kind::Registration::PathsMatch { .. }
+        )
+    });
+    if !loads_into_context {
+        return engine::LoadMoments::new();
     }
-    homes
+    let homes = kind_read_beneath_homes(harness_root, kind, uaf);
+    uaf.units
+        .iter()
+        .zip(&uaf.features)
+        .map(|(unit, features)| {
+            let beneath_a_subdirectory = homes.get(&unit.id).is_some_and(|home| !home.is_empty());
+            let scoped_by_paths = kind.registration.iter().any(|channel| match channel {
+                kind::Registration::PathsMatch { field } => {
+                    !graph::declared_globs(features, field).is_empty()
+                }
+                _ => false,
+            });
+            let moment = if beneath_a_subdirectory || scoped_by_paths {
+                contract::LoadMoment::OnDemand
+            } else {
+                contract::LoadMoment::Launch
+            };
+            (features.id.clone(), moment)
+        })
+        .collect()
 }
 
 /// One site walk over every discovered kind, collecting each admitted member into its
@@ -442,6 +512,7 @@ pub fn gate(
     let builtin_defs = builtin_kind::definitions();
     let mut builtin_units_and_features: BTreeMap<String, compose::KindUnitsAndFeatures> =
         BTreeMap::new();
+    let mut load_moments_by_kind: BTreeMap<String, engine::LoadMoments> = BTreeMap::new();
     for (kind_name, kind) in &overlaid_builtin_kinds {
         // The contract is the lock's declared `clauses` for the kind when it names any,
         // else the embedded default (`builtin_contract`). The invocation's joined clauses
@@ -473,6 +544,8 @@ pub fn gate(
         )?;
         let features = &uaf.features;
         let forgiven = uaf.forgiven_ids();
+        let moments = load_moments(harness_root, kind, &uaf);
+        load_moments_by_kind.insert(kind_name.clone(), moments.clone());
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             kind_name,
@@ -482,6 +555,7 @@ pub fn gate(
             Members {
                 features,
                 field_defaults: &kind.field_defaults,
+                load_moments: &moments,
                 forgiven: &forgiven,
             },
             (!skip_dial).then_some(&dial),
@@ -575,6 +649,8 @@ pub fn gate(
         )?;
         let features = &uaf.features;
         let forgiven = uaf.forgiven_ids();
+        let moments = load_moments(harness_root, custom_kind, &uaf);
+        load_moments_by_kind.insert(row.name.clone(), moments.clone());
 
         let (contract, dispatch_diags) = two_greens_dispatch(
             &row.name,
@@ -590,6 +666,7 @@ pub fn gate(
             Members {
                 features,
                 field_defaults: &custom_kind.field_defaults,
+                load_moments: &moments,
                 forgiven: &forgiven,
             },
             Some(&dial),
@@ -731,6 +808,7 @@ pub fn gate(
                 field_defaults: declared_kinds
                     .get(kind)
                     .map_or(&engine::FieldDefaults::new(), |kind| &kind.field_defaults),
+                load_moments: &engine::LoadMoments::new(),
                 forgiven: &BTreeSet::new(),
             },
             Some(&dial),
@@ -900,6 +978,7 @@ pub fn gate(
         &selections,
         &diverging,
         &field_defaults,
+        &load_moments_by_kind,
     ));
 
     // The edge scope: build the reference graph over the declared edges and check route

@@ -159,6 +159,7 @@ pub fn emit(contract: &Contract) -> Value {
             // `when` is a guard conditioning a body; the guard and body are evaluated
             // at the engine level, not expressed as schema constraints. Any frontmatter
             // constraints ride the body clauses themselves.
+            | Predicate::Loads { .. }
             | Predicate::When { .. } => {}
         }
     }

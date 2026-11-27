@@ -1561,7 +1561,7 @@ pub(crate) fn extract_globs(value: &FeatureValue) -> Vec<String> {
 /// *not* a dead edge: an absent/blank `paths` field falls back to unconditional loading,
 /// so the caller only tests for the dead edge
 /// once at least one glob is present.
-fn declared_globs(member: &Features, field: &str) -> Vec<String> {
+pub(crate) fn declared_globs(member: &Features, field: &str) -> Vec<String> {
     match member.field(field) {
         None | Some(FeatureValue::Map) => Vec::new(),
         Some(value) => extract_globs(&value),

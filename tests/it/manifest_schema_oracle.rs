@@ -194,6 +194,7 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
         | Predicate::Resolves
         | Predicate::ImportBacked
         | Predicate::FormatPlacesEdges
+        | Predicate::Loads { .. }
         | Predicate::When { .. } => return None,
     })
 }

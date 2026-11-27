@@ -19,6 +19,7 @@ import {
   extent,
   formatPlacesEdges,
   fresh,
+  loads,
   locusDeclared,
   harness,
   kind,
@@ -647,6 +648,35 @@ test("a type guard's own argument column rides the when row", () => {
   assert.equal(row.body?.length, 1);
   assert.equal(row.body?.[0]?.predicate, "required");
   assert.equal(row.body?.[0]?.field, "url");
+});
+
+// A load-moment guard reads no field: its moment rides the `values` column, and the row's
+// address takes the guard's key where a field guard's field would stand.
+test("a loads guard lowers to a when row over the load moment, naming no field", () => {
+  const h = harness({
+    members: [],
+    expect: [
+      {
+        kind: rule,
+        clauses: [
+          when(loads("on-demand"), [clause(extent("lines", 200), { severity: "advisory" })], {
+            severity: "advisory",
+          }),
+        ],
+      },
+    ],
+  });
+
+  const rows = compileDeclarations(h).clauses.filter(
+    (row) => row.kind === "rule" && row.predicate === "when",
+  );
+  assert.equal(rows.length, 1, "exactly one when row");
+
+  const row = rows[0]!;
+  assert.equal(row.guard_predicate, "loads");
+  assert.equal(row.field, undefined);
+  assert.deepEqual(row.values, ["on-demand"]);
+  assert.equal(row.body?.[0]?.predicate, "extent");
 });
 
 test("allowedChars carries a negated and a leading-position charset onto its row", () => {

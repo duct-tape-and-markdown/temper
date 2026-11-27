@@ -23,7 +23,7 @@ export type { Capability, PermissionList, PermissionLists } from "./needs.js";
 export { bash, capability, permissionUnion } from "./needs.js";
 
 // Contracts — clauses, predicates, requirements.
-export type { Charset, Clause, ExtentUnit, Predicate, Requirement, RequirementValue, ScriptInit, Severity, TelemetryInit, Verifier } from "./contract.js";
+export type { Charset, Clause, ExtentUnit, LoadMoment, Predicate, Requirement, RequirementValue, ScriptInit, Severity, TelemetryInit, Verifier } from "./contract.js";
 export {
   allowedChars,
   clause,
@@ -40,6 +40,7 @@ export {
   globValid,
   importBacked,
   listing,
+  loads,
   locusDeclared,
   maxLen,
   membership,

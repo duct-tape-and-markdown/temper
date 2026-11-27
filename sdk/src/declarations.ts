@@ -189,7 +189,10 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
         : undefined,
     keys: predicate.key === "forbidden-keys" && predicate.keys ? [...predicate.keys] : undefined,
     values:
-      (predicate.key === "deny" || predicate.key === "enum" || predicate.key === "listing") &&
+      (predicate.key === "deny" ||
+        predicate.key === "enum" ||
+        predicate.key === "listing" ||
+        predicate.key === "loads") &&
       predicate.values
         ? [...predicate.values]
         : undefined,

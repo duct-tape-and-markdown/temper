@@ -71,7 +71,10 @@ export interface Predicate {
   readonly charset?: Charset;
   /** `forbidden-keys`'s forbidden key list. */
   readonly keys?: readonly string[];
-  /** `enum`/`deny`'s permitted or forbidden value list, and `listing`'s counted kinds. */
+  /**
+   * `enum`/`deny`'s permitted or forbidden value list, `listing`'s counted kinds, and
+   * `loads`'s one load moment.
+   */
   readonly values?: readonly string[];
   /** `range`'s inclusive numeric bound. */
   readonly range?: { readonly min: number; readonly max: number };
@@ -435,14 +438,27 @@ export const reachedFrom = (roots: string, via?: readonly string[]): Predicate =
     ? { key: "reached-from", target: roots }
     : { key: "reached-from", target: roots, fields: via };
 
+/** When a member loads into a session: at launch, or on demand. */
+export type LoadMoment = "launch" | "on-demand";
+
 /**
- * A guarded clause — a predicate (restricted to `type` or `enum`) that acts as a
- * guard, with a body of ordinary clauses that fire only where the guard holds.
+ * A `when` guard over the member's **load moment** — at launch, or on demand — rather
+ * than a field. The engine derives the moment from where the member sits and which
+ * channel registers it (a subdirectory's `CLAUDE.md` loads on demand, the root's at
+ * launch; a rule declaring `paths` loads on demand), so the clause names the moment
+ * and never the placement. A guard form only: as a clause of its own it is refused.
+ */
+export const loads = (moment: LoadMoment): Predicate => ({ key: "loads", values: [moment] });
+
+/**
+ * A guarded clause — a predicate (restricted to `type`, `enum` or `loads`) that acts
+ * as a guard, with a body of ordinary clauses that fire only where the guard holds.
  * The guard and body share the guard's address binding: the body's field paths
- * evaluate at the concrete element address the guard locates.
+ * evaluate at the concrete element address the guard locates, and a `loads` guard
+ * locates the member itself.
  *
- * A guard other than a `type` or `enumOf` predicate over the decidable field it
- * addresses is refused — not here, but by emit's admissibility check.
+ * A guard other than a `type`, `enumOf` or `loads` predicate is refused — not here,
+ * but by emit's admissibility check.
  *
  * Its options follow `clause()`: the author states the guarded clause's severity —
  * there is no default, since the tool never decides error-versus-warning — with

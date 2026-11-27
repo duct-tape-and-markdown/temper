@@ -45,7 +45,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::Value as JsonValue;
 
 use crate::check::{self, Diagnostic};
-use crate::contract::{self, CharPosition, Clause, Contract, EdgeBound, ExtentUnit, Predicate};
+use crate::contract::{
+    self, CharPosition, Clause, Contract, EdgeBound, ExtentUnit, LoadMoment, Predicate,
+};
 use crate::extract::{FeatureValue, Features, ValueType, json_to_feature};
 
 /// Validate every artifact's [`Features`] against the contract's clauses,
@@ -62,7 +64,13 @@ use crate::extract::{FeatureValue, Features, ValueType, json_to_feature};
 /// allowed set from another selection, `degree` counts arcs in the reference graph).
 #[must_use]
 pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> {
-    validate_as_read(contract, artifacts, &FieldDefaults::new(), &BTreeSet::new())
+    validate_as_read(
+        contract,
+        artifacts,
+        &FieldDefaults::new(),
+        &LoadMoments::new(),
+        &BTreeSet::new(),
+    )
 }
 
 /// The documented defaults a kind's top-level fields read as where a member leaves them
@@ -70,11 +78,40 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 /// in as data so the engine still knows no kind.
 pub type FieldDefaults = BTreeMap<String, String>;
 
+/// Each member's [`LoadMoment`], by member id — derived by the caller from where the
+/// member sits and which channels its kind registers, handed in as data like
+/// [`FieldDefaults`]. A member absent from the map has no load moment a `loads` guard
+/// can read, and the guard is silent over it.
+pub type LoadMoments = BTreeMap<String, LoadMoment>;
+
+/// No field defaults — the authored bytes, read as written.
+static AUTHORED: FieldDefaults = BTreeMap::new();
+
+/// How the runtime reads the one member in hand: its kind's field defaults, and its load
+/// moment where it has one.
+#[derive(Clone, Copy)]
+struct AsRead<'a> {
+    defaults: &'a FieldDefaults,
+    moment: Option<LoadMoment>,
+}
+
+impl AsRead<'_> {
+    /// The member read as authored, with no load moment.
+    fn authored() -> AsRead<'static> {
+        AsRead {
+            defaults: &AUTHORED,
+            moment: None,
+        }
+    }
+}
+
 /// [`validate`], reading the members as the runtime does: a `when` guard over a field the
 /// kind's format defaults locates the default where a member is silent, so a guarded body
 /// binds a member the runtime reads under that guard. Only the guard's read moves — every
 /// other predicate, and the guarded body's own element, still read the authored bytes, so
 /// a defaulted field is never one a `required`, `closed-keys` or `enum` clause sees.
+///
+/// `moments` carries each member's load moment, the fact a `loads` guard reads.
 ///
 /// A member whose id is in `forgiven` loaded with its frontmatter forgiven as unparseable,
 /// so its fields read as unset: the clauses that judge frontmatter
@@ -85,6 +122,7 @@ pub fn validate_as_read(
     contract: &Contract,
     artifacts: &[Features],
     defaults: &FieldDefaults,
+    moments: &LoadMoments,
     forgiven: &BTreeSet<String>,
 ) -> Vec<Diagnostic> {
     let peers: Vec<&Features> = artifacts.iter().collect();
@@ -105,7 +143,11 @@ pub fn validate_as_read(
             } else {
                 contract
             };
-            member_findings(contract, features, &peers, defaults)
+            let read = AsRead {
+                defaults,
+                moment: moments.get(&features.id).copied(),
+            };
+            member_findings(contract, features, &peers, read)
         })
         .collect()
 }
@@ -122,14 +164,14 @@ fn member_findings(
     contract: &Contract,
     features: &Features,
     peers: &[&Features],
-    defaults: &FieldDefaults,
+    read: AsRead<'_>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for clause in &contract.clauses {
         if clause.predicate.ranges_over_selection() {
             continue;
         }
-        for violation in evaluate(contract, &clause.predicate, features, peers, defaults) {
+        for violation in evaluate(contract, &clause.predicate, features, peers, read) {
             // The asserting clause rides its own violation out. A `when` body clause is
             // the clause that actually failed, so its address, its declared weight and
             // its colocated teaching all win over the enclosing guard's: the reader
@@ -273,24 +315,36 @@ fn when_restrictions(predicate: &Predicate, locus: &Locus) -> Vec<String> {
     };
     let mut messages = Vec::new();
 
-    // Guard must be enum or type; if valid, recurse to check its admissibilities.
-    if !matches!(
-        guard.as_ref(),
-        Predicate::Enum { .. } | Predicate::Type { .. }
-    ) {
-        messages.push(
-            "`when` guard must be `enum` or `type`; other guard predicates are inadmissible"
+    // Guard must be enum, type or loads; a field guard recurses to check its own
+    // admissibilities. A `loads` guard reads a fact only a member at its own document
+    // carries: an embedded member loads with its host, so it has no moment to read.
+    match guard.as_ref() {
+        Predicate::Enum { .. } | Predicate::Type { .. } => {
+            messages.extend(inadmissibilities(guard.as_ref(), locus, body));
+        }
+        Predicate::Loads { .. } => {
+            if let Locus::Embedded(kind) = locus {
+                messages.push(format!(
+                    "`when` guard `loads` reads the member's load moment, and a member of \
+                     embedded kind `{kind}` loads with its host rather than at a moment of \
+                     its own, so the guard would decide nothing; guard the host's kind instead"
+                ));
+            }
+        }
+        _ => messages.push(
+            "`when` guard must be `enum`, `type` or `loads`; other guard predicates are \
+             inadmissible"
                 .to_string(),
-        );
-    } else {
-        messages.extend(inadmissibilities(guard.as_ref(), locus, body));
+        ),
     }
 
     // A guard over a top-level field (no `[*]`) locates the member itself, so its body
-    // binds where a top-level clause does; an each-grain guard's body binds at the
-    // element, the fields-only projection.
-    let body_binding = match guard.target().and_then(addressing) {
-        Some(path) if path.split_element().is_none() => Binding::Member(locus),
+    // binds where a top-level clause does — as does a `loads` guard, which reads the
+    // member's own registration; an each-grain guard's body binds at the element, the
+    // fields-only projection.
+    let body_binding = match (guard.as_ref(), guard.target().and_then(addressing)) {
+        (Predicate::Loads { .. }, _) => Binding::Member(locus),
+        (_, Some(path)) if path.split_element().is_none() => Binding::Member(locus),
         _ => Binding::Element,
     };
 
@@ -403,6 +457,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::ImportBacked
         | Predicate::FormatPlacesEdges
         // Guard and body carry no field to address.
+        | Predicate::Loads { .. }
         | Predicate::When { .. } => None,
     }
 }
@@ -517,6 +572,7 @@ fn feature_read(predicate: &Predicate) -> Option<Feature> {
         | Predicate::EngineMatches
         | Predicate::Resolves
         | Predicate::ImportBacked
+        | Predicate::Loads { .. }
         | Predicate::When { .. } => None,
     }
 }
@@ -570,6 +626,12 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         Predicate::DependencyExists => Some(
             "`dependency-exists` is held back: it names no decidable reference \
              syntax or extractor, so it is inadmissible as a clause"
+                .to_string(),
+        ),
+        Predicate::Loads { .. } => Some(
+            "`loads` reads the member's load moment and is a `when` guard form only: \
+             as a clause of its own it would decide nothing, so guard a body with it \
+             (`when(loads(\"on-demand\"), [...])`)"
                 .to_string(),
         ),
         Predicate::Required { .. }
@@ -810,6 +872,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         | Predicate::Resolves
         | Predicate::ImportBacked
         | Predicate::FormatPlacesEdges
+        | Predicate::Loads { .. }
         | Predicate::When { .. } => Vec::new(),
     }
 }
@@ -1036,6 +1099,7 @@ pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> 
                 | Predicate::Resolves
                 | Predicate::ImportBacked
                 | Predicate::FormatPlacesEdges
+                | Predicate::Loads { .. }
                 | Predicate::When { .. } => {}
             }
         }
@@ -1073,6 +1137,7 @@ pub fn judge_members(
     selections: &[Selection],
     diverging: &[DivergingMembers],
     defaults: &BTreeMap<String, FieldDefaults>,
+    moments: &BTreeMap<String, LoadMoments>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for selection in selections {
@@ -1101,8 +1166,13 @@ pub fn judge_members(
             .map(|(_, features)| *features)
             .collect();
         for (kind, features) in &selection.members {
-            let no_defaults = FieldDefaults::new();
-            let read = defaults.get(*kind).unwrap_or(&no_defaults);
+            let read = AsRead {
+                defaults: defaults.get(*kind).unwrap_or(&AUTHORED),
+                moment: moments
+                    .get(*kind)
+                    .and_then(|moments| moments.get(&features.id))
+                    .copied(),
+            };
             let judged_by = match &split {
                 Some((own, members))
                     if members.contains(&crate::member_address::address_of(kind, &features.id)) =>
@@ -1463,9 +1533,9 @@ fn evaluate(
     predicate: &Predicate,
     features: &Features,
     all: &[&Features],
-    defaults: &FieldDefaults,
+    read: AsRead<'_>,
 ) -> Vec<Violation> {
-    match decide(contract, predicate, features, all, defaults) {
+    match decide(contract, predicate, features, all, read) {
         Outcome::Holds => Vec::new(),
         Outcome::Violated(violations) => violations,
         // Silence, for the two cases this arm has left. No clause whose *binding* zeroes
@@ -1596,6 +1666,9 @@ fn guard_admits(guard: &Predicate, value: &FeatureValue) -> bool {
     match guard {
         Predicate::Enum { values, .. } => !enum_membership_fails(values, value),
         Predicate::Type { kinds, .. } => !type_membership_fails(kinds, value),
+        // A load-moment guard reads no element value; [`decide`] judges it off the
+        // member's registration before any element is located.
+        Predicate::Loads { .. } => false,
 
         // No legal guard: admit no element, so a `when` whose guard admissibility has
         // already refused evaluates nothing rather than deciding over a test it lacks.
@@ -1652,7 +1725,7 @@ fn decide(
     predicate: &Predicate,
     features: &Features,
     all: &[&Features],
-    defaults: &FieldDefaults,
+    read: AsRead<'_>,
 ) -> Outcome {
     match predicate {
         // A value/presence predicate is the *only* owner of its field's
@@ -2033,7 +2106,48 @@ fn decide(
         // Whole-grain `extent` sums the selection; [`judge`] decides it, not this
         // per-member table.
         | Predicate::Extent { whole: true, .. }
-        | Predicate::Listing { .. } => Outcome::Indeterminate,
+        | Predicate::Listing { .. }
+        // A `when` guard form only, which [`judgeless`] refuses anywhere else.
+        | Predicate::Loads { .. } => Outcome::Indeterminate,
+
+        // A load-moment guard locates the member itself: its body binds at the member
+        // where the member loads at the guarded moment, and is silent where it loads at
+        // the other or has no load moment at all.
+        Predicate::When { guard, body } if matches!(guard.as_ref(), Predicate::Loads { .. }) => {
+            let Predicate::Loads { moment } = guard.as_ref() else {
+                return Outcome::Indeterminate;
+            };
+            if read.moment != Some(*moment) {
+                return Outcome::Holds;
+            }
+            let body_contract = Contract {
+                name: contract.name.clone(),
+                clauses: body.clone(),
+                guidance: None,
+            };
+            let violations: Vec<Violation> = body
+                .iter()
+                .flat_map(|body_clause| {
+                    evaluate(
+                        &body_contract,
+                        &body_clause.predicate,
+                        features,
+                        all,
+                        AsRead::authored(),
+                    )
+                    .into_iter()
+                    .map(|mut violation| {
+                        violation.attribute_to(body_clause);
+                        violation
+                    })
+                })
+                .collect();
+            if violations.is_empty() {
+                Outcome::Holds
+            } else {
+                Outcome::Violated(violations)
+            }
+        }
 
         // `when` evaluates the guard at every element the guard's field locates.
         // Where the guard holds, evaluate every body clause at that element. Silent
@@ -2060,7 +2174,7 @@ fn decide(
                     };
                     let mut violations = Vec::new();
                     let root = features.root();
-                    let read_root = as_read(&root, defaults);
+                    let read_root = as_read(&root, read.defaults);
                     for (address, json_value) in path.locate(&read_root) {
                         let feature_value = json_to_feature(json_value);
                         if !guard_admits(guard.as_ref(), &feature_value) {
@@ -2086,7 +2200,7 @@ fn decide(
                                 .unwrap_or(JsonValue::Null);
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
-                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all, &FieldDefaults::new()) {
+                                for mut violation in evaluate(&body_contract, &body_clause.predicate, &scoped_features, all, AsRead::authored()) {
                                     violation.message = format!("{element_address}: {}", violation.message);
                                     violation.attribute_to(body_clause);
                                     violations.push(violation);
@@ -2097,7 +2211,7 @@ fn decide(
                             // itself, so the body binds at the member — its document in
                             // scope, the way a top-level clause's is.
                             for body_clause in body {
-                                for mut violation in evaluate(&body_contract, &body_clause.predicate, features, all, &FieldDefaults::new()) {
+                                for mut violation in evaluate(&body_contract, &body_clause.predicate, features, all, AsRead::authored()) {
                                     violation.attribute_to(body_clause);
                                     violations.push(violation);
                                 }
@@ -2360,6 +2474,7 @@ mod tests {
             &guarded,
             std::slice::from_ref(&url_only),
             &stdio,
+            &LoadMoments::new(),
             &BTreeSet::new(),
         );
         assert_eq!(read.len(), 2, "{read:#?}");
@@ -2376,6 +2491,7 @@ mod tests {
                 &guarded,
                 std::slice::from_ref(&http),
                 &stdio,
+                &LoadMoments::new(),
                 &BTreeSet::new()
             )
             .is_empty()
@@ -2840,7 +2956,7 @@ mod tests {
     }
 
     /// The number of [`Predicate`] variants — the slots [`vocabulary_slot`] hands out.
-    const VOCABULARY: usize = 38;
+    const VOCABULARY: usize = 39;
 
     /// One slot per [`Predicate`] variant. Exhaustive on purpose: a new variant does not
     /// compile until it takes a slot, and `the_sample_banks_are_the_whole_vocabulary`
@@ -2886,6 +3002,7 @@ mod tests {
             Predicate::When { .. } => 32,
             Predicate::Unshadowed => 33,
             Predicate::Listing { .. } => 37,
+            Predicate::Loads { .. } => 38,
         }
     }
 
@@ -2897,7 +3014,12 @@ mod tests {
         for predicate in set_predicates()
             .into_iter()
             .chain(member_predicates())
-            .chain([Predicate::DependencyExists])
+            .chain([
+                Predicate::DependencyExists,
+                Predicate::Loads {
+                    moment: LoadMoment::OnDemand,
+                },
+            ])
         {
             sampled.insert(vocabulary_slot(&predicate));
         }
@@ -3064,19 +3186,13 @@ mod tests {
         let mut over = features("over", &[], 0, None);
         over.rendered_lines = Some(3);
         assert!(matches!(
-            decide(&carrier, &extent, &over, &[&over], &FieldDefaults::new()),
+            decide(&carrier, &extent, &over, &[&over], AsRead::authored()),
             Outcome::Violated(_)
         ));
         let mut within = features("within", &[], 0, None);
         within.rendered_lines = Some(2);
         assert!(matches!(
-            decide(
-                &carrier,
-                &extent,
-                &within,
-                &[&within],
-                &FieldDefaults::new()
-            ),
+            decide(&carrier, &extent, &within, &[&within], AsRead::authored()),
             Outcome::Holds
         ));
 
@@ -3092,7 +3208,7 @@ mod tests {
                 &extent,
                 &unrendered,
                 &[&unrendered],
-                &FieldDefaults::new()
+                AsRead::authored()
             ),
             Outcome::Indeterminate
         ));
@@ -3468,7 +3584,7 @@ mod tests {
                         &predicate,
                         &demo,
                         &[&demo],
-                        &FieldDefaults::new(),
+                        AsRead::authored(),
                     ),
                     Outcome::Indeterminate
                 ),
@@ -3507,7 +3623,7 @@ mod tests {
             );
             assert!(
                 !matches!(
-                    decide(&carrier, &predicate, &demo, &[&demo], &FieldDefaults::new()),
+                    decide(&carrier, &predicate, &demo, &[&demo], AsRead::authored()),
                     Outcome::Indeterminate
                 ),
                 "`{}` reached conformance undecided — it would read as a green pass",
@@ -4444,6 +4560,7 @@ mod tests {
             | Predicate::Unshadowed
             | Predicate::GlobValid { .. }
             | Predicate::FormatPlacesEdges
+            | Predicate::Loads { .. }
             | Predicate::When { .. } => false,
         }
     }
@@ -4540,6 +4657,7 @@ mod tests {
             | Predicate::EngineMatches
             | Predicate::Resolves
             | Predicate::ImportBacked
+            | Predicate::Loads { .. }
             | Predicate::When { .. } => false,
         }
     }
@@ -4601,7 +4719,7 @@ mod tests {
                         &predicate,
                         &element,
                         &[&element],
-                        &FieldDefaults::new()
+                        AsRead::authored()
                     ),
                     Outcome::Indeterminate
                 ),
@@ -4659,9 +4777,8 @@ mod tests {
         let carrier = contract(ClauseSeverity::Advisory, guarded.clone());
         let scoped = features("scoped", &[("paths", json!(["src/**"]))], 3, None);
         let unscoped = features("unscoped", &[], 3, None);
-        let decide_at = |member: &Features| {
-            decide(&carrier, &guarded, member, &[member], &FieldDefaults::new())
-        };
+        let decide_at =
+            |member: &Features| decide(&carrier, &guarded, member, &[member], AsRead::authored());
         assert!(
             matches!(decide_at(&scoped), Outcome::Violated(_)),
             "the guard holds, so the member's three lines break the two-line bound"

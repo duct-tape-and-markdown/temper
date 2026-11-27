@@ -1010,6 +1010,7 @@ fn judged_binding(predicate: &crate::contract::Predicate) -> Option<RootFamilyBi
         | Predicate::MentionReachable { .. }
         | Predicate::TriggerAgrees { .. }
         | Predicate::FormatPlacesEdges
+        | Predicate::Loads { .. }
         | Predicate::When { .. } => None,
     }
 }
