@@ -9,7 +9,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { emit, harness, input, requirement, tool } from "../src/index.js";
+import { harness, input, requirement, tool } from "../src/index.js";
+import { emit } from "../src/emit.js";
 import { rule } from "../src/claude-code.js";
 import { gateHooks, reference, starter, typecheck } from "../src/starter.js";
 

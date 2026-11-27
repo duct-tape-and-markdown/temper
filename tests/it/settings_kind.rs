@@ -33,7 +33,7 @@ use crate::common;
 /// documented keys, beside a `hook` registering at that same file's `hooks` collection
 /// address. Every key of `.claude/settings.json` is authored in the program.
 const SETTINGS_MEMBER_PROGRAM: &str = r#"
-import { emit, harness } from "@dtmd/temper";
+import { harness } from "@dtmd/temper";
 import { hook, settings } from "@dtmd/temper/claude-code";
 
 const sessionStart = hook({
@@ -48,13 +48,13 @@ const projectSettings = settings({
   autoMemoryEnabled: false,
 });
 
-process.stdout.write(emit(harness({ members: [sessionStart, projectSettings] })).seam);
+export default harness({ members: [sessionStart, projectSettings] });
 "#;
 
 /// The pre-0050 posture, for contrast: the same hook and the same residue keys, but the
 /// residue rides the harness-level `settings` option and no kind governs the file whole.
 const SETTINGS_RESIDUE_PROGRAM: &str = r#"
-import { emit, harness } from "@dtmd/temper";
+import { harness } from "@dtmd/temper";
 import { hook } from "@dtmd/temper/claude-code";
 
 const sessionStart = hook({
@@ -62,18 +62,14 @@ const sessionStart = hook({
   hooks: [{ type: "command", command: "temper reporter" }],
 });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [sessionStart],
-      settings: {
-        permissions: { allow: ["Bash(cargo build:*)"] },
-        env: { CLAUDE_CODE_ENABLE_TELEMETRY: "1" },
-        autoMemoryEnabled: false,
-      },
-    }),
-  ).seam,
-);
+export default harness({
+  members: [sessionStart],
+  settings: {
+    permissions: { allow: ["Bash(cargo build:*)"] },
+    env: { CLAUDE_CODE_ENABLE_TELEMETRY: "1" },
+    autoMemoryEnabled: false,
+  },
+});
 "#;
 
 /// The manifest the two programs above each describe: the `hooks` collection segment

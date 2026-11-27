@@ -9,7 +9,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Clause, Harness, Prose } from "../src/index.js";
-import { blocks, embeddedMemberValue, emit, extend, harness, kind, relocate, requirement, span } from "../src/index.js";
+import { blocks, embeddedMemberValue, extend, harness, kind, relocate, requirement, span } from "../src/index.js";
+import { emit } from "../src/emit.js";
 import { compileDeclarations } from "../src/declarations.js";
 import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`

@@ -14,7 +14,7 @@ use crate::common;
 
 /// A one-rule program whose rule name rides a sibling module, beside an installed package.
 const PROGRAM: &str = r#"
-import { emit, harness, text } from "@dtmd/temper";
+import { harness, text } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 import { RULE_NAME } from "./members.ts";
 import { suffix } from "helper-pkg";
@@ -31,7 +31,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 const MEMBERS_MODULE: &str = "export const RULE_NAME = \"host\";\n";
@@ -177,7 +177,7 @@ fn an_unchanged_program_module_closure_reports_no_fresh_finding() {
 /// A program importing a tracked sibling module and a gitignored one, beside a
 /// `file:`-linked workspace package whose built `dist/` is gitignored.
 const IGNORED_PROGRAM: &str = r#"
-import { emit, harness, text } from "@dtmd/temper";
+import { harness, text } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 import { RULE_NAME } from "./members.ts";
 import { GENERATED } from "./generated/names.ts";
@@ -195,7 +195,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// Wire [`IGNORED_PROGRAM`]: a tracked `members.ts`, a gitignored `generated/` module,

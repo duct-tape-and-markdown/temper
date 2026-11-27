@@ -918,7 +918,7 @@ fn a_gitignored_claude_worktrees_folder_fires_no_unclaimed_entry() {
 /// A program declaring each script in `.claude/hooks/` as a `{ file }` tool, one hook
 /// handler running each.
 const SCRIPT_TOOLS_PROGRAM: &str = r#"
-import { emit, harness, tool } from "@dtmd/temper";
+import { harness, tool } from "@dtmd/temper";
 import { hook } from "@dtmd/temper/claude-code";
 
 const lint = tool({ file: ".claude/hooks/lint.sh" });
@@ -932,7 +932,7 @@ const after = hook({
   ],
 });
 
-process.stdout.write(emit(harness({ members: [lint, audit, after] })).seam);
+export default harness({ members: [lint, audit, after] });
 "#;
 
 #[test]

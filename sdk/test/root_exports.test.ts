@@ -10,7 +10,7 @@
  *
  * The seam's generated row family is out of scope here and excluded by declaration
  * file. The rows are internal, versioned in lockstep with the engine, and reach the
- * face only by inference through `EmitResult` — nameability was never the boundary,
+ * face only by inference through the pipe's `EmitResult` — nameability was never the boundary,
  * the stability promise the root never made is. A row an author can infer is not a
  * row the root owes an export.
  */

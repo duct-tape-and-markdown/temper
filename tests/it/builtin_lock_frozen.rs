@@ -42,7 +42,7 @@ use crate::module_closure::without_module_rows;
 /// own, and `hookDefaultContract` spreads them, so the byte-compare below covers the new
 /// kind row, those six rows under it, and `hook`'s new `templates` column.
 pub(crate) const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
-import { dial, dialDefaultContract, emit, harness, requirement, requirementDefaultContract } from "@dtmd/temper";
+import { dial, dialDefaultContract, harness, requirement, requirementDefaultContract } from "@dtmd/temper";
 import {
   agent,
   agentDefaultContract,
@@ -108,7 +108,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// A lock text split at the first declaration row: everything ahead of

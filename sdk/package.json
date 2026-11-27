@@ -32,6 +32,10 @@
     "./starter": {
       "types": "./dist/src/starter.d.ts",
       "default": "./dist/src/starter.js"
+    },
+    "./pipe": {
+      "types": "./dist/src/pipe.d.ts",
+      "default": "./dist/src/pipe.js"
     }
   },
   "files": [

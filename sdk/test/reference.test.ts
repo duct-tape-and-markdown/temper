@@ -6,7 +6,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { clause, dial, emit, harness, kind, reference, required, requirement, review, text } from "../src/index.js";
+import { clause, dial, harness, kind, reference, required, requirement, review, text } from "../src/index.js";
+import { emit } from "../src/emit.js";
 import { rule, settingsLocal, skill } from "../src/claude-code.js";
 
 function declared(...extra: Parameters<typeof harness>[0]["members"]) {

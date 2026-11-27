@@ -1313,7 +1313,7 @@ fn a_kinds_own_member_grain_clause_reports_exactly_once() {
 fn unfilled_requirement_program(posture: &str) -> String {
     format!(
         r#"
-import {{ emit, harness, text }} from "@dtmd/temper";
+import {{ harness, text }} from "@dtmd/temper";
 import {{ skill }} from "@dtmd/temper/claude-code";
 
 const program = harness({{
@@ -1333,7 +1333,7 @@ const program = harness({{
   }},
 }});
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#
     )
 }
@@ -1555,7 +1555,7 @@ fn decision_program(filled: bool) -> String {
     };
     format!(
         r#"
-import {{ emit, extend, harness, requirement, review, text }} from "@dtmd/temper";
+import {{ extend, harness, requirement, review, text }} from "@dtmd/temper";
 import type {{ RequirementFields }} from "@dtmd/temper";
 import {{ rule }} from "@dtmd/temper/claude-code";
 
@@ -1576,7 +1576,7 @@ const program = harness({{
   ],
 }});
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#
     )
 }
@@ -1661,7 +1661,7 @@ fn a_requirement_clause_carrying_a_root_family_predicate_is_refused_as_inadmissi
 /// both filled, under an `expect` over the shipped `requirement` kind that requires a
 /// `tell` — the kind's whole contract, so its fill default rides beside it.
 const EXPECT_OVER_REQUIREMENT_PROGRAM: &str = r#"
-import { clause, count, emit, extend, harness, requirement, required, resolves, text } from "@dtmd/temper";
+import { clause, count, extend, harness, requirement, required, resolves, text } from "@dtmd/temper";
 import type { RequirementFields } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 
@@ -1683,7 +1683,7 @@ const program = harness({
   ] }],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -1734,7 +1734,7 @@ fn a_member_satisfying_a_requirement_still_fills_it() {
 /// under an `expect` over the `decision` subkind bounding each member's incoming
 /// `satisfies` and root-containment arcs together at exactly two.
 const ONE_NODE_PROGRAM: &str = r#"
-import { clause, degree, emit, extend, harness, requirement, text } from "@dtmd/temper";
+import { clause, degree, extend, harness, requirement, text } from "@dtmd/temper";
 import type { RequirementFields } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 
@@ -1755,7 +1755,7 @@ const program = harness({
   ] }],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -1801,7 +1801,7 @@ fn explain_of_a_requirement_subkind_member_address_lists_its_satisfiers() {
 
 /// A required `decision` no member fills.
 const UNFILLED_DECISION_PROGRAM: &str = r#"
-import { clause, count, emit, extend, harness, requirement, text } from "@dtmd/temper";
+import { clause, count, extend, harness, requirement, text } from "@dtmd/temper";
 import type { RequirementFields } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 
@@ -1815,7 +1815,7 @@ const program = harness({
   expect: [{ kind: requirement, clauses: [clause(count({ min: 1 }), { severity: "required" })] }],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]

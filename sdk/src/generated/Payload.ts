@@ -3,7 +3,7 @@ import type { Declarations } from "./Declarations.js";
 import type { PayloadMember } from "./PayloadMember.js";
 
 /**
- * The whole seam payload the SDK program prints to stdout: the declaration rows and
+ * The whole seam payload the SDK pipe prints to stdout: the declaration rows and
  * every projected member's erased payload. The engine is the sole compiler of every projection and the whole lock
  * from this one value — no harness re-supply, the payload IS the source.
  *

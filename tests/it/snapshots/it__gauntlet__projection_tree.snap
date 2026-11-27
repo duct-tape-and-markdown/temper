@@ -498,7 +498,7 @@ import_hash = "306c6ca7407560340797866e077e053627ad409277d1b9da58106fce4cf717cb"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "a856e1916252ce5918cb6fe422f565a374bfa13a8171a6a686f43ea17f3ee32a"
+import_hash = "eea26c1f9a61d5e5da05383f522b3addf3c065a94a050d50bb8f79e005ddb9f5"
 
 [[declaration.layout_prose]]
 member = "guide:operate-the-gate/spec/representation"

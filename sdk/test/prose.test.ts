@@ -9,7 +9,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { blocks, embeddedMemberValue, emit, harness, kind, span, text } from "../src/index.js";
+import { blocks, embeddedMemberValue, harness, kind, span, text } from "../src/index.js";
+import { emit } from "../src/emit.js";
 import { memory } from "../src/claude-code.js";
 
 /** The embedded kind the composed-body case nests, plus the admission its host needs. */

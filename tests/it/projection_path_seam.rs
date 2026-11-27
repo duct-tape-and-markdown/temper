@@ -60,7 +60,7 @@ use crate::common;
 /// every rendered link must climb out of it — a host at the root would let a broken
 /// relative derivation pass by accident.
 const WAYPOINT_PROGRAM: &str = r#"
-import { blocks, emit, embeddedMemberValue, harness, kind, text } from "@dtmd/temper";
+import { blocks, embeddedMemberValue, harness, kind, text } from "@dtmd/temper";
 import { agent, command, memory, rule, skill } from "@dtmd/temper/claude-code";
 
 const supportingDoc = kind<object>({
@@ -171,7 +171,7 @@ const program = harness({
   admit: [{ host: skill, admits: [waypoint] }],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// Each edge field the fixture renders, paired with the `kind:name` its leaf addresses —

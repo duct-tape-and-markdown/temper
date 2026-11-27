@@ -14,7 +14,6 @@ import {
   count,
   degree,
   engineMatches,
-  emit,
   enumOf,
   extend,
   extent,
@@ -43,6 +42,7 @@ import {
   unique,
   when,
 } from "../src/index.js";
+import { emit } from "../src/emit.js";
 import type { EdgeField, KindDefinition, Predicate, Requirement, RequirementFields } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
 import type { ClauseRow, RequirementRow } from "../src/declarations.js";

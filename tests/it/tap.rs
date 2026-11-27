@@ -474,9 +474,8 @@ fn log_path_unchanged_for_non_git_directory() {
 /// A program whose only hook content is the tap a telemetry requirement synthesizes —
 /// no authored hook member brings the hook kind for the tap row to resolve against.
 const TAP_ONLY_PROGRAM: &str = r#"
-import { emit, harness, telemetry } from "@dtmd/temper";
+import { harness, telemetry } from "@dtmd/temper";
 
-declare const process: { stdout: { write(chunk: string): boolean } };
 
 const program = harness({
   members: [],
@@ -485,7 +484,7 @@ const program = harness({
   },
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]

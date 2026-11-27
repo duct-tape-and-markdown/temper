@@ -103,8 +103,9 @@ const TYPECHECK_PACKAGE: &str = "typescript";
 /// The bin [`TYPECHECK_PACKAGE`] lays out at `node_modules/.bin`.
 const TYPECHECK_BIN: &str = "tsc";
 
-/// The ambient Node types the scaffolded program's `process.stdout.write` needs,
-/// ensured as a devDependency beside the compiler.
+/// The ambient Node types the scaffolded project names (`"types": ["node"]`) — the
+/// `import.meta.url` the program hands `input()` — ensured as a devDependency beside the
+/// compiler.
 const NODE_TYPES_PACKAGE: &str = "@types/node";
 
 /// The project file the scaffolded typecheck names, beside `harness.ts`.
@@ -3721,8 +3722,8 @@ fn escape_template_literal(line: &str) -> String {
 }
 
 /// The `harness.ts` skeleton: import every scaffolded member, compose them beside the
-/// SDK's `starter()` into `harness({ ...base, members: [...] })`, and print `emit`'s seam
-/// to stdout — the whole program `emit_program` then runs.
+/// SDK's `starter()` into `harness({ ...base, members: [...] })`, and export it as the
+/// module's default — the whole program `emit_program` then runs through the SDK's pipe.
 ///
 /// The starter supplies the mechanics a fresh program owes: temper's three gate hooks, the
 /// harness reference, and the typecheck emit refuses a program without — the workspace's
@@ -3734,7 +3735,7 @@ fn escape_template_literal(line: &str) -> String {
 /// or replaced by ordinary code.
 fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
     let mut out = format!(
-        "import {{ emit, harness, input }} from \"{SDK_PACKAGE}\";\nimport {{ starter }} from \"{SDK_PACKAGE}/starter\";\n"
+        "import {{ harness, input }} from \"{SDK_PACKAGE}\";\nimport {{ starter }} from \"{SDK_PACKAGE}/starter\";\n"
     );
     for member in members {
         out.push_str(&format!(
@@ -3745,12 +3746,12 @@ fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
     out.push_str(&format!(
         "\nconst base = starter({{ typecheck: {{ project: input(import.meta.url, \"./{TYPECHECK_PROJECT}\") }} }});\n"
     ));
-    out.push_str("\nconst program = harness({\n  ...base,\n  members: [...base.members");
+    out.push_str("\nexport default harness({\n  ...base,\n  members: [...base.members");
     for member in members {
         out.push_str(", ");
         out.push_str(&member.ident);
     }
-    out.push_str("],\n});\n\nprocess.stdout.write(emit(program).seam);\n");
+    out.push_str("],\n});\n");
     out
 }
 

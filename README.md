@@ -52,14 +52,14 @@ ordinary imports, and requirements are declared next to the members that fill
 them:
 
 ```ts
-import { emit, harness, input, tool } from "@dtmd/temper";
+import { harness, input, tool } from "@dtmd/temper";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
 
 const tsc = tool({ package: "typescript", bin: "tsc" });
 
-const program = harness({
+export default harness({
   typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
   require: {
     "friction-capture-procedure": {
@@ -69,8 +69,6 @@ const program = harness({
   },
   members: [memory_CLAUDE, rule_collaboration, skill_captureFriction, tsc],
 });
-
-process.stdout.write(emit(program).seam);
 ```
 
 `emit` first runs the typecheck the program declares (its own compiler over

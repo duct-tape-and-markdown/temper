@@ -9,7 +9,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { blocks, embeddedMemberValue, emit, harness, kind, mentionOf, renderText, text } from "../src/index.js";
+import { blocks, embeddedMemberValue, harness, kind, mentionOf, renderText, text } from "../src/index.js";
+import { emit } from "../src/emit.js";
 import { memory, rule, skill, supportingDoc } from "../src/claude-code.js";
 
 /** The `decision` embedded kind the host below nests — host-free, admitted over `memory` per harness. */

@@ -41,7 +41,7 @@ use crate::common;
 /// `$schema`, the editor-autocomplete key a real repository picks up — riding the
 /// container's opaque residue. Every key of `.mcp.json` is authored in the program.
 const MCP_MEMBER_PROGRAM: &str = r#"
-import { emit, harness } from "@dtmd/temper";
+import { harness } from "@dtmd/temper";
 import { mcp, mcpServer } from "@dtmd/temper/claude-code";
 
 const docs = mcpServer({
@@ -55,7 +55,7 @@ const manifest = mcp({
   residue: { $schema: "https://json.schemastore.org/mcp.json" },
 });
 
-process.stdout.write(emit(harness({ members: [docs, manifest] })).seam);
+export default harness({ members: [docs, manifest] });
 "#;
 
 /// The manifest the program above describes: the `mcpServers` collection segment carrying

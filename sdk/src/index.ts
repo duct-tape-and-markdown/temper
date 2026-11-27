@@ -2,10 +2,10 @@
  * temper's authoring face as a typed module library.
  * A harness author imports plain nouns — `harness()`, the generic `kind`
  * constructor, the clause and requirement constructors, `needs`, and the prose
- * constructors — and composes members as typed values. `emit` compiles the
- * whole into the declaration rows and the projected members' erased payload —
- * the JSON pipe printed to stdout; the engine is the sole compiler of every
- * projection and the whole lock.
+ * constructors — and composes members as typed values, exporting the composed
+ * harness as its module's default. The engine reads that export through the
+ * `./pipe` subpath — never the author's to call — and is the sole compiler of
+ * every projection and the whole lock.
  * Every type erases at the seam, and Turing-completeness
  * stays quarantined at authoring time.
  *
@@ -119,17 +119,8 @@ export { input } from "./kind.js";
 export type { Admission, EnforcementMode, ExpectBinding, Harness, Typecheck } from "./assembly.js";
 export { harness, rootDefaultContract } from "./assembly.js";
 
-// Emit — the compile to the seam's JSON pipe; the engine is the sole compiler
-// of every projection and the whole lock.
-export type {
-  EdgeTarget,
-  EmbeddedTarget,
-  EmitResult,
-  RegistrationFact,
-  ResolveOptions,
-  SettingsResidue,
-} from "./emit.js";
-export { emit } from "./emit.js";
+// Emit's resolution vocabulary; emit itself is the pipe's (`./pipe`), never the author's.
+export type { EdgeTarget, EmbeddedTarget, ResolveOptions } from "./emit.js";
 
 // The harness reference — temper's operate skill, rendered at emit from the harness
 // that declares it.

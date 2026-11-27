@@ -22,7 +22,6 @@ import {
   count,
   degree,
   embeddedMemberValue,
-  emit,
   extent,
   file,
   forbiddenKeys,
@@ -46,7 +45,7 @@ import * as sdk from "../src/index.js";
 import type { LeafSet, ResolvedEmbeddedMemberValue } from "../src/index.js";
 import type { Rule, Skill, SupportingDoc } from "../src/claude-code.js";
 import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
-import { loadedLocalModules } from "../src/emit.js";
+import { emit, loadedLocalModules } from "../src/emit.js";
 import { agent, command, hook, mcpServer, memory, rule, settings, skill, supportingDoc as builtinSupportingDoc } from "../src/claude-code.js";
 import { SDK_COUNSEL } from "../src/counsel.js";
 import { clauseRow } from "./common.js";

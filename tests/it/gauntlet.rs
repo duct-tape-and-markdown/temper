@@ -48,7 +48,7 @@ use crate::module_closure::{is_vendored_sdk, without_module_rows};
 /// nested-file templates, embedded edges, admission, the local commitment class,
 /// manifest residue) is temper's own model (`specs/model/`), not an external fact.
 const GAUNTLET_PROGRAM: &str = r#"
-import { blocks, clause, emit, embeddedMemberValue, harness, kind, required, text, type } from "@dtmd/temper";
+import { blocks, clause, embeddedMemberValue, harness, kind, required, text, type } from "@dtmd/temper";
 import { hook, installedPlugin, knownMarketplace, rule, settings } from "@dtmd/temper/claude-code";
 
 // Composition 1 — a composed layout body over a templated host.
@@ -247,20 +247,16 @@ const decision = kind<{ title?: string; status?: string; ruling?: string }>({
 
 const gateDecision = decision({ name: "0001" });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [gateGuide, representation, conventions, authoring, sessionHook, auditHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook, gateCharter, gateDecision],
-      admit: [{ host: rule, admits: [citation] }],
-      expect: [
-        { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },
-        { kind: decision, clauses: [clause(required("status"), { severity: "required" })] },
-        { kind: invariant, clauses: [clause(required("test"), { severity: "advisory" })] },
-        { kind: spec, clauses: [clause(required("invariant[*].test"), { severity: "advisory" })] },
-      ],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [gateGuide, representation, conventions, authoring, sessionHook, auditHook, formatterPlugin, acmeMarketplace, projectSettings, gateHandbook, gateCharter, gateDecision],
+  admit: [{ host: rule, admits: [citation] }],
+  expect: [
+    { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },
+    { kind: decision, clauses: [clause(required("status"), { severity: "required" })] },
+    { kind: invariant, clauses: [clause(required("test"), { severity: "advisory" })] },
+    { kind: spec, clauses: [clause(required("invariant[*].test"), { severity: "advisory" })] },
+  ],
+});
 "#;
 
 /// The `spec` layout source — a prose preamble, an `# Intent` field section, and an

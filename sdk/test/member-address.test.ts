@@ -8,7 +8,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { blocks, embeddedMemberValue, emit, harness, kind, text, tool } from "../src/index.js";
+import { blocks, embeddedMemberValue, harness, kind, text, tool } from "../src/index.js";
+import { emit } from "../src/emit.js";
 import { gateHook, memory, rule, skill, supportingDoc } from "../src/claude-code.js";
 import { declaredAddresses } from "../src/declarations.js";
 import {

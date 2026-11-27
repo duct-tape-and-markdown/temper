@@ -1682,7 +1682,7 @@ fn explain_narrates_a_kind_absent_guidance_cleanly() {
 /// member of it ever instantiated — the exact shape 0045's ruling exists for: a kind
 /// absent a unit is not a kind absent counsel.
 const EMBEDDED_KIND_GUIDANCE_PROGRAM: &str = r#"
-import { emit, harness, kind, text } from "@dtmd/temper";
+import { harness, kind, text } from "@dtmd/temper";
 import { memory } from "@dtmd/temper/claude-code";
 
 const decision = kind<Record<never, never>>({
@@ -1694,14 +1694,10 @@ const decision = kind<Record<never, never>>({
   cite: "https://example.com/decisions (retrieved 2026-07-24)",
 });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [memory({ name: "CLAUDE", prose: text`# Notes` })],
-      admit: [{ host: memory, admits: [decision] }],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [memory({ name: "CLAUDE", prose: text`# Notes` })],
+  admit: [{ host: memory, admits: [decision] }],
+});
 "#;
 
 #[test]
@@ -2421,7 +2417,7 @@ fn explain_refuses_a_bare_file_child_key_two_hosts_carry_by_naming_both() {
 /// two-layer corpus: the grammar reads an address of any depth, and this is the corpus
 /// behind it.
 const TWO_LAYER_PROGRAM: &str = r#"
-import { emit, harness, kind, text } from "@dtmd/temper";
+import { harness, kind, text } from "@dtmd/temper";
 
 const leaf = kind<object>({
   name: "leaf",
@@ -2448,19 +2444,15 @@ const ops = area({ name: "ops", prose: text`# Ops` });
 const gate = page({ name: "gate", host: ops, prose: text`# The gate` });
 const risk = page({ name: "risk", host: ops, prose: text`# Risk` });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [
-        ops,
-        gate,
-        risk,
-        leaf({ name: "home", host: gate, prose: text`# Gate home` }),
-        leaf({ name: "home", host: risk, prose: text`# Risk home` }),
-      ],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [
+    ops,
+    gate,
+    risk,
+    leaf({ name: "home", host: gate, prose: text`# Gate home` }),
+    leaf({ name: "home", host: risk, prose: text`# Risk home` }),
+  ],
+});
 "#;
 
 #[test]
@@ -2744,7 +2736,7 @@ mod impact_reachability_parity {
 /// A real SDK program the node-free read runs below emit once: a rule and a skill,
 /// enough for a lock carrying member rows, the module closure, and the typecheck.
 const NODELESS_PROGRAM: &str = r#"
-import { emit, harness, text } from "@dtmd/temper";
+import { harness, text } from "@dtmd/temper";
 import { rule, skill } from "@dtmd/temper/claude-code";
 
 const program = harness({
@@ -2770,7 +2762,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// Running the program is the author's act (`emit`, with Node); reading what it
@@ -2927,7 +2919,7 @@ fn check_guard_and_explain_leave_the_lock_byte_identical() {
 /// A program minting a requirement subkind, `decision`, with its own `tell` field, and
 /// declaring one member of it that a rule fills.
 const DECISION_REQUIREMENT_PROGRAM: &str = r#"
-import { emit, extend, harness, requirement, text } from "@dtmd/temper";
+import { extend, harness, requirement, text } from "@dtmd/temper";
 import type { RequirementFields } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 
@@ -2943,7 +2935,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]

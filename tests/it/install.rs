@@ -1805,14 +1805,14 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
 .unwrap();
     fs::write(
         temper_dir.join("harness.ts"),
-        "import { emit, harness, input, tool } from \"@dtmd/temper\";\n\
+        "import { harness, input, tool } from \"@dtmd/temper\";\n\
          import { skill_coordinate } from \"./skills/coordinate.ts\";\n\
          import { rule_rust } from \"./rules/rust.ts\";\n\
          import { rule_collaboration } from \"./rules/collaboration.ts\";\n\
          import { extra } from \"./skills/extra.ts\";\n\n\
          const tsc = tool({ package: \"typescript\", bin: \"tsc\" });\n\n\
          const program = harness({\n  members: [skill_coordinate, rule_rust, rule_collaboration, extra, tsc],\n  typecheck: { tool: tsc, project: input(import.meta.url, \"./tsconfig.json\") },\n});\n\n\
-         process.stdout.write(emit(program).seam);\n",
+         export default program;\n",
  )
 .unwrap();
 
@@ -2659,15 +2659,14 @@ fn a_fresh_represented_install_scaffolds_a_program_that_calls_starter() {
     let program = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
     assert_eq!(
         program,
-        "import { emit, harness, input } from \"@dtmd/temper\";\n\
+        "import { harness, input } from \"@dtmd/temper\";\n\
          import { starter } from \"@dtmd/temper/starter\";\n\
          import { rule_collaboration } from \"./rules/collaboration.ts\";\n\
          import { rule_rust } from \"./rules/rust.ts\";\n\
          import { skill_coordinate } from \"./skills/coordinate.ts\";\n\n\
          const base = starter({ typecheck: { project: input(import.meta.url, \"./tsconfig.json\") } });\n\n\
-         const program = harness({\n  ...base,\n  \
-         members: [...base.members, rule_collaboration, rule_rust, skill_coordinate],\n});\n\n\
-         process.stdout.write(emit(program).seam);\n"
+         export default harness({\n  ...base,\n  \
+         members: [...base.members, rule_collaboration, rule_rust, skill_coordinate],\n});\n"
     );
     // What the starter supplies the scaffold no longer writes, or the names would collide.
     assert!(

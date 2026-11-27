@@ -25,7 +25,7 @@ use crate::common;
 /// `string|array`-typed `paths` field — the single-kind clause and the union the set
 /// widening bought, both authored the way an SDK consumer authors them.
 const PACK_PROGRAM: &str = r#"
-import { clause, emit, harness, kind, text, type } from "@dtmd/temper";
+import { clause, harness, kind, text, type } from "@dtmd/temper";
 
 const pack = kind<{ keywords: string[]; paths: string }>({
   name: "pack",
@@ -43,7 +43,7 @@ const program = harness({
   ] }],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// A `pack` unit whose `field` carries `value` — the parsed JSON the extractor

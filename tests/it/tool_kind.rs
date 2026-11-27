@@ -10,13 +10,13 @@ use crate::common;
 
 /// A program composing one tool of each variant and nothing that runs any of them.
 const TOOLS_PROGRAM: &str = r#"
-import { emit, harness, tool } from "@dtmd/temper";
+import { harness, tool } from "@dtmd/temper";
 
 const program = harness({
   members: [tool(), tool({ system: "jq" }), tool({ file: "scripts/check.sh" })],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -89,7 +89,7 @@ fn a_tool_member_projects_no_file() {
 /// A program declaring a committed hook script as a `{ file }` tool, and the
 /// `PostToolUse` handler whose command runs it naming that tool by `runs`.
 const HOOK_SCRIPT_PROGRAM: &str = r#"
-import { emit, harness, tool } from "@dtmd/temper";
+import { harness, tool } from "@dtmd/temper";
 import { hook } from "@dtmd/temper/claude-code";
 
 const check = tool({ file: ".claude/hooks/check.sh" });
@@ -99,7 +99,7 @@ const after = hook({
   hooks: [{ type: "command", command: ".claude/hooks/check.sh", runs: check }],
 });
 
-process.stdout.write(emit(harness({ members: [check, after] })).seam);
+export default harness({ members: [check, after] });
 "#;
 
 #[test]
@@ -167,7 +167,7 @@ fn a_file_tool_naming_a_missing_script_refuses_at_emit() {
 /// A program whose committed `settings` status line runs a script declared as a
 /// `{ file }` tool, naming it by `runs`.
 const STATUS_LINE_PROGRAM: &str = r#"
-import { emit, harness, tool } from "@dtmd/temper";
+import { harness, tool } from "@dtmd/temper";
 import { settings } from "@dtmd/temper/claude-code";
 
 const line = tool({ file: ".claude/statusline.sh" });
@@ -176,7 +176,7 @@ const project = settings({
   statusLine: { type: "command", command: ".claude/statusline.sh", padding: 0, runs: line },
 });
 
-process.stdout.write(emit(harness({ members: [line, project] })).seam);
+export default harness({ members: [line, project] });
 "#;
 
 #[test]
@@ -217,13 +217,13 @@ fn the_settings_status_line_reaches_the_file_tool_it_runs() {
 /// A program composing the reference and one `{ package, bin }` tool that the reference
 /// renders and nothing runs.
 const PACKAGE_TOOL_PROGRAM: &str = r#"
-import { emit, harness, reference, tool } from "@dtmd/temper";
+import { harness, reference, tool } from "@dtmd/temper";
 
 const program = harness({
   members: [reference(), tool({ package: "typescript", bin: "tsc" })],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// The tool's topic beside the reference's `SKILL.md`.
@@ -550,9 +550,8 @@ fn an_unsupported_package_manager_refuses_naming_it() {
 
 /// A program whose only runner of its `{ package, bin }` compiler tool is its typecheck.
 const TYPECHECK_ONLY_PROGRAM: &str = r#"
-import { emit, harness, input, tool } from "@dtmd/temper";
+import { harness, input, tool } from "@dtmd/temper";
 
-declare const process: { stdout: { write(chunk: string): boolean } };
 
 const tsc = tool({ package: "typescript", bin: "tsc" });
 
@@ -561,7 +560,7 @@ const program = harness({
   typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[cfg(unix)]
@@ -598,9 +597,8 @@ fn a_tool_reached_only_by_the_typecheck_draws_no_degree_finding() {
 /// A program whose only runner of its tool is a telemetry requirement's tap, and whose
 /// only hook content is that tap.
 const TAP_ONLY_PROGRAM: &str = r#"
-import { emit, harness, telemetry, tool } from "@dtmd/temper";
+import { harness, telemetry, tool } from "@dtmd/temper";
 
-declare const process: { stdout: { write(chunk: string): boolean } };
 
 const temper = tool();
 const program = harness({
@@ -610,7 +608,7 @@ const program = harness({
   },
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -646,9 +644,8 @@ fn a_tool_reached_only_by_a_tap_draws_no_degree_finding() {
 /// A program whose only runner of its `{ file }` tool is a script verifier, beside a
 /// script verifier that names no tool.
 const SCRIPT_VERIFIER_PROGRAM: &str = r#"
-import { emit, harness, script, tool } from "@dtmd/temper";
+import { harness, script, tool } from "@dtmd/temper";
 
-declare const process: { stdout: { write(chunk: string): boolean } };
 
 const verify = tool({ file: "scripts/verify.sh" });
 
@@ -660,7 +657,7 @@ const program = harness({
   },
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// Wire and emit [`SCRIPT_VERIFIER_PROGRAM`] with both verifier paths present.

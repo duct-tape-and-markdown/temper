@@ -230,7 +230,7 @@ fn decision_kind_fact_row() -> KindFactRow {
 /// needs: the pattern is the host kind's declared fact, and the child kind declares no
 /// locus of its own to compose from.
 const NESTED_FILE_PROGRAM: &str = r#"
-import { emit, harness, kind, text } from "@dtmd/temper";
+import { harness, kind, text } from "@dtmd/temper";
 
 const supportingDoc = kind<object>({
   name: "supporting-doc",
@@ -248,20 +248,16 @@ const guide = kind<object>({
 
 const operating = guide({ name: "operate-the-gate", prose: text`# Operate the gate` });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [operating, supportingDoc({ name: "checklist", host: operating, prose: text`# Checklist` })],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [operating, supportingDoc({ name: "checklist", host: operating, prose: text`# Checklist` })],
+});
 "#;
 
 /// The same composition with a **literal leading segment** in the host template's path
 /// pattern (`notes/*.md`): the child still composes under the host's own unit, with
 /// `notes/` carried verbatim and the name taking the pattern's final segment.
 const NESTED_FILE_SUBDIRECTORY_PROGRAM: &str = r#"
-import { emit, harness, kind, text } from "@dtmd/temper";
+import { harness, kind, text } from "@dtmd/temper";
 
 const supportingDoc = kind<object>({
   name: "supporting-doc",
@@ -279,13 +275,9 @@ const guide = kind<object>({
 
 const operating = guide({ name: "operate-the-gate", prose: text`# Operate the gate` });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [operating, supportingDoc({ name: "checklist", host: operating, prose: text`# Checklist` })],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [operating, supportingDoc({ name: "checklist", host: operating, prose: text`# Checklist` })],
+});
 "#;
 
 /// A `skill` that both admits its own embedded `note` kind over its composed body **and**
@@ -295,7 +287,7 @@ process.stdout.write(
 /// `supporting-doc` file layer is the host kind's own declared fact and must survive the
 /// composition, or emit finds no file template and refuses the child.
 const ADMIT_OVER_FILE_TEMPLATE_HOST: &str = r#"
-import { blocks, emit, embeddedMemberValue, harness, kind, text } from "@dtmd/temper";
+import { blocks, embeddedMemberValue, harness, kind, text } from "@dtmd/temper";
 import { skill, supportingDoc } from "@dtmd/temper/claude-code";
 
 const note = kind<object>({
@@ -312,17 +304,13 @@ const coordinating = skill({
   ),
 });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [
-        coordinating,
-        supportingDoc({ name: "checklist", host: coordinating, prose: text`# Checklist` }),
-      ],
-      admit: [{ host: skill, admits: [note] }],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [
+    coordinating,
+    supportingDoc({ name: "checklist", host: coordinating, prose: text`# Checklist` }),
+  ],
+  admit: [{ host: skill, admits: [note] }],
+});
 "#;
 
 #[test]
@@ -1523,7 +1511,7 @@ mod host_keyed_file_children_through_the_sdk {
     /// file child rides the lock: emit resolves the mention against its own declared set
     /// before writing a byte, and the row it writes is asserted below.
     const TWO_HOSTS_ONE_CHILD_NAME: &str = r#"
-import { emit, harness, kind, mentionOf, text } from "@dtmd/temper";
+import { harness, kind, mentionOf, text } from "@dtmd/temper";
 
 const note = kind<{ title: string }>({
   name: "note",
@@ -1544,18 +1532,14 @@ const beta = unit({ name: "beta", prose: text`# Beta` });
 const betaHome = note({ name: "home", host: beta, title: "Beta's home" });
 const alpha = unit({ name: "alpha", prose: text`# Alpha\n\nBeta keeps ${mentionOf(betaHome)}.` });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [
-        alpha,
-        beta,
-        note({ name: "home", host: alpha, title: "Alpha's home" }),
-        betaHome,
-      ],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [
+    alpha,
+    beta,
+    note({ name: "home", host: alpha, title: "Alpha's home" }),
+    betaHome,
+  ],
+});
 "#;
 
     #[test]
@@ -1632,7 +1616,7 @@ mod nested_layers_compose_to_any_depth {
     /// and the layer beneath it composes against the unit that pattern seats, not against
     /// any root.
     const TWO_LAYER_PROGRAM: &str = r#"
-import { emit, harness, kind, text } from "@dtmd/temper";
+import { harness, kind, text } from "@dtmd/temper";
 
 const leaf = kind<object>({
   name: "leaf",
@@ -1658,13 +1642,9 @@ const area = kind<object>({
 const ops = area({ name: "ops", prose: text`# Ops` });
 const gate = page({ name: "gate", host: ops, prose: text`# The gate` });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [ops, gate, leaf({ name: "home", host: gate, prose: text`# Home` })],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [ops, gate, leaf({ name: "home", host: gate, prose: text`# Home` })],
+});
 "#;
 
     #[test]
@@ -1833,7 +1813,7 @@ mod a_fresh_finding_names_the_members_whole_address {
     /// Two guides, each templating a `*.md` child, and each carrying a child keyed
     /// `checklist` — the collision the host segment of the address resolves.
     const TWO_HOSTS_ONE_KEY: &str = r#"
-import { emit, harness, kind, text } from "@dtmd/temper";
+import { harness, kind, text } from "@dtmd/temper";
 
 const supportingDoc = kind<object>({
   name: "supporting-doc",
@@ -1852,18 +1832,14 @@ const guide = kind<object>({
 const operating = guide({ name: "operate-the-gate", prose: text`# Operate the gate` });
 const adopting = guide({ name: "adopt-the-harness", prose: text`# Adopt the harness` });
 
-process.stdout.write(
-  emit(
-    harness({
-      members: [
-        operating,
-        adopting,
-        supportingDoc({ name: "checklist", host: operating, prose: text`# Operate checklist` }),
-        supportingDoc({ name: "checklist", host: adopting, prose: text`# Adopt checklist` }),
-      ],
-    }),
-  ).seam,
-);
+export default harness({
+  members: [
+    operating,
+    adopting,
+    supportingDoc({ name: "checklist", host: operating, prose: text`# Operate checklist` }),
+    supportingDoc({ name: "checklist", host: adopting, prose: text`# Adopt checklist` }),
+  ],
+});
 "#;
 
     #[test]

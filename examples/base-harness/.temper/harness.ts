@@ -1,4 +1,4 @@
-import { clause, count, emit, extent, harness, input, uniqueName } from "@dtmd/temper";
+import { clause, count, extent, harness, input, uniqueName } from "@dtmd/temper";
 import { settings, skill, skillDefaultContract } from "@dtmd/temper/claude-code";
 import { starter } from "@dtmd/temper/starter";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
@@ -31,7 +31,7 @@ const base = starter({
   },
 });
 
-const program = harness({
+export default harness({
   ...base,
   require: {
     // The five domains — the whole skeleton, declared on day one. Growth is
@@ -129,5 +129,3 @@ const program = harness({
     { kind: alternative, clauses: [] },
   ],
 });
-
-process.stdout.write(emit(program).seam);

@@ -3464,7 +3464,7 @@ fn two_body_rows_under_one_guard_sharing_one_label_fail_admissibility_loud() {
 /// admissibility. Each clause here is authored to decide differently from its
 /// sibling, so a run that gates them independently is visible in the findings.
 const SECTION_CLAUSE_LABEL_PROGRAM: &str = r#"
-import { clause, emit, harness, requireSections, sectionContains, text } from "@dtmd/temper";
+import { clause, harness, requireSections, sectionContains, text } from "@dtmd/temper";
 import { skill } from "@dtmd/temper/claude-code";
 
 const program = harness({
@@ -3498,7 +3498,7 @@ const program = harness({
  ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// Two clauses of one section-addressing predicate on one kind compile — through the

@@ -204,7 +204,7 @@ fn an_explicit_http_mcp_server_with_a_url_passes_the_transport_clauses() {
 /// A program declaring the connection and nothing else — no container member, so the
 /// document `emit` writes is owned by no member of the kind that governs it.
 const SERVER_ONLY_PROGRAM: &str = r#"
-import { emit, harness } from "@dtmd/temper";
+import { harness } from "@dtmd/temper";
 import { mcpServer } from "@dtmd/temper/claude-code";
 
 const docs = mcpServer({
@@ -213,7 +213,7 @@ const docs = mcpServer({
   url: "https://mcp.example.com/mcp",
 });
 
-process.stdout.write(emit(harness({ members: [docs] })).seam);
+export default harness({ members: [docs] });
 "#;
 
 #[test]

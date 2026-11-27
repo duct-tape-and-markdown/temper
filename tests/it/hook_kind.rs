@@ -329,7 +329,7 @@ fn a_two_handler_group_re_nests_to_the_settings_json_it_was_read_from() {
 /// group's own field and the handlers are its ordered `hooks` array, so one call mints one
 /// group whatever the handler count (0075).
 const TWO_HANDLER_PROGRAM: &str = r#"
-import { emit, harness } from "@dtmd/temper";
+import { harness } from "@dtmd/temper";
 import { hook } from "@dtmd/temper/claude-code";
 
 const guard = hook({
@@ -341,7 +341,7 @@ const guard = hook({
   ],
 });
 
-process.stdout.write(emit(harness({ members: [guard] })).seam);
+export default harness({ members: [guard] });
 "#;
 
 #[test]

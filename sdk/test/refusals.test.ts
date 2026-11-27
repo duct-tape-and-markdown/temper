@@ -20,7 +20,8 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
-import { blocks, embeddedMemberValue, emit, file, harness, kind, text } from "../src/index.js";
+import { blocks, embeddedMemberValue, file, harness, kind, text } from "../src/index.js";
+import { emit } from "../src/emit.js";
 import { hook, memory, rule, skill } from "../src/claude-code.js";
 
 /** An embedded-locus kind named `decision` — host-free; the corpus's `admit` names its hosts. */

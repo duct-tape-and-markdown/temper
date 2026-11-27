@@ -2834,7 +2834,7 @@ fn a_re_emit_from_a_foreign_cwd_joins_the_prior_rows_under_the_targeted_root() {
 /// own), importing only the bare `@dtmd/temper`/`@dtmd/temper/claude-code`
 /// specifiers a real consumer's `node_modules` would resolve.
 const HARNESS_PROGRAM: &str = r#"
-import { emit, harness, text } from "@dtmd/temper";
+import { harness, text } from "@dtmd/temper";
 import { rule, skill } from "@dtmd/temper/claude-code";
 
 const program = harness({
@@ -2860,7 +2860,7 @@ const program = harness({
  ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// The common fixture-harness wiring bound to this suite's [`HARNESS_PROGRAM`].
@@ -2872,7 +2872,7 @@ fn wire_sdk_harness(label: &str) -> (PathBuf, PathBuf) {
 /// requirement — a gate hook is an ordinary hook member, so it speaks every member's
 /// `satisfies` edge.
 const GATE_HOOK_SATISFIES_PROGRAM: &str = r#"
-import { harness, requirement, emit } from "@dtmd/temper";
+import { harness, requirement } from "@dtmd/temper";
 import { gateHook, hook } from "@dtmd/temper/claude-code";
 
 const program = harness({
@@ -2882,7 +2882,7 @@ const program = harness({
   },
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -2915,7 +2915,7 @@ fn a_gate_hook_declaring_satisfies_fills_its_requirement() {
 /// set-scope clause — proving the real SDK emits a requirement's demand as
 /// a nested clause row, not a facet field, end to end across the seam.
 const REQUIREMENT_CLAUSES_PROGRAM: &str = r#"
-import { clause, count, emit, harness, requirement, text } from "@dtmd/temper";
+import { clause, count, harness, requirement, text } from "@dtmd/temper";
 import { skill } from "@dtmd/temper/claude-code";
 
 const program = harness({
@@ -2940,7 +2940,7 @@ const program = harness({
  },
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -3048,7 +3048,7 @@ fn emit_program_executes_the_sdk_program_and_byte_reproduces_across_a_second_run
 /// authoring code that is a different program on every run, which no render-side
 /// double-emit can see: one payload renders the same bytes twice.
 const CLOCK_PROGRAM: &str = r#"
-import { emit, harness, text } from "@dtmd/temper";
+import { harness, text } from "@dtmd/temper";
 import { skill } from "@dtmd/temper/claude-code";
 
 const program = harness({
@@ -3061,7 +3061,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -3090,7 +3090,7 @@ fn a_program_interpolating_the_current_time_refuses_at_emit_as_nondeterministic(
 /// count pin on the program-side double-emit: exactly two `node` runs per emit.
 const COUNTED_PROGRAM: &str = r#"
 import { appendFileSync } from "node:fs";
-import { emit, harness, text } from "@dtmd/temper";
+import { harness, text } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 
 appendFileSync(new URL("./runs.log", import.meta.url), "run\n");
@@ -3099,7 +3099,7 @@ const program = harness({
   members: [rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust` })],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -3125,7 +3125,7 @@ fn a_deterministic_program_emits_as_today_across_exactly_two_node_runs() {
 /// facts end to end, reaching `CustomKind::from_kind_fact_row`'s typed
 /// fields byte-stably.
 const CUSTOM_KIND_CONTENT_PROGRAM: &str = r#"
-import { kind, emit, harness, text } from "@dtmd/temper";
+import { kind, harness, text } from "@dtmd/temper";
 
 // A custom kind with layout content: prose (import), field (slot), and collection (member_kind + key).
 const layoutKind = kind<{ intent?: string }>({
@@ -3164,7 +3164,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -3265,7 +3265,7 @@ fn emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end(
 /// the harness entry, which on Windows yields the verbatim form Node's
 /// `resolveMainPath` rejects, so the argv it received must never carry it.
 const ARGV_PROBE_PROGRAM: &str = r#"
-import { emit, harness, text } from "@dtmd/temper";
+import { harness, text } from "@dtmd/temper";
 import { skill } from "@dtmd/temper/claude-code";
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -3290,7 +3290,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -3306,12 +3306,61 @@ fn emit_program_hands_node_an_entry_path_with_no_verbatim_prefix() {
     );
 }
 
-/// A program whose stdout carries a stray log line ahead of the seam — the JSON pipe no
-/// longer parses, which is a broken output, never SDK/engine version skew.
+/// A program that logs to stdout as its module runs — the stray line lands ahead of the
+/// pipe's seam, so the JSON no longer parses: a broken output, never SDK/engine version
+/// skew.
 const NOISY_STDOUT_PROGRAM: &str = r#"
+import { harness } from "@dtmd/temper";
 console.log("debug: building the harness");
-process.stdout.write('{"version": 2, "declarations": {}, "members": []}');
+export default harness({ members: [] });
 "#;
+
+/// A program whose module does nothing but default-export its harness — no stdout, no
+/// emit call: the engine reads the export through the SDK's pipe.
+const DEFAULT_EXPORT_PROGRAM: &str = r#"
+import { harness, text } from "@dtmd/temper";
+import { rule } from "@dtmd/temper/claude-code";
+
+export default harness({
+  members: [rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` })],
+});
+"#;
+
+#[test]
+fn a_program_that_default_exports_its_harness_emits() {
+    let (harness, into) = common::wire_sdk_harness("default-export", DEFAULT_EXPORT_PROGRAM);
+
+    let report = drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
+    let rule = fs::read_to_string(harness.join(".claude/rules/rust.md")).unwrap();
+    assert!(rule.contains("# Rust conventions"), "{rule}");
+    let (findings, ok) = common::check_harness(&harness);
+    assert!(ok, "the emitted program checks clean: {findings:?}");
+}
+
+/// A program that composes its harness but exports none — the pipe has nothing to read
+/// and refuses, naming the default export the module owes.
+const NO_DEFAULT_EXPORT_PROGRAM: &str = r#"
+import { harness } from "@dtmd/temper";
+export const program = harness({ members: [] });
+"#;
+
+#[test]
+fn a_program_that_exports_no_default_harness_refuses_naming_the_export() {
+    let (_harness, into) = common::wire_sdk_harness("no-default", NO_DEFAULT_EXPORT_PROGRAM);
+
+    let err = drift::emit_program(&into, EmitOptions::default()).unwrap_err();
+
+    let drift_err = err
+        .downcast_ref::<drift::DriftError>()
+        .unwrap_or_else(|| panic!("expected a DriftError, got {err:?}"));
+    assert!(
+        matches!(drift_err, drift::DriftError::SdkProgramFailed { stderr, .. }
+            if stderr.contains("exports no harness as its default")),
+        "{drift_err:?}"
+    );
+}
 
 #[test]
 fn a_payload_that_is_not_json_refuses_as_a_payload_parse_error_not_a_seam_version_mismatch() {
@@ -3440,7 +3489,7 @@ fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
 /// (`specs/model/contract.md`, "selection"). Both bounds hold of the members below,
 /// so the only thing that can refuse this program is its own addressing.
 const FILTERED_DEGREE_PROGRAM: &str = r#"
-import { clause, degree, emit, harness, kind, text, type KindDefinition } from "@dtmd/temper";
+import { clause, degree, harness, kind, text, type KindDefinition } from "@dtmd/temper";
 
 interface Service {
   readonly "depends-on"?: readonly string[];
@@ -3481,7 +3530,7 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -3826,7 +3875,7 @@ fn crlf_orphan_classifies_as_reaped_not_drift() {
 /// spelling of the same dangling `rule` target — bare and kind-qualified — through a
 /// one-element `to` set; `rust` composes so the `rule` kind is in play.
 const DANGLING_EDGE_SPELLINGS_PROGRAM: &str = r#"
-import { blocks, embeddedMemberValue, emit, harness, kind, text } from "@dtmd/temper";
+import { blocks, embeddedMemberValue, harness, kind, text } from "@dtmd/temper";
 import { memory, rule } from "@dtmd/temper/claude-code";
 
 const citation = kind({
@@ -3850,7 +3899,7 @@ const program = harness({
   admit: [{ host: memory, admits: [citation] }],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -3903,10 +3952,9 @@ fn a_bare_edge_target_in_a_multi_element_set_still_refuses_at_emit() {
 /// `{ package, bin }` tool, over the workspace's own `tsconfig.json`. `BODY` is the slot a
 /// case writes a statement into — a type error, or nothing.
 const TYPECHECKED_PROGRAM: &str = r#"
-import { emit, harness, input, text, tool } from "@dtmd/temper";
+import { harness, input, text, tool } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 
-declare const process: { stdout: { write(chunk: string): boolean } };
 
 BODY
 
@@ -3922,7 +3970,7 @@ const program = harness({
   typecheck: { tool: tsc, project: input(import.meta.url, "./tsconfig.json") },
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]
@@ -4080,18 +4128,16 @@ fn a_typecheck_naming_a_tool_the_harness_does_not_compose_refuses() {
 
 /// A program whose run fails outright: `node` throws before a payload is printed.
 const UNRUNNABLE_PROGRAM: &str = r#"
-import { emit, harness } from "@dtmd/temper";
-declare const process: { stdout: { write(chunk: string): boolean } };
+import { harness } from "@dtmd/temper";
 throw new Error("the program cannot run");
-process.stdout.write(emit(harness({ members: [] })).seam);
+export default harness({ members: [] });
 "#;
 
 /// A plain fixture program — one rule — whose emit the [`common::typechecked`] splice
 /// types through the [`common::FIXTURE_TSC`] stub.
 const PLAIN_PROGRAM: &str = r#"
-import { emit, harness, text } from "@dtmd/temper";
+import { harness, text } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
-declare const process: { stdout: { write(chunk: string): boolean } };
 const program = harness({
   members: [
     rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`
@@ -4099,7 +4145,7 @@ const program = harness({
     ` }),
   ],
 });
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 /// Rewrite the fixture typecheck's stub as a compiler reporting `diagnostic` and failing.

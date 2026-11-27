@@ -503,7 +503,7 @@ fn a_kind_row_relocating_a_built_ins_governs_fires_no_governs_collision_diagnost
 /// A program declaring two requirements through `harness({ require })` — a
 /// `requirement(…)` member and a bare literal — and composing nothing that fills either.
 const REQUIRE_MAP_PROGRAM: &str = r#"
-import { emit, harness, requirement } from "@dtmd/temper";
+import { harness, requirement } from "@dtmd/temper";
 
 const program = harness({
   members: [],
@@ -513,7 +513,7 @@ const program = harness({
   },
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
 "#;
 
 #[test]

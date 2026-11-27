@@ -1258,7 +1258,7 @@ pub struct PayloadMember {
     pub source_path: Option<String>,
 }
 
-/// The whole seam payload the SDK program prints to stdout: the declaration rows and
+/// The whole seam payload the SDK pipe prints to stdout: the declaration rows and
 /// every projected member's erased payload. The engine is the sole compiler of every projection and the whole lock
 /// from this one value — no harness re-supply, the payload IS the source.
 ///
@@ -2100,8 +2100,8 @@ fn member_projection_path(
 }
 
 /// Run the SDK program at `<workspace_dir>/harness.ts` and compile its payload in one
-/// call — the whole seam: `node` executes the authored program, the engine reads the JSON
-/// pipe it prints on stdout and becomes the sole compiler of every projection and the
+/// call — the whole seam: `node` runs the authored module through the SDK's pipe, the
+/// engine reads the harness it default-exports as the JSON the pipe prints on stdout and becomes the sole compiler of every projection and the
 /// whole lock. No harness root is re-supplied — the payload IS the source.
 ///
 /// # Errors
@@ -2297,11 +2297,17 @@ fn typecheck_command(
         .ok_or_else(refused)
 }
 
-/// Execute the SDK program at `harness_entry` (`node <path>`) and capture its
-/// stdout — the internal versioned JSON pipe. The subprocess's working directory
-/// is the program's own directory, so a bare `@dtmd/temper` import resolves
-/// through the consuming project's `node_modules`, walking up from there exactly
-/// as Node's own resolution would from the program's location. The `node` arg
+/// The module `node` evaluates to run a program: the SDK's one pipe imports the entry
+/// handed it as `argv[1]`, reads the harness it default-exports, and prints its seam. The
+/// program writes no stdout and calls no emit of its own.
+const SDK_PIPE_DRIVER: &str =
+    "import { pipe } from \"@dtmd/temper/pipe\";\nawait pipe(process.argv[1]);\n";
+
+/// Run the SDK program at `harness_entry` through the SDK's pipe ([`SDK_PIPE_DRIVER`])
+/// and capture its stdout — the internal versioned JSON pipe. The subprocess's working
+/// directory is the program's own directory, so the driver's bare `@dtmd/temper/pipe`
+/// import resolves through the consuming project's `node_modules`, walking up from there
+/// exactly as the program's own `@dtmd/temper` import does — one SDK instance. The entry arg
 /// itself is canonicalized first: a relative `harness_entry` (the `./.temper`
 /// default) would otherwise be re-resolved by Node against the *new* cwd once
 /// `current_dir` moves under it, doubling the path (`./.temper/.temper/harness.ts`,
@@ -2317,6 +2323,9 @@ fn run_sdk_program(harness_entry: &Path) -> Result<String, DriftError> {
     let output = Command::new("node")
         .arg("--import")
         .arg(module_recorder_preload())
+        .arg("--input-type=module")
+        .arg("--eval")
+        .arg(SDK_PIPE_DRIVER)
         .arg(&entry_arg)
         .current_dir(cwd)
         .output()
