@@ -1,0 +1,22 @@
+{
+  "tag": "ONE-FENCED-TREE-INDEX-PER-RUN",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/import.rs", "description": "Discovery's two flavors read one fenced index" },
+      { "path": "src/coverage_note.rs", "description": "claude_walk reads the shared index" },
+      { "path": "src/install.rs", "description": "locus_files / locus_member_sites read the shared index, not a walk per locus" },
+      { "path": "src/compose.rs", "description": "thread the index owner through check" },
+      { "path": "src/main.rs", "description": "guard/explain hold the run's owner" },
+      { "path": "tests/it/check_cost.rs", "description": "per-verb index-pass count pins" }
+    ]
+  },
+  "summary": "One fenced tree index per run: Discovery's flavors, claude_walk and install::locus_files read it; no walk per locus at the shell edge",
+  "per": { "path": "specs/process/engineering.md", "section": "Cost scale is hoisted, and pinned by count" },
+  "acceptance": "check, guard at both edges and explain each pass the tree once; repo_file_set stays out of scope pending the raw-disk question",
+  "tests": [
+    "check builds one tree index per run",
+    "guard at the shell edge builds one tree index per run whatever its locus count"
+  ],
+  "notes": "Inbox 2026-11-27 whole-input record. Excludes compose::repo_file_set: contract.md 'edge' holds path-resolved edges on raw disk (question repo-file-set-raw-disk-vs-one-fenced-index). Owner shape per the rust rule 'A run reads each input once'."
+}

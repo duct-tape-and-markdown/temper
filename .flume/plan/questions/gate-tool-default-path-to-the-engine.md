@@ -1,0 +1,7 @@
+# Should a package-bin gate tool resolve to the platform engine rather than the Node launcher?
+
+`specs/model/authoring.md`, "The SDK": a package's bin runs from "the anchored `.bin` the program's package manager lays out". For `@dtmd/temper` that bin is `sdk/bin/temper.js`, a Node launcher that `spawnSync`s the platform engine. Every guarded tool call pays Node's start before the engine runs: measured on 0.0.26 over this repo, p50 of 60, 39 ms through `.bin/temper` against 7 ms direct for a PreToolUse Edit, and 48 ms against 18 ms for a PostToolUse Bash. The platform package (`@dtmd/temper-linux-x64`) declares no `bin`, so no anchored path reaches the engine without the launcher. Node has no in-place exec, so a launcher change alone cannot remove the hop.
+
+`specs/distribution.md`, "What ships", item 2, says no placement needs a language runtime. It does not say which path a gate hook runs. Two answers fit the corpus. (a) The anchored `.bin` stays the default and the hop is accepted. (b) A gate hook's tool resolves to the platform engine's own path, such as a `bin` on the platform package or a resolved path written at emit. Either way a missing platform binary must still fail loud with the install instructions, which today is the launcher's job.
+
+Needed: a ruling in authoring.md "The SDK" (or distribution.md "What ships") naming the path a gate hook runs, and who prints the install error under (b). Latency stays a manual signal. Raised by inbox 2026-11-27-gate-hooks-pay-a-node-start-per-tool-call.

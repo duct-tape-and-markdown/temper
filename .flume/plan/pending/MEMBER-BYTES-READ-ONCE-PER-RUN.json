@@ -1,0 +1,20 @@
+{
+  "tag": "MEMBER-BYTES-READ-ONCE-PER-RUN",
+  "gate": { "kind": "blockedBy", "tags": ["LOCK-PARSED-ONCE-PER-RUN"] },
+  "files": {
+    "edit": [
+      { "path": "src/install.rs", "description": "evaluate_placements reads through the bytes owner" },
+      { "path": "src/drift.rs", "description": "place and config_stale_members_from_doc read through the bytes owner" },
+      { "path": "src/compose.rs", "description": "check holds the run's bytes owner" },
+      { "path": "tests/it/check_cost.rs", "description": "paths-opened count pin" }
+    ]
+  },
+  "summary": "check opens each member file once: install::evaluate_placements, drift::place and drift::config_stale_members_from_doc share one bytes owner",
+  "per": { "path": "specs/process/engineering.md", "section": "Cost scale is hoisted, and pinned by count" },
+  "acceptance": "each file opened at most once per run over check, guard at both edges and explain",
+  "tests": [
+    "check opens each member file once per run",
+    "guard opens each file at most once per run"
+  ],
+  "notes": "Inbox 2026-11-27 whole-input record. Blocked on the lock entry: both thread an owner through the same drift/install call paths."
+}
