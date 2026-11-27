@@ -34,11 +34,13 @@ are flume gates, so a violation reverts the commit.
   bytes, the parsed lock), and every judge, reporter and verb branch reads
   through that owner, never from disk. The owner fills an input on first
   use, so a verb pays only for what it reaches, and a run that writes
-  reads its own writes back through it. The tree index is built in one
-  place behind the fences every reader shares: the ignore rules, `.git/`,
-  and a nested governed root. A kind that claims ignored documents reads
-  them under its own locus, never by a whole-tree walk with the rules
-  waived. Where an input has no owner yet, the work that first needs one
+  reads its own writes back through it. The discovery index is built in
+  one place behind the fences every discovery reader shares: the ignore
+  rules, `.git/`, and a nested governed root. A kind that claims ignored
+  documents reads them under its own locus, never by a whole-tree walk with
+  the rules waived. A reader the contract holds to raw disk (a path-resolved
+  edge) keeps raw disk, and reads only as far as the paths it resolves
+  reach. Where an input has no owner yet, the work that first needs one
   builds it rather than adding another reader. The holder is a count pin
   per verb taken at the owners (paths opened, index passes, matchers
   built), never a counter on one mechanism, which a second mechanism walks
