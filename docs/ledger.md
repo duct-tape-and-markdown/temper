@@ -59,8 +59,10 @@ hard.
   the excluding relocation fixed (it blocked `playbook()` for every adopter
   who excluded a fixture tree); the rule line budget limited to rules
   loaded at launch; and gate fail-loud (0121 plus the exit-2 ruling). A
-  missing engine had been passing every tool call through. Then land
-  temper-perf's `posture-in-harness` once a flume release carries #29.
+  missing engine had been passing every tool call through. Since then, the
+  posture migration has landed (0122, `268237a3`): engineering and
+  architecture are the `engineering` playbook in `.temper/`, the sweep's
+  posture pages are its topics, and the loop runs on flume 0.24.0.
 - **First focus: a consolidation pass.** +14.5k net in a day and a half is
   more growth than its features explain. Weigh it against `engineering.md`
   before new surface lands.
