@@ -144,10 +144,8 @@ site. The expectation is enforced the only way this repository enforces
 expectations — decidably:
 
 - **The pin is a count, never a clock.** A test asserts the work count
-  per verb, taken at the run's input owners (`architecture.md`, "A run
-  reads each input once") rather than at one mechanism: one index per
-  run, one pass over it serving every kind, one matcher per glob, each
-  file opened once — deterministic and machine-independent, where a wall-clock
+  — one walk per run, one compilation per glob, no file read twice in a
+  phase — deterministic and machine-independent, where a wall-clock
   threshold is the gate that cries wolf. Timing stays a manual signal a
   human reads; the field's session experience is the true bar, and no
   corpus number stands in for it.
