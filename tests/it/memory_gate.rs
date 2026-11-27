@@ -623,3 +623,23 @@ fn an_undeclared_agents_md_under_an_open_gate_says_its_gate_is_open_and_claude_c
         "a document behind an open gate says the gate is open and that it loads, got: {agents}"
     );
 }
+
+#[test]
+fn an_undeclared_document_at_a_built_in_locus_names_exclusion_through_relocation_in_its_help() {
+    let harness = common::tmpdir("claude-md-undeclared-relocation-help");
+    represent_with_one_rule(&harness);
+    write_claude_md(&harness, 3);
+
+    let findings = check_harness(&harness).0;
+    let claude = locus_declared_for(&findings, "CLAUDE.md");
+    assert!(
+        claude.contains("declare the member in the program and re-emit")
+            && claude.contains("excluding it through the kind's relocation")
+            && claude.contains("`relocate(memory, { exclude: [...] })`"),
+        "a built-in locus names both answers, declaring and excluding, got: {claude}"
+    );
+    assert!(
+        !claude.contains("`local`"),
+        "a built-in's commitment is not the author's to respell, got: {claude}"
+    );
+}

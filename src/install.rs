@@ -462,16 +462,18 @@ fn guard_message() -> &'static str {
 /// than an owning module.
 ///
 /// `custom` is the governing kind's own ([`GuardedLocus::custom`]) and `gate` the absence
-/// gate the pending document would sit behind; together they decide the loader claim in
-/// the one spelling `check`'s finding speaks ([`drift::locus_loader_claim`]).
+/// gate the pending document would sit behind; together they decide the loader claim and
+/// the alternative remedy in the one spelling `check`'s finding speaks
+/// ([`drift::locus_loader_claim`], [`drift::locus_alternative_remedy`]).
 fn undeclared_locus_message(
     kind: &str,
     custom: bool,
     gate: Option<&kind::AbsenceGateState>,
 ) -> String {
     let loader_claim = drift::locus_loader_claim(gate, custom);
+    let alternative = drift::locus_alternative_remedy(kind, custom);
     format!(
-        "temper-governed locus: this write lands a document at the `{kind}` kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared{loader_claim}; declare the member in the program and re-emit. {}",
+        "temper-governed locus: this write lands a document at the `{kind}` kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared{loader_claim}; declare the member in the program and re-emit{alternative}. {}",
         binding_limit()
     )
 }

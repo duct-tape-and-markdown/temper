@@ -5128,6 +5128,23 @@ pub fn locus_loader_claim(gate: Option<&crate::kind::AbsenceGateState>, custom: 
     }
 }
 
+/// The second answer an undeclared document at a governed locus names after declaring
+/// the member — shared by `check`'s finding and `temper guard`'s pending-write message.
+/// A built-in's locus is the harness's, so the author leaves a tree ungoverned by adding
+/// an exclusion through the kind's relocation; a built-in's commitment is not the
+/// author's to respell, so `local` would name a move that refuses. A custom kind's
+/// locus is the author's own, so declaring it `local` is the answer there.
+#[must_use]
+pub fn locus_alternative_remedy(kind: &str, custom: bool) -> String {
+    if custom {
+        ", or declare its kind `local` so `check` derives its rows at read time".to_string()
+    } else {
+        format!(
+            ", or leave its tree ungoverned by excluding it through the kind's relocation (`relocate({kind}, {{ exclude: [...] }})`)"
+        )
+    }
+}
+
 /// The undeclared-member findings for the discovered committed file documents
 /// `sites` names — one per document the lock's provenance rows never name.
 ///
@@ -5177,22 +5194,13 @@ pub fn undeclared_locus_members_from_doc(
             continue;
         }
         *verdict.counts.entry(site.kind.clone()).or_default() += 1;
-        // Both tails turn on the same fact. The `local` remedy is a custom kind's alone;
-        // a built-in's commitment is not the author's to respell, so offering it there
-        // would name a move that refuses. The loader claim is a built-in kind's alone:
-        // Claude Code loads its locus, and nothing temper holds says who reads a locus
-        // the author's own kind declares.
-        let local_remedy = if site.custom {
-            ", or declare its kind `local` so `check` derives its rows at read time"
-        } else {
-            ""
-        };
+        let alternative = locus_alternative_remedy(&site.kind, site.custom);
         let loader_claim = locus_loader_claim(site.gate.as_ref(), site.custom);
         verdict.findings.push(crate::check::Diagnostic::from_clause(
             clause,
             &*site.source_path,
             format!(
-                "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it{loader_claim}; declare the member in the program and re-emit{local_remedy}",
+                "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it{loader_claim}; declare the member in the program and re-emit{alternative}",
                 site.source_path, site.kind
             ),
         ));

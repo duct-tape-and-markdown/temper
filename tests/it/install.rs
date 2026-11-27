@@ -3325,6 +3325,22 @@ fn represented_rule_harness(name: &str, mode: &str) -> std::path::PathBuf {
     root
 }
 
+#[test]
+fn guards_undeclared_locus_refusal_names_exclusion_through_relocation() {
+    let root = represented_rule_harness("guard-undeclared-locus-relocation", "block");
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload(".claude/rules/stray.md"),
+    );
+    assert_eq!(code, Some(2), "block mode denies the stray, got: {stderr}");
+    assert!(
+        stderr.contains("declare the member in the program and re-emit")
+            && stderr.contains("excluding it through the kind's relocation")
+            && stderr.contains("`relocate(rule, { exclude: [...] })`"),
+        "the refusal names both answers check names, got: {stderr}"
+    );
+}
+
 /// A pending write creating a document inside a represented committed kind's governed
 /// locus that the lock declares no member for is bound at the author's declared mode —
 /// `emit` will never maintain the file and Claude Code loads it anyway. Before this, a
