@@ -1,10 +1,7 @@
 {
   "tag": "SIZE-ADVISORY-AT-LOCAL-MEMORY-AND-UNCLAIMED-IMPORTS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "SIZE-ADVISORY-AT-SUBDIRECTORY-MEMORY-AND-NESTED-RULES"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
