@@ -25,3 +25,18 @@ The intent was already stated: "a gate run by a different engine says so", and a
 ## Consequences
 
 LOAD-MOMENT-IS-A-REGISTRATION-FACT unblocks once the stale-row reading ships. An adopter's upgrade path is a re-emit, as the finding says.
+
+## Amendment (2026-11-27)
+
+LOAD-MOMENT-IS-A-REGISTRATION-FACT parked again. Every checkout build stamped
+`0.0.25+unreleased`, so a lock written before a built-in fact moved carried
+the current engine's stamp, and its stale rows still read as collisions. An
+unreleased build's stamp therefore also carries a digest of the embedded
+built-in facts. It moves exactly when a snapshot goes stale, so committed
+locks stay byte-stable while no built-in changes.
+
+Rejected:
+- **Retiring any divergent built-in row under any stamp.** That gives up the
+  authored-collision finding.
+- **A one-off human re-emit.** Every unreleased commit that moves a built-in
+  fact would hit the same wall.

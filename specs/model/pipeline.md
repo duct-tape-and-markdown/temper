@@ -70,7 +70,9 @@ fingerprints drift compares — and **declaration rows** — the program's
 erased declarations and the rows emit derives from layout sources. The lock
 also names the engine version that wrote it, and a gate run by a different
 engine says so, at its clause's declared severity: the stamp tells an
-unreleased build from the release it follows, and an engine reads the stamp
+unreleased build from the release it follows, and from another unreleased
+build whose built-in facts differ, by carrying a digest of those facts, so
+it moves exactly when a snapshot goes stale; and an engine reads the stamp
 before any row, so a lock it cannot read is reported as written by another
 engine, never as a malformed row. A built-in's row snapshotted by another
 engine is stale, never a collision: the gate reads the embedded built-in and
