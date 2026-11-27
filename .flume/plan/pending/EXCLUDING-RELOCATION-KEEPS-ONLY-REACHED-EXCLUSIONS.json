@@ -1,0 +1,19 @@
+{
+  "tag": "EXCLUDING-RELOCATION-KEEPS-ONLY-REACHED-EXCLUSIONS",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "sdk/src/declarations.ts", "description": "keepsExclusionsOf requires only the base exclusions the relocation's templates still reach" },
+      { "path": "sdk/src/kind.ts", "description": "export templateMatches / templateReachesBeneath for the reach test" },
+      { "path": "sdk/test/builtins.test.ts", "description": "a moved relocation beside its base replaces it; one dropping a still-reached exclusion refuses" }
+    ]
+  },
+  "summary": "A relocation that moves its locus and drops base exclusions its new templates no longer reach replaces its built-in instead of refusing as a third kind",
+  "per": { "path": "specs/builtins.md", "section": "Built-ins — what ships" },
+  "acceptance": "A memory relocation to a root its built-in exclusions fall outside, in play beside a member built from built-in memory, resolves to the relocation; a value dropping an exclusion its templates still reach still refuses",
+  "tests": [
+    "a moved relocation dropping exclusions its templates no longer reach replaces its built-in",
+    "a value dropping an exclusion its templates still reach refuses as a third kind"
+  ],
+  "notes": "From the EXCLUDING-RELOCATION-REPLACES-ITS-BUILT-IN build note: relocatedLocus (kind.ts) drops unreached exclusions, but the subset check demands all of them."
+}
