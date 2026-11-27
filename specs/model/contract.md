@@ -91,13 +91,14 @@ over an addressable field, or over the member's load moment (at launch or on
 demand), which is a registration fact, conditioning a body of ordinary
 clauses. A load moment is when the member's own content enters context: an
 invoked skill or agent loads on demand, its listing being the listing
-budget's to judge, and a guard over a kind whose content never enters
-context refuses at load, never judging silently. The body binds where the
-guard holds and is silent where it does not, the guarded field's absence
-included (absence is `required`'s to indict). Guard and body share one
-address binding: each element the guard's path locates is judged
-independently, and a finding names the concrete address it fired at. Guards
-do not nest.
+budget's to judge, and a moment is read only from the kind's registration
+channels, so a guard over a kind none of whose channels carries its content
+into context, an empty registration included, refuses at load, never judging
+silently. The body binds where the guard holds and is silent where it does
+not, the guarded field's absence included (absence is `required`'s to
+indict). Guard and body share one address binding: each element the guard's
+path locates is judged independently, and a finding names the concrete
+address it fired at. Guards do not nest.
 
 Some predicates need whole-graph context — a degree bound, a reachability
 test. That is cost, not a category: **reachability** and **drift** are

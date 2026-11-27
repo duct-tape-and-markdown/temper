@@ -310,10 +310,14 @@ their imports and its own `.claude/rules/` among them, against that limit,
 an import target that no kind claims sized through the reference graph at
 the root; and a rule's globs against its skill's own `paths` where both
 trigger one area. `explain` states, per member, what loads it, when, and
-roughly what it costs. A load moment is a registration fact: a
-subdirectory's memory and its own rules register on a read beneath its
-directory, and a skill's own `paths` register its listing on a read of a
-match, so `explain` and the advisories read one fact.
+roughly what it costs. A load moment is a registration fact: the active
+output style's instructions ride every request from launch, where a settings
+file selects it (code.claude.com/docs/en/output-styles, "How output styles
+work", retrieved 2026-11-27), a supporting document loads when it is read,
+as its skill's references direct (code.claude.com/docs/en/skills, "Add
+supporting files"), a subdirectory's memory and its own rules register on a
+read beneath its directory, and a skill's own `paths` register its listing
+on a read of a match, so `explain` and the advisories read one fact.
 
 **A string the runtime matches against a target is judged only where a miss
 is decidable without the author's intent.** No default clause judges whether

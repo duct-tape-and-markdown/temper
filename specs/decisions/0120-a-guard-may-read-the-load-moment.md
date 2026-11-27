@@ -33,3 +33,20 @@ Rejected:
   judge vacuously (invariant 6).
 - **The listing as the load.** That conflates a description, which the
   listing budget judges, with the content.
+
+## Amendment: which kinds refuse (2026-11-27)
+
+Plan asked which kinds' content "never enters context". Registration
+answered it for hooks, MCP servers, plugins and marketplaces, but `settings`,
+`output-style` and `supporting-doc` all declared an empty registration. A
+moment is read only from the kind's registration channels, so a guard over
+a kind with no content-carrying channel refuses at load, an empty
+registration included. Two kinds whose content does enter context gain the
+channel they lacked:
+- the active output style's instructions ride every request from launch,
+  where a settings file selects it;
+- a supporting document loads when it is read, as its skill's references
+  direct.
+
+Rejected: **a separate kind-level "enters context" fact.** It would be a
+second spelling of what registration already states.
