@@ -47,6 +47,13 @@ hard.
   (flume `docs/INTENT.md`, "quality lenses"): shape findings wait for three
   notings. Both filed as duct-tape-and-markdown/flume#29. Also to decide:
   whether `spec-system.md` is spec or harness.
+- **Standing delegation (John, 11-27):** sessions decide without waiting on
+  his approval, because the work is reversible. Work the answer out of
+  intent, hold a position, record the rejected alternative, and land the
+  ruling in the spec. The hard lines stay: no force-push, no secrets, no
+  third-party posts, releases by recipe with the smoke green. Sessions:
+  temper-prod runs the loop and trunk; temper-perf designs the posture
+  migration and holds the flume-80 thread.
 - **First focus: a consolidation pass.** +14.5k net in a day and a half is
   more growth than its features explain. Weigh it against `engineering.md`
   before new surface lands.
