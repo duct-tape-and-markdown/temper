@@ -34,18 +34,6 @@
       "examples/base-harness/.claude/skills/temper/domain-standards.md"
     ]
   },
-  "summary": "The emitted reference skill names a contracted requirement a requirement in its index headings, topic titles and topic file names",
-  "per": {
-    "path": "specs/model/authoring.md",
-    "section": "The SDK"
-  },
-  "acceptance": "the reference's rendered output and topic paths carry no \"domain\" for a requirement; examples/base-harness re-emits clean and passes check --deny-advisories; pnpm --dir sdk test green",
-  "tests": [
-    "a contracted requirement's reference topic is titled and named as a requirement, never a domain"
-  ],
-  "pins": [],
-  "laneTests": [],
-  "notes": "0114 case 5 residue from DOC-COUNTS-AND-REQUIREMENT-WORD. The topic file path moves (domain-<r>.md), a projection path change: the release cut owes a migration-note line, and the dogfood's .claude/skills/temper/ owes a human re-emit. Re-emitted example topic files land under their new names.",
   "observedFiles": [
     ".flume/plan/notes/REFERENCE-TOPICS-SAY-REQUIREMENT.md",
     "examples/base-harness/.claude/skills/temper/SKILL.md",
@@ -61,6 +49,20 @@
     "examples/base-harness/.claude/skills/temper/requirement-standards.md",
     "examples/base-harness/.temper/lock.toml",
     "sdk/src/reference.ts",
-    "sdk/test/reference.test.ts"
-  ]
+    "sdk/test/reference.test.ts",
+    "tests/it/main.rs",
+    "tests/it/reference_topics.rs"
+  ],
+  "summary": "The emitted reference skill names a contracted requirement a requirement in its index headings, topic titles and topic file names",
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
+  "acceptance": "the reference's rendered output and topic paths carry no \"domain\" for a requirement; examples/base-harness re-emits clean and passes check --deny-advisories; pnpm --dir sdk test green",
+  "tests": [
+    "a contracted requirement's reference topic is titled and named as a requirement, never a domain"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "0114 case 5 residue from DOC-COUNTS-AND-REQUIREMENT-WORD. The topic file path moves (domain-<r>.md), a projection path change: the release cut owes a migration-note line, and the dogfood's .claude/skills/temper/ owes a human re-emit. Re-emitted example topic files land under their new names."
 }
