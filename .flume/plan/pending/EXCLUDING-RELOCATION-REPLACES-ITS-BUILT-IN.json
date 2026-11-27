@@ -1,0 +1,14 @@
+{
+  "tag": "EXCLUDING-RELOCATION-REPLACES-ITS-BUILT-IN",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "sdk/src/declarations.ts", "description": "relocationInvariants erases an `at` locus's added exclusions as it erases root and glob, so isRelocationOf holds for an excluding relocation" },
+      { "path": "sdk/test/emit.test.ts", "description": "the new and kept relocation-collision cases" }
+    ]
+  },
+  "summary": "A relocation that adds exclusions to a built-in replaces it, so a member built from the base kind (playbook, defaultPatterns) is governed by the relocation instead of refused",
+  "per": { "path": "specs/builtins.md", "section": "Built-ins — what ships" },
+  "acceptance": "SDK gate green with: a harness relocating `rule` with an `exclude` emits beside a member built from the built-in `rule`, governed by the relocation (new); two diverging relocations of one kind still refuse (kept)",
+  "notes": "SDK-only behavior, so no tests[] line (PROTOCOL, Tests, question 2). Erase only what a relocation may add: the base's own exclusions must remain a subset of the relocation's, or a third kind of the name slips through."
+}

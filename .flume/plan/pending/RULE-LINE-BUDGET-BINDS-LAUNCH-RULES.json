@@ -1,0 +1,22 @@
+{
+  "tag": "RULE-LINE-BUDGET-BINDS-LAUNCH-RULES",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "sdk/src/builtins.ts", "description": "ruleDefaultContract: the extent lines 200 clause moves under when(loads(\"launch\"), ...), as its guidance already states" },
+      { "path": "src/builtin_lock.toml", "description": "re-emitted embedded lock" },
+      { "path": "src/bundled_reference/kind-rule.md", "description": "regenerated rule reference" },
+      { "path": "tests/it/rule_contract.rs", "description": "the line-budget load-moment cases" }
+    ]
+  },
+  "summary": "The rule default contract's 200-line budget judges only rules that load at launch, matching its guidance; path-scoped and nested rules keep only the on-demand character limit",
+  "per": { "path": "specs/builtins.md", "section": "Default contracts" },
+  "acceptance": "A paths-scoped rule and a rule under a subdirectory's .claude/rules/, each past 200 lines, raise no extent lines finding; a root rule without paths past 200 lines still does",
+  "tests": [
+    "a paths scoped rule past two hundred lines raises no extent lines finding",
+    "a rule under a subdirectory rules directory past two hundred lines raises no extent lines finding"
+  ],
+  "pins": [
+    "a root rule without paths past two hundred lines raises an extent lines finding"
+  ]
+}
