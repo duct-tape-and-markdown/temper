@@ -8,17 +8,17 @@ import { gateHook, hook } from "@dtmd/temper/claude-code";
 // renders each command from that one fact, anchored at the project.
 
 /** The advisory gate report at session open — always exits zero. */
-export const hook_sessionStart = gateHook({ name: "SessionStart" });
+export const hook_sessionStart = gateHook({ event: "SessionStart" });
 
 /** The write-boundary guard; mode is read live from the lock (default warn). */
-export const hook_guard = gateHook({ name: "PreToolUse", matcher: "Write|Edit|MultiEdit" });
+export const hook_guard = gateHook({ event: "PreToolUse", matcher: "Write|Edit|MultiEdit" });
 
 /** The guard's other edge: a Bash write carries no file path, so it is judged after the call. */
-export const hook_postToolUseBash = gateHook({ name: "PostToolUse", matcher: "Bash" });
+export const hook_postToolUseBash = gateHook({ event: "PostToolUse", matcher: "Bash" });
 
 /** Keep Rust formatted as the agent edits; never fails the tool call. */
 export const hook_fmtOnWrite = hook({
-  name: "PostToolUse",
+  event: "PostToolUse",
   matcher: "Edit|Write",
   hooks: [{ type: "command", command: "cargo fmt --quiet >/dev/null 2>&1 || true" }],
 });

@@ -29,7 +29,7 @@ projections of it.
 - Cite another member as `text` with `${mentionOf(member)}` interpolated, not a
   hand-typed name or path: the mention resolves at emit and refuses when its target
   is gone.
-- A temper gate placement is `gateHook({ name, matcher })`, never `hook()` with a
+- A temper gate placement is `gateHook({ event, matcher })`, never `hook()` with a
   hand-written `temper` command: the engine renders the command, so it stays correct
   across installs and upgrades.
 

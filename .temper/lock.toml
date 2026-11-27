@@ -51,8 +51,8 @@ emit_hash = "54a1501e820b65bced55a662304efdeb30e831666d58ee566cbd7a742fb512ca"
 [[rule]]
 name = "temper-sdk"
 source_path = ".claude/rules/temper-sdk.md"
-source_hash = "f023fc979933978e574c2094dfe0623a9c9620f0405e99326b70016fa96c465e"
-emit_hash = "f023fc979933978e574c2094dfe0623a9c9620f0405e99326b70016fa96c465e"
+source_hash = "5337e06350ac4eb9572687f9e87392c43decc60ded60cec35bd31e8731e59f63"
+emit_hash = "5337e06350ac4eb9572687f9e87392c43decc60ded60cec35bd31e8731e59f63"
 
 [[settings]]
 name = "settings"
@@ -288,7 +288,7 @@ import_hash = "5a53338c8c7a4847955a4104e4276c774d0d3761f46f351b400a868b5c03e82f"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/hooks.ts"
-import_hash = "5c6589efe347ac3a8cf54d3c7e0ac484da13c54739fb1a2e511391c28826c04f"
+import_hash = "0e90f1db10305fd9bbc64aa5b02adae6ec0d2d6f3a63d8b9a6286acace8b6fa2"
 
 [[declaration.module]]
 member = "root"
