@@ -237,8 +237,9 @@ test("reachable composes a field-less graph-scope predicate lowering to a kind-l
   assert.equal(rows[0]!.severity, "advisory");
 
   // And the shipped default binds this clause, `fresh`, `locus-declared`,
-  // `engine-matches`, `resolves`, `import-backed` and `listing`, each at the severity it ships —
-  // `resolves` alone at required, the line `emit` already holds.
+  // `engine-matches`, `resolves`, `import-backed`, `listing` and the on-demand size clause
+  // over unclaimed import targets, each at the severity it ships — `resolves` alone at
+  // required, the line `emit` already holds.
   assert.deepEqual(
     rootDefaultContract.map((c) => [c.predicate.key, c.severity]),
     [
@@ -249,6 +250,7 @@ test("reachable composes a field-less graph-scope predicate lowering to a kind-l
       ["resolves", "required"],
       ["import-backed", "advisory"],
       ["listing", "advisory"],
+      ["when", "advisory"],
     ],
   );
   assert.ok(
@@ -259,7 +261,7 @@ test("reachable composes a field-less graph-scope predicate lowering to a kind-l
   // other three compare temper's own lock or version, so they cite temper's own corpus.
   assert.deepEqual(
     rootDefaultContract.filter((c) => c.cite?.startsWith("https://code.claude.com/")).map((c) => c.predicate.key),
-    ["reachable", "resolves", "import-backed", "listing"],
+    ["reachable", "resolves", "import-backed", "listing", "when"],
     "the clauses cited to Claude Code's docs",
   );
   assert.deepEqual(

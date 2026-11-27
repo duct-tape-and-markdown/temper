@@ -1013,6 +1013,27 @@ pub fn gate(
                 .map(|finding| finding.under_clause(clause)),
         );
     }
+    // An import target no kind claims has no kind contract to size it, so the root's
+    // each-grain clauses judge it, at the moment its importers load it.
+    let moment_of = |node: &graph::Node| {
+        load_moments_by_kind
+            .get(&node.0)
+            .and_then(|moments| moments.get(&node.1))
+            .copied()
+    };
+    let unclaimed_files: Vec<engine::UnclaimedFile> = import_reached_files
+        .iter()
+        .filter_map(|(path, importers)| {
+            let body = std::fs::read_to_string(path).ok()?;
+            let relative = crate::path::relative_from_root(harness_root, path)?;
+            Some(engine::UnclaimedFile {
+                path: crate::path::to_canonical_spelling(&relative),
+                body,
+                moment: graph::imported_file_moment(importers, &directive_arcs, &moment_of),
+            })
+        })
+        .collect();
+    diagnostics.extend(engine::judge_unclaimed_files(&selections, &unclaimed_files));
     diagnostics.extend(coverage_note::off_tree_targets(
         &resolved_edges_result.off_tree,
     ));
@@ -1246,7 +1267,8 @@ pub fn gate(
     // by its importer, and a declared input — a `{ file }` tool's script among them — by
     // the member declaring it, since that is how a committed file temper does not write
     // joins the roster.
-    let mut claimed_files = import_reached_files.clone();
+    let mut claimed_files: BTreeSet<std::path::PathBuf> =
+        import_reached_files.keys().cloned().collect();
     claimed_files.extend(
         drift::inputs_from_doc(&lock_doc)?
             .into_iter()

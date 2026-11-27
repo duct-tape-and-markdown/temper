@@ -27,7 +27,7 @@ use std::path::{Path, PathBuf};
 use crate::builtin_kind::{MAX_IMPORT_HOPS, off_tree_scopes};
 use crate::check::Diagnostic;
 use crate::compose::{Edge, Requirement};
-use crate::contract::{EdgeBound, Predicate, ROOT_OWNER};
+use crate::contract::{EdgeBound, LoadMoment, Predicate, ROOT_OWNER};
 use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
@@ -1644,8 +1644,9 @@ pub struct DirectiveClassing {
     pub findings: Vec<Diagnostic>,
     /// The backed repo files a reached occurrence resolved to that no member owns — the
     /// boundary half of the import relation, normalized in the importing member's path
-    /// domain. Such a file is claimed by its importer: what loads it is the import.
-    pub reached_files: BTreeSet<PathBuf>,
+    /// domain — each with the members whose occurrence imports it. Such a file is
+    /// claimed by its importer: what loads it is the import.
+    pub reached_files: BTreeMap<PathBuf, BTreeSet<Node>>,
 }
 
 /// Resolves whether one cited `@import` target is **backed** — given the resolved,
@@ -1723,7 +1724,7 @@ pub fn classify_directives(
 
     let mut edges = Vec::new();
     let mut findings = Vec::new();
-    let mut reached_files = BTreeSet::new();
+    let mut reached_files: BTreeMap<PathBuf, BTreeSet<Node>> = BTreeMap::new();
     // One hop per round, so a chain longer than the format's recursion cap stops there:
     // the tail loads nothing, and classing it would report an edge nothing follows.
     for _ in 0..MAX_IMPORT_HOPS {
@@ -1742,7 +1743,10 @@ pub fn classify_directives(
                     }
                 } else if backed(&resolved) {
                     // A one-way boundary edge: no finding, no member edge.
-                    reached_files.insert(resolved);
+                    reached_files
+                        .entry(resolved)
+                        .or_default()
+                        .insert((member.kind.clone(), member.id.clone()));
                 } else {
                     // Neither a member nor a repo file: an unbacked pointer that loads
                     // nothing.
@@ -1759,6 +1763,33 @@ pub fn classify_directives(
         edges,
         findings,
         reached_files,
+    }
+}
+
+/// The load moment of a file no member owns, read off the members that import it: the
+/// file loads when any member upstream of it on an import chain loads, so it is on
+/// demand only when every such member's moment is, and launch-loaded as soon as one is.
+/// `None` where no upstream member carries a moment.
+#[must_use]
+pub fn imported_file_moment(
+    importers: &BTreeSet<Node>,
+    arcs: &[ResolvedEdge],
+    moment_of: &dyn Fn(&Node) -> Option<LoadMoment>,
+) -> Option<LoadMoment> {
+    let mut upstream: BTreeSet<&Node> = importers.iter().collect();
+    let mut frontier: Vec<&Node> = upstream.iter().copied().collect();
+    while let Some(node) = frontier.pop() {
+        for arc in arcs.iter().filter(|arc| arc.to == *node) {
+            if upstream.insert(&arc.from) {
+                frontier.push(&arc.from);
+            }
+        }
+    }
+    let moments: BTreeSet<LoadMoment> = upstream.into_iter().filter_map(moment_of).collect();
+    if moments.contains(&LoadMoment::Launch) {
+        Some(LoadMoment::Launch)
+    } else {
+        moments.into_iter().next()
     }
 }
 

@@ -2823,7 +2823,9 @@ export const memoryDefaultContract: readonly Clause[] = [
 
 /**
  * The default contract for `memory-local` — the memory size target, which the docs state
- * per memory file, and a `CLAUDE.local.md` is loaded the same way a `CLAUDE.md` is.
+ * per memory file, and a `CLAUDE.local.md` is loaded the same way a `CLAUDE.md` is; and
+ * the per-file limit a subdirectory's `CLAUDE.local.md`, loaded on demand beside its
+ * `CLAUDE.md`, is truncated past.
  */
 export const memoryLocalDefaultContract: readonly Clause[] = [
   clause(extent("lines", 200), {
@@ -2832,7 +2834,48 @@ export const memoryLocalDefaultContract: readonly Clause[] = [
       "CLAUDE.local.md loads beside the CLAUDE.md of its directory and is paid the same way, every session that loads it. The memory docs' size target is under 200 lines per memory file — 'longer files consume more context and reduce adherence.' It is personal and uncommitted, so trim it yourself: for each line ask whether removing it would cause Claude to make mistakes. (Advisory: Claude Code loads the file in full regardless of length.)",
     cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-11-27)",
   }),
+  when(
+    loads("on-demand"),
+    [
+      clause(extent("characters", ON_DEMAND_CHARACTER_LIMIT), {
+        severity: "advisory",
+        guidance:
+          "A subdirectory's CLAUDE.local.md loads on demand with that subdirectory's CLAUDE.md, the first time Claude reads a file beneath its directory, and an on-demand memory file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a file that passes is whole on every window. Measured as `wc -m` counts the file. Trim it, or split detail into files it imports, each of which counts against the limit on its own. The root CLAUDE.local.md loads at launch and is not cut this way, so this clause binds only below the root.",
+        cite: ON_DEMAND_SIZE_LIMIT_CITE,
+      }),
+    ],
+    {
+      severity: "advisory",
+      guidance:
+        "A CLAUDE.local.md below the harness root loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 characters, the smallest documented window's. The root's loads at launch, arrives whole, and is not judged by this clause.",
+      cite: ON_DEMAND_SIZE_LIMIT_CITE,
+    },
+  ),
 ];
+
+/**
+ * The root's size clause over every import target no kind claims: such a file has no
+ * kind contract to size it, so it is judged at the root, through the reference graph,
+ * against the per-file limit when the memory that imports it loads on demand. A file a
+ * launch-loaded member reaches arrives whole and is not judged.
+ */
+export const unclaimedImportSizeClause: Clause = when(
+  loads("on-demand"),
+  [
+    clause(extent("characters", ON_DEMAND_CHARACTER_LIMIT), {
+      severity: "advisory",
+      guidance:
+        "This file no kind claims is imported by memory that loads on demand — a subdirectory's CLAUDE.md or CLAUDE.local.md, read the first time Claude reads a file beneath its directory — and an on-demand file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a file that passes is whole on every window. Measured as `wc -m` counts the file. Trim it, or split it into several imported files, each of which counts against the limit on its own. A file a launch-loaded member imports arrives whole and is not judged.",
+      cite: ON_DEMAND_SIZE_LIMIT_CITE,
+    }),
+  ],
+  {
+    severity: "advisory",
+    guidance:
+      "An import target no kind claims has no kind contract of its own, so the root sizes it: where every member importing it loads on demand, it is judged against the per-file limit an on-demand file is truncated past, 40,000 characters, the smallest documented window's.",
+    cite: ON_DEMAND_SIZE_LIMIT_CITE,
+  },
+);
 
 /**
  * Every documented Claude Code hook lifecycle event — the closed set a `hooks.<Event>`

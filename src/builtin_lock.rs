@@ -111,8 +111,9 @@ mod tests {
                 "root.resolves",
                 "root.import-backed",
                 "root.listing.description+when_to_use",
+                "root.when.loads=on-demand",
             ],
-            "the shipped root default's family, in declaration order; an eighth kind-less \
+            "the shipped root default's family, in declaration order; a ninth kind-less \
              row is a row nobody declared"
         );
         assert!(declarations.requirements.is_empty());

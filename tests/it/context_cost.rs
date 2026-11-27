@@ -232,3 +232,71 @@ fn a_root_memory_past_the_per_file_limit_draws_no_size_advisory() {
     );
     assert!(run.ok, "{}", run.output);
 }
+
+/// A subdirectory's `CLAUDE.local.md` loads on demand beside its `CLAUDE.md`, so the
+/// runtime cuts it past the per-file limit: one advisory, and the run stays zero.
+#[test]
+fn a_subdirectory_claude_local_md_past_the_per_file_limit_draws_the_size_advisory() {
+    let run = oversized_run("size-subdirectory-local-memory", "apps/web/CLAUDE.local.md");
+    assert_eq!(
+        run.output
+            .matches("memory-local.when.loads=on-demand.extent")
+            .count(),
+        1,
+        "the subdirectory local memory draws one size advisory, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "advisory ⇒ zero, got:\n{}", run.output);
+}
+
+/// Check a harness whose memory at `importer` imports one oversized file no kind claims.
+fn oversized_import_run(slug: &str, importer: &str) -> common::CheckRun {
+    let root = common::tmpdir(slug);
+    common::write_sibling(&root, importer, "# Memory\n\nSee @notes/big.md\n");
+    let dir = std::path::Path::new(importer)
+        .parent()
+        .map_or_else(String::new, |dir| dir.to_string_lossy().into_owned());
+    let target = if dir.is_empty() {
+        "notes/big.md".to_string()
+    } else {
+        format!("{dir}/notes/big.md")
+    };
+    common::write_sibling(&root, &target, &oversized("Notes", 40_001));
+    common::write_lock(&root, Declarations::default());
+    common::check_in(&root, &[], None)
+}
+
+/// A file no kind claims, imported by a subdirectory's `CLAUDE.md`, loads with it on
+/// demand, so the root sizes it against the per-file limit.
+#[test]
+fn an_unclaimed_import_target_of_a_subdirectory_memory_past_the_per_file_limit_draws_the_size_advisory()
+ {
+    let run = oversized_import_run("size-unclaimed-import", "apps/web/CLAUDE.md");
+    assert_eq!(
+        run.output
+            .matches("root.when.loads=on-demand.extent")
+            .count(),
+        1,
+        "the unclaimed import target draws one size advisory, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("apps/web/notes/big.md"),
+        "the finding names the imported file, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "advisory ⇒ zero, got:\n{}", run.output);
+}
+
+/// The root `CLAUDE.md` loads at launch, so the file it imports arrives whole and draws
+/// no per-file advisory.
+#[test]
+fn an_unclaimed_import_target_of_the_root_memory_draws_no_size_advisory() {
+    let run = oversized_import_run("size-root-import", "CLAUDE.md");
+    assert!(
+        !run.output.contains("root.when.loads=on-demand"),
+        "a launch-loaded import is not cut, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "{}", run.output);
+}

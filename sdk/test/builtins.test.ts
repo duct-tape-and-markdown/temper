@@ -979,11 +979,18 @@ test("memory-local is a local-locus memory kind owning CLAUDE.local.md at any de
   assert.equal(memory.facts.locus.kind === "at" && "commitment" in memory.facts.locus, false);
 });
 
-test("memoryLocalDefaultContract carries memory's size target as an advisory", () => {
+test("memoryLocalDefaultContract carries memory's size target and the on-demand per-file limit as advisories", () => {
   assert.deepEqual(
     memoryLocalDefaultContract.map((c) => [c.predicate.key, c.severity]),
-    [["extent", "advisory"]],
+    [
+      ["extent", "advisory"],
+      ["when", "advisory"],
+    ],
   );
+  const onDemand = memoryLocalDefaultContract[1];
+  assert.equal(onDemand?.when_guard?.key, "loads");
+  assert.deepEqual(onDemand?.when_guard?.values, ["on-demand"]);
+  assert.deepEqual(onDemand?.when_body?.[0]?.predicate.args, { max: 40_000 });
   assert.match(memoryLocalDefaultContract[0]?.cite ?? "", /code\.claude\.com\/docs\/en\/memory/);
 });
 

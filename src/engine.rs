@@ -292,10 +292,18 @@ pub(crate) fn inadmissibilities(
 /// than degrade to a working no-op — the rule [`judgeless`] already states over the
 /// predicate alone, here over the predicate at its locus.
 ///
-/// The admissible root vocabulary is therefore exactly the selection grain
-/// ([`Predicate::ranges_over_selection`]).
+/// The admissible root vocabulary is therefore the selection grain
+/// ([`Predicate::ranges_over_selection`]) and the one member-grain form the root does
+/// judge: an each-grain `extent`, bare or under a `loads` guard, over the files an import
+/// reaches that no kind claims ([`judge_unclaimed_files`]). Such a file carries a size and
+/// a load moment and no field.
 fn rootless(predicate: &Predicate, locus: &Locus) -> Option<String> {
-    if !matches!(locus, Locus::Root) || predicate.ranges_over_selection() {
+    let sizes_unclaimed_files = match predicate {
+        Predicate::Extent { whole: false, .. } => true,
+        Predicate::When { guard, .. } => matches!(guard.as_ref(), Predicate::Loads { .. }),
+        _ => false,
+    };
+    if !matches!(locus, Locus::Root) || predicate.ranges_over_selection() || sizes_unclaimed_files {
         return None;
     }
     Some(format!(
@@ -1185,6 +1193,70 @@ pub fn judge_members(
         }
     }
     diagnostics
+}
+
+/// A repository file an import reaches that no kind claims, as the root's each-grain
+/// clauses judge it: its path, its size, and the moment its importers load it.
+#[derive(Debug, Clone)]
+pub struct UnclaimedFile {
+    /// The file's path relative to the harness root, the finding's subject.
+    pub path: String,
+    /// The file's contents, measured as a projection is.
+    pub body: String,
+    /// When the file loads, off its importers; `None` where none carries a moment.
+    pub moment: Option<LoadMoment>,
+}
+
+/// Judge the root contract's member-grain clauses — each-grain `extent`, bare or under a
+/// `loads` guard — over every import target no kind claims. The root's selection grain is
+/// [`judge`]'s; these files are no kind's members, so the root is the one binding that
+/// reaches them.
+#[must_use]
+pub fn judge_unclaimed_files(selections: &[Selection], files: &[UnclaimedFile]) -> Vec<Diagnostic> {
+    let Some(root) = selections
+        .iter()
+        .find(|selection| selection.selector == Selector::Root)
+    else {
+        return Vec::new();
+    };
+    let contract = Contract {
+        name: root.selector.label().to_string(),
+        clauses: root
+            .clauses
+            .iter()
+            .filter(|clause| !clause.predicate.ranges_over_selection())
+            .cloned()
+            .collect(),
+        guidance: None,
+    };
+    if contract.clauses.is_empty() {
+        return Vec::new();
+    }
+    files
+        .iter()
+        .flat_map(|file| {
+            let features = Features {
+                id: file.path.clone(),
+                fields: BTreeMap::new(),
+                body_lines: 0,
+                rendered_lines: Some(crate::extract::body_line_count(&file.body)),
+                rendered_chars: Some(file.body.chars().count()),
+                headings: Vec::new(),
+                sections: Vec::new(),
+                source_dir: None,
+                directives: Vec::new(),
+                fenced_blocks: Vec::new(),
+                nested_members: Vec::new(),
+                satisfies: Vec::new(),
+                edge_placements: None,
+            };
+            let read = AsRead {
+                defaults: &AUTHORED,
+                moment: file.moment,
+            };
+            member_findings(&contract, &features, &[], read)
+        })
+        .collect()
 }
 
 /// The members of one selection whose own enforcement mode falls on the other side of
@@ -4386,6 +4458,62 @@ mod tests {
         assert!(
             diags[0].message.contains("no values"),
             "message should mention no values"
+        );
+    }
+
+    #[test]
+    fn the_root_admits_an_each_grain_extent_and_a_loads_guard_over_it_and_no_other_member_grain() {
+        let extent = || Predicate::Extent {
+            unit: ExtentUnit::Characters,
+            max: 40_000,
+            whole: false,
+        };
+        let root = |predicate: Predicate| {
+            admissibility(
+                &Contract {
+                    name: "root".to_string(),
+                    guidance: None,
+                    clauses: vec![clause("root", ClauseSeverity::Advisory, predicate)],
+                },
+                &Locus::Root,
+            )
+        };
+        assert!(root(extent()).is_empty());
+        let guarded = Predicate::When {
+            guard: Box::new(Predicate::Loads {
+                moment: LoadMoment::OnDemand,
+            }),
+            body: vec![clause("root", ClauseSeverity::Advisory, extent())],
+        };
+        assert!(root(guarded).is_empty());
+
+        let guarded_field = Predicate::When {
+            guard: Box::new(Predicate::Loads {
+                moment: LoadMoment::OnDemand,
+            }),
+            body: vec![clause(
+                "root",
+                ClauseSeverity::Advisory,
+                Predicate::Required {
+                    field: "description".to_string(),
+                },
+            )],
+        };
+        assert_eq!(
+            root(guarded_field).len(),
+            1,
+            "a field clause names no schema"
+        );
+        let enum_guarded = Predicate::When {
+            guard: Box::new(Predicate::Enum {
+                field: "status".to_string(),
+                values: vec!["active".to_string()],
+            }),
+            body: vec![clause("root", ClauseSeverity::Advisory, extent())],
+        };
+        assert!(
+            !root(enum_guarded).is_empty(),
+            "a field guard names no schema"
         );
     }
 

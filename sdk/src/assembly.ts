@@ -10,7 +10,7 @@
 import type { Input, Member, KindDefinition } from "./kind.js";
 import { clause, engineMatches, fresh, importBacked, listing, locusDeclared, reachable, resolves } from "./contract.js";
 import type { Clause, Requirement, RequirementValue } from "./contract.js";
-import { command, gateHookTool, isRequirement, requirementOf, skill } from "./builtins.js";
+import { command, gateHookTool, isRequirement, requirementOf, skill, unclaimedImportSizeClause } from "./builtins.js";
 import { memberAddress } from "./member-address.js";
 
 /**
@@ -87,9 +87,10 @@ export interface Harness {
    * harness the way it attaches to any member).
    *
    * Every clause here is judged at the selection grain, so the vocabulary is the
-   * selection predicates plus {@link reachable}; a member-grain clause names a field in
-   * a schema the root has no single kind to supply, and the gate refuses it at
-   * admissibility rather than leaving it unjudged.
+   * selection predicates plus {@link reachable}, and one member-grain form: an each-grain
+   * `extent`, bare or under a `loads` guard, sizing the import targets no kind claims.
+   * Any other member-grain clause names a field in a schema the root has no single kind
+   * to supply, and the gate refuses it at admissibility rather than leaving it unjudged.
    *
    * Absent, {@link rootDefaultContract} applies — the shipped floor, composed by
    * {@link harness}.
@@ -240,7 +241,7 @@ const SKILL_LISTING_BUDGET_CITE =
  * Homed beside the root member's other fields, the precedent `dialDefaultContract` sets
  * in `dial.ts`: a default contract lives with the surface it governs.
  *
- * Seven clauses, all predicates only the root can bind: their selection is the whole
+ * Eight clauses, all predicates only the root can bind: their selection is the whole
  * forest and their judges read the reference graph, the committed lock and the discovery
  * walk, none of which any one kind's population carries. `reachable` is the one check
  * that catches authored configuration the harness never loads at all; `fresh` is the one
@@ -254,7 +255,9 @@ const SKILL_LISTING_BUDGET_CITE =
  *
  * `listing` closes the set: Claude Code's one skill listing carries every model-invocable
  * skill and command under one budget, so no single kind's population holds the sum —
- * two kinds each under budget can overrun it together.
+ * two kinds each under budget can overrun it together. The size clause over unclaimed
+ * import targets is the one member-grain clause here: a file no kind claims has no kind
+ * contract, so the root sizes it.
  *
  * `resolves` ships at `required`: a reference naming nothing is a broken program, which
  * `emit` already refuses, and the gate holds the same line on a tree it did not write.
@@ -317,4 +320,5 @@ export const rootDefaultContract: readonly Clause[] = [
       cite: SKILL_LISTING_BUDGET_CITE,
     },
   ),
+  unclaimedImportSizeClause,
 ];

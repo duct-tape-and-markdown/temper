@@ -333,6 +333,22 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       bound: { min: undefined, max: 8000, entry: 1536 },
       values: ["skill", "command"],
  },
+ {
+   ...clauseRow("when", "advisory"),
+   guidance: rootDefaultContract[7]!.guidance,
+   cite: rootDefaultContract[7]!.cite,
+   values: ["on-demand"],
+   guard_predicate: "loads",
+   body: [
+     {
+       ...clauseRow("extent", "advisory"),
+       guidance: rootDefaultContract[7]!.when_body![0]!.guidance,
+       cite: rootDefaultContract[7]!.when_body![0]!.cite,
+       bound: { min: undefined, max: 40000 },
+       unit: "characters",
+     },
+   ],
+ },
   ]);
   assert.deepEqual(declarations.requirements, [
  {
@@ -542,6 +558,22 @@ test("the root member's contract lowers to kind-less top-level rows, defaulted a
       gate: "disable-model-invocation",
       bound: { min: undefined, max: 8000, entry: 1536 },
       values: ["skill", "command"],
+    },
+    {
+      ...clauseRow("when", "advisory"),
+      guidance: rootDefaultContract[7]!.guidance,
+      cite: rootDefaultContract[7]!.cite,
+      values: ["on-demand"],
+      guard_predicate: "loads",
+      body: [
+        {
+          ...clauseRow("extent", "advisory"),
+          guidance: rootDefaultContract[7]!.when_body![0]!.guidance,
+          cite: rootDefaultContract[7]!.when_body![0]!.cite,
+          bound: { min: undefined, max: 40000 },
+          unit: "characters",
+        },
+      ],
     },
   ]);
   assert.equal(defaulted.length, rootDefaultContract.length);

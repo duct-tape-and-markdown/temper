@@ -376,6 +376,24 @@ gate = "disable-model-invocation"
 bound = { max = 8000, entry = 1536 }
 values = ["skill", "command"]
 
+[[declaration.clause]]
+id = "root.when.loads=on-demand"
+predicate = "when"
+severity = "advisory"
+guidance = "An import target no kind claims has no kind contract of its own, so the root sizes it: where every member importing it loads on demand, it is judged against the per-file limit an on-demand file is truncated past, 40,000 characters, the smallest documented window's."
+cite = "https://code.claude.com/docs/en/memory#claude-ignores-the-end-of-my-subdirectory-claude-md (retrieved 2026-11-26)"
+values = ["on-demand"]
+guard_predicate = "loads"
+
+[[declaration.clause.body]]
+id = "root.when.loads=on-demand.extent"
+predicate = "extent"
+severity = "advisory"
+guidance = "This file no kind claims is imported by memory that loads on demand — a subdirectory's CLAUDE.md or CLAUDE.local.md, read the first time Claude reads a file beneath its directory — and an on-demand file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a file that passes is whole on every window. Measured as `wc -m` counts the file. Trim it, or split it into several imported files, each of which counts against the limit on its own. A file a launch-loaded member imports arrives whole and is not judged."
+cite = "https://code.claude.com/docs/en/memory#claude-ignores-the-end-of-my-subdirectory-claude-md (retrieved 2026-11-26)"
+bound = { max = 40000 }
+unit = "characters"
+
 [[declaration.assembly]]
 fact = "mode"
 value = "warn"

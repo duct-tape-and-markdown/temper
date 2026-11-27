@@ -10,9 +10,9 @@
 //! graph nothing. Opt-in is per *clause*, not per root selection — a lock whose root
 //! contract binds some other predicate still walks no reachability closure.
 //!
-//! The root carries only the selection grain. A member-grain clause here would name a
-//! field in a schema no one kind supplies and would reach no judge, so admissibility
-//! refuses it (`engine::Locus::Root`).
+//! The root carries the selection grain, plus an each-grain `extent` sizing the import
+//! targets no kind claims. Any other member-grain clause here would name a field in a
+//! schema no one kind supplies, so admissibility refuses it (`engine::Locus::Root`).
 
 use std::path::Path;
 
@@ -385,15 +385,30 @@ fn a_harness_declaring_no_root_reachable_clause_asks_the_graph_nothing() {
 }
 
 #[test]
-fn the_shipped_root_default_binds_the_seven_root_predicates_and_rides_a_harness_that_declares_none()
-{
+fn the_shipped_root_default_binds_the_eight_root_clauses_and_rides_a_harness_that_declares_none() {
     // The default is shipped, not merely reachable through an authored clause: a lock
     // carrying no root row at all takes the rows-or-default fallback to the embedded
     // lock's own root rows, which the SDK's `rootDefaultContract` put there.
     let contract = temper::builtin::root_contract();
+    let (sizing, selection_grain) = contract
+        .clauses
+        .split_last()
+        .expect("the shipped root default carries clauses");
+    assert_eq!(sizing.label, "root.when.loads=on-demand");
+    assert!(
+        matches!(
+            &sizing.predicate,
+            Predicate::When { guard, body }
+                if matches!(guard.as_ref(), Predicate::Loads { .. })
+                    && matches!(
+                        body.as_slice(),
+                        [inner] if matches!(inner.predicate, Predicate::Extent { whole: false, .. })
+                    )
+        ),
+        "the last root clause sizes unclaimed import targets on demand, got {sizing:?}"
+    );
     assert_eq!(
-        contract
-            .clauses
+        selection_grain
             .iter()
             .map(|clause| (
                 clause.label.as_str(),

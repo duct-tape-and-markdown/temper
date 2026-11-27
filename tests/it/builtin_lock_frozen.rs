@@ -241,6 +241,7 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
                 "listing",
                 "advisory"
             ),
+            (Some("root.when.loads=on-demand"), "when", "advisory"),
         ],
         "the memberless emit contributes the root default's rows, got {root:#?}"
     );
@@ -257,13 +258,23 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
 
     // And they lift back through the engine's own root-contract reader, so what ships is
     // a contract the gate can run, never a row family that merely parses.
+    let lifted: Vec<_> = temper::compose::root_contract_from_rows(&declarations.clauses)
+        .expect("the derived root rows lift")
+        .clauses
+        .iter()
+        .map(|clause| clause.predicate.clone())
+        .collect();
+    let (sizing, selection_grain) = lifted.split_last().expect("the root rows lift whole");
+    assert!(
+        matches!(
+            sizing,
+            contract::Predicate::When { guard, .. }
+                if matches!(guard.as_ref(), contract::Predicate::Loads { .. })
+        ),
+        "the last root row is the on-demand size clause, got {sizing:?}"
+    );
     assert_eq!(
-        temper::compose::root_contract_from_rows(&declarations.clauses)
-            .expect("the derived root rows lift")
-            .clauses
-            .iter()
-            .map(|clause| clause.predicate.clone())
-            .collect::<Vec<_>>(),
+        selection_grain.to_vec(),
         vec![
             contract::Predicate::Reachable,
             contract::Predicate::Fresh,
