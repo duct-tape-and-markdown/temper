@@ -12,6 +12,7 @@ import type { Clause, Harness, Prose } from "../src/index.js";
 import { blocks, embeddedMemberValue, extend, harness, kind, relocate, requirement, span } from "../src/index.js";
 import { emit } from "../src/emit.js";
 import { compileDeclarations } from "../src/declarations.js";
+import type { KindFacts, Member } from "../src/kind.js";
 import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
 // is its one caller), so the test reaches the module rather than the public subpath.
@@ -1738,6 +1739,45 @@ test("a relocation keeps exactly the base exclusions its new template still reac
   ]);
   const underSkills = relocate<Memory>(memory, { locus: { root: ".claude/skills", glob: "*/CLAUDE.md" } });
   assert.deepEqual(memoryKindRow(underSkills).exclude, [".claude/skills"]);
+});
+
+test("a moved relocation dropping exclusions its templates no longer reach replaces its built-in", () => {
+  // `docs/**/CLAUDE.md` reaches none of built-in memory's `.claude/` exclusions, so the
+  // relocation carries none — and must still be recognised as derived from the built-in
+  // a member beside it was built from, whichever order the two arrive in.
+  const docsMemory = relocate<Memory>(memory, { locus: { root: "docs", glob: "**/CLAUDE.md" } });
+  assert.ok(!("exclude" in docsMemory.facts.locus), "the moved relocation must have dropped the exclusions");
+  const arrangements = [
+    harness({
+      members: [memory({ name: "CLAUDE", prose: text`Always true.` })],
+      expect: [{ kind: docsMemory, clauses: [] }],
+    }),
+    harness({
+      members: [docsMemory({ name: "CLAUDE", prose: text`Always true.` })],
+      expect: [{ kind: memory, clauses: [] }],
+    }),
+  ];
+  for (const h of arrangements) {
+    const rows = compileDeclarations(h).kinds.filter((row) => row.name === "memory");
+    assert.equal(rows.length, 1, "one name is one kind-fact row");
+    assert.equal(rows[0].locus_root, "docs");
+    assert.ok(!("exclude" in rows[0]));
+  }
+});
+
+test("a value dropping an exclusion its templates still reach refuses as a third kind", () => {
+  // Same reach as the built-in, so every `.claude/` exclusion is still reached; a value
+  // bearing the relocation marker that drops one claims paths the built-in never governed.
+  const sameReach = relocate<Memory>(memory, { locus: { root: ".", glob: "**/CLAUDE.md" } });
+  const member = sameReach({ name: "CLAUDE", prose: text`Always true.` });
+  const locus = member.facts.locus;
+  if (locus.kind !== "at" || !locus.exclude?.includes(".claude/skills")) {
+    assert.fail("the same-reach relocation must keep `.claude/skills` excluded");
+  }
+  const dropped = { ...locus, exclude: locus.exclude.filter((path) => path !== ".claude/skills") };
+  const forged: Member = { ...member, facts: { ...member.facts, locus: dropped } as KindFacts };
+  const h = harness({ members: [forged], expect: [{ kind: memory, clauses: [] }] });
+  assert.throws(compileDeclarations.bind(null, h), /two kinds named `memory` are in play/);
 });
 
 /** The one `skill` kind-fact row a harness expecting `skillKind` compiles to. */

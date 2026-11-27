@@ -1178,7 +1178,7 @@ function segmentMatches(segment: string, component: string): boolean {
  * standing for any number of components, none included. Mirrors the engine's glob match
  * over the placement-template subset, the only syntax a locus may carry.
  */
-function templateMatches(pattern: string, path: string): boolean {
+export function templateMatches(pattern: string, path: string): boolean {
   const matchFrom = (segments: readonly string[], components: readonly string[]): boolean => {
     if (segments.length === 0) return components.length === 0;
     const [head, ...rest] = segments;
@@ -1195,7 +1195,7 @@ function templateMatches(pattern: string, path: string): boolean {
  * directory `dir` — the engine's reach test for a directory exclusion (`src/kind.rs`,
  * `template_reaches_beneath`), spelled over the same segments.
  */
-function templateReachesBeneath(pattern: string, dir: string): boolean {
+export function templateReachesBeneath(pattern: string, dir: string): boolean {
   const reachFrom = (segments: readonly string[], components: readonly string[]): boolean => {
     if (components.length === 0) return segments.length > 0;
     if (segments.length === 0) return false;
