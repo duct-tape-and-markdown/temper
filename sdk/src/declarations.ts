@@ -1709,7 +1709,7 @@ function withHandlers(row: RegistrationRow, extra: readonly unknown[]): Registra
  * in**, and the one home both readers take: `compileDeclarations` writes it to
  * `declarations.registrations` and `emit.ts`'s public {@link RegistrationFact} view maps
  * from it, so the seam payload and the `EmitResult` sibling cannot disagree on whether a
- * tap joined an authored group (`specs/process/engineering.md`, "One job, one home").
+ * tap joined an authored group.
  *
  * A tap hook is an ordinary matcher group, so a tap whose (event, matcher) an authored
  * group already claims **is** that group's further handler rather than a second group at

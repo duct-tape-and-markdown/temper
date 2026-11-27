@@ -2799,8 +2799,7 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
         );
     }
 
-    // The vacuity pin (`specs/process/engineering.md`, "A green verdict is proven
-    // non-vacuous"): the sweep judged rows at all, and among them at least one `when`
+    // The vacuity pin: the sweep judged rows at all, and among them at least one `when`
     // row whose `field` column is populated — the column a projection that dropped the
     // guard's field would agree with silently, every side reading `None`.
     assert!(

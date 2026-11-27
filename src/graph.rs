@@ -2067,8 +2067,7 @@ fn node_from_address(address: &str) -> Node {
 
 /// Which of the three things a [`Node`] is — the one classification of node species,
 /// matched exhaustively by every consumer so a fourth species refuses to compile until
-/// each judge answers it (`specs/process/engineering.md`, "A shared concept is one
-/// type").
+/// each judge answers it: a shared concept is one type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum NodeSpecies {
     /// A member of a corpus kind — top-level or nested — whose `.0` really is its kind.

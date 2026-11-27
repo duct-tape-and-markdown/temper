@@ -1,6 +1,5 @@
 //! Measure-first cost diagnosis at consumer scale, for every verb whose work scales with
-//! the consumer's input (`specs/process/engineering.md`, "Cost scale is hoisted, and
-//! pinned by count") — `check`'s walks and reads, `emit`'s lock parse, manifest reads and
+//! the consumer's input — `check`'s walks and reads, `emit`'s lock parse, manifest reads and
 //! per-glob placement round trip, and `guard`'s per-tool-call shell edge.
 //!
 //! A synthetic harness the size of a real consumer's tree is generated in a tempdir at
@@ -181,7 +180,7 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
     );
     eprintln!("  phase 2  read + hash {read_files:>6} members    : {read_ms:>6} ms");
 
-    // The count-pin (`engineering.md`): whole-input glob compilation is hoisted per
+    // The count-pin: whole-input glob compilation is hoisted per
     // distinct glob, never recomputed per candidate file. The discovery above tests one
     // leaf glob against every candidate name at every level of a >10k-file tree — without
     // the memo the compile count scales with the file count (tens of thousands); with it,
@@ -270,7 +269,7 @@ name = "nested-1"
     let reads = reads_after - reads_before;
     let parses = parses_after - parses_before;
 
-    // The cost doctrine (engineering.md, "Cost scale is hoisted, and pinned by count"):
+    // The cost doctrine:
     // whole-input work computes once per run and is shared, never recomputed per call site.
     // Lock parsing is hoisted: one read per emit run, one parse per emit run.
     assert_eq!(
@@ -470,9 +469,8 @@ import_hash = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     );
 }
 
-/// The whole-run count-pin for the **committed lock**, over the real `gate()`
-/// (`engineering.md`, "Cost scale is hoisted, and pinned by count"): a check run opens
-/// `lock.toml` once and parses it once, however many tiers read off it — the declaration
+/// The whole-run count-pin for the **committed lock**, over the real `gate()`:
+/// a check run opens `lock.toml` once and parses it once, however many tiers read off it — the declaration
 /// rows the contract tier judges against and the source-dependency families below share
 /// the one parsed document. Session-open `check` pays this on every tick, so a second
 /// door onto the same file is a per-tick disk read and a per-tick TOML parse.
@@ -526,7 +524,7 @@ fn gate_reads_and_parses_the_lock_once() {
     let reads = drift::lock_read_count() - reads_before;
     let parses = drift::lock_parse_count() - parses_before;
 
-    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a gate that
+    // Non-vacuity: a gate that
     // judged nothing reads the lock zero times and would pass any ceiling. The run's own
     // disclosure of what it checked names the member, so the count below is taken over a
     // run that did the work.
@@ -1090,7 +1088,7 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
 
     let reads = reads_after - reads_before;
 
-    // The cost doctrine (engineering.md, "Cost scale is hoisted, and pinned by count"):
+    // The cost doctrine:
     // each represented manifest file is read exactly once per emit() pass and shared
     // between manifest_segment_reaps and emit_manifest, never re-read per phase.
     assert_eq!(
@@ -1100,8 +1098,7 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
     );
 }
 
-/// The run-level count-pin (`engineering.md`, "Cost scale is hoisted, and pinned by
-/// count"): a whole check run passes the tree once. Every walk riding the shared ignore
+/// The run-level count-pin: a whole check run passes the tree once. Every walk riding the shared ignore
 /// policy is counted — discovery's committed and local-locus scans, the nested-file host
 /// scan and the `.claude/` stray scan alike — so a reader that walked the tree on its own,
 /// or a second index built mid-run, overshoots. The built-in set carries local-locus kinds
@@ -1156,8 +1153,7 @@ fn check_builds_one_tree_index_per_run() {
     );
 }
 
-/// The run-level count-pin for the *directive backing set* (`engineering.md`, "Cost
-/// scale is hoisted, and pinned by count"): `compose::repo_file_set` is a whole-tree walk
+/// The run-level count-pin for the *directive backing set*: `compose::repo_file_set` is a whole-tree walk
 /// over the consumer's harness root, and the sibling flavor pin above says nothing about
 /// it — it rides `walkdir`, not the shared `Discovery` cache. Two-sided, because the walk
 /// is now opt-in: an `@import`'s backing is resolved by stat per cited target, leaving
@@ -1208,7 +1204,7 @@ fn a_full_check_run_walks_the_directive_backing_set_only_where_a_root_clause_bin
     let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
     let unbound_walks = compose::repo_file_set_count() - before;
 
-    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a run that
+    // Non-vacuity: a run that
     // classed no directive-bearing member would have nothing to resolve backing for, so
     // the pin names the members the run actually checked before either count is read.
     let checked = |diagnostics: &[temper::check::Diagnostic]| {
@@ -1299,7 +1295,7 @@ fn resolve_kind_units_runs_once_per_kind_not_twice() {
     let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
     let resolves = compose::resolve_kind_units_count() - before;
 
-    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): the count
+    // Non-vacuity: the count
     // below is only a *custom*-kind pin if the custom kind actually resolved its own
     // member — a bare `resolves > 0` the built-in set satisfies alone proves nothing
     // about it. The run's own disclosure of what it checked names the member.
@@ -1371,8 +1367,7 @@ fn overlay_builtin_kind_count_increments_once_per_application() {
 /// The **effective kind set** — every declared kind by bare name, the overlaid built-ins
 /// merged with every custom row the lock lifts — is whole-lock work: it partitions every
 /// kind row and lifts every custom one. So the cost doctrine binds it the way it binds the
-/// shared walk: derived once per run and shared, never once per consumer
-/// (`specs/process/engineering.md`, "Cost scale is hoisted, and pinned by count").
+/// shared walk: derived once per run and shared, never once per consumer.
 ///
 /// Four derivations per `check` before the hoist: the assembly pass's own, the manifest
 /// cache's, and one apiece for the two locus-less built-ins (`supporting-doc` and
@@ -1398,8 +1393,7 @@ fn declared_kind_set_is_derived_once_per_check_run() {
     gate::gate(&harness, &harness, &[]).unwrap();
     let derivations = compose::declared_kinds_count() - before;
 
-    // The vacuity pin rides the count (engineering.md, "A green verdict is proven
-    // non-vacuous"): a derivation that collapsed to an empty map would read as a hoisted
+    // The vacuity pin rides the count: a derivation that collapsed to an empty map would read as a hoisted
     // one, so the set the run published is asserted populated — and asserted to carry the
     // locus-less kind whose per-kind rebuild is half of what the pre-fix count counted.
     // Assembled here off the same unadopted harness `gate` just read, after the delta is
@@ -1589,8 +1583,7 @@ fn gate_reachability_closure_runs_once_per_invocation_and_only_when_a_root_claus
     );
 }
 
-/// The per-tool-call count-pin for the **guard's shell edge** (`engineering.md`, "Cost
-/// scale is hoisted, and pinned by count"): a `PostToolUse` call pays its cost on every
+/// The per-tool-call count-pin for the **guard's shell edge**: a `PostToolUse` call pays its cost on every
 /// tool call a session makes — the hottest path any pin in this file covers. The verb
 /// binds every built-in file locus plus a hosted layout kind, and each reader — the file
 /// loci, the layout loci and the hosted kind's host scan — reads the verb's one index, so
@@ -1659,7 +1652,7 @@ fn guard_at_the_shell_edge_builds_one_tree_index_per_run_whatever_its_locus_coun
     let (edge, decision) = install::run_guard(&harness, &payload).unwrap();
     let passes = import::index_pass_count() - before;
 
-    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a call whose
+    // Non-vacuity: a call whose
     // index found nothing would pin its cost over an empty subject, so the report must
     // name the stray under each locus before the count is asserted.
     assert_eq!(edge, install::GuardEdge::PostToolUse);
@@ -1677,8 +1670,7 @@ fn guard_at_the_shell_edge_builds_one_tree_index_per_run_whatever_its_locus_coun
     );
 }
 
-/// The per-pass count-pin for a **local layout kind's documents** (`engineering.md`, "Cost
-/// scale is hoisted, and pinned by count"): a local member's rows are derived at read time
+/// The per-pass count-pin for a **local layout kind's documents**: a local member's rows are derived at read time
 /// rather than read back off the lock, and `assemble_lock_family` is the pass that derives
 /// them — so each member's document is read exactly once there, off the text the unit
 /// resolution already loaded. Two members, so the delta is exactly 2: the derivation
@@ -1721,7 +1713,7 @@ fn a_local_layout_members_document_is_read_once_per_assembly_pass() {
     let family = compose::assemble_lock_family(&discovery, &committed, &[], &cache).unwrap();
     let reads = drift::layout_document_read_count() - before;
 
-    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a pass that
+    // Non-vacuity: a pass that
     // derived nothing would read nothing and pass any count, so the rows the derivation
     // exists to yield are asserted present first — both members' collections, off the
     // documents this pin says were read once each.
@@ -1743,8 +1735,7 @@ fn a_local_layout_members_document_is_read_once_per_assembly_pass() {
     );
 }
 
-/// The per-pass count-pin for the **parse** half of the same documents (`engineering.md`,
-/// "Cost scale is hoisted, and pinned by count"): holding a document's text is not holding
+/// The per-pass count-pin for the **parse** half of the same documents: holding a document's text is not holding
 /// its reading, and the reading is the expensive half — the heading tree, the region match,
 /// the span splits. One parse per member per pass, its field half filling the unit and its
 /// member/prose/`satisfies` half lowering into the derived rows, is what this counts: the
@@ -1781,7 +1772,7 @@ fn a_local_layout_members_document_is_parsed_once_per_assembly_pass() {
     let family = compose::assemble_lock_family(&discovery, &committed, &[], &cache).unwrap();
     let parses = drift::layout_document_parse_count() - before;
 
-    // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): the rows the
+    // Non-vacuity: the rows the
     // parse exists to yield are asserted present before the count, so a pass that derived
     // nothing cannot parse nothing and pass.
     let hosts: Vec<&str> = family
@@ -1803,8 +1794,7 @@ fn a_local_layout_members_document_is_parsed_once_per_assembly_pass() {
     );
 }
 
-/// The per-distinct-glob count-pin for **emit's placement round trip**
-/// (`engineering.md`, "Cost scale is hoisted, and pinned by count"): every member's
+/// The per-distinct-glob count-pin for **emit's placement round trip**: every member's
 /// derived path is matched back through its own kind's glob before a byte is written, so
 /// the matcher build is per *glob*, never per member. Two kinds over 400 members, so the
 /// delta is exactly 2 — a rebuild per member overshoots to 400, and a cache that went
@@ -1858,8 +1848,7 @@ fn emit_compiles_each_kinds_glob_once_however_many_members_it_places() {
     );
 }
 
-/// The per-narration count-pin for **`explain`'s requirement strand** (`engineering.md`,
-/// "Cost scale is hoisted, and pinned by count"): the member-path index
+/// The per-narration count-pin for **`explain`'s requirement strand**: the member-path index
 /// ([`temper::read::build_member_index_count`]'s subject) is whole-corpus work, so it is
 /// built only on the one narration that needs it — a `Telemetry`-verified requirement's
 /// field strand, which joins tap records to members through the lock. Three narrations
@@ -2125,8 +2114,7 @@ fn explain_builds_one_tree_index_per_run() {
     );
 }
 
-/// The run-level count-pin for **locus scans** (`engineering.md`, "Cost scale is hoisted,
-/// and pinned by count"): every reader of a kind's locus in a check run — the gate's
+/// The run-level count-pin for **locus scans**: every reader of a kind's locus in a check run — the gate's
 /// per-kind loop, the claimed-path set nested discovery carves, a host's unit
 /// enumeration, composition, admissibility — asks the run's one `Discovery` for it, and
 /// the index is scanned for each distinct `(root, glob, flavor)` locus once, never once
@@ -2193,8 +2181,7 @@ fn check_scans_the_tree_index_once_per_run() {
     );
 }
 
-/// The run-level count-pin for **glob compilation** (`engineering.md`, "Cost scale is
-/// hoisted, and pinned by count"): a check run builds one matcher per distinct glob, so
+/// The run-level count-pin for **glob compilation**: a check run builds one matcher per distinct glob, so
 /// the compile count is a property of the kind set, never of the tree — the same check
 /// over a harness twenty times larger compiles exactly as many globs. Each run is taken on
 /// a fresh thread, so each starts from an empty per-thread memo and its count is its own.

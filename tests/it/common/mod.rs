@@ -676,8 +676,8 @@ struct GuardLockMember {
 /// Hand-rendered on purpose. [`write_lock`] is not the home for this: it runs
 /// `drift::emit`, which writes real projections at real fingerprints — the opposite of a
 /// guard fixture, whose whole point is a declared row whose file is absent or drifted
-/// (engineering.md, "A seam gate reads what the real writer wrote": a hand fixture is the
-/// tool for the input a real writer cannot produce).
+/// (a seam gate reads what the real writer wrote: a hand fixture is the tool for the
+/// input a real writer cannot produce).
 ///
 /// What keeps the hand spelling honest is [`GuardLock::write`]'s read-back: the rendered
 /// bytes go straight through the engine's own reader and must lift to exactly the typed

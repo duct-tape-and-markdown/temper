@@ -614,7 +614,7 @@ pub struct LockFamily {
     /// kind name. Computed once per invocation and shared with every consumer —
     /// [`kind_units_and_features`], [`admissibility::local_locus_admissibility`](crate::admissibility::local_locus_admissibility),
     /// [`admissibility::locus_collision_diagnostics`](crate::admissibility::locus_collision_diagnostics) — to hoist the computation cost
-    /// per the cost doctrine (engineering.md, "Cost scale is hoisted").
+    /// per the cost doctrine.
     pub overlaid_builtin_kinds: BTreeMap<String, CustomKind>,
     /// The run's **effective kind set**: every kind this harness declares, keyed by bare
     /// name — the overlaid built-ins above merged with every custom kind the lock's own
@@ -622,9 +622,8 @@ pub struct LockFamily {
     /// and shared with every consumer below — [`build_manifest_cache`] and
     /// [`resolve_kind_units`]'s nested-file scan — for `overlaid_builtin_kinds`' own
     /// reason: the derivation partitions every kind row and lifts every custom one, so it
-    /// is whole-lock work, which the cost doctrine binds to one home with one invalidation
-    /// (engineering.md, "Cost scale is hoisted" and "Derived state is computed"), pinned
-    /// at run granularity by [`declared_kinds_count`].
+    /// is whole-lock work, which the cost doctrine binds to one home with one invalidation,
+    /// pinned at run granularity by [`declared_kinds_count`].
     ///
     /// Kept **beside** the overlaid map, never in place of it: a consumer that must tell a
     /// built-in from a custom kind — [`builtin_units_and_features_by_kind`], `gate`'s own
@@ -921,7 +920,7 @@ fn host_qualified(host: Option<&str>, kind: &str, id: String) -> String {
 /// The **one** derivation of the effective kind set: [`assemble_lock_family`] runs it once
 /// per invocation and publishes the result as [`LockFamily::declared_kinds`], which every
 /// consumer takes instead. A second call site is a rebuild of whole-lock work, the shape
-/// the cost doctrine forbids (engineering.md, "Cost scale is hoisted").
+/// the cost doctrine forbids.
 ///
 /// # Errors
 ///
@@ -1453,7 +1452,7 @@ fn frontmatter_fault_diagnostic(
 /// and `declared_kinds` the run's whole effective kind set from
 /// [`LockFamily::declared_kinds`] — a locus-less kind's host is found in it, and taking it
 /// rather than re-deriving it is what keeps that whole-lock derivation off the per-kind
-/// path (engineering.md, "Cost scale is hoisted");
+/// path;
 /// every member is discovered by walking its `governs` locus, read straight off harness
 /// disk so the corpus can never drift from a stale copy; its `satisfies` fill edges come from the run's assembled
 /// [`drift::SatisfiesRow`] family, keyed by member id — a committed
@@ -3253,8 +3252,8 @@ mod tests {
     /// materializes the whole tree for `graph::reachable`'s paths-match channel and
     /// [`backed_on_disk`] stats one cited target at a time, and until this pin only the
     /// latter's doc comment held them together — every other case asserts a single face
-    /// against hand-authored expectations, where a one-sided respell ships green
-    /// (`specs/process/engineering.md`, "A seam gate reads what the real writer wrote").
+    /// against hand-authored expectations, where a one-sided respell ships green — a seam
+    /// gate reads what the real writer wrote.
     /// So one tree carries every shape the fold decides, the real walk runs over it, and
     /// its output drives the real predicate: each path the walk collected is backed, and
     /// each shape it excluded is not. A later change to the walk — `min_depth`,

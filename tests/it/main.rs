@@ -1,8 +1,8 @@
 //! The one integration-test crate. Cargo compiles this file into a single test
 //! binary and every suite below is a module of it, rather than each suite being
 //! a target that relinks the shared `common` scaffolding into a copy of its own
-//! (specs/process/engineering.md, "One job, one home" — scaffolding lives in one
-//! home, and one home in `target/` is what a single crate buys).
+//! (scaffolding lives in one home, and one home in `target/` is what a single
+//! crate buys).
 //!
 //! A suite that is not declared here still compiles as source and runs nothing:
 //! its assertions leave the suite's test count without failing anything.
@@ -100,7 +100,7 @@ fn every_suite_beside_this_file_is_declared_here() {
         .collect();
     on_disk.sort();
 
-    // Vacuity pin (engineering.md, "A green verdict is proven non-vacuous"): a
+    // Vacuity pin: a
     // mis-resolved directory yields an empty set, which would compare equal to
     // an empty module list and pass over zero suites.
     assert!(

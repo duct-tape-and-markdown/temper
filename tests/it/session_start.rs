@@ -65,9 +65,8 @@ fn run_session_start(harness: &Path) -> (bool, serde_json::Value) {
 /// The `additionalContext` of a gate run that must stay quiet, asserted non-vacuous
 /// first: `tally` is the coverage note's own per-kind count (`"rule (1"`), so a test
 /// whose verdict is an *absence* proves the member it judged was walked at all.
-/// Without it the negative assertions below pass over an empty corpus — the vacuity
-/// class `specs/process/engineering.md`, "A green verdict is proven non-vacuous",
-/// names, and the one a lock declaring nothing lands the gate in.
+/// Without it the negative assertions below pass over an empty corpus — a vacuous
+/// green, and the one a lock declaring nothing lands the gate in.
 fn checked(hook: &serde_json::Value, tally: &str) -> String {
     let context = hook["additionalContext"]
         .as_str()

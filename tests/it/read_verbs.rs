@@ -1751,8 +1751,7 @@ fn explain_narrates_a_composed_handler_member_the_gate_judged() {
 
     // The vacuity pin, on the check side of this very fixture: the handler is a member
     // the gate checked, so the narration below is judged against a non-empty corpus
-    // rather than agreeing with an absence twice (engineering.md, "A green verdict is
-    // proven non-vacuous").
+    // rather than agreeing with an absence twice.
     let (findings, _ok) = common::check_harness(&harness);
     let checked = common::findings_for(&findings, "coverage.checked");
     assert_eq!(
@@ -2347,8 +2346,7 @@ fn explain_resolves_a_nested_file_child_at_its_host_qualified_address() {
     write_host_with_home(&harness, "alpha");
     write_host_with_home(&harness, "beta");
 
-    // Non-vacuity, on the check side of this very fixture (engineering.md, "A green
-    // verdict is proven non-vacuous"): both children are members the gate judged, so the
+    // Non-vacuity, on the check side of this very fixture: both children are members the gate judged, so the
     // narrations below are read against a live corpus rather than agreeing with an
     // absence twice.
     let (findings, ok) = common::check_harness(&harness);

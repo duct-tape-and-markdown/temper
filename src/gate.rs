@@ -602,8 +602,8 @@ pub fn gate_in(
     let harness_root = discovery.harness();
     // The gate's one read and one parse of the committed lock, shared by every consumer
     // below — the declaration rows this tier judges against and the source-dependency
-    // families further down, per the cost doctrine (engineering.md, "Cost scale is
-    // hoisted, and pinned by count"; pinned by `gate_reads_and_parses_the_lock_once`).
+    // families further down, per the cost doctrine (pinned by
+    // `gate_reads_and_parses_the_lock_once`).
     let lock_doc = drift::read_lock_document(workspace)?;
     // The assembly's own declared facts — requirements and edges — ride the lock's
     // declaration rows: `emit` is the sole producer, this is the gate's read side of them.

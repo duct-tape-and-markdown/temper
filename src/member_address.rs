@@ -19,8 +19,7 @@
 //! ([`segment`]) rather than two independently-shaped parses that could come to disagree
 //! about where the member ends. Every writer and every reader in the tree goes through
 //! this module: a `format!` or a `split_once(':')` spelling this grammar anywhere else is
-//! a second implementation of one job
-//! (`specs/process/engineering.md`, "One job, one home").
+//! a second implementation of one job, which has one home.
 //!
 //! Distinct from [`crate::address`], which is **field** addressing — the dotted path a
 //! clause's `field` names inside one member's values. This module addresses members.

@@ -2858,7 +2858,7 @@ pub fn emit(
 
     // Read and parse the lock document once for reuse across the reap-diff and
     // layer-drop checks below — whole-input work hoists parsing per run, never
-    // recomputed per phase (engineering.md, "Cost scale is hoisted").
+    // recomputed per phase.
     // A lock that exists but will not parse is tolerated as empty: emit heals a corrupt
     // lock by rewriting it, so the pass that would fix it must not abort on it.
     let lock_doc = read_lock_document(workspace_dir).unwrap_or_default();

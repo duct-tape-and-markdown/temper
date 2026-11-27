@@ -57,8 +57,7 @@ fn the_sdk_manifests_version_equals_the_engines_own() {
 fn every_declared_engine_pin_equals_the_engines_own_version() {
     let manifest = manifest();
 
-    // Non-vacuity (specs/process/engineering.md, "A green verdict is proven
-    // non-vacuous"): an emptied or renamed map would otherwise let this lane
+    // Non-vacuity: an emptied or renamed map would otherwise let this lane
     // pass over zero pins, which is exactly the shape a bad edit leaves behind.
     let pins = manifest["optionalDependencies"]
         .as_object()
