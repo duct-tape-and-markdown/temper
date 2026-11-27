@@ -1,0 +1,16 @@
+{
+  "tag": "LAUNCHER-EXITS-2-WHEN-ENGINE-UNREACHABLE",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "sdk/bin/temper.js", "description": "unsupported platform, missing platform package and spawn failure exit 2, install instructions kept on stderr" }
+    ],
+    "new": [
+      { "path": "sdk/test/launcher.test.ts", "description": "drives the launcher with the platform package unresolvable and asserts exit 2" }
+    ]
+  },
+  "summary": "The .bin launcher exits 2 when it cannot reach the platform engine binary, so a package-installed gate hook blocks instead of failing open at exit 1",
+  "per": { "path": "specs/distribution.md", "section": "The placements and their enforcement modes" },
+  "acceptance": "pnpm --dir sdk test green, with a launcher test asserting exit 2 and install instructions when the engine is unreachable",
+  "notes": "Fail-loud paragraph + item 2 (0121): the gate reaches the engine through the launcher. SDK-only, so no cargo tests[] line; the SDK gate holds it. An engine that ran and exited keeps passing its own status through."
+}
