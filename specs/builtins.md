@@ -13,10 +13,11 @@ it. A built-in reads its format as the runtime does: the documented behavior
 binds, a cited lab observation binds where the docs are silent, and
 otherwise the literal bytes bind, with the uncertainty named in guidance. A
 document the runtime loads is never a load fault; one it skips is. A value
-the runtime rejects is never silence either: a settings key of the wrong
-JSON type is skipped alone while the rest of its file applies, and an MCP
-config whose server collection is not an object is rejected (probed against
-Claude Code 2.1.332, 2026-11-27; the docs are silent), so each draws a
+the runtime rejects is never silence either: a settings value the schema
+rejects is skipped while the rest of its file applies
+(code.claude.com/docs/en/settings, "Fix a broken settings file", retrieved
+2026-11-27), and an MCP config whose server collection is not an object is
+rejected (probed against Claude Code 2.1.332, 2026-11-27), so each draws a
 finding naming the key and the type it carries, and a regenerate keeps the
 value it never judged. A skill, command or output style whose frontmatter
 does not parse loads with no fields set, as the docs say, and draws one
@@ -51,17 +52,18 @@ temper's own `dial` and `requirement`. The file members:
   name is prefixed by its subdirectory's segments, each joined with `:`
   (`apps:web:deploy`). A skill's own `paths` gate its listing, never its
   body: the skill joins the listing once a matching file is read, and loads
-  only when invoked. A supporting document read in a session returns
-  verbatim after compaction, re-attached beside the summary (probed against
-  Claude Code 2.1.332, 2026-11-26; the docs are silent). The invocation
-  spelling is rendered from the placement, never the identity, and the
-  frontmatter `name` is the leaf (`deploy`), so the directory and the name
-  still match. Its template names **supporting-doc**, the shipped kind of
-  its bundled reference documents: fields-free, prose-only, channel-less,
-  identity from the filename — the documented shape of a supporting file
-  (code.claude.com/docs/en/skills, "Add supporting files", retrieved
-  2026-07-16). It ships without joining this surface enumeration; an
-  adopting corpus types it further by extending the host, whose template
+  only when invoked. After compaction a recently read supporting document
+  returns verbatim beside the summary, and an older one as a reference to
+  re-read (probed against Claude Code 2.1.332, 2026-11-26;
+  github.com/anthropics/claude-code/issues/91689; the docs are silent). The
+  invocation spelling is rendered from the placement, never the identity,
+  and the frontmatter `name` is the leaf (`deploy`), so the directory and
+  the name still match. Its template names **supporting-doc**, the shipped
+  kind of its bundled reference documents: fields-free, prose-only,
+  channel-less, identity from the filename — the documented shape of a
+  supporting file (code.claude.com/docs/en/skills, "Add supporting files",
+  retrieved 2026-07-16). It ships without joining this surface enumeration;
+  an adopting corpus types it further by extending the host, whose template
   then names a subkind (`model/representation.md`, "kind"). The template
   claims the directory's markdown documents — the honest subset the
   prose-only kind can hold; supporting files of other types remain unmodeled

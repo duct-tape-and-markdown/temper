@@ -33,3 +33,13 @@ The loop raised four plan questions. Three were class-covered with the spec text
 ## Consequences
 
 Four questions are retired. The rule kind's nested placement follows memory's and skill's grammar.
+
+## Amendment (2026-11-27)
+
+The settings half of the rejected-value probe is documented, so it now cites
+the settings page ("Fix a broken settings file"). Only the `.mcp.json`
+collection case rests on the probe. A search of the public tracker before
+filing found the compaction fact reported more precisely in
+anthropics/claude-code#91689: only recently read files return verbatim, and
+older ones return as a reference. `builtins.md` now says so (0111's third
+fact, narrowed).
