@@ -8,7 +8,9 @@
 //! The lock's engine stamp tells an unreleased build from the release it follows: a
 //! build is released when it carries no git metadata (a crates.io tarball) or when the
 //! release workflow sets `TEMPER_RELEASE`; every other build from a checkout stamps the
-//! release version plus `+unreleased`. A tag on HEAD is deliberately not the signal —
+//! release version plus `+unreleased` and a digest of the embedded built-in facts
+//! (`src/builtin_lock.toml`), so the stamp moves exactly when a snapshot of those facts
+//! would go stale. A tag on HEAD is deliberately not the signal —
 //! the locks this repository commits are emitted by checkout builds, and a stamp that
 //! flipped at the tag would move them with no source change.
 //!
@@ -28,13 +30,19 @@ use std::process::Command;
 #[path = "src/engine_stamp.rs"]
 mod engine_stamp;
 
+/// The embedded built-in facts an unreleased stamp digests.
+const BUILTIN_FACTS: &str = "src/builtin_lock.toml";
+
 fn main() {
     let commit = git(&["rev-parse", "--short=12", "HEAD"]);
     let released = commit.is_none() || std::env::var_os("TEMPER_RELEASE").is_some();
     let release = std::env::var("CARGO_PKG_VERSION").unwrap_or_default();
+    // The same bytes `src/builtin_lock.rs` embeds with `include_str!`.
+    let builtin_facts = std::fs::read(BUILTIN_FACTS)
+        .unwrap_or_else(|err| panic!("{BUILTIN_FACTS} is the embedded built-in lock: {err}"));
     println!(
         "cargo::rustc-env=TEMPER_ENGINE_STAMP={}",
-        engine_stamp::engine_stamp(&release, released)
+        engine_stamp::engine_stamp(&release, released, &builtin_facts)
     );
 
     let Some(commit) = commit else {
@@ -42,10 +50,11 @@ fn main() {
         // so Cargo keeps its default "re-run when a package file changes".
         return;
     };
-    // Declared inputs replace Cargo's default, so the version the stamp carries and
-    // the release switch are inputs too.
+    // Declared inputs replace Cargo's default, so the version the stamp carries, the
+    // release switch, and the built-in facts it digests are inputs too.
     println!("cargo::rerun-if-env-changed=TEMPER_RELEASE");
     println!("cargo::rerun-if-changed=Cargo.toml");
+    println!("cargo::rerun-if-changed={BUILTIN_FACTS}");
 
     // Re-run when HEAD moves; without these the stamp is computed once and then goes
     // silently stale for the rest of the target dir's life. `git rev-parse --git-path`

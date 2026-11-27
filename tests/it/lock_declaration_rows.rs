@@ -4020,6 +4020,37 @@ fn a_built_in_row_snapshotted_by_another_engine_reads_as_the_embedded_built_in_w
 }
 
 #[test]
+fn a_lock_stamped_with_the_bare_unreleased_mark_reads_a_divergent_built_in_row_as_stale() {
+    // Same release line, unreleased, but built over other built-in facts: the stamp an
+    // unreleased build wrote before its built-ins carried a digest.
+    let root = diverging_memory_row_harness("bare-unreleased-builtin-row");
+    let bare = common::restamp_lock_bare_unreleased(&root);
+    assert_ne!(bare, temper::ENGINE_STAMP);
+
+    let (findings, ok) = common::check_harness(&root);
+    assert!(
+        common::findings_for(&findings, "kind.admissibility").is_empty(),
+        "an unreleased snapshot over other built-in facts is stale, never a collision, \
+         got:\n{findings:#?}"
+    );
+    let reemit: Vec<_> = common::findings_for(&findings, "root.engine-matches")
+        .into_iter()
+        .filter(|line| line.contains("`memory`"))
+        .collect();
+    assert_eq!(
+        reemit.len(),
+        1,
+        "the stale built-in row is named with a re-emit finding, got:\n{findings:#?}"
+    );
+    assert!(
+        reemit[0].contains("re-emit") && reemit[0].contains(&bare),
+        "the finding names the engine and the remedy, got: {}",
+        reemit[0]
+    );
+    assert!(ok, "the stale lock still checks ok, got:\n{findings:#?}");
+}
+
+#[test]
 fn a_built_in_named_row_diverging_from_the_embedded_built_in_under_this_engines_own_stamp_is_a_kind_collision()
  {
     let root = diverging_memory_row_harness("own-stamp-builtin-collision");
@@ -4076,12 +4107,26 @@ fn a_lock_this_engine_cannot_read_is_reported_as_written_by_another_engine() {
 #[test]
 fn an_unreleased_build_stamps_its_lock_distinctly_from_the_release_it_follows() {
     let release = temper::VERSION;
-    let unreleased = temper::engine_stamp::engine_stamp(release, false);
-    assert_eq!(temper::engine_stamp::engine_stamp(release, true), release);
+    let builtin_facts = include_bytes!("../../src/builtin_lock.toml");
+    let unreleased = temper::engine_stamp::engine_stamp(release, false, builtin_facts);
+    assert_eq!(
+        temper::engine_stamp::engine_stamp(release, true, builtin_facts),
+        release
+    );
     assert_ne!(unreleased, release);
     assert!(
         unreleased.starts_with(release),
         "the stamp still names the release it follows: {unreleased}"
+    );
+    assert_eq!(
+        unreleased,
+        temper::ENGINE_STAMP,
+        "this checkout build stamps the digest of the built-in facts it embeds"
+    );
+    assert_ne!(
+        temper::engine_stamp::engine_stamp(release, false, b"other built-in facts"),
+        unreleased,
+        "an unreleased build with other built-in facts stamps distinctly"
     );
 
     // This checkout build is unreleased, and the lock it emits says so.

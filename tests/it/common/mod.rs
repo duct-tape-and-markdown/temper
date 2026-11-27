@@ -1950,3 +1950,16 @@ pub fn restamp_lock(root: &Path, stamp: &str) {
     );
     fs::write(&path, format!("engine = \"{stamp}\"\n{rest}")).unwrap();
 }
+
+/// Restamp `root`'s emitted lock with the bare unreleased mark on this release line —
+/// the stamp an unreleased build of this release writes over built-in facts other than
+/// the ones this build embeds — and return that stamp.
+pub fn restamp_lock_bare_unreleased(root: &Path) -> String {
+    let stamp = format!(
+        "{}{}",
+        temper::VERSION,
+        temper::engine_stamp::UNRELEASED_MARK
+    );
+    restamp_lock(root, &stamp);
+    stamp
+}

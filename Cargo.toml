@@ -55,6 +55,11 @@ schemars = "1"
 # `#[ts(as)]` instead) — silence the parse notice for that deliberate override.
 ts-rs = { version = "12", features = ["no-serde-warnings"] }
 
+[build-dependencies]
+# The built-in-facts digest an unreleased engine stamp carries (`src/engine_stamp.rs`,
+# shared verbatim with `build.rs`).
+sha2 = "0.10"
+
 [dev-dependencies]
 # Golden import/apply fixtures (specs/model/pipeline.md, "Install"). `filters` redacts the per-machine
 # absolute source path from the import-surface snapshot.
