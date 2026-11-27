@@ -1,0 +1,16 @@
+{
+  "tag": "GUARD-IGNORED-DIR-MEMORY-LOCAL-ISOLATED",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "tests/it/install.rs", "description": "guard_places_no_memory_local_member_inside_an_ignored_directory...: bind a locus-declared clause so an unignored undeclared memory-local draws a finding, isolating the ignored-dir silence" }
+    ]
+  },
+  "summary": "The guard's ignored-directory memory-local test passes for an unrelated reason: no undeclared memory-local binds anywhere absent a locus-declared clause",
+  "per": { "path": "specs/distribution.md", "section": "The placements and their enforcement modes" },
+  "acceptance": "Under a bound locus-declared clause, a write to an unignored undeclared CLAUDE.local.md draws the guard's finding while the same write under the ignored build/ draws nothing; the test asserts both",
+  "pins": [
+    "guard binds an undeclared memory-local write outside an ignored directory and none inside it"
+  ],
+  "notes": "Spec: an undeclared write at a governed locus binds only where a locus-declared clause is bound, so today's silence at sub/CLAUDE.local.md is correct and the test's contrast is missing. Test-only; if the outside write draws nothing even with the clause bound, that is a guard defect — raise it, don't weaken the pin."
+}

@@ -1,0 +1,18 @@
+{
+  "tag": "EXPLAIN-NARRATES-STALE-BUILTIN-AS-EMBEDDED",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/compose.rs", "description": "retire_stale_builtin_rows / lock-family overlay: a retired row's cleared facts fall back to the embedded built-in's, never to none" },
+      { "path": "src/read.rs", "description": "explain's assembly reads the embedded built-in's guidance for a stale row, as check does" },
+      { "path": "tests/it/read_verbs.rs", "description": "un-ignore the stale-row guidance test" }
+    ]
+  },
+  "summary": "explain narrates another engine's stale built-in row stripped (no guidance line) instead of as the embedded built-in the gate reads",
+  "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+  "acceptance": "Under another engine's stamp, `explain memory` over a lock snapshotting the built-in `memory` row narrates the embedded built-in's guidance; the #[ignore] on the test is removed and it passes",
+  "tests": [
+    "explain narrates a stale built-in rows kind with the embedded guidance"
+  ],
+  "notes": "Test already written, #[ignore]d, red under --ignored (verified this tick). The stale row also keeps the lock's globs (**/CLAUDE.md) where the embedded carries **/CLAUDE.md and **/AGENTS.md: retire keeps locus as a possible authored relocation by design; if build finds the globs need the same fallback to meet 'reads the embedded built-in', raise a question rather than widen."
+}
