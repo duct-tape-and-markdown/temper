@@ -1,7 +1,7 @@
 ---
 # temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
 name: "temper"
-description: "How to operate the temper gate over this repository's harness and documentation corpus. Use when a temper finding appears, before editing anything under .claude/ or docs/, or when adding a member to .temper/. Its contracted domains: `conduct`, `documented-spine`, `governance`, `operations`, `orientation`, `standards`."
+description: "How to operate the temper gate over this repository's harness and documentation corpus. Use when a temper finding appears, before editing anything under .claude/ or docs/, or when adding a member to .temper/. Its contracted requirements: `conduct`, `documented-spine`, `governance`, `operations`, `orientation`, `standards`."
 ---
 # Operating the temper gate
 

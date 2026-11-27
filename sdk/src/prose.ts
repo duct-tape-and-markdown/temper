@@ -1,10 +1,10 @@
 /**
- * Prose — four constructors, one field type. A member's words are data the
- * member declares: `file()` for a document that keeps its medium, `` text`…` ``
- * for short inline prose, `span()` for prose the program computes, `blocks()` for a
- * composed body that interleaves verbatim prose spans with embedded-member values in
+ * Prose — three constructors, one field type. A member's words are data the
+ * member declares: `file()` for a document that keeps its medium, an inline
+ * {@link Text} for short prose — spelled `` text`…` `` or `span()` — and `blocks()`
+ * for a composed body that interleaves verbatim prose spans with embedded-member values in
  * authored order. Whatever the constructor, the words land byte-identical to their
- * authored text. The two inline constructors build the same {@link Text} and differ
+ * authored text. The two inline spellings build the same {@link Text} and differ
  * only in where the words come from: reach for `` text`…` `` when they are literal, for
  * `span()` when they are a string the program derived — the tag's interpolations are
  * references, never words, so a computed string has no slot to ride in.
@@ -224,7 +224,7 @@ export interface Blocks {
   readonly values: readonly (Text | EmbeddedMemberValue)[];
 }
 
-/** A member's prose — one of the four constructors, one field type. */
+/** A member's prose — one of the three constructors' values, one field type. */
 export type Prose = File | Text | Blocks;
 
 /**

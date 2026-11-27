@@ -40,14 +40,14 @@ export const REFERENCE_NAME = "temper";
 
 /**
  * What the reference may declare of its own: the trigger its description opens with, and
- * the domains it fills. Its body and topics are never authored — they derive from the
+ * the requirements it fills. Its body and topics are never authored — they derive from the
  * harness listing it.
  */
 export interface ReferenceInit {
   /**
    * The trigger the skill's description opens with — when a session should load it.
    * Absent, temper's own trigger. Either way the rendered description closes by naming
-   * the harness's contracted domains, which derive from what is declared.
+   * the harness's contracted requirements, which derive from what is declared.
    */
   readonly description?: string;
   /** The requirements this member fills — every member's `satisfies` edge. */
@@ -438,7 +438,7 @@ export function renderReference(
   ]);
   const named = domains.map((name) => `\`${name}\``).join(", ");
   const description =
-    domains.length === 0 ? trigger : `${trigger} Its contracted domains: ${named}.`;
+    domains.length === 0 ? trigger : `${trigger} Its contracted requirements: ${named}.`;
   return {
     description,
     body: prose(joined([MECHANICS, index, ""], "\n")),

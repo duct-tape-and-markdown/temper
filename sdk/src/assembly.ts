@@ -1,6 +1,6 @@
 /**
  * The assembly — `harness()` takes the whole as one typed value: `Harness =
- * members · expect · require · settings · mode`. Like every SDK type it
+ * members · expect · admit · require · settings · mode · contract · typecheck`. Like every SDK type it
  * erases at the seam — the engine never sees the constructor, only the
  * declaration rows it compiles to. There is no second authoring surface: no
  * `temper.toml`, no roster/bindings dialect (the Decision rejects both);

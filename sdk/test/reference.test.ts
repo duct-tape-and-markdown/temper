@@ -52,11 +52,11 @@ test("declared reference emits its SKILL.md with the mechanics and one index lin
   assert.doesNotMatch(body, /\brust\b/);
 });
 
-test("declared reference description names the contracted domains", () => {
+test("declared reference description names the contracted requirements", () => {
   const description = referenceOf(emit(declared(reference()))).fields.find(([key]) => key === "description")?.[1];
   assert.equal(typeof description, "string");
   assert.match(description as string, /^Use when operating the temper gate/);
-  assert.match(description as string, /Its contracted domains: `conventions`, `release-procedure`\.$/);
+  assert.match(description as string, /Its contracted requirements: `conventions`, `release-procedure`\.$/);
 });
 
 test("declared reference may declare satisfies and so own its domain", () => {
@@ -83,7 +83,7 @@ test("declared reference renders only committed declarations", () => {
   const result = referenceOf(emit(program));
   assert.doesNotMatch(result.body, /settings-local|kind-dial|machine-only/);
   const description = result.fields.find(([key]) => key === "description")?.[1] as string;
-  assert.doesNotMatch(description, /contracted domains/);
+  assert.doesNotMatch(description, /contracted requirements/);
 });
 
 test("a harness without the reference projects no temper skill", () => {

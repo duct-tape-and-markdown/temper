@@ -92,7 +92,7 @@ test("a consumer composes its own members beside the starter's", () => {
     }),
   );
   assert.ok(result.members.some((m) => m.kind === "rule" && m.name === "conventions"));
-  assert.match(referenceDescription(result) as string, /Its contracted domains: `conventions`\.$/);
+  assert.match(referenceDescription(result) as string, /Its contracted requirements: `conventions`\.$/);
 });
 
 test("starter() options override each shape's defaults", () => {
@@ -119,14 +119,14 @@ test("a tool the typecheck and the gates share is composed once", () => {
   assert.equal(base.members.filter((member) => member.kind === "tool").length, 1);
 });
 
-test("the hydrated reference description still closes on the contracted domains", () => {
+test("the hydrated reference description still closes on the contracted requirements", () => {
   const result = emit(
     harness({
       members: [reference({ description: "Use when touching the harness." })],
       require: { procedures: requirement({ prose: "How work is done.", required: false }) },
     }),
   );
-  assert.equal(referenceDescription(result), "Use when touching the harness. Its contracted domains: `procedures`.");
+  assert.equal(referenceDescription(result), "Use when touching the harness. Its contracted requirements: `procedures`.");
 });
 
 test("each shape hydrates standalone", () => {

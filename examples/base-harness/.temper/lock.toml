@@ -75,8 +75,8 @@ emit_hash = "56f40527068b867a2ab87e93bb88f4a596b971352c3ddbcdfad1c4aeaee6ad5c"
 [[skill]]
 name = "temper"
 source_path = ".claude/skills/temper/SKILL.md"
-source_hash = "c406b12fa4c7304357e99f3aff51f5c9e6763eae888ad356f31d9cf329212d05"
-emit_hash = "c406b12fa4c7304357e99f3aff51f5c9e6763eae888ad356f31d9cf329212d05"
+source_hash = "1348c437214f3bfd4686b5e6ccd34dd244a54eb8f3a10709123848c0afc16921"
+emit_hash = "1348c437214f3bfd4686b5e6ccd34dd244a54eb8f3a10709123848c0afc16921"
 
 [[skill]]
 name = "verify-summary"
