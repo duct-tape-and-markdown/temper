@@ -1,10 +1,7 @@
 {
   "tag": "LOADS-GUARD-REFUSES-CONTENTLESS-KIND",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "LOAD-CHANNEL-SUPPORTING-DOC"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
