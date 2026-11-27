@@ -17,8 +17,8 @@ use crate::common;
 fn posture_kind_facts() -> KindFactRow {
     KindFactRow {
         name: "posture".to_string(),
-        governs_root: None,
-        governs_glob: Vec::new(),
+        locus_root: None,
+        locus_glob: Vec::new(),
         ..common::kind_facts("posture", "", "")
     }
 }

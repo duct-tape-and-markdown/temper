@@ -117,9 +117,9 @@ export function edgeTargetNames(edge: Pick<EdgeField, "to">): string[] {
  * as typed fenced blocks inside host documents (`embedded`), or as `nested-file`
  * children owning a file whose path composes from their host member's unit and the host
  * kind's template pattern. An `at` locus is split root + glob so the kind fact row
- * carries `governs_root`/`governs_glob` directly; a `nested-file` kind declares neither
+ * carries `locus_root`/`locus_glob` directly; a `nested-file` kind declares neither
  * — the pattern is the host {@link Template}'s one home, so a child can never collide
- * with its host's own governs glob. An `embedded` locus names no host: which types may
+ * with its host's own locus glob. An `embedded` locus names no host: which types may
  * compose a kind's body is the adopting corpus's `admit` declaration over the host kind
  * (`assembly.ts`), so one embedded type means the same thing in every body that admits
  * it. A `nested-file` child names its host per member ({@link MemberInit}'s `host`) —
@@ -655,7 +655,7 @@ export type MemberInit<T> = {
   /** The host member this member's unit composes under — a nested-file child's, and only its. */
   readonly host?: Member;
   /**
-   * Where the member's file sits, relative to its locus root (its kind's `governs` root,
+   * Where the member's file sits, relative to its locus root (its kind's `locus` root,
    * or its host's unit). Declared where no template places the name whole — a
    * `:`-prefixed identity such as `apps:web:CLAUDE` sits at `apps/web/CLAUDE.md` — and
    * agreeing with that prefix; never parsed out of the name.
@@ -979,7 +979,7 @@ export function manifestOf(facts: KindFacts): string {
  *   which would drop a shipped kind's own edges silently). Each added field names a key
  *   of the relocated kind's typed surface `T`, so an edge can never be declared over a
  *   field the kind does not carry.
- * - `governs`, *replacing* the base's `at` locus root and glob — moving where the kind's
+ * - `locus`, *replacing* the base's `at` locus root and glob — moving where the kind's
  *   members are found, the one fact the engine's own overlay exists to apply
  *   (`src/compose.rs`'s `overlay_builtin_kind`).
  * - `exclude`, *appended* to the base exclusions the (possibly moved) locus still
@@ -1006,7 +1006,7 @@ export interface KindRelocation<T extends object> {
    * a `commitment` delta would author a fact the reader drops in silence — a built-in's
    * commitment class stays the built-in's.
    */
-  readonly governs?: { readonly root: string; readonly glob: string | Templates };
+  readonly locus?: { readonly root: string; readonly glob: string | Templates };
   /**
    * Paths the relocated kind leaves ungoverned, *appended* to the base exclusions its
    * template (moved or not) still reaches — the way an author answers a collision with a
@@ -1027,7 +1027,7 @@ export interface KindRelocation<T extends object> {
 }
 
 /**
- * The locus a `governs` delta moves the base to: the base's `at` root and glob replaced,
+ * The locus a `locus` delta moves the base to: the base's `at` root and glob replaced,
  * every other locus fact (its commitment class among them) riding through. Of the base's
  * exclusions it keeps each the new template still matches or reaches beneath — moving one
  * loader's reach moves no other's — and drops the rest, which the engine would refuse as
@@ -1036,26 +1036,26 @@ export interface KindRelocation<T extends object> {
  * # Throws
  * If the base's locus is not `at` — an embedded or nested-file kind governs no glob at
  * all (its members compose their paths from a host's unit, or own no file), so there is
- * no locus to move and its row carries no `governs` columns to move it to.
+ * no locus to move and its row carries no `locus_root`/`locus_glob` columns to move it to.
  */
 function relocatedLocus(
   base: KindFacts,
-  governs: NonNullable<KindRelocation<never>["governs"]>,
+  target: NonNullable<KindRelocation<never>["locus"]>,
 ): Extract<Locus, { kind: "at" }> {
   if (base.locus.kind !== "at") {
     throw new Error(
-      `relocating kind \`${base.name}\`: a \`governs\` delta moves the ` +
+      `relocating kind \`${base.name}\`: a \`locus\` delta moves the ` +
         `path glob a kind's members are found at, and this kind's locus is \`${base.locus.kind}\` ` +
-        `— it governs no glob of its own. Drop the \`governs\` face of the delta ` +
+        `— it governs no glob of its own. Drop the \`locus\` face of the delta ` +
         `(specs/model/representation.md, "locus").`,
     );
   }
-  const patterns = templatesOf(governs).map((glob) => locusPattern(governs.root, glob));
+  const patterns = templatesOf(target).map((glob) => locusPattern(target.root, glob));
   const kept = (base.locus.exclude ?? []).filter((path) =>
     patterns.some((pattern) => templateMatches(pattern, path) || templateReachesBeneath(pattern, path)),
   );
   const { exclude: _replaced, ...rest } = base.locus;
-  return { ...rest, root: governs.root, glob: governs.glob, ...(kept.length > 0 ? { exclude: kept } : {}) };
+  return { ...rest, root: target.root, glob: target.glob, ...(kept.length > 0 ? { exclude: kept } : {}) };
 }
 
 /**
@@ -1203,7 +1203,7 @@ function templateReachesBeneath(pattern: string, dir: string): boolean {
  * does not own to its own root, adds an edge field to it, excludes paths from it, or any
  * combination. Returns a fresh constructor over the widened typed surface `T` (the
  * base's fields plus the added edge fields, spelled by the caller as one interface),
- * carrying the base's facts with `delta`'s edge fields appended, `delta`'s `governs` in
+ * carrying the base's facts with `delta`'s edge fields appended, `delta`'s `locus` in
  * place of the base's locus root and glob, `delta`'s `exclude` appended to the locus's
  * exclusions, and the base's own {@link KindDefinition.render} hook preserved. Ownership,
  * not privilege — a relocated built-in is an ordinary kind value from here on, and its
@@ -1211,7 +1211,7 @@ function templateReachesBeneath(pattern: string, dir: string): boolean {
  * kind's does (`declarations.ts`), never as a column on a kind-fact row.
  *
  * A moved locus, by contrast, *is* a kind-fact row column pair: the emitted row carries
- * the delta's `governs_root`/`governs_glob` while `format`, `unit_shape` and
+ * the delta's `locus_root`/`locus_glob` while `format`, `unit_shape` and
  * `registration` stay the base's — which is precisely the three-fact test the lock
  * reader applies before overlaying the row onto its compiled-in built-in
  * (`src/compose.rs`'s `row_relocates_builtin`), so the engine reads members at the new
@@ -1227,7 +1227,7 @@ function templateReachesBeneath(pattern: string, dir: string): boolean {
  * # Throws
  * If an added edge field re-declares one the base already carries, or one another
  * entry of the same delta already added — two `edge` rows over one `<from, field>`
- * cross-wire the graph instead of declaring one relationship. If a `governs` delta
+ * cross-wire the graph instead of declaring one relationship. If a `locus` delta
  * names a base whose locus is not `at` ({@link relocatedLocus}), or an `exclude` delta
  * does, or names a path the locus cannot subtract ({@link excludedLocus}). And if the
  * delta declares no face, which would mint a marker-bearing clone of the base — a second
@@ -1296,7 +1296,7 @@ export interface KindExtension<T extends object> extends KindRelocation<T> {
 /**
  * **Extend** a kind. Under a new `name` the result is a **subkind**: it keeps the base's
  * facts, adds `delta`'s edge fields, plain fields and counsel, governs a locus within the
- * base's (the base's own unless `governs` moves it), and names the base in its `base`
+ * base's (the base's own unless `locus` moves it), and names the base in its `base`
  * fact — the engine then reads a document in that locus as the subkind's one member.
  * Under the base's name it is the relocation {@link relocate} documents, the same
  * operation.
@@ -1324,19 +1324,19 @@ export function extend<B extends object, T extends B>(
   const name = delta.name ?? base.facts.name;
   const subkind = name !== base.facts.name;
   if (subkind) {
-    if (base.facts.locus.kind !== "at" && (delta.governs !== undefined || (delta.exclude ?? []).length > 0)) {
+    if (base.facts.locus.kind !== "at" && (delta.locus !== undefined || (delta.exclude ?? []).length > 0)) {
       throw new Error(
         `extending kind \`${base.facts.name}\` as \`${name}\`: a nested kind's members are placed by ` +
           `its host's template, so its subkind declares no locus — name it from an extended host ` +
           `instead: \`extend(host, { name, template: ${name} })\` (specs/model/representation.md, "kind").`,
       );
     }
-    if (delta.governs !== undefined && base.facts.locus.kind === "at") {
-      const governs = delta.governs;
+    if (delta.locus !== undefined && base.facts.locus.kind === "at") {
+      const target = delta.locus;
       const baseLocus = base.facts.locus;
       const held = templatesOf(baseLocus).map((glob) => locusPattern(baseLocus.root, glob));
-      const own = templatesOf(governs)
-        .map((glob) => locusPattern(governs.root, glob))
+      const own = templatesOf(target)
+        .map((glob) => locusPattern(target.root, glob))
         .find((pattern) => !held.some((heldPattern) => locusWithin(pattern, heldPattern)));
       if (own !== undefined) {
         throw new Error(
@@ -1357,20 +1357,20 @@ export function extend<B extends object, T extends B>(
     body === base.body &&
     templates === undefined &&
     declaredEdges.length === 0 &&
-    delta.governs === undefined &&
+    delta.locus === undefined &&
     (delta.exclude ?? []).length === 0 &&
     !counselled &&
     delta.mode === undefined
   ) {
     throw new Error(
       `relocating kind \`${base.facts.name}\`: a relocation declares at least one diverging ` +
-        `fact — \`edgeFields\`, \`fields\`, \`governs\`, \`exclude\`, \`template\`, \`mode\`, or guidance. A delta declaring none mints a ` +
+        `fact — \`edgeFields\`, \`fields\`, \`locus\`, \`exclude\`, \`template\`, \`mode\`, or guidance. A delta declaring none mints a ` +
         `second kind of the base's own name that diverges on nothing, which reads as a name ` +
         `collision rather than a relocation (specs/model/representation.md, "kind").`,
     );
   }
   const authored = delta.exclude ?? [];
-  const moved = delta.governs === undefined ? undefined : relocatedLocus(base.facts, delta.governs);
+  const moved = delta.locus === undefined ? undefined : relocatedLocus(base.facts, delta.locus);
   const locus = authored.length === 0 ? moved : excludedLocus(base.facts, moved, authored);
   const inherited = base.facts.edgeFields ?? [];
   const claimed = new Set(inherited.map((edge) => edge.field));

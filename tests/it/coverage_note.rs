@@ -49,11 +49,11 @@ Drive the team through the playbook.\n"
 ///
 /// The locus is the kind's own `.claude/widgets/*.json`, never `.claude/settings.json`:
 /// that file is the built-in `settings` kind's, and a second document kind claiming it
-/// whole is a `kind.governs-collision` — a document's kind is its position alone.
-fn widget_kind_facts(governs_root: &str, governs_glob: &str) -> KindFactRow {
+/// whole is a `kind.locus-collision` — a document's kind is its position alone.
+fn widget_kind_facts(locus_root: &str, locus_glob: &str) -> KindFactRow {
     KindFactRow {
         unit_shape: Some("file".to_string()),
-        ..common::kind_facts("widget", governs_root, governs_glob)
+        ..common::kind_facts("widget", locus_root, locus_glob)
     }
 }
 
@@ -597,7 +597,7 @@ fn lock_relocated_rule(root: &Path, name: &str) {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![KindFactRow {
-                governs_root: Some(".claude/policies".to_string()),
+                locus_root: Some(".claude/policies".to_string()),
                 ..common::rule_kind_facts(None, &[])
             }],
             ..Declarations::default()

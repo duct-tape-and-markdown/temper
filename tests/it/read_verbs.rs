@@ -1579,14 +1579,14 @@ fn a_hosted_kind_spells_the_host_qualified_address_form_and_names_the_kinds_that
         // The nested-file locus: no `governs` pair of its own, its path fact living in the
         // host's template.
         drift::KindFactRow {
-            governs_root: None,
-            governs_glob: Vec::new(),
+            locus_root: None,
+            locus_glob: Vec::new(),
             unit_shape: Some("file".to_string()),
             ..common::kind_facts("supporting-doc", "", "")
         },
         drift::KindFactRow {
-            governs_root: None,
-            governs_glob: Vec::new(),
+            locus_root: None,
+            locus_glob: Vec::new(),
             ..common::kind_facts("orphan", "", "")
         },
     ];

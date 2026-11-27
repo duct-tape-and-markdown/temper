@@ -321,7 +321,7 @@ function nestedFilePath(member: Member): string {
 
 /**
  * The harness-relative locus `member` projects onto: a file member places its name inside
- * the locus its own `governs` glob is rooted at ({@link placementInUnit}); a nested file
+ * the locus its own `locus` glob is rooted at ({@link placementInUnit}); a nested file
  * child places it inside its host's unit instead, through that same rule and its host
  * kind's declared template pattern ({@link nestedFilePath}). The engine
  * derives the same locus from the same facts (`src/drift.rs`'s `member_projection_path`);

@@ -720,7 +720,7 @@ impl CustomKind {
         }
         if self.governs.is_none() {
             return Some(
-                "it declares no `governs` locus — a commitment class is a file locus's \
+                "it declares no file locus — a commitment class is a file locus's \
                  fact, and a nested file kind's members compose their paths from their \
                  host's unit instead"
                     .to_string(),
@@ -766,7 +766,7 @@ impl CustomKind {
     ///
     /// # Errors
     ///
-    /// Returns a [`LockRowError`] when the `governs_glob` is not a placement template
+    /// Returns a [`LockRowError`] when the `locus_glob` is not a placement template
     /// ([`PLACEMENT_TEMPLATE_COLUMN`]), when an `exclude` entry is not a starless path the
     /// locus governs ([`EXCLUDE_COLUMN`]), or when a `format`/`unit_shape`/`registration`/`shape`/
     /// `collection_address` label or a layout region falls outside its closed vocabulary —
@@ -774,7 +774,7 @@ impl CustomKind {
     /// corruption rejected at load.
     pub fn from_kind_fact_row(row: &KindFactRow) -> Result<Self, LockRowError> {
         if let Some(glob) = row
-            .governs_glob
+            .locus_glob
             .iter()
             .find(|glob| !crate::glob::is_placement_template(glob))
         {
@@ -819,12 +819,12 @@ impl CustomKind {
                 row.name.clone(),
                 // The two columns are one spelling: an `at` locus writes both, a nested file
                 // kind neither — so the row is never mined for a root+glob it does not carry.
-                row.governs_root
+                row.locus_root
                     .clone()
-                    .filter(|_| !row.governs_glob.is_empty())
+                    .filter(|_| !row.locus_glob.is_empty())
                     .map(|root| Governs {
                         root,
-                        globs: row.governs_glob.clone(),
+                        globs: row.locus_glob.clone(),
                     }),
                 Extraction::new(vec![
                     Primitive::LineCount,
@@ -1280,9 +1280,9 @@ fn template_reaches_beneath(pattern: &str, dir: &str) -> bool {
         && (root.len()..=dir.len()).any(|start| prefix_matches(&dir[start..], body))
 }
 
-/// The column a non-template `governs_glob` refuses under, spelled to name the rule it
+/// The column a non-template `locus_glob` refuses under, spelled to name the rule it
 /// broke: literal segments, at most one `*`, an optional leading `**/`.
-pub const PLACEMENT_TEMPLATE_COLUMN: &str = "governs_glob (a placement template: literal segments, at most one `*`, optionally under a leading `**/`)";
+pub const PLACEMENT_TEMPLATE_COLUMN: &str = "locus_glob (a placement template: literal segments, at most one `*`, optionally under a leading `**/`)";
 
 /// Surface a `kind`-fact column's label as an out-of-vocabulary [`LockRowError`] when its
 /// closed-vocabulary lookup came back empty — the shared reject the label lifts route a
@@ -1391,8 +1391,8 @@ pub(crate) fn at_locus_is_under_workspace(root: &str, commitment: Option<Commitm
 /// Returns a [`LockRowError`] naming [`EXCLUDE_COLUMN`] and the first entry that is not
 /// such a path.
 fn excluded_from_row(row: &KindFactRow) -> Result<Vec<String>, LockRowError> {
-    let patterns: Vec<String> = row.governs_root.as_ref().map_or_else(Vec::new, |root| {
-        row.governs_glob
+    let patterns: Vec<String> = row.locus_root.as_ref().map_or_else(Vec::new, |root| {
+        row.locus_glob
             .iter()
             .map(|glob| locus_pattern(root, glob))
             .collect()
@@ -1420,7 +1420,7 @@ fn excluded_from_row(row: &KindFactRow) -> Result<Vec<String>, LockRowError> {
 ///
 /// # Errors
 ///
-/// Returns a [`LockRowError`] when a gate names a template the row's `governs_glob`
+/// Returns a [`LockRowError`] when a gate names a template the row's `locus_glob`
 /// does not carry, or an `absent` entry that is not a starless relative path
 /// ([`ABSENCE_GATE_COLUMN`]).
 pub(crate) fn absence_gates_from_row(row: &KindFactRow) -> Result<Vec<AbsenceGate>, LockRowError> {
@@ -1432,7 +1432,7 @@ pub(crate) fn absence_gates_from_row(row: &KindFactRow) -> Result<Vec<AbsenceGat
                 column: ABSENCE_GATE_COLUMN.to_string(),
                 value: value.to_string(),
             };
-            if !row.governs_glob.contains(&gate.template) {
+            if !row.locus_glob.contains(&gate.template) {
                 return Err(refuse(&gate.template));
             }
             if gate.absent.is_empty() {
@@ -1686,7 +1686,7 @@ fn content_shape_from_label(label: &str) -> Option<Content> {
 ///
 /// Returns a [`LockRowError`] when the recorded `key_path` or `entry_shape` label falls
 /// outside its closed vocabulary, or when the row's locus names no single manifest (no
-/// `governs_glob`, or a starred one) — the tool-written lock carries only what the SDK
+/// `locus_glob`, or a starred one) — the tool-written lock carries only what the SDK
 /// could emit, so either is corruption rejected at load.
 pub(crate) fn collection_address_from_row(
     row: &KindFactRow,
@@ -1695,18 +1695,18 @@ pub(crate) fn collection_address_from_row(
         None => Ok(None),
         Some(address) => {
             // A manifest is one file: one starless template, never a family of them.
-            match row.governs_glob.as_slice() {
+            match row.locus_glob.as_slice() {
                 [] => {
                     return Err(LockRowError::MissingColumn {
                         family: "kind".to_string(),
-                        column: "governs_glob".to_string(),
+                        column: "locus_glob".to_string(),
                     });
                 }
                 [glob] if !glob.contains('*') => {}
                 globs => {
                     return Err(LockRowError::Vocabulary {
                         family: "kind".to_string(),
-                        column: "governs_glob".to_string(),
+                        column: "locus_glob".to_string(),
                         value: globs.join(", "),
                     });
                 }
@@ -2474,8 +2474,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     /// `from_kind_fact_row` content tests override the one column they exercise onto.
     fn spec_row() -> KindFactRow {
         KindFactRow {
-            governs_root: Some("specs".to_string()),
-            governs_glob: vec!["*.md".to_string()],
+            locus_root: Some("specs".to_string()),
+            locus_glob: vec!["*.md".to_string()],
             ..test_support::kind_fact_row("spec")
         }
     }
@@ -2509,8 +2509,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     fn gated_memory_row(template: &str, absent: &[&str]) -> KindFactRow {
         KindFactRow {
             name: "memo".to_string(),
-            governs_root: Some(".".to_string()),
-            governs_glob: vec!["**/CLAUDE.md".to_string(), "**/AGENTS.md".to_string()],
+            locus_root: Some(".".to_string()),
+            locus_glob: vec!["**/CLAUDE.md".to_string(), "**/AGENTS.md".to_string()],
             absence_gate: vec![AbsenceGateRow {
                 template: template.to_string(),
                 absent: absent.iter().map(ToString::to_string).collect(),
@@ -2670,8 +2670,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     fn from_kind_fact_row_lifts_a_multi_channel_registration_set_in_order() {
         // `skill`'s own two-channel set — both labels lift, order preserved.
         let row = KindFactRow {
-            governs_root: Some(".claude/skills".to_string()),
-            governs_glob: vec!["*/SKILL.md".to_string()],
+            locus_root: Some(".claude/skills".to_string()),
+            locus_glob: vec!["*/SKILL.md".to_string()],
             registration: vec![
                 "user-invoked".to_string(),
                 "description-trigger(description)".to_string(),
@@ -2693,8 +2693,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     #[test]
     fn from_kind_fact_row_with_no_optional_facts_yields_the_generic_defaults() {
         let row = KindFactRow {
-            governs_root: Some("adr".to_string()),
-            governs_glob: vec!["*.md".to_string()],
+            locus_root: Some("adr".to_string()),
+            locus_glob: vec!["*.md".to_string()],
             ..test_support::kind_fact_row("adr")
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();

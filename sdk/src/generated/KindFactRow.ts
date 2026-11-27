@@ -26,20 +26,20 @@ provider?: string,
  */
 base?: string, 
 /**
- * The `governs` locus root directory. Absent together with
- * [`governs_glob`](KindFactRow::governs_glob) for a **nested file** kind: its members'
+ * The `at` locus root directory. Absent together with
+ * [`locus_glob`](KindFactRow::locus_glob) for a **nested file** kind: its members'
  * paths compose from their host's unit and the host template's pattern, so it governs
  * no glob of its own and two kinds still never share one.
  */
-governs_root?: string, 
+locus_root?: string, 
 /**
- * The `governs` locus **templates** under [`governs_root`](KindFactRow::governs_root) —
+ * The `at` locus **templates** under [`locus_root`](KindFactRow::locus_root) —
  * one or more, a document at any of them governed by the kind; empty for a nested
- * file kind (see [`governs_root`](KindFactRow::governs_root)). Written as an array;
+ * file kind (see [`locus_root`](KindFactRow::locus_root)). Written as an array;
  * a bare string reads as the one template it means, the spelling a lock written
  * before a locus took several carries.
  */
-governs_glob?: Array<string>, 
+locus_glob?: Array<string>, 
 /**
  * The file locus's declared **commitment class** label — `local` for a per-machine,
  * uncommitted locus: the kind is declared and reviewed, its members' documents are

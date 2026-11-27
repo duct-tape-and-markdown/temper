@@ -256,8 +256,8 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       name: "rule",
       provider: undefined,
       base: undefined,
-      governs_root: ".claude/rules",
-      governs_glob: ["**/*.md"],
+      locus_root: ".claude/rules",
+      locus_glob: ["**/*.md"],
       commitment: undefined,
       format: "yaml-frontmatter",
       unit_shape: "file",
@@ -808,8 +808,8 @@ test("an embedded kind declaring guidance/cite takes a locus-absent kind-fact ro
   assert.deepEqual(authoredMembers(result.members).map((m) => m.name), ["rust"]);
   const row = result.declarations.kinds.find((k) => k.name === "decision-with-guidance");
   assert.ok(row, "an embedded kind carrying guidance/cite takes a kind-fact row");
-  assert.equal(row?.governs_root, undefined);
-  assert.equal(row?.governs_glob, undefined);
+  assert.equal(row?.locus_root, undefined);
+  assert.equal(row?.locus_glob, undefined);
   assert.equal(row?.commitment, undefined);
   assert.equal(row?.guidance, "State the decision's rationale, not just its verdict.");
   assert.equal(row?.cite, "https://example.com/decisions (retrieved 2026-07-24)");
@@ -847,9 +847,9 @@ test("an embedded kind declaring only a leaf set takes a fact row carrying it in
   const row = declarations.kinds.find((k) => k.name === "decision-with-leaves");
   assert.ok(row, "an embedded kind carrying only a leaf set takes a kind-fact row");
   assert.deepEqual(row?.leaves, ["verdict", "rationale"]);
-  // It still owns no unit: the row carries no governs pair, and the kind reaches a host's
+  // It still owns no unit: the row carries no locus pair, and the kind reaches a host's
   // body through that host's `templates` column as it always did.
-  assert.equal(row?.governs_root, undefined);
+  assert.equal(row?.locus_root, undefined);
   assert.deepEqual(declarations.kinds.find((k) => k.name === "rule")!.templates, [
     { kind: "decision-with-leaves" },
   ]);
@@ -928,7 +928,7 @@ test("a local locus's commitment class reaches the kind's fact row", () => {
 
   const row = result.declarations.kinds.find((k) => k.name === "dial")!;
   assert.equal(row.commitment, "local");
-  assert.equal(row.governs_root, ".claude/local");
+  assert.equal(row.locus_root, ".claude/local");
 
   // The committed class has no label of its own — it is the absent column, so every
   // kind that declares nothing keeps a byte-identical row.
@@ -949,10 +949,10 @@ test("a host's file child emits at its host's unit joined with the template's pa
   assert.equal(child.body, "# Checklist");
 
   // The child kind takes a fact row (the engine places its file off one) carrying no
-  // governs pair, and no locus it could share with its `guide` host.
+  // locus pair, and no locus it could share with its `guide` host.
   const childRow = result.declarations.kinds.find((k) => k.name === "supporting-doc")!;
-  assert.equal(childRow.governs_root, undefined);
-  assert.equal(childRow.governs_glob, undefined);
+  assert.equal(childRow.locus_root, undefined);
+  assert.equal(childRow.locus_glob, undefined);
   assert.deepEqual(
     result.declarations.kinds.find((k) => k.name === "guide")!.templates,
     [{ kind: "supporting-doc", path: "*.md" }],
@@ -1739,7 +1739,7 @@ test("a nested command places back at its path under commands/ from its declared
     "See [frontend:component](.claude/commands/frontend/component.md).\n",
   );
   const row = result.declarations.kinds.find((k) => k.name === "command")!;
-  assert.deepEqual(row.governs_glob, ["**/*.md"]);
+  assert.deepEqual(row.locus_glob, ["**/*.md"]);
   assert.equal(row.unit_shape, "path");
 });
 
@@ -2884,7 +2884,7 @@ test("a relocated built-in projects the guidance its relocation declares over it
 
 test("a relocation declaring no guidance projects none of its built-in's shipped counsel", () => {
   assert.ok(rule.facts.guidance !== undefined);
-  const decisionRule = relocate<Rule>(rule, { governs: { root: "decisions", glob: "*.md" } });
+  const decisionRule = relocate<Rule>(rule, { locus: { root: "decisions", glob: "*.md" } });
   const result = emit(harness({ members: [decisionRule({ name: "0001-pick", prose: text`# Pick` })] }));
   assert.deepEqual(guidanceRuleMembers(result), []);
 });
@@ -3083,8 +3083,8 @@ test("extend(skill, { template: topic }) lowers: the host names the nested subki
   // The subkind child governs no locus: its host's template is its whole placement.
   const childRow = result.declarations.kinds.find((k) => k.name === "topic")!;
   assert.equal(childRow.base, "supporting-doc");
-  assert.equal(childRow.governs_root, undefined);
-  assert.equal(childRow.governs_glob, undefined);
+  assert.equal(childRow.locus_root, undefined);
+  assert.equal(childRow.locus_glob, undefined);
   assert.equal(childRow.guidance, "one step of a procedure");
   const child = result.members.find((m) => m.kind === "topic")!;
   assert.equal(child.host, "procedure:deploy");
@@ -3102,7 +3102,7 @@ test("a nested subkind declares no locus, and a host's template names a subkind 
     () =>
       sdk.extend<SupportingDoc, SupportingDoc>(builtinSupportingDoc, {
         name: "topic",
-        governs: { root: ".claude/skills", glob: "*/*.md" },
+        locus: { root: ".claude/skills", glob: "*/*.md" },
       }),
     /placed by its host's template, so its subkind declares no locus/,
   );
@@ -3133,7 +3133,7 @@ test("extend accepts an embedded base named by an extended host", () => {
   assert.equal(strictInvariant.facts.base, "invariant");
   const strictCharter = sdk.extend<Record<never, never>, Record<never, never>>(charter, {
     name: "strict-charter",
-    governs: { root: "specs", glob: "strict-*.md" },
+    locus: { root: "specs", glob: "strict-*.md" },
     template: strictInvariant,
   });
   const declarations = compileDeclarations(
@@ -3152,8 +3152,8 @@ test("extend accepts an embedded base named by an extended host", () => {
   // engine binds it to its base off that row alone.
   const childRow = declarations.kinds.find((k) => k.name === "strict-invariant")!;
   assert.equal(childRow.base, "invariant");
-  assert.equal(childRow.governs_root, undefined);
-  assert.equal(childRow.governs_glob, undefined);
+  assert.equal(childRow.locus_root, undefined);
+  assert.equal(childRow.locus_glob, undefined);
   // The base host keeps its own collection.
   assert.equal(charter.facts.content?.regions[1]?.region === "collection" && charter.facts.content.regions[1].memberKind, "invariant");
 
@@ -3161,7 +3161,7 @@ test("extend accepts an embedded base named by an extended host", () => {
     () =>
       sdk.extend<Record<never, never>, Record<never, never>>(invariant, {
         name: "loose-invariant",
-        governs: { root: "specs", glob: "*.md" },
+        locus: { root: "specs", glob: "*.md" },
       }),
     /placed by its host's template, so its subkind declares no locus/,
   );
@@ -3206,7 +3206,7 @@ test("a two-template locus lists both templates and places each member at the te
   const result = emit(h);
   assert.equal(result.members.find((m) => m.name === "CLAUDE")!.body, "See apps/web/AGENTS.md.\n");
   const row = result.declarations.kinds.find((k) => k.name === "memo")!;
-  assert.deepEqual(row.governs_glob, ["**/CLAUDE.md", "**/AGENTS.md"]);
+  assert.deepEqual(row.locus_glob, ["**/CLAUDE.md", "**/AGENTS.md"]);
 });
 
 test("a nested member places at its declared location and carries it on its payload row", () => {

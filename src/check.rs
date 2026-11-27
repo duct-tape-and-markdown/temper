@@ -60,7 +60,7 @@ pub struct Diagnostic {
     /// clause's own guidance is what teaches the *why*.
     ///
     /// A finding no clause produced — well-formedness, the graph's fixed checks — reports
-    /// under its own `<area>.<check>` id (`kind.governs-collision`, `graph.acyclic`)
+    /// under its own `<area>.<check>` id (`kind.locus-collision`, `graph.acyclic`)
     /// instead: those are preconditions of judging, never dialable, so they have no
     /// clause to be addressed by.
     pub rule: String,

@@ -251,24 +251,24 @@ emit_hash = "22ab29a09137fdbfc484dd462512b1f4cc3da1f77c4160889e6a0daff83e6041"
 
 [[declaration.kind]]
 name = "decision"
-governs_root = "docs/decisions"
-governs_glob = ["*.md"]
+locus_root = "docs/decisions"
+locus_glob = ["*.md"]
 unit_shape = "file"
 registration = ["always"]
 templates = [{ kind = "alternative" }]
 
 [[declaration.kind]]
 name = "flow"
-governs_root = "docs/flows"
-governs_glob = ["*.md"]
+locus_root = "docs/flows"
+locus_glob = ["*.md"]
 unit_shape = "file"
 registration = ["always"]
 templates = [{ kind = "step" }]
 
 [[declaration.kind]]
 name = "glossary"
-governs_root = "docs"
-governs_glob = ["glossary.md"]
+locus_root = "docs"
+locus_glob = ["glossary.md"]
 unit_shape = "file"
 registration = ["always"]
 content = { regions = [{ region = "prose" }, { region = "collection", member_kind = "term" }] }
@@ -281,8 +281,8 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)"
 
 [[declaration.kind]]
 name = "hook"
-governs_root = ".claude"
-governs_glob = ["settings.json"]
+locus_root = ".claude"
+locus_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["event(event)"]
 templates = [{ kind = "handler" }]
@@ -292,8 +292,8 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 
 [[declaration.kind]]
 name = "memory"
-governs_root = "."
-governs_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
+locus_root = "."
+locus_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
 exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
 absence_gate = [{ template = "**/AGENTS.md", absent = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] }]
 unit_shape = "file"
@@ -303,8 +303,8 @@ ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { t
 
 [[declaration.kind]]
 name = "rule"
-governs_root = ".claude/rules"
-governs_glob = ["**/*.md"]
+locus_root = ".claude/rules"
+locus_glob = ["**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
@@ -314,15 +314,15 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
 name = "settings"
-governs_root = ".claude"
-governs_glob = ["settings.json"]
+locus_root = ".claude"
+locus_glob = ["settings.json"]
 format = "json-document"
 unit_shape = "file"
 
 [[declaration.kind]]
 name = "skill"
-governs_root = "."
-governs_glob = ["**/.claude/skills/*/SKILL.md"]
+locus_root = "."
+locus_glob = ["**/.claude/skills/*/SKILL.md"]
 leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
 unit_shape = "directory"
@@ -333,8 +333,8 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)"
 
 [[declaration.kind]]
 name = "superseded-decision"
-governs_root = "docs/decisions/superseded"
-governs_glob = ["*.md"]
+locus_root = "docs/decisions/superseded"
+locus_glob = ["*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["always"]
@@ -347,8 +347,8 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)"
 
 [[declaration.kind]]
 name = "system"
-governs_root = "docs/systems"
-governs_glob = ["*.md"]
+locus_root = "docs/systems"
+locus_glob = ["*.md"]
 unit_shape = "file"
 registration = ["always"]
 templates = [{ kind = "invariant" }]

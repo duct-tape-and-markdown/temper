@@ -123,7 +123,7 @@ fn the_mcp_kind_crosses_the_seam_as_a_committed_whole_file_json_document() {
 
     // The documented singleton locus: the harness root, and a literal glob, so the
     // member's name never splices into the path.
-    assert_eq!(facts.governs_root.as_deref(), Some("."));
+    assert_eq!(facts.locus_root.as_deref(), Some("."));
     assert_eq!(facts.sole_glob(), Some(".mcp.json"));
     // Committed, not local: absent is the class, and it is what makes the file an emit target.
     assert_eq!(facts.commitment, None);

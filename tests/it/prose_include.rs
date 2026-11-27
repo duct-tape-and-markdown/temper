@@ -274,8 +274,8 @@ mod an_include_naming_a_nested_child_spells_its_whole_address {
             ..common::kind_facts("guide", ".claude/guides", "*/GUIDE.md")
         };
         let supporting_doc = KindFactRow {
-            governs_root: None,
-            governs_glob: Vec::new(),
+            locus_root: None,
+            locus_glob: Vec::new(),
             unit_shape: Some("file".to_string()),
             ..common::kind_facts("supporting-doc", "", "")
         };

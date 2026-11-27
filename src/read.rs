@@ -602,7 +602,7 @@ fn narrate_governing_contract(
 ///   narration reads) and off the kind's own fact row, which carries the `cite`
 ///   `Contract` has no column for.
 /// * **locus** — where a member of the kind lands ([`narrate_locus`]). Not either/or:
-///   a registration kind carries a collection address *and* a `governs` pair, and the
+///   a registration kind carries a collection address *and* a locus pair, and the
 ///   two say different things — the address is where the member keys, the `governs`
 ///   pair is where the document carrying it is discovered.
 /// * **hosting kinds** — the inverse of the hosted-kinds strand: which other kinds admit
@@ -711,13 +711,13 @@ fn narrate_kind(
 /// term [`narrate_kind`]'s "nothing declared" guard tests, so a kind whose whole
 /// declaration is its locus still narrates rather than falling to the empty line.
 ///
-/// Wider than the `governs` pair alone: the collection address is the locus of a member
+/// Wider than the locus pair alone: the collection address is the locus of a member
 /// that keys inside a host manifest, and the registration channels and commitment class
 /// are facts *about* that landing — how a member reaches the session, and whether the
 /// document it lands in is committed.
 fn declares_a_locus(row: &drift::KindFactRow) -> bool {
-    row.governs_root.is_some()
-        || !row.governs_glob.is_empty()
+    row.locus_root.is_some()
+        || !row.locus_glob.is_empty()
         || row.collection_address.is_some()
         || !row.registration.is_empty()
         || row.commitment.is_some()
@@ -726,12 +726,12 @@ fn declares_a_locus(row: &drift::KindFactRow) -> bool {
 /// Narrate where a member of the kind lands — the strand an adopter with no member of it
 /// yet reads first, and the one no corpus read can answer.
 ///
-/// The collection address and the `governs` pair are **not** alternatives: a registration
+/// The collection address and the locus pair are **not** alternatives: a registration
 /// kind (`hook`) carries both, and they answer different questions. The address says where
-/// the member keys — under which key path of the manifest its `governs` glob names. The
-/// `governs` pair says where the *document* carrying it is discovered, which for a
+/// the member keys — under which key path of the manifest its locus glob names. The
+/// locus pair says where the *document* carrying it is discovered, which for a
 /// registration kind is the host manifest and for a file-locus kind is the member's own unit. A file-locus kind
-/// therefore shows the `governs` line alone, and neither reading is invented from the
+/// therefore shows the locus line alone, and neither reading is invented from the
 /// other's absence.
 fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
     let _ = writeln!(out, "Where a member of it lands:");
@@ -746,14 +746,14 @@ fn narrate_locus(out: &mut String, name: &str, row: &drift::KindFactRow) {
     // The pair is presence-coupled in every row a kind lift accepts; a half-declared one
     // still names the half it carries rather than going silent on the whole locus.
     // Each template renders, so a several-template locus names every place it governs.
-    let discovered: Vec<String> = match row.governs_root.as_deref() {
-        Some(root) if row.governs_glob.is_empty() => vec![format!("{root}/")],
+    let discovered: Vec<String> = match row.locus_root.as_deref() {
+        Some(root) if row.locus_glob.is_empty() => vec![format!("{root}/")],
         Some(root) => row
-            .governs_glob
+            .locus_glob
             .iter()
             .map(|glob| crate::kind::locus_pattern(root, glob))
             .collect(),
-        None => row.governs_glob.clone(),
+        None => row.locus_glob.clone(),
     };
     let discovered = (!discovered.is_empty()).then(|| discovered.join("` or `"));
     if let Some(discovered) = discovered {

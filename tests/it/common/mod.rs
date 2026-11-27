@@ -919,7 +919,7 @@ fn kind_fact_table(row: &KindFactRow) -> Table {
     let mut table = Table::new();
     table["name"] = value(row.name.clone());
     for (column, cell) in [
-        ("governs_root", &row.governs_root),
+        ("locus_root", &row.locus_root),
         ("format", &row.format),
         ("unit_shape", &row.unit_shape),
     ] {
@@ -927,12 +927,12 @@ fn kind_fact_table(row: &KindFactRow) -> Table {
             table[column] = value(cell.clone());
         }
     }
-    if !row.governs_glob.is_empty() {
+    if !row.locus_glob.is_empty() {
         let mut globs = toml_edit::Array::new();
-        for glob in &row.governs_glob {
+        for glob in &row.locus_glob {
             globs.push(glob.as_str());
         }
-        table["governs_glob"] = value(globs);
+        table["locus_glob"] = value(globs);
     }
     if !row.exclude.is_empty() {
         table["exclude"] = value(row.exclude.iter().collect::<toml_edit::Array>());
@@ -1422,8 +1422,8 @@ pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFa
         name: "skill".to_string(),
         provider: provider.map(str::to_string),
         base: None,
-        governs_root: Some(".claude/skills".to_string()),
-        governs_glob: vec!["*/SKILL.md".to_string()],
+        locus_root: Some(".claude/skills".to_string()),
+        locus_glob: vec!["*/SKILL.md".to_string()],
         commitment: None,
         exclude: Vec::new(),
         absence_gate: Vec::new(),
@@ -1449,8 +1449,8 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
         name: "rule".to_string(),
         provider: provider.map(str::to_string),
         base: None,
-        governs_root: Some(".claude/rules".to_string()),
-        governs_glob: vec!["*.md".to_string()],
+        locus_root: Some(".claude/rules".to_string()),
+        locus_glob: vec!["*.md".to_string()],
         commitment: None,
         exclude: Vec::new(),
         absence_gate: Vec::new(),
@@ -1469,18 +1469,18 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
     }
 }
 
-/// A [`KindFactRow`] naming `name` over its `governs_root`/`governs_glob` locus,
+/// A [`KindFactRow`] naming `name` over its `locus_root`/`locus_glob` locus,
 /// every optional fact at its default (no provider/format/unit_shape, empty
 /// registration/templates) — the general default-filling home beside the per-kind
 /// [`skill_kind_facts`]/[`rule_kind_facts`]. Call sites override the facts a kind
 /// declares via struct-update.
-pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFactRow {
+pub fn kind_facts(name: &str, locus_root: &str, locus_glob: &str) -> KindFactRow {
     KindFactRow {
         name: name.to_string(),
         provider: None,
         base: None,
-        governs_root: Some(governs_root.to_string()),
-        governs_glob: vec![governs_glob.to_string()],
+        locus_root: Some(locus_root.to_string()),
+        locus_glob: vec![locus_glob.to_string()],
         commitment: None,
         exclude: Vec::new(),
         absence_gate: Vec::new(),

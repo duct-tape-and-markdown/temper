@@ -474,10 +474,8 @@ pub fn gate(
     // Two distinct kinds resolving to one `governs` locus would double-route every
     // matching document into both member sets — a document's kind is its position
     // alone, never its content — so a shared locus refuses loud here.
-    diagnostics.extend(admissibility::governs_collision_diagnostics(
-        &declared_kinds,
-    ));
-    diagnostics.extend(admissibility::document_governs_collision_diagnostics(
+    diagnostics.extend(admissibility::locus_collision_diagnostics(&declared_kinds));
+    diagnostics.extend(admissibility::document_locus_collision_diagnostics(
         &declared_kinds,
         &discovery,
     ));

@@ -212,7 +212,7 @@ test("skill claims every subdirectory's own .claude/skills folder", () => {
 
 test("an exclude-only relocation of skill fences the fixture tree its any-depth locus reaches", () => {
   const row = skillKindRow(relocate<Skill>(skill, { exclude: ["tests/fixtures/extract_equivalence"] }));
-  assert.deepEqual(row.governs_glob, ["**/.claude/skills/*/SKILL.md"]);
+  assert.deepEqual(row.locus_glob, ["**/.claude/skills/*/SKILL.md"]);
   assert.deepEqual(row.exclude, ["tests/fixtures/extract_equivalence"]);
 });
 
@@ -1541,7 +1541,7 @@ test("relocating a kind refuses one delta declaring the same edge field twice", 
  * corpus that keeps its decisions under `decisions/*.md` needs, spelled through the
  * sanctioned form rather than hand-spread off `kind()`.
  */
-const decisionRule = relocate<Rule>(rule, { governs: { root: "decisions", glob: "*.md" } });
+const decisionRule = relocate<Rule>(rule, { locus: { root: "decisions", glob: "*.md" } });
 
 /** The one `rule` kind-fact row a one-member harness of `ruleKind` compiles to. */
 function ruleKindRow(ruleKind: typeof rule, name: string) {
@@ -1551,7 +1551,7 @@ function ruleKindRow(ruleKind: typeof rule, name: string) {
   return rows[0];
 }
 
-test("relocating a built-in to its own root moves the emitted row's governs columns", () => {
+test("relocating a built-in to its own root moves the emitted row's locus columns", () => {
   const base = ruleKindRow(rule, "style");
   const moved = ruleKindRow(decisionRule, "0001-pick-a-root");
 
@@ -1559,12 +1559,12 @@ test("relocating a built-in to its own root moves the emitted row's governs colu
   // disagree about the locus before asserting what the moved one says — a row that
   // never moved satisfies the equalities below for the very reason this entry exists.
   assert.notDeepEqual(
-    [moved.governs_root, moved.governs_glob],
-    [base.governs_root, base.governs_glob],
+    [moved.locus_root, moved.locus_glob],
+    [base.locus_root, base.locus_glob],
     "the relocated row must govern a different locus than the base's",
   );
-  assert.equal(moved.governs_root, "decisions");
-  assert.deepEqual(moved.governs_glob, ["*.md"]);
+  assert.equal(moved.locus_root, "decisions");
+  assert.deepEqual(moved.locus_glob, ["*.md"]);
 
   // And the three facts the lock reader compares before overlaying a row onto its
   // compiled-in built-in (`src/compose.rs`'s `row_relocates_builtin`) stay byte-equal to
@@ -1586,9 +1586,9 @@ test("a locus-moved built-in carries the relocation marker, and never on its row
 
 test("relocating the locus of a kind that governs no glob refuses", () => {
   // `supporting-doc` sits at the nested-file locus: its path composes from its host
-  // skill's unit, so it carries no `governs` columns to move.
+  // skill's unit, so it carries no `locus_root`/`locus_glob` columns to move.
   assert.throws(
-    () => relocate<Record<never, never>>(supportingDoc, { governs: { root: "docs", glob: "*.md" } }),
+    () => relocate<Record<never, never>>(supportingDoc, { locus: { root: "docs", glob: "*.md" } }),
     /governs no glob of its own/,
   );
 });
@@ -1600,7 +1600,7 @@ test("relocating a kind refuses a delta declaring neither diverging fact", () =>
 
 test("a locus delta and an edge-field delta compose in one relocation", () => {
   const routingDecision = relocate<RoutingRule>(rule, {
-    governs: { root: "decisions", glob: "*.md" },
+    locus: { root: "decisions", glob: "*.md" },
     edgeFields: [{ field: "routes_to", to: [skill] }],
   });
   const result = emit(
@@ -1623,8 +1623,8 @@ test("a locus delta and an edge-field delta compose in one relocation", () => {
   // Neither face drops the other: the row carries the moved locus...
   const row = result.declarations.kinds.find((candidate) => candidate.name === "rule");
   assert.ok(row, "the relocated kind must take a kind-fact row");
-  assert.equal(row.governs_root, "decisions");
-  assert.deepEqual(row.governs_glob, ["*.md"]);
+  assert.equal(row.locus_root, "decisions");
+  assert.deepEqual(row.locus_glob, ["*.md"]);
   // ...while the added edge still reaches the lock as its own assembly fact.
   const edges = result.declarations.assembly.filter((fact) => fact.fact === "edge" && fact.from === "rule");
   assert.deepEqual(edges, [{ fact: "edge", from: "rule", field: "routes_to", to: ["skill"] }]);
@@ -1642,10 +1642,10 @@ function memoryKindRow(memoryKind: typeof memory) {
 test("relocating memory off `.` drops the base exclusions its new template no longer reaches", () => {
   // Non-vacuity first: the base carries exclusions the move has to answer for.
   assert.ok(memoryKindRow(memory).exclude?.length, "the built-in memory row must carry exclusions");
-  const docsMemory = relocate<Memory>(memory, { governs: { root: "docs", glob: "**/CLAUDE.md" } });
+  const docsMemory = relocate<Memory>(memory, { locus: { root: "docs", glob: "**/CLAUDE.md" } });
   const row = memoryKindRow(docsMemory);
-  assert.equal(row.governs_root, "docs");
-  assert.deepEqual(row.governs_glob, ["**/CLAUDE.md"]);
+  assert.equal(row.locus_root, "docs");
+  assert.deepEqual(row.locus_glob, ["**/CLAUDE.md"]);
   // `docs/**/CLAUDE.md` neither matches nor reaches beneath any `.claude/` folder, so
   // every exclusion would be refused by the engine as subtracting nothing.
   assert.ok(!("exclude" in row), "no unreached exclusion may ride onto the moved row");
@@ -1653,7 +1653,7 @@ test("relocating memory off `.` drops the base exclusions its new template no lo
 });
 
 test("relocating memory onto the same reach keeps every base exclusion", () => {
-  const sameReach = relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" } });
+  const sameReach = relocate<Memory>(memory, { locus: { root: ".", glob: "**/CLAUDE.md" } });
   const row = memoryKindRow(sameReach);
   assert.deepEqual(row.exclude, [
     ".claude/agents",
@@ -1667,7 +1667,7 @@ test("relocating memory onto the same reach keeps every base exclusion", () => {
 test("a relocation keeps exactly the base exclusions its new template still reaches", () => {
   // `.claude/**/CLAUDE.md` still reaches beneath every `.claude/` folder; a single-path
   // template under `.claude/rules` reaches beneath that one folder alone.
-  const underClaude = relocate<Memory>(memory, { governs: { root: ".claude", glob: "**/CLAUDE.md" } });
+  const underClaude = relocate<Memory>(memory, { locus: { root: ".claude", glob: "**/CLAUDE.md" } });
   assert.deepEqual(memoryKindRow(underClaude).exclude, [
     ".claude/agents",
     ".claude/commands",
@@ -1675,7 +1675,7 @@ test("a relocation keeps exactly the base exclusions its new template still reac
     ".claude/rules",
     ".claude/skills",
   ]);
-  const underRules = relocate<Memory>(memory, { governs: { root: ".claude/rules", glob: "*/CLAUDE.md" } });
+  const underRules = relocate<Memory>(memory, { locus: { root: ".claude/rules", glob: "*/CLAUDE.md" } });
   assert.deepEqual(memoryKindRow(underRules).exclude, [".claude/rules"]);
 });
 
@@ -1695,8 +1695,8 @@ test("an exclude-only relocation of skill keeps its locus and carries the author
   assert.equal(scoped.facts.relocates, "skill");
   const row = skillKindRow(scoped);
   // The locus stays the built-in's; only the exclusion diverges.
-  assert.equal(row.governs_root, base.governs_root);
-  assert.deepEqual(row.governs_glob, base.governs_glob);
+  assert.equal(row.locus_root, base.locus_root);
+  assert.deepEqual(row.locus_glob, base.locus_glob);
   assert.deepEqual(row.exclude, [".claude/skills/fixture"]);
   // The three overlay facts stay the base's, so the engine reads the row as a relocation.
   assert.equal(row.format, base.format);
@@ -1706,15 +1706,15 @@ test("an exclude-only relocation of skill keeps its locus and carries the author
 
 test("a relocation's authored exclusion follows the reached base exclusions", () => {
   const nested = relocate<Skill>(skill, {
-    governs: { root: ".", glob: "**/.claude/skills/*/SKILL.md" },
+    locus: { root: ".", glob: "**/.claude/skills/*/SKILL.md" },
     exclude: ["tests/fixtures/extract_equivalence"],
   });
   const row = skillKindRow(nested);
-  assert.equal(row.governs_root, ".");
-  assert.deepEqual(row.governs_glob, ["**/.claude/skills/*/SKILL.md"]);
+  assert.equal(row.locus_root, ".");
+  assert.deepEqual(row.locus_glob, ["**/.claude/skills/*/SKILL.md"]);
   assert.deepEqual(row.exclude, ["tests/fixtures/extract_equivalence"]);
   // Appended after the base's kept exclusions, never replacing them.
-  const docsMemory = relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" }, exclude: ["vendor"] });
+  const docsMemory = relocate<Memory>(memory, { locus: { root: ".", glob: "**/CLAUDE.md" }, exclude: ["vendor"] });
   assert.deepEqual(memoryKindRow(docsMemory).exclude, [
     ".claude/agents",
     ".claude/commands",
@@ -1734,7 +1734,7 @@ test("a relocation refuses an exclusion its locus cannot subtract", () => {
   assert.throws(() => relocate<Skill>(skill, { exclude: [".claude/skills/fixture/"] }), /starless/);
   // Already excluded by the base.
   assert.throws(
-    () => relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" }, exclude: [".claude/rules"] }),
+    () => relocate<Memory>(memory, { locus: { root: ".", glob: "**/CLAUDE.md" }, exclude: [".claude/rules"] }),
     /already excluded/,
   );
   // A kind with no glob of its own has nothing to exclude from.
@@ -1832,7 +1832,7 @@ test("two structurally equal declarations of one name are one kind, not a collis
   });
   const rows = compileDeclarations(h).kinds.filter((row) => row.name === "rule");
   assert.equal(rows.length, 1, "one name is one kind-fact row");
-  assert.equal(rows[0].governs_root, "docs");
+  assert.equal(rows[0].locus_root, "docs");
 });
 
 test("a kind sharing a relocation's name without its provenance still refuses", () => {
@@ -1847,7 +1847,7 @@ test("a kind sharing a relocation's name without its provenance still refuses", 
 });
 
 test("extend under a new name mints a subkind whose row names its base", () => {
-  const decision = extend<Rule, Rule>(rule, { name: "decision", governs: { root: ".claude/rules/decisions", glob: "*.md" } });
+  const decision = extend<Rule, Rule>(rule, { name: "decision", locus: { root: ".claude/rules/decisions", glob: "*.md" } });
   assert.equal(decision.facts.name, "decision");
   assert.equal(decision.facts.base, "rule");
   assert.equal(decision.facts.relocates, undefined);
@@ -1855,7 +1855,7 @@ test("extend under a new name mints a subkind whose row names its base", () => {
   const row = rows.find((candidate) => candidate.name === "decision");
   assert.ok(row !== undefined, "the subkind reaches the lock as its own row");
   assert.equal(row.base, "rule");
-  assert.equal(row.governs_root, ".claude/rules/decisions");
+  assert.equal(row.locus_root, ".claude/rules/decisions");
   assert.equal(row.format, rule.facts.format);
   assert.equal(row.unit_shape, "file");
 });
@@ -1867,7 +1867,7 @@ test("extend under the base's name is the relocation relocate makes", () => {
 
 test("a subkind whose locus lies outside its base's refuses", () => {
   assert.throws(
-    () => extend<Rule, Rule>(rule, { name: "decision", governs: { root: "docs/decisions", glob: "*.md" } }),
+    () => extend<Rule, Rule>(rule, { name: "decision", locus: { root: "docs/decisions", glob: "*.md" } }),
     /lies outside the base's/,
   );
 });
@@ -1875,7 +1875,7 @@ test("a subkind whose locus lies outside its base's refuses", () => {
 test("a subkind whose surface drops or retypes a base field refuses at authoring", () => {
   // Every selection of the base binds the subkind's documents, so its surface must
   // read as the base's: `tsc` refuses a narrowing one before any value exists.
-  const delta = { name: "decision", governs: { root: ".claude/rules/decisions", glob: "*.md" } };
+  const delta = { name: "decision", locus: { root: ".claude/rules/decisions", glob: "*.md" } };
   // @ts-expect-error a surface dropping the base's optional `paths` keeps no base field set.
   extend<Rule, { readonly prose?: Prose }>(rule, delta);
   // @ts-expect-error a surface retyping `paths` is not the base's surface.
@@ -1907,7 +1907,7 @@ interface Standard extends Rule {
 
 const standard = extend<Rule, Standard>(rule, {
   name: "standard",
-  governs: { root: ".claude/rules/standards", glob: "*.md" },
+  locus: { root: ".claude/rules/standards", glob: "*.md" },
   fields: { owner: "render", tenets: "render" },
   render: ({ owner, tenets, prose }) =>
     blocks(
@@ -2006,11 +2006,11 @@ test("a plain field placed in a body region lives under the base layout's field 
 
 test("memory claims AGENTS.md through a second template carrying its absence gate", () => {
   const row = memoryKindRow(memory);
-  assert.deepEqual(row.governs_glob, ["**/CLAUDE.md", "**/AGENTS.md"]);
+  assert.deepEqual(row.locus_glob, ["**/CLAUDE.md", "**/AGENTS.md"]);
   assert.deepEqual(row.absence_gate, [
     { template: "**/AGENTS.md", absent: ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] },
   ]);
   // A relocation respells the templates, so a gate rides only the templates it names.
-  const moved = memoryKindRow(relocate<Memory>(memory, { governs: { root: ".", glob: "**/CLAUDE.md" } }));
+  const moved = memoryKindRow(relocate<Memory>(memory, { locus: { root: ".", glob: "**/CLAUDE.md" } }));
   assert.ok(!("absence_gate" in moved), "a relocated locus with no gated template carries no gate");
 });

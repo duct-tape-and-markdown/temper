@@ -7,7 +7,7 @@
  */
 export type AbsenceGateRow = { 
 /**
- * The gated template, spelled exactly as one of the row's `governs_glob` entries.
+ * The gated template, spelled exactly as one of the row's `locus_glob` entries.
  */
 template: string, 
 /**

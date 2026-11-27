@@ -193,30 +193,30 @@ emit_hash = "ac651535c1afa9c9bca50229b49531dadcb3c5a6a3773f0f117bd185cec2e026"
 
 [[declaration.kind]]
 name = "charter"
-governs_root = "docs/charters"
-governs_glob = ["*.md"]
+locus_root = "docs/charters"
+locus_glob = ["*.md"]
 unit_shape = "file"
 content = { regions = [{ region = "prose", import = "../preamble.md" }, { region = "field", slot = "intent" }] }
 
 [[declaration.kind]]
 name = "decision"
-governs_root = "docs/decisions"
-governs_glob = ["*.md"]
+locus_root = "docs/decisions"
+locus_glob = ["*.md"]
 format = "yaml-frontmatter"
 unit_shape = "named-field(title)"
 content = { regions = [{ region = "field", slot = "ruling" }, { region = "collection", member_kind = "invariant" }] }
 
 [[declaration.kind]]
 name = "guide"
-governs_root = "docs/guides"
-governs_glob = ["*/GUIDE.md"]
+locus_root = "docs/guides"
+locus_glob = ["*/GUIDE.md"]
 unit_shape = "directory"
 templates = [{ kind = "spec", path = "*.md" }]
 
 [[declaration.kind]]
 name = "handbook"
-governs_root = "docs/guides"
-governs_glob = ["*/conventions.md"]
+locus_root = "docs/guides"
+locus_glob = ["*/conventions.md"]
 format = "yaml-frontmatter"
 unit_shape = "starred-segment"
 
@@ -228,8 +228,8 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)"
 
 [[declaration.kind]]
 name = "hook"
-governs_root = ".claude"
-governs_glob = ["settings.json"]
+locus_root = ".claude"
+locus_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["event(event)"]
 templates = [{ kind = "handler" }]
@@ -239,8 +239,8 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 
 [[declaration.kind]]
 name = "installed-plugin"
-governs_root = ".claude"
-governs_glob = ["settings.json"]
+locus_root = ".claude"
+locus_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["enablement(enabled)"]
 shape = "fields"
@@ -248,8 +248,8 @@ collection_address = { key_path = "enabledPlugins.*", entry_shape = "scalar(enab
 
 [[declaration.kind]]
 name = "known-marketplace"
-governs_root = ".claude"
-governs_glob = ["settings.json"]
+locus_root = ".claude"
+locus_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["registry"]
 shape = "fields"
@@ -257,16 +257,16 @@ collection_address = { key_path = "extraKnownMarketplaces.*", entry_shape = "obj
 
 [[declaration.kind]]
 name = "machine"
-governs_root = ".claude/local"
-governs_glob = ["*.md"]
+locus_root = ".claude/local"
+locus_glob = ["*.md"]
 commitment = "local"
 format = "yaml-frontmatter"
 unit_shape = "file"
 
 [[declaration.kind]]
 name = "rule"
-governs_root = ".claude/rules"
-governs_glob = ["**/*.md"]
+locus_root = ".claude/rules"
+locus_glob = ["**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
@@ -277,8 +277,8 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
 name = "settings"
-governs_root = ".claude"
-governs_glob = ["settings.json"]
+locus_root = ".claude"
+locus_glob = ["settings.json"]
 format = "json-document"
 unit_shape = "file"
 

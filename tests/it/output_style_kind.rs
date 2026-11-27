@@ -379,7 +379,7 @@ fn a_root_settings_output_style_resolves_to_the_root_style() {
 }
 
 #[test]
-fn a_claude_md_in_a_nested_output_styles_folder_draws_no_governs_collision() {
+fn a_claude_md_in_a_nested_output_styles_folder_draws_no_locus_collision() {
     let harness = common::tmpdir("output-style-nested-claude-md");
     write_nested_style(&harness, "apps/web", "CLAUDE", "A style named CLAUDE.\n");
     common::write_sibling(&harness, "CLAUDE.md", "# Project\n");
@@ -387,7 +387,7 @@ fn a_claude_md_in_a_nested_output_styles_folder_draws_no_governs_collision() {
     let (findings, success) = common::check_harness(&harness);
 
     assert_eq!(
-        common::findings_for(&findings, "kind.governs-collision"),
+        common::findings_for(&findings, "kind.locus-collision"),
         Vec::<&String>::new()
     );
     assert!(success, "{findings:#?}");

@@ -4,7 +4,7 @@
  * A kind's declared **collection address** row — the key path a registration member
  * keys at and the shape its entry takes: the presence-coupled pair
  * [`KindFactRow::collection_address`] carries. The manifest it keys inside is the row's
- * own starless `governs_glob`, never a second column here. Absent from a [`KindFactRow`]
+ * own starless `locus_glob`, never a second column here. Absent from a [`KindFactRow`]
  * means the kind owns its own file locus.
  */
 export type CollectionAddressRow = { 

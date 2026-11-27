@@ -394,8 +394,8 @@ fn a_file_childs_projection_composes_from_its_hosts_unit_and_the_templates_patte
         .iter()
         .find(|row| row.name == "supporting-doc")
         .expect("a nested file kind takes a fact row — the engine places its file off one");
-    assert_eq!(child_row.governs_root, None);
-    assert!(child_row.governs_glob.is_empty());
+    assert_eq!(child_row.locus_root, None);
+    assert!(child_row.locus_glob.is_empty());
     let host_row = kinds.iter().find(|row| row.name == "guide").unwrap();
     assert_eq!(
         host_row.templates,
@@ -582,8 +582,8 @@ fn a_child_kinds_row_reconstructs_governing_no_glob_rather_than_a_fabricated_one
     // reads that absence as the spelling it is, never mining a root+glob the kind never
     // declared.
     let row = KindFactRow {
-        governs_root: None,
-        governs_glob: Vec::new(),
+        locus_root: None,
+        locus_glob: Vec::new(),
         unit_shape: Some("file".to_string()),
         ..common::kind_facts("supporting-doc", "", "")
     };
@@ -630,8 +630,8 @@ fn skill_templating(child: &str, pattern: &str) -> CustomKind {
 /// A nested file kind's declaration: no governs pair at all, a lone file per member.
 fn nested_file_kind(name: &str) -> CustomKind {
     CustomKind::from_kind_fact_row(&KindFactRow {
-        governs_root: None,
-        governs_glob: Vec::new(),
+        locus_root: None,
+        locus_glob: Vec::new(),
         unit_shape: Some("file".to_string()),
         ..common::kind_facts(name, "", "")
     })
@@ -1727,8 +1727,8 @@ export default harness({
             version: drift::SEAM_VERSION,
             declarations: Declarations {
                 kinds: vec![KindFactRow {
-                    governs_root: None,
-                    governs_glob: Vec::new(),
+                    locus_root: None,
+                    locus_glob: Vec::new(),
                     unit_shape: Some("directory".to_string()),
                     templates: vec![TemplateRow {
                         kind: "page".to_string(),
@@ -1773,8 +1773,8 @@ export default harness({
         fs::create_dir_all(harness.join(".claude")).unwrap();
 
         let page = CustomKind::from_kind_fact_row(&KindFactRow {
-            governs_root: None,
-            governs_glob: Vec::new(),
+            locus_root: None,
+            locus_glob: Vec::new(),
             unit_shape: Some("directory".to_string()),
             templates: vec![TemplateRow {
                 kind: "page".to_string(),
@@ -1944,8 +1944,8 @@ mod a_placement_refusal_names_the_members_whole_address {
                 ..common::kind_facts("guide", ".claude/guides", "*/GUIDE.md")
             },
             KindFactRow {
-                governs_root: None,
-                governs_glob: Vec::new(),
+                locus_root: None,
+                locus_glob: Vec::new(),
                 unit_shape: Some("file".to_string()),
                 ..common::kind_facts("supporting-doc", "", "")
             },
@@ -2043,8 +2043,8 @@ mod a_placement_refusal_names_the_members_whole_address {
                 ..common::kind_facts("area", ".claude/areas", "*/AREA.md")
             },
             KindFactRow {
-                governs_root: None,
-                governs_glob: Vec::new(),
+                locus_root: None,
+                locus_glob: Vec::new(),
                 unit_shape: Some("directory".to_string()),
                 ..common::kind_facts("page", "", "")
             },

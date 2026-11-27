@@ -5550,8 +5550,8 @@ fn nested_layout_child_harness(label: &str) -> PathBuf {
                     ..common::kind_facts("guide", "docs/guides", "*/GUIDE.md")
                 },
                 KindFactRow {
-                    governs_root: None,
-                    governs_glob: Vec::new(),
+                    locus_root: None,
+                    locus_glob: Vec::new(),
                     unit_shape: Some("file".to_string()),
                     content: Some(drift::LayoutRow {
                         regions: vec![common::field_region("intent")],
@@ -5802,8 +5802,8 @@ fn local_host_child_harness(label: &str) -> PathBuf {
                     ..common::kind_facts("guide", "docs/guides", "*/GUIDE.md")
                 },
                 KindFactRow {
-                    governs_root: None,
-                    governs_glob: Vec::new(),
+                    locus_root: None,
+                    locus_glob: Vec::new(),
                     unit_shape: Some("file".to_string()),
                     content: Some(drift::LayoutRow {
                         regions: vec![common::field_region("intent")],

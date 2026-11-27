@@ -604,7 +604,7 @@ pub struct LockFamily {
     /// Every embedded built-in kind with any lock-declared overlay applied, keyed by bare
     /// kind name. Computed once per invocation and shared with every consumer —
     /// [`kind_units_and_features`], [`admissibility::local_locus_admissibility`](crate::admissibility::local_locus_admissibility),
-    /// [`admissibility::governs_collision_diagnostics`](crate::admissibility::governs_collision_diagnostics) — to hoist the computation cost
+    /// [`admissibility::locus_collision_diagnostics`](crate::admissibility::locus_collision_diagnostics) — to hoist the computation cost
     /// per the cost doctrine (engineering.md, "Cost scale is hoisted").
     pub overlaid_builtin_kinds: BTreeMap<String, CustomKind>,
     /// The run's **effective kind set**: every kind this harness declares, keyed by bare
@@ -654,13 +654,13 @@ pub fn overlay_builtin_kind(
     };
     let mut overlaid = kind.clone();
     if let Some(root) = row
-        .governs_root
+        .locus_root
         .clone()
-        .filter(|_| !row.governs_glob.is_empty())
+        .filter(|_| !row.locus_glob.is_empty())
     {
         overlaid.governs = Some(kind::Governs {
             root,
-            globs: row.governs_glob.clone(),
+            globs: row.locus_glob.clone(),
         });
         // The row's exclude belongs to the locus it rides beside: a relocation row
         // carries the built-in's exclusions its template still reaches, the rest
@@ -2793,8 +2793,8 @@ mod tests {
         let declarations = drift::Declarations {
             kinds: vec![drift::KindFactRow {
                 base: Some("rule".to_string()),
-                governs_root: Some(".claude/rules/decisions".to_string()),
-                governs_glob: vec!["*.md".to_string()],
+                locus_root: Some(".claude/rules/decisions".to_string()),
+                locus_glob: vec!["*.md".to_string()],
                 ..test_support::kind_fact_row("decision")
             }],
             ..drift::Declarations::default()

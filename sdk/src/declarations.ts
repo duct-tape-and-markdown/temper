@@ -429,7 +429,7 @@ function leafSetRow(leaves: KindFacts["leaves"]): string[] | undefined {
 }
 
 /**
- * One kind's fact row — an `at` locus supplies `governs_root`/`governs_glob` and any
+ * One kind's fact row — an `at` locus supplies `locus_root`/`locus_glob` and any
  * other locus neither (a nested-file kind's path composes from its host's unit and the
  * host template's pattern; an embedded kind owns no unit at all — both govern no glob).
  * A file locus's `commitment` class and `exclude` paths ride the same spelling, absent for
@@ -443,19 +443,19 @@ function leafSetRow(leaves: KindFacts["leaves"]): string[] | undefined {
  * actually take a row.
  */
 function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRow {
-  const governs = facts.locus.kind === "at" ? facts.locus : undefined;
+  const at = facts.locus.kind === "at" ? facts.locus : undefined;
   return {
     name: facts.name,
     provider: facts.provider,
     base: facts.base,
-    governs_root: governs?.root,
+    locus_root: at?.root,
     // Always the list: the lock column is one or more templates.
-    governs_glob: governs === undefined ? undefined : [...templatesOf(governs)],
-    commitment: governs?.commitment,
+    locus_glob: at === undefined ? undefined : [...templatesOf(at)],
+    commitment: at?.commitment,
     // Spread rather than an `undefined` column: a row excluding nothing carries no key.
-    ...(governs?.exclude?.length ? { exclude: [...governs.exclude] } : {}),
-    ...(governs !== undefined && absenceGatesOf(governs).length
-      ? { absence_gate: absenceGatesOf(governs).map((gate) => ({ template: gate.glob, absent: [...gate.absent] })) }
+    ...(at?.exclude?.length ? { exclude: [...at.exclude] } : {}),
+    ...(at !== undefined && absenceGatesOf(at).length
+      ? { absence_gate: absenceGatesOf(at).map((gate) => ({ template: gate.glob, absent: [...gate.absent] })) }
       : {}),
     ...("leniency" in facts && facts.leniency?.length ? { leniency: [...facts.leniency] } : {}),
     format: facts.format,

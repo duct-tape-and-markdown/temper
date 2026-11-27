@@ -461,11 +461,11 @@ fn emitted_member_set_matches_independent_discovery() {
     let discovery = temper::import::Discovery::new(&harness);
     for kind_fact in &declarations.kinds {
         let kind_name = &kind_fact.name;
-        let Some(ref governs_root) = kind_fact.governs_root else {
+        let Some(ref locus_root) = kind_fact.locus_root else {
             // Nested-file kind: its members are discovered off the host, not directly.
             continue;
         };
-        if kind_fact.governs_glob.is_empty() {
+        if kind_fact.locus_glob.is_empty() {
             continue;
         }
         // Skip kinds with no provenance — registration members embedded in manifests.
@@ -475,8 +475,8 @@ fn emitted_member_set_matches_independent_discovery() {
 
         // Construct a minimal CustomKind for discover_kind_files.
         let governs = temper::kind::Governs {
-            root: governs_root.clone(),
-            globs: kind_fact.governs_glob.clone(),
+            root: locus_root.clone(),
+            globs: kind_fact.locus_glob.clone(),
         };
         let kind_commitment = kind_fact
             .commitment

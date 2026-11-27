@@ -8,7 +8,7 @@ import type { SectionContainsRow } from "./SectionContainsRow.js";
 
 /**
  * One clause of a kind's effective contract, reduced to the columns the lock records:
- * which kind it governs, the predicate's key, the field it targets (when it names one),
+ * which kind owns it, the predicate's key, the field it targets (when it names one),
  * its declared severity, its guidance and cite — the clause's four channels
  * —
  * and, per predicate, its own argument: the node-set/edge-scope predicates

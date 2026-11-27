@@ -3585,7 +3585,7 @@ fn two_filtered_degree_bounds_on_one_kind_emit_and_check_under_their_own_address
 /// gitignored and therefore invisible, so every later run reused it and drove `node`
 /// over whatever `sdk/dist` happened to hold. A fresh scope per run has no link to
 /// skip. The example harness root is self-contained — every lock row's
-/// `source_path`/`governs_root` is root-relative (`docs/`, `src`, `.claude/`) — so
+/// `source_path`/`locus_root` is root-relative (`docs/`, `src`, `.claude/`) — so
 /// the copy proves exactly the three claims below that the checkout would.
 ///
 /// `Unchanged` across every projection is three claims at once: the program links,
@@ -3655,7 +3655,7 @@ fn emit_program_runs_the_shipped_example_harness() {
     }
 
     // The lock no projection row speaks for. Every path it records is root-relative
-    // (`source_path`/`governs_root` hold `.claude/rules/conduct.md`, `docs`, `src`, `.`),
+    // (`source_path`/`locus_root` hold `.claude/rules/conduct.md`, `docs`, `src`, `.`),
     // so the copy's bytes and the checkout's are the same bytes — or the committed file
     // is stale. The engine stamp is compared like any other byte, deliberately: an
     // adopter's committed lock takes this same one-line diff on every upgrade, and a

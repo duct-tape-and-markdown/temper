@@ -390,7 +390,7 @@ fn kind_collision_diagnostic(
         format!(
             "kind `{}` collides with an embedded built-in of the same name: its declared {} \
              diverges from the built-in's, so the row is neither an admissible relocation of \
-             the built-in's `governs` locus nor a distinct custom kind of its own — drop the \
+             the built-in's locus nor a distinct custom kind of its own — drop the \
              diverging facts to relocate the built-in, or rename `{}` to a name no built-in \
              claims",
             row.name,
@@ -401,7 +401,7 @@ fn kind_collision_diagnostic(
 }
 
 /// The diagnostic `rule` id two clause rows sharing one address report under. Sibling of
-/// [`KIND_COLLISION_RULE`] and [`GOVERNS_COLLISION_RULE`], one namespace down: those guard
+/// [`KIND_COLLISION_RULE`] and [`LOCUS_COLLISION_RULE`], one namespace down: those guard
 /// the kind's bare name and its locus, this one guards the clause's own address.
 const CLAUSE_COLLISION_RULE: &str = "clause.label-collision";
 
@@ -508,7 +508,7 @@ fn guard_body_site(host: &drift::ClauseRow) -> String {
 }
 
 /// The diagnostic `rule` id a kind declaring an inadmissible commitment class reports
-/// under. Sibling of [`GOVERNS_COLLISION_RULE`]: both guard the locus's own coherence
+/// under. Sibling of [`LOCUS_COLLISION_RULE`]: both guard the locus's own coherence
 /// before the corpus is trusted to model the harness — that one across kinds, this one
 /// within a kind.
 const LOCAL_LOCUS_RULE: &str = "kind.local-locus";
@@ -532,7 +532,7 @@ pub fn local_locus_admissibility(
                 &kind.name,
                 format!(
                     "kind `{}` declares the `local` commitment class, but {fault} — declare a \
-                     `governs` locus for `{}`, or drop its `local` commitment",
+                     `locus` for `{}`, or drop its `local` commitment",
                     kind.name, kind.name
                 ),
             ))
@@ -561,7 +561,7 @@ pub fn registration_locus_admissibility(
                 &kind.name,
                 format!(
                     "kind `{}` declares a non-empty `registration`, but {fault} — drop the \
-                     `registration` from `{}`, or give the kind a `governs` locus of its own",
+                     `registration` from `{}`, or give the kind a `locus` of its own",
                     kind.name, kind.name
                 ),
             ))
@@ -604,7 +604,7 @@ pub fn at_locus_under_workspace_admissibility(
                 format!(
                     "kind `{}` declares an `at` locus rooted at `{}`, which falls under the \
                      workspace directory `.temper/` — a member rooted there would emit and lock \
-                     but never be discoverable by design; re-root `{}`'s `governs` outside \
+                     but never be discoverable by design; re-root `{}`'s `locus` outside \
                      `.temper/`",
                     kind.name, governs.root, kind.name
                 ),
@@ -670,20 +670,20 @@ fn duplicate_prose_region_diagnostic(kind: &CustomKind) -> Option<check::Diagnos
     ))
 }
 
-/// The diagnostic `rule` id for two distinct kinds resolving to the same `governs`
+/// The diagnostic `rule` id for two distinct kinds resolving to the same `at`
 /// (root+glob) locus. Sibling of [`KIND_COLLISION_RULE`], which guards the bare-name
 /// namespace; this one guards the locus namespace — a document's kind is its position
 /// alone, so two kinds selecting the same locus is a routing ambiguity, not two homes.
-const GOVERNS_COLLISION_RULE: &str = "kind.governs-collision";
+const LOCUS_COLLISION_RULE: &str = "kind.locus-collision";
 
 /// The diagnostic `rule` id for two distinct kinds declaring the same `collection_address`
-/// (manifest + key_path). Sibling of [`GOVERNS_COLLISION_RULE`], which guards file-locus
+/// (manifest + key_path). Sibling of [`LOCUS_COLLISION_RULE`], which guards file-locus
 /// collisions; this one guards manifest-registration collisions — two kinds at the same
 /// address register members ambiguously, each silently union-selecting the other's members.
 const COLLECTION_ADDRESS_COLLISION_RULE: &str = "kind.collection-address-collision";
 
 /// The diagnostic `rule` id for a kind named for a root key the lock itself writes.
-/// Sibling of [`GOVERNS_COLLISION_RULE`] and [`COLLECTION_ADDRESS_COLLISION_RULE`], which
+/// Sibling of [`LOCUS_COLLISION_RULE`] and [`COLLECTION_ADDRESS_COLLISION_RULE`], which
 /// guard collisions *between* kinds; this one guards the collision between a kind and the
 /// lock's own root namespace — every kind's roll-up rows ride at a root key spelled with
 /// the kind's name, so a kind wearing a reserved one silently overwrites what the lock
@@ -692,7 +692,7 @@ const RESERVED_LOCK_KEY_RULE: &str = "kind.reserved-lock-key";
 
 /// Reserved-lock-root-key findings over the **effective** kind set: the overlaid built-in
 /// definitions plus the genuinely-custom rows, the same set
-/// [`governs_collision_diagnostics`] judges. Emit writes each kind's roll-up rows at a
+/// [`locus_collision_diagnostics`] judges. Emit writes each kind's roll-up rows at a
 /// root lock key spelled with the kind's name, then writes its own root keys over the top
 /// — the engine stamp and the `[declaration]` table (`drift::RESERVED_LOCK_ROOT_KEYS`) —
 /// so a kind named `engine` erases the stamp and a kind named `declaration` loses its
@@ -741,7 +741,7 @@ pub fn reserved_kind_name_diagnostics(
 /// A nested file kind falls out for a stronger reason: it governs no glob at all — its
 /// members' paths compose from their host's unit and the host template's pattern — so it
 /// enters no bucket and can contend with nobody. That is the whole point of the locus.
-pub fn governs_collision_diagnostics(
+pub fn locus_collision_diagnostics(
     declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> Vec<check::Diagnostic> {
     let mut by_governs: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
@@ -770,41 +770,41 @@ pub fn governs_collision_diagnostics(
         .filter(|(_, names)| names.len() > 1)
         .map(|((root, glob), mut names)| {
             names.sort_unstable();
-            governs_collision_diagnostic(root, glob, &names)
+            locus_collision_diagnostic(root, glob, &names)
         })
         .collect()
 }
 
-/// A [`GOVERNS_COLLISION_RULE`] finding naming every kind that shares the
+/// A [`LOCUS_COLLISION_RULE`] finding naming every kind that shares the
 /// `root`/`glob` locus and the glob itself.
-fn governs_collision_diagnostic(root: &str, glob: &str, names: &[&str]) -> check::Diagnostic {
+fn locus_collision_diagnostic(root: &str, glob: &str, names: &[&str]) -> check::Diagnostic {
     let named = names
         .iter()
         .map(|name| format!("`{name}`"))
         .collect::<Vec<_>>()
         .join(", ");
     check::Diagnostic::error(
-        GOVERNS_COLLISION_RULE,
+        LOCUS_COLLISION_RULE,
         format!("{root}/{glob}"),
         format!(
-            "kinds {named} share the `governs` glob `{root}/{glob}` — a document's kind is \
+            "kinds {named} share the locus glob `{root}/{glob}` — a document's kind is \
              its position alone, so two kinds selecting the same locus would route every \
-             matching document into both member sets; give each kind a distinct `governs`",
+             matching document into both member sets; give each kind a distinct `locus`",
         ),
     )
 }
 
-/// Per-document governs-collision findings: every discovered document two file kinds'
+/// Per-document locus-collision findings: every discovered document two file kinds'
 /// loci both reach, one error per document naming the kinds and the remedy — a literal
 /// exclude of that path on the kind that does not own it. Judged over the documents
 /// discovery actually finds, never the templates, so an overlap no document occupies
 /// collides with nothing, and a kind that already excludes the path does not reach it.
 ///
 /// Kinds sharing one template (root and glob) are left to
-/// [`governs_collision_diagnostics`]: a document that only such a set reaches draws no
+/// [`locus_collision_diagnostics`]: a document that only such a set reaches draws no
 /// second finding here. Manifest and
 /// nested-file kinds stay out for the reasons that check states.
-pub fn document_governs_collision_diagnostics(
+pub fn document_locus_collision_diagnostics(
     declared_kinds: &BTreeMap<String, CustomKind>,
     disc: &import::Discovery,
 ) -> Vec<check::Diagnostic> {
@@ -856,7 +856,7 @@ pub fn document_governs_collision_diagnostics(
                 .collect::<Vec<_>>()
                 .join(", ");
             check::Diagnostic::error(
-                GOVERNS_COLLISION_RULE,
+                LOCUS_COLLISION_RULE,
                 document.clone(),
                 format!(
                     "document `{document}` is reached by the loci of kinds {named} — a \
@@ -872,7 +872,7 @@ pub fn document_governs_collision_diagnostics(
 /// Collection-address-collision findings: two distinct kinds declaring the same
 /// manifest and key_path would silently union their selections and cross-apply each
 /// other's contracts. Each shared address surfaces one error naming the kinds, the
-/// manifest, and the key path. Like [`governs_collision_diagnostics`], this check runs
+/// manifest, and the key path. Like [`locus_collision_diagnostics`], this check runs
 /// over the effective kind set: the overlaid built-in kinds plus the custom rows.
 pub fn collection_address_collision_diagnostics(
     declared_kinds: &BTreeMap<String, CustomKind>,
@@ -1295,7 +1295,7 @@ mod tests {
         let findings = local_locus_admissibility(&kind_set(vec![scratch]));
         let message = only_message(&findings).to_string();
         assert!(
-            message.contains("declare a `governs` locus for `scratch`")
+            message.contains("declare a `locus` for `scratch`")
                 && message.contains("drop its `local` commitment"),
             "both exits must be named: {message}"
         );
@@ -1311,7 +1311,7 @@ mod tests {
         let message = only_message(&findings).to_string();
         assert!(
             message.contains("drop the `registration` from `nested-note`")
-                && message.contains("give the kind a `governs` locus of its own"),
+                && message.contains("give the kind a `locus` of its own"),
             "both exits must be named: {message}"
         );
     }
@@ -1325,7 +1325,7 @@ mod tests {
         )]));
         let message = only_message(&findings).to_string();
         assert!(
-            message.contains("re-root `note`'s `governs` outside `.temper/`"),
+            message.contains("re-root `note`'s `locus` outside `.temper/`"),
             "the re-rooting must be named: {message}"
         );
     }
@@ -1336,8 +1336,8 @@ mod tests {
         // but its locus, so `overlay_builtin_kind` moves `skill`'s `governs` onto it and the
         // effective kind the judge sees is a built-in rooted under the workspace.
         let relocation = drift::KindFactRow {
-            governs_root: Some(".temper/skills".to_string()),
-            governs_glob: vec!["*/SKILL.md".to_string()],
+            locus_root: Some(".temper/skills".to_string()),
+            locus_glob: vec!["*/SKILL.md".to_string()],
             ..test_support::kind_fact_row("skill")
         };
         let declarations = drift::Declarations {
@@ -1358,7 +1358,7 @@ mod tests {
         let findings = at_locus_under_workspace_admissibility(&kind_set(vec![overlaid]));
         let message = only_message(&findings).to_string();
         assert!(
-            message.contains("re-root `skill`'s `governs` outside `.temper/`"),
+            message.contains("re-root `skill`'s `locus` outside `.temper/`"),
             "a relocated built-in buries its members the same way: {message}"
         );
     }

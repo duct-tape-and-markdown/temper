@@ -284,11 +284,11 @@ fn builtin_skill_out_of_vocabulary_row_is_a_load_error() {
 /// `a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_false_admissibility_finding`
 /// uses the identical shape). `extent` is the fixture's small 10-line budget so a
 /// short over-length body trips it without a real spec-sized corpus.
-fn author_custom_kind_lock(corpus: &Path, name: &str, governs_root: &str) {
+fn author_custom_kind_lock(corpus: &Path, name: &str, locus_root: &str) {
     common::write_lock(
         corpus,
         Declarations {
-            kinds: vec![common::kind_facts(name, governs_root, "*.md")],
+            kinds: vec![common::kind_facts(name, locus_root, "*.md")],
             clauses: vec![ClauseRow {
                 kind: Some(name.to_string()),
                 bound: Some(BoundRow {
@@ -632,8 +632,8 @@ fn undeclared_corpus(label: &str, root_rows: &str) -> PathBuf {
              \n\
              [[declaration.kind]]\n\
              name = \"intent\"\n\
-             governs_root = \"specs\"\n\
-             governs_glob = \"intent.md\"\n\
+             locus_root = \"specs\"\n\
+             locus_glob = \"intent.md\"\n\
              unit_shape = \"file\"\n\
              registration = [\"always\"]\n\
              content = {{ regions = [{{ region = \"prose\" }}] }}\n\

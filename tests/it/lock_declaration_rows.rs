@@ -265,7 +265,7 @@ fn lock_carries_all_four_declaration_families() {
         .find(|k| k.name == "skill")
         .expect("the skill kind fact is recorded");
     assert_eq!(skill.provider.as_deref(), Some("claude-code"));
-    assert_eq!(skill.governs_root.as_deref(), Some(".claude/skills"));
+    assert_eq!(skill.locus_root.as_deref(), Some(".claude/skills"));
     assert_eq!(skill.sole_glob(), Some("*/SKILL.md"));
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
@@ -2196,7 +2196,7 @@ fn read_declarations_rejects_a_present_row_missing_a_required_column() {
     let cases = [
         (
             "kind",
-            "[[declaration.kind]]\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+            "[[declaration.kind]]\nlocus_root = \"specs\"\nlocus_glob = \"*.md\"\n",
         ),
         (
             "clause",
@@ -2232,7 +2232,7 @@ fn read_declarations_rejects_a_present_row_missing_a_required_column() {
 fn read_declarations_rejects_a_wrong_typed_column() {
     let err = read_raw(
         "wrong-typed-kind-name",
-        "[[declaration.kind]]\nname = 42\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+        "[[declaration.kind]]\nname = 42\nlocus_root = \"specs\"\nlocus_glob = \"*.md\"\n",
     )
     .unwrap_err();
     let message = err.to_string();
@@ -2298,7 +2298,7 @@ fn read_declarations_rejects_a_malformed_array_element() {
 fn read_declarations_reads_a_row_with_absent_optional_columns() {
     let declarations = read_raw(
         "absent-optional-columns",
-        "[[declaration.kind]]\nname = \"spec\"\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+        "[[declaration.kind]]\nname = \"spec\"\nlocus_root = \"specs\"\nlocus_glob = \"*.md\"\n",
     )
     .unwrap();
     assert_eq!(declarations.kinds.len(), 1);
@@ -3650,7 +3650,7 @@ fn a_kind_named_for_a_reserved_lock_root_key_is_refused_and_any_other_name_is_no
 }
 
 /// Each built-in registration kind's manifest is its locus glob: the lift reads it off the
-/// row's starless `governs_glob`, since the collection address names only the key path.
+/// row's starless `locus_glob`, since the collection address names only the key path.
 #[test]
 fn a_registration_kind_surfaces_in_the_manifest_its_locus_names() {
     let declarations = builtin_lock::declarations();
@@ -3684,13 +3684,13 @@ fn a_registration_kind_surfaces_in_the_manifest_its_locus_names() {
 
     // A starred locus governs a family of files, so it names no one manifest to key inside.
     let starred = KindFactRow {
-        governs_glob: vec!["*.json".to_string()],
+        locus_glob: vec!["*.json".to_string()],
         ..moved
     };
     let err = CustomKind::from_kind_fact_row(&starred).unwrap_err();
     assert!(
         matches!(&err, drift::LockRowError::Vocabulary { column, value, .. }
-            if column == "governs_glob" && value == "*.json"),
+            if column == "locus_glob" && value == "*.json"),
         "a starred registration locus is refused at load, got: {err:?}"
     );
 }
@@ -3893,7 +3893,7 @@ fn a_file_locus_with_two_templates_governs_a_document_matching_either_template()
     let found = governed_documents(
         "two-template-locus-lock",
         &harness,
-        "name = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = [\"**/CLAUDE.md\", \"**/AGENTS.md\"]\n",
+        "name = \"memo\"\nlocus_root = \".\"\nlocus_glob = [\"**/CLAUDE.md\", \"**/AGENTS.md\"]\n",
     );
     assert_eq!(
         found,
@@ -3903,17 +3903,17 @@ fn a_file_locus_with_two_templates_governs_a_document_matching_either_template()
     // The column writes back as the list it read.
     let row = &read_raw(
         "two-template-locus-round-trip",
-        "[[declaration.kind]]\nname = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = [\"**/CLAUDE.md\", \"**/AGENTS.md\"]\n",
+        "[[declaration.kind]]\nname = \"memo\"\nlocus_root = \".\"\nlocus_glob = [\"**/CLAUDE.md\", \"**/AGENTS.md\"]\n",
     )
     .unwrap()
     .kinds[0];
-    assert_eq!(row.governs_glob, vec!["**/CLAUDE.md", "**/AGENTS.md"]);
+    assert_eq!(row.locus_glob, vec!["**/CLAUDE.md", "**/AGENTS.md"]);
     // A one-element list, the spelling emit now writes for a single template, governs
     // what the bare string did.
     let found = governed_documents(
         "one-element-list-locus-lock",
         &harness,
-        "name = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = [\"**/CLAUDE.md\"]\n",
+        "name = \"memo\"\nlocus_root = \".\"\nlocus_glob = [\"**/CLAUDE.md\"]\n",
     );
     assert_eq!(found, vec!["CLAUDE.md".to_string()]);
 }
@@ -3921,11 +3921,33 @@ fn a_file_locus_with_two_templates_governs_a_document_matching_either_template()
 #[test]
 fn a_single_template_kind_governs_exactly_the_documents_it_governed_before() {
     let harness = two_template_tree("one-template-locus");
-    // The bare-string spelling every lock committed before a locus took several.
+    // The bare-string spelling every lock committed before a locus took several — under
+    // the prior column names those locks also carried.
     let found = governed_documents(
         "one-template-bare",
         &harness,
         "name = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = \"**/CLAUDE.md\"\n",
     );
     assert_eq!(found, vec!["CLAUDE.md".to_string()]);
+}
+
+#[test]
+fn a_lock_written_under_the_prior_locus_column_names_reads_as_the_locus_columns() {
+    let row = &read_raw(
+        "prior-locus-columns",
+        "[[declaration.kind]]\nname = \"memo\"\ngoverns_root = \".\"\ngoverns_glob = [\"**/CLAUDE.md\", \"**/AGENTS.md\"]\n",
+    )
+    .unwrap()
+    .kinds[0];
+    assert_eq!(row.locus_root.as_deref(), Some("."));
+    assert_eq!(row.locus_glob, vec!["**/CLAUDE.md", "**/AGENTS.md"]);
+    // The locus's own spelling wins where a hand-merged row carries both.
+    let row = &read_raw(
+        "both-locus-columns",
+        "[[declaration.kind]]\nname = \"memo\"\nlocus_root = \"docs\"\nlocus_glob = [\"*.md\"]\ngoverns_root = \".\"\ngoverns_glob = [\"**/CLAUDE.md\"]\n",
+    )
+    .unwrap()
+    .kinds[0];
+    assert_eq!(row.locus_root.as_deref(), Some("docs"));
+    assert_eq!(row.locus_glob, vec!["*.md"]);
 }

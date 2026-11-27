@@ -144,7 +144,7 @@ fn the_settings_kind_crosses_the_seam_as_a_committed_whole_file_json_document() 
 
     // The documented singleton locus: a literal glob, so the member's name never splices
     // into the path — every project's committed settings are the one file here.
-    assert_eq!(facts.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(facts.locus_root.as_deref(), Some(".claude"));
     assert_eq!(facts.sole_glob(), Some("settings.json"));
     // Committed, not local: absent is the class, and it is what makes the file an emit
     // target where `settings-local`'s overlay is read in place and never written.

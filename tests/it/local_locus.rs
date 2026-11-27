@@ -512,8 +512,8 @@ fn a_local_class_on_a_kind_governing_no_glob_is_inadmissible() {
         "local-nested-file",
         Declarations {
             kinds: vec![KindFactRow {
-                governs_root: None,
-                governs_glob: Vec::new(),
+                locus_root: None,
+                locus_glob: Vec::new(),
                 commitment: Some("local".to_string()),
                 content: Some(common::knob_layout_row()),
                 ..common::kind_facts("knob", ".claude/local", "*.md")
@@ -578,7 +578,7 @@ fn emit_accepts_a_local_locus_member_rooted_under_the_workspace() {
         ..common::kind_facts("knob", ".temper", "*.toml")
     };
     assert_eq!(
-        (kind.commitment.as_deref(), kind.governs_root.as_deref()),
+        (kind.commitment.as_deref(), kind.locus_root.as_deref()),
         (Some("local"), Some(".temper")),
         "the fixture must root a local locus under the workspace, or the green is vacuous"
     );
@@ -615,8 +615,8 @@ fn an_at_locus_under_the_workspace_refuses_at_emit_and_check() {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![drift::KindFactRow {
-                governs_root: Some(".temper".to_string()),
-                governs_glob: vec!["*.md".to_string()],
+                locus_root: Some(".temper".to_string()),
+                locus_glob: vec!["*.md".to_string()],
                 ..common::kind_facts("test_kind", ".temper", "*.md")
             }],
             ..Default::default()
@@ -641,8 +641,8 @@ fn an_at_locus_under_the_workspace_refuses_at_emit_and_check() {
         &harness,
         Declarations {
             kinds: vec![drift::KindFactRow {
-                governs_root: Some(".temper".to_string()),
-                governs_glob: vec!["*.md".to_string()],
+                locus_root: Some(".temper".to_string()),
+                locus_glob: vec!["*.md".to_string()],
                 ..common::kind_facts("test_kind", ".temper", "*.md")
             }],
             ..Default::default()

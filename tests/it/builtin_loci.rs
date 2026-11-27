@@ -176,7 +176,7 @@ fn every_built_in_kind_glob_is_a_placement_template() {
     let population = builtin_kind::definitions();
     assert!(!population.is_empty());
     for row in &temper::builtin_lock::declarations().kinds {
-        // The lift refuses a `governs_glob` outside the placement-template grammar.
+        // The lift refuses a `locus_glob` outside the placement-template grammar.
         let lifted = CustomKind::from_kind_fact_row(row)
             .unwrap_or_else(|err| panic!("`{}`'s glob is a placement template: {err}", row.name));
         if let Some(spelled) = population.get(&row.name) {

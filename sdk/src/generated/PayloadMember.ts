@@ -28,7 +28,7 @@ name: string,
  */
 host?: string, 
 /**
- * Where the member's file sits, relative to its locus root — the kind's `governs`
+ * Where the member's file sits, relative to its locus root — the kind's `locus`
  * root, or its host's unit for a nested file child. Declared where no template can
  * place the name whole (a `:`-prefixed identity such as `apps:web:CLAUDE`); absent,
  * the name is placed whole through the first template that can.

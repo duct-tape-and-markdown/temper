@@ -1238,7 +1238,7 @@ pub struct PayloadMember {
     /// (`specs/model/representation.md`, "nesting").
     #[serde(default)]
     pub host: Option<String>,
-    /// Where the member's file sits, relative to its locus root — the kind's `governs`
+    /// Where the member's file sits, relative to its locus root — the kind's `locus`
     /// root, or its host's unit for a nested file child. Declared where no template can
     /// place the name whole (a `:`-prefixed identity such as `apps:web:CLAUDE`); absent,
     /// the name is placed whole through the first template that can.
@@ -1774,7 +1774,7 @@ fn placement_through<'g>(
 /// its name placed whole through the first template that places it — or [`None`] where no
 /// template does, so only a declared location places it.
 pub(crate) fn whole_placement(facts: &KindFactRow, name: &str) -> Option<String> {
-    let globs: Vec<&str> = facts.governs_glob.iter().map(String::as_str).collect();
+    let globs: Vec<&str> = facts.locus_glob.iter().map(String::as_str).collect();
     placement_through(facts, &globs, name, None, None)
         .ok()
         .map(|(_, placement)| placement)
@@ -1987,7 +1987,7 @@ fn refuse_template_cycle(kind_facts: &BTreeMap<&str, &KindFactRow>) -> Result<()
             };
             // Only a child governing no glob composes under this host's unit; one with its
             // own `at` locus is placed by its own glob and roots a chain of its own.
-            if child_facts.governs_root.is_some() || !child_facts.governs_glob.is_empty() {
+            if child_facts.locus_root.is_some() || !child_facts.locus_glob.is_empty() {
                 continue;
             }
             descend(child, kind_facts, trail, settled)?;
@@ -2038,13 +2038,13 @@ fn member_projection_path(
     // The two governs columns are one spelling: present together at an `at` locus, absent
     // together for a nested file kind, whose path composes from its host instead.
     let Some(root) = facts
-        .governs_root
+        .locus_root
         .as_deref()
-        .filter(|_| !facts.governs_glob.is_empty())
+        .filter(|_| !facts.locus_glob.is_empty())
     else {
         return nested_file_path(facts, name, host, kind_facts, locations);
     };
-    let globs: Vec<&str> = facts.governs_glob.iter().map(String::as_str).collect();
+    let globs: Vec<&str> = facts.locus_glob.iter().map(String::as_str).collect();
     let location = locations
         .get(&member_address_under(host, &facts.name, name))
         .copied();
@@ -2055,12 +2055,12 @@ fn member_projection_path(
     // not find.
     let harness_relative = HarnessRelativePath::from_path(&placed);
     let patterns: Vec<String> = facts
-        .governs_glob
+        .locus_glob
         .iter()
         .map(|glob| crate::kind::locus_pattern(root, glob))
         .collect();
     if !crate::kind::locus_admits_any(&patterns, &facts.exclude, &facts.ceded, &harness_relative) {
-        // `governs_root` is the locus the glob is rooted at, so the relative path is what
+        // `locus_root` is the locus the glob is rooted at, so the relative path is what
         // the glob has to find; a path the template finds failed on the exclusion half or
         // the ceded half.
         refuse_ungoverned(&facts.name, host, name, glob, &relative)?;
@@ -2652,12 +2652,12 @@ pub fn emit(
         // own `local` exemption and the skip below are the same class's two consequences,
         // so a second lift here would be a second chance to disagree.
         let commitment = commitment_from_row(facts)?;
-        // An `at` locus (both governs_root and governs_glob present) rooted under the
+        // An `at` locus (both locus_root and locus_glob present) rooted under the
         // workspace would emit and lock but never be discoverable, since discovery fences
         // `.temper/` by design. Buried-or-not is `kind`'s call, shared with the check-time
         // judge (`crate::admissibility::at_locus_under_workspace_admissibility`).
-        if let Some(root) = facts.governs_root.as_deref()
-            && !facts.governs_glob.is_empty()
+        if let Some(root) = facts.locus_root.as_deref()
+            && !facts.locus_glob.is_empty()
             && crate::kind::at_locus_is_under_workspace(root, commitment)
         {
             return Err(DriftError::AtLocusUnderWorkspace {
@@ -3176,7 +3176,7 @@ struct ContainerMember {
 /// regenerates. `None` for a kind governing no locus at all — a nested file kind has no
 /// host file to register inside.
 fn manifest_target_path(facts: &KindFactRow) -> Option<HarnessRelativePath> {
-    let root = facts.governs_root.as_deref()?;
+    let root = facts.locus_root.as_deref()?;
     let glob = facts.sole_glob()?;
     Some(crate::kind::locus_path(root, glob))
 }
@@ -4272,9 +4272,9 @@ fn member_path_index(
             &locations,
         )?);
         if let (Some(location), Some(root)) =
-            (member.location.as_deref(), facts.governs_root.as_deref())
+            (member.location.as_deref(), facts.locus_root.as_deref())
         {
-            let globs: Vec<&str> = facts.governs_glob.iter().map(String::as_str).collect();
+            let globs: Vec<&str> = facts.locus_glob.iter().map(String::as_str).collect();
             let (pattern, _) = placement_through(
                 facts,
                 &globs,
@@ -6049,20 +6049,20 @@ pub struct KindFactRow {
     /// every other kind — a relocation keeps its base's name, so it names none.
     #[serde(default)]
     pub base: Option<String>,
-    /// The `governs` locus root directory. Absent together with
-    /// [`governs_glob`](KindFactRow::governs_glob) for a **nested file** kind: its members'
+    /// The `at` locus root directory. Absent together with
+    /// [`locus_glob`](KindFactRow::locus_glob) for a **nested file** kind: its members'
     /// paths compose from their host's unit and the host template's pattern, so it governs
     /// no glob of its own and two kinds still never share one.
     #[serde(default)]
-    pub governs_root: Option<String>,
-    /// The `governs` locus **templates** under [`governs_root`](KindFactRow::governs_root) —
+    pub locus_root: Option<String>,
+    /// The `at` locus **templates** under [`locus_root`](KindFactRow::locus_root) —
     /// one or more, a document at any of them governed by the kind; empty for a nested
-    /// file kind (see [`governs_root`](KindFactRow::governs_root)). Written as an array;
+    /// file kind (see [`locus_root`](KindFactRow::locus_root)). Written as an array;
     /// a bare string reads as the one template it means, the spelling a lock written
     /// before a locus took several carries.
     #[serde(default)]
     #[ts(as = "Option<Vec<String>>", optional)]
-    pub governs_glob: Vec<String>,
+    pub locus_glob: Vec<String>,
     /// The file locus's declared **commitment class** label — `local` for a per-machine,
     /// uncommitted locus: the kind is declared and reviewed, its members' documents are
     /// not. Absent for the committed class every
@@ -6164,7 +6164,7 @@ pub struct KindFactRow {
 /// its own directory or any directory above it, up to the harness root.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct AbsenceGateRow {
-    /// The gated template, spelled exactly as one of the row's `governs_glob` entries.
+    /// The gated template, spelled exactly as one of the row's `locus_glob` entries.
     pub template: String,
     /// The documents whose presence at or above closes the gate (`CLAUDE.md`,
     /// `.claude/CLAUDE.md`).
@@ -6206,7 +6206,7 @@ pub struct TemplateRow {
 /// A kind's declared **collection address** row — the key path a registration member
 /// keys at and the shape its entry takes: the presence-coupled pair
 /// [`KindFactRow::collection_address`] carries. The manifest it keys inside is the row's
-/// own starless `governs_glob`, never a second column here. Absent from a [`KindFactRow`]
+/// own starless `locus_glob`, never a second column here. Absent from a [`KindFactRow`]
 /// means the kind owns its own file locus.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct CollectionAddressRow {
@@ -6256,7 +6256,7 @@ pub struct LayoutRegionRow {
 }
 
 /// One clause of a kind's effective contract, reduced to the columns the lock records:
-/// which kind it governs, the predicate's key, the field it targets (when it names one),
+/// which kind owns it, the predicate's key, the field it targets (when it names one),
 /// its declared severity, its guidance and cite — the clause's four channels
 /// —
 /// and, per predicate, its own argument: the node-set/edge-scope predicates
@@ -7186,7 +7186,7 @@ fn opt_str_array(table: &dyn TableLike, column: &str) -> Result<Option<Vec<Strin
 /// An optional string-array column that also reads a bare string as the one-element
 /// array it means — absent is `Ok(None)`, any other shape a [`RowError`].
 ///
-/// Two columns read this way, `value_type` and `governs_glob`, and the tolerance is a
+/// Two columns read this way, `value_type` and `locus_glob`, and the tolerance is a
 /// version skew, not a spelling choice: an engine that predates the `type` predicate's
 /// set widening wrote one lattice name as a bare string, and one that predates a locus
 /// taking several templates wrote its one template so; either row means exactly the
@@ -7217,12 +7217,21 @@ fn opt_table<'a>(
     }
 }
 
+/// The column names a lock written before the locus columns took the locus's own name
+/// spelled them in. Read-only, a version skew exactly like [`opt_str_or_str_array`]'s:
+/// an upgraded engine still reads the lock a prior version committed, and the next
+/// `emit` writes `locus_root`/`locus_glob` whole, so the prior names are never a second
+/// spelling temper itself writes.
+const PRIOR_LOCUS_ROOT: &str = "governs_root";
+/// See [`PRIOR_LOCUS_ROOT`].
+const PRIOR_LOCUS_GLOB: &str = "governs_glob";
+
 impl KindFactRow {
     /// The row's one `governs` template, when it declares exactly one — the shape a locus
     /// naming a single file (a registration kind's manifest) has.
     #[must_use]
     pub fn sole_glob(&self) -> Option<&str> {
-        match self.governs_glob.as_slice() {
+        match self.locus_glob.as_slice() {
             [one] => Some(one),
             _ => None,
         }
@@ -7237,11 +7246,11 @@ impl KindFactRow {
         if let Some(base) = &self.base {
             table.insert("base", value(base.clone()));
         }
-        if let Some(root) = &self.governs_root {
-            table.insert("governs_root", value(root.clone()));
+        if let Some(root) = &self.locus_root {
+            table.insert("locus_root", value(root.clone()));
         }
-        if !self.governs_glob.is_empty() {
-            table.insert("governs_glob", value(string_array(&self.governs_glob)));
+        if !self.locus_glob.is_empty() {
+            table.insert("locus_glob", value(string_array(&self.locus_glob)));
         }
         if let Some(commitment) = &self.commitment {
             table.insert("commitment", value(commitment.clone()));
@@ -7302,8 +7311,14 @@ impl KindFactRow {
             name: req_str(table, "name")?,
             provider: opt_str(table, "provider")?,
             base: opt_str(table, "base")?,
-            governs_root: opt_str(table, "governs_root")?,
-            governs_glob: opt_str_or_str_array(table, "governs_glob")?.unwrap_or_default(),
+            locus_root: match opt_str(table, "locus_root")? {
+                Some(root) => Some(root),
+                None => opt_str(table, PRIOR_LOCUS_ROOT)?,
+            },
+            locus_glob: match opt_str_or_str_array(table, "locus_glob")? {
+                Some(globs) => globs,
+                None => opt_str_or_str_array(table, PRIOR_LOCUS_GLOB)?.unwrap_or_default(),
+            },
             commitment: opt_str(table, "commitment")?,
             exclude: opt_str_array(table, "exclude")?.unwrap_or_default(),
             absence_gate: absence_gates_from_table(table)?,
@@ -8417,8 +8432,8 @@ mod tests {
     #[test]
     fn a_member_places_whole_through_the_template_whose_filename_is_its_name() {
         let row = KindFactRow {
-            governs_root: Some(".".to_string()),
-            governs_glob: vec!["**/CLAUDE.md".to_string(), "**/AGENTS.md".to_string()],
+            locus_root: Some(".".to_string()),
+            locus_glob: vec!["**/CLAUDE.md".to_string(), "**/AGENTS.md".to_string()],
             unit_shape: Some("file".to_string()),
             ..crate::test_support::kind_fact_row("memory")
         };
@@ -8615,8 +8630,8 @@ mod tests {
     #[test]
     fn a_nested_skill_places_at_its_declared_location() {
         let row = KindFactRow {
-            governs_root: Some(".".to_string()),
-            governs_glob: vec!["**/.claude/skills/*/SKILL.md".to_string()],
+            locus_root: Some(".".to_string()),
+            locus_glob: vec!["**/.claude/skills/*/SKILL.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
             ..crate::test_support::kind_fact_row("skill")
@@ -8647,8 +8662,8 @@ mod tests {
     #[test]
     fn a_nested_output_style_places_at_its_declared_location() {
         let row = KindFactRow {
-            governs_root: Some(".".to_string()),
-            governs_glob: vec!["**/.claude/output-styles/*.md".to_string()],
+            locus_root: Some(".".to_string()),
+            locus_glob: vec!["**/.claude/output-styles/*.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("named-field-or-file(name)".to_string()),
             ..crate::test_support::kind_fact_row("output-style")
@@ -8679,8 +8694,8 @@ mod tests {
     #[test]
     fn a_path_shaped_member_places_at_its_declared_location() {
         let row = KindFactRow {
-            governs_root: Some(".claude/commands".to_string()),
-            governs_glob: vec!["**/*.md".to_string()],
+            locus_root: Some(".claude/commands".to_string()),
+            locus_glob: vec!["**/*.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("path".to_string()),
             ..crate::test_support::kind_fact_row("command")
@@ -8708,8 +8723,8 @@ mod tests {
     #[test]
     fn kind_fact_row_with_guidance_and_cite_round_trips_unchanged() {
         let row = KindFactRow {
-            governs_root: Some(".claude/rules".to_string()),
-            governs_glob: vec!["*.md".to_string()],
+            locus_root: Some(".claude/rules".to_string()),
+            locus_glob: vec!["*.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("file".to_string()),
             registration: vec!["paths-match(paths)".to_string()],
@@ -8727,8 +8742,8 @@ mod tests {
     #[test]
     fn kind_fact_row_omits_absent_guidance_and_cite_columns() {
         let row = KindFactRow {
-            governs_root: Some(".claude/rules".to_string()),
-            governs_glob: vec!["*.md".to_string()],
+            locus_root: Some(".claude/rules".to_string()),
+            locus_glob: vec!["*.md".to_string()],
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("file".to_string()),
             registration: vec!["paths-match(paths)".to_string()],

@@ -582,8 +582,8 @@ fn area_kind_row() -> KindFactRow {
 
 fn page_kind_row() -> KindFactRow {
     KindFactRow {
-        governs_root: None,
-        governs_glob: Vec::new(),
+        locus_root: None,
+        locus_glob: Vec::new(),
         format: Some("json-document".to_string()),
         unit_shape: Some("starred-segment".to_string()),
         ..common::kind_facts("page", "", "")

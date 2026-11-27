@@ -80,7 +80,7 @@ fn a_document_in_a_subkinds_locus_is_one_member_of_the_subkind() {
 }
 
 #[test]
-fn a_document_in_a_subkinds_locus_raises_no_governs_collision_with_its_base() {
+fn a_document_in_a_subkinds_locus_raises_no_locus_collision_with_its_base() {
     let root = common::tmpdir("subkind-no-collision");
     write_rule(&root, ".claude/rules/decisions/0001-adopt.md");
     for kinds in [
@@ -89,7 +89,7 @@ fn a_document_in_a_subkinds_locus_raises_no_governs_collision_with_its_base() {
     ] {
         let run = check_with(&root, kinds);
         assert!(
-            !run.output.contains("kind.governs-collision"),
+            !run.output.contains("kind.locus-collision"),
             "a subkind and its base never collide, got:\n{}",
             run.output
         );
@@ -403,7 +403,7 @@ fn emit_refuses_a_base_member_whose_projection_path_lies_in_a_subkinds_locus() {
     use temper::drift::{self, EmitOptions, Payload, PayloadMember};
     let root = common::tmpdir("emit-subkind-locus");
     let rule = KindFactRow {
-        governs_glob: vec!["**/*.md".to_string()],
+        locus_glob: vec!["**/*.md".to_string()],
         ..common::rule_kind_facts(None, &[])
     };
     let standard = KindFactRow {
@@ -480,8 +480,8 @@ fn procedure_and_topic() -> Vec<KindFactRow> {
         },
         KindFactRow {
             base: Some("supporting-doc".to_string()),
-            governs_root: None,
-            governs_glob: Vec::new(),
+            locus_root: None,
+            locus_glob: Vec::new(),
             ..common::kind_facts("topic", "", "")
         },
     ]
@@ -564,8 +564,8 @@ fn charter_and_strict_invariant() -> Vec<KindFactRow> {
         },
         KindFactRow {
             base: Some("invariant".to_string()),
-            governs_root: None,
-            governs_glob: Vec::new(),
+            locus_root: None,
+            locus_glob: Vec::new(),
             ..common::kind_facts("strict-invariant", "", "")
         },
     ]
