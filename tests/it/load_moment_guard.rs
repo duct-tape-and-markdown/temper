@@ -308,3 +308,103 @@ fn a_loads_guard_is_silent_on_an_output_style_no_settings_file_selects() {
         "an output style never loads on demand: {on_demand:#?}"
     );
 }
+
+/// The shipped lock with one more `supporting-doc` clause: `when(loads(moment),
+/// [extent(lines, 1)])`.
+fn supporting_doc_guard_lock(root: &Path, moment: &str) {
+    let mut declarations = temper::builtin_lock::declarations().clone();
+    declarations.clauses.push(ClauseRow {
+        kind: Some("supporting-doc".to_string()),
+        values: Some(vec![moment.to_string()]),
+        guard_predicate: Some("loads".to_string()),
+        body: Some(vec![ClauseRow {
+            bound: Some(BoundRow {
+                min: None,
+                max: Some(1),
+                entry: None,
+            }),
+            unit: Some("lines".to_string()),
+            ..common::clause("extent", "advisory")
+        }]),
+        ..common::clause("when", "advisory")
+    });
+    common::write_lock(root, declarations);
+}
+
+/// A skill whose body points at its `reference.md`, a supporting doc past the guarded
+/// body's budget.
+fn write_skill_with_reference(root: &Path) {
+    common::write_skill(
+        root,
+        "review",
+        "---\nname: review\ndescription: Reviews a change.\n---\n# Review\n\nRead [the reference](reference.md) before reviewing.\n",
+    );
+    write_sibling(root, ".claude/skills/review/reference.md", THREE_LINES);
+}
+
+/// The findings a `moment` guard over `supporting-doc` fires on a skill's reference doc.
+fn supporting_doc_harness(label: &str, moment: &str) -> Vec<String> {
+    let harness = common::tmpdir(label);
+    write_skill_with_reference(&harness);
+    supporting_doc_guard_lock(&harness, moment);
+    let (findings, _) = check_harness(&harness);
+    common::findings_for(
+        &findings,
+        &format!("supporting-doc.when.loads={moment}.extent"),
+    )
+    .into_iter()
+    .cloned()
+    .collect()
+}
+
+#[test]
+fn a_loads_on_demand_guard_binds_its_body_on_a_supporting_doc() {
+    let fired = supporting_doc_harness("load-moment-supporting-doc-on-demand", "on-demand");
+    assert_eq!(fired.len(), 1, "the reference doc alone: {fired:#?}");
+    assert!(
+        fired[0].contains("reference"),
+        "the supporting doc loads when read: {fired:#?}"
+    );
+}
+
+#[test]
+fn a_loads_launch_guard_is_silent_on_a_supporting_doc() {
+    // Non-vacuity: the same doc is judged by the on-demand guard.
+    let on_demand = supporting_doc_harness("load-moment-supporting-doc-nonvacuous", "on-demand");
+    assert_eq!(on_demand.len(), 1, "{on_demand:#?}");
+    let launch = supporting_doc_harness("load-moment-supporting-doc-launch", "launch");
+    assert_eq!(
+        launch,
+        Vec::<String>::new(),
+        "a supporting doc never loads at launch: {launch:#?}"
+    );
+}
+
+#[test]
+fn explain_narrates_a_supporting_doc_as_loading_when_its_skill_directs_a_read() {
+    let harness = common::tmpdir("load-moment-supporting-doc-explain");
+    write_skill_with_reference(&harness);
+    common::write_lock(&harness, temper::builtin_lock::declarations().clone());
+    let narration = common::explain_in(&harness, "skill:review/supporting-doc/reference");
+    assert!(
+        narration
+            .contains("`on-read`: loads on demand, when its skill's body directs a read of it."),
+        "the supporting doc loads when its skill sends Claude to it, got: {narration}"
+    );
+}
+
+#[test]
+fn a_supporting_doc_no_skill_body_references_is_still_reported_unreachable() {
+    let harness = common::tmpdir("load-moment-supporting-doc-unreferenced");
+    common::write_skill(
+        &harness,
+        "review",
+        "---\nname: review\ndescription: Reviews a change.\n---\n# Review\n",
+    );
+    write_sibling(&harness, ".claude/skills/review/orphan.md", THREE_LINES);
+    common::write_lock(&harness, temper::builtin_lock::declarations().clone());
+    let (findings, _) = check_harness(&harness);
+    let unreached = common::findings_for(&findings, "supporting-doc.degree");
+    assert_eq!(unreached.len(), 1, "{findings:#?}");
+    assert!(unreached[0].contains("orphan"), "{findings:#?}");
+}

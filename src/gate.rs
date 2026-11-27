@@ -371,7 +371,9 @@ pub(crate) fn selections<'k>(
 /// ([`UserInvoked`](kind::Registration::UserInvoked),
 /// [`DescriptionTrigger`](kind::Registration::DescriptionTrigger),
 /// [`PathsListing`](kind::Registration::PathsListing)) loads the body on invocation —
-/// its listing is the listing budget's, never the load; else **at launch**. A
+/// its listing is the listing budget's, never the load — and wherever an
+/// [`OnRead`](kind::Registration::OnRead) member waits on its host's read; else **at
+/// launch**. A
 /// [`Selected`](kind::Registration::Selected) member loads at launch where a committed
 /// edge under its field selects it, and has no moment the tree can show where none does.
 /// [`None`] for a channel whose member's content never enters context (event, connected,
@@ -402,7 +404,8 @@ pub(crate) fn channel_load_moment(
         }
         kind::Registration::UserInvoked
         | kind::Registration::DescriptionTrigger { .. }
-        | kind::Registration::PathsListing { .. } => true,
+        | kind::Registration::PathsListing { .. }
+        | kind::Registration::OnRead => true,
         kind::Registration::Selected { field } => {
             return placement.selected_by.contains(field).then_some(Launch);
         }

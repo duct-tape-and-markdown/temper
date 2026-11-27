@@ -165,9 +165,11 @@ export interface SupportingDoc {
  * `supporting-doc` — a skill's bundled reference document, at the nested-file locus:
  * its path composes from its host skill's unit and the host's template pattern, so it
  * governs no glob of its own. Fields-free and frontmatterless (no `format` — the whole
- * file is body), identity from the filename, and channel-less: a supporting file reaches
- * the world only through the skill whose body references it, never on a channel of its
- * own (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-07-16).
+ * file is body), identity from the filename. It declares no registration — the
+ * nested-file locus derives it — and the engine derives the one documented channel,
+ * `on-read`: a supporting file loads on demand when it is read, as the skill body that
+ * references it directs (code.claude.com/docs/en/skills, "Add supporting files",
+ * retrieved 2026-11-26).
  * The locus is the host's: "Skills can include multiple files in their directory", the
  * documented layout placing `reference.md` and `examples.md` beside `SKILL.md`
  * (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-11-24).

@@ -614,8 +614,8 @@ mod tests {
         // A lone file, frontmatterless — the whole file is body.
         assert_eq!(doc.unit_shape, Some(crate::kind::UnitShape::File));
         assert_eq!(doc.format, None);
-        // Channel-less: it reaches the world only through the skill referencing it.
-        assert_eq!(doc.registration, Vec::<Registration>::new());
+        // Its one derived channel: it loads when read, as its skill's body directs.
+        assert_eq!(doc.registration, vec![Registration::OnRead]);
         // Fields-free: the markdown-structure primitives and not one declared field —
         // the format documents no frontmatter schema for a supporting file.
         assert_eq!(

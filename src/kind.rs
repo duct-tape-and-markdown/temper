@@ -547,7 +547,19 @@ pub enum Registration {
         /// The selecting edge's declared field (`outputStyle`).
         field: String,
     },
+    /// `on-read` — the member loads on demand when it is read, as its host's references
+    /// direct: a skill's supporting document enters context when the skill's body sends
+    /// Claude to it (code.claude.com/docs/en/skills, "Add supporting files", retrieved
+    /// 2026-11-26). Derived, never declared — no lock label spells it; the
+    /// [`SUPPORTING_DOC`] lift supplies it. Never provably dead on its own: whether a body
+    /// references the member is its kind's `degree` clause, not this channel.
+    OnRead,
 }
+
+/// The one nested-file kind whose derived registration carries [`Registration::OnRead`]:
+/// the runtime documents the load moment of a skill's supporting files and of no other
+/// nested file, so a custom nested-file kind keeps an empty registration.
+pub const SUPPORTING_DOC: &str = "supporting-doc";
 
 /// A **template** a kind declares for one inner layer of nested members it hosts: the
 /// child kind, plus the path pattern its children sit at when they are files
@@ -758,11 +770,16 @@ impl CustomKind {
     /// A kind with no file locus declares a non-empty `registration`.
     ///
     /// Like any locus with no file of its own, an embedded (or nested-file) member loads
-    /// through its host, never on its own, so it registers nothing — a non-empty
-    /// registration is a well-formedness fault.
+    /// through its host, never on its own, so it declares nothing — a declared channel is
+    /// a well-formedness fault. The derived [`OnRead`](Registration::OnRead) is no
+    /// declaration.
     #[must_use]
     pub fn registration_locus_fault(&self) -> Option<String> {
-        if self.governs.is_none() && !self.registration.is_empty() {
+        let declared = self
+            .registration
+            .iter()
+            .any(|channel| *channel != Registration::OnRead);
+        if self.governs.is_none() && declared {
             return Some(
                 "like any locus with no file of its own, an embedded member loads \
                  through its host, never on its own, so it registers nothing — its \
@@ -822,11 +839,17 @@ impl CustomKind {
                 )?),
                 None => None,
             },
-            registration: row
-                .registration
-                .iter()
-                .map(|label| kind_vocab(label, "registration", registration_from_label(label)))
-                .collect::<Result<Vec<_>, _>>()?,
+            registration: if row.name == SUPPORTING_DOC
+                && row.locus_glob.is_empty()
+                && row.registration.is_empty()
+            {
+                vec![Registration::OnRead]
+            } else {
+                row.registration
+                    .iter()
+                    .map(|label| kind_vocab(label, "registration", registration_from_label(label)))
+                    .collect::<Result<Vec<_>, _>>()?
+            },
             templates: row.templates.iter().map(template_from_row).collect(),
             content: content_from_row(row)?,
             collection_address: collection_address_from_row(row)?,

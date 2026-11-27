@@ -2871,6 +2871,15 @@ fn narrate_channel(
                 ),
             }
         }
+        Registration::OnRead => {
+            match gate::channel_load_moment(channel, channels, member, placement) {
+                Some(LoadMoment::Launch) => format!("{label}: loads at launch."),
+                Some(LoadMoment::OnDemand) => {
+                    format!("{label}: loads on demand, when its skill's body directs a read of it.")
+                }
+                None => format!("{label}: never enters context."),
+            }
+        }
     }
 }
 
@@ -2888,6 +2897,7 @@ fn channel_label(channel: &Registration) -> String {
         Registration::Enablement { field } => format!("`enablement({field})`"),
         Registration::Registry => "`registry`".to_string(),
         Registration::Selected { field } => format!("`selected({field})`"),
+        Registration::OnRead => "`on-read`".to_string(),
     }
 }
 

@@ -1474,8 +1474,9 @@ fn dead_channel_set(
 /// globs match no file (an absent/blank `paths` field is unconditional, never dead), and
 /// an `enablement` entry the harness is documented not to load. `always`/`user-invoked`
 /// (unconditionally live), `on-read-beneath` (the member is itself a file beneath its
-/// home), `event`, and `connection`/`registry`/`selected` (no repo-decidable criterion —
-/// a selection may come from a scope outside the tree) never do.
+/// home), `event`, `connection`/`registry`/`selected` (no repo-decidable criterion —
+/// a selection may come from a scope outside the tree), and `on-read` (whether a body
+/// references the member is its kind's `degree` clause) never do.
 pub(crate) fn dead_registration(
     registration: &Registration,
     member: &Features,
@@ -1488,7 +1489,8 @@ pub(crate) fn dead_registration(
         | Registration::Event { .. }
         | Registration::Connection
         | Registration::Registry
-        | Registration::Selected { .. } => None,
+        | Registration::Selected { .. }
+        | Registration::OnRead => None,
         // The gate rides the member's declared enablement field, never a channel of its
         // own: only the documented `false` is dead. Any other value — the enablement the
         // harness writes, or a shape whose semantics no source documents — stays live, so
