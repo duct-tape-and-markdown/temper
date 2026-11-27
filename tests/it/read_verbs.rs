@@ -565,7 +565,7 @@ fn tap_readout(records: &[TapRecord]) -> tap::LogReadout {
     for record in records {
         tap::append(&workspace, record).unwrap();
     }
-    tap::read_log(&workspace).unwrap()
+    tap::read_log(&temper::bytes::Bytes::new(), &workspace).unwrap()
 }
 
 #[test]

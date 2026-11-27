@@ -3322,7 +3322,7 @@ fn emit_manifest(
     let current = if let Some(raw) = cached_raw {
         Some(raw.as_bytes().to_vec())
     } else {
-        match fs::read(path) {
+        match crate::bytes::open(path) {
             Ok(bytes) => Some(bytes),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
             Err(source) => {
@@ -3430,7 +3430,7 @@ fn manifest_segment_reaps(
         // discovers nothing; a malformed one carries no members this pass can honor — either
         // way the whole-file rewrite below stands, and nothing is falsely reaped.
         let disk_path = harness_root.join(path);
-        let Ok(raw) = fs::read_to_string(&disk_path) else {
+        let Ok(raw) = crate::bytes::open_to_string(&disk_path) else {
             continue;
         };
         increment_manifest_reads();
@@ -3878,8 +3878,8 @@ fn read_layout_document(
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<(String, LayoutDocumentRows)> {
     let base = disk_path.parent().unwrap_or(disk_path);
-    let document =
-        read_layout_document_member(kind, disk_path, base).map_err(|fault| match fault {
+    let document = read_layout_document_member(&crate::bytes::Bytes::new(), kind, disk_path, base)
+        .map_err(|fault| match fault {
             LayoutDocumentFault::Read(err) => miette::Report::new(DriftError::from(err)),
             LayoutDocumentFault::Frontmatter(err) => miette::Report::new(err),
         })?;
@@ -3917,24 +3917,16 @@ fn read_layout_document(
 /// Returns a [`LayoutDocumentFault`] when the document cannot be read, is not valid UTF-8,
 /// carries a malformed frontmatter block, or yields no id for its kind's unit shape.
 pub(crate) fn read_layout_document_member(
+    bytes: &crate::bytes::Bytes,
     kind: &CustomKind,
     disk_path: &Path,
     base: &Path,
 ) -> Result<crate::frontmatter::Member, LayoutDocumentFault> {
-    use crate::frontmatter::FrontmatterError;
-    use crate::hash::ReadUtf8Error;
-    let member =
-        crate::frontmatter::Member::from_source_rooted(kind, disk_path, base).map_err(|err| {
-            match err {
-                FrontmatterError::Io { path, source } => {
-                    LayoutDocumentFault::Read(ReadUtf8Error::Io { path, source })
-                }
-                FrontmatterError::NotUtf8 { path, source } => {
-                    LayoutDocumentFault::Read(ReadUtf8Error::NotUtf8 { path, source })
-                }
-                other => LayoutDocumentFault::Frontmatter(other),
-            }
-        })?;
+    let raw = bytes
+        .read_utf8(disk_path)
+        .map_err(LayoutDocumentFault::Read)?;
+    let member = crate::frontmatter::Member::from_text_rooted(kind, &raw, disk_path, base)
+        .map_err(LayoutDocumentFault::Frontmatter)?;
     increment_layout_document_reads();
     Ok(member)
 }
@@ -4065,7 +4057,7 @@ fn resolve_source_dependency(
 ) -> Result<(LayoutImportRow, Vec<u8>), DriftError> {
     let resolved = crate::path::normalize_path(&base_dir.join(target));
     let disk_path = harness_root.join(&resolved);
-    let bytes = match fs::read(&disk_path) {
+    let bytes = match crate::bytes::open(&disk_path) {
         Ok(bytes) => bytes,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             return Err(DriftError::DanglingImport {
@@ -4424,7 +4416,7 @@ fn read_prior_provenance_from_doc(doc: &DocumentMut) -> Vec<ProvenanceRow> {
 /// classification before any deletion runs, so the cliff refusal never has to
 /// undo one.
 fn classify_orphan(disk_path: &Path, emit_hash: &str) -> Result<Option<EmitOutcome>, DriftError> {
-    match fs::read(disk_path) {
+    match crate::bytes::open(disk_path) {
         Ok(bytes) if sha256_hex(&canonicalize_eol(&bytes)) == emit_hash => {
             Ok(Some(EmitOutcome::Reaped))
         }
@@ -4472,7 +4464,7 @@ fn emit_one(
     // `emit`, which places them below; the schema modeline rides `install`, so emit
     // only preserves it. An absent source carries no placements and is not a conflict:
     // emit writes it.
-    let current = match fs::read(&disk_path) {
+    let current = match crate::bytes::open(&disk_path) {
         Ok(bytes) => Some(bytes),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
         Err(source) => {
@@ -4768,18 +4760,19 @@ impl ApplyOutcome {
 /// caller that records a fingerprint gets full conflict detection by passing
 /// `Some`. Nothing is written under `dry_run`; the outcome is computed all the same.
 pub fn place(
+    bytes: &crate::bytes::Bytes,
     path: &Path,
     desired: &str,
     last_applied: Option<&str>,
     dry_run: bool,
 ) -> Result<ApplyOutcome, DriftError> {
-    let real = match fs::read(path) {
+    let real = match bytes.read(path) {
         Ok(bytes) => bytes,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             // Absent: create it (fresh install / re-place). There is nothing on disk
             // to conflict with, so the placement is always written.
             if !dry_run {
-                write_placement(path, desired)?;
+                write_placement_through(bytes, path, desired)?;
             }
             return Ok(ApplyOutcome::Applied);
         }
@@ -4791,7 +4784,7 @@ pub fn place(
         }
     };
 
-    if real == desired.as_bytes() {
+    if *real == *desired.as_bytes() {
         return Ok(ApplyOutcome::Unchanged);
     }
 
@@ -4805,7 +4798,7 @@ pub fn place(
     }
 
     if !dry_run {
-        write_placement(path, desired)?;
+        write_placement_through(bytes, path, desired)?;
     }
     Ok(ApplyOutcome::Applied)
 }
@@ -4820,6 +4813,20 @@ fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
             source,
         }
     })
+}
+
+/// [`write_placement`] through `bytes`, so the owner's later readers see the write.
+fn write_placement_through(
+    bytes: &crate::bytes::Bytes,
+    path: &Path,
+    desired: &str,
+) -> Result<(), DriftError> {
+    bytes
+        .write(path, desired.as_bytes())
+        .map_err(|source| DriftError::Write {
+            path: path.to_path_buf(),
+            source,
+        })
 }
 
 // ---------------------------------------------------------------------------
@@ -4873,7 +4880,7 @@ pub fn config_stale_from_doc(
     workspace_dir: &Path,
     clause: &contract::Clause,
 ) -> Vec<crate::check::Diagnostic> {
-    config_stale_members_from_doc(doc, workspace_dir, clause)
+    config_stale_members_from_doc(&crate::bytes::Bytes::new(), doc, workspace_dir, clause)
         .into_iter()
         .map(|finding| finding.finding)
         .collect()
@@ -4893,6 +4900,7 @@ pub struct MemberFinding {
 /// registration entry drifted.
 #[must_use]
 pub fn config_stale_members_from_doc(
+    bytes: &crate::bytes::Bytes,
     doc: &DocumentMut,
     workspace_dir: &Path,
     clause: &contract::Clause,
@@ -4909,10 +4917,10 @@ pub fn config_stale_members_from_doc(
         // (or otherwise unreadable) is the `removed`/drift axis, never forged here.
         // The row is harness-relative, so it resolves under the harness this check
         // was aimed at, whatever the cwd.
-        let Ok(bytes) = fs::read(harness_root.join(&source_path)) else {
+        let Ok(real) = bytes.read(&harness_root.join(&source_path)) else {
             continue;
         };
-        if sha256_hex(&canonicalize_eol(&bytes)) != emit_hash {
+        if sha256_hex(&canonicalize_eol(&real)) != emit_hash {
             // The member's own whole address, never its bare `name`: a nested file
             // child's identity *is* its `<host-address>/<kind>/<key>` address, so two
             // same-keyed children under different hosts are two findings a reader can
@@ -4928,7 +4936,12 @@ pub fn config_stale_members_from_doc(
             findings.push(MemberFinding { member, finding });
         }
     }
-    findings.extend(drifted_ownerless_registrations(doc, &harness_root, clause));
+    findings.extend(drifted_ownerless_registrations(
+        bytes,
+        doc,
+        &harness_root,
+        clause,
+    ));
     findings
 }
 
@@ -4936,6 +4949,7 @@ pub fn config_stale_members_from_doc(
 /// entry, named by its owning member. Only rows carrying an entry hash take part — a
 /// hashless row is unknown, never drift — and an unreadable lock or manifest yields none.
 fn drifted_ownerless_registrations(
+    bytes: &crate::bytes::Bytes,
     doc: &DocumentMut,
     harness_root: &Path,
     clause: &contract::Clause,
@@ -4955,7 +4969,7 @@ fn drifted_ownerless_registrations(
         .collect();
     let mut findings = Vec::new();
     for path in manifests {
-        let Ok(raw) = fs::read_to_string(harness_root.join(&path)) else {
+        let Ok(raw) = bytes.read_to_string(&harness_root.join(&path)) else {
             continue;
         };
         for member in
@@ -5659,7 +5673,7 @@ fn source_dep_stale_members_from_doc(
 ) -> Result<Vec<MemberFinding>, DriftError> {
     let mut findings = Vec::new();
     for row in source_deps_from_doc(doc, family)? {
-        let message = match fs::read(harness_root.join(&row.source_path)) {
+        let message = match crate::bytes::open(harness_root.join(&row.source_path)) {
             Ok(bytes) if sha256_hex(&canonicalize_eol(&bytes)) == row.import_hash => continue,
             Ok(_) => format!(
                 "{noun} target `{}` (referenced by `{}`) no longer matches the lock's fingerprint — the target changed and `emit` has not run; {remedy}",
@@ -7013,7 +7027,7 @@ impl Declarations {
 /// Returns a [`DriftError`] if the lock exists but cannot be read or parsed as TOML.
 pub fn read_lock_document(workspace_dir: &Path) -> miette::Result<DocumentMut> {
     let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let text = match fs::read_to_string(&path) {
+    let text = match crate::bytes::open_to_string(&path) {
         Ok(text) => text,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             increment_lock_reads();
@@ -8532,6 +8546,7 @@ pub fn import_edges_from_doc(doc: &DocumentMut) -> miette::Result<Vec<graph::Res
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bytes::Bytes;
     use crate::test_support::tmpdir;
 
     #[test]
@@ -8592,7 +8607,7 @@ mod tests {
         let target = dir.join("nested").join("settings.json");
 
         // Absent target: written (creating parent dirs) and reported Applied.
-        let outcome = place(&target, "{}\n", None, false).unwrap();
+        let outcome = place(&Bytes::new(), &target, "{}\n", None, false).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "{}\n");
     }
@@ -8601,16 +8616,16 @@ mod tests {
     fn place_is_idempotent_and_dry_run_writes_nothing() {
         let dir = tmpdir("place-idem");
         let target = dir.join("workflow.yml");
-        place(&target, "name: temper\n", None, false).unwrap();
+        place(&Bytes::new(), &target, "name: temper\n", None, false).unwrap();
 
         // A re-place of the same bytes is the idempotent no-op.
         assert_eq!(
-            place(&target, "name: temper\n", None, false).unwrap(),
+            place(&Bytes::new(), &target, "name: temper\n", None, false).unwrap(),
             ApplyOutcome::Unchanged
         );
 
         // A dry run of a differing projection reports Applied but writes nothing.
-        let outcome = place(&target, "name: changed\n", None, true).unwrap();
+        let outcome = place(&Bytes::new(), &target, "name: changed\n", None, true).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "name: temper\n");
     }
@@ -8624,12 +8639,19 @@ mod tests {
 
         // The on-disk bytes no longer hash to the recorded baseline, and desired
         // differs too: a genuine world drift, surfaced rather than clobbered.
-        let outcome = place(&target, "temper wants this", Some(&baseline), false).unwrap();
+        let outcome = place(
+            &Bytes::new(),
+            &target,
+            "temper wants this",
+            Some(&baseline),
+            false,
+        )
+        .unwrap();
         assert_eq!(outcome, ApplyOutcome::Conflicted);
         assert_eq!(fs::read_to_string(&target).unwrap(), "human wrote this");
 
         // With no baseline the same differing projection is a clean merge target.
-        let outcome = place(&target, "temper wants this", None, false).unwrap();
+        let outcome = place(&Bytes::new(), &target, "temper wants this", None, false).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "temper wants this");
     }
@@ -8647,13 +8669,13 @@ mod tests {
 
         // The on-disk CRLF bytes, when canonicalized to LF, match the baseline:
         // no conflict, clean apply.
-        let outcome = place(&target, lf_body, Some(&baseline), false).unwrap();
+        let outcome = place(&Bytes::new(), &target, lf_body, Some(&baseline), false).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), lf_body);
 
         // A genuine (non-EOL) edit still conflicts.
         fs::write(&target, "human edited this").unwrap();
-        let outcome = place(&target, lf_body, Some(&baseline), false).unwrap();
+        let outcome = place(&Bytes::new(), &target, lf_body, Some(&baseline), false).unwrap();
         assert_eq!(outcome, ApplyOutcome::Conflicted);
         assert_eq!(fs::read_to_string(&target).unwrap(), "human edited this");
     }

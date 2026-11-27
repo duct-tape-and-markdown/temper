@@ -58,6 +58,8 @@ pub struct Discovery<'a> {
     claimed_honored: OnceCell<BTreeSet<PathBuf>>,
     /// The claimed paths for the `LocalOverride::Withheld` flavor.
     claimed_withheld: OnceCell<BTreeSet<PathBuf>>,
+    /// The run's owner of file bytes, shared by every reader the index is threaded to.
+    bytes: crate::bytes::Bytes,
 }
 
 /// One locus scan's identity: its normalized root, its glob, and whether it reads in the
@@ -74,7 +76,15 @@ impl<'a> Discovery<'a> {
             scans: RefCell::new(HashMap::new()),
             claimed_honored: OnceCell::new(),
             claimed_withheld: OnceCell::new(),
+            bytes: crate::bytes::Bytes::new(),
         }
+    }
+
+    /// The run's owner of file bytes: a reader holding this index reads a file through
+    /// it, so the run opens each file once whichever reader reaches it first.
+    #[must_use]
+    pub fn bytes(&self) -> &crate::bytes::Bytes {
+        &self.bytes
     }
 
     /// The harness root this cache walks — the base a `governs` root and the bare-skill
@@ -108,7 +118,8 @@ impl<'a> Discovery<'a> {
 
     /// The fenced tree index, walked on first use and memoized thereafter.
     fn index(&self) -> &Discoverable {
-        self.index.get_or_init(|| tree_index(self.harness))
+        self.index
+            .get_or_init(|| tree_index(&self.bytes, self.harness))
     }
 
     /// How a scan in the `local_governs` flavor reads the tree: off the index alone, or
@@ -117,6 +128,7 @@ impl<'a> Discovery<'a> {
         Reach {
             index: self.index(),
             harness: self.harness,
+            bytes: &self.bytes,
             local: local_governs,
         }
     }
@@ -409,7 +421,7 @@ pub fn nested_file_placement(
             let under = crate::path::to_canonical_spelling(file.strip_prefix(&unit.dir).ok()?);
             let placed = file != unit.entry
                 && crate::glob::compile_glob(pattern).is_some_and(|m| m.is_match(&under))
-                && discovers_path(&harness, relative, local_governs(host, over));
+                && discovers_path(disc.bytes(), &harness, relative, local_governs(host, over));
             placed.then(|| unit.child(host, pattern, file.clone()))
         })
 }
@@ -726,6 +738,7 @@ impl<'g> Segment<'g> {
 struct Reach<'d> {
     index: &'d Discoverable,
     harness: &'d Path,
+    bytes: &'d crate::bytes::Bytes,
     local: bool,
 }
 
@@ -738,7 +751,7 @@ impl Reach<'_> {
         }
         let harness = crate::path::normalize_path(self.harness);
         root.strip_prefix(&harness)
-            .is_ok_and(|relative| discovers_path(self.harness, relative, true))
+            .is_ok_and(|relative| discovers_path(self.bytes, self.harness, relative, true))
     }
 
     /// The children of `dir` a scan considers for the next segment: `next` is that
@@ -820,7 +833,11 @@ fn raw_children(dir: &Path) -> Vec<DiscoverableChild> {
 ///
 /// `git_declarations` off drops git's two sources with the rest, for a walk whose
 /// kind declares authorship over what the repo ignores.
-pub(crate) fn ignore_walk(root: &Path, git_declarations: bool) -> WalkBuilder {
+pub(crate) fn ignore_walk(
+    bytes: &crate::bytes::Bytes,
+    root: &Path,
+    git_declarations: bool,
+) -> WalkBuilder {
     INDEX_PASSES.with(|passes| passes.set(passes.get() + 1));
     let mut builder = WalkBuilder::new(root);
     builder
@@ -831,7 +848,7 @@ pub(crate) fn ignore_walk(root: &Path, git_declarations: bool) -> WalkBuilder {
         .git_ignore(git_declarations)
         .git_exclude(git_declarations)
         .require_git(false);
-    if git_declarations && let Some(exclude) = common_exclude(root) {
+    if git_declarations && let Some(exclude) = common_exclude(bytes, root) {
         // Explicit ignores anchor at the builder's current dir and rank below every
         // per-directory source — git's own precedence for `info/exclude`.
         builder.current_dir(root);
@@ -848,7 +865,7 @@ pub(crate) fn ignore_walk(root: &Path, git_declarations: bool) -> WalkBuilder {
 /// A `.git` directory is both. A `.git` file is a pointer (`gitdir: <path>`, relative to
 /// `root`) to a per-worktree admin dir, whose `commondir` file (relative to the admin
 /// dir) names the common dir; an admin dir with no `commondir` is its own common dir.
-pub(crate) fn git_dirs(root: &Path) -> Option<GitDirs> {
+pub(crate) fn git_dirs(bytes: &crate::bytes::Bytes, root: &Path) -> Option<GitDirs> {
     let dot_git = root.join(".git");
     if dot_git.is_dir() {
         return Some(GitDirs {
@@ -856,7 +873,7 @@ pub(crate) fn git_dirs(root: &Path) -> Option<GitDirs> {
             common_dir: dot_git,
         });
     }
-    let pointer = std::fs::read_to_string(&dot_git).ok()?;
+    let pointer = bytes.read_to_string(&dot_git).ok()?;
     let gitdir = pointer
         .lines()
         .find_map(|line| line.strip_prefix("gitdir: "))?
@@ -865,7 +882,7 @@ pub(crate) fn git_dirs(root: &Path) -> Option<GitDirs> {
     if !git_dir.is_dir() {
         return None;
     }
-    let common_dir = match std::fs::read_to_string(git_dir.join("commondir")) {
+    let common_dir = match bytes.read_to_string(&git_dir.join("commondir")) {
         Ok(commondir) => crate::path::normalize_path(&git_dir.join(commondir.trim())),
         Err(_) => git_dir.clone(),
     };
@@ -887,11 +904,14 @@ pub(crate) struct GitDirs {
 /// The `info/exclude` a walk over `root` must add beyond what the `ignore` engine reads
 /// itself: the common dir's, when `root`'s `.git` is a pointer file — the engine only
 /// reads `<dir>/.git/info/exclude`, which a pointer file never has.
-fn common_exclude(root: &Path) -> Option<PathBuf> {
+fn common_exclude(bytes: &crate::bytes::Bytes, root: &Path) -> Option<PathBuf> {
     if root.join(".git").is_dir() {
         return None;
     }
-    let exclude = git_dirs(root)?.common_dir.join("info").join("exclude");
+    let exclude = git_dirs(bytes, root)?
+        .common_dir
+        .join("info")
+        .join("exclude");
     exclude.is_file().then_some(exclude)
 }
 
@@ -910,10 +930,10 @@ fn common_exclude(root: &Path) -> Option<PathBuf> {
 /// Paths are normalized so a `.`-rooted `governs` (`root = "."`) compares equal to the
 /// walk's harness-relative entries; children sort by name, so every reader enumerates in
 /// one order on every platform.
-fn tree_index(harness: &Path) -> Discoverable {
+fn tree_index(bytes: &crate::bytes::Bytes, harness: &Path) -> Discoverable {
     let mut children: BTreeMap<PathBuf, Vec<DiscoverableChild>> = BTreeMap::new();
     let mut descended = BTreeSet::new();
-    let walk = ignore_walk(harness, true)
+    let walk = ignore_walk(bytes, harness, true)
         .sort_by_file_name(std::cmp::Ord::cmp)
         .filter_entry(discovery_fence(false))
         .build();
@@ -975,10 +995,19 @@ fn fenced(path: &Path, depth: usize, is_dir: bool, local_governs: bool) -> bool 
 ///
 /// Each prefix of `relative` is put to the [`fenced`] fences, then the git ignore
 /// declarations [`ignore_walk`] consults ([`admitted`]).
-pub(crate) fn discovers_path(harness: &Path, relative: &Path, local_governs: bool) -> bool {
-    admitted(harness, relative, !local_governs, |path, depth, is_dir| {
-        fenced(path, depth, is_dir, local_governs)
-    })
+pub(crate) fn discovers_path(
+    bytes: &crate::bytes::Bytes,
+    harness: &Path,
+    relative: &Path,
+    local_governs: bool,
+) -> bool {
+    admitted(
+        bytes,
+        harness,
+        relative,
+        !local_governs,
+        |path, depth, is_dir| fenced(path, depth, is_dir, local_governs),
+    )
 }
 
 /// Whether the repository holding the real, absolute `path` leaves it unignored — the
@@ -1006,9 +1035,13 @@ pub(crate) fn repository_keeps(path: &Path, fallback_root: &Path) -> bool {
     let Ok(relative) = path.strip_prefix(&root) else {
         return true;
     };
-    admitted(&root, relative, true, |path, _depth, _is_dir| {
-        path.file_name() == Some(OsStr::new(".git"))
-    })
+    admitted(
+        &crate::bytes::Bytes::new(),
+        &root,
+        relative,
+        true,
+        |path, _depth, _is_dir| path.file_name() == Some(OsStr::new(".git")),
+    )
 }
 
 /// The walk-order judgment [`discovers_path`] and [`repository_keeps`] share: each prefix
@@ -1019,6 +1052,7 @@ pub(crate) fn repository_keeps(path: &Path, fallback_root: &Path) -> bool {
 /// exactly as the walk never descends an ignored directory. A `.gitignore` that fails to
 /// parse contributes what it could parse, as the walk's own builder does.
 fn admitted(
+    bytes: &crate::bytes::Bytes,
     root: &Path,
     relative: &Path,
     git_declarations: bool,
@@ -1035,7 +1069,7 @@ fn admitted(
         builder.build().unwrap_or_else(|_| Gitignore::empty())
     };
     let common = if git_declarations {
-        common_exclude(root).map(|exclude| matcher(root, exclude))
+        common_exclude(bytes, root).map(|exclude| matcher(root, exclude))
     } else {
         None
     };
@@ -1154,7 +1188,7 @@ mod tests {
         write(".git/info/exclude", "excluded.md\n");
         write("excluded.md", "");
 
-        let walked: BTreeSet<PathBuf> = ignore_walk(&root, true)
+        let walked: BTreeSet<PathBuf> = ignore_walk(&crate::bytes::Bytes::new(), &root, true)
             .filter_entry(discovery_fence(false))
             .build()
             .flatten()
@@ -1174,7 +1208,7 @@ mod tests {
         ] {
             let candidate = Path::new(candidate);
             let exists = root.join(candidate).is_file();
-            let queried = discovers_path(&root, candidate, false);
+            let queried = discovers_path(&crate::bytes::Bytes::new(), &root, candidate, false);
             if exists {
                 assert_eq!(
                     queried,
@@ -1185,11 +1219,13 @@ mod tests {
             }
         }
         assert!(discovers_path(
+            &crate::bytes::Bytes::new(),
             &root,
             Path::new(".claude/rules/pending.md"),
             false
         ));
         assert!(!discovers_path(
+            &crate::bytes::Bytes::new(),
             &root,
             Path::new(".claude/rules/pending.local.md"),
             false
@@ -1226,7 +1262,7 @@ mod tests {
         write("linked/nested/.claude/rules/excluded.md", "");
         let root = tmp.join("linked");
 
-        let walked: BTreeSet<PathBuf> = ignore_walk(&root, true)
+        let walked: BTreeSet<PathBuf> = ignore_walk(&crate::bytes::Bytes::new(), &root, true)
             .filter_entry(discovery_fence(false))
             .build()
             .flatten()
@@ -1250,7 +1286,7 @@ mod tests {
                 candidate.display()
             );
             assert_eq!(
-                discovers_path(&root, candidate, false),
+                discovers_path(&crate::bytes::Bytes::new(), &root, candidate, false),
                 discoverable,
                 "query: {}",
                 candidate.display()
@@ -1258,6 +1294,7 @@ mod tests {
         }
         // The local-locus flavor waives every git declaration, the common exclude too.
         assert!(discovers_path(
+            &crate::bytes::Bytes::new(),
             &root,
             Path::new(".claude/rules/excluded.md"),
             true
@@ -1279,27 +1316,27 @@ mod tests {
 
         let git = tmp.join("repo/.git");
         assert_eq!(
-            git_dirs(&tmp.join("repo")),
+            git_dirs(&crate::bytes::Bytes::new(), &tmp.join("repo")),
             Some(GitDirs {
                 git_dir: git.clone(),
                 common_dir: git.clone(),
             })
         );
         assert_eq!(
-            git_dirs(&tmp.join("wt")),
+            git_dirs(&crate::bytes::Bytes::new(), &tmp.join("wt")),
             Some(GitDirs {
                 git_dir: git.join("worktrees/wt"),
                 common_dir: git.clone(),
             })
         );
         assert_eq!(
-            git_dirs(&tmp.join("sub")),
+            git_dirs(&crate::bytes::Bytes::new(), &tmp.join("sub")),
             Some(GitDirs {
                 git_dir: git.join("modules/sub"),
                 common_dir: git.join("modules/sub"),
             })
         );
-        assert_eq!(git_dirs(&tmp), None);
+        assert_eq!(git_dirs(&crate::bytes::Bytes::new(), &tmp), None);
     }
 
     const COORDINATE: &str = "---\n\

@@ -192,8 +192,10 @@ pub enum TapError {
 /// dir differs from its common dir — the log homes under the primary checkout (the
 /// common dir's parent) instead, so telemetry records persist across worktree
 /// deletion. Falls back to workspace_dir otherwise.
-pub(crate) fn log_path(workspace_dir: &Path) -> PathBuf {
-    if let Some(dirs) = workspace_dir.parent().and_then(crate::import::git_dirs)
+pub(crate) fn log_path(bytes: &crate::bytes::Bytes, workspace_dir: &Path) -> PathBuf {
+    if let Some(dirs) = workspace_dir
+        .parent()
+        .and_then(|root| crate::import::git_dirs(bytes, root))
         && dirs.git_dir != dirs.common_dir
         && let Some(primary_root) = dirs.common_dir.parent()
         && primary_root.is_dir()
@@ -252,7 +254,7 @@ pub fn record_from_payload(payload: &str) -> Option<TapRecord> {
 /// Returns a [`TapError`] if the record cannot be encoded or the log's parent is
 /// unwritable or the append fails.
 pub fn append(workspace_dir: &Path, record: &TapRecord) -> Result<(), TapError> {
-    let path = log_path(workspace_dir);
+    let path = log_path(&crate::bytes::Bytes::new(), workspace_dir);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|source| TapError::LogAppend {
             path: path.clone(),
@@ -398,9 +400,9 @@ pub struct LogReadout {
 ///
 /// Returns a [`TapError`] if the log exists but cannot be read, or carries a
 /// current-version line the schema cannot parse.
-pub fn read_log(workspace_dir: &Path) -> Result<LogReadout, TapError> {
-    let path = log_path(workspace_dir);
-    let text = match fs::read_to_string(&path) {
+pub fn read_log(bytes: &crate::bytes::Bytes, workspace_dir: &Path) -> Result<LogReadout, TapError> {
+    let path = log_path(bytes, workspace_dir);
+    let text = match bytes.read_to_string(&path) {
         Ok(text) => text,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             return Ok(LogReadout::default());

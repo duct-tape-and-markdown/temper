@@ -51,7 +51,7 @@ pub fn read(
 /// # Errors
 ///
 /// As [`read`], less the I/O and UTF-8 failures `raw` has already passed.
-fn parse(
+pub(crate) fn parse(
     kind: &CustomKind,
     source_file: &Path,
     base: &Path,

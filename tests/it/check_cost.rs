@@ -1436,7 +1436,6 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
     use std::collections::BTreeMap;
     use temper::compose;
     use temper::import::Discovery;
-    use temper::json_manifest;
     use temper::kind::{CollectionAddress, CollectionKeyPath, EntryShape, Extraction};
 
     let harness = tmpdir("gate-manifest-cache-read-hoist");
@@ -1495,26 +1494,21 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
     });
     declared_kinds.insert("installed-plugin".to_string(), plugin_kind);
 
-    // Read counts before build_manifest_cache
-    let reads_before = json_manifest::manifest_read_count();
-
-    // Call build_manifest_cache — this should read settings.json exactly once,
-    // even though two kinds govern it with different collection addresses.
+    let before = temper::bytes::paths_opened();
     let _ = compose::build_manifest_cache(&discovery, &declared_kinds)
         .expect("build_manifest_cache should succeed");
+    let opened = temper::bytes::opened_since(&before);
+    let reads = opened
+        .iter()
+        .find(|(path, _)| path.ends_with(".claude/settings.json"))
+        .map_or(0, |(_, count)| *count);
 
-    // Read counts after build_manifest_cache
-    let reads_after = json_manifest::manifest_read_count();
-
-    let reads = reads_after - reads_before;
-
-    // The cost doctrine (engineering.md, "Cost scale is hoisted, and pinned by count"):
-    // a manifest file is read exactly once per gate invocation, shared across all
+    // A manifest file is read exactly once per gate invocation, shared across all
     // kinds that govern it, never once per governing kind.
     assert_eq!(
         reads, 1,
         "build_manifest_cache must read each manifest exactly once, shared across \
-         all governing kinds, not once per kind: {reads} reads (before {reads_before}, after {reads_after})",
+         all governing kinds, not once per kind: opened {opened:?}",
     );
 }
 
@@ -2231,5 +2225,180 @@ fn check_compiles_each_distinct_glob_once() {
         small, large,
         "glob compilation must be one per distinct glob, independent of tree size: \
          {small} compiles over {small_files} files, {large} over {large_files}",
+    );
+}
+
+/// A represented harness the paths-opened pins read over: two emitted projections with
+/// their lock rows (so `check`'s fresh half and the install self-verify both reach them),
+/// a stub program, and a `.git` pointer file to a linked worktree's admin dir (so the
+/// index's exclude lookup and the tap log's home both resolve it).
+fn represented_projection_harness(label: &str) -> std::path::PathBuf {
+    let harness = tmpdir(label);
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                common::skill_kind_facts(None, &[]),
+                common::rule_kind_facts(None, &[]),
+            ],
+            ..Default::default()
+        },
+        members: vec![
+            common::skill_member(
+                "coordinate",
+                "Drive a task across a team.",
+                "# Coordinate\n",
+            ),
+            common::rule_member("rust", None, "# Rust\n"),
+        ],
+    };
+    let options = EmitOptions {
+        dry_run: false,
+        frozen: false,
+        teardown: false,
+    };
+    drift::emit(&payload, &into, options).unwrap();
+    fs::write(into.join("harness.ts"), "export default {};\n").unwrap();
+
+    let admin = harness
+        .join("primary")
+        .join(".git")
+        .join("worktrees")
+        .join("wt");
+    fs::create_dir_all(&admin).unwrap();
+    fs::write(admin.join("commondir"), "../..\n").unwrap();
+    fs::write(
+        harness.join(".git"),
+        format!("gitdir: {}\n", admin.display()),
+    )
+    .unwrap();
+    harness
+}
+
+/// The paths a run opened more than once, for an assertion message that names them.
+fn reopened(opened: &std::collections::BTreeMap<std::path::PathBuf, usize>) -> Vec<String> {
+    opened
+        .iter()
+        .filter(|(_, count)| **count > 1)
+        .map(|(path, count)| format!("{} x{count}", path.display()))
+        .collect()
+}
+
+/// The run-level count-pin for member bytes: a check run opens each file once, however
+/// many judges read it — the member read, the fresh half's re-hash and the install
+/// self-verify's placement read share the run's one bytes owner.
+#[test]
+fn check_opens_each_member_file_once_per_run() {
+    use temper::bytes;
+    use temper::gate;
+
+    let harness = represented_projection_harness("check-member-bytes");
+    let skill = harness.join(".claude/skills/coordinate/SKILL.md");
+    let rule = harness.join(".claude/rules/rust.md");
+
+    let before = bytes::paths_opened();
+    let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
+    let opened = bytes::opened_since(&before);
+
+    // Non-vacuity: the run judged both members, and the self-verify took the represented
+    // branch, which reads each emit-owned target.
+    let summary = &diagnostics
+        .iter()
+        .find(|d| d.rule == "coverage.checked")
+        .expect("the run discloses what it checked")
+        .message;
+    assert!(
+        summary.contains("skill (1") && summary.contains("rule (1"),
+        "the run must judge both members, got: {summary}",
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.rule == "install.gate-installed" && d.message.contains("author `.temper/")),
+        "the self-verify must take the represented branch, got: {diagnostics:?}",
+    );
+    for member in [&skill, &rule] {
+        assert!(
+            opened.contains_key(member),
+            "the run must read {}, opened: {opened:?}",
+            member.display(),
+        );
+    }
+    assert_eq!(
+        reopened(&opened),
+        Vec::<String>::new(),
+        "a check run opens each file once, every judge reading through one owner",
+    );
+}
+
+/// The paths-opened pin at both guard edges: each edge's run reads through the guard's
+/// one bytes owner, so no file is opened twice in a call.
+#[test]
+fn guard_opens_each_file_at_most_once_per_run() {
+    use temper::bytes;
+    use temper::install;
+
+    let harness = represented_projection_harness("guard-member-bytes");
+    let skill = harness.join(".claude/skills/coordinate/SKILL.md");
+    let payloads = [
+        (
+            install::GuardEdge::PreToolUse,
+            serde_json::json!({
+                "session_id": "s",
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": skill.display().to_string(), "content": "x"},
+            }),
+        ),
+        (
+            install::GuardEdge::PostToolUse,
+            serde_json::json!({
+                "session_id": "s",
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "true"},
+                "tool_response": {"stdout": "", "stderr": "", "interrupted": false},
+            }),
+        ),
+    ];
+    for (expected, payload) in payloads {
+        let before = bytes::paths_opened();
+        let (edge, _) = install::run_guard(&harness, &payload).unwrap();
+        let opened = bytes::opened_since(&before);
+        assert_eq!(edge, expected);
+        assert!(
+            !opened.is_empty() || expected == install::GuardEdge::PreToolUse,
+            "the shell edge must read the tree it judges, opened nothing",
+        );
+        assert_eq!(
+            reopened(&opened),
+            Vec::<String>::new(),
+            "a {expected:?} guard run opens each file at most once",
+        );
+    }
+}
+
+/// The paths-opened pin for `explain`: the member reads, the manifest cache and the tap
+/// log's home share one owner, so no file is opened twice in a narration.
+#[test]
+fn explain_opens_each_file_at_most_once_per_run() {
+    use temper::bytes;
+
+    let harness = represented_projection_harness("explain-member-bytes");
+    let before = bytes::paths_opened();
+    let narration = temper::read::explain_target(&harness, "skill:coordinate").unwrap();
+    let opened = bytes::opened_since(&before);
+
+    assert!(narration.contains("coordinate"), "got: {narration}");
+    assert!(
+        opened.keys().any(|path| path.ends_with(".git")),
+        "explain must resolve the worktree pointer, opened: {opened:?}",
+    );
+    assert_eq!(
+        reopened(&opened),
+        Vec::<String>::new(),
+        "an explain run opens each file at most once",
     );
 }

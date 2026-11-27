@@ -208,7 +208,7 @@ fn a_freshly_emitted_frontmatter_projection_carries_its_note_with_no_install_run
         "an authored program is the represent answer, whatever the lock says"
     );
     let lock = temper::drift::read_lock_document(&into).unwrap();
-    let findings = temper::install::gate_installed(&harness, &lock);
+    let findings = temper::install::gate_installed(&temper::bytes::Bytes::new(), &harness, &lock);
     assert!(
         !findings
             .iter()

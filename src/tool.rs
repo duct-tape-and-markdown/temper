@@ -106,7 +106,7 @@ impl PackageManager {
 /// be read or parsed.
 pub fn declared_manager(workspace: &Path) -> Result<PackageManager, ToolLockError> {
     let path = workspace.join("package.json");
-    let text = match std::fs::read_to_string(&path) {
+    let text = match crate::bytes::open_to_string(&path) {
         Ok(text) => text,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             return Err(ToolLockError::NoManager { path });
@@ -329,7 +329,7 @@ const PNPM_WORKSPACE: &str = "pnpm-workspace.yaml";
 /// manifest is no workspace of the program's, so it bounds nothing and refuses nothing.
 fn workspace_globs(dir: &Path) -> Option<Vec<String>> {
     let mut globs = None::<Vec<String>>;
-    if let Ok(text) = std::fs::read_to_string(dir.join(PNPM_WORKSPACE)) {
+    if let Ok(text) = crate::bytes::open_to_string(dir.join(PNPM_WORKSPACE)) {
         let packages = match YAML::parse(&text) {
             Pod::Hash(top) => match top.get("packages") {
                 Some(Pod::Array(items)) => items
@@ -345,7 +345,7 @@ fn workspace_globs(dir: &Path) -> Option<Vec<String>> {
         };
         globs = Some(packages);
     }
-    let manifest = std::fs::read_to_string(dir.join("package.json"))
+    let manifest = crate::bytes::open_to_string(dir.join("package.json"))
         .ok()
         .and_then(|text| serde_json::from_str::<JsonValue>(&text).ok());
     if let Some(JsonValue::Array(items)) = manifest.as_ref().and_then(|m| m.get("workspaces")) {
@@ -384,7 +384,7 @@ fn relative_path(dir: &Path, workspace: &Path) -> String {
 
 /// `path`'s text, a failure to read it the refusal naming it.
 fn read_text(path: &Path) -> Result<String, ToolLockError> {
-    std::fs::read_to_string(path).map_err(|source| ToolLockError::Read {
+    crate::bytes::open_to_string(path).map_err(|source| ToolLockError::Read {
         path: path.to_path_buf(),
         source,
     })
