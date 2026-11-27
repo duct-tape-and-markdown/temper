@@ -1109,7 +1109,8 @@ pub fn represented_by(root: &Path) -> Option<PathBuf> {
 ///
 /// Never scaffolds, installs a dependency, or emits — only [`run`] adopts.
 /// Evaluates the placements a *represented* project's current lock justifies
-/// ([`represented_by`]), or — unrepresented — the session-start hook alone, both dry-run,
+/// ([`represented_by`]), or — unrepresented — the seated session-start hook and the CDN
+/// modelines it placed, both dry-run,
 /// folded into **one advisory** [`Diagnostic`]. Always `warn`, never `error`; empty when
 /// every placement is already in place, and a placement that could not be read is itself
 /// the advisory, never silence.
@@ -1126,18 +1127,15 @@ pub fn represented_by(root: &Path) -> Option<PathBuf> {
 /// modelines really are install's write, so they share the one `temper install` clause.
 #[must_use]
 pub fn gate_installed(root: &Path, lock: &DocumentMut) -> Vec<Diagnostic> {
-    let temper_dir = root.join(crate::WORKSPACE_DIR);
-    if !temper_dir.is_dir() {
-        return Vec::new();
-    }
     let represented = represented_by(root).is_some();
     let evaluated = if represented {
-        evaluate_placements(root, true, None, lock)
+        evaluate_placements(root, true, None, lock).map(Some)
     } else {
-        place_session_start(root, true).map(|entry| vec![entry])
+        evaluate_unrepresented(root)
     };
     let entries = match evaluated {
-        Ok(entries) => entries,
+        Ok(Some(entries)) => entries,
+        Ok(None) => return Vec::new(),
         // A failed read is not "every placement in place": silence here would pass a gate
         // nobody could evaluate, so the failure is the finding.
         Err(err) => {
@@ -1206,6 +1204,76 @@ fn gate_hook_at(placement: Placement) -> Option<&'static GateHook> {
     GATE_HOOKS.iter().find(|hook| hook.placement == placement)
 }
 
+/// The unrepresented install's placements as they stand, or `None` when nothing on the
+/// tree says an install happened.
+///
+/// With no program and no lock, the seated temper `SessionStart` hook is the only evidence
+/// of an install: absent, every placement reads as never made, not as missing. Seated in
+/// any spelling ([`group_runs_session_start_check`]), it is judged against the current
+/// rendering, and so are the modelines carrying a temper CDN `$schema`. A modeline
+/// install never placed is not judged — a governed file added since the install is not
+/// drift.
+///
+/// A settings document that does not parse is no evidence either: whether it seats the
+/// hook is unknowable, and the parse failure is the settings kind's finding to raise.
+fn evaluate_unrepresented(root: &Path) -> miette::Result<Option<Vec<InstallEntry>>> {
+    let Some(text) = read_optional(&settings_path(root))? else {
+        return Ok(None);
+    };
+    let seated = serde_json::from_str::<JsonValue>(&text)
+        .ok()
+        .as_ref()
+        .and_then(JsonValue::as_object)
+        .is_some_and(|object| {
+            event_has_group(object, "SessionStart", group_runs_session_start_check)
+        });
+    if !seated {
+        return Ok(None);
+    }
+    let discovery = discover(root)?;
+    let mut entries = vec![place_session_start(root, true)?];
+    entries.extend(
+        place_cdn_modelines(root, &discovery, true)?
+            .into_iter()
+            .filter(|entry| placed_cdn_modeline(&entry.path)),
+    );
+    Ok(Some(entries))
+}
+
+/// Whether `path`'s frontmatter carries a modeline naming a temper CDN schema — one
+/// [`place_cdn_modelines`] placed, at whatever version. Unreadable reads as `false`: the
+/// dry run that produced the entry has just read it, so this is a race, not a finding.
+fn placed_cdn_modeline(path: &Path) -> bool {
+    let prefix = format!(
+        "{MODELINE_MARKER} $schema={}",
+        crate::placement::cdn_schema_root()
+    );
+    fs::read_to_string(path).is_ok_and(|source| {
+        frontmatter::frontmatter_matter(&source).is_some_and(|(_, matter)| {
+            matter
+                .lines()
+                .any(|line| line.trim_start().starts_with(&prefix))
+        })
+    })
+}
+
+/// Whether a hook group runs temper's session-start check in any spelling — the current
+/// rendering or a retired one. Looser than [`group_runs_gate`] on purpose: a stale
+/// spelling is still the install's evidence, and reading it as absent would pass the
+/// tree it drifted on.
+fn group_runs_session_start_check(group: &JsonValue) -> bool {
+    group
+        .get(HOOK_HANDLER_KEY)
+        .and_then(JsonValue::as_array)
+        .is_some_and(|hooks| {
+            hooks.iter().any(|hook| {
+                hook.get("command")
+                    .and_then(JsonValue::as_str)
+                    .is_some_and(|command| command.contains(GateVerb::SessionStart.args()))
+            })
+        })
+}
+
 /// One gate hook that is not in place, named with the remedy for it.
 ///
 /// On a represented harness the remedy is the **author's**, never the verb's: install
@@ -1223,11 +1291,12 @@ fn gate_hook_at(placement: Placement) -> Option<&'static GateHook> {
 ///   `gateHook(...)`, which states a binary and never a command.
 ///
 /// Unrepresented, the session-start hook is install's own write
-/// ([`place_session_start`]), so the remedy there is the verb.
+/// ([`place_session_start`]), so the remedy there is the verb; and it is judged only once
+/// seated ([`evaluate_unrepresented`]), so the not-in-place hook there is stale.
 fn gate_hook_clause(hook: &GateHook, outcome: ApplyOutcome, represented: bool) -> String {
     let label = hook.placement.label();
     if !represented {
-        return format!("{label} missing: run `temper install`");
+        return format!("{label} stale: run `temper install`");
     }
     let module = gate_hook_module(hook);
     if outcome == ApplyOutcome::SupersededByMember {

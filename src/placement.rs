@@ -52,9 +52,16 @@ pub const MODELINE_MARKER: &str = "# yaml-language-server:";
 #[must_use]
 pub fn cdn_schema_url(kind: &str) -> String {
     format!(
-        "https://unpkg.com/{SDK_PACKAGE}@{version}/schemas/{kind}.json",
+        "{root}{version}/schemas/{kind}.json",
+        root = cdn_schema_root(),
         version = crate::VERSION
     )
+}
+
+/// Every [`cdn_schema_url`]'s head, up to the version — what a modeline install placed
+/// at any version starts with.
+pub(crate) fn cdn_schema_root() -> String {
+    format!("https://unpkg.com/{SDK_PACKAGE}@")
 }
 
 /// The SDK's npm package name — the package whose published `schemas/` the

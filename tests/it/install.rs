@@ -2401,19 +2401,14 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_install_workspace(&temper_dir);
 
-    // A workspace dir and no program is still unrepresented, and there the session-start
-    // hook is install's own write — so the remedy the advisory names is the verb, never a
-    // member module in a program the harness does not have.
+    // A workspace dir and no program is still unrepresented, and there an unseated hook is
+    // no evidence of an install: the gate claims nothing.
     let settings_path = root.join(".claude").join("settings.json");
     fs::write(&settings_path, "{}\n").unwrap();
-    let message = one_gate_finding(&gate_installed(&root)).to_string();
     assert!(
-        message.contains("session-start hook missing: run `temper install`"),
-        "an unrepresented harness's gate is the verb's to place, got: {message}"
-    );
-    assert!(
-        !message.contains("harness.ts"),
-        "and there is no program for it to import a member into, got: {message}"
+        gate_installed(&root).is_empty(),
+        "an unseated hook on a program-less tree claims no gate, got: {:?}",
+        gate_installed(&root)
     );
     fs::remove_file(&settings_path).unwrap();
 
@@ -2425,6 +2420,124 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
         gate_installed(&root).is_empty(),
         "got: {:?}",
         gate_installed(&root)
+    );
+}
+
+/// `check` itself over `root` — the gate, workspace or no — keeping only the install
+/// self-verify's findings.
+fn check_gate_findings(root: &Path) -> Vec<temper::check::Diagnostic> {
+    let (diagnostics, _) = temper::gate::gate(&root.join(".temper"), root, &[]).unwrap();
+    diagnostics
+        .into_iter()
+        .filter(|diagnostic| diagnostic.rule == "install.gate-installed")
+        .collect()
+}
+
+#[test]
+fn check_on_a_program_less_tree_with_a_seated_temper_hook_reports_a_stale_schema_modeline() {
+    let root = write_harness("gate-seated-stale-modeline", false);
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert!(
+        !root.join(".temper").exists(),
+        "the unrepresented install writes no workspace"
+    );
+    assert!(
+        check_gate_findings(&root).is_empty(),
+        "a fresh unrepresented install is undrifted, got: {:?}",
+        check_gate_findings(&root)
+    );
+
+    // An older engine's modeline: the URL install placed, at a version this engine is not.
+    let skill = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let current = temper::placement::cdn_schema_url("skill");
+    let source = fs::read_to_string(&skill).unwrap();
+    assert!(source.contains(&current), "install placed the modeline");
+    let stale = current.replace(temper::VERSION, "0.0.1");
+    fs::write(&skill, source.replace(&current, &stale)).unwrap();
+
+    let findings = check_gate_findings(&root);
+    let message = one_gate_finding(&findings);
+    assert!(
+        message.contains("schema modeline") && message.contains("SKILL.md"),
+        "the stale modeline is named, got: {message}"
+    );
+    assert!(
+        message.contains("run `temper install`"),
+        "and its remedy is the verb, got: {message}"
+    );
+    assert!(
+        !message.contains("rust.md"),
+        "an undrifted modeline is not named, got: {message}"
+    );
+
+    // A seated hook in a retired spelling is stale, not absent.
+    let settings_path = root.join(".claude").join("settings.json");
+    let settings = fs::read_to_string(&settings_path).unwrap();
+    let unanchored = temper::install::SESSION_START_COMMAND
+        .strip_prefix("cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; ")
+        .unwrap();
+    let json_command = |command: &str| serde_json::to_string(command).unwrap();
+    fs::write(
+        &settings_path,
+        settings.replace(
+            &json_command(temper::install::SESSION_START_COMMAND),
+            &json_command(unanchored),
+        ),
+    )
+    .unwrap();
+    let findings = check_gate_findings(&root);
+    let message = one_gate_finding(&findings);
+    assert!(
+        message.contains("session-start hook stale: run `temper install`"),
+        "a retired spelling of the seated hook is stale, got: {message}"
+    );
+
+    // Re-running install converges both.
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert!(
+        check_gate_findings(&root).is_empty(),
+        "got: {:?}",
+        check_gate_findings(&root)
+    );
+}
+
+#[test]
+fn check_on_a_program_less_tree_with_no_seated_temper_hook_claims_no_gate() {
+    // A never-installed tree carrying what an install would judge: a CDN modeline at an
+    // older version, and a SessionStart hook that is the author's, not temper's.
+    let root = write_harness("gate-unseated", false);
+    let skill = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let stale = temper::placement::cdn_schema_url("skill").replace(temper::VERSION, "0.0.1");
+    let source = fs::read_to_string(&skill).unwrap();
+    fs::write(
+        &skill,
+        source.replacen(
+            "---\n",
+            &format!("---\n# yaml-language-server: $schema={stale}\n"),
+            1,
+        ),
+    )
+    .unwrap();
+    fs::write(
+        root.join(".claude").join("settings.json"),
+        r#"{ "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "echo hi" } ] } ] } }"#,
+    )
+    .unwrap();
+
+    let findings = check_gate_findings(&root);
+    assert!(
+        findings.is_empty(),
+        "nothing says a gate was installed, got: {findings:?}"
     );
 }
 
