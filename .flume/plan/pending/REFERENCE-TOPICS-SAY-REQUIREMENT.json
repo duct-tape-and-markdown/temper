@@ -1,13 +1,29 @@
 {
   "tag": "REFERENCE-TOPICS-SAY-REQUIREMENT",
-  "gate": { "kind": "open" },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
-      { "path": "sdk/src/reference.ts", "description": "requirement topics, index headings and topic file names say requirement, not domain (:5-9, :139-212, :329-347, :409-452)" },
-      { "path": "sdk/test/reference.test.ts", "description": "assertions on the renamed headings, title and topic names" },
-      { "path": "examples/base-harness/.claude/skills/temper/SKILL.md", "description": "re-emitted" },
-      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emitted" }
+      {
+        "path": "sdk/src/reference.ts",
+        "description": "requirement topics, index headings and topic file names say requirement, not domain (:5-9, :139-212, :329-347, :409-452)"
+      },
+      {
+        "path": "sdk/test/reference.test.ts",
+        "description": "assertions on the renamed headings, title and topic names"
+      },
+      {
+        "path": "examples/base-harness/.claude/skills/temper/SKILL.md",
+        "description": "re-emitted"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emitted"
+      }
     ],
     "retire": [
       "examples/base-harness/.claude/skills/temper/domain-conduct.md",
@@ -19,10 +35,32 @@
     ]
   },
   "summary": "The emitted reference skill names a contracted requirement a requirement in its index headings, topic titles and topic file names",
-  "per": { "path": "specs/model/authoring.md", "section": "The SDK" },
+  "per": {
+    "path": "specs/model/authoring.md",
+    "section": "The SDK"
+  },
   "acceptance": "the reference's rendered output and topic paths carry no \"domain\" for a requirement; examples/base-harness re-emits clean and passes check --deny-advisories; pnpm --dir sdk test green",
   "tests": [
     "a contracted requirement's reference topic is titled and named as a requirement, never a domain"
   ],
-  "notes": "0114 case 5 residue from DOC-COUNTS-AND-REQUIREMENT-WORD. The topic file path moves (domain-<r>.md), a projection path change: the release cut owes a migration-note line, and the dogfood's .claude/skills/temper/ owes a human re-emit. Re-emitted example topic files land under their new names."
+  "pins": [],
+  "laneTests": [],
+  "notes": "0114 case 5 residue from DOC-COUNTS-AND-REQUIREMENT-WORD. The topic file path moves (domain-<r>.md), a projection path change: the release cut owes a migration-note line, and the dogfood's .claude/skills/temper/ owes a human re-emit. Re-emitted example topic files land under their new names.",
+  "observedFiles": [
+    ".flume/plan/notes/REFERENCE-TOPICS-SAY-REQUIREMENT.md",
+    "examples/base-harness/.claude/skills/temper/SKILL.md",
+    "examples/base-harness/.claude/skills/temper/kind-memory.md",
+    "examples/base-harness/.claude/skills/temper/kind-rule.md",
+    "examples/base-harness/.claude/skills/temper/kind-skill.md",
+    "examples/base-harness/.claude/skills/temper/kind-system.md",
+    "examples/base-harness/.claude/skills/temper/requirement-conduct.md",
+    "examples/base-harness/.claude/skills/temper/requirement-documented-spine.md",
+    "examples/base-harness/.claude/skills/temper/requirement-governance.md",
+    "examples/base-harness/.claude/skills/temper/requirement-operations.md",
+    "examples/base-harness/.claude/skills/temper/requirement-orientation.md",
+    "examples/base-harness/.claude/skills/temper/requirement-standards.md",
+    "examples/base-harness/.temper/lock.toml",
+    "sdk/src/reference.ts",
+    "sdk/test/reference.test.ts"
+  ]
 }
