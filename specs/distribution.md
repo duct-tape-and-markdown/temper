@@ -129,14 +129,18 @@ toolchain; the plugin a stranger installs is the one that gates this repo
 answer flag-spelled (`--yes`), no invisible state — re-running converges.
 Placements are lock-grounded, never assumed; every managed line is
 content-keyed, and `check` verifies its own gate is installed and undrifted.
-Every reporter (terminal, SARIF, session-start) renders one diagnostic
-source, and every placement speaks the kernel nouns exactly — a synonym
-forks the reader's mental model. **Fail-loud invariant:** a placement that
-cannot run the engine errors, never silently skips. So the SDK pins its
-engine; a missing platform binary is an install error, not a runtime shrug —
-if it cannot check, it fails loud. The emit payload — the compiled program
-the SDK pipes to its pinned engine — is internal, versioned in lockstep,
-never a public format; the committed interface is artifacts plus the lock.
+On a tree with no program, the seated temper `SessionStart` hook is the
+install's evidence: where one is seated, `check` judges it and the schema
+modelines it placed, a stale one a finding; where none is, nothing says a
+gate was installed, and `check` claims none. Every reporter (terminal,
+SARIF, session-start) renders one diagnostic source, and every placement
+speaks the kernel nouns exactly — a synonym forks the reader's mental model.
+**Fail-loud invariant:** a placement that cannot run the engine errors,
+never silently skips. So the SDK pins its engine; a missing platform binary
+is an install error, not a runtime shrug — if it cannot check, it fails
+loud. The emit payload — the compiled program the SDK pipes to its pinned
+engine — is internal, versioned in lockstep, never a public format; the
+committed interface is artifacts plus the lock.
 
 The Claude Code facts these placements name — the `SessionStart`,
 `PreToolUse` and `PostToolUse` hook shapes, the `additionalContext` cap, the

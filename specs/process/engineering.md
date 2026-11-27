@@ -179,6 +179,19 @@ invariant 6) gets its code-level enforcement here:
 **Tell:** a judge test with no populated-set assertion before its verdict.
 **Held by:** vacuity pins, and review where one is missing.
 
+## A reader refuses or reports what it consumes
+
+A reader that consumes a key owns what it read. A value it consumes into no
+member, no field and no finding is a silent drop, and a regenerate that
+writes the document back without it destroys the author's bytes. Every
+consumed value lands somewhere a verdict can see: a member, an opaque field,
+or a finding naming it.
+
+**Tell:** a key a reader marks consumed on a path that yields no member,
+field or finding.
+**Held by:** a reader test per consumed key over a malformed value, and
+review where one is missing.
+
 ## A fix ships the test that would have caught it
 
 The cost section's "lands with its count-pin," generalized past

@@ -12,23 +12,29 @@ whose loader the documentation names owns the path and the other excludes
 it. A built-in reads its format as the runtime does: the documented behavior
 binds, a cited lab observation binds where the docs are silent, and
 otherwise the literal bytes bind, with the uncertainty named in guidance. A
-document the runtime loads is never a load fault; one it skips is. A skill,
-command or output style whose frontmatter does not parse loads with no
-fields set, as the docs say, and draws one finding naming the non-portable
-bytes and the fields read as unset; an agent that does not parse is skipped,
-so it is a load fault. A relocated built-in keeps each exclusion its new
-template still reaches, since moving one loader's reach moves no other's.
-Where claims overlap, the most specific documented claim holds the document,
-for built-in and custom kinds alike: a subkind over its base, and a host's
-template over an any-depth reach (a `CLAUDE.md` inside any skill's directory
-is the skill's, not memory's). The lock records the resolution, and every
-verb reads it there. An author may add exclusions to a built-in through its
-relocation. That is how a collision with a built-in is answered, and how a
-fixture tree holding harness files is left ungoverned. Kind identity travels
-by import, never by string, and no name-qualification scheme exists: one
-harness holds one kind per name, and two kinds of one name in play are
-refused. The exception is an extension under the built-in's own name, a
-relocation, which replaces the built-in there.
+document the runtime loads is never a load fault; one it skips is. A value
+the runtime rejects is never silence either: a settings key of the wrong
+JSON type is skipped alone while the rest of its file applies, and an MCP
+config whose server collection is not an object is rejected (probed against
+Claude Code 2.1.332, 2026-11-27; the docs are silent), so each draws a
+finding naming the key and the type it carries, and a regenerate keeps the
+value it never judged. A skill, command or output style whose frontmatter
+does not parse loads with no fields set, as the docs say, and draws one
+finding naming the non-portable bytes and the fields read as unset; an agent
+that does not parse is skipped, so it is a load fault. A relocated built-in
+keeps each exclusion its new template still reaches, since moving one
+loader's reach moves no other's. Where claims overlap, the most specific
+documented claim holds the document, for built-in and custom kinds alike: a
+subkind over its base, and a host's template over an any-depth reach (a
+`CLAUDE.md` inside any skill's directory is the skill's, not memory's). The
+lock records the resolution, and every verb reads it there. An author may
+add exclusions to a built-in through its relocation. That is how a collision
+with a built-in is answered, and how a fixture tree holding harness files is
+left ungoverned. Kind identity travels by import, never by string, and no
+name-qualification scheme exists: one harness holds one kind per name, and
+two kinds of one name in play are refused. The exception is an extension
+under the built-in's own name, a relocation, which replaces the built-in
+there.
 
 ## The shipped kinds
 
@@ -95,10 +101,13 @@ temper's own `dial` and `requirement`. The file members:
   style in sessions started at or below its directory. A settings file's
   `outputStyle` resolves against the styles at that file's own level.
 - **rule** — a lone markdown file with an optional path scope; a rule with
-  no scope registers unconditionally. A scoped rule loads when a matching
-  file is read, never on a search hit: a Grep or Glob match on its paths
-  loads nothing (probed against Claude Code 2.1.332, 2026-11-26; the docs
-  are silent).
+  no scope registers unconditionally. It claims `**/.claude/rules/**`: a
+  subdirectory's own rules load on demand once Claude works there, named by
+  the nested grammar (code.claude.com/docs/en/memory, "Claude ignores the
+  end of my subdirectory CLAUDE.md", retrieved 2026-11-26). A scoped rule
+  loads when a matching file is read, never on a search hit: a Grep or Glob
+  match on its paths loads nothing (probed against Claude Code 2.1.332,
+  2026-11-26; the docs are silent).
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
   frontmatter: the entire file is prose. `AGENTS.md` and `.claude/AGENTS.md`
   are memory members by position too, and their registration is the
@@ -287,10 +296,26 @@ surface costs and when it loads is the runtime's documented fact
 model-invocable skill's description rides every request, an entry is cut at
 1,536 characters, the listing holds about 1% of the window with the
 least-used descriptions dropped first, and an on-demand rule past the
-per-file limit is truncated. So the advisories judge a harness's skill
-listing against that budget, each rule against the size limit, and a rule's
-globs against its skill's own `paths` where both trigger one area. `explain`
-states, per member, what loads it, when, and roughly what it costs.
+per-file limit is truncated. So the advisories judge the harness's one
+listing (every model-invocable skill and command, bound at the root, since
+one budget spans both kinds) against that budget; every file the runtime
+cuts at the per-file limit, a subdirectory's `CLAUDE.md`, `CLAUDE.local.md`,
+their imports and its own `.claude/rules/` among them, against that limit;
+and a rule's globs against its skill's own `paths` where both trigger one
+area. `explain` states, per member, what loads it, when, and roughly what it
+costs. A load moment is a registration fact: a subdirectory's memory
+registers on a read beneath its directory, and a skill's own `paths`
+register its listing on a read of a match, so `explain` and the advisories
+read one fact.
+
+**A string the runtime matches against a target is judged only where a miss
+is decidable without the author's intent.** No default clause judges whether
+a permission rule reaches the file its author meant, or whether an agent's
+name overrides the built-in its author meant; `explain` states how each
+permission path pattern resolves and names an agent that shares a built-in
+agent's name, so the author sees what the runtime will match. An allow
+rule's match against the command a member runs correlates two members, which
+is the open question of cross-source correlation.
 
 ## The clauses live in code
 
