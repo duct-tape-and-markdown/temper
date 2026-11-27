@@ -8,7 +8,7 @@ The corpus carries intent and the model's shape. `process/engineering.md` and `p
 
 ## Decision
 
-- **Posture is harness, read at write time.** Both pages become the engineering playbook in `.temper/`. A path-triggered rule carries each invariant as a standing fact. It loads when a file under `src/`, `tests/`, `benches/` or `sdk/` is read, and an edit always reads first. A skill routes to one topic per section, verbatim.
+- **Posture is harness, read at write time.** Both pages become the engineering playbook in `.temper/`. A path-triggered rule carries each invariant as a standing fact. It loads when a file under `src/`, `tests/`, `benches/` or `sdk/` is read, and that trigger suffices: a build tick reads before it edits, and a plan or sweep tick that only searches gets the topics as posture pages instead. A skill routes to one topic per section, verbatim.
 - **The topics are the sweep's posture pages.** The sweep cites them through flume's `citeLocus` (flume#29), so a phrase change files at first noting while ambient shape keeps its bar.
 - **One home.** The run-owner invariant folds into the cost topic, and the spec copies are deleted, not kept beside it.
 
