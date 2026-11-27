@@ -21,7 +21,7 @@ import type {
   Member,
   ResolvedEmbeddedMemberValue,
 } from "./kind.js";
-import { edgeTargetNames, templatesOf } from "./kind.js";
+import { edgeTargetNames, isRootHosted, templatesOf } from "./kind.js";
 import type { Mentionable, MentionScope, Text } from "./prose.js";
 import { checkMentions, defersToGate, isTextSpan, renderText, resolveEmbeddedLeaves } from "./prose.js";
 import { permissionUnion } from "./needs.js";
@@ -43,7 +43,6 @@ import {
 import type { PayloadMember } from "./generated/index.js";
 import { withReference } from "./reference.js";
 import {
-  ROOT_HOSTED_KINDS,
   bareLookupKey,
   edgeLookupKey,
   isOneSegment,
@@ -277,7 +276,7 @@ function placementThrough(member: Member, patterns: readonly string[]): string {
 function hostUnit(host: Member, context: string): string {
   if (host.facts.unitShape !== "directory") {
     throw new Error(
-      `${context}: its host \`${memberAddress(host)}\` owns no directory unit — a template's ` +
+      `${context}: its host \`${memberAddress(host, isRootHosted)}\` owns no directory unit — a template's ` +
         `path pattern is relative to the host's unit, and a lone file has no interior for a ` +
         `child to sit in (specs/model/representation.md, "locus").`,
     );
@@ -286,7 +285,7 @@ function hostUnit(host: Member, context: string): string {
   const slash = projection.lastIndexOf("/");
   if (slash < 0) {
     throw new Error(
-      `${context}: its host \`${memberAddress(host)}\` projects to \`${projection}\`, which names ` +
+      `${context}: its host \`${memberAddress(host, isRootHosted)}\` projects to \`${projection}\`, which names ` +
         `no directory for a child to sit in (specs/model/representation.md, "locus").`,
     );
   }
@@ -315,7 +314,7 @@ function nestedFilePath(member: Member): string {
   );
   if (template?.path === undefined) {
     throw new Error(
-      `${context}: its host \`${memberAddress(host)}\` templates no file layer for kind ` +
+      `${context}: its host \`${memberAddress(host, isRootHosted)}\` templates no file layer for kind ` +
         `\`${member.kind}\` — the path pattern is the host kind's declared fact, and there is ` +
         `none to compose against (specs/model/representation.md, "locus").`,
     );
@@ -497,14 +496,14 @@ function resolvedTargetFacts(host: Member, target: EdgeTarget, reference: string
     if (!isProjected(target)) throw noProjection();
     return {
       name: target.name,
-      address: memberAddress(target),
+      address: memberAddress(target, isRootHosted),
       kind: target.kind,
       path: relativeProjection(projectionPath(host), projectionPath(target)),
       repoRootedPath: projectionPath(target),
     };
   }
   if (target.length > 1) {
-    const hosts = target.map((carrier) => `\`${memberAddress(carrier.host)}\``).join(", ");
+    const hosts = target.map((carrier) => `\`${memberAddress(carrier.host, isRootHosted)}\``).join(", ");
     throw new Error(
       `${reference}, a bare key ${target.length} hosts carry (${hosts}) — a nested member's address ` +
         `composes through its host, so spell the whole \`<host-address>/<kind>/<key>\` ` +
@@ -516,7 +515,7 @@ function resolvedTargetFacts(host: Member, target: EdgeTarget, reference: string
   const carrierPath = projectionPath(carrier);
   return {
     name: value.key,
-    address: nestedAddress(memberAddress(carrier), value.kind, value.key),
+    address: nestedAddress(memberAddress(carrier, isRootHosted), value.kind, value.key),
     kind: value.kind,
     path: relativeProjection(projectionPath(host), carrierPath),
     repoRootedPath: carrierPath,
@@ -663,7 +662,7 @@ function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, 
       if (isTextSpan(value)) continue;
       const placed = placedEdges(member, value, options);
       if (placed !== undefined) {
-        entries.push([nestedAddress(memberAddress(member), value.kind, value.key), placed]);
+        entries.push([nestedAddress(memberAddress(member, isRootHosted), value.kind, value.key), placed]);
       }
     }
   }
@@ -703,7 +702,7 @@ function renderedExtents(harness: Harness, options: ResolveOptions): Map<string,
       if (isTextSpan(value)) continue;
       const block = renderMemberBlock(member, value, options);
       entries.push([
-        nestedAddress(memberAddress(member), value.kind, value.key),
+        nestedAddress(memberAddress(member, isRootHosted), value.kind, value.key),
         {
           lines: renderedLineCount(block),
           // Unicode scalar values, matching Rust's `chars().count()` — iterating a string
@@ -959,18 +958,18 @@ function memberTable(harness: Harness): Map<string, EdgeTarget> {
   const table = uniqueMap([
     ...harness.members
       .filter((member) => !isRegistration(member))
-      .map((member) => [memberAddress(member), member] as [string, EdgeTarget]),
+      .map((member) => [memberAddress(member, isRootHosted), member] as [string, EdgeTarget]),
     ...bareFileChildTargets(harness),
     ...nestedTargets(harness),
   ]);
   for (const member of harness.members.filter(isRegistration)) {
-    table.set(memberAddress(member), member);
+    table.set(memberAddress(member, isRootHosted), member);
   }
   return table;
 }
 
 /**
- * Every nested **file** child and every root-hosted member ({@link ROOT_HOSTED_KINDS})
+ * Every nested **file** child and every root-hosted member (`isRootHosted`)
  * under the bare `<kind>:<name>` short form as well as its own host-qualified address —
  * the same second spelling {@link nestedTargets} gives an embedded member, so every nested
  * grain resolves alike.
@@ -985,7 +984,7 @@ function memberTable(harness: Harness): Map<string, EdgeTarget> {
 function bareFileChildTargets(harness: Harness): Array<[string, EdgeTarget]> {
   const carriers = new Map<string, Member[]>();
   for (const member of harness.members) {
-    if ((member.host === undefined && !ROOT_HOSTED_KINDS.has(member.kind)) || isRegistration(member)) continue;
+    if ((member.host === undefined && !isRootHosted(member)) || isRegistration(member)) continue;
     const key = bareLookupKey(member.kind, member.name);
     const carried = carriers.get(key);
     if (carried === undefined) carriers.set(key, [member]);
@@ -1014,7 +1013,7 @@ function nestedTargets(harness: Harness): Array<[string, EdgeTarget]> {
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
       const target: EmbeddedTarget = { host: member, value };
-      qualified.push([nestedAddress(memberAddress(member), value.kind, value.key), [target]]);
+      qualified.push([nestedAddress(memberAddress(member, isRootHosted), value.kind, value.key), [target]]);
       const key = bareLookupKey(value.kind, value.key);
       const carriers = bare.get(key);
       if (carriers === undefined) bare.set(key, [target]);
@@ -1066,7 +1065,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
         // The host's **own whole address**, never its `kind:name` alone: the engine reads
         // this column to find the host's host when it composes a child's path, so a
         // flattened spelling would strand every layer above the nearest one.
-        host: member.host && memberAddress(member.host),
+        host: member.host && memberAddress(member.host, isRootHosted),
         location: member.location,
         // The generated row carries a mutable field list; the member's is read-only,
         // so copy each pair into a fresh tuple — the same values, a shape the row accepts.

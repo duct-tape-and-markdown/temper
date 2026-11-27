@@ -66,13 +66,18 @@ export interface LeafAddress {
 /** The root member's own address — the harness itself, host of its embedded children. */
 export const ROOT_ADDRESS = "root";
 
+/** The `tool` kind's key — the root-hosted kind whose members are what the harness runs. */
+export const TOOL_KIND = "tool";
+
 /**
- * The embedded kinds the root member hosts, by kind key: a roster member of one is the
- * root's child, so its own address is `root/<kind>/<key>` ({@link memberAddress}). Kept
- * here rather than beside the kinds (`builtins.ts` re-exports it) because the address is
- * the grammar's to spell, and the grammar owes the member model nothing.
+ * The embedded kinds the root member hosts, by kind key — the roots of the closure: a
+ * roster member of one, **or of a subkind anywhere down its chain** (`kind.ts`'s
+ * `isRootHostedKind`, the twin of the engine's `root_hosted_kinds`), is the root's child,
+ * so its own address is `root/<kind>/<key>` ({@link memberAddress}). Kept here rather than
+ * beside the kinds (`builtins.ts` re-exports it) because the address is the grammar's to
+ * spell, and the grammar owes the member model nothing.
  */
-export const ROOT_HOSTED_KINDS: ReadonlySet<string> = new Set(["tool", "requirement"]);
+export const ROOT_HOSTED_KINDS: ReadonlySet<string> = new Set([TOOL_KIND, "requirement"]);
 
 /** Spell a top-level member's own `<kind>:<name>` address. */
 export function hostAddress(kind: string, name: string): string {
@@ -111,8 +116,10 @@ export interface AddressedMember {
  * own `host` column).
  *
  * A top-level member's address is its kind joined onto its name ({@link hostAddress}). A
- * member of a {@link ROOT_HOSTED_KINDS} kind is the root's nested member, so its address
- * is `root/<kind>/<key>` — the one spelling `check` resolves it at and the lock's `runs`
+ * member `rootHosted` judges the root's — a {@link ROOT_HOSTED_KINDS} kind's, or a
+ * subkind's down its chain, which only the member model can read, so the caller passes
+ * `kind.ts`'s `isRootHosted` in — is the root's nested member, so its address
+ * is `root/<kind>/<key>` under its own kind's name — the one spelling `check` resolves it at and the lock's `runs`
  * and `typecheck` rows name it by; a second `<kind>:<name>` spelling would key the same
  * member two ways across the rows it is declared under. A nested **file** child's identity *is* its whole `<host-address>/<kind>/<key>` address,
  * exactly as an embedded member's is: the host segment is the whole of what tells two
@@ -131,14 +138,17 @@ export interface AddressedMember {
  * the join again, so the rows a member is declared, cited and mentioned under cannot come
  * to disagree with the address it resolves at.
  */
-export function memberAddress(member: AddressedMember): string {
+export function memberAddress<M extends AddressedMember & { readonly host?: M | undefined }>(
+  member: M,
+  rootHosted: (member: M) => boolean,
+): string {
   const { host } = member;
   if (host === undefined) {
-    return ROOT_HOSTED_KINDS.has(member.kind)
+    return rootHosted(member)
       ? nestedAddress(ROOT_ADDRESS, member.kind, member.name)
       : hostAddress(member.kind, member.name);
   }
-  return nestedAddress(memberAddress(host), member.kind, member.name);
+  return nestedAddress(memberAddress(host, rootHosted), member.kind, member.name);
 }
 
 /**

@@ -12,7 +12,10 @@ import { blocks, embeddedMemberValue, harness, kind, text, tool } from "../src/i
 import { emit } from "../src/emit.js";
 import { gateHook, memory, rule, skill, supportingDoc } from "../src/claude-code.js";
 import { declaredAddresses } from "../src/declarations.js";
+import { extend, isRootHosted } from "../src/kind.js";
+import type { ToolFields } from "../src/builtins.js";
 import {
+  type AddressedMember,
   bareLookupKey,
   edgeLookupKey,
   hostAddress,
@@ -25,6 +28,9 @@ import {
   isNameQualifier,
   isOneSegment,
 } from "../src/member-address.js";
+
+/** A grammar-only member, judged by no member model: never root-hosted. */
+const bare = (member: AddressedMember): string => memberAddress(member, () => false);
 
 test("a host address round-trips through its own reader", () => {
   assert.equal(hostAddress("rule", "collaboration"), "rule:collaboration");
@@ -205,13 +211,13 @@ test("the member table, declaredAddresses and an edge's target facts spell one n
 
 test("a member's own address takes its host when it has one, and its kind alone when it does not", () => {
   // A top-level member's identity is its bare name, so its address is its kind joined on.
-  assert.equal(memberAddress({ kind: "rule", name: "collaboration" }), "rule:collaboration");
+  assert.equal(bare({ kind: "rule", name: "collaboration" }), "rule:collaboration");
 
   // A nested **file** child's identity *is* its whole `<host-address>/<kind>/<key>`
   // address, exactly as an embedded member's is — the host segment is the whole of what
   // tells two same-named children under different hosts apart.
-  const alpha = memberAddress({ kind: "supporting-doc", name: "home", host: { kind: "skill", name: "alpha" } });
-  const beta = memberAddress({ kind: "supporting-doc", name: "home", host: { kind: "skill", name: "beta" } });
+  const alpha = bare({ kind: "supporting-doc", name: "home", host: { kind: "skill", name: "alpha" } });
+  const beta = bare({ kind: "supporting-doc", name: "home", host: { kind: "skill", name: "beta" } });
   assert.equal(alpha, nestedAddress(hostAddress("skill", "alpha"), "supporting-doc", "home"));
   assert.equal(alpha, "skill:alpha/supporting-doc/home", "one layer is spelled byte for byte as it was");
   assert.notEqual(alpha, beta, "two hosts carrying one name is two addresses, never one twice");
@@ -229,9 +235,9 @@ test("a tool's one address is the root-hosted nested member, wherever a row name
   // The root hosts its tools, so a tool's own address is `root/tool/<name>` — the spelling
   // `check` resolves it at — and never a second `tool:<name>` beside it.
   const lint = tool({ name: "lint", system: "eslint" });
-  assert.equal(memberAddress(lint), nestedAddress("root", "tool", "lint"));
-  assert.equal(memberAddress(lint), "root/tool/lint");
-  assert.deepEqual(parseNestedAddress(memberAddress(lint)), { host: "root", kind: "tool", key: "lint" });
+  assert.equal(memberAddress(lint, isRootHosted), nestedAddress("root", "tool", "lint"));
+  assert.equal(memberAddress(lint, isRootHosted), "root/tool/lint");
+  assert.deepEqual(parseNestedAddress(memberAddress(lint, isRootHosted)), { host: "root", kind: "tool", key: "lint" });
 
   // The `runs` edge and the mention set spell it by that one address.
   const gate = gateHook({ event: "SessionStart", tool: lint });
@@ -239,7 +245,32 @@ test("a tool's one address is the root-hosted nested member, wherever a row name
   assert.ok(declaredAddresses(h).has("root/tool/lint"), "the mention set carries the root-hosted spelling");
   assert.ok(!declaredAddresses(h).has("tool:lint"), "and no `tool:<name>` beside it");
   const runs = emit(h).declarations.runs.map((row) => row.tool);
-  assert.ok(runs.length > 0 && runs.every((address) => address === memberAddress(lint)));
+  assert.ok(runs.length > 0 && runs.every((address) => address === memberAddress(lint, isRootHosted)));
+});
+
+test("a tool subkind's member is root-hosted: addressed at root/<kind>/<key> and rowed as the root's nested member", () => {
+  // Root-hosting closes over the base chain, as the engine's `root_hosted_kinds` reads the
+  // kind rows' `base` column — so a subkind of a subkind still answers for `tool`.
+  const linter = extend<ToolFields, ToolFields>(tool, { name: "linter" });
+  const strict = extend<ToolFields, ToolFields>(linter, { name: "strict-linter" });
+  const lint = linter({ name: "lint", system: "eslint" });
+  const deep = strict({ name: "deep", system: "eslint" });
+  assert.equal(memberAddress(lint, isRootHosted), "root/linter/lint");
+  assert.equal(memberAddress(deep, isRootHosted), "root/strict-linter/deep");
+
+  const gate = gateHook({ event: "SessionStart", tool: lint });
+  const h = harness({ members: [lint, deep, gate] });
+  const declared = declaredAddresses(h);
+  assert.ok(declared.has("root/linter/lint") && !declared.has("linter:lint"));
+  const { declarations } = emit(h);
+  const rows = declarations.nested_members.filter((row) => row.host === "root");
+  assert.ok(rows.some((row) => row.kind === "linter" && row.key === "lint"), "the subkind's member is the root's row");
+  assert.ok(rows.some((row) => row.kind === "strict-linter" && row.key === "deep"));
+  assert.deepEqual(
+    declarations.runs.map((row) => row.tool),
+    ["root/linter/lint"],
+    "a gate hook takes a tool subkind's member, and its runs edge names the root-hosted address",
+  );
 });
 
 test("a member's own address composes its host's, to whatever depth the model nests", () => {
@@ -250,20 +281,20 @@ test("a member's own address composes its host's, to whatever depth the model ne
   const outer = supportingDoc({ name: "outer", host: demo, prose: text`# Outer` });
   const inner = supportingDoc({ name: "inner", host: outer, prose: text`# Inner` });
 
-  assert.equal(memberAddress(outer), "skill:demo/supporting-doc/outer");
-  assert.equal(memberAddress(inner), "skill:demo/supporting-doc/outer/supporting-doc/inner");
+  assert.equal(memberAddress(outer, isRootHosted), "skill:demo/supporting-doc/outer");
+  assert.equal(memberAddress(inner, isRootHosted), "skill:demo/supporting-doc/outer/supporting-doc/inner");
 
   // Flattening the host to `<kind>:<name>` lost the grandparent, and keyed two cousins —
   // one name under each of two outers — as one member.
   const sibling = supportingDoc({ name: "other", host: demo, prose: text`# Other` });
   const cousin = supportingDoc({ name: "inner", host: sibling, prose: text`# Cousin` });
-  assert.notEqual(memberAddress(cousin), memberAddress(inner), "two hosts, two addresses");
+  assert.notEqual(memberAddress(cousin, isRootHosted), memberAddress(inner, isRootHosted), "two hosts, two addresses");
 
   // The declaration rows key by this very address: the mention-resolution set is where the
   // engine's reader meets it, and it spells both layers.
   const addresses = declaredAddresses(harness({ members: [demo, outer, inner, sibling, cousin] }));
   for (const member of [demo, outer, inner, sibling, cousin]) {
-    assert.ok(addresses.has(memberAddress(member)), `declaredAddresses spells \`${memberAddress(member)}\``);
+    assert.ok(addresses.has(memberAddress(member, isRootHosted)), `declaredAddresses spells \`${memberAddress(member, isRootHosted)}\``);
   }
 });
 

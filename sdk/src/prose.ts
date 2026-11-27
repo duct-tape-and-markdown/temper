@@ -15,7 +15,7 @@
  */
 
 import type { EmbeddedMemberValue, Member } from "./kind.js";
-import { registrationOf, templatesOf } from "./kind.js";
+import { isRootHosted, registrationOf, templatesOf } from "./kind.js";
 import { memberAddress, parseHostAddress } from "./member-address.js";
 
 /** A declared value a mention may name — the target of the one-way citation edge. */
@@ -61,7 +61,7 @@ export interface MentionOptions {
  * "path" })}).\`` in a skill body emits `reference.md`, wherever the two land.
  */
 export function mentionOf(member: Member, options: MentionOptions = {}): Mentionable {
-  const mention = { address: memberAddress(member), display: nestedInvocation(member) ?? member.name };
+  const mention = { address: memberAddress(member, isRootHosted), display: nestedInvocation(member) ?? member.name };
   return options.as === "path" ? { ...mention, form: "path" } : mention;
 }
 

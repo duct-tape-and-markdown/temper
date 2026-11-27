@@ -14,7 +14,7 @@ import type { Prose, Text } from "./prose.js";
 import { memberProse } from "./prose.js";
 import type { Capability } from "./needs.js";
 import type { RequirementValue } from "./contract.js";
-import { isOneSegment } from "./member-address.js";
+import { ROOT_HOSTED_KINDS, TOOL_KIND, isOneSegment } from "./member-address.js";
 import type { EnforcementMode } from "./assembly.js";
 
 /** The brand {@link Remedy} keys on — unexported, so no value outside this module can carry it. */
@@ -1460,6 +1460,44 @@ export function extendsKind(facts: KindFacts, ancestor: KindFacts): boolean {
     if (at === ancestor) return true;
   }
   return false;
+}
+
+/** The kind at the root of `facts`'s {@link extend} chain — `facts` itself for a kind that is no subkind. */
+function rootKindOf(facts: KindFacts): KindFacts {
+  let at = facts;
+  for (let base = BASES.get(at); base !== undefined; base = BASES.get(at)) at = base;
+  return at;
+}
+
+/**
+ * Whether a kind is one the root member hosts: one of {@link ROOT_HOSTED_KINDS}, or a
+ * subkind anywhere down its chain — the closure the engine's `root_hosted_kinds` reads over
+ * the kind rows' `base` column. A member of one is the root's nested member, addressed at
+ * `root/<kind>/<key>` under its own (sub)kind's name and rowed as the root's
+ * `nested_member`. Every judge of root-hosting reads this, never the bare kind name, so a
+ * subkind's member cannot be addressed one way and rowed another.
+ *
+ * Kept here rather than beside `builtins.ts`'s `isRequirement` because the judges include
+ * `prose.ts` and `contract.ts`, which `builtins.ts` evaluates beneath itself: importing the
+ * shipped kinds' facts back into them is an evaluation cycle. The chain is walked by
+ * identity, as {@link extendsKind} walks it; its root is judged by name, as the engine does.
+ */
+export function isRootHostedKind(facts: KindFacts): boolean {
+  return ROOT_HOSTED_KINDS.has(rootKindOf(facts).name);
+}
+
+/** Whether a member is of a root-hosted kind ({@link isRootHostedKind}) — the judgement `memberAddress`'s callers pass in. */
+export function isRootHosted(member: Pick<Member, "facts">): boolean {
+  return isRootHostedKind(member.facts);
+}
+
+/**
+ * Whether a member is a tool: of the `tool` kind, or a subkind anywhere down its chain. The
+ * refusals that guard a `tool` slot judge untyped values with it, so a value carrying no
+ * kind facts is no tool rather than a crash.
+ */
+export function isTool(member: Pick<Member, "facts">): boolean {
+  return (member.facts as KindFacts | undefined) !== undefined && rootKindOf(member.facts).name === TOOL_KIND;
 }
 
 /**

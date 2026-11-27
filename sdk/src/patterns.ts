@@ -26,6 +26,7 @@
 import type { Typecheck } from "./assembly.js";
 import { GUARD_MATCHER, gateHook, tool as toolMember } from "./builtins.js";
 import type { Input, Member } from "./kind.js";
+import { isTool } from "./kind.js";
 import type { Playbook } from "./playbook.js";
 import { reference } from "./reference.js";
 import type { ReferenceInit } from "./reference.js";
@@ -123,7 +124,7 @@ export interface TypecheckInit {
  * If `tool` is not a `tool(...)` member.
  */
 export function typecheck(init: TypecheckInit): Typecheck {
-  if (init.tool !== undefined && init.tool.kind !== toolMember.key) {
+  if (init.tool !== undefined && !isTool(init.tool)) {
     throw new Error(
       "typecheck: `tool` names the compiler the typecheck runs — pass a `tool(...)` member, " +
         "or omit it for the program's own `tsc`.",

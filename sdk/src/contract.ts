@@ -9,6 +9,7 @@
 
 import type { Shape, ValueType } from "./generated/index.js";
 import type { KindDefinition, Member, Remedy } from "./kind.js";
+import { isTool } from "./kind.js";
 
 /** A clause's delivery posture: `required` gate-blocks, `advisory` reports. */
 export type Severity = "required" | "advisory";
@@ -559,7 +560,7 @@ export interface ScriptInit {
  * If `init.tool` is not a `tool(...)` member.
  */
 export function script(path: string, init: ScriptInit = {}): Verifier {
-  if (init.tool !== undefined && init.tool.kind !== "tool") {
+  if (init.tool !== undefined && !isTool(init.tool)) {
     throw new Error(
       "script: `tool` names what runs the script — pass a `tool(...)` member, or omit it.",
     );
@@ -583,7 +584,7 @@ export function script(path: string, init: ScriptInit = {}): Verifier {
  * If `init.tool` is not a `tool(...)` member.
  */
 export function telemetry(events: readonly string[], init: TelemetryInit = {}): Verifier {
-  if (init.tool !== undefined && init.tool.kind !== "tool") {
+  if (init.tool !== undefined && !isTool(init.tool)) {
     throw new Error(
       "telemetry: `tool` names what the tap hooks run — pass a `tool(...)` member, or omit it " +
         "for the temper package's bin.",

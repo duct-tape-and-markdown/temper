@@ -8,6 +8,7 @@
  */
 
 import type { Input, Member, KindDefinition } from "./kind.js";
+import { isRootHosted } from "./kind.js";
 import { clause, engineMatches, fresh, importBacked, listing, locusDeclared, reachable, resolves } from "./contract.js";
 import type { Clause, Requirement, RequirementValue } from "./contract.js";
 import { command, gateHookTool, isRequirement, requirementOf, skill, unclaimedImportSizeClause } from "./builtins.js";
@@ -166,7 +167,7 @@ function withoutRepeatedGateHooks(roster: readonly Member[]): readonly Member[] 
   return roster.filter((member) => {
     const tool = gateHookTool(member);
     if (tool === undefined) return true;
-    const address = memberAddress(member);
+    const address = memberAddress(member, isRootHosted);
     const held = seen.get(address);
     if (held === undefined) {
       seen.set(address, member);

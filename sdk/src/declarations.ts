@@ -19,6 +19,8 @@ import {
   baseOf,
   collectionAddressOf,
   edgeTargetNames,
+  isRootHosted,
+  isTool,
   locusPattern,
   manifestOf,
   registrationOf,
@@ -36,7 +38,6 @@ import {
   GATE_TOOL_KEY,
   HOOK_HANDLER_KEY,
   HOOK_MATCHER_KEY,
-  ROOT_HOSTED_KINDS,
   RUNS_FIELD,
   SETTINGS_MANIFEST,
   TELEMETRY_EVENT_HOOKS,
@@ -842,7 +843,7 @@ export function contractedRequirements(harness: Harness): ContractedRequirement[
   for (const member of harness.members) {
     for (const name of member.satisfies) {
       const list = satisfiers.get(name) ?? [];
-      list.push({ kind: member.kind, address: memberAddress(member) });
+      list.push({ kind: member.kind, address: memberAddress(member, isRootHosted) });
       satisfiers.set(name, list);
     }
   }
@@ -1092,7 +1093,7 @@ function modeOverrideRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
     .sort((a, b) => compareStrings(a.from ?? "", b.from ?? ""));
   const byMember: AssemblyFactRow[] = harness.members
     .flatMap((member) =>
-      member.mode === undefined ? [] : [{ fact: "mode", value: member.mode, member: memberAddress(member) }],
+      member.mode === undefined ? [] : [{ fact: "mode", value: member.mode, member: memberAddress(member, isRootHosted) }],
     )
     .sort((a, b) => compareStrings(a.member ?? "", b.member ?? ""));
   return [...byKind, ...byMember];
@@ -1108,7 +1109,7 @@ function modeOverrideRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
 function satisfiesRows(harness: Harness): SatisfiesRow[] {
   const rows: SatisfiesRow[] = [];
   for (const member of harness.members) {
-    const address = memberAddress(member);
+    const address = memberAddress(member, isRootHosted);
     for (const requirement of member.satisfies) {
       rows.push({ member: address, requirement });
  }
@@ -1133,7 +1134,7 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
 function mentionRows(harness: Harness): MentionRow[] {
   const rows: MentionRow[] = [];
   for (const member of harness.members) {
-    const address = memberAddress(member);
+    const address = memberAddress(member, isRootHosted);
     if (member.prose?.kind === "text") {
       for (const mention of member.prose.mentions) {
         rows.push({ member: address, target: mention.target.address });
@@ -1207,7 +1208,7 @@ function includeRows(harness: Harness): IncludeRow[] {
     rows.push({ member: address, source_path: fileURLToPath(new URL(include.path, include.moduleUrl)) });
   };
   for (const member of harness.members) {
-    const address = memberAddress(member);
+    const address = memberAddress(member, isRootHosted);
     if (member.prose?.kind === "text") {
       for (const include of member.prose.includes) push(address, include);
     } else if (member.prose?.kind === "blocks") {
@@ -1234,7 +1235,7 @@ function includeRows(harness: Harness): IncludeRow[] {
 function inputRows(harness: Harness): InputRow[] {
   const rows: InputRow[] = [];
   for (const member of harness.members) {
-    const address = memberAddress(member);
+    const address = memberAddress(member, isRootHosted);
     for (const declared of member.inputs) {
       rows.push({ member: address, source_path: fileURLToPath(new URL(declared.path, declared.moduleUrl)) });
     }
@@ -1399,12 +1400,12 @@ function nestedMemberRows(
 ): NestedMemberRow[] {
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
-    if (ROOT_HOSTED_KINDS.has(member.kind)) {
+    if (isRootHosted(member)) {
       rows.push(rootHostedRow(member));
       continue;
     }
     if (member.prose?.kind !== "blocks") continue;
-    const host = memberAddress(member);
+    const host = memberAddress(member, isRootHosted);
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
       if (!admissions.get(member.kind)?.has(value.kind)) {
@@ -1508,10 +1509,10 @@ function runners(member: Member): Array<readonly [string, unknown]> {
     if (!Array.isArray(handlers)) return [];
     return handlers.map(
       (handler: unknown, position) =>
-        [nestedAddress(memberAddress(member), "handler", String(position)), runsOf(handler)] as const,
+        [nestedAddress(memberAddress(member, isRootHosted), "handler", String(position)), runsOf(handler)] as const,
     );
   }
-  if (member.kind === settings.key) return [[memberAddress(member), runsOf(field(STATUS_LINE_KEY))]];
+  if (member.kind === settings.key) return [[memberAddress(member, isRootHosted), runsOf(field(STATUS_LINE_KEY))]];
   return [];
 }
 
@@ -1561,7 +1562,7 @@ function runsRows(harness: Harness): RunsRow[] {
  * the reference would point at nothing the lock carries.
  */
 function composedToolAddress(harness: Harness, runner: string, field: string, value: unknown): string {
-  if (typeof value !== "object" || value === null || (value as Member).kind !== tool.key) {
+  if (typeof value !== "object" || value === null || !isTool(value as Member)) {
     throw new Error(`\`${runner}\`: \`${field}\` names the tool the command runs — pass a \`tool(...)\` member.`);
   }
   if (!harness.members.includes(value as Member)) {
@@ -1570,7 +1571,7 @@ function composedToolAddress(harness: Harness, runner: string, field: string, va
         `does not compose — add it to \`members\`.`,
     );
   }
-  return memberAddress(value as Member);
+  return memberAddress(value as Member, isRootHosted);
 }
 
 /**
@@ -1599,7 +1600,7 @@ function typecheckRow(harness: Harness): TypecheckRow | null {
 function gateToolField(harness: Harness, member: Member): Array<[string, unknown]> {
   const reached = gateHookTool(member);
   if (reached === undefined) return [];
-  return [[GATE_TOOL_KEY, reached === null ? null : composedToolAddress(harness, memberAddress(member), "tool", reached)]];
+  return [[GATE_TOOL_KEY, reached === null ? null : composedToolAddress(harness, memberAddress(member, isRootHosted), "tool", reached)]];
 }
 
 /**
@@ -1794,11 +1795,11 @@ export function declaredRequirements(harness: Harness): Set<string> {
 export function declaredAddresses(harness: Harness): Set<string> {
   const set = declaredRequirements(harness);
   for (const member of harness.members) {
-    set.add(memberAddress(member));
+    set.add(memberAddress(member, isRootHosted));
     if (member.prose?.kind !== "blocks") continue;
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
-      set.add(nestedAddress(memberAddress(member), value.kind, value.key));
+      set.add(nestedAddress(memberAddress(member, isRootHosted), value.kind, value.key));
     }
   }
   return set;

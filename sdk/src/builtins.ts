@@ -11,7 +11,7 @@
  */
 
 import { TAP_EVENT_HOOKS } from "./generated/index.js";
-import { extendsKind, kind } from "./kind.js";
+import { extendsKind, isTool, kind } from "./kind.js";
 import type { EdgeField, KindDefinition, Member, MemberInit, Remedy, Residue } from "./kind.js";
 import { ROOT_HOSTED_KINDS, isNameQualifier } from "./member-address.js";
 import type { Prose, Text } from "./prose.js";
@@ -1145,7 +1145,7 @@ const gateHookTools = new WeakMap<Member, Member | null>();
  */
 export function gateHook(init: GateHookInit): Member {
   refuseAuthoredName("gateHook", init, GATE_HOOK_NAME_REMEDY);
-  if (init.tool !== undefined && init.tool.kind !== toolKind.key) {
+  if (init.tool !== undefined && !isTool(init.tool)) {
     throw new Error(
       `gate hook \`${init.event}\`: \`tool\` names what the hook runs — pass a \`tool(...)\` ` +
         `member, or omit it for the temper package's bin.`,

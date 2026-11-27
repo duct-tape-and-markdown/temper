@@ -18,8 +18,8 @@
 import type { Harness } from "./assembly.js";
 import type { Clause, Verifier } from "./contract.js";
 import type { KindFacts, Member } from "./kind.js";
-import { absenceGatesOf, locusPattern } from "./kind.js";
-import { ROOT_HOSTED_KINDS, skill, supportingDoc } from "./builtins.js";
+import { absenceGatesOf, isRootHosted, isRootHostedKind, isTool, locusPattern } from "./kind.js";
+import { skill, supportingDoc } from "./builtins.js";
 import {
   clauseField,
   compareStrings,
@@ -242,7 +242,7 @@ function locusSection(facts: KindFacts, globs: readonly string[]): string {
         ? "Each member is a file nested in a host's unit, and no host in play templates it."
         : `Each member is a file nested in a host's unit, at:\n\n${listed}`;
     case "embedded":
-      if (ROOT_HOSTED_KINDS.has(facts.name)) return "Each member is embedded in the harness root and owns no file.";
+      if (isRootHostedKind(facts)) return "Each member is embedded in the harness root and owns no file.";
       return globs.length === 0
         ? "Each member is embedded in a host's document, and no host in play templates or admits it."
         : `Each member is embedded in a host's document, at:\n\n${listed}`;
@@ -270,7 +270,7 @@ function clauseLine(clause: Clause): string {
  * declaration of what the harness runs, so its topic is where the version is read.
  */
 function commandLines(view: Harness): string[] {
-  const tools = view.members.filter((member) => member.kind === "tool");
+  const tools = view.members.filter(isTool);
   if (tools.length === 0) return [];
   const lockfile = tools.some((tool) => tool.fields.some(([key]) => key === "package"))
     ? readLockfile(process.cwd())
@@ -424,7 +424,7 @@ export function withReference(harness: Harness): Harness {
       const declared = member.fields.find(([key]) => key === "description")?.[1];
       // Every topic sits beside `SKILL.md` under this member, so a link from the body or
       // from a sibling topic is the same path-form mention of the doc's own address.
-      const host = memberAddress(member);
+      const host = memberAddress(member, isRootHosted);
       const link: TopicLink = (topic) => ({
         address: nestedAddress(host, supportingDoc.key, topic),
         display: topic,

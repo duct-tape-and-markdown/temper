@@ -15,6 +15,7 @@
 import { GUARD_MATCHER, gateHook, rule, skill, supportingDoc } from "./builtins.js";
 import type { Clause, Requirement } from "./contract.js";
 import type { Member } from "./kind.js";
+import { isRootHosted } from "./kind.js";
 import { memberAddress, nestedAddress } from "./member-address.js";
 import { bash, capability } from "./needs.js";
 import type { Capability } from "./needs.js";
@@ -436,7 +437,7 @@ export function playbook(init: PlaybookInit): Playbook {
     ...(placement.skill === undefined ? {} : { location: placement.skill }),
   };
   const draft = skill(fields);
-  const host = memberAddress(draft);
+  const host = memberAddress(draft, isRootHosted);
   const body = router({
     name,
     topics: init.topics.map((topic) => ({
@@ -462,7 +463,7 @@ export function playbook(init: PlaybookInit): Playbook {
     return { rule: standing, skill: routing, topics, members: [standing, routing, ...topics] };
   }
   const { mode, tool } = attached.guard;
-  guardedAreas.set(standing, { rule: memberAddress(standing), paths: guardedPaths(name, trigger), mode });
+  guardedAreas.set(standing, { rule: memberAddress(standing, isRootHosted), paths: guardedPaths(name, trigger), mode });
   const guard = gateHook({ event: "PreToolUse", matcher: GUARD_MATCHER, ...(tool === undefined ? {} : { tool }) });
   return { rule: standing, skill: routing, topics, guard, members: [standing, routing, ...topics, guard] };
 }
