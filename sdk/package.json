@@ -1,6 +1,6 @@
 {
   "name": "@dtmd/temper",
-  "version": "0.0.26",
+  "version": "0.0.27",
   "description": "The temper authoring face — a harness as typed modules: harness(), kind<T>(), clause values, requirements, capabilities, and file()/text/span()/blocks(). Emit compiles to the declaration rows the engine reads, a byte-faithful projection, and the lock.",
   "license": "(MIT OR Apache-2.0)",
   "repository": {
@@ -61,7 +61,7 @@
     "temper": "bin/temper.js"
   },
   "optionalDependencies": {
-    "@dtmd/temper-linux-x64": "0.0.26",
-    "@dtmd/temper-win32-x64": "0.0.26"
+    "@dtmd/temper-linux-x64": "0.0.27",
+    "@dtmd/temper-win32-x64": "0.0.27"
   }
 }

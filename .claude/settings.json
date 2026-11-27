@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./.temper/node_modules/.bin/temper tap .",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./.temper/node_modules/.bin/temper tap .",
             "type": "command"
           }
         ],
@@ -15,7 +15,7 @@
       {
         "hooks": [
           {
-            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./.temper/node_modules/.bin/temper guard .",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./.temper/node_modules/.bin/temper guard .",
             "type": "command"
           }
         ],
@@ -33,7 +33,7 @@
       {
         "hooks": [
           {
-            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./.temper/node_modules/.bin/temper tap .",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./.temper/node_modules/.bin/temper tap .",
             "type": "command"
           }
         ],
@@ -44,7 +44,7 @@
       {
         "hooks": [
           {
-            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./.temper/node_modules/.bin/temper guard .",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./.temper/node_modules/.bin/temper guard .",
             "type": "command"
           }
         ],
@@ -55,7 +55,7 @@
       {
         "hooks": [
           {
-            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./.temper/node_modules/.bin/temper check . --reporter session-start",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./.temper/node_modules/.bin/temper check . --reporter session-start",
             "type": "command"
           }
         ]

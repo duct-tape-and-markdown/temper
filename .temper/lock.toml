@@ -1,4 +1,4 @@
-engine = "0.0.26"
+engine = "0.0.27+unreleased.8fb8afc96612"
 
 [[memory]]
 name = "AGENTS"
@@ -63,8 +63,8 @@ emit_hash = "5337e06350ac4eb9572687f9e87392c43decc60ded60cec35bd31e8731e59f63"
 [[settings]]
 name = "settings"
 source_path = ".claude/settings.json"
-source_hash = "7a5d7df4710032bb6b2ee726ad279f7864eb0ef78799005866591fa8b8f122fe"
-emit_hash = "7a5d7df4710032bb6b2ee726ad279f7864eb0ef78799005866591fa8b8f122fe"
+source_hash = "06badb90faa51cf6653cb793e271d6192751dfd8490d99ef3d07616dbca3f47a"
+emit_hash = "06badb90faa51cf6653cb793e271d6192751dfd8490d99ef3d07616dbca3f47a"
 
 [[skill]]
 name = "blind-review"

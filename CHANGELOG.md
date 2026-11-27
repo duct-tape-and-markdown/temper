@@ -9,6 +9,61 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+## [0.0.27] — 2026-11-27
+
+### Upgrading from 0.0.26
+
+Each line is what a 0.0.26 harness may see first, then what to do.
+[`docs/MIGRATING-0.0.27.md`](docs/MIGRATING-0.0.27.md) walks each one.
+
+- **`check` reports `root.engine-matches`.** Re-emit: the lock records
+  the engine that wrote it.
+- **`install.gate-installed` reports your gate hooks as stale** (a
+  represented harness), naming a retired rendering. Re-emit: the gate
+  command is rendered anew. Re-running `install` on an unrepresented
+  harness replaces the old command in place and leaves the group's other
+  handlers alone.
+- **A dial or override keyed `rule.extent` no longer applies.** Re-key it
+  `rule.when.loads=launch.extent`.
+
+### Breaking
+
+- **A gate hook that cannot reach the engine blocks the tool call.** The
+  rendered gate command exits 2 when `temper` is not on the path, and the
+  launcher exits 2 when the platform engine package is missing or the
+  engine dies by a signal, each with install instructions on stderr.
+  Claude Code lets any other non-zero exit through as a non-blocking
+  error, so before this release a missing engine passed every guarded
+  write. A session on a machine without the engine now stops at the
+  guard until the engine is installed.
+- **The rule line budget binds only rules that load at launch.** The
+  200-line advisory moved under `when(loads("launch"))`, so its label is
+  `rule.when.loads=launch.extent`. A path-scoped rule, or one under a
+  subdirectory's own `.claude/rules/`, is judged only by the on-demand
+  character limit.
+
+### Fixed
+
+- **A relocation that adds exclusions replaces its built-in.**
+  `relocate(rule, { exclude })` beside a member built from the built-in
+  (`playbook()`, `defaultPatterns()`) was refused as a second kind of the
+  same name. A relocation that drops a base exclusion its new templates
+  no longer reach also replaces it; one that drops an exclusion its
+  templates still reach still refuses.
+- **`explain` narrates a stale built-in row as the embedded built-in**,
+  matching what `check` judges.
+- **The guard places a write to a hosted child as `check` scans it**, so
+  a child inside a gitignored directory of its unit draws no finding.
+
+### Changed
+
+- **A run reads each input once.** `check`, `guard` at both edges,
+  `explain`, `emit` and `install` each hold one fenced tree index, scan
+  each locus once, build one matcher per glob, parse the lock once and
+  open each file at most once. The `reachable` file set walks only the
+  literal directory prefixes of the globs it resolves, so an ignored
+  `target/` outside them is never read.
+
 ## [0.0.26] — 2026-11-27
 
 ### Upgrading from 0.0.25
