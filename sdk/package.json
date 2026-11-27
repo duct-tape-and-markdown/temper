@@ -29,9 +29,9 @@
       "types": "./dist/src/claude-code.d.ts",
       "default": "./dist/src/claude-code.js"
     },
-    "./starter": {
-      "types": "./dist/src/starter.d.ts",
-      "default": "./dist/src/starter.js"
+    "./patterns": {
+      "types": "./dist/src/patterns.d.ts",
+      "default": "./dist/src/patterns.js"
     },
     "./pipe": {
       "types": "./dist/src/pipe.d.ts",

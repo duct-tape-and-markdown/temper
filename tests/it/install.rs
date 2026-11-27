@@ -777,9 +777,9 @@ fn a_fresh_scaffold_declares_its_typecheck_and_passes_it() {
     let program = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
     assert!(
         program.contains(
-            "starter({ typecheck: { project: input(import.meta.url, \"./tsconfig.json\") } })"
+            "defaultPatterns({ typecheck: { project: input(import.meta.url, \"./tsconfig.json\") } })"
         ),
-        "the program declares its typecheck through the starter: {program}"
+        "the program declares its typecheck through the default patterns: {program}"
     );
     assert!(
         temper_dir.join("tsconfig.json").is_file(),
@@ -1389,7 +1389,7 @@ fn a_settings_document_lifts_into_a_fields_bearing_member_whose_emit_re_renders_
     assert_eq!(projected["permissions"]["allow"][0], "Bash(cargo test:*)");
 
     // The gate rides the same projection. Its three hook groups are `hook` **members**
-    // the starter composes, so they land in the file emit renders whole — where a splice
+    // the default patterns compose, so they land in the file emit renders whole — where a splice
     // beside emit reported `applied` and was erased by the very next re-render, leaving
     // this file with no `hooks` key at all.
     assert_gate_hooks_wired(&root, "after install");
@@ -1397,7 +1397,7 @@ fn a_settings_document_lifts_into_a_fields_bearing_member_whose_emit_re_renders_
         fs::read_to_string(temper_dir.join("harness.ts"))
             .unwrap()
             .contains("members: [...base.members, "),
-        "the entry point composes the starter's members, the gate hooks among them"
+        "the entry point composes the default patterns' members, the gate hooks among them"
     );
 
     // And a second emit keeps them — the assertion the splice could never pass: the
@@ -2021,7 +2021,7 @@ fn a_represented_harness_re_projects_its_gate_hooks_instead_of_splicing_them_bac
     }
     assert_gate_hooks_wired(&root, "after install");
 
-    // The starter supplies all three as members of the program, composed into the entry
+    // The default patterns supply all three as members of the program, composed into the entry
     // point.
     let harness = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
     assert!(harness.contains("...base.members"), "got:\n{harness}");
@@ -2321,7 +2321,7 @@ fn an_authored_group_on_a_gate_event_never_takes_the_gate_hooks_remedy_path() {
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
-    // The starter composes the gate hooks, so the scaffold writes no module for them — but
+    // The default patterns compose the gate hooks, so the scaffold writes no module for them — but
     // a missing one's remedy cites the fixed `hooks/<Event>.ts`, so the authored group
     // takes the next free name rather than the path the remedy tells an author to write.
     assert!(
@@ -2529,7 +2529,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
     // let a represented harness run a retired command spelling and read green forever
     // (0073), so the advisory names it and names the module to fix.
     //
-    // The fixture replaces the starter's `SessionStart` gate hook rather than adding a
+    // The fixture replaces the default patterns' `SessionStart` gate hook rather than adding a
     // second member beside it: a hook authored *alongside* temper's leaves the gate wired,
     // which is the unchanged case, not this one.
     common::ensure_sdk_built();
@@ -2550,7 +2550,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
         "gate must be clean after a successful install"
     );
 
-    // Replace the starter's gate hook with a member at the same identity and address, the
+    // Replace the default patterns' gate hook with a member at the same identity and address, the
     // retired command spelling.
     fs::create_dir_all(temper_dir.join("hooks")).unwrap();
     fs::write(
@@ -2564,7 +2564,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
         ),
     )
     .unwrap();
-    replace_starter_gate_hook(
+    replace_default_gate_hook(
         &temper_dir,
         "SessionStart",
         "./hooks/SessionStart.ts",
@@ -2620,7 +2620,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
     );
 }
 
-/// Install a represented harness under `label`, then replace the starter's guard with the
+/// Install a represented harness under `label`, then replace the default patterns' guard with the
 /// `hook_PreToolUse` that `module` exports and re-emit, so the projection is that module's.
 fn reinstall_with_guard_module(label: &str, module: &str) -> PathBuf {
     common::ensure_sdk_built();
@@ -2634,7 +2634,7 @@ fn reinstall_with_guard_module(label: &str, module: &str) -> PathBuf {
 
     fs::create_dir_all(temper_dir.join("hooks")).unwrap();
     fs::write(temper_dir.join("hooks").join("PreToolUse.ts"), module).unwrap();
-    replace_starter_gate_hook(
+    replace_default_gate_hook(
         &temper_dir,
         "PreToolUse",
         "./hooks/PreToolUse.ts",
@@ -2645,37 +2645,37 @@ fn reinstall_with_guard_module(label: &str, module: &str) -> PathBuf {
 }
 
 #[test]
-fn a_fresh_represented_install_scaffolds_a_program_that_calls_starter() {
+fn a_fresh_represented_install_scaffolds_a_program_that_calls_defaultpatterns() {
     common::ensure_sdk_built();
-    let root = write_harness("fresh-install-calls-starter", false);
+    let root = write_harness("fresh-install-calls-default-patterns", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_install_workspace(&temper_dir);
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
-    // The default is the starter's: the gate hooks and the typecheck come from one call,
+    // The default is the default patterns': the gate hooks and the typecheck come from one call,
     // and the lifted members compose after its members, each still its own module.
     let program = fs::read_to_string(temper_dir.join("harness.ts")).unwrap();
     assert_eq!(
         program,
         "import { harness, input } from \"@dtmd/temper\";\n\
-         import { starter } from \"@dtmd/temper/starter\";\n\
+         import { defaultPatterns } from \"@dtmd/temper/patterns\";\n\
          import { rule_collaboration } from \"./rules/collaboration.ts\";\n\
          import { rule_rust } from \"./rules/rust.ts\";\n\
          import { skill_coordinate } from \"./skills/coordinate.ts\";\n\n\
-         const base = starter({ typecheck: { project: input(import.meta.url, \"./tsconfig.json\") } });\n\n\
+         const base = defaultPatterns({ typecheck: { project: input(import.meta.url, \"./tsconfig.json\") } });\n\n\
          export default harness({\n  ...base,\n  \
          members: [...base.members, rule_collaboration, rule_rust, skill_coordinate],\n});\n"
     );
-    // What the starter supplies the scaffold no longer writes, or the names would collide.
+    // What the default patterns supply the scaffold no longer writes, or the names would collide.
     assert!(
         !temper_dir.join("hooks").exists(),
-        "no gate hook module is scaffolded beside the starter's gate hooks"
+        "no gate hook module is scaffolded beside the default patterns' gate hooks"
     );
     assert!(
         !program.contains("tool("),
-        "no compiler tool is declared beside the starter's"
+        "no compiler tool is declared beside the default patterns'"
     );
 }
 
@@ -2707,10 +2707,10 @@ fn a_fresh_represented_install_wires_the_three_gate_hooks() {
 }
 
 /// Take temper's gate hook at `event` (a hook member's name is its event, then `:` and any
-/// matcher) out of the starter's members in `harness.ts` and
+/// matcher) out of the default patterns' members in `harness.ts` and
 /// compose `idents`, imported from `module`, in its place — how an author replaces one of
-/// the starter's defaults by ordinary code. An empty `idents` drops the gate hook whole.
-fn replace_starter_gate_hook(temper_dir: &Path, event: &str, module: &str, idents: &[&str]) {
+/// the default patterns by ordinary code. An empty `idents` drops the gate hook whole.
+fn replace_default_gate_hook(temper_dir: &Path, event: &str, module: &str, idents: &[&str]) {
     let path = temper_dir.join("harness.ts");
     let program = fs::read_to_string(&path).unwrap();
     assert!(program.contains("...base.members"), "{program}");
@@ -2743,7 +2743,7 @@ fn a_gate_hook_reaching_a_declared_tool_is_reported_installed() {
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
     // The guard's module states the tool it runs, and the program composes that tool in
-    // place of the starter's guard.
+    // place of the default patterns' guard.
     fs::create_dir_all(temper_dir.join("hooks")).unwrap();
     fs::write(
         temper_dir.join("hooks").join("PreToolUse.ts"),
@@ -2753,7 +2753,7 @@ fn a_gate_hook_reaching_a_declared_tool_is_reported_installed() {
          matcher: \"Write|Edit|MultiEdit\", tool: tool_temper });\n",
     )
     .unwrap();
-    replace_starter_gate_hook(
+    replace_default_gate_hook(
         &temper_dir,
         "PreToolUse",
         "./hooks/PreToolUse.ts",
@@ -2842,9 +2842,9 @@ fn gate_installed_names_a_deleted_gate_hook_member_with_its_module_and_import_li
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert!(gate_installed(&root).is_empty());
 
-    // Drop the starter's guard from the program, so it declares no hook at
+    // Drop the default patterns' guard from the program, so it declares no hook at
     // `(PreToolUse, Write|Edit|MultiEdit)`.
-    replace_starter_gate_hook(&temper_dir, "PreToolUse", "", &[]);
+    replace_default_gate_hook(&temper_dir, "PreToolUse", "", &[]);
 
     let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(
@@ -5865,7 +5865,7 @@ fn the_guard_places_a_pending_hosted_child_under_a_local_host_as_check_s_scan_pl
 }
 
 #[test]
-fn represented_install_refuses_a_discovered_skill_named_like_the_starter_reference_before_writing()
+fn represented_install_refuses_a_discovered_skill_named_like_the_patterns_reference_before_writing()
 {
     common::ensure_sdk_built();
     let root = common::tmpdir("reference-name-collision");
@@ -5887,7 +5887,7 @@ fn represented_install_refuses_a_discovered_skill_named_like_the_starter_referen
         .unwrap();
     assert!(
         !output.status.success(),
-        "a skill named like the starter's reference refuses the represented install"
+        "a skill named like the default patterns' reference refuses the represented install"
     );
     let stderr = String::from_utf8(output.stderr).unwrap();
     for stated in [

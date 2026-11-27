@@ -22,7 +22,7 @@ import ts from "typescript";
 
 const DIST_SRC = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
 const INDEX_DTS = resolve(DIST_SRC, "index.d.ts");
-const STARTER_DTS = resolve(DIST_SRC, "starter.d.ts");
+const PATTERNS_DTS = resolve(DIST_SRC, "patterns.d.ts");
 const GENERATED = resolve(DIST_SRC, "generated");
 
 /** A module's symbol plus the checker that resolves references out of it — the root's by default. */
@@ -101,12 +101,12 @@ test("every type a root-exported declaration names is itself root-exported", () 
   );
 });
 
-test("every type a starter-exported declaration names is exported by the starter or the root", () => {
-  const { checker, symbol } = rootModule(STARTER_DTS);
+test("every type a patterns-exported declaration names is exported by the patterns subpath or the root", () => {
+  const { checker, symbol } = rootModule(PATTERNS_DTS);
   const exported = checker.getExportsOfModule(symbol);
   const names = new Set(exported.map((e) => e.getName()));
-  for (const shape of ["starter", "gateHooks", "typecheck", "reference", "Starter", "StarterOptions"]) {
-    assert.ok(names.has(shape), `the starter subpath exports \`${shape}\``);
+  for (const shape of ["defaultPatterns", "gateHooks", "typecheck", "reference", "DefaultPatterns", "DefaultPatternsOptions"]) {
+    assert.ok(names.has(shape), `the patterns subpath exports \`${shape}\``);
   }
 
   const root = rootModule();
@@ -123,7 +123,7 @@ test("every type a starter-exported declaration names is exported by the starter
         // Two programs mint two symbols for one declaration, so the face matches by declaration site.
         const site = `${named.getName()}@${named.getDeclarations()?.[0]?.getSourceFile().fileName}`;
         if (!isAuthoringNoun(named) || face.has(named) || faceNames.has(site)) continue;
-        holes.push(`\`${entry.getName()}\` names \`${named.getName()}\`, which neither the starter nor the root exports`);
+        holes.push(`\`${entry.getName()}\` names \`${named.getName()}\`, which neither the patterns subpath nor the root exports`);
       }
     }
   }

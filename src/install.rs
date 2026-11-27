@@ -640,10 +640,10 @@ enum InstallError {
     )]
     NodeMissing,
 
-    /// A discovered skill takes the name the starter's harness reference is composed
+    /// A discovered skill takes the name the default patterns' harness reference is composed
     /// under, so the scaffolded program would declare two members over one projection.
     #[error(
-        "the discovered skill {name:?} collides with the harness reference the starter composes under that name"
+        "the discovered skill {name:?} collides with the harness reference the default patterns compose under that name"
     )]
     #[diagnostic(
         code(temper::install::reference_name_collision),
@@ -997,7 +997,7 @@ fn run_represented(
     let gate_before = gate_hooks_state(&settings_path(root))?.map(|state| state.wired);
 
     // Read and judged before any write: an artifact the lift cannot convert, or one the
-    // starter's own members would collide with, refuses with `.temper/` untouched.
+    // default patterns' own members would collide with, refuses with `.temper/` untouched.
     let lift = if already_scaffolded {
         None
     } else {
@@ -1386,7 +1386,7 @@ fn gate_hooks_state(path: &Path) -> Result<[GateHookState; GATE_HOOK_COUNT], Ins
 ///   respelled command leaves behind.
 /// - not wired, nothing seated there → [`Conflicted`](ApplyOutcome::Conflicted): the
 ///   member is *missing*. Surfaced rather than clobbered — the lift's `harness.ts`
-///   composes the gate hooks through `starter()`, and `install` never edits an authored `harness.ts`
+///   composes the gate hooks through `defaultPatterns()`, and `install` never edits an authored `harness.ts`
 ///   afterwards (0073).
 ///
 /// The seated half is read off the projection, never off the lock: see [`gate_hooks_state`].
@@ -3240,7 +3240,7 @@ fn is_reserved_device_name(head: &str) -> bool {
 /// name. The module's `name` property stays the id either way.
 ///
 /// [`GATE_HOOKS`]' stems are reserved before any of them. The scaffold writes no gate hook
-/// module — the starter composes the gate hooks ([`harness_entry_source`]) — but a missing
+/// module — the default patterns compose the gate hooks ([`harness_entry_source`]) — but a missing
 /// one's remedy tells the author to write the fixed `hooks/<Event>.ts` ([`gate_hook_clause`]),
 /// so a lifted hook never takes that path whatever the adopted `settings.json` carries.
 ///
@@ -3299,10 +3299,10 @@ fn unclaimed_stem(base: &str, mut claimed: impl FnMut(&str) -> bool) -> String {
     stem
 }
 
-/// The skill name the starter's harness reference takes (`REFERENCE_NAME` in the SDK's
+/// The skill name the default patterns' harness reference takes (`REFERENCE_NAME` in the SDK's
 /// `reference.ts`). A lifted skill of that name would be a second member over the
 /// reference's `.claude/skills/temper/` projection.
-const STARTER_REFERENCE_NAME: &str = "temper";
+const PATTERNS_REFERENCE_NAME: &str = "temper";
 
 /// A fresh program's conversion, read and judged but not yet written: each lifted member
 /// beside the module file stem it will be written under.
@@ -3316,7 +3316,7 @@ struct Lift {
 ///
 /// # Errors
 /// Returns a [`miette::Report`] if a member's source cannot be parsed, a skill collides
-/// with the starter's reference ([`InstallError::ReferenceNameCollision`]), or an id cannot
+/// with the default patterns' reference ([`InstallError::ReferenceNameCollision`]), or an id cannot
 /// name a module file ([`module_stems`]).
 fn plan_lift(root: &Path, temper_dir: &Path, discovery: &DiscoveryReport) -> miette::Result<Lift> {
     let kinds = builtin_kind::definitions();
@@ -3363,7 +3363,7 @@ fn plan_lift(root: &Path, temper_dir: &Path, discovery: &DiscoveryReport) -> mie
 
     if let Some((_, member)) = lifted
         .iter()
-        .find(|(kind, member)| kind == "skill" && member.id == STARTER_REFERENCE_NAME)
+        .find(|(kind, member)| kind == "skill" && member.id == PATTERNS_REFERENCE_NAME)
     {
         return Err(InstallError::ReferenceNameCollision {
             name: member.id.clone(),
@@ -3379,8 +3379,8 @@ fn plan_lift(root: &Path, temper_dir: &Path, discovery: &DiscoveryReport) -> mie
 /// output, a **whole conversion** (0016), never an intermediate state: a member
 /// module per discovered member hoisting every present field into a typed
 /// property ([`member_module_source`]) and moving its prose module-side, plus
-/// a `harness.ts` skeleton composing them all beside the SDK's `starter()`
-/// ([`harness_entry_source`]), which supplies the gate hooks and the typecheck. Writes nothing
+/// a `harness.ts` skeleton composing them all beside the SDK's `defaultPatterns()`
+/// ([`harness_entry_source`]), which supply the gate hooks and the typecheck. Writes nothing
 /// under `dry_run`, returning only the count a real run would scaffold.
 ///
 /// The conversion covers a manifest's **registration** segments as well as the container
@@ -3529,7 +3529,7 @@ fn gate_hook_module(hook: &GateHook) -> String {
 
 /// The `gateHook(...)` call one gate hook's member is built with: its event and the
 /// matcher it binds, nothing more — no tool, so the temper package's bin. The one spelling of
-/// the constructor a stale hook's remedy names — the call the starter's gate hooks make.
+/// the constructor a stale hook's remedy names — the call the default patterns' gate hooks make.
 fn gate_hook_call(hook: &GateHook) -> String {
     match hook.matcher {
         Some(matcher) => format!(
@@ -3722,20 +3722,20 @@ fn escape_template_literal(line: &str) -> String {
 }
 
 /// The `harness.ts` skeleton: import every scaffolded member, compose them beside the
-/// SDK's `starter()` into `harness({ ...base, members: [...] })`, and export it as the
+/// SDK's `defaultPatterns()` into `harness({ ...base, members: [...] })`, and export it as the
 /// module's default — the whole program `emit_program` then runs through the SDK's pipe.
 ///
-/// The starter supplies the mechanics a fresh program owes: temper's three gate hooks, the
+/// The default patterns supply the mechanics a fresh program owes: temper's three gate hooks, the
 /// harness reference, and the typecheck emit refuses a program without — the workspace's
 /// own `typescript` devDependency ([`ensure_package_json`]) as a composed `tool`, over the
 /// [`TYPECHECK_PROJECT`] the scaffold writes beside it. The scaffold writes none of those
 /// as members of its own: one more declaration of a gate hook or of the compiler would
-/// collide with the starter's. The lifted members stay their own modules, composed after
-/// the starter's, so the program reads as the default plus what was adopted — re-hydrated
+/// collide with the default patterns'. The lifted members stay their own modules, composed
+/// after the default patterns', so the program reads as the default plus what was adopted — re-hydrated
 /// or replaced by ordinary code.
 fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
     let mut out = format!(
-        "import {{ harness, input }} from \"{SDK_PACKAGE}\";\nimport {{ starter }} from \"{SDK_PACKAGE}/starter\";\n"
+        "import {{ harness, input }} from \"{SDK_PACKAGE}\";\nimport {{ defaultPatterns }} from \"{SDK_PACKAGE}/patterns\";\n"
     );
     for member in members {
         out.push_str(&format!(
@@ -3744,7 +3744,7 @@ fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
         ));
     }
     out.push_str(&format!(
-        "\nconst base = starter({{ typecheck: {{ project: input(import.meta.url, \"./{TYPECHECK_PROJECT}\") }} }});\n"
+        "\nconst base = defaultPatterns({{ typecheck: {{ project: input(import.meta.url, \"./{TYPECHECK_PROJECT}\") }} }});\n"
     ));
     out.push_str("\nexport default harness({\n  ...base,\n  members: [...base.members");
     for member in members {

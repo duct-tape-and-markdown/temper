@@ -1,5 +1,5 @@
 /**
- * The `@dtmd/temper/starter` subpath — temper's default harness as shapes the consumer
+ * The `@dtmd/temper/patterns` subpath — temper's default harness as shapes the consumer
  * hydrates. Each export is a typed constructor: temper supplies the structure, wiring,
  * edges and rendering; the consumer supplies the content. A required parameter is where
  * the consumer's own content lives and has no default; an optional one is mechanics,
@@ -14,7 +14,7 @@
  *   topics derived from what is declared.
  *
  * The SDK counsel rule is not a shape here: `emit` synthesizes it over every program,
- * starter or not, so there is nothing to compose. {@link starter} composes every shape
+ * patterns or not, so there is nothing to compose. {@link defaultPatterns} composes every shape
  * with its defaults into the parts `harness()` takes. It carries no taste — no memory
  * content, no conventions — and declares no telemetry: a tap is opt-in, the consumer's
  * own `require` entry with a `telemetry` verifier.
@@ -82,7 +82,7 @@ export interface TypecheckInit {
 
 /**
  * The program's typecheck — the compiler `emit` runs before the program, refusing on a
- * type error. Its `tool` is a member the harness composes in `members`, as {@link starter}
+ * type error. Its `tool` is a member the harness composes in `members`, as {@link defaultPatterns}
  * does.
  *
  * # Throws
@@ -101,8 +101,8 @@ export function typecheck(init: TypecheckInit): Typecheck {
   };
 }
 
-/** What {@link starter} takes — one option per shape, each the shape's own init. */
-export interface StarterOptions {
+/** What {@link defaultPatterns} takes — one option per shape, each the shape's own init. */
+export interface DefaultPatternsOptions {
   /** The {@link typecheck} — required, since its project file is the consumer's path. */
   readonly typecheck: TypecheckInit;
   /** The {@link gateHooks}' mechanics; absent, their defaults. */
@@ -112,11 +112,11 @@ export interface StarterOptions {
 }
 
 /**
- * The composed starter — the parts `harness()` takes: `harness(starter(options))` is a
- * whole program, and a consumer adds its own members by spreading
+ * The composed default patterns — the parts `harness()` takes:
+ * `harness(defaultPatterns(options))` is a whole program, and a consumer adds its own members by spreading
  * (`harness({ ...base, members: [...base.members, ...mine] })`).
  */
-export interface Starter {
+export interface DefaultPatterns {
   /** Every tool the shapes run, then the gate hooks, then the reference. */
   readonly members: readonly Member[];
   /** The program's typecheck, its tool among {@link members}. */
@@ -128,7 +128,7 @@ export interface Starter {
  * three gate hooks and any tool they run, and the harness reference. A tool two shapes
  * share is composed once.
  */
-export function starter(options: StarterOptions): Starter {
+export function defaultPatterns(options: DefaultPatternsOptions): DefaultPatterns {
   const checked = typecheck(options.typecheck);
   const tools = [...new Set([checked.tool, ...(options.gates?.tool === undefined ? [] : [options.gates.tool])])];
   return {

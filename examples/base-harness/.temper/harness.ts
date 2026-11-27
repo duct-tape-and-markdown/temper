@@ -1,6 +1,6 @@
 import { clause, count, extent, harness, input, uniqueName } from "@dtmd/temper";
 import { settings, skill, skillDefaultContract } from "@dtmd/temper/claude-code";
-import { starter } from "@dtmd/temper/starter";
+import { defaultPatterns } from "@dtmd/temper/patterns";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_conduct } from "./rules/conduct.ts";
 import { rule_docsDiscipline } from "./rules/docs-discipline.ts";
@@ -13,7 +13,7 @@ import { flow_summarize } from "./docs/flows/summarize.ts";
 import { decision_authorityArrow } from "./docs/decisions/authority-arrow.ts";
 import { decision_perChangeDocDuty } from "./docs/decisions/per-change-doc-duty.ts";
 
-// The starter supplies the mechanics of using temper well: the typecheck emit
+// The default patterns supply the mechanics of using temper well: the typecheck emit
 // runs before the program (the workspace's own `typescript` over the project
 // that checks every module here), the three gate hooks, and the emitted harness
 // reference at `.claude/skills/temper/`. The project file is the one required
@@ -22,7 +22,7 @@ import { decision_perChangeDocDuty } from "./docs/decisions/per-change-doc-duty.
 // The worked customization: the reference's description is hydrated with this
 // project's own trigger, and the reference declares the domain it fills. Its
 // body and topics still derive from what this program declares.
-const base = starter({
+const base = defaultPatterns({
   typecheck: { project: input(import.meta.url, "./tsconfig.json") },
   reference: {
     description:

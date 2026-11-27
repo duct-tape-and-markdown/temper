@@ -1,5 +1,5 @@
 /**
- * The starter subpath — the mechanics shapes as typed constructors, and `starter()`
+ * The patterns subpath — the mechanics shapes as typed constructors, and `defaultPatterns()`
  * composing them into a harness that emits the gates, the typecheck and the reference.
  */
 
@@ -12,17 +12,17 @@ import { test } from "node:test";
 import { harness, input, requirement, tool } from "../src/index.js";
 import { emit } from "../src/emit.js";
 import { rule } from "../src/claude-code.js";
-import { gateHooks, reference, starter, typecheck } from "../src/starter.js";
+import { defaultPatterns, gateHooks, reference, typecheck } from "../src/patterns.js";
 
 const project = input(import.meta.url, "./tsconfig.json");
 
 /**
  * `emit` run from a scratch npm program locking `typescript` — the reference's `tool`
  * topic reads a `{ package, bin }` tool's version from the lockfile of the working
- * directory's program, and the starter's compiler is one.
+ * directory's program, and the default patterns' compiler is one.
  */
 function emitInProgram(program: Parameters<typeof emit>[0]): ReturnType<typeof emit> {
-  const dir = mkdtempSync(join(tmpdir(), "temper-starter-"));
+  const dir = mkdtempSync(join(tmpdir(), "temper-patterns-"));
   const cwd = process.cwd();
   try {
     writeFileSync(join(dir, "package.json"), JSON.stringify({ packageManager: "npm@10.9.0" }));
@@ -55,13 +55,13 @@ function referenceDescription(result: ReturnType<typeof emit>): unknown {
   return member.fields.find(([key]) => key === "description")?.[1];
 }
 
-test("starter() composes into a harness that emits the gates, the typecheck and the reference", () => {
-  const result = emitInProgram(harness(starter({ typecheck: { project } })));
+test("defaultPatterns() composes into a harness that emits the gates, the typecheck and the reference", () => {
+  const result = emitInProgram(harness(defaultPatterns({ typecheck: { project } })));
 
   assert.deepEqual(gates(result), ["PostToolUse:Bash", "PreToolUse:Write|Edit|MultiEdit", "SessionStart"]);
 
   const row = result.declarations.typecheck;
-  assert.ok(row, "the starter declares the program's typecheck");
+  assert.ok(row, "the default patterns declare the program's typecheck");
   assert.equal(row.tool, "root/tool/tsc");
   assert.match(row.project, /tsconfig\.json$/);
 
@@ -70,20 +70,20 @@ test("starter() composes into a harness that emits the gates, the typecheck and 
   assert.ok(skill.body.startsWith("# Operating the temper gate\n"), skill.body);
   assert.match(referenceDescription(result) as string, /^Use when operating the temper gate/);
   const toolTopic = result.members.find((m) => m.kind === "supporting-doc" && m.name === "kind-tool");
-  assert.ok(toolTopic, "the reference derives a topic for the starter's tool kind");
+  assert.ok(toolTopic, "the reference derives a topic for the default patterns' tool kind");
   assert.match(toolTopic.body, /`typescript` — version 5\.6\.3/);
 });
 
-test("starter() carries no taste: no memory, no rule, no telemetry", () => {
-  const base = starter({ typecheck: { project } });
+test("defaultPatterns() carries no taste: no memory, no rule, no telemetry", () => {
+  const base = defaultPatterns({ typecheck: { project } });
   assert.deepEqual(base.members.map((member) => member.kind).sort(), ["hook", "hook", "hook", "skill", "tool"]);
   const result = emitInProgram(harness(base));
   assert.ok(!result.members.some((m) => m.kind === "memory"));
   assert.ok(!result.registrations.some((r) => r.fields.some(([, value]) => JSON.stringify(value).includes("tap"))));
 });
 
-test("a consumer composes its own members beside the starter's", () => {
-  const base = starter({ typecheck: { project } });
+test("a consumer composes its own members beside the default patterns'", () => {
+  const base = defaultPatterns({ typecheck: { project } });
   const result = emitInProgram(
     harness({
       ...base,
@@ -95,10 +95,10 @@ test("a consumer composes its own members beside the starter's", () => {
   assert.match(referenceDescription(result) as string, /Its contracted requirements: `conventions`\.$/);
 });
 
-test("starter() options override each shape's defaults", () => {
+test("defaultPatterns() options override each shape's defaults", () => {
   const compiler = tool({ package: "typescript", bin: "tsc", name: "compiler" });
   const temper = tool({ package: "@dtmd/temper", bin: "temper", name: "gate" });
-  const base = starter({
+  const base = defaultPatterns({
     typecheck: { project, tool: compiler },
     gates: { tool: temper },
     reference: { description: "Use when changing this repo's harness." },
@@ -115,7 +115,7 @@ test("starter() options override each shape's defaults", () => {
 
 test("a tool the typecheck and the gates share is composed once", () => {
   const shared = tool({ package: "@dtmd/temper", bin: "temper" });
-  const base = starter({ typecheck: { project, tool: shared }, gates: { tool: shared } });
+  const base = defaultPatterns({ typecheck: { project, tool: shared }, gates: { tool: shared } });
   assert.equal(base.members.filter((member) => member.kind === "tool").length, 1);
 });
 

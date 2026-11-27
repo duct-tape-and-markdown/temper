@@ -1,6 +1,6 @@
 # base-harness
 
-A starter harness authored as a temper program, whole: the Claude Code
+A base harness authored as a temper program, whole: the Claude Code
 artifacts (memory, rules, skills, hooks) and a documentation corpus are
 typed members of one program, their cross-references are edges the gate
 resolves, and the files on disk are projections. The corpus is
@@ -14,20 +14,20 @@ $ node src/main.js TODO.md
 2/3 done
 ```
 
-## Starter plus customization
+## Patterns plus customization
 
-The program is `@dtmd/temper/starter` hydrated, then grown. `starter()`
-supplies the mechanics of using temper well, which no project should
+The program is `@dtmd/temper/patterns` hydrated, then grown.
+`defaultPatterns()` supplies the mechanics of using temper well, which no project should
 re-author: the typecheck `emit` runs before the program, the three gate
 hooks (the session-start report and the guard's two edges), and the
 harness reference at `.claude/skills/temper/`, whose topic files derive
 from what the program declares. Its one required argument is the
 project file the typecheck reads, because that path is this project's.
 `.temper/harness.ts` spreads the result into `harness()` and adds its own
-members beside the starter's:
+members beside the patterns':
 
 ```ts
-const base = starter({
+const base = defaultPatterns({
   typecheck: { project: input(import.meta.url, "./tsconfig.json") },
   reference: { description: "How to operate the temper gate over this repository's …", satisfies: ["governance"] },
 });
@@ -61,7 +61,7 @@ What the harness demonstrates:
   surface states live once in `.temper/facts.ts`; the memory's map and the
   verify skill's procedure interpolate the same constants, so one edit
   moves every projection and the surfaces cannot contradict each other.
-  The gate hooks state no command at all: they come from the starter, and
+  The gate hooks state no command at all: they come from the patterns, and
   the engine renders the command each runs into the settings manifest.
 - **A skill can be path-gated, and its claims rest on declared inputs.**
   `verify-summary` declares `paths: ["src/**", "TODO.md"]`, so it
