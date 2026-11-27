@@ -2236,7 +2236,32 @@ fn represented_projection_harness(label: &str) -> std::path::PathBuf {
     let harness = tmpdir(label);
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
-    let payload = Payload {
+    drift::emit(
+        &represented_projection_payload(),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+    fs::write(into.join("harness.ts"), "export default {};\n").unwrap();
+
+    let admin = harness
+        .join("primary")
+        .join(".git")
+        .join("worktrees")
+        .join("wt");
+    fs::create_dir_all(&admin).unwrap();
+    fs::write(admin.join("commondir"), "../..\n").unwrap();
+    fs::write(
+        harness.join(".git"),
+        format!("gitdir: {}\n", admin.display()),
+    )
+    .unwrap();
+    harness
+}
+
+/// The skill + rule payload `represented_projection_harness` emits.
+fn represented_projection_payload() -> Payload {
+    Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![
@@ -2253,28 +2278,7 @@ fn represented_projection_harness(label: &str) -> std::path::PathBuf {
             ),
             common::rule_member("rust", None, "# Rust\n"),
         ],
-    };
-    let options = EmitOptions {
-        dry_run: false,
-        frozen: false,
-        teardown: false,
-    };
-    drift::emit(&payload, &into, options).unwrap();
-    fs::write(into.join("harness.ts"), "export default {};\n").unwrap();
-
-    let admin = harness
-        .join("primary")
-        .join(".git")
-        .join("worktrees")
-        .join("wt");
-    fs::create_dir_all(&admin).unwrap();
-    fs::write(admin.join("commondir"), "../..\n").unwrap();
-    fs::write(
-        harness.join(".git"),
-        format!("gitdir: {}\n", admin.display()),
-    )
-    .unwrap();
-    harness
+    }
 }
 
 /// The paths a run opened more than once, for an assertion message that names them.
@@ -2400,6 +2404,43 @@ fn explain_opens_each_file_at_most_once_per_run() {
         reopened(&opened),
         Vec::<String>::new(),
         "an explain run opens each file at most once",
+    );
+}
+
+/// The paths-opened pin for `emit`: a re-emit over a represented harness reads each
+/// placed target and the lock through the run's one bytes owner, so no file is opened
+/// twice however many phases (drift diff, reap, write decision, lock re-emit) reach it.
+#[test]
+fn emit_opens_each_file_at_most_once_per_run() {
+    use temper::bytes;
+
+    let harness = represented_projection_harness("emit-member-bytes");
+    let into = harness.join(".temper");
+    let before = bytes::paths_opened();
+    drift::emit(
+        &represented_projection_payload(),
+        &into,
+        EmitOptions::default(),
+    )
+    .unwrap();
+    let opened = bytes::opened_since(&before);
+
+    // Non-vacuity: the run reached both member targets and the lock.
+    for path in [
+        harness.join(".claude/skills/coordinate/SKILL.md"),
+        harness.join(".claude/rules/rust.md"),
+        into.join("lock.toml"),
+    ] {
+        assert!(
+            opened.contains_key(&path),
+            "the run must read {}, opened: {opened:?}",
+            path.display(),
+        );
+    }
+    assert_eq!(
+        reopened(&opened),
+        Vec::<String>::new(),
+        "an emit run opens each file at most once",
     );
 }
 
