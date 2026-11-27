@@ -408,3 +408,135 @@ fn a_supporting_doc_no_skill_body_references_is_still_reported_unreachable() {
     assert_eq!(unreached.len(), 1, "{findings:#?}");
     assert!(unreached[0].contains("orphan"), "{findings:#?}");
 }
+
+/// Whether `check` refuses a `loads` guard over `kind` as reading a content-less kind,
+/// with the finding naming the kind.
+fn refuses_contentless(findings: &[String], kind: &str) -> bool {
+    findings.iter().any(|finding| {
+        finding.contains(&format!("none of kind `{kind}`'s channels carries"))
+            && finding.contains(&format!("{kind}.when.loads="))
+    })
+}
+
+/// `check` over a harness whose lock carries a `loads` guard on `kind` alone.
+fn guarded_kind_check(label: &str, kind: &str) -> (Vec<String>, bool) {
+    let harness = common::tmpdir(label);
+    write_sibling(&harness, "CLAUDE.md", THREE_LINES);
+    guard_lock(&harness, kind, "launch");
+    check_harness(&harness)
+}
+
+#[test]
+fn a_loads_guard_over_a_kind_registering_only_content_less_channels_is_inadmissible() {
+    // `hook` registers `event`, `mcp-server` `connection`: neither loads content.
+    for kind in ["hook", "mcp-server"] {
+        let (findings, ok) = guarded_kind_check(&format!("load-moment-contentless-{kind}"), kind);
+        assert!(
+            !ok,
+            "a `loads` guard over `{kind}` decides nothing: {findings:#?}"
+        );
+        assert!(refuses_contentless(&findings, kind), "{findings:#?}");
+    }
+
+    // A custom kind registering only content-less channels refuses on the same terms.
+    let harness = common::tmpdir("load-moment-contentless-custom");
+    write_sibling(&harness, "SERVERS.md", THREE_LINES);
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![KindFactRow {
+                unit_shape: Some("file".to_string()),
+                registration: vec!["connection".to_string(), "registry".to_string()],
+                ..common::kind_facts("servers", ".", "SERVERS.md")
+            }],
+            clauses: vec![ClauseRow {
+                kind: Some("servers".to_string()),
+                values: Some(vec!["launch".to_string()]),
+                guard_predicate: Some("loads".to_string()),
+                body: Some(vec![ClauseRow {
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(1),
+                        entry: None,
+                    }),
+                    unit: Some("lines".to_string()),
+                    ..common::clause("extent", "advisory")
+                }]),
+                ..common::clause("when", "advisory")
+            }],
+            ..Declarations::default()
+        },
+    );
+    let (findings, ok) = check_harness(&harness);
+    assert!(!ok, "{findings:#?}");
+    assert!(refuses_contentless(&findings, "servers"), "{findings:#?}");
+}
+
+#[test]
+fn a_loads_guard_over_a_kind_with_an_empty_registration_is_inadmissible() {
+    let harness = common::tmpdir("load-moment-empty-registration");
+    write_sibling(&harness, "NOTES.md", THREE_LINES);
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![KindFactRow {
+                unit_shape: Some("file".to_string()),
+                ..common::kind_facts("notes", ".", "NOTES.md")
+            }],
+            clauses: vec![ClauseRow {
+                kind: Some("notes".to_string()),
+                values: Some(vec!["on-demand".to_string()]),
+                guard_predicate: Some("loads".to_string()),
+                body: Some(vec![ClauseRow {
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(1),
+                        entry: None,
+                    }),
+                    unit: Some("lines".to_string()),
+                    ..common::clause("extent", "advisory")
+                }]),
+                ..common::clause("when", "advisory")
+            }],
+            ..Declarations::default()
+        },
+    );
+    let (findings, ok) = check_harness(&harness);
+    assert!(
+        !ok,
+        "a kind registering nothing loads nothing: {findings:#?}"
+    );
+    assert!(refuses_contentless(&findings, "notes"), "{findings:#?}");
+}
+
+#[test]
+fn a_loads_guard_over_the_settings_kind_is_inadmissible() {
+    let (findings, ok) = guarded_kind_check("load-moment-contentless-settings", "settings");
+    assert!(!ok, "settings registers no channel: {findings:#?}");
+    assert!(refuses_contentless(&findings, "settings"), "{findings:#?}");
+}
+
+#[test]
+fn a_loads_guard_over_an_output_style_or_a_supporting_doc_is_admissible() {
+    let style = common::tmpdir("load-moment-admissible-style");
+    write_sibling(&style, ".claude/output-styles/terse.md", THREE_LINES);
+    style_guard_lock(&style, "launch");
+    let (findings, _) = check_harness(&style);
+    assert!(
+        !findings
+            .iter()
+            .any(|finding| finding.contains("channels carries")),
+        "{findings:#?}"
+    );
+
+    let doc = common::tmpdir("load-moment-admissible-supporting-doc");
+    write_skill_with_reference(&doc);
+    supporting_doc_guard_lock(&doc, "on-demand");
+    let (findings, _) = check_harness(&doc);
+    assert!(
+        !findings
+            .iter()
+            .any(|finding| finding.contains("channels carries")),
+        "{findings:#?}"
+    );
+}

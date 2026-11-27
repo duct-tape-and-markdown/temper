@@ -229,6 +229,43 @@ pub fn admissibility(contract: &Contract, locus: &Locus) -> Vec<Diagnostic> {
     diagnostics
 }
 
+/// The refusal of every top-level `when` guard over the member's load moment in
+/// `contract`, bound to `kind`, when `contentless` — none of the kind's registration
+/// channels carries a member's content into context, an empty registration included.
+/// A moment is read only from those channels, so such a guard could never bind its body:
+/// it would judge silently, and refuses rather than degrade to a no-op. Guards do not
+/// nest, so only top-level clauses can carry one.
+#[must_use]
+pub fn contentless_loads_guards(
+    contract: &Contract,
+    kind: &str,
+    contentless: bool,
+) -> Vec<Diagnostic> {
+    if !contentless {
+        return Vec::new();
+    }
+    contract
+        .clauses
+        .iter()
+        .filter(|clause| {
+            matches!(&clause.predicate, Predicate::When { guard, .. }
+                if matches!(guard.as_ref(), Predicate::Loads { .. }))
+        })
+        .map(|clause| {
+            Diagnostic::error(
+                &clause.label,
+                &contract.name,
+                format!(
+                    "`when` guard `loads` reads the member's load moment off its kind's \
+                     registration channels, and none of kind `{kind}`'s channels carries a \
+                     member's content into context, so the guard would decide nothing; a \
+                     `loads` guard binds only over a kind whose members load"
+                ),
+            )
+        })
+        .collect()
+}
+
 /// Where a clause's selected members live — the one thing beyond the predicate a
 /// vacuity rule reads.
 ///

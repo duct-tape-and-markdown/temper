@@ -31,6 +31,10 @@ struct Members<'a> {
     load_moments: &'a engine::LoadMoments,
     /// The ids of the members whose frontmatter the kind's leniency forgave.
     forgiven: &'a BTreeSet<String>,
+    /// The kind's registration channels, for an at-locus kind — the facts a `loads`
+    /// guard's moment is read from. [`None`] for an embedded kind, whose members load
+    /// with their host and whose `loads` guard the locus already refuses.
+    channels: Option<&'a [kind::Registration]>,
 }
 
 /// Dispatch a single kind through the shared "two-greens" contract validation:
@@ -83,6 +87,13 @@ fn two_greens_dispatch(
     // member is judged by them and its own together, so `closed-keys` admits both
     // contracts' declared keys.
     diagnostics.extend(engine::admissibility(&contract, locus));
+    if let Some(channels) = members.channels {
+        diagnostics.extend(engine::contentless_loads_guards(
+            &contract,
+            kind,
+            !channels.iter().any(carries_content),
+        ));
+    }
     // A peer clause decides over the kind's whole by-kind selection, which only exists
     // once every dispatcher has run: `engine::judge_members` judges it there, so an
     // inherited one is withheld here with the kind's own, `when`-nested ones included.
@@ -376,8 +387,8 @@ pub(crate) fn selections<'k>(
 /// launch**. A
 /// [`Selected`](kind::Registration::Selected) member loads at launch where a committed
 /// edge under its field selects it, and has no moment the tree can show where none does.
-/// [`None`] for a channel whose member's content never enters context (event, connected,
-/// enabled, registered).
+/// [`None`] for a channel whose member's content never enters context
+/// ([`carries_content`]).
 pub(crate) fn channel_load_moment(
     channel: &kind::Registration,
     channels: &[kind::Registration],
@@ -385,6 +396,9 @@ pub(crate) fn channel_load_moment(
     placement: Placement<'_>,
 ) -> Option<contract::LoadMoment> {
     use contract::LoadMoment::{Launch, OnDemand};
+    if !carries_content(channel) {
+        return None;
+    }
     let beneath_a_subdirectory = placement.home.is_some_and(|home| !home.is_empty());
     let on_demand = match channel {
         kind::Registration::Always => matches!(
@@ -409,9 +423,27 @@ pub(crate) fn channel_load_moment(
         kind::Registration::Selected { field } => {
             return placement.selected_by.contains(field).then_some(Launch);
         }
-        _ => return None,
+        kind::Registration::Event { .. }
+        | kind::Registration::Connection
+        | kind::Registration::Enablement { .. }
+        | kind::Registration::Registry => unreachable!("refused by `carries_content` above"),
     };
     Some(if on_demand { OnDemand } else { Launch })
+}
+
+/// Whether `channel` carries its member's own content into context — the one test behind
+/// both [`channel_load_moment`]'s [`None`] and the refusal of a `loads` guard over a kind
+/// none of whose channels does. An event's handler executes, a connected server, an
+/// enabled plugin and a registered marketplace reach the world, and none of them enters
+/// context as content; every other channel loads its member at some moment.
+pub(crate) fn carries_content(channel: &kind::Registration) -> bool {
+    !matches!(
+        channel,
+        kind::Registration::Event { .. }
+            | kind::Registration::Connection
+            | kind::Registration::Enablement { .. }
+            | kind::Registration::Registry
+    )
 }
 
 /// A member's [load moment](contract::LoadMoment) over every channel its kind
@@ -705,6 +737,7 @@ pub fn gate(
                 field_defaults: &kind.field_defaults,
                 load_moments: &moments,
                 forgiven: &forgiven,
+                channels: Some(&kind.registration),
             },
             (!skip_dial).then_some(&dial),
             &modes,
@@ -804,6 +837,7 @@ pub fn gate(
                 field_defaults: &custom_kind.field_defaults,
                 load_moments: &moments,
                 forgiven: &forgiven,
+                channels: Some(&custom_kind.registration),
             },
             Some(&dial),
             &modes,
@@ -945,6 +979,7 @@ pub fn gate(
                     .map_or(&engine::FieldDefaults::new(), |kind| &kind.field_defaults),
                 load_moments: &engine::LoadMoments::new(),
                 forgiven: &BTreeSet::new(),
+                channels: None,
             },
             Some(&dial),
             &modes,
