@@ -1,0 +1,22 @@
+{
+  "tag": "LOCK-READS-SNAKE-CASE-PREDICATE-SPELLINGS",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/contract.rs", "description": "the clause row's predicate decode normalizes a pre-kebab (snake_case) predicate spelling to its current name at read time" },
+      { "path": "tests/it/lock_declaration_rows.rs", "description": "the read test over a lock carrying a snake_case predicate" }
+    ]
+  },
+  "summary": "A committed lock naming a predicate in its pre-kebab spelling (`min_len`) reads as that predicate, never a load fault",
+  "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+  "acceptance": "Per \"An upgraded engine owes a committed lock a robust read\": a lock whose clause rows spell a predicate in snake_case reads and gates as the kebab-case predicate; the next emit rewrites it canonical. A predicate this engine never named still refuses loud.",
+  "tests": [
+    "a lock naming a predicate in its snake case spelling reads as the kebab case predicate"
+  ],
+  "pins": [
+    "a lock this engine cannot read is reported as written by another engine",
+    "a load fault over another engines lock names both versions and the remedy",
+    "a lock carrying the retired max lines predicate refuses at load"
+  ],
+  "notes": "Inbox 2026-11-27-old-lock-predicate-rename-load-fault: the v0.0.25 example lock says `min_len`. A renamed spelling normalizes; a retired predicate (max_lines) keeps refusing. Whether the clause id's predicate segment also normalizes before the re-emit is build's call; say which in the body."
+}
