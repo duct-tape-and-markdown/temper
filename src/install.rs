@@ -154,9 +154,9 @@ fn sdk_dev_dependency_range(package: &str) -> String {
 /// wired command.
 ///
 /// Guarded by a PATH-resolvability check: if `temper` is not found on PATH,
-/// exits non-zero with a clear error message naming the missing binary, per the
+/// exits 2, the blocking exit, naming the missing binary and how to install temper, per the
 /// fail-loud invariant.
-pub const SESSION_START_COMMAND: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start";
+pub const SESSION_START_COMMAND: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && temper check . --reporter session-start";
 
 /// The placement kind and its display labels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -215,11 +215,11 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 /// ([`crate::reporter::HookEvent`]).
 ///
 /// Guarded by a PATH-resolvability check: if `temper` is not found on PATH,
-/// exits non-zero with a clear error message naming the missing binary, per the
+/// exits 2, the blocking exit, naming the missing binary and how to install temper, per the
 /// fail-loud invariant.
 ///
 /// Public so the guard-hook acceptance can drive the exact wired command.
-pub const GUARD_COMMAND: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
+pub const GUARD_COMMAND: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && temper guard .";
 
 /// The temper package's bin: the name an unrepresented harness's gate hook resolves on the
 /// PATH, and the bin a represented gate hook declaring no tool runs from the program's
@@ -276,22 +276,31 @@ fn shell_word(word: &str) -> std::borrow::Cow<'_, str> {
 /// 2026-11-25.)
 const PROJECT_ANCHOR: &str = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; ";
 
+/// How the missing-binary refusal tells the reader to install temper. Free of `"`, `$`,
+/// `` ` `` and `\\`, so it reads verbatim inside the refusal's double-quoted echo.
+const INSTALL_HINT: &str = "; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness";
+
 /// The exec-form command a gate hook firing `verb` runs with `binary` as temper: the
 /// project anchor ([`PROJECT_ANCHOR`]), the resolvability probe (`command -v`, so a bare name resolves on the PATH and a path
-/// resolves as itself), the fail-loud exit 127 naming the binary it could not find, then
+/// resolves as itself), the fail-loud exit 2 naming the binary it could not find and how to
+/// install temper ([`INSTALL_HINT`]), then
 /// the verb. The engine's one home for rendering a gate command (0073): at
 /// [`DEFAULT_GATE_BINARY`] it is today's [`SESSION_START_COMMAND`] / [`GUARD_COMMAND`]
 /// byte for byte.
+///
+/// Exit 2 because Claude Code blocks on it alone; every other non-zero exit, a shell's 127
+/// included, is a non-blocking error that lets the action through
+/// (`code.claude.com/docs/en/hooks`, "Exit code output", retrieved 2026-11-27).
 fn render_gate_command(verb: GateVerb, binary: &str) -> String {
     let word = shell_word(binary);
     let missing = match &word {
-        std::borrow::Cow::Borrowed(_) => format!("\"{binary}: command not found\""),
+        std::borrow::Cow::Borrowed(_) => format!("\"{binary}: command not found{INSTALL_HINT}\""),
         std::borrow::Cow::Owned(_) => {
-            shell_word(&format!("{binary}: command not found")).into_owned()
+            shell_word(&format!("{binary}: command not found{INSTALL_HINT}")).into_owned()
         }
     };
     format!(
-        "{PROJECT_ANCHOR}command -v {word} >/dev/null 2>&1 || {{ echo {missing} >&2; exit 127; }} && {word} {}",
+        "{PROJECT_ANCHOR}command -v {word} >/dev/null 2>&1 || {{ echo {missing} >&2; exit 2; }} && {word} {}",
         verb.args()
     )
 }
@@ -4905,7 +4914,7 @@ mod tests {
         for other in [
             "temper guard .",
             "command -v temper && temper guard .",
-            "command -v  >/dev/null 2>&1 || { echo \": command not found\" >&2; exit 127; } &&  guard .",
+            "command -v  >/dev/null 2>&1 || { echo \": command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } &&  guard .",
             "cargo fmt --quiet",
             "",
         ] {

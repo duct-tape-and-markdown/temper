@@ -254,6 +254,60 @@ fn a_rendered_gate_command_with_the_project_dir_unset_runs_where_it_is_invoked()
     }
 }
 
+/// Every command a gate or tap hook renders, at a binary no shell can find — a bare name
+/// off an empty PATH, a relative path and a quoted path absent from the tree — each run
+/// through `sh -c` as Claude Code runs a hook; yields the command and its output.
+#[cfg(unix)]
+fn rendered_commands_with_the_binary_absent(label: &str) -> Vec<(String, std::process::Output)> {
+    let root = tempfile::Builder::new().prefix(label).tempdir().unwrap();
+    let mut commands = Vec::new();
+    for binary in ["temper", "./bin/temper", "/nowhere/my tools/it's temper"] {
+        for (event, _) in GATE_EVENTS {
+            commands.push(install::gate_hook_command(event, binary).unwrap());
+        }
+        commands.push(install::tap_hook_command(binary));
+    }
+    commands
+        .into_iter()
+        .map(|command| {
+            let output = Command::new("/bin/sh")
+                .arg("-c")
+                .arg(&command)
+                .current_dir(root.path())
+                .env_clear()
+                .env("CLAUDE_PROJECT_DIR", root.path())
+                .stdin(std::process::Stdio::null())
+                .output()
+                .unwrap();
+            (command, output)
+        })
+        .collect()
+}
+
+#[cfg(unix)]
+#[test]
+fn a_rendered_gate_command_whose_binary_cannot_be_found_exits_2() {
+    for (command, output) in rendered_commands_with_the_binary_absent("gate-absent-exit") {
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "exit 2 is the blocking exit: {command}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_rendered_gate_command_whose_binary_cannot_be_found_names_how_to_install_temper_on_stderr() {
+    for (command, output) in rendered_commands_with_the_binary_absent("gate-absent-hint") {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("command not found; install temper with npm install -g @dtmd/temper"),
+            "{command}: {stderr}"
+        );
+    }
+}
+
 #[test]
 fn a_gate_command_in_the_unanchored_form_reads_as_no_rendered_gate() {
     // A settings document wiring temper's session-start command in the spelling from
@@ -316,7 +370,7 @@ fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
     assert_eq!(
         gate_hook_command("PreToolUse", "./node_modules/.bin/temper").as_deref(),
         Some(
-            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper guard ."
+            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./node_modules/.bin/temper guard ."
         )
     );
 
@@ -324,7 +378,7 @@ fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
     assert_eq!(
         gate_hook_command("SessionStart", "/opt/my tools/it's/temper").as_deref(),
         Some(
-            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v '/opt/my tools/it'\\''s/temper' >/dev/null 2>&1 || { echo '/opt/my tools/it'\\''s/temper: command not found' >&2; exit 127; } && '/opt/my tools/it'\\''s/temper' check . --reporter session-start"
+            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v '/opt/my tools/it'\\''s/temper' >/dev/null 2>&1 || { echo '/opt/my tools/it'\\''s/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness' >&2; exit 2; } && '/opt/my tools/it'\\''s/temper' check . --reporter session-start"
         )
     );
 
