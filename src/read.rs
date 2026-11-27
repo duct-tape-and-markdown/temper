@@ -2929,8 +2929,8 @@ fn narrate_gate(state: &AbsenceGateState) -> String {
 /// Propagates filesystem and corpus-assembly errors.
 pub fn explain_target(harness_root: &Path, target: &str) -> miette::Result<String> {
     let workspace = harness_root.join(crate::WORKSPACE_DIR);
-    // One ignore-honoring walk per flavor, shared across every kind and nested host this
-    // read discovers ([`crate::import::Discovery`]).
+    // The read's one tree index owner, shared by every kind and nested host it discovers
+    // ([`crate::import::Discovery`]).
     let discovery = crate::import::Discovery::new(harness_root);
 
     // The assembly's own declared facts, read first: the corpus below walks each

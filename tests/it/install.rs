@@ -5721,10 +5721,11 @@ fn the_guard_names_an_undeclared_nested_layout_child_at_the_post_edge() {
     );
 
     fs::write(harness.join(NESTED_STRAY), NESTED_SPEC_DOC).unwrap();
-    let before = temper::import::walk_count();
+    let before = temper::import::index_pass_count();
     let doc = drift::read_lock_document(&harness.join(".temper")).unwrap();
     let declarations = drift::read_declarations(&harness.join(".temper")).unwrap();
     let report = install::shell_edge_findings(
+        &temper::import::Discovery::new(&harness),
         &harness.join(".temper"),
         &doc,
         &declarations,
@@ -5735,11 +5736,10 @@ fn the_guard_names_an_undeclared_nested_layout_child_at_the_post_edge() {
     .message;
     assert!(!report.is_empty(), "the undeclared child reports");
     assert!(report.contains(NESTED_STRAY), "got: {report}");
-    let walks = temper::import::walk_count() - before;
-    assert!(
-        walks <= 2,
-        "the hosts are read through one discovery walk per flavor per call, never one per \
-         kind or host, got: {walks}"
+    let passes = temper::import::index_pass_count() - before;
+    assert_eq!(
+        passes, 1,
+        "the hosts are read through one tree index per call, never one per kind or host"
     );
 
     let (code, output) = common::run_guard(&harness, SHELL_CALL_PAYLOAD);
@@ -5771,6 +5771,23 @@ fn the_guard_names_an_undeclared_nested_layout_child_at_the_pre_edge() {
     assert_eq!(code, Some(0), "warn allows the write, got: {output}");
     let in_band = common::guard_in_band(&output, "PreToolUse");
     assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, NESTED_STRAY);
+
+    // The pending-write edge places the hosted child over the verb's one tree index.
+    let payload: serde_json::Value =
+        serde_json::from_str(&common::guard_write_payload(NESTED_STRAY)).unwrap();
+    let before = temper::import::index_pass_count();
+    let (edge, decision) = install::run_guard(&harness, &payload).unwrap();
+    let passes = temper::import::index_pass_count() - before;
+    assert_eq!(edge, install::GuardEdge::PreToolUse);
+    assert!(
+        decision.message.contains(NESTED_STRAY),
+        "got: {}",
+        decision.message
+    );
+    assert_eq!(
+        passes, 1,
+        "the pending-write edge passes the tree once, never once per hosted kind or host"
+    );
 }
 
 #[test]

@@ -561,11 +561,9 @@ pub fn gate(
     // before the family assembles, so every overlay and partition below reads the
     // embedded built-in, and reported beside the `engine-matches` finding.
     let (committed, stale_builtin_rows) = compose::committed_declarations_from_doc(&lock_doc)?;
-    // One ignore-honoring walk per flavor, shared across every kind and nested host this
-    // gate discovers ([`import::Discovery`]) — the session-open `check` walks the
-    // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost. This one
-    // cache is threaded through every discovery call below; a run walks each consulted
-    // flavor exactly once, pinned at run granularity by [`import::walk_count`].
+    // The run's one owner of the fenced tree index ([`import::Discovery`]), threaded
+    // through every discovery call and the stray scan below; pinned at run granularity
+    // by [`import::index_pass_count`].
     let discovery = import::Discovery::new(harness_root);
     // The dial's softening is inert under `block`, so the modes are resolved before any
     // contract is, and off the same declarations the family assembles from — a run whose
@@ -1445,7 +1443,7 @@ pub fn gate(
             .map(|input| crate::path::normalize_path(&harness_root.join(&*input.source_path))),
     );
     diagnostics.extend(coverage_note::check(
-        harness_root,
+        &discovery,
         &declared_kinds,
         &member_counts,
         &nested_member_counts,

@@ -8,11 +8,11 @@
 //! consumer's whole tree per kind — is timed over it so the numbers, not a guess, name
 //! where the residual concentrates; the timings print (a manual signal a human reads) and
 //! the test asserts the work-count pins the cuts earn — decided by counts, independent of
-//! tree size: the shared walk runs once per flavor, the directive backing set's
+//! tree size: the shared tree index is built once per run, the directive backing set's
 //! whole-tree walk runs once per run, glob compilation is hoisted per distinct glob
 //! rather than per candidate file, the per-kind glob scan reads its members from
-//! that one walk's index, opening no directory of its own, and the guard's shell edge
-//! walks once per declared locus root, never the whole tree.
+//! that one index, opening no directory of its own, and the guard's shell edge reads
+//! the same one index whatever its locus count.
 
 use crate::common;
 
@@ -153,14 +153,14 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
         "the cost fixture must reach consumer scale; got {file_count} files",
     );
 
-    // Phase 1 — the shared ignore-honoring tree walk, once per flavor (`import::Discovery`).
+    // Phase 1 — the shared fenced tree index, built once (`import::Discovery`).
     let disc = Discovery::new(&harness);
-    let walks_before = import::walk_count();
+    let walks_before = import::index_pass_count();
     let compiles_before = glob::glob_compile_count();
     let walk_start = Instant::now();
     let discovered = discover_all(&disc, &harness);
     let discover_ms = walk_start.elapsed().as_millis();
-    let walks = import::walk_count() - walks_before;
+    let walks = import::index_pass_count() - walks_before;
     let compiles = glob::glob_compile_count() - compiles_before;
 
     // Phase 2 — read + hash every discovered member (the read-side phase).
@@ -177,7 +177,7 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
     // commit body), never an asserted wall-clock bar.
     eprintln!("check-cost diagnosis over {file_count} files (build {build_ms} ms):");
     eprintln!(
-        "  phase 1  discovery walk + per-kind scan : {discover_ms:>6} ms  ({walks} flavor walks, {compiles} glob compiles)"
+        "  phase 1  discovery walk + per-kind scan : {discover_ms:>6} ms  ({walks} index passes, {compiles} glob compiles)"
     );
     eprintln!("  phase 2  read + hash {read_files:>6} members    : {read_ms:>6} ms");
 
@@ -195,11 +195,11 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
          {compiles} compiles over {file_count} files (expected a small constant)",
     );
 
-    // The shared walk is pinned at run granularity elsewhere; assert it here too so the
-    // discovery phase's whole-tree walk is one-per-flavor at consumer scale.
-    assert!(
-        walks <= 2,
-        "discovery must walk each flavor at most once, not per kind: {walks} walks",
+    // The shared index is pinned at run granularity elsewhere; assert it here too so the
+    // discovery phase passes the tree once at consumer scale, local kinds included.
+    assert_eq!(
+        walks, 1,
+        "discovery must pass the tree once, not per kind or flavor: {walks} passes",
     );
 }
 
@@ -617,7 +617,7 @@ fn coverage_note_scans_over_the_runs_effective_kind_set() {
     let member_counts = BTreeMap::from([("skill".to_string(), 1usize)]);
     let check = |kinds: &BTreeMap<String, temper::kind::CustomKind>| {
         coverage_note::check(
-            &harness,
+            &import::Discovery::new(&harness),
             kinds,
             &member_counts,
             &BTreeMap::new(),
@@ -1101,18 +1101,14 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
 }
 
 /// The run-level count-pin (`engineering.md`, "Cost scale is hoisted, and pinned by
-/// count"): a whole check run walks each consulted discovery flavor exactly once. The
-/// cache-level pin in `import.rs` proves N kind discoveries over one shared cache cost
-/// one walk per flavor; this pins that the *run* actually rides a single shared cache.
-/// `gate` threads one `Discovery` through every discovery call, so over the run the
-/// global walk count advances by exactly the flavors consulted — a code path that
-/// built a second `Discovery` mid-run would walk off its own cache and overshoot. The
-/// run consults both flavors: committed kinds (skill, rule, …) ride the standard
-/// flavor, the local-locus kinds (settings-local, dial) ride the local one — two
-/// flavors, two walks, never a third. The walk count is per-thread, so the delta is
-/// this run's alone whatever else runs concurrently.
+/// count"): a whole check run passes the tree once. Every walk riding the shared ignore
+/// policy is counted — discovery's committed and local-locus scans, the nested-file host
+/// scan and the `.claude/` stray scan alike — so a reader that walked the tree on its own,
+/// or a second index built mid-run, overshoots. The built-in set carries local-locus kinds
+/// (`settings-local`, `memory-local`, `dial`), so the run reaches their documents too. The
+/// count is per-thread, so the delta is this run's alone whatever else runs concurrently.
 #[test]
-fn a_full_check_run_walks_each_consulted_flavor_once() {
+fn check_builds_one_tree_index_per_run() {
     use temper::gate;
 
     let harness = tmpdir("run-walk-pin");
@@ -1129,14 +1125,34 @@ fn a_full_check_run_walks_each_consulted_flavor_once() {
 
     // The raw-harness gate: workspace and harness root are the one path, exactly as
     // `harness_diagnostics` dispatches a bare harness.
-    let before = import::walk_count();
-    gate::gate(&harness, &harness, &[]).unwrap();
-    let walks = import::walk_count() - before;
+    // A gitignored local memory file: the local-locus kind reaches it off the one index.
+    std::fs::write(harness.join(".gitignore"), "CLAUDE.local.md\n").unwrap();
+    std::fs::write(harness.join("CLAUDE.local.md"), "# Mine\n").unwrap();
+    // A stray under `.claude/`, so the stray scan reads the tree.
+    std::fs::create_dir_all(harness.join(".claude").join("scratch")).unwrap();
+    std::fs::write(harness.join(".claude").join("scratch").join("x.md"), "x\n").unwrap();
 
+    let before = import::index_pass_count();
+    let (diagnostics, _) = gate::gate(&harness, &harness, &[]).unwrap();
+    let passes = import::index_pass_count() - before;
+
+    // Non-vacuity: the run saw the stray and the ignored local member.
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.rule == "coverage.unclaimed-entry" && d.artifact == ".claude/scratch"),
+        "the stray scan must name the stray, got: {diagnostics:?}",
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.message.contains("memory-local")),
+        "the checked summary must count the ignored local memory member, got: {diagnostics:?}",
+    );
     assert_eq!(
-        walks, 2,
-        "a whole run must walk each consulted flavor exactly once — one shared cache \
-         threaded through the run, never a per-kind or per-call re-walk",
+        passes, 1,
+        "a whole check run must pass the tree once — one index threaded through the run, \
+         never a per-kind, per-flavor or per-reader re-walk",
     );
 }
 
@@ -1580,22 +1596,21 @@ fn gate_reachability_closure_runs_once_per_invocation_and_only_when_a_root_claus
 }
 
 /// The per-tool-call count-pin for the **guard's shell edge** (`engineering.md`, "Cost
-/// scale is hoisted, and pinned by count"): `install::locus_member_sites` walks once per
-/// declared locus root, and a `PostToolUse` call pays that cost on every tool call a
-/// session makes — the hottest path any pin in this file covers. Two declared roots, so
-/// the delta is exactly 2: a re-walk per candidate file or per glob overshoots, and a
-/// widening to one `.`-rooted whole-tree walk undershoots at 1, so the count catches the
-/// regression in both directions. The count is per-thread and the walk single-threaded on
-/// its caller's thread, so the delta is this call's alone whatever else runs concurrently.
+/// scale is hoisted, and pinned by count"): a `PostToolUse` call pays its cost on every
+/// tool call a session makes — the hottest path any pin in this file covers. The verb
+/// binds every built-in file locus plus a hosted layout kind, and each reader — the file
+/// loci, the layout loci and the hosted kind's host scan — reads the verb's one index, so
+/// the call passes the tree once whatever its locus count: a walk per locus overshoots.
+/// The count is per-thread, so the delta is this call's alone.
 #[test]
-fn a_guard_shell_edge_walks_each_declared_locus_root_once() {
-    use temper::drift::{self, Declarations};
-    use temper::install::{self, GuardedLocus};
+fn guard_at_the_shell_edge_builds_one_tree_index_per_run_whatever_its_locus_count() {
+    use temper::drift::{self, Declarations, KindFactRow};
+    use temper::install;
 
-    let harness = tmpdir("guard-locus-walk-pin");
+    let harness = tmpdir("guard-locus-index-pin");
 
-    // A document at each governed locus root, neither of them declared by the lock below
-    // — the stray the locus half of `locus-declared` exists to name.
+    // A document at two governed loci, neither declared by the lock below — the strays the
+    // locus half of `locus-declared` exists to name — and an undeclared hosted child.
     let skill = harness.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(
@@ -1606,63 +1621,65 @@ fn a_guard_shell_edge_walks_each_declared_locus_root_once() {
     let rules = harness.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
+    let unit = harness.join("docs").join("guides").join("operate");
+    fs::create_dir_all(&unit).unwrap();
+    fs::write(unit.join("GUIDE.md"), "# Operate\n").unwrap();
+    fs::write(unit.join("stray.md"), "# Intent\nNobody declared me.\n").unwrap();
 
-    // A represented harness whose root contract binds `locus-declared` and nothing else:
-    // rows-or-default reads these rows, so the locus half opts in and the projection half
-    // stays silent. The lock declares no provenance row, so every site below is a stray.
+    // A represented harness whose root contract binds `locus-declared` and nothing else.
+    // The lock declares no provenance row, so every site is a stray.
     common::write_lock(
         &harness,
         Declarations {
             clauses: vec![common::clause("locus-declared", "required")],
+            kinds: vec![
+                KindFactRow {
+                    unit_shape: Some("directory".to_string()),
+                    templates: vec![drift::TemplateRow {
+                        kind: "spec".to_string(),
+                        path: Some("*.md".to_string()),
+                    }],
+                    ..common::kind_facts("guide", "docs/guides", "*/GUIDE.md")
+                },
+                KindFactRow {
+                    locus_root: None,
+                    locus_glob: Vec::new(),
+                    unit_shape: Some("file".to_string()),
+                    content: Some(drift::LayoutRow {
+                        regions: vec![common::field_region("intent")],
+                    }),
+                    ..common::kind_facts("spec", "", "")
+                },
+            ],
             ..Declarations::default()
         },
     );
-    let workspace = harness.join(".temper");
-    let declarations = drift::read_declarations(&workspace).unwrap();
+    let payload: serde_json::Value = serde_json::from_str(
+        r#"{"session_id":"s","hook_event_name":"PostToolUse","tool_name":"Bash",
+            "tool_input":{"command":"true"},
+            "tool_response":{"stdout":"","stderr":"","interrupted":false}}"#,
+    )
+    .unwrap();
 
-    // The two loci `guarded_loci` would assemble for these kinds — distinct roots, the
-    // quantity the walk count is pinned against.
-    let loci = vec![
-        GuardedLocus {
-            kind: "rule".to_string(),
-            root: ".claude/rules".to_string(),
-            pattern: ".claude/rules/*.md".to_string(),
-            custom: false,
-        },
-        GuardedLocus {
-            kind: "skill".to_string(),
-            root: ".claude/skills".to_string(),
-            pattern: ".claude/skills/*/SKILL.md".to_string(),
-            custom: false,
-        },
-    ];
-
-    let before = install::locus_member_site_walk_count();
-    let modes = temper::compose::modes_from_declarations(&declarations).unwrap();
-    let doc = drift::read_lock_document(&workspace).unwrap();
-    let report =
-        install::shell_edge_findings(&workspace, &doc, &declarations, &loci, &modes).unwrap();
-    let walks = install::locus_member_site_walk_count() - before;
+    let before = import::index_pass_count();
+    let (edge, decision) = install::run_guard(&harness, &payload).unwrap();
+    let passes = import::index_pass_count() - before;
 
     // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a call whose
-    // walk found nothing would pin its cost over an empty subject, so the report must name
-    // the stray under each root before the count is asserted.
-    assert_ne!(
-        report.verdict,
-        install::GuardVerdict::Allow,
-        "two undeclared documents at governed loci must report"
-    );
-    let report = report.message;
+    // index found nothing would pin its cost over an empty subject, so the report must
+    // name the stray under each locus before the count is asserted.
+    assert_eq!(edge, install::GuardEdge::PostToolUse);
+    let report = decision.message;
     assert!(
         report.contains(".claude/rules/rust.md")
-            && report.contains(".claude/skills/coordinate/SKILL.md"),
-        "the shell edge must name the stray under each declared locus root, got: {report}",
+            && report.contains(".claude/skills/coordinate/SKILL.md")
+            && report.contains("stray"),
+        "the shell edge must name the stray under each locus, got: {report}",
     );
-
     assert_eq!(
-        walks, 2,
-        "a shell-edge call must walk exactly once per declared locus root — a per-file or \
-         per-glob re-walk overshoots, and a widened whole-tree walk undershoots",
+        passes, 1,
+        "a shell-edge call must pass the tree once whatever its locus count — a walk per \
+         locus or per reader overshoots",
     );
 }
 
@@ -2080,5 +2097,36 @@ fn explain_parses_the_lock_once() {
     assert_eq!(
         parses, 1,
         "explain holds one parsed lock across every strand it narrates: {parses} parses",
+    );
+}
+
+#[test]
+fn explain_builds_one_tree_index_per_run() {
+    let harness = tmpdir("explain-index-pass");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: coordinate\ndescription: Drive a task across a team of agents.\n---\n# Coordinate\n",
+    )
+    .unwrap();
+    fs::create_dir_all(harness.join(".claude").join("rules")).unwrap();
+    fs::write(
+        harness.join(".claude").join("rules").join("rust.md"),
+        "# Rust\n",
+    )
+    .unwrap();
+
+    let before = import::index_pass_count();
+    let narration = temper::read::explain_target(&harness, "skill:coordinate").unwrap();
+    let passes = import::index_pass_count() - before;
+
+    assert!(
+        narration.contains("coordinate"),
+        "explain must narrate the member it was asked about, got: {narration}",
+    );
+    assert_eq!(
+        passes, 1,
+        "explain reads every kind's locus off one tree index: {passes} passes",
     );
 }

@@ -2331,7 +2331,7 @@ fn a_rule_under_a_subdirectorys_own_claude_rules_directory_is_a_nested_rule_memb
         assert_eq!(
             temper::compose::governed_member_address(
                 &kind,
-                &root,
+                &temper::import::Discovery::new(&root),
                 &root.join(location),
                 temper::compose::SiteIdentity::OnDisk,
             )

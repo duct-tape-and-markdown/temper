@@ -1590,7 +1590,7 @@ pub enum SiteIdentity<'a> {
 }
 
 /// The member address `check`'s `governs` scan gives the top-level `kind` document at
-/// `file` under `harness_root` — `<kind>:<id>`, its id folded against the
+/// `file` under the harness `disc` owns — `<kind>:<id>`, its id folded against the
 /// fold base (`governed_fold_base`) the scan folds against — for a reader that holds one site
 /// rather than the whole walk (`temper guard`'s layout half of `locus-declared`).
 ///
@@ -1601,13 +1601,12 @@ pub enum SiteIdentity<'a> {
 #[must_use]
 pub fn governed_member_address(
     kind: &CustomKind,
-    harness_root: &Path,
+    disc: &import::Discovery,
     file: &Path,
     identity: SiteIdentity<'_>,
 ) -> Option<String> {
     let governs = kind.governs.as_ref()?;
-    let disc = import::Discovery::new(harness_root);
-    let base = governed_fold_base(&disc, governs, file);
+    let base = governed_fold_base(disc, governs, file);
     let id = site_id(kind, file, &base, identity)?;
     Some(member_address::address_of(&kind.name, &id))
 }

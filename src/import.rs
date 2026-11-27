@@ -29,26 +29,20 @@ pub enum LocalOverride {
     Withheld,
 }
 
-/// A run's shared discovery cache over one harness. The ignore-honoring walk
-/// ([`discoverable_paths`]) is a pure function of the harness and the `local_governs`
-/// flavor, and only two flavors exist, so it is walked at most once per flavor here and
-/// reused across every kind and nested-file host a run discovers. Without it a run
-/// re-walks the consumer's whole tree per kind and twice per nested-file host — the
-/// dominant cost at consumer scale. The harness disk is stable across a run, so the
-/// memoized set is the same one a re-walk would produce.
+/// A run's one owner of the harness tree: the fenced file index every discovery reader
+/// shares, built by one ignore-honoring walk on first use ([`tree_index`]) and read by
+/// every kind's locus scan, every nested-file host, the `.claude/` stray scan and the
+/// guard's locus enumeration. The harness disk is stable across a run, so the memoized
+/// index is the one a re-walk would produce.
 ///
-/// Similarly, the claimed-path set a declared kind's own `governs` locus claims is a
-/// pure function of the kind set and the `local_governs` preference, computed once
-/// per run and cached here to avoid recomputation across every nested-file kind's
-/// discovery pass.
+/// A local-locus kind's scan reads the same index, reaching the ignored documents its own
+/// locus names off it ([`Reach`]) rather than re-walking the tree with the rules waived.
+///
+/// The claimed-path set a declared kind's own `governs` locus claims is a pure function of
+/// the kind set and the override, computed once per run and cached here too.
 pub struct Discovery<'a> {
     harness: &'a Path,
-    /// The `local_governs = true` flavor: a local-locus kind's own walk, with the ignore
-    /// rules and the workspace skip waived.
-    local: OnceCell<Discoverable>,
-    /// The `local_governs = false` flavor: every committed kind's walk, both presumptions
-    /// standing.
-    standard: OnceCell<Discoverable>,
+    index: OnceCell<Discoverable>,
     /// The claimed paths for the `LocalOverride::Honored` flavor.
     claimed_honored: OnceCell<BTreeSet<PathBuf>>,
     /// The claimed paths for the `LocalOverride::Withheld` flavor.
@@ -56,13 +50,12 @@ pub struct Discovery<'a> {
 }
 
 impl<'a> Discovery<'a> {
-    /// A fresh cache over `harness` — no walk runs until a flavor is first consulted.
+    /// A fresh owner over `harness` — no walk runs until the index is first consulted.
     #[must_use]
     pub fn new(harness: &'a Path) -> Self {
         Self {
             harness,
-            local: OnceCell::new(),
-            standard: OnceCell::new(),
+            index: OnceCell::new(),
             claimed_honored: OnceCell::new(),
             claimed_withheld: OnceCell::new(),
         }
@@ -88,7 +81,7 @@ impl<'a> Discovery<'a> {
     /// leaving it to [`scan_locus`] — and now all three read it here. This is the only
     /// normalize on the way into [`scan_locus`], whose other root — a host unit's
     /// directory — is derived from this one ([`unit_dir`]) or from the normalized index
-    /// ([`discoverable_paths`]).
+    /// ([`tree_index`]).
     ///
     /// `pub(crate)` because the only consumers are in-crate — this module and `compose`;
     /// the walk the root feeds is not itself public surface.
@@ -97,15 +90,46 @@ impl<'a> Discovery<'a> {
         crate::path::normalize_path(&self.harness().join(&governs.root))
     }
 
-    /// The discoverable tree for the `local_governs` flavor, walking it on first use
-    /// and returning the memoized index thereafter.
-    fn discoverable(&self, local_governs: bool) -> &Discoverable {
-        let cell = if local_governs {
-            &self.local
-        } else {
-            &self.standard
-        };
-        cell.get_or_init(|| discoverable_paths(self.harness, local_governs))
+    /// The fenced tree index, walked on first use and memoized thereafter.
+    fn index(&self) -> &Discoverable {
+        self.index.get_or_init(|| tree_index(self.harness))
+    }
+
+    /// How a scan in the `local_governs` flavor reads the tree: off the index alone, or
+    /// off the index plus the ignored documents a local locus names.
+    fn reach(&self, local_governs: bool) -> Reach<'_> {
+        Reach {
+            index: self.index(),
+            harness: self.harness,
+            local: local_governs,
+        }
+    }
+
+    /// The index's direct children of the normalized `dir`, each with whether it is a
+    /// directory, in name order — empty where the index holds nothing under `dir` (an
+    /// absent, ignored or fenced directory).
+    pub(crate) fn tree_children(&self, dir: &Path) -> impl Iterator<Item = (&Path, bool)> {
+        self.index()
+            .children(dir)
+            .iter()
+            .map(|child| (child.path.as_path(), child.is_dir))
+    }
+
+    /// Every file the index holds below the normalized `dir`, depth first in name order
+    /// within each directory.
+    pub(crate) fn tree_files_under(&self, dir: &Path) -> Vec<PathBuf> {
+        fn descend(index: &Discoverable, dir: &Path, out: &mut Vec<PathBuf>) {
+            for child in index.children(dir) {
+                if child.is_dir {
+                    descend(index, &child.path, out);
+                } else {
+                    out.push(child.path.clone());
+                }
+            }
+        }
+        let mut files = Vec::new();
+        descend(self.index(), dir, &mut files);
+        files
     }
 
     /// The claimed-path set a declared kind's own `governs` locus claims, for the given
@@ -131,32 +155,27 @@ impl<'a> Discovery<'a> {
         })
     }
 
-    /// How many of the two flavors have actually been walked — the single-walk-per-flavor
-    /// property a shared-cache test asserts against (`<= 2`, one per flavor consulted).
+    /// Whether the index has been built.
     #[cfg(test)]
-    fn flavors_walked(&self) -> usize {
-        usize::from(self.local.get().is_some()) + usize::from(self.standard.get().is_some())
+    fn indexed(&self) -> bool {
+        self.index.get().is_some()
     }
 }
 
 thread_local! {
-    /// Per-thread count of discovery tree-walks: every [`discoverable_paths`] call bumps
-    /// it. The walk is single-threaded on its caller's thread, so this counts one run's
-    /// walks in isolation — a concurrent run on another test thread cannot perturb it. A
-    /// whole run shares one [`Discovery`], so its walks memoize per flavor and the count's
-    /// delta across a run is exactly the number of flavors that run consulted, each walked
-    /// once. A second `Discovery` built mid-run walks off its own cache rather than the
-    /// run's threaded one, so the delta overshoots: the run-level count-pin's observable,
-    /// decidable and machine-independent, never a wall-clock threshold.
-    static WALKS: Cell<usize> = const { Cell::new(0) };
+    /// Per-thread count of tree index passes: every walk [`ignore_walk`] builds bumps it,
+    /// so a reader that walks the tree by any mechanism riding the shared ignore policy is
+    /// counted, not only the discovery index. Walks run on their caller's thread, so a
+    /// concurrent run on another test thread cannot perturb it.
+    static INDEX_PASSES: Cell<usize> = const { Cell::new(0) };
 }
 
-/// This thread's discovery walk count. Read before and after a check run and compare the
-/// delta to the flavors that run consults, pinning that whole-input discovery work
-/// computes once per flavor per run rather than per kind or per call site.
+/// This thread's tree index pass count. Read before and after a verb run and compare the
+/// delta to one, pinning that whole-tree work computes once per run rather than per kind,
+/// locus or call site.
 #[must_use]
-pub fn walk_count() -> usize {
-    WALKS.with(Cell::get)
+pub fn index_pass_count() -> usize {
+    INDEX_PASSES.with(Cell::get)
 }
 
 /// Discover a built-in `kind`'s source files at whichever locus it declares — the same
@@ -309,8 +328,8 @@ fn nested_file_members(
 ) -> Vec<NestedFileUnit> {
     let mut found = Vec::new();
     for (host, pattern, unit) in kind_host_units(disc, kind, kinds, over, claimed, trail) {
-        let discoverable = disc.discoverable(local_governs(host, over));
-        for file in scan_locus(&unit.dir, pattern, discoverable) {
+        let reach = disc.reach(local_governs(host, over));
+        for file in scan_locus(&unit.dir, pattern, &reach) {
             if file != unit.entry && !claimed.contains(&file) {
                 found.push(unit.child(host, pattern, file));
             }
@@ -534,20 +553,13 @@ pub(crate) fn local_governs(kind: &CustomKind, over: LocalOverride) -> bool {
 /// harness). Data-driven discovery — the locus is the kind's own `governs`
 /// declaration, never a hardwired path.
 fn discover_kind_units(disc: &Discovery, governs: &Governs, local_governs: bool) -> Vec<PathBuf> {
-    // A member is authored content; an ignored file is by declaration not authored here,
-    // so discovery sees only what the repo's ignore rules leave in — else a `**` glob
-    // would import a vendored dep's memory file. A local-locus kind's own walk is the one
-    // exception, and its `governs` says so: `local_governs` carries that scope in.
-    // Resolved off the harness (repo) root so a root `.gitignore` governs every kind's
-    // walk, whatever its `governs.root` depth. Shared per flavor across the run so N kinds
-    // cost one walk, not N ([`Discovery`]).
-    let discoverable = disc.discoverable(local_governs);
+    let reach = disc.reach(local_governs);
     let root = disc.locus_root(governs);
     // Each template is walked; a document two templates both match is one member.
     let mut files: Vec<PathBuf> = governs
         .globs
         .iter()
-        .flat_map(|glob| scan_locus(&root, glob, discoverable))
+        .flat_map(|glob| scan_locus(&root, glob, &reach))
         .collect();
     if governs.globs.len() > 1 {
         files.sort();
@@ -558,49 +570,38 @@ fn discover_kind_units(disc: &Discovery, governs: &Governs, local_governs: bool)
 
 /// The scan itself: every file under `root` matching `glob`, deterministically ordered.
 /// Split from [`discover_kind_units`] so a nested file child's scan under each host unit
-/// rides the same matcher and the same already-computed `discoverable` index — one scanner
-/// serves every kind's locus, host and child alike.
+/// rides the same matcher and the same shared index — one scanner serves every kind's
+/// locus, host and child alike.
 ///
-/// `root` must already be normalized: matching reads the `discoverable` index, every key
-/// of which is normalized ([`discoverable_paths`]), so a `<harness>/.` spelling keys
-/// nothing. Normalizing is the producer's job, not the scan's — a locus root comes from
-/// [`Discovery::locus_root`], a host unit's directory from [`unit_dir`] off that root or
-/// from an index key's parent.
-fn scan_locus(root: &Path, glob: &str, discoverable: &Discoverable) -> Vec<PathBuf> {
+/// `root` must already be normalized: matching reads the index, every key of which is
+/// normalized ([`tree_index`]), so a `<harness>/.` spelling keys nothing. Normalizing is
+/// the producer's job, not the scan's — a locus root comes from [`Discovery::locus_root`],
+/// a host unit's directory from [`unit_dir`] off that root or from an index key's parent.
+fn scan_locus(root: &Path, glob: &str, reach: &Reach) -> Vec<PathBuf> {
     // A glob is a `/`-separated segment list: the final segment matches files, each
     // earlier one a subdirectory to descend into — a `**` segment descending any
     // number of levels. `split` always yields at least one segment.
     let segments: Vec<&str> = glob.split('/').collect();
     let mut files = Vec::new();
-    collect_glob(root, &segments, discoverable, &mut files);
-    // The index yields children in walk order; sort for deterministic processing. A lone
-    // `**` reaches one file by exactly one path, but an interior one beside it can reach a
-    // file nested in two matching folders twice, so the walk dedups.
+    if reach.admits_root(root) {
+        collect_glob(root, &segments, reach, &mut files);
+    }
+    // A lone `**` reaches one file by exactly one path, but an interior one beside it can
+    // reach a file nested in two matching folders twice, so the walk dedups.
     files.sort();
     files.dedup();
     files
 }
 
-/// Collect every discoverable file whose path matches the remaining glob `segments`,
-/// reading the tree from the shared `discoverable` index rather than the filesystem. The
+/// Collect every reachable file whose path matches the remaining glob `segments`. The
 /// head segment selects children at this level; if it is the last, matching **files** are
 /// collected, otherwise matching **subdirectories** are descended. A `**` head is the
 /// any-depth wildcard — it matches zero or more directory levels, so a nested nearest-wins
 /// hierarchy (the `CLAUDE.md` memory nesting) is discovered at every level, not just the
-/// fixed glob depth. A `dir` the index holds no children for contributes nothing — a
-/// subdir glob whose intermediate level is absent, or a locus that does not exist on this
-/// harness, both resolve to no units.
-///
-/// Every child the index yields is already discoverable (`.git/` excluded, `.gitignore`
-/// respected, nested governed roots fenced), so no membership filter is applied here — the
-/// shared walk enforced it once, and the per-child file-vs-directory tag it recorded is
-/// what decides collect-vs-descend.
-fn collect_glob(
-    dir: &Path,
-    segments: &[&str],
-    discoverable: &Discoverable,
-    out: &mut Vec<PathBuf>,
-) {
+/// fixed glob depth. A `dir` holding no children contributes nothing — a subdir glob
+/// whose intermediate level is absent, or a locus that does not exist on this harness,
+/// both resolve to no units.
+fn collect_glob(dir: &Path, segments: &[&str], reach: &Reach, out: &mut Vec<PathBuf>) {
     let Some((segment, rest)) = segments.split_first() else {
         // `**` recurses with the same segments, so it can bottom out at an empty list
         // (a trailing `**` with nothing left to match): nothing more to collect here.
@@ -609,31 +610,125 @@ fn collect_glob(
     if *segment == "**" {
         // Zero levels: match the remaining segments right at this level, so
         // `**/CLAUDE.md` picks up a `CLAUDE.md` directly under the root too.
-        collect_glob(dir, rest, discoverable, out);
+        collect_glob(dir, rest, reach, out);
         // One-or-more levels: descend into every subdirectory carrying the `**`, so
         // each nested file is reached by exactly one path (no double-collection).
-        for child in discoverable.children(dir) {
+        for child in reach.children(dir, None) {
             if child.is_dir {
-                collect_glob(&child.path, segments, discoverable, out);
+                collect_glob(&child.path, segments, reach, out);
             }
         }
         return;
     }
-    for child in discoverable.children(dir) {
+    let want_dir = !rest.is_empty();
+    for child in reach.children(dir, Some((segment, want_dir))) {
+        if child.is_dir != want_dir {
+            continue;
+        }
         let Some(name) = child.path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
         if !crate::glob::compile_glob(segment).is_some_and(|matcher| matcher.is_match(name)) {
             continue;
         }
-        if rest.is_empty() {
-            if !child.is_dir {
-                out.push(child.path.clone());
-            }
-        } else if child.is_dir {
-            collect_glob(&child.path, rest, discoverable, out);
+        if want_dir {
+            collect_glob(&child.path, rest, reach, out);
+        } else {
+            out.push(child.path.clone());
         }
     }
+}
+
+/// How one scan reads the tree. The committed flavor reads the fenced index alone: every
+/// child it yields is already discoverable (`.git/` excluded, the ignore rules and the
+/// workspace skip applied, nested governed roots fenced). A local-locus kind's scan reads
+/// the same index for every directory a wildcard descends, and reaches the documents its
+/// `governs` claims past the ignore rules and the workspace skip only where its own locus
+/// names them: a literal segment is stat'ed rather than looked up, a directory the index
+/// never descended (ignored or the workspace) is listed raw, and a wildcard leaf lists its
+/// directory raw so an ignored file there is seen. A wildcard never descends an ignored
+/// directory the index skipped — the local waiver is the locus's own, never a whole-tree
+/// walk with the rules waived. `.git/` and a nested governed root stay fenced either way.
+struct Reach<'d> {
+    index: &'d Discoverable,
+    harness: &'d Path,
+    local: bool,
+}
+
+impl Reach<'_> {
+    /// Whether a scan may start at the normalized `root`: always for the committed flavor
+    /// (the index answers), and for a local scan wherever the fences admit it.
+    fn admits_root(&self, root: &Path) -> bool {
+        if !self.local || self.index.descended(root) {
+            return true;
+        }
+        let harness = crate::path::normalize_path(self.harness);
+        root.strip_prefix(&harness)
+            .is_ok_and(|relative| discovers_path(self.harness, relative, true))
+    }
+
+    /// The children of `dir` a scan considers for the next segment: `next` is that
+    /// segment and whether it selects a directory, [`None`] for a `**` descent.
+    fn children(&self, dir: &Path, next: Option<(&str, bool)>) -> Vec<DiscoverableChild> {
+        let indexed = self.index.children(dir);
+        if !self.local {
+            return indexed.to_vec();
+        }
+        let descended = self.index.descended(dir);
+        match next {
+            Some((segment, want_dir)) if is_literal(segment) => {
+                let path = dir.join(segment);
+                let found = if want_dir {
+                    on_disk(&path).is_dir()
+                } else {
+                    on_disk(&path).is_file()
+                };
+                if found && !fenced(&path, 1, want_dir, true) {
+                    vec![DiscoverableChild {
+                        path,
+                        is_dir: want_dir,
+                    }]
+                } else {
+                    Vec::new()
+                }
+            }
+            Some((_, false)) => raw_children(dir),
+            _ if descended => indexed.to_vec(),
+            _ => raw_children(dir),
+        }
+    }
+}
+
+/// Whether a glob segment names one entry exactly — no wildcard, class or alternation.
+fn is_literal(segment: &str) -> bool {
+    !segment.contains(['*', '?', '[', '{'])
+}
+
+/// The spelling a filesystem call takes for a normalized path: the empty path a `.`
+/// harness normalizes to reads as `.`.
+fn on_disk(path: &Path) -> &Path {
+    if path.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        path
+    }
+}
+
+/// The direct children of `dir` on raw disk, ignore rules and the workspace skip waived,
+/// `.git/` and a nested governed root still fenced — a local scan's one listing of a
+/// directory its own locus names. An unreadable directory lists nothing.
+fn raw_children(dir: &Path) -> Vec<DiscoverableChild> {
+    let Ok(entries) = std::fs::read_dir(on_disk(dir)) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = dir.join(entry.file_name());
+            let is_dir = entry.file_type().ok()?.is_dir();
+            (!fenced(&path, 1, is_dir, true)).then_some(DiscoverableChild { path, is_dir })
+        })
+        .collect()
 }
 
 /// A walk over `root` carrying the ignore-source policy every walk in this tree rides —
@@ -651,6 +746,7 @@ fn collect_glob(
 /// `git_declarations` off drops git's two sources with the rest, for a walk whose
 /// kind declares authorship over what the repo ignores.
 pub(crate) fn ignore_walk(root: &Path, git_declarations: bool) -> WalkBuilder {
+    INDEX_PASSES.with(|passes| passes.set(passes.get() + 1));
     let mut builder = WalkBuilder::new(root);
     builder
         .hidden(false)
@@ -724,29 +820,27 @@ fn common_exclude(root: &Path) -> Option<PathBuf> {
     exclude.is_file().then_some(exclude)
 }
 
-/// The tree of paths under `harness` a walk for a kind whose locus `local_governs` may
-/// see, indexed as each discoverable directory's direct children. Two presumptions prune
-/// it, and the flag waives **both, together**: the
-/// repo's ignore rules — an ignored file is by declaration not authored here — and the
-/// surface workspace (`.temper/`), which holds temper's own modules and lock and, being
-/// committed rather than gitignored, would otherwise enter the set on its own. A
-/// local-locus kind's `governs` is the reviewed claim over its unreviewed documents, so
-/// for its walk neither presumption stands: a real per-machine document is always
-/// gitignored, and one may sit under the workspace. The waiver needs no path scoping —
-/// the set is only ever consulted under the walking kind's own locus.
+/// The fenced tree index over `harness`, each discoverable directory's direct children.
+/// Two presumptions prune it: the repo's ignore rules — an ignored file is by declaration
+/// not authored here — and the surface workspace (`.temper/`), which holds temper's own
+/// modules and lock and, being committed rather than gitignored, would otherwise enter the
+/// set on its own. A local-locus kind's scan reaches past both under its own locus
+/// ([`Reach`]), never by a second walk.
 ///
-/// Two fences are not presumptions and hold for every walk: `.git/`, and a **nested
+/// Two fences are not presumptions and hold for every reader: `.git/`, and a **nested
 /// governed root** — a subdirectory below the harness root carrying its own
 /// `.temper/lock.toml` is its own corpus, so the walk never descends it. The harness
 /// root's own lock must not self-fence, so that skip keys off walk depth, not the name.
 ///
 /// Paths are normalized so a `.`-rooted `governs` (`root = "."`) compares equal to the
-/// walk's harness-relative entries.
-fn discoverable_paths(harness: &Path, local_governs: bool) -> Discoverable {
-    WALKS.with(|w| w.set(w.get() + 1));
+/// walk's harness-relative entries; children sort by name, so every reader enumerates in
+/// one order on every platform.
+fn tree_index(harness: &Path) -> Discoverable {
     let mut children: BTreeMap<PathBuf, Vec<DiscoverableChild>> = BTreeMap::new();
-    let walk = ignore_walk(harness, !local_governs)
-        .filter_entry(discovery_fence(local_governs))
+    let mut descended = BTreeSet::new();
+    let walk = ignore_walk(harness, true)
+        .sort_by_file_name(std::cmp::Ord::cmp)
+        .filter_entry(discovery_fence(false))
         .build();
     // A walk error (an unreadable entry) drops that entry rather than aborting discovery.
     // The file-vs-directory tag rides `entry.file_type()` — the one fact the scan needs
@@ -756,6 +850,12 @@ fn discoverable_paths(harness: &Path, local_governs: bool) -> Discoverable {
         let is_dir = entry
             .file_type()
             .is_some_and(|file_type| file_type.is_dir());
+        if is_dir {
+            descended.insert(path.clone());
+        }
+        if entry.depth() == 0 {
+            continue;
+        }
         if let Some(parent) = path.parent().map(Path::to_path_buf) {
             children
                 .entry(parent)
@@ -763,7 +863,10 @@ fn discoverable_paths(harness: &Path, local_governs: bool) -> Discoverable {
                 .push(DiscoverableChild { path, is_dir });
         }
     }
-    Discoverable { children }
+    Discoverable {
+        children,
+        descended,
+    }
 }
 
 /// The entry filter every discovery walk prunes by: [`fenced`] over a walk's entry, so a
@@ -791,7 +894,7 @@ fn fenced(path: &Path, depth: usize, is_dir: bool, local_governs: bool) -> bool 
 
 /// Whether a discovery walk over `harness` in the `local_governs` flavor would reach the
 /// file at the harness-relative `relative` — the single-path answer to the question
-/// [`discoverable_paths`] answers for a whole tree, for a path that may not exist yet (a
+/// [`tree_index`] answers for a whole tree, for a path that may not exist yet (a
 /// pending write) and so cannot be admitted by a walk. The flavor waives what the walk's
 /// does: the workspace fence and every git ignore declaration.
 ///
@@ -901,15 +1004,14 @@ fn is_governed_root(dir: &Path) -> bool {
         .is_file()
 }
 
-/// The shared discoverable tree for one flavor: the direct children of every discoverable
-/// directory, keyed by the parent's normalized path. The ignore-honoring walk records it
-/// once ([`discoverable_paths`]) and every kind's glob scan reads its matches from it, so N
-/// kinds cost one walk rather than N filesystem re-walks. Each child carries the
-/// file-vs-directory tag the walk already knew (`entry.file_type()`): a glob's final
-/// segment collects a child only if it is a file and descends it only if a directory, so
-/// the tag is load-bearing and read here rather than re-`stat`ed per candidate.
+/// The fenced tree index: the direct children of every discoverable directory, keyed by
+/// the parent's normalized path, and the set of directories the walk descended. Each child
+/// carries the file-vs-directory tag the walk already knew (`entry.file_type()`): a glob's
+/// final segment collects a child only if it is a file and descends it only if a
+/// directory, so the tag is read here rather than re-`stat`ed per candidate.
 struct Discoverable {
     children: BTreeMap<PathBuf, Vec<DiscoverableChild>>,
+    descended: BTreeSet<PathBuf>,
 }
 
 impl Discoverable {
@@ -918,11 +1020,18 @@ impl Discoverable {
     fn children(&self, dir: &Path) -> &[DiscoverableChild] {
         self.children.get(dir).map_or(&[], Vec::as_slice)
     }
+
+    /// Whether the walk descended `dir` — false for a directory the ignore rules, the
+    /// workspace skip or a fence kept it out of, and for one that does not exist.
+    fn descended(&self, dir: &Path) -> bool {
+        self.descended.contains(dir)
+    }
 }
 
 /// One entry in a directory's child list: its normalized path and whether it is a
 /// directory — the two facts the glob scan needs to match a name and decide
 /// collect-vs-descend, both known at walk time.
+#[derive(Clone)]
 struct DiscoverableChild {
     path: PathBuf,
     is_dir: bool,
@@ -1594,10 +1703,8 @@ Last line, no newline.";
             )
         );
 
-        // Every discovery above honored the override over committed kinds, so all rode the
-        // one non-local flavor: three kinds and the nested host's per-host scan cost one
-        // walk, not four.
-        assert_eq!(shared.flavors_walked(), 1);
+        // Three kinds and the nested host's per-host scan read one index.
+        assert!(shared.indexed());
     }
 
     #[test]

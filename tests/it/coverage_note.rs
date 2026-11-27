@@ -141,7 +141,7 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
     fs::create_dir_all(missing.join(".claude")).unwrap();
     fs::write(missing.join(".claude/stray.md"), "").unwrap();
     let diagnostics = coverage_note::check(
-        &missing,
+        &temper::import::Discovery::new(&missing),
         &empty_kinds,
         &BTreeMap::new(),
         &BTreeMap::new(),

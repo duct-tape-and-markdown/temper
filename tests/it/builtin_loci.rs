@@ -321,7 +321,7 @@ fn a_nested_skills_identity_prefixes_its_subdirectory_segments_joined_with_colon
     let address = |relative: &str| {
         compose::governed_member_address(
             &skill,
-            &harness,
+            &temper::import::Discovery::new(&harness),
             &harness.join(relative),
             compose::SiteIdentity::OnDisk,
         )

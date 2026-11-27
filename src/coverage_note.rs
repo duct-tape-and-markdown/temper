@@ -109,7 +109,7 @@ pub fn off_tree_targets(references: &[crate::graph::OffTreeReference]) -> Option
 /// an unrepresented harness; a non-zero count adds one disclosure line in place of a
 /// finding per doc.
 pub fn check(
-    root: &Path,
+    disc: &crate::import::Discovery,
     declared_kinds: &BTreeMap<String, CustomKind>,
     member_counts: &BTreeMap<String, usize>,
     nested_member_counts: &BTreeMap<String, usize>,
@@ -195,8 +195,9 @@ pub fn check(
     // run's effective one, so a locked custom kind claims its own locus and a relocated
     // built-in claims its new one — the raw embedded definitions would read a relocated
     // built-in's pre-relocation locus and name its real one a stray.
-    let fully_reached = fully_reached_dirs(root, claimed_files);
-    for (path, is_dir) in claude_entries(root) {
+    let root = disc.harness();
+    let fully_reached = fully_reached_dirs(disc, claimed_files);
+    for (path, is_dir) in claude_entries(disc) {
         let reached = if is_dir {
             fully_reached.contains(&path)
         } else {
@@ -283,8 +284,8 @@ fn settings_run_a_command(settings: &serde_json::Value) -> bool {
 /// - `.claude/worktrees/` is where `claude --worktree` checks out its worktrees, and
 ///   the docs advise "Add `.claude/worktrees/` to your `.gitignore`"
 ///   (code.claude.com/docs/en/worktrees, retrieved 2026-11-25). The remedy works where
-///   the finding is read: the scan honors the harness root's `.gitignore`
-///   ([`claude_walk`]), so following it silences the finding.
+///   the finding is read: the scan reads the run's fenced tree index, which honors the
+///   harness root's `.gitignore`, so following it silences the finding.
 fn cited_remedy(path: &HarnessRelativePath, is_dir: bool) -> Option<&'static str> {
     (is_dir && &**path == ".claude/worktrees").then_some(
         "Claude Code checks its worktrees out here, and its docs advise: \"Add \
@@ -292,40 +293,22 @@ fn cited_remedy(path: &HarnessRelativePath, is_dir: bool) -> Option<&'static str
     )
 }
 
-/// A walk over `<root>/.claude` under the shared ignore policy
-/// ([`crate::import::ignore_walk`]), rooted at the harness root and pruned to the
-/// `.claude` subtree, so the root's `.gitignore` and the repository's exclude govern
-/// `.claude/` entries exactly as git reads them — a walk rooted at `.claude` itself
-/// would read neither. `max_depth` is counted from the harness root.
-fn claude_walk(root: &Path, max_depth: Option<usize>) -> ignore::Walk {
-    crate::import::ignore_walk(root, true)
-        .max_depth(max_depth)
-        .filter_entry(|entry| entry.depth() != 1 || entry.file_name() == CLAUDE_ROOT)
-        .build()
+/// The normalized `<harness>/.claude` directory the run's tree index keys it by.
+fn claude_dir(disc: &crate::import::Discovery) -> PathBuf {
+    crate::path::normalize_path(&disc.harness().join(CLAUDE_ROOT))
 }
 
 /// Every entry directly under `<root>/.claude` (not recursive), as a
 /// (path, is-directory) pair — the unclaimed-entry scan's input. The path keeps its
 /// `.claude/` prefix, because a governing claim is spelled against the harness root and
-/// the finding names the entry the author sees. The ignore sources are the shared
-/// policy's ([`crate::import::ignore_walk`]), so a gitignored stray is by declaration
-/// not authored here and never fires. The whole-tree walk's three membership
-/// fences (`.git/`, the surface workspace, a nested governed root) are deliberately not
-/// taken: each prunes *descent* into a subtree the
-/// enclosing corpus does not own, and this scan descends nothing — it names the direct
-/// children of one directory. A missing `.claude/` yields no entries rather than an
-/// error: an unadopted tree is not a finding.
-fn claude_entries(root: &Path) -> Vec<(HarnessRelativePath, bool)> {
-    let claude_dir = root.join(CLAUDE_ROOT);
-    if !claude_dir.is_dir() {
-        return Vec::new();
-    }
-    claude_walk(root, Some(2))
-        .flatten()
-        .filter(|entry| entry.depth() == 2)
-        .filter_map(|entry| {
-            let rel = entry.path().strip_prefix(root).ok()?;
-            let is_dir = entry.file_type().is_some_and(|ft| ft.is_dir());
+/// the finding names the entry the author sees. Read off the run's fenced tree index, so
+/// a gitignored stray is by declaration not authored here and never fires. A missing
+/// `.claude/` yields no entries rather than an error: an unadopted tree is not a finding.
+fn claude_entries(disc: &crate::import::Discovery) -> Vec<(HarnessRelativePath, bool)> {
+    let harness = crate::path::normalize_path(disc.harness());
+    disc.tree_children(&claude_dir(disc))
+        .filter_map(|(path, is_dir)| {
+            let rel = path.strip_prefix(&harness).ok()?;
             Some((HarnessRelativePath::from_path(rel), is_dir))
         })
         .collect()
@@ -333,35 +316,28 @@ fn claude_entries(root: &Path) -> Vec<(HarnessRelativePath, bool)> {
 
 /// The directories directly under `<root>/.claude` holding at least one file, every one
 /// of which the roster claims (an import reaches it, or a member declares it its input)
-/// — claimed whole, as each of its files is. `every`, never `some`: the scan names direct children only, so a partly reached directory
-/// claimed whole would hide its unreached file. An empty directory reaches nothing and
-/// stays unclaimed. One walk under the scan's own ignore policy, so a gitignored file
-/// neither claims nor blocks a claim.
+/// — claimed whole, as each of its files is. `every`, never `some`: the scan names direct
+/// children only, so a partly reached directory claimed whole would hide its unreached
+/// file. An empty directory reaches nothing and stays unclaimed. Read off the run's
+/// fenced tree index, so a gitignored file neither claims nor blocks a claim.
 fn fully_reached_dirs(
-    root: &Path,
+    disc: &crate::import::Discovery,
     claimed_files: &BTreeSet<PathBuf>,
 ) -> BTreeSet<HarnessRelativePath> {
-    let claude_dir = root.join(CLAUDE_ROOT);
-    if !claude_dir.is_dir() {
-        return BTreeSet::new();
-    }
+    let claude_dir = claude_dir(disc);
     // Per top-level directory: does every file beneath it sit in `claimed_files`?
     let mut all_reached: BTreeMap<PathBuf, bool> = BTreeMap::new();
-    for entry in claude_walk(root, None).flatten() {
-        if !entry.file_type().is_some_and(|ft| ft.is_file()) {
-            continue;
-        }
-        let Ok(rel) = entry.path().strip_prefix(&claude_dir) else {
+    for file in disc.tree_files_under(&claude_dir) {
+        let Ok(rel) = file.strip_prefix(&claude_dir) else {
             continue;
         };
         let mut components = rel.components();
         let (Some(top), Some(_)) = (components.next(), components.next()) else {
             continue;
         };
-        let reached = claimed_files.contains(&crate::path::normalize_path(entry.path()));
         *all_reached
             .entry(Path::new(CLAUDE_ROOT).join(top))
-            .or_insert(true) &= reached;
+            .or_insert(true) &= claimed_files.contains(&file);
     }
     all_reached
         .into_iter()
@@ -486,7 +462,7 @@ mod tests {
     fn the_checked_summary_reports_each_kind_count_and_is_a_disclosure_note() {
         let counts = BTreeMap::from([("skill".to_string(), 2usize), ("rule".to_string(), 3usize)]);
         let diagnostics = check(
-            Path::new("/nonexistent-harness-root"),
+            &crate::import::Discovery::new(Path::new("/nonexistent-harness-root")),
             &builtin_set(),
             &counts,
             &BTreeMap::new(),
@@ -513,7 +489,7 @@ mod tests {
     fn a_single_member_and_kind_do_not_pluralize() {
         let counts = BTreeMap::from([("skill".to_string(), 1usize)]);
         let diagnostics = check(
-            Path::new("/nonexistent-harness-root"),
+            &crate::import::Discovery::new(Path::new("/nonexistent-harness-root")),
             &builtin_set(),
             &counts,
             &BTreeMap::new(),
@@ -534,7 +510,7 @@ mod tests {
             ("command".to_string(), 2usize),
         ]);
         let diagnostics = check(
-            Path::new("/nonexistent-harness-root"),
+            &crate::import::Discovery::new(Path::new("/nonexistent-harness-root")),
             &builtin_set(),
             &counts,
             &BTreeMap::new(),
@@ -554,7 +530,7 @@ mod tests {
         let counts = BTreeMap::from([("skill".to_string(), 1usize)]);
         let nested = BTreeMap::from([("supporting-doc".to_string(), 2usize)]);
         let diagnostics = check(
-            Path::new("/nonexistent-harness-root"),
+            &crate::import::Discovery::new(Path::new("/nonexistent-harness-root")),
             &builtin_set(),
             &counts,
             &nested,
@@ -586,7 +562,7 @@ mod tests {
         let counts = BTreeMap::from([("skill".to_string(), 2usize)]);
         let nested = BTreeMap::from([("skill".to_string(), 1usize)]);
         let diagnostics = check(
-            Path::new("/nonexistent-harness-root"),
+            &crate::import::Discovery::new(Path::new("/nonexistent-harness-root")),
             &builtin_set(),
             &counts,
             &nested,
@@ -714,7 +690,7 @@ mod tests {
         std::fs::write(root.join(".claude/.clauignore"), "").unwrap();
 
         let diagnostics = check(
-            &root,
+            &crate::import::Discovery::new(&root),
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
@@ -738,7 +714,7 @@ mod tests {
         std::fs::create_dir_all(root.join(".claude/skills")).unwrap();
 
         let diagnostics = check(
-            &root,
+            &crate::import::Discovery::new(&root),
             &builtin_set(),
             &BTreeMap::new(),
             &BTreeMap::new(),
@@ -763,7 +739,7 @@ mod tests {
         std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
 
         let diagnostics = check(
-            &root,
+            &crate::import::Discovery::new(&root),
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
@@ -786,7 +762,7 @@ mod tests {
         std::fs::write(root.join(".claude/ignored-stray.md"), "").unwrap();
 
         let diagnostics = check(
-            &root,
+            &crate::import::Discovery::new(&root),
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
@@ -817,7 +793,7 @@ mod tests {
         std::fs::write(root.join(".claude/rg-named.md"), "").unwrap();
 
         let diagnostics = check(
-            &root,
+            &crate::import::Discovery::new(&root),
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),

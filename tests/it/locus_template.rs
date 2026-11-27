@@ -310,7 +310,7 @@ fn the_coverage_advisory_does_not_count_a_path_its_kind_excludes_as_governed() {
         CustomKind::from_kind_fact_row(&row).unwrap(),
     )]);
     let diagnostics = coverage_note::check(
-        &root,
+        &temper::import::Discovery::new(&root),
         &kinds,
         &BTreeMap::new(),
         &BTreeMap::new(),
