@@ -505,7 +505,7 @@ function locusLabel(facts: KindFacts): string {
   const { locus } = facts;
   if (locus.kind !== "at") return `the \`${locus.kind}\` locus`;
   return templatesOf(locus)
-    .map((glob) => `\`${locus.root === "." ? glob : `${locus.root}/${glob}`}\``)
+    .map((glob) => `\`${locusPattern(locus.root, glob)}\``)
     .join(" and ");
 }
 
@@ -732,8 +732,7 @@ function locusGlobs(
 ): string[] {
   const locus = facts.locus;
   if (locus.kind === "at") {
-    const root = locus.root;
-    return templatesOf(locus).map((glob) => [root, glob].filter((part) => part !== "" && part !== ".").join("/"));
+    return templatesOf(locus).map((glob) => locusPattern(locus.root, glob));
   }
   if (seen.has(facts.name)) return [];
   const visiting = new Set([...seen, facts.name]);
@@ -758,9 +757,10 @@ function locusGlobs(
   return [...globs].sort(compareStrings);
 }
 
-/** A list item whose text may span lines — continuation lines indent under the bullet. */
-function bullet(head: string, text: string): string {
-  return `- ${head}: ${text.trim().split("\n").join("\n  ")}`;
+/** A list item whose text may span lines (indented under the bullet); blank text leaves the bare head. */
+export function listItem(head: string, text: string | undefined): string {
+  const body = text?.trim();
+  return body === undefined || body === "" ? `- ${head}` : `- ${head}: ${body.split("\n").join("\n  ")}`;
 }
 
 /** The kind names an edge field's `to` set lists, for a line that states where it points. */
@@ -882,16 +882,16 @@ function guidanceBody(
   const fields: string[] = [];
   for (const field of shipped ? [] : Object.keys(facts.fieldGuidance ?? {})) {
     const counsel = fieldCounsel(facts, field);
-    if (counsel !== undefined && !ownEdges.has(field)) fields.push(bullet(`\`${field}\``, counsel));
+    if (counsel !== undefined && !ownEdges.has(field)) fields.push(listItem(`\`${field}\``, counsel));
   }
   const projected = (edge: EdgeIntent): edge is EdgeIntent & { intent: string } =>
     !edge.shipped && edge.intent !== undefined;
   const outbound = edges.outbound
     .filter(projected)
-    .map((edge) => bullet(`\`${edge.field}\` → ${targetList(edge.to)}`, edge.intent));
+    .map((edge) => listItem(`\`${edge.field}\` → ${targetList(edge.to)}`, edge.intent));
   const inbound = edges.inbound
     .filter(projected)
-    .map((edge) => bullet(`\`${edge.from}\`.\`${edge.field}\` → here`, edge.intent));
+    .map((edge) => listItem(`\`${edge.from}\`.\`${edge.field}\` → here`, edge.intent));
   const contracted = requirements.flatMap((requirement) => {
     const mine = requirement.kind === facts.name || requirement.satisfiers.some((s) => s.kind === facts.name);
     if (!mine) return [];
@@ -900,7 +900,7 @@ function guidanceBody(
       requirement.satisfiers.length === 0
         ? "No member satisfies it yet."
         : `Satisfied by ${requirement.satisfiers.map((s) => `\`${s.address}\``).join(", ")}.`;
-    return [bullet(`\`${requirement.name}\`${declared}`, `${requirement.prose.trim()}\n${filled}`)];
+    return [listItem(`\`${requirement.name}\`${declared}`, `${requirement.prose.trim()}\n${filled}`)];
   });
   const sections = [
     own,

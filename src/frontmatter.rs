@@ -390,17 +390,20 @@ enum Malformation {
 /// the closing delimiter line. Returns `(None, raw)` when there is no leading
 /// frontmatter block to strip.
 fn split_frontmatter(raw: &str) -> (Option<&str>, &str) {
-    let Some((first, rest)) = raw.split_once('\n') else {
+    let Some(rest) = opening_delimiter(raw) else {
         return (None, raw);
     };
-    if first.trim_end() != "---" {
-        return (None, raw);
-    }
     match closing_delimiter(rest) {
         Some((matter, body)) => (Some(matter), body),
         // Opening delimiter but no close — not a frontmatter block.
         None => (None, raw),
     }
+}
+
+/// The text after `raw`'s opening `---` line (trailing whitespace, CRLF's `\r` included, tolerated).
+fn opening_delimiter(raw: &str) -> Option<&str> {
+    let (first, rest) = raw.split_once('\n')?;
+    (first.trim_end() == "---").then_some(rest)
 }
 
 /// Scan `rest` — the text after an opening `---\n` line — for the closing `---`
@@ -421,16 +424,11 @@ fn closing_delimiter(rest: &str) -> Option<(&str, &str)> {
     None
 }
 
-/// Strip an opening frontmatter delimiter (either `---\n` or `---\r\n`) and scan
-/// for the closing `---`, returning everything after the opening delimiter and
-/// the frontmatter matter. Wraps [`closing_delimiter`] to consolidate the
-/// split-frontmatter pattern used by `src/install.rs`'s projectors and
-/// `src/placement.rs`'s placement line scanner. Tolerates both LF and CRLF line
-/// endings on the opening delimiter.
+/// Everything after the opening delimiter and the frontmatter matter — the reading
+/// [`split_frontmatter`] gives member files, for `src/install.rs`'s projectors and
+/// `src/placement.rs`'s placement line scanner.
 pub(crate) fn frontmatter_matter(source: &str) -> Option<(&str, &str)> {
-    let rest = source
-        .strip_prefix("---\r\n")
-        .or_else(|| source.strip_prefix("---\n"))?;
+    let rest = opening_delimiter(source)?;
     closing_delimiter(rest).map(|(matter, _)| (rest, matter))
 }
 

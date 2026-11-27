@@ -27,6 +27,7 @@ import {
   kindEdges,
   kindLocusGlobs,
   kindsInPlay,
+  listItem,
   targetList,
 } from "./declarations.js";
 import type { ContractedRequirement, EdgeIntent } from "./declarations.js";
@@ -217,12 +218,6 @@ function kindTopicName(name: string): string {
   return `kind-${name}`;
 }
 
-/** A list item whose text may span lines — continuation lines indent under the bullet. */
-function item(head: string, text: string | undefined): string {
-  const body = text?.trim();
-  return body === undefined || body === "" ? `- ${head}` : `- ${head}: ${body.split("\n").join("\n  ")}`;
-}
-
 /** Where a kind's members live, as its topic states it — the locus and the globs it occupies. */
 function locusSection(facts: KindFacts, globs: readonly string[]): string {
   const { locus } = facts;
@@ -254,14 +249,14 @@ function fieldLines(facts: KindFacts): string[] {
   const edges = new Set((facts.edgeFields ?? []).map((edge) => edge.field));
   const counsel = (facts.fieldGuidance ?? {}) as Record<string, string | undefined>;
   const names = [...new Set([...Object.keys(facts.leaves ?? {}), ...Object.keys(counsel)])];
-  return names.filter((name) => !edges.has(name)).map((name) => item(`\`${name}\``, counsel[name]));
+  return names.filter((name) => !edges.has(name)).map((name) => listItem(`\`${name}\``, counsel[name]));
 }
 
 /** One clause bound over a kind, as its topic states it: the predicate, its field, its severity, its guidance. */
 function clauseLine(clause: Clause): string {
   const field = clauseField(clause.predicate);
   const on = field === undefined ? "" : ` on \`${field}\``;
-  return item(`\`${clause.predicate.key}\`${on} (${clause.severity})`, clause.guidance);
+  return listItem(`\`${clause.predicate.key}\`${on} (${clause.severity})`, clause.guidance);
 }
 
 /**
@@ -289,11 +284,11 @@ function commandLines(view: Harness): string[] {
             : version === undefined
               ? `not in \`${lockfile.name}\``
               : `version ${version}, locked by \`${lockfile.name}\``;
-        return item(head, `the bin \`${leaf("bin") ?? ""}\` of \`${pkg}\` — ${locked}.`);
+        return listItem(head, `the bin \`${leaf("bin") ?? ""}\` of \`${pkg}\` — ${locked}.`);
       }
       const file = leaf("file");
-      if (file !== undefined) return item(head, `the committed file \`${file}\`.`);
-      return item(head, `the system tool \`${leaf("system") ?? ""}\` on the PATH, claiming no version.`);
+      if (file !== undefined) return listItem(head, `the committed file \`${file}\`.`);
+      return listItem(head, `the system tool \`${leaf("system") ?? ""}\` on the PATH, claiming no version.`);
     });
 }
 
@@ -309,7 +304,7 @@ function kindTopic(
   const fields = fieldLines(facts);
   const commands = facts.name === "tool" ? commandLines(view) : [];
   const { outbound, inbound } = kindEdges(facts, kinds);
-  const edge = (head: string, intent: EdgeIntent["intent"]) => item(head, intent ?? "no intent declared.");
+  const edge = (head: string, intent: EdgeIntent["intent"]) => listItem(head, intent ?? "no intent declared.");
   const edges = [
     ...(outbound.length === 0
       ? []
