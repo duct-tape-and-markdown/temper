@@ -64,6 +64,8 @@ import {
   mcpServerDefaultContract,
   memory,
   memoryDefaultContract,
+  memoryLocal,
+  memoryLocalDefaultContract,
   outputStyle,
   outputStyleDefaultContract,
   pluginManifest,
@@ -96,6 +98,7 @@ const program = harness({
     { kind: mcp, clauses: mcpDefaultContract },
     { kind: mcpServer, clauses: mcpServerDefaultContract },
     { kind: memory, clauses: memoryDefaultContract },
+    { kind: memoryLocal, clauses: memoryLocalDefaultContract },
     { kind: outputStyle, clauses: outputStyleDefaultContract },
     { kind: pluginManifest, clauses: pluginManifestDefaultContract },
     { kind: rule, clauses: ruleDefaultContract },
@@ -296,8 +299,8 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
 
     assert_eq!(
         declarations.kinds.len(),
-        20,
-        "the derived lock carries all 20 built-in kind facts"
+        21,
+        "the derived lock carries all 21 built-in kind facts"
     );
 
     for kind_row in &declarations.kinds {

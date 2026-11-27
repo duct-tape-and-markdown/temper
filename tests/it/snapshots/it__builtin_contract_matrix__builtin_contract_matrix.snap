@@ -15,6 +15,7 @@ marketplace | error |  |  |  | error |  |  |  |  |  |  | error |  |  | error |  
 mcp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 mcp-server |  |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | error
 memory |  |  |  |  |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+memory-local |  |  |  |  |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
 output-style |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | advisory | 
 plugin-manifest | error | error |  |  |  |  |  | error |  |  |  | error |  | error | error |  |  |  | error |  |  | 
 requirement |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  | error |  |  |  |  |  | 

@@ -57,6 +57,7 @@ mod mcp_kind;
 mod mcp_server_kind;
 mod memory_contract;
 mod memory_gate;
+mod memory_local_kind;
 mod module_closure;
 mod nested_member;
 mod output_style_kind;

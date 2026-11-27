@@ -109,10 +109,11 @@ fn declared_field_keys(kind: &str) -> &'static [&'static str] {
 }
 
 /// The directive grammar a built-in kind's body declares, the second row-less extraction
-/// fact: `memory` alone reads `@path` imports
-/// (code.claude.com/docs/en/memory, retrieved 2026-07-20).
+/// fact: `memory` and `memory-local` alone read `@path` imports
+/// (code.claude.com/docs/en/memory, retrieved 2026-07-20) — a `CLAUDE.local.md` is
+/// "treated the same way" as its directory's `CLAUDE.md` (same source, retrieved 2026-11-27).
 fn declared_directives(kind: &str) -> Option<crate::kind::DirectiveSyntax> {
-    (kind == "memory").then_some(crate::kind::DirectiveSyntax::AtImport)
+    matches!(kind, "memory" | "memory-local").then_some(crate::kind::DirectiveSyntax::AtImport)
 }
 
 /// The bare-root file a built-in kind additionally recognizes at the harness root, the
@@ -583,6 +584,7 @@ mod tests {
                 "mcp",
                 "mcp-server",
                 "memory",
+                "memory-local",
                 "output-style",
                 "plugin-manifest",
                 "requirement",

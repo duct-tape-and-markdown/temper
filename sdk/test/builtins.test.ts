@@ -41,6 +41,8 @@ import {
   mcpServerDefaultContract,
   memory,
   memoryDefaultContract,
+  memoryLocal,
+  memoryLocalDefaultContract,
   outputStyle,
   outputStyleDefaultContract,
   pluginManifest,
@@ -76,7 +78,7 @@ async function shippedContracts(): Promise<ReadonlyArray<readonly [string, reado
       if (typeof value === "function" && "facts" in value) kinds.add(name);
     }
   }
-  assert.ok(kinds.size >= 20, `found only ${kinds.size} built-in kinds`);
+  assert.ok(kinds.size >= 21, `found only ${kinds.size} built-in kinds`);
   const contracts: Array<readonly [string, readonly Clause[]]> = [];
   for (const name of [...kinds].sort()) {
     const label = `${name}DefaultContract`;
@@ -953,6 +955,31 @@ test("settingsLocalDefaultContract types the structural container keys and leave
   for (const entry of settingsLocalDefaultContract) {
     assert.match(entry.cite ?? "", /^https:\/\/code\.claude\.com\/docs\/en\/settings#\S+ \(retrieved 2026-07-16\)$/);
   }
+});
+
+test("memory-local is a local-locus memory kind owning CLAUDE.local.md at any depth", () => {
+  assert.equal(memoryLocal.facts.name, "memory-local");
+  assert.deepEqual(memoryLocal.facts.locus, {
+    kind: "at",
+    root: ".",
+    glob: "**/CLAUDE.local.md",
+    commitment: "local",
+    exclude: [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/skills"],
+  });
+  // Frontmatterless markdown, loaded as its directory's CLAUDE.md is.
+  assert.equal(memoryLocal.facts.format, undefined);
+  assert.equal(memoryLocal.facts.unitShape, "file");
+  assert.deepEqual(memoryLocal.facts.registration, memory.facts.registration);
+  // `memory` stays the committed class.
+  assert.equal(memory.facts.locus.kind === "at" && "commitment" in memory.facts.locus, false);
+});
+
+test("memoryLocalDefaultContract carries memory's size target as an advisory", () => {
+  assert.deepEqual(
+    memoryLocalDefaultContract.map((c) => [c.predicate.key, c.severity]),
+    [["extent", "advisory"]],
+  );
+  assert.match(memoryLocalDefaultContract[0]?.cite ?? "", /code\.claude\.com\/docs\/en\/memory/);
 });
 
 test("settings is a committed-class json-document file kind owning .claude/settings.json", () => {

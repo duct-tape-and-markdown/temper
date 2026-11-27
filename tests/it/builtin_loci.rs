@@ -165,6 +165,26 @@ fn a_claude_md_inside_a_nested_skills_directory_is_not_discovered_as_memory() {
 }
 
 #[test]
+fn a_claude_local_md_is_claimed_by_memory_local_never_memory() {
+    let harness = common::tmpdir("memory-local-claim");
+    common::write_sibling(&harness, "CLAUDE.md", "# Team\n");
+    common::write_sibling(&harness, "CLAUDE.local.md", "# Mine\n");
+    common::write_sibling(&harness, "apps/web/CLAUDE.local.md", "# Mine\n");
+
+    assert_eq!(
+        effectively_discovered(&harness, "memory"),
+        vec![harness.join("CLAUDE.md")]
+    );
+    assert_eq!(
+        effectively_discovered(&harness, "memory-local"),
+        vec![
+            harness.join("CLAUDE.local.md"),
+            harness.join("apps/web/CLAUDE.local.md"),
+        ]
+    );
+}
+
+#[test]
 fn a_claude_md_under_claude_outside_the_loader_folders_stays_memory() {
     let harness = common::tmpdir("memory-under-claude");
     common::write_sibling(&harness, ".claude/CLAUDE.md", "# Project\n");

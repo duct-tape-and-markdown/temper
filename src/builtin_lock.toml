@@ -1,12 +1,12 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the twenty built-in kinds' facts and their default contract clauses, the **root
+# the twenty-one built-in kinds' facts and their default contract clauses, the **root
 # member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the seven
 # clause rows here naming no kind, that absence being what makes them the root's), plus
-# twenty-six assembly facts — the unconditional `mode = "warn"` (the root member's own
+# twenty-seven assembly facts — the unconditional `mode = "warn"` (the root member's own
 # enforcement mode, specs/model/representation.md, "The root member", every harness carries
 # absent an authored mode), one `contract` declaredness marker per `expect`-bound kind
-# (twenty, each naming its kind in `from`; no marker names no kind, because the program
+# (twenty-one, each naming its kind in `from`; no marker names no kind, because the program
 # declares no root `contract` of its own and an undeclared contract writes none), the two
 # `runs` edges into `tool` — a hook handler's and the `settings` status line's, each naming
 # the tool its command runs (decision 0104) — the two `outputStyle` edges into
@@ -20,10 +20,10 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over the whole shipped std-lib:
-# `@dtmd/temper/claude-code`'s seventeen
+# `@dtmd/temper/claude-code`'s eighteen
 # built-in kinds (`agent`, `command`, `handler`, `hook`, `installed-plugin`, `known-marketplace`,
 # `marketplace`, `mcp`, `mcp-server`, `output-style`, `plugin-manifest`, `settings`,
-# `settings-local`, `skill`, `supporting-doc`, `rule`, `memory`) and their
+# `settings-local`, `skill`, `supporting-doc`, `rule`, `memory`, `memory-local`) and their
 # default contracts (`agentDefaultContract`, `commandDefaultContract`,
 # `handlerDefaultContract`, `hookDefaultContract`, `installedPluginDefaultContract`,
 # `knownMarketplaceDefaultContract`,
@@ -32,7 +32,7 @@
 # `pluginManifestDefaultContract`, `settingsDefaultContract`,
 # `settingsLocalDefaultContract`, `skillDefaultContract`,
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
-# `memoryDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
+# `memoryDefaultContract`, `memoryLocalDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
 # *root* — temper's own kind, whose entries re-read these very clauses at a machine's
 # declared severity, so it ships wherever they do — `tool`/`toolDefaultContract`, temper's
 # other own kind, the one home of a command the harness runs,
@@ -46,19 +46,21 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind and no `provider`-qualified kind values, so
-# this lock's twenty kind facts carry no `provider` column. Memory's locus holds two
+# this lock's twenty-one kind facts carry no `provider` column. Memory's locus holds two
 # templates: `**/CLAUDE.md`, and `**/AGENTS.md` (`.claude/AGENTS.md` among them) behind
 # two absence gates, since Claude Code reads one at launch only where no `CLAUDE.md`,
 # `.claude/CLAUDE.md` or `CLAUDE.local.md` sits in the working directory or above, and a
 # subdirectory's on demand only where that subdirectory has none of its own
 # (code.claude.com/docs/en/memory, retrieved 2026-11-26).
 #
-# `dial` and `settings-local` are the two kinds here declaring a `local` commitment class:
+# `dial`, `settings-local` and `memory-local` are the three kinds here declaring a `local`
+# commitment class:
 # read in place at check, never an emit input or target, and no row of their members' ever
 # lands in a lock — the rows below declare each kind, which is the committed, reviewed half.
 # `dial`'s `toml-document` format additionally has no write twin at all; `settings-local`'s
 # `json-document` does have one, but the local class keeps emit away from the machine's own
-# overlay just the same.
+# overlay just the same, and `memory-local`'s `CLAUDE.local.md` is markdown memory read
+# beside the `CLAUDE.md` of its directory, never projected.
 #
 # `supporting-doc`, `handler`, `tool` and `requirement` are the host-composed kinds here, so
 # their rows alone carry no locus pair.
@@ -79,7 +81,7 @@
 #
 # `command`, `installed-plugin`, `known-marketplace`, `mcp` and `requirement` are the five
 # kinds here contributing a kind fact and no clause row at all: each default contract is
-# empty, so twenty kinds carry fifteen contracts' clauses. A command's frontmatter is wholly
+# empty, so twenty-one kinds carry sixteen contracts' clauses. A command's frontmatter is wholly
 # optional, so it documents no requirement to gate. No
 # other format among them documents a gateable schema the member's
 # own type does not already hold — an installed plugin is one scalar under an identity key, a
@@ -89,9 +91,11 @@
 # in each case the absence is the honest encoding, not a row lost in regeneration. An output
 # style's frontmatter is wholly optional too; its one clause is the advisory `unshadowed`.
 #
-# `agent`, `command`, `memory`, `output-style` and `rule` each cede a skill's directory: each
+# `agent`, `command`, `memory`, `memory-local`, `output-style` and `rule` each cede a
+# skill's directory: each
 # locus reaches at any depth into it, which `skill`'s template holds, so each row's `ceded`
-# column cedes that subtree to `skill` (decision 0102). `memory` also cedes every
+# column cedes that subtree to `skill` (decision 0102). `memory` and `memory-local` also
+# cede every
 # `.claude/output-styles/*.md` to `output-style` and every `.md` under a `.claude/rules/` to
 # `rule`: the folder claim is the more specific one.
 #
@@ -214,6 +218,16 @@ absence_gate = [{ template = "**/AGENTS.md", absent = ["CLAUDE.md", ".claude/CLA
 unit_shape = "file"
 registration = ["on-read-beneath"]
 guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."
+ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { to = "rule", pattern = "**/.claude/rules/**/*.md" }, { to = "skill", pattern = "**/.claude/skills/*/**" }]
+
+[[declaration.kind]]
+name = "memory-local"
+locus_root = "."
+locus_glob = ["**/CLAUDE.local.md"]
+commitment = "local"
+exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/skills"]
+unit_shape = "file"
+registration = ["on-read-beneath"]
 ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { to = "rule", pattern = "**/.claude/rules/**/*.md" }, { to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
@@ -777,6 +791,16 @@ predicate = "extent"
 severity = "advisory"
 guidance = "CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)"
 cite = "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)"
+bound = { max = 200 }
+unit = "lines"
+
+[[declaration.clause]]
+id = "memory-local.extent"
+kind = "memory-local"
+predicate = "extent"
+severity = "advisory"
+guidance = "CLAUDE.local.md loads beside the CLAUDE.md of its directory and is paid the same way, every session that loads it. The memory docs' size target is under 200 lines per memory file — 'longer files consume more context and reduce adherence.' It is personal and uncommitted, so trim it yourself: for each line ask whether removing it would cause Claude to make mistakes. (Advisory: Claude Code loads the file in full regardless of length.)"
+cite = "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-11-27)"
 bound = { max = 200 }
 unit = "lines"
 
@@ -1658,6 +1682,10 @@ from = "mcp-server"
 [[declaration.assembly]]
 fact = "contract"
 from = "memory"
+
+[[declaration.assembly]]
+fact = "contract"
+from = "memory-local"
 
 [[declaration.assembly]]
 fact = "contract"

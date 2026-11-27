@@ -539,6 +539,42 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
     "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level.",
 });
 
+/** A Claude Code local memory file — `CLAUDE.local.md`, personal and uncommitted, loaded whole, no frontmatter. */
+export interface MemoryLocal {
+  readonly prose?: Prose;
+}
+
+/**
+ * `memory-local` — a `CLAUDE.local.md` at any depth, a lone file loaded whole with no
+ * frontmatter, "loaded alongside" the `CLAUDE.md` of its directory and "treated the same
+ * way" (code.claude.com/docs/en/memory, "Choose where to put CLAUDE.md files", retrieved
+ * 2026-11-27). It is personal and gitignored (same source), so it sits at the **local**
+ * commitment class as {@link settingsLocal} does beside {@link settings}: read in place at
+ * check and gated, never an `emit` input or target, no row of its members ever landing in
+ * the lock. Claude also discovers "`CLAUDE.md` and `CLAUDE.local.md` files in
+ * subdirectories" (same source, "How CLAUDE.md files load"), so the locus reaches any
+ * depth and the kind registers `on-read-beneath` exactly as {@link memory} does: the root's
+ * at launch, a subdirectory's when Claude reads a file there. It leaves the root `.claude/`
+ * loader folders memory leaves.
+ */
+export const memoryLocal: KindDefinition<MemoryLocal> = kind<MemoryLocal>({
+  name: "memory-local",
+  locus: {
+    kind: "at",
+    root: ".",
+    glob: "**/CLAUDE.local.md",
+    commitment: "local",
+    exclude: [
+      ".claude/agents",
+      ".claude/commands",
+      ".claude/output-styles",
+      ".claude/skills",
+    ],
+  },
+  unitShape: "file",
+  registration: [{ via: "on-read-beneath" }],
+});
+
 /**
  * One entry in a hook's `hooks` array — the handler that actually fires when the group's
  * event and matcher admit it. Its fields are the documented handler table's own: the
@@ -2757,6 +2793,19 @@ export const memoryDefaultContract: readonly Clause[] = [
     guidance:
       "CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)",
     cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
+  }),
+];
+
+/**
+ * The default contract for `memory-local` — the memory size target, which the docs state
+ * per memory file, and a `CLAUDE.local.md` is loaded the same way a `CLAUDE.md` is.
+ */
+export const memoryLocalDefaultContract: readonly Clause[] = [
+  clause(extent("lines", 200), {
+    severity: "advisory",
+    guidance:
+      "CLAUDE.local.md loads beside the CLAUDE.md of its directory and is paid the same way, every session that loads it. The memory docs' size target is under 200 lines per memory file — 'longer files consume more context and reduce adherence.' It is personal and uncommitted, so trim it yourself: for each line ask whether removing it would cause Claude to make mistakes. (Advisory: Claude Code loads the file in full regardless of length.)",
+    cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-11-27)",
   }),
 ];
 
