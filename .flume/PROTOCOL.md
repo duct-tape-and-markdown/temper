@@ -51,13 +51,15 @@ The discipline file holds what every entry carries. This project adds:
 
 ## Tests
 
-A `tests[]` or `pins[]` line names a Rust test by its words. Build names
-the test from the line in snake_case: `a layout reads its frontmatter` is
-`fn a_layout_reads_its_frontmatter`. Punctuation drops, or is spelled out
-where it carries meaning (`` a `.`-rooted locus `` as `a_dot_rooted_locus`):
-the line's words must appear in the name in order. The judge runs
-`.flume/runner.mjs` over `cargo nextest`; integration tests live in the one
-`tests/it/` binary, unit tests beside their flat `src/` module.
+A `tests[]` or `pins[]` line names a Rust test by its words. Build names the
+test from the line in snake_case: `a layout reads its frontmatter` is `fn
+a_layout_reads_its_frontmatter`. Punctuation drops, or is spelled out where
+it carries meaning (`` a `.`-rooted locus `` as `a_dot_rooted_locus`): the
+line's words must appear in the name in order. An identifier is spelled as
+its words (`mcp servers`, never `mcpServers`), since a camelCase word cannot
+survive the snake_case name. The judge runs `.flume/runner.mjs` over `cargo
+nextest`; integration tests live in the one `tests/it/` binary, unit tests
+beside their flat `src/` module.
 
 **Every `tests[]` line must be provable by the judge.** The judge runs the
 line's test at the pre-change tree, with the test's own file laid over it,
