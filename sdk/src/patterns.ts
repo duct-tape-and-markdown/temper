@@ -63,6 +63,22 @@ export interface GateHooksInit {
    * bin from the program's `node_modules/.bin` — the gate hook's own default.
    */
   readonly tool?: Member;
+  /**
+   * The requirements the gate hooks fill, keyed by the event each hook binds — each entry
+   * the `satisfies` edge of that hook alone, never a flat list binding all three, since a
+   * requirement may bind the one member that fills it. Absent, none.
+   */
+  readonly satisfies?: GateHooksSatisfies;
+}
+
+/** The requirements each gate hook fills, keyed by the event it binds. */
+export interface GateHooksSatisfies {
+  /** The session-start report's claims. */
+  readonly SessionStart?: readonly string[];
+  /** The guard's file-writing edge's claims. */
+  readonly PreToolUse?: readonly string[];
+  /** The guard's shell edge's claims. */
+  readonly PostToolUse?: readonly string[];
 }
 
 /**
@@ -76,10 +92,14 @@ export interface GateHooksInit {
  */
 export function gateHooks(init: GateHooksInit = {}): readonly Member[] {
   const tool = init.tool === undefined ? {} : { tool: init.tool };
+  const claims = (event: keyof GateHooksSatisfies) => {
+    const names = init.satisfies?.[event];
+    return names === undefined ? {} : { satisfies: names };
+  };
   return [
-    gateHook({ event: "SessionStart", ...tool }),
-    gateHook({ event: "PreToolUse", matcher: GUARD_MATCHER, ...tool }),
-    gateHook({ event: "PostToolUse", matcher: SHELL_MATCHER, ...tool }),
+    gateHook({ event: "SessionStart", ...tool, ...claims("SessionStart") }),
+    gateHook({ event: "PreToolUse", matcher: GUARD_MATCHER, ...tool, ...claims("PreToolUse") }),
+    gateHook({ event: "PostToolUse", matcher: SHELL_MATCHER, ...tool, ...claims("PostToolUse") }),
   ];
 }
 

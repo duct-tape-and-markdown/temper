@@ -154,3 +154,20 @@ test("each shape hydrates standalone", () => {
   assert.throws(() => typecheck({ project, tool: rule({ name: "x" }) }), /tool\(\.\.\.\)/);
   assert.throws(() => gateHooks({ tool: rule({ name: "x" }) }), /tool\(\.\.\.\)/);
 });
+
+/** The lifecycle event a hook member registers under — its name's segment before the matcher. */
+function eventOf(member: { readonly name: string }): string | undefined {
+  return member.name.split(":")[0];
+}
+
+test("gateHooks passes each event's satisfies to that event's hook alone", () => {
+  const hooks = gateHooks({ satisfies: { SessionStart: ["report"] } });
+  const byEvent = new Map(hooks.map((member) => [eventOf(member), member.satisfies]));
+  assert.deepEqual(byEvent.get("SessionStart"), ["report"]);
+  assert.deepEqual(byEvent.get("PreToolUse"), []);
+  assert.deepEqual(byEvent.get("PostToolUse"), []);
+  const composed = defaultPatterns({ typecheck: { project }, gates: { satisfies: { PreToolUse: ["guard"] } } });
+  const claimed = composed.members.filter((member) => member.satisfies.includes("guard"));
+  assert.equal(claimed.length, 1);
+  assert.equal(claimed[0] === undefined ? undefined : eventOf(claimed[0]), "PreToolUse");
+});
