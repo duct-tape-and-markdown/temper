@@ -33,8 +33,8 @@ emit_hash = "ce5c6e80c61ded5d3025f3e23d498c09b82e5d55878669e3135d693c3b626fdc"
 [[rule]]
 name = "rust"
 source_path = ".claude/rules/rust.md"
-source_hash = "190a4d9c2a2e8ec9951e266133db20550c3dd5bb9dad805ad2facc9342d66b93"
-emit_hash = "190a4d9c2a2e8ec9951e266133db20550c3dd5bb9dad805ad2facc9342d66b93"
+source_hash = "dea8297ee31182c3b7cfef964ae1dbdb44f74d79105fcc92ad6d5bd1f946b69f"
+emit_hash = "dea8297ee31182c3b7cfef964ae1dbdb44f74d79105fcc92ad6d5bd1f946b69f"
 
 [[rule]]
 name = "sdk"
