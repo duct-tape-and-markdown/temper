@@ -1,0 +1,19 @@
+{
+  "tag": "LOAD-MOMENT-ONE-DERIVATION",
+  "files": {
+    "edit": [
+      { "path": "src/gate.rs", "description": "load_moments becomes the one derivation, counting an `always` channel behind an on-demand absence gate" },
+      { "path": "src/read.rs", "description": "narrate_channel reads its moment off the shared derivation; member_globs folds onto graph::declared_globs" },
+      { "path": "src/graph.rs", "description": "declared_globs is the one glob reader" },
+      { "path": "tests/it/load_moment_guard.rs", "description": "the custom-kind divergence case" }
+    ]
+  },
+  "gate": { "kind": "open" },
+  "summary": "One home for a member's load moment: the guard's loads(...) and explain's narration read one derivation, so they cannot disagree",
+  "per": { "path": "specs/builtins.md", "section": "Default contracts" },
+  "acceptance": "explain's stated moment and the loads guard's verdict agree for every registration shape, built-in or custom; read.rs no longer re-derives the moment or the globs",
+  "tests": [
+    "a loads on-demand guard binds over a custom kind registering always behind an on-demand absence gate"
+  ],
+  "notes": "From the LOAD-MOMENT-GUARD ship note: gate::load_moments counts that shape as launch while narrate_channel says on demand. builtins.md: 'explain and the advisories read one fact'. Consolidation per specs/process/engineering.md: member_globs vs declared_globs differ only on a map-valued field."
+}
