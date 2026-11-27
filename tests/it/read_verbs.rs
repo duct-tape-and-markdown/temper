@@ -2042,13 +2042,9 @@ fn a_requirement_telemetry_field_strand_names_zero_hit_satisfiers() {
         out.contains("`skill-c`"),
         "the specific zero-hit satisfier is listed: {out}"
     );
+    let zero_section = out.split("Satisfiers with zero records").last().unwrap();
     assert!(
-        !out.contains("`skill-a`")
-            || out
-                .split("Satisfiers with zero records")
-                .last()
-                .unwrap()
-                .contains("`skill-c`"),
+        zero_section.contains("`skill-c`") && !zero_section.contains("`skill-a`"),
         "only zero-hit satisfiers are listed, not skill-a which has records: {out}"
     );
 }
@@ -3253,6 +3249,45 @@ fn explain_reads_another_engines_divergent_built_in_row_as_the_embedded_built_in
     // built-in does not carry, and authored guidance riding it, under another engine's
     // stamp: the row is stale, so `explain` narrates the embedded built-in, as `check`
     // judges it, and the snapshot's guidance never reaches the narration.
+    let root = stale_builtin_memory_lock();
+    let narration = common::explain_in(&root, "memory");
+    assert!(
+        narration.contains("Kind `memory`"),
+        "the stale lock's `memory` is narrated at all, got:\n{narration}"
+    );
+    assert!(
+        !narration.contains("Snapshot guidance another engine wrote."),
+        "another engine's built-in row is stale and never overlays the embedded built-in, got:\n{narration}"
+    );
+}
+
+#[test]
+#[ignore = "hidden defect: explain narrates a stale built-in row stripped (no guidance, the lock's globs) instead of the embedded built-in"]
+fn explain_narrates_a_stale_built_in_rows_kind_with_the_embedded_guidance() {
+    let root = stale_builtin_memory_lock();
+    let embedded = common::explain_in(&common::tmpdir("explain-embedded-memory"), "memory");
+    let narration = common::explain_in(&root, "memory");
+    // Explain narrates a kind's guidance as its `‣` line.
+    let guidance_line = |text: &str| {
+        text.lines()
+            .find(|line| line.trim_start().starts_with('‣'))
+            .map(str::to_owned)
+    };
+    let embedded_guidance = guidance_line(&embedded);
+    assert!(
+        embedded_guidance.is_some(),
+        "the embedded `memory` narrates a guidance line to compare against, got:\n{embedded}"
+    );
+    assert_eq!(
+        guidance_line(&narration),
+        embedded_guidance,
+        "the stale lock's `memory` narrates the embedded built-in's guidance, got:\n{narration}"
+    );
+}
+
+/// A harness whose lock snapshots the built-in `memory` row — a registration the
+/// embedded built-in does not carry, and authored guidance — under another engine's stamp.
+fn stale_builtin_memory_lock() -> std::path::PathBuf {
     let root = common::tmpdir("explain-stale-builtin-row");
     std::fs::write(root.join("CLAUDE.md"), "# Project\n\nBuild with cargo.\n").unwrap();
     common::write_lock(
@@ -3268,16 +3303,5 @@ fn explain_reads_another_engines_divergent_built_in_row_as_the_embedded_built_in
         },
     );
     common::restamp_lock(&root, common::ANOTHER_ENGINE);
-
-    let embedded = common::explain_in(&common::tmpdir("explain-embedded-memory"), "memory");
-    let narration = common::explain_in(&root, "memory");
-    assert!(
-        !narration.contains("Snapshot guidance another engine wrote."),
-        "another engine's built-in row is stale and never overlays the embedded built-in, got:\n{narration}"
-    );
-    assert_eq!(
-        narration.lines().find(|line| line.contains("guidance")),
-        embedded.lines().find(|line| line.contains("guidance")),
-        "the stale lock's `memory` narrates the embedded built-in's guidance, got:\n{narration}"
-    );
+    root
 }

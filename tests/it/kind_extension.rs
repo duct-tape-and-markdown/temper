@@ -239,7 +239,7 @@ fn a_kind_narrowing_to_a_base_admits_its_subkinds_members() {
     );
     let run = common::check_in(&root, &[], Some("github"));
     assert!(
-        !run.output.contains("title=requirement.review-coverage"),
+        !run.output.contains("title=requirement.count"),
         "a decision is a rule, so it satisfies the rule-narrowed requirement, got:\n{}",
         run.output
     );

@@ -221,7 +221,7 @@ fn the_rule_floor_glob_valid_clause_fires_on_an_unparseable_paths_glob() {
     assert!(
         clean
             .iter()
-            .all(|diagnostic| diagnostic.rule != "glob-valid"),
+            .all(|diagnostic| diagnostic.rule != "rule.glob-valid.paths"),
         "a valid brace-expansion glob must not fire glob-valid, got: {clean:?}",
     );
 }

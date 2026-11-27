@@ -237,7 +237,7 @@ fn emit_writes_nothing_at_the_overlays_path_and_rows_none_of_it() {
     );
     let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
     assert!(
-        !lock.contains("settings.local.json") || !lock.contains("provenance"),
+        !lock.contains("source_path = \".claude/settings.local.json\""),
         "no provenance/emit-hash row of the local overlay lands in the lock:\n{lock}"
     );
 }

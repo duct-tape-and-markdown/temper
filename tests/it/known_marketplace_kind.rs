@@ -123,6 +123,11 @@ fn the_registry_channel_is_never_provably_dead() {
     write_settings(&harness, SETTINGS);
 
     let members = common::kind_features(&harness, &known_marketplace_kind());
+    assert_eq!(
+        members.len(),
+        2,
+        "both registered marketplaces are judged, got: {members:#?}"
+    );
     let channels = vec![Registration::Registry];
     let by_kind = std::collections::BTreeMap::from([("known-marketplace", members.as_slice())]);
     let registrations = std::collections::BTreeMap::from([("known-marketplace", channels)]);
@@ -160,7 +165,12 @@ fn a_settings_file_with_no_known_marketplaces_surfaces_no_member_and_no_finding(
     );
 
     let (findings, _ok) = check_harness(&harness);
-    let fired = common::findings_for(&findings, "known-marketplace");
+    // The two rules a registered entry can fire through `check`: a dead registration edge
+    // and an off-tree marketplace reference.
+    let fired: Vec<&String> = ["root.reachable", "coverage.off-tree-targets"]
+        .into_iter()
+        .flat_map(|rule| common::findings_for(&findings, rule))
+        .collect();
     assert!(
         fired.is_empty(),
         "a settings file naming no marketplace is not a finding, got: {findings:#?}"

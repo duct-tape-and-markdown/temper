@@ -358,7 +358,7 @@ fn two_agents_with_distinct_names_trip_no_uniqueness_clause() {
     let diagnostics = engine::validate(&contract, &[first_features, second_features]);
 
     assert!(
-        diagnostics.iter().all(|d| d.rule != "unique-name"),
+        diagnostics.iter().all(|d| d.rule != "agent.unique-name"),
         "distinct names must not trip the uniqueness clause, got: {diagnostics:#?}"
     );
 }

@@ -47,13 +47,10 @@ fn a_governs_none_kind_declaring_a_non_empty_registration_is_a_fault() {
         !ok,
         "a governs-None kind declaring a non-empty registration fails: {findings:?}"
     );
-    assert_eq!(
-        common::findings_for(&findings, "kind.registration-locus").len(),
-        1,
-        "one finding names the fault: {findings:?}"
-    );
+    let fired = common::findings_for(&findings, "kind.registration-locus");
+    assert_eq!(fired.len(), 1, "one finding names the fault: {findings:?}");
     assert!(
-        findings[0].contains("posture"),
+        fired[0].contains("posture"),
         "the finding names the kind: {findings:?}"
     );
 }

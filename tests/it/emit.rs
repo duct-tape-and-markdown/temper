@@ -3806,16 +3806,29 @@ fn crlf_checkout_reads_clean_for_config_stale() {
     let crlf_content = lf_content.replace('\n', "\r\n");
     fs::write(&skill_path, &crlf_content).unwrap();
 
-    // The projection judge must find no staleness (CRLF is canonicalized away).
-    let stale_findings = drift::config_stale_from_doc(
-        &drift::read_lock_document(&into).unwrap(),
-        &harness,
-        &fresh_clause(),
-    );
+    // The projection judge must find no staleness (CRLF is canonicalized away). It reads
+    // its rows under the workspace dir — the harness dir would resolve them off-tree and
+    // read clean whatever the bytes.
+    let lock = drift::read_lock_document(&into).unwrap();
+    let stale_findings = drift::config_stale_from_doc(&lock, &into, &fresh_clause());
     assert!(
         stale_findings.is_empty(),
         "CRLF-only diff should read clean: {:?}",
         stale_findings
+    );
+
+    // Contrast: a real content edit under the same CRLF endings does fire, so the clean
+    // verdict above was judged over the emitted row, not over nothing.
+    fs::write(
+        &skill_path,
+        crlf_content.replace("Use this skill.", "Edited."),
+    )
+    .unwrap();
+    let edited = drift::config_stale_from_doc(&lock, &into, &fresh_clause());
+    assert_eq!(
+        edited.len(),
+        1,
+        "a content edit must read stale: {edited:?}"
     );
 }
 

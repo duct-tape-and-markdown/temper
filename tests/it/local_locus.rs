@@ -630,10 +630,13 @@ fn an_at_locus_under_the_workspace_refuses_at_emit_and_check() {
         emit_result.is_err(),
         "emit refuses an at locus rooted under the workspace"
     );
-    let err_msg = format!("{:?}", emit_result);
+    let err = emit_result.unwrap_err();
     assert!(
-        err_msg.contains("at_locus_under_workspace") || err_msg.contains(".temper"),
-        "the error names the workspace constraint: {err_msg}"
+        matches!(
+            err.downcast_ref::<drift::DriftError>(),
+            Some(drift::DriftError::AtLocusUnderWorkspace { .. })
+        ),
+        "the error names the workspace constraint: {err:?}"
     );
 
     // Check also refuses on an already-committed lock row.

@@ -178,7 +178,12 @@ fn a_settings_file_with_no_enabled_plugins_surfaces_no_member_and_no_finding() {
     );
 
     let (findings, _ok) = check_harness(&harness);
-    let fired = common::findings_for(&findings, "installed-plugin");
+    // The two rules a registered entry can fire through `check`: a dead registration edge
+    // and an off-tree marketplace reference.
+    let fired: Vec<&String> = ["root.reachable", "coverage.off-tree-targets"]
+        .into_iter()
+        .flat_map(|rule| common::findings_for(&findings, rule))
+        .collect();
     assert!(
         fired.is_empty(),
         "a settings file declaring no plugins is not a finding, got: {findings:#?}"
