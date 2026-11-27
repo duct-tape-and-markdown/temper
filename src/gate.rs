@@ -189,7 +189,7 @@ pub fn site_class(kind: &CustomKind) -> Option<SiteClass> {
     match kind.content {
         kind::Content::Layout(_) => Some(SiteClass::Layout),
         kind::Content::File if kind.governs.is_some() => Some(SiteClass::File),
-        _ => None,
+        kind::Content::File | kind::Content::Fields => None,
     }
 }
 

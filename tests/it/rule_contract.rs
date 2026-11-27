@@ -118,7 +118,44 @@ fn without_body_prose(predicate: &Predicate) -> Predicate {
                 })
                 .collect(),
         },
-        other => other.clone(),
+        Predicate::Required { .. }
+        | Predicate::Optional { .. }
+        | Predicate::Type { .. }
+        | Predicate::MinLen { .. }
+        | Predicate::MaxLen { .. }
+        | Predicate::Range { .. }
+        | Predicate::Enum { .. }
+        | Predicate::Deny { .. }
+        | Predicate::ForbiddenKeys { .. }
+        | Predicate::ClosedKeys
+        | Predicate::AllowedChars { .. }
+        | Predicate::Shape { .. }
+        | Predicate::Extent { .. }
+        | Predicate::RequireSections { .. }
+        | Predicate::MustDefine { .. }
+        | Predicate::SectionContains { .. }
+        | Predicate::NameMatchesDir
+        | Predicate::UniqueName
+        | Predicate::Unshadowed
+        | Predicate::DependencyExists
+        | Predicate::Count { .. }
+        | Predicate::Unique { .. }
+        | Predicate::Listing { .. }
+        | Predicate::Membership { .. }
+        | Predicate::Degree { .. }
+        | Predicate::ReachedFrom { .. }
+        | Predicate::Kind { .. }
+        | Predicate::GlobValid { .. }
+        | Predicate::MentionReachable { .. }
+        | Predicate::TriggerAgrees { .. }
+        | Predicate::Reachable
+        | Predicate::Fresh
+        | Predicate::LocusDeclared
+        | Predicate::EngineMatches
+        | Predicate::Resolves
+        | Predicate::ImportBacked
+        | Predicate::FormatPlacesEdges
+        | Predicate::Loads { .. } => predicate.clone(),
     }
 }
 
