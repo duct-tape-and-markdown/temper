@@ -234,26 +234,39 @@ pub(crate) fn absence_gate_states(
         .iter()
         .filter_map(|(name, kind)| builtin.get(name).map(|uaf| (kind, uaf)));
     let custom_pairs = custom.iter().map(|(kind, uaf)| (kind, uaf));
-    let mut states = BTreeMap::new();
-    for (kind, uaf) in builtin_pairs
+    builtin_pairs
         .chain(custom_pairs)
-        .filter(|(kind, _)| !kind.absence_gates.is_empty())
-    {
-        for unit in &uaf.units {
-            let Some(source_path) = crate::path::relativize_against_root(
+        .flat_map(|(kind, uaf)| {
+            kind_absence_gate_states(harness_root, kind, uaf)
+                .into_iter()
+                .map(|(id, state)| ((kind.name.clone(), id), state))
+        })
+        .collect()
+}
+
+/// [`absence_gate_states`] over one kind's units, by unit id — empty where no template
+/// of the kind carries a gate.
+fn kind_absence_gate_states(
+    harness_root: &Path,
+    kind: &CustomKind,
+    uaf: &compose::KindUnitsAndFeatures,
+) -> BTreeMap<String, kind::AbsenceGateState> {
+    if kind.absence_gates.is_empty() {
+        return BTreeMap::new();
+    }
+    uaf.units
+        .iter()
+        .filter_map(|unit| {
+            let source_path = crate::path::relativize_against_root(
                 &unit.source_path.to_string_lossy(),
                 harness_root,
-            ) else {
-                continue;
-            };
-            if let Some(state) = kind.absence_gate(&source_path, |candidate| {
+            )?;
+            let state = kind.absence_gate(&source_path, |candidate| {
                 harness_root.join(candidate).is_file()
-            }) {
-                states.insert((kind.name.clone(), unit.id.clone()), state);
-            }
-        }
-    }
-    states
+            })?;
+            Some((unit.id.clone(), state))
+        })
+        .collect()
 }
 
 /// The [home](kind::member_home) of every member whose kind registers
@@ -309,48 +322,85 @@ fn kind_read_beneath_homes(
         .collect()
 }
 
-/// Each of one kind's members' [load moment](contract::LoadMoment), by member id, read
-/// off the channels its kind registers: **on demand** where an
-/// [`OnReadBeneath`](kind::Registration::OnReadBeneath) member is homed below the harness
-/// root or a [`PathsMatch`](kind::Registration::PathsMatch) member declares globs, else
-/// **at launch** where the kind registers one of those channels or
-/// [`Always`](kind::Registration::Always). A member of a kind registering none of the
-/// three — invoked, listed, connected — has no load moment, and a `loads` guard is
-/// silent over it.
+/// Where a member sits, as its load moment reads it: the absence gate its template
+/// carries, if any, and its [home](kind::member_home) where its kind registers
+/// [`OnReadBeneath`](kind::Registration::OnReadBeneath).
+#[derive(Clone, Copy)]
+pub(crate) struct Placement<'a> {
+    pub gate: Option<&'a kind::AbsenceGateState>,
+    pub home: Option<&'a str>,
+}
+
+/// When one registration channel loads `member` into context — the one derivation both
+/// the `loads` guard ([`member_load_moment`]) and `explain`'s narration read. **On
+/// demand** where an [`Always`](kind::Registration::Always) member sits behind an
+/// on-demand absence gate, an [`OnReadBeneath`](kind::Registration::OnReadBeneath)
+/// member is homed below the harness root, or a
+/// [`PathsMatch`](kind::Registration::PathsMatch) member declares globs or waits on a
+/// sibling subdirectory registration; else **at launch**. [`None`] for a channel that
+/// never loads the member's body into context (invoked, listed, connected).
+pub(crate) fn channel_load_moment(
+    channel: &kind::Registration,
+    channels: &[kind::Registration],
+    member: &extract::Features,
+    placement: Placement<'_>,
+) -> Option<contract::LoadMoment> {
+    use contract::LoadMoment::{Launch, OnDemand};
+    let beneath_a_subdirectory = placement.home.is_some_and(|home| !home.is_empty());
+    let on_demand = match channel {
+        kind::Registration::Always => matches!(
+            placement.gate,
+            Some(
+                kind::AbsenceGateState::Open(kind::AbsenceGateScope::OnDemand)
+                    | kind::AbsenceGateState::Shut(kind::AbsenceClosure {
+                        scope: kind::AbsenceGateScope::OnDemand,
+                        ..
+                    })
+            )
+        ),
+        kind::Registration::OnReadBeneath => beneath_a_subdirectory,
+        kind::Registration::PathsMatch { field } => {
+            !graph::declared_globs(member, field).is_empty()
+                || (beneath_a_subdirectory && channels.contains(&kind::Registration::OnReadBeneath))
+        }
+        _ => return None,
+    };
+    Some(if on_demand { OnDemand } else { Launch })
+}
+
+/// A member's [load moment](contract::LoadMoment) over every channel its kind
+/// registers: on demand where any loading channel is, at launch where all are, and
+/// [`None`] where none of them loads it — a `loads` guard is silent over that member.
+pub(crate) fn member_load_moment(
+    channels: &[kind::Registration],
+    member: &extract::Features,
+    placement: Placement<'_>,
+) -> Option<contract::LoadMoment> {
+    channels
+        .iter()
+        .filter_map(|channel| channel_load_moment(channel, channels, member, placement))
+        .max()
+}
+
+/// Each of one kind's members' [load moment](contract::LoadMoment), by member id —
+/// [`member_load_moment`] at the member's placement on disk under `harness_root`.
 fn load_moments(
     harness_root: &Path,
     kind: &CustomKind,
     uaf: &compose::KindUnitsAndFeatures,
 ) -> engine::LoadMoments {
-    let loads_into_context = kind.registration.iter().any(|channel| {
-        matches!(
-            channel,
-            kind::Registration::Always
-                | kind::Registration::OnReadBeneath
-                | kind::Registration::PathsMatch { .. }
-        )
-    });
-    if !loads_into_context {
-        return engine::LoadMoments::new();
-    }
     let homes = kind_read_beneath_homes(harness_root, kind, uaf);
+    let gates = kind_absence_gate_states(harness_root, kind, uaf);
     uaf.units
         .iter()
         .zip(&uaf.features)
-        .map(|(unit, features)| {
-            let beneath_a_subdirectory = homes.get(&unit.id).is_some_and(|home| !home.is_empty());
-            let scoped_by_paths = kind.registration.iter().any(|channel| match channel {
-                kind::Registration::PathsMatch { field } => {
-                    !graph::declared_globs(features, field).is_empty()
-                }
-                _ => false,
-            });
-            let moment = if beneath_a_subdirectory || scoped_by_paths {
-                contract::LoadMoment::OnDemand
-            } else {
-                contract::LoadMoment::Launch
+        .filter_map(|(unit, features)| {
+            let placement = Placement {
+                gate: gates.get(&unit.id),
+                home: homes.get(&unit.id).map(String::as_str),
             };
-            (features.id.clone(), moment)
+            member_load_moment(&kind.registration, features, placement)
+                .map(|moment| (features.id.clone(), moment))
         })
         .collect()
 }

@@ -53,12 +53,13 @@ use serde_json::Value as JsonValue;
 use crate::admissibility;
 use crate::builtin_kind;
 use crate::compose::{self, Edge, Requirement};
-use crate::contract::{Contract, Predicate};
+use crate::contract::{Contract, LoadMoment, Predicate};
 use crate::document::Satisfies;
 use crate::drift;
 use crate::extract::{self, Features, MemberAddress};
+use crate::gate;
 use crate::graph::{self, DIRECTIVE_FIELD, ResolvedEdge};
-use crate::kind::{AbsenceClosure, AbsenceGateScope, AbsenceGateState, CustomKind, Registration};
+use crate::kind::{AbsenceGateState, CustomKind, Registration};
 use crate::member_address::{self, ParsedLeaf, nested_key, parse_leaf_address};
 use crate::roster;
 use crate::tap;
@@ -2537,7 +2538,7 @@ fn load_strand(
                             channels,
                             member,
                             repo_files,
-                            Placement { gate, home },
+                            gate::Placement { gate, home },
                             listing
                         )
                     );
@@ -2703,23 +2704,6 @@ fn built_in_agent_line(member: &Features) -> Option<String> {
     })
 }
 
-/// Where a member sits, as its load moment reads it: the absence gate its template
-/// carries, if any, and its [home](crate::kind::member_home) where its kind registers
-/// [`OnReadBeneath`](Registration::OnReadBeneath).
-#[derive(Clone, Copy)]
-struct Placement<'a> {
-    gate: Option<&'a AbsenceGateState>,
-    home: Option<&'a str>,
-}
-
-/// The globs a member's glob field carries — empty where the field is absent or blank.
-fn member_globs(member: &Features, field: &str) -> Vec<String> {
-    member
-        .field(field)
-        .map(|value| graph::extract_globs(&value))
-        .unwrap_or_default()
-}
-
 /// The globs spelled for a sentence: each backticked, comma-joined.
 fn spell_globs(globs: &[String]) -> String {
     globs
@@ -2737,30 +2721,32 @@ fn narrate_channel(
     channels: &[Registration],
     member: &Features,
     repo_files: &[String],
-    placement: Placement<'_>,
+    placement: gate::Placement<'_>,
     listing: Option<(&Vec<String>, usize, Option<&str>)>,
 ) -> String {
     if let Some(reason) = graph::dead_registration(channel, member, repo_files) {
         return format!("{}: dead — {reason}.", channel_label(channel));
     }
-    let Placement { gate, home } = placement;
+    let gate::Placement { gate, home } = placement;
     let label = channel_label(channel);
     match channel {
-        Registration::Always => match gate {
-            Some(AbsenceGateState::Open(AbsenceGateScope::OnDemand))
-            | Some(AbsenceGateState::Shut(AbsenceClosure {
-                scope: AbsenceGateScope::OnDemand,
-                ..
-            })) => format!(
-                "{label}: loaded on demand, the first time Claude reads a file in its subdirectory."
-            ),
-            Some(_) => format!("{label}: loaded at launch, while its absence gate is open."),
-            None => format!("{label}: loaded at launch, unconditionally."),
-        },
+        Registration::Always => {
+            match gate::channel_load_moment(channel, channels, member, placement) {
+                Some(LoadMoment::OnDemand) => format!(
+                    "{label}: loaded on demand, the first time Claude reads a file in its subdirectory."
+                ),
+                _ if gate.is_some() => {
+                    format!("{label}: loaded at launch, while its absence gate is open.")
+                }
+                _ => format!("{label}: loaded at launch, unconditionally."),
+            }
+        }
         Registration::OnReadBeneath => {
             // A sibling `paths-match` declaring globs holds the load past registration.
             let held_by = channels.iter().find_map(|sibling| match sibling {
-                Registration::PathsMatch { field } if !member_globs(member, field).is_empty() => {
+                Registration::PathsMatch { field }
+                    if !graph::declared_globs(member, field).is_empty() =>
+                {
                     Some(field)
                 }
                 _ => None,
@@ -2772,8 +2758,11 @@ fn narrate_channel(
                 ),
                 None => ("loaded", String::new()),
             };
-            match home {
-                Some(home) if !home.is_empty() => format!(
+            match (
+                gate::channel_load_moment(channel, channels, member, placement),
+                home,
+            ) {
+                (Some(LoadMoment::OnDemand), Some(home)) => format!(
                     "{label}: {verb} on demand, the first time Claude reads a file beneath `{home}/`{hold}."
                 ),
                 _ => {
@@ -2787,7 +2776,7 @@ fn narrate_channel(
             }
         }
         Registration::PathsListing { field } => {
-            let globs = member_globs(member, field);
+            let globs = graph::declared_globs(member, field);
             if globs.is_empty() {
                 format!("{label}: it declares no `{field}`, so it is listed from session start.")
             } else {
@@ -2814,7 +2803,7 @@ fn narrate_channel(
                 None => {
                     let gated_by = channels.iter().find_map(|sibling| match sibling {
                         Registration::PathsListing { field: gate }
-                            if !member_globs(member, gate).is_empty() =>
+                            if !graph::declared_globs(member, gate).is_empty() =>
                         {
                             Some(gate)
                         }
@@ -2831,10 +2820,10 @@ fn narrate_channel(
             }
         }
         Registration::PathsMatch { field } => {
-            let globs = member_globs(member, field);
-            let beneath_a_subdirectory = channels.contains(&Registration::OnReadBeneath)
-                && home.is_some_and(|home| !home.is_empty());
-            if globs.is_empty() && beneath_a_subdirectory {
+            let globs = graph::declared_globs(member, field);
+            let on_demand = gate::channel_load_moment(channel, channels, member, placement)
+                == Some(LoadMoment::OnDemand);
+            if globs.is_empty() && on_demand {
                 format!(
                     "{label}: it declares no `{field}`, so it loads as soon as its subdirectory registers it."
                 )

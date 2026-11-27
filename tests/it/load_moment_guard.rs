@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use temper::drift::{BoundRow, ClauseRow, Declarations};
+use temper::drift::{AbsenceGateRow, BoundRow, ClauseRow, Declarations, KindFactRow};
 
 use crate::common::{self, check_harness, write_sibling};
 
@@ -129,4 +129,60 @@ fn a_load_moment_guard_as_a_clause_of_its_own_is_inadmissible() {
             .any(|finding| finding.contains("`when` guard form only")),
         "{findings:#?}"
     );
+}
+
+#[test]
+fn a_loads_on_demand_guard_binds_over_a_custom_kind_registering_always_behind_an_on_demand_absence_gate()
+ {
+    let harness = common::tmpdir("load-moment-custom-always-gated");
+    write_sibling(&harness, "NOTES.md", THREE_LINES);
+    write_sibling(&harness, "apps/web/NOTES.md", THREE_LINES);
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![KindFactRow {
+                unit_shape: Some("file".to_string()),
+                registration: vec!["always".to_string()],
+                absence_gate: vec![AbsenceGateRow {
+                    template: "**/NOTES.md".to_string(),
+                    absent: vec!["SKIP.md".to_string()],
+                }],
+                ..common::kind_facts("notes", ".", "**/NOTES.md")
+            }],
+            clauses: vec![ClauseRow {
+                kind: Some("notes".to_string()),
+                values: Some(vec!["on-demand".to_string()]),
+                guard_predicate: Some("loads".to_string()),
+                body: Some(vec![ClauseRow {
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(1),
+                        entry: None,
+                    }),
+                    unit: Some("lines".to_string()),
+                    ..common::clause("extent", "advisory")
+                }]),
+                ..common::clause("when", "advisory")
+            }],
+            ..Declarations::default()
+        },
+    );
+    let (findings, _) = check_harness(&harness);
+    let fired = common::findings_for(&findings, "notes.when.loads=on-demand.extent");
+    assert_eq!(
+        fired.len(),
+        1,
+        "the subdirectory's member alone: {findings:#?}"
+    );
+    let subdirectory = fired[0];
+    assert!(subdirectory.contains("apps:web"), "{findings:#?}");
+
+    // `explain` states the same moment the guard judged, for both members.
+    let subdirectory = common::explain_in(&harness, "apps:web:NOTES");
+    assert!(
+        subdirectory.contains("`always`: loaded on demand"),
+        "{subdirectory}"
+    );
+    let root = common::explain_in(&harness, "NOTES");
+    assert!(root.contains("`always`: loaded at launch"), "{root}");
 }
