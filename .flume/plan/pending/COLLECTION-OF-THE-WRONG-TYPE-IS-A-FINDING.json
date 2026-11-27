@@ -1,0 +1,34 @@
+{
+  "tag": "COLLECTION-OF-THE-WRONG-TYPE-IS-A-FINDING",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/json_manifest.rs",
+        "description": "a consumed collection key whose value is not an object draws a finding naming the key and type; regenerate keeps it"
+      },
+      {
+        "path": "tests/it/manifest_adapter.rs",
+        "description": "non-object mcpServers and settings hooks"
+      },
+      {
+        "path": "tests/it/mcp_kind.rs",
+        "description": "rejected-collection finding"
+      }
+    ]
+  },
+  "summary": "A manifest collection key the runtime rejects for its JSON type draws a finding naming the key and the type, and a regenerate keeps the value",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Built-ins — what ships"
+  },
+  "acceptance": "`\"mcpServers\": []` in .mcp.json draws a finding naming mcpServers and array; write_manifest keeps the key; cargo test green",
+  "tests": [
+    "a non-object mcpServers collection draws a finding naming the key and its type",
+    "a regenerated manifest keeps a collection value it never judged"
+  ],
+  "notes": "0115; posture engineering.md \"A reader refuses or reports what it consumes\". Cite the .mcp.json probe (Claude Code 2.1.332, 2026-11-27) and code.claude.com/docs/en/settings \"Fix a broken settings file\" at the site. Prior question non-object-manifest-collection carries the site analysis (git show 1a03eb15)."
+}

@@ -1,0 +1,41 @@
+{
+  "tag": "SIZE-ADVISORY-AT-SUBDIRECTORY-MEMORY-AND-NESTED-RULES",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "RULE-CLAIMS-NESTED-CLAUDE-RULES",
+      "LOAD-MOMENT-IS-A-REGISTRATION-FACT"
+    ]
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "memory's on-demand size clause; rule size clause binds nested rules"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived"
+      },
+      {
+        "path": "tests/it/context_cost.rs",
+        "description": "subdirectory memory and nested rule past the limit"
+      }
+    ]
+  },
+  "summary": "A subdirectory `CLAUDE.md` and a subdirectory's own rule past the per-file limit draw the size advisory, as an on-demand root rule does",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Default contracts"
+  },
+  "acceptance": "an oversized apps/web/CLAUDE.md and an oversized apps/web/.claude/rules/x.md each draw the size advisory; root CLAUDE.md does not; cargo test green",
+  "tests": [
+    "a subdirectory memory past the per-file limit draws the size advisory",
+    "a nested rule without paths past the per-file limit draws the size advisory"
+  ],
+  "pins": [
+    "a root memory past the per-file limit draws no size advisory"
+  ],
+  "notes": "0115. CLAUDE.local.md and imported files wait on question non-member-files-the-runtime-cuts."
+}

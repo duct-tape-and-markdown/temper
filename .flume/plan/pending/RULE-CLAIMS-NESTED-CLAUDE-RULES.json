@@ -1,0 +1,37 @@
+{
+  "tag": "RULE-CLAIMS-NESTED-CLAUDE-RULES",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "rule locus claims **/.claude/rules/** under the nested grammar; memory's exclusions follow"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived"
+      },
+      {
+        "path": "tests/it/nested_member.rs",
+        "description": "a subdirectory's .claude/rules member and its identity"
+      },
+      {
+        "path": "tests/it/builtin_loci.rs",
+        "description": "the widened claim"
+      }
+    ]
+  },
+  "summary": "The rule kind claims a subdirectory's own `.claude/rules/`, named by the nested grammar, as memory and skill already do",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
+  "acceptance": "apps/web/.claude/rules/x.md reads as rule `apps:web:x` and projects back to its path; cargo test green",
+  "tests": [
+    "a rule under a subdirectory's own claude rules directory is a nested rule member"
+  ],
+  "notes": "0115; cite code.claude.com/docs/en/memory, \"Claude ignores the end of my subdirectory CLAUDE.md\" (retrieved 2026-11-26) at the locus."
+}

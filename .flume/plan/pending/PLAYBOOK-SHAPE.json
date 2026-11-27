@@ -1,0 +1,43 @@
+{
+  "tag": "PLAYBOOK-SHAPE",
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "PATTERNS-SUBPATH-AND-DEFAULT-PATTERNS"
+    ]
+  },
+  "files": {
+    "new": [
+      {
+        "path": "sdk/src/playbook.ts",
+        "description": "the playbook: path rule, routing skill, topic supporting docs, typed mentions, replaceable router renderer; execution and preloading typed and refused"
+      },
+      {
+        "path": "sdk/test/playbook.test.ts",
+        "description": "axes, derivations, listing option, renderer replacement, not-yet-offered refusals"
+      }
+    ],
+    "edit": [
+      {
+        "path": "sdk/src/patterns.ts",
+        "description": "exports playbook; defaultPatterns() composes the playbooks it is given"
+      },
+      {
+        "path": "sdk/test/patterns.test.ts",
+        "description": "defaultPatterns() with a playbook"
+      },
+      {
+        "path": "sdk/test/root_exports.test.ts",
+        "description": "the new export"
+      }
+    ]
+  },
+  "summary": "The patterns subpath ships the playbook over trigger, invocation and topics, with execution and preloading typed but refused at emit naming the axis",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "What ships — three channels"
+  },
+  "acceptance": "a harness composing a playbook per trigger (paths, nested, none) and invocation emits and passes check --deny-advisories; setting execution or preloading throws naming the axis and where to request it; pnpm --dir sdk test green",
+  "tests": [],
+  "notes": "SDK-only: the SDK gate holds it. Re-derived from 274f4398/9194fcde/c224cfbb (STARTER-SHIPS-THE-PLAYBOOK retired). A path-triggered playbook's skill stays listed by default; on-touch listing (skill `paths`) is the trigger's option. User-only derives the rule's ask-the-user wording; the skill keeps its own description. Attachments are PLAYBOOK-ATTACHMENTS."
+}

@@ -1,0 +1,78 @@
+{
+  "tag": "LOAD-MOMENT-IS-A-REGISTRATION-FACT",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "sdk/src/kind.ts",
+        "description": "registration channels: on-read-beneath for subdirectory memory, paths-gated listing for a skill"
+      },
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "memory and skill registrations"
+      },
+      {
+        "path": "sdk/src/declarations.ts",
+        "description": "registration rows"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "the widened channel enum"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "reads the rows; explain narrates the moment"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "channel match"
+      },
+      {
+        "path": "src/graph.rs",
+        "description": "channel match"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "channel match"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "channel match"
+      },
+      {
+        "path": "src/contract.rs",
+        "description": "channel match"
+      },
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "channel match"
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "explain's load moment for subdirectory memory and a paths-listed skill"
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "the new rows"
+      }
+    ]
+  },
+  "summary": "A subdirectory's memory registers on a read beneath its directory and a skill's own `paths` register its listing, so explain and the advisories read one load fact",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Default contracts"
+  },
+  "acceptance": "explain says a subdirectory CLAUDE.md loads on a read beneath its directory and a paths-bearing skill lists on a read of a match; cargo test green",
+  "tests": [
+    "explain states a subdirectory memory loads on a read beneath its directory",
+    "explain states a skill with paths joins the listing on a read of a match"
+  ],
+  "notes": "0115 + 9194fcde probe (skill paths gate the listing, not the body). Seam change: kind.ts/declarations.ts, read.rs, builtin_lock.toml together; every channel match is named per PROTOCOL rule 3."
+}
