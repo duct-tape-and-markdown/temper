@@ -487,7 +487,7 @@ fn record_site<'a>(
     row: &'a drift::ClauseRow,
     site: &str,
 ) {
-    if let Some(label) = &row.label {
+    if let Some(label) = &row.id {
         sites
             .entry(label.as_str())
             .or_default()
@@ -501,7 +501,7 @@ fn record_site<'a>(
 /// (`drift::stamp_clause_label`), so the sentence names the very prefix the reader is
 /// staring at in the shared address.
 fn guard_body_site(host: &drift::ClauseRow) -> String {
-    match host.label.as_deref() {
+    match host.id.as_deref() {
         Some(label) => format!("guard `{label}`'s body clauses"),
         None => format!("an unlabelled `{}` guard's body clauses", host.predicate),
     }
@@ -1087,7 +1087,7 @@ mod tests {
     /// collision reads over [`test_support::clause_row`]'s defaults.
     fn clause_row(kind: Option<&str>, label: &str, severity: &str) -> drift::ClauseRow {
         drift::ClauseRow {
-            label: Some(label.to_string()),
+            id: Some(label.to_string()),
             kind: kind.map(str::to_string),
             ..test_support::clause_row("required", severity)
         }

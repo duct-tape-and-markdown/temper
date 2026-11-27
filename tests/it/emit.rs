@@ -227,7 +227,7 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
     )]);
     payload.declarations.clauses.push(drift::ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("rule".to_string()),
         field: Some("paths".to_string()),
         ..common::clause("required", "required")
@@ -3546,7 +3546,7 @@ fn two_filtered_degree_bounds_on_one_kind_emit_and_check_under_their_own_address
         .clauses
         .iter()
         .filter(|row| row.predicate == "degree")
-        .filter_map(|row| row.label.as_deref())
+        .filter_map(|row| row.id.as_deref())
         .collect();
     assert_eq!(
         labels,

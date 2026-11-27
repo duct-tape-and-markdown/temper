@@ -54,7 +54,7 @@ fn findings_at(run: &common::CheckRun, label: &str, member: &str) -> usize {
 
 fn decision_requires_status() -> ClauseRow {
     ClauseRow {
-        label: Some("decision.required.status".to_string()),
+        id: Some("decision.required.status".to_string()),
         kind: Some("decision".to_string()),
         field: Some("status".to_string()),
         ..common::clause("required", "required")
@@ -208,7 +208,7 @@ fn a_by_kind_selection_of_the_base_counts_its_subkinds_members() {
         &root,
         vec![decision(".claude/rules/decisions", "*.md")],
         vec![ClauseRow {
-            label: Some("rule.count".to_string()),
+            id: Some("rule.count".to_string()),
             kind: Some("rule".to_string()),
             count: Some(CountBoundRow { min: 0, max: 1 }),
             ..common::clause("count", "required")
@@ -254,7 +254,7 @@ fn a_bases_unique_name_judges_its_subkinds_members_with_its_own() {
         &root,
         vec![decision(".claude/rules/decisions", "*.md")],
         vec![ClauseRow {
-            label: Some("rule.unique-name".to_string()),
+            id: Some("rule.unique-name".to_string()),
             kind: Some("rule".to_string()),
             ..common::clause("unique-name", "required")
         }],
@@ -277,13 +277,13 @@ fn a_when_nested_unique_name_finds_a_base_member_and_a_subkind_member_sharing_a_
         &root,
         vec![decision(".claude/rules/decisions", "*.md")],
         vec![ClauseRow {
-            label: Some("rule.when.globs".to_string()),
+            id: Some("rule.when.globs".to_string()),
             kind: Some("rule".to_string()),
             field: Some("globs".to_string()),
             values: Some(vec!["*.rs".to_string()]),
             guard_predicate: Some("enum".to_string()),
             body: Some(vec![ClauseRow {
-                label: Some("rule.when.globs.unique-name".to_string()),
+                id: Some("rule.when.globs.unique-name".to_string()),
                 ..common::clause("unique-name", "required")
             }]),
             ..common::clause("when", "required")
@@ -299,7 +299,7 @@ fn a_when_nested_unique_name_finds_a_base_member_and_a_subkind_member_sharing_a_
 
 fn rule_requires_owner() -> ClauseRow {
     ClauseRow {
-        label: Some("rule.required.owner".to_string()),
+        id: Some("rule.required.owner".to_string()),
         kind: Some("rule".to_string()),
         field: Some("owner".to_string()),
         ..common::clause("required", "required")
@@ -583,7 +583,7 @@ fn write_charter(root: &Path, name: &str) {
 
 fn strict_invariant_requires_test() -> ClauseRow {
     ClauseRow {
-        label: Some("strict-invariant.required.test".to_string()),
+        id: Some("strict-invariant.required.test".to_string()),
         kind: Some("strict-invariant".to_string()),
         field: Some("test".to_string()),
         ..common::clause("required", "required")
@@ -621,7 +621,7 @@ fn a_clause_bound_to_the_embedded_base_judges_the_embedded_subkinds_member() {
         &root,
         charter_and_strict_invariant(),
         vec![ClauseRow {
-            label: Some("invariant.required.test".to_string()),
+            id: Some("invariant.required.test".to_string()),
             kind: Some("invariant".to_string()),
             ..strict_invariant_requires_test()
         }],

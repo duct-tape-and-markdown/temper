@@ -369,7 +369,7 @@ fn the_disclosures_undeclared_count_is_unchanged_by_the_clauses_severity() {
     common::write_sibling(
         &harness,
         ".temper/dial.toml",
-        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.locus-declared\"\nseverity = \"required\"\n",
+        "name = \"workstation\"\n\n[[clause]]\nid = \"root.locus-declared\"\nseverity = \"required\"\n",
     );
 
     let (findings, success) = check_harness(&harness);

@@ -93,7 +93,7 @@ mod tests {
                 ) => {}
                 None => root_labels.push(
                     clause
-                        .label
+                        .id
                         .as_deref()
                         .expect("emit stamps every lock clause row with its label"),
                 ),
@@ -159,7 +159,7 @@ mod tests {
         let labels: Vec<&str> = declarations()
             .clauses
             .iter()
-            .map(|clause| clause.label.as_deref().expect("emit stamps every label"))
+            .map(|clause| clause.id.as_deref().expect("emit stamps every label"))
             .collect();
         for wanted in ["skill.max-len.name", "skill.name-matches-dir"] {
             assert!(labels.contains(&wanted), "the lock carries `{wanted}`");

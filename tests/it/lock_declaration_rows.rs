@@ -137,14 +137,14 @@ fn rich_declarations() -> Declarations {
         clauses: vec![
             ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("skill".to_string()),
                 field: Some("description".to_string()),
                 ..common::clause("required", "required")
             },
             ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("rule".to_string()),
                 field: Some("paths".to_string()),
                 ..common::clause("required", "advisory")
@@ -166,7 +166,7 @@ fn rich_declarations() -> Declarations {
                     ),
                     ClauseRow {
                         unit: None,
-                        label: None,
+                        id: None,
                         field: Some("name".to_string()),
                         ..common::clause("unique", "advisory")
                     },
@@ -494,21 +494,21 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         count: Some(CountBoundRow { min: 1, max: 3 }),
         ..common::clause("count", "required")
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         field: Some("name".to_string()),
         ..common::clause("unique", "advisory")
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         field: Some("model".to_string()),
         target: Some("approved-models".to_string()),
@@ -516,7 +516,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         degree: Some(DegreeBoundRow {
             incoming: Some(EdgeBoundRow {
@@ -587,7 +587,7 @@ fn a_degree_clause_rows_field_set_filter_round_trips_and_is_absent_when_unfilter
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("rule".to_string()),
         degree: Some(DegreeBoundRow {
             incoming: Some(EdgeBoundRow {
@@ -601,7 +601,7 @@ fn a_degree_clause_rows_field_set_filter_round_trips_and_is_absent_when_unfilter
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         degree: Some(DegreeBoundRow {
             incoming: Some(EdgeBoundRow {
@@ -678,7 +678,7 @@ fn a_reached_from_clause_row_round_trips_its_roots_and_via_set() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         target: Some("entrypoint".to_string()),
         fields: Some(vec!["routes_to".to_string(), "cites".to_string()]),
@@ -740,7 +740,7 @@ fn a_mention_reachable_clause_row_round_trips_both_field_ends() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("rule".to_string()),
         field: Some("paths".to_string()),
         gate: Some("paths".to_string()),
@@ -813,7 +813,7 @@ fn a_root_clause_row_round_trips_with_its_kind_column_absent() {
         .expect("the root reachable clause row round-trips");
     assert_eq!(row.kind, None, "a root row names no kind");
     assert_eq!(
-        row.label.as_deref(),
+        row.id.as_deref(),
         Some("root.reachable"),
         "and emit stamps it under the root owner segment"
     );
@@ -856,7 +856,7 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         field: Some("name".to_string()),
         bound: Some(BoundRow {
@@ -868,14 +868,14 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
         ..common::clause("forbidden-keys", "required")
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         field: Some("name".to_string()),
         charset: Some(CharsetRow {
@@ -931,7 +931,7 @@ fn a_range_and_section_clause_row_round_trip_the_lock() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         field: Some("priority".to_string()),
         range: Some(RangeBoundRow { min: 1.0, max: 5.5 }),
@@ -939,7 +939,7 @@ fn a_range_and_section_clause_row_round_trip_the_lock() {
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         section: Some(SectionContainsRow {
             heading: "Decision".to_string(),
@@ -992,7 +992,7 @@ fn a_require_sections_clause_row_round_trips_the_lock() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         sections: Some(vec!["Usage".to_string(), "Decision".to_string()]),
         ..common::clause("require-sections", "required")
@@ -1041,7 +1041,7 @@ fn a_require_sections_clause_row_round_trips_the_lock() {
 fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     let optional = ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         field: Some("model".to_string()),
         ..common::clause("optional", "required")
     };
@@ -1054,7 +1054,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
 
     let range = ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         field: Some("priority".to_string()),
         range: Some(RangeBoundRow { min: 1.0, max: 5.0 }),
         ..common::clause("range", "required")
@@ -1070,7 +1070,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
 
     let enumerated = ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         field: Some("status".to_string()),
         values: Some(vec!["draft".to_string(), "final".to_string()]),
         ..common::clause("enum", "required")
@@ -1085,7 +1085,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
 
     let must_define = ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         field: Some("disable-model-invocation".to_string()),
         ..common::clause("must-define", "required")
     };
@@ -1098,7 +1098,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
 
     let section = ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         section: Some(SectionContainsRow {
             heading: "Decision".to_string(),
             marker: "Rejected".to_string(),
@@ -1140,7 +1140,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
 
     let require_sections = ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         sections: Some(vec!["Usage".to_string(), "Decision".to_string()]),
         ..common::clause("require-sections", "required")
     };
@@ -1168,7 +1168,7 @@ fn check_rejects_a_lock_clause_row_the_closed_vocabulary_cannot_admit() {
             kinds: vec![common::kind_facts("spec", "specs", "*.md")],
             clauses: vec![ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("spec".to_string()),
                 ..common::clause("not_a_predicate", "advisory")
             }],
@@ -3211,7 +3211,7 @@ fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
         .unwrap()
         .clauses
         .iter()
-        .map(|row| row.label.clone().expect("emit stamps every clause row"))
+        .map(|row| row.id.clone().expect("emit stamps every clause row"))
         .collect();
     assert_eq!(
         labels,
@@ -3232,7 +3232,7 @@ fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
         .requirements
         .iter()
         .flat_map(|row| row.clauses.clone())
-        .map(|row| row.label.expect("emit stamps a nested clause row too"))
+        .map(|row| row.id.expect("emit stamps a nested clause row too"))
         .collect();
     assert_eq!(requirement_labels, ["requirement.spec-coverage.count"]);
 }
@@ -3270,7 +3270,7 @@ fn the_same_program_emits_the_same_clause_labels() {
             .unwrap()
             .clauses
             .iter()
-            .filter_map(|row| row.label.clone())
+            .filter_map(|row| row.id.clone())
             .collect()
     };
 
@@ -3289,14 +3289,14 @@ fn a_when_clause_row_round_trips_the_lock() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: Some("skill".to_string()),
         guard_predicate: Some("enum".to_string()),
         field: Some("source".to_string()),
         values: Some(vec!["./path".to_string(), "object".to_string()]),
         body: Some(vec![ClauseRow {
             unit: None,
-            label: None,
+            id: None,
             kind: None,
             field: Some("url".to_string()),
             ..common::clause("required", "required")
@@ -3341,11 +3341,11 @@ fn a_when_clause_row_round_trips_the_lock() {
     assert_eq!(body_clause.predicate, "required");
     assert_eq!(body_clause.field.as_deref(), Some("url"));
     assert_eq!(
-        when_row.label.as_deref(),
+        when_row.id.as_deref(),
         Some("skill.when.source=./path+object")
     );
     assert_eq!(
-        body_clause.label.as_deref(),
+        body_clause.id.as_deref(),
         Some("skill.when.source=./path+object.required.url")
     );
 
@@ -3517,7 +3517,7 @@ fn two_section_clauses_of_one_predicate_carry_distinct_labels_and_gate_independe
             .clauses
             .iter()
             .filter(|row| row.kind.as_deref() == Some("skill") && row.predicate == predicate)
-            .map(|row| row.label.clone().expect("emit stamps every clause row"))
+            .map(|row| row.id.clone().expect("emit stamps every clause row"))
             .collect();
         labels.sort();
         labels
@@ -3950,4 +3950,16 @@ fn a_lock_written_under_the_prior_locus_column_names_reads_as_the_locus_columns(
     .kinds[0];
     assert_eq!(row.locus_root.as_deref(), Some("docs"));
     assert_eq!(row.locus_glob, vec!["*.md"]);
+}
+
+#[test]
+fn a_clause_row_an_older_engine_keyed_label_reads_as_its_id() {
+    let text = "[[declaration.clause]]\nlabel = \"skill.required.name\"\nkind = \"skill\"\n\
+                predicate = \"required\"\nfield = \"name\"\nseverity = \"required\"\n";
+    let declarations = drift::parse_declarations(Path::new("lock.toml"), text)
+        .expect("a `label`-keyed clause row is an older spelling, never a malformed lock");
+    assert_eq!(
+        declarations.clauses[0].id.as_deref(),
+        Some("skill.required.name")
+    );
 }

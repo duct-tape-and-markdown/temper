@@ -147,7 +147,7 @@ pub(crate) fn kind_fact_row(name: &str) -> crate::drift::KindFactRow {
 /// about a *lock*-shaped row spells the label it judges.
 pub(crate) fn clause_row(predicate: &str, severity: &str) -> crate::drift::ClauseRow {
     crate::drift::ClauseRow {
-        label: None,
+        id: None,
         kind: None,
         predicate: predicate.to_string(),
         field: None,

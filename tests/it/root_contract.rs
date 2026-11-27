@@ -52,7 +52,7 @@ fn root_reachable_with_guidance(severity: &str) -> ClauseRow {
 /// row emit never stamped is a row emit never wrote.
 fn stamped(label: &str, row: ClauseRow) -> ClauseRow {
     ClauseRow {
-        label: Some(label.to_string()),
+        id: Some(label.to_string()),
         ..row
     }
 }
@@ -199,7 +199,7 @@ fn the_dial_reaches_a_root_clause_by_its_label() {
     common::write_sibling(
         &root,
         ".temper/dial.toml",
-        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.reachable\"\nseverity = \"advisory\"\n",
+        "name = \"workstation\"\n\n[[clause]]\nid = \"root.reachable\"\nseverity = \"advisory\"\n",
     );
 
     let (findings, ok) = common::check_harness(&root);

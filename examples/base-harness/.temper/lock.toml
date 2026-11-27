@@ -360,19 +360,19 @@ shape = "fields"
 leaves = ["package", "bin", "file", "system"]
 
 [[declaration.clause]]
-label = "decision.unique-name"
+id = "decision.unique-name"
 kind = "decision"
 predicate = "unique-name"
 severity = "required"
 
 [[declaration.clause]]
-label = "flow.unique-name"
+id = "flow.unique-name"
 kind = "flow"
 predicate = "unique-name"
 severity = "required"
 
 [[declaration.clause]]
-label = "skill.required.name"
+id = "skill.required.name"
 kind = "skill"
 predicate = "required"
 field = "name"
@@ -381,7 +381,7 @@ guidance = "Every skill declares a `name` — the slug the harness binds to. Cla
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.min-len.name"
+id = "skill.min-len.name"
 kind = "skill"
 predicate = "min-len"
 field = "name"
@@ -391,7 +391,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "skill.allowed-chars.name"
+id = "skill.allowed-chars.name"
 kind = "skill"
 predicate = "allowed-chars"
 field = "name"
@@ -401,7 +401,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
-label = "skill.max-len.name"
+id = "skill.max-len.name"
 kind = "skill"
 predicate = "max-len"
 field = "name"
@@ -411,7 +411,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { max = 64 }
 
 [[declaration.clause]]
-label = "skill.shape.name"
+id = "skill.shape.name"
 kind = "skill"
 predicate = "shape"
 field = "name"
@@ -421,7 +421,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-17)"
 shape = "hyphen-placement"
 
 [[declaration.clause]]
-label = "skill.deny.name"
+id = "skill.deny.name"
 kind = "skill"
 predicate = "deny"
 field = "name"
@@ -431,7 +431,7 @@ cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overvi
 values = ["anthropic", "claude"]
 
 [[declaration.clause]]
-label = "skill.name-matches-dir"
+id = "skill.name-matches-dir"
 kind = "skill"
 predicate = "name-matches-dir"
 severity = "required"
@@ -439,7 +439,7 @@ guidance = "The spec requires the name to match its parent directory. Claude Cod
 cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.required.description"
+id = "skill.required.description"
 kind = "skill"
 predicate = "required"
 field = "description"
@@ -448,7 +448,7 @@ guidance = "The description is how the model chooses this skill from potentially
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.min-len.description"
+id = "skill.min-len.description"
 kind = "skill"
 predicate = "min-len"
 field = "description"
@@ -458,7 +458,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "skill.max-len.description"
+id = "skill.max-len.description"
 kind = "skill"
 predicate = "max-len"
 field = "description"
@@ -468,7 +468,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { max = 1024 }
 
 [[declaration.clause]]
-label = "skill.shape.description"
+id = "skill.shape.description"
 kind = "skill"
 predicate = "shape"
 field = "description"
@@ -478,7 +478,7 @@ cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overvi
 shape = "no-xml-tags"
 
 [[declaration.clause]]
-label = "skill.listing.description+when_to_use"
+id = "skill.listing.description+when_to_use"
 kind = "skill"
 predicate = "listing"
 field = "description+when_to_use"
@@ -490,7 +490,7 @@ gate = "disable-model-invocation"
 bound = { max = 8000, entry = 1536 }
 
 [[declaration.clause]]
-label = "skill.max-len.compatibility"
+id = "skill.max-len.compatibility"
 kind = "skill"
 predicate = "max-len"
 field = "compatibility"
@@ -500,7 +500,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 bound = { max = 500 }
 
 [[declaration.clause]]
-label = "skill.extent"
+id = "skill.extent"
 kind = "skill"
 predicate = "extent"
 severity = "advisory"
@@ -510,7 +510,7 @@ bound = { max = 500 }
 unit = "lines"
 
 [[declaration.clause]]
-label = "skill.forbidden-keys"
+id = "skill.forbidden-keys"
 kind = "skill"
 predicate = "forbidden-keys"
 severity = "required"
@@ -519,7 +519,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 keys = ["globs", "alwaysApply"]
 
 [[declaration.clause]]
-label = "skill.glob-valid.paths"
+id = "skill.glob-valid.paths"
 kind = "skill"
 predicate = "glob-valid"
 field = "paths"
@@ -528,7 +528,7 @@ guidance = "The optional `paths` scope gates every invocation channel until a fi
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.mention-reachable.paths"
+id = "skill.mention-reachable.paths"
 kind = "skill"
 predicate = "mention-reachable"
 field = "paths"
@@ -538,13 +538,13 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating har
 gate = "paths"
 
 [[declaration.clause]]
-label = "system.unique-name"
+id = "system.unique-name"
 kind = "system"
 predicate = "unique-name"
 severity = "required"
 
 [[declaration.clause]]
-label = "system.extent"
+id = "system.extent"
 kind = "system"
 predicate = "extent"
 severity = "advisory"
@@ -553,42 +553,42 @@ bound = { max = 120 }
 unit = "lines"
 
 [[declaration.clause]]
-label = "root.reachable"
+id = "root.reachable"
 predicate = "reachable"
 severity = "advisory"
 guidance = "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line."
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "root.fresh"
+id = "root.fresh"
 predicate = "fresh"
 severity = "advisory"
 guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency has moved: a layout import, a prose include, a declared input, or — on the root member — a module the program itself loaded. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved declared input re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/pipeline.md#drift (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "root.locus-declared"
+id = "root.locus-declared"
 predicate = "locus-declared"
 severity = "advisory"
 guidance = "A document sits at a governed locus that your program declares no member for. temper maintains nothing about it: `emit` never reaps it, and where your registrations write into it, `emit` renders their entries and refuses to delete any key it does not own; `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Where the locus is one the harness itself loads — a built-in kind's — it is live context on top of that; where the kind is your own, who reads it is yours to know and not temper's to claim. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared."
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/decisions/0054-the-root-member-carries-a-contract.md (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "root.engine-matches"
+id = "root.engine-matches"
 predicate = "engine-matches"
 severity = "advisory"
 guidance = "Your committed lock records a different temper version than the one running this gate. The rows being read were compiled by a compiler this binary is not, so every verdict below rests on a translation: an older spelling normalizes at read time, but a genuine change in what a row means reads the same from the inside. Re-run `emit` — it rewrites the lock whole in this engine's canonical form, and the stamp goes back to matching. Advisory because a lagging stamp is the ordinary state of every checkout between an upgrade and the next emit, and blocking there would make an upgrade a hard stop; dial this label to `required` — or re-declare the clause — once your CI should refuse a lock it did not compile."
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/pipeline.md#the-lock (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "root.resolves"
+id = "root.resolves"
 predicate = "resolves"
 severity = "required"
 guidance = "A reference this member declares — a field naming another member, or a mention in its prose — names a target the tree does not hold, or a bare key several hosts carry. The runtime resolves such a field by name: a subagent's `skills` list, for one, preloads each skill it names, so a name that matches no skill delivers nothing. Fix the name, author the missing member, or spell the whole `<host-address>/<kind>/<key>` address where hosts share a key. Required because the program's own `emit` refuses the same reference; dial this label to `advisory` while a tree mid-adoption still carries one."
 cite = "https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "root.import-backed"
+id = "root.import-backed"
 predicate = "import-backed"
 severity = "advisory"
 guidance = "This member's `@path` import names no member and no repository file. Claude Code expands an import into context beside the file that carries it, resolving a relative path against that file rather than the working directory, so a path that reaches nothing loads nothing, silently. Fix the path relative to the importing file — a trailing `.` reads as part of it — or set the text off in backticks if it was never meant as an import. Advisory because the importing file still loads; dial this label to `required` — or re-declare the clause — once a dead import should fail CI."
@@ -606,7 +606,7 @@ required = true
 prose = "every load-bearing area of this repository's behavior is documented as a system that declares spine membership"
 
 [[declaration.requirement.clauses]]
-label = "requirement.documented-spine.count"
+id = "requirement.documented-spine.count"
 predicate = "count"
 severity = "required"
 guidance = "the spine is plural by definition — a one-system corpus is an undocumented repository with one essay"

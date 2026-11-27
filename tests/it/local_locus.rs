@@ -268,7 +268,7 @@ fn check_derives_a_local_members_collection_members_off_its_document() {
             requirements: vec![common::requirement("knob-is-governed", true, Some("knob"))],
             clauses: vec![drift::ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("override".to_string()),
                 count: Some(drift::CountBoundRow { min: 0, max: 1 }),
                 ..common::clause("count", "required")

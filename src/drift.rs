@@ -3063,7 +3063,7 @@ pub fn emit(
     Ok(EmitReport { entries })
 }
 
-/// Write every clause row's [`label`](ClauseRow::label) — its address — over the whole
+/// Write every clause row's [`id`](ClauseRow::id) — its address — over the whole
 /// declaration set, kinds' own clauses and requirements' nested ones alike. The single
 /// write: the seam ships no label, so an authored one cannot disagree with the emitted
 /// one, and a re-emit of the same program lands the same labels.
@@ -3109,7 +3109,7 @@ fn stamp_clause_label(row: &mut ClauseRow, owner: Option<&str>) {
         _ => row.field.clone(),
     };
     let label = crate::contract::clause_label(owner, &row.predicate, field.as_deref());
-    row.label = Some(label.clone());
+    row.id = Some(label.clone());
     // Recursively stamp labels on nested body clauses in a `when` clause, each owned by
     // the host guard's address. Guards do not nest, so this recurses exactly one level.
     if let Some(body) = &mut row.body {
@@ -6286,7 +6286,7 @@ pub struct ClauseRow {
     /// ([`emit`]), stamping every row as it composes the lock, so the seam has no label
     /// to author and no way to author a wrong one.
     #[serde(default)]
-    pub label: Option<String>,
+    pub id: Option<String>,
     /// The kind whose contract carries the clause. `None` has two homes, distinguished
     /// by nesting rather than by a second column: inside a [`RequirementRow`]'s own
     /// [`clauses`](RequirementRow::clauses) it is the requirement's set-scope demand,
@@ -7577,8 +7577,8 @@ fn content_from_table(table: &dyn TableLike) -> Result<LayoutRow, RowError> {
 impl ClauseRow {
     fn to_table(&self) -> Table {
         let mut table = Table::new();
-        if let Some(label) = &self.label {
-            table.insert("label", value(label.clone()));
+        if let Some(id) = &self.id {
+            table.insert("id", value(id.clone()));
         }
         if let Some(kind) = &self.kind {
             table.insert("kind", value(kind.clone()));
@@ -7655,8 +7655,13 @@ impl ClauseRow {
     fn from_table(table: &Table) -> Result<Self, RowError> {
         Ok(Self {
             // Required on the way in: emit stamps every row it writes, so a committed
-            // row with no label is a corrupt lock, never a row to judge unaddressably.
-            label: Some(req_str(table, "label")?),
+            // row with no id is a corrupt lock, never a row to judge unaddressably. A
+            // lock an older engine wrote spells the same column `label`; it reads as the
+            // same fact and the next emit rewrites it as `id`.
+            id: Some(match opt_str(table, "id")? {
+                Some(id) => id,
+                None => opt_str(table, "label")?.ok_or_else(|| RowError::missing("id"))?,
+            }),
             kind: opt_str(table, "kind")?,
             predicate: req_str(table, "predicate")?,
             field: opt_str(table, "field")?,

@@ -302,7 +302,7 @@ fn the_declared_format_decides_which_adapter_reads_the_artifact() {
             kinds: vec![plugin_kind_row()],
             clauses: vec![ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("plugin-manifest".to_string()),
                 field: Some("description".to_string()),
                 ..common::clause("required", "required")
@@ -343,7 +343,7 @@ fn the_dispatch_still_judges_a_json_document_that_omits_a_required_field() {
             kinds: vec![plugin_kind_row()],
             clauses: vec![ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("plugin-manifest".to_string()),
                 field: Some("description".to_string()),
                 ..common::clause("required", "required")

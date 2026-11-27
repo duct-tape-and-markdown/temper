@@ -3648,7 +3648,7 @@ fn guard_binds_a_projection_whose_file_path_value_carries_a_json_escape() {
     common::GuardLock::declaring("block")
         .member("skill", "x", ESCAPED_PATH, "abc", "abc")
         .clause_row(ClauseRow {
-            label: Some("root.reachable".to_string()),
+            id: Some("root.reachable".to_string()),
             ..common::clause("reachable", "advisory")
         })
         .write(&root);
@@ -4054,7 +4054,7 @@ fn the_guards_enforcement_mode_decides_a_guarded_write_whatever_the_fresh_clause
     // these rows *are* the root's whole contract and no `fresh` clause is composed.
     claude_write_lock("block")
         .clause_row(ClauseRow {
-            label: Some("root.reachable".to_string()),
+            id: Some("root.reachable".to_string()),
             ..common::clause("reachable", "advisory")
         })
         .write(&root);

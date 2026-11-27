@@ -284,7 +284,7 @@ fn check_reporter_sarif_renders_a_load_fault_as_a_result_and_still_exits_non_zer
 const DIAL: &str = "name = \"workstation\"\n\
 \n\
 [[clause]]\n\
-label = \"skill.extent\"\n\
+id = \"skill.extent\"\n\
 severity = \"required\"\n";
 
 #[test]

@@ -61,9 +61,7 @@ fn write_dial(harness: &Path, body: &str) {
 
 /// A dial naming one clause at one severity — the shape every case below varies.
 fn dial_entry(label: &str, severity: &str) -> String {
-    format!(
-        "name = \"workstation\"\n\n[[clause]]\nlabel = \"{label}\"\nseverity = \"{severity}\"\n"
-    )
+    format!("name = \"workstation\"\n\n[[clause]]\nid = \"{label}\"\nseverity = \"{severity}\"\n")
 }
 
 /// A fresh harness carrying `skill` at `.claude/skills/coordinate`, and a lock declaring
@@ -133,6 +131,33 @@ fn a_dialed_clause_is_re_read_at_the_declared_severity_and_still_reports() {
     assert!(
         ok,
         "an advisory finding no longer blocks this machine: {after:?}"
+    );
+}
+
+#[test]
+fn a_dial_entry_naming_its_clause_by_id_sets_that_clauses_severity() {
+    // Spelled out rather than through `dial_entry`: the key an entry names its clause
+    // by is the claim under test, so it is written here verbatim.
+    let harness = harness_at_mode("dial-by-id", "warn", UNDESCRIBED_SKILL);
+    write_dial(
+        &harness,
+        "name = \"workstation\"\n\n[[clause]]\nid = \"skill.required.description\"\nseverity = \"advisory\"\n",
+    );
+    let (findings, ok) = common::check_harness(&harness);
+
+    assert_eq!(
+        reported_severity(&findings, "skill.required.description").as_deref(),
+        Some("warning"),
+        "the entry's `id` reaches the clause and re-reads it at `advisory`: {findings:?}"
+    );
+    assert!(
+        !findings.iter().any(|line| line.contains("title=dial.")),
+        "an `id`-keyed entry is the dial's own shape, so its contract reports nothing: \
+         {findings:?}"
+    );
+    assert!(
+        ok,
+        "the softened clause no longer fails a warn-mode gate: {findings:?}"
     );
 }
 
@@ -598,7 +623,7 @@ fn an_input_source_dependency_finding_resolves_its_members_own_mode() {
         .push(member_mode("skill:coordinate", "block"));
     // Bound at `required`, so the dial's `advisory` is a softening.
     declarations.clauses = vec![drift::ClauseRow {
-        label: Some("root.fresh".to_string()),
+        id: Some("root.fresh".to_string()),
         ..common::clause("fresh", "required")
     }];
     declarations.inputs = vec![drift::InputRow {

@@ -119,7 +119,7 @@ fn an_sdk_authored_type_clause_reaches_the_engine_through_the_lock() {
     // The finding addresses where the emit's own stamp put the clause — field-qualified,
     // so a second `type` clause on another field dials and reports separately.
     assert_eq!(wrong[0].rule, "pack.type.keywords");
-    assert_eq!(row.label.as_deref(), Some(wrong[0].rule.as_str()));
+    assert_eq!(row.id.as_deref(), Some(wrong[0].rule.as_str()));
 
     assert!(
         findings(

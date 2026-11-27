@@ -114,7 +114,7 @@ fn a_lock_declared_clause_row_is_the_kinds_whole_contract_a_temper_toml_only_one
         &root,
         vec![ClauseRow {
             unit: None,
-            label: None,
+            id: None,
             kind: Some("skill".to_string()),
             keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
             ..common::clause("forbidden-keys", "advisory")
@@ -1477,7 +1477,7 @@ fn a_dial_over_the_requirement_fill_clause_lowers_its_severity_and_it_still_repo
         &root,
         ".temper/dial.toml",
         &format!(
-            "name = \"workstation\"\n\n[[clause]]\nlabel = \"{FILL_LABEL}\"\nseverity = \"advisory\"\n"
+            "name = \"workstation\"\n\n[[clause]]\nid = \"{FILL_LABEL}\"\nseverity = \"advisory\"\n"
         ),
     );
     let (findings, ok) = common::check_harness(&root);

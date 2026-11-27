@@ -479,7 +479,7 @@ const UNMATCHABLE_HASH: &str = "000000000000000000000000000000000000000000000000
 fn root_fresh_row(severity: &str) -> String {
     format!(
         "[[declaration.clause]]\n\
-         label = \"root.fresh\"\n\
+         id = \"root.fresh\"\n\
          predicate = \"fresh\"\n\
          severity = \"{severity}\"\n"
     )
@@ -582,7 +582,7 @@ fn the_fresh_clause_weighs_all_three_staleness_facts_and_the_dial_reaches_it() {
     common::write_sibling(
         &corpus,
         ".temper/dial.toml",
-        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.fresh\"\nseverity = \"required\"\n",
+        "name = \"workstation\"\n\n[[clause]]\nid = \"root.fresh\"\nseverity = \"required\"\n",
     );
     let (dialed_ok, findings) = check_findings(&corpus, &corpus, &[]);
     let fresh = common::findings_for(&findings, "root.fresh");
@@ -661,7 +661,7 @@ fn the_locus_declared_clause_weighs_both_undeclared_facts_and_dials_apart_from_f
             "{}\n{}",
             root_fresh_row("advisory"),
             "[[declaration.clause]]\n\
-             label = \"root.locus-declared\"\n\
+             id = \"root.locus-declared\"\n\
              predicate = \"locus-declared\"\n\
              severity = \"advisory\"\n"
         ),
@@ -694,7 +694,7 @@ fn the_locus_declared_clause_weighs_both_undeclared_facts_and_dials_apart_from_f
     common::write_sibling(
         &corpus,
         ".temper/dial.toml",
-        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.locus-declared\"\nseverity = \"required\"\n",
+        "name = \"workstation\"\n\n[[clause]]\nid = \"root.locus-declared\"\nseverity = \"required\"\n",
     );
     let (dialed_ok, findings) = check_findings(&corpus, &corpus, &[]);
     let undeclared = common::findings_for(&findings, "root.locus-declared");
@@ -774,7 +774,7 @@ fn a_root_contract_binding_no_fresh_clause_reports_no_staleness_at_all() {
     let corpus = drifted_corpus(
         "fresh-unbound",
         "[[declaration.clause]]\n\
-         label = \"root.reachable\"\n\
+         id = \"root.reachable\"\n\
          predicate = \"reachable\"\n\
          severity = \"advisory\"\n",
     );

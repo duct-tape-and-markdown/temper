@@ -217,7 +217,7 @@ fn an_extent_row_naming_an_unknown_unit_refuses_at_load() {
 /// the payload-shaped [`common::clause`] base leaves `None`.
 fn row(predicate: &str, unit: Option<&str>, max: Option<usize>) -> ClauseRow {
     ClauseRow {
-        label: Some(format!("skill.{predicate}")),
+        id: Some(format!("skill.{predicate}")),
         kind: Some("skill".to_string()),
         bound: max.map(|max| BoundRow {
             min: None,

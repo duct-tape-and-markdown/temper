@@ -221,7 +221,7 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
     assert_eq!(
         root.iter()
             .map(|row| (
-                row.label.as_deref(),
+                row.id.as_deref(),
                 row.predicate.as_str(),
                 row.severity.as_str()
             ))
@@ -355,7 +355,7 @@ fn no_two_clause_rows_in_the_shipped_lock_share_a_label() {
         .flat_map(|row| std::iter::once(row).chain(row.body.iter().flatten()))
     {
         let label = row
-            .label
+            .id
             .as_deref()
             .expect("emit stamps every lock clause row with its label");
         *seen.entry(label).or_default() += 1;
@@ -375,7 +375,7 @@ fn no_two_clause_rows_in_the_shipped_lock_share_a_label() {
         .clauses
         .iter()
         .filter(|row| row.predicate == "when")
-        .filter_map(|row| row.label.as_deref())
+        .filter_map(|row| row.id.as_deref())
         .collect();
     assert!(
         when_labels.contains(&"mcp-server.when.type=stdio")
@@ -390,7 +390,7 @@ fn no_two_clause_rows_in_the_shipped_lock_share_a_label() {
         .clauses
         .iter()
         .flat_map(|row| row.body.iter().flatten())
-        .filter_map(|row| row.label.as_deref())
+        .filter_map(|row| row.id.as_deref())
         .collect();
     assert!(
         body_labels.contains(&"marketplace.when.plugins[*].source.source=url.required.source.url")

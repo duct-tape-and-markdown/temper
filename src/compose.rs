@@ -441,7 +441,7 @@ pub fn clause_from_row(row: &ClauseRow) -> Result<contract::Clause, ClauseRowErr
     })?;
     // Lifted verbatim, never re-derived: the label the lock committed is the label
     // every finding prints, so the two cannot drift apart on a grammar change.
-    let label = row.label.clone().ok_or_else(|| ClauseRowError::Label {
+    let label = row.id.clone().ok_or_else(|| ClauseRowError::Label {
         predicate: row.predicate.clone(),
     })?;
     Ok(contract::Clause {
@@ -1878,8 +1878,8 @@ fn qualify_layer_label(mut row: drift::ClauseRow, layer: &str) -> drift::ClauseR
 
 /// Append the layer qualifier to one row's own address, for [`qualify_layer_label`].
 fn qualify_one_label(row: &mut drift::ClauseRow, layer: &str) {
-    if let Some(label) = row.label.take() {
-        row.label = Some(format!("{label}{LAYER_QUALIFIER}{layer}"));
+    if let Some(label) = row.id.take() {
+        row.id = Some(format!("{label}{LAYER_QUALIFIER}{layer}"));
     }
 }
 
@@ -2841,7 +2841,7 @@ mod tests {
         let rows = vec![
             ClauseRow {
                 unit: Some("lines".to_string()),
-                label: Some("spec.extent".to_string()),
+                id: Some("spec.extent".to_string()),
                 kind: Some("spec".to_string()),
                 bound: Some(crate::drift::BoundRow {
                     min: None,
@@ -2852,7 +2852,7 @@ mod tests {
             },
             ClauseRow {
                 unit: Some("lines".to_string()),
-                label: Some("rule.extent".to_string()),
+                id: Some("rule.extent".to_string()),
                 kind: Some("rule".to_string()),
                 bound: Some(crate::drift::BoundRow {
                     min: None,

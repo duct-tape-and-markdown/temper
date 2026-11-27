@@ -33,7 +33,7 @@ const ENTRY_RULE: &str = "dial.entry";
 
 /// This machine's declared severities, keyed by the clause address each entry names.
 ///
-/// An entry the schema would reject never lands here — a missing or non-string label, a
+/// An entry the schema would reject never lands here — a missing or non-string `id`, a
 /// severity outside the closed two — because failing to apply is the safe direction and
 /// the kind's own contract is what reports it. Silence is impossible: the entry survives
 /// into [`Dial::refusals`] as a label nothing matched.
@@ -57,7 +57,7 @@ impl Dial {
             };
             for row in rows {
                 let (Some(JsonValue::String(label)), Some(JsonValue::String(severity))) =
-                    (row.get("label"), row.get("severity"))
+                    (row.get("id"), row.get("severity"))
                 else {
                     continue;
                 };
@@ -181,8 +181,8 @@ mod tests {
         // Failing to apply is the safe direction, and the kind's own `enum` clause is
         // what reports it — the read never invents a third severity's meaning.
         let dial = Dial::from_features(&[dial_member(Some(serde_json::json!([
-            { "label": "skill.extent", "severity": "off" },
-            { "label": "rule.required.description", "severity": "advisory" },
+            { "id": "skill.extent", "severity": "off" },
+            { "id": "rule.required.description", "severity": "advisory" },
         ])))]);
 
         assert_eq!(
@@ -194,9 +194,9 @@ mod tests {
     #[test]
     fn an_entry_missing_either_half_never_lands() {
         let dial = Dial::from_features(&[dial_member(Some(serde_json::json!([
-            { "label": "skill.extent" },
+            { "id": "skill.extent" },
             { "severity": "advisory" },
-            { "label": ["skill.extent"], "severity": "advisory" },
+            { "id": ["skill.extent"], "severity": "advisory" },
         ])))]);
 
         assert!(dial.is_empty());

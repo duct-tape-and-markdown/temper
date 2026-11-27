@@ -182,7 +182,7 @@ fn the_declared_format_decides_which_adapter_reads_the_artifact() {
             kinds: vec![knob_kind_row()],
             clauses: vec![ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("knob".to_string()),
                 field: Some("mode".to_string()),
                 ..common::clause("required", "required")
@@ -216,7 +216,7 @@ fn the_dispatch_still_judges_a_toml_document_that_omits_a_required_field() {
             kinds: vec![knob_kind_row()],
             clauses: vec![ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("knob".to_string()),
                 field: Some("mode".to_string()),
                 ..common::clause("required", "required")
@@ -247,7 +247,7 @@ fn a_malformed_document_fails_the_run_rather_than_gating_against_no_fields() {
             kinds: vec![knob_kind_row()],
             clauses: vec![ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("knob".to_string()),
                 field: Some("mode".to_string()),
                 ..common::clause("required", "required")

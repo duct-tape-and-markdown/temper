@@ -944,7 +944,7 @@ fn kind_fact_table(row: &KindFactRow) -> Table {
 /// same read-back backstop) [`kind_fact_table`] takes.
 fn clause_table(row: &ClauseRow) -> Table {
     let mut table = Table::new();
-    for (column, cell) in [("label", &row.label), ("kind", &row.kind)] {
+    for (column, cell) in [("id", &row.id), ("kind", &row.kind)] {
         if let Some(cell) = cell {
             table[column] = value(cell.clone());
         }
@@ -1687,7 +1687,7 @@ pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> Requiremen
 pub fn clause(predicate: &str, severity: &str) -> ClauseRow {
     ClauseRow {
         unit: None,
-        label: None,
+        id: None,
         kind: None,
         predicate: predicate.to_string(),
         field: None,

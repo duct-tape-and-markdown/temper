@@ -995,7 +995,7 @@ fn mention_reachable_requirement() -> RequirementRow {
     RequirementRow {
         clauses: vec![ClauseRow {
             unit: None,
-            label: None,
+            id: None,
             field: Some("paths".to_string()),
             gate: Some("paths".to_string()),
             ..common::clause("mention-reachable", "advisory")
@@ -2155,7 +2155,7 @@ mod embedded_edge_source_scope {
         RequirementRow {
             clauses: vec![ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 field: Some("paths".to_string()),
                 gate: Some("paths".to_string()),
                 ..common::clause("mention-reachable", "advisory")
@@ -3486,7 +3486,7 @@ fn a_dial_over_the_dangling_edge_clause_lowers_its_severity_and_it_still_reports
     common::write_sibling(
         &root,
         ".temper/dial.toml",
-        "name = \"workstation\"\n\n[[clause]]\nlabel = \"root.resolves\"\nseverity = \"advisory\"\n",
+        "name = \"workstation\"\n\n[[clause]]\nid = \"root.resolves\"\nseverity = \"advisory\"\n",
     );
 
     let run = common::check_in(&root, &[], Some("github"));

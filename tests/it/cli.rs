@@ -627,7 +627,7 @@ fn guard_asks_the_root_contract_before_it_binds_a_governed_locus() {
     let unbound = common::tmpdir("guard-locus-clause-unbound");
     common::GuardLock::declaring("block")
         .clause_row(ClauseRow {
-            label: Some("root.fresh".to_string()),
+            id: Some("root.fresh".to_string()),
             ..common::clause("fresh", "advisory")
         })
         .member("rule", "safety", ".claude/rules/safety.md", "abc", "abc")
@@ -846,7 +846,7 @@ fn the_post_edge_stays_silent_where_no_locus_declared_clause_binds() {
         "block",
         &sha256_hex(PROJECTION.as_bytes()),
         Some(ClauseRow {
-            label: Some("root.fresh".to_string()),
+            id: Some("root.fresh".to_string()),
             ..common::clause("fresh", "advisory")
         }),
     );
@@ -878,7 +878,7 @@ fn the_post_edge_stays_silent_where_no_fresh_clause_binds() {
         "block",
         UNMATCHABLE,
         Some(ClauseRow {
-            label: Some("root.reachable".to_string()),
+            id: Some("root.reachable".to_string()),
             ..common::clause("reachable", "advisory")
         }),
     );

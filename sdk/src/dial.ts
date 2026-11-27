@@ -34,11 +34,11 @@ import type { KindDefinition } from "./kind.js";
  */
 export interface DialEntry {
   /**
-   * The clause's compiled address — the label every finding prints as its `rule` id
+   * The clause's id — the compiled address every finding prints as its `rule` id
    * and `explain` narrates (decision 0032). Spelled straight back out of the finding:
-   * that round trip is what the label's legibility exists for.
+   * that round trip is what the id's legibility exists for.
    */
-  readonly label: string;
+  readonly id: string;
   /** The severity this machine reads that clause at. */
   readonly severity: Severity;
 }
@@ -104,18 +104,18 @@ export const dialDefaultContract: readonly Clause[] = [
   clause(type("clause", ["list"]), {
     severity: "required",
     guidance:
-      "The dialed clauses are an array of tables — `[[clause]]` per entry, each naming one `label` and one `severity`.",
+      "The dialed clauses are an array of tables — `[[clause]]` per entry, each naming one `id` and one `severity`.",
     cite: DIAL_CITE,
   }),
-  clause(required("clause[*].label"), {
+  clause(required("clause[*].id"), {
     severity: "required",
     guidance:
-      "An entry names the clause it dials by the address the finding printed as its `rule` id — spell it back verbatim. An entry naming a label no clause in this harness carries is a finding, never a silent no-op.",
+      "An entry names the clause it dials by the address the finding printed as its `rule` id — spell it back verbatim. An entry naming an id no clause in this harness carries is a finding, never a silent no-op.",
     cite: DIAL_CITE,
   }),
-  clause(type("clause[*].label", ["string"]), {
+  clause(type("clause[*].id", ["string"]), {
     severity: "required",
-    guidance: "A label is a string — the clause's printed `rule` id, quoted verbatim: `label = \"skill/description/max-len\"`.",
+    guidance: "An id is a string — the clause's printed `rule` id, quoted verbatim: `id = \"skill.required.description\"`.",
     cite: DIAL_CITE,
   }),
   clause(required("clause[*].severity"), {

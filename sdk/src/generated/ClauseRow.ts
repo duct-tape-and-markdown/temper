@@ -38,7 +38,7 @@ export type ClauseRow = {
  * ([`emit`]), stamping every row as it composes the lock, so the seam has no label
  * to author and no way to author a wrong one.
  */
-label?: string, 
+id?: string, 
 /**
  * The kind whose contract carries the clause. `None` has two homes, distinguished
  * by nesting rather than by a second column: inside a [`RequirementRow`]'s own

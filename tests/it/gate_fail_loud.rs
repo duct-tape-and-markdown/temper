@@ -250,7 +250,7 @@ fn a_kind_contract_naming_a_judge_less_predicate_fails_loud() {
         temper::drift::Declarations {
             clauses: vec![temper::drift::ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("skill".to_string()),
                 ..common::clause("dependency-exists", "required")
             }],
@@ -285,7 +285,7 @@ fn a_count_floor_bound_to_a_kinds_own_selection_is_judged_not_fenced() {
         temper::drift::Declarations {
             clauses: vec![temper::drift::ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("skill".to_string()),
                 count: Some(temper::drift::CountBoundRow { min: 2, max: 3 }),
                 ..common::clause("count", "required")
@@ -359,7 +359,7 @@ fn write_embedded_citation_harness(
             }],
             clauses: std::iter::once(temper::drift::ClauseRow {
                 unit: None,
-                label: None,
+                id: None,
                 kind: Some("citation".to_string()),
                 ..common::clause("format-places-edges", "required")
             })

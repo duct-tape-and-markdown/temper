@@ -290,7 +290,7 @@ shape = "fields"
 leaves = ["package", "bin", "file", "system"]
 
 [[declaration.clause]]
-label = "agent.required.name"
+id = "agent.required.name"
 kind = "agent"
 predicate = "required"
 field = "name"
@@ -299,7 +299,7 @@ guidance = "Every subagent declares a `name` — its unique identifier. Claude C
 cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 
 [[declaration.clause]]
-label = "agent.max-len.name"
+id = "agent.max-len.name"
 kind = "agent"
 predicate = "max-len"
 field = "name"
@@ -309,7 +309,7 @@ cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 bound = { max = 256 }
 
 [[declaration.clause]]
-label = "agent.allowed-chars.name=negated"
+id = "agent.allowed-chars.name=negated"
 kind = "agent"
 predicate = "allowed-chars"
 field = "name"
@@ -319,7 +319,7 @@ cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 charset = { chars = ":", negated = true }
 
 [[declaration.clause]]
-label = "agent.allowed-chars.name=leading+negated"
+id = "agent.allowed-chars.name=leading+negated"
 kind = "agent"
 predicate = "allowed-chars"
 field = "name"
@@ -329,7 +329,7 @@ cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 charset = { chars = "-", negated = true, position = "leading" }
 
 [[declaration.clause]]
-label = "agent.unique-name"
+id = "agent.unique-name"
 kind = "agent"
 predicate = "unique-name"
 severity = "required"
@@ -337,7 +337,7 @@ guidance = "Keep `name` values unique across the whole tree — when two files i
 cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 
 [[declaration.clause]]
-label = "agent.required.description"
+id = "agent.required.description"
 kind = "agent"
 predicate = "required"
 field = "description"
@@ -346,7 +346,7 @@ guidance = "The description is how Claude decides when to delegate to this subag
 cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 
 [[declaration.clause]]
-label = "dial.required.name"
+id = "dial.required.name"
 kind = "dial"
 predicate = "required"
 field = "name"
@@ -355,7 +355,7 @@ guidance = "A dial names the machine it speaks for — its identity, and what it
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#clause (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "dial.type.name"
+id = "dial.type.name"
 kind = "dial"
 predicate = "type"
 field = "name"
@@ -365,36 +365,36 @@ cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/c
 value_type = ["string"]
 
 [[declaration.clause]]
-label = "dial.type.clause"
+id = "dial.type.clause"
 kind = "dial"
 predicate = "type"
 field = "clause"
 severity = "required"
-guidance = "The dialed clauses are an array of tables — `[[clause]]` per entry, each naming one `label` and one `severity`."
+guidance = "The dialed clauses are an array of tables — `[[clause]]` per entry, each naming one `id` and one `severity`."
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#clause (retrieved 2026-11-26)"
 value_type = ["list"]
 
 [[declaration.clause]]
-label = "dial.required.clause[*].label"
+id = "dial.required.clause[*].id"
 kind = "dial"
 predicate = "required"
-field = "clause[*].label"
+field = "clause[*].id"
 severity = "required"
-guidance = "An entry names the clause it dials by the address the finding printed as its `rule` id — spell it back verbatim. An entry naming a label no clause in this harness carries is a finding, never a silent no-op."
+guidance = "An entry names the clause it dials by the address the finding printed as its `rule` id — spell it back verbatim. An entry naming an id no clause in this harness carries is a finding, never a silent no-op."
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#clause (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "dial.type.clause[*].label"
+id = "dial.type.clause[*].id"
 kind = "dial"
 predicate = "type"
-field = "clause[*].label"
+field = "clause[*].id"
 severity = "required"
-guidance = """A label is a string — the clause's printed `rule` id, quoted verbatim: `label = "skill/description/max-len"`."""
+guidance = """An id is a string — the clause's printed `rule` id, quoted verbatim: `id = "skill.required.description"`."""
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#clause (retrieved 2026-11-26)"
 value_type = ["string"]
 
 [[declaration.clause]]
-label = "dial.required.clause[*].severity"
+id = "dial.required.clause[*].severity"
 kind = "dial"
 predicate = "required"
 field = "clause[*].severity"
@@ -403,7 +403,7 @@ guidance = "Severity is an entry's only verb: it is what a dial says, and all a 
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#clause (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "dial.enum.clause[*].severity"
+id = "dial.enum.clause[*].severity"
 kind = "dial"
 predicate = "enum"
 field = "clause[*].severity"
@@ -413,7 +413,7 @@ cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/c
 values = ["required", "advisory"]
 
 [[declaration.clause]]
-label = "dial.closed-keys"
+id = "dial.closed-keys"
 kind = "dial"
 predicate = "closed-keys"
 severity = "required"
@@ -421,7 +421,7 @@ guidance = "The dial's key set is exhaustive: `name` and `clause`, nothing else.
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#clause (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "handler.required.type"
+id = "handler.required.type"
 kind = "handler"
 predicate = "required"
 field = "type"
@@ -430,7 +430,7 @@ guidance = "A handler names how it fires, and the documented common-fields table
 cite = "https://code.claude.com/docs/en/hooks#common-fields (retrieved 2026-09-25)"
 
 [[declaration.clause]]
-label = "handler.enum.type"
+id = "handler.enum.type"
 kind = "handler"
 predicate = "enum"
 field = "type"
@@ -440,7 +440,7 @@ cite = "https://code.claude.com/docs/en/hooks#common-fields (retrieved 2026-09-2
 values = ["command", "http", "mcp_tool", "prompt", "agent"]
 
 [[declaration.clause]]
-label = "handler.when.type=command"
+id = "handler.when.type=command"
 kind = "handler"
 predicate = "when"
 field = "type"
@@ -451,7 +451,7 @@ values = ["command"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "handler.when.type=command.required.command"
+id = "handler.when.type=command.required.command"
 predicate = "required"
 field = "command"
 severity = "required"
@@ -459,7 +459,7 @@ guidance = "A `command` handler runs a shell command, so it must carry one — t
 cite = "https://code.claude.com/docs/en/hooks#command-hook-fields (retrieved 2026-09-25)"
 
 [[declaration.clause]]
-label = "handler.when.type=http"
+id = "handler.when.type=http"
 kind = "handler"
 predicate = "when"
 field = "type"
@@ -470,7 +470,7 @@ values = ["http"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "handler.when.type=http.required.url"
+id = "handler.when.type=http.required.url"
 predicate = "required"
 field = "url"
 severity = "required"
@@ -478,7 +478,7 @@ guidance = "An `http` handler POSTs the event's JSON input to a URL, so it must 
 cite = "https://code.claude.com/docs/en/hooks#http-hook-fields (retrieved 2026-09-25)"
 
 [[declaration.clause]]
-label = "handler.when.type=mcp_tool"
+id = "handler.when.type=mcp_tool"
 kind = "handler"
 predicate = "when"
 field = "type"
@@ -489,7 +489,7 @@ values = ["mcp_tool"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "handler.when.type=mcp_tool.required.server"
+id = "handler.when.type=mcp_tool.required.server"
 predicate = "required"
 field = "server"
 severity = "required"
@@ -497,7 +497,7 @@ guidance = "An `mcp_tool` handler names the already-connected MCP server it call
 cite = "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)"
 
 [[declaration.clause.body]]
-label = "handler.when.type=mcp_tool.required.tool"
+id = "handler.when.type=mcp_tool.required.tool"
 predicate = "required"
 field = "tool"
 severity = "required"
@@ -505,7 +505,7 @@ guidance = "An `mcp_tool` handler names the tool it calls on its server; the ser
 cite = "https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields (retrieved 2026-09-25)"
 
 [[declaration.clause]]
-label = "handler.when.type=agent+prompt"
+id = "handler.when.type=agent+prompt"
 kind = "handler"
 predicate = "when"
 field = "type"
@@ -516,7 +516,7 @@ values = ["prompt", "agent"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "handler.when.type=agent+prompt.required.prompt"
+id = "handler.when.type=agent+prompt.required.prompt"
 predicate = "required"
 field = "prompt"
 severity = "required"
@@ -524,7 +524,7 @@ guidance = "A `prompt` or `agent` handler sends prompt text to a model, so it mu
 cite = "https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields (retrieved 2026-09-25)"
 
 [[declaration.clause]]
-label = "hook.enum.event"
+id = "hook.enum.event"
 kind = "hook"
 predicate = "enum"
 field = "event"
@@ -534,7 +534,7 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-25)"
 values = ["SessionStart", "Setup", "UserPromptSubmit", "UserPromptExpansion", "PreToolUse", "PermissionRequest", "PermissionDenied", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "MessageDisplay", "SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "Stop", "StopFailure", "TeammateIdle", "InstructionsLoaded", "ConfigChange", "CwdChanged", "DirectoryAdded", "FileChanged", "WorktreeCreate", "WorktreeRemove", "PreCompact", "PostCompact", "PreModelSwitch", "PostModelSwitch", "Elicitation", "ElicitationResult", "SessionEnd"]
 
 [[declaration.clause]]
-label = "marketplace.required.name"
+id = "marketplace.required.name"
 kind = "marketplace"
 predicate = "required"
 field = "name"
@@ -543,7 +543,7 @@ guidance = "A marketplace declares a `name` — the identity users type when ins
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "marketplace.min-len.name"
+id = "marketplace.min-len.name"
 kind = "marketplace"
 predicate = "min-len"
 field = "name"
@@ -553,7 +553,7 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (ret
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "marketplace.allowed-chars.name"
+id = "marketplace.allowed-chars.name"
 kind = "marketplace"
 predicate = "allowed-chars"
 field = "name"
@@ -563,7 +563,7 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (ret
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
-label = "marketplace.deny.name"
+id = "marketplace.deny.name"
 kind = "marketplace"
 predicate = "deny"
 field = "name"
@@ -573,7 +573,7 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (ret
 values = ["claude-code-marketplace", "claude-code-plugins", "claude-plugins-official", "claude-plugins-community", "claude-community", "anthropic-marketplace", "anthropic-plugins", "agent-skills", "anthropic-agent-skills", "knowledge-work-plugins", "life-sciences", "claude-for-legal", "claude-for-financial-services", "financial-services-plugins", "first-party-plugins", "healthcare"]
 
 [[declaration.clause]]
-label = "marketplace.required.owner"
+id = "marketplace.required.owner"
 kind = "marketplace"
 predicate = "required"
 field = "owner"
@@ -582,7 +582,7 @@ guidance = "A marketplace names its maintainer. This clause decides the `owner` 
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-17)"
 
 [[declaration.clause]]
-label = "marketplace.required.owner.name"
+id = "marketplace.required.owner.name"
 kind = "marketplace"
 predicate = "required"
 field = "owner.name"
@@ -591,7 +591,7 @@ guidance = "`owner.name` is the maintainer or team behind the catalog, and it is
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-17)"
 
 [[declaration.clause]]
-label = "marketplace.required.plugins"
+id = "marketplace.required.plugins"
 kind = "marketplace"
 predicate = "required"
 field = "plugins"
@@ -600,7 +600,7 @@ guidance = "The `plugins` array is the catalog — a marketplace without it list
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-17)"
 
 [[declaration.clause]]
-label = "marketplace.required.plugins[*].name"
+id = "marketplace.required.plugins[*].name"
 kind = "marketplace"
 predicate = "required"
 field = "plugins[*].name"
@@ -609,7 +609,7 @@ guidance = "Every catalog entry declares a `name` — the plugin identifier user
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)"
 
 [[declaration.clause]]
-label = "marketplace.required.plugins[*].source"
+id = "marketplace.required.plugins[*].source"
 kind = "marketplace"
 predicate = "required"
 field = "plugins[*].source"
@@ -618,7 +618,7 @@ guidance = "Every catalog entry declares a `source` — where the plugin is fetc
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source=string"
+id = "marketplace.when.plugins[*].source=string"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source"
@@ -629,7 +629,7 @@ value_type = ["string"]
 guard_predicate = "type"
 
 [[declaration.clause.body]]
-label = "marketplace.when.plugins[*].source=string.shape.plugins[*].source"
+id = "marketplace.when.plugins[*].source=string.shape.plugins[*].source"
 predicate = "shape"
 field = "plugins[*].source"
 severity = "required"
@@ -638,7 +638,7 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retr
 shape = "leading-dot-slash"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source.source=github"
+id = "marketplace.when.plugins[*].source.source=github"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source.source"
@@ -649,7 +649,7 @@ values = ["github"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "marketplace.when.plugins[*].source.source=github.required.source.repo"
+id = "marketplace.when.plugins[*].source.source=github.required.source.repo"
 predicate = "required"
 field = "source.repo"
 severity = "required"
@@ -657,7 +657,7 @@ guidance = "A `github` source entry must specify the `repo` field — the reposi
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source.source=url"
+id = "marketplace.when.plugins[*].source.source=url"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source.source"
@@ -668,7 +668,7 @@ values = ["url"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "marketplace.when.plugins[*].source.source=url.required.source.url"
+id = "marketplace.when.plugins[*].source.source=url.required.source.url"
 predicate = "required"
 field = "source.url"
 severity = "required"
@@ -676,7 +676,7 @@ guidance = "A `url` source entry must specify the `url` field — the HTTPS URL 
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source.source=git-subdir"
+id = "marketplace.when.plugins[*].source.source=git-subdir"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source.source"
@@ -687,7 +687,7 @@ values = ["git-subdir"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "marketplace.when.plugins[*].source.source=git-subdir.required.source.url"
+id = "marketplace.when.plugins[*].source.source=git-subdir.required.source.url"
 predicate = "required"
 field = "source.url"
 severity = "required"
@@ -695,7 +695,7 @@ guidance = "A `git-subdir` source entry must specify the `url` field — the HTT
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause.body]]
-label = "marketplace.when.plugins[*].source.source=git-subdir.required.source.path"
+id = "marketplace.when.plugins[*].source.source=git-subdir.required.source.path"
 predicate = "required"
 field = "source.path"
 severity = "required"
@@ -703,7 +703,7 @@ guidance = "A `git-subdir` source entry must specify the `path` field — the pa
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "marketplace.when.plugins[*].source.source=npm"
+id = "marketplace.when.plugins[*].source.source=npm"
 kind = "marketplace"
 predicate = "when"
 field = "plugins[*].source.source"
@@ -714,7 +714,7 @@ values = ["npm"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "marketplace.when.plugins[*].source.source=npm.required.source.package"
+id = "marketplace.when.plugins[*].source.source=npm.required.source.package"
 predicate = "required"
 field = "source.package"
 severity = "required"
@@ -722,7 +722,7 @@ guidance = "An `npm` source entry must specify the `package` field — the npm p
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "mcp-server.enum.type"
+id = "mcp-server.enum.type"
 kind = "mcp-server"
 predicate = "enum"
 field = "type"
@@ -732,7 +732,7 @@ cite = "https://code.claude.com/docs/en/mcp (retrieved 2026-07-15)"
 values = ["stdio", "http", "streamable-http", "sse", "ws"]
 
 [[declaration.clause]]
-label = "mcp-server.when.type=stdio"
+id = "mcp-server.when.type=stdio"
 kind = "mcp-server"
 predicate = "when"
 field = "type"
@@ -743,7 +743,7 @@ values = ["stdio"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "mcp-server.when.type=stdio.required.command"
+id = "mcp-server.when.type=stdio.required.command"
 predicate = "required"
 field = "command"
 severity = "required"
@@ -751,7 +751,7 @@ guidance = "A stdio server must specify a `command` — the executable path and 
 cite = "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "mcp-server.when.type=http+sse+streamable-http+ws"
+id = "mcp-server.when.type=http+sse+streamable-http+ws"
 kind = "mcp-server"
 predicate = "when"
 field = "type"
@@ -762,7 +762,7 @@ values = ["http", "streamable-http", "sse", "ws"]
 guard_predicate = "enum"
 
 [[declaration.clause.body]]
-label = "mcp-server.when.type=http+sse+streamable-http+ws.required.url"
+id = "mcp-server.when.type=http+sse+streamable-http+ws.required.url"
 predicate = "required"
 field = "url"
 severity = "required"
@@ -770,7 +770,7 @@ guidance = "A remote server (http, streamable-http, sse, or ws transport) must s
 cite = "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "memory.extent"
+id = "memory.extent"
 kind = "memory"
 predicate = "extent"
 severity = "advisory"
@@ -780,7 +780,7 @@ bound = { max = 200 }
 unit = "lines"
 
 [[declaration.clause]]
-label = "output-style.unshadowed"
+id = "output-style.unshadowed"
 kind = "output-style"
 predicate = "unshadowed"
 severity = "advisory"
@@ -788,7 +788,7 @@ guidance = "A bare `outputStyle` name resolves to the style nearest the director
 cite = "https://code.claude.com/docs/en/output-styles (retrieved 2026-11-25)"
 
 [[declaration.clause]]
-label = "plugin-manifest.required.name"
+id = "plugin-manifest.required.name"
 kind = "plugin-manifest"
 predicate = "required"
 field = "name"
@@ -797,7 +797,7 @@ guidance = "A manifest declares a `name` — the pack's identity and the namespa
 cite = "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.min-len.name"
+id = "plugin-manifest.min-len.name"
 kind = "plugin-manifest"
 predicate = "min-len"
 field = "name"
@@ -807,7 +807,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-1
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "plugin-manifest.allowed-chars.name"
+id = "plugin-manifest.allowed-chars.name"
 kind = "plugin-manifest"
 predicate = "allowed-chars"
 field = "name"
@@ -817,7 +817,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-1
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
-label = "plugin-manifest.forbidden-keys"
+id = "plugin-manifest.forbidden-keys"
 kind = "plugin-manifest"
 predicate = "forbidden-keys"
 severity = "required"
@@ -826,7 +826,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026
 keys = ["themes", "monitors"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.keywords"
+id = "plugin-manifest.type.keywords"
 kind = "plugin-manifest"
 predicate = "type"
 field = "keywords"
@@ -836,7 +836,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#validate-the-manifest 
 value_type = ["list"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.skills"
+id = "plugin-manifest.type.skills"
 kind = "plugin-manifest"
 predicate = "type"
 field = "skills"
@@ -846,7 +846,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (
 value_type = ["string", "list"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.commands"
+id = "plugin-manifest.type.commands"
 kind = "plugin-manifest"
 predicate = "type"
 field = "commands"
@@ -856,7 +856,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (
 value_type = ["string", "list", "map"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.agents"
+id = "plugin-manifest.type.agents"
 kind = "plugin-manifest"
 predicate = "type"
 field = "agents"
@@ -866,7 +866,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (
 value_type = ["string", "list"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.hooks"
+id = "plugin-manifest.type.hooks"
 kind = "plugin-manifest"
 predicate = "type"
 field = "hooks"
@@ -876,7 +876,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (
 value_type = ["string", "list", "map"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.mcpServers"
+id = "plugin-manifest.type.mcpServers"
 kind = "plugin-manifest"
 predicate = "type"
 field = "mcpServers"
@@ -886,7 +886,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (
 value_type = ["string", "list", "map"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.lspServers"
+id = "plugin-manifest.type.lspServers"
 kind = "plugin-manifest"
 predicate = "type"
 field = "lspServers"
@@ -896,7 +896,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (
 value_type = ["string", "list", "map"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.outputStyles"
+id = "plugin-manifest.type.outputStyles"
 kind = "plugin-manifest"
 predicate = "type"
 field = "outputStyles"
@@ -906,7 +906,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (
 value_type = ["string", "list"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.workflows"
+id = "plugin-manifest.type.workflows"
 kind = "plugin-manifest"
 predicate = "type"
 field = "workflows"
@@ -916,7 +916,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-forms (
 value_type = ["string", "list"]
 
 [[declaration.clause]]
-label = "plugin-manifest.type.experimental"
+id = "plugin-manifest.type.experimental"
 kind = "plugin-manifest"
 predicate = "type"
 field = "experimental"
@@ -926,7 +926,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026
 value_type = ["map"]
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.$schema"
+id = "plugin-manifest.optional.$schema"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "$schema"
@@ -935,7 +935,7 @@ guidance = "`$schema` is a JSON Schema URL for editor autocomplete; Claude Code 
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.displayName"
+id = "plugin-manifest.optional.displayName"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "displayName"
@@ -944,7 +944,7 @@ guidance = "`displayName` is the name the UI shows in place of `name` — it may
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.version"
+id = "plugin-manifest.optional.version"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "version"
@@ -953,7 +953,7 @@ guidance = "`version` is not checked as semver, and setting it pins users to tha
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.description"
+id = "plugin-manifest.optional.description"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "description"
@@ -962,7 +962,7 @@ guidance = "`description` is a short explanation of what the plugin provides, sh
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.author"
+id = "plugin-manifest.optional.author"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "author"
@@ -971,7 +971,7 @@ guidance = "`author` is an object: `name` is required, `email` and `url` optiona
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.homepage"
+id = "plugin-manifest.optional.homepage"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "homepage"
@@ -980,7 +980,7 @@ guidance = "`homepage` is the plugin's documentation URL, and it must parse as a
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.repository"
+id = "plugin-manifest.optional.repository"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "repository"
@@ -989,7 +989,7 @@ guidance = "`repository` is the source repository URL; Claude Code does not vali
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.license"
+id = "plugin-manifest.optional.license"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "license"
@@ -998,7 +998,7 @@ guidance = "`license` is an SPDX identifier such as `MIT`."
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.keywords"
+id = "plugin-manifest.optional.keywords"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "keywords"
@@ -1007,7 +1007,7 @@ guidance = "`keywords` is an array of discovery tags."
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.metadata"
+id = "plugin-manifest.optional.metadata"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "metadata"
@@ -1016,7 +1016,7 @@ guidance = "`metadata` is a free-form object for your own data, such as catalog 
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.icon"
+id = "plugin-manifest.optional.icon"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "icon"
@@ -1025,7 +1025,7 @@ guidance = "`icon` is the plugin's icon in Anthropic's directory listing. Claude
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.documentationUrl"
+id = "plugin-manifest.optional.documentationUrl"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "documentationUrl"
@@ -1034,7 +1034,7 @@ guidance = "`documentationUrl` is the documentation link in Anthropic's director
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.supportUrl"
+id = "plugin-manifest.optional.supportUrl"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "supportUrl"
@@ -1043,7 +1043,7 @@ guidance = "`supportUrl` is the support link in Anthropic's directory listing. C
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.privacyPolicyUrl"
+id = "plugin-manifest.optional.privacyPolicyUrl"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "privacyPolicyUrl"
@@ -1052,7 +1052,7 @@ guidance = "`privacyPolicyUrl` is the privacy policy link in Anthropic's directo
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.termsOfServiceUrl"
+id = "plugin-manifest.optional.termsOfServiceUrl"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "termsOfServiceUrl"
@@ -1061,7 +1061,7 @@ guidance = "`termsOfServiceUrl` is the terms of service link in Anthropic's dire
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.engines"
+id = "plugin-manifest.optional.engines"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "engines"
@@ -1070,7 +1070,7 @@ guidance = '`engines` declares the Claude Code versions the plugin works on, as 
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.network"
+id = "plugin-manifest.optional.network"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "network"
@@ -1079,7 +1079,7 @@ guidance = '`network` lists the hosts the plugin reaches (`{ "hosts": ["api.exam
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.types"
+id = "plugin-manifest.optional.types"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "types"
@@ -1088,7 +1088,7 @@ guidance = "`types` is a path to a `.d.ts` file declaring a mod's `$.state` valu
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.defaultEnabled"
+id = "plugin-manifest.optional.defaultEnabled"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "defaultEnabled"
@@ -1097,7 +1097,7 @@ guidance = "`defaultEnabled` (a boolean, default `true`) sets whether the plugin
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.skills"
+id = "plugin-manifest.optional.skills"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "skills"
@@ -1106,7 +1106,7 @@ guidance = "`skills` names extra directories scanned for `<name>/SKILL.md` skill
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.commands"
+id = "plugin-manifest.optional.commands"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "commands"
@@ -1115,7 +1115,7 @@ guidance = "`commands` names flat `.md` files or directories, or maps command na
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.agents"
+id = "plugin-manifest.optional.agents"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "agents"
@@ -1124,7 +1124,7 @@ guidance = "`agents` names agent `.md` files; directories are not accepted. Sett
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.hooks"
+id = "plugin-manifest.optional.hooks"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "hooks"
@@ -1133,7 +1133,7 @@ guidance = "`hooks` is a hook config `.json` path, an inline hooks object, or a 
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.mcpServers"
+id = "plugin-manifest.optional.mcpServers"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "mcpServers"
@@ -1142,7 +1142,7 @@ guidance = "`mcpServers` is an MCP config path or `.mcpb`/`.dxt` bundle, an inli
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.outputStyles"
+id = "plugin-manifest.optional.outputStyles"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "outputStyles"
@@ -1151,7 +1151,7 @@ guidance = "`outputStyles` names output-style files or directories. Setting it r
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.lspServers"
+id = "plugin-manifest.optional.lspServers"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "lspServers"
@@ -1160,7 +1160,7 @@ guidance = "`lspServers` is an LSP config `.json` path, an inline server map, or
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.workflows"
+id = "plugin-manifest.optional.workflows"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "workflows"
@@ -1169,7 +1169,7 @@ guidance = "`workflows` names workflow `.js` files or directories. Setting it re
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.experimental"
+id = "plugin-manifest.optional.experimental"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "experimental"
@@ -1178,7 +1178,7 @@ guidance = "`experimental` is the container for components whose manifest shape 
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.userConfig"
+id = "plugin-manifest.optional.userConfig"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "userConfig"
@@ -1187,7 +1187,7 @@ guidance = "`userConfig` declares the values Claude Code prompts for when the pl
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.channels"
+id = "plugin-manifest.optional.channels"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "channels"
@@ -1196,7 +1196,7 @@ guidance = "`channels` lists the message channels the plugin provides. Each entr
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.dependencies"
+id = "plugin-manifest.optional.dependencies"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "dependencies"
@@ -1205,7 +1205,7 @@ guidance = '`dependencies` lists plugins that must be enabled for this one to wo
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.themes"
+id = "plugin-manifest.optional.themes"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "themes"
@@ -1214,7 +1214,7 @@ guidance = "`themes` is recognized here only so the `forbidden-keys` clause can 
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.monitors"
+id = "plugin-manifest.optional.monitors"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "monitors"
@@ -1223,7 +1223,7 @@ guidance = "`monitors` is recognized here only so the `forbidden-keys` clause ca
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.optional.settings"
+id = "plugin-manifest.optional.settings"
 kind = "plugin-manifest"
 predicate = "optional"
 field = "settings"
@@ -1232,7 +1232,7 @@ guidance = "`settings` is a property of the published manifest schema, though th
 cite = "https://json.schemastore.org/claude-code-plugin-manifest.json (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "plugin-manifest.closed-keys"
+id = "plugin-manifest.closed-keys"
 kind = "plugin-manifest"
 predicate = "closed-keys"
 severity = "required"
@@ -1240,7 +1240,7 @@ guidance = "This key is not one the manifest format documents. Claude Code ignor
 cite = "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-17)"
 
 [[declaration.clause]]
-label = "requirement.count"
+id = "requirement.count"
 kind = "requirement"
 predicate = "count"
 severity = "required"
@@ -1249,7 +1249,7 @@ cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/c
 count = { min = 1, max = 9007199254740991 }
 
 [[declaration.clause]]
-label = "requirement.resolves"
+id = "requirement.resolves"
 kind = "requirement"
 predicate = "resolves"
 severity = "required"
@@ -1257,7 +1257,7 @@ guidance = "This member's `satisfies` names a requirement the harness does not d
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#requirement--a-shipped-kind-not-a-primitive (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "rule.forbidden-keys"
+id = "rule.forbidden-keys"
 kind = "rule"
 predicate = "forbidden-keys"
 severity = "required"
@@ -1266,7 +1266,7 @@ cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 20
 keys = ["description", "globs", "alwaysApply"]
 
 [[declaration.clause]]
-label = "rule.glob-valid.paths"
+id = "rule.glob-valid.paths"
 kind = "rule"
 predicate = "glob-valid"
 field = "paths"
@@ -1275,7 +1275,7 @@ guidance = "`paths` is the one documented rules key: globs (brace expansion supp
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "rule.extent"
+id = "rule.extent"
 kind = "rule"
 predicate = "extent"
 severity = "advisory"
@@ -1285,7 +1285,7 @@ bound = { max = 200 }
 unit = "lines"
 
 [[declaration.clause]]
-label = "rule.when.paths=list+string"
+id = "rule.when.paths=list+string"
 kind = "rule"
 predicate = "when"
 field = "paths"
@@ -1296,7 +1296,7 @@ value_type = ["string", "list"]
 guard_predicate = "type"
 
 [[declaration.clause.body]]
-label = "rule.when.paths=list+string.extent"
+id = "rule.when.paths=list+string.extent"
 predicate = "extent"
 severity = "advisory"
 guidance = "A rule with `paths` loads on demand, and an on-demand rules file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a rule that passes is whole on every window. Measured render-side, as `wc -m` counts the projected file. Trim the rule, or split it into several rules files, each of which counts against the limit on its own. Launch-loaded rules (no `paths`) are not cut this way, so this clause binds only where `paths` is set."
@@ -1305,7 +1305,7 @@ bound = { max = 40000 }
 unit = "characters"
 
 [[declaration.clause]]
-label = "rule.mention-reachable.paths"
+id = "rule.mention-reachable.paths"
 kind = "rule"
 predicate = "mention-reachable"
 field = "paths"
@@ -1315,7 +1315,7 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating har
 gate = "paths"
 
 [[declaration.clause]]
-label = "rule.trigger-agrees.paths"
+id = "rule.trigger-agrees.paths"
 kind = "rule"
 predicate = "trigger-agrees"
 field = "paths"
@@ -1325,7 +1325,7 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating har
 gate = "paths"
 
 [[declaration.clause]]
-label = "settings.type.permissions"
+id = "settings.type.permissions"
 kind = "settings"
 predicate = "type"
 field = "permissions"
@@ -1335,7 +1335,7 @@ cite = "https://code.claude.com/docs/en/settings-reference#permissions (retrieve
 value_type = ["map"]
 
 [[declaration.clause]]
-label = "settings.type.env"
+id = "settings.type.env"
 kind = "settings"
 predicate = "type"
 field = "env"
@@ -1345,7 +1345,7 @@ cite = "https://code.claude.com/docs/en/settings-reference#env (retrieved 2026-0
 value_type = ["map"]
 
 [[declaration.clause]]
-label = "settings.type.attribution"
+id = "settings.type.attribution"
 kind = "settings"
 predicate = "type"
 field = "attribution"
@@ -1355,7 +1355,7 @@ cite = "https://code.claude.com/docs/en/settings-reference#attribution (retrieve
 value_type = ["map"]
 
 [[declaration.clause]]
-label = "settings-local.type.permissions"
+id = "settings-local.type.permissions"
 kind = "settings-local"
 predicate = "type"
 field = "permissions"
@@ -1365,7 +1365,7 @@ cite = "https://code.claude.com/docs/en/settings#permission-settings (retrieved 
 value_type = ["map"]
 
 [[declaration.clause]]
-label = "settings-local.type.env"
+id = "settings-local.type.env"
 kind = "settings-local"
 predicate = "type"
 field = "env"
@@ -1375,7 +1375,7 @@ cite = "https://code.claude.com/docs/en/settings#available-settings (retrieved 2
 value_type = ["map"]
 
 [[declaration.clause]]
-label = "settings-local.type.hooks"
+id = "settings-local.type.hooks"
 kind = "settings-local"
 predicate = "type"
 field = "hooks"
@@ -1385,7 +1385,7 @@ cite = "https://code.claude.com/docs/en/settings#available-settings (retrieved 2
 value_type = ["map"]
 
 [[declaration.clause]]
-label = "skill.required.name"
+id = "skill.required.name"
 kind = "skill"
 predicate = "required"
 field = "name"
@@ -1394,7 +1394,7 @@ guidance = "Every skill declares a `name` — the slug the harness binds to. Cla
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.min-len.name"
+id = "skill.min-len.name"
 kind = "skill"
 predicate = "min-len"
 field = "name"
@@ -1404,7 +1404,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "skill.allowed-chars.name"
+id = "skill.allowed-chars.name"
 kind = "skill"
 predicate = "allowed-chars"
 field = "name"
@@ -1414,7 +1414,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
-label = "skill.max-len.name"
+id = "skill.max-len.name"
 kind = "skill"
 predicate = "max-len"
 field = "name"
@@ -1424,7 +1424,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { max = 64 }
 
 [[declaration.clause]]
-label = "skill.shape.name"
+id = "skill.shape.name"
 kind = "skill"
 predicate = "shape"
 field = "name"
@@ -1434,7 +1434,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-17)"
 shape = "hyphen-placement"
 
 [[declaration.clause]]
-label = "skill.deny.name"
+id = "skill.deny.name"
 kind = "skill"
 predicate = "deny"
 field = "name"
@@ -1444,7 +1444,7 @@ cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overvi
 values = ["anthropic", "claude"]
 
 [[declaration.clause]]
-label = "skill.name-matches-dir"
+id = "skill.name-matches-dir"
 kind = "skill"
 predicate = "name-matches-dir"
 severity = "required"
@@ -1452,7 +1452,7 @@ guidance = "The spec requires the name to match its parent directory. Claude Cod
 cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.required.description"
+id = "skill.required.description"
 kind = "skill"
 predicate = "required"
 field = "description"
@@ -1461,7 +1461,7 @@ guidance = "The description is how the model chooses this skill from potentially
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.min-len.description"
+id = "skill.min-len.description"
 kind = "skill"
 predicate = "min-len"
 field = "description"
@@ -1471,7 +1471,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "skill.max-len.description"
+id = "skill.max-len.description"
 kind = "skill"
 predicate = "max-len"
 field = "description"
@@ -1481,7 +1481,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { max = 1024 }
 
 [[declaration.clause]]
-label = "skill.shape.description"
+id = "skill.shape.description"
 kind = "skill"
 predicate = "shape"
 field = "description"
@@ -1491,7 +1491,7 @@ cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overvi
 shape = "no-xml-tags"
 
 [[declaration.clause]]
-label = "skill.listing.description+when_to_use"
+id = "skill.listing.description+when_to_use"
 kind = "skill"
 predicate = "listing"
 field = "description+when_to_use"
@@ -1503,7 +1503,7 @@ gate = "disable-model-invocation"
 bound = { max = 8000, entry = 1536 }
 
 [[declaration.clause]]
-label = "skill.max-len.compatibility"
+id = "skill.max-len.compatibility"
 kind = "skill"
 predicate = "max-len"
 field = "compatibility"
@@ -1513,7 +1513,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 bound = { max = 500 }
 
 [[declaration.clause]]
-label = "skill.extent"
+id = "skill.extent"
 kind = "skill"
 predicate = "extent"
 severity = "advisory"
@@ -1523,7 +1523,7 @@ bound = { max = 500 }
 unit = "lines"
 
 [[declaration.clause]]
-label = "skill.forbidden-keys"
+id = "skill.forbidden-keys"
 kind = "skill"
 predicate = "forbidden-keys"
 severity = "required"
@@ -1532,7 +1532,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 keys = ["globs", "alwaysApply"]
 
 [[declaration.clause]]
-label = "skill.glob-valid.paths"
+id = "skill.glob-valid.paths"
 kind = "skill"
 predicate = "glob-valid"
 field = "paths"
@@ -1541,7 +1541,7 @@ guidance = "The optional `paths` scope gates every invocation channel until a fi
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.mention-reachable.paths"
+id = "skill.mention-reachable.paths"
 kind = "skill"
 predicate = "mention-reachable"
 field = "paths"
@@ -1551,7 +1551,7 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating har
 gate = "paths"
 
 [[declaration.clause]]
-label = "supporting-doc.degree"
+id = "supporting-doc.degree"
 kind = "supporting-doc"
 predicate = "degree"
 severity = "advisory"
@@ -1560,7 +1560,7 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
 degree = { incoming = { min = 1 } }
 
 [[declaration.clause]]
-label = "tool.degree"
+id = "tool.degree"
 kind = "tool"
 predicate = "degree"
 severity = "advisory"
@@ -1569,42 +1569,42 @@ cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/builtin
 degree = { incoming = { min = 1 } }
 
 [[declaration.clause]]
-label = "root.reachable"
+id = "root.reachable"
 predicate = "reachable"
 severity = "advisory"
 guidance = "This member is authored but unreachable: every registration channel its kind declares is provably dead, and no member that is reachable imports it. Claude never loads it, so it is context you maintain and never pay for — and a reader of the tree cannot tell it from live configuration. Three remedies: open a channel (give the `paths` globs a file they match, give the `description` trigger words), import it from a member that is reachable, or delete it. Advisory because a dead edge is a legitimate work-in-progress state; dial it or re-declare the clause `required` once your tree should hold the line."
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15); https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "root.fresh"
+id = "root.fresh"
 predicate = "fresh"
 severity = "advisory"
 guidance = "A lock row this member owns no longer matches disk: either its committed projection was hand-edited, or a fingerprinted source dependency has moved: a layout import, a prose include, a declared input, or — on the root member — a module the program itself loaded. Nothing reverse-parses a projection back into the program, so the two sides stay apart until you reconcile them: edit the owning source and re-emit, and for a moved declared input re-verify the member's claims against the new bytes first. Advisory because a drifted checkout is usually one `emit` away and blocking every such run would be temper's escalation, not yours; dial this label to `required` — or re-declare the clause — once a drifted projection should fail CI."
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/pipeline.md#drift (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "root.locus-declared"
+id = "root.locus-declared"
 predicate = "locus-declared"
 severity = "advisory"
 guidance = "A document sits at a governed locus that your program declares no member for. temper maintains nothing about it: `emit` never reaps it, and where your registrations write into it, `emit` renders their entries and refuses to delete any key it does not own; `guard` never bound it, and every address under it resolves to nothing — so it reads as governed configuration while being governed by no one. Where the locus is one the harness itself loads — a built-in kind's — it is live context on top of that; where the kind is your own, who reads it is yours to know and not temper's to claim. Declare the member in the program and re-emit; for a directory whose documents are authored in place rather than projected, declare its kind `local` so `check` derives the rows at read time instead. Advisory because a tree mid-adoption legitimately carries documents the program has not reached yet; dial this label to `required` — or re-declare the clause — once every document at a governed locus should be one you declared."
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/decisions/0054-the-root-member-carries-a-contract.md (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "root.engine-matches"
+id = "root.engine-matches"
 predicate = "engine-matches"
 severity = "advisory"
 guidance = "Your committed lock records a different temper version than the one running this gate. The rows being read were compiled by a compiler this binary is not, so every verdict below rests on a translation: an older spelling normalizes at read time, but a genuine change in what a row means reads the same from the inside. Re-run `emit` — it rewrites the lock whole in this engine's canonical form, and the stamp goes back to matching. Advisory because a lagging stamp is the ordinary state of every checkout between an upgrade and the next emit, and blocking there would make an upgrade a hard stop; dial this label to `required` — or re-declare the clause — once your CI should refuse a lock it did not compile."
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/pipeline.md#the-lock (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "root.resolves"
+id = "root.resolves"
 predicate = "resolves"
 severity = "required"
 guidance = "A reference this member declares — a field naming another member, or a mention in its prose — names a target the tree does not hold, or a bare key several hosts carry. The runtime resolves such a field by name: a subagent's `skills` list, for one, preloads each skill it names, so a name that matches no skill delivers nothing. Fix the name, author the missing member, or spell the whole `<host-address>/<kind>/<key>` address where hosts share a key. Required because the program's own `emit` refuses the same reference; dial this label to `advisory` while a tree mid-adoption still carries one."
 cite = "https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "root.import-backed"
+id = "root.import-backed"
 predicate = "import-backed"
 severity = "advisory"
 guidance = "This member's `@path` import names no member and no repository file. Claude Code expands an import into context beside the file that carries it, resolving a relative path against that file rather than the working directory, so a path that reaches nothing loads nothing, silently. Fix the path relative to the importing file — a trailing `.` reads as part of it — or set the text off in backticks if it was never meant as an import. Advisory because the importing file still loads; dial this label to `required` — or re-declare the clause — once a dead import should fail CI."

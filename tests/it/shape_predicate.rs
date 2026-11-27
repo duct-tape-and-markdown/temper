@@ -207,7 +207,7 @@ fn a_lock_row_naming_a_shape_the_enum_does_not_carry_is_refused_at_load() {
 #[test]
 fn a_row_naming_an_unknown_shape_fails_the_clause_lift_loudly() {
     let mut row: ClauseRow = common::clause("shape", "required");
-    row.label = Some("skill.shape.name".to_string());
+    row.id = Some("skill.shape.name".to_string());
     row.field = Some("name".to_string());
     row.shape = Some("kebab-case".to_string());
 
