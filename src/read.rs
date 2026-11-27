@@ -2757,19 +2757,35 @@ fn narrate_channel(
             Some(_) => format!("{label}: loaded at launch, while its absence gate is open."),
             None => format!("{label}: loaded at launch, unconditionally."),
         },
-        Registration::OnReadBeneath => match home {
-            Some(home) if !home.is_empty() => format!(
-                "{label}: loaded on demand, the first time Claude reads a file beneath `{home}/`."
-            ),
-            _ => {
-                let condition = if gate.is_some() {
-                    "while its absence gate is open"
-                } else {
-                    "since every read is beneath the working directory it sits in"
-                };
-                format!("{label}: loaded at launch, {condition}.")
+        Registration::OnReadBeneath => {
+            // A sibling `paths-match` declaring globs holds the load past registration.
+            let held_by = channels.iter().find_map(|sibling| match sibling {
+                Registration::PathsMatch { field } if !member_globs(member, field).is_empty() => {
+                    Some(field)
+                }
+                _ => None,
+            });
+            let (verb, hold) = match held_by {
+                Some(field) => (
+                    "registered",
+                    format!("; its `{field}` hold the load until a match"),
+                ),
+                None => ("loaded", String::new()),
+            };
+            match home {
+                Some(home) if !home.is_empty() => format!(
+                    "{label}: {verb} on demand, the first time Claude reads a file beneath `{home}/`{hold}."
+                ),
+                _ => {
+                    let condition = if gate.is_some() {
+                        "while its absence gate is open"
+                    } else {
+                        "since every read is beneath the working directory it sits in"
+                    };
+                    format!("{label}: {verb} at launch, {condition}{hold}.")
+                }
             }
-        },
+        }
         Registration::PathsListing { field } => {
             let globs = member_globs(member, field);
             if globs.is_empty() {
@@ -2816,7 +2832,13 @@ fn narrate_channel(
         }
         Registration::PathsMatch { field } => {
             let globs = member_globs(member, field);
-            if globs.is_empty() {
+            let beneath_a_subdirectory = channels.contains(&Registration::OnReadBeneath)
+                && home.is_some_and(|home| !home.is_empty());
+            if globs.is_empty() && beneath_a_subdirectory {
+                format!(
+                    "{label}: it declares no `{field}`, so it loads as soon as its subdirectory registers it."
+                )
+            } else if globs.is_empty() {
                 format!(
                     "{label}: it declares no `{field}`, so it loads at launch, unconditionally."
                 )

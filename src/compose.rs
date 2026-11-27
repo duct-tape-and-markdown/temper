@@ -2204,14 +2204,17 @@ pub fn read_committed_declarations(workspace_dir: &Path) -> miette::Result<drift
     Ok(committed_declarations_from_doc(&doc)?.0)
 }
 
-/// Retire the built-in-named kind rows another engine snapshotted, so the run reads the
-/// embedded built-in in their place, and return their names.
+/// Retire the built-in facts another engine snapshotted into built-in-named kind rows, so
+/// the run reads the embedded built-in in their place, and return the rows' names.
 ///
 /// `lock_engine` is the committed lock's stamp. Under another engine's stamp a
 /// built-in-named row that would split as a collision ([`partition_kind_rows`]) is that
 /// engine's snapshot of a built-in fact this engine has since moved, never an author's
-/// redeclaration: it is dropped before any overlay or partition reads it. Under this
-/// engine's own stamp, or an unknown one, nothing is retired and the collision stands.
+/// redeclaration: its format, unit shape, registration, guidance and cite — facts a
+/// relocation never respells — are cleared before any overlay or partition reads it, so the row reads
+/// as the embedded built-in and an authored relocation (locus, exclusions) still rides
+/// it until the re-emit. Under this engine's own stamp, or an unknown one, nothing is
+/// retired and the collision stands.
 ///
 /// # Errors
 ///
@@ -2227,7 +2230,15 @@ fn retire_stale_builtin_rows(
     }
     let (_, collisions) = partition_kind_rows(declarations, builtin_defs)?;
     let stale: BTreeSet<String> = collisions.iter().map(|row| row.name.clone()).collect();
-    declarations.kinds.retain(|row| !stale.contains(&row.name));
+    for row in &mut declarations.kinds {
+        if stale.contains(&row.name) {
+            row.format = None;
+            row.unit_shape = None;
+            row.registration.clear();
+            row.guidance = None;
+            row.cite = None;
+        }
+    }
     Ok(stale.into_iter().collect())
 }
 

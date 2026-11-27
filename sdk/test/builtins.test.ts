@@ -246,11 +246,11 @@ test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets bod
 });
 
 test("the rule contract judges an on-demand rule against the per-file truncation limit", () => {
-  // Guarded on `paths`: only a path-scoped rule loads on demand, so only it is cut.
+  // Guarded on the load moment: a path-scoped or nested rule loads on demand, so only it is cut.
   const sized = ruleDefaultContract[3];
   assert.equal(sized.severity, "advisory");
-  assert.equal(sized.when_guard?.key, "type");
-  assert.equal(sized.when_guard?.field, "paths");
+  assert.equal(sized.when_guard?.key, "loads");
+  assert.deepEqual(sized.when_guard?.values, ["on-demand"]);
   assert.equal(sized.when_body?.length, 1);
   const body = sized.when_body![0];
   // The smallest documented window's limit, so a passing rule is whole on every window.
@@ -261,10 +261,15 @@ test("the rule contract judges an on-demand rule against the per-file truncation
   assert.match(body.cite ?? "", /code\.claude\.com\/docs\/en\/memory/);
 });
 
-test("memoryDefaultContract is a single advisory size budget", () => {
-  assert.equal(memoryDefaultContract.length, 1);
+test("memoryDefaultContract is the size target and the on-demand per-file limit", () => {
+  assert.equal(memoryDefaultContract.length, 2);
   assert.equal(memoryDefaultContract[0].predicate.key, "extent");
   assert.equal(memoryDefaultContract[0].severity, "advisory");
+  const sized = memoryDefaultContract[1];
+  assert.equal(sized.severity, "advisory");
+  assert.equal(sized.when_guard?.key, "loads");
+  assert.deepEqual(sized.when_guard?.values, ["on-demand"]);
+  assert.deepEqual(sized.when_body?.[0].predicate.args, { max: 40_000 });
 });
 
 test("mcpServer is a fields-only manifest kind at the mcpServers.* collection address", () => {
@@ -1300,7 +1305,7 @@ test("a tool states exactly one non-blank variant", () => {
   );
 });
 
-test("skill/command register on both documented invocation channels, skill on its paths listing too; agent/rule/memory carry a singleton set", () => {
+test("skill/command register on both documented invocation channels, skill on its paths listing too; rule on its placement too; agent/memory carry a singleton set", () => {
   assert.deepEqual(skill.facts.registration, [
     { via: "user-invoked" },
     { via: "description-trigger", field: "description" },
@@ -1311,7 +1316,10 @@ test("skill/command register on both documented invocation channels, skill on it
     { via: "description-trigger", field: "description" },
   ]);
   assert.deepEqual(agent.facts.registration, [{ via: "description-trigger", field: "description" }]);
-  assert.deepEqual(rule.facts.registration, [{ via: "paths-match", field: "paths" }]);
+  assert.deepEqual(rule.facts.registration, [
+    { via: "paths-match", field: "paths" },
+    { via: "on-read-beneath" },
+  ]);
   assert.deepEqual(memory.facts.registration, [{ via: "on-read-beneath" }]);
 });
 

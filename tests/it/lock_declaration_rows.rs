@@ -4020,6 +4020,46 @@ fn a_built_in_row_snapshotted_by_another_engine_reads_as_the_embedded_built_in_w
 }
 
 #[test]
+fn a_stale_built_in_row_keeps_the_authors_relocation_until_the_re_emit() {
+    // The lock relocates `rule` away from a vendored tree, under a registration this
+    // engine's embedded `rule` no longer carries: the snapshot is stale, the exclusion is
+    // the author's, so the vendored rule stays ungoverned.
+    let root = common::tmpdir("stale-builtin-relocation");
+    fs::create_dir_all(root.join("vendor/.claude/rules")).unwrap();
+    fs::write(
+        root.join("vendor/.claude/rules/cursor.md"),
+        "---\nglobs: \"*.ts\"\n---\n# Cursor\n",
+    )
+    .unwrap();
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                format: Some("yaml-frontmatter".to_string()),
+                unit_shape: Some("file".to_string()),
+                registration: vec!["user-invoked".to_string()],
+                exclude: vec!["vendor".to_string()],
+                ..common::kind_facts("rule", ".", "**/.claude/rules/**/*.md")
+            }],
+            clauses: vec![common::clause("engine-matches", "advisory")],
+            ..Declarations::default()
+        },
+    );
+    common::restamp_lock(&root, common::ANOTHER_ENGINE);
+
+    let (findings, ok) = common::check_harness(&root);
+    assert!(
+        common::findings_for(&findings, "kind.admissibility").is_empty(),
+        "{findings:#?}"
+    );
+    assert!(
+        common::findings_for(&findings, "rule.forbidden-keys").is_empty(),
+        "the relocation's exclusion survives the stale snapshot, got:\n{findings:#?}"
+    );
+    assert!(ok, "{findings:#?}");
+}
+
+#[test]
 fn a_lock_stamped_with_the_bare_unreleased_mark_reads_a_divergent_built_in_row_as_stale() {
     // Same release line, unreleased, but built over other built-in facts: the stamp an
     // unreleased build wrote before its built-ins carried a digest.

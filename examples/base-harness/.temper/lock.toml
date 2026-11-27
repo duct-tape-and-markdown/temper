@@ -1,4 +1,4 @@
-engine = "0.0.25+unreleased.f61922e219ba"
+engine = "0.0.25+unreleased.42c81dbda0e1"
 
 [[decision]]
 name = "authority-arrow"
@@ -150,8 +150,8 @@ emit_hash = "be7b128bfe382feb5df65921ee19ed5605ab9b205b81f66dde8fc1018f6a6b21"
 name = "kind-rule"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-rule.md"
-source_hash = "c17c43a9bab1a61385eb21e0fa27b5046c4d95c4bb0f4d871cfea26b357aad73"
-emit_hash = "c17c43a9bab1a61385eb21e0fa27b5046c4d95c4bb0f4d871cfea26b357aad73"
+source_hash = "7e4431253457e9903e779ad11d64f321fc8a45b1a5f224b3ca18fff0f319edf0"
+emit_hash = "7e4431253457e9903e779ad11d64f321fc8a45b1a5f224b3ca18fff0f319edf0"
 
 [[supporting-doc]]
 name = "kind-settings"
@@ -328,8 +328,8 @@ locus_root = "."
 locus_glob = ["**/.claude/rules/**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
-registration = ["paths-match(paths)"]
-guidance = "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
+registration = ["paths-match(paths)", "on-read-beneath"]
+guidance = "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. A subdirectory's own `.claude/rules/` loads with that subdirectory's `CLAUDE.md`, the first time Claude reads a file beneath it. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
 cite = "https://code.claude.com/docs/en/memory (retrieved 2026-11-25); path-rule load timing observed on Claude Code 2.1.332"
 ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 

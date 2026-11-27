@@ -14,10 +14,9 @@
 
 use std::collections::BTreeSet;
 
-use temper::contract::{Clause, ExtentUnit, Predicate, Severity};
+use temper::contract::{Clause, ExtentUnit, LoadMoment, Predicate, Severity};
 use temper::drift::Declarations;
 use temper::engine;
-use temper::extract::ValueType;
 
 use crate::common;
 
@@ -59,12 +58,11 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
         (
             Severity::Advisory,
             Predicate::When {
-                guard: Box::new(Predicate::Type {
-                    field: "paths".to_string(),
-                    kinds: BTreeSet::from([ValueType::String, ValueType::List]),
+                guard: Box::new(Predicate::Loads {
+                    moment: LoadMoment::OnDemand,
                 }),
                 body: vec![Clause {
-                    label: "rule.when.paths=list+string.extent".to_string(),
+                    label: "rule.when.loads=on-demand.extent".to_string(),
                     severity: Severity::Advisory,
                     predicate: Predicate::Extent {
                         unit: ExtentUnit::Characters,
@@ -379,7 +377,7 @@ fn a_path_scoped_rule_past_the_on_demand_size_limit_draws_the_rule_size_advisory
     let run = sized_rule_run("rule-size-scoped", Some("src/**"), 40_001);
     assert_eq!(
         run.output
-            .matches("rule.when.paths=list+string.extent")
+            .matches("rule.when.loads=on-demand.extent")
             .count(),
         1,
         "a scoped rule over the limit draws one size advisory, got:\n{}",
@@ -398,12 +396,12 @@ fn a_path_scoped_rule_past_the_on_demand_size_limit_draws_the_rule_size_advisory
 }
 
 /// A rule with no `paths` loads at launch and arrives whole, so the same size draws no
-/// size advisory: the guard holds only where `paths` is set.
+/// size advisory: the guard holds only where the rule loads on demand.
 #[test]
 fn an_unscoped_rule_past_the_on_demand_size_limit_draws_no_rule_size_advisory() {
     let run = sized_rule_run("rule-size-unscoped", None, 40_001);
     assert!(
-        !run.output.contains("rule.when.paths"),
+        !run.output.contains("rule.when.loads=on-demand"),
         "a launch-loaded rule is not cut, so no size advisory, got:\n{}",
         run.output
     );

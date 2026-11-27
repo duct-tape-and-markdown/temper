@@ -1483,18 +1483,29 @@ pub struct AbsenceGate {
     pub absent: Vec<String>,
 }
 
-/// A member's **home** — the directory whose reads load it: its own directory, a
-/// `.claude/` folder folded into the directory holding it, so `.claude/CLAUDE.md` and
-/// `CLAUDE.md` share the harness root's (the empty path). [`None`] for a path with no
-/// parent. The one placement reading both the [absence gate](CustomKind::absence_gate)
-/// scope and the [`OnReadBeneath`](Registration::OnReadBeneath) channel take.
+/// A member's **home** — the directory whose reads load it: its own directory, with a
+/// `.claude/` folder — and a `.claude/rules/` tree at any depth — folded into the
+/// directory holding it, so `.claude/CLAUDE.md`, `CLAUDE.md` and
+/// `.claude/rules/frontend/x.md` share the harness root's (the empty path), and
+/// `apps/web/.claude/rules/x.md` is homed at `apps/web`.
+/// [`None`] for a path with no parent. The one placement reading both the
+/// [absence gate](CustomKind::absence_gate) scope and the
+/// [`OnReadBeneath`](Registration::OnReadBeneath) channel take.
 #[must_use]
 pub fn member_home(harness_relative: &str) -> Option<&Path> {
-    let mut home = Path::new(harness_relative).parent()?;
-    if home.file_name().is_some_and(|name| name == ".claude") {
-        home = home.parent()?;
+    let parent = Path::new(harness_relative).parent()?;
+    let folded = parent.ancestors().find(|dir| {
+        dir.file_name().is_some_and(|name| name == ".claude")
+            && parent
+                .strip_prefix(dir)
+                .ok()
+                .and_then(|rest| rest.components().next())
+                .is_none_or(|first| first.as_os_str() == "rules")
+    });
+    match folded {
+        Some(claude) => claude.parent(),
+        None => Some(parent),
     }
-    Some(home)
 }
 
 /// Which of a template's two **absence gates** a member sits behind — read off its
@@ -2958,5 +2969,22 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         );
 
         assert_eq!(kind.declared_fields(), vec!["name", "version"]);
+    }
+
+    #[test]
+    fn a_member_inside_a_claude_folder_is_homed_where_that_folder_sits() {
+        let home = |path| member_home(path).map(|home| home.to_string_lossy().into_owned());
+        assert_eq!(home("CLAUDE.md").as_deref(), Some(""));
+        assert_eq!(home(".claude/CLAUDE.md").as_deref(), Some(""));
+        assert_eq!(home(".claude/rules/frontend/x.md").as_deref(), Some(""));
+        assert_eq!(home("apps/web/CLAUDE.md").as_deref(), Some("apps/web"));
+        assert_eq!(
+            home("apps/web/.claude/rules/frontend/x.md").as_deref(),
+            Some("apps/web")
+        );
+        assert_eq!(
+            home(".claude/hooks/CLAUDE.md").as_deref(),
+            Some(".claude/hooks")
+        );
     }
 }

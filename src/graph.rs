@@ -1447,14 +1447,24 @@ fn dead_channel_set(
     member: &Features,
     repo_files: &[String],
 ) -> Option<String> {
-    if channels.is_empty() {
+    // `on-read-beneath` beside another channel only registers the member — its placement
+    // opens nothing the sibling gates (a nested rule's `paths` still hold its load) — so
+    // the sibling set alone decides; alone, it is the load and never dead.
+    let deciding: Vec<&Registration> = match channels {
+        [Registration::OnReadBeneath] => channels.iter().collect(),
+        _ => channels
+            .iter()
+            .filter(|channel| **channel != Registration::OnReadBeneath)
+            .collect(),
+    };
+    if deciding.is_empty() {
         return None;
     }
-    let reasons: Vec<String> = channels
+    let reasons: Vec<String> = deciding
         .iter()
         .filter_map(|channel| dead_registration(channel, member, repo_files))
         .collect();
-    (reasons.len() == channels.len()).then(|| reasons.join("; "))
+    (reasons.len() == deciding.len()).then(|| reasons.join("; "))
 }
 
 /// Whether one declared registration **channel** is **provably dead** on its own, and

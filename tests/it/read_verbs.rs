@@ -3065,6 +3065,48 @@ fn explain_states_a_subdirectory_memory_loads_on_a_read_beneath_its_directory() 
 }
 
 #[test]
+fn explain_states_a_nested_rule_without_paths_loads_on_a_read_beneath_its_directory() {
+    // A subdirectory's own `.claude/rules/` registers on a read beneath that
+    // subdirectory, as its memory does; a root rule without `paths` loads at launch.
+    let harness = common::scaffold("explain-nested-rule");
+    common::write_sibling(&harness, ".claude/rules/root.md", "# Root\n");
+    common::write_sibling(&harness, "apps/web/.claude/rules/x.md", "# Web\n");
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/rules/scoped.md",
+        "---\npaths: [\"apps/web/src/**\"]\n---\n# Scoped\n",
+    );
+    common::write_sibling(&harness, "apps/web/src/main.ts", "");
+
+    let root = common::explain_in(&harness, "root");
+    assert!(
+        root.contains("`on-read-beneath`: loaded at launch"),
+        "a root rule without `paths` loads at launch: {root}"
+    );
+
+    let web = common::explain_in(&harness, "apps:web:x");
+    assert!(
+        web.contains(
+            "`on-read-beneath`: loaded on demand, the first time Claude reads a file beneath `apps/web/`."
+        ),
+        "a nested rule loads on a read beneath its directory: {web}"
+    );
+    assert!(
+        !web.contains("so it loads at launch")
+            && !web.contains("`on-read-beneath`: loaded at launch"),
+        "a nested rule never claims a launch load: {web}"
+    );
+
+    let scoped = common::explain_in(&harness, "apps:web:scoped");
+    assert!(
+        scoped.contains(
+            "`on-read-beneath`: registered on demand, the first time Claude reads a file beneath `apps/web/`; its `paths` hold the load until a match."
+        ),
+        "a nested scoped rule registers beneath its directory and loads on a match: {scoped}"
+    );
+}
+
+#[test]
 fn explain_states_a_skill_with_paths_joins_the_listing_on_a_read_of_a_match() {
     // A skill's own `paths` register its listing, not its body: the read of a match
     // joins it to the listing, and until then its description is not listed.

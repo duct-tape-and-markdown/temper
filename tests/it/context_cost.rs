@@ -171,3 +171,64 @@ fn skills_and_commands_that_overrun_the_listing_budget_only_together_draw_the_li
         joint.output
     );
 }
+
+/// A file of `chars` rendered characters past its heading, in few long lines so the
+/// 200-line size target stays silent and only the per-file limit can speak.
+fn oversized(heading: &str, chars: usize) -> String {
+    let line = format!("{}\n", "x".repeat(999));
+    format!("# {heading}\n\n{}", line.repeat(chars / line.len() + 1))
+}
+
+/// Check a harness carrying one oversized file at `path`.
+fn oversized_run(slug: &str, path: &str) -> common::CheckRun {
+    let root = common::tmpdir(slug);
+    common::write_sibling(&root, path, &oversized("Big", 40_001));
+    common::write_lock(&root, Declarations::default());
+    common::check_in(&root, &[], None)
+}
+
+/// A subdirectory's `CLAUDE.md` loads on demand, so the runtime cuts it past the
+/// per-file limit: one advisory, and the run stays zero.
+#[test]
+fn a_subdirectory_memory_past_the_per_file_limit_draws_the_size_advisory() {
+    let run = oversized_run("size-subdirectory-memory", "apps/web/CLAUDE.md");
+    assert_eq!(
+        run.output
+            .matches("memory.when.loads=on-demand.extent")
+            .count(),
+        1,
+        "the subdirectory memory draws one size advisory, got:\n{}",
+        run.output
+    );
+    assert!(run.output.contains("truncated"), "{}", run.output);
+    assert!(run.ok, "advisory ⇒ zero, got:\n{}", run.output);
+}
+
+/// A subdirectory's own rule loads on a read beneath it, so even without `paths` it is
+/// on demand and judged against the per-file limit.
+#[test]
+fn a_nested_rule_without_paths_past_the_per_file_limit_draws_the_size_advisory() {
+    let run = oversized_run("size-nested-rule", "apps/web/.claude/rules/x.md");
+    assert_eq!(
+        run.output
+            .matches("rule.when.loads=on-demand.extent")
+            .count(),
+        1,
+        "the nested rule draws one size advisory, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "advisory ⇒ zero, got:\n{}", run.output);
+}
+
+/// The root `CLAUDE.md` loads at launch and arrives whole, so the same size draws no
+/// per-file advisory.
+#[test]
+fn a_root_memory_past_the_per_file_limit_draws_no_size_advisory() {
+    let run = oversized_run("size-root-memory", "CLAUDE.md");
+    assert!(
+        !run.output.contains("memory.when.loads=on-demand"),
+        "a launch-loaded memory is not cut, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "{}", run.output);
+}

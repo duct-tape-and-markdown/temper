@@ -27,6 +27,7 @@ import {
   extent,
   forbiddenKeys,
   globValid,
+  loads,
   maxLen,
   mentionReachable,
   minLen,
@@ -466,16 +467,21 @@ export interface Rule {
  * subdirectory CLAUDE.md", retrieved 2026-11-26). Identity joins the spans the two `**`
  * cover, never the literal `.claude/rules` folders: `apps/web/.claude/rules/frontend/x.md`
  * is `apps:web:frontend:x`, and a root rule keeps `frontend:x`.
+ *
+ * It registers `on-read-beneath` beside `paths-match`: a subdirectory's own rules load
+ * once Claude reads a file beneath that subdirectory, as its `CLAUDE.md` does
+ * (decision 0120), so a nested rule without `paths` loads on demand, and its `paths` is
+ * the other on-demand cause.
  */
 export const rule: KindDefinition<Rule> = kind<Rule>({
   name: "rule",
   locus: { kind: "at", root: ".", glob: "**/.claude/rules/**/*.md" },
   format: "yaml-frontmatter",
   unitShape: "file",
-  registration: [{ via: "paths-match", field: "paths" }],
+  registration: [{ via: "paths-match", field: "paths" }, { via: "on-read-beneath" }],
   cite: "https://code.claude.com/docs/en/memory (retrieved 2026-11-25); path-rule load timing observed on Claude Code 2.1.332",
   guidance:
-    "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
+    "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. A subdirectory's own `.claude/rules/` loads with that subdirectory's `CLAUDE.md`, the first time Claude reads a file beneath it. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
 });
 
 /** A Claude Code memory file — `CLAUDE.md` or `AGENTS.md`, loaded whole, no frontmatter. */
@@ -2696,15 +2702,16 @@ export const agentDefaultContract: readonly Clause[] = [
 ];
 
 /**
- * The per-file character limit an on-demand rules file is truncated past, at the smallest
- * documented context window: "**200K context window**: 40,000 characters"; "**1M context
- * window**: 200,000 characters on Claude Opus 4.6 and Claude Sonnet 4.6, and 150,000
- * characters on later models" — and "Before v2.1.309, Claude Code didn't apply this limit
- * to files that load on demand." Judging the smallest window keeps a passing rule whole on
- * every one. The limit covers "Path-scoped rules in your project's `.claude/rules/`", so
- * the clause is guarded on `paths`: a launch-loaded file arrives whole up to 4 MiB.
+ * The per-file character limit an on-demand rules or memory file is truncated past, at the
+ * smallest documented context window: "**200K context window**: 40,000 characters"; "**1M
+ * context window**: 200,000 characters on Claude Opus 4.6 and Claude Sonnet 4.6, and
+ * 150,000 characters on later models" — and "Before v2.1.309, Claude Code didn't apply
+ * this limit to files that load on demand." Judging the smallest window keeps a passing
+ * file whole on every one. The limit covers a subdirectory's `CLAUDE.md` and the rules it
+ * loads on demand, so each clause over it is guarded on the load moment: a launch-loaded
+ * file arrives whole up to 4 MiB.
  */
-const ON_DEMAND_RULE_CHARACTER_LIMIT = 40_000;
+const ON_DEMAND_CHARACTER_LIMIT = 40_000;
 
 /** The memory docs' section stating the on-demand per-file size limit. */
 const ON_DEMAND_SIZE_LIMIT_CITE =
@@ -2747,19 +2754,19 @@ export const ruleDefaultContract: readonly Clause[] = [
     cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
   }),
   when(
-    type("paths", ["string", "list"]),
+    loads("on-demand"),
     [
-      clause(extent("characters", ON_DEMAND_RULE_CHARACTER_LIMIT), {
+      clause(extent("characters", ON_DEMAND_CHARACTER_LIMIT), {
         severity: "advisory",
         guidance:
-          "A rule with `paths` loads on demand, and an on-demand rules file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a rule that passes is whole on every window. Measured render-side, as `wc -m` counts the projected file. Trim the rule, or split it into several rules files, each of which counts against the limit on its own. Launch-loaded rules (no `paths`) are not cut this way, so this clause binds only where `paths` is set.",
+          "A rule with `paths`, or one under a subdirectory's own `.claude/rules/`, loads on demand, and an on-demand rules file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a rule that passes is whole on every window. Measured render-side, as `wc -m` counts the projected file. Trim the rule, or split it into several rules files, each of which counts against the limit on its own. A root rule without `paths` loads at launch and is not cut this way, so this clause binds only where the rule loads on demand.",
         cite: ON_DEMAND_SIZE_LIMIT_CITE,
       }),
     ],
     {
       severity: "advisory",
       guidance:
-        "A rule that carries `paths` loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 rendered characters, the smallest documented window's. A rule without `paths` loads at launch, arrives whole, and is not judged by this clause.",
+        "A rule that carries `paths`, or sits under a subdirectory's own `.claude/rules/`, loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 rendered characters, the smallest documented window's. A root rule without `paths` loads at launch, arrives whole, and is not judged by this clause.",
       cite: ON_DEMAND_SIZE_LIMIT_CITE,
     },
   ),
@@ -2784,8 +2791,9 @@ export const ruleDefaultContract: readonly Clause[] = [
  * markdown with no documented frontmatter and no required fields
  * (code.claude.com/docs/en/memory, retrieved 2026-07-15), so there is no
  * schema to gate — manufacturing a required field or a forbidden-key list
- * would fake a check the format does not carry. The single clause is a context-cost
- * budget; everything else the contract could say is guidance.
+ * would fake a check the format does not carry. The clauses are context-cost budgets —
+ * the size target, and the per-file limit a subdirectory's `CLAUDE.md`, loaded on demand,
+ * is truncated past; everything else the contract could say is guidance.
  */
 export const memoryDefaultContract: readonly Clause[] = [
   clause(extent("lines", 200), {
@@ -2794,6 +2802,23 @@ export const memoryDefaultContract: readonly Clause[] = [
       "CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)",
     cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
   }),
+  when(
+    loads("on-demand"),
+    [
+      clause(extent("characters", ON_DEMAND_CHARACTER_LIMIT), {
+        severity: "advisory",
+        guidance:
+          "A subdirectory's CLAUDE.md loads on demand, the first time Claude reads a file beneath its directory, and an on-demand memory file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a file that passes is whole on every window. Measured render-side, as `wc -m` counts the projected file. Trim it, or move detail into rules under that subdirectory's `.claude/rules/`, each of which counts against the limit on its own. The root CLAUDE.md loads at launch and is not cut this way, so this clause binds only below the root.",
+        cite: ON_DEMAND_SIZE_LIMIT_CITE,
+      }),
+    ],
+    {
+      severity: "advisory",
+      guidance:
+        "A CLAUDE.md below the harness root loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 rendered characters, the smallest documented window's. The root's loads at launch, arrives whole, and is not judged by this clause.",
+      cite: ON_DEMAND_SIZE_LIMIT_CITE,
+    },
+  ),
 ];
 
 /**

@@ -260,8 +260,8 @@ locus_root = "."
 locus_glob = ["**/.claude/rules/**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
-registration = ["paths-match(paths)"]
-guidance = "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
+registration = ["paths-match(paths)", "on-read-beneath"]
+guidance = "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. A subdirectory's own `.claude/rules/` loads with that subdirectory's `CLAUDE.md`, the first time Claude reads a file beneath it. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
 cite = "https://code.claude.com/docs/en/memory (retrieved 2026-11-25); path-rule load timing observed on Claude Code 2.1.332"
 ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 
@@ -795,6 +795,25 @@ bound = { max = 200 }
 unit = "lines"
 
 [[declaration.clause]]
+id = "memory.when.loads=on-demand"
+kind = "memory"
+predicate = "when"
+severity = "advisory"
+guidance = "A CLAUDE.md below the harness root loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 rendered characters, the smallest documented window's. The root's loads at launch, arrives whole, and is not judged by this clause."
+cite = "https://code.claude.com/docs/en/memory#claude-ignores-the-end-of-my-subdirectory-claude-md (retrieved 2026-11-26)"
+values = ["on-demand"]
+guard_predicate = "loads"
+
+[[declaration.clause.body]]
+id = "memory.when.loads=on-demand.extent"
+predicate = "extent"
+severity = "advisory"
+guidance = "A subdirectory's CLAUDE.md loads on demand, the first time Claude reads a file beneath its directory, and an on-demand memory file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a file that passes is whole on every window. Measured render-side, as `wc -m` counts the projected file. Trim it, or move detail into rules under that subdirectory's `.claude/rules/`, each of which counts against the limit on its own. The root CLAUDE.md loads at launch and is not cut this way, so this clause binds only below the root."
+cite = "https://code.claude.com/docs/en/memory#claude-ignores-the-end-of-my-subdirectory-claude-md (retrieved 2026-11-26)"
+bound = { max = 40000 }
+unit = "characters"
+
+[[declaration.clause]]
 id = "memory-local.extent"
 kind = "memory-local"
 predicate = "extent"
@@ -1310,21 +1329,20 @@ bound = { max = 200 }
 unit = "lines"
 
 [[declaration.clause]]
-id = "rule.when.paths=list+string"
+id = "rule.when.loads=on-demand"
 kind = "rule"
 predicate = "when"
-field = "paths"
 severity = "advisory"
-guidance = "A rule that carries `paths` loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 rendered characters, the smallest documented window's. A rule without `paths` loads at launch, arrives whole, and is not judged by this clause."
+guidance = "A rule that carries `paths`, or sits under a subdirectory's own `.claude/rules/`, loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 rendered characters, the smallest documented window's. A root rule without `paths` loads at launch, arrives whole, and is not judged by this clause."
 cite = "https://code.claude.com/docs/en/memory#claude-ignores-the-end-of-my-subdirectory-claude-md (retrieved 2026-11-26)"
-value_type = ["string", "list"]
-guard_predicate = "type"
+values = ["on-demand"]
+guard_predicate = "loads"
 
 [[declaration.clause.body]]
-id = "rule.when.paths=list+string.extent"
+id = "rule.when.loads=on-demand.extent"
 predicate = "extent"
 severity = "advisory"
-guidance = "A rule with `paths` loads on demand, and an on-demand rules file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a rule that passes is whole on every window. Measured render-side, as `wc -m` counts the projected file. Trim the rule, or split it into several rules files, each of which counts against the limit on its own. Launch-loaded rules (no `paths`) are not cut this way, so this clause binds only where `paths` is set."
+guidance = "A rule with `paths`, or one under a subdirectory's own `.claude/rules/`, loads on demand, and an on-demand rules file past the per-file size limit reaches Claude truncated: only its start, ending in a note to read the rest with the Read tool, and until Claude does, the later instructions are not in its context. The limit scales with the context window — 40,000 characters at 200K, 150,000 to 200,000 at 1M — and this clause judges the smallest documented, so a rule that passes is whole on every window. Measured render-side, as `wc -m` counts the projected file. Trim the rule, or split it into several rules files, each of which counts against the limit on its own. A root rule without `paths` loads at launch and is not cut this way, so this clause binds only where the rule loads on demand."
 cite = "https://code.claude.com/docs/en/memory#claude-ignores-the-end-of-my-subdirectory-claude-md (retrieved 2026-11-26)"
 bound = { max = 40000 }
 unit = "characters"

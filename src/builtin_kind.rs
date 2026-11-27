@@ -553,12 +553,15 @@ mod tests {
             ]
         );
         assert_eq!(rule.relationships, Vec::<Edge>::new());
-        // A singleton channel set.
+        // Its `paths` and its placement beneath a subdirectory: two on-demand causes.
         assert_eq!(
             rule.registration,
-            vec![Registration::PathsMatch {
-                field: "paths".to_string()
-            }]
+            vec![
+                Registration::PathsMatch {
+                    field: "paths".to_string()
+                },
+                Registration::OnReadBeneath,
+            ]
         );
     }
 

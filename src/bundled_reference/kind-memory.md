@@ -14,3 +14,4 @@ Each member is its own document, at:
 ## Clauses
 
 - `extent` (advisory): CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)
+- `when` (advisory): A CLAUDE.md below the harness root loads on demand, so it is judged against the per-file limit an on-demand file is truncated past: 40,000 rendered characters, the smallest documented window's. The root's loads at launch, arrives whole, and is not judged by this clause.
