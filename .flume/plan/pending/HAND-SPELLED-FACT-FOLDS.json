@@ -1,0 +1,19 @@
+{
+  "tag": "HAND-SPELLED-FACT-FOLDS",
+  "gate": { "kind": "open" },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "src/tap.rs", "description": "log_path's \".temper\" literal (~203) beside lib::WORKSPACE_DIR" },
+      { "path": "src/install.rs", "description": "GUARD_MATCHER / BASH_MATCHER, hand-spelled again in the SDK" },
+      { "path": "sdk/src/builtins.ts", "description": "GUARD_MATCHER, a comment-pointer copy of install.rs's" },
+      { "path": "sdk/src/patterns.ts", "description": "SHELL_MATCHER, a comment-pointer copy of install.rs's BASH_MATCHER" }
+    ],
+    "retire": []
+  },
+  "summary": "Fold hand spellings of facts the tree already carries: tap.rs's workspace dir literal, and the guard matchers spelled once per language with only comments joining them",
+  "per": { "path": "specs/process/engineering.md", "section": "One job, one home" },
+  "acceptance": "tap.rs reads WORKSPACE_DIR; each guard matcher has one home per fact, or the cross-language pair is held by a real-writer agreement pin rather than a comment; net-negative in the folded domain",
+  "notes": "Third noting of hand-spelled-fact (d2f1d4f9, 1a03eb15, this tick): files once, claims no property. Sites re-verified on disk this tick; d2f1d4f9's install.rs/drift.rs sites were not re-verified and stay out."
+}

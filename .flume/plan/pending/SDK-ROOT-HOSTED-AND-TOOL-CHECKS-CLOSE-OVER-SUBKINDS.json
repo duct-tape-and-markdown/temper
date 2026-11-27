@@ -1,0 +1,30 @@
+{
+  "tag": "SDK-ROOT-HOSTED-AND-TOOL-CHECKS-CLOSE-OVER-SUBKINDS",
+  "gate": { "kind": "open" },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "sdk/src/member-address.ts", "description": "ROOT_HOSTED_KINDS name-set test in memberAddress; the root-hosted judgement closes over the base chain as admissibility::root_hosted_kinds does" },
+      { "path": "sdk/src/declarations.ts", "description": "nestedMemberRows' ROOT_HOSTED_KINDS.has (~1402) reads the same closed judgement" },
+      { "path": "sdk/src/emit.ts", "description": "bareFileChildTargets' ROOT_HOSTED_KINDS.has (~988)" },
+      { "path": "sdk/src/reference.ts", "description": "ROOT_HOSTED_KINDS.has(facts.name) and member.kind === \"tool\"" },
+      { "path": "sdk/src/patterns.ts", "description": "typecheck's tool kind-key refusal (~126)" },
+      { "path": "sdk/src/contract.ts", "description": "the two init.tool.kind !== \"tool\" refusals (~562/586)" },
+      { "path": "sdk/src/builtins.ts", "description": "home of the subkind-closed tool/root-hosted predicate beside isRequirement" },
+      { "path": "sdk/test/member-address.test.ts", "description": "subkind address case" }
+    ],
+    "retire": []
+  },
+  "summary": "SDK judges root-hosted and tool membership by bare kind name; the engine closes over the base chain, so a tool subkind's member is addressed and rowed differently on each side",
+  "per": { "path": "specs/process/engineering.md", "section": "A shared concept is one type" },
+  "acceptance": "Every SDK site judging root-hosted or tool membership reads one predicate over the base chain (extendsKind, as isRequirement does); a tool subkind's member addresses at root/<kind>/<key> and writes its root nested_member row, as admissibility::root_hosted_kinds reads it",
+  "tests": [
+    "a tool subkind's member addresses under the root as a tool's does",
+    "a tool subkind's member writes a root-hosted nested member row",
+    "typecheck accepts a member of a tool subkind as its tool"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "Engine: admissibility.rs ROOT_HOSTED_KINDS + root_hosted_kinds (kinds_extending). SDK copies by bare name: member-address.ts:75/137, declarations.ts:1402, emit.ts:988, reference.ts:245/273, patterns.ts:126, contract.ts:562/586. Requirement subkinds escape only because harness() strips them from the roster. Build places the predicate (builtins.ts) and passes the judgement in."
+}
