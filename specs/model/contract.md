@@ -73,7 +73,8 @@ A clause's **id**, its compiled label in the lock (`pipeline.md`, "The
 lock"), is deterministic, human-legible, printed by every finding and by
 `explain`, and never opaque to the author; a clause's own entry or row names
 it `id`, and every other surface naming a clause keys it `clause`, so a dial
-entry reads `[[clause]] id = …` and a finding carries `clause = …`. The
+entry reads `[[clause]] id = …` and a finding carries `clause = …`; an
+external report format keeps its own key for the id (SARIF's `ruleId`). The
 shipped **dial** kind consumes it: a temper-owned, local-locus TOML document
 (`.temper/dial.toml`) naming a clause by its id and declaring this machine's
 read severity. The dial's schema is the envelope — severity is its only
