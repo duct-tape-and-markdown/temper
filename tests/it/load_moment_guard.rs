@@ -186,3 +186,54 @@ fn a_loads_on_demand_guard_binds_over_a_custom_kind_registering_always_behind_an
     let root = common::explain_in(&harness, "NOTES");
     assert!(root.contains("`always`: loaded at launch"), "{root}");
 }
+
+/// The `on-demand` and `launch` guards' findings over one invoked member of `kind`.
+fn invoked_findings(label: &str, kind: &str, path: &str, frontmatter: &str) -> [usize; 2] {
+    ["on-demand", "launch"].map(|moment| {
+        let harness = common::tmpdir(&format!("{label}-{moment}"));
+        write_sibling(
+            &harness,
+            path,
+            &format!("---\n{frontmatter}---\n{THREE_LINES}"),
+        );
+        guard_lock(&harness, kind, moment);
+        let (findings, _) = check_harness(&harness);
+        common::findings_for(&findings, &format!("{kind}.when.loads={moment}.extent")).len()
+    })
+}
+
+#[test]
+fn a_loads_on_demand_guard_binds_its_body_on_an_invoked_skill() {
+    for (label, frontmatter) in [
+        ("load-moment-skill", "description: Ship a release.\n"),
+        (
+            "load-moment-skill-paths",
+            "description: Ship a release.\npaths: \"**\"\n",
+        ),
+    ] {
+        let fired = invoked_findings(label, "skill", ".claude/skills/ship/SKILL.md", frontmatter);
+        assert_eq!(fired, [1, 0], "on demand binds, launch is silent: {label}");
+    }
+}
+
+#[test]
+fn a_loads_on_demand_guard_binds_its_body_on_an_agent() {
+    let fired = invoked_findings(
+        "load-moment-agent",
+        "agent",
+        ".claude/agents/reviewer.md",
+        "name: reviewer\ndescription: Review a diff.\n",
+    );
+    assert_eq!(fired, [1, 0], "on demand binds, launch is silent");
+}
+
+#[test]
+fn a_loads_on_demand_guard_binds_its_body_on_a_command() {
+    let fired = invoked_findings(
+        "load-moment-command",
+        "command",
+        ".claude/commands/deploy.md",
+        "description: Deploy the site.\n",
+    );
+    assert_eq!(fired, [1, 0], "on demand binds, launch is silent");
+}

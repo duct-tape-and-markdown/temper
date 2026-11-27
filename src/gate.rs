@@ -337,8 +337,13 @@ pub(crate) struct Placement<'a> {
 /// on-demand absence gate, an [`OnReadBeneath`](kind::Registration::OnReadBeneath)
 /// member is homed below the harness root, or a
 /// [`PathsMatch`](kind::Registration::PathsMatch) member declares globs or waits on a
-/// sibling subdirectory registration; else **at launch**. [`None`] for a channel that
-/// never loads the member's body into context (invoked, listed, connected).
+/// sibling subdirectory registration, and wherever an invoking channel
+/// ([`UserInvoked`](kind::Registration::UserInvoked),
+/// [`DescriptionTrigger`](kind::Registration::DescriptionTrigger),
+/// [`PathsListing`](kind::Registration::PathsListing)) loads the body on invocation —
+/// its listing is the listing budget's, never the load; else **at launch**. [`None`]
+/// for a channel whose member's content never enters context (event, connected,
+/// enabled, registered).
 pub(crate) fn channel_load_moment(
     channel: &kind::Registration,
     channels: &[kind::Registration],
@@ -363,6 +368,9 @@ pub(crate) fn channel_load_moment(
             !graph::declared_globs(member, field).is_empty()
                 || (beneath_a_subdirectory && channels.contains(&kind::Registration::OnReadBeneath))
         }
+        kind::Registration::UserInvoked
+        | kind::Registration::DescriptionTrigger { .. }
+        | kind::Registration::PathsListing { .. } => true,
         _ => return None,
     };
     Some(if on_demand { OnDemand } else { Launch })
