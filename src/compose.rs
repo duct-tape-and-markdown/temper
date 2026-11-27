@@ -2175,6 +2175,35 @@ pub fn partition_kind_rows<'a>(
     Ok((custom, collisions))
 }
 
+/// The committed lock's declaration rows as every verb reads them: another engine's
+/// built-in-named rows that would split as a collision retired, with their names.
+///
+/// # Errors
+///
+/// Returns a [`drift::LockRowError`] when a present declaration row is malformed.
+pub fn committed_declarations_from_doc(
+    doc: &toml_edit::DocumentMut,
+) -> Result<(drift::Declarations, Vec<String>), drift::LockRowError> {
+    let mut declarations = drift::declarations_from_doc(doc)?;
+    let stale = retire_stale_builtin_rows(
+        &mut declarations,
+        drift::engine_from_doc(doc).as_deref(),
+        &builtin_kind::definitions(),
+    )?;
+    Ok((declarations, stale))
+}
+
+/// Read a workspace's committed declaration rows with another engine's stale built-in
+/// rows retired — [`committed_declarations_from_doc`] behind the counted lock read.
+///
+/// # Errors
+///
+/// Returns an error if the lock cannot be read or parsed, or a present row is malformed.
+pub fn read_committed_declarations(workspace_dir: &Path) -> miette::Result<drift::Declarations> {
+    let doc = drift::read_lock_document(workspace_dir)?;
+    Ok(committed_declarations_from_doc(&doc)?.0)
+}
+
 /// Retire the built-in-named kind rows another engine snapshotted, so the run reads the
 /// embedded built-in in their place, and return their names.
 ///
@@ -2188,7 +2217,7 @@ pub fn partition_kind_rows<'a>(
 ///
 /// Returns a [`drift::LockRowError`] when a built-in-named row's labels fall outside
 /// their closed vocabulary.
-pub fn retire_stale_builtin_rows(
+fn retire_stale_builtin_rows(
     declarations: &mut drift::Declarations,
     lock_engine: Option<&str>,
     builtin_defs: &BTreeMap<String, CustomKind>,

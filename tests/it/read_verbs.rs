@@ -3135,3 +3135,38 @@ fn explain_names_an_agent_that_shares_a_built_in_agents_name() {
         "an agent with its own name shares no built-in's: {reviewer}"
     );
 }
+
+#[test]
+fn explain_reads_another_engines_divergent_built_in_row_as_the_embedded_built_in() {
+    // The lock snapshots the built-in `memory` row with a registration the embedded
+    // built-in does not carry, and authored guidance riding it, under another engine's
+    // stamp: the row is stale, so `explain` narrates the embedded built-in, as `check`
+    // judges it, and the snapshot's guidance never reaches the narration.
+    let root = common::tmpdir("explain-stale-builtin-row");
+    std::fs::write(root.join("CLAUDE.md"), "# Project\n\nBuild with cargo.\n").unwrap();
+    common::write_lock(
+        &root,
+        drift::Declarations {
+            kinds: vec![drift::KindFactRow {
+                unit_shape: Some("file".to_string()),
+                registration: vec!["user-invoked".to_string()],
+                guidance: Some("Snapshot guidance another engine wrote.".to_string()),
+                ..common::kind_facts("memory", ".", "**/CLAUDE.md")
+            }],
+            ..drift::Declarations::default()
+        },
+    );
+    common::restamp_lock(&root, common::ANOTHER_ENGINE);
+
+    let embedded = common::explain_in(&common::tmpdir("explain-embedded-memory"), "memory");
+    let narration = common::explain_in(&root, "memory");
+    assert!(
+        !narration.contains("Snapshot guidance another engine wrote."),
+        "another engine's built-in row is stale and never overlays the embedded built-in, got:\n{narration}"
+    );
+    assert_eq!(
+        narration.lines().find(|line| line.contains("guidance")),
+        embedded.lines().find(|line| line.contains("guidance")),
+        "the stale lock's `memory` narrates the embedded built-in's guidance, got:\n{narration}"
+    );
+}

@@ -311,7 +311,8 @@ fn main() -> miette::Result<ExitCode> {
             // `check` gates against — as an editor JSON Schema, over the widened
             // domain (every YAML-frontmatter kind in play, builtin or lock-declared —
             // not the skill/rule fossil).
-            let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE.as_str()))?;
+            let declarations =
+                compose::read_committed_declarations(Path::new(DEFAULT_WORKSPACE.as_str()))?;
             let builtin_defs = builtin_kind::definitions();
             let kinds = compose::effective_kinds(&declarations)?;
             let mut domain: Vec<String> = kinds
@@ -397,7 +398,7 @@ fn main() -> miette::Result<ExitCode> {
             // `compose::EnforcementMode`'s own default, and falls back to binding any
             // `.claude/` write since there is no declared set to consult.
             let workspace_dir = path.join(temper::WORKSPACE_DIR);
-            let declarations = drift::read_declarations(&workspace_dir)?;
+            let declarations = compose::read_committed_declarations(&workspace_dir)?;
             let modes = compose::modes_from_declarations(&declarations)?;
             let mut stdin_payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut stdin_payload).into_diagnostic()?;

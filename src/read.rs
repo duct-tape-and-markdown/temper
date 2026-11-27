@@ -2840,7 +2840,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         ..
     } = compose::assemble_lock_family(
         &discovery,
-        &drift::read_declarations(&workspace)?,
+        &compose::committed_declarations_from_doc(&lock_doc)?.0,
         &[],
         &empty_cache,
     )?;

@@ -1901,3 +1901,19 @@ pub fn post_edge_refusal(output: &str) -> String {
         .unwrap_or_else(|| panic!("the refusal must carry a reason, got: {output}"))
         .to_string()
 }
+
+/// A stamp no build of this crate carries — the engine a skewed lock names.
+pub const ANOTHER_ENGINE: &str = "0.0.0-elsewhere";
+
+/// Rewrite the engine stamp on `root`'s emitted lock to `stamp`, the way a lock another
+/// engine wrote reads: the rows the pipeline produced, under someone else's stamp.
+pub fn restamp_lock(root: &Path, stamp: &str) {
+    let path = root.join(temper::WORKSPACE_DIR).join(temper::LOCK_FILENAME);
+    let text = fs::read_to_string(&path).unwrap();
+    let (first, rest) = text.split_once('\n').unwrap();
+    assert!(
+        first.starts_with("engine = "),
+        "the stamp is the first line: {first}"
+    );
+    fs::write(&path, format!("engine = \"{stamp}\"\n{rest}")).unwrap();
+}

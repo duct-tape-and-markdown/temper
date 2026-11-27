@@ -318,15 +318,10 @@ pub fn gate(
     // The stamp is read before any row: which engine wrote the lock decides how its rows
     // read, and a row this engine cannot lift is reported against it (`check::load_fault`).
     let lock_engine = drift::engine_from_doc(&lock_doc);
-    let mut committed = drift::declarations_from_doc(&lock_doc)?;
     // A built-in row another engine snapshotted is stale, never a collision: retired
     // before the family assembles, so every overlay and partition below reads the
     // embedded built-in, and reported beside the `engine-matches` finding.
-    let stale_builtin_rows = compose::retire_stale_builtin_rows(
-        &mut committed,
-        lock_engine.as_deref(),
-        &builtin_kind::definitions(),
-    )?;
+    let (committed, stale_builtin_rows) = compose::committed_declarations_from_doc(&lock_doc)?;
     // One ignore-honoring walk per flavor, shared across every kind and nested host this
     // gate discovers ([`import::Discovery`]) — the session-open `check` walks the
     // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost. This one

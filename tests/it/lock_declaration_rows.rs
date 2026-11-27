@@ -3964,22 +3964,6 @@ fn a_clause_row_an_older_engine_keyed_label_reads_as_its_id() {
     );
 }
 
-/// A stamp no build of this crate carries — the engine a skewed lock names.
-const ANOTHER_ENGINE: &str = "0.0.0-elsewhere";
-
-/// Rewrite the engine stamp on `root`'s emitted lock to `stamp`, the way a lock another
-/// engine wrote reads: the rows the pipeline produced, under someone else's stamp.
-fn restamp_lock(root: &Path, stamp: &str) {
-    let path = root.join(temper::WORKSPACE_DIR).join(temper::LOCK_FILENAME);
-    let text = fs::read_to_string(&path).unwrap();
-    let (first, rest) = text.split_once('\n').unwrap();
-    assert!(
-        first.starts_with("engine = "),
-        "the stamp is the first line: {first}"
-    );
-    fs::write(&path, format!("engine = \"{stamp}\"\n{rest}")).unwrap();
-}
-
 /// A harness with one `CLAUDE.md` memory member whose lock snapshots the built-in
 /// `memory` row with a registration the embedded built-in does not carry, beside the
 /// root's `engine-matches` clause at advisory.
@@ -4005,7 +3989,7 @@ fn diverging_memory_row_harness(label: &str) -> PathBuf {
 fn a_built_in_row_snapshotted_by_another_engine_reads_as_the_embedded_built_in_with_a_re_emit_finding()
  {
     let root = diverging_memory_row_harness("stale-builtin-row");
-    restamp_lock(&root, ANOTHER_ENGINE);
+    common::restamp_lock(&root, common::ANOTHER_ENGINE);
 
     let (findings, ok) = common::check_harness(&root);
     assert!(
@@ -4022,7 +4006,7 @@ fn a_built_in_row_snapshotted_by_another_engine_reads_as_the_embedded_built_in_w
         "the stale built-in row is named with a re-emit finding, got:\n{findings:#?}"
     );
     assert!(
-        reemit[0].contains("re-emit") && reemit[0].contains(ANOTHER_ENGINE),
+        reemit[0].contains("re-emit") && reemit[0].contains(common::ANOTHER_ENGINE),
         "the finding names the engine and the remedy, got: {}",
         reemit[0]
     );
@@ -4070,7 +4054,7 @@ fn a_lock_this_engine_cannot_read_is_reported_as_written_by_another_engine() {
             ..Declarations::default()
         },
     );
-    restamp_lock(&root, temper::VERSION);
+    common::restamp_lock(&root, temper::VERSION);
 
     let (findings, ok) = common::check_harness(&root);
     assert!(
