@@ -11,7 +11,9 @@
  * and Claude Code treats only exit 2 as blocking — every other non-zero exit
  * is a non-blocking error that lets the action through
  * (https://code.claude.com/docs/en/hooks, "Exit code output", retrieved
- * 2026-11-27). An engine that ran passes its own exit status through.
+ * 2026-11-27). An engine killed by a signal never finished checking, so it
+ * exits 2 too, naming the signal. An engine that exited passes its own exit
+ * status through.
  */
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
@@ -63,4 +65,10 @@ if (result.error) {
   );
   process.exit(UNREACHABLE);
 }
-process.exit(result.status ?? 1);
+if (result.status === null) {
+  process.stderr.write(
+    `temper: the engine ${bin} was killed by ${result.signal ?? "a signal"} before it finished.\n`,
+  );
+  process.exit(UNREACHABLE);
+}
+process.exit(result.status);

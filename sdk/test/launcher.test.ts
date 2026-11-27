@@ -2,7 +2,8 @@
  * The `.bin` launcher (`sdk/bin/temper.js`) under the fail-loud invariant:
  * every path that cannot reach the engine exits 2 — the hook runtime's
  * blocking exit — with install instructions on stderr, and an engine that
- * ran passes its own status through.
+ * ran passes its own status through — unless a signal killed it, which
+ * never finished checking and exits 2 too.
  *
  * Each case copies the launcher into a fresh temp directory so the platform
  * package resolves only from what the case seats beside it, never from the
@@ -84,4 +85,12 @@ test("an engine that ran passes its own exit status through", {
   const run = launch(seatEngine("#!/bin/sh\nexit 1\n", 0o755));
   assert.equal(run.status, 1, run.stderr);
   assert.equal(run.stderr, "");
+});
+
+test("launcher exits 2 when the engine is killed by a signal", {
+  skip: !LINUX_X64 && "the fake engine is seated only under the linux-x64 key",
+}, () => {
+  const run = launch(seatEngine("#!/bin/sh\nkill -KILL $$\n", 0o755));
+  assert.equal(run.status, 2, run.stderr);
+  assert.match(run.stderr, /killed by SIGKILL/);
 });
