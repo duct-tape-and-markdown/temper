@@ -26,16 +26,13 @@
   "summary": "A relocation that moves its locus and drops base exclusions its new templates no longer reach replaces its built-in instead of refusing as a third kind",
   "per": {
     "path": "specs/builtins.md",
-    "section": "Built-ins — what ships"
+    "section": "Built-ins \u2014 what ships"
   },
   "acceptance": "A memory relocation to a root its built-in exclusions fall outside, in play beside a member built from built-in memory, resolves to the relocation; a value dropping an exclusion its templates still reach still refuses",
-  "tests": [
-    "a moved relocation dropping exclusions its templates no longer reach replaces its built-in",
-    "a value dropping an exclusion its templates still reach refuses as a third kind"
-  ],
+  "tests": [],
   "pins": [],
   "laneTests": [],
-  "notes": "From the EXCLUDING-RELOCATION-REPLACES-ITS-BUILT-IN build note: relocatedLocus (kind.ts) drops unreached exclusions, but the subset check demands all of them.",
+  "notes": "From the EXCLUDING-RELOCATION-REPLACES-ITS-BUILT-IN build note: relocatedLocus (kind.ts) drops unreached exclusions, but the subset check demands all of them. Its two behaviors are SDK tests in sdk/test/builtins.test.ts, held by the SDK gate (PROTOCOL, Tests, question 2), so the entry names no tests[] line.",
   "observedFiles": [
     ".flume/plan/notes/EXCLUDING-RELOCATION-KEEPS-ONLY-REACHED-EXCLUSIONS.md",
     "sdk/src/declarations.ts",
