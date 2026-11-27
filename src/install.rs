@@ -305,11 +305,12 @@ fn render_gate_command(verb: GateVerb, binary: &str) -> String {
     )
 }
 
-/// The one prior rendering of a gate command [`render_gate_command`] still recognizes: the
-/// 0.0.26 bytes, whose missing-binary branch exited 127 with no install hint — a
-/// non-blocking exit, so that guard failed open. Recognized so a re-run converges it to
-/// today's rendering rather than seating a second gate beside it.
-fn render_retired_gate_command(verb: GateVerb, binary: &str) -> String {
+/// The prior renderings of a gate command [`render_gate_command`] still recognizes, each
+/// exiting 127 with no install hint on a missing binary — a non-blocking exit, so that
+/// guard failed open: the 0.0.26 bytes, under [`PROJECT_ANCHOR`], and the 0.0.24 bytes
+/// before it, the same body with no anchor. Recognized exactly so a re-run converges
+/// either to today's rendering rather than seating a second gate beside it.
+fn retired_gate_renderings(verb: GateVerb, binary: &str) -> [String; 2] {
     let word = shell_word(binary);
     let missing = match &word {
         std::borrow::Cow::Borrowed(_) => format!("\"{binary}: command not found\""),
@@ -317,10 +318,11 @@ fn render_retired_gate_command(verb: GateVerb, binary: &str) -> String {
             shell_word(&format!("{binary}: command not found")).into_owned()
         }
     };
-    format!(
-        "{PROJECT_ANCHOR}command -v {word} >/dev/null 2>&1 || {{ echo {missing} >&2; exit 127; }} && {word} {}",
+    let unanchored = format!(
+        "command -v {word} >/dev/null 2>&1 || {{ echo {missing} >&2; exit 127; }} && {word} {}",
         verb.args()
-    )
+    );
+    [format!("{PROJECT_ANCHOR}{unanchored}"), unanchored]
 }
 
 /// Which engine rendering a gate command is.
@@ -328,7 +330,7 @@ fn render_retired_gate_command(verb: GateVerb, binary: &str) -> String {
 enum GateRendering {
     /// Today's bytes ([`render_gate_command`]).
     Current,
-    /// The retired bytes ([`render_retired_gate_command`]).
+    /// One of the retired renderings ([`retired_gate_renderings`]).
     Retired,
 }
 
@@ -353,14 +355,15 @@ pub fn tap_hook_command(binary: &str) -> String {
 }
 
 /// The binary `command` runs as temper and which engine rendering it is, when it is
-/// exactly a gate command firing `verb` — today's ([`render_gate_command`]) or the retired
-/// one ([`render_retired_gate_command`]). Any other command, however close, is `None`.
+/// exactly a gate command firing `verb` — today's ([`render_gate_command`]) or a retired
+/// one ([`retired_gate_renderings`]). Any other command, however close, is `None`.
 /// This is how a projection is recognized as a gate hook member's, whatever binary the
 /// member states: the probe's word is unquoted and re-rendered, so only the engine's own
 /// bytes match.
 fn gate_rendering(verb: GateVerb, command: &str) -> Option<(String, GateRendering)> {
     let rest = command
-        .strip_prefix(PROJECT_ANCHOR)?
+        .strip_prefix(PROJECT_ANCHOR)
+        .unwrap_or(command)
         .strip_prefix("command -v ")?;
     let binary = match rest.strip_prefix('\'') {
         Some(quoted) => {
@@ -386,7 +389,10 @@ fn gate_rendering(verb: GateVerb, command: &str) -> Option<(String, GateRenderin
     }
     if render_gate_command(verb, &binary) == command {
         Some((binary, GateRendering::Current))
-    } else if render_retired_gate_command(verb, &binary) == command {
+    } else if retired_gate_renderings(verb, &binary)
+        .iter()
+        .any(|r| r == command)
+    {
         Some((binary, GateRendering::Retired))
     } else {
         None
@@ -1516,7 +1522,7 @@ struct GateHookState {
     /// Some group is seated at this hook's `(event, matcher)` address, whatever it runs.
     seated: bool,
     /// The group seated at this hook's address runs the retired rendering
-    /// ([`render_retired_gate_command`]) — a projection an older engine wrote.
+    /// ([`retired_gate_renderings`]) — a projection an older engine wrote.
     retired: bool,
 }
 
@@ -3450,8 +3456,8 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
     })
 }
 
-/// One edit per `SessionStart` handler whose command is the retired rendering
-/// ([`render_retired_gate_command`]), splicing today's rendering at the same binary over
+/// One edit per `SessionStart` handler whose command is a retired rendering
+/// ([`retired_gate_renderings`]), splicing today's rendering at the same binary over
 /// that command string alone — so the group keeps its address and every other handler,
 /// key and byte survives. `text` has already parsed.
 fn rerender_retired_session_start(text: &str) -> Vec<json_splice::Edit> {
@@ -5085,12 +5091,13 @@ mod tests {
                     Some((binary.to_owned(), GateRendering::Current)),
                     "{command}"
                 );
-                let retired = render_retired_gate_command(verb, binary);
-                assert_eq!(
-                    gate_rendering(verb, &retired),
-                    Some((binary.to_owned(), GateRendering::Retired)),
-                    "{retired}"
-                );
+                for retired in retired_gate_renderings(verb, binary) {
+                    assert_eq!(
+                        gate_rendering(verb, &retired),
+                        Some((binary.to_owned(), GateRendering::Retired)),
+                        "{retired}"
+                    );
+                }
             }
             // A verb's rendering is not the other verb's.
             let guard = render_gate_command(GateVerb::Guard, binary);
@@ -5104,7 +5111,7 @@ mod tests {
             "temper guard .",
             "command -v temper && temper guard .",
             "command -v  >/dev/null 2>&1 || { echo \": command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } &&  guard .",
-            "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .",
+            "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && temper guard .",
             "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 1; } && temper guard .",
             "cargo fmt --quiet",
             "",

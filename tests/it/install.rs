@@ -308,46 +308,6 @@ fn a_rendered_gate_command_whose_binary_cannot_be_found_names_how_to_install_tem
     }
 }
 
-#[test]
-fn a_gate_command_in_the_unanchored_form_reads_as_no_rendered_gate() {
-    // A settings document wiring temper's session-start command in the spelling from
-    // before the project anchor: the probe and the verb, no `cd`. It is not the engine's
-    // rendering, so the gate reads as not installed and install wires the anchored one.
-    let anchored = temper::install::SESSION_START_COMMAND;
-    let unanchored = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start";
-    let root = write_harness("gate-unanchored", false);
-    let settings_path = root.join(".claude").join("settings.json");
-    let unanchored_settings = serde_json::to_string_pretty(&serde_json::json!({
-        "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": unanchored } ] } ] }
-    }))
-    .unwrap();
-    fs::write(&settings_path, format!("{unanchored_settings}\n")).unwrap();
-    fs::create_dir_all(root.join(".temper")).unwrap();
-
-    let message = one_gate_finding(&gate_installed(&root)).to_string();
-    assert!(
-        message.contains("session-start hook"),
-        "an unanchored command is no installed gate, got: {message}"
-    );
-
-    let discovery = install::discover(&root).unwrap();
-    let outcome = install::run(&root, &discovery, Represent::No, false).unwrap();
-    assert_eq!(
-        outcome_of(&outcome, temper::install::Placement::SessionStart),
-        ApplyOutcome::Applied
-    );
-    let json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
-    let commands: Vec<&str> = json["hooks"]["SessionStart"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter_map(|group| group["hooks"][0]["command"].as_str())
-        .collect();
-    assert_eq!(commands, [unanchored, anchored]);
-    assert!(gate_installed(&root).is_empty());
-}
-
 /// `current` as the retired engine rendering spelled it: the same probe and verb, but the
 /// missing-binary branch exits 127 and names no install command.
 fn retired_rendering(current: &str) -> String {
@@ -359,6 +319,15 @@ fn retired_rendering(current: &str) -> String {
         .replace("exit 2; }", "exit 127; }");
     assert_ne!(retired, current, "the retired spelling must differ");
     retired
+}
+
+/// `current` as the pre-anchor engine rendering spelled it: the retired exit-127 body with
+/// no `cd` into the project root.
+fn unanchored_rendering(current: &str) -> String {
+    retired_rendering(current)
+        .strip_prefix("cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; ")
+        .expect("the retired rendering is anchored")
+        .to_owned()
 }
 
 /// A settings document holding the retired session-start rendering beside a sibling tool's
@@ -387,14 +356,27 @@ fn settings_with_retired_session_start(retired: &str, near_miss: &str) -> String
 #[test]
 fn re_running_install_over_the_retired_gate_rendering_leaves_one_group_per_gate_address_at_todays_rendering()
  {
+    assert_rerun_converges("gate-retired", retired_rendering);
+}
+
+#[test]
+fn re_running_install_over_the_unanchored_gate_rendering_leaves_one_group_per_gate_address_at_todays_rendering()
+ {
+    assert_rerun_converges("gate-unanchored", unanchored_rendering);
+}
+
+/// Re-running install, both harness shapes, over a settings document holding `retire`'s
+/// spelling of each gate command converges to one group per gate address at today's.
+fn assert_rerun_converges(label: &str, retire: fn(&str) -> String) {
     let current = temper::install::SESSION_START_COMMAND;
-    let retired = retired_rendering(current);
+    let retired = retire(current);
 
     // Unrepresented: the session-start hook is install's own write, so the re-run re-renders
     // the retired command in place instead of seating a second group beside it.
-    let root = write_harness("gate-retired-unrepresented", false);
+    let root = write_harness(&format!("{label}-unrepresented"), false);
     let settings_path = root.join(".claude").join("settings.json");
     let near_miss = retired.replace("exit 127", "exit 1");
+    assert_ne!(near_miss, retired);
     fs::write(
         &settings_path,
         settings_with_retired_session_start(&retired, &near_miss),
@@ -421,7 +403,7 @@ fn re_running_install_over_the_retired_gate_rendering_leaves_one_group_per_gate_
 
     // Represented: the projection is emit's, so the re-run's emit re-renders every gate hook.
     common::ensure_sdk_built();
-    let root = write_harness("gate-retired-represented", false);
+    let root = write_harness(&format!("{label}-represented"), false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_install_workspace(&temper_dir);
@@ -435,10 +417,7 @@ fn re_running_install_over_the_retired_gate_rendering_leaves_one_group_per_gate_
         let command = represented_gate_command(event);
         let quoted = serde_json::to_string(&command).unwrap();
         assert!(held.contains(&quoted), "{event} is projected");
-        held = held.replace(
-            &quoted,
-            &serde_json::to_string(&retired_rendering(&command)).unwrap(),
-        );
+        held = held.replace(&quoted, &serde_json::to_string(&retire(&command)).unwrap());
     }
     fs::write(&settings_path, &held).unwrap();
     // An older engine's emit fingerprinted the groups it rendered, so the lock's
@@ -488,8 +467,19 @@ fn re_running_install_over_the_retired_gate_rendering_leaves_one_group_per_gate_
 
 #[test]
 fn a_represented_harness_reports_a_retired_gate_rendering_as_stale_with_the_emit_remedy() {
+    assert_reported_stale("gate-retired-report", retired_rendering);
+}
+
+#[test]
+fn a_represented_harness_reports_an_unanchored_gate_rendering_as_stale_with_the_emit_remedy() {
+    assert_reported_stale("gate-unanchored-report", unanchored_rendering);
+}
+
+/// A represented harness whose session-start projection holds `retire`'s spelling reports
+/// it stale, naming `emit`, and writes nothing.
+fn assert_reported_stale(label: &str, retire: fn(&str) -> String) {
     common::ensure_sdk_built();
-    let root = write_harness("gate-retired-report", false);
+    let root = write_harness(label, false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     common::vendor_install_workspace(&temper_dir);
@@ -505,7 +495,7 @@ fn a_represented_harness_reports_a_retired_gate_rendering_as_stale_with_the_emit
     let projected = fs::read_to_string(&settings_path).unwrap();
     let held = projected.replacen(
         &quoted,
-        &serde_json::to_string(&retired_rendering(&command)).unwrap(),
+        &serde_json::to_string(&retire(&command)).unwrap(),
         1,
     );
     assert_ne!(held, projected);
@@ -546,7 +536,14 @@ fn install_never_rewrites_a_hook_that_runs_a_command_other_than_a_temper_gate_re
         ),
         (
             "gate-foreign-unanchored",
-            retired.replace("cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; ", ""),
+            current
+                .strip_prefix("cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; ")
+                .unwrap()
+                .to_owned(),
+        ),
+        (
+            "gate-foreign-unanchored-exit",
+            unanchored_rendering(current).replace("exit 127", "exit 1"),
         ),
     ] {
         let root = write_harness(label, false);
