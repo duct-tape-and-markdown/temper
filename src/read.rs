@@ -2451,17 +2451,55 @@ fn prose_strand(rows: &[drift::LayoutProseRow], member: &str) -> String {
     out
 }
 
+/// One kind's `listing` arguments as `explain` narrates them: the listed fields, the
+/// per-entry cap, and the withholding field.
+type ListingArgs<'a> = (&'a Vec<String>, usize, Option<&'a str>);
+
+/// Each kind's `listing` clause — its own contract's, else the root's where that clause
+/// counts the kind — keyed by kind. `is_kind(kind, listed)` answers whether `kind` is
+/// `listed` or one of its subkinds, the test the judge narrows a clause's `kinds` by.
+fn listings_by_kind<'a>(
+    kinds: impl IntoIterator<Item = &'a str>,
+    contracts: &'a BTreeMap<String, Contract>,
+    root: &'a Contract,
+    is_kind: &dyn Fn(&str, &str) -> bool,
+) -> BTreeMap<&'a str, ListingArgs<'a>> {
+    kinds
+        .into_iter()
+        .filter_map(|kind| {
+            let listing = contracts
+                .get(kind)
+                .into_iter()
+                .chain(std::iter::once(root))
+                .flat_map(|contract| &contract.clauses)
+                .find_map(|clause| match &clause.predicate {
+                    Predicate::Listing {
+                        fields,
+                        entry,
+                        withheld_by,
+                        kinds,
+                        ..
+                    } if kinds.is_empty() || kinds.iter().any(|listed| is_kind(kind, listed)) => {
+                        Some((fields, *entry, withheld_by.as_deref()))
+                    }
+                    _ => None,
+                })?;
+            Some((kind, listing))
+        })
+        .collect()
+}
+
 /// `explain`'s **load** strand — what loads `name`, when, and roughly what it costs:
 /// each channel its kind registers, judged live or dead by the reach judge's own
 /// [`graph::dead_registration`]; its absence gate's state where its template carries
-/// one; its rendered size; and, where its kind's contract carries a `listing` clause,
-/// the listing entry that rides every request. Every count is in characters. Empty for
-/// a name no top-level member bears.
+/// one; its rendered size; and, where `listings` holds its kind, the listing entry that
+/// rides every request. Every count is in characters. Empty for a name no top-level
+/// member bears.
 fn load_strand(
     name: &str,
     by_kind: &BTreeMap<&str, &[Features]>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
-    contracts: &BTreeMap<String, Contract>,
+    listings: &BTreeMap<&str, ListingArgs>,
     gates: &BTreeMap<graph::Node, AbsenceGateState>,
     repo_files: &[String],
 ) -> String {
@@ -2470,20 +2508,7 @@ fn load_strand(
         let Some(member) = members.iter().find(|features| features.id == name) else {
             continue;
         };
-        let listing = contracts.get(kind).and_then(|contract| {
-            contract
-                .clauses
-                .iter()
-                .find_map(|clause| match &clause.predicate {
-                    Predicate::Listing {
-                        fields,
-                        entry,
-                        withheld_by,
-                        ..
-                    } => Some((fields, *entry, withheld_by.as_deref())),
-                    _ => None,
-                })
-        });
+        let listing = listings.get(kind).copied();
         let _ = writeln!(
             out,
             "`{name}` ({kind}) — what loads it, when, and what it costs:"
@@ -3022,11 +3047,18 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
             narration.push('\n');
             narration.push_str(&strand);
         }
+        let root = compose::root_contract(&declarations.clauses, &declarations.assembly)?;
+        let listings = listings_by_kind(
+            by_kind.keys().copied(),
+            &contracts,
+            &root,
+            &|kind, listed| compose::is_kind_or_subkind(&declared_kinds, kind, listed),
+        );
         let load = load_strand(
             name,
             &by_kind,
             &registrations,
-            &contracts,
+            &listings,
             &gate_states,
             &repo_files,
         );

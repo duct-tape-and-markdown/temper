@@ -120,15 +120,6 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
             },
         ),
         (
-            Severity::Advisory,
-            Predicate::Listing {
-                fields: vec!["description".to_string(), "when_to_use".to_string()],
-                entry: 1536,
-                max: 8000,
-                withheld_by: Some("disable-model-invocation".to_string()),
-            },
-        ),
-        (
             Severity::Required,
             Predicate::MaxLen {
                 field: "compatibility".to_string(),
@@ -220,7 +211,6 @@ fn skill_builtin_encodes_only_decidable_clauses() {
             "forbidden-keys",
             "glob-valid",
             "mention-reachable",
-            "listing",
         ]),
         "the built-in must carry only its declared decidable predicates",
     );

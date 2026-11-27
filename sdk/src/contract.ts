@@ -71,7 +71,7 @@ export interface Predicate {
   readonly charset?: Charset;
   /** `forbidden-keys`'s forbidden key list. */
   readonly keys?: readonly string[];
-  /** `enum`/`deny`'s permitted or forbidden value list. */
+  /** `enum`/`deny`'s permitted or forbidden value list, and `listing`'s counted kinds. */
   readonly values?: readonly string[];
   /** `range`'s inclusive numeric bound. */
   readonly range?: { readonly min: number; readonly max: number };
@@ -355,17 +355,26 @@ export const unique = (field: string): Predicate => ({ key: "unique", field });
 /**
  * The text the selection lists sums to at most `budget` characters. One member's entry is
  * its `fields` values joined in order, counted in characters and cut at `entry`; a member
- * whose `withheldBy` field is boolean `true` is not listed and adds nothing. The shape of a
- * runtime listing that carries every member's trigger text into each request under one
- * budget — Claude Code's skill listing is the shipped instance.
+ * whose `withheldBy` field is boolean `true` is not listed and adds nothing. `kinds`
+ * narrows the count to members of those kinds (their subkinds included) — the root's
+ * selection spans every kind, and one runtime listing spans only some — and absent counts
+ * every selected member. The shape of a runtime listing that carries every member's
+ * trigger text into each request under one budget — Claude Code's skill listing, which
+ * spans skills and commands, is the shipped instance.
  */
 export const listing = (
   fields: readonly string[],
-  bounds: { readonly entry: number; readonly budget: number; readonly withheldBy?: string },
+  bounds: {
+    readonly entry: number;
+    readonly budget: number;
+    readonly withheldBy?: string;
+    readonly kinds?: readonly KindDefinition<any>[];
+  },
 ): Predicate => ({
   key: "listing",
   fields,
   gate: bounds.withheldBy,
+  ...(bounds.kinds === undefined ? {} : { values: bounds.kinds.map((kind) => kind.facts.name) }),
   args: { entry: bounds.entry, max: bounds.budget },
 });
 /** Every selected member's `field` value is drawn from a feature over the selection `target` declares. */

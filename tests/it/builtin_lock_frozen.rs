@@ -233,6 +233,11 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
             (Some("root.engine-matches"), "engine-matches", "advisory"),
             (Some("root.resolves"), "resolves", "required"),
             (Some("root.import-backed"), "import-backed", "advisory"),
+            (
+                Some("root.listing.description+when_to_use"),
+                "listing",
+                "advisory"
+            ),
         ],
         "the memberless emit contributes the root default's rows, got {root:#?}"
     );
@@ -263,6 +268,13 @@ fn the_sdk_derived_lock_carries_the_root_members_default_contract() {
             contract::Predicate::EngineMatches,
             contract::Predicate::Resolves,
             contract::Predicate::ImportBacked,
+            contract::Predicate::Listing {
+                fields: vec!["description".to_string(), "when_to_use".to_string()],
+                entry: 1536,
+                max: 8000,
+                withheld_by: Some("disable-model-invocation".to_string()),
+                kinds: vec!["skill".to_string(), "command".to_string()],
+            },
         ]
     );
 }

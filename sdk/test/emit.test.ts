@@ -322,6 +322,16 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       guidance: rootDefaultContract[5]!.guidance,
       cite: rootDefaultContract[5]!.cite,
  },
+ {
+      ...clauseRow("listing", "advisory"),
+      field: "description+when_to_use",
+      guidance: rootDefaultContract[6]!.guidance,
+      cite: rootDefaultContract[6]!.cite,
+      fields: ["description", "when_to_use"],
+      gate: "disable-model-invocation",
+      bound: { min: undefined, max: 8000, entry: 1536 },
+      values: ["skill", "command"],
+ },
   ]);
   assert.deepEqual(declarations.requirements, [
  {
@@ -521,6 +531,16 @@ test("the root member's contract lowers to kind-less top-level rows, defaulted a
       ...clauseRow("import-backed", "advisory"),
       guidance: rootDefaultContract[5]!.guidance,
       cite: rootDefaultContract[5]!.cite,
+    },
+    {
+      ...clauseRow("listing", "advisory"),
+      field: "description+when_to_use",
+      guidance: rootDefaultContract[6]!.guidance,
+      cite: rootDefaultContract[6]!.cite,
+      fields: ["description", "when_to_use"],
+      gate: "disable-model-invocation",
+      bound: { min: undefined, max: 8000, entry: 1536 },
+      values: ["skill", "command"],
     },
   ]);
   assert.equal(defaulted.length, rootDefaultContract.length);

@@ -70,7 +70,7 @@ mod tests {
         // Floor clauses: every row names one of the built-in kinds *whose default contract
         // carries clauses* — or names no kind at all, which is the **root member's** own row
         // and nothing else. The assertion's job is to catch a row nobody declared, so the
-        // kind-less case is pinned as the root's (exactly the six the shipped default
+        // kind-less case is pinned as the root's (exactly the seven the shipped default
         // binds, listed below) rather than widened to "any `None`": a stray unowned row
         // would then slip through the very check that exists to catch it. Every row carries
         // a declared severity, and there are no requirements, satisfies, provenance or
@@ -110,8 +110,9 @@ mod tests {
                 "root.engine-matches",
                 "root.resolves",
                 "root.import-backed",
+                "root.listing.description+when_to_use",
             ],
-            "the shipped root default's family, in declaration order; a seventh kind-less \
+            "the shipped root default's family, in declaration order; an eighth kind-less \
              row is a row nobody declared"
         );
         assert!(declarations.requirements.is_empty());

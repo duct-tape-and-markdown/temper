@@ -27,7 +27,6 @@ import {
   extent,
   forbiddenKeys,
   globValid,
-  listing,
   maxLen,
   mentionReachable,
   minLen,
@@ -2405,24 +2404,6 @@ function pathsGateGuidance(member: "skill" | "rule"): string {
 }
 
 /**
- * The skill listing's character budget: "The budget scales dynamically at 1% of the context
- * window, with a fallback of 8,000 characters" (`SLASH_COMMAND_TOOL_CHAR_BUDGET`, env-vars
- * docs). The fallback is the one character figure the docs give, and judging it keeps a
- * passing listing whole wherever the budget is not raised.
- */
-const SKILL_LISTING_CHARACTER_BUDGET = 8_000;
-
-/**
- * The per-entry cap: "the combined `description` and `when_to_use` text is truncated at
- * 1,536 characters in the skill listing" — `skillListingMaxDescChars`, default `1536`.
- */
-const SKILL_LISTING_ENTRY_CAP = 1_536;
-
-/** The skills and env-vars docs' statements of the listing budget and its per-entry cap. */
-const SKILL_LISTING_BUDGET_CITE =
-  "https://code.claude.com/docs/en/skills#skill-descriptions-are-cut-short; https://code.claude.com/docs/en/env-vars (SLASH_COMMAND_TOOL_CHAR_BUDGET); https://code.claude.com/docs/en/settings-reference#skilllistingmaxdescchars (retrieved 2026-11-26)";
-
-/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.
@@ -2505,19 +2486,6 @@ export const skillDefaultContract: readonly Clause[] = [
       "Anthropic's platform upload validation rejects a description carrying an XML tag — the description is injected into the system prompt, where a tag is markup rather than text. Neither the open spec nor Claude Code's runtime enforces it, so this is the clause that keeps a skill portable through the API and claude.ai. Prose spelling a comparison (`use when x < y`) is not a tag and does not fire.",
     cite: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#skill-structure (retrieved 2026-07-17)",
   }),
-  clause(
-    listing(["description", "when_to_use"], {
-      entry: SKILL_LISTING_ENTRY_CAP,
-      budget: SKILL_LISTING_CHARACTER_BUDGET,
-      withheldBy: "disable-model-invocation",
-    }),
-    {
-      severity: "advisory",
-      guidance:
-        "Every model-invocable skill's `description` and `when_to_use` ride every request in one listing, under a character budget that scales at 1% of the context window, with a fallback of 8,000 characters — the figure this clause judges. Each entry counts up to the 1,536-character cap the listing cuts it at. Over the budget, Claude Code keeps every name but drops descriptions starting with the skills you invoke least, so those skills lose the keywords Claude matches a request against. A skill with `disable-model-invocation: true` is not listed and is not counted. Trim descriptions to the key use case first, set rarely-used skills to `disable-model-invocation: true` or to `name-only` in `skillOverrides`, or raise the budget with `skillListingBudgetFraction` (or `SLASH_COMMAND_TOOL_CHAR_BUDGET`) and retune this clause's bound to match. Counted over this harness's own skills only: plugin, bundled and personal skills share the same listing, so the real headroom is smaller.",
-      cite: SKILL_LISTING_BUDGET_CITE,
-    },
-  ),
   clause(maxLen("compatibility", 500), {
     severity: "required",
     guidance: "Optional field; when present the spec caps it at 500 characters. Most skills do not need it.",

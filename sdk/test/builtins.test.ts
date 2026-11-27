@@ -143,7 +143,7 @@ test("the provider face exports no gate-command string: a gate hook reaches its 
 });
 
 test("skillDefaultContract carries the skill kind's decidable clauses, name-first", () => {
-  assert.equal(skillDefaultContract.length, 17);
+  assert.equal(skillDefaultContract.length, 16);
   assert.equal(skillDefaultContract[0].predicate.key, "required");
   assert.equal(skillDefaultContract[0].predicate.field, "name");
   assert.deepEqual(
@@ -160,7 +160,6 @@ test("skillDefaultContract carries the skill kind's decidable clauses, name-firs
       "min-len",
       "max-len",
       "shape",
-      "listing",
       "max-len",
       "extent",
       "forbidden-keys",
@@ -169,20 +168,27 @@ test("skillDefaultContract carries the skill kind's decidable clauses, name-firs
     ],
   );
   // The `mention-reachable` clause ranges over the `paths` scope.
-  assert.equal(skillDefaultContract[16].predicate.key, "mention-reachable");
-  assert.equal(skillDefaultContract[16].predicate.field, "paths");
+  assert.equal(skillDefaultContract[15].predicate.key, "mention-reachable");
+  assert.equal(skillDefaultContract[15].predicate.field, "paths");
 });
 
-test("the skill contract judges the model-invocable listing against the listing budget", () => {
-  const budget = skillDefaultContract.find((c) => c.predicate.key === "listing");
-  assert.ok(budget, "the skill contract carries a listing clause");
+test("the root contract judges skills and commands against one listing budget", async () => {
+  const { rootDefaultContract } = await import("../src/index.js");
+  assert.equal(
+    skillDefaultContract.some((c) => c.predicate.key === "listing"),
+    false,
+    "the budget spans two kinds, so no one kind's contract carries it",
+  );
+  const budget = rootDefaultContract.find((c) => c.predicate.key === "listing");
+  assert.ok(budget, "the root contract carries a listing clause");
   assert.equal(budget.severity, "advisory");
   // The listing joins description and when_to_use, cuts each entry at 1,536 characters,
-  // sums against the 8,000-character fallback budget, and skips a skill that disables
-  // model invocation.
+  // sums skills and commands together against the 8,000-character fallback budget, and
+  // skips a member that disables model invocation.
   assert.deepEqual(budget.predicate.fields, ["description", "when_to_use"]);
   assert.deepEqual(budget.predicate.args, { entry: 1536, max: 8000 });
   assert.equal(budget.predicate.gate, "disable-model-invocation");
+  assert.deepEqual(budget.predicate.values, ["skill", "command"]);
   assert.match(budget.cite ?? "", /skill-descriptions-are-cut-short/);
 });
 

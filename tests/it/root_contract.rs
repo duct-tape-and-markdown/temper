@@ -385,7 +385,8 @@ fn a_harness_declaring_no_root_reachable_clause_asks_the_graph_nothing() {
 }
 
 #[test]
-fn the_shipped_root_default_binds_the_six_root_predicates_and_rides_a_harness_that_declares_none() {
+fn the_shipped_root_default_binds_the_seven_root_predicates_and_rides_a_harness_that_declares_none()
+{
     // The default is shipped, not merely reachable through an authored clause: a lock
     // carrying no root row at all takes the rows-or-default fallback to the embedded
     // lock's own root rows, which the SDK's `rootDefaultContract` put there.
@@ -417,6 +418,17 @@ fn the_shipped_root_default_binds_the_six_root_predicates_and_rides_a_harness_th
             (
                 "root.import-backed",
                 Predicate::ImportBacked,
+                Severity::Advisory
+            ),
+            (
+                "root.listing.description+when_to_use",
+                Predicate::Listing {
+                    fields: vec!["description".to_string(), "when_to_use".to_string()],
+                    entry: 1536,
+                    max: 8000,
+                    withheld_by: Some("disable-model-invocation".to_string()),
+                    kinds: vec!["skill".to_string(), "command".to_string()],
+                },
                 Severity::Advisory
             ),
         ],

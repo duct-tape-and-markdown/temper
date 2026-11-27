@@ -983,14 +983,21 @@ pub fn judge(selections: &[Selection], is_kind: &dyn Fn(&str, &str) -> bool) -> 
                     entry,
                     max,
                     withheld_by,
+                    kinds,
                 } => {
+                    let counted = |kind: &str| {
+                        kinds.is_empty() || kinds.iter().any(|listed| is_kind(kind, listed))
+                    };
                     diagnostics.extend(over_listing(
                         selection,
                         clause,
-                        fields,
-                        *entry,
-                        *max,
-                        withheld_by.as_deref(),
+                        Listed {
+                            fields,
+                            entry: *entry,
+                            max: *max,
+                            withheld_by: withheld_by.as_deref(),
+                            counted: &counted,
+                        },
                     ));
                 }
                 // `degree` and `reached-from` bind to a selection too, but their
@@ -1233,21 +1240,33 @@ fn over_budget(
     ))
 }
 
+/// One `listing` clause's arguments, its `kinds` resolved to the membership test
+/// [`over_listing`] filters the selection by.
+struct Listed<'a> {
+    fields: &'a [String],
+    entry: usize,
+    max: usize,
+    withheld_by: Option<&'a str>,
+    counted: &'a dyn Fn(&str) -> bool,
+}
+
 /// The whole-grain `listing` finding when the text the selection lists sums past `max`
 /// characters. A member's entry is its `fields` values in order, each scalar counted in
 /// characters and the entry cut at `entry`; a member whose `withheld_by` field is
-/// boolean `true` is not listed. A non-scalar value lists no text, as an absent one.
-fn over_listing(
-    selection: &Selection,
-    clause: &Clause,
-    fields: &[String],
-    entry: usize,
-    max: usize,
-    withheld_by: Option<&str>,
-) -> Option<Diagnostic> {
+/// boolean `true`, or whose kind is not `counted`, is not listed. A non-scalar value
+/// lists no text, as an absent one.
+fn over_listing(selection: &Selection, clause: &Clause, listed: Listed) -> Option<Diagnostic> {
+    let Listed {
+        fields,
+        entry,
+        max,
+        withheld_by,
+        counted,
+    } = listed;
     let entries: Vec<usize> = selection
         .members
         .iter()
+        .filter(|(kind, _)| counted(kind))
         .filter_map(|(_, features)| listing_entry(features, fields, entry, withheld_by))
         .collect();
     let total: usize = entries.iter().sum();
@@ -2735,6 +2754,7 @@ mod tests {
                 entry: 9,
                 max: 40,
                 withheld_by: None,
+                kinds: Vec::new(),
             },
         ]
     }

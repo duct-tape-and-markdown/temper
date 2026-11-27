@@ -398,7 +398,7 @@ pub enum Predicate {
     /// `listing`: the **whole** grain — the text the selection lists, each member's
     /// `fields` values joined and counted up to `entry` characters, sums to at most `max`
     /// characters. A member whose `withheld_by` field is boolean `true` lists nothing,
-    /// so it adds nothing to the sum.
+    /// so it adds nothing to the sum, and neither does one outside `kinds`.
     Listing {
         /// The fields whose values one member's entry joins, in listed order.
         fields: Vec<String>,
@@ -408,6 +408,10 @@ pub enum Predicate {
         max: usize,
         /// The boolean field that, set `true`, withholds a member from the listing.
         withheld_by: Option<String>,
+        /// The kinds whose members the listing counts, subkinds included; empty counts
+        /// every selected member. One runtime listing can span several kinds, which only
+        /// the root's selection holds together.
+        kinds: Vec<String>,
     },
     /// `membership`: the **whole** grain — every selected member's `field` value is
     /// drawn from a feature over the selection the named `target` requirement declares.
@@ -793,7 +797,8 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         },
         // The withholding field rides the `gate` column — the field that gates a member
         // out of the listing — and the per-entry cap the `bound` column beside the
-        // budget. The `field` column is the synthesized label segment, never read.
+        // budget, and the counted kinds the `values` column. The `field` column is the
+        // synthesized label segment, never read.
         "listing" => {
             let bound = row.bound?;
             Predicate::Listing {
@@ -801,6 +806,7 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
                 entry: bound.entry?,
                 max: bound.max?,
                 withheld_by: row.gate.clone(),
+                kinds: row.values.clone().unwrap_or_default(),
             }
         }
         "glob-valid" => Predicate::GlobValid {
