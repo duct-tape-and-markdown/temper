@@ -1,0 +1,15 @@
+{
+  "tag": "AGREEMENT-TESTS-DRIVE-THE-REAL-WRITER",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "tests/it/nested_member.rs", "description": "the live-vs-reconstructed kind case reads its kind row and nested rows off a real SDK emit, not decision_kind_fact_row/surface_authority_row" },
+      { "path": "tests/it/install.rs", "description": "the install-then-standalone-emit case emits through the real program (drift::emit_program), not payload_from_harness" },
+      { "path": "tests/it/layout_edge_slot.rs", "description": "the dangling satisfies-slot case drives guide_fills off the real emit through the lock reader, not hand-built guide_features" }
+    ]
+  },
+  "summary": "Three tests claiming writer/reader agreement feed hand-authored rows or payloads: each drives the real writer's output through the real reader",
+  "per": { "path": ".claude/skills/engineering/seam-gate.md", "section": "A seam gate reads what the real writer wrote" },
+  "acceptance": "each named agreement test runs the producer it claims agreement with; refusal halves keep their hand input",
+  "notes": "Verified on disk: nested_member.rs:600 (both sides hand-made, row 'the same shape declarations.ts writes'), install.rs:4530 payload_from_harness used at :5263 (drops the typecheck layer per its own comment), layout_edge_slot.rs:39/:159."
+}

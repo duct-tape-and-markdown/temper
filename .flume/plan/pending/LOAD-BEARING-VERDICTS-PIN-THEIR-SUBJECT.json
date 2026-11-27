@@ -1,0 +1,18 @@
+{
+  "tag": "LOAD-BEARING-VERDICTS-PIN-THEIR-SUBJECT",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "tests/it/gauntlet.rs", "description": "emitted_member_set_matches_independent_discovery counts compared kinds (> 0) past its continue exits; drop the unread emitted_members_by_kind" },
+      { "path": "tests/it/session_start.rs", "description": "the clean-harness case pins `skill (1` via its own checked helper before the quiet verdict" },
+      { "path": "tests/it/cli.rs", "description": "self_host_check_is_clean_over_tempers_own_surface pins a non-zero member census before run.ok" },
+      { "path": "tests/it/layout_kind.rs", "description": "the relocated built-in case pins `rule (1)` before run.ok" },
+      { "path": "tests/it/locus_collision.rs", "description": "the_built_in_kinds_draw_no_locus_collision pins the written documents were discovered" },
+      { "path": "tests/it/install.rs", "description": "the ignored-dir memory-local guard case and the locus-walk ignore case each pin a positive control (a bound CLAUDE.local.md; `stray.md` named)" }
+    ]
+  },
+  "summary": "Clean verdicts over check, guard, discovery and session-start judges pass over an empty subject: each gains the populated-set pin before its verdict",
+  "per": { "path": ".claude/skills/engineering/non-vacuous.md", "section": "A green verdict is proven non-vacuous" },
+  "acceptance": "each named test asserts n > 0 of its judged subject before its verdict, and goes red when that subject is emptied",
+  "notes": "Verified on disk: gauntlet.rs:411-527 (four continue exits, no count), session_start.rs:115, cli.rs:329, layout_kind.rs:555, locus_collision.rs:359, install.rs:6278 (no-lock guard binds nothing) and :5556 (all() over check_locus)."
+}

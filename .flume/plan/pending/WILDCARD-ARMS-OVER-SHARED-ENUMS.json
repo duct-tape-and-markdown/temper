@@ -1,0 +1,25 @@
+{
+  "tag": "WILDCARD-ARMS-OVER-SHARED-ENUMS",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/gate.rs",
+        "description": "site_class's `_ => None` over kind::Content spells the Fields arm and the ungoverned File arm"
+      },
+      {
+        "path": "tests/it/rule_contract.rs",
+        "description": "without_body_prose's `other => other.clone()` over Predicate becomes exhaustive"
+      }
+    ]
+  },
+  "summary": "Two catch-all arms over shared enumerations (kind::Content in gate::site_class, Predicate in a rule-contract test) become exhaustive matches",
+  "per": {
+    "path": ".claude/skills/engineering/shared-concept.md",
+    "section": "A shared concept is one type"
+  },
+  "acceptance": "a new Content or Predicate variant fails to compile at both sites; the pinned tests stay green",
+  "notes": "Family wildcard-arm-over-shared-enum noted in 1a3b6bf5 and d2f1d4f9; this is its third noting, so it files once and claims no property. Re-verified on disk: gate.rs:192 and rule_contract.rs:121. d2f1d4f9's drift.rs:3108 site was not re-verified and stays out."
+}

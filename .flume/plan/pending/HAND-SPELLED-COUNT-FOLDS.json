@@ -1,0 +1,69 @@
+{
+  "tag": "HAND-SPELLED-COUNT-FOLDS",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "edit": [
+      {
+        "path": "src/test_support.rs",
+        "description": "kind_fact_row's doc says 'the other eighteen columns'; KindFactRow has nineteen besides name, so drop the count"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "header spells counts the rows know (twenty-one kinds, twenty-seven assembly facts, eighteen, eight root clauses); point at the rows instead"
+      },
+      {
+        "path": "tests/it/hook_kind.rs",
+        "description": ":734 'all three' over four events; :726 'six', :94/:696 'documented five'"
+      },
+      {
+        "path": "tests/it/manifest_schema_oracle.rs",
+        "description": ":276 'fifteen type rules' over twelve; :479 'Seven of the ten'"
+      },
+      {
+        "path": "tests/it/bundle.rs",
+        "description": ":3 'three properties' heads six bullets; :122's verb list omits Tap"
+      },
+      {
+        "path": "tests/it/gauntlet.rs",
+        "description": ":6 'four compositions' lists seven; :47 'six-noun'"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": ":162 'twelve arms' over 22 call sites"
+      },
+      {
+        "path": "tests/it/common/mod.rs",
+        "description": ":1281 'a fourteenth column'"
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "lock_carries_all_four_declaration_families asserts six; the_five_sdk_authorable_predicate_rows lifts six; :2699 'four floors'"
+      },
+      {
+        "path": "tests/it/emit.rs",
+        "description": ":7 and emit_writes_all_five_declaration_families_the_payload_carries over more families"
+      },
+      {
+        "path": "tests/it/shape_predicate.rs",
+        "description": ":531 'the two shipped shapes' over three; LeadingDotSlash unchecked at :532"
+      },
+      {
+        "path": "tests/it/reporters.rs",
+        "description": ":3 'Two layers of proof' describes four"
+      },
+      {
+        "path": "tests/it/cli.rs",
+        "description": ":500 'five nouns plus guard plus explain' and the lists at :511 and :1005 omit tap"
+      }
+    ]
+  },
+  "summary": "Fold counts written in prose and test names that a structure already knows, several now wrong, into wording that names no number or into a derivation",
+  "per": {
+    "path": ".claude/skills/engineering/one-job-one-home.md",
+    "section": "One job, one home"
+  },
+  "acceptance": "no named site spells a count its structure knows; a renamed test keeps its assertions; cli's verb-list sweep reads the subcommand set or includes tap",
+  "notes": "The hand-spelled-fact family has four prior plan-body notings (d2f1d4f9, 1a03eb15, 573b5453, 4497df6c), so it files once and claims no property. Verified on disk this tick: test_support.rs:111 (KindFactRow has 20 fields), hook_kind.rs:734, manifest_schema_oracle.rs:276, bundle.rs:3, gauntlet.rs:6, install.rs:162, common/mod.rs:1281."
+}

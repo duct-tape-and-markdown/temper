@@ -1,0 +1,22 @@
+{
+  "tag": "ASSERTIONS-THAT-CANNOT-FAIL",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "tests/it/agent_kind.rs", "description": "two_agents_with_distinct_names_trip_no_uniqueness_clause filters the real `agent.unique-name` label" },
+      { "path": "tests/it/rule_contract.rs", "description": "the glob-valid clean half filters `rule.glob-valid.paths`, not bare `glob-valid`" },
+      { "path": "tests/it/installed_plugin_kind.rs", "description": "findings_for over a real rule id, not the bare kind name" },
+      { "path": "tests/it/known_marketplace_kind.rs", "description": "findings_for over a real rule id; the_registry_channel_is_never_provably_dead asserts members > 0 first" },
+      { "path": "tests/it/emit.rs", "description": "crlf_checkout_reads_clean_for_config_stale passes the workspace dir (`into`), with a contrast edit that fires" },
+      { "path": "tests/it/read_verbs.rs", "description": "the zero-hit strand asserts skill-a is absent from the zero-records section; the divergent-row guidance compare asserts a guidance line exists" },
+      { "path": "tests/it/registration_locus.rs", "description": "the kind-name check reads the filtered finding, not findings[0]" },
+      { "path": "tests/it/settings_local_kind.rs", "description": "the no-provenance check names the overlay's source_path row, as memory_local_kind does" },
+      { "path": "tests/it/local_locus.rs", "description": "the error-message check drops the always-true `.temper` alternative" },
+      { "path": "tests/it/kind_extension.rs", "description": "the subkind-fill case asserts on `requirement.count`, the label an unfilled requirement fires" }
+    ]
+  },
+  "summary": "Ten test assertions are true by construction (wrong rule label, wrong workspace arg, tautology, findings[0]): each now asserts over a populated, correctly named subject",
+  "per": { "path": ".claude/skills/engineering/non-vacuous.md", "section": "A green verdict is proven non-vacuous" },
+  "acceptance": "each named assertion goes red under a mutation of the property it claims; if a corrected one goes red on the real tree, that is a hidden defect: leave it named in the commit body rather than fixing src/ in this entry",
+  "notes": "Verified on disk: agent_kind.rs:361, rule_contract.rs:224, installed_plugin_kind.rs:181, known_marketplace_kind.rs:163 and :447, emit.rs:3811 (`&harness` resolves rows under its parent), read_verbs.rs:2045 and :3278, registration_locus.rs:56, settings_local_kind.rs:240, local_locus.rs:635, kind_extension.rs:242 (`requirement.review-coverage` is no rule in src/)."
+}
