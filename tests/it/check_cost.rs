@@ -2130,3 +2130,106 @@ fn explain_builds_one_tree_index_per_run() {
         "explain reads every kind's locus off one tree index: {passes} passes",
     );
 }
+
+/// The run-level count-pin for **locus scans** (`engineering.md`, "Cost scale is hoisted,
+/// and pinned by count"): every reader of a kind's locus in a check run — the gate's
+/// per-kind loop, the claimed-path set nested discovery carves, a host's unit
+/// enumeration, composition, admissibility — asks the run's one `Discovery` for it, and
+/// the index is scanned for each distinct `(root, glob, flavor)` locus once, never once
+/// per reader asking. The expected count is derived from the built-in kind set: one scan
+/// per distinct declared locus glob (kinds sharing `.claude/settings.json` or `.mcp.json`
+/// share a scan), plus the one skill unit's supporting-doc template scan. A scan per call
+/// site overshoots it several times over. The count is per-thread, so the delta is this
+/// run's alone.
+#[test]
+fn check_scans_the_tree_index_once_per_run() {
+    use std::collections::BTreeSet;
+    use temper::gate;
+
+    let harness = tmpdir("run-scan-pin");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: coordinate\ndescription: Drive a task across a team of agents.\n---\n# Coordinate\n",
+    )
+    .unwrap();
+    fs::write(skill.join("REFERENCE.md"), "# Reference\n").unwrap();
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
+    fs::write(harness.join("CLAUDE.md"), "# Memory\n").unwrap();
+
+    let loci: BTreeSet<(String, String, bool)> = builtin_kind::definitions()
+        .values()
+        .filter_map(|kind| {
+            let governs = kind.governs.as_ref()?;
+            let local = kind.commitment == Some(kind::Commitment::Local);
+            Some(
+                governs
+                    .globs
+                    .iter()
+                    .map(|glob| (governs.root.clone(), glob.clone(), local))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .flatten()
+        .collect();
+    // The one skill unit hosts one templated layer (`supporting-doc` at `*.md`).
+    let expected = loci.len() + 1;
+
+    let scans_before = import::locus_scan_count();
+    let passes_before = import::index_pass_count();
+    let (diagnostics, _) = gate::gate(&harness, &harness, &[]).unwrap();
+    let scans = import::locus_scan_count() - scans_before;
+    let passes = import::index_pass_count() - passes_before;
+
+    // Non-vacuity: the run discovered members under the scanned loci.
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.message.contains("skill") && d.message.contains("rule")),
+        "the checked summary must count the discovered members, got: {diagnostics:?}",
+    );
+    assert_eq!(passes, 1, "a check run builds one tree index");
+    assert_eq!(
+        scans, expected,
+        "a check run scans the index once per distinct locus ({expected}), never once per \
+         kind or reader asking for it: {scans} scans",
+    );
+}
+
+/// The run-level count-pin for **glob compilation** (`engineering.md`, "Cost scale is
+/// hoisted, and pinned by count"): a check run builds one matcher per distinct glob, so
+/// the compile count is a property of the kind set, never of the tree — the same check
+/// over a harness twenty times larger compiles exactly as many globs. Each run is taken on
+/// a fresh thread, so each starts from an empty per-thread memo and its count is its own.
+#[test]
+fn check_compiles_each_distinct_glob_once() {
+    use temper::gate;
+
+    fn compiles_at(scale: usize) -> (usize, usize) {
+        std::thread::spawn(move || {
+            let harness = tmpdir(&format!("run-compile-pin-{scale}"));
+            let files = generate_harness(&harness, scale);
+            let before = glob::glob_compile_count();
+            gate::gate(&harness, &harness, &[]).unwrap();
+            (glob::glob_compile_count() - before, files)
+        })
+        .join()
+        .unwrap()
+    }
+
+    let (small, small_files) = compiles_at(2);
+    let (large, large_files) = compiles_at(40);
+    assert!(
+        large_files > small_files * 10,
+        "the larger tree must dwarf the smaller"
+    );
+    assert!(small > 0, "the run must compile the loci globs it scans");
+    assert_eq!(
+        small, large,
+        "glob compilation must be one per distinct glob, independent of tree size: \
+         {small} compiles over {small_files} files, {large} over {large_files}",
+    );
+}

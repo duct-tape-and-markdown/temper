@@ -2,6 +2,8 @@
 //! serving membership tests, discovery walks, coverage notes, and liveness checks.
 //! Foundation vocabulary with no harness dependencies.
 
+use std::rc::Rc;
+
 /// Compile `glob` into a `globset` matcher — the one glob-matching surface every
 /// caller shares, in this module or across the crate (a kind's own
 /// [`CustomKind::owns_source`](crate::kind::CustomKind::owns_source) membership test, `import`'s per-segment discovery
@@ -17,7 +19,7 @@
 /// caller decides what it means for its own match (`graph`'s liveness test treats it
 /// as matching, never a false negative on a pattern it failed to understand).
 #[must_use]
-pub(crate) fn compile_glob(glob: &str) -> Option<globset::GlobMatcher> {
+pub(crate) fn compile_glob(glob: &str) -> Option<Rc<globset::GlobMatcher>> {
     GLOB_CACHE.with(|cache| {
         if let Some(hit) = cache.borrow().get(glob) {
             return hit.clone();
@@ -29,12 +31,16 @@ pub(crate) fn compile_glob(glob: &str) -> Option<globset::GlobMatcher> {
         // process-lifetime cache keyed on it is always the same matcher a rebuild would
         // yield — the miss counter below advances once per distinct glob, the count a
         // hoist-by-count pin asserts against.
+        //
+        // The memo hands back a shared handle, never a clone of the matcher: a cloned
+        // `GlobMatcher` carries a cloned `Regex`, which starts with an empty match cache
+        // and rebuilds it on its first match — per-candidate work the memo exists to hoist.
         GLOB_COMPILES.with(|c| c.set(c.get() + 1));
         let compiled = globset::GlobBuilder::new(glob)
             .literal_separator(true)
             .build()
             .ok()
-            .map(|compiled| compiled.compile_matcher());
+            .map(|compiled| Rc::new(compiled.compile_matcher()));
         cache
             .borrow_mut()
             .insert(glob.to_string(), compiled.clone());
@@ -84,7 +90,7 @@ thread_local! {
     /// Per-thread memo of compiled glob matchers, keyed by the glob string. A matcher is a
     /// pure function of its glob, so a cache entry never goes stale within a process; the
     /// walk's per-candidate leaf-glob tests hit it rather than rebuilding.
-    static GLOB_CACHE: std::cell::RefCell<std::collections::HashMap<String, Option<globset::GlobMatcher>>> =
+    static GLOB_CACHE: std::cell::RefCell<std::collections::HashMap<String, Option<Rc<globset::GlobMatcher>>>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
     /// Per-thread count of actual glob *builds* — cache misses, one per distinct glob a
     /// thread ever compiles. The discovery walk tests one leaf glob per candidate name, so

@@ -1,10 +1,12 @@
 //! Harness discovery — the sole member extractor the gate and `emit` both ride
 //! (`discover_kind_units`/`discover_builtin`).
 
-use std::cell::{Cell, OnceCell};
-use std::collections::{BTreeMap, BTreeSet};
+use std::borrow::Cow;
+use std::cell::{Cell, OnceCell, RefCell};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use ignore::WalkBuilder;
 
@@ -40,14 +42,27 @@ pub enum LocalOverride {
 ///
 /// The claimed-path set a declared kind's own `governs` locus claims is a pure function of
 /// the kind set and the override, computed once per run and cached here too.
+///
+/// So is every locus scan: the files one `(root, glob, flavor)` locus matches are a pure
+/// function of the stable tree, so the index is scanned for a locus once per run
+/// ([`Discovery::scan`]) and every later reader of that locus — the gate's per-kind loop,
+/// the claimed-path set, a host's unit enumeration, composition, admissibility — shares
+/// the one result rather than re-scanning per call site.
 pub struct Discovery<'a> {
     harness: &'a Path,
     index: OnceCell<Discoverable>,
+    /// Each locus scan's result, keyed by its normalized root, its glob and whether it
+    /// reads in the local flavor.
+    scans: RefCell<HashMap<LocusKey, Rc<[PathBuf]>>>,
     /// The claimed paths for the `LocalOverride::Honored` flavor.
     claimed_honored: OnceCell<BTreeSet<PathBuf>>,
     /// The claimed paths for the `LocalOverride::Withheld` flavor.
     claimed_withheld: OnceCell<BTreeSet<PathBuf>>,
 }
+
+/// One locus scan's identity: its normalized root, its glob, and whether it reads in the
+/// local flavor.
+type LocusKey = (PathBuf, String, bool);
 
 impl<'a> Discovery<'a> {
     /// A fresh owner over `harness` — no walk runs until the index is first consulted.
@@ -56,6 +71,7 @@ impl<'a> Discovery<'a> {
         Self {
             harness,
             index: OnceCell::new(),
+            scans: RefCell::new(HashMap::new()),
             claimed_honored: OnceCell::new(),
             claimed_withheld: OnceCell::new(),
         }
@@ -103,6 +119,20 @@ impl<'a> Discovery<'a> {
             harness: self.harness,
             local: local_governs,
         }
+    }
+
+    /// Every file under the normalized `root` matching `glob` in the `local_governs` flavor,
+    /// deterministically ordered — scanned off the index on a locus's first request this
+    /// run and shared thereafter ([`scan_locus`] is the scan itself).
+    fn scan(&self, root: &Path, glob: &str, local_governs: bool) -> Rc<[PathBuf]> {
+        let key = (root.to_path_buf(), glob.to_string(), local_governs);
+        if let Some(hit) = self.scans.borrow().get(&key) {
+            return Rc::clone(hit);
+        }
+        LOCUS_SCANS.with(|scans| scans.set(scans.get() + 1));
+        let found: Rc<[PathBuf]> = scan_locus(root, glob, &self.reach(local_governs)).into();
+        self.scans.borrow_mut().insert(key, Rc::clone(&found));
+        found
     }
 
     /// The index's direct children of the normalized `dir`, each with whether it is a
@@ -168,6 +198,18 @@ thread_local! {
     /// counted, not only the discovery index. Walks run on their caller's thread, so a
     /// concurrent run on another test thread cannot perturb it.
     static INDEX_PASSES: Cell<usize> = const { Cell::new(0) };
+    /// Per-thread count of locus scans over the index — one per distinct
+    /// `(root, glob, flavor)` a [`Discovery`] is first asked for, never one per call site
+    /// that asks again.
+    static LOCUS_SCANS: Cell<usize> = const { Cell::new(0) };
+}
+
+/// This thread's locus scan count. Read before and after a verb run and compare the delta
+/// to the distinct loci the run discovers, pinning that the index is scanned once per
+/// locus rather than once per kind or reader asking for it.
+#[must_use]
+pub fn locus_scan_count() -> usize {
+    LOCUS_SCANS.with(Cell::get)
 }
 
 /// This thread's tree index pass count. Read before and after a verb run and compare the
@@ -328,10 +370,12 @@ fn nested_file_members(
 ) -> Vec<NestedFileUnit> {
     let mut found = Vec::new();
     for (host, pattern, unit) in kind_host_units(disc, kind, kinds, over, claimed, trail) {
-        let reach = disc.reach(local_governs(host, over));
-        for file in scan_locus(&unit.dir, pattern, &reach) {
-            if file != unit.entry && !claimed.contains(&file) {
-                found.push(unit.child(host, pattern, file));
+        for file in disc
+            .scan(&unit.dir, pattern, local_governs(host, over))
+            .iter()
+        {
+            if *file != unit.entry && !claimed.contains(file) {
+                found.push(unit.child(host, pattern, file.clone()));
             }
         }
     }
@@ -553,13 +597,12 @@ pub(crate) fn local_governs(kind: &CustomKind, over: LocalOverride) -> bool {
 /// harness). Data-driven discovery — the locus is the kind's own `governs`
 /// declaration, never a hardwired path.
 fn discover_kind_units(disc: &Discovery, governs: &Governs, local_governs: bool) -> Vec<PathBuf> {
-    let reach = disc.reach(local_governs);
     let root = disc.locus_root(governs);
     // Each template is walked; a document two templates both match is one member.
     let mut files: Vec<PathBuf> = governs
         .globs
         .iter()
-        .flat_map(|glob| scan_locus(&root, glob, &reach))
+        .flat_map(|glob| disc.scan(&root, glob, local_governs).to_vec())
         .collect();
     if governs.globs.len() > 1 {
         files.sort();
@@ -568,7 +611,8 @@ fn discover_kind_units(disc: &Discovery, governs: &Governs, local_governs: bool)
     files
 }
 
-/// The scan itself: every file under `root` matching `glob`, deterministically ordered.
+/// The scan itself: every file under `root` matching `glob`, deterministically ordered —
+/// run once per locus per run, behind [`Discovery::scan`]'s memo.
 /// Split from [`discover_kind_units`] so a nested file child's scan under each host unit
 /// rides the same matcher and the same shared index — one scanner serves every kind's
 /// locus, host and child alike.
@@ -581,7 +625,10 @@ fn scan_locus(root: &Path, glob: &str, reach: &Reach) -> Vec<PathBuf> {
     // A glob is a `/`-separated segment list: the final segment matches files, each
     // earlier one a subdirectory to descend into — a `**` segment descending any
     // number of levels. `split` always yields at least one segment.
-    let segments: Vec<&str> = glob.split('/').collect();
+    //
+    // Each segment's matcher is resolved once here, before the walk, rather than per child
+    // the walk tests against it.
+    let segments: Vec<Segment> = glob.split('/').map(Segment::new).collect();
     let mut files = Vec::new();
     if reach.admits_root(root) {
         collect_glob(root, &segments, reach, &mut files);
@@ -601,40 +648,67 @@ fn scan_locus(root: &Path, glob: &str, reach: &Reach) -> Vec<PathBuf> {
 /// fixed glob depth. A `dir` holding no children contributes nothing — a subdir glob
 /// whose intermediate level is absent, or a locus that does not exist on this harness,
 /// both resolve to no units.
-fn collect_glob(dir: &Path, segments: &[&str], reach: &Reach, out: &mut Vec<PathBuf>) {
+fn collect_glob(dir: &Path, segments: &[Segment], reach: &Reach, out: &mut Vec<PathBuf>) {
     let Some((segment, rest)) = segments.split_first() else {
         // `**` recurses with the same segments, so it can bottom out at an empty list
         // (a trailing `**` with nothing left to match): nothing more to collect here.
         return;
     };
-    if *segment == "**" {
+    let Segment::Name { text, matcher } = segment else {
         // Zero levels: match the remaining segments right at this level, so
         // `**/CLAUDE.md` picks up a `CLAUDE.md` directly under the root too.
         collect_glob(dir, rest, reach, out);
         // One-or-more levels: descend into every subdirectory carrying the `**`, so
         // each nested file is reached by exactly one path (no double-collection).
-        for child in reach.children(dir, None) {
+        for child in reach.children(dir, None).iter() {
             if child.is_dir {
                 collect_glob(&child.path, segments, reach, out);
             }
         }
         return;
-    }
+    };
+    // A segment `globset` cannot compile matches nothing.
+    let Some(matcher) = matcher else {
+        return;
+    };
     let want_dir = !rest.is_empty();
-    for child in reach.children(dir, Some((segment, want_dir))) {
+    for child in reach.children(dir, Some((text, want_dir))).iter() {
         if child.is_dir != want_dir {
             continue;
         }
         let Some(name) = child.path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if !crate::glob::compile_glob(segment).is_some_and(|matcher| matcher.is_match(name)) {
+        if !matcher.is_match(name) {
             continue;
         }
         if want_dir {
             collect_glob(&child.path, rest, reach, out);
         } else {
             out.push(child.path.clone());
+        }
+    }
+}
+
+/// One `/`-separated glob segment as [`collect_glob`] walks it: the any-depth `**`, or a
+/// name pattern carrying its matcher, resolved once per scan.
+enum Segment<'g> {
+    AnyDepth,
+    Name {
+        text: &'g str,
+        matcher: Option<Rc<globset::GlobMatcher>>,
+    },
+}
+
+impl<'g> Segment<'g> {
+    fn new(text: &'g str) -> Self {
+        if text == "**" {
+            Self::AnyDepth
+        } else {
+            Self::Name {
+                text,
+                matcher: crate::glob::compile_glob(text),
+            }
         }
     }
 }
@@ -669,10 +743,11 @@ impl Reach<'_> {
 
     /// The children of `dir` a scan considers for the next segment: `next` is that
     /// segment and whether it selects a directory, [`None`] for a `**` descent.
-    fn children(&self, dir: &Path, next: Option<(&str, bool)>) -> Vec<DiscoverableChild> {
+    /// The committed flavor borrows the index's own list rather than copying it.
+    fn children(&self, dir: &Path, next: Option<(&str, bool)>) -> Cow<'_, [DiscoverableChild]> {
         let indexed = self.index.children(dir);
         if !self.local {
-            return indexed.to_vec();
+            return Cow::Borrowed(indexed);
         }
         let descended = self.index.descended(dir);
         match next {
@@ -684,17 +759,17 @@ impl Reach<'_> {
                     on_disk(&path).is_file()
                 };
                 if found && !fenced(&path, 1, want_dir, true) {
-                    vec![DiscoverableChild {
+                    Cow::Owned(vec![DiscoverableChild {
                         path,
                         is_dir: want_dir,
-                    }]
+                    }])
                 } else {
-                    Vec::new()
+                    Cow::Owned(Vec::new())
                 }
             }
-            Some((_, false)) => raw_children(dir),
-            _ if descended => indexed.to_vec(),
-            _ => raw_children(dir),
+            Some((_, false)) => Cow::Owned(raw_children(dir)),
+            _ if descended => Cow::Borrowed(indexed),
+            _ => Cow::Owned(raw_children(dir)),
         }
     }
 }
