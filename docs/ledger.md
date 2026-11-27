@@ -45,7 +45,8 @@ hard.
   (`citeResolver.js:144`), so posture pages outside `specs/` must become
   citable upstream first. The sweep's filing bar is open on the same point
   (flume `docs/INTENT.md`, "quality lenses"): shape findings wait for three
-  notings. Also to decide: whether `spec-system.md` is spec or harness.
+  notings. Both filed as duct-tape-and-markdown/flume#29. Also to decide:
+  whether `spec-system.md` is spec or harness.
 - **First focus: a consolidation pass.** +14.5k net in a day and a half is
   more growth than its features explain. Weigh it against `engineering.md`
   before new surface lands.
