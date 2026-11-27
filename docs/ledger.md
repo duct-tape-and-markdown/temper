@@ -54,8 +54,7 @@ hard.
   third-party posts, releases by recipe with the smoke green. Sessions:
   temper-prod runs the loop and trunk; temper-perf designs the posture
   migration and holds the flume-80 thread.
-- **Since 0.0.26 (11-27 afternoon), a 0.0.27 candidate waiting on John's
-  cut:** all four repeated-work cost entries; the bounded raw-disk walk;
+- **0.0.27 cut 11-27 (`3c218e8a`, smoke green, npm locks synced):** all four repeated-work cost entries; the bounded raw-disk walk;
   the excluding relocation fixed (it blocked `playbook()` for every adopter
   who excluded a fixture tree); the rule line budget limited to rules
   loaded at launch; and gate fail-loud (0121 plus the exit-2 ruling). A
