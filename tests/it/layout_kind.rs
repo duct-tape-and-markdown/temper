@@ -567,6 +567,13 @@ fn check_reads_a_relocated_builtin_document_under_its_declared_layout() {
     fs::write(decisions.join("0001.md"), FITS_LAYOUT_WITH_FRONTMATTER).unwrap();
 
     let run = common::check_in(&root, &[], None);
+    // Vacuity pin: the clean verdict is over the one relocated document, so it must have
+    // been discovered under the moved locus before its silence means anything.
+    assert!(
+        run.output.contains("rule (1)"),
+        "the relocated built-in must discover the document it judges:\n{}",
+        run.output
+    );
     assert!(
         run.ok,
         "a fitting document must read clean under the relocated built-in's layout:\n{}",

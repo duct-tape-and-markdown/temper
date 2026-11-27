@@ -334,6 +334,25 @@ fn self_host_check_is_clean_over_tempers_own_surface() {
     // repo is never mutated (the flume `temper check (self)` gate's exact invocation).
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let run = common::check_in(repo_root, &[], None);
+    // Vacuity pin: the clean verdict is judged over the members the coverage note
+    // counts, so a surface that discovered nothing would pass for nothing.
+    let census: usize = run
+        .output
+        .split("checked ")
+        .nth(1)
+        .and_then(|rest| rest.split(" members").next())
+        .and_then(|n| n.trim().parse().ok())
+        .unwrap_or_else(|| {
+            panic!(
+                "the self-host run must carry the coverage census; got:\n{}",
+                run.output
+            )
+        });
+    assert!(
+        census > 0,
+        "the self-host check must judge a populated surface; got:\n{}",
+        run.output
+    );
     assert!(
         run.ok,
         "temper must lint its own committed surface clean — the self-hosting finish line"

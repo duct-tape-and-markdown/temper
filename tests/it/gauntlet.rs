@@ -416,22 +416,12 @@ fn emitted_member_set_matches_independent_discovery() {
     let (harness, into) = common::wire_sdk_harness("gauntlet-round-trip", GAUNTLET_PROGRAM);
     seat_sources(&harness);
 
-    let report = drift::emit_program(&into, EmitOptions::default())
+    drift::emit_program(&into, EmitOptions::default())
         .expect("the gauntlet composes only legal compositions, so emit compiles the whole");
 
     // Read the lock's provenance: for each kind, the set of source paths it emitted.
     let declarations =
         drift::read_declarations(&into).expect("the emitted lock exists and is valid");
-    let mut emitted_members_by_kind: BTreeMap<
-        String,
-        std::collections::BTreeSet<std::path::PathBuf>,
-    > = BTreeMap::new();
-    for entry in &report.entries {
-        emitted_members_by_kind
-            .entry(entry.kind.clone())
-            .or_default()
-            .insert(entry.source_path.clone());
-    }
 
     // Independently discover each kind's members and verify against the lock.
     let lock_doc = drift::read_lock_document(&into).expect("the emitted lock exists and is valid");
@@ -459,6 +449,7 @@ fn emitted_member_set_matches_independent_discovery() {
     // For each kind in the declarations that has a governs locus, use discover_kind_files
     // to independently discover its members and verify they match the lock.
     let discovery = temper::import::Discovery::new(&harness);
+    let mut compared_kinds = 0usize;
     for kind_fact in &declarations.kinds {
         let kind_name = &kind_fact.name;
         let Some(ref locus_root) = kind_fact.locus_root else {
@@ -523,7 +514,14 @@ fn emitted_member_set_matches_independent_discovery() {
             lock_set, discovered_set,
             "kind '{kind_name}': lock provenance must match independent discovery"
         );
+        compared_kinds += 1;
     }
+    // Vacuity pin: every kind could have fallen through a `continue` above, leaving the
+    // agreement verdict judged over nothing.
+    assert!(
+        compared_kinds > 0,
+        "no kind reached the lock-vs-discovery comparison; the agreement verdict is vacuous"
+    );
 }
 
 /// The `(rule, message)` findings one shell-edge `temper guard` call surfaced in-band —

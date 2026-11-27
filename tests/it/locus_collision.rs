@@ -115,6 +115,23 @@ fn the_built_in_kinds_draw_no_locus_collision() {
         write_doc(&root, doc);
     }
     let run = check_with(&root, Vec::new());
+    // Vacuity pin: disjointness is judged per discovered document, so every built-in
+    // written above must have been discovered before the absence of a collision counts.
+    // The agent, nameless here, load-faults rather than counts, but is named as reached.
+    for tally in [
+        "memory (3",
+        "memory-local (1)",
+        "rule (1",
+        "command (1",
+        "skill (1",
+        ".claude/agents/reviewer.md",
+    ] {
+        assert!(
+            run.output.contains(tally),
+            "the written documents must be discovered ({tally}), got:\n{}",
+            run.output
+        );
+    }
     assert!(
         !run.output.contains("kind.locus-collision"),
         "the built-in set keeps its claims disjoint, got:\n{}",

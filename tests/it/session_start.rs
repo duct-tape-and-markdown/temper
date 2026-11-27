@@ -122,14 +122,13 @@ fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
     let hook = &payload["hookSpecificOutput"];
     assert_eq!(hook["hookEventName"], "SessionStart");
     // A clean harness with no errors has no blocking verdict — but advisory
-    // findings (like install.gate-installed, coverage notes) may surface.
-    let context = hook["additionalContext"].as_str();
-    if let Some(ctx) = context {
-        assert!(
-            !ctx.contains("approval before continuing"),
-            "advisory-only context must not carry the blocking verdict instruction, got: {ctx}"
-        );
-    }
+    // findings (like install.gate-installed, coverage notes) may surface. The quiet
+    // verdict is judged over the one skill written, so pin that it was walked.
+    let context = checked(hook, "skill (1");
+    assert!(
+        !context.contains("approval before continuing"),
+        "advisory-only context must not carry the blocking verdict instruction, got: {context}"
+    );
 }
 
 #[test]

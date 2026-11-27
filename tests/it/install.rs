@@ -5505,6 +5505,10 @@ fn the_guard_s_locus_walk_honours_ignore_rules() {
     let (findings, _) = common::check_harness(&harness);
     let check_locus = common::findings_for(&findings, "root.locus-declared");
     assert!(
+        check_locus.iter().any(|line| line.contains("stray.md")),
+        "the positive control: `check` discovers the unignored stray, got: {findings:?}"
+    );
+    assert!(
         check_locus.iter().all(|line| !line.contains("scratch.md")),
         "the premise: `check` never discovers the ignored document, got: {findings:?}"
     );
@@ -6227,6 +6231,27 @@ fn guard_and_check_agree_on_a_hosted_child_in_an_ignored_subdirectory_of_a_local
 fn guard_places_no_memory_local_member_inside_an_ignored_directory_a_wildcard_never_descends() {
     let harness = common::scaffold("guard-memory-local-ignored-dir");
     fs::write(harness.join(".gitignore"), "build/\n").unwrap();
+    // Vacuity pin: a lock that binds nothing draws silence everywhere, so the guard is
+    // armed first — a write to the bound root `CLAUDE.local.md` speaks.
+    common::GuardLock::declaring("warn")
+        .member(
+            "memory-local",
+            "CLAUDE.local",
+            "CLAUDE.local.md",
+            "abc",
+            "abc",
+        )
+        .write(&harness);
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content("CLAUDE.local.md", "# Local\n"),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.contains("the `memory-local` member `CLAUDE.local` owns `CLAUDE.local.md`"),
+        "the positive control: the guard binds the declared memory-local, got: {output}"
+    );
+
     let pending = "build/CLAUDE.local.md";
     let (code, output) = common::run_guard(
         &harness,
