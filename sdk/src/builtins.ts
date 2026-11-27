@@ -956,12 +956,12 @@ const hookGroup: KindDefinition<Hook> = kind<Hook>({
 });
 
 /**
- * The one kind whose member name is not the `name` the author wrote: the author names the
- * lifecycle **event**, and the member's identity is that event joined with its matcher
- * ({@link hookMemberName}), because the event keys every group under it and two members
- * at one address is a malformed lock. The authored property keeps the event, so the
- * module the lift scaffolds and the row the emit writes both spell the key the wire uses;
- * the composition happens here, once, rather than at every reader of a hook's address.
+ * The one kind whose author writes no `name`: the author names the lifecycle **event** —
+ * the runtime's word for the fact, keyed `event` — and the member's identity is that
+ * event joined with its matcher ({@link hookMemberName}), because the event keys every
+ * group under it and two members at one address is a malformed lock. The module the lift
+ * scaffolds and the row the emit writes both spell the key the wire uses; the composition
+ * happens here, once, rather than at every reader of a hook's address.
  *
  * # Throws
  * If the matcher carries a `/` — the separator the member-address grammar cuts an
@@ -969,23 +969,29 @@ const hookGroup: KindDefinition<Hook> = kind<Hook>({
  * ({@link isNameQualifier}).
  */
 function hookMember(init: HookInit): Member {
-  if (init.matcher !== undefined && !isNameQualifier(init.matcher)) {
+  const { event, ...group } = init;
+  if (group.matcher !== undefined && !isNameQualifier(group.matcher)) {
     throw new Error(
-      `hook \`${init.name}\`: matcher \`${init.matcher}\` carries a \`/\`, and a hook's name ` +
-        `joins its matcher after a \`:\` (\`hook:${init.name}:${init.matcher}\`) — the \`/\` is ` +
+      `hook \`${event}\`: matcher \`${group.matcher}\` carries a \`/\`, and a hook's name ` +
+        `joins its matcher after a \`:\` (\`hook:${event}:${group.matcher}\`) — the \`/\` is ` +
         `the separator an address is cut at, so the member and its handlers would answer to ` +
         `an address naming something else (specs/model/representation.md, "member").`,
     );
   }
-  return hookGroup({ ...init, name: hookMemberName(init.name, init.matcher) });
+  return hookGroup({ ...group, name: hookMemberName(event, group.matcher) });
 }
 
 /**
- * What `hook(...)` takes: a matcher group's init, plus a {@link Remedy} slot for each
- * flat handler field a group carried before its handlers became a list, so the old
- * spelling fails `tsc` naming where the field went.
+ * What `hook(...)` takes: a matcher group's init keyed by its lifecycle `event` in place
+ * of a `name` — the member's name is composed from the event and matcher, never authored
+ * — plus a {@link Remedy} slot for each field that moved, so the old spelling fails `tsc`
+ * naming where the field went.
  */
-export type HookInit = MemberInit<Hook> & {
+export type HookInit = Omit<MemberInit<Hook>, "name"> & {
+  /** The lifecycle event the group registers under — the `hooks.<Event>` key
+   * (code.claude.com/docs/en/hooks, retrieved 2026-09-25). */
+  readonly event: string;
+  readonly name?: Remedy<"a hook's lifecycle event is its `event`: write `hook({ event, matcher, hooks })`">;
   readonly type?: Remedy<"`type` moved to a handler: write `hooks: [{ type, command }]`">;
   readonly command?: Remedy<"`command` moved to a handler: write `hooks: [{ type, command }]`, or use `gateHook()` for a temper gate">;
   readonly timeout?: Remedy<"`timeout` moved to a handler: write `hooks: [{ type, command, timeout }]`">;
@@ -1013,13 +1019,14 @@ export type GateHookEvent = "SessionStart" | "PreToolUse" | "PostToolUse";
  * have one home.
  */
 export interface GateHookInit {
-  /** The lifecycle event — the member's `name`, as on {@link hook}. */
-  readonly name: GateHookEvent;
+  /** The lifecycle event the group registers under, as on {@link hook}. */
+  readonly event: GateHookEvent;
+  readonly name?: Remedy<"a gate hook's lifecycle event is its `event`: write `gateHook({ event, matcher })`">;
   /** The tool-name filter the group binds, as on {@link Hook}; absent on `SessionStart`. */
   readonly matcher?: string;
   /** The {@link tool} the hook runs as temper — a composed `tool(...)` member. */
   readonly tool?: Member;
-  readonly binary?: Remedy<"`binary` gave way to `tool`: write `gateHook({ name, tool: tool({ package, bin }) })`, or omit it for the temper package's bin">;
+  readonly binary?: Remedy<"`binary` gave way to `tool`: write `gateHook({ event, tool: tool({ package, bin }) })`, or omit it for the temper package's bin">;
   /** The requirements this member fills — every member's `satisfies` edge, as on
    * {@link hook} (specs/model/contract.md, "edge"). */
   readonly satisfies?: readonly string[];
@@ -1052,7 +1059,7 @@ const gateHookTools = new WeakMap<Member, Member | null>();
 export function gateHook(init: GateHookInit): Member {
   if (init.tool !== undefined && init.tool.kind !== toolKind.key) {
     throw new Error(
-      `gate hook \`${init.name}\`: \`tool\` names what the hook runs — pass a \`tool(...)\` ` +
+      `gate hook \`${init.event}\`: \`tool\` names what the hook runs — pass a \`tool(...)\` ` +
         `member, or omit it for the temper package's bin.`,
     );
   }
@@ -1060,8 +1067,8 @@ export function gateHook(init: GateHookInit): Member {
   const satisfies = init.satisfies === undefined ? {} : { satisfies: init.satisfies };
   const member =
     init.matcher === undefined
-      ? hook({ name: init.name, hooks: handlers, ...satisfies })
-      : hook({ name: init.name, matcher: init.matcher, hooks: handlers, ...satisfies });
+      ? hook({ event: init.event, hooks: handlers, ...satisfies })
+      : hook({ event: init.event, matcher: init.matcher, hooks: handlers, ...satisfies });
   gateHookTools.set(member, init.tool ?? null);
   return member;
 }

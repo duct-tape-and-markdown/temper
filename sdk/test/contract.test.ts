@@ -480,7 +480,7 @@ test("the telemetry constructor carries the tool its taps reach, and refuses any
     tool: workspaceTemper,
   });
   assert.throws(
-    () => telemetry(["SkillInvoked"], { tool: hook({ name: "Stop", hooks: [] }) }),
+    () => telemetry(["SkillInvoked"], { tool: hook({ event: "Stop", hooks: [] }) }),
     /pass a `tool\(\.\.\.\)` member/,
   );
 });

@@ -73,7 +73,7 @@ projections of it.
 - Cite another member as `text` with `${mentionOf(member)}` interpolated, not a
   hand-typed name or path: the mention resolves at emit and refuses when its target
   is gone.
-- A temper gate placement is `gateHook({ name, matcher })`, never `hook()` with a
+- A temper gate placement is `gateHook({ event, matcher })`, never `hook()` with a
   hand-written `temper` command: the engine renders the command, so it stays correct
   across installs and upgrades.
 
@@ -182,8 +182,8 @@ emit_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
 [[rule]]
 name = "temper-sdk"
 source_path = ".claude/rules/temper-sdk.md"
-source_hash = "f023fc979933978e574c2094dfe0623a9c9620f0405e99326b70016fa96c465e"
-emit_hash = "f023fc979933978e574c2094dfe0623a9c9620f0405e99326b70016fa96c465e"
+source_hash = "5337e06350ac4eb9572687f9e87392c43decc60ded60cec35bd31e8731e59f63"
+emit_hash = "5337e06350ac4eb9572687f9e87392c43decc60ded60cec35bd31e8731e59f63"
 
 [[settings]]
 name = "settings"
@@ -498,7 +498,7 @@ import_hash = "306c6ca7407560340797866e077e053627ad409277d1b9da58106fce4cf717cb"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "40c2fa09c2ead54b5fd4e01c44b90d0459333da541db58ebbf144aaf8ee29dd3"
+import_hash = "a856e1916252ce5918cb6fe422f565a374bfa13a8171a6a686f43ea17f3ee32a"
 
 [[declaration.layout_prose]]
 member = "guide:operate-the-gate/spec/representation"

@@ -77,8 +77,8 @@ export {
 // Retired exports, declared for the type checker alone: no runtime binding carries
 // them, so a program still naming one fails `tsc` with its replacement spelled out.
 import type { Remedy } from "./kind.js";
-export declare const GUARD_COMMAND: Remedy<"GUARD_COMMAND is retired: declare the hook as `gateHook({ name, matcher })`">;
-export declare const SESSION_START_COMMAND: Remedy<"SESSION_START_COMMAND is retired: declare the hook as `gateHook({ name: 'SessionStart' })`">;
+export declare const GUARD_COMMAND: Remedy<"GUARD_COMMAND is retired: declare the hook as `gateHook({ event, matcher })`">;
+export declare const SESSION_START_COMMAND: Remedy<"SESSION_START_COMMAND is retired: declare the hook as `gateHook({ event: 'SessionStart' })`">;
 
 // The prose constructors ride along so a harness author targeting Claude Code
 // never reaches back to the root package mid-member.

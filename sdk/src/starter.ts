@@ -63,9 +63,9 @@ export interface GateHooksInit {
 export function gateHooks(init: GateHooksInit = {}): readonly Member[] {
   const tool = init.tool === undefined ? {} : { tool: init.tool };
   return [
-    gateHook({ name: "SessionStart", ...tool }),
-    gateHook({ name: "PreToolUse", matcher: GUARD_MATCHER, ...tool }),
-    gateHook({ name: "PostToolUse", matcher: SHELL_MATCHER, ...tool }),
+    gateHook({ event: "SessionStart", ...tool }),
+    gateHook({ event: "PreToolUse", matcher: GUARD_MATCHER, ...tool }),
+    gateHook({ event: "PostToolUse", matcher: SHELL_MATCHER, ...tool }),
   ];
 }
 

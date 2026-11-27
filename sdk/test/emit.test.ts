@@ -2198,7 +2198,7 @@ test("a composed body interleaves prose spans and embedded values in authored or
 test("a hook and an mcp-server member each erase into a registration write fact — name-keyed at their collection address, fields folded", () => {
   const h = harness({
     members: [
-      hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper reporter", timeout: 5 }] }),
+      hook({ event: "SessionStart", hooks: [{ type: "command", command: "temper reporter", timeout: 5 }] }),
       mcpServer({ name: "gmail", type: "stdio", command: "npx", args: ["gmail-mcp"] }),
     ],
   });
@@ -2236,7 +2236,7 @@ test("a hook and an mcp-server member each erase into a registration write fact 
 
 test("the assembly's residual settings erase into settings.json residue rows, key-sorted, carried beside the hooks segment", () => {
   const h = harness({
-    members: [hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper reporter" }] })],
+    members: [hook({ event: "SessionStart", hooks: [{ type: "command", command: "temper reporter" }] })],
     settings: { worktree: true, autoMemoryEnabled: false },
   });
 
@@ -2549,7 +2549,7 @@ test("a hook() carrying two handlers is one registration row — one call, one m
   const h = harness({
     members: [
       hook({
-        name: "PostToolUse",
+        event: "PostToolUse",
         matcher: "Edit|Write",
         hooks: [
           { type: "command", command: "cargo fmt --quiet" },
@@ -2585,7 +2585,7 @@ test("a tap hook joins an authored group at the same (event, matcher) as a furth
   // nothing claims, still mints a row of its own.
   const h = harness({
     members: [
-      hook({ name: "PostToolUse", matcher: "Skill", hooks: [{ type: "command", command: "note the skill" }] }),
+      hook({ event: "PostToolUse", matcher: "Skill", hooks: [{ type: "command", command: "note the skill" }] }),
     ],
     require: {
       "skills-fire": {
@@ -2648,16 +2648,16 @@ test("two matcher groups on one event are two members at one collection key", ()
   // keeps keying `hooks.<Event>` — where the group still writes. On the bare-event name
   // these two were one address twice.
   const onWrite = hook({
-    name: "PostToolUse",
+    event: "PostToolUse",
     matcher: "Edit|Write",
     hooks: [{ type: "command", command: "cargo fmt --quiet" }],
   });
   const onShell = hook({
-    name: "PostToolUse",
+    event: "PostToolUse",
     matcher: "Bash",
     hooks: [{ type: "command", command: "temper guard ." }],
   });
-  const onOpen = hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper check ." }] });
+  const onOpen = hook({ event: "SessionStart", hooks: [{ type: "command", command: "temper check ." }] });
 
   assert.deepEqual(
     [onWrite.name, onShell.name, onOpen.name],
@@ -2684,7 +2684,7 @@ test("hook() refuses a matcher carrying the address grammar's separator", () => 
   assert.throws(
     () =>
       hook({
-        name: "PostToolUse",
+        event: "PostToolUse",
         matcher: "Edit/Write",
         hooks: [{ type: "command", command: "cargo fmt --quiet" }],
       }),
@@ -2692,7 +2692,7 @@ test("hook() refuses a matcher carrying the address grammar's separator", () => 
   );
   // A `/`-free matcher is untouched — `|` and `,` are ordinary bytes in a name.
   assert.equal(
-    hook({ name: "PostToolUse", matcher: "Edit, Write", hooks: [{ type: "command", command: "x" }] }).name,
+    hook({ event: "PostToolUse", matcher: "Edit, Write", hooks: [{ type: "command", command: "x" }] }).name,
     "PostToolUse:Edit, Write",
   );
 });
@@ -2788,8 +2788,8 @@ test("two hook members on one event share an address and both emit — a registr
   // last composed member (the `(hook-member-identity)` fork owns the rest).
   const h = harness({
     members: [
-      hook({ name: "PostToolUse", matcher: "Edit|Write", hooks: [{ type: "command", command: "cargo fmt" }] }),
-      hook({ name: "PostToolUse", matcher: "Bash", hooks: [{ type: "command", command: "temper check ." }] }),
+      hook({ event: "PostToolUse", matcher: "Edit|Write", hooks: [{ type: "command", command: "cargo fmt" }] }),
+      hook({ event: "PostToolUse", matcher: "Bash", hooks: [{ type: "command", command: "temper check ." }] }),
     ],
   });
 

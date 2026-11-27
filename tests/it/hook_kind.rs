@@ -333,7 +333,7 @@ import { emit, harness } from "@dtmd/temper";
 import { hook } from "@dtmd/temper/claude-code";
 
 const guard = hook({
-  name: "PreToolUse",
+  event: "PreToolUse",
   matcher: "Bash",
   hooks: [
     { type: "command", command: "echo guard" },

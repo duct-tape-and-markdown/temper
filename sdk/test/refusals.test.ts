@@ -414,7 +414,7 @@ test("emit refuses an edge field naming a target that owns no projection", () =>
           embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "hook:PreToolUse" } }),
         ),
       }),
-      hook({ name: "PreToolUse", hooks: [{ type: "command", command: "temper guard" }] }),
+      hook({ event: "PreToolUse", hooks: [{ type: "command", command: "temper guard" }] }),
     ],
     admit: [{ host: memory, admits: [citation] }],
   });
@@ -804,7 +804,7 @@ test("a clean snippet compiles, so a remedy case fails on its mistake alone", ()
       `${ROOT}${CLAUDE_CODE}` +
         `kind({ name: "d", locus: { kind: "embedded" }, unitShape: "file" });\n` +
         `extent("lines", 200);\n` +
-        `hook({ name: "PreToolUse", matcher: "Write", hooks: [{ type: "command", command: "x" }] });\n`,
+        `hook({ event: "PreToolUse", matcher: "Write", hooks: [{ type: "command", command: "x" }] });\n`,
     ),
     [],
   );
@@ -851,7 +851,7 @@ test("a typed field spelled inside residue names where it belongs", () => {
 
 test("a hook's flat handler fields name the handler list they moved to", () => {
   const errors = tscErrors(
-    `${CLAUDE_CODE}hook({ name: "PreToolUse", matcher: "Write", hooks: [],\n` +
+    `${CLAUDE_CODE}hook({ event: "PreToolUse", matcher: "Write", hooks: [],\n` +
       `  type: "command", command: "temper guard .", timeout: 5 });\n`,
   );
   for (const field of ["type", "command", "timeout"]) {
@@ -862,16 +862,27 @@ test("a hook's flat handler fields name the handler list they moved to", () => {
   }
 });
 
+test("a hook's lifecycle event spelled as `name` names `event`", () => {
+  assertRemedy(
+    `${CLAUDE_CODE}hook({ name: "PreToolUse", event: "PreToolUse", hooks: [] });\n`,
+    "a hook's lifecycle event is its `event`: write `hook({ event, matcher, hooks })`",
+  );
+  assertRemedy(
+    `import { gateHook } from "../src/claude-code.js";\n` + `gateHook({ name: "SessionStart", event: "SessionStart" });\n`,
+    "a gate hook's lifecycle event is its `event`: write `gateHook({ event, matcher })`",
+  );
+});
+
 test("the retired gate command constants name gateHook", () => {
   assertRemedy(
     `import { GUARD_COMMAND, hook } from "../src/claude-code.js";\n` +
-      `hook({ name: "PreToolUse", matcher: "Write", hooks: [{ type: "command", command: GUARD_COMMAND }] });\n`,
-    "GUARD_COMMAND is retired: declare the hook as `gateHook({ name, matcher })`",
+      `hook({ event: "PreToolUse", matcher: "Write", hooks: [{ type: "command", command: GUARD_COMMAND }] });\n`,
+    "GUARD_COMMAND is retired: declare the hook as `gateHook({ event, matcher })`",
   );
   assertRemedy(
     `import { SESSION_START_COMMAND, hook } from "../src/claude-code.js";\n` +
-      `hook({ name: "SessionStart", hooks: [{ type: "command", command: SESSION_START_COMMAND }] });\n`,
-    "SESSION_START_COMMAND is retired: declare the hook as `gateHook({ name: 'SessionStart' })`",
+      `hook({ event: "SessionStart", hooks: [{ type: "command", command: SESSION_START_COMMAND }] });\n`,
+    "SESSION_START_COMMAND is retired: declare the hook as `gateHook({ event: 'SessionStart' })`",
   );
 });
 

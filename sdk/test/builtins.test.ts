@@ -503,7 +503,7 @@ test("hook() mints one matcher group however many handlers it fires — the grou
   // its ordered `hooks` array, so a two-handler group is one member with two positions
   // rather than two members at one address.
   const guard = hook({
-    name: "PreToolUse",
+    event: "PreToolUse",
     matcher: "Write|Edit",
     hooks: [
       { type: "command", command: "temper guard ." },
@@ -524,7 +524,7 @@ test("hook() mints one matcher group however many handlers it fires — the grou
 
   // A group needs no matcher — an event carrying no tool filters nothing — and the array
   // is the whole member then.
-  assert.deepEqual(hook({ name: "SessionStart", hooks: [{ type: "command", command: "temper check ." }] }).fields, [
+  assert.deepEqual(hook({ event: "SessionStart", hooks: [{ type: "command", command: "temper check ." }] }).fields, [
     ["hooks", [{ type: "command", command: "temper check ." }]],
   ]);
 });
@@ -535,8 +535,8 @@ test("gateHook constructor defaults the tool and carries the tool it reaches acr
   // engine to render from — `null` where none is declared, so the temper package's bin is
   // the engine's one spelling of the default.
   const workspaceTemper = tool({ package: "@dtmd/temper", bin: "temper", name: "workspace-temper" });
-  const sessionStart = gateHook({ name: "SessionStart" });
-  const guard = gateHook({ name: "PreToolUse", matcher: "Write|Edit|MultiEdit", tool: workspaceTemper });
+  const sessionStart = gateHook({ event: "SessionStart" });
+  const guard = gateHook({ event: "PreToolUse", matcher: "Write|Edit|MultiEdit", tool: workspaceTemper });
   assert.equal(sessionStart.kind, "hook");
   assert.equal(guard.name, "PreToolUse:Write|Edit|MultiEdit");
   assert.deepEqual(sessionStart.fields, [["hooks", [{ type: "command" }]]]);
@@ -556,23 +556,23 @@ test("gateHook constructor defaults the tool and carries the tool it reaches acr
   ]);
 
   // An ordinary hook carries no gate fact at all.
-  const plain = hook({ name: "Stop", hooks: [{ type: "command", command: "true" }] });
+  const plain = hook({ event: "Stop", hooks: [{ type: "command", command: "true" }] });
   const [plainRow] = compileDeclarations(harness({ members: [plain] })).registrations;
   assert.deepEqual(plainRow?.fields, [["hooks", [{ type: "command", command: "true" }]]]);
 
   // A tool the harness does not compose is an edge to nothing.
   assert.throws(
-    () => compileDeclarations(harness({ members: [gateHook({ name: "SessionStart", tool: workspaceTemper })] })),
+    () => compileDeclarations(harness({ members: [gateHook({ event: "SessionStart", tool: workspaceTemper })] })),
     /does not compose/,
   );
   // Only a tool member is something to run.
-  assert.throws(() => gateHook({ name: "SessionStart", tool: hook({ name: "Stop", hooks: [] }) }), /pass a `tool\(\.\.\.\)` member/);
+  assert.throws(() => gateHook({ event: "SessionStart", tool: hook({ event: "Stop", hooks: [] }) }), /pass a `tool\(\.\.\.\)` member/);
 });
 
 test("a gate hook declaring satisfies fills its requirement", () => {
   // A gate hook is an ordinary hook member, so it speaks every member's `satisfies` edge:
   // the claim rides the member and reaches the seam as its satisfies row.
-  const sessionStart = gateHook({ name: "SessionStart", satisfies: ["session-gate"] });
+  const sessionStart = gateHook({ event: "SessionStart", satisfies: ["session-gate"] });
   assert.deepEqual(sessionStart.satisfies, ["session-gate"]);
   const h = harness({
     members: [sessionStart],
@@ -582,7 +582,7 @@ test("a gate hook declaring satisfies fills its requirement", () => {
   // The requirement is declared, so the join is live and emit compiles.
   assert.doesNotThrow(() => emit(h));
   // Absent, a gate hook claims nothing.
-  assert.deepEqual(gateHook({ name: "SessionStart" }).satisfies, []);
+  assert.deepEqual(gateHook({ event: "SessionStart" }).satisfies, []);
 });
 
 test("tapHookRegistration composes the tap's one command handler inside its matcher group", () => {

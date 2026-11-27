@@ -94,7 +94,7 @@ import { hook } from "@dtmd/temper/claude-code";
 
 const check = tool({ file: ".claude/hooks/check.sh" });
 const after = hook({
-  name: "PostToolUse",
+  event: "PostToolUse",
   matcher: "Edit",
   hooks: [{ type: "command", command: ".claude/hooks/check.sh", runs: check }],
 });

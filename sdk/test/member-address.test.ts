@@ -233,7 +233,7 @@ test("a tool's one address is the root-hosted nested member, wherever a row name
   assert.deepEqual(parseNestedAddress(memberAddress(lint)), { host: "root", kind: "tool", key: "lint" });
 
   // The `runs` edge and the mention set spell it by that one address.
-  const gate = gateHook({ name: "SessionStart", tool: lint });
+  const gate = gateHook({ event: "SessionStart", tool: lint });
   const h = harness({ members: [lint, gate] });
   assert.ok(declaredAddresses(h).has("root/tool/lint"), "the mention set carries the root-hosted spelling");
   assert.ok(!declaredAddresses(h).has("tool:lint"), "and no `tool:<name>` beside it");

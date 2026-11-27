@@ -3016,8 +3016,9 @@ struct LiftedMember {
     ///
     /// For a registration member this is the **collection key**, never the member's own
     /// name: a hook's name joins its matcher, and the SDK's `hook()` composes that name
-    /// from the `name` property and the `matcher` field the module already spells. Both
-    /// facts this id serves want the key. The `name` property wants it because the SDK
+    /// from the `event` property and the `matcher` field the module already spells. Both
+    /// facts this id serves want the key. The identity property ([`identity_property`])
+    /// wants it because the SDK
     /// composes the rest; the file stem wants it because `:` and `|` are reserved
     /// characters in a Windows file name
     /// (learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file, retrieved
@@ -3531,10 +3532,10 @@ fn gate_hook_module(hook: &GateHook) -> String {
 fn gate_hook_call(hook: &GateHook) -> String {
     match hook.matcher {
         Some(matcher) => format!(
-            "gateHook({{ name: {:?}, matcher: {matcher:?} }})",
+            "gateHook({{ event: {:?}, matcher: {matcher:?} }})",
             hook.event
         ),
-        None => format!("gateHook({{ name: {:?} }})", hook.event),
+        None => format!("gateHook({{ event: {:?} }})", hook.event),
     }
 }
 
@@ -3646,9 +3647,21 @@ fn member_module_source(
         ),
     };
 
+    let identity = identity_property(kind);
     format!(
-        "import {{ {imports} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {constructor}({{\n  name: {name:?},\n{fields_src}{prose_src}}});\n"
+        "import {{ {imports} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {constructor}({{\n  {identity}: {name:?},\n{fields_src}{prose_src}}});\n"
     )
+}
+
+/// The constructor property a lifted member's id is written under: `event` for a hook,
+/// whose id is the lifecycle event its group keys under and whose `hook()` composes the
+/// member's name from it (`sdk/src/builtins.ts`, `HookInit`); `name` for every other kind.
+fn identity_property(kind: &str) -> &'static str {
+    if kind == GATE_HOOK_KIND {
+        "event"
+    } else {
+        "name"
+    }
 }
 
 /// A frontmatter field key rendered as a TS object-literal property key: a bare

@@ -2876,7 +2876,7 @@ import { harness, requirement, emit } from "@dtmd/temper";
 import { gateHook, hook } from "@dtmd/temper/claude-code";
 
 const program = harness({
-  members: [gateHook({ name: "SessionStart", satisfies: ["session-gate"] })],
+  members: [gateHook({ event: "SessionStart", satisfies: ["session-gate"] })],
   require: {
     "session-gate": requirement({ prose: "the gate reports at session open", kind: hook }),
   },

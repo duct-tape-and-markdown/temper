@@ -147,7 +147,7 @@ const authoring = rule({
 // known-marketplace declares it, so the marketplace-half edge resolves on the
 // reference graph (0039).
 const sessionHook = hook({
-  name: "SessionStart",
+  event: "SessionStart",
   hooks: [{ type: "command", command: "temper reporter" }],
 });
 // The second hook fires a *non-command* handler: an `http` one carrying its documented
@@ -160,7 +160,7 @@ const sessionHook = hook({
 // temper's own gate places at (`SessionStart`, `PreToolUse`, `PostToolUse`) would
 // additionally supersede a gate placement, and this cell is about the guard, not about that.
 const auditHook = hook({
-  name: "PostToolUseFailure",
+  event: "PostToolUseFailure",
   matcher: "Write",
   hooks: [{ type: "http", url: "https://hooks.example.com/audit" }],
 });

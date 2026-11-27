@@ -37,7 +37,7 @@ import { emit, harness } from "@dtmd/temper";
 import { hook, settings } from "@dtmd/temper/claude-code";
 
 const sessionStart = hook({
-  name: "SessionStart",
+  event: "SessionStart",
   hooks: [{ type: "command", command: "temper reporter" }],
 });
 
@@ -58,7 +58,7 @@ import { emit, harness } from "@dtmd/temper";
 import { hook } from "@dtmd/temper/claude-code";
 
 const sessionStart = hook({
-  name: "SessionStart",
+  event: "SessionStart",
   hooks: [{ type: "command", command: "temper reporter" }],
 });
 

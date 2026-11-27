@@ -2145,11 +2145,12 @@ fn a_manifests_registration_entries_each_lift_to_their_own_module_and_survive_th
     );
 
     // One module per registration member, each named by its registration key and carrying
-    // that key as its `name` — the entry's own fields hoisted beside it.
+    // that key as its identity — a hook's as its `event`, never a `name` — the entry's own
+    // fields hoisted beside it.
     let hook_module =
         fs::read_to_string(temper_dir.join("hooks").join("SessionStart-2.ts")).unwrap();
     assert!(
-        hook_module.contains("name: \"SessionStart\","),
+        hook_module.contains("event: \"SessionStart\",") && !hook_module.contains("name:"),
         "got:\n{hook_module}"
     );
     // The group's handler array survives the lift as read, at every handler count: the
@@ -2557,7 +2558,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
         format!(
             "import {{ hook }} from \"@dtmd/temper/claude-code\";\n\n\
              export const hook_SessionStart = hook({{\n  \
-             name: \"SessionStart\",\n  \
+             event: \"SessionStart\",\n  \
              hooks: [{{ type: \"command\", command: {RETIRED_SESSION_START_COMMAND:?} }}],\n\
              }});\n"
         ),
@@ -2605,7 +2606,7 @@ fn gate_installed_names_a_gate_hook_member_running_a_retired_command_as_stale() 
     for needle in [
         "session-start hook stale",
         ".temper/hooks/SessionStart.ts",
-        "gateHook({ name: \"SessionStart\" })",
+        "gateHook({ event: \"SessionStart\" })",
     ] {
         assert!(
             message.contains(needle),
@@ -2749,7 +2750,7 @@ fn a_gate_hook_reaching_a_declared_tool_is_reported_installed() {
         temper_dir.join("hooks").join("PreToolUse.ts"),
         "import { gateHook, tool } from \"@dtmd/temper/claude-code\";\n\n\
          export const tool_temper = tool({ system: \"temper\" });\n\
-         export const hook_PreToolUse = gateHook({ name: \"PreToolUse\", \
+         export const hook_PreToolUse = gateHook({ event: \"PreToolUse\", \
          matcher: \"Write|Edit|MultiEdit\", tool: tool_temper });\n",
     )
     .unwrap();
@@ -2803,7 +2804,7 @@ fn a_hook_at_a_gate_address_that_is_not_a_gate_hook_member_is_reported_stale() {
     let root = reinstall_with_guard_module(
         "hook-at-gate-address-not-gate",
         "import { hook } from \"@dtmd/temper/claude-code\";\n\n\
-         export const hook_PreToolUse = hook({\n  name: \"PreToolUse\",\n  \
+         export const hook_PreToolUse = hook({\n  event: \"PreToolUse\",\n  \
          matcher: \"Write|Edit|MultiEdit\",\n  \
          hooks: [{ type: \"command\", command: \"echo not the guard\" }],\n});\n",
     );
@@ -2813,7 +2814,7 @@ fn a_hook_at_a_gate_address_that_is_not_a_gate_hook_member_is_reported_stale() {
         "guard hook stale",
         ".temper/hooks/PreToolUse.ts",
         "is not a gate hook",
-        "gateHook({ name: \"PreToolUse\", matcher: \"Write|Edit|MultiEdit\" })",
+        "gateHook({ event: \"PreToolUse\", matcher: \"Write|Edit|MultiEdit\" })",
     ] {
         assert!(
             message.contains(needle),

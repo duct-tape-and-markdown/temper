@@ -924,7 +924,7 @@ import { hook } from "@dtmd/temper/claude-code";
 const lint = tool({ file: ".claude/hooks/lint.sh" });
 const audit = tool({ file: ".claude/hooks/audit.sh" });
 const after = hook({
-  name: "PostToolUse",
+  event: "PostToolUse",
   matcher: "Edit",
   hooks: [
     { type: "command", command: ".claude/hooks/lint.sh", runs: lint },
