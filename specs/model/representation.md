@@ -93,13 +93,17 @@ Where a member serializes. Three spellings:
 
 - **file** — the member owns a file at a path its kind governs through one
   or more **templates**, each literal segments with at most one `*`,
-  optionally under a leading `**/`, less the paths the kind declares
-  **excluded**, a directory excluding what lies beneath it. Any other
-  pattern syntax refuses at load; names narrow by clause, never by pattern.
-  A document's kind is declared by its position alone, so two kinds never
-  govern one document (a subkind's is its base's), judged per document and
-  answered by excluding it from the kind that does not own it; a
-  registration kind's starless locus names its manifest and governs no
+  optionally under a leading `**/` and with at most one interior `**` after
+  literal segments (a folder the runtime searches recursively), less the
+  paths the kind declares **excluded**, a directory excluding what lies
+  beneath it. Any other pattern syntax refuses at load; names narrow by
+  clause, never by pattern. A placed member's identity joins every span a
+  wildcard covers with `:`, leaving out the literal folders, so two
+  documents whose spans join alike are coincident addresses, refused naming
+  both paths. A document's kind is declared by its position alone, so two
+  kinds never govern one document (a subkind's is its base's), judged per
+  document and answered by excluding it from the kind that does not own it;
+  a registration kind's starless locus names its manifest and governs no
   document. A file locus may declare a commitment class of **local**:
   per-machine and uncommitted, the kind reviewed and its documents not. A
   local member is read-side only — the governed source, read at check under
