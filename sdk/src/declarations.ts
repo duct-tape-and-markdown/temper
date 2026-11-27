@@ -337,6 +337,8 @@ function registrationLabel(registration: Registration): string {
       return `enablement(${registration.field})`;
     case "registry":
       return "registry";
+    case "selected":
+      return `selected(${registration.field})`;
  }
 }
 

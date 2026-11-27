@@ -2496,6 +2496,7 @@ fn listings_by_kind<'a>(
 /// one; its rendered size; and, where `listings` holds its kind, the listing entry that
 /// rides every request. Every count is in characters. Empty for a name no top-level
 /// member bears.
+#[allow(clippy::too_many_arguments)]
 fn load_strand(
     name: &str,
     by_kind: &BTreeMap<&str, &[Features]>,
@@ -2503,6 +2504,7 @@ fn load_strand(
     listings: &BTreeMap<&str, ListingArgs>,
     gates: &BTreeMap<graph::Node, AbsenceGateState>,
     homes: &BTreeMap<graph::Node, String>,
+    selections: &gate::Selections,
     repo_files: &[String],
 ) -> String {
     let mut out = String::new();
@@ -2518,6 +2520,7 @@ fn load_strand(
         let node = (kind.to_string(), name.to_string());
         let gate = gates.get(&node);
         let home = homes.get(&node).map(String::as_str);
+        let selected_by = selections.get(&node).map_or(&[][..], Vec::as_slice);
         match registrations
             .get(kind)
             .filter(|channels| !channels.is_empty())
@@ -2538,7 +2541,11 @@ fn load_strand(
                             channels,
                             member,
                             repo_files,
-                            gate::Placement { gate, home },
+                            gate::Placement {
+                                gate,
+                                home,
+                                selected_by
+                            },
                             listing
                         )
                     );
@@ -2727,7 +2734,7 @@ fn narrate_channel(
     if let Some(reason) = graph::dead_registration(channel, member, repo_files) {
         return format!("{}: dead — {reason}.", channel_label(channel));
     }
-    let gate::Placement { gate, home } = placement;
+    let gate::Placement { gate, home, .. } = placement;
     let label = channel_label(channel);
     match channel {
         Registration::Always => {
@@ -2854,6 +2861,16 @@ fn narrate_channel(
         Registration::Registry => format!(
             "{label}: carried in the harness's registry; whether it resolves is a fetch-time fact."
         ),
+        Registration::Selected { field } => {
+            match gate::channel_load_moment(channel, channels, member, placement) {
+                Some(_) => format!(
+                    "{label}: a committed `{field}` selects it, so it loads at launch and rides every request."
+                ),
+                None => format!(
+                    "{label}: no committed `{field}` selects it; it loads at launch only where a setting outside the tree selects it."
+                ),
+            }
+        }
     }
 }
 
@@ -2870,6 +2887,7 @@ fn channel_label(channel: &Registration) -> String {
         Registration::Connection => "`connection`".to_string(),
         Registration::Enablement { field } => format!("`enablement({field})`"),
         Registration::Registry => "`registry`".to_string(),
+        Registration::Selected { field } => format!("`selected({field})`"),
     }
 }
 
@@ -3150,6 +3168,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
             &listings,
             &gate_states,
             &homes,
+            &crate::gate::selections(registrations.values().flatten(), &assembly_edges, &by_kind),
             &repo_files,
         );
         if !load.is_empty() {

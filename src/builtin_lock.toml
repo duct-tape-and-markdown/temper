@@ -237,6 +237,7 @@ locus_glob = ["**/.claude/output-styles/*.md"]
 leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
 unit_shape = "named-field-or-file(name)"
+registration = ["selected(outputStyle)"]
 cite = "https://code.claude.com/docs/en/output-styles (retrieved 2026-11-25)"
 ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 

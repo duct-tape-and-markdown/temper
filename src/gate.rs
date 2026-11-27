@@ -323,12 +323,42 @@ fn kind_read_beneath_homes(
 }
 
 /// Where a member sits, as its load moment reads it: the absence gate its template
-/// carries, if any, and its [home](kind::member_home) where its kind registers
-/// [`OnReadBeneath`](kind::Registration::OnReadBeneath).
+/// carries, if any, its [home](kind::member_home) where its kind registers
+/// [`OnReadBeneath`](kind::Registration::OnReadBeneath), and the edge fields under which
+/// a committed member selects it ([`selections`]).
 #[derive(Clone, Copy)]
 pub(crate) struct Placement<'a> {
     pub gate: Option<&'a kind::AbsenceGateState>,
     pub home: Option<&'a str>,
+    pub selected_by: &'a [String],
+}
+
+/// Each selected member's selecting edge fields, by `(kind, id)` — what a
+/// [`Selected`](kind::Registration::Selected) channel reads.
+pub(crate) type Selections = BTreeMap<graph::Node, Vec<String>>;
+
+/// The [`Selections`] over every field a declared [`Selected`](kind::Registration::Selected)
+/// channel names, read off the corpus's declared `edges` through
+/// [`graph::selected_members`] — the one derivation the `loads` guard and `explain` share.
+pub(crate) fn selections<'k>(
+    channels: impl IntoIterator<Item = &'k kind::Registration>,
+    edges: &[compose::Edge],
+    by_kind: &BTreeMap<&str, &[extract::Features]>,
+) -> Selections {
+    let fields: BTreeSet<&str> = channels
+        .into_iter()
+        .filter_map(|channel| match channel {
+            kind::Registration::Selected { field } => Some(field.as_str()),
+            _ => None,
+        })
+        .collect();
+    let mut selections = Selections::new();
+    for field in fields {
+        for node in graph::selected_members(edges, by_kind, field) {
+            selections.entry(node).or_default().push(field.to_string());
+        }
+    }
+    selections
 }
 
 /// When one registration channel loads `member` into context — the one derivation both
@@ -341,8 +371,10 @@ pub(crate) struct Placement<'a> {
 /// ([`UserInvoked`](kind::Registration::UserInvoked),
 /// [`DescriptionTrigger`](kind::Registration::DescriptionTrigger),
 /// [`PathsListing`](kind::Registration::PathsListing)) loads the body on invocation —
-/// its listing is the listing budget's, never the load; else **at launch**. [`None`]
-/// for a channel whose member's content never enters context (event, connected,
+/// its listing is the listing budget's, never the load; else **at launch**. A
+/// [`Selected`](kind::Registration::Selected) member loads at launch where a committed
+/// edge under its field selects it, and has no moment the tree can show where none does.
+/// [`None`] for a channel whose member's content never enters context (event, connected,
 /// enabled, registered).
 pub(crate) fn channel_load_moment(
     channel: &kind::Registration,
@@ -371,6 +403,9 @@ pub(crate) fn channel_load_moment(
         kind::Registration::UserInvoked
         | kind::Registration::DescriptionTrigger { .. }
         | kind::Registration::PathsListing { .. } => true,
+        kind::Registration::Selected { field } => {
+            return placement.selected_by.contains(field).then_some(Launch);
+        }
         _ => return None,
     };
     Some(if on_demand { OnDemand } else { Launch })
@@ -396,6 +431,7 @@ fn load_moments(
     harness_root: &Path,
     kind: &CustomKind,
     uaf: &compose::KindUnitsAndFeatures,
+    selections: &Selections,
 ) -> engine::LoadMoments {
     let homes = kind_read_beneath_homes(harness_root, kind, uaf);
     let gates = kind_absence_gate_states(harness_root, kind, uaf);
@@ -406,6 +442,9 @@ fn load_moments(
             let placement = Placement {
                 gate: gates.get(&unit.id),
                 home: homes.get(&unit.id).map(String::as_str),
+                selected_by: selections
+                    .get(&(kind.name.clone(), features.id.clone()))
+                    .map_or(&[], Vec::as_slice),
             };
             member_load_moment(&kind.registration, features, placement)
                 .map(|moment| (features.id.clone(), moment))
@@ -568,8 +607,62 @@ pub fn gate(
         &joined_clauses,
     ));
     let builtin_defs = builtin_kind::definitions();
-    let mut builtin_units_and_features: BTreeMap<String, compose::KindUnitsAndFeatures> =
-        BTreeMap::new();
+    // Every kind's members are read before any kind's contract is dispatched: a
+    // `selected` channel's load moment is a fact of *another* kind's members (a settings
+    // file's `outputStyle` selects the style), so the selections must exist before the
+    // first `loads` guard binds.
+    let builtin_units_and_features: BTreeMap<String, compose::KindUnitsAndFeatures> =
+        overlaid_builtin_kinds
+            .iter()
+            .map(|(kind_name, kind)| {
+                Ok((
+                    kind_name.clone(),
+                    compose::kind_units_and_features(
+                        kind,
+                        &discovery,
+                        &declarations,
+                        &manifest_cache,
+                        &declared_kinds,
+                    )?,
+                ))
+            })
+            .collect::<miette::Result<_>>()?;
+    let (custom_rows, collisions) = compose::partition_kind_rows(&declarations, &builtin_defs)?;
+    let custom_units_and_features: Vec<(CustomKind, compose::KindUnitsAndFeatures)> = custom_rows
+        .iter()
+        .map(|row| {
+            let custom_kind = compose::published_kind_lift(&declared_kinds, &row.name)?;
+            let uaf = compose::kind_units_and_features(
+                custom_kind,
+                &discovery,
+                &declarations,
+                &manifest_cache,
+                &declared_kinds,
+            )?;
+            Ok((custom_kind.clone(), uaf))
+        })
+        .collect::<miette::Result<_>>()?;
+    let selections = {
+        // The top-level corpus as read so far, borrowed: a selection is a top-level
+        // member's edge, so the embedded members composed later take no part.
+        let read_by_kind: BTreeMap<&str, &[extract::Features]> = builtin_units_and_features
+            .iter()
+            .map(|(name, uaf)| (name.as_str(), uaf.features.as_slice()))
+            .chain(
+                custom_units_and_features
+                    .iter()
+                    .map(|(kind, uaf)| (kind.name.as_str(), uaf.features.as_slice())),
+            )
+            .collect();
+        selections(
+            overlaid_builtin_kinds
+                .values()
+                .chain(custom_units_and_features.iter().map(|(kind, _)| kind))
+                .flat_map(|kind| &kind.registration),
+            &assembly_edges,
+            &read_by_kind,
+        )
+    };
     let mut load_moments_by_kind: BTreeMap<String, engine::LoadMoments> = BTreeMap::new();
     for (kind_name, kind) in &overlaid_builtin_kinds {
         // The contract is the lock's declared `clauses` for the kind when it names any,
@@ -593,16 +686,10 @@ pub fn gate(
         // reports the entry that tried rather than leaving it silently inert.
         let skip_dial = kind_name == dial::KIND;
 
-        let uaf = compose::kind_units_and_features(
-            kind,
-            &discovery,
-            &declarations,
-            &manifest_cache,
-            &declared_kinds,
-        )?;
+        let uaf = &builtin_units_and_features[kind_name];
         let features = &uaf.features;
         let forgiven = uaf.forgiven_ids();
-        let moments = load_moments(harness_root, kind, &uaf);
+        let moments = load_moments(harness_root, kind, uaf, &selections);
         load_moments_by_kind.insert(kind_name.clone(), moments.clone());
 
         let (contract, dispatch_diags) = two_greens_dispatch(
@@ -625,7 +712,6 @@ pub fn gate(
         member_counts.insert(kind_name.clone(), features.len());
         contracts.insert(kind_name.clone(), contract);
         builtin_features.insert(kind_name.clone(), features.clone());
-        builtin_units_and_features.insert(kind_name.clone(), uaf);
     }
 
     // Every lock-declared kind that is not one of the embedded built-ins:
@@ -636,9 +722,6 @@ pub fn gate(
     // naming it ([`compose::default_contract_from_rows`]) — but is otherwise
     // dispatched through the identical two-greens the built-in loop above runs.
     let mut custom_kinds: Vec<compose::CustomKindEntry> = Vec::new();
-    let mut custom_units_and_features: Vec<(CustomKind, compose::KindUnitsAndFeatures)> =
-        Vec::new();
-    let (custom_rows, collisions) = compose::partition_kind_rows(&declarations, &builtin_defs)?;
     // The one site among the three dispatchers that can surface a diagnostic. The
     // built-in definitions ride along so each finding can name the facts that diverge
     // from the name's owner, never the bare fact of the collision.
@@ -687,8 +770,7 @@ pub fn gate(
     diagnostics.extend(admissibility::layout_duplicate_prose_region_admissibility(
         &declared_kinds,
     ));
-    for row in custom_rows {
-        let custom_kind = compose::published_kind_lift(&declared_kinds, &row.name)?;
+    for (row, (custom_kind, uaf)) in custom_rows.iter().zip(&custom_units_and_features) {
         let contract = compose::with_joined_clauses(
             compose::default_contract_from_rows(
                 &declarations.clauses,
@@ -698,16 +780,9 @@ pub fn gate(
             &joined_clauses,
             &row.name,
         )?;
-        let uaf = compose::kind_units_and_features(
-            custom_kind,
-            &discovery,
-            &declarations,
-            &manifest_cache,
-            &declared_kinds,
-        )?;
         let features = &uaf.features;
         let forgiven = uaf.forgiven_ids();
-        let moments = load_moments(harness_root, custom_kind, &uaf);
+        let moments = load_moments(harness_root, custom_kind, uaf, &selections);
         load_moments_by_kind.insert(row.name.clone(), moments.clone());
 
         let (contract, dispatch_diags) = two_greens_dispatch(
@@ -736,7 +811,6 @@ pub fn gate(
         member_counts.insert(row.name.clone(), features.len());
         contracts.insert(row.name.clone(), contract);
         custom_kinds.push((custom_kind.clone(), features.clone()));
-        custom_units_and_features.push((custom_kind.clone(), uaf));
     }
 
     // Directive-target classing: an unbacked `@import` is the silent-context-loss failure

@@ -237,3 +237,74 @@ fn a_loads_on_demand_guard_binds_its_body_on_a_command() {
     );
     assert_eq!(fired, [1, 0], "on demand binds, launch is silent");
 }
+
+/// The shipped lock with one more `output-style` clause: `when(loads(moment),
+/// [extent(lines, 1)])`. The shipped lock carries the `outputStyle` edges a selection is
+/// read through, as an emitted lock of a program composing the built-ins does.
+fn style_guard_lock(root: &Path, moment: &str) {
+    let mut declarations = temper::builtin_lock::declarations().clone();
+    declarations.clauses.push(ClauseRow {
+        kind: Some("output-style".to_string()),
+        values: Some(vec![moment.to_string()]),
+        guard_predicate: Some("loads".to_string()),
+        body: Some(vec![ClauseRow {
+            bound: Some(BoundRow {
+                min: None,
+                max: Some(1),
+                entry: None,
+            }),
+            unit: Some("lines".to_string()),
+            ..common::clause("extent", "advisory")
+        }]),
+        ..common::clause("when", "advisory")
+    });
+    common::write_lock(root, declarations);
+}
+
+/// Two output styles past the guarded body's budget, `terse` and `verbose`, with a
+/// committed settings file selecting `terse` alone; the findings the `moment` guard fires.
+fn style_harness(label: &str, moment: &str) -> Vec<String> {
+    let harness = common::tmpdir(label);
+    write_sibling(&harness, ".claude/output-styles/terse.md", THREE_LINES);
+    write_sibling(&harness, ".claude/output-styles/verbose.md", THREE_LINES);
+    common::write_settings(&harness, "{ \"outputStyle\": \"terse\" }\n");
+    style_guard_lock(&harness, moment);
+    let (findings, _) = check_harness(&harness);
+    common::findings_for(
+        &findings,
+        &format!("output-style.when.loads={moment}.extent"),
+    )
+    .into_iter()
+    .cloned()
+    .collect()
+}
+
+#[test]
+fn a_loads_launch_guard_binds_its_body_on_an_output_style_a_settings_file_selects() {
+    let fired = style_harness("load-moment-style-selected", "launch");
+    assert_eq!(fired.len(), 1, "the selected style alone: {fired:#?}");
+    assert!(
+        fired[0].contains("terse"),
+        "the selected style loads at launch: {fired:#?}"
+    );
+}
+
+#[test]
+fn a_loads_guard_is_silent_on_an_output_style_no_settings_file_selects() {
+    let launch = style_harness("load-moment-style-unselected-launch", "launch");
+    // Non-vacuity: the guard binds where a settings file selects the style.
+    assert!(
+        launch.iter().any(|finding| finding.contains("terse")),
+        "the selected style is judged: {launch:#?}"
+    );
+    assert!(
+        launch.iter().all(|finding| !finding.contains("verbose")),
+        "no committed setting selects `verbose`, so no launch guard judges it: {launch:#?}"
+    );
+    let on_demand = style_harness("load-moment-style-unselected-on-demand", "on-demand");
+    assert_eq!(
+        on_demand,
+        Vec::<String>::new(),
+        "an output style never loads on demand: {on_demand:#?}"
+    );
+}

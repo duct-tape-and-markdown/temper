@@ -1474,7 +1474,8 @@ fn dead_channel_set(
 /// globs match no file (an absent/blank `paths` field is unconditional, never dead), and
 /// an `enablement` entry the harness is documented not to load. `always`/`user-invoked`
 /// (unconditionally live), `on-read-beneath` (the member is itself a file beneath its
-/// home), `event`, and `connection`/`registry` (no repo-decidable criterion) never do.
+/// home), `event`, and `connection`/`registry`/`selected` (no repo-decidable criterion —
+/// a selection may come from a scope outside the tree) never do.
 pub(crate) fn dead_registration(
     registration: &Registration,
     member: &Features,
@@ -1486,7 +1487,8 @@ pub(crate) fn dead_registration(
         | Registration::UserInvoked
         | Registration::Event { .. }
         | Registration::Connection
-        | Registration::Registry => None,
+        | Registration::Registry
+        | Registration::Selected { .. } => None,
         // The gate rides the member's declared enablement field, never a channel of its
         // own: only the documented `false` is dead. Any other value — the enablement the
         // harness writes, or a shape whose semantics no source documents — stays live, so
@@ -1919,6 +1921,45 @@ pub fn resolved_edges(
         // corpus declaring two clause families pay for the corpus twice in one run.
         containment: containment_edges(by_kind),
     }
+}
+
+/// Every member a declared edge under `field` **selects** — the one fact a
+/// [`Selected`](Registration::Selected) channel reads, shared by the `loads` guard
+/// (`crate::gate`) and `explain`'s narration so the two cannot disagree. A member is
+/// selected where some source's `field` value resolves to it exactly as
+/// [`resolved_edges`] resolves it: an inadmissible edge, either arm of a coincident slot,
+/// an ambiguous name and a name no member answers select nothing. Keyed by the target's
+/// `(kind, id)`.
+#[must_use]
+pub(crate) fn selected_members(
+    edges: &[Edge],
+    by_kind: &BTreeMap<&str, &[Features]>,
+    field: &str,
+) -> BTreeSet<Node> {
+    let coincident = coincident_slots(edges);
+    edges
+        .iter()
+        .filter(|edge| {
+            edge.field == field
+                && is_admissible(edge, by_kind)
+                && !coincident.contains_key(&(edge.from.as_str(), edge.field.as_str()))
+        })
+        .flat_map(|edge| {
+            let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
+            sources.iter().flat_map(move |source| {
+                edge_targets(source, &edge.field)
+                    .into_iter()
+                    .filter_map(|target| {
+                        let (kind, identity) = target_identity(&target, &edge.to)?;
+                        match resolve_target(by_kind, kind, identity) {
+                            Membership::One(member) => Some((kind.to_string(), member.id.clone())),
+                            Membership::Ambiguous(_) | Membership::Missing => None,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect()
 }
 
 /// Build the artifact-level directed graph over **resolved** arcs — the field-blind

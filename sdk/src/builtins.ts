@@ -408,8 +408,11 @@ export interface OutputStyle {
  * depth; a nested style's identity is its subdirectory's segments then its name, each
  * joined with `:` (`apps:web:terse`), and its frontmatter `name` stays the leaf. The docs
  * say nothing on subdirectories inside `output-styles/`, so each folder's direct `*.md`
- * files are claimed and no deeper. A style is selected
- * by a setting rather than invoked or triggered, so it declares no registration channel.
+ * files are claimed and no deeper. A style is selected by a setting rather than invoked
+ * or triggered, so it registers the `selected` channel over the `outputStyle` edge
+ * field: the active style's instructions ride every request from launch, where a settings
+ * file selects it (code.claude.com/docs/en/output-styles, "How output styles work",
+ * retrieved 2026-11-27).
  */
 export const outputStyle: KindDefinition<OutputStyle> = kind<OutputStyle>({
   name: "output-style",
@@ -417,7 +420,7 @@ export const outputStyle: KindDefinition<OutputStyle> = kind<OutputStyle>({
   format: "yaml-frontmatter",
   leniency: ["malformed-yaml"],
   unitShape: "named-field-or-file",
-  registration: [],
+  registration: [{ via: "selected", field: "outputStyle" }],
   identityField: "name",
   cite: "https://code.claude.com/docs/en/output-styles (retrieved 2026-11-25)",
 });

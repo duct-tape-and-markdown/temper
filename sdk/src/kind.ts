@@ -101,7 +101,18 @@ export type Registration =
   | { readonly via: "event"; readonly field: string }
   | { readonly via: "connection" }
   | { readonly via: "enablement"; readonly field: string }
-  | { readonly via: "registry" };
+  | { readonly via: "registry" }
+  /**
+   * The member is **selected** by another member's edge under the named field, and the
+   * runtime loads what is selected at launch: the active output style a settings file's
+   * `outputStyle` names rides every request from launch
+   * (code.claude.com/docs/en/output-styles, "How output styles work", retrieved
+   * 2026-11-27). The field names the *selecting* edge's field, not one of the member's
+   * own. A member no committed edge selects has no load moment the tree can show, and the
+   * channel is never provably dead: a user-scope setting or the `/config` picker may
+   * select it from outside the tree.
+   */
+  | { readonly via: "selected"; readonly field: string };
 
 /** One of a kind's fields that is a reference to another member — a graph edge (fact 5). */
 export interface EdgeField {

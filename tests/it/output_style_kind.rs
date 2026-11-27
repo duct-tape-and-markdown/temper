@@ -415,3 +415,39 @@ fn a_claude_md_in_a_nested_output_styles_folder_is_the_output_styles_not_memorys
         vec![(style, "apps:web:CLAUDE".to_string())]
     );
 }
+
+#[test]
+fn explain_narrates_a_selected_output_style_as_loading_at_launch() {
+    let harness = common::tmpdir("output-style-explain-selected");
+    write_style(&harness, "terse", "Answer in one sentence.\n");
+    common::write_settings(&harness, "{ \"outputStyle\": \"terse\" }\n");
+    adopt_builtins(&harness);
+
+    let narration = common::explain_in(&harness, "output-style:terse");
+    assert!(
+        narration.contains(
+            "`selected(outputStyle)`: a committed `outputStyle` selects it, so it loads at launch"
+        ),
+        "the selected style loads at launch, got: {narration}"
+    );
+}
+
+#[test]
+fn an_output_style_no_settings_file_selects_is_not_reported_unreachable() {
+    let harness = common::tmpdir("output-style-unselected-reach");
+    write_style(&harness, "terse", "Answer in one sentence.\n");
+    write_style(&harness, "verbose", "Explain every step.\n");
+    common::write_settings(&harness, "{ \"outputStyle\": \"terse\" }\n");
+    adopt_builtins(&harness);
+
+    assert_eq!(
+        findings_of(&harness, "root.reachable"),
+        Vec::<String>::new(),
+        "a user setting or `/config` may select `verbose` from outside the tree"
+    );
+    let narration = common::explain_in(&harness, "output-style:verbose");
+    assert!(
+        narration.contains("no committed `outputStyle` selects it"),
+        "explain says no committed setting selects it, got: {narration}"
+    );
+}

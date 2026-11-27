@@ -534,6 +534,19 @@ pub enum Registration {
     /// marketplace the entry names actually resolves is a fetch-time fact temper cannot
     /// decide, so like a connection this channel is never provably dead.
     Registry,
+    /// `selected(field)` — the member is selected by another member's declared edge under
+    /// the named field, and the runtime loads the selected member at launch: the active
+    /// output style a settings file's `outputStyle` names rides every request from launch
+    /// (code.claude.com/docs/en/output-styles, "How output styles work", retrieved
+    /// 2026-11-27). The field names the **selecting** edge's field, never one of the
+    /// member's own — selection is a fact of the corpus's resolved edges. A member no committed edge selects has no load
+    /// moment the tree can show, and like [`Connection`](Registration::Connection) the
+    /// channel is never provably dead: a user-scope setting or the `/config` picker may
+    /// select it from outside the tree.
+    Selected {
+        /// The selecting edge's declared field (`outputStyle`).
+        field: String,
+    },
 }
 
 /// A **template** a kind declares for one inner layer of nested members it hosts: the
@@ -1853,7 +1866,7 @@ fn layout_region_from_row(
 
 /// Parse one [`KindFactRow::registration`] wire label into its typed [`Registration`]
 /// channel — the closed vocabulary's compact wire form (a bare name for the field-less
-/// variants, or a [`call_label`] call for the five field-carrying ones). `None` for a bare
+/// variants, or a [`call_label`] call for the six field-carrying ones). `None` for a bare
 /// unrecognized name or a malformed `(field)` suffix. The row carries one label per
 /// declared channel; the caller folds each label of the set through this.
 fn registration_from_label(label: &str) -> Option<Registration> {
@@ -1873,6 +1886,7 @@ fn registration_from_label(label: &str) -> Option<Registration> {
         "paths-match" => Some(Registration::PathsMatch { field }),
         "paths-listing" => Some(Registration::PathsListing { field }),
         "event" => Some(Registration::Event { field }),
+        "selected" => Some(Registration::Selected { field }),
         _ => None,
     }
 }
@@ -2286,6 +2300,12 @@ mod tests {
         assert_eq!(
             registration_from_label("on-read-beneath"),
             Some(Registration::OnReadBeneath)
+        );
+        assert_eq!(
+            registration_from_label("selected(outputStyle)"),
+            Some(Registration::Selected {
+                field: field("outputStyle")
+            })
         );
         assert_eq!(
             registration_from_label("paths-match(paths)"),

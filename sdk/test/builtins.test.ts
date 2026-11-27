@@ -1244,7 +1244,7 @@ test("output-style is a lenient markdown file named by its name field, else its 
   assert.deepEqual("leniency" in outputStyle.facts && outputStyle.facts.leniency, ["malformed-yaml"]);
   assert.equal(outputStyle.facts.unitShape, "named-field-or-file");
   assert.equal(outputStyle.facts.identityField, "name");
-  assert.deepEqual(outputStyle.facts.registration, []);
+  assert.deepEqual(outputStyle.facts.registration, [{ via: "selected", field: "outputStyle" }]);
   assert.deepEqual(
     outputStyleDefaultContract.map((c) => [c.predicate.key, c.severity]),
     [["unshadowed", "advisory"]],
