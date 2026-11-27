@@ -111,13 +111,16 @@ temper's own `dial` and `requirement`. The file members:
   match on its paths loads nothing (probed against Claude Code 2.1.332,
   2026-11-26; the docs are silent).
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
-  frontmatter: the entire file is prose. `AGENTS.md` and `.claude/AGENTS.md`
-  are memory members by position too, and their registration is the
-  runtime's condition (code.claude.com/docs/en/memory, retrieved
-  2026-11-26): at launch one loads only where no `CLAUDE.md` sits in the
-  working directory or above, and a subdirectory's loads on demand only
-  where that subdirectory has none of the `CLAUDE.md` files of its own. One
-  a `CLAUDE.md` shadows and does not import is never loaded, and
+  frontmatter: the entire file is prose. `CLAUDE.local.md` is one too,
+  loaded beside the `CLAUDE.md` of its directory and treated the same way
+  (code.claude.com/docs/en/memory, retrieved 2026-11-27), a local-locus
+  template since it is personal and kept out of version control. `AGENTS.md`
+  and `.claude/AGENTS.md` are memory members by position too, and their
+  registration is the runtime's condition (code.claude.com/docs/en/memory,
+  retrieved 2026-11-26): at launch one loads only where no `CLAUDE.md` sits
+  in the working directory or above, and a subdirectory's loads on demand
+  only where that subdirectory has none of the `CLAUDE.md` files of its own.
+  One a `CLAUDE.md` shadows and does not import is never loaded, and
   reachability says so. Which instruction files load is a setting the
   runtime reads only from outside the harness (user, `--settings` and
   managed settings, never project or local), so the gates are judged at its
@@ -302,13 +305,14 @@ per-file limit is truncated. So the advisories judge the harness's one
 listing (every model-invocable skill and command, bound at the root, since
 one budget spans both kinds) against that budget; every file the runtime
 cuts at the per-file limit, a subdirectory's `CLAUDE.md`, `CLAUDE.local.md`,
-their imports and its own `.claude/rules/` among them, against that limit;
-and a rule's globs against its skill's own `paths` where both trigger one
-area. `explain` states, per member, what loads it, when, and roughly what it
-costs. A load moment is a registration fact: a subdirectory's memory
-registers on a read beneath its directory, and a skill's own `paths`
-register its listing on a read of a match, so `explain` and the advisories
-read one fact.
+their imports and its own `.claude/rules/` among them, against that limit,
+an import target that no kind claims sized through the reference graph at
+the root; and a rule's globs against its skill's own `paths` where both
+trigger one area. `explain` states, per member, what loads it, when, and
+roughly what it costs. A load moment is a registration fact: a
+subdirectory's memory registers on a read beneath its directory, and a
+skill's own `paths` register its listing on a read of a match, so `explain`
+and the advisories read one fact.
 
 **A string the runtime matches against a target is judged only where a miss
 is decidable without the author's intent.** No default clause judges whether
