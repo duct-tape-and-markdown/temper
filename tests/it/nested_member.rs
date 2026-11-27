@@ -211,20 +211,6 @@ fn a_body_fence_naming_a_declared_child_kind_is_never_re_read_for_facts() {
     assert!(features.nested_members.is_empty());
 }
 
-/// The `decision` kind's declaration row a lock would carry, its `templates` column
-/// recording the same child kind `decision_kind`'s live SDK declaration composes
-/// (`LOCK-NESTING-TEMPLATES`) — a declared fact, independent of how nested members
-/// are actually resolved.
-fn decision_kind_fact_row() -> KindFactRow {
-    KindFactRow {
-        templates: vec![TemplateRow {
-            kind: "decision".to_string(),
-            path: None,
-        }],
-        ..common::kind_facts("decision", "docs/decisions", "*.md")
-    }
-}
-
 /// A program whose `guide` host templates a `supporting-doc` file child at `*.md`, with
 /// one child composed under one host — the whole composition surface a nested file locus
 /// needs: the pattern is the host kind's declared fact, and the child kind declares no
@@ -596,22 +582,110 @@ fn a_child_kinds_row_reconstructs_governing_no_glob_rather_than_a_fabricated_one
     assert!(!reconstructed.owns_source(std::path::Path::new(".claude/skills/checklist.md")));
 }
 
+/// A program whose `decision` host composes one `ruling` value carrying a sibling
+/// collection — the same declaration `decision_kind` mirrors live, so the kind row and
+/// the nested row both come off the SDK's own writer.
+const SURFACE_AUTHORITY_PROGRAM: &str = r#"
+import { blocks, embeddedMemberValue, harness, kind } from "@dtmd/temper";
+
+const ruling = kind<{ chosen: string }>({
+  name: "ruling",
+  locus: { kind: "embedded" },
+  unitShape: "file",
+});
+
+const decision = kind<object>({
+  name: "decision",
+  locus: { kind: "at", root: "docs/decisions", glob: "*.md" },
+  unitShape: "file",
+  registration: [],
+});
+
+const surfaceAuthority = decision({
+  name: "05-surface-authority",
+  prose: blocks(
+    embeddedMemberValue({
+      kind: ruling,
+      key: "surface-authority",
+      leaves: { chosen: "the composition surface is canonical" },
+      collections: {
+        rejected: [
+          { key: "read-only-lens", leaves: { because: "you cannot compose a harness you only mirror" } },
+          { key: "baked-projection", leaves: { because: "a stamping projector breaks law 5" } },
+        ],
+      },
+    }),
+  ),
+});
+
+export default harness({
+  members: [surfaceAuthority],
+  admit: [{ host: decision, admits: [ruling] }],
+});
+"#;
+
 #[test]
 fn a_lock_reconstructed_kind_resolves_the_same_embedded_members_as_its_live_declaration() {
-    // Both a live SDK-composed `CustomKind` and one reconstructed off its lock row
-    // share the same bare name, so both address a lock row identically —
+    // Both a live `CustomKind` and one reconstructed off the lock row the SDK wrote share
+    // the same bare name, so both address the emitted nested rows identically —
     // `builtin_kind::features` resolves nested members off that address alone, never
     // off the kind's own extraction or declared `templates`.
-    let rows = vec![surface_authority_row("decision:05-surface-authority")];
+    let (_harness, into) =
+        common::wire_sdk_harness("nested-member-live-vs-lock", SURFACE_AUTHORITY_PROGRAM);
+    temper::drift::emit_program(&into, temper::drift::EmitOptions::default())
+        .expect("a decision host composing one admitted ruling emits");
+    let declarations = temper::drift::read_declarations(&into).unwrap();
+
+    let row = declarations
+        .kinds
+        .iter()
+        .find(|row| row.name == "decision")
+        .expect("the SDK writes the host kind's fact row");
+    assert!(
+        row.templates
+            .iter()
+            .any(|template| template.kind == "ruling"),
+        "the admission reaches the kind row's templates column: {row:#?}"
+    );
+    let rows = declarations.nested_members;
+    // The fixture typecheck's root-hosted `tool` row rides along; the reader must pass it by.
+    assert_eq!(
+        rows.iter()
+            .filter(|row| row.host != "root")
+            .map(|row| (row.host.as_str(), row.kind.as_str(), row.key.as_str()))
+            .collect::<Vec<_>>(),
+        vec![(
+            "decision:05-surface-authority",
+            "ruling",
+            "surface-authority"
+        )]
+    );
 
     let live = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &rows);
     let reconstructed = builtin_kind::features(
-        &CustomKind::from_kind_fact_row(&decision_kind_fact_row()).unwrap(),
+        &CustomKind::from_kind_fact_row(row).unwrap(),
         &surface_authority_unit(),
         &rows,
     );
 
     assert_eq!(reconstructed.nested_members.len(), 1);
+    let member = &reconstructed.nested_members[0];
+    assert_eq!(
+        member.leaves.get("chosen").map(String::as_str),
+        Some("the composition surface is canonical")
+    );
+    assert_eq!(
+        member
+            .members
+            .iter()
+            .map(|entry| (entry.collection.as_str(), entry.key.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("rejected", "read-only-lens"),
+            ("rejected", "baked-projection")
+        ],
+        "the writer's authored collection order reaches the reader"
+    );
     assert_eq!(reconstructed.nested_members, live.nested_members);
 }
 

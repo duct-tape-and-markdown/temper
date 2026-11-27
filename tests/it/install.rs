@@ -4578,8 +4578,6 @@ fn emit_from_harness(harness: &Path) {
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     let payload = payload_from_harness(harness);
-    // The hand-built payload is a narrower program than install's: it composes no
-    // typecheck tool, so after an install it drops the root's embedded layer, on purpose.
     temper::drift::emit(
         &payload,
         &into,
@@ -5262,117 +5260,68 @@ fn crlf_lf_twins_both_converge_on_install() {
 #[test]
 fn install_then_edit_then_standalone_emit_preserves_managed_projections_at_both_eols() {
     // The verb-composition regression: install::run, then an authored module edit,
-    // then a standalone emit_from_harness (no second install::run). The projection
-    // must carry the authored change and survive the managed-by note/modeline;
-    // the lock must converge with no drift reported. Pinned at both LF and CRLF.
-
-    // Ensure the SDK is built once before both test cases run.
+    // then a standalone emit of the program install wrote (no second install::run). The
+    // projection must carry the authored change and keep the managed-by note; the lock
+    // must converge with no drift reported. Pinned at both LF and CRLF.
     common::ensure_sdk_built();
 
-    let test_lf = |name: &str| {
+    let case = |name: &str, crlf: bool| {
         let root = write_harness(name, false);
+        if crlf {
+            convert_tree_to_crlf(&root);
+        }
         let temper_dir = root.join(".temper");
         fs::create_dir_all(&temper_dir).unwrap();
         common::vendor_install_workspace(&temper_dir);
 
-        // First install::run.
         let discovery = install::discover(&root).unwrap();
         install::run(&root, &discovery, Represent::Yes, false).unwrap();
 
-        // Verify managed-by note is present after install.
         let skill_path = root
             .join(".claude")
             .join("skills")
             .join("coordinate")
             .join("SKILL.md");
-        let skill_after_install = fs::read_to_string(&skill_path).unwrap();
         assert!(
-            skill_after_install.contains(temper::placement::NOTE_MARKER),
-            "skill must have managed-by note after install (LF)"
+            fs::read_to_string(&skill_path)
+                .unwrap()
+                .contains(temper::placement::NOTE_MARKER),
+            "{name}: skill must have managed-by note after install"
         );
 
-        // Author edits the skill's body (simulate a module edit).
-        let edited_body = skill_after_install.replace(
+        // The author edits the skill's own module — the source install scaffolded.
+        let module_path = temper_dir.join("skills").join("coordinate.ts");
+        let module = fs::read_to_string(&module_path).unwrap();
+        let edited = module.replacen(
             "Drive the team through the playbook.",
-            "Drive the team through the playbook.\n\nUpdated by author.",
+            "Drive the team through the playbook. Updated by author.",
+            1,
         );
-        fs::write(&skill_path, edited_body).unwrap();
+        assert_ne!(
+            edited, module,
+            "{name}: the module carries the skill's prose"
+        );
+        fs::write(&module_path, edited).unwrap();
 
-        // Standalone emit_from_harness without second install::run.
-        emit_from_harness(&root);
+        temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
 
-        // Verify managed-by note and modeline survive.
         let skill_after_emit = fs::read_to_string(&skill_path).unwrap();
         assert!(
             skill_after_emit.contains(temper::placement::NOTE_MARKER),
-            "skill must retain managed-by note after standalone emit (LF)"
+            "{name}: skill must retain managed-by note after standalone emit"
         );
         assert!(
             skill_after_emit.contains("Updated by author."),
-            "skill must carry the authored edit after emit (LF)"
+            "{name}: skill must carry the authored edit after emit"
         );
-
-        // Gate must be quiet (no drift).
         assert!(
             temper::drift::config_stale(&temper_dir, &fresh_clause()).is_empty(),
-            "gate must report no drift after install→edit→emit (LF)"
+            "{name}: gate must report no drift after install→edit→emit"
         );
     };
 
-    let test_crlf = |name: &str| {
-        let root = write_harness(name, false);
-        convert_tree_to_crlf(&root);
-
-        let temper_dir = root.join(".temper");
-        fs::create_dir_all(&temper_dir).unwrap();
-        common::vendor_install_workspace(&temper_dir);
-
-        // First install::run.
-        let discovery = install::discover(&root).unwrap();
-        install::run(&root, &discovery, Represent::Yes, false).unwrap();
-
-        // Verify managed-by note is present after install.
-        let skill_path = root
-            .join(".claude")
-            .join("skills")
-            .join("coordinate")
-            .join("SKILL.md");
-        let skill_after_install = fs::read_to_string(&skill_path).unwrap();
-        assert!(
-            skill_after_install.contains(temper::placement::NOTE_MARKER),
-            "skill must have managed-by note after install (CRLF)"
-        );
-
-        // Author edits the skill's body (simulate a module edit).
-        let edited_body = skill_after_install.replace(
-            "Drive the team through the playbook.",
-            "Drive the team through the playbook.\n\nUpdated by author.",
-        );
-        fs::write(&skill_path, edited_body).unwrap();
-
-        // Standalone emit_from_harness without second install::run.
-        emit_from_harness(&root);
-
-        // Verify managed-by note and modeline survive.
-        let skill_after_emit = fs::read_to_string(&skill_path).unwrap();
-        assert!(
-            skill_after_emit.contains(temper::placement::NOTE_MARKER),
-            "skill must retain managed-by note after standalone emit (CRLF)"
-        );
-        assert!(
-            skill_after_emit.contains("Updated by author."),
-            "skill must carry the authored edit after emit (CRLF)"
-        );
-
-        // Gate must be quiet (no drift).
-        assert!(
-            temper::drift::config_stale(&temper_dir, &fresh_clause()).is_empty(),
-            "gate must report no drift after install→edit→emit (CRLF)"
-        );
-    };
-
-    test_lf("install-edit-emit-lf");
-    test_crlf("install-edit-emit-crlf");
+    case("install-edit-emit-lf", false);
+    case("install-edit-emit-crlf", true);
 }
 
 #[test]

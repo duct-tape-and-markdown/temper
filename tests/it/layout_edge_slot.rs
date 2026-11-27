@@ -156,7 +156,7 @@ fn a_dangling_satisfies_edge_slot_entry_refuses_through_the_existing_coverage_re
     // The derived row flows into the gate's existing dangling refusal — no new one: an
     // empty roster leaves the fill resolving to nothing, so coverage fires
     // `requirement.resolves` naming the host and the unresolvable target.
-    let features = [guide_features(&["no-such-requirement".to_string()])];
+    let features = [guide_features(&guide_fills(&into))];
     let diagnostics = coverage::check(
         &BTreeMap::new(),
         &features,
