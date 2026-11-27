@@ -1551,8 +1551,8 @@ pub fn join_locus(root: &str, relative: &str) -> PathBuf {
 /// `name` spliced through `pattern`'s lone `*` — the one name-through-a-glob rule, and the
 /// only one: every `at` glob and every host template's path pattern places through it.
 ///
-/// A leading `**/` collapses to zero segments, because an any-depth prefix names where the
-/// glob *matches*, never where a projection *lands*. What remains is placement: literal
+/// Each `**` collapses to zero segments, because an any-depth span names where the glob
+/// *matches*, never where a projection *lands*. What remains is placement: literal
 /// segments verbatim, the name into the final segment's lone `*` (`**/CLAUDE.md` → the
 /// fixed `CLAUDE.md`, `**/sub/*.json` → `sub/<name>.json`), and a `*`-free pattern wholly
 /// fixed (a manifest container's `settings.json`).
@@ -1576,7 +1576,11 @@ fn splice_name(
     name: &str,
     starred_segment: bool,
 ) -> Result<String, DriftError> {
-    let placed = pattern.strip_prefix("**/").unwrap_or(pattern);
+    let placed: String = pattern
+        .split('/')
+        .filter(|segment| *segment != "**")
+        .collect::<Vec<_>>()
+        .join("/");
     let stars = placed.matches('*').count();
     let star_in_leaf = placed
         .rfind('*')

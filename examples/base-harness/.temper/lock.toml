@@ -39,8 +39,8 @@ emit_hash = "adab677fd2778eeca5b2db64b0c0741e63006228ce7e3b2bc330874b005ca520"
 [[rule]]
 name = "temper-guidance-rule"
 source_path = ".claude/rules/temper-guidance-rule.md"
-source_hash = "1458688f00a07f864fde720e9266de70362ca23c63544f1d20fa5ea97d9f6b33"
-emit_hash = "1458688f00a07f864fde720e9266de70362ca23c63544f1d20fa5ea97d9f6b33"
+source_hash = "a81c1aeb0f5e1542242afcd50758f5502d72f34c89a063cff89cc968da7a75e5"
+emit_hash = "a81c1aeb0f5e1542242afcd50758f5502d72f34c89a063cff89cc968da7a75e5"
 
 [[rule]]
 name = "temper-guidance-skill"
@@ -150,8 +150,8 @@ emit_hash = "be7b128bfe382feb5df65921ee19ed5605ab9b205b81f66dde8fc1018f6a6b21"
 name = "kind-rule"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-rule.md"
-source_hash = "d479de68383956997a2b9c0d32bcffffa68cdb9775ef397222b49577018aba72"
-emit_hash = "d479de68383956997a2b9c0d32bcffffa68cdb9775ef397222b49577018aba72"
+source_hash = "c17c43a9bab1a61385eb21e0fa27b5046c4d95c4bb0f4d871cfea26b357aad73"
+emit_hash = "c17c43a9bab1a61385eb21e0fa27b5046c4d95c4bb0f4d871cfea26b357aad73"
 
 [[supporting-doc]]
 name = "kind-settings"
@@ -294,17 +294,17 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 name = "memory"
 locus_root = "."
 locus_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
-exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
+exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/skills"]
 absence_gate = [{ template = "**/AGENTS.md", absent = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] }]
 unit_shape = "file"
 registration = ["always"]
 guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."
-ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { to = "skill", pattern = "**/.claude/skills/*/**" }]
+ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { to = "rule", pattern = "**/.claude/rules/**/*.md" }, { to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
 name = "rule"
-locus_root = ".claude/rules"
-locus_glob = ["**/*.md"]
+locus_root = "."
+locus_glob = ["**/.claude/rules/**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]

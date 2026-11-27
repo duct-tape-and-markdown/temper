@@ -47,19 +47,58 @@ fn a_rule_in_a_subdirectory_of_the_rules_folder_is_discovered_as_a_rule() {
     );
 }
 
+/// The files the effective `name` kind discovers under `harness` — the embedded kind set
+/// composed, so each kind carries the cedes the set derives.
+fn effectively_discovered(harness: &Path, name: &str) -> Vec<PathBuf> {
+    let kinds = compose::effective_kinds(temper::builtin_lock::declarations())
+        .expect("the embedded kinds compose");
+    discover(harness, &kinds[name])
+}
+
 #[test]
 fn a_claude_md_under_the_rules_folder_is_not_discovered_as_memory() {
     let harness = common::tmpdir("memory-under-rules");
     common::write_sibling(&harness, "CLAUDE.md", "# Root\n");
     common::write_sibling(&harness, ".claude/rules/CLAUDE.md", "# A rule\n");
     common::write_sibling(&harness, ".claude/rules/frontend/CLAUDE.md", "# A rule\n");
+    common::write_sibling(&harness, "apps/web/CLAUDE.md", "# Web\n");
+    common::write_sibling(&harness, "apps/web/.claude/rules/CLAUDE.md", "# A rule\n");
+    common::write_sibling(&harness, "apps/web/.claude/rules/AGENTS.md", "# A rule\n");
 
     assert_eq!(
-        discovered(&harness, "memory"),
-        vec![harness.join("CLAUDE.md")]
+        effectively_discovered(&harness, "memory"),
+        vec![
+            harness.join("CLAUDE.md"),
+            harness.join("apps/web/CLAUDE.md")
+        ]
     );
     // The rules loader owns it: the same file is a rule.
-    assert!(discovered(&harness, "rule").contains(&harness.join(".claude/rules/CLAUDE.md")));
+    let rules = discovered(&harness, "rule");
+    assert!(rules.contains(&harness.join(".claude/rules/CLAUDE.md")));
+    assert!(rules.contains(&harness.join("apps/web/.claude/rules/CLAUDE.md")));
+}
+
+#[test]
+fn a_rule_under_a_subdirectorys_own_rules_folder_is_discovered_at_every_depth() {
+    let harness = common::tmpdir("rule-nested-folder");
+    common::write_sibling(&harness, ".claude/rules/rust.md", "# Rust\n");
+    common::write_sibling(&harness, "apps/web/.claude/rules/x.md", "# X\n");
+    common::write_sibling(
+        &harness,
+        "apps/web/.claude/rules/frontend/react.md",
+        "# React\n",
+    );
+    // A markdown file in the subdirectory beside its rules folder is no rule.
+    common::write_sibling(&harness, "apps/web/notes.md", "# Notes\n");
+
+    assert_eq!(
+        discovered(&harness, "rule"),
+        vec![
+            harness.join(".claude/rules/rust.md"),
+            harness.join("apps/web/.claude/rules/frontend/react.md"),
+            harness.join("apps/web/.claude/rules/x.md"),
+        ]
+    );
 }
 
 #[test]

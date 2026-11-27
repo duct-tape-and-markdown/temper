@@ -1142,30 +1142,21 @@ function segmentMatches(segment: string, component: string): boolean {
   return component.length >= prefix.length + suffix.length && component.startsWith(prefix) && component.endsWith(suffix);
 }
 
-/** Whether every leading component matches the template segment at its position. */
-function segmentsMatch(components: readonly string[], segments: readonly string[]): boolean {
-  return components.every((component, i) => i >= segments.length || segmentMatches(segments[i], component));
-}
-
 /**
- * Whether the placement template `pattern` matches `path` whole — a `**` segment standing
- * for any number of components, none included. Mirrors the engine's glob match over the
- * placement-template subset, the only syntax a locus may carry.
+ * Whether the placement template `pattern` matches `path` whole — each `**` segment
+ * standing for any number of components, none included. Mirrors the engine's glob match
+ * over the placement-template subset, the only syntax a locus may carry.
  */
 function templateMatches(pattern: string, path: string): boolean {
-  const template = pattern.split("/");
-  const components = path.split("/");
-  const anyDepth = template.indexOf("**");
-  if (anyDepth < 0) {
-    return components.length === template.length && segmentsMatch(components, template);
-  }
-  const root = template.slice(0, anyDepth);
-  const body = template.slice(anyDepth + 1);
-  return (
-    components.length >= root.length + body.length &&
-    segmentsMatch(components.slice(0, root.length), root) &&
-    segmentsMatch(components.slice(components.length - body.length), body)
-  );
+  const matchFrom = (segments: readonly string[], components: readonly string[]): boolean => {
+    if (segments.length === 0) return components.length === 0;
+    const [head, ...rest] = segments;
+    if (head === "**") {
+      return matchFrom(rest, components) || (components.length > 0 && matchFrom(segments, components.slice(1)));
+    }
+    return components.length > 0 && segmentMatches(head, components[0]) && matchFrom(rest, components.slice(1));
+  };
+  return matchFrom(pattern.split("/"), path.split("/"));
 }
 
 /**
@@ -1174,28 +1165,16 @@ function templateMatches(pattern: string, path: string): boolean {
  * `template_reaches_beneath`), spelled over the same segments.
  */
 function templateReachesBeneath(pattern: string, dir: string): boolean {
-  const template = pattern.split("/");
-  const components = dir.split("/");
-  const prefixMatches = (prefix: readonly string[], segments: readonly string[]) =>
-    prefix.length < segments.length && segmentsMatch(prefix, segments);
-  const anyDepth = template.indexOf("**");
-  if (anyDepth < 0) {
-    return prefixMatches(components, template);
-  }
-  const root = template.slice(0, anyDepth);
-  const body = template.slice(anyDepth + 1);
-  if (components.length <= root.length) {
-    return segmentsMatch(components, root);
-  }
-  if (!segmentsMatch(components.slice(0, root.length), root)) {
-    return false;
-  }
-  for (let start = root.length; start <= components.length; start += 1) {
-    if (prefixMatches(components.slice(start), body)) {
-      return true;
+  const reachFrom = (segments: readonly string[], components: readonly string[]): boolean => {
+    if (components.length === 0) return segments.length > 0;
+    if (segments.length === 0) return false;
+    const [head, ...rest] = segments;
+    if (head === "**") {
+      return reachFrom(rest, components) || reachFrom(segments, components.slice(1));
     }
-  }
-  return false;
+    return segmentMatches(head, components[0]) && reachFrom(rest, components.slice(1));
+  };
+  return reachFrom(pattern.split("/"), dir.split("/"));
 }
 
 /**

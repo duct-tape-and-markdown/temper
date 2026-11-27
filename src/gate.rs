@@ -619,8 +619,27 @@ pub fn gate(
     // embedded member's coincidence is the row-grain judge's above, and reporting it here
     // too would say one fault twice.
     let no_embedded_features = BTreeMap::new();
+    let harness = crate::path::normalize_path(harness_root);
+    let mut member_sites: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (kind, uaf) in builtin_units_and_features.iter().chain(
+        custom_units_and_features
+            .iter()
+            .map(|(kind, uaf)| (&kind.name, uaf)),
+    ) {
+        for unit in &uaf.units {
+            let path = unit
+                .source_path
+                .strip_prefix(&harness)
+                .unwrap_or(&unit.source_path);
+            member_sites
+                .entry(member_address::address_of(kind, &unit.id))
+                .or_default()
+                .insert(crate::path::HarnessRelativePath::from_path(path).to_string());
+        }
+    }
     diagnostics.extend(admissibility::member_address_coincidence(
         &compose::assemble_by_kind(&builtin_features, &custom_kinds, &no_embedded_features),
+        &member_sites,
     ));
 
     // The by-kind corpus every set-scope and graph predicate ranges over,

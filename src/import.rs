@@ -573,9 +573,11 @@ fn scan_locus(root: &Path, glob: &str, discoverable: &Discoverable) -> Vec<PathB
     let segments: Vec<&str> = glob.split('/').collect();
     let mut files = Vec::new();
     collect_glob(root, &segments, discoverable, &mut files);
-    // A `**` reaches one file by exactly one path, but the index yields children in walk
-    // order; sort for deterministic processing.
+    // The index yields children in walk order; sort for deterministic processing. A lone
+    // `**` reaches one file by exactly one path, but an interior one beside it can reach a
+    // file nested in two matching folders twice, so the walk dedups.
     files.sort();
+    files.dedup();
     files
 }
 

@@ -925,17 +925,31 @@ pub(crate) fn unit_shape_id<'v>(
             }
         }
         // `path` and `file` shape, or an undeclared shape defaulting to a lone file.
-        Some(UnitShape::Path | UnitShape::File) | None => fold_file_id(base, source_file),
+        Some(UnitShape::Path | UnitShape::File) | None => match pattern {
+            Some(pattern) if spans_past_a_literal_folder(pattern) => {
+                let stem = source_file
+                    .file_stem()
+                    .and_then(OsStr::to_str)
+                    .ok_or_else(|| fault(AbsentId::FileStem))?;
+                let mut parts = globstar_span(base, source_file, pattern);
+                parts.push(stem.to_string());
+                Ok(parts.join(":"))
+            }
+            _ => fold_file_id(base, source_file),
+        },
     }
 }
 
-/// The directories `pattern`'s one `**` spans in `source_file`'s placement below `base` —
-/// the prefix a directory unit nested under an any-depth locus is named by
+/// The directories `pattern`'s `**` segments span in `source_file`'s placement below
+/// `base`, joined in order — the prefix a unit under an any-depth locus is named by
 /// (`apps/web/.claude/skills/deploy/SKILL.md` through `**/.claude/skills/*/SKILL.md` spans
-/// `apps`, `web`). `base` is the fold base, so the pattern's leading literal segments are
-/// skipped exactly as [`crate::drift::fold_base`] descends them; every other segment
-/// matches one placement component. Empty for a pattern with no `**` (or more than one),
-/// a source not under `base`, or a placement shorter than the pattern's fixed segments.
+/// `apps`, `web`; `apps/web/.claude/rules/frontend/x.md` through
+/// `**/.claude/rules/**/*.md` spans `apps`, `web`, `frontend`). `base` is the fold base, so
+/// the pattern's leading literal segments are skipped exactly as
+/// [`crate::drift::fold_base`] descends them; every other segment matches one placement
+/// component. Where two `**` could split a placement either way, the earlier one takes the
+/// fewest components. Empty for a pattern with no `**`, a source not under `base`, or a
+/// placement the pattern does not match.
 fn globstar_span(base: &Path, source_file: &Path, pattern: &str) -> Vec<String> {
     let segments: Vec<&str> = pattern.split('/').collect();
     let literal_lead = segments
@@ -944,15 +958,6 @@ fn globstar_span(base: &Path, source_file: &Path, pattern: &str) -> Vec<String> 
         .take_while(|segment| !segment.contains('*'))
         .count();
     let tail = &segments[literal_lead..];
-    let mut globstars = tail
-        .iter()
-        .enumerate()
-        .filter(|(_, segment)| **segment == "**")
-        .map(|(at, _)| at);
-    let (Some(at), None) = (globstars.next(), globstars.next()) else {
-        return Vec::new();
-    };
-    let after = tail.len() - at - 1;
     let Ok(relative) = source_file.strip_prefix(base) else {
         return Vec::new();
     };
@@ -964,13 +969,51 @@ fn globstar_span(base: &Path, source_file: &Path, pattern: &str) -> Vec<String> 
     let Some(components) = components else {
         return Vec::new();
     };
-    if components.len() < at + after {
+    let mut spans = Vec::new();
+    if !span_match(tail, &components, &mut spans) {
         return Vec::new();
     }
-    components[at..components.len() - after]
+    spans.into_iter().map(str::to_string).collect()
+}
+
+/// Whether `components` match the template `segments`, pushing the components each `**`
+/// spans onto `spans`. Backtracks over each `**`'s length, shortest first.
+fn span_match<'c>(segments: &[&str], components: &[&'c str], spans: &mut Vec<&'c str>) -> bool {
+    let Some((segment, rest)) = segments.split_first() else {
+        return components.is_empty();
+    };
+    if *segment == "**" {
+        for taken in 0..=components.len() {
+            let mark = spans.len();
+            spans.extend_from_slice(&components[..taken]);
+            if span_match(rest, &components[taken..], spans) {
+                return true;
+            }
+            spans.truncate(mark);
+        }
+        return false;
+    }
+    let Some((component, remaining)) = components.split_first() else {
+        return false;
+    };
+    let admits = if segment.contains('*') {
+        crate::glob::compile_glob(segment).is_some_and(|matcher| matcher.is_match(component))
+    } else {
+        segment == component
+    };
+    admits && span_match(rest, remaining, spans)
+}
+
+/// Whether `pattern` names a literal folder below a `**` it spans — an interior globstar's
+/// template, whose identity joins the wildcard spans alone rather than folding the whole
+/// placement, since the literal folders between them are locus, never identity.
+fn spans_past_a_literal_folder(pattern: &str) -> bool {
+    let segments: Vec<&str> = pattern.split('/').collect();
+    let folders = &segments[..segments.len().saturating_sub(1)];
+    folders
         .iter()
-        .map(|part| (*part).to_string())
-        .collect()
+        .position(|segment| *segment == "**")
+        .is_some_and(|at| folders[at + 1..].iter().any(|folder| !folder.contains('*')))
 }
 
 /// A lone file's id: its placement below the fold base `base` and its stem, joined with

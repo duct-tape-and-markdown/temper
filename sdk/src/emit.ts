@@ -154,8 +154,8 @@ function joinSlash(...parts: string[]): string {
  * `name` spliced through `pattern`'s lone `*` — the one name-through-a-glob rule, and the
  * only one: every flat `at` glob and every host template's path pattern places through it.
  *
- * A leading `**\/` collapses to zero segments, because an any-depth prefix names where the
- * glob *matches*, never where a projection *lands*. What remains is placement: literal
+ * Each `**` collapses to zero segments, because an any-depth span names where the glob
+ * *matches*, never where a projection *lands*. What remains is placement: literal
  * segments verbatim, the name into the final segment's lone `*` (`**\/CLAUDE.md` → the
  * fixed `CLAUDE.md`, `**\/sub/*.json` → `sub/<name>.json`), and a `*`-free pattern wholly
  * fixed. `starredSegment` is the one admission on top: a `*\/<file>` glob whose `*` stars a
@@ -173,7 +173,10 @@ function spliceName(
   name: string,
   starredSegment: boolean,
 ): string {
-  const placed = pattern.startsWith("**/") ? pattern.slice(3) : pattern;
+  const placed = pattern
+    .split("/")
+    .filter((segment) => segment !== "**")
+    .join("/");
   const stars = placed.split("*").length - 1;
   const starInLeaf = placed.lastIndexOf("*") > placed.lastIndexOf("/");
   const leadingSegment = starredSegment && stars === 1 && placed.startsWith("*/");

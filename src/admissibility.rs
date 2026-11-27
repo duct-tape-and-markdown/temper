@@ -251,8 +251,13 @@ const MEMBER_ADMISSIBILITY_RULE: &str = "member.admissibility";
 /// child are two members at two `<host-address>/<kind>/<key>` addresses, and no coincidence
 /// at all. An embedded kind's members are addressed the same way, and their coincidence is
 /// [`nested_member_coincidence`]'s to refuse, over the rows themselves.
+///
+/// `sites` maps a member address to the paths its members were read from, so a
+/// coincidence among documents names each of them; an address it carries no path for is
+/// refused all the same.
 pub fn member_address_coincidence(
     by_kind: &BTreeMap<&str, &[extract::Features]>,
+    sites: &BTreeMap<String, BTreeSet<String>>,
 ) -> Vec<check::Diagnostic> {
     let mut diagnostics = Vec::new();
     for (kind, members) in by_kind {
@@ -263,15 +268,24 @@ pub fn member_address_coincidence(
         diagnostics.extend(counts.into_iter().filter(|(_, count)| *count > 1).map(
             |(id, count)| {
                 let address = member_address::address_of(kind, id);
+                let read_at = sites
+                    .get(&address)
+                    .filter(|paths| paths.len() > 1)
+                    .map(|paths| {
+                        let paths: Vec<String> =
+                            paths.iter().map(|path| format!("`{path}`")).collect();
+                        format!(", read from {}", paths.join(" and "))
+                    })
+                    .unwrap_or_default();
                 check::Diagnostic::error(
                     MEMBER_ADMISSIBILITY_RULE,
                     &address,
                     format!(
                         "kind `{kind}` declares {count} members that compose to the one address \
-                         `{address}` — a coincidence no reader can resolve, so every clause \
-                         finding, every edge target and the lock's own row would answer with \
-                         whichever was read last; give each of them a name of its own, or author \
-                         the one member they already spell",
+                         `{address}`{read_at} — a coincidence no reader can resolve, so every \
+                         clause finding, every edge target and the lock's own row would answer \
+                         with whichever was read last; give each of them a name of its own, or \
+                         author the one member they already spell",
                     ),
                 )
             },

@@ -1471,7 +1471,7 @@ mod host_keyed_file_children {
             .map(|(kind, uaf)| (kind.as_str(), uaf.features.as_slice()))
             .collect();
         assert!(
-            admissibility::member_address_coincidence(&by_kind).is_empty(),
+            admissibility::member_address_coincidence(&by_kind, &BTreeMap::new()).is_empty(),
             "two hosts carrying a same-named child is two members, never a coincidence"
         );
 
@@ -2304,6 +2304,57 @@ fn import_declares_a_nested_members_location_from_its_read_path() {
     assert!(
         lock.contains("location = \"apps/web/CLAUDE.md\""),
         "the lock row carries the placement: {lock}"
+    );
+}
+
+#[test]
+fn a_rule_under_a_subdirectorys_own_claude_rules_directory_is_a_nested_rule_member() {
+    let rule = "---\npaths:\n  - \"src/**/*.tsx\"\n---\n# Web rule\n";
+    let (root, temper_dir) = lifted(
+        "nested-rule-lift",
+        &[
+            ("apps/web/.claude/rules/x.md", rule),
+            ("apps/web/.claude/rules/frontend/react.md", "# React\n"),
+            (".claude/rules/frontend/react.md", "# Root react\n"),
+        ],
+    );
+    let kind = temper::builtin_kind::definition("rule").expect("rule is built in");
+    let modules = scaffolded_modules(&temper_dir);
+    for (name, location) in [
+        ("apps:web:x", "apps/web/.claude/rules/x.md"),
+        (
+            "apps:web:frontend:react",
+            "apps/web/.claude/rules/frontend/react.md",
+        ),
+        ("frontend:react", ".claude/rules/frontend/react.md"),
+    ] {
+        assert_eq!(
+            temper::compose::governed_member_address(
+                &kind,
+                &root,
+                &root.join(location),
+                temper::compose::SiteIdentity::OnDisk,
+            )
+            .as_deref(),
+            Some(format!("rule:{name}").as_str()),
+            "{location} reads as `rule:{name}`"
+        );
+        assert!(
+            modules
+                .iter()
+                .any(|module| module
+                    .contains(&format!("name: {name:?},\n  location: {location:?},\n"))),
+            "the `{name}` module declares its location: {modules:#?}"
+        );
+        assert!(root.join(location).is_file(), "{location}");
+    }
+    // The first emit projected the nested rule back where it was read, unchanged in body.
+    let emitted = std::fs::read_to_string(root.join("apps/web/.claude/rules/x.md")).unwrap();
+    assert!(emitted.contains("# Web rule\n"), "{emitted}");
+    let lock = std::fs::read_to_string(temper_dir.join("lock.toml")).unwrap();
+    assert!(
+        lock.contains("source_path = \"apps/web/.claude/rules/x.md\""),
+        "the lock row carries the nested rule's projection: {lock}"
     );
 }
 

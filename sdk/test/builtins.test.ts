@@ -1665,24 +1665,22 @@ test("relocating memory onto the same reach keeps every base exclusion", () => {
     ".claude/agents",
     ".claude/commands",
     ".claude/output-styles",
-    ".claude/rules",
     ".claude/skills",
   ]);
 });
 
 test("a relocation keeps exactly the base exclusions its new template still reaches", () => {
   // `.claude/**/CLAUDE.md` still reaches beneath every `.claude/` folder; a single-path
-  // template under `.claude/rules` reaches beneath that one folder alone.
+  // template under `.claude/skills` reaches beneath that one folder alone.
   const underClaude = relocate<Memory>(memory, { locus: { root: ".claude", glob: "**/CLAUDE.md" } });
   assert.deepEqual(memoryKindRow(underClaude).exclude, [
     ".claude/agents",
     ".claude/commands",
     ".claude/output-styles",
-    ".claude/rules",
     ".claude/skills",
   ]);
-  const underRules = relocate<Memory>(memory, { locus: { root: ".claude/rules", glob: "*/CLAUDE.md" } });
-  assert.deepEqual(memoryKindRow(underRules).exclude, [".claude/rules"]);
+  const underSkills = relocate<Memory>(memory, { locus: { root: ".claude/skills", glob: "*/CLAUDE.md" } });
+  assert.deepEqual(memoryKindRow(underSkills).exclude, [".claude/skills"]);
 });
 
 /** The one `skill` kind-fact row a harness expecting `skillKind` compiles to. */
@@ -1725,22 +1723,24 @@ test("a relocation's authored exclusion follows the reached base exclusions", ()
     ".claude/agents",
     ".claude/commands",
     ".claude/output-styles",
-    ".claude/rules",
     ".claude/skills",
     "vendor",
   ]);
 });
 
 test("a relocation refuses an exclusion its locus cannot subtract", () => {
-  // Off the template: the built-in rule locus never reaches `tests/`.
-  assert.throws(() => relocate<Rule>(rule, { exclude: ["tests/fixtures"] }), /starless/);
+  // Off the template: a rule locus rooted at `.claude/rules` never reaches `tests/`.
+  assert.throws(
+    () => relocate<Rule>(rule, { locus: { root: ".claude/rules", glob: "*.md" }, exclude: ["tests/fixtures"] }),
+    /starless/,
+  );
   // A pattern, not a path.
   assert.throws(() => relocate<Skill>(skill, { exclude: [".claude/skills/*"] }), /starless/);
   // A trailing slash is an empty segment.
   assert.throws(() => relocate<Skill>(skill, { exclude: [".claude/skills/fixture/"] }), /starless/);
   // Already excluded by the base.
   assert.throws(
-    () => relocate<Memory>(memory, { locus: { root: ".", glob: "**/CLAUDE.md" }, exclude: [".claude/rules"] }),
+    () => relocate<Memory>(memory, { locus: { root: ".", glob: "**/CLAUDE.md" }, exclude: [".claude/skills"] }),
     /already excluded/,
   );
   // A kind with no glob of its own has nothing to exclude from.

@@ -44,16 +44,27 @@ pub(crate) fn compile_glob(glob: &str) -> Option<globset::GlobMatcher> {
 
 /// Whether `glob` is a **placement template** — the only glob a file locus may govern:
 /// `/`-separated literal segments carrying at most one `*` between them, optionally
-/// under one leading `**/` for any depth. Placement splices a member's name into the one
-/// `*`, so any other pattern syntax — a `?`, a character class, braces, an extglob, an
-/// escape, a second star, a `**` anywhere but the leading segment — names a set of paths
-/// no single placement can be written back to, and is refused.
+/// under one leading `**/` for any depth, and with at most one interior `**` segment
+/// directly after starless literal segments (`**/.claude/rules/**/*.md`, a folder searched
+/// recursively). Placement splices a member's name into the one `*` and drops each `**` to
+/// zero segments, so any other pattern syntax — a `?`, a character class, braces, an
+/// extglob, an escape, a second star, a second interior or a trailing `**` — names a set
+/// of paths no single placement can be written back to, and is refused.
 #[must_use]
 pub(crate) fn is_placement_template(glob: &str) -> bool {
     let body = glob.strip_prefix("**/").unwrap_or(glob);
     let segments: Vec<&str> = body.split('/').collect();
     let mut stars = 0;
-    for segment in &segments {
+    let mut interior = false;
+    for (at, segment) in segments.iter().enumerate() {
+        if *segment == "**" {
+            let after_literals = at > 0 && segments[..at].iter().all(|lead| !lead.contains('*'));
+            if interior || !after_literals || at + 1 == segments.len() {
+                return false;
+            }
+            interior = true;
+            continue;
+        }
         if segment.is_empty() || segment.contains(['?', '[', ']', '{', '}', '\\']) {
             return false;
         }
@@ -132,13 +143,15 @@ mod tests {
     }
 
     #[test]
-    fn a_placement_template_is_literal_segments_with_one_star_under_an_optional_leading_globstar() {
+    fn a_placement_template_is_literal_segments_with_one_star_and_at_most_one_interior_globstar() {
         for template in [
             "*.md",
             "*/SKILL.md",
             "**/CLAUDE.md",
             "**/*.md",
             "settings.json",
+            "docs/**/*.md",
+            "**/.claude/rules/**/*.md",
         ] {
             assert!(is_placement_template(template), "{template}");
         }
@@ -148,9 +161,13 @@ mod tests {
             "*/*.md",
             "*.{md,txt}",
             "SKILL.m?",
-            "docs/**/*.md",
             "**",
             "a//b.md",
+            "**/**/*.md",
+            "a/**/b/**/*.md",
+            "*/**/x.md",
+            "a/**",
+            "**/a/**/*/*.md",
             "\\*.md",
         ] {
             assert!(!is_placement_template(pattern), "{pattern}");

@@ -531,8 +531,8 @@ mod tests {
         assert_eq!(
             rule.governs,
             Some(Governs {
-                root: ".claude/rules".to_string(),
-                globs: vec!["**/*.md".to_string()],
+                root: ".".to_string(),
+                globs: vec!["**/.claude/rules/**/*.md".to_string()],
             })
         );
         assert_eq!(

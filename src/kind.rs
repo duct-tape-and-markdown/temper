@@ -1145,7 +1145,8 @@ pub fn unit_subtree_pattern(pattern: &str) -> Option<String> {
 
 /// Whether the locus `reach`, a bare any-depth file reach (`**/CLAUDE.md`), yields the
 /// documents it shares with `claim`, an any-depth **folder claim** — a `**` then literal
-/// folders then one leaf glob (`**/.claude/output-styles/*.md`). The claim names the folder
+/// folders then one leaf glob (`**/.claude/output-styles/*.md`), the folder searched
+/// recursively when a `**` follows them (`**/.claude/rules/**/*.md`). The claim names the folder
 /// a document sits in, the reach only its filename, so the claim is the more specific one
 /// and holds a document both admit. False unless `claim`'s leaf glob admits `reach`'s
 /// filename.
@@ -1160,6 +1161,7 @@ pub fn yields_to_folder_claim(reach: &str, claim: &str) -> bool {
     else {
         return false;
     };
+    let folders = folders.strip_suffix("/**").unwrap_or(folders);
     !file.contains(['/', '*'])
         && !folders.contains('*')
         && crate::glob::compile_glob(leaf).is_some_and(|matcher| matcher.is_match(file))
@@ -1254,35 +1256,30 @@ fn is_at_or_beneath(path: &str, excluded: &str) -> bool {
 /// Whether the locus `pattern` ([`locus_pattern`], a placement template) matches some path
 /// strictly beneath the directory `dir` — the test that makes a directory exclusion
 /// subtract something. The template's literal segments and its one `*` are matched per
-/// segment against `dir`'s leading components; past a `**` segment — leading, or after a
-/// rooted locus's root (`docs/**/*.md`) — the directory may sit at any depth above the
-/// template's body, so any directory a match can descend through counts.
+/// segment against `dir`'s leading components, each `**` consuming any number of them, so
+/// any directory a match can descend through counts.
 fn template_reaches_beneath(pattern: &str, dir: &str) -> bool {
+    fn reach(segments: &[&str], components: &[&str]) -> bool {
+        let Some((component, deeper)) = components.split_first() else {
+            return !segments.is_empty();
+        };
+        let Some((segment, rest)) = segments.split_first() else {
+            return false;
+        };
+        if *segment == "**" {
+            return reach(rest, components) || reach(segments, deeper);
+        }
+        crate::glob::compile_glob(segment).is_some_and(|m| m.is_match(component))
+            && reach(rest, deeper)
+    }
     let template: Vec<&str> = pattern.split('/').collect();
     let dir: Vec<&str> = dir.split('/').collect();
-    let segments_match = |components: &[&str], segments: &[&str]| {
-        components.iter().zip(segments).all(|(component, segment)| {
-            crate::glob::compile_glob(segment).is_some_and(|m| m.is_match(component))
-        })
-    };
-    let prefix_matches = |components: &[&str], segments: &[&str]| {
-        components.len() < segments.len() && segments_match(components, segments)
-    };
-    let Some(any_depth) = template.iter().position(|segment| *segment == "**") else {
-        return prefix_matches(&dir, &template);
-    };
-    let (root, body) = (&template[..any_depth], &template[any_depth + 1..]);
-    if dir.len() <= root.len() {
-        // At or above the root: `**` may match nothing, so the body lies beneath.
-        return segments_match(&dir, root);
-    }
-    segments_match(&dir[..root.len()], root)
-        && (root.len()..=dir.len()).any(|start| prefix_matches(&dir[start..], body))
+    reach(&template, &dir)
 }
 
 /// The column a non-template `locus_glob` refuses under, spelled to name the rule it
-/// broke: literal segments, at most one `*`, an optional leading `**/`.
-pub const PLACEMENT_TEMPLATE_COLUMN: &str = "locus_glob (a placement template: literal segments, at most one `*`, optionally under a leading `**/`)";
+/// broke: literal segments, at most one `*`, an optional leading `**/`, one interior `**`.
+pub const PLACEMENT_TEMPLATE_COLUMN: &str = "locus_glob (a placement template: literal segments, at most one `*`, optionally under a leading `**/`, with at most one interior `**` after literal segments)";
 
 /// Surface a `kind`-fact column's label as an out-of-vocabulary [`LockRowError`] when its
 /// closed-vocabulary lookup came back empty — the shared reject the label lifts route a

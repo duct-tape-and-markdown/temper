@@ -8,7 +8,7 @@ a rule reaches context on one of two schedules: with no `paths` frontmatter it l
 
 Each member is its own document, at:
 
-- `.claude/rules/**/*.md`
+- `**/.claude/rules/**/*.md`
 
 ## Clauses
 

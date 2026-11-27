@@ -456,10 +456,15 @@ export interface Rule {
  * (code.claude.com/docs/en/memory, retrieved 2026-07-15). The locus recurses: "All `.md` files are discovered recursively, so
  * you can organize rules into subdirectories like `frontend/` or `backend/`"
  * (code.claude.com/docs/en/memory, "Organize rules with `.claude/rules/`", retrieved 2026-11-24).
+ * It claims a subdirectory's own `.claude/rules/` too, whose rules load on demand once
+ * Claude works there (code.claude.com/docs/en/memory, "Claude ignores the end of my
+ * subdirectory CLAUDE.md", retrieved 2026-11-26). Identity joins the spans the two `**`
+ * cover, never the literal `.claude/rules` folders: `apps/web/.claude/rules/frontend/x.md`
+ * is `apps:web:frontend:x`, and a root rule keeps `frontend:x`.
  */
 export const rule: KindDefinition<Rule> = kind<Rule>({
   name: "rule",
-  locus: { kind: "at", root: ".claude/rules", glob: "**/*.md" },
+  locus: { kind: "at", root: ".", glob: "**/.claude/rules/**/*.md" },
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "paths-match", field: "paths" }],
@@ -485,12 +490,12 @@ export interface Memory {
  * "`./CLAUDE.md` or `./.claude/CLAUDE.md`", at any depth because "Claude also discovers
  * `CLAUDE.md` and `CLAUDE.local.md` files in subdirectories under your current working
  * directory" (code.claude.com/docs/en/memory, "Choose where to put CLAUDE.md files" and
- * "How CLAUDE.md files load", retrieved 2026-11-24). The locus excludes the `.claude/`
- * folders another built-in loader owns — `agents`, `commands`, `output-styles`, `rules`,
- * `skills`: the
- * memory docs describe no `CLAUDE.md` inside them loading as memory, and the rules
- * loader discovers every `.md` under `.claude/rules/` recursively
- * (code.claude.com/docs/en/memory, retrieved 2026-11-24; decision 0084).
+ * "How CLAUDE.md files load", retrieved 2026-11-24). The locus excludes the root `.claude/`
+ * folders another built-in loader owns — `agents`, `commands`, `output-styles`, `skills`:
+ * the memory docs describe no `CLAUDE.md` inside them loading as memory
+ * (code.claude.com/docs/en/memory, retrieved 2026-11-24; decision 0084). A `.claude/rules/`
+ * at any depth needs no exclusion: the rules loader discovers every `.md` under it
+ * recursively, and memory cedes that folder claim to `rule`.
  *
  * The second template claims `AGENTS.md` at any depth — `.claude/AGENTS.md` among them,
  * which loads at launch beside `AGENTS.md` — behind two absence gates
@@ -515,7 +520,6 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
       ".claude/agents",
       ".claude/commands",
       ".claude/output-styles",
-      ".claude/rules",
       ".claude/skills",
     ],
   },

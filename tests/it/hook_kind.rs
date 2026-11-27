@@ -1035,7 +1035,7 @@ fn a_duplicate_key_in_an_object_shaped_collection_still_refuses() {
     let members = vec![common::features("audit"), common::features("audit")];
     let by_kind = BTreeMap::from([("mcp-server", members.as_slice())]);
 
-    let findings = temper::admissibility::member_address_coincidence(&by_kind);
+    let findings = temper::admissibility::member_address_coincidence(&by_kind, &BTreeMap::new());
 
     assert_eq!(
         findings.len(),

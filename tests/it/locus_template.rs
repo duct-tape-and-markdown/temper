@@ -1,5 +1,6 @@
 //! A file locus is a placement template: load refuses a custom kind whose `governs` glob
-//! carries any pattern syntax beyond literal segments, one `*`, and a leading `**/`, and
+//! carries any pattern syntax beyond literal segments, one `*`, a leading `**/` and one
+//! interior `**` after literal segments, and
 //! every built-in kind's glob loads under the same rule. A locus less its declared
 //! excluded paths — a directory among them excluding what lies beneath it — leaves them
 //! ungoverned at discovery, `check` and both guard edges.
@@ -60,6 +61,56 @@ fn a_locus_glob_with_two_stars_refuses_at_load() {
 #[test]
 fn a_locus_glob_with_braces_refuses_at_load() {
     assert_refused_at_load("locus-template-braces", "*.{md,txt}");
+}
+
+#[test]
+fn a_locus_glob_with_a_second_interior_globstar_refuses_at_load() {
+    assert_refused_at_load("locus-template-two-interior", "a/**/b/**/*.md");
+}
+
+#[test]
+fn a_locus_glob_with_a_trailing_globstar_refuses_at_load() {
+    assert_refused_at_load("locus-template-trailing", "notes/**");
+}
+
+#[test]
+fn an_interior_globstar_template_places_a_member_with_its_span_dropped() {
+    // `notes/**/*.md` searches `notes/` recursively; a member's name places at zero depth,
+    // and a file found deeper reads back with the span joined ahead of its stem.
+    let root = common::tmpdir("locus-template-interior");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::kind_facts("domain", "docs", "notes/**/*.md")],
+            ..Declarations::default()
+        },
+        members: vec![common::payload_member("domain", "intro", None, "# Intro\n")],
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default())
+        .expect("an interior-globstar template places a member");
+    assert!(root.join("docs/notes/intro.md").is_file());
+}
+
+#[test]
+fn two_nested_rules_whose_spans_join_alike_are_refused_naming_both_paths() {
+    // `apps/web/.claude/rules/x.md` spans `apps/web` then nothing; the other spans `apps`
+    // then `web`. Both join to `apps:web:x`: one address, two documents.
+    let harness = common::tmpdir("rule-coincident-spans");
+    common::write_sibling(&harness, "apps/web/.claude/rules/x.md", "# X\n");
+    common::write_sibling(&harness, "apps/.claude/rules/web/x.md", "# Also x\n");
+
+    let (findings, ok) = common::check_harness(&harness);
+    assert!(!ok, "a coincident address fails the gate: {findings:#?}");
+    let refusal = findings
+        .iter()
+        .find(|line| line.contains("`rule:apps:web:x`"))
+        .unwrap_or_else(|| panic!("the coincidence names the address: {findings:#?}"));
+    for path in ["apps/web/.claude/rules/x.md", "apps/.claude/rules/web/x.md"] {
+        assert!(
+            refusal.contains(path),
+            "the refusal names `{path}`: {refusal}"
+        );
+    }
 }
 
 #[test]
