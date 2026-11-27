@@ -1,7 +1,10 @@
 {
   "tag": "SIZE-ADVISORY-AT-SUBDIRECTORY-MEMORY-AND-NESTED-RULES",
   "gate": {
-    "kind": "open"
+    "kind": "blockedBy",
+    "tags": [
+      "LOAD-MOMENT-GUARD"
+    ]
   },
   "dependsOnForks": [],
   "kind": "work",
@@ -10,11 +13,23 @@
     "edit": [
       {
         "path": "sdk/src/builtins.ts",
-        "description": "memory's on-demand size clause; rule size clause binds nested rules"
+        "description": "memory's load-moment-guarded size clause; rule registers on-read-beneath and its size clause guards on the load moment"
+      },
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "rule's registration set assertion"
       },
       {
         "path": "src/builtin_lock.toml",
         "description": "re-derived"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emitted"
+      },
+      {
+        "path": "tests/it/read_verbs.rs",
+        "description": "explain states a nested rule's on-demand load"
       },
       {
         "path": "tests/it/context_cost.rs",
@@ -31,11 +46,12 @@
   "acceptance": "an oversized apps/web/CLAUDE.md and an oversized apps/web/.claude/rules/x.md each draw the size advisory; root CLAUDE.md does not; cargo test green",
   "tests": [
     "a subdirectory memory past the per-file limit draws the size advisory",
-    "a nested rule without paths past the per-file limit draws the size advisory"
+    "a nested rule without paths past the per-file limit draws the size advisory",
+    "explain states a nested rule without paths loads on a read beneath its directory"
   ],
   "pins": [
     "a root memory past the per-file limit draws no size advisory"
   ],
   "laneTests": [],
-  "notes": "0115. CLAUDE.local.md and unclaimed import targets (0116) ride SIZE-ADVISORY-AT-LOCAL-MEMORY-AND-UNCLAIMED-IMPORTS, which shares this seam."
+  "notes": "0115, 0120: a subdirectory's own rules register on a read beneath it; the rule's paths is the other on-demand cause. CLAUDE.local.md and unclaimed import targets (0116) ride SIZE-ADVISORY-AT-LOCAL-MEMORY-AND-UNCLAIMED-IMPORTS, which shares this seam."
 }

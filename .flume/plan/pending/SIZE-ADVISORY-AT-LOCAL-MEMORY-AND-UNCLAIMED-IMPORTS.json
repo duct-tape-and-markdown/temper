@@ -24,6 +24,10 @@
         "description": "re-derived"
       },
       {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emitted"
+      },
+      {
         "path": "tests/it/context_cost.rs",
         "description": "local memory and unclaimed import past the limit"
       }
