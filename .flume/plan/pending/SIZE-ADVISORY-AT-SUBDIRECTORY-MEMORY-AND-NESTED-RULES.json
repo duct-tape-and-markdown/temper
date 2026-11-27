@@ -1,10 +1,7 @@
 {
   "tag": "SIZE-ADVISORY-AT-SUBDIRECTORY-MEMORY-AND-NESTED-RULES",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "LOAD-MOMENT-IS-A-REGISTRATION-FACT"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
