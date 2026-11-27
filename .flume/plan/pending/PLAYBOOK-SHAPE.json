@@ -1,7 +1,10 @@
 {
   "tag": "PLAYBOOK-SHAPE",
   "gate": {
-    "kind": "open"
+    "kind": "blockedBy",
+    "tags": [
+      "RULE-CLAIMS-NESTED-CLAUDE-RULES"
+    ]
   },
   "dependsOnForks": [],
   "kind": "work",
@@ -41,5 +44,5 @@
   "tests": [],
   "pins": [],
   "laneTests": [],
-  "notes": "SDK-only: the SDK gate holds it. Re-derived from 274f4398/9194fcde/c224cfbb (STARTER-SHIPS-THE-PLAYBOOK retired). A path-triggered playbook's skill stays listed by default; on-touch listing (skill `paths`) is the trigger's option. User-only derives the rule's ask-the-user wording; the skill keeps its own description. Attachments are PLAYBOOK-ATTACHMENTS."
+  "notes": "SDK-only: the SDK gate holds it. Paths and no-trigger landed (5e0d4522; notes/continuing/PLAYBOOK-SHAPE); the nested trigger remains and places its rule under the widened rule locus. Execution/preloading refusals landed. Attachments are PLAYBOOK-ATTACHMENTS."
 }

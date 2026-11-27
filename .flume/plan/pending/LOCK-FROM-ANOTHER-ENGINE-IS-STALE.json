@@ -1,0 +1,58 @@
+{
+  "tag": "LOCK-FROM-ANOTHER-ENGINE-IS-STALE",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/lib.rs",
+        "description": "the stamp tells an unreleased build from the release it follows"
+      },
+      {
+        "path": "build.rs",
+        "description": "the unreleased-build stamp's input, if build derives it"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "the stamp is read before any row"
+      },
+      {
+        "path": "src/compose.rs",
+        "description": "a built-in-named row under another engine's stamp reads as the embedded built-in (partition_kind_rows)"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "the re-emit finding beside the collision split"
+      },
+      {
+        "path": "src/admissibility.rs",
+        "description": "collision stays for this engine's own rows"
+      },
+      {
+        "path": "src/check.rs",
+        "description": "an unreadable lock reports another engine"
+      },
+      {
+        "path": "tests/it/lock_declaration_rows.rs",
+        "description": "stale built-in row and unreadable-lock cases"
+      }
+    ]
+  },
+  "summary": "A lock written by another engine is stale, never malformed: the stamp tells builds apart, is read first, and a snapshotted built-in row reads as the embedded built-in with a re-emit finding",
+  "per": {
+    "path": "specs/model/pipeline.md",
+    "section": "The lock"
+  },
+  "acceptance": "a lock whose stamp is another engine's and whose built-in memory row differs from the embedded one checks with a re-emit finding and no kind collision; an unreadable lock under another stamp names that engine; cargo test green",
+  "tests": [
+    "a built-in row snapshotted by another engine reads as the embedded built-in with a re-emit finding",
+    "a lock this engine cannot read is reported as written by another engine",
+    "an unreleased build stamps its lock distinctly from the release it follows"
+  ],
+  "pins": [
+    "a built-in-named row diverging from the embedded built-in under this engine's own stamp is a kind collision"
+  ],
+  "notes": "0117 (6f28df6a). Unblocks LOAD-MOMENT-IS-A-REGISTRATION-FACT: the dogfood lock then reads stale, not colliding. The re-emit finding rides the engine-matches clause's severity; the self-host check must stay ok."
+}

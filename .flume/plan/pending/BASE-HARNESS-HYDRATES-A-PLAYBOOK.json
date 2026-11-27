@@ -20,6 +20,14 @@
       {
         "path": "examples/base-harness/README.md",
         "description": "the playbook beside its import"
+      },
+      {
+        "path": "examples/base-harness/.temper/memory/CLAUDE.ts",
+        "description": "calls the example a base harness, not a starter"
+      },
+      {
+        "path": "examples/base-harness/CLAUDE.md",
+        "description": "re-emitted"
       }
     ]
   },

@@ -1,0 +1,29 @@
+{
+  "tag": "GUARD-JUDGES-A-REJECTED-COLLECTION",
+  "gate": {
+    "kind": "open"
+  },
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/install.rs",
+        "description": "the pending-manifest check raises manifest.rejected-collection from Manifest::rejected_collections, under the declared mode"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "a pending write of a collection of the wrong JSON type"
+      }
+    ]
+  },
+  "summary": "The guard judges a pending manifest write's wrong-typed collection with check's own rejected-collection finding, so the write is held as check would hold it",
+  "per": {
+    "path": "specs/distribution.md",
+    "section": "The placements and their enforcement modes"
+  },
+  "acceptance": "a PreToolUse write of `\"mcpServers\": []` to a represented manifest draws manifest.rejected-collection at the declared mode; cargo test green",
+  "tests": [
+    "guard raises the rejected collection finding for a pending manifest write of the wrong JSON type"
+  ],
+  "notes": "From notes/COLLECTION-OF-THE-WRONG-TYPE-IS-A-FINDING: install.rs parses through Manifest::parse but never reads rejected_collections. Same seam as the shipped unparseable-write refusal (GUARD-UNPARSEABLE-MANIFEST-WRITE-REFUSAL)."
+}

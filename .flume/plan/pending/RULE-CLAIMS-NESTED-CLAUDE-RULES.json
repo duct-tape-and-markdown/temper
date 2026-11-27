@@ -15,6 +15,22 @@
         "description": "re-derived"
       },
       {
+        "path": "src/glob.rs",
+        "description": "is_placement_template admits one interior ** after literal segments"
+      },
+      {
+        "path": "src/drift.rs",
+        "description": "splice_name drops each ** to zero segments; identity joins every wildcard span"
+      },
+      {
+        "path": "src/kind.rs",
+        "description": "from_kind_fact_row admits the template; yields_to_folder_claim accepts a claim ending in **"
+      },
+      {
+        "path": "tests/it/locus_template.rs",
+        "description": "the interior-globstar template and its coincident-address refusal"
+      },
+      {
         "path": "tests/it/nested_member.rs",
         "description": "a subdirectory's .claude/rules member and its identity"
       },
@@ -31,7 +47,8 @@
   },
   "acceptance": "apps/web/.claude/rules/x.md reads as rule `apps:web:x` and projects back to its path; cargo test green",
   "tests": [
-    "a rule under a subdirectory's own claude rules directory is a nested rule member"
+    "a rule under a subdirectory's own claude rules directory is a nested rule member",
+    "two nested rules whose spans join alike are refused naming both paths"
   ],
-  "notes": "0115; cite code.claude.com/docs/en/memory, \"Claude ignores the end of my subdirectory CLAUDE.md\" (retrieved 2026-11-26) at the locus."
+  "notes": "0115 + 0118 (representation.md \"locus\"); cite code.claude.com/docs/en/memory, \"Claude ignores the end of my subdirectory CLAUDE.md\" (retrieved 2026-11-26) at the locus. Parked once on the template grammar, now widened by 0118."
 }
